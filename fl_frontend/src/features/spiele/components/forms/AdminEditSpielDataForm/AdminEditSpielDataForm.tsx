@@ -226,11 +226,11 @@ export function AdminEditSpielDataForm({
 
   // `REQ-STATE-002`'s own subject: the write path refuses on ANY goal count standing beside an event
   // that awards nothing, so a lone 0 in one box is already the refusal.
-  const hasAnyTore = (tore1 !== null && !Number.isNaN(tore1)) || (tore2 !== null && !Number.isNaN(tore2));
+  const hasAnyTore = tore1 !== null || tore2 !== null;
 
   // An abandoned fixture with a decided score may legitimately keep it, or may be waiting for a
   // replay — the one combination on this page a rule cannot settle, hence the warning.
-  const hasDecidedErgebnis = tore1 !== null && tore2 !== null && !Number.isNaN(tore1) && !Number.isNaN(tore2) && tore1 !== tore2;
+  const hasDecidedErgebnis = tore1 !== null && tore2 !== null && tore1 !== tore2;
 
   // Counts entered rather than a record merely switched on: an empty one is nothing to lose.
   const hasEnteredShootOut = elfmeterschiessen !== null && (elfmeterschiessen.team1 !== null || elfmeterschiessen.team2 !== null);

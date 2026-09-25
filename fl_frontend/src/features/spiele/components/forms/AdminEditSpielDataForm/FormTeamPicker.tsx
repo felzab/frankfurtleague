@@ -209,8 +209,7 @@ export function FormTeamPicker({
             team_id: resolvedTeam.id,
             shorthand: resolvedTeam.shorthand,
             name: resolvedTeam.name,
-            // `null`, never NaN: an unplayed Spiel carries `tore: null`, and NaN can never
-            // validate. NaN spells an empty NumberField, not a submitted value.
+            // `null` and never 0 for a side not yet entered: an unplayed Spiel carries `tore: null`.
             tore: teamPayload?.tore ?? null,
           };
 

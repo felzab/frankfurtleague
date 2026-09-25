@@ -162,7 +162,7 @@ export type FLSpielQuelle = z.infer<typeof FLSpielQuelleSchema>;
  */
 export const FLSpielElfmeterschiessenSchema = z
   .object({
-    // On the TYPE check: an emptied NumberField arrives as `NaN`, failing `z.int()` first.
+    // On the TYPE check: an emptied box arrives as `null`, failing `z.int()` first.
     team1: z.int({ error: "Bitte gib die Treffer von Team 1 ein." }).nonnegative({ error: "Die Treffer dürfen nicht negativ sein." }),
     team2: z.int({ error: "Bitte gib die Treffer von Team 2 ein." }).nonnegative({ error: "Die Treffer dürfen nicht negativ sein." }),
   })

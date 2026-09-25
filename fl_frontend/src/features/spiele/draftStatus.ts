@@ -1,3 +1,4 @@
+import { numberAsNull } from "@/shared/utils/draftStatus";
 import { formatEuro, formatSpielDatum, formatUhrzeit } from "@/shared/utils/format";
 
 import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_NONE_LABEL } from "./constants";
@@ -56,7 +57,7 @@ export function admitsShootOut(
   // advance the club that never appeared.
   if (sonderereignis === "nichtantreten_team1" || sonderereignis === "nichtantreten_team2") return false;
 
-  if (tore1 === null || tore2 === null || Number.isNaN(tore1) || Number.isNaN(tore2)) return false;
+  if (tore1 === null || tore2 === null) return false;
 
   return tore1 === tore2;
 }
@@ -72,7 +73,7 @@ export function applyDraftToSpiel(stored: FLSpiel, draft: FLSpielDraftFields): F
 
   const team1Tore = draft.team1?.tore ?? null;
   const team2Tore = draft.team2?.tore ?? null;
-  const hasBothTore = team1Tore !== null && !Number.isNaN(team1Tore) && team2Tore !== null && !Number.isNaN(team2Tore);
+  const hasBothTore = team1Tore !== null && team2Tore !== null;
 
   const shootOut = draft.elfmeterschiessen;
   // Narrowed field by field, not through a compound flag: TypeScript carries the knowledge that
@@ -208,21 +209,6 @@ const sameQuelle = (a: FLSpielQuelle | null, b: FLSpielQuelle | null): boolean =
   return false;
 };
 
-/** A number the admin has not finished entering is `NaN`, which is neither a value nor equal to itself. */
-const formatCount = (value: number | null): string | null => (value === null || Number.isNaN(value) ? null : String(value));
-
-/**
- * `null` and `NaN` are the same answer for a count: a stored fixture carries `tore: null` while an
- * emptied `NumberField` reports `NaN`. By identity, typing a digit and deleting it reads as an
- * unsaved edit.
- */
-const sameCount = (a: number | null, b: number | null): boolean => {
-  const aIsEmpty = a === null || Number.isNaN(a);
-  const bIsEmpty = b === null || Number.isNaN(b);
-
-  return aIsEmpty || bIsEmpty ? aIsEmpty && bIsEmpty : a === b;
-};
-
 /**
  * Array order is the change list's order. **`besetzung_missing` marks the SOURCE, not the
  * occupant**, which is why `isEmpty` exists: a knockout side with a source and no team yet is
@@ -260,8 +246,7 @@ const FIELD_DESCRIPTORS = [
     label: "Mietpreis",
     expectedWhen: null,
     read: (source) => source.ort?.mietpreis ?? null,
-    equals: sameCount,
-    format: (value: number | null) => (value === null || Number.isNaN(value) ? null : formatEuro(value)),
+    format: (value: number | null) => (value === null ? null : formatEuro(value)),
   }),
   describeField({
     path: "schiedsrichter.schiedsrichter_id",
@@ -279,8 +264,7 @@ const FIELD_DESCRIPTORS = [
     label: "Honorar",
     expectedWhen: null,
     read: (source) => source.schiedsrichter?.payment ?? null,
-    equals: sameCount,
-    format: (value: number | null) => (value === null || Number.isNaN(value) ? null : formatEuro(value)),
+    format: (value: number | null) => (value === null ? null : formatEuro(value)),
   }),
   describeField({
     path: "team1_quelle",
@@ -329,8 +313,7 @@ const FIELD_DESCRIPTORS = [
     label: "Tore Team 1",
     expectedWhen: "ergebnis_pending",
     read: (source) => source.team1?.tore ?? null,
-    equals: sameCount,
-    format: formatCount,
+    format: numberAsNull,
   }),
   describeField({
     path: "team2.tore",
@@ -338,8 +321,7 @@ const FIELD_DESCRIPTORS = [
     label: "Tore Team 2",
     expectedWhen: "ergebnis_pending",
     read: (source) => source.team2?.tore ?? null,
-    equals: sameCount,
-    format: formatCount,
+    format: numberAsNull,
   }),
   describeField({
     path: "elfmeterschiessen.team1",
@@ -347,8 +329,7 @@ const FIELD_DESCRIPTORS = [
     label: "Elfmeter Team 1",
     expectedWhen: null,
     read: (source) => source.elfmeterschiessen?.team1 ?? null,
-    equals: sameCount,
-    format: formatCount,
+    format: numberAsNull,
   }),
   describeField({
     path: "elfmeterschiessen.team2",
@@ -356,8 +337,7 @@ const FIELD_DESCRIPTORS = [
     label: "Elfmeter Team 2",
     expectedWhen: null,
     read: (source) => source.elfmeterschiessen?.team2 ?? null,
-    equals: sameCount,
-    format: formatCount,
+    format: numberAsNull,
   }),
   describeField({
     path: "notiz",
