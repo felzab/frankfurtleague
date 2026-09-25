@@ -1,6 +1,3 @@
-// In `core` because `mongoImage.test.ts` reads `conftest.py` from here, and
-// `eslint.config.mjs :: LAYER_BOUNDARY` refuses `core` an import from `shared`.
-
 /**
  * Python source with every `#` comment cut, for a reader of its double-quoted literals.
  *

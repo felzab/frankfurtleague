@@ -183,8 +183,7 @@ else
       # `TEST_ONLY` keeps out of production, and skips them in its mirror walk.
       fl_frontend/eslint.config.mjs) frontend=true; backend=true; db=true; docs=true ;;
       fl_frontend/*) frontend=true; docs=true ;;
-      # The db tier's image is named here, and `fl_frontend/src/core/mongoImage.test.ts` holds the
-      # frontend's db-tier files to it, so a bump here owes the frontend scope too.
+      # The db tier's image is named here.
       fl_backend/tests/conftest.py) backend=true; db=true; frontend=true; docs=true ;;
       fl_backend/*) backend=true; db=true; docs=true ;;
       # The ops scope parses the compose files and runs nginx over both edges; prettier also formats

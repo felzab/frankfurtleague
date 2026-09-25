@@ -283,9 +283,8 @@ jobs:
         # One process, no pipe: `sed | head` exits 141 under `pipefail` when the reader closes
         # first, which is a bare 141 with nothing printed, the guard below never having run.
 
-        # The conftest's one tag is every tier's, `fl_frontend/src/core/mongoImage.test.ts` holding the
-        # frontend to it. Python's parser reads it, so no comment or string passes for a call, and
-        # nothing prints unless exactly one tag is named.
+        # The conftest names the backend tier's one tag. Python's parser reads it, so no comment or
+        # string passes for a call, and nothing prints unless exactly one tag is named.
         run: |
           image="$(python3 -c '
           import ast, sys
