@@ -152,7 +152,6 @@ else
       # Each is read as source text by the frontend suites as they load, so a change confined to
       # fl_backend/ would otherwise reach the assertions over it no earlier than the push to main.
       fl_backend/app/core/recording.py| \
-      fl_backend/app/shared/schemas/bounds.py| \
       fl_backend/app/shared/schemas/custom.py|fl_backend/app/api/bewerbungen/admin_router.py| \
       fl_backend/app/api/bewerbungen/services.py|fl_backend/app/api/saisons/schemas.py| \
       fl_backend/app/api/saisons/services.py| \
