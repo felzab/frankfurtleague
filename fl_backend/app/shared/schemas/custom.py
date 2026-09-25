@@ -135,7 +135,7 @@ DOMAIN_REGEX = re.compile(r"^(?=.{1,253}$)([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA
 EXTERNAL_URL_SCHEMES = frozenset({"http", "https"})
 
 # Every C0 control, which is what `urlsplit` discards before parsing -- the three WHATWG removes
-# anywhere, and the rest it takes off the ends. What this module RETURNS has to be what it checked.
+# anywhere, and the rest it takes off the front. What this module RETURNS has to be what it checked.
 URL_STRIPPED_CHARACTERS = str.maketrans("", "", "".join(chr(code) for code in range(0x20)))
 
 
