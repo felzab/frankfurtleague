@@ -377,22 +377,17 @@ export function useDraftFieldErrors<TSchema extends string>({
 
     if (decision.blocked) {
       const marked = markedFieldCount(formRef.current, decision.refusals);
-      setSubmitFieldErrors(decision.refusals, payloads, { announced: marked > 0 });
+      // The fallback told to stay silent: its title says a save was refused, and this press sent nothing.
+      setSubmitFieldErrors(decision.refusals, payloads, { announced: true });
 
       // Announced as well as marked. A `FieldError` is a plain span in no live region, so a blocked press
       // reaches a screen reader as a button that did nothing; every toast carries `role="alert"`.
-
-      // Nothing marked is the map `useServerFieldErrors` announces as unhandled, by the same name walk as this count:
-      // a second toast here would point at marks nobody can see.
-      if (marked > 0) {
-        // One toast for the press: the paths no control shows ride in this one's description, the fallback told
-        // above to stay silent, so the marks and what is said nowhere else reach the reader together.
-        const unshown = unshownPaths(formRef.current, decision.refusals);
-        const said = joinedMessages(unshown.map((path) => decision.refusals[path] ?? ""));
-        appToast.danger(BLOCKED_SUBMIT_TITLE, {
-          description: said === "" ? blockedSubmitDetail(marked) : `${blockedSubmitDetail(marked)} ${said}`,
-        });
-      }
+      // One toast for the press: the paths no control shows ride in its description, in their own words, so the
+      // marks and what is said nowhere else reach the reader together.
+      const unshown = unshownPaths(formRef.current, decision.refusals);
+      const said = joinedMessages(unshown.map((path) => decision.refusals[path] ?? ""));
+      const parts = [marked > 0 ? blockedSubmitDetail(marked) : "", said].filter((part) => part !== "");
+      appToast.danger(BLOCKED_SUBMIT_TITLE, { description: parts.join(" ") });
       return;
     }
 

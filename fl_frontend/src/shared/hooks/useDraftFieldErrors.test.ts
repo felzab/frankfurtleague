@@ -27,7 +27,7 @@ import {
   useDraftFieldErrors,
   verdictMessage,
 } from "./useDraftFieldErrors.ts";
-import { unshownRefusal } from "./useServerFieldErrors.ts";
+import { joinedMessages, unshownRefusal } from "./useServerFieldErrors.ts";
 
 import type { BlockingBanners, RailBanner } from "../components/ui/railBanner.ts";
 import type { ActionFailure } from "../types/types.ts";
@@ -605,14 +605,14 @@ describe("a blocked press's announcement", () => {
     assert.deepEqual(press.toasts, [`${BLOCKED_SUBMIT_TITLE}: ${blockedSubmitDetail(2)}`]);
   });
 
-  it("raises nothing where no field is marked, leaving the press to the unhandled-refusal report", async () => {
-    // `useServerFieldErrors` announces a map no control renders; a second toast would point at marks nobody sees.
+  /* Nothing was sent, marked or not, so the press is titled as the marked one is and never as a refused save. */
+  it("says the refusals under the blocked press's own title where no field is marked", async () => {
     const press = await pressSave({ shorthand: "", full_name: "" }, undefined, ["website_url"]);
 
     assert.deepEqual(
       press.toasts,
-      [`Änderung nicht gespeichert: ${unshownRefusal([CLIENT_SHORTHAND, "Bitte gib den vollständigen Namen ein."])}`],
-      "the press raised a toast beside the report, or no report",
+      [`${BLOCKED_SUBMIT_TITLE}: ${joinedMessages([CLIENT_SHORTHAND, "Bitte gib den vollständigen Namen ein."])}`],
+      "the press raised a second toast, a refused save's, or none",
     );
     assert.equal(press.writes, 0, "a press nothing marked still wrote");
   });
