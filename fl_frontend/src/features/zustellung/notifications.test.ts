@@ -184,17 +184,17 @@ describe("the tags one message rides out with", () => {
   /* The key collapses a repeat inside the provider's 24-hour window, so it has to be the same string
      for two sends of one day and a different one the next. */
   it("mints one idempotency key per message per day", () => {
-    const today = zielIdempotenzSchluessel(auftrag, "2026-09-08");
+    const today = zielIdempotenzSchluessel(auftrag, "2026-09-08", ADDRESS);
 
-    assert.equal(zielIdempotenzSchluessel(auftrag, "2026-09-08"), today);
-    assert.notEqual(zielIdempotenzSchluessel(auftrag, "2026-09-09"), today);
+    assert.equal(zielIdempotenzSchluessel(auftrag, "2026-09-08", ADDRESS), today);
+    assert.notEqual(zielIdempotenzSchluessel(auftrag, "2026-09-09", ADDRESS), today);
     assert.ok(today.length <= 256, "the provider refuses a key over 256 characters");
   });
 
   it("mints a different key for two rows of one kind", () => {
     const other = { ...auftrag, zielId: `${"d".repeat(23)}4` };
 
-    assert.notEqual(zielIdempotenzSchluessel(auftrag, "2026-09-08"), zielIdempotenzSchluessel(other, "2026-09-08"));
+    assert.notEqual(zielIdempotenzSchluessel(auftrag, "2026-09-08", ADDRESS), zielIdempotenzSchluessel(other, "2026-09-08", ADDRESS));
   });
 });
 
@@ -219,7 +219,27 @@ describe("one fan-out about a record", () => {
       buildMail: buildMail,
     });
 
-    assert.equal(sent[1]?.idempotencyKey, zielIdempotenzSchluessel(auftrag, "2026-09-08"));
+    assert.equal(sent[1]?.idempotencyKey, zielIdempotenzSchluessel(auftrag, "2026-09-08", ADDRESS));
+  });
+
+  /* The provider refuses a key reused over another payload (409 invalid_idempotent_request), and a
+     fan-out's messages go to different people: one key for all of them refuses every address but the first. */
+  it("keys each address of a keyed fan-out apart", async () => {
+    await sendZielMail({
+      operation: "einladung.versand",
+      auftrag: { ...auftrag, idempotenzTag: "versand" },
+      recipients: [ADDRESS, SECOND_ADDRESS],
+      buildMail: buildMail,
+    });
+
+    const keys = sent.map((mail) => mail.idempotencyKey);
+    assert.equal(keys.length, 2);
+    assert.ok(
+      keys.every((key) => key !== undefined && key.length <= 256),
+      "a key is missing or past the provider's 256 characters",
+    );
+    assert.notEqual(keys[0], keys[1], `two bodies share one key: ${String(keys[0])}`);
+    assert.ok(!keys.some((key) => key?.includes("@")), "an address travels in the key");
   });
 
   it("records the accepted send under the id the provider answered with", async () => {

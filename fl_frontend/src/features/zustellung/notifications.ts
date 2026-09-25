@@ -1,5 +1,8 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+
+import { mailboxKey } from "@/core/emailAddress";
 import { APINetworkError, MailSendError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { MailRecipientError, MailWithheldError, sendMail } from "@/core/mail";
@@ -63,8 +66,12 @@ export function zielZustellungTags({ ziel, zielId, anlass }: ZielAuftrag): Recor
  * over another body being refused: a token minted again under one record goes keyless, one minted on
  * its own record keys safely.
  */
-export function zielIdempotenzSchluessel({ ziel, zielId, anlass }: ZielAuftrag, tag: string): string {
-  return [anlass, ziel, zielId, tag].join("_");
+export function zielIdempotenzSchluessel({ ziel, zielId, anlass }: ZielAuftrag, tag: string, address: string): string {
+  // Per mailbox, the fan-out's messages to one record being bodies apart; a digest rather than the
+  // address, which would carry it into a second place and past the provider's 256 characters.
+  const mailbox = createHash("sha256").update(mailboxKey(address)).digest("hex");
+
+  return [anlass, ziel, zielId, tag, mailbox].join("_");
 }
 
 /** The record one accepted message covered, stamped with THIS server's clock. */
@@ -163,7 +170,7 @@ export async function sendZielMail({
         html: mail.html,
         text: mail.text,
         tags: zielZustellungTags(auftrag),
-        idempotencyKey: auftrag.idempotenzTag === undefined ? undefined : zielIdempotenzSchluessel(auftrag, auftrag.idempotenzTag),
+        idempotencyKey: auftrag.idempotenzTag === undefined ? undefined : zielIdempotenzSchluessel(auftrag, auftrag.idempotenzTag, address),
       });
     }),
   );
