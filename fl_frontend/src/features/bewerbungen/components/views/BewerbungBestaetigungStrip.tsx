@@ -101,7 +101,7 @@ const ERNEUT_OHNE_ANTWORT = "Prüfe die Verbindung und sende den Link noch einma
 const KORREKTUR_OHNE_ANTWORT =
   "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch die alte Adresse, korrigiere sie noch einmal.";
 
-/** A second reseat over a seat already filled is refused, so the refreshed row is what says whether one is owed. */
+/** Unlike a re-send, a second reseat over a seat already filled is refused, so the row, reloaded, decides. */
 const BESETZUNG_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch niemand, besetze die Rolle noch einmal.";
 
 /** Which of the two editors one row has open. One at a time for the whole strip (`docs/frontend/spec.md :: I66`). */
@@ -436,7 +436,7 @@ function AdresseKorrigieren({
     const nichtKorrigiert: RaiseFailure = (shown) => appToast.failure("Adresse nicht korrigiert", shown);
 
     // Thrown or answered, a press nobody can tell landed. Left open: the draft is what a second press
-    // sends, and the refreshed row says whether one is owed.
+    // sends, and the row, read again by the answer's refresh or a rejection's reload, says whether one is owed.
     if (!res.success && res.outcome === "unknown") {
       nichtKorrigiert(res);
       return;
@@ -598,7 +598,7 @@ function SitzNeuBesetzen({
     const nichtBesetzt: RaiseFailure = (shown) => appToast.failure("Rolle nicht neu besetzt", shown);
 
     // Thrown or answered, a press nobody can tell landed. Left open: the draft is what a second press
-    // sends, and the refreshed row says whether one is owed.
+    // sends, and the row, read again by the answer's refresh or a rejection's reload, says whether one is owed.
     if (!res.success && res.outcome === "unknown") {
       nichtBesetzt(res);
       return;
