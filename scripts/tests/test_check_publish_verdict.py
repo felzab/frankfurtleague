@@ -20,7 +20,7 @@ from typing import Any, Final
 from unittest.mock import patch
 
 from conftest import import_scripts
-from test_check_gate_budget import JOB_NAME_RE, MATRIX_RE, job_bodies
+from test_check_gate_budget import JOB_NAME_RE, MATRIX_RE, NEEDS_RE, job_bodies
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[2]
 WORKFLOWS: Final = REPO_ROOT / ".github" / "workflows"
@@ -53,6 +53,7 @@ def aggregate(conclusion: str | None, budget_step: str = publish.BUDGET_STEP, **
         "Run actions/setup-python": "success",
         "Report the gate's wall clock": "success",
         "Fail if any scope job failed or was cancelled": "skipped",
+        "Fail if a push to main skipped a scope job": "skipped",
         budget_step: "success",
     }
     steps.update(overrides)
@@ -433,6 +434,37 @@ def test_a_scope_the_mapping_printed_nothing_for_runs_rather_than_skips():
     conditions = MAP_CONDITION_RE.findall(bodies["frontend"])
     assert conditions, "no condition on the frontend job's own mapping was read: this reader went inert"
     assert [condition for condition in conditions if not condition.endswith("!= 'false'")] == [], conditions
+
+
+SKIP_STEP: Final = "Fail if a push to main skipped a scope job"
+SKIP_TERM_RE: Final = re.compile(r"\bneeds\.([a-z][a-z-]*)\.result == 'skipped'")
+PUSH_ONLY: Final = "github.event_name == 'push' && ("
+
+
+def skip_condition_of(workflow: str) -> str:
+    """The folded `if:` of the aggregate job's skip step, its lines joined as the runner joins them."""
+    lines = job_bodies(workflow)[publish.AGGREGATE_JOB].splitlines()
+    starts = [i for i, line in enumerate(lines) if line == f"      - name: {SKIP_STEP}"]
+    assert len(starts) == 1, f"verify.yml names {len(starts)} steps {SKIP_STEP!r}"
+    folded: list[str] = []
+    for line in lines[starts[0] + 1 :]:
+        if folded and not line.startswith("          "):
+            break
+        if folded or line == "        if: >-":
+            folded.append(line.strip())
+    return " ".join(folded[1:])
+
+
+def test_a_push_to_main_fails_on_any_skipped_scope_job_but_commits():
+    """A scope the condition leaves out could skip on a push while `verify`, and so the publish verdict, read it as passed."""
+    workflow = (WORKFLOWS / "verify.yml").read_text(encoding="utf-8")
+    needs = NEEDS_RE.search(job_bodies(workflow)[publish.AGGREGATE_JOB])
+    assert needs is not None, "the aggregate job's `needs:` list was not read: this reader went inert"
+    condition = skip_condition_of(workflow)
+
+    assert condition.startswith(PUSH_ONLY), f"the skip step is not held to push runs alone: {condition!r}"
+    named = SKIP_TERM_RE.findall(condition)
+    assert sorted(named) == sorted({job.strip() for job in needs[1].split(",")} - {"commits"}), named
 
 
 # The request main's tip is read from: a branch ref, which neither the commit being judged nor a tag

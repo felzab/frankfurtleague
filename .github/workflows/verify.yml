@@ -587,6 +587,20 @@ jobs:
           echo "::error::A scope job failed -- its own log has the findings."
           exit 1
 
+      # A push to main runs every scope (`.claude/CLAUDE.md` §7, **ci**), so a skip there is a broken
+      # mapping or condition, which the step above passes. Every job this one needs is named but
+      # `commits`, which runs for pull requests only.
+      - name: Fail if a push to main skipped a scope job
+        if: >-
+          github.event_name == 'push' && (needs.changes.result == 'skipped' || needs.scripts.result == 'skipped'
+          || needs.docs.result == 'skipped' || needs.format.result == 'skipped' || needs.backend.result == 'skipped'
+          || needs.db.result == 'skipped' || needs.frontend.result == 'skipped'
+          || needs.frontend-units.result == 'skipped' || needs.ops.result == 'skipped'
+          || needs.images.result == 'skipped')
+        run: |
+          echo "::error::A push to main skipped a scope job, and every push runs them all -- the scope results above name it."
+          exit 1
+
       # `scripts/checks/check_publish_verdict.py :: BUDGET_STEP` finds this step by its exact name and
       # publishes over a run it alone failed; its tests hold the two names, and this `if:`, together.
       - name: Hold every job to its wall-clock budget
