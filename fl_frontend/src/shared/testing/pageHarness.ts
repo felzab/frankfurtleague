@@ -229,11 +229,14 @@ async function reach(node: unknown, walk: Walk, connected = false, depth = 0): P
   const element = node as Partial<ReactElement<Record<string, unknown>>>;
   if (element.props === undefined) return;
 
-  for (const value of Object.values(element.props)) await reach(value, walk, connected, depth + 1);
-
   // As React's server renderer does: every function component but a client one is called, and a
   // promise it returns awaited (`react-server-dom-webpack-server :: renderElement`).
-  if (!isServerComponent(element.type)) return;
+  if (!isServerComponent(element.type)) {
+    for (const value of Object.values(element.props)) await reach(value, walk, connected, depth + 1);
+    return;
+  }
+  // Its props are not walked: they reach the page only through what it returns, and walked here too,
+  // every child it renders would be called twice.
 
   const from = steps.length;
   let returned: unknown;

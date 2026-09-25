@@ -8,7 +8,7 @@ import { createContext, createElement as h, Suspense, useContext } from "react";
 import { render } from "@testing-library/react";
 import z from "zod";
 
-import { asRenderedPage, callPage, clearSteps, emptiest, isNavigation, OBJECT_ID, renderPage, steps } from "./pageHarness.ts";
+import { asRenderedPage, callPage, clearSteps, emptiest, isNavigation, OBJECT_ID, readsOf, renderPage, steps } from "./pageHarness.ts";
 import { renderTree } from "./renderTest.ts";
 
 /* `await import`, never a static import: the doubles are registered as the harness evaluates, and a
@@ -121,6 +121,17 @@ describe("the page harness", () => {
     const walk = await callPage(inBoundary(h(Wraps)), PROPS);
 
     assert.deepEqual(walk.unconnected, ["ReadsFirst :: /vor-connection"], "the loader behind the wrapper was never called");
+  });
+
+  /* A shell handed its list as a child is how an admin page is built: a read counted once per call
+     lets a case pin a page to exactly the reads it makes. */
+  it("calls a server component's child once, through what the component returns", async () => {
+    const Holds = ({ children }: { children: ReturnType<typeof h> }) => h("section", null, children);
+
+    clearSteps();
+    await callPage(inBoundary(h(Holds, null, h(ReadsUnderIt))), PROPS);
+
+    assert.deepEqual(readsOf(steps), [{ endpoint: "/im-kind", params: {} }], "the child was called beside its parent as well as through it");
   });
 
   /* A client component is a client reference to a server tree, never called there; called here, its
