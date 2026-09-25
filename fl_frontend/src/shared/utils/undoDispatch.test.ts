@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { beforeEach, describe, it, mock } from "node:test";
 import { setImmediate as settled } from "node:timers/promises";
 
@@ -11,23 +9,6 @@ import type { RaisedToast } from "@/shared/testing/actionDoubles.ts";
 /* Replaced at the module boundary: the cases below press the offer's own `onPress` and read which
    toasts followed it, and the real module hands both to HeroUI's queue rather than back to its caller. */
 const { raised } = doubleToasts();
-
-const FEATURES = path.resolve(import.meta.dirname, "..", "..", "features");
-
-/**
- * Every page-owned editor that offers an undo, each dispatching through `offerUndo` to its own
- * route. A `fetch` of an editor's own would regrow the per-editor copy the shared dispatch removed.
- */
-const EDITORS: Record<string, string> = {
-  kontakte: "kontakte/components/forms/AdminKontakteEditForm/AdminKontakteEditForm.tsx",
-  saisons: "saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx",
-  schiedsrichter: "schiedsrichter/components/forms/AdminSchiedsrichterEditForm/AdminSchiedsrichterEditForm.tsx",
-  spiele: "spiele/components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm.tsx",
-  spieler: "spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm.tsx",
-  spielorte: "spielorte/components/forms/AdminSpielortEditForm/AdminSpielortEditForm.tsx",
-  spieltage: "spieltage/components/forms/AdminSpieltagEditForm/AdminSpieltagEditForm.tsx",
-  teams: "teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx",
-};
 
 // Imported here rather than at the top: a static import resolves before the hook above is registered.
 const { offerUndo } = await import("./undoDispatch.ts");
@@ -184,16 +165,5 @@ describe("where the shared undo dispatch sends a caller the route turned away", 
       pressed.toasts.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
       [["Änderung nicht zurückgenommen", "Der Spielort wurde inzwischen gelöscht."]],
     );
-  });
-});
-
-describe("where each editor's undo dispatches", () => {
-  it("rides the shared dispatch to its own route, with no fetch of its own", () => {
-    for (const [slice, file] of Object.entries(EDITORS)) {
-      const source = readFileSync(path.resolve(FEATURES, file), "utf8");
-
-      assert.ok(source.includes(`endpoint: "/api/admin/${slice}/undo"`), `${slice}: the undo no longer dispatches to the slice's own route`);
-      assert.ok(!source.includes("fetch("), `${slice}: the editor spells a dispatch of its own beside the shared one`);
-    }
   });
 });

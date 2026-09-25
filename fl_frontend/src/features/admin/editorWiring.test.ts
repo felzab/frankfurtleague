@@ -13,7 +13,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
-import { underNext } from "@/shared/testing/nextContexts.ts";
+import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { FLKontaktperson } from "@/features/teams/schemas.ts";
 import type { UserEvent } from "@testing-library/user-event";
@@ -24,14 +24,17 @@ const REFUSED = () => Promise.resolve({ success: false, error: "Nicht gespeicher
 
 const { answerWith } = doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: REFUSED });
 
-doubleToasts();
+const { raised } = doubleToasts();
 
 /*
  Every page-owned editor, rendered over a stored row and each reached with `await import` inside its render:
  the doubles above, the dom and the JSX compile step have to stand before the editor's graph loads.
 */
 
-const renderEditor = (editor: ReactNode): HTMLElement => render(underNext(editor, { search: "saison_id=2026" })).container;
+/** Where each editor sends the browser, the undo's own departures among them. */
+const { router, seen } = recordingRouter();
+
+const renderEditor = (editor: ReactNode): HTMLElement => render(underNext(editor, { router, search: "saison_id=2026" })).container;
 
 /** A box by the words on its own label, as a reader finds it. */
 const box = (label: string): HTMLElement => screen.getByRole("textbox", { name: label });
@@ -529,6 +532,50 @@ describe("a page-owned editor's field errors", () => {
 
       await revisit(user, container);
       assert.ok(marked(container, path), "a visit that changed nothing deleted the server's refusal");
+    });
+  }
+});
+
+describe("a page-owned editor's undo", () => {
+  for (const [file, editor] of Object.entries(EDITORS)) {
+    /* The undo is a `fetch` to the slice's own route: a wrong slice's replays the change as another
+       collection's restore. Answered as the proxy answers a lapsed session, so only the shared dispatch's
+       own handling sends the admin to sign in again (`fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo`). */
+    it(`${file} dispatches the undo its save offers through the shared dispatch, to its own slice's route`, async () => {
+      // One success every editor reads its undo from: the match editor its prior pairings, the contacts
+      // editor the row's new stand, without which it offers no replay at all.
+      answerWith(() =>
+        Promise.resolve({ success: true, message: "Gespeichert.", priorPaarungen: [], saison_team: { kontakte_stand: "nach" } }),
+      );
+      const user = userEvent.setup();
+      const container = await editor.render();
+      await editor.change(user, container);
+      raised.length = 0;
+      await saveThrough(user);
+
+      const offer = raised.find((toast) => toast.options?.actionProps?.onPress !== undefined) ?? assert.fail("the save offered no undo");
+      const sent: string[] = [];
+      const original = globalThis.fetch;
+      globalThis.fetch = ((input: RequestInfo | URL) => {
+        sent.push(String(input));
+        return Promise.resolve(Response.json({ success: false, error: "Nicht angemeldet." }, { status: 401 }));
+      }) as typeof fetch;
+      seen.replaced.length = 0;
+      try {
+        await act(async () => {
+          offer.options?.actionProps?.onPress?.();
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        });
+      } finally {
+        globalThis.fetch = original;
+      }
+
+      assert.deepEqual(
+        sent,
+        [`/api/admin/${file.split("/")[0] ?? ""}/undo`],
+        "the undo reached somewhere other than its own slice's route, once",
+      );
+      assert.deepEqual(seen.replaced, ["/signin"], "a lapsed session's undo stayed on the page, so the dispatch is not the shared one");
     });
   }
 });
