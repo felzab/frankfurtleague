@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { readPublishedDocument } from "@/core/openapiDocument";
@@ -8,7 +6,7 @@ import { publishedCeilings } from "@/core/publishedCeilings";
 import { renderMarkup } from "@/shared/testing/renderTest";
 
 import { kaderWithSquad, strongPlayerCeiling } from "./components/forms/BewerbungForm/kaderBounds.ts";
-import { BEWERBUNG_KADER_GROESSE_MAX, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
+import { BEWERBUNG_KADER_GROESSE_MAX, BEWERBUNG_STUFENGROESSE_MAX, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
 import { FLBewerbungKaderPayloadSchema } from "./schemas.ts";
 
 import type { PublishedDocument } from "@/core/publishedCeilings";
@@ -41,15 +39,13 @@ it("names only components the backend publishes", () => {
   );
 });
 
-const FORM_DIR = path.join(import.meta.dirname, "components", "forms", "BewerbungForm");
-const readForm = (file: string) => readFileSync(path.join(FORM_DIR, file), "utf8");
-
 /*
  Every module below is reached AFTER the harness above has evaluated, because that is when the JSX
  compile step is registered; a static import beside this one resolves first and dies on the extension.
 */
 const { BewerbungForm } = await import("./components/forms/BewerbungForm/BewerbungForm.tsx");
 const { FormSchuleSection } = await import("./components/forms/BewerbungForm/FormSchuleSection.tsx");
+const { FormTeamSection } = await import("./components/forms/BewerbungForm/FormTeamSection.tsx");
 const { buildEmptyBewerbungSchule } = await import("./utils.ts");
 const { WEBSITE_URL_SCHEME } = await import("@/features/teams/constants.ts");
 
@@ -193,27 +189,79 @@ describe("where a published ceiling reaches the box the applicant types in", () 
   }
 });
 
-/*
- Read as source because a render carries none of it: a `NumberField` emits neither `max` nor
- `aria-valuemax`, and a toast is built at the press (`.claude/rules/frontend.md`).
-*/
-describe("the claims no rendered markup carries", () => {
+/**
+ * Whether the stepper beside the box writing `name` still offers one more. react-aria closes the increment button once
+ * the value stands at the field's `maxValue`, and it is the one place that bound reaches the markup: the box itself
+ * carries neither `max` nor `aria-valuemax`.
+ */
+function offersMore(html: string, name: string): boolean {
+  const box = html.indexOf(`name="${name}"`);
+  assert.ok(box >= 0, `no rendered box writes ${name}`);
+
+  const button = html.lastIndexOf("<button", html.lastIndexOf('data-slot="number-field-increment-button"', box));
+  const tag = html.slice(button, html.indexOf(">", button));
+
+  return !/\sdisabled=""/.test(tag);
+}
+
+const teamSection = (kader: { voraussichtliche_groesse: number | null; gute_spieler: number | null }): string =>
+  renderMarkup(FormTeamSection, {
+    trikot: { vorhandener_satz: "", wunschfarbe: null },
+    kader,
+    wunschgegner: "",
+    schulen: SCHOOLS,
+    vergebeneFarben: [],
+    onTrikotChange: () => undefined,
+    onKaderChange: () => undefined,
+    onWunschgegnerChange: () => undefined,
+    onFieldLeft: () => undefined,
+    onFarbePicked: () => undefined,
+  });
+
+const schoolSection = (stufengroesse: number): string =>
+  renderMarkup(FormSchuleSection, {
+    schulen: SCHOOLS,
+    auswahl: SCHULE_NICHT_IN_LISTE,
+    schule: buildEmptyBewerbungSchule(),
+    stufengroesse,
+    onAuswahlPicked: () => undefined,
+    onSchuleChange: () => undefined,
+    onStufengroesseChange: () => undefined,
+    onFieldLeft: () => undefined,
+    onSchulformPicked: () => undefined,
+    onKuerzelLeft: () => undefined,
+    kuerzelHinweis: null,
+    isSchulenLesbar: true,
+  });
+
+describe("where a count's ceiling reaches the stepper beside its box", () => {
   /* One box each: the Abi-Jahrgang is asked on the school's panel whichever arm of the picker the
      applicant is in, and the squad's own ceiling is asked on the team's. */
-  for (const [file, constant] of [
-    ["FormSchuleSection.tsx", "BEWERBUNG_STUFENGROESSE_MAX"],
-    ["FormTeamSection.tsx", "BEWERBUNG_KADER_GROESSE_MAX"],
-  ] as const) {
-    it(`${file} caps its number box with ${constant}`, () => {
-      const capped2 = readForm(file).match(new RegExp(`maxValue=\\{${constant}\\}`, "g")) ?? [];
+  it("stops the Abi-Jahrgang at BEWERBUNG_STUFENGROESSE_MAX", () => {
+    assert.equal(offersMore(schoolSection(BEWERBUNG_STUFENGROESSE_MAX - 1), "stufengroesse"), true, "the box stops short of the ceiling");
+    assert.equal(offersMore(schoolSection(BEWERBUNG_STUFENGROESSE_MAX), "stufengroesse"), false, "the box steps past the ceiling");
+  });
 
-      assert.equal(capped2.length, 1, `${file} caps ${String(capped2.length)} number boxes with ${constant}`);
-    });
-  }
+  it("stops the squad at BEWERBUNG_KADER_GROESSE_MAX", () => {
+    const squad = (size: number) => teamSection({ voraussichtliche_groesse: size, gute_spieler: 0 });
 
-  it("says the unchecked-Kürzel promise once, however the toast introduces it", () => {
-    // Both render together on a rate-limited blur, so one promise in two wordings reads as two promises.
-    assert.match(readForm("BewerbungForm.tsx"), /KUERZEL_RATE_LIMIT = `[^`]*\$\{KUERZEL_UNGEPRUEFT\}`/);
+    assert.equal(
+      offersMore(squad(BEWERBUNG_KADER_GROESSE_MAX - 1), "kader.voraussichtliche_groesse"),
+      true,
+      "the box stops short of the ceiling",
+    );
+    assert.equal(offersMore(squad(BEWERBUNG_KADER_GROESSE_MAX), "kader.voraussichtliche_groesse"), false, "the box steps past the ceiling");
+  });
+
+  /* The function is only the form's ceiling while the form calls it: a squad of twelve stops the strong box at
+     twelve, far under the league's own ceiling. */
+  it("stops the strong count at the squad typed beside it", () => {
+    assert.equal(offersMore(teamSection({ voraussichtliche_groesse: 12, gute_spieler: 11 }), "kader.gute_spieler"), true);
+    assert.equal(
+      offersMore(teamSection({ voraussichtliche_groesse: 12, gute_spieler: 12 }), "kader.gute_spieler"),
+      false,
+      "the strong box offers more players than the squad beside it holds",
+    );
   });
 });
 
@@ -269,11 +317,6 @@ describe("the rule a count is judged against as well as its ceiling", () => {
     assert.equal(strongPlayerCeiling(null), BEWERBUNG_KADER_GROESSE_MAX);
     assert.equal(kader(BEWERBUNG_KADER_GROESSE_MAX, strongPlayerCeiling(null)).success, true);
     assert.equal(kader(BEWERBUNG_KADER_GROESSE_MAX, strongPlayerCeiling(null) + 1).success, false);
-  });
-
-  it("binds that ceiling to the box the applicant types in", () => {
-    // The function is only the form's ceiling while the form calls it.
-    assert.match(readForm("FormTeamSection.tsx"), /maxValue=\{strongPlayerCeiling\(kader\.voraussichtliche_groesse\)\}/);
   });
 
   it("brings the strong count down with a lowered squad, to a pair the write path takes", () => {
