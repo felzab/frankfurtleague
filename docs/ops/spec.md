@@ -45,8 +45,9 @@ move by hand, no ecosystem reading a shell string. **Each tag names the exact re
 is**, the runtime bases included, whose series `fl_backend/.python-version` and
 `fl_frontend/package.json`'s `engines` pin: a series tag (`mongo:8`) is a label no reader can hold to
 one release. `local.sh`'s
-copy runs the local stack's own mongo, digest included. `scripts/tests/test_image_pins.py` holds
-every such reference to that form and the copy to the stack (I367).
+copy and the backend's database test tier run the local stack's own mongo, digest included, so a
+`docker-compose` update moving the stack alone fails. `scripts/tests/test_image_pins.py` holds every
+such reference to that form, and the copy and the tier to the stack (I367).
 
 **The digest alone decides what runs, and nothing checks the tag against it.** An official image is
 rebuilt under the same tags whenever the image it is built `FROM` is refreshed

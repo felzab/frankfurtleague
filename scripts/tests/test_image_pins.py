@@ -128,13 +128,29 @@ def script_references() -> dict[str, tuple[str, str]]:
     return found
 
 
+def _local_stack_mongo() -> str:
+    stack = [image for path, image in external_references() if path == "docker-compose.local.yml" and image.startswith("mongo:")]
+    assert len(stack) == 1, f"docker-compose.local.yml names mongo {stack}, where the case reads exactly one"
+    return stack[0]
+
+
 def test_the_copy_of_the_local_database_runs_the_local_stack_s_mongo() -> None:
     """A dump taken by one build and restored into another is the version skew the digest exists to remove."""
-    stack = [image for path, image in external_references() if path == "docker-compose.local.yml" and image.startswith("mongo:")]
+    stack = _local_stack_mongo()
     _, dump = script_references()["scripts/ops/local.sh:mongo"]
 
-    assert len(stack) == 1, f"docker-compose.local.yml names mongo {stack}, where the case reads exactly one"
-    assert dump == stack[0], f"scripts/ops/local.sh copies with {dump}, and the local stack runs {stack[0]}"
+    assert dump == stack, f"scripts/ops/local.sh copies with {dump}, and the local stack runs {stack}"
+
+
+def test_the_backend_db_tier_runs_the_local_stack_s_mongo() -> None:
+    """Dependabot's compose ecosystem moves the stack alone, and no ecosystem reads the conftest's string.
+
+    The frontend's tier follows through its own case, which holds its tag to this pin.
+    """
+    stack = _local_stack_mongo()
+    _, tier = script_references()["fl_backend/tests/conftest.py:mongo"]
+
+    assert tier == stack, f"fl_backend/tests/conftest.py :: MONGO_IMAGE is {tier}, and the local stack runs {stack}"
 
 
 # Each instruction naming a source by `from`, against a stage and against an image: the two
