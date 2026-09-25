@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { ADMIN_SIDEMENU_STRUCTURE } from "@/features/admin/constants.ts";
 import {
   answerReadsWith,
   backendNotFound,
@@ -23,27 +24,15 @@ import type { FLBewerbungFensterResponse } from "./schemas";
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
 const ROUTE_DIR = path.join(SRC_DIR, "app", "admin", "bewerbungen");
 
-const SIDEMENU = readFileSync(path.join(SRC_DIR, "features", "admin", "constants.ts"), "utf8");
-
-/** This slice's own entry, cut out of the structure so the assertions below read one object. */
-const ENTRY = /\{\s*id: "([^"]+)",\s*label: "Bewerbungen",[\s\S]*?\n {6}\}/.exec(SIDEMENU);
-
 describe("the route the sidemenu names", () => {
-  /* First: an entry the cut no longer finds would leave every assertion below reading `null`. */
-  it("finds this slice's entry in the structure at all", () => {
-    assert.ok(ENTRY, "no sidemenu entry labelled Bewerbungen was found");
-    assert.match(ENTRY[0], /iconName: "\w+"/, "the entry names no icon");
-    assert.match(ENTRY[0], /hint: \{/, "the entry carries no hint");
-  });
-
   /* The id IS the route segment: the nav builds its href from it and `AppTopBar` reads the page's
      one `<h1>` off the entry it matches. Renamed, both break and nothing else in the suite sees it. */
   it("names a segment that exists under /admin", () => {
-    assert.ok(ENTRY, "no sidemenu entry labelled Bewerbungen was found");
-    const id = ENTRY[1]!;
+    const entry = ADMIN_SIDEMENU_STRUCTURE.flatMap((group) => group.sub_options).find((option) => option.label === "Bewerbungen");
 
-    assert.equal(id, "bewerbungen", "the entry's id moved off this slice's route segment");
-    assert.ok(existsSync(path.join(SRC_DIR, "app", "admin", id, "page.tsx")), `/admin/${id} has no page`);
+    assert.ok(entry, "no sidemenu entry is labelled Bewerbungen");
+    assert.equal(entry.id, "bewerbungen", "the entry's id moved off this slice's route segment");
+    assert.ok(existsSync(path.join(SRC_DIR, "app", "admin", entry.id, "page.tsx")), `/admin/${entry.id} has no page`);
   });
 
   /* Both segments draw a skeleton while their data resolves; without one the shell holds an empty
