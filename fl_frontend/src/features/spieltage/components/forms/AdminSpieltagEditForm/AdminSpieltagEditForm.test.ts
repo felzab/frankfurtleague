@@ -164,24 +164,31 @@ describe("what bounds the Zeitraum pickers", () => {
   /* The season is the only bound the pickers take, and that is a decision: `REQ-DATE-008` judges the
      STEP, so a static one would grey out a repair the endpoint allows. The greying is the calendar's
      own answer and carries no sentence beside it (`docs/frontend/spec.md` §1.12, diagnostic 4). */
-  it("greys out every day outside the season in both pickers, and no day inside it", async () => {
+  it("greys out every day outside the season in every picker of either panel, and no day inside it", async () => {
     const user = userEvent.setup();
-    const unmount = renderEditor(spieltag("halbfinale", "Halbfinale", { ende: "2026-08-12" }));
 
-    const triggers = screen.getAllByRole("button", { name: /^Kalender/ });
-    assert.equal(triggers.length, 2, "the span editor offers other than one calendar per picker");
+    for (const [panel, row, pickerCount] of [
+      ["the span", spieltag("halbfinale", "Halbfinale", { ende: "2026-08-12" }), 2],
+      ["the single day", spieltag("finale", "Endspiel"), 1],
+    ] as const) {
+      const unmount = renderEditor(row);
 
-    for (const [which, trigger] of triggers.entries()) {
-      await user.click(trigger);
+      const triggers = screen.getAllByRole("button", { name: /^Kalender/ });
+      assert.equal(triggers.length, pickerCount, `${panel} offers other than one calendar per picker`);
 
-      assert.equal(isOffered(dayCell(1)), false, `picker ${String(which + 1)} offers the day before the season`);
-      assert.equal(isOffered(dayCell(2)), true, `picker ${String(which + 1)} greys out the season's first day`);
-      assert.equal(isOffered(dayCell(29)), true, `picker ${String(which + 1)} greys out the season's last day`);
-      assert.equal(isOffered(dayCell(30)), false, `picker ${String(which + 1)} offers the day after the season`);
+      for (const [which, trigger] of triggers.entries()) {
+        const picker = `${panel}'s picker ${String(which + 1)}`;
+        await user.click(trigger);
 
-      await user.keyboard("{Escape}");
+        assert.equal(isOffered(dayCell(1)), false, `${picker} offers the day before the season`);
+        assert.equal(isOffered(dayCell(2)), true, `${picker} greys out the season's first day`);
+        assert.equal(isOffered(dayCell(29)), true, `${picker} greys out the season's last day`);
+        assert.equal(isOffered(dayCell(30)), false, `${picker} offers the day after the season`);
+
+        await user.keyboard("{Escape}");
+      }
+      unmount();
     }
-    unmount();
   });
 
   /* The schema is built per instance from the editor's own span: an absent span is legal
