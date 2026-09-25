@@ -2,8 +2,6 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { beforeEach, describe, it, mock } from "node:test";
 
 import { act, createElement as h } from "react";
@@ -55,12 +53,6 @@ const { buildEmptyBewerbungSchule } = await import("./utils.ts");
 const { LIGA_KENNTNISNAHME } = await import("@/core/einwilligung.ts");
 const { formPanel } = await import("@/shared/components/ui/formPanel.ts");
 const { FIELD_ERROR_CLASSES, FIELD_ERROR_SWITCH_CLASSES } = await import("@/shared/components/ui/formFieldStyles.ts");
-
-const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
-
-const read = (...parts: string[]): string => readFileSync(path.join(SRC_DIR, ...parts), "utf8");
-
-const FORM = read("features", "bewerbungen", "components", "forms", "BewerbungForm", "BewerbungForm.tsx");
 
 const SCHOOLS = [{ id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" }];
 
@@ -251,12 +243,6 @@ const refusalsShown = (): string[] =>
 const asksBeforeLeaving = (): boolean => !window.dispatchEvent(new Event("beforeunload", { cancelable: true }));
 
 describe("the public application form", () => {
-  /* First, because every source-text case below reads the form: a path that stopped resolving would
-     leave each of them matching against an empty string and reporting nothing. */
-  it("finds the file it reads at all", () => {
-    assert.ok(FORM.length > 0, "the form is empty, so this file proves nothing about it");
-  });
-
   /* One composer, so the submit cannot assemble a second payload beside the one the blur-time judgements
      parse. `location = /api/bewerbung` is an EXACT nginx match: a path segment falls through to the
      unlimited catch-all. */
