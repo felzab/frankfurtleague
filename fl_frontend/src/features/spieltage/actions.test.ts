@@ -5,7 +5,8 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { sliceBetween } from "@/shared/testing/sourceText.ts";
@@ -15,9 +16,9 @@ import { mapSpieltagRefusal } from "./refusals.ts";
 import { FLPatchSpieltagPayloadSchema } from "./schemas.ts";
 import { deriveSpieltagDraftStatus } from "./spieltagDraftStatus.ts";
 
-/* The real action, called: the request it runs in and the write it sends are the doubles. */
+/* The real action and its mutation, called: the request it runs in and the backend client are the doubles. */
 doubleActionRequest();
-const { answerWith } = doubleActions({ modules: ["/src/features/spieltage/mutations.ts"] });
+const { answerWith } = doubleApiAnswers();
 const { patchSpieltagAction } = await import("./actions.ts");
 
 const { FormZeitraumSection } = await import("./components/forms/AdminSpieltagEditForm/FormZeitraumSection.tsx");

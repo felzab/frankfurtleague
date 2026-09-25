@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleUndoRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
-/* The real route, called: the request it runs in and the write it replays are the doubles. */
-const { answerWith, calls } = doubleUndoRequest("/src/features/spieltage/mutations.ts");
+/* The real route and the mutation it replays through, called: the request it runs in and the backend client are the doubles. */
+doubleRouteRequest();
+const { answerWith, calls } = doubleApiAnswers();
 const { POST } = await import("./route.ts");
 
 /** What `fl_frontend/src/features/spieltage/mutations.ts :: patchSpieltag` sends, as the backend's own routes spell it. */
@@ -20,10 +22,8 @@ describe("the matchday save's undo", () => {
     const answer = await undo(POST, BODY);
 
     assert.equal(answer.success, true, String(answer.error));
-    assert.deepEqual(
-      calls.map((call) => call.action),
-      ["patchSpieltag"],
-    );
+    const { id, ...span } = BODY;
+    assert.deepEqual(requestsOf(calls), [{ endpoint: `/spieltage/${id}`, method: "PATCH", body: span }]);
   });
 
   it("words every refusal the replayed endpoint publishes, closing on the change standing once", async () => {
