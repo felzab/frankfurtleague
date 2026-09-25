@@ -3,7 +3,12 @@ import { describe, it } from "node:test";
 
 import { KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants.ts";
 
-import { FLPatchSchiedsrichterPayloadSchema, FLPostSchiedsrichterPayloadSchema, hatAdresse } from "./schemas.ts";
+import {
+  FLPatchSchiedsrichterPayloadSchema,
+  FLPostSchiedsrichterPayloadSchema,
+  FLSchiedsrichterListResponseSchema,
+  hatAdresse,
+} from "./schemas.ts";
 
 const PLATZHALTER = "adresse-fehlt@frankfurtleague.invalid";
 
@@ -19,6 +24,26 @@ describe("whether a referee row holds an address", () => {
     assert.equal(hatAdresse("   "), false);
     assert.equal(hatAdresse(PLATZHALTER), false);
     assert.equal(hatAdresse(PLATZHALTER.toUpperCase()), false, "the placeholder in capitals is read as an address");
+  });
+});
+
+/* The read states no address rule: one row holding the placeholder, which the rule refuses, would otherwise fail the
+   whole list's parse and take every referee off the page. */
+describe("the referee list's read", () => {
+  it("takes a row holding the placeholder address", () => {
+    const row = {
+      id: "6890a1b2c3d4e5f607800001",
+      name: "Anna Körner",
+      schule: null,
+      default_payment: 20,
+      kontakt: { telefon: null, email: PLATZHALTER },
+      inactive_since: null,
+      geburtsdatum: null,
+      einwilligung: null,
+      bestaetigung: null,
+    };
+
+    assert.equal(FLSchiedsrichterListResponseSchema.safeParse({ acknowledged: 1, schiedsrichter: [row] }).success, true);
   });
 });
 
