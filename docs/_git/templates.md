@@ -88,9 +88,11 @@ says most of it.>
 **Reviewer's first look.** <Optional: the one thing in the branch that deserves attention before
 the rest.>
 
-**Verified.** <The bare `./scripts/gate/verify.sh` run and its exit code — and the parts
-worth naming, with numbers. Plus any manual check and its result. Say plainly what could not be
-verified, and why. This is the one heading never dropped.>
+**Verified.** <What was run and what it returned, the parts worth naming with numbers, plus any
+manual check and its result. Written when the pull request opens, then completed once the bare
+`./scripts/gate/verify.sh` has run over its last push: that run's exit code goes here, and the body
+is replaced with `gh pr edit <n> --body-file <path>`, which the `pr-body` check reads again. Say
+plainly what could not be verified, and why. This is the one heading never dropped.>
 
 **Decisions taken.** <Anything where a person chose between real options, with the reasoning.
 Divergences resolved during the work belong here too.>
