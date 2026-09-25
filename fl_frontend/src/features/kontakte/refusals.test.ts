@@ -1,14 +1,15 @@
 import { describe, it } from "node:test";
 
-import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapStaleBlockRefusal } from "./refusals.ts";
 
-/* The real action, called: the request it runs in and the write it sends are the doubles. A file of its
-   own, `actions.test.ts` and `editor.test.ts` replacing this slice's actions module for the components they render. */
+/* The real action and its mutation, called: the request it runs in and the backend client are the doubles. A file of
+   its own, `actions.test.ts` and `editor.test.ts` replacing this slice's actions module for the components they render. */
 doubleActionRequest();
-const { answerWith } = doubleActions({ modules: ["/src/features/kontakte/mutations.ts"] });
+const { answerWith } = doubleApiAnswers();
 const { patchSaisonTeamKontakteAction } = await import("./actions.ts");
 
 const KONTAKTE_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte";

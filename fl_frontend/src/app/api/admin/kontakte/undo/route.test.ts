@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { cacheCalls } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleUndoRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
-/* The real route, called: the request it runs in and the write it replays are the doubles. */
-const { answerWith, calls } = doubleUndoRequest("/src/features/kontakte/mutations.ts");
+/* The real route and the save's own mutation, called: the request it runs in and the backend client are the doubles. */
+doubleRouteRequest();
+const { answerWith, calls } = doubleApiAnswers();
 const { POST } = await import("./route.ts");
 
 /** What `fl_frontend/src/features/kontakte/mutations.ts :: patchSaisonTeamKontakte` sends, as the backend's own routes spell it. */
@@ -14,6 +16,13 @@ const REPLAY_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte";
 
 /** The stored block the press replays, and the token the save left, as the editor builds them. */
 const BODY = { team_id: "6890a1b2c3d4e5f607182932", saison_id: "2026", kontakte: null, kontakte_stand: "9f2c" };
+
+/** The request the save's own write sends for `payload`: the block to the junction row's contacts path. */
+const saveOf = ({ team_id, saison_id, ...block }: { team_id: string; saison_id: string; [field: string]: unknown }) => ({
+  endpoint: `/teams/${team_id}/saisons/${saison_id}/kontakte`,
+  method: "PATCH",
+  body: block,
+});
 
 /** The one code whose sentence already says the undo did not run, so it closes on its own words. */
 const STALE_BLOCK = "REQ-KONTAKT-001";
@@ -24,7 +33,7 @@ describe("the contacts save's undo", () => {
     const answer = await undo(POST, BODY);
 
     assert.equal(answer.success, true, String(answer.error));
-    assert.deepEqual(calls, [{ action: "patchSaisonTeamKontakte", payload: BODY }]);
+    assert.deepEqual(requestsOf(calls), [saveOf(BODY)]);
   });
 
   /* An undo restores the earlier record, and the save it undoes moved the stored label the save's own
@@ -43,7 +52,7 @@ describe("the contacts save's undo", () => {
     const answer = await undo(POST, earlier);
 
     assert.equal(answer.success, true, String(answer.error));
-    assert.deepEqual(calls, [{ action: "patchSaisonTeamKontakte", payload: earlier }]);
+    assert.deepEqual(requestsOf(calls), [saveOf(earlier)]);
   });
 
   /* No cached read holds a contact person, so an invalidation here would clear what the replay never moved. */
