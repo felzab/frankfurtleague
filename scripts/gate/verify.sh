@@ -1157,9 +1157,15 @@ the service and the rule: docs/ops/spec.md I1, I174, I355 or I18." \
   if [[ -z "$NGINX_IMAGE" ]]; then
     skip "no python at the checkers' floor, so the image production runs was not read and prod.conf was not parsed"
   else
+    # Fetched apart, where this host lacks it, so the run below fails on nginx's own parse alone: a
+    # release that could not be fetched leaves prod.conf unjudged, a refusal rather than a finding.
+    if ! docker image inspect "$NGINX_IMAGE" >/dev/null 2>&1; then
+      quietly docker pull "$NGINX_IMAGE" \
+        || refuse "${NGINX_IMAGE} could not be fetched, so prod.conf was not parsed. Docker's own reason is above."
+    fi
     # The config mounts are docker-compose.yml's, so a file dropped into `nginx/prod/` is parsed here
     # as the server would load it.
-    MSYS_NO_PATHCONV=1 quietly docker run --rm \
+    MSYS_NO_PATHCONV=1 quietly docker run --rm --pull never \
       --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
       -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
       -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
