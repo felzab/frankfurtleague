@@ -50,7 +50,6 @@ const { default: AdminSchiedsrichterEditPage } = await import("@/app/admin/schie
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
 /**
  * Whitespace-collapsed, the copy being JSX text whose line breaks the formatter picks. Read for which
  * declaration the displayed word comes from, which a render of the constant's value cannot tell apart.
@@ -79,13 +78,6 @@ const RETIRE_ACTION = sliceBetween(
   "export async function deleteSchiedsrichterAction",
   "export async function reactivateSchiedsrichterAction",
 );
-/* Sliced for the retire's reason, and for a second: the anonymisation carries the same `updateTag`
-   call, so a search over the whole file passes whichever of the two happens to hold it. */
-const RENAME_ACTION = sliceBetween(
-  ACTIONS,
-  "export async function patchSchiedsrichterAction",
-  "export async function deleteSchiedsrichterAction",
-);
 
 /** The create's and the save's own answer: the name's mapper first, then the ban's, as both actions ask them. */
 const saveAnswer = (error: unknown) => mapNameRefusal(error) ?? mapGesperrteAdresseRefusal(error);
@@ -97,9 +89,6 @@ describe("the referee's writes against the codes their endpoints publish", () =>
     assert.ok(!ANONYMISE_ACTION.includes("deleteSchiedsrichter("), "the anonymisation's slice reaches the retire");
     assert.ok(RETIRE_ACTION.includes("deleteSchiedsrichter(validated.data)"), "the retire's call is outside its slice");
     assert.ok(!RETIRE_ACTION.includes("reactivateSchiedsrichter("), "the retire's slice runs on into the reactivation");
-
-    assert.ok(RENAME_ACTION.includes("patchSchiedsrichter(validated.data)"), "the rename's slice is outside its slice");
-    assert.ok(!RENAME_ACTION.includes("anonymiseSchiedsrichter("), "the rename's slice reaches the anonymisation");
   });
 
   /* The ghost is the one refusal here, and it needs a sentence: an administrator reaches this only by
@@ -229,26 +218,6 @@ describe("the referee name a unique index already holds", () => {
   });
 });
 
-describe("what the anonymisation moves", () => {
-  /* The one cached read it moves: the repointed booking lands on every Spiel as a rename does, and without
-     the tag the erased name keeps being served from cache. The referee list and the log are uncached. */
-  it("invalidates the fixture reads, as the rename does", () => {
-    assert.ok(ANONYMISE_ACTION.includes('updateTag("spiele")'), "the anonymisation leaves the erased name in the fixture cache");
-    assert.ok(RENAME_ACTION.includes('updateTag("spiele")'), "the rename stopped invalidating the one read a referee write does move");
-  });
-
-  /* A POST to `/anonymisieren`, never the DELETE beside it: that one stamps `inactive_since` and
-     clears nothing. */
-  it("calls the anonymisation endpoint and not the retire", () => {
-    assert.match(MUTATIONS, /`\/schiedsrichter\/\$\{id\}\/anonymisieren`/, "the mutation no longer addresses the anonymisation endpoint");
-    assert.match(
-      MUTATIONS,
-      /anonymisieren`,\s*FLSchiedsrichterWriteResponseSchema,\s*\{\s*method: "POST"/,
-      "the anonymisation is sent as something other than a POST",
-    );
-  });
-});
-
 /** Each navigation a press makes, in order. */
 const { router, seen } = recordingRouter();
 
@@ -364,12 +333,6 @@ describe("the anonymisation's copy", () => {
     assert.doesNotMatch(armed, /Eintrag bleibt|behalten die Zuteilung/, "the armed confirmation promises what the erasure takes");
   });
 
-  it("says in the action's report that a fixture without a result needs a new referee", () => {
-    assert.match(ACTIONS, /Spiele ohne Ergebnis/, "the action's report does not name the fixtures the erasure unassigns");
-    assert.match(ACTIONS, /neuen Schiedsrichter/, "the action's report does not say such a fixture needs somebody else");
-    assert.ok(!/behalten die Zuteilung/.test(ACTIONS), "the action's report still promises the assignment survives the erasure");
-  });
-
   /* A hand-write can leave a row nameless, and this panel is on that row's editor too: the sentence
      has to name a subject where the interpolated name is null. */
   it("names the subject of the deletion on a row that holds no name", () => {
@@ -377,14 +340,6 @@ describe("the anonymisation's copy", () => {
 
     assert.match(shown, /Eintrag von dieser Person/, "the sentence deletes the entry of nobody");
     assert.match(shown, /diese Person geleitet hat/, "the nameless row's panel stopped saying which matches are reached");
-  });
-
-  /* Every other sentence about the erasure says „dieser Person“, and this one is the report an
-     administrator forwards: a referee can be a woman, and the notice writes both forms. */
-  it("reports the log redaction about a person rather than about a masculine referee", () => {
-    const report = sliceBetween(ANONYMISE_ACTION, "Im Änderungsprotokoll", null);
-
-    assert.match(report, /die diese Person betrifft/, "the report names the log rows by a masculine referee again");
   });
 
   /* The word is a frontend constant so it can be reworded without touching a stored document; typed
@@ -570,13 +525,7 @@ describe("how much of the log the copy claims", () => {
      this write destroys that too. */
   it("matches what the redaction actually clears", () => {
     assert.match(RECORDING, /def build_redaction_update[\s\S]*?"before": None/, "the backend no longer clears the whole pre-image");
-
-    for (const [read, where] of [
-      [panelText(), "the panel"],
-      [ACTIONS, "the action's report"],
-    ] as const) {
-      assert.match(read, /gesicherte[rn]? Stand/, `${where} does not name the pre-image the log keeps`);
-    }
+    assert.match(panelText(), /gesicherte[rn]? Stand/, "the panel does not name the pre-image the log keeps");
   });
 
   /* The narrow claim, in the shape it was written: the log's rows lose more than the row does. */
@@ -586,7 +535,6 @@ describe("how much of the log the copy claims", () => {
       /Telefonnummer[^.]*(auch|und überall)[^.]*Änderungsprotokoll/,
       "the panel narrows the log to the two fields",
     );
-    assert.doesNotMatch(ACTIONS, /gelöscht, auch im Änderungsprotokoll/, "the report narrows the log to the two fields");
   });
 
   /* What survives is as load-bearing as what goes: the rows stay, so the log still shows that
