@@ -16,6 +16,8 @@ const { raised } = doubleToasts();
    list, so a stub written here would prove nothing about the derivation. */
 const { calls, answerWith, answerPending, leavePending } = doubleActions({ modules: ["/src/features/spieltage/actions.ts"] });
 const { setSession } = doubleActionRequest();
+// A module a real action writes through, which the double refuses rather than stands in for.
+doubleActions({ modules: ["/src/features/spielorte/mutations.ts"] });
 
 /* `await import`, never a static import beside the doubles: each hook is registered as its call
    above evaluates, and a static import would have resolved the real module before then. */
@@ -25,6 +27,12 @@ const nextCache = await import("next/cache");
 const { getAdminSession, getSignInDestination } = await import("@/core/auth.ts");
 
 describe("the actions double", () => {
+  /* Stood in for, a module a real action writes through records no write, and the admin spine then
+     answers a press that wrote as one that did not. */
+  it("refuses a module a real action sends its writes through", async () => {
+    await assert.rejects(import("@/features/spielorte/mutations.ts"), /double its client with doubleApiAnswers instead/);
+  });
+
   /* The names come off the real module's source: a double listing them by hand answers `undefined`
      for an action a slice added, and the component reaches that rather than the stub. */
   it("carries every action the module exports, and records the payload each one was handed", async () => {

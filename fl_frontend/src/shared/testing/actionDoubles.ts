@@ -15,6 +15,12 @@ type Recorder = { push: (call: ActionCall) => void; answer: (action: string) => 
 let registered = 0;
 
 /**
+ * The modules a real action sends its writes through. Replaced here they record no write, so the admin
+ * spine would answer a press that wrote as one that did not; their doubles are the client's and the mailer's.
+ */
+const WRITE_MODULE = /\/(?:mutations|notifications)\.ts$|\/core\/mail\.ts$/;
+
+/**
  * A name a generated module declares, spelled into its source where no literal can hold it: refused
  * unless it is an identifier, so nothing read off a real module can write code into the double.
  */
@@ -31,10 +37,7 @@ export function doubleActions({
   modules,
   answer = () => Promise.resolve({ success: true, message: "Gespeichert." }),
 }: {
-  /**
-   * Each module to replace, matched against the RESOLVED url: a path tail, or a pattern over one. Never
-   * a real action's write module: this double records no write for the admin spine, `doubleApiAnswers` does.
-   */
+  /** Each module to replace, matched against the RESOLVED url: a path tail, or a pattern over one. */
   modules: readonly (string | RegExp)[];
   /** What every replaced write answers, until `answerWith` names another for the rest of that case. */
   answer?: () => Promise<unknown>;
@@ -86,6 +89,9 @@ export function doubleActions({
   registerHooks({
     load(url, context, nextLoad) {
       if (!modules.some((named) => (typeof named === "string" ? url.endsWith(named) : named.test(url)))) return nextLoad(url, context);
+      if (WRITE_MODULE.test(url)) {
+        throw new Error(`${url} sends a write the admin spine judges its answer by; double its client with doubleApiAnswers instead`);
+      }
 
       const real = blankComments(readFileSync(fileURLToPath(url), "utf8"));
       const source = [...real.matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)]
