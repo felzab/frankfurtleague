@@ -56,7 +56,7 @@ export const sendMail = async (message) => {
   recordWriteSent();
   globalThis.${EVENTS}.push("mail");
   if (globalThis.${SEND_FAILS} === "broken") {
-    throw new APINetworkError({ message: "broke off", url: "https://api.resend.com/emails", method: "POST", readOnly: false, traceId: "0", isTimeout: false });
+    throw new APINetworkError({ message: "broke off", url: "https://provider.example/emails", method: "POST", readOnly: false, traceId: "0", isTimeout: false });
   }
   if (globalThis.${SEND_FAILS}) throw new Error("the provider refused the message");
   globalThis.${SENT}.push(message);
