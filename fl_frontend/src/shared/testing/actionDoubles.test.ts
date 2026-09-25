@@ -90,8 +90,9 @@ it("leaves a write running", () => {
 `,
     );
 
-    // Without `NODE_TEST_CONTEXT`, which this runner sets and under which a child refuses to run a file.
-    const env = { ...process.env };
+    // Without `NODE_TEST_CONTEXT`, which this runner sets and under which a child refuses to run a file;
+    // and without the gate's shard, which `NODE_OPTIONS` carries and which leaves a one-file child no file.
+    const env = { ...process.env, NODE_OPTIONS: (process.env.NODE_OPTIONS ?? "").replace(/--test-shard=\S+/g, "") };
     Reflect.deleteProperty(env, "NODE_TEST_CONTEXT");
 
     try {
@@ -101,6 +102,8 @@ it("leaves a write running", () => {
         { encoding: "utf8", timeout: 120_000, env },
       );
 
+      // First, so a child that ran nothing says so rather than passing or failing for another reason.
+      assert.ok(run.stdout.includes("leaves a write running"), `the child ran no case of the fixture:\n${run.stdout}${run.stderr}`);
       assert.equal(run.status, 1, `the file left a write running and exited ${String(run.status)}:\n${run.stdout}${run.stderr}`);
       assert.ok(run.stdout.includes("the case left these actions pending"), run.stdout);
     } finally {
