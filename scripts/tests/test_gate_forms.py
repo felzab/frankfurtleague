@@ -472,3 +472,15 @@ def test_a_scope_crashing_past_an_earlier_failure_still_names_what_it_kept() -> 
     assert CRASHED_ROW.search(done.stdout), output
     assert "closed with no verdict" not in output, output
     assert "1 finding(s) in this run" in output, output
+
+
+def test_a_unit_crashed_behind_an_earlier_failure_in_its_scope_is_named_and_kept() -> None:
+    """tsc's finding ends the frontend scope at 1, and eslint's crash, verdicted after it, is read by nothing else."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    reader = write_shell(_fixture().stubs / "read-kept.sh", READ_KEPT)
+    done, _ = _run(FLAGS, fails="typecheck:only", crashes="lint")
+    output = done.stdout + done.stderr
+    manifests = [run_shell(BASH, reader, found) for found in KEPT.findall(output)]
+    assert done.returncode == 1, output
+    assert "the eslint unit crashed with status 3 behind the ending above" in output, output
+    assert any(read.returncode == 0 and "eslint" in read.stdout for read in manifests), output

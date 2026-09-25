@@ -93,9 +93,19 @@ step_worker() { [[ -n "$STEP_UNIT" ]]; }
 # failed check never runs. Never add INT or TERM — `_lib.sh` owns them, and re-trapping either
 # loses the interrupted closing statement.
 cleanup() { :; }
+# Each unit a pool recorded as crashed, as `name status`: past 2, an interrupt aside.
+crashed_units() { # $1 a pool directory
+  local name unit_status rest
+  [[ -r "$1/manifest.tsv" ]] || return 0
+  while IFS=$'\t' read -r name unit_status rest; do
+    if [[ "$unit_status" =~ ^[0-9]+$ ]] && (( unit_status >= 3 && unit_status != 130 )); then
+      printf '%s %s\n' "$name" "$unit_status"
+    fi
+  done < "$1/manifest.tsv"
+}
 gate_exit() {
   # First, before any command replaces it: the status this process is ending on.
-  local status=$? dir
+  local status=$? dir crashed name unit_status
   if step_worker; then return 0; fi
   # From the trap, not the end of the body: `die`, `refuse` and `on_error` exit where they stand,
   # so a body-final call misses exactly the rows whose verdict matters most.
@@ -110,7 +120,15 @@ gate_exit() {
     if (( status >= 3 && status != 130 )); then
       for dir in "${POOL_DIRS[@]}"; do detail "kept for reading, as this crash left it: ${dir}" >&2; done
     else
-      for dir in "${POOL_DIRS[@]}"; do rm -rf "$dir" || true; done
+      # A unit's crash behind an earlier verdict is read by nothing else: the run ended first.
+      for dir in "${POOL_DIRS[@]}"; do
+        crashed="$(crashed_units "$dir")"
+        if [[ -z "$crashed" ]]; then rm -rf "$dir" || true; continue; fi
+        while IFS=" " read -r name unit_status; do
+          detail "the ${name} unit crashed with status ${unit_status} behind the ending above" >&2
+        done <<< "$crashed"
+        detail "kept for reading, as this crash left it: ${dir}" >&2
+      done
     fi
   fi
   # Only the opener: the path is exported, so a re-entry exiting above the scripts scope's own
