@@ -55,6 +55,8 @@ describe("what one refused confirmation asks the referee's page to show", () => 
      administrator re-sending while the page stands open is the ordinary race, not an edge case. */
   for (const [code, zustand] of [
     ["REQ-SCHIEDSRICHTER-002", "ungueltig"],
+    // The referee the link named is gone, which is as dead a link.
+    ["DB-COMMON-001", "ungueltig"],
     ["REQ-SCHIEDSRICHTER-003", "abgelaufen"],
     ["REQ-SCHIEDSRICHTER-004", "bestaetigt"],
   ] as const) {

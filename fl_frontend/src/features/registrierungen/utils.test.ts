@@ -98,6 +98,12 @@ describe("what one refused submission shows", () => {
     assert.equal(mapRegistrierungSubmitRefusal(refusal("REQ-BEWERBUNG-004")), null, "a code of another flow's is mapped here");
   });
 
+  /* The record missing is a season or club the link named and nothing holds now: the dead-link page,
+     never the admin's „nicht gefunden“ with a reload. */
+  it("answers the link's record gone as the link void", () => {
+    assert.deepEqual(mapRegistrierungSubmitRefusal(refusedOn("POST /registrierungen", "DB-COMMON-001")), { zustand: "ungueltig" });
+  });
+
   it("puts a body refusal naming a field on that field's box, with the team's link for a box the form lacks", () => {
     assert.deepEqual(mapRegistrierungSubmitRefusal(refusedAt("email")), {
       fieldErrors: { email: FELD_ABGELEHNT },
@@ -197,6 +203,12 @@ describe("what one refused confirmation shows", () => {
   it("answers nothing for a status this flow never reaches", async () => {
     assert.equal(await mapBestaetigungRefusal(refusal("REQ-REGISTRIERUNG-004", 500), floorOf(16).lesen), null);
     assert.equal(await mapBestaetigungRefusal(new Error("kein API-Fehler"), floorOf(16).lesen), null);
+  });
+
+  it("answers the link's record gone as the link void", async () => {
+    assert.deepEqual(await mapBestaetigungRefusal(refusedOn("POST /registrierungen/bestaetigung", "DB-COMMON-001"), floorOf(16).lesen), {
+      zustand: "ungueltig",
+    });
   });
 
   it("tells the three link states apart, each on its own panel", async () => {

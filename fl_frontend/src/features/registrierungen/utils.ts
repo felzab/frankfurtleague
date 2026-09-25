@@ -69,6 +69,8 @@ export function mapRegistrierungSubmitRefusal(
     // The link died between the page loading and this press, and the whole page is the answer: a
     // banner over a form nothing accepts invites a second attempt.
     case "REQ-EINLADUNG-003":
+    // With the record missing, the season or the club the link names is gone: as dead a link.
+    case "DB-COMMON-001":
       return { zustand: "ungueltig" };
     // Each reachable only where the season moved after this page loaded, and the team's link reopens
     // onto a page read since: the window's or the team's own panel, or the Stufen offered now.
@@ -145,6 +147,8 @@ export async function mapBestaetigungRefusal(error: unknown, mindestalter: () =>
     // sends this answer, and its repair is the refused payload's.
     case "REQ-REGISTRIERUNG-010":
       return { error: ANTWORT_NEU_OEFFNEN };
+    // With the record missing, the registration the link names is gone, which is a link nothing places.
+    case "DB-COMMON-001":
     case "REQ-REGISTRIERUNG-004":
       return { zustand: "ungueltig" };
     case "REQ-REGISTRIERUNG-005":

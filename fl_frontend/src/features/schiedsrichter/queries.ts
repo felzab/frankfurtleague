@@ -91,6 +91,8 @@ export async function mapSchiedsrichterBestaetigungRefusal(
     // sends this answer, and its repair is the refused payload's.
     case "REQ-SCHIEDSRICHTER-008":
       return { error: ANTWORT_NEU_OEFFNEN };
+    // With the record missing, the referee the link names is gone, which is a link nothing places.
+    case "DB-COMMON-001":
     case "REQ-SCHIEDSRICHTER-002":
       return { zustand: "ungueltig" };
     case "REQ-SCHIEDSRICHTER-003":

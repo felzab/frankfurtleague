@@ -178,6 +178,9 @@ export function mapBewerbungSubmitRefusal(
           repair: `Soll sich daran etwas ändern, schreib uns an ${KONTAKT_EMAIL}`,
         }),
       };
+    // With the record missing, the season this page names is one the running API does not hold: only a
+    // page from before a data reset, or a crafted body, sends it, and the reload fetches the window open now.
+    case "DB-COMMON-001":
     // A seat names words other than the form's, which only a page loaded before a deploy sends.
     case "REQ-BEWERBUNG-016":
       return { error: BEWERBUNG_VERALTET };
@@ -219,6 +222,8 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number): Ei
     // mail's link replaces.
     case "REQ-VAL-001":
       return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
+    // With the record missing, the application the link names is gone, which is a link nothing places.
+    case "DB-COMMON-001":
     case "REQ-BEWERBUNG-009":
       return { zustand: "ungueltig" };
     case "REQ-BEWERBUNG-010":

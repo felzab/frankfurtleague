@@ -520,6 +520,12 @@ describe("the submission's refusals against the codes its endpoint publishes", (
     assert.deepEqual(mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-016")), { error: BEWERBUNG_VERALTET });
   });
 
+  /* The record missing is a season the running API does not hold, which only a page from before a
+     data reset names: the older page's sentence and reload, never the admin's „nicht gefunden“. */
+  it("answers a missing season as the page gone stale", () => {
+    assert.deepEqual(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "DB-COMMON-001")), { error: BEWERBUNG_VERALTET });
+  });
+
   /* `READ-BEWERBUNG-001`: these two answer an anonymous caller, so neither may disclose that a club
      exists or its state. The vocabulary is the teams list's status facet, so a status added there is
      covered here too. */
@@ -609,6 +615,12 @@ describe("the confirmation's refusals against the codes its endpoint publishes",
       const answered = answerShown(CONFIRM_OPERATION, code, (error) => mapEinwilligungRefusal(error, VERTRETUNG_MIN_ALTER));
       assert.notEqual(answered, null, `${code} reaches the contact person unmapped`);
     }
+  });
+
+  /* The record missing is an application the link named and nothing holds now: the dead-link panel,
+     never the admin's „nicht gefunden“ with a reload. */
+  it("answers the link's record gone as the link void", () => {
+    assert.deepEqual(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "DB-COMMON-001"), VERTRETUNG_MIN_ALTER), { zustand: "ungueltig" });
   });
 
   /* The link's own read answers every refusal alike: a spent link answers its state in a 200, so a
