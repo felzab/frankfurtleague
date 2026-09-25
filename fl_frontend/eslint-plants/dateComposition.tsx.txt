@@ -9,7 +9,7 @@ import { DateField } from "@heroui/react"; // expect: vendor-root
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
 import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
 import { HintPanel } from "./InfoHint"; // expect: hint-internals
-import { captureStdout } from "@/shared/testing/stdoutCapture"; // expect: test-only
+import { captureStdout } from "@/core/stdoutCapture"; // expect: test-only
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
 
 declare const bounds: object;

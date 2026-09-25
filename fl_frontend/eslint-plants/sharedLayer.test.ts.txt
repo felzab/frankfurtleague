@@ -6,6 +6,6 @@ import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
 import { HintPanel } from "./components/ui/InfoHint"; // expect: hint-internals
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
 // A test may import a test-only module.
-import { captureStdout } from "./testing/stdoutCapture";
+import { captureStdout } from "./testing/renderTest";
 
 export const USED = [Bars, PathnameContext, TimeField, HeroForm, HintPanel, TEAM_FACETS, captureStdout];

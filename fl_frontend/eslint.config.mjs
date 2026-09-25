@@ -118,6 +118,11 @@ const TEST_ONLY = [
       "authDoubles replaces the config, the database and the mail module for the process: a *.test.ts(x) file may import it, production code may not.",
   },
   {
+    // Any `testing` directory, so a relative path from inside `shared`, which names no `shared`, is read too.
+    group: ["**/testing/**"],
+    message: "src/shared/testing is the suite's harness: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
     group: [
       "**/actionSources.ts",
       "**/actionSources",
@@ -383,14 +388,14 @@ const MODULE_SOURCES = [
 ].join(", ");
 
 /**
- * A `no-restricted-imports` glob as the pattern a load's specifier is read against, for the one
- * shape the module groups write, `**` then a file. Any other shape throws rather than leave a load
- * ban reading less than its import ban.
+ * A `no-restricted-imports` glob as the pattern a load's specifier is read against: `**` then a
+ * file, or a directory between two `**`. Any other shape throws rather than leave a load ban reading
+ * less than its import ban.
  */
 function specifierOf(glob) {
-  const file = /^\*\*\/([\w.-]+)$/.exec(glob)?.[1];
-  if (file === undefined) throw new Error(`${glob} is a glob shape no load ban reads`);
-  return String.raw`(?:^|\x2F)${file.replaceAll(".", String.raw`\.`)}$`;
+  const [, name, directory] = /^\*\*\/([\w.-]+)(\/\*\*)?$/.exec(glob) ?? [];
+  if (name === undefined) throw new Error(`${glob} is a glob shape no load ban reads`);
+  return String.raw`(?:^|\x2F)${name.replaceAll(".", String.raw`\.`)}${directory === undefined ? "$" : String.raw`\x2F`}`;
 }
 const specifiersOf = (globs) => `(?:${globs.map(specifierOf).join("|")})`;
 

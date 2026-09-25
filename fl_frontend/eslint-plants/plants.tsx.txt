@@ -18,7 +18,8 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 import { HintPopover } from "@/shared/components/ui/InfoHint"; // expect: hint-internals
 import { HintPanel } from "@/shared/components/ui/InfoHint.tsx"; // expect: hint-internals
-import { captureStdout } from "@/shared/testing/stdoutCapture"; // expect: test-only
+import { captureStdout } from "@/core/stdoutCapture"; // expect: test-only
+import { underNext } from "@/shared/testing/nextContexts"; // expect: test-only
 
 declare const auth: { api: { getSession: (options: object) => unknown } };
 declare const router: { push: (to: string) => void; replace: (to: string) => void; back: () => void };
@@ -96,7 +97,8 @@ export const TIME_LOADED = import(`@heroui/react/time-field`); // expect: segmen
 export const CALENDAR_LOADED = import("@heroui/react/calendar"); // expect: calendar-load
 export const PRIVATE_PATH = "next/dist/shared/lib/app-router-context.shared-runtime"; // expect: next-private-string
 export const { HintPopover: LoadedPopover } = await import("@/shared/components/ui/InfoHint"); // expect: hint-internals-load
-export const DOUBLES_LOADED = import("@/shared/testing/authDoubles"); // expect: test-only-load
+export const DOUBLES_LOADED = import("@/core/authDoubles"); // expect: test-only-load
+export const HARNESS_LOADED = import("@/shared/testing/dom"); // expect: test-only-load
 export { Calendar as Days } from "@heroui/react/calendar"; // expect: date-alias
 export { CalendarRoot as DaysRoot, Calendar } from "@heroui/react/calendar"; // expect: date-alias expect: date-alias
 export * as CalendarParts from "@heroui/react/calendar"; // expect: date-alias expect: segmented-import expect: heroui-form
@@ -140,3 +142,4 @@ export function AdminPlantView({ facets }: { facets: unknown }) { // expect: vie
   );
 }
 export const NODE_MODULE_USED = [loadVia];
+export const HARNESS_USED = [underNext];

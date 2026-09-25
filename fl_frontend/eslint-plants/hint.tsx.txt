@@ -3,7 +3,7 @@ import { Button } from "@heroui/react"; // expect: vendor-root
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
 import { DateField } from "@heroui/react/date-field"; // expect: segmented-import
 import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
-import { captureStdout } from "@/shared/testing/stdoutCapture"; // expect: test-only
+import { captureStdout } from "@/core/stdoutCapture"; // expect: test-only
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
 // The one importer the popover and the panel allow.
 import { HintPanel, HintPopover } from "./InfoHint";
