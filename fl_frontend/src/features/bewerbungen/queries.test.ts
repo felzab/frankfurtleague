@@ -96,6 +96,7 @@ describe("the four base-tier public reads", () => {
       message: "not found",
       url: "http://backend/api/v0/bewerbungen/fenster",
       statusCode: 404,
+      serverErrorCode: "DB-COMMON-001",
       endpoint: "/bewerbungen/fenster",
       method: "GET",
       readOnly: false,

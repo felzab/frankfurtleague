@@ -1,4 +1,4 @@
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, mayHaveWritten, RolledBackError } from "@/core/errors";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, isRecordMissing, mayHaveWritten, RolledBackError } from "@/core/errors";
 
 import { buildRefusal, UNKNOWN_REFUSAL } from "./refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "./validation";
@@ -217,7 +217,7 @@ export function toActionErrorResult(error: unknown, answering?: SentRequest): Ac
   if (isRefusal(error)) {
     const refused = refusedAnswer(error);
     if (refused !== null) return refused;
-    if (error.statusCode === 404) return { success: false, error: "Der Eintrag wurde nicht gefunden. Lade die Seite neu." };
+    if (isRecordMissing(error)) return { success: false, error: "Der Eintrag wurde nicht gefunden. Lade die Seite neu." };
   }
 
   if (error instanceof APIBadStatusError) {

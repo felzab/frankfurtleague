@@ -170,7 +170,7 @@ export const backendNotFound = (endpoint: string): APIBadStatusError =>
     message: "not found",
     url: backendUrl(endpoint),
     statusCode: 404,
-    serverErrorCode: "DB-NOTFOUND-001",
+    serverErrorCode: "DB-COMMON-001",
     endpoint: endpoint,
     method: "GET",
     readOnly: true,

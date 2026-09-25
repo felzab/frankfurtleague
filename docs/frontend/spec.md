@@ -127,7 +127,10 @@ credential would answer a shape its own published component never states.
 production build redacts an error thrown out of a `"use cache"` scope to a digest-only `Error`, which a
 catch at the call site can never recognise, so `getTeam` catches its own 404 where the directive can
 still see it. The uncached reads that resolve `null` the same way are under no such constraint, and
-each catches where its own answer is decided.
+each catches where its own answer is decided. **Every one of them reads the record-missing code,
+never the status** (`fl_frontend/src/core/errors.ts :: isRecordMissing`): a 404 carrying no
+`DB-COMMON-001` is a route nothing served, and answering it as `null` would render a page's missing
+state while the API is unreachable.
 
 **`getTeam` is tagged exactly as `getTeams` is** — it reads the same documents through the same
 derivation, so a result edit moves it too. Its `null` covers a club with no junction row for the

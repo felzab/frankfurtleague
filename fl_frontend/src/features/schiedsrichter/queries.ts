@@ -1,5 +1,5 @@
 import { apiClient } from "@/core/api";
-import { APIBadStatusError } from "@/core/errors";
+import { isRecordMissing } from "@/core/errors";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
@@ -41,7 +41,7 @@ export async function getSchiedsrichterById(schiedsrichterId: string): Promise<F
     apiClient<FLSchiedsrichterSingleResponse>(`/schiedsrichter/${schiedsrichterId}`, FLSchiedsrichterSingleResponseSchema, {
       authType: "admin",
     }).catch((error: unknown) => {
-      if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
+      if (isRecordMissing(error)) return null;
       throw error;
     }),
   );

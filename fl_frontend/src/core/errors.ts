@@ -97,6 +97,14 @@ export class APIBadStatusError extends Error {
   }
 }
 
+/**
+ * Whether the API answered that the record a read names does not exist. By the code and never the
+ * status alone: a 404 carrying none is a route the edge or the framework did not find, which is a failure.
+ */
+export function isRecordMissing(error: unknown): boolean {
+  return error instanceof APIBadStatusError && error.statusCode === 404 && error.serverErrorCode === "DB-COMMON-001";
+}
+
 export class APIMalformedDataError extends Error {
   readonly code = "FE-API-002";
   traceId: string;

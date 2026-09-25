@@ -2,7 +2,7 @@ import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
-import { APIBadStatusError } from "@/core/errors";
+import { isRecordMissing } from "@/core/errors";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { FLSpieleAdminListResponseSchema, FLSpieleAdminSingleResponseSchema, FLSpieleListResponseSchema } from "./schemas";
@@ -60,7 +60,7 @@ export async function getAdminSpiel(spielId: string): Promise<FLSpieleAdminSingl
     // `null` for "no such fixture", which the editor page turns into `notFound()`. Every other
     // status still throws.
     apiClient(`/spiele/${spielId}/admin`, FLSpieleAdminSingleResponseSchema, { authType: "admin" }).catch((error: unknown) => {
-      if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
+      if (isRecordMissing(error)) return null;
       throw error;
     }),
   );

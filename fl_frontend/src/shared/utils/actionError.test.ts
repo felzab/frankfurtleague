@@ -189,7 +189,7 @@ describe("toActionErrorResult", () => {
   });
 
   it("maps a 404 onto the vanished-record message", () => {
-    const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 404 }));
+    const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 404, serverErrorCode: "DB-COMMON-001" }));
 
     assert.match(result.error ?? "", /nicht gefunden/);
   });
@@ -262,13 +262,14 @@ describe("toActionErrorResult", () => {
 });
 
 describe("a refusal read by its code, whatever its status", () => {
-  const refused = (statusCode: number, serverErrorCode: string, refusedFields: Parameters<typeof refusedPayload>[0] = []) =>
+  const refused = (statusCode: number, serverErrorCode: string | undefined, refusedFields: Parameters<typeof refusedPayload>[0] = []) =>
     toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode, serverErrorCode, refusedFields }));
 
   /* Codes are unique across the API, so a rule moved off 409 keeps the words its code is given here. */
   it("keeps each worded code's answer at any status a rule answers with", () => {
     for (const code of ["REQ-WIRING-001", "REQ-WIRING-002", "REQ-WIRING-003", "REQ-STATE-002", "REQ-ELIGIBILITY-001", "DB-COMMON-002"]) {
-      for (const status of [422, 404, 410, 403]) assert.deepEqual(refused(status, code), refused(409, code), `${code} at ${String(status)}`);
+      for (const status of [422, 404, 410, 403])
+        assert.deepEqual(refused(status, code), refused(409, code), `${String(code)} at ${String(status)}`);
     }
   });
 
@@ -296,11 +297,17 @@ describe("a refusal read by its code, whatever its status", () => {
   /* None of these refuses what the admin asked for, so none takes a rule's fallback. */
   it("answers a vanished record, a refused request and a refused credential on their own terms", () => {
     assert.match(refused(404, "DB-COMMON-001").error, /nicht gefunden/);
+    // A 404 carrying no code is a route nothing served, never a record the API says is gone.
     for (const [status, code] of [
       [400, "REQ-AUTH-005"],
       [401, "REQ-AUTH-002"],
+      [404, undefined],
     ] as const) {
-      assert.equal(refused(status, code).error, "Der Server hat mit einem Fehler geantwortet. Versuche es erneut.", code);
+      assert.equal(
+        refused(status, code).error,
+        "Der Server hat mit einem Fehler geantwortet. Versuche es erneut.",
+        `${String(code)} at ${String(status)}`,
+      );
     }
   });
 
