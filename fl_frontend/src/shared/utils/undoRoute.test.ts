@@ -12,6 +12,8 @@ const PACKAGE_DOUBLES: Record<string, string> = {
   "next/server": `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`,
   "next/navigation": `export const unstable_rethrow = () => {};`,
   "next/headers": `export const headers = async () => new Headers();`,
+  // Throws as Next does outside a server action, so a route that reached it fails here.
+  "next/cache": `export const refresh = () => { throw new Error("refresh() outside a server action"); };`,
 };
 /**
  * The session each case sets on the bus below; unset, an administrator is signed in. The landing

@@ -11,7 +11,8 @@ const REPLAY_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 
 const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
-const NEXT_CACHE = `export const revalidateTag = (tag, profile) => { globalThis.__flUndoRefTags.push([tag, profile]); };`;
+const NEXT_CACHE = `export const revalidateTag = (tag, profile) => { globalThis.__flUndoRefTags.push([tag, profile]); };
+export const refresh = () => { throw new Error("refresh() outside a server action"); };`;
 const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
 const AUTH = `export const getAdminSession = async () => globalThis.__flUndoRefSession;
 export const getSignInDestination = async () => "/admin";`;

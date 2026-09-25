@@ -12,7 +12,8 @@ const REPLAY_OPERATION = "PATCH /spiele/paarungen";
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
 const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
 const NEXT_NAVIGATION = `export const unstable_rethrow = () => {};`;
-const NEXT_CACHE = `export const revalidateTag = (tag, profile) => { globalThis.__flUndoTags.push([tag, profile]); };`;
+const NEXT_CACHE = `export const revalidateTag = (tag, profile) => { globalThis.__flUndoTags.push([tag, profile]); };
+export const refresh = () => { throw new Error("refresh() outside a server action"); };`;
 const NEXT_HEADERS = `export const headers = async () => new Headers();`;
 const AUTH = `export const getAdminSession = async () => globalThis.__flUndoSession;
 export const getSignInDestination = async () => globalThis.__flUndoDestination;`;
