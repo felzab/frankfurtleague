@@ -201,7 +201,7 @@ async function reach(node: unknown, walk: Walk, connected = false, depth = 0): P
 export type PageProps = { params: Promise<Record<string, unknown>>; searchParams: Promise<Record<string, string | string[]>> };
 
 /** Calls a page and everything its tree reaches, as `reach` does, a synchronous page's own throw recorded too. */
-export async function callPage(Page: (props: PageProps) => unknown, props: PageProps): Promise<Walk> {
+export async function callPage<P>(Page: (props: P) => unknown, props: P): Promise<Walk> {
   const walk: Walk = { thrown: [], unconnected: [] };
   try {
     await reach(isAsync(Page) ? { type: Page, props } : Page(props), walk);
