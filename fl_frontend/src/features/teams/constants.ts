@@ -219,8 +219,8 @@ type TrainerZugleichOption = {
 export const TRAINER_ZUGLEICH_OPTIONS: readonly TrainerZugleichOption[] = [
   { key: "ansprechperson", value: "ansprechperson", label: "Die Ansprechperson" },
   { key: "stellvertretung", value: "stellvertretung", label: "Die Stellvertretung" },
-  // Last, because it is the one answer that opens six further boxes below the picker: the two seat
-  // answers collapse them, and a chip that reveals belongs beside what it reveals.
+  // Last, because it is the one answer that leaves the Trainer's boxes below the picker to be typed
+  // into: a seat answer hides them on the public form and fills them read-only in the admin's editor.
   { key: "niemand", value: null, label: "Eine andere Person" },
 ];
 
