@@ -126,6 +126,9 @@ ignore = ["B008"]
 # A transport built beside the helper is a copy of it, and drifts from it. The one other permitted
 # construction serves apps carrying routes of their own, which the helper never exposes.
 "httpx2.ASGITransport".msg = "Serve the app in process through `tests/app_client.py :: app_client`; a transport of your own is a copy of it."
+# The module that transport is defined in, which the entry above never matches: ruff reads the path an
+# import spells, and an entry for a module bans every module under it.
+"httpx2._transports".msg = "Serve the app in process through `tests/app_client.py :: app_client`; a transport of your own is a copy of it."
 
 [tool.ruff.format]
 quote-style = "double"
