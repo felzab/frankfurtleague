@@ -93,7 +93,7 @@ describe("the team actions against the codes their endpoints publish", () => {
 
   it("answers every refusal the entry publishes, its rules before its unique index", async () => {
     for (const code of publishedRefusals(ENTRY_OPERATION)) {
-      assert.notEqual(answerShown(ENTRY_OPERATION, code, entryAnswer), null, `${code} reaches the admin as a generic conflict`);
+      assert.notEqual(answerShown(ENTRY_OPERATION, code, entryAnswer), null, `${code} reaches the admin with no reason`);
     }
     await assertEachAnswered({
       operation: ENTRY_OPERATION,
@@ -106,7 +106,7 @@ describe("the team actions against the codes their endpoints publish", () => {
 
   it("answers every refusal the retirement publishes", async () => {
     for (const code of publishedRefusals(RETIRE_OPERATION)) {
-      assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as a generic conflict`);
+      assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin with no reason`);
     }
     await assertEachAnswered({
       operation: RETIRE_OPERATION,
@@ -124,7 +124,7 @@ describe("the team actions against the codes their endpoints publish", () => {
       assert.notEqual(
         answerShown(REACTIVATE_OPERATION, code, () => null),
         null,
-        `${code} reaches the admin as a generic conflict`,
+        `${code} reaches the admin with no reason`,
       );
     }
     await assertEachAnswered({
@@ -304,7 +304,7 @@ describe("the junction edit's refusals", () => {
       assert.notEqual(
         answerShown(JUNCTION_OPERATION, code, mapEntryRefusal),
         null,
-        `${code} falls through to the generic conflict message when the edit is saved`,
+        `${code} reaches the admin with no reason when the edit is saved`,
       );
     });
   }
