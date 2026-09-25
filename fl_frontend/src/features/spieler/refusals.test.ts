@@ -1,14 +1,15 @@
 import { describe, it } from "node:test";
 
-import { doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapAlreadyInSaisonRefusal, mapErasureRefusal, mapSquadRefusal } from "./refusals.ts";
 
-/* The real actions, called: the request they run in and the writes they send are the doubles. A file
-   of its own, `actions.test.ts` replacing this slice's actions module for the components it renders. */
+/* The real actions and their mutations, called: the request they run in and the backend client are the
+   doubles. A file of its own, `actions.test.ts` replacing this slice's actions module for the components it renders. */
 doubleActionRequest();
-const { answerWith } = doubleActions({ modules: ["/src/features/spieler/mutations.ts"] });
+const { answerWith } = doubleApiAnswers();
 const { deleteSaisonSpielerAction, eraseSpielerAction, patchSaisonSpielerAction, postSaisonSpielerAction, reactivateSaisonSpielerAction } =
   await import("./actions.ts");
 

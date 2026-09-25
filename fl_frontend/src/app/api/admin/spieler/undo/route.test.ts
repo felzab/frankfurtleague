@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { assertEachRefusalCloses, doubleUndoRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
+import { assertEachRefusalCloses, doubleRouteRequest, unacknowledged, undo } from "@/shared/testing/undoRoutes.ts";
 
-/* The real route, called: the request it runs in and the writes it replays are the doubles. */
-const { answerWith, calls } = doubleUndoRequest("/src/features/spieler/mutations.ts");
+/* The real route and the mutations it replays through, called: the request it runs in and the backend client are the doubles. */
+doubleRouteRequest();
+const { answerWith, calls } = doubleApiAnswers();
 const { POST } = await import("./route.ts");
 
 /**
@@ -26,12 +28,15 @@ const SAISON = {
   rolle: null,
 };
 
+const PERSON_PATH = `/spieler/${SPIELER_ID}`;
+const SQUAD_PATH = `/spieler/${SPIELER_ID}/saisons/${SAISON.saison_id}`;
+
+/** Whether the request being answered is the squad half's, the client recording each before it answers. */
+const answeringTheSquadHalf = (): boolean => calls.at(-1)?.endpoint === SQUAD_PATH;
+
 /** The person half restored, and the squad half refused with `code`. */
 function refuseTheSquadHalf(code: string): void {
-  answerWith(() => {
-    const call = calls.at(-1)?.action;
-    return call === "patchSaisonSpieler" ? Promise.reject(refusedOn(SQUAD_OPERATION, code)) : Promise.resolve({ acknowledged: 1 });
-  });
+  answerWith(() => (answeringTheSquadHalf() ? Promise.reject(refusedOn(SQUAD_OPERATION, code)) : Promise.resolve({ acknowledged: 1 })));
 }
 
 describe("the player save's undo", () => {
@@ -40,10 +45,12 @@ describe("the player save's undo", () => {
     const answer = await undo(POST, { person: PERSON, saison: SAISON });
 
     assert.equal(answer.success, true, String(answer.error));
-    assert.deepEqual(
-      calls.map((call) => call.action),
-      ["patchSpieler", "patchSaisonSpieler"],
-    );
+    const { id, ...person } = PERSON;
+    const { spieler_id, saison_id, ...squad } = SAISON;
+    assert.deepEqual(requestsOf(calls), [
+      { endpoint: `/spieler/${id}`, method: "PATCH", body: person },
+      { endpoint: `/spieler/${spieler_id}/saisons/${saison_id}`, method: "PATCH", body: squad },
+    ]);
   });
 
   it("words every refusal the squad half publishes, closing on the change standing once", async () => {
@@ -75,13 +82,13 @@ describe("the player save's undo", () => {
       unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe die Spielerdaten."),
     );
     assert.deepEqual(
-      calls.map((call) => call.action),
-      ["patchSpieler"],
+      calls.map(({ endpoint }) => endpoint),
+      [PERSON_PATH],
     );
   });
 
   it("answers an unacknowledged squad half as of unknown outcome, alone or after the person half", async () => {
-    answerWith(() => Promise.resolve({ acknowledged: calls.at(-1)?.action === "patchSaisonSpieler" ? 0 : 1 }));
+    answerWith(() => Promise.resolve({ acknowledged: answeringTheSquadHalf() ? 0 : 1 }));
 
     assert.deepEqual(await undo(POST, { saison: SAISON }), unacknowledged("Die Rücknahme wurde abgebrochen. Prüfe den Kadereintrag."));
     assert.deepEqual(
