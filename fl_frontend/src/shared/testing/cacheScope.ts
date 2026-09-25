@@ -15,7 +15,7 @@ type ServerReact = {
 const FRONTEND_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 
 /** Rooted at the frontend manifest, so a caller's own depth never reaches a dependency lookup. */
-export const requireFromFrontend = createRequire(path.join(FRONTEND_DIR, "package.json"));
+const requireFromFrontend = createRequire(path.join(FRONTEND_DIR, "package.json"));
 
 // Loaded by path because `node --test` resolves `react` without `react-server`, whose build is the
 // real memoizer: the client build's `cache` is a passthrough, so every count would read unmemoized

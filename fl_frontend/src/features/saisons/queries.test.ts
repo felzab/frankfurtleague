@@ -3,7 +3,7 @@ import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { beginRenderPass, itOpensAScopeThatMemoizes, requireFromFrontend, SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
 
 /** The saison modules under test, whose `react` imports are the ones the server build must answer. */
 const FEATURE_URL = pathToFileURL(import.meta.dirname).href + "/";
@@ -23,20 +23,11 @@ const API_DOUBLE = `export const apiClient = async (endpoint) => {
   return { saisons: [{ id: "2526" }] };
 };`;
 
-// Real modules, resolved through CJS: these are extensionless files, which Node's ESM resolver
-// will not add an extension for and its CJS one will. Resolved up here, because `require.resolve`
-// re-enters the hook below and would recurse without end.
-const NEXT_MODULE_URLS = new Map(
-  ["next/cache", "next/navigation"].map((specifier) => [specifier, pathToFileURL(requireFromFrontend.resolve(specifier)).href]),
-);
-
 registerHooks({
   resolve(specifier, context, nextResolve) {
     // Only for the modules under test: Next's client runtime is in this process and needs the client build.
     if (specifier === "react" && context.parentURL?.startsWith(FEATURE_URL)) return { url: SERVER_REACT_URL, shortCircuit: true };
     if (specifier === "next/headers") return { url: HEADERS_DOUBLE_URL, shortCircuit: true };
-    const nextUrl = NEXT_MODULE_URLS.get(specifier);
-    if (nextUrl) return { url: nextUrl, shortCircuit: true };
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {

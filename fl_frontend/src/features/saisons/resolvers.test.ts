@@ -2,10 +2,6 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { before, beforeEach, describe, it } from "node:test";
 
-/* For its resolver alone: `next` publishes no `exports` map, and the harness supplies the extension
-   `next/navigation` is written without. */
-import "@/shared/testing/renderTest.ts";
-
 // Type-only, so nothing is imported at load: the resolver is pulled in from `before`, below.
 import type {
   resolveIsFinishedSaison as resolveIsFinishedSaisonFunction,

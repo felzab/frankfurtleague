@@ -31,8 +31,6 @@ const PACKAGE_DOUBLES: Readonly<Record<string, string>> = {
    the action answers each outcome alike. */
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    // `next` publishes no `exports` map, so Node finds the subpath only with its extension.
-    if (specifier === "next/navigation") return nextResolve("next/navigation.js", context);
     const double = PACKAGE_DOUBLES[specifier];
     return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
   },

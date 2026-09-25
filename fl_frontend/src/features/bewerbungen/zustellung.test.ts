@@ -48,8 +48,6 @@ const TRACE_DOUBLE = `export const runWithIncomingTrace = async (fn) => fn();`;
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    // Node resolves the package's subpath only with its extension; Next's own bundler needs none.
-    if (specifier === "next/server") return nextResolve("next/server.js", context);
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {

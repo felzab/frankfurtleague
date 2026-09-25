@@ -47,9 +47,6 @@ export const mongodbAdapter = () => memoryAdapter(globalThis.${store});`);
 
 const SERVER_ONLY_DOUBLE_URL = asDataUrl("export {};");
 
-/** A single-segment subpath such as `next/headers`, leaving a deep `next/dist/…` path to Node. */
-const NEXT_SUBPATH = /^next\/[\w-]+$/;
-
 type Doubles = {
   /** Module sources by the `fl_frontend/src/core/<name>.ts` they replace, over the three defaults. */
   readonly core?: Readonly<Record<string, string>>;
@@ -72,9 +69,6 @@ export function registerAuthDoubles({ core = {}, specifiers = {} }: Doubles = {}
       if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
       const url = replaced.get(specifier);
       if (url !== undefined) return { url: url, shortCircuit: true };
-      // `next` publishes no `exports` map, so Node's resolver has no subpath to consult and only a
-      // file path resolves. Both the library and the application import these bare.
-      if (NEXT_SUBPATH.test(specifier)) return nextResolve(`${specifier}.js`, context);
       return nextResolve(specifier, context);
     },
     load(url, context, nextLoad) {

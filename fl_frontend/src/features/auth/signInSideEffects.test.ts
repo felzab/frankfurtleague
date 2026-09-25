@@ -33,7 +33,7 @@ export const cookies = async () => globalThis.${COOKIE_JAR};`;
  * Collected rather than run: work the real `after` puts behind the response is work no case here may
  * see inside one. `NextResponse` is the real export beside it, this file building the response itself.
  */
-const NEXT_SERVER_DOUBLE = `export * from ${JSON.stringify(import.meta.resolve("next/server.js"))};
+const NEXT_SERVER_DOUBLE = `export * from ${JSON.stringify(import.meta.resolve("next/server"))};
 export const after = (task) => { globalThis.${DEFERRED}.push(task); };`;
 
 registerAuthDoubles({

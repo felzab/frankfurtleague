@@ -34,7 +34,7 @@ const textOf = (body: ReactElement): unknown => (body as ReactElement<{ children
    static import would have resolved the real modules before then. */
 const { connection } = await import("next/server");
 const { apiClient } = await import("@/core/api.ts");
-const { notFound } = await import("next/navigation.js");
+const { notFound } = await import("next/navigation");
 const { Button } = await import("@heroui/react/button");
 const { AdminCrudSearch } = await import("@/shared/components/ui/AdminCrudSearch.tsx");
 

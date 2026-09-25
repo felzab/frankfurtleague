@@ -23,8 +23,7 @@ export function doubleUndoRequest(mutations: string): ReturnType<typeof doubleAc
   registerHooks({
     resolve(specifier, context, nextResolve) {
       if (specifier === "next/cache") return { url: `data:text/javascript,${encodeURIComponent(ROUTE_NEXT_CACHE_DOUBLE)}`, shortCircuit: true };
-      // `next` publishes no `exports` map, so Node finds the subpath only with the extension a bundler would supply.
-      return nextResolve(specifier === "next/server" ? "next/server.js" : specifier, context);
+      return nextResolve(specifier, context);
     },
   });
   // After every case rather than at the throw: the undo spine catches an invalidation's throw and logs

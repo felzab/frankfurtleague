@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { beginRenderPass, itOpensAScopeThatMemoizes, requireFromFrontend, SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
 
 /** The three filtered admin reads under test, whose `react` imports the server build must answer. */
 const FEATURE_URLS = ["spiele", "spieltage", "teams"].map((feature) => `${pathToFileURL(path.join(import.meta.dirname, "..", feature)).href}/`);
@@ -24,16 +24,12 @@ const API_DOUBLE = `export const apiClient = async (endpoint, _schema, options) 
   return { format: "list", teams: [], spiele: [], spieltage: [] };
 };`;
 
-// Extensionless, not an exports-map subpath: only CJS resolution adds one. Up here: `require.resolve` re-enters the hook.
-const NEXT_CACHE_URL = pathToFileURL(requireFromFrontend.resolve("next/cache")).href;
-
 registerHooks({
   resolve(specifier, context, nextResolve) {
     // Only for the modules under test: Next's client runtime is in this process and needs the client build.
     const parent = context.parentURL;
     if (specifier === "react" && FEATURE_URLS.some((url) => parent?.startsWith(url))) return { url: SERVER_REACT_URL, shortCircuit: true };
     if (specifier === "next/headers") return { url: HEADERS_DOUBLE_URL, shortCircuit: true };
-    if (specifier === "next/cache") return { url: NEXT_CACHE_URL, shortCircuit: true };
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {

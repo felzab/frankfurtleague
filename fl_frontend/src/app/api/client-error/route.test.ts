@@ -12,8 +12,6 @@ const CONFIG_DOUBLE = `export const frontend_config = { LOG_FORMAT: "json", LOG_
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    // Node resolves the package's subpath only with its extension; Next's own bundler needs none.
-    if (specifier === "next/server") return nextResolve("next/server.js", context);
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {

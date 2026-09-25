@@ -208,10 +208,6 @@ export function doubleActionRequest({
   });
   registerHooks({
     resolve(specifier, context, nextResolve) {
-      // The real module, which `runAdminMutation` rethrows a navigation through: `next` publishes no
-      // `exports` map, so Node finds the subpath only with the extension a bundler would supply.
-      if (specifier === "next/navigation") return nextResolve("next/navigation.js", context);
-
       const double = REQUEST_PACKAGES[specifier];
       return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
     },

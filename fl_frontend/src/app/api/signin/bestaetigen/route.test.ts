@@ -33,8 +33,6 @@ const CONFIG_DOUBLE = `export const frontend_config = { AUTH_URL: "http://localh
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "next/headers") return { url: HEADERS_DOUBLE_URL, shortCircuit: true };
-    // Node resolves the package's subpath only with its extension; Next's own bundler needs none.
-    if (specifier === "next/server") return nextResolve("next/server.js", context);
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
