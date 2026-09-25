@@ -364,7 +364,7 @@ taking input and `REQ-VAL-002` on the 400 of every one taking a body — so `def
 the document publishes each code at the status a client meets it at:
 
 - **409** where the refusal is about the target's current state, whoever can lift it — the caller,
-  an administrator, or time — so the identical request succeeds once that state changes (ruling R573).
+  an administrator, or time — so the identical request succeeds once that state changes.
   The draw judges the season's stored rules and dates beneath its payload's shape, so a rule reading
   a stored value answers there under a draw twin
   (`fl_backend/app/api/saisons/services.py :: DRAW_TWINS`)
@@ -381,7 +381,7 @@ the document publishes each code at the status a client meets it at:
   passing is a 409 (`REQ-BEWERBUNG-017`). A link's view still answers 200 with the state
   `abgelaufen`, so a page can say why before anyone presses
 - **403** only where the refusal is about who the caller is — their authority, their role or their
-  standing, a ban included — and never about the target's state (ruling R573): a visitor typing an
+  standing, a ban included — and never about the target's state: a visitor typing an
   address the ban list holds. An administrator's write naming that address is about the entry it
   writes, so it answers 409, as the ghost referee's erasure does
 

@@ -1,4 +1,4 @@
-"""SCRIPTS · the commit-msg hook, the only reader of a commit message (R578), driven through real commits.
+"""SCRIPTS · the commit-msg hook, the only reader of a commit message, driven through real commits.
 
 The `Closes:` trailer is judged against the staged diff, which is the new commit's own diff for a
 plain commit, a `-C` commit after `cherry-pick -n` (the landing flow) and a `-F` commit after
