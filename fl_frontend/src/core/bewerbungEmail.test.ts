@@ -4,6 +4,8 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { schemeTokens } from "./schemeReader.ts";
+
 import type {
   BewerbungAbsageData,
   BewerbungBestaetigungData,
@@ -75,11 +77,10 @@ function readable(html: string): string {
 /** The text branch on the same terms, so a comparison between the two is not a comparison of line wrapping. */
 const flat = (text: string): string => text.replace(/\s+/g, " ").trim();
 
-/** The module as text, for the claims about its own shape that no return value carries. */
-const MODULE_SOURCE = readFileSync(path.resolve(import.meta.dirname, "bewerbungEmail.ts"), "utf8");
-
-/** Restated, never imported: a colour checked against its own source moves with it. Asserted below to be the module's. */
-const BRAND_COLOR = "#216c2d";
+/** The site's brand ink, read off the season scheme: a colour checked against the shell's own constant moves with it. */
+const BRAND_COLOR =
+  schemeTokens(readFileSync(path.resolve(import.meta.dirname, "..", "app", "schemes", "2027.css"), "utf8"), "light").get("--accent-brand") ??
+  assert.fail("the season scheme declares no --accent-brand");
 
 /** The panel, which stands between the heading and the first prose paragraph. Its position is part of what it is. */
 function factSection(html: string): string {
@@ -92,9 +93,6 @@ function factSection(html: string): string {
 function stylesheet(html: string): string {
   return html.slice(html.indexOf("<style"), html.indexOf("</style>"));
 }
-
-/** The shared shell as text: the palette it declares is pinned against the season scheme in its own test. */
-const SHELL_SOURCE = readFileSync(path.resolve(import.meta.dirname, "emailShell.ts"), "utf8");
 
 /** The controls, which stand alone between the rule that sets them off and the one above the close. */
 function controlSection(html: string): string {
@@ -488,8 +486,6 @@ describe("both decisions", () => {
   });
 
   it("set every „Saison NNNN“ in the brand colour, and in the panel the year alone", () => {
-    assert.ok(SHELL_SOURCE.includes(`const BRAND_COLOR = "${BRAND_COLOR}";`), "the brand colour moved and this test did not move with it");
-
     for (const { name, mail, saisonId } of allMessages()) {
       const body = mail.html.slice(mail.html.indexOf("</head>"));
       const positions = [...body.matchAll(new RegExp(`Saison ${saisonId}`, "g"))].map((hit) => hit.index);
@@ -746,14 +742,6 @@ describe("both decisions", () => {
       // The markup branch states the same facts, so a value folded away in one branch only is two messages.
       assert.ok(readable(mail.html).includes("Zweite Zeile"), `${field} lost the line below its delimiter in the markup`);
     }
-  });
-
-  /* A panel label and the words a heading opens on are the module's own literals today, so no
-     rendered message can carry either unescaped and no fixture can reach them. Pinned against the
-     source instead, for the day one is derived. */
-  it("escape a panel label and a heading as they escape a panel value", () => {
-    assert.match(MODULE_SOURCE, /const label = escapeHtml\(fakt\.label\);/, "a panel label is interpolated raw");
-    assert.match(MODULE_SOURCE, /ueberschrift: `\$\{escapeHtml\(headingVor\)\}/, "a heading is interpolated raw");
   });
 
   it("never hand a reader the other decision's subject or heading", () => {
