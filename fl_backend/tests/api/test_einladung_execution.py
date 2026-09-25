@@ -158,11 +158,11 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "active", teams: t
     return on_the_seed_loop(_run())
 
 
-async def mint(database: AsyncDatabase, team_id: ObjectId, *, saison_id: str = SAISON_ID) -> Any:
+async def mint(database: AsyncDatabase, team_id: ObjectId, *, saison_id: str = SAISON_ID, einladungen: Any = None) -> Any:
     return await post_einladung(
         team_id=team_id,
         saison_id=saison_id,
-        einladungen_collection=database[Collection.EINLADUNGEN],
+        einladungen_collection=einladungen if einladungen is not None else database[Collection.EINLADUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         db=database.client,
@@ -379,6 +379,88 @@ class TestTwoMintsAtOnce:
         # administrator would repeat.
         assert set(outcomes) <= {"FLEinladungMintResponse", "DuplicateKeyError"}
         assert live == 1
+
+    def test_a_mint_whose_revoke_ran_before_the_first_commit_is_answered_by_the_retry(self, mongo_replica_set_url: str):
+        """The interleaving the case above cannot promise: without the hold a serial run passes it too."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            committed = asyncio.Event()
+            held = _HoldsAfterItsRevoke(database[Collection.EINLADUNGEN], committed)
+            second = asyncio.create_task(mint(database, TWO_SEATS, einladungen=held))
+            await held.until_revoked(second)
+
+            try:
+                first = await mint(database, TWO_SEATS)
+            except BaseException:
+                await held.abandon(second)
+                raise
+            committed.set()
+            answered = await second
+
+            live = await database[Collection.EINLADUNGEN].find({"team_id": TWO_SEATS, "widerrufen_am": None}).to_list(length=None)
+
+            return first.einladung_id, answered.einladung_id, held.revokes, held.insert_failures, [row["_id"] for row in live]
+
+        first, second, revokes, failures, live = on_a_league(mongo_replica_set_url, body)
+
+        # 112 is `WriteConflict`, which `with_transaction` retries: the second run revokes the first's link.
+        assert (revokes, failures) == (2, ["OperationFailure:112"])
+        assert live == [second] and first != second
+
+
+class _HoldsAfterItsRevoke:
+    """A second mint held between its revoke and its insert until the first mint has committed.
+
+    Records each revoke and each insert's failure: how many attempts ran, and how the server ordered the two.
+    """
+
+    def __init__(self, collection: Any, committed: asyncio.Event) -> None:
+        self._collection = collection
+        self._committed = committed
+        self.revokes = 0
+        self.revoked = asyncio.Event()
+        self.insert_failures: list[str] = []
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
+
+    async def update_many(self, *args: Any, **kwargs: Any) -> Any:
+        result = await self._collection.update_many(*args, **kwargs)
+        self.revokes += 1
+        self.revoked.set()
+        await self._committed.wait()
+
+        return result
+
+    async def insert_one(self, *args: Any, **kwargs: Any) -> Any:
+        try:
+            return await self._collection.insert_one(*args, **kwargs)
+        except Exception as failure:
+            self.insert_failures.append(f"{type(failure).__name__}:{getattr(failure, 'code', None)}")
+            raise
+
+    async def until_revoked(self, mint_task: asyncio.Task[Any]) -> None:
+        """Raced against the mint, never polled: a mint ending without its revoke fails here rather than hanging the tier."""
+
+        revoked = asyncio.create_task(self.revoked.wait())
+        try:
+            await asyncio.wait({mint_task, revoked}, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            revoked.cancel()
+            await asyncio.gather(revoked, return_exceptions=True)
+        if self.revoked.is_set():
+            return
+
+        if (error := mint_task.exception()) is not None:
+            raise error
+        pytest.fail("the second mint answered without revoking, so nothing held it across the first mint's commit")
+
+    @staticmethod
+    async def abandon(mint_task: asyncio.Task[Any]) -> None:
+        """Cancelled and drained: left parked on the shared seed loop, it holds its transaction open into the next test."""
+
+        mint_task.cancel()
+        await asyncio.gather(mint_task, return_exceptions=True)
 
 
 class TestTheRuleOfOneLiveInvitation:
