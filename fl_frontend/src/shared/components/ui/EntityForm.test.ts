@@ -6,7 +6,7 @@ import { describe, it, mock } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { z } from "zod";
 
@@ -98,8 +98,9 @@ describe("the create form", () => {
 
     await user.type(screen.getByRole("textbox", { name: "Name" }), "Lena");
     await user.click(screen.getByRole("button", { name: "Speichern" }));
-    // The refusal commits with the save's release, one transition, so the toasts are read once it has let go.
-    await screen.findByRole("button", { name: "Speichern" });
+    // Raised from an effect after the save's release commits, so the button coming back is no sign it was
+    // raised: the toasts are read once one has been.
+    await waitFor(() => assert.ok(raised.length > 0, "the refusal was announced nowhere"));
 
     assert.deepEqual(
       raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
