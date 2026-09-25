@@ -65,12 +65,25 @@ rm -rf "$SCRATCH"
 # before the run: Docker would otherwise create it root-owned, which the cleanup cannot remove.
 mkdir -p "${SCRATCH}/log"
 
+# Each header's name and value off the file the set is written in, so a location restating the set
+# with a different value fails as surely as one dropping it.
+declare -A SECURITY_HEADERS=()
+while IFS= read -r written_line; do
+  [[ "$written_line" =~ ^[[:space:]]*add_header ]] || continue
+  [[ "$written_line" =~ ^[[:space:]]*add_header[[:space:]]+([A-Za-z-]+)[[:space:]]+\"([^\"]*)\"[[:space:]]+always\;$ ]] \
+    || refuse "nginx/shared/security_headers.conf holds '${written_line}', whose name and value this test cannot read."
+  SECURITY_HEADERS["${BASH_REMATCH[1],,}"]="${BASH_REMATCH[2]}"
+done < "${REPO_ROOT}/nginx/shared/security_headers.conf"
+(( ${#SECURITY_HEADERS[@]} > 0 )) || refuse "nginx/shared/security_headers.conf yielded no header to compare."
+
 # The stub answers as `frontend` from inside the same nginx, so each case is graded on a real 200
 # rather than a 502 that never reached a location. Nothing answers as `backend`, whose 502 the
 # stream check below needs.
 
-# It answers with the two headers it was handed, so the header block below reads what reached Next.
-cat > "${SCRATCH}/zz-upstream-stub.conf" <<'STUB'
+# It answers with the two headers it was handed, so the header block below reads what reached Next,
+# and with its own copy of every security header, which the edge must not pass beside its own.
+{
+  cat <<'STUB'
 server {
     listen 3000;
     server_name _;
@@ -78,9 +91,10 @@ server {
     access_log off;
     add_header X-Seen-Traceparent $http_traceparent always;
     add_header X-Seen-Actor $http_x_fl_actor always;
-    location / { return 200 "stub\n"; }
-}
 STUB
+  for name in "${!SECURITY_HEADERS[@]}"; do printf '    add_header %s "upstream" always;\n' "$name"; done
+  printf '%s\n' '    location / { return 200 "stub\n"; }' '}'
+} > "${SCRATCH}/zz-upstream-stub.conf"
 # Empty, and written below the redaction cases to drive a reload nginx refuses.
 : > "${SCRATCH}/zz-reload-probe.conf"
 
@@ -455,17 +469,6 @@ Each line above is what nginx WROTE."
 fi
 
 # --- the security headers, as served (`docs/ops/spec.md` I2) -------------------------------------
-
-# Each header's name and value off the file the set is written in, so a location restating the set
-# with a different value fails as surely as one dropping it.
-declare -A SECURITY_HEADERS=()
-while IFS= read -r written_line; do
-  [[ "$written_line" =~ ^[[:space:]]*add_header ]] || continue
-  [[ "$written_line" =~ ^[[:space:]]*add_header[[:space:]]+([A-Za-z-]+)[[:space:]]+\"([^\"]*)\"[[:space:]]+always\;$ ]] \
-    || refuse "nginx/shared/security_headers.conf holds '${written_line}', whose name and value this test cannot read."
-  SECURITY_HEADERS["${BASH_REMATCH[1],,}"]="${BASH_REMATCH[2]}"
-done < "${REPO_ROOT}/nginx/shared/security_headers.conf"
-(( ${#SECURITY_HEADERS[@]} > 0 )) || refuse "nginx/shared/security_headers.conf yielded no header to compare."
 
 HEADER_FAILURES=0
 declare -A SENT=() SENT_VALUE=()
