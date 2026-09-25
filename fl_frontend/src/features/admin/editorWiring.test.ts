@@ -504,9 +504,9 @@ describe("a page-owned editor's field errors", () => {
   });
 
   for (const [file, editor] of Object.entries(EDITORS)) {
-    /* An editor re-judging only on blur keeps painting a fixed field until the admin leaves it; one
-       recording a refusal without the payload it answered reads every later blur as a change, and the
-       blur on the refused field deletes the server's message while the value it refused still stands. */
+    /* A fixed field clears before it is left, and the server's refusal outlives a visit that changes
+       nothing: an editor re-judging on blur alone keeps painting, and one misrecording what it sent drops
+       the refusal. */
     it(`${file} clears a fixed field at once, and keeps the server's refusal through an unchanged blur`, async () => {
       const user = userEvent.setup();
       const container = await editor.render();
@@ -538,9 +538,8 @@ describe("a page-owned editor's field errors", () => {
 
 describe("a page-owned editor's undo", () => {
   for (const [file, editor] of Object.entries(EDITORS)) {
-    /* The undo is a `fetch` to the slice's own route: a wrong slice's replays the change as another
-       collection's restore. Answered as the proxy answers a lapsed session, so only the shared dispatch's
-       own handling sends the admin to sign in again (`fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo`). */
+    /* One request, to the slice's own route, answered as the proxy answers a lapsed session: only
+       `fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo` then sends the admin to sign in again. */
     it(`${file} dispatches the undo its save offers through the shared dispatch, to its own slice's route`, async () => {
       // One success every editor reads its undo from: the match editor its prior pairings, the contacts
       // editor the row's new stand, without which it offers no replay at all.

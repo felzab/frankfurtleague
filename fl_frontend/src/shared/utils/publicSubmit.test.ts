@@ -340,9 +340,8 @@ const FORMS: Record<string, PublicForm> = {
 };
 
 describe("where each public form's write is transported", () => {
-  /* The edge answers its rate limit in nginx's own HTML, which `postPublicForm` alone reads as a
-     refusal that ruled the write out. A form spelling a write of its own tells the visitor
-     something else about a request the edge turned away. */
+  /* Only `postPublicForm` reads the edge's rate limit, answered in nginx's own HTML, as a refusal
+     that ruled the write out: a form writing on its own tells the visitor something else. */
   for (const [name, form] of Object.entries(FORMS)) {
     it(`${name} posts once to its own route, and passes on the shared helper's reading of the edge's refusal`, async () => {
       const posted: string[] = [];
