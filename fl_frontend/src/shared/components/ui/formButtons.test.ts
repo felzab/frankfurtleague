@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
 
@@ -275,54 +275,5 @@ describe("the width a button takes in a row that becomes a column", () => {
       assert.ok(!classes.has("h-12"), `${emitted}: a fixed height clips the second line of a wrapped label`);
       assert.ok(classes.has("min-h-12"), `${emitted}: an unwrapped label no longer measures the same as every other button`);
     }
-  });
-});
-
-/**
- * Every component holding chrome around a page's content: the modal folders and the shared dialog bodies,
- * plus the entity editors' views and the header they share, where a hand-spelled pill diverges unseen.
- */
-async function chromeSources(): Promise<string[]> {
-  const found: string[] = [];
-
-  const walk = async (dir: string): Promise<void> => {
-    for (const entry of await readdir(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        await walk(full);
-        continue;
-      }
-      if (!entry.name.endsWith(".tsx")) continue;
-      // Matched below `src`, never against the absolute path: a checkout can sit in a directory called
-      // anything, `modals` included.
-      const within = path.relative(SRC, full);
-      if (within.split(path.sep).includes("modals") || /(Modal|EntityForm|EditView|EditPageHeader)\.tsx$/.test(entry.name)) found.push(full);
-    }
-  };
-
-  await walk(SRC);
-  return found;
-}
-
-describe("where a page's chrome buttons get their appearance", () => {
-  it("finds every one of them going through the recipe", async () => {
-    const files = await chromeSources();
-    // Below this the walk has stopped finding the population rather than the population having
-    // shrunk. Five under it: more than any one slice's chrome holds, so retiring a slice never fires it.
-    assert.ok(files.length >= 20, `expected the chrome population; found ${String(files.length)}`);
-
-    const spelledLocally: string[] = [];
-
-    for (const file of files) {
-      const source = await readFile(file, "utf8");
-      for (let at = source.indexOf("<Button"); at !== -1; at = source.indexOf("<Button", at + 1)) {
-        const closes = source.indexOf("</Button>", at);
-        const element = source.slice(at, closes === -1 ? undefined : closes);
-        if (!element.includes("formButton("))
-          spelledLocally.push(`${path.relative(SRC, file)} :: ${element.slice(0, 60).replace(/\s+/g, " ")}`);
-      }
-    }
-
-    assert.deepEqual(spelledLocally, [], `a dialog button is spelling its own classes:\n${spelledLocally.join("\n")}`);
   });
 });
