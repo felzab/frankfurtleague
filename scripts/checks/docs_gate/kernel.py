@@ -26,7 +26,7 @@ from typing import Final, Literal
 
 # From the shared kernel rather than a second copy: a checker taking git, the repository root or
 # the reading errors from its own drifts into its own behaviour, the principle that file states.
-from checker_kernel import REPO_ROOT, UNREADABLE, git, git_input, git_status
+from checker_kernel import REPO_ROOT, UNREADABLE, git, git_input, git_status, workflow_message
 from markdown_it import MarkdownIt
 from markdown_it.rules_inline import StateInline, backtick, image
 from markdown_it.token import Token
@@ -351,16 +351,15 @@ CHECKS: Final[dict[str, Check]] = {
 }
 
 
-# GitHub's workflow-command escaping. A message needs the group below alone; a property value
-# needs the separators as well, an unescaped comma there starting a property nobody wrote. `%` goes first, or
-# it would escape the codes the others just wrote.
-COMMAND_ESCAPES: Final[tuple[tuple[str, str], ...]] = (("%", "%25"), ("\r", "%0D"), ("\n", "%0A"))
+# A property value needs the separators escaped beyond a message's escapes, an unescaped comma there
+# starting a property nobody wrote (`escapeProperty`, beside `checker_kernel.py :: COMMAND_ESCAPES`).
 PROPERTY_ESCAPES: Final[tuple[tuple[str, str], ...]] = ((":", "%3A"), (",", "%2C"))
 
 
 def _escaped(text: str, *, in_property: bool) -> str:
     """One run of text as a workflow command may carry it."""
-    for char, code in COMMAND_ESCAPES + (PROPERTY_ESCAPES if in_property else ()):
+    text = workflow_message(text)
+    for char, code in PROPERTY_ESCAPES if in_property else ():
         text = text.replace(char, code)
     return text
 

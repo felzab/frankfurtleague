@@ -44,6 +44,19 @@ for _stream in (sys.stdout, sys.stderr):
         _stream.reconfigure(encoding="utf-8", errors="replace")
 
 
+# A workflow command's message as the runner decodes it: `escapeData` in
+# https://github.com/actions/toolkit/blob/ed3ea3b5ba8cf9cc0232e157f2080a9864305bd5/packages/core/src/command.ts
+# (read 2026-09-25). `%` goes first, or it would escape the codes the others write.
+COMMAND_ESCAPES: Final[tuple[tuple[str, str], ...]] = (("%", "%25"), ("\r", "%0D"), ("\n", "%0A"))
+
+
+def workflow_message(text: str) -> str:
+    """One text as a workflow command carries it: a raw line break ends the command there."""
+    for char, code in COMMAND_ESCAPES:
+        text = text.replace(char, code)
+    return text
+
+
 Severity = Literal["fail", "report"]
 
 

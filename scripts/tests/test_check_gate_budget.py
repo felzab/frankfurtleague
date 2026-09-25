@@ -299,6 +299,18 @@ def test_main_annotates_under_actions(tmp_path: Path):
     assert "::error title=Gate budget::`backend` took 61 s against a budget of 60 s" in out
 
 
+def test_an_annotation_carries_its_whole_message_as_one_command() -> None:
+    """A raw line break ends a workflow command there, and the runner reads what follows as log text."""
+    stdout = io.StringIO()
+    with patch.dict(budget.os.environ, {"GITHUB_ACTIONS": "true"}), contextlib.redirect_stdout(stdout):
+        budget.annotate([budget.Finding("fail", "100% over\r\nthe budget")])
+        budget.warn("50% slower\nthan its floor")
+    assert stdout.getvalue().splitlines() == [
+        "::error title=Gate budget::100%25 over%0D%0Athe budget",
+        "::warning title=Gate wall clock::50%25 slower%0Athan its floor",
+    ], stdout.getvalue()
+
+
 # --- the window of main runs -----------------------------------------------------------------------
 
 

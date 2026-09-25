@@ -37,6 +37,7 @@ from checker_kernel import (
     report_findings,
     resolve_base,
     run,
+    workflow_message,
 )
 
 REFERENCE: Final = Path(".github/gate-wall-clock.tsv")
@@ -420,7 +421,7 @@ def no_comparison(reason: str) -> str:
 def warn(message: str) -> None:
     """An annotation as well as the summary: the checks list is where most readers look."""
     if os.environ.get("GITHUB_ACTIONS"):
-        print(f"::warning title=Gate wall clock::{message}")
+        print(f"::warning title=Gate wall clock::{workflow_message(message)}")
 
 
 def append(summary: Path, text: str) -> None:
@@ -454,7 +455,7 @@ def annotate(findings: list[Finding]) -> None:
         return
     for finding in findings:
         if finding.severity == "fail":
-            print(f"::error title=Gate budget::{finding.detail}")
+            print(f"::error title=Gate budget::{workflow_message(finding.detail)}")
 
 
 def main() -> int:
