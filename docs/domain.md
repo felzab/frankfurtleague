@@ -248,8 +248,9 @@ entry, because a stale form and a direct request each reach it, and on a public 
 anyone's.
 
 Every refusal reaches a client as a **code** rather than as a message, the English text beside it going only
-to the log; `fl_backend/openapi.json` publishes on each operation's 409 the rules it refuses on, and
-[`logging/error-codes.md`](logging/error-codes.md) lists every other code with the status it answers.
+to the log; `fl_backend/openapi.json` publishes each rule an operation refuses on at the status it
+answers, and [`logging/error-codes.md`](logging/error-codes.md) lists every other code with the status
+it answers.
 
 **The table above is about validity — may this value exist? Read visibility is a different question: may
 this caller see a value that legitimately does?** Neither the validators nor the refusal functions can settle
