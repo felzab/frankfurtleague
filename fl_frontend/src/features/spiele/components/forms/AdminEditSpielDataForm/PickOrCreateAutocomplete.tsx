@@ -4,13 +4,13 @@ import { useState } from "react";
 
 import Plus from "@gravity-ui/icons/Plus";
 
-import { Autocomplete } from "@heroui/react/autocomplete";
 import { Button } from "@heroui/react/button";
 import { ListBox } from "@heroui/react/list-box";
 import { useFilter } from "@heroui/react/rac";
 import { SearchField } from "@heroui/react/search-field";
 
 import { dismissControl } from "@/core/dismissControl";
+import { Autocomplete } from "@/shared/components/ui/Autocomplete";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
@@ -88,6 +88,9 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
     <div className="flex w-full flex-col">
       <Autocomplete
         name={fieldPath}
+        // Emptied, the pick drops its whole section, which the payload takes as `null`; only a picked
+        // entry needs this id.
+        isRequired={false}
         className="w-full"
         placeholder={placeholder}
         selectionMode="single"

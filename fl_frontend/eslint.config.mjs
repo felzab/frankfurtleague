@@ -124,8 +124,6 @@ const TEST_ONLY = [
   },
   {
     group: [
-      "**/actionSources.ts",
-      "**/actionSources",
       "**/schemeReader.ts",
       "**/schemeReader",
       "**/edgeRedaction.ts",
@@ -231,6 +229,13 @@ const SEGMENTED_DATE_CONTROLS = {
 const HEROUI_NUMBER_FIELD = {
   group: ["@heroui/react/number-field"],
   message: "Render a number field through fl_frontend/src/shared/components/ui/NumberField.tsx, which records an emptied box as null.",
+};
+
+/** HeroUI's fields that carry a required mark, each rendered through the wrapper reading it off the form's schema. */
+const HEROUI_MARKED_FIELDS = {
+  group: ["@heroui/react/textfield", "@heroui/react/select", "@heroui/react/switch", "@heroui/react/autocomplete"],
+  message:
+    "Render a text field, select, switch or autocomplete through its wrapper in fl_frontend/src/shared/components/ui/, which reads the required mark off the form's schema (docs/frontend/spec.md :: I368).",
 };
 
 /** HeroUI's form, rendered through the wrapper that fixes its validation mode. */
@@ -466,6 +471,10 @@ const DYNAMIC_LOADS = [
     message: "Load HeroUI's number field through fl_frontend/src/shared/components/ui/NumberField.tsx, by `import()` as much as by `import`.",
   },
   {
+    selector: loadOf(String.raw`^@heroui\x2Freact\x2F(?:textfield|select|switch|autocomplete)$`),
+    message: "Load a text field, select, switch or autocomplete through its wrapper, by `import()` as much as by `import`.",
+  },
+  {
     selector: loadOf(selectorPattern(NEXT_PRIVATE_CONTEXTS.regex)),
     message: "Load Next's contexts through fl_frontend/src/shared/testing/nextContexts.ts, by `import()` as much as by `import`.",
   },
@@ -542,7 +551,7 @@ const HINT_MODULE = specifiersOf(HINT_INTERNALS.group);
 const HINT_NAMES = `/^(?:${HINT_INTERNALS.importNames.join("|")})$/`;
 
 /** The bans a named module is the one importer of, which reach tests and the harness too. */
-const HOMED_IMPORTS = [NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HEROUI_NUMBER_FIELD, HINT_INTERNALS];
+const HOMED_IMPORTS = [NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HEROUI_NUMBER_FIELD, HEROUI_MARKED_FIELDS, HINT_INTERNALS];
 
 const PRODUCTION_IMPORTS = [...HOMED_IMPORTS, ...SUITE_IMPORTS, SITE_ORIGIN, LOCALE_PROVIDER];
 
@@ -723,6 +732,21 @@ const SOURCE_BANS = [
     // It posts with no script of the page's own, so it runs before, and without, the app's JavaScript.
     exempt: ["src/app/(public)/signin/bestaetigen/page.tsx"],
   },
+  {
+    // A mark the wrapper derives is an expression, so a literal is what a hand-set one looks like.
+    selector: 'JSXAttribute[name.name="isRequired"]:matches([value=null], [value.expression.value=true], [value.expression.value=false])',
+    message:
+      "A required mark is read off the form's schema, never set by hand: an exempt site states the rule outside the field's own schema that decides it (docs/frontend/spec.md :: I368).",
+    // Each names, at the mark, the rule its own leaf cannot state: a refinement or a switch owing the
+    // mark, or a pick whose emptying drops its whole section.
+    exempt: [
+      "src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx",
+      "src/features/bewerbungen/components/views/BestaetigungFormPanel.tsx",
+      "src/features/spiele/components/forms/AdminEditSpielDataForm/FormSonderereignisSection.tsx",
+      "src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx",
+      "src/features/spiele/components/forms/AdminEditSpielDataForm/PickOrCreateAutocomplete.tsx",
+    ],
+  },
 ];
 
 /**
@@ -898,7 +922,7 @@ const eslintConfig = defineConfig([
   },
   { files: ["src/shared/hooks/useEditorExit.ts"], rules: { "no-restricted-properties": "off" } },
 
-  // Every file first, so the Next, date-control, form and number-field bans reach tests and the slices neither boundary
+  // Every file first, so the Next, date-control, form and field bans reach tests and the slices neither boundary
   // names; each later block restates them for `restrictImports`'s reason.
   { files: ["src/**/*.{ts,tsx}"], rules: restrictImports(...HOMED_IMPORTS) },
 
@@ -932,6 +956,11 @@ const eslintConfig = defineConfig([
     [["src/shared/components/ui/Hint.tsx"], HINT_INTERNALS, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
     [["src/shared/components/ui/Form.tsx"], HEROUI_FORM, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
     [["src/shared/components/ui/NumberField.tsx"], HEROUI_NUMBER_FIELD, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
+    [
+      ["TextField", "Select", "Switch", "Autocomplete"].map((wrapper) => `src/shared/components/ui/${wrapper}.tsx`),
+      HEROUI_MARKED_FIELDS,
+      [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared],
+    ],
     [["src/shared/components/ui/DateTimeFields.tsx"], SEGMENTED_DATE_CONTROLS, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.shared]],
     // What a crawler reads, which stands on the published origin.
     [["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts"], SITE_ORIGIN, PRODUCTION_IMPORTS],

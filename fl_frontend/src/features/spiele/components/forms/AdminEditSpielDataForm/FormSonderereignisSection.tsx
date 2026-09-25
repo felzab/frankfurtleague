@@ -1,7 +1,5 @@
 import { FieldError } from "@heroui/react/field-error";
 import { ListBox } from "@heroui/react/list-box";
-import { Select } from "@heroui/react/select";
-import { Switch } from "@heroui/react/switch";
 
 import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_OPTIONS } from "@/features/spiele/constants";
 import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
@@ -13,6 +11,8 @@ import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
+import { Select } from "@/shared/components/ui/Select";
+import { Switch } from "@/shared/components/ui/Switch";
 
 import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { FLSonderereignis } from "@/features/spiele/schemas";

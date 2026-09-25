@@ -3,13 +3,13 @@
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
-import { TextField } from "@heroui/react/textfield";
 import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
 import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, TOGGLE_GROUP_ALIGN_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import type { FLTrainerZugleich } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react/rac";

@@ -44,7 +44,7 @@ doubleToasts();
 const { FieldError } = await import("@heroui/react/field-error");
 const { Input } = await import("@heroui/react/input");
 const { Label } = await import("@heroui/react/label");
-const { TextField } = await import("@heroui/react/textfield");
+const { TextField } = await import("@/shared/components/ui/TextField.tsx");
 const { EntityForm } = await import("@/shared/components/ui/EntityForm.tsx");
 
 type Draft = { name: string };
@@ -64,7 +64,7 @@ describe("the create form's field errors", () => {
         renderFields: (draft, setDraft) =>
           h(
             TextField,
-            { isRequired: true, name: "name", value: draft.name, onChange: (next: string) => setDraft({ name: next }) },
+            { name: "name", value: draft.name, onChange: (next: string) => setDraft({ name: next }) },
             h(Label, null, "Name"),
             h(Input),
             h(FieldError),

@@ -4,7 +4,6 @@ import Xmark from "@gravity-ui/icons/Xmark";
 
 import { FieldError } from "@heroui/react/field-error";
 import { TextArea } from "@heroui/react/textarea";
-import { TextField } from "@heroui/react/textfield";
 
 import { NOTIZ_MAX_LENGTH } from "@/features/spiele/constants";
 import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
@@ -13,6 +12,7 @@ import { FIELD_ERROR_CLASSES, FIELD_TEXTAREA_CLASSES } from "@/shared/components
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 

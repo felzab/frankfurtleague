@@ -1,6 +1,5 @@
 "use client";
 
-import { Autocomplete } from "@heroui/react/autocomplete";
 import { FieldError } from "@heroui/react/field-error";
 import { Label } from "@heroui/react/label";
 import { ListBox } from "@heroui/react/list-box";
@@ -19,6 +18,7 @@ import {
   toStoredSide,
 } from "@/features/spiele/utils";
 import { austrittZustand, GRUPPEN_OPTIONS } from "@/features/teams/constants";
+import { Autocomplete } from "@/shared/components/ui/Autocomplete";
 import { labelBadge, trackLabelBadge } from "@/shared/components/ui/badges";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import {
@@ -273,6 +273,9 @@ export function FormTeamPicker({
   const teamPicker = (
     <Autocomplete
       name={`${fieldName}.team_id`}
+      // Emptied, the pick drops the whole side, which the payload takes as `null`; only a picked team
+      // needs this id.
+      isRequired={false}
       className="w-full"
       // The empty state is a real answer, so the trigger names it rather than nagging for input.
       placeholder={PLACEHOLDER.slot}

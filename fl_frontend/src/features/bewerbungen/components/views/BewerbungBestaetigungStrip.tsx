@@ -14,7 +14,6 @@ import { Button } from "@heroui/react/button";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
-import { TextField } from "@heroui/react/textfield";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
@@ -37,6 +36,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { PANEL_REVEAL_CLASSES } from "@/shared/components/ui/motion";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
@@ -473,6 +473,7 @@ function AdresseKorrigieren({
 
   return (
     <Form
+      schemas={[FLBewerbungKontaktEmailPayloadSchema]}
       ref={formRef}
       validationErrors={fieldErrors}
       onSubmit={() => {
@@ -484,7 +485,6 @@ function AdresseKorrigieren({
       }}
       className={`${PANEL_REVEAL_CLASSES} border-border bg-surface flex flex-col gap-4 rounded-xl border p-4 shadow-sm`}>
       <TextField
-        isRequired
         type="email"
         name="email"
         value={email}
@@ -640,6 +640,7 @@ function SitzNeuBesetzen({
 
   return (
     <Form
+      schemas={[FLBewerbungKontaktSitzPayloadSchema]}
       ref={formRef}
       validationErrors={fieldErrors}
       onSubmit={() => {
@@ -672,7 +673,6 @@ function SitzNeuBesetzen({
 
       <div className={FIELD_PAIR_CLASSES}>
         <TextField
-          isRequired
           name="vorname"
           value={person.vorname}
           onChange={(next) => setPerson({ ...person, vorname: next })}
@@ -685,7 +685,6 @@ function SitzNeuBesetzen({
         </TextField>
 
         <TextField
-          isRequired
           name="nachname"
           value={person.nachname}
           onChange={(next) => setPerson({ ...person, nachname: next })}
@@ -700,7 +699,6 @@ function SitzNeuBesetzen({
 
       <div className={FIELD_PAIR_CLASSES}>
         <TextField
-          isRequired
           type="email"
           name="email"
           value={person.email}
@@ -717,7 +715,6 @@ function SitzNeuBesetzen({
         </TextField>
 
         <TextField
-          isRequired
           type="tel"
           name="telefon"
           value={person.telefon}

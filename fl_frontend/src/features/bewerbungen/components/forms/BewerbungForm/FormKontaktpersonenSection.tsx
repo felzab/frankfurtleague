@@ -6,8 +6,6 @@ import Link from "next/link";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
-import { Switch } from "@heroui/react/switch";
-import { TextField } from "@heroui/react/textfield";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
@@ -22,6 +20,8 @@ import {
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { Switch } from "@/shared/components/ui/Switch";
+import { TextField } from "@/shared/components/ui/TextField";
 import { textLink } from "@/shared/components/ui/textLink";
 
 import type { BewerbungKontaktpersonDraft } from "@/features/bewerbungen/types";
@@ -143,7 +143,6 @@ export function FormKontaktpersonenSection({
           <>
             <div className={FIELD_PAIR_CLASSES}>
               <TextField
-                isRequired
                 aria-describedby={zeigtAltersHinweis ? altersHinweisId : undefined}
                 name={path("vorname")}
                 value={person.vorname}
@@ -156,7 +155,6 @@ export function FormKontaktpersonenSection({
               </TextField>
 
               <TextField
-                isRequired
                 name={path("nachname")}
                 value={person.nachname}
                 onChange={(next) => onChange({ ...person, nachname: next })}
@@ -170,7 +168,6 @@ export function FormKontaktpersonenSection({
 
             <div className={FIELD_PAIR_CLASSES}>
               <TextField
-                isRequired
                 type="email"
                 name={path("email")}
                 value={person.email}
@@ -189,7 +186,6 @@ export function FormKontaktpersonenSection({
               </TextField>
 
               <TextField
-                isRequired
                 type="tel"
                 name={path("telefon")}
                 value={person.telefon}
@@ -275,7 +271,6 @@ export function FormEinwilligungSection({
           // The Ansprechperson's path stands for all three: one press writes every seat's `erteilt`,
           // so the schema can never refuse one of them alone.
           name="kontakte.ansprechperson.einwilligung.erteilt"
-          isRequired
           isSelected={erteilt}
           onChange={onErteiltPicked}>
           <Switch.Content className={panel.switchContent()}>

@@ -2,7 +2,8 @@
 
 import { Label } from "@heroui/react/label";
 import { ListBox } from "@heroui/react/list-box";
-import { Select } from "@heroui/react/select";
+
+import { Select } from "@/shared/components/ui/Select";
 
 import { FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "./formFieldStyles";
 import { overlayPanel } from "./overlayPanel";

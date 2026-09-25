@@ -7,7 +7,6 @@ import { parseDate } from "@internationalized/date";
 
 import { Button } from "@heroui/react/button";
 import { Label } from "@heroui/react/label";
-import { Switch } from "@heroui/react/switch";
 
 import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { buildEinwilligungAntwortPayloadSchema } from "@/features/bewerbungen/schemas";
@@ -21,6 +20,7 @@ import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_LABEL_CLASSES, FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
+import { Switch } from "@/shared/components/ui/Switch";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
@@ -117,6 +117,8 @@ function BestaetigungAngaben({
             stretching the segments across it. */}
         <div className={FIELD_PAIR_CLASSES}>
           <AppDatePicker
+            // Marked by hand: the consenting answer's refinement refuses a missing date, which the
+            // field's own nullable schema cannot state, an objection carrying none.
             isRequired
             isDisabled={isDisabled}
             name="geburtsdatum"
@@ -345,6 +347,7 @@ export function BestaetigungFormPanel({
 
   return (
     <Form
+      schemas={[antwortSchema]}
       ref={formRef}
       data-required-marks="on"
       validationErrors={fieldErrors}

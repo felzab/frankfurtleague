@@ -2,10 +2,10 @@
 
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
-import { TextField } from "@heroui/react/textfield";
 
 import { NUMMER_MAX_LENGTH } from "@/features/spieler/constants";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES } from "@/shared/components/ui/formFieldStyles";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import type { ReactNode } from "react";
 

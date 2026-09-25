@@ -3,7 +3,6 @@
 import { parseDate } from "@internationalized/date";
 
 import { Label } from "@heroui/react/label";
-import { Switch } from "@heroui/react/switch";
 
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
@@ -11,6 +10,7 @@ import { FIELD_LABEL_CLASSES, FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES }
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { Switch } from "@/shared/components/ui/Switch";
 
 import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus";
 import type { FLSaisonBewerbung } from "@/features/saisons/schemas";
@@ -102,7 +102,6 @@ export function FormBewerbungSection({
                 aria-labelledby={FRIST_LABEL_ID}
                 className={FIELD_PAIR_CLASSES}>
                 <AppDatePicker
-                  isRequired
                   name="bewerbung.von"
                   calendarLabel="Beginn der Bewerbungsfrist auswählen"
                   label={<Label className={FIELD_LABEL_CLASSES}>Beginn</Label>}
@@ -112,7 +111,6 @@ export function FormBewerbungSection({
                   maxValue={bis ?? undefined}
                 />
                 <AppDatePicker
-                  isRequired
                   name="bewerbung.bis"
                   calendarLabel="Ende der Bewerbungsfrist auswählen"
                   label={<Label className={FIELD_LABEL_CLASSES}>Ende</Label>}

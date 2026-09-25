@@ -5,13 +5,13 @@ import ArrowUpRightFromSquare from "@gravity-ui/icons/ArrowUpRightFromSquare";
 import { FieldError } from "@heroui/react/field-error";
 import { InputGroup } from "@heroui/react/input-group";
 import { Label } from "@heroui/react/label";
-import { TextField } from "@heroui/react/textfield";
 
 import { WEBSITE_URL_SCHEME } from "@/features/teams/constants";
 import { toWebsiteUrl } from "@/features/teams/utils";
 import { FIELD_ERROR_CLASSES, FIELD_GROUP_CLASSES, FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
+import { TextField } from "@/shared/components/ui/TextField";
 import { ExternalUrlSchema } from "@/shared/schemas";
 
 import type { ReactNode } from "react";

@@ -3,12 +3,12 @@
 import { FieldError } from "@heroui/react/field-error";
 import { Label } from "@heroui/react/label";
 import { ListBox } from "@heroui/react/list-box";
-import { Select } from "@heroui/react/select";
 import { Separator } from "@heroui/react/separator";
 
 import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
+import { Select } from "@/shared/components/ui/Select";
 
 import type { Key } from "@heroui/react/rac";
 

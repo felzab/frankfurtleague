@@ -340,7 +340,6 @@ export function FormSaisonSection({
                   <div className="flex w-full flex-col gap-y-1">
                     <FieldLabel<TeamFieldPath> path="gruppe">Gruppe</FieldLabel>
                     <GruppeSelect
-                      isRequired
                       value={gruppe}
                       onChange={(next) => {
                         onGruppeChange(next);

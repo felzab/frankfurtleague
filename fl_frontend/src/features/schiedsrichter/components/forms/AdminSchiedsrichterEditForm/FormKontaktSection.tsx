@@ -2,13 +2,13 @@
 
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
-import { TextField } from "@heroui/react/textfield";
 
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import type { SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 import type { FLKontakt } from "@/shared/schemas";
@@ -55,7 +55,6 @@ export function FormKontaktSection({
       <div className={panel.body()}>
         <div className={FIELD_PAIR_CLASSES}>
           <TextField
-            isRequired
             type="email"
             name="kontakt.email"
             value={kontakt.email ?? ""}

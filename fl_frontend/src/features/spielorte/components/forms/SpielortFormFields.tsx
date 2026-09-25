@@ -3,7 +3,6 @@
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
-import { TextField } from "@heroui/react/textfield";
 
 import { AddressFields } from "@/shared/components/ui/AddressFields";
 import {
@@ -14,6 +13,7 @@ import {
   FIELD_LABEL_CLASSES,
 } from "@/shared/components/ui/formFieldStyles";
 import { NumberField } from "@/shared/components/ui/NumberField";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { SpielortDraft } from "../../types";
@@ -32,7 +32,6 @@ export function SpielortFormFields<T extends SpielortDraft>({
   return (
     <>
       <TextField
-        isRequired
         name="name"
         value={draft.name}
         onChange={(next) => onChange({ ...draft, name: next })}
@@ -54,7 +53,6 @@ export function SpielortFormFields<T extends SpielortDraft>({
 
       <NumberField
         minValue={0}
-        isRequired
         name="default_mietpreis"
         isInvalid={errors?.["default_mietpreis"] ? true : undefined}
         step={5}

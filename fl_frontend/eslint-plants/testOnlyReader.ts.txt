@@ -1,4 +1,4 @@
-// Linted as src/core/actionSources.ts.
+// Linted as src/core/schemaModules.ts.
 // A test-only module may import another.
 import { blankComments } from "./blankComments";
 import { walkFiles } from "./treeWalk";

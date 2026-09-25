@@ -449,6 +449,7 @@ export function AdminEditSpielDataForm({
           dialog below asks what the fixture is still waiting on. */}
       <SpielExpectedProvider expected={status.expected}>
         <Form
+          schemas={[FLPatchSpielDataPayloadSchema]}
           ref={formRef}
           validationErrors={fieldErrors}
           className="flex min-h-0 w-full flex-1 flex-col"

@@ -2,7 +2,6 @@
 
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
-import { TextField } from "@heroui/react/textfield";
 
 import { KONTAKT_NAME_MAX_LENGTH } from "@/features/teams/constants";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
@@ -10,6 +9,7 @@ import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_PAIR_CLASSES } from "@/
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import type { SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 
@@ -51,7 +51,6 @@ export function FormPersonSection({
       <div className={panel.body()}>
         <div className={FIELD_PAIR_CLASSES}>
           <TextField
-            isRequired
             name="name"
             value={name}
             onChange={onNameChange}

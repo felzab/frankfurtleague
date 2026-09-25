@@ -71,7 +71,6 @@ export function AdminCreateTeamForm({
               />
 
               <GruppeSelect
-                isRequired
                 value={draft.gruppe}
                 onChange={(gruppe) => setDraft((current) => ({ ...current, gruppe }))}
                 offer={selectedOption?.offer ?? []}

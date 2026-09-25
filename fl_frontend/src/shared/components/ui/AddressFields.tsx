@@ -3,9 +3,9 @@
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
-import { TextField } from "@heroui/react/textfield";
 
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles";
+import { TextField } from "@/shared/components/ui/TextField";
 import {
   ADDRESS_HAUSNUMMER_MAX_LENGTH,
   ADDRESS_STADT_MAX_LENGTH,
@@ -28,7 +28,6 @@ export function AddressFields({
   errors,
   onFieldLeft,
   renderLabel,
-  isStadtteilRequired = false,
   describedById,
 }: {
   value: FLAddress;
@@ -48,12 +47,6 @@ export function AddressFields({
    */
   renderLabel?: (field: keyof FLAddress, text: string) => ReactNode;
   /**
-   * On only where the payload requires a district — the application form's. `validationBehavior="aria"`
-   * drops the native attribute (`requiredMarking.test.ts`), so this marks and describes the field and
-   * the payload schema is what refuses an empty one.
-   */
-  isStadtteilRequired?: boolean;
-  /**
    * A sentence standing above the block that qualifies the whole address rather than one field. It reaches every input
    * here, `FormKontaktpersonenSection`'s shape: a group hint a control is not described BY is one a reader never meets.
    */
@@ -70,7 +63,6 @@ export function AddressFields({
           intrinsic width, which no shrinking goes under. */}
       <div className="flex gap-3">
         <TextField
-          isRequired
           name={`${namePrefix}.strasse`}
           aria-describedby={describedById}
           value={value.strasse}
@@ -103,7 +95,6 @@ export function AddressFields({
 
       <div className="flex gap-3">
         <TextField
-          isRequired
           name={`${namePrefix}.plz`}
           aria-describedby={describedById}
           value={value.plz}
@@ -116,7 +107,6 @@ export function AddressFields({
           <FieldError className={FIELD_ERROR_CLASSES}>{errors?.[`${namePrefix}.plz`]}</FieldError>
         </TextField>
         <TextField
-          isRequired
           name={`${namePrefix}.stadt`}
           aria-describedby={describedById}
           value={value.stadt}
@@ -132,7 +122,6 @@ export function AddressFields({
       </div>
 
       <TextField
-        isRequired={isStadtteilRequired}
         name={`${namePrefix}.stadtteil`}
         aria-describedby={describedById}
         value={value.stadtteil}

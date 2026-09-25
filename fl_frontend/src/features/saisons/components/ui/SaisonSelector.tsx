@@ -5,11 +5,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Description } from "@heroui/react/description";
 import { ListBox } from "@heroui/react/list-box";
-import { Select } from "@heroui/react/select";
 
 import { SELECT_POPOVER_CLASSES } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
 import { SaisonSlotSkeleton } from "@/shared/components/ui/SaisonSlotSkeleton";
+import { Select } from "@/shared/components/ui/Select";
 import { useMounted } from "@/shared/hooks/useMounted";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 import { formatSpielDatum } from "@/shared/utils/format";

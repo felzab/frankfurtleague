@@ -20,6 +20,7 @@ import {
 } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { useRequiredMark } from "@/shared/components/ui/RequiredMarks";
 
 import type { CalendarDate, Time } from "@internationalized/date";
 import type { ReactNode, RefObject } from "react";
@@ -69,7 +70,7 @@ export function AppDatePicker({
   value,
   onChange,
   onBlur,
-  isRequired = false,
+  isRequired,
   isDisabled,
   isReadOnly,
   hint,
@@ -85,6 +86,7 @@ export function AppDatePicker({
   value: CalendarDate | null;
   onChange: (next: CalendarDate | null) => void;
   onBlur?: () => void;
+  /** For a rule outside the field's own schema, which each site names. Else the form's schema decides. */
   isRequired?: boolean;
   isDisabled?: boolean;
   isReadOnly?: boolean;
@@ -100,10 +102,11 @@ export function AppDatePicker({
   clearLabel?: string;
 }) {
   const groupRef = useRef<HTMLDivElement>(null);
+  const derived = useRequiredMark(name, "");
 
   return (
     <DatePicker
-      isRequired={isRequired}
+      isRequired={isRequired ?? derived}
       isDisabled={isDisabled}
       isReadOnly={isReadOnly}
       value={value}

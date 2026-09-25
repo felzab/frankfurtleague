@@ -7,6 +7,7 @@ import { NumberField as RootNumberField } from "@heroui/react"; // expect: vendo
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
 import { DateField } from "@heroui/react/date-field"; // expect: segmented-import
 import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect: marked-field
 import { HintPopover } from "./InfoHint"; // expect: hint-internals
 import { captureStdout } from "@/core/stdoutCapture"; // expect: test-only
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
@@ -17,3 +18,4 @@ export const USED = [HeroUINumberField, RootNumberField, AppRouterContext, DateF
 export const NODE_MODULE_USED = [loadVia];
 export const ORIGIN_USED = SITE_URL;
 export const LOCALE_USED = PinnedLocale;
+export const TEXT_FIELD_USED = HeroTextField;

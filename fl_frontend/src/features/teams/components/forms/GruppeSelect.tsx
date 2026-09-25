@@ -3,11 +3,11 @@
 import { FieldError } from "@heroui/react/field-error";
 import { Label } from "@heroui/react/label";
 import { ListBox } from "@heroui/react/list-box";
-import { Select } from "@heroui/react/select";
 
 import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
+import { Select } from "@/shared/components/ui/Select";
 
 import type { FLGruppenNames } from "@/features/teams/schemas";
 import type { GruppeOffer } from "@/features/teams/types";
@@ -26,7 +26,6 @@ export function GruppeSelect({
   name = "gruppe",
   error,
   withOwnLabel = true,
-  isRequired = false,
 }: {
   value: FLGruppenNames | null;
   onChange: (gruppe: FLGruppenNames) => void;
@@ -41,11 +40,6 @@ export function GruppeSelect({
   error?: string;
   /** Off for the caller whose label is a marker-carrying `FieldLabel` rendered outside. */
   withOwnLabel?: boolean;
-  /**
-   * Refuse an empty pick, and let the browser say so, for the same reason
-   * `fl_frontend/src/features/spieler/components/forms/TeamSelect.tsx :: TeamSelect` takes one.
-   */
-  isRequired?: boolean;
 }) {
   const item = listboxRow();
 
@@ -56,7 +50,6 @@ export function GruppeSelect({
 
   return (
     <Select
-      isRequired={isRequired}
       name={name}
       // Only without the visible `Label`: beside it the trigger is named twice, „Gruppe Gruppe“.
       aria-label={withOwnLabel ? undefined : "Gruppe"}

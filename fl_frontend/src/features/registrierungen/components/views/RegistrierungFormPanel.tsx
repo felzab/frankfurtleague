@@ -6,7 +6,6 @@ import { Button } from "@heroui/react/button";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
-import { TextField } from "@heroui/react/textfield";
 
 import { BestaetigungErgebnis } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { ClosedSetSelect } from "@/features/spieler/components/forms/ClosedSetSelect";
@@ -26,6 +25,7 @@ import {
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { postPublicForm } from "@/shared/utils/publicSubmit";
@@ -179,6 +179,7 @@ export function RegistrierungFormPanel({
 
   return (
     <Form
+      schemas={[FLPostRegistrierungPayloadSchema]}
       ref={formRef}
       data-required-marks="on"
       validationErrors={fieldErrors}
@@ -198,7 +199,6 @@ export function RegistrierungFormPanel({
         <div className={panel.body()}>
           <div className={FIELD_PAIR_CLASSES}>
             <TextField
-              isRequired
               name="vorname"
               value={draft.vorname}
               onChange={(next) => setDraft({ ...draft, vorname: next })}
@@ -210,7 +210,6 @@ export function RegistrierungFormPanel({
             </TextField>
 
             <TextField
-              isRequired
               name="nachname"
               value={draft.nachname}
               onChange={(next) => setDraft({ ...draft, nachname: next })}
@@ -224,7 +223,6 @@ export function RegistrierungFormPanel({
 
           <div className={FIELD_PAIR_CLASSES}>
             <TextField
-              isRequired
               type="email"
               name="email"
               value={draft.email}

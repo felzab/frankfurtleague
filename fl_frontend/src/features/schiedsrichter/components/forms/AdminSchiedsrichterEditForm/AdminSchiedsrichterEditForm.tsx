@@ -239,6 +239,7 @@ export function AdminSchiedsrichterEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
+        schemas={[FLPatchSchiedsrichterPayloadSchema]}
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"

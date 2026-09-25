@@ -16,7 +16,7 @@ describe("the shared form", () => {
      the handler alone (`docs/frontend/spec.md :: I32`). */
   it("keeps the browser's own submit and runs the handler once", () => {
     let ran = 0;
-    const { container } = render(h(Form, { onSubmit: () => void (ran += 1) }, h("button", { type: "submit" }, "Speichern")));
+    const { container } = render(h(Form, { onSubmit: () => void (ran += 1), schemas: [] }, h("button", { type: "submit" }, "Speichern")));
     const form = container.querySelector("form");
     assert.ok(form !== null, "the shared form renders no form element");
 
@@ -28,4 +28,4 @@ describe("the shared form", () => {
 /* Held by tsc rather than the runner, which strips types: a form taking `action` again leaves this
    directive unused, and the typecheck fails on it (`docs/frontend/spec.md :: I32`). */
 // @ts-expect-error -- the refusal under test: the shared form declares no `action`.
-void h(Form, { onSubmit: () => undefined, action: () => undefined });
+void h(Form, { onSubmit: () => undefined, schemas: [], action: () => undefined });

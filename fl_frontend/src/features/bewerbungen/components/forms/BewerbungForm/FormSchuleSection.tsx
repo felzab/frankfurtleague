@@ -2,16 +2,13 @@
 
 import { useId, useState } from "react";
 
-import { Autocomplete } from "@heroui/react/autocomplete";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { ListBox } from "@heroui/react/list-box";
 import { useFilter } from "@heroui/react/rac";
 import { SearchField } from "@heroui/react/search-field";
-import { Select } from "@heroui/react/select";
 import { Separator } from "@heroui/react/separator";
-import { TextField } from "@heroui/react/textfield";
 
 import { dismissControl } from "@/core/dismissControl";
 import {
@@ -31,6 +28,7 @@ import {
   WEBSITE_URL_SCHEME,
 } from "@/features/teams/constants";
 import { AddressFields } from "@/shared/components/ui/AddressFields";
+import { Autocomplete } from "@/shared/components/ui/Autocomplete";
 import {
   FIELD_COUNT_INPUT_CLASSES,
   FIELD_ERROR_CLASSES,
@@ -47,6 +45,8 @@ import { NumberField } from "@/shared/components/ui/NumberField";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
+import { Select } from "@/shared/components/ui/Select";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import type { BewerbungSchuleDraft } from "@/features/bewerbungen/types";
 import type { FLSchulform } from "@/features/teams/schemas";
@@ -161,6 +161,8 @@ export function FormSchuleSection({
             {/* `name="team_id"`, because that is the path the payload and every server refusal spell the
                 picked club under — including the two that arrive as a whole-record rule. */}
             <Autocomplete
+              // Marked by hand: the pair rule refuses no club and no new school under this path, which
+              // the field's own nullable schema cannot state.
               isRequired
               name="team_id"
               aria-describedby={listeHinweis !== null ? listeHinweisId : undefined}
@@ -252,7 +254,6 @@ export function FormSchuleSection({
           {/* The payload's own two numbers and never a second judgement: `.claude/rules/cross-surface.md`,
               never offer in the form what the write path refuses. */}
           <NumberField
-            isRequired
             name="stufengroesse"
             minValue={1}
             maxValue={BEWERBUNG_STUFENGROESSE_MAX}
@@ -279,7 +280,6 @@ export function FormSchuleSection({
 
             <div className={FIELD_PAIR_CLASSES}>
               <TextField
-                isRequired
                 name="schule.team_name"
                 value={schule.team_name}
                 onChange={(next) => setSchuleFeld({ team_name: next })}
@@ -301,7 +301,6 @@ export function FormSchuleSection({
               </TextField>
 
               <TextField
-                isRequired
                 name="schule.full_name"
                 value={schule.full_name}
                 onChange={(next) => setSchuleFeld({ full_name: next })}
@@ -323,7 +322,6 @@ export function FormSchuleSection({
                   description slot names: two different sentences, and naming one alone drops the
                   other for a reader who cannot see either. */}
               <TextField
-                isRequired
                 name="schule.shorthand"
                 aria-describedby={kuerzelHinweis === null ? undefined : kuerzelHinweisId}
                 value={schule.shorthand}
@@ -359,7 +357,6 @@ export function FormSchuleSection({
               {/* Judged on CHANGE rather than on blur, as every picked field is: a selection is complete
                   the moment it is made. */}
               <Select
-                isRequired
                 name="schule.schulform"
                 value={schule.schulform}
                 onChange={handleSchulformChange}
@@ -413,7 +410,6 @@ export function FormSchuleSection({
               {/* Neither `errors` nor `renderLabel`: the `<Form validationErrors>` above distributes by
                   field name, and this page holds no draft markers for a label to carry. */}
               <AddressFields
-                isStadtteilRequired
                 describedById={adressHinweisId}
                 value={schule.address}
                 namePrefix="schule.address"

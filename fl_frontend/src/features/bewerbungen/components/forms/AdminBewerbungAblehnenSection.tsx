@@ -7,7 +7,6 @@ import Ban from "@gravity-ui/icons/Ban";
 import { FieldError } from "@heroui/react/field-error";
 import { Label } from "@heroui/react/label";
 import { TextArea } from "@heroui/react/textarea";
-import { TextField } from "@heroui/react/textfield";
 
 import { ablehnenBewerbungAction } from "@/features/bewerbungen/actions";
 import { BEWERBUNG_GRUND_MAX_LENGTH } from "@/features/bewerbungen/constants";
@@ -25,6 +24,7 @@ import {
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { TextField } from "@/shared/components/ui/TextField";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";

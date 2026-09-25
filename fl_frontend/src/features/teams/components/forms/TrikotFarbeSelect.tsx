@@ -3,13 +3,14 @@
 import { FieldError } from "@heroui/react/field-error";
 import { Label } from "@heroui/react/label";
 import { ListBox } from "@heroui/react/list-box";
-import { Select } from "@heroui/react/select";
 
 import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { offeredTrikotFarben } from "@/features/teams/utils";
 import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
+import { useRequiredMark } from "@/shared/components/ui/RequiredMarks";
+import { Select } from "@/shared/components/ui/Select";
 
 import type { FLTrikotFarbe } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react/rac";
@@ -40,7 +41,6 @@ export function TrikotFarbeSelect({
   onChange,
   name = "trikot_farbe",
   label = "Trikotfarbe",
-  isRequired = false,
   withOwnLabel = true,
   vergeben = [],
 }: {
@@ -53,11 +53,6 @@ export function TrikotFarbeSelect({
    * renaming the field cannot leave the two disagreeing (WCAG 2.5.3).
    */
   label?: string;
-  /**
-   * Whether an answer is owed. On for the applicant's wish, off for the administrator's assignment,
-   * which a club may genuinely stand without.
-   */
-  isRequired?: boolean;
   /** Off for the caller whose label is a marker-carrying `FieldLabel` rendered outside. */
   withOwnLabel?: boolean;
   /**
@@ -66,6 +61,10 @@ export function TrikotFarbeSelect({
    */
   vergeben?: readonly FLTrikotFarbe[];
 }) {
+  // Owed where the form's schema refuses no colour: the applicant's wish, never the administrator's
+  // assignment, which a club may genuinely stand without.
+  const isRequired = useRequiredMark(name, null);
+
   /**
    * **A required picker offers no empty row.** A „Keine Angabe“ row carries a key, so picking it is
    * an answer: the field would count as filled while meaning the opposite. Without the row, nothing
@@ -84,7 +83,6 @@ export function TrikotFarbeSelect({
 
   return (
     <Select
-      isRequired={isRequired}
       name={name}
       // Only without the visible `Label`: beside it the trigger is named twice, „Trikotfarbe Trikotfarbe“.
       aria-label={withOwnLabel ? undefined : label}

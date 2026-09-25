@@ -5,7 +5,6 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { ListBox } from "@heroui/react/list-box";
-import { TextField } from "@heroui/react/textfield";
 
 import {
   BEWERBUNG_KADER_GROESSE_MAX,
@@ -28,6 +27,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { NumberField } from "@/shared/components/ui/NumberField";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import { kaderWithSquad, strongPlayerCeiling } from "./kaderBounds.ts";
 
@@ -110,7 +110,6 @@ export function FormTeamSection({
         </TextField>
 
         <TrikotFarbeSelect
-          isRequired
           label="Wunschfarbe (Trikot)"
           name="trikot.wunschfarbe"
           // Read off `saison_teams.trikot_farbe` — colours an administrator ASSIGNED — and never off
@@ -132,7 +131,6 @@ export function FormTeamSection({
             {/* `minValue` is the schema's own floor rather than a second judgement: a stepper offering
                 a count the submit would send back is one that wasted the trip. */}
             <NumberField
-              isRequired
               name="kader.voraussichtliche_groesse"
               minValue={1}
               maxValue={BEWERBUNG_KADER_GROESSE_MAX}
@@ -149,7 +147,6 @@ export function FormTeamSection({
             </NumberField>
 
             <NumberField
-              isRequired
               name="kader.gute_spieler"
               minValue={0}
               maxValue={strongPlayerCeiling(kader.voraussichtliche_groesse)}

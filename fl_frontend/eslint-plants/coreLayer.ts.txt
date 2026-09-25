@@ -3,9 +3,9 @@ import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: loc
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-core
 import { FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles"; // expect: layer-core
 import { captureStdout } from "./stdoutCapture"; // expect: test-only
-import { sources } from "./actionSources"; // expect: test-only
 import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
 import { NumberField as HeroNumberField } from "@heroui/react/number-field"; // expect: number-field
+import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect: marked-field
 import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
 import { Button } from "@heroui/react"; // expect: vendor-root
 import { HintPanel } from "@/shared/components/ui/InfoHint"; // expect: hint-internals expect: layer-core
@@ -14,7 +14,6 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 import { captureStdout as captureTyped } from "./stdoutCapture.ts"; // expect: test-only
 import { installAuthDoubles } from "./authDoubles"; // expect: test-only
 import { installAuthDoubles as installTyped } from "./authDoubles.ts"; // expect: test-only
-import { sources as sourcesTyped } from "./actionSources.ts"; // expect: test-only
 import { readScheme } from "./schemeReader"; // expect: test-only
 import { readScheme as readTyped } from "./schemeReader.ts"; // expect: test-only
 import { redact } from "./edgeRedaction"; // expect: test-only
@@ -43,8 +42,8 @@ import { registerHooks as hookVia } from "module"; // expect: node-module
 import { SITE_URL } from "./brand"; // expect: site-origin
 import { SITE_URL as SITE_URL_TYPED } from "./brand.ts"; // expect: site-origin
 
-export const USED = [TEAM_FACETS, FIELD_LABEL_CLASSES, captureStdout, sources, HeroForm, DatePicker, Button, AppRouterContext, HintPanel];
-export const SPELLINGS = [captureTyped, installAuthDoubles, installTyped, sourcesTyped, readScheme, readTyped, redact, redactTyped, TEAMS_RELATIVE, LABEL_RELATIVE, TEAMS_FROM_ROOT];
+export const USED = [TEAM_FACETS, FIELD_LABEL_CLASSES, captureStdout, HeroForm, DatePicker, Button, AppRouterContext, HintPanel];
+export const SPELLINGS = [captureTyped, installAuthDoubles, installTyped, readScheme, readTyped, redact, redactTyped, TEAMS_RELATIVE, LABEL_RELATIVE, TEAMS_FROM_ROOT];
 export const MORE_SPELLINGS = [walkFiles, walkFilesTyped, schemaModules, schemaModulesTyped, DOCUMENT_PATH, DOCUMENT_PATHTyped, publishedCeilings, publishedCeilingsTyped, blankComments, blankCommentsTyped, openingTagAt, openingTagAtTyped, withoutPythonComments, withoutPythonCommentsTyped, KEY_TIERS, KEY_TIERSTyped];
 // A package's own path crosses no layer, however its directories are named.
 export const NEXT_SHARED_LOADED = import("next/dist/shared/lib/utils.js");
@@ -56,3 +55,4 @@ export const LOADED_LOADER = import("node:module"); // expect: test-only-load
 export const ORIGIN_USED = [SITE_URL, SITE_URL_TYPED];
 export const NUMBER_FIELD_USED = HeroNumberField;
 export const LOCALE_USED = PinnedLocale;
+export const TEXT_FIELD_USED = HeroTextField;

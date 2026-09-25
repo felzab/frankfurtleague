@@ -286,3 +286,34 @@ describe("the Herkunft picker's group placing", () => {
     assert.ok(!editor(BRACKET_OF_4).includes(BANNER), "the round the bracket opens on is told a group placing is closed there");
   });
 });
+
+describe("the editor's section pickers", () => {
+  /* Each names a section the payload takes as `null`, so an emptied pick is an answer, while the id
+     under it is one the schema refuses empty: the mark comes from the site, not from that leaf. */
+  it("stay unmarked, an emptied pick dropping its whole section", () => {
+    const GRUPPENSPIEL = spiel(1, "gruppenphase");
+    const host = document.createElement("div");
+    host.innerHTML = renderTree(
+      underNext(
+        h(AdminEditSpielDataForm, {
+          spielData: FLSpielAdminSchema.parse(GRUPPENSPIEL),
+          teams: [],
+          spielorte: [],
+          schiedsrichter: [],
+          saisonSpiele: [GRUPPENSPIEL],
+          numberOfGroups: 2,
+          isFinishedSaison: false,
+          today: "2026-09-14",
+          categorize: () => new Set<never>(),
+          pageHeader: { title: "Spiel 1" },
+        }),
+        { search: "saison_id=2026" },
+      ),
+    );
+
+    for (const name of ["team1.team_id", "team2.team_id", "ort.spielort_id", "schiedsrichter.schiedsrichter_id"]) {
+      const control = host.querySelector(`[name="${name}"]`) ?? assert.fail(`the editor renders no ${name} picker`);
+      assert.equal(control.closest('[data-required="true"]'), null, `the ${name} picker is marked required`);
+    }
+  });
+});

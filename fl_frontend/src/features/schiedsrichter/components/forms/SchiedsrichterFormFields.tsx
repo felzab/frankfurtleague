@@ -3,7 +3,6 @@
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
-import { TextField } from "@heroui/react/textfield";
 
 import { KONTAKT_NAME_MAX_LENGTH } from "@/features/teams/constants";
 import {
@@ -14,6 +13,7 @@ import {
   FIELD_LABEL_CLASSES,
 } from "@/shared/components/ui/formFieldStyles";
 import { NumberField } from "@/shared/components/ui/NumberField";
+import { TextField } from "@/shared/components/ui/TextField";
 import { emptyAsNull } from "@/shared/utils/draftStatus";
 
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -36,7 +36,6 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
   return (
     <>
       <TextField
-        isRequired
         name="name"
         value={draft.name}
         onChange={(next) => onChange({ ...draft, name: next })}
@@ -66,7 +65,6 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
       </TextField>
 
       <TextField
-        isRequired
         type="email"
         name="kontakt.email"
         value={draft.kontakt.email ?? ""}
@@ -96,7 +94,6 @@ export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
 
       <NumberField
         minValue={0}
-        isRequired
         name="default_payment"
         isInvalid={errors?.["default_payment"] ? true : undefined}
         step={5}

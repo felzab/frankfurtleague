@@ -2,8 +2,6 @@
 
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
-import { Switch } from "@heroui/react/switch";
-import { TextField } from "@heroui/react/textfield";
 import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
@@ -16,6 +14,8 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { Switch } from "@/shared/components/ui/Switch";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import type { FLAustrittType } from "@/features/teams/schemas";
 import type { TeamFieldPath } from "@/features/teams/teamDraftStatus";
@@ -133,7 +133,6 @@ export function FormAustrittSection({
 
             <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <TextField
-                isRequired
                 name="austritt.grund"
                 value={grund}
                 onChange={onGrundChange}
@@ -152,7 +151,6 @@ export function FormAustrittSection({
               {/* ARIA only: react-aria marks no control inside a date picker, so the browser cannot
                   refuse it empty. `missingVerdicts` supplies the German instead, on submit. */}
               <AppDatePicker
-                isRequired
                 name="austritt.datum"
                 label={<FieldLabel<TeamFieldPath> path="austritt">Wirksam ab</FieldLabel>}
                 calendarLabel="Wirksamkeitsdatum auswählen"

@@ -4,12 +4,12 @@ import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@heroui/react/button";
 import { TextArea } from "@heroui/react/textarea";
-import { TextField } from "@heroui/react/textfield";
 
 import { DESCRIPTION_MAX_LENGTH } from "@/features/teams/constants";
 import { formButton, MODAL_FOOTER_ROW_CLASSES } from "@/shared/components/ui/formButtons";
 import { FIELD_TEXTAREA_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { FormModal } from "@/shared/components/ui/FormModal";
+import { TextField } from "@/shared/components/ui/TextField";
 
 /**
  * Edits a LOCAL copy and hands it back on Übernehmen — it writes nothing, so the page's save bar

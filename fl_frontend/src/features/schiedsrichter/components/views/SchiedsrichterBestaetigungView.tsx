@@ -9,8 +9,6 @@ import { Button } from "@heroui/react/button";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
-import { Switch } from "@heroui/react/switch";
-import { TextField } from "@heroui/react/textfield";
 import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
@@ -47,6 +45,8 @@ import {
 } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
+import { Switch } from "@/shared/components/ui/Switch";
+import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -352,6 +352,7 @@ function SchiedsrichterFormPanel({
 
   return (
     <Form
+      schemas={[antwortSchema]}
       ref={formRef}
       data-required-marks="on"
       validationErrors={fieldErrors}
@@ -366,7 +367,6 @@ function SchiedsrichterFormPanel({
               stretching the segments across it. */}
           <div className={FIELD_PAIR_CLASSES}>
             <AppDatePicker
-              isRequired
               name="geburtsdatum"
               label={<Label className={FIELD_LABEL_CLASSES}>Dein Geburtsdatum</Label>}
               calendarLabel="Geburtsdatum auswählen"
@@ -385,7 +385,6 @@ function SchiedsrichterFormPanel({
           {/* Two chips and no default, as the pupil's page and the application form ask a required
               choice: a control resting on an answer records one this person did not give. */}
           <TextField
-            isRequired
             name="umfang"
             value={entwurf.umfang ?? ""}
             className="w-full">

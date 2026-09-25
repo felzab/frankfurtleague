@@ -10,6 +10,7 @@ import { DateField } from "@heroui/react"; // expect: vendor-root
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
 import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
 import { NumberField as HeroNumberField } from "@heroui/react/number-field"; // expect: number-field
+import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect: marked-field
 import { HintPanel } from "./InfoHint"; // expect: hint-internals
 import { captureStdout } from "@/core/stdoutCapture"; // expect: test-only
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
@@ -31,3 +32,4 @@ export const NODE_MODULE_USED = [loadVia];
 export const ORIGIN_USED = SITE_URL;
 export const NUMBER_FIELD_USED = HeroNumberField;
 export const LOCALE_USED = PinnedLocale;
+export const TEXT_FIELD_USED = HeroTextField;

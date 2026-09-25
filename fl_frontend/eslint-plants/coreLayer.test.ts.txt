@@ -4,6 +4,7 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
 import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
 import { NumberField as HeroNumberField } from "@heroui/react/number-field"; // expect: number-field
+import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect: marked-field
 import { HintPopover } from "@/shared/components/ui/InfoHint"; // expect: hint-internals expect: layer-core
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-core
 // A test may import a test-only module.
@@ -20,3 +21,4 @@ export const REQUIRE_HERE = createRequire(import.meta.url);
 // A test may name the published origin, to assert a link stands on another.
 export const ORIGIN_USED = SITE_URL;
 export const NUMBER_FIELD_USED = HeroNumberField;
+export const TEXT_FIELD_USED = HeroTextField;

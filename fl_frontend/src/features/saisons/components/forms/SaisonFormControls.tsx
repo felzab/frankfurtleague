@@ -2,7 +2,6 @@
 
 import { FieldError } from "@heroui/react/field-error";
 import { ListBox } from "@heroui/react/list-box";
-import { Select } from "@heroui/react/select";
 
 import { TIEBREAK_LADDER_TAIL, TIEBREAK_ORDER_OPTIONS, tiebreakLabel, tiebreakLadder } from "@/features/saisons/constants";
 import {
@@ -15,6 +14,7 @@ import {
 import { NumberField } from "@/shared/components/ui/NumberField";
 import { overlayPanel, SELECT_POPOVER_CLASSES } from "@/shared/components/ui/overlayPanel";
 import { listboxRow, pickIfOffered } from "@/shared/components/ui/refusableOption";
+import { Select } from "@/shared/components/ui/Select";
 
 import type { FLSaisonTiebreakOrder } from "@/features/saisons/schemas";
 import type { RefusableOption } from "@/shared/components/ui/refusableOption";
@@ -52,7 +52,6 @@ export function SaisonRuleNumberField({
 }) {
   return (
     <NumberField
-      isRequired
       name={name}
       minValue={minValue}
       maxValue={maxValue}
@@ -107,7 +106,6 @@ export function SaisonCountSelect({
 
   return (
     <Select
-      isRequired
       name={name}
       isDisabled={isDisabled}
       value={String(value)}
@@ -178,7 +176,6 @@ export function SaisonTiebreakSelect({
 
   return (
     <Select
-      isRequired
       name={name}
       isDisabled={isDisabled}
       value={value}

@@ -4,7 +4,6 @@ import { parseDate } from "@internationalized/date";
 
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
-import { TextField } from "@heroui/react/textfield";
 
 import { KONTAKT_NAME_MAX_LENGTH } from "@/features/teams/constants";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
@@ -13,6 +12,7 @@ import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_PAIR_CLASSES } from "@/
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import type { SpielerFieldPath } from "@/features/spieler/spielerDraftStatus";
 import type { SpielerPersonFields } from "@/features/spieler/types";
@@ -49,7 +49,6 @@ export function FormPersonSection({
       <div className={panel.body()}>
         <div className={FIELD_PAIR_CLASSES}>
           <TextField
-            isRequired
             name="vorname"
             value={draft.vorname}
             onChange={(next) => onChange({ ...draft, vorname: next })}

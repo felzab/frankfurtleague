@@ -838,6 +838,25 @@ describe("the one-line rule the submission and the endpoint hold together", () =
   });
 });
 
+describe("the consenting answer's birth date", () => {
+  /* The leaf takes `null`, an objection carrying none, so the date picker's required mark is set by
+     hand on the strength of this refusal alone. */
+  it("is refused missing, on the date's own path, in German", () => {
+    const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({
+      token: "x".repeat(20),
+      antwort: "erteilt",
+      geburtsdatum: null,
+      whatsapp: false,
+      text_version: "2026-08",
+    });
+
+    assert.deepEqual(
+      parsed.error?.issues.map((issue) => [issue.path.join("."), issue.message]),
+      [["geburtsdatum", "Bitte gib Dein Geburtsdatum ein."]],
+    );
+  });
+});
+
 describe("the ceiling on the confirmation link's own token", () => {
   /* A decline, so the body is whole without a date and no clock decides the case. */
   const antwortBody = { antwort: "abgelehnt", geburtsdatum: null, whatsapp: false, text_version: "2026-08" };

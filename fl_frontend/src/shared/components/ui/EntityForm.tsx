@@ -53,8 +53,8 @@ export function EntityForm<TDraft, TPayload = TDraft>({
   successMessage: string;
   onClose: () => void;
   /**
-   * The required asterisks, and only a form that creates something sets it. It governs the marks alone: `isRequired`
-   * still sits on the fields either way, and is what refuses an emptied one.
+   * The required asterisks, and only a form that creates something sets it. It governs the marks alone: the
+   * fields are required either way, by the schema this form submits.
    */
   marksRequired?: boolean;
 }) {
@@ -102,6 +102,7 @@ export function EntityForm<TDraft, TPayload = TDraft>({
 
   return (
     <Form
+      schemas={[schema]}
       ref={formRef}
       validationErrors={fieldErrors}
       // Read by the unlayered rule in `globals.css` that suppresses HeroUI's required asterisks. Emitted only

@@ -5,7 +5,6 @@ import { parseDate } from "@internationalized/date";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
-import { TextField } from "@heroui/react/textfield";
 
 import { postSaisonAction } from "@/features/saisons/actions";
 import { SaisonCountSelect, SaisonRuleNumberField, SaisonTiebreakSelect } from "@/features/saisons/components/forms/SaisonFormControls";
@@ -25,6 +24,7 @@ import {
   FIELD_TRIO_CLASSES,
   FORM_SECTION_HEADING_CLASSES,
 } from "@/shared/components/ui/formFieldStyles";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import type { SaisonCreateDraft, SaisonGruppenOccupancy } from "@/features/saisons/types";
 
@@ -85,7 +85,6 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
       renderFields={(draft, setDraft) => (
         <>
           <TextField
-            isRequired
             name="id"
             value={draft.id}
             onChange={(next) => setDraft((current) => ({ ...current, id: next }))}
@@ -109,7 +108,6 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
 
           <div className={FIELD_PAIR_CLASSES}>
             <AppDatePicker
-              isRequired
               name="start_date"
               calendarLabel="Beginn auswählen"
               label={<Label className={FIELD_LABEL_CLASSES}>Beginn</Label>}
@@ -117,7 +115,6 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
               onChange={(next) => setDraft((current) => ({ ...current, start_date: next?.toString() ?? "" }))}
             />
             <AppDatePicker
-              isRequired
               name="end_date"
               calendarLabel="Ende auswählen"
               label={<Label className={FIELD_LABEL_CLASSES}>Ende</Label>}

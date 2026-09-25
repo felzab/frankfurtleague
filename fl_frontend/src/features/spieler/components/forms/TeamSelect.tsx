@@ -3,12 +3,12 @@
 import { FieldError } from "@heroui/react/field-error";
 import { Label } from "@heroui/react/label";
 import { ListBox } from "@heroui/react/list-box";
-import { Select } from "@heroui/react/select";
 
 import { SHORTHAND_CHIP_CLASSES } from "@/shared/components/ui/brandTile";
 import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
+import { Select } from "@/shared/components/ui/Select";
 
 import type { SpielerTeamOption } from "@/features/spieler/types";
 import type { Key } from "@heroui/react/rac";
@@ -24,7 +24,6 @@ export function TeamSelect({
   name = "team_id",
   error,
   withOwnLabel = true,
-  isRequired = false,
 }: {
   value: string | null;
   onChange: (teamId: string) => void;
@@ -39,12 +38,6 @@ export function TeamSelect({
   error?: string;
   /** Off for the caller whose label is a marker-carrying `FieldLabel` rendered outside. */
   withOwnLabel?: boolean;
-  /**
-   * Refuse an empty pick, and let the BROWSER say so — react-aria runs native constraint validation
-   * on submit. Letting the value reach the action instead surfaced Zod's English
-   * "expected string, received null".
-   */
-  isRequired?: boolean;
 }) {
   const item = listboxRow();
 
@@ -64,7 +57,6 @@ export function TeamSelect({
 
   return (
     <Select
-      isRequired={isRequired}
       name={name}
       // Only without the visible `Label`: beside it the trigger is named twice, „Team Team“.
       aria-label={withOwnLabel ? undefined : "Team"}

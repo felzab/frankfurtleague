@@ -208,6 +208,7 @@ export function AdminKontakteEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
+        schemas={[FLPatchSaisonTeamKontaktePayloadSchema]}
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"

@@ -1,6 +1,5 @@
 import { FieldError } from "@heroui/react/field-error";
 import { Separator } from "@heroui/react/separator";
-import { Switch } from "@heroui/react/switch";
 
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import {
@@ -13,6 +12,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { NumberField } from "@/shared/components/ui/NumberField";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { Switch } from "@/shared/components/ui/Switch";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { admitsShootOut } from "../../../draftStatus";

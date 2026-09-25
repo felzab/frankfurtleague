@@ -64,7 +64,6 @@ export function FormZeitraumSection({
       <div className={panel.body()}>
         <div className={FIELD_PAIR_CLASSES}>
           <AppDatePicker
-            isRequired
             name="start_date"
             calendarLabel="Beginn auswählen"
             label={<FieldLabel<SaisonFieldPath> path="start_date">Beginn</FieldLabel>}
@@ -74,7 +73,6 @@ export function FormZeitraumSection({
             maxValue={startMax}
           />
           <AppDatePicker
-            isRequired
             name="end_date"
             calendarLabel="Ende auswählen"
             label={<FieldLabel<SaisonFieldPath> path="end_date">Ende</FieldLabel>}

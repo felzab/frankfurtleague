@@ -26,7 +26,7 @@ describe("an address only the API refuses", () => {
     render(
       h(
         Form,
-        { onSubmit: () => undefined, validationErrors: result.fieldErrors },
+        { onSubmit: () => undefined, schemas: [], validationErrors: result.fieldErrors },
         h(SchiedsrichterFormFields, { draft: ENTWURF, onChange: () => undefined }),
       ),
     );

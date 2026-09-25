@@ -11,8 +11,8 @@ import { Button } from "@heroui/react/button";
 import { ListBox } from "@heroui/react/list-box";
 import { Popover } from "@heroui/react/popover";
 import { ScrollShadow } from "@heroui/react/scroll-shadow";
-import { Select } from "@heroui/react/select";
 
+import { Select } from "@/shared/components/ui/Select";
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { offeredOptions } from "@/shared/utils/facets";
 import { leserichtungHref } from "@/shared/utils/leserichtung";

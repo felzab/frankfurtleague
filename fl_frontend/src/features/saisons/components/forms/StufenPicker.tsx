@@ -4,12 +4,12 @@ import { useId } from "react";
 
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
-import { TextField } from "@heroui/react/textfield";
 import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
 import { FIELD_ERROR_CLASSES, TOGGLE_GROUP_ALIGN_CLASSES } from "@/shared/components/ui/formFieldStyles";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
 import type { Key } from "@heroui/react/rac";

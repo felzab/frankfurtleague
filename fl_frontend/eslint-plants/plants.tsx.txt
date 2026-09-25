@@ -11,6 +11,10 @@ import { CalendarRoot } from "@heroui/react/calendar"; // expect: date-alias
 import * as TimeFields from "@heroui/react/time-field"; // expect: segmented-import expect: heroui-form expect: date-alias
 import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
 import { NumberField as HeroNumberField } from "@heroui/react/number-field"; // expect: number-field
+import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect: marked-field
+import { Select as HeroSelect } from "@heroui/react/select"; // expect: marked-field
+import { Switch as HeroSwitch } from "@heroui/react/switch"; // expect: marked-field
+import { Autocomplete as HeroAutocomplete } from "@heroui/react/autocomplete"; // expect: marked-field
 import { Button } from "@heroui/react"; // expect: vendor-root
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
 
@@ -28,6 +32,9 @@ declare const router: { push: (to: string) => void; replace: (to: string) => voi
 declare const redirect: (to: string) => never;
 declare const heading: () => string;
 declare const panel: { heading: () => string };
+declare const Select: (props: object) => null;
+declare const AppDatePicker: (props: object) => null;
+declare const owed: boolean;
 declare const headers: Headers;
 declare const request: Request;
 declare const id: string;
@@ -83,6 +90,10 @@ export const ICONS_LOADED = import(`@gravity-ui/icons`); // expect: vendor-root-
 export const FORM_LOADED = await import("@heroui/react/form"); // expect: heroui-form-load
 export const FORM_TEMPLATE_LOADED = import(`@heroui/react/form`); // expect: heroui-form-load
 export const NUMBER_FIELD_LOADED = import("@heroui/react/number-field"); // expect: number-field-load
+export const TEXT_FIELD_LOADED = import("@heroui/react/textfield"); // expect: marked-field-load
+export const SELECT_LOADED = import(`@heroui/react/select`); // expect: marked-field-load
+export const SWITCH_LOADED = import("@heroui/react/switch"); // expect: marked-field-load
+export const AUTOCOMPLETE_LOADED = import("@heroui/react/autocomplete"); // expect: marked-field-load
 export const SEARCH_LOADED = import("next/dist/shared/lib/hooks-client-context.shared-runtime.js"); // expect: next-private-load
 export const TIME_LOADED = import(`@heroui/react/time-field`); // expect: segmented-load
 export const CALENDAR_LOADED = import("@heroui/react/calendar"); // expect: calendar-load
@@ -138,4 +149,11 @@ export const ORIGIN_USED = SITE_URL;
 export const NUMBER_FIELD_USED = HeroNumberField;
 export const LOCALE_USED = PinnedLocale;
 export const RAC_LOADED = import("@heroui/react/rac"); // expect: locale-load
+export const TEXT_FIELD_USED = HeroTextField;
+export const MARKED_FIELDS_USED = [HeroSelect, HeroSwitch, HeroAutocomplete];
 export const NATIVE_FORM = <form method="post" />; // expect: native-form
+export const BARE_MARK = <Select isRequired name="gruppe" />; // expect: hand-set-required
+export const LITERAL_MARK = <AppDatePicker isRequired={true} name="datum" />; // expect: hand-set-required
+export const LITERAL_UNMARK = <Select isRequired={false} name="gruppe" />; // expect: hand-set-required
+// A mark worked out from something is the wrappers' own spelling, and the ban leaves it.
+export const DERIVED_MARK = <Select isRequired={owed} name="gruppe" />;

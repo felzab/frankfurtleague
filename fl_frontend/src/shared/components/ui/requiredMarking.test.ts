@@ -4,11 +4,11 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { renderToStaticMarkup } from "react-dom/server";
+import z from "zod";
 
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
-import { TextField } from "@heroui/react/textfield";
 
 import { renderTree } from "@/shared/testing/renderTest.ts";
 import { compiledGlobals } from "@/shared/testing/stylesheet.ts";
@@ -18,14 +18,19 @@ import type { ComponentProps, ReactNode } from "react";
 
 const { AddressFields } = await import("./AddressFields.tsx");
 const { Form } = await import("./Form.tsx");
+const { requiredBy } = await import("./RequiredMarks.tsx");
+const { TextField } = await import("./TextField.tsx");
 
 const NO_ADDRESS: FLAddress = { strasse: "", hausnummer: "", plz: "", stadtteil: "", stadt: "" };
+
+/** The street refuses an empty box and the district takes one, so one field is required and the other not. */
+const STRASSE_REQUIRED = z.object({ strasse: z.string().nonempty(), stadtteil: z.string() });
 
 /**
  * What `EntityForm` puts on a form that marks its required fields. Asserted rather than written inline
  * because TypeScript waves a hyphenated attribute through in JSX position only, and this file has none.
  */
-const MARKS_REQUIRED = { "data-required-marks": "on", onSubmit: () => undefined } as ComponentProps<typeof Form>;
+const MARKS_REQUIRED = { "data-required-marks": "on", onSubmit: () => undefined, schemas: [STRASSE_REQUIRED] } as ComponentProps<typeof Form>;
 
 /** A required text field, with its label wrapped in as many elements as the caller nests it. */
 function renderField({ wrappers, marksRequired }: { wrappers: number; marksRequired?: boolean }): string {
@@ -36,8 +41,8 @@ function renderField({ wrappers, marksRequired }: { wrappers: number; marksRequi
     h(
       Form,
       // The app's own form rather than HeroUI's, so the mode the case below pins is the one it sets.
-      (marksRequired ? MARKS_REQUIRED : {}) as ComponentProps<typeof Form>,
-      h(TextField, { isRequired: true, name: "strasse" }, label, h(Input, null), h(FieldError, null)),
+      marksRequired ? MARKS_REQUIRED : { onSubmit: () => undefined, schemas: [STRASSE_REQUIRED] },
+      h(TextField, { name: "strasse" }, label, h(Input, null), h(FieldError, null)),
       h(TextField, { name: "stadtteil" }, h(Label, null, "Stadtteil"), h(Input, null), h(FieldError, null)),
     ),
   );
@@ -95,28 +100,48 @@ describe("what a required field asks of the browser", () => {
   });
 });
 
-describe("what an opt-in required prop actually reaches", () => {
-  /** The district's box as the address editor renders it under the app's own mode. */
-  const districtBox = (isStadtteilRequired?: boolean): string => {
+describe("where a field's required mark comes from", () => {
+  /** The district's box as the address editor renders it, under a form submitting `stadtteil` as given. */
+  const districtBox = (stadtteil: z.ZodType): string => {
     const html = renderTree(
       h(
         Form,
-        null,
-        h(AddressFields, {
-          value: NO_ADDRESS,
-          onChange: () => undefined,
-          ...(isStadtteilRequired === undefined ? {} : { isStadtteilRequired }),
-        }),
+        { onSubmit: () => undefined, schemas: [z.object({ address: z.object({ stadtteil }) })] },
+        h(AddressFields, { value: NO_ADDRESS, onChange: () => undefined }),
       ),
     );
 
     return /<input\b[^>]*\bname="address\.stadtteil"[^>]*>/.exec(html)?.[0] ?? assert.fail("the address editor renders no district box");
   };
 
-  // The default keeps every admin address optional; the application form is the one caller opting in.
-  it("hands the district's required-ness to the caller, defaulting off", () => {
-    assert.doesNotMatch(districtBox(), /\baria-required="true"/, "the district is required where no caller asked for it");
-    assert.match(districtBox(true), /\baria-required="true"/, "the caller's opt-in never reaches the district's box");
+  // Every admin address takes an empty district; the application's payload refuses one.
+  it("marks the district exactly where the schema its form submits refuses it empty", () => {
+    assert.doesNotMatch(districtBox(z.string()), /\baria-required="true"/, "the district is required where its schema takes an empty one");
+    assert.match(districtBox(z.string().nonempty()), /\baria-required="true"/, "a schema refusing the empty district leaves it unmarked");
+  });
+
+  it("leaves a field optional where its schema takes null", () => {
+    assert.doesNotMatch(districtBox(z.string().nonempty().nullable()), /\baria-required="true"/, "a leaf taking null is marked");
+  });
+
+  it("reaches a leaf through a section the payload may leave out", () => {
+    const schule = z.object({ schule: z.object({ full_name: z.string().nonempty() }).nullable().optional() });
+
+    assert.equal(requiredBy([schule], "schule.full_name", ""), true);
+  });
+
+  it("marks no path the schemas do not carry, and a path any one of them refuses", () => {
+    const withName = z.object({ name: z.string().nonempty() });
+
+    assert.equal(requiredBy([withName], "kuerzel", ""), false, "a path outside every schema is marked");
+    assert.equal(requiredBy([z.object({}), withName], "name", ""), true, "the second schema's refusal goes unread");
+  });
+
+  it("judges the emptiness the field's own control writes", () => {
+    const einwilligung = z.object({ erteilt: z.literal(true), whatsapp: z.boolean() });
+
+    assert.equal(requiredBy([einwilligung], "erteilt", false), true, "a switch the schema needs on is unmarked");
+    assert.equal(requiredBy([einwilligung], "whatsapp", false), false, "a switch the schema takes off is marked");
   });
 });
 

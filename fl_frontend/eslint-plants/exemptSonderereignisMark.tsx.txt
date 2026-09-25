@@ -1,0 +1,5 @@
+// Linted as src/features/spiele/components/forms/AdminEditSpielDataForm/FormSonderereignisSection.tsx.
+// The event picker's mark owed by the switch asserting an event, and every other ban still reaches it.
+declare const Select: (props: object) => null;
+
+export const SONDEREREIGNIS_MARK = <Select isRequired name="sonderereignis" className="flex gap-5" />; // expect: gap

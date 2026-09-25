@@ -7,8 +7,6 @@ import { parseDate } from "@internationalized/date";
 
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
-import { Switch } from "@heroui/react/switch";
-import { TextField } from "@heroui/react/textfield";
 
 import { ALL_SEAT_PATHS } from "@/features/kontakte/kontakteDraftStatus";
 import { applySeatPresence, applySharedSeat, mirroredJudgedPaths } from "@/features/kontakte/utils";
@@ -27,6 +25,8 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { Switch } from "@/shared/components/ui/Switch";
+import { TextField } from "@/shared/components/ui/TextField";
 import { textLink } from "@/shared/components/ui/textLink";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -324,7 +324,6 @@ function KontaktpersonInputs({
       <div className={FIELD_PAIR_CLASSES}>
         <TextField
           isReadOnly={isMirrored}
-          isRequired
           name={`kontakte.${rolle}.vorname`}
           value={person.vorname}
           onChange={(next) => onChange({ ...person, vorname: next })}
@@ -337,7 +336,6 @@ function KontaktpersonInputs({
 
         <TextField
           isReadOnly={isMirrored}
-          isRequired
           name={`kontakte.${rolle}.nachname`}
           value={person.nachname}
           onChange={(next) => onChange({ ...person, nachname: next })}
@@ -352,7 +350,6 @@ function KontaktpersonInputs({
       <div className={FIELD_PAIR_CLASSES}>
         <TextField
           isReadOnly={isMirrored}
-          isRequired
           type="email"
           name={`kontakte.${rolle}.email`}
           value={person.email}
@@ -368,7 +365,6 @@ function KontaktpersonInputs({
 
         <TextField
           isReadOnly={isMirrored}
-          isRequired
           type="tel"
           name={`kontakte.${rolle}.telefon`}
           value={person.telefon}
@@ -421,7 +417,6 @@ function KontaktpersonInputs({
         <div className={FIELD_PAIR_CLASSES}>
           <TextField
             isReadOnly
-            isRequired
             name={`kontakte.${rolle}.einwilligung.text_version`}
             value={person.einwilligung.text_version}
             onChange={() => undefined}>

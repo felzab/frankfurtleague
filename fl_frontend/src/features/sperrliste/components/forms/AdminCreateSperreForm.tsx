@@ -3,7 +3,6 @@
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
-import { TextField } from "@heroui/react/textfield";
 
 import { postSperreAction } from "@/features/sperrliste/actions";
 import { SPERRE_DAUER_HINWEIS } from "@/features/sperrliste/constants";
@@ -11,6 +10,7 @@ import { FLPostSperrlistePayloadSchema } from "@/features/sperrliste/schemas";
 import { EntityForm } from "@/shared/components/ui/EntityForm";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import type { FLPostSperrlistePayload } from "@/features/sperrliste/schemas";
 
@@ -33,7 +33,6 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
       renderFields={(draft, setDraft) => (
         <>
           <TextField
-            isRequired
             type="email"
             name="email"
             value={draft.email}
@@ -59,7 +58,6 @@ export function AdminCreateSperreForm({ onClose }: { onClose: () => void }) {
           </TextField>
 
           <TextField
-            isRequired
             name="grund"
             value={draft.grund}
             onChange={(next) => setDraft({ ...draft, grund: next })}>

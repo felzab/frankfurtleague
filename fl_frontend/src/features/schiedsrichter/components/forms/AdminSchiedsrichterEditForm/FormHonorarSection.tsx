@@ -43,7 +43,6 @@ export function FormHonorarSection({
 
       <div className={panel.body()}>
         <NumberField
-          isRequired
           minValue={0}
           step={5}
           name="default_payment"

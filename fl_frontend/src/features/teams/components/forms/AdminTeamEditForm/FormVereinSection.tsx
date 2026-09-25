@@ -7,8 +7,6 @@ import Pencil from "@gravity-ui/icons/Pencil";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { ListBox } from "@heroui/react/list-box";
-import { Select } from "@heroui/react/select";
-import { TextField } from "@heroui/react/textfield";
 
 import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
 import { DescriptionEditModal } from "@/features/teams/components/modals/DescriptionEditModal";
@@ -27,6 +25,8 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
+import { Select } from "@/shared/components/ui/Select";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import type { FLPostTeamPayload, FLSchulform } from "@/features/teams/schemas";
 import type { TeamFieldPath } from "@/features/teams/teamDraftStatus";
@@ -84,7 +84,6 @@ export function FormVereinSection({
       <div className={panel.body()}>
         <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
           <TextField
-            isRequired
             name="name"
             value={draft.name}
             onChange={(next) => onChange({ ...draft, name: next })}
@@ -99,7 +98,6 @@ export function FormVereinSection({
           </TextField>
 
           <TextField
-            isRequired
             name="shorthand"
             value={draft.shorthand}
             onChange={(next) => onChange({ ...draft, shorthand: next.toUpperCase() })}
@@ -112,7 +110,6 @@ export function FormVereinSection({
         </div>
 
         <TextField
-          isRequired
           name="full_name"
           value={draft.full_name}
           onChange={(next) => onChange({ ...draft, full_name: next })}

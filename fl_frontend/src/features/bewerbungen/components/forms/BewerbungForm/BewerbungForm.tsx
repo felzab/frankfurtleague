@@ -324,6 +324,7 @@ export function BewerbungForm({
       {hinweisSlot}
 
       <Form
+        schemas={[FLPostBewerbungPayloadSchema]}
         ref={formRef}
         // A create form, so its required fields carry the asterisk every other create form marks them
         // with: nearly every box here is required, and a stranger fills this in once.

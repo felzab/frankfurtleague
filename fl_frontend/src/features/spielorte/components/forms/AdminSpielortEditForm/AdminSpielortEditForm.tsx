@@ -175,6 +175,7 @@ export function AdminSpielortEditForm({
   return (
     <DraftStatusProvider status={status}>
       <Form
+        schemas={[FLPatchSpielortPayloadSchema]}
         ref={formRef}
         validationErrors={fieldErrors}
         className="flex min-h-0 w-full flex-1 flex-col"

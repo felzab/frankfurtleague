@@ -8,13 +8,13 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { Tabs } from "@heroui/react/tabs";
-import { TextField } from "@heroui/react/textfield";
 
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR_CLASSES, TAB_INDICATOR_CLASSES, TAB_ITEM_CLASSES, TAB_TRACK_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { SignInCard } from "@/shared/components/ui/SignInCard";
+import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
@@ -154,6 +154,7 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
 
       <Tabs.Panel id="Admin">
         <Form
+          schemas={[SignInPayloadSchema]}
           ref={formRef}
           validationErrors={fieldErrors}
           onSubmit={handleFormSubmit}
@@ -162,7 +163,6 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
             stopped matching the words a voice-control user reads. `TextField` associates it. */}
           <TextField
             className="flex w-full flex-col gap-y-2"
-            isRequired
             name="email"
             type="email"
             value={email}
@@ -195,8 +195,8 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
         {/* A `div`, not a `Form`: nothing here can be submitted, and a form that cannot submit is one
             more surface the submit-block sweep has to carve an exception for. */}
         <div className="flex flex-col gap-y-4">
-          {/* Not `isRequired`: the mark's opt-out (`fl_frontend/src/app/globals.css :: data-required-marks`)
-              reaches a field inside a `form` alone, so here it draws a red star on a field nothing submits. */}
+          {/* Under no schema, so unmarked: the mark's opt-out (`fl_frontend/src/app/globals.css :: data-required-marks`)
+              reaches a field inside a `form` alone, so a mark here draws a red star on a field nothing submits. */}
           <TextField
             className="flex w-full flex-col gap-y-2"
             name="email"

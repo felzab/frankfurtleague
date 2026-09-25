@@ -19,7 +19,7 @@ const { InfoHint } = await import("./InfoHint.tsx");
 const { Button } = await import("@heroui/react/button");
 const { Input } = await import("@heroui/react/input");
 const { Label } = await import("@heroui/react/label");
-const { TextField } = await import("@heroui/react/textfield");
+const { TextField } = await import("@/shared/components/ui/TextField.tsx");
 
 const REASON = "Es gibt noch keine Änderung zu speichern.";
 const LABEL = "Speichern";

@@ -4,7 +4,6 @@ import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
 import { TextArea } from "@heroui/react/textarea";
-import { TextField } from "@heroui/react/textfield";
 
 import { WebsiteUrlField } from "@/features/teams/components/forms/WebsiteUrlField";
 import {
@@ -16,6 +15,7 @@ import {
 } from "@/features/teams/constants";
 import { AddressFields } from "@/shared/components/ui/AddressFields";
 import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES, FIELD_TEXTAREA_CLASSES } from "@/shared/components/ui/formFieldStyles";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import type { FLPostTeamPayload } from "@/features/teams/schemas";
 import type { FieldErrors } from "@/shared/utils/validation";
@@ -38,7 +38,6 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
     <>
       <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <TextField
-          isRequired
           name="name"
           value={draft.name}
           onChange={(next) => onChange({ ...draft, name: next })}
@@ -54,7 +53,6 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
         </TextField>
 
         <TextField
-          isRequired
           name="shorthand"
           // Uppercased at the boundary: the shorthand is unique across every club, so stored and
           // typed must not differ by case alone.
@@ -69,7 +67,6 @@ export function TeamFormFields<T extends FLPostTeamPayload>({
       </div>
 
       <TextField
-        isRequired
         name="full_name"
         value={draft.full_name}
         onChange={(next) => onChange({ ...draft, full_name: next })}

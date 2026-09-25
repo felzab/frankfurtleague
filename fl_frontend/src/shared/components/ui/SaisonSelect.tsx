@@ -3,7 +3,8 @@
 import { FieldError } from "@heroui/react/field-error";
 import { Label } from "@heroui/react/label";
 import { ListBox } from "@heroui/react/list-box";
-import { Select } from "@heroui/react/select";
+
+import { Select } from "@/shared/components/ui/Select";
 
 import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "./formFieldStyles";
 import { overlayPanel } from "./overlayPanel";
@@ -32,11 +33,7 @@ export function SaisonSelect({
   };
 
   return (
-    // A literal mark: `fl_frontend/src/core/schemaGerman.test.ts :: requiredNamesIn` cannot resolve
-    // `isRequired={…}`, and writing one here would drop every schema asserted to refuse an empty
-    // `saison_id` with the gate still green.
     <Select
-      isRequired
       name="saison_id"
       value={value}
       onChange={handleChange}

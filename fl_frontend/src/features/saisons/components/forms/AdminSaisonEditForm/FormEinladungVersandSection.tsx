@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 
 import Envelope from "@gravity-ui/icons/Envelope";
 
-import { Switch } from "@heroui/react/switch";
-
 import { postEinladungVersandAction, previewEinladungVersandAction } from "@/features/einladungen/actions";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -18,6 +16,7 @@ import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldSt
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { Switch } from "@/shared/components/ui/Switch";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { unansweredAction, unansweredRead } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";

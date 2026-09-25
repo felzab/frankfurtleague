@@ -13,6 +13,7 @@ import { generateSpielplanAction, undrawSpielplanAction } from "@/features/saiso
 import { SaisonCountSelect, SaisonRuleNumberField } from "@/features/saisons/components/forms/SaisonFormControls";
 import { STUFE_CHIP_CLASSES } from "@/features/saisons/components/forms/StufenPicker";
 import { PHASE_LABELS } from "@/features/saisons/constants";
+import { FLGenerateSpielplanPayloadSchema } from "@/features/saisons/schemas";
 import {
   drawGroupCountOptions,
   drawnSpieltage,
@@ -42,6 +43,7 @@ import {
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { RequiredSchemas } from "@/shared/components/ui/RequiredMarks";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
@@ -332,67 +334,70 @@ export function FormSpielplanSection({
             the season's rules unchanged. Frozen once armed, so the confirmation cannot describe
             numbers that moved under it. */}
         {isDrawing && replacesDraw && (
-          <div className="flex w-full flex-col gap-y-3">
-            <h3 className={FORM_SECTION_HEADING_CLASSES}>Aufbau des neuen Spielplans</h3>
-            <div className={FIELD_TRIO_CLASSES}>
-              {SHAPE_FIELDS.map(({ key: shapeKey, label }) => {
-                if (shapeKey === "teams_per_group")
+          // The draw's own payload, which the season's save around it never submits.
+          <RequiredSchemas schemas={[FLGenerateSpielplanPayloadSchema]}>
+            <div className="flex w-full flex-col gap-y-3">
+              <h3 className={FORM_SECTION_HEADING_CLASSES}>Aufbau des neuen Spielplans</h3>
+              <div className={FIELD_TRIO_CLASSES}>
+                {SHAPE_FIELDS.map(({ key: shapeKey, label }) => {
+                  if (shapeKey === "teams_per_group")
+                    return (
+                      <SaisonRuleNumberField
+                        key={shapeKey}
+                        // The payload's own path, so a refusal naming one of the three reaches the box
+                        // that holds it. Nothing on the season's save bar spells a `shape.` path, so
+                        // neither form can render the other's message.
+                        name={`shape.${shapeKey}`}
+                        label={<Label className={FIELD_LABEL_CLASSES}>{label}</Label>}
+                        minValue={teamsPerGroupFloor({
+                          qualifiers: shape.qualifiers_per_group,
+                          held: shape.teams_per_group,
+                          occupancy: gruppenOccupancy,
+                        })}
+                        maxValue={MAX_TEAMS_PER_GROUP}
+                        isReadOnly={isShapeFrozen}
+                        value={shape[shapeKey]}
+                        // An emptied box is dropped rather than recorded: these three go straight into
+                        // the draw's payload, so a null would reach the confirmation as a figure and
+                        // the press as a refusal.
+                        onChange={(next) => {
+                          if (next !== null) setShape({ ...shape, [shapeKey]: next });
+                        }}
+                      />
+                    );
+
                   return (
-                    <SaisonRuleNumberField
+                    <SaisonCountSelect
                       key={shapeKey}
-                      // The payload's own path, so a refusal naming one of the three reaches the box
-                      // that holds it. Nothing on the season's save bar spells a `shape.` path, so
-                      // neither form can render the other's message.
                       name={`shape.${shapeKey}`}
+                      ariaLabel={label}
                       label={<Label className={FIELD_LABEL_CLASSES}>{label}</Label>}
-                      minValue={teamsPerGroupFloor({
-                        qualifiers: shape.qualifiers_per_group,
-                        held: shape.teams_per_group,
-                        occupancy: gruppenOccupancy,
-                      })}
-                      maxValue={MAX_TEAMS_PER_GROUP}
-                      isReadOnly={isShapeFrozen}
+                      isDisabled={isShapeFrozen}
+                      // Against the DRAFT the boxes hold, so moving one moves what the next may reach:
+                      // the three are judged together, and an offer read off the stored season would
+                      // keep offering a product this press refuses.
+                      options={
+                        shapeKey === "number_of_groups"
+                          ? drawGroupCountOptions({
+                              groups: shape.number_of_groups,
+                              qualifiers: shape.qualifiers_per_group,
+                              teams: shape.teams_per_group,
+                              occupancy: gruppenOccupancy,
+                            })
+                          : qualifierCountOptions({
+                              groups: shape.number_of_groups,
+                              qualifiers: shape.qualifiers_per_group,
+                              teams: shape.teams_per_group,
+                            })
+                      }
                       value={shape[shapeKey]}
-                      // An emptied box is dropped rather than recorded: these three go straight into
-                      // the draw's payload, so a null would reach the confirmation as a figure and
-                      // the press as a refusal.
-                      onChange={(next) => {
-                        if (next !== null) setShape({ ...shape, [shapeKey]: next });
-                      }}
+                      onChange={(next) => setShape({ ...shape, [shapeKey]: next })}
                     />
                   );
-
-                return (
-                  <SaisonCountSelect
-                    key={shapeKey}
-                    name={`shape.${shapeKey}`}
-                    ariaLabel={label}
-                    label={<Label className={FIELD_LABEL_CLASSES}>{label}</Label>}
-                    isDisabled={isShapeFrozen}
-                    // Against the DRAFT the boxes hold, so moving one moves what the next may reach:
-                    // the three are judged together, and an offer read off the stored season would
-                    // keep offering a product this press refuses.
-                    options={
-                      shapeKey === "number_of_groups"
-                        ? drawGroupCountOptions({
-                            groups: shape.number_of_groups,
-                            qualifiers: shape.qualifiers_per_group,
-                            teams: shape.teams_per_group,
-                            occupancy: gruppenOccupancy,
-                          })
-                        : qualifierCountOptions({
-                            groups: shape.number_of_groups,
-                            qualifiers: shape.qualifiers_per_group,
-                            teams: shape.teams_per_group,
-                          })
-                    }
-                    value={shape[shapeKey]}
-                    onChange={(next) => setShape({ ...shape, [shapeKey]: next })}
-                  />
-                );
-              })}
+                })}
+              </div>
             </div>
-          </div>
+          </RequiredSchemas>
         )}
 
         {isConfirming && (

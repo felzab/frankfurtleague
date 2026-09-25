@@ -81,7 +81,6 @@ export function FormZeitraumSection({
             // The Datum label sits on the `beginn` path because `REQ-DATE-002` is the only refusal
             // this save can put on a field, and one picker leaves one place for it to land.
             <AppDatePicker
-              isRequired
               name="beginn"
               minValue={spanStart}
               maxValue={spanEnd}
@@ -93,7 +92,6 @@ export function FormZeitraumSection({
           ) : (
             <>
               <AppDatePicker
-                isRequired
                 name="beginn"
                 minValue={spanStart}
                 maxValue={spanEnd}
@@ -103,7 +101,6 @@ export function FormZeitraumSection({
                 onChange={(next) => onBeginnChange(next?.toString() ?? "")}
               />
               <AppDatePicker
-                isRequired
                 name="ende"
                 minValue={spanStart}
                 maxValue={spanEnd}

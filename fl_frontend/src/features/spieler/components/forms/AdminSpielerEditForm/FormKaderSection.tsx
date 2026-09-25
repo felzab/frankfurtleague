@@ -5,7 +5,6 @@ import { useState, useTransition } from "react";
 import { Button } from "@heroui/react/button";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
-import { TextField } from "@heroui/react/textfield";
 import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
@@ -23,6 +22,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { TextField } from "@/shared/components/ui/TextField";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
@@ -149,7 +149,6 @@ export function FormKaderSection({
               <div className="flex w-full flex-col gap-y-1">
                 <FieldLabel<SpielerFieldPath> path="team_id">Team</FieldLabel>
                 <TeamSelect
-                  isRequired
                   value={teamId}
                   onChange={(next) => {
                     onTeamIdChange(next);

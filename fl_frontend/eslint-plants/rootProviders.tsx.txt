@@ -10,5 +10,7 @@ import { HintPopover } from "@/shared/components/ui/InfoHint"; // expect: hint-i
 import { captureStdout } from "@/core/stdoutCapture"; // expect: test-only
 import { createRequire as loadVia } from "node:module"; // expect: node-module
 import { SITE_URL } from "@/core/brand"; // expect: site-origin
+import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect: marked-field
 
 export const USED = [I18nProvider, Button, Form, AppRouterContext, DateField, NumberField, HintPopover, captureStdout, loadVia, SITE_URL];
+export const TEXT_FIELD_USED = HeroTextField;
