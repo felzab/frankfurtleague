@@ -318,6 +318,12 @@ describe("what a refused READ says about a link", () => {
     assert.equal(mapRegistrierungAnsichtRefusal(refusal("REQ-VAL-001", 422)), "ungueltig");
   });
 
+  /* The season, club or registration a link names gone is as dead a link, as both writes answer it. */
+  it("calls the link void where the record it names is gone, on either read", () => {
+    assert.equal(mapRegistrierungAnsichtRefusal(refusedOn("POST /registrierungen/einladung/ansicht", "DB-COMMON-001")), "ungueltig");
+    assert.equal(mapRegistrierungAnsichtRefusal(refusedOn("POST /registrierungen/bestaetigung/ansicht", "DB-COMMON-001")), "ungueltig");
+  });
+
   it("leaves a failed read to the page's own state", () => {
     assert.equal(mapRegistrierungAnsichtRefusal(refusal("DB-COMMON-001", 503)), null);
     assert.equal(mapRegistrierungAnsichtRefusal(new Error("keine Verbindung")), null);

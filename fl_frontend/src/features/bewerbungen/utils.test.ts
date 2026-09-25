@@ -725,6 +725,11 @@ describe("mapEinwilligungAnsichtRefusal", () => {
     assert.equal(mapEinwilligungAnsichtRefusal(refusedPayload([], "/bewerbungen")), "ungueltig");
   });
 
+  /* The record the link names gone is as dead a link, as the confirmation answers it. */
+  it("calls the link void where the record it names is gone", () => {
+    assert.equal(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "DB-COMMON-001")), "ungueltig");
+  });
+
   /* A failed read is the page's own state: answering „ungueltig“ on a 500 would call a live link
      void on a day the backend was unreachable. */
   it("leaves anything that is not a refusal to the caller", () => {

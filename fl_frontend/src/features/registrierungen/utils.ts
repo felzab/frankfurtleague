@@ -1,4 +1,5 @@
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { isRecordMissing } from "@/core/errors";
 import { nummerPayload } from "@/features/spieler/utils";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
@@ -181,6 +182,9 @@ export function mapRegistrierungAnsichtRefusal(error: unknown): "ungueltig" | nu
   // A token the backend will not parse matches no record, so the page calls the link void rather
   // than offering a reload that cannot succeed.
   if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
+
+  // The season, club or registration the link names gone, which the writes answer alike.
+  if (isRecordMissing(error)) return "ungueltig";
 
   return isRuleRefusal(error) ? "ungueltig" : null;
 }

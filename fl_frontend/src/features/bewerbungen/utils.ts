@@ -2,6 +2,7 @@ import { parseDate } from "@internationalized/date";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
+import { isRecordMissing } from "@/core/errors";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
@@ -249,6 +250,9 @@ export function mapEinwilligungAnsichtRefusal(error: unknown): LinkZustand | nul
   // than offering a reload that cannot succeed. `docs/frontend/spec.md` §4 accepts that the two
   // tiers bound its length apart.
   if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
+
+  // The record the link names gone, which the confirmation answers alike.
+  if (isRecordMissing(error)) return "ungueltig";
 
   // Every rule's refusal alike: a spent link answers its own `zustand` in a 200, so a refusal is a
   // token nothing could place, and a code nobody planned reads the same way.
