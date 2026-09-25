@@ -176,9 +176,15 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
 
 # `docker port`, never a fixed number: a developer's own stack shares this host, and a collision
 # would read as a redaction failure rather than as a port already taken.
-ADDR="$(docker port "$CONTAINER" 80/tcp | head -n 1)" \
-  || refuse "the edge test's nginx published no port."
-[[ -n "$ADDR" ]] || refuse "the edge test's nginx published no port."
+ADDR="$(docker port "$CONTAINER" 80/tcp | head -n 1)" || ADDR=""
+if [[ -z "$ADDR" ]]; then
+  # A release below the Control API's exits at once on the command's `-l`, which is the pin's fault
+  # and a finding (`docs/ops/spec.md` §1.2); any other silence is this run's.
+  if docker logs "$CONTAINER" 2>&1 | grep -qF 'invalid option: "l"'; then
+    die "the pinned nginx (${EDGE_IMAGE}) refuses the -l switch, so it predates the Control API. Pin nginx 1.31.5 or newer in docker-compose.yml."
+  fi
+  refuse "the edge test's nginx published no port."
+fi
 BASE="http://${ADDR%$'\r'}"
 
 # nginx accepts a connection before the worker serves, so retrying on connect is what separates

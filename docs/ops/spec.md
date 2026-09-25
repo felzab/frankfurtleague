@@ -141,7 +141,8 @@ both, and `nginx/edge_test.sh` reads the mode off a running edge.
 `docker-compose.yml :: nginx` names an exact release rather than the minor, with its digest (§1.1): the
 release is what an update is compared against, and it must stay at 1.31.5 or newer. The digest, not
 the tag, holds that floor: the ops scope's `nginx/edge_test.sh` starts the pinned image with the
-`-l` switch, and a release below it never starts, which ends the scope refused.
+`-l` switch, and a release below it exits refusing the switch, which the test reads off the
+container's log and fails the scope on.
 
 ### 1.3 nginx routing
 
