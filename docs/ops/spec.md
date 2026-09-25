@@ -45,6 +45,13 @@ move by hand, no ecosystem reading a shell string. `local.sh`'s copy runs the lo
 mongo, digest included. `scripts/tests/test_image_pins.py` holds every such reference to that form
 and the copy to the stack (I367).
 
+**The digest alone decides what runs, and nothing checks the tag against it.** An official image is
+rebuilt under the same tags whenever the image it is built `FROM` is refreshed
+([the Official Images FAQ](https://github.com/docker-library/faq/blob/ce1a70af72a522f8638d6bffd930ef3252de7837/README.md#why-does-my-security-scanner-show-that-an-image-has-cves),
+read 2026-09-25), so a correct pin's digest and its tag's current one routinely differ, and a
+registry comparison would refuse pins that are right. The tag is an unverified label that Dependabot
+keeps beside the digest it rewrites, and a hand edit moving one without the other goes unnoticed.
+
 **The database test tier's `mongo:8` stays a bare tag**, in `fl_backend/tests/conftest.py` and the
 frontend's `*.db.test.ts` files alike: `@testcontainers/mongodb` reads the server's version off the
 tag, and a digest reference hands it the digest instead, so its health check falls back to the
@@ -132,7 +139,9 @@ both, and `nginx/edge_test.sh` reads the mode off a running edge.
 **The Control API needs nginx 1.31.5 or newer** (nginx's `CHANGES` and command-line page, read
 2026-09-24), and an older release refuses the `-l` switch and never starts. So
 `docker-compose.yml :: nginx` names an exact release rather than the minor, with its digest (§1.1): the
-release is what an update is compared against, and it must stay at 1.31.5 or newer.
+release is what an update is compared against, and it must stay at 1.31.5 or newer. The digest, not
+the tag, holds that floor: the ops scope's `nginx/edge_test.sh` starts the pinned image with the
+`-l` switch, and a release below it never starts, which ends the scope refused.
 
 ### 1.3 nginx routing
 
