@@ -691,8 +691,8 @@ change.** jscpd over the frontend's production sources, run on this tree on 2026
 **Sweeps read each of those pages as source, and they move in the same change as the shell.**
 `fl_frontend/src/features/admin/saveConfirmation.test.ts` finds the editors by the text
 `<ConfirmSaveModal` in their files, and `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
-finds the tables by the shared emptiness beside a react-aria table and reads each one's column
-arithmetic. Each holds a roster to what it finds, so a shell moved into one shared component turns
+finds the tables by the shared emptiness beside a react-aria table and renders each one to read its
+column arithmetic. Each holds a roster to what it finds, so a shell moved into one shared component turns
 it red; the repair re-aims it at the shared component and keeps asserting what it asserted per page,
 because a case is cut only where a surviving one still fails for the same regression
 (`.claude/CLAUDE.md` §3).
