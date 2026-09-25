@@ -1036,7 +1036,10 @@ dashes** (`scripts/lib/_lib.sh :: _find_unreached`). It is neither a scope nobod
 the not-run line names, nor one that reached a verdict, which a rank would say — and an ending
 reached partway through a run would otherwise leave it named nowhere at all, having been announced
 as covered. The row is reporting alone: the finding, refusal or crash that stopped the run short of
-the scope is what the exit code still answers for. **Colour is decided centrally, through
+the scope is what the exit code still answers for. A scope that crashes after the run's ending is
+already set reads `crashed` (`scripts/lib/_lib.sh :: RANK_CRASHED`), and its own output follows under a
+heading naming its status; like `unreached`, the row reports and the ending still answers for the
+earlier failure. **Colour is decided centrally, through
 `FL_GATE_COLOR` ahead of everything else** — the gate's own variable, how a parent hands a worker
 its answer without exporting one every tool would take as an instruction.
 
