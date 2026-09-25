@@ -16,6 +16,8 @@ import { renderTree } from "./renderTest.ts";
 const { connection } = await import("next/server");
 const { apiClient } = await import("@/core/api.ts");
 const { notFound } = await import("next/navigation.js");
+const { Button } = await import("@heroui/react/button");
+const { AdminCrudSearch } = await import("@/shared/components/ui/AdminCrudSearch.tsx");
 
 const Answer = z.object({ n: z.number() });
 const PROPS = { params: Promise.resolve({}), searchParams: Promise.resolve({}) };
@@ -107,6 +109,34 @@ describe("the page harness", () => {
       walk.unconnected,
       ["ReadsFirst :: /vor-connection"],
       "a child is charged for its parent's connection, or a read before one passes",
+    );
+  });
+
+  /* A server component need not be async: one returning an async one is how a loader gets wrapped, and
+     skipped, the loader's reads went unjudged by every case the walk feeds. */
+  it("calls a synchronous server component and reaches what it returns", async () => {
+    const Wraps = () => h(ReadsFirst);
+
+    clearSteps();
+    const walk = await callPage(inBoundary(h(Wraps)), PROPS);
+
+    assert.deepEqual(walk.unconnected, ["ReadsFirst :: /vor-connection"], "the loader behind the wrapper was never called");
+  });
+
+  /* A client component is a client reference to a server tree, never called there; called here, its
+     hooks would throw with no render to answer them. Both kinds a page holds: the app's own, and a
+     package's. */
+  it("calls no component a `use client` module exports", async () => {
+    clearSteps();
+    const walk = await callPage(
+      inBoundary(h("div", null, h(AdminCrudSearch, { searchLabel: "Suchen", searchPlaceholder: "" }), h(Button, null, h(Connected)))),
+      PROPS,
+    );
+
+    assert.deepEqual(walk.thrown, [], "a client component was called outside a render");
+    assert.ok(
+      steps.some((step) => step.kind === "read" && step.endpoint === "/im-kind"),
+      "the server child a client component holds was not reached",
     );
   });
 

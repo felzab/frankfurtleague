@@ -48,6 +48,27 @@ const PACKAGE_DOUBLES: Readonly<Record<string, string>> = {
 
 const asModule = (source: string): string => `data:text/javascript,${encodeURIComponent(source)}`;
 
+/**
+ * Every value a `"use client"` module exports: what a bundler hands a server tree as a client
+ * reference, which React's server renderer never calls (react.dev, `'use client'`).
+ */
+const CLIENT_COMPONENTS = "__flClientComponents";
+const clientComponents = new WeakSet<object>();
+Reflect.set(globalThis, CLIENT_COMPONENTS, clientComponents);
+
+/** The directive opening a module, after any comment and a `"use strict"`. */
+const USE_CLIENT = /^(?:\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/))*\s*(?:(["'])use strict\1;?\s*)?(["'])use client\2/;
+
+/** Appended to a client module, so each export is registered once the module has defined it. */
+const registering = (url: string): string =>
+  `\nimport * as __flSelf from ${JSON.stringify(url)};\nfor (const value of Object.values(__flSelf)) if (typeof value === "function") globalThis.${CLIENT_COMPONENTS}.add(value);\n`;
+
+/**
+ * ES modules alone: an `import` appended to a CommonJS one makes Node read it as an ES module. A
+ * CommonJS client component is therefore called, and the walk reports its hooks' throw.
+ */
+const ES_MODULE = new Set(["module", "module-typescript"]);
+
 registerHooks({
   resolve(specifier, context, nextResolve) {
     const double = PACKAGE_DOUBLES[specifier];
@@ -56,7 +77,11 @@ registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
+
+    const loaded = nextLoad(url, context);
+    if (loaded.source === undefined || loaded.source === null || !ES_MODULE.has(loaded.format ?? "")) return loaded;
+    const source = typeof loaded.source === "string" ? loaded.source : new TextDecoder().decode(loaded.source);
+    return USE_CLIENT.test(source) ? { ...loaded, source: source + registering(url) } : loaded;
   },
 });
 
@@ -179,6 +204,12 @@ export type Walk = { thrown: unknown[]; unconnected: string[] };
 const isAsync = (type: unknown): type is (props: unknown) => Promise<unknown> =>
   typeof type === "function" && type.constructor.name === "AsyncFunction";
 
+/** A function component outside every `"use client"` module, which is a class of none. */
+const isServerComponent = (type: unknown): type is (props: unknown) => unknown =>
+  typeof type === "function" &&
+  !clientComponents.has(type) &&
+  !(type.prototype as { isReactComponent?: unknown } | undefined)?.isReactComponent;
+
 /**
  * Calls every component a tree reaches, awaiting the async ones, so each read it makes is made; every
  * throw is recorded and the walk goes on past it. `connected` is whether a component above has
@@ -200,9 +231,9 @@ async function reach(node: unknown, walk: Walk, connected = false, depth = 0): P
 
   for (const value of Object.values(element.props)) await reach(value, walk, connected, depth + 1);
 
-  // Async ones alone: a server component that reads is async, and calling a client component outside
-  // a render trips its hooks. A sync server component's children are reached through its props above.
-  if (!isAsync(element.type)) return;
+  // As React's server renderer does: every function component but a client one is called, and a
+  // promise it returns awaited (`react-server-dom-webpack-server :: renderElement`).
+  if (!isServerComponent(element.type)) return;
 
   const from = steps.length;
   let returned: unknown;
@@ -227,7 +258,7 @@ export type PageProps = { params: Promise<Record<string, unknown>>; searchParams
 export async function callPage<P>(Page: (props: P) => unknown, props: P): Promise<Walk> {
   const walk: Walk = { thrown: [], unconnected: [] };
   try {
-    await reach(isAsync(Page) ? { type: Page, props } : Page(props), walk);
+    await reach({ type: Page, props }, walk);
   } catch (error) {
     walk.thrown.push(error);
   }
