@@ -32,21 +32,27 @@
 # neither the reference nor the budget and takes no stamp of its own.
 #
 # `images` is measured and not budgeted: its span is the layer cache's before it is the tree's, and
-# inside one stamped population its widest run costs seven times its narrowest, so the number a
-# ceiling would be set from says more about which layers were warm than about the tree. The
+# inside the population its stamp counts its widest run costs five times its narrowest, so the
+# number a ceiling would be set from says more about which layers were warm than about the tree. The
 # Dockerfile change most worth catching is the one that empties that cache, and the median report
 # is its only guard.
 #
-# `format` runs on every event, but its row is still cut from the pull-request runs its stamp
-# counts, so its reference columns stay `-` until main runs exist to cut them from. Its stamp moves
-# on its own runs and never with the rows above it.
+# `docs`, `format`, `frontend`, the `frontend-units` shards, `images` and `scripts` are cut from the
+# main push runs their stamps count, every one of them carrying the backend's tier over workers and
+# the db scope's two suites started together. A population as short as theirs cannot be cut into two
+# windows of twelve, and drawn with replacement it reads its own smallness rather than the job --
+# five runs of `frontend` answered 5 percent that way -- so each of those floors keeps the figure
+# its row's earlier population gave it. `format` and the shards had no floor to keep, so their
+# references stay `-` as well: the report reads a missing floor as a floor of zero, and would name
+# every move of a row carrying a reference without one. Each is re-cut, floor and reference
+# included, once twelve such runs exist.
 #
-# `ops` answers to a shorter population than every other row cut from main runs, counted in its own
-# stamp -- `format`, carved out just above, is shorter still and is pull-request runs. `nginx/edge_test.sh` joined that scope partway through those rows' window, and a run
-# from before that merge measures a gate this one is not. A population that short cannot be cut
-# into two windows of twelve, so its floor is the p95 movement between two 12-run medians drawn
-# with replacement from it. On the three rows computable both ways that draw lands within a point
-# of the reshuffle -- once narrower -- and on `images` about half again as wide, so it is the
+# `ops` answers to a shorter population than `backend` and `db`, counted in its own stamp.
+# `nginx/edge_test.sh` joined that scope partway through the window those two rows were cut from,
+# and a run from before that merge measures a gate this one is not. A population that short cannot
+# be cut into two windows of twelve, so its floor is the p95 movement between two 12-run medians
+# drawn with replacement from it. On the three rows computable both ways that draw lands within a
+# point of the reshuffle -- once narrower -- and on `images` about half again as wide, so it is the
 # method a short population leaves rather than a systematically looser one.
 #
 # `db`'s floor is wide because its window straddles the database tier's move to PyMongo and
@@ -152,14 +158,10 @@
 # longest chunk; either way it sits inside the floor the `scripts` row carries, so neither the
 # reference nor the budget moves and neither takes a new stamp.
 #
-# `frontend` gained forty test files rendering the editors through HeroUI on jsdom, and its row is
-# cut from the five completed main push runs since they landed, 2026-09-19 to 2026-09-20: 243, 260,
-# 264, 268 and 287 s first step to last, so the reference is their median and the budget the rule
-# above over the widest. The floor keeps the figure the 24-run population gave it: five runs are too
-# few to draw a twelve-run median from, and drawn with replacement they answer 5 percent, which
-# reads the smallness of the population rather than the job. It is re-cut, floor included, once
-# twelve such runs exist. The unit tests are the whole
-# move, 171 s on the runner against 35 s in the last stamped window, and the cost is each file's own
+# `frontend` gained forty test files rendering the editors through HeroUI on jsdom, and the five
+# completed main push runs after they landed, 2026-09-19 to 2026-09-20, spanned 243, 260, 264, 268
+# and 287 s first step to last. The unit tests are the whole
+# move, 171 s on the runner against 35 s in the window before them, and the cost is each file's own
 # process loading jsdom (1.05 s) and the HeroUI entry point (1.31 s) before a case runs, measured
 # locally on 2026-09-19 on the sixteen-core machine: a file rendering nothing starts in 0.2 s and
 # one rendering a rail in 2.9 s. Two levers were measured on that file over four interleaved rounds
@@ -183,10 +185,9 @@
 # the job's `name:` template spells, which is the name the runs API reports and both the report and
 # the budget check look a row up by. A row shared by the instances would have both readers fold
 # names in step with each other, and the total would count one shard's span where every shard ran.
-# Their four budgets are one figure, cut by the rule above from the widest shard span in this
-# branch's runs: `node --test --test-shard` hands a shard the files at its positions in the sorted
-# list, whatever they cost, so which shard is heaviest moves as files are added. A reference and a
-# floor need main's push runs, so both stay `-`.
+# Their four budgets are one figure, cut by the rule above from the widest shard span in the runs
+# their stamp counts: `node --test --test-shard` hands a shard the files at its positions in the
+# sorted list, whatever they cost, so which shard is heaviest moves as files are added.
 #
 # `scripts` gained two cases: `scripts/tests/test_check_gate_budget.py` holds the `verify` job's
 # `needs` to every other job in the workflow, and drives that reader over a job left out of it. They
@@ -357,8 +358,8 @@
 # so the job pays the frontend's; the section took 117 s and 108 s, and the job 128 s and 114 s
 # first step to last, against 155 s and 168 s on the same day's last run before the split, which
 # built and exported in one step. Which layers each runner found warm is unknown, so the three spans say only that the
-# split costs no more than the export already did. Its 13-14 s sits inside the floor the `images`
-# row carries, so the reference does not move and the row takes no new stamp.
+# split costs no more than the export already did. Every run the `images` row's stamp counts
+# carries the split, so its 13-14 s is inside the reference.
 #
 # `verify` gained a step: on a push to main it fails where a scope job was skipped. It is an `if:`
 # over the needs context and nothing else, so no development machine can run it to time; on every
@@ -385,8 +386,8 @@
 # importing it took 0.72-0.82 s in a fresh interpreter against 0.17 s for the gate's package alone,
 # five interleaved rounds. It reads every declared row's prose rather than the reasons alone:
 # 100-134 ms a call against 2.4-6.9 ms, warm, two interleaved rounds of five calls each, both on
-# 2026-09-25 beside the fleet, so upper bounds. The 3.6 s difference sits inside the 3.9 s floor the
-# `docs` row carries, so neither the reference nor the budget moves.
+# 2026-09-25 beside the fleet, so upper bounds. Every run the `docs` row's stamp counts carries both
+# reads, so the 3.6 s difference is inside the reference.
 #
 # `scripts` gained modules and cases, each module run alone three times unless a figure says
 # otherwise, measured locally on 2026-09-25 on a sixteen-core Windows machine carrying a fleet of
@@ -466,18 +467,15 @@
 # renders or drives what it asserts, so none was cut: a file split to spread its cost pays its
 # imports again in each part, and `editorWiring.test.ts` split four ways would add about 27 s of
 # loading across the shards. Measured locally on 2026-09-26 on a sixteen-core Windows machine
-# running nothing else. The four budgets were each cut from its own shard's three runs of
-# 2026-09-23 and now take the population's widest span, shard 2's 117 s on 2026-09-25, by the rule
-# above. Scaled by the two trees' heaviest local shards, 101 s against 85 s, this tree's heaviest
-# would run near 139 s on a runner, inside the 150 s that gives.
+# running nothing else. On the runner, the main runs the shards' stamp counts spanned 78-102,
+# 95-99, 102-119 and 69-79 s.
 #
 # `format`, `frontend`, the `frontend-units` shards and `db` gained a preflight: `pnpm exec node -e
 # ""` in `fl_frontend` (`scripts/gate/verify.sh :: pnpm_starts`), once in each gate process those
 # scopes start. It took 1.26 s a call over five rounds of ten calls against 0.06 s for `node -e ""`
 # alone, measured locally on 2026-09-26 on a sixteen-core Windows machine running nothing else, so
 # each of those jobs pays about 1.2 s. That sits inside the `frontend` and `db` floors; the `format`
-# and shard rows carry no floor, and the 2026-09-25 push's spans, which their budgets were held to,
-# already paid it.
+# and shard rows carry no floor, and the main runs their budgets are cut from already paid it.
 #
 # `frontend` gained the syntax bans, the `local/admin-link` rule and the date controls' prop rules
 # in `fl_frontend/eslint.config.mjs`. eslint over `fl_frontend` at a runner's four threads, with no
@@ -501,8 +499,9 @@
 # warm check with 50 source files changed took 6.9-7.1 s, and with 400 changed 10.9-11.1 s. Three to
 # five interleaved rounds each, measured locally on 2026-09-26 on a sixteen-core Windows machine
 # running nothing else. A runner still starts cold wherever the lockfile or a stylesheet moves and on
-# a key's first run, so the budget is the cold job's: its six uncached runs to 2026-09-26 spanned
-# 41-56 s, and the rule above gives 70 s.
+# a key's first run, so the budget is the cold job's: of the main runs its stamp counts, the first
+# found no cache and spanned 50 s against 27 s for the two that restored one, and the rule above
+# gives 65 s, over the 41-56 s six uncached pull-request runs spanned to 2026-09-26.
 #
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
@@ -511,14 +510,14 @@
 # job	seconds	floor	budget	measured
 backend	35	14	60	24@2026-09-07
 db	49	40	125	24@2026-09-07
-docs	39	10	60	24@2026-09-07
-format	-	-	70	6@2026-09-26
-frontend	264	10	360	5@2026-09-20
-frontend-units (1)	-	-	150	4@2026-09-25
-frontend-units (2)	-	-	150	4@2026-09-25
-frontend-units (3)	-	-	150	4@2026-09-25
-frontend-units (4)	-	-	150	4@2026-09-25
-images	101	29	-	24@2026-09-07
+docs	30	10	40	3@2026-09-26
+format	-	-	65	3@2026-09-26
+frontend	77	10	145	3@2026-09-26
+frontend-units (1)	-	-	150	3@2026-09-26
+frontend-units (2)	-	-	150	3@2026-09-26
+frontend-units (3)	-	-	150	3@2026-09-26
+frontend-units (4)	-	-	150	3@2026-09-26
+images	45	29	-	3@2026-09-26
 ops	17	29	45	13@2026-09-07
-scripts	52	16	80	24@2026-09-07
-total	557	10	-	-
+scripts	41	16	60	3@2026-09-26
+total	294	10	-	-
