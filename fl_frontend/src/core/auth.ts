@@ -617,9 +617,12 @@ const authOptions = {
       // A code that signed in clears the address's failures; a refusal leaves its own row counted.
       const signedIn = ctx.path === CODE_SIGN_IN_PATH && !isAPIError(ctx.context.returned) ? codeSignInAddress(ctx.body) : null;
       if (signedIn !== null) {
-        await ctx.context.internalAdapter.deleteVerificationByIdentifier(
-          await boundIdentifier(FAILURE_ROW_PREFIX, signedIn, ctx.context.secret),
-        );
+        // The adapter's `deleteMany` and never `deleteVerificationByIdentifier`, which the MongoDB
+        // adapter carries out as `deleteOne`: a sign-in after three failures would clear one of them.
+        await ctx.context.adapter.deleteMany({
+          model: "verification",
+          where: [{ field: "identifier", value: await boundIdentifier(FAILURE_ROW_PREFIX, signedIn, ctx.context.secret) }],
+        });
       }
 
       if (!CEREMONY_VERIFY_PATHS.has(ctx.path)) return undefined;

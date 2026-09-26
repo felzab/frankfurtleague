@@ -439,6 +439,33 @@ describe("what a ban ends, against a real database (`docs/frontend/spec.md :: I4
   });
 });
 
+/* The memory adapter's `delete` removes every row it matches and MongoDB's removes one, so the
+   clearing is judged here and nowhere else. */
+describe("an address's failures after a code signs in, against a real database (`docs/frontend/spec.md :: I441`)", () => {
+  async function failureRows(): Promise<Record<string, unknown>[]> {
+    return authDb()
+      .collection("verification")
+      .find({ identifier: { $regex: "^sign-in-attempt-" } })
+      .toArray();
+  }
+
+  it("clears every failure the address had, not one of them", async () => {
+    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
+    const wrong = otp === "000000" ? "111111" : "000000";
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      await assert.rejects(
+        auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: wrong }, headers: new Headers(ORIGIN) }),
+        (error: { body?: { code?: unknown } }) => error.body?.code === "INVALID_OTP",
+      );
+    }
+    assert.equal((await failureRows()).length, 2, "the failures were not counted, so the clearing below proves nothing");
+
+    await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN) });
+
+    assert.deepEqual(await failureRows(), [], "a sign-in left failures standing against the address");
+  });
+});
+
 /* The set-up that signs in mints inside the registration's transaction, so the gate refusing that mint
    takes the passkey row back with it (`docs/frontend/spec.md :: I403`). */
 describe("a set-up the gate refuses, against a real database", () => {
