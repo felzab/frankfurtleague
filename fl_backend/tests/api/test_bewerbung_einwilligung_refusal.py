@@ -14,6 +14,7 @@ from app.api.bewerbungen.schemas import (
 )
 from app.api.bewerbungen.services import (
     BEWERBUNG_KONTAKT_ALTER,
+    BEWERBUNG_KONTAKTE_UNCONFIRMED,
     BEWERBUNG_SEAT_ALREADY_ANSWERED,
     BEWERBUNG_TOKEN_DECIDED,
     BEWERBUNG_TOKEN_PAST_DEADLINE,
@@ -34,6 +35,7 @@ from app.api.bewerbungen.services import (
     find_already_answered_refusal,
     find_alter_refusal,
     find_expired_token_refusal,
+    find_unconfirmed_kontakte_refusal,
     find_unknown_token_refusal,
     hash_token,
     mindestalter_for,
@@ -462,6 +464,37 @@ class TestTheSeatsStillOpen:
         """A decline or an erasure leaves the application unable to complete, which is what this list tells the page."""
 
         assert "trainer" in ausstehende_seats(kontakte=kontakte(trainer=None))
+
+
+# Storable by a hand edit, the validator typing the stamp as a string or null, and read as no
+# confirmation by `app/shared/einwilligung.py :: is_confirmed` (`docs/backend/spec.md :: I387`).
+EMPTY_STAMP = kontakte(trainer=kontaktperson_document("Quillhilde", bestaetigt_am=""))
+
+
+class TestAnEmptyStampConfirmsNothing:
+    """Every reader of a seat's stamp agrees with the other packages: the seat stays open."""
+
+    def test_the_seat_is_still_outstanding(self):
+        assert ausstehende_seats(kontakte=EMPTY_STAMP) == list(KONTAKT_SEATS)
+
+    def test_its_link_still_takes_the_answer(self):
+        assert find_already_answered_refusal(kontakte=EMPTY_STAMP, bestaetigungen=BESTAETIGUNGEN, seat="trainer") is None
+
+    def test_a_reopened_link_reads_open(self):
+        assert zustand_of(bewerbung_raw=application(kontakte=EMPTY_STAMP), seat="trainer", today=TODAY) == "gueltig"
+
+    def test_the_application_is_not_yet_one_the_league_may_accept(self):
+        """The acceptance's own refusal, with the two other seats confirmed so the empty stamp is all that holds it."""
+
+        confirmed_but_one = {
+            **EMPTY_STAMP,
+            "ansprechperson": kontaktperson_document("Ansgar", bestaetigt_am=YESTERDAY),
+            "stellvertretung": kontaktperson_document("Stellan", bestaetigt_am=YESTERDAY),
+        }
+        refusal = find_unconfirmed_kontakte_refusal(kontakte=confirmed_but_one, bestaetigungen=BESTAETIGUNGEN)
+
+        assert refusal is not None
+        assert refusal.error_code == BEWERBUNG_KONTAKTE_UNCONFIRMED
 
 
 class TestThePairedSeat:

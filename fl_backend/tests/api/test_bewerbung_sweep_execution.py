@@ -657,6 +657,51 @@ class TestAnApplicationWhoseNoticeCannotArrive:
         assert on_a_league(mongo_replica_set_url, body) == [("bramblewick@example.com", [["stellvertretung"]])]
 
 
+# The Stellvertretung's stamp, the one seat nobody mirrors, each state the clocks' queries must read
+# as `app/shared/einwilligung.py :: is_confirmed` reads it (`docs/backend/spec.md :: I387`).
+STELLVERTRETUNG_STAMP = "kontakte.stellvertretung.einwilligung.bestaetigt_am"
+STAMP_STATES = [
+    pytest.param({"$set": {STELLVERTRETUNG_STAMP: MAILED_ON_THE_MARK}}, False, id="confirmed, the control"),
+    pytest.param({"$set": {STELLVERTRETUNG_STAMP: ""}}, True, id="stamped empty"),
+    pytest.param({"$set": {STELLVERTRETUNG_STAMP: None}}, True, id="stamped null"),
+    # No stamp at all, the field missing, which the query's null term has to reach as well.
+    pytest.param({"$set": {"kontakte.stellvertretung": None}}, True, id="the seat erased"),
+]
+
+
+class TestTheClocksQueriesReadAStampAsThePredicateDoes:
+    """In the query, where a row the predicate would take is otherwise never read to be judged."""
+
+    @pytest.mark.parametrize(("update", "outstanding"), STAMP_STATES)
+    def test_the_fourteen_day_clock_lists_an_application_whose_seat_is_unconfirmed(
+        self, mongo_replica_set_url: str, update: Mapping[str, Any], outstanding: bool
+    ):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await confirm_every_seat(database, DELETE_OID)
+            await database[Collection.BEWERBUNGEN].update_one({"_id": DELETE_OID}, update)
+            response = await sweep(database, client)
+
+            return [entry.bewerbung_id for entry in response.loeschungen]
+
+        assert on_a_league(mongo_replica_set_url, body) == ([DELETE_OID] if outstanding else [])
+
+    @pytest.mark.parametrize(
+        ("update", "owed"),
+        [state for state in STAMP_STATES if state.id != "the seat erased"],
+    )
+    def test_the_reminder_chases_a_seat_whose_stamp_is_unconfirmed(self, mongo_replica_set_url: str, update: Mapping[str, Any], owed: bool):
+        """An erased seat has no address to chase, so it is the fourteen-day clock's case alone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await confirm_every_seat(database, REMIND_OID)
+            await database[Collection.BEWERBUNGEN].update_one({"_id": REMIND_OID}, update)
+            response = await sweep(database, client)
+
+            return [(entry.email, [seat.rollen for seat in entry.seats]) for entry in response.erinnerungen if entry.bewerbung_id == REMIND_OID]
+
+        assert on_a_league(mongo_replica_set_url, body) == ([("bramblewick@example.com", [["stellvertretung"]])] if owed else [])
+
+
 class TestTheOneMonthClock:
     def test_a_declined_application_a_month_old_is_erased_and_its_rows_redacted_in_the_first_call(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

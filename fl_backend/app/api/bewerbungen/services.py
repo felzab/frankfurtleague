@@ -12,6 +12,7 @@ from app.api.bewerbungen.schemas import FLBewerbungEinwilligungZustand, FLBewerb
 from app.api.teams.schemas import FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
+from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
 from app.shared.folding import mailbox_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
@@ -637,11 +638,10 @@ def find_expired_token_refusal(*, bestaetigungsfrist: Any, status: Any, today: s
     return None
 
 
-def _stamp_of(kontakte: Any, seat: str) -> Any:
+def _seat_is_confirmed(kontakte: Any, seat: str) -> bool:
     slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
-    einwilligung = slot.get("einwilligung") if isinstance(slot, Mapping) else None
 
-    return einwilligung.get("bestaetigt_am") if isinstance(einwilligung, Mapping) else None
+    return is_confirmed(slot.get("einwilligung") if isinstance(slot, Mapping) else None)
 
 
 def _declined_on(bestaetigungen: Any, seat: str) -> Any:
@@ -657,7 +657,7 @@ def seat_is_answered(*, kontakte: Any, bestaetigungen: Any, seat: str) -> bool:
     has anything left to answer.
     """
 
-    if _stamp_of(kontakte, seat) is not None or _declined_on(bestaetigungen, seat) is not None:
+    if _seat_is_confirmed(kontakte, seat) or _declined_on(bestaetigungen, seat) is not None:
         return True
 
     return not isinstance(bestaetigungen, Mapping) or not isinstance(bestaetigungen.get(seat), Mapping)
@@ -699,7 +699,7 @@ def find_alter_refusal(*, geburtsdatum: str, today: str, mindestalter: int) -> W
 def zustand_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str) -> FLBewerbungEinwilligungZustand:
     """What a reopened link shows. A stamp outranks everything: a confirmed seat on an accepted application reads as confirmed."""
 
-    if _stamp_of(bewerbung_raw.get("kontakte"), seat) is not None:
+    if _seat_is_confirmed(bewerbung_raw.get("kontakte"), seat):
         return "bestaetigt"
 
     if _declined_on(bewerbung_raw.get("bestaetigungen"), seat) is not None:
@@ -714,7 +714,7 @@ def zustand_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str) -> FL
 def ausstehende_seats(*, kontakte: Any) -> list[FLKontaktRolle]:
     """Every seat without a stamp, in declaration order. An emptied slot counts: the application cannot complete without it."""
 
-    return [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in KONTAKT_SEATS if _stamp_of(kontakte, seat) is None]
+    return [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in KONTAKT_SEATS if not _seat_is_confirmed(kontakte, seat)]
 
 
 def find_unconfirmed_kontakte_refusal(*, kontakte: Any, bestaetigungen: Any) -> WriteRefusal | None:
@@ -1129,7 +1129,7 @@ def seat_reminder_is_due(*, kontakte: Any, bestaetigungen: Any, seat: str, today
     """
 
     entry = _entry_of(bestaetigungen, seat)
-    if entry is None or _stamp_of(kontakte, seat) is not None or entry.get("abgelehnt_am") is not None:
+    if entry is None or _seat_is_confirmed(kontakte, seat) or entry.get("abgelehnt_am") is not None:
         return False
 
     if entry.get("erinnert_am") is not None or not isinstance(entry.get("verschickt_am"), str):
@@ -1272,7 +1272,7 @@ def _seat_reminder_term(*, seat: str, today: str) -> Mapping[str, Any]:
         f"bestaetigungen.{seat}.erinnert_am": None,
         f"bestaetigungen.{seat}.abgelehnt_am": None,
         f"bestaetigungen.{seat}.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
-        f"kontakte.{seat}.einwilligung.bestaetigt_am": None,
+        f"kontakte.{seat}.einwilligung.bestaetigt_am": UNCONFIRMED_STAMP,
     }
 
 
@@ -1300,7 +1300,7 @@ def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
         "status": "eingereicht",
         "bestaetigungsfrist": {"$lt": today},
         "bestaetigungen.ansprechperson.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
-        "$or": [{f"kontakte.{seat}.einwilligung.bestaetigt_am": None} for seat in KONTAKT_SEATS],
+        "$or": [{f"kontakte.{seat}.einwilligung.bestaetigt_am": UNCONFIRMED_STAMP} for seat in KONTAKT_SEATS],
     }
 
 
