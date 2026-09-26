@@ -167,6 +167,9 @@ const MARKUP_KEEPING = new Map(await Promise.all(BOUNDARIES.map(async (file) => 
 
 const hrefsIn = (markup: string) => [...markup.matchAll(/href="([^"]*)"/g)].map((treffer) => treffer[1]!);
 
+/** The season a way out's query names, read off the query alone: a probe segment spells `saison_id` too. */
+const saisonQueryOf = (href: string) => new URL(href, "http://probe").searchParams.get("saison_id");
+
 /**
  * `StatusPanel`'s own badge and message markup, read off a reference render rather than spelled
  * here, so a restyle of that component moves this file's marks with it instead of failing it.
@@ -456,7 +459,7 @@ describe("where each 404 sends the reader", () => {
   it("carries the season the 404 was served under where the shell keeps it in the query", () => {
     for (const { dir, keeping } of SHELLED) {
       assert.deepEqual(
-        hrefsIn(keeping).filter((href) => !href.includes(`saison_id=${SAISON}`)),
+        hrefsIn(keeping).filter((href) => saisonQueryOf(href) !== SAISON),
         [],
         `these links drop the season ${prefixOf(dir)}'s shell is showing`,
       );
@@ -468,7 +471,7 @@ describe("where each 404 sends the reader", () => {
   it("carries no season where the shell keeps none in the query", () => {
     for (const { dir, markup } of SHELLED) {
       assert.deepEqual(
-        hrefsIn(markup).filter((href) => href.includes("saison_id")),
+        hrefsIn(markup).filter((href) => saisonQueryOf(href) !== null),
         [],
         `these links carry a season ${prefixOf(dir)}'s shell keeps out of the query`,
       );

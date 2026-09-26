@@ -4,6 +4,7 @@ import PersonPencil from "@gravity-ui/icons/PersonPencil";
 
 import type { SidemenuHint, SidemenuStructure, SidemenuStructureSubOption } from "@/shared/types/types";
 import type React from "react";
+import type { TeamSeat } from "./teamSeats";
 
 /** `PersonIconName` is derived from this, so an `iconName` typo below is a compile error. */
 export const PERSON_SIDEMENU_ICONS = {
@@ -69,4 +70,43 @@ export function personStructureFor(eintraege: ReadonlySet<PersonEintrag>): Sidem
 
   // No group at all rather than an empty one: `SidemenuNavLinks` keys a group on its first entry.
   return sub_options.length === 0 ? [] : [{ category_name: "", sub_options: sub_options }];
+}
+
+/** `TeamIconName` is derived from this, so an `iconName` typo below is a compile error. */
+export const TEAM_SIDEMENU_ICONS = {
+  House,
+} as const satisfies Record<string, React.ElementType>;
+
+export type TeamIconName = keyof typeof TEAM_SIDEMENU_ICONS;
+
+/** What the bar reads on an address inside a team's area that no page claims, the catch-all's 404 among them. */
+export const TEAM_SHELL_FALLBACK = {
+  label: "Teambereich",
+  hint: {
+    lead: "Diese Adresse gehört zu keiner Seite Deines Teams.",
+  },
+} as const satisfies { label: string; hint: SidemenuHint };
+
+/**
+ * Every entry the team shell can list, in the order it lists them. A page arriving later is a row here
+ * and nothing more: every seat reaches every entry, so no row carries a seat rule.
+ */
+export const TEAM_SIDEMENU_ENTRIES = [
+  {
+    // The prefix itself: the team and season are the address, and the landing is the panel's start.
+    id: "",
+    label: "Übersicht",
+    iconName: "House",
+    hint: {
+      lead: "Dein Team in dieser Saison und Deine Funktion darin.",
+    },
+  },
+] as const satisfies readonly SidemenuStructureSubOption<TeamIconName>[];
+
+/**
+ * The team shell's one unnamed group for the seats held at the address's team and season: every entry
+ * for any seat, since the Trainer's reaches exactly what an Ansprechperson's does, and none for no seat.
+ */
+export function teamStructureFor(seats: readonly TeamSeat[]): SidemenuStructure<TeamIconName> {
+  return seats.length === 0 ? [] : [{ category_name: "", sub_options: [...TEAM_SIDEMENU_ENTRIES] }];
 }

@@ -59,8 +59,20 @@ const CRASH = Object.assign(new globalThis.Error("kaputt"), { digest: "PROBE-DIG
 
 type Boundary = (props: { error: Error & { digest?: string }; reset: () => void }) => ReactNode;
 
-/* Under a season and a route, which is the state either boundary is served in: a way out is built
-   from the query and the path the answer was rendered for. */
+/** A segment the address fills in, taken here by a probe value as the reader's address fills it. */
+const DYNAMIC = /^\[(\w+)\]$/;
+
+/** The route params a boundary is served under: one per dynamic segment of its own folder. */
+const paramsOf = (dir: string): Record<string, string> =>
+  Object.fromEntries(
+    path
+      .relative(APP_DIR, dir)
+      .split(path.sep)
+      .flatMap((segment) => (DYNAMIC.exec(segment) ?? []).slice(1).map((name) => [name, `probe-${name}`])),
+  );
+
+/* Under a season, a route and its params, which is the state either boundary is served in: a way out
+   is built from the query, the path and the params the answer was rendered for. */
 async function markupOf(file: string): Promise<string> {
   const { default: Render } = (await import(pathToFileURL(file).href)) as { default: Boundary };
 
@@ -73,7 +85,7 @@ async function markupOf(file: string): Promise<string> {
         /* A not-found boundary takes the crash props and ignores them, so one reader reaches both kinds. */
         children: h(Render, { error: CRASH, reset: () => undefined }),
       }),
-      { search: `saison_id=${SAISON}`, pathname: "/nirgendwo" },
+      { search: `saison_id=${SAISON}`, pathname: "/nirgendwo", params: paramsOf(path.dirname(file)) },
     ),
   );
 }
