@@ -190,7 +190,7 @@ class TestAllowedAdminEmails:
 
         assert str(raised.value) == "Invalid environment variables: ALLOWED_ADMIN_EMAILS"
 
-    def test_a_refused_entry_is_never_echoed_by_the_refusal(self, monkeypatch, tmp_path):
+    def test_the_boot_refusal_names_the_variable_alone(self, monkeypatch, tmp_path):
         """An address reaching the container log is the exposure the names-only refusal exists against."""
         an_environment(monkeypatch, tmp_path, ALLOWED_ADMIN_EMAILS="Zorbanax@example")
 
@@ -198,7 +198,14 @@ class TestAllowedAdminEmails:
             get_config()
 
         assert str(raised.value) == "Invalid environment variables: ALLOWED_ADMIN_EMAILS"
-        assert "zorbanax" not in str(raised.value).lower()
+
+    def test_the_validators_own_message_quotes_no_entry(self):
+        """Below the names-only wrapper, which would hide a quoting message: this is what any other reader of the refusal is handed."""
+        with pytest.raises(ValidationError) as raised:
+            build(allowed_admin_emails="admin@example.com, Zorbanax@example")
+
+        [issue] = raised.value.errors()
+        assert "zorbanax" not in f"{issue['msg']} {issue.get('ctx', {})}".lower()
 
 
 class TestDatabaseBaseName:
