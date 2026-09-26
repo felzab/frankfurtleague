@@ -25,6 +25,16 @@ type PublishedAnswer = { code: string; status: number };
 /** One operation, named `<METHOD> <path>` below the version prefix as the backend's own routes spell it. */
 export type PublishedOperation = { operation: string; declaration: JsonObject; answers: PublishedAnswer[] };
 
+/** What `ref` names under `components.<section>`, throwing where the document holds nothing there. */
+function component(document: JsonObject, section: "schemas" | "responses", ref: string): unknown {
+  const prefix = `#/components/${section}/`;
+  const held = isObject(document.components) && isObject(document.components[section]) ? document.components[section] : {};
+  const name = ref.slice(prefix.length);
+  if (!ref.startsWith(prefix) || !Object.hasOwn(held, name)) throw new Error(`the document cannot resolve ${ref}`);
+
+  return held[name];
+}
+
 /**
  * Every `error_code` enum a schema carries, its `allOf` members and `$ref` targets followed: the
  * backend narrows the failure body by composing it, and an enum it moved into a component is still
@@ -35,11 +45,9 @@ function codeEnums(document: JsonObject, schema: unknown, seen: ReadonlySet<stri
 
   const ref = schema.$ref;
   if (typeof ref === "string") {
-    const name = ref.replace(/^#\/components\/schemas\//, "");
-    const components = isObject(document.components) && isObject(document.components.schemas) ? document.components.schemas : {};
-    if (seen.has(name) || !(name in components)) throw new Error(`the document cannot resolve ${ref}`);
+    if (seen.has(ref)) throw new Error(`the document cannot resolve ${ref}`);
 
-    return codeEnums(document, components[name], new Set([...seen, name]));
+    return codeEnums(document, component(document, "schemas", ref), new Set([...seen, ref]));
   }
 
   const own = isObject(schema.properties) && isObject(schema.properties.error_code) ? schema.properties.error_code.enum : undefined;
@@ -48,9 +56,13 @@ function codeEnums(document: JsonObject, schema: unknown, seen: ReadonlySet<stri
   return own === undefined ? members : [own, ...members];
 }
 
-/** The codes one response publishes, or none where its body narrows no `error_code`. */
+/**
+ * The codes one response publishes, or none where its body narrows no `error_code`: the backend
+ * publishes each failure response once under `components.responses`, and an operation refers to it.
+ */
 function responseCodes(document: JsonObject, operation: string, status: string, response: unknown): string[] {
-  const body = isObject(response) && isObject(response.content) ? response.content["application/json"] : undefined;
+  const shared = isObject(response) && typeof response.$ref === "string" ? component(document, "responses", response.$ref) : response;
+  const body = isObject(shared) && isObject(shared.content) ? shared.content["application/json"] : undefined;
   const enums = codeEnums(document, isObject(body) ? body.schema : undefined);
   if (enums.length === 0) return [];
 

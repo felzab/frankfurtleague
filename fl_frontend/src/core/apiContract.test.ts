@@ -273,6 +273,8 @@ function describeObject(node: JsonSchema, root: JsonSchema, allRequired: boolean
   return fields;
 }
 
+const SHARED_RESPONSE = "#/components/responses/";
+
 /**
  * Every component one side of the operations reaches, closed over what those reference.
  *
@@ -281,14 +283,17 @@ function describeObject(node: JsonSchema, root: JsonSchema, allRequired: boolean
  */
 function reachableFrom(document: JsonSchema, side: "requestBody" | "responses"): Set<string> {
   const components = ((document.components as JsonSchema | undefined)?.schemas ?? {}) as Record<string, JsonSchema>;
+  const shared = ((document.components as JsonSchema | undefined)?.responses ?? {}) as Record<string, JsonSchema>;
   const reached = new Set<string>();
 
   const collect = (value: unknown, into: Set<string>) => {
     if (Array.isArray(value)) return value.forEach((item) => collect(item, into));
     if (typeof value !== "object" || value === null) return;
     for (const [key, nested] of Object.entries(value)) {
-      if (key === "$ref" && typeof nested === "string") into.add(nested.replace("#/components/schemas/", ""));
-      else collect(nested, into);
+      if (key !== "$ref" || typeof nested !== "string") collect(nested, into);
+      // A shared response names no schema itself: the bodies it publishes are reached through it.
+      else if (nested.startsWith(SHARED_RESPONSE)) collect(shared[nested.slice(SHARED_RESPONSE.length)], into);
+      else into.add(nested.replace("#/components/schemas/", ""));
     }
   };
 
@@ -449,6 +454,14 @@ describe("every shape is paired or recorded", () => {
       `No component is reached from both a request and a response, so the ambiguity guard below cannot fail.\n` +
         `  request-reachable: ${REQUEST_REACHABLE.size}, response-reachable: ${RESPONSE_REACHABLE.size}`,
     );
+  });
+
+  /* Every operation reaches these through a shared response alone, so a walk that stopped following
+     one would compare them under the request rule, and every pair would still pass. */
+  it("reaches the failure bodies from the responses", () => {
+    const unreached = ["FLFailureBody", "FLRefusedPayloadBody", "FLRefusedField"].filter((name) => !RESPONSE_REACHABLE.has(name));
+
+    assert.deepEqual(unreached, [], `These failure bodies are reached from no response, so they are compared as request shapes: ${unreached}`);
   });
 
   it("has no component reached from both a request and a response while carrying a default", () => {
