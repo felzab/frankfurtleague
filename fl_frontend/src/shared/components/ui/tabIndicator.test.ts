@@ -15,8 +15,9 @@ const tokensOf = (recipe: string): string[] => recipe.split(" ");
 
 /** The colour a `<utility>-<name>` class paints, as the palette spells it. */
 function paletteToken(recipe: string, utility: string): string {
-  const worn = tokensOf(recipe).find((token) => token.startsWith(`${utility}-`));
-  if (worn === undefined) throw new Error(`the recipe wears no \`${utility}-\` class: ${recipe}`);
+  // A width such as `ring-1` shares the prefix, and a sorted class list may put it first.
+  const worn = tokensOf(recipe).find((token) => token.startsWith(`${utility}-`) && !/^\d+$/.test(token.slice(utility.length + 1)));
+  if (worn === undefined) throw new Error(`the recipe wears no \`${utility}-\` colour: ${recipe}`);
 
   const named = PALETTE[worn.slice(utility.length + 1)];
   if (named === undefined) throw new Error(`\`${worn}\` names a colour this file cannot place in the palette`);
