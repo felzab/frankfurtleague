@@ -152,6 +152,24 @@ describe("what the sign-in list hands the page", () => {
     );
   });
 
+  /* The person area and this page admit an administrator's session for the person lifetime; listed by
+     the administration's 48 hours, a device still reaching every person page would be missing here. */
+  it("lists an administrator's sign-in the person area still admits, ending it at the person cap", async () => {
+    const older = await signIn(ADMIN_EMAIL);
+    older.row.createdAt = new Date(Date.now() - 3 * DAY_MS);
+    older.row.updatedAt = new Date(Date.now() - DAY_MS);
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    row.authFactor = "passkey";
+
+    const { anmeldungen } = await sicherheitAs(cookie);
+
+    assert.deepEqual(
+      anmeldungen.map((anmeldung) => anmeldung.id),
+      [row.id, older.row.id],
+    );
+    assert.equal(anmeldungen[1]?.endetSpaetestensAm, new Date(older.row.createdAt.getTime() + PERSON_LIFETIME.absolute).toISOString());
+  });
+
   it("names the passkey a sign-in was made with, and the code for one the mail made", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     store.passkey.push({

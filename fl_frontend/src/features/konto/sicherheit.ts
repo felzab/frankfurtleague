@@ -3,7 +3,8 @@ import "server-only";
 import { headers } from "next/headers";
 
 import { isUserAdmin } from "@/core/allowlist";
-import { auth, CODE_FACTOR, isWithinOwnLifetime, ownLifetime, PASSKEY_FACTOR } from "@/core/auth";
+import { auth, CODE_FACTOR, isWithinPersonLifetime, PASSKEY_FACTOR } from "@/core/auth";
+import { PERSON_LIFETIME } from "@/core/sessionLifetimes";
 import { passkeyBestandOf, passkeyNamenOf } from "@/features/passkeys/bestand";
 import { passkeyAnzeigename } from "@/features/passkeys/utils";
 import { bestaetigtBis } from "@/shared/utils/kontoMutation";
@@ -23,6 +24,12 @@ type SessionRow = {
 };
 
 /**
+ * How many live sign-ins the list reads, the most recently active first. A person holds one per device,
+ * so no one reaches it; any beyond it are still ended by „Alle anderen abmelden“.
+ */
+const ANMELDUNGEN_LIMIT = 100;
+
+/**
  * Through the store's own adapter rather than the library's `/list-sessions`, which answers every row
  * whole, `token` included, and that value is the session cookie (`docs/frontend/spec.md :: I411`).
  */
@@ -30,7 +37,16 @@ export async function readSicherheit(served: KontoSession): Promise<Sicherheit> 
   const [held, rows] = await Promise.all([
     auth.api.listPasskeys({ headers: await headers() }),
     auth.$context.then(({ adapter }) =>
-      adapter.findMany<SessionRow>({ model: "session", where: [{ field: "userId", value: served.user.id }] }),
+      adapter.findMany<SessionRow>({
+        model: "session",
+        // Past the library's own expiry a row is dead whatever else holds, so it spends none of the limit.
+        where: [
+          { field: "userId", value: served.user.id },
+          { field: "expiresAt", operator: "gt", value: new Date() },
+        ],
+        sortBy: { field: "updatedAt", direction: "desc" },
+        limit: ANMELDUNGEN_LIMIT,
+      }),
     ),
   ]);
 
@@ -46,14 +62,12 @@ export async function readSicherheit(served: KontoSession): Promise<Sicherheit> 
 }
 
 function anmeldungenOf(rows: readonly SessionRow[], held: readonly PasskeyRow[], served: KontoSession): Anmeldung[] {
-  const { absolute } = ownLifetime(served.user.email);
-  const now = Date.now();
-
   return (
     rows
-      // Judged as the guards judge the served session, so a row the next request would refuse, or the
-      // library's own expiry has passed, is never offered as a device still signed in.
-      .filter((row) => isWithinOwnLifetime(served.user.email, row) && new Date(row.expiresAt).getTime() > now)
+      // The person lifetime for every holder, an administrator's address included: the person area and
+      // this page admit an administrator's session that long, the administration alone for less, so a
+      // row is live, and ends at the latest, by the widest guard admitting it (`docs/frontend/spec.md :: I451`).
+      .filter((row) => isWithinPersonLifetime(row))
       .flatMap((row): Anmeldung[] => {
         const faktor = faktorOf(row, held);
         // A row made by a factor this league does not mint, which no browser can present again.
@@ -65,7 +79,7 @@ function anmeldungenOf(rows: readonly SessionRow[], held: readonly PasskeyRow[],
             diesesGeraet: row.id === served.session.id,
             angemeldetAm: new Date(row.createdAt).toISOString(),
             zuletztAktivAm: new Date(row.updatedAt).toISOString(),
-            endetSpaetestensAm: new Date(new Date(row.createdAt).getTime() + absolute).toISOString(),
+            endetSpaetestensAm: new Date(new Date(row.createdAt).getTime() + PERSON_LIFETIME.absolute).toISOString(),
             faktor: faktor,
           },
         ];

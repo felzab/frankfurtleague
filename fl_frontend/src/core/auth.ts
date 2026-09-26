@@ -762,19 +762,6 @@ export async function removePasskey(holder: { id: string; email: string }, id: s
   }
 }
 
-/**
- * The figures the holder's own lane gives every session of theirs, whichever factor made it. Exported
- * for `fl_frontend/src/features/konto/sicherheit.ts`, which lists rows rather than judging the served one.
- */
-export function ownLifetime(email: string): Lifetime {
-  return isUserAdmin(email) ? ADMIN_LIFETIME : PERSON_LIFETIME;
-}
-
-/** A listed row judged as the guards judge the served session, so an ended one is never shown as live. */
-export function isWithinOwnLifetime(email: string, session: { createdAt: Date; updatedAt: Date }): boolean {
-  return withinLifetime(session, ownLifetime(email));
-}
-
 // React's `cache`, as `getAdminSession` is: the page's sections and a server action's body share one
 // read, and no request another's.
 /**
