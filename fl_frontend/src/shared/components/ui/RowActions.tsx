@@ -21,7 +21,7 @@ import type { ReactNode } from "react";
  * The shape every row action shares, so a link's hit area and a button's cannot drift; only the hover arm splits. The
  * tooltip is wired as `aria-describedby`, which never names the control, so every action takes an `ariaLabel` too.
  */
-const ACTION_SHAPE_CLASSES = `text-foreground-muted flex ${ROW_ACTION_SIZE_CLASSES} shrink-0 items-center justify-center rounded-xl transition-colors`;
+const ACTION_SHAPE_CLASSES = `flex text-foreground-muted ${ROW_ACTION_SIZE_CLASSES} shrink-0 items-center justify-center rounded-xl transition-colors`;
 
 const ACTION_LINK_CLASSES = `${ACTION_SHAPE_CLASSES} hover:bg-hover hover:text-brand`;
 

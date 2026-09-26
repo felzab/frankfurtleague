@@ -18,7 +18,7 @@ import type { ReactNode, RefObject } from "react";
  * The one body step, stamped text and the page's own sentences alike: these are legal words a
  * reader has to get through, so they take the paragraph grade rather than a caption's meta grade.
  */
-export const ABSATZ_CLASSES = "fluid-sm text-foreground max-w-2xl leading-relaxed font-medium text-pretty";
+export const ABSATZ_CLASSES = "max-w-2xl fluid-sm leading-relaxed font-medium text-pretty text-foreground";
 
 /**
  * The one emphasis a reader's own value wears here: a second spelling is how the name in one
@@ -106,7 +106,7 @@ export function BestaetigungAbschnitt({ titel, children }: { titel: string; chil
  * (`fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx :: Angabe`),
  * spelled once so the banner and the receipt cannot drift into two type scales.
  */
-const ANGABE_LABEL_CLASSES = "fluid-xxs text-foreground-muted font-bold";
+const ANGABE_LABEL_CLASSES = "fluid-xxs font-bold text-foreground-muted";
 const ANGABE_WERT_CLASSES = "fluid-sm";
 
 type Fakt = {
@@ -198,7 +198,7 @@ export const ergebnisPanel = tv({
 });
 
 const GLYPHE = { erfolg: CircleCheck, hinweis: TriangleExclamation } as const;
-const GLYPHE_FARBE_CLASSES = { erfolg: "text-success-strong size-10", hinweis: "text-warning-strong size-10" } as const;
+const GLYPHE_FARBE_CLASSES = { erfolg: "size-10 text-success-strong", hinweis: "size-10 text-warning-strong" } as const;
 
 /**
  * Every state but the form is this panel: one box, one glyph, one tone, so a done thing and a dead

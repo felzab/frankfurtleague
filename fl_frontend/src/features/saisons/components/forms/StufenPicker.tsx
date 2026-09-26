@@ -21,7 +21,7 @@ import type { Key } from "@heroui/react/rac";
 // (`fl_frontend/src/app/schemes/2027.css :: --focus`).
 /** The one toggle-chip appearance, shared with every operation picker that arms one write out of two. */
 export const STUFE_CHIP_CLASSES =
-  "border-border bg-transparent text-foreground-muted data-[selected=true]:border-brand-solid data-[selected=true]:bg-brand-solid data-[selected=true]:text-brand-solid-foreground data-[selected=true]:ring-brand-solid-foreground fluid-xs h-9 min-w-16 rounded-lg border px-3 font-extrabold tracking-wide transition-colors";
+  "h-9 min-w-16 rounded-lg border border-border bg-transparent px-3 fluid-xs font-extrabold tracking-wide text-foreground-muted transition-colors data-[selected=true]:border-brand-solid data-[selected=true]:bg-brand-solid data-[selected=true]:text-brand-solid-foreground data-[selected=true]:ring-brand-solid-foreground";
 
 /**
  * `rules.erlaubte_stufen`. **The hidden `TextField` proxy is what makes a refusal land**:

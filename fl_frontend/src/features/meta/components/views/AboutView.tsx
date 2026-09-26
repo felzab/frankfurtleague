@@ -22,13 +22,13 @@ import { skeletonBlock } from "@/shared/components/ui/skeleton";
 import { QA_QUESTIONS } from "../../constants";
 import { MetaSection } from "../ui/MetaSection";
 
-const CHIP_CLASSES = `${PILL_RADIUS_CLASSES} fluid-xs border px-3 py-1.5 font-bold uppercase transition-[border-color] duration-(--motion-base)`;
+const CHIP_CLASSES = `${PILL_RADIUS_CLASSES} border px-3 py-1.5 fluid-xs font-bold uppercase transition-[border-color] duration-(--motion-base)`;
 // The border answers the hover and not the text: `TeamPopoverMenu`'s trigger already spells
 // `hover:text-brand`, which this chip's own `text-foreground` outranks.
-const CHIP_AKTIV_CLASSES = `${CHIP_CLASSES} bg-muted border-border text-foreground hover:border-brand`;
+const CHIP_AKTIV_CLASSES = `${CHIP_CLASSES} border-border bg-muted text-foreground hover:border-brand`;
 // The tint under its `-strong` text grade, never the solid fill under white: a filled chip in a row
 // of outlined ones reads as the row's one button.
-const CHIP_AUSGETRETEN_CLASSES = `${CHIP_CLASSES} bg-danger/15 border-danger/40 text-danger-strong`;
+const CHIP_AUSGETRETEN_CLASSES = `${CHIP_CLASSES} border-danger/40 bg-danger/15 text-danger-strong`;
 
 /** School names of plausible lengths, varied so the row does not read as a barcode. */
 const TEAM_CHIP_SKELETON_WIDTHS = ["w-32", "w-24", "w-40", "w-28", "w-36", "w-24", "w-32", "w-28"];

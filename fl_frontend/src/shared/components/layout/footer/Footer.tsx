@@ -24,7 +24,7 @@ function FooterSlotSkeleton({ width, label }: { width: string; label: string }) 
   );
 }
 
-const COLUMN_HEADING_CLASSES = "fluid-xs text-foreground font-semibold tracking-wider uppercase";
+const COLUMN_HEADING_CLASSES = "fluid-xs font-semibold tracking-wider text-foreground uppercase";
 
 const NAVIGATION_LINKS = [
   { href: "/about", label: "About" },

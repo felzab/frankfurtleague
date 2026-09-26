@@ -12,4 +12,4 @@ export const RAIL_GUTTER_CLASSES = {
 export const RAIL_SQUARE_RING_CLASSES = "-outline-offset-2";
 
 /** The same ring for HeroUI's trigger, which draws its focus as an offset shadow rather than the base outline. */
-export const RAIL_SQUARE_HEROUI_RING_CLASSES = "ring-inset ring-offset-0";
+export const RAIL_SQUARE_HEROUI_RING_CLASSES = "ring-offset-0 ring-inset";

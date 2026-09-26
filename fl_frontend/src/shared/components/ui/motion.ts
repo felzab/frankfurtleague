@@ -3,7 +3,7 @@
  * `SpielplanView` and a gap reads as page and contents arriving apart. Not on a wrapper whose
  * children cascade; the pixels animate twice.
  */
-export const PAGE_RISE_CLASSES = "animate-in fade-in slide-in-from-bottom-2 duration-(--motion-slow) ease-(--motion-ease-enter)";
+export const PAGE_RISE_CLASSES = "animate-in duration-(--motion-slow) ease-(--motion-ease-enter) fade-in slide-in-from-bottom-2";
 
 /**
  * Tier 2, a card collection. Goes on the `role="list"` container, not its items. The unit is the
@@ -23,4 +23,4 @@ export const BRACKET_SWEEP_CLASSES = "bracket-sweep";
  * Tier 3, a section unfolding inside a page already in view. Short on purpose — it carries a
  * sentence that has just escalated, so it must not make the reader wait.
  */
-export const PANEL_REVEAL_CLASSES = "animate-in fade-in slide-in-from-bottom-2 duration-(--motion-fast) ease-(--motion-ease-enter)";
+export const PANEL_REVEAL_CLASSES = "animate-in duration-(--motion-fast) ease-(--motion-ease-enter) fade-in slide-in-from-bottom-2";

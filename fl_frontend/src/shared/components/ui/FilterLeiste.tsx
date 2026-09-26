@@ -28,20 +28,20 @@ import type { Leserichtung } from "@/shared/utils/leserichtung";
 import type { Key } from "@heroui/react/rac";
 
 /** The add control and a pill share this box because they are peers in one row, not a control and state drawn beside it. */
-const CONTROL_BOX_CLASSES = "bg-surface fluid-xs flex h-10 shrink-0 flex-row rounded-xl border font-bold shadow-sm";
+const CONTROL_BOX_CLASSES = "flex h-10 shrink-0 flex-row rounded-xl border bg-surface fluid-xs font-bold shadow-sm";
 
 /** `items-stretch` so the remove control is full height; `overflow-hidden` so its fill takes the corner. */
-const PILL_SHELL_CLASSES = `${CONTROL_BOX_CLASSES} border-border items-stretch overflow-hidden`;
+const PILL_SHELL_CLASSES = `${CONTROL_BOX_CLASSES} items-stretch overflow-hidden border-border`;
 
 /** Split from `ICON_SHELL_CLASSES` because the picker is a field and its three neighbours are buttons their own text identifies; `docs/frontend/spec.md` §1.17 has the grade and why a field takes no hover fill. */
-const FIELD_SHELL_CLASSES = `${CONTROL_BOX_CLASSES} border-control text-foreground cursor-pointer items-center gap-x-2 px-3 whitespace-nowrap transition-colors duration-(--motion-fast)`;
+const FIELD_SHELL_CLASSES = `${CONTROL_BOX_CLASSES} cursor-pointer items-center gap-x-2 border-control px-3 whitespace-nowrap text-foreground transition-colors duration-(--motion-fast)`;
 
 /** The same box holding one 16px icon: `px-3` either side makes it 40 wide, its own height. */
-const ICON_SHELL_CLASSES = `${CONTROL_BOX_CLASSES} border-border items-center gap-x-2 px-3 whitespace-nowrap transition-colors duration-(--motion-fast)`;
+const ICON_SHELL_CLASSES = `${CONTROL_BOX_CLASSES} items-center gap-x-2 border-border px-3 whitespace-nowrap transition-colors duration-(--motion-fast)`;
 
 /** The ink, the fill and the cursor sit here rather than in `ICON_SHELL_CLASSES`: the exhausted twin below wears the same box
  *  and offers no press, and a fill on something unpressable is an affordance it does not have. */
-const ADD_FACE_CLASSES = `${ICON_SHELL_CLASSES} text-foreground hover:bg-hover cursor-pointer`;
+const ADD_FACE_CLASSES = `${ICON_SHELL_CLASSES} cursor-pointer text-foreground hover:bg-hover`;
 
 // `ring-inset` because `PILL_SHELL_CLASSES` clips its overflow and this box is flush with the pill's trailing
 // edge: HeroUI draws its ring outside, where the clip takes it and a keyboard reader sees nothing.
@@ -53,7 +53,7 @@ const CLEAR_FACE_CLASSES = "flex h-full w-8 shrink-0 items-center justify-center
  * The ceiling on a picked value, in `em` so it holds the same character count at every type size. `min-w-0` is what
  * makes it bite — a flex item's automatic minimum is its content, and outranks the maximum.
  */
-const VALUE_CAP_CLASSES = "min-w-0 max-w-[7em] md:max-w-[16em]";
+const VALUE_CAP_CLASSES = "max-w-[7em] min-w-0 md:max-w-[16em]";
 
 /** What the add control paints from `md`. Short, because the row is a row of controls. */
 const ADD_LABEL = "Filter";
@@ -78,7 +78,7 @@ const ORDER_OPTIONS: readonly { value: Leserichtung; label: string }[] = [
 
 /** Reset-everything: `h-7` is the app's small control, and this is the row's only one. */
 const CLEAR_ALL_FACE_CLASSES =
-  "border-border text-foreground-muted data-hovered:bg-hover-danger data-hovered:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-2 rounded-lg border px-2.5 font-bold transition-colors duration-(--motion-fast)";
+  "flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-2 rounded-lg border border-border px-2.5 fluid-xxs font-bold text-foreground-muted transition-colors duration-(--motion-fast) data-hovered:bg-hover-danger data-hovered:text-danger-strong";
 
 /**
  * In the facet's own option order rather than the click order, so one selection looks the same however it was arrived at.

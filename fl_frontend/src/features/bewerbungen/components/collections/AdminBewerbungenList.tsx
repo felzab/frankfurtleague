@@ -51,7 +51,7 @@ const NO_TEAM = "Kein Team benannt";
 const NO_BESTAETIGUNGEN = "Keine Bestätigungen angefragt";
 
 /** The eyebrow over each fact, one cell of the card's grid. */
-const FACT_LABEL_CLASSES = "fluid-xxs text-foreground-muted font-extrabold tracking-widest uppercase";
+const FACT_LABEL_CLASSES = "fluid-xxs font-extrabold tracking-widest text-foreground-muted uppercase";
 
 const KONTAKT_LABEL = Object.fromEntries(KONTAKT_ROLLEN.map(({ value, label }) => [value, label])) as Record<KontaktRolle, string>;
 

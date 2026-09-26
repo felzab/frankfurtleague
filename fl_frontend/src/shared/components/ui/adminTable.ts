@@ -2,7 +2,7 @@
  * Every admin table's column heading. **No `bg-muted`**: `fl_frontend/src/app/globals.css ::
  * .table__column` paints the header itself, with an `!`.
  */
-export const TABLE_HEADING_CLASSES = "text-foreground-muted fluid-xs border-border border-b py-4 font-bold tracking-wider uppercase";
+export const TABLE_HEADING_CLASSES = "border-b border-border py-4 fluid-xs font-bold tracking-wider text-foreground-muted uppercase";
 
 /**
  * The column inset pair. A table padding every column `px-6` spends 24 pixels more per inner column
@@ -32,7 +32,7 @@ export const IDENTITY_HEAD_CLASSES = "flex min-w-0 flex-wrap items-center gap-x-
  * in one string are decided by the stylesheet's order rather than the string's, there being no
  * `twMerge` in the path.
  */
-export const IDENTITY_NAME_BOX_CLASSES = "fluid-sm max-w-full min-w-0 shrink-0 truncate font-semibold";
+export const IDENTITY_NAME_BOX_CLASSES = "max-w-full min-w-0 shrink-0 truncate fluid-sm font-semibold";
 
 /**
  * `shrink-0` keeps the name whole, so the pills wrap under it rather than the name giving way, and
@@ -49,7 +49,7 @@ export function identityName(isRetired: boolean): string {
   return isRetired ? `${IDENTITY_NAME_BOX_CLASSES} text-foreground-muted` : IDENTITY_NAME_CLASSES;
 }
 
-export const IDENTITY_LINE_CLASSES = "fluid-xs text-foreground-muted max-w-full min-w-0 truncate";
+export const IDENTITY_LINE_CLASSES = "max-w-full min-w-0 truncate fluid-xs text-foreground-muted";
 
 /** Two facts on one secondary line, with no separator glyph to strand alone at the wrap. */
 export const IDENTITY_PAIR_CLASSES = "flex min-w-0 flex-wrap gap-x-3";

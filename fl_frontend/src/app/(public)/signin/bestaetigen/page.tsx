@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/signin/bestaetigen" },
 };
 
-const ABSATZ_CLASSES = "fluid-sm text-foreground leading-relaxed font-medium text-pretty";
+const ABSATZ_CLASSES = "fluid-sm leading-relaxed font-medium text-pretty text-foreground";
 
 /**
  * Resolves nothing itself: a top-level await would tie the App Shell to one URL, and this page's

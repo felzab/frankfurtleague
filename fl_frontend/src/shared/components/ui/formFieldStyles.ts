@@ -2,7 +2,7 @@
  * The one form-label appearance: `fluid-xs` over a `fluid-sm` input, so the value stays dominant.
  * The sign-in form's uppercase-tracked label is that page's own style rather than this constant.
  */
-export const FIELD_LABEL_CLASSES = "fluid-xs text-foreground font-bold";
+export const FIELD_LABEL_CLASSES = "fluid-xs font-bold text-foreground";
 
 /**
  * The height every field-shaped control resolves to. HeroUI gives `.number-field__group` a fixed `h-9`
@@ -15,7 +15,7 @@ const FIELD_HEIGHT_CLASSES = "h-10";
  * `data-slot` attributes; repeating them is how they drifted before.
  * `border-control`, never `border-border`: a field's border alone identifies it.
  */
-export const FIELD_INPUT_CLASSES = `border-control bg-surface text-foreground fluid-sm ${FIELD_HEIGHT_CLASSES} flex items-center rounded-lg border px-3 py-0 transition-colors outline-none`;
+export const FIELD_INPUT_CLASSES = `border-control bg-surface fluid-sm text-foreground ${FIELD_HEIGHT_CLASSES} flex items-center rounded-lg border px-3 py-0 transition-colors outline-none`;
 
 /**
  * The one multi-line field; `border-control`, never `border-border`, a field's border alone identifying it.
@@ -23,7 +23,7 @@ export const FIELD_INPUT_CLASSES = `border-control bg-surface text-foreground fl
  * stylesheet's order would decide which wins.
  */
 export const FIELD_TEXTAREA_CLASSES =
-  "border-control bg-surface text-foreground fluid-sm rounded-lg border px-3 py-2 transition-colors outline-none";
+  "rounded-lg border border-control bg-surface px-3 py-2 fluid-sm text-foreground transition-colors outline-none";
 
 /**
  * A composite field's group chrome — the stepper, date and time groups. HeroUI sizes these itself, so a
@@ -33,7 +33,7 @@ export const FIELD_TEXTAREA_CLASSES =
 export const FIELD_GROUP_CLASSES = `border-control bg-surface text-foreground ${FIELD_HEIGHT_CLASSES} rounded-lg border transition-colors`;
 
 /** The input inside a number field's group. `w-full` because the grid's middle track sizes it. */
-export const FIELD_COUNT_INPUT_CLASSES = "fluid-sm w-full";
+export const FIELD_COUNT_INPUT_CLASSES = "w-full fluid-sm";
 
 /**
  * Room for the indicator sitting over a trigger's trailing edge. HeroUI's own `pe-7` is in `@layer components` while
@@ -58,10 +58,10 @@ export const TOGGLE_GROUP_ALIGN_CLASSES = "justify-center sm:justify-start";
  * events a touch device fires, where `:hover` sticks until the next tap.
  */
 export const TAB_ITEM_CLASSES =
-  "text-foreground-muted data-hovered:bg-surface data-hovered:text-foreground data-[selected=true]:text-brand-solid-foreground data-[selected=true]:data-hovered:bg-transparent data-[selected=true]:data-hovered:text-brand-solid-foreground fluid-sm rounded-lg font-bold tracking-wide transition-colors";
+  "rounded-lg fluid-sm font-bold tracking-wide text-foreground-muted transition-colors data-hovered:bg-surface data-hovered:text-foreground data-[selected=true]:text-brand-solid-foreground data-[selected=true]:data-hovered:bg-transparent data-[selected=true]:data-hovered:text-brand-solid-foreground";
 
 /** The recessed track every tab strip sits in. Paired with the hover `TAB_ITEM_CLASSES` moves off it. */
-export const TAB_TRACK_CLASSES = "border-border bg-muted rounded-xl border";
+export const TAB_TRACK_CLASSES = "rounded-xl border border-border bg-muted";
 
 /**
  * `rounded-lg` matches `TAB_ITEM_CLASSES`: HeroUI's `.tabs__indicator` defaults to `calc(var(--radius) * 3)`.
@@ -69,10 +69,10 @@ export const TAB_TRACK_CLASSES = "border-border bg-muted rounded-xl border";
  * **The ring says which tab is selected**: the fill does not flip and its track does, measuring
  * 1.24:1 in the dark theme (`scripts/checks/docs_gate/scheme.py :: PAIRS`).
  */
-export const TAB_INDICATOR_CLASSES = "bg-brand-solid ring-brand rounded-lg shadow-sm ring-1";
+export const TAB_INDICATOR_CLASSES = "rounded-lg bg-brand-solid shadow-sm ring-1 ring-brand";
 
 /** The one field-error appearance, so every form reports at the field rather than only through a toast. */
-export const FIELD_ERROR_CLASSES = "fluid-xxs text-danger-strong font-bold";
+export const FIELD_ERROR_CLASSES = "fluid-xxs font-bold text-danger-strong";
 
 /**
  * A field error under a `Switch`. HeroUI reserves the track's width ahead of it, for a label written
@@ -85,7 +85,7 @@ export const FIELD_ERROR_SWITCH_CLASSES = `${FIELD_ERROR_CLASSES} ps-1`;
  * A sub-group inside a panel; `text-foreground-muted` is what separates it from `FIELD_LABEL_CLASSES`, otherwise the same
  * recipe uppercased. A group whose first field label already names it gets no heading.
  */
-export const FORM_SECTION_HEADING_CLASSES = "fluid-xxs text-foreground-muted font-bold tracking-widest uppercase";
+export const FORM_SECTION_HEADING_CLASSES = "fluid-xxs font-bold tracking-widest text-foreground-muted uppercase";
 
 /**
  * The one two-up field grid, which a section may half-fill. Spelled per panel, the gap and the breakpoint drift,

@@ -19,7 +19,7 @@ import type { KontaktChannelId } from "../../types";
 // quarter-rem step, holding the league's address unbroken at its largest type.
 const COLUMNS_CLASSES = "@min-[34.5rem]:grid-cols-2 @min-[52.5rem]:grid-cols-3";
 
-const MASK_CLASSES = "bg-brand-solid-foreground inline-block size-6 mask-contain mask-center mask-no-repeat";
+const MASK_CLASSES = "inline-block size-6 bg-brand-solid-foreground mask-contain mask-center mask-no-repeat";
 
 // A record rather than a chain: `KontaktChannelId` is a closed set, so a fourth channel fails to
 // compile here rather than rendering an empty tile nothing reports.

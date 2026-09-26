@@ -40,7 +40,7 @@ const TITEL: Record<Stand, string> = {
 };
 
 /** The application page's own column, so the two public forms are one page wide. */
-const SEITE_CLASSES = "max-w-meta flex w-full flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
+const SEITE_CLASSES = "flex w-full max-w-meta flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
 
 /** What the page knows about the team, or `null` where it may name nobody. */
 type Geoeffnet = { stand: Stand; ansicht: FLEinladungAnsichtResponse | null };

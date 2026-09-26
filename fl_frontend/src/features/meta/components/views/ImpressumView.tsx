@@ -9,7 +9,7 @@ import { textLink } from "@/shared/components/ui/textLink";
 import { LegalSection } from "../ui/LegalSection";
 
 /** One legal paragraph. Spelled once because the page is nothing but paragraphs, and a copy per section drifts. */
-const ABSATZ_CLASSES = "fluid-sm text-foreground leading-relaxed font-medium text-pretty";
+const ABSATZ_CLASSES = "fluid-sm leading-relaxed font-medium text-pretty text-foreground";
 
 export function ImpressumView() {
   return (

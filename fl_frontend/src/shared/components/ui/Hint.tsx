@@ -17,7 +17,7 @@ type HintPoint = { term?: string; text: string };
 
 // The scale is spelled out and not `muted-hint`, which is `fluid-sm`: this paragraph sits under a control and
 // pairs with the same sentence on a mirrored panel, where two type steps apart read as two designs.
-const FIELD_HINT_CLASSES = "fluid-xxs text-foreground-muted leading-normal font-medium";
+const FIELD_HINT_CLASSES = "fluid-xxs leading-normal font-medium text-foreground-muted";
 
 /** A lead and four bullets, together about 350 characters. Longer is a document, not a popover. */
 type HintBody = {

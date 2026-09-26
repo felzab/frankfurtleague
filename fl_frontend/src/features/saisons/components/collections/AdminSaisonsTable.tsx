@@ -31,7 +31,7 @@ import type { AdminSaisonRow } from "../../types";
  * short identifier a reader scans a column for. `h-7` fixes the box, so the chip's own `py-1` adds
  * nothing to it.
  */
-const ID_CHIP_CLASSES = `${SHORTHAND_CHIP_CLASSES} font-numeric h-7 w-14 tabular-nums shadow-sm`;
+const ID_CHIP_CLASSES = `${SHORTHAND_CHIP_CLASSES} h-7 w-14 font-numeric tabular-nums shadow-sm`;
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
   searched: "Keine Saisons für diese Suche.",

@@ -4,7 +4,7 @@ export type LaufendDotStep = "xxs" | "xs";
 // `bg-brand` and never the solid fill, which sinks into this tint in the dark theme
 // (`docs/frontend/spec.md` §1.17). Rests visible under `prefers-reduced-motion`, which stops the
 // animation: `animate-ping`'s first frame is full opacity, unscaled.
-const DOT_CLASSES = "bg-brand animate-ping rounded-full";
+const DOT_CLASSES = "animate-ping rounded-full bg-brand";
 
 const DOT_SIZE_CLASSES: Record<LaufendDotStep, string> = { xxs: "size-1.5", xs: "size-2" };
 

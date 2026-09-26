@@ -53,14 +53,14 @@ import type { FLSchulform } from "@/features/teams/schemas";
 import type { Key } from "@heroui/react/rac";
 
 /** The clubs' own row in the picker, `PickOrCreateAutocomplete`'s so the two lists read alike. */
-const SCHULE_ITEM_CLASSES = "fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2";
+const SCHULE_ITEM_CLASSES = "cursor-pointer rounded-lg px-3 py-2 fluid-xs data-hovered:bg-hover";
 
 /**
  * The sentinel's row: the SAME box as every other option, distinguished only by what cannot change
  * its shape. A border on one row reads as a half-border — a rule between two rows is a separator
  * element between them, never an edge on one.
  */
-const NICHT_IN_LISTE_ITEM_CLASSES = `${SCHULE_ITEM_CLASSES} text-brand font-semibold`;
+const NICHT_IN_LISTE_ITEM_CLASSES = `${SCHULE_ITEM_CLASSES} font-semibold text-brand`;
 
 /** The lead line under the picker, where the list has nothing to offer and the reason differs. */
 const LISTE_LEER = "Die Liga führt noch keine Schule. Wähle die Option oben und trage Deine selbst ein.";
