@@ -248,6 +248,21 @@ describe("what a removal costs, and what it refuses", () => {
     }
   });
 
+  /* A mail that went out records a write of its own, so only a withheld one leaves the removal's own
+     record as the page's reason to refresh: the sign-in store's writes are recorded by no client. */
+  it("refreshes the page after a removal whose notice was withheld", async () => {
+    mail.answerWith(() => "withheld");
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    const held = seedPasskey(row.userId, "eins");
+    seedPasskey(row.userId, "zwei");
+    arriveAs(cookie);
+
+    const answer = await removePasskeyAction(held.id);
+
+    assert.equal(answer.success, true);
+    assert.deepEqual(cacheCalls, [{ name: "refresh", args: [] }], "the page kept a list the removal changed");
+  });
+
   /* The removal ends the devices THAT passkey signed in and no other: a device a second passkey or a
      code signed in keeps its session (`docs/frontend/spec.md :: I313`). */
   it("ends the sessions the removed passkey made, and none another passkey or a code made", async () => {
