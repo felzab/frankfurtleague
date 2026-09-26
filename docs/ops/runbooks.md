@@ -342,8 +342,9 @@ processes is the whole procedure; why a restart is needed and how `role` is re-d
   allowlisted address holding no passkey is answered the enrolment page and reaches no admin route
   until one stands, so there is nothing to prepare for them and nothing to hand over.
 - **A lost passkey is the administrator's own to replace while they still hold another**: the
-  sidemenu's options menu lists what they hold, adds one and removes one, each behind a fresh
-  passkey ceremony, and the last row cannot be removed. Removing one signs their other devices out.
+  account page, `/bereich/konto`, lists what they hold, adds one and removes one, each behind a
+  passkey sign-in or confirmation inside the step-up window, and the last row cannot be removed.
+  Removing one signs out the devices that passkey signed in, and no other.
 - **An administrator who has lost every passkey is recovered in the Atlas console**, by deleting
   their rows in the `passkey` collection of the `auth` database; their next sign-in through the
   e-mail link enrols anew. **Until those rows are gone the mailed link enrols nothing**, their own
