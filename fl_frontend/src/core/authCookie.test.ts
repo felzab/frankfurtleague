@@ -9,7 +9,7 @@ const STORE = "__flAuthCookieStore";
 const HTTPS_ORIGIN = "https://liga.example";
 
 const globals = globalThis as unknown as Record<string, unknown>;
-const store = { user: [], session: [], account: [], verification: [] as { identifier: string }[], passkey: [] };
+const store = { user: [], session: [], account: [], verification: [] as Parameters<typeof seedLink>[0], passkey: [] };
 globals[STORE] = store;
 
 registerAuthDoubles({
@@ -55,7 +55,8 @@ describe("the session cookie over https", () => {
     const offered = await auth.api.generatePasskeyAuthenticationOptions({ headers: new Headers(HEADERS), returnHeaders: true });
 
     const [challenge] = cookiesOf(offered);
-    assert.ok(challenge?.name.startsWith("__Host-auth."), `the challenge cookie is ${String(challenge?.name)}`);
+    assert.ok(challenge, "the options call set no cookie");
+    assert.ok(challenge.name.startsWith("__Host-auth."), `the challenge cookie is ${challenge.name}`);
     assert.ok(challenge.attributes.includes("secure"));
   });
 });
