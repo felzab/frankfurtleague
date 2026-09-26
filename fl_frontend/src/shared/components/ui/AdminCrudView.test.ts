@@ -23,11 +23,11 @@ import type { Rule as CssRule } from "postcss";
 import type { ReactElement, ReactNode } from "react";
 import type { AdminCrudShape } from "./AdminCrudFallback";
 
-// The admin pages below mount create modals, whose real actions reach the sign-in store.
 // An administrator's session: every admin-tier read resolves its actor from it before it is sent
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
 doubleActionRequest();
 
+// The admin pages below mount create modals, whose real actions reach the sign-in store.
 doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX

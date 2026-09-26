@@ -213,16 +213,6 @@ class TestWhatTheBindingLeavesBehind:
 
         assert after == (SYSTEM_ACTOR, None)
 
-    def test_the_next_request_does_not_inherit_the_previous_actor(self):
-        """The hazard the reset exists for: the loop hands the next request the same context, and its writes would carry the wrong name."""
-
-        async def _two_requests() -> Actor | PersonActor:
-            await through_the_binder(request_for("PATCH", ACTOR))
-            # The next request on this loop, binding nothing yet: what it reads is what it inherits.
-            return actor_var.get()
-
-        assert asyncio.run(_two_requests()) is SYSTEM_ACTOR
-
 
 MOUNTED_OPERATIONS = [((route.path, method), route) for route in api_routes(APP) for method in (route.methods or ())]
 

@@ -56,11 +56,11 @@ const { calls, answerWith } = doubleEveryAction();
 /* The real module hands its raising to HeroUI's queue rather than back to the case that caused it. */
 const { raised: toasts } = doubleToasts();
 
-/** The undo's dispatch, which posts to a route handler with the browser's own `fetch`. */
 // An administrator's session: every admin-tier read resolves its actor from it before it is sent
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
 doubleActionRequest();
 
+/** The undo's dispatch, which posts to a route handler with the browser's own `fetch`. */
 const fetchMock = doubleFetch();
 
 /** Each navigation a control makes, which both destructive controls and both ways out are judged by. */

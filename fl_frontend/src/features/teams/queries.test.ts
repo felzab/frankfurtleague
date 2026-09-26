@@ -14,13 +14,13 @@ const FEATURE_URLS = ["teams", "spieler"].map((feature) => `${pathToFileURL(path
 /** Stands in for `next/headers`, whose `headers()` needs a request context no test process has. */
 const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
-// Replaced at the module boundary rather than the reads being reshaped to admit a seam: the real
-// client reaches a backend no test process runs, at a base URL no test run holds.
-/** Every request the doubled client was asked for, cumulative across every pass in this file. */
 // An administrator's session: every admin-tier read resolves its actor from it before it is sent
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
 doubleActionRequest();
 
+// Replaced at the module boundary rather than the reads being reshaped to admit a seam: the real
+// client reaches a backend no test process runs, at a base URL no test run holds.
+/** Every request the doubled client was asked for, cumulative across every pass in this file. */
 const reads = doubleApiClient(() => ({ teams: [], spieler: [] }));
 
 const TEAMS_ENDPOINT = "/teams/memberships";

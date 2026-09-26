@@ -14,11 +14,11 @@ const FEATURE_URLS = ["spiele", "spieltage", "teams"].map((feature) => `${pathTo
 /** Stands in for `next/headers`, whose `headers()` needs a request context no test process has. */
 const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
-/** Every request the doubled client was asked for, cumulative across every pass in this file. */
 // An administrator's session: every admin-tier read resolves its actor from it before it is sent
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
 doubleActionRequest();
 
+/** Every request the doubled client was asked for, cumulative across every pass in this file. */
 const reads = doubleApiClient(() => ({ format: "list", teams: [], spiele: [], spieltage: [] }));
 
 registerHooks({

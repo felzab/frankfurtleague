@@ -200,7 +200,10 @@ class TestAllowedAdminEmails:
         assert str(raised.value) == "Invalid environment variables: ALLOWED_ADMIN_EMAILS"
 
     def test_the_validators_own_message_quotes_no_entry(self):
-        """Below the names-only wrapper, which would hide a quoting message: this is what any other reader of the refusal is handed."""
+        """The validator's own message and context, below the names-only wrapper that would hide a quoting one.
+
+        The error's `input` is Pydantic's copy of the entry and is not what this asks about.
+        """
         with pytest.raises(ValidationError) as raised:
             build(allowed_admin_emails="admin@example.com, Zorbanax@example")
 
