@@ -50,6 +50,15 @@ EDGE_START_POLLS=50
 # `scripts/tests/test_deploy_edge_config.py`: one missing here is fetched only after the recreate.
 EDGE_IMAGE_SERVICES=(nginx cloudflared)
 
+# The file both application services list last in `docker-compose.yml`'s `env_file`, beside the
+# compose file: the names the two containers must hold equal, written once (`docs/ops/spec.md :: I429`).
+SHARED_ENV=".env"
+# Where a reader's throwaway container finds its service's two files, read-only, and the tmpfs it
+# joins them in, so the join never reaches the host's disk. A tmpfs takes Docker's default mode,
+# 1777, which the caller's uid can write.
+ENV_MOUNTS="/run/fl-env"
+ENV_UNION_DIR="/tmp"
+
 PIN=""; STATUS_ONLY=0
 # shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `quietly`
 for arg in "$@"; do
@@ -120,12 +129,12 @@ check_compose_config() {
     refuse "compose could not read its configuration (exit ${rc}), so this deploy stopped here rather than
 at the recreate, where the same failure reads as a build that broke.
 NOTHING has been pulled or recreated, and the site is untouched.
-The three files it reads are ${COMPOSE}, fl_frontend/.env and fl_backend/.env.
+The four files it reads are ${COMPOSE}, fl_frontend/.env, fl_backend/.env and ${SHARED_ENV}.
 Its own message is not printed here: a parse error quotes the line it could not read, and in an
 environment file that line is a value. Ask it yourself, where the answer is not being captured:
   docker compose -f ${COMPOSE} config --quiet"
   fi
-  ok "compose parses ${COMPOSE} and the two environment files it names"
+  ok "compose parses ${COMPOSE} and the three environment files it names"
 }
 
 # Before either application image moves: the `up` that reloads nginx would otherwise fetch a missing
@@ -148,6 +157,7 @@ Compose's own output is above."
 # `get_config`, never `BackendConfig()`: pydantic renders `input_value=` on its own ValidationError,
 # and everything below reaches this script's output. The names alone are what an operator needs.
 ENV_NAME_CHECK='
+import os
 import sys
 
 try:
@@ -159,6 +169,9 @@ except Exception as unavailable:
     raise SystemExit(4)
 
 try:
+    # Imported from the image working directory, then read from the one the union was joined in:
+    # the settings class takes its file from wherever it is built.
+    os.chdir(sys.argv[1])
     get_config()
 except EnvironmentValidationError as refusal:
     print(refusal, file=sys.stderr)
@@ -170,29 +183,37 @@ except Exception as unexpected:
     raise SystemExit(4)
 '
 
+# What compose hands a service, joined into one file: the package's own, then the checkout's, in
+# `docker-compose.yml`'s order, the last winning in both. Every reader takes one file, a pinned
+# rollback's older image's included.
+
+# shellcheck disable=SC2016  # the container's sh's own $0, $1 and $@, which must not expand here
+ENV_UNION_BUILD='umask 077 && { cat "$0/package"; echo; cat "$0/shared"; } > "$1/.env" && shift && exec "$@"'
+
 # One mount, one user and one filter for either package's reader: the two judge different things and
 # each says so itself, but a second copy of this is how one arm's mount drifts from the other's.
 read_env_names() {
   local package="$1" image="$2"; shift 2
   local rc=0 said=""
-  # The caller's own identity, never the image's user, whose uid this host does not have: the file is
-  # readable by whoever runs this script. `--network none` because a reader reaching one would reach
-  # it holding the file.
-  said="$(docker run --rm --network none --user "$(id -u):$(id -g)" \
-    -v "${PWD}/${package}/.env:/app/.env:ro" "$image" "$@" 2>&1)" || rc=$?
+  # The caller's own identity, never the image's user, whose uid this host does not have: the files
+  # are readable by whoever runs this script. `--network none` because a reader reaching one would
+  # reach it holding the files.
+  said="$(docker run --rm --network none --user "$(id -u):$(id -g)" --tmpfs "$ENV_UNION_DIR" \
+    -v "${PWD}/${package}/.env:${ENV_MOUNTS}/package:ro" -v "${PWD}/${SHARED_ENV}:${ENV_MOUNTS}/shared:ro" \
+    "$image" sh -c "$ENV_UNION_BUILD" "$ENV_MOUNTS" "$ENV_UNION_DIR" "$@" 2>&1)" || rc=$?
   # Through the filter every container log this script surfaces goes through (`docs/ops/spec.md` §1.7).
   if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
   return "$rc"
 }
 
-# The one place the environment file is read AS A FILE, and so the only place a name nothing declares
+# The one place the environment files are read AS FILES, and so the only place a name nothing declares
 # can be seen: compose hands the container its keys as variables instead
 # (`fl_backend/app/core/config.py :: model_config`, `docs/ops/spec.md :: I181`).
 check_env_names() {
   local rc=0
-  read_env_names fl_backend "$IMAGE_BACKEND" python -c "$ENV_NAME_CHECK" || rc=$?
+  read_env_names fl_backend "$IMAGE_BACKEND" python -c "$ENV_NAME_CHECK" "$ENV_UNION_DIR" || rc=$?
   if (( rc == 3 )); then
-    refuse "the backend refuses this host's environment file, and the line above is its own answer: the
+    refuse "the backend refuses this host's environment files, and the line above is its own answer: the
 variables it could not accept, or the type of a read that failed before it reached one. No value is
 printed either way, and which remedy the line asks for is read off the names it carries. A name the
 backend declares is a value to correct; any other name is a line to delete or a field to add to the
@@ -202,10 +223,10 @@ NOTHING has been recreated, and the site is untouched."
   elif (( rc )); then
     # An advisory rather than a refusal: this reads a file the running stack never reads, so a check
     # that could not be made leaves the deploy exactly where it stood before it was added.
-    warn "the pulled backend image could not be asked to read fl_backend/.env (exit ${rc}), so nothing
-here says whether the backend accepts what it holds. Its own answer is above."
+    warn "the pulled backend image could not be asked to read fl_backend/.env and ${SHARED_ENV} (exit ${rc}), so
+nothing here says whether the backend accepts what they hold. Its own answer is above."
   else
-    ok "the backend accepts every name and value in fl_backend/.env, as python-dotenv parses it"
+    ok "the backend accepts every name and value in fl_backend/.env and ${SHARED_ENV}, as python-dotenv parses them"
   fi
 }
 
@@ -216,9 +237,9 @@ check_frontend_env_names() {
   local rc=0
   # `--production` because this script has one deployment, the production stack the compose file
   # above names: the reader judges names, and the schema's production-only half rests on a VALUE.
-  read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs --production || rc=$?
+  read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs "${ENV_UNION_DIR}/.env" --production || rc=$?
   if (( rc == 3 )); then
-    refuse "the frontend refuses this host's environment file, and the line above names the variables.
+    refuse "the frontend refuses this host's environment files, and the line above names the variables.
 An undeclared name is one nothing in the schema reads, so the line reads as omitted and the shipped
 default serves production -- delete it, correct its spelling, or declare it in the schema. A missing
 required name is one the boot gate would meet instead, after the recreate and behind an edge already
@@ -227,11 +248,65 @@ shell that ran compose, which here holds none.
 NOTHING has been recreated, and the site is untouched."
   elif (( rc )); then
     # An advisory rather than a refusal, for the reason `check_env_names` carries.
-    warn "the pulled frontend image could not be asked to read fl_frontend/.env (exit ${rc}), so nothing
-here says whether it holds every name the frontend requires and none it does not declare. Its own
-answer is above."
+    warn "the pulled frontend image could not be asked to read fl_frontend/.env and ${SHARED_ENV} (exit ${rc}), so
+nothing here says whether they hold every name the frontend requires and none it does not declare.
+Its own answer is above."
   else
-    ok "fl_frontend/.env holds every name the frontend requires and none it does not declare"
+    ok "fl_frontend/.env and ${SHARED_ENV} hold every name the frontend requires and none it does not declare"
+  fi
+}
+
+# Names only, read by python-dotenv, the parser the backend's own reader uses; `interpolate=False`,
+# because no value is needed to name a line.
+ENV_OVERLAP_CHECK='
+import sys
+from pathlib import Path
+
+try:
+    from dotenv import dotenv_values
+except Exception as unavailable:
+    print(type(unavailable).__name__, file=sys.stderr)
+    raise SystemExit(4)
+
+root = Path(sys.argv[1])
+try:
+    shared = set(dotenv_values(root / ".env", interpolate=False))
+    twice = {package: sorted(shared & set(dotenv_values(root / package / ".env", interpolate=False))) for package in sys.argv[2:]}
+except Exception as unreadable:
+    # The type alone, for the reason ENV_NAME_CHECK gives: a reader quotes what it could not parse.
+    print(type(unreadable).__name__, file=sys.stderr)
+    raise SystemExit(4)
+
+for package, names in twice.items():
+    if names:
+        listed = ", ".join(names)
+        print(f"{package}/.env and .env both hold: {listed}", file=sys.stderr)
+raise SystemExit(3 if any(twice.values()) else 0)
+'
+
+# A name one package file and the checkout's both hold is the checkout's in the container, compose
+# letting the last file listed win, so an edit to the package's copy changes nothing
+# (`docs/ops/spec.md :: I430`).
+check_env_names_held_once() {
+  local rc=0 said="" package
+  local -a mounts=(-v "${PWD}/${SHARED_ENV}:${ENV_MOUNTS}/.env:ro")
+  for package in fl_frontend fl_backend; do
+    mounts+=(-v "${PWD}/${package}/.env:${ENV_MOUNTS}/${package}/.env:ro")
+  done
+  said="$(docker run --rm --network none --user "$(id -u):$(id -g)" "${mounts[@]}" \
+    "$IMAGE_BACKEND" python -c "$ENV_OVERLAP_CHECK" "$ENV_MOUNTS" fl_frontend fl_backend 2>&1)" || rc=$?
+  if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
+  if (( rc == 3 )); then
+    refuse "a name above sits both in a package's environment file and in ${SHARED_ENV}. The container is handed
+the ${SHARED_ENV} value, the last file compose lists, so the package's line is one nothing reads. Delete
+it from the package file, keeping the one in ${SHARED_ENV}.
+NOTHING has been recreated, and the site is untouched."
+  elif (( rc )); then
+    # An advisory, for the reason `check_env_names` carries.
+    warn "the pulled backend image could not be asked which names the environment files share (exit ${rc}),
+so nothing here says whether a package file repeats a name ${SHARED_ENV} holds. Its own answer is above."
+  else
+    ok "no package's environment file repeats a name ${SHARED_ENV} holds"
   fi
 }
 
@@ -701,6 +776,7 @@ section "preflight"
 step "Files and directories the stack mounts, before anything is stopped or pulled"
 require_file "fl_frontend/.env" "The frontend cannot start without it. Restore it from your password manager."
 require_file "fl_backend/.env"  "The backend cannot start without it."
+require_file "$SHARED_ENV" "Both application services read it last, for the names they must hold equal (docs/ops/runbooks.md §16)."
 # Each file and never its directory alone: Docker mounts a missing directory empty, where nginx
 # loads no server of this site's or refuses the include, the edge serving its previous
 # configuration until it restarts.
@@ -958,6 +1034,7 @@ fi
 # Asked of the builds about to run rather than of the ones being replaced: the field set is each
 # pulled image's, so a variable this release renamed is a variable only this release can judge.
 step "The environment files, read by the builds about to run"
+check_env_names_held_once
 check_env_names
 check_frontend_env_names
 

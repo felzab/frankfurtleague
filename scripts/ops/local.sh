@@ -205,7 +205,8 @@ section "preflight"
 step "Files the containers read"
 require_file "fl_frontend/.env" "The frontend container reads it via env_file. Copy it from your password manager."
 require_file "fl_backend/.env"  "The backend container reads it via env_file."
-ok "both .env files are in place"
+require_file ".env" "Both containers read it via env_file, last. Generate its keys for this machine: docs/ops/runbooks.md §16."
+ok "the three .env files are in place"
 
 step "Anything holding the build's files open"
 # A running `next dev` holds .next open and makes the build fail with EBUSY on Windows. Never

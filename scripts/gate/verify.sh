@@ -1149,6 +1149,7 @@ written at the rule, never suppressed at this call site." \
   cp docker-compose.yml docker-compose.local.yml "${OPS_SCRATCH}/"
   : > "${OPS_SCRATCH}/fl_backend/.env"
   : > "${OPS_SCRATCH}/fl_frontend/.env"
+  : > "${OPS_SCRATCH}/.env"
   # The local stack is the merge `scripts/ops/local.sh` runs, never docker-compose.local.yml alone,
   # which is an override and no stack at all. `--output` rather than a redirect, so no text-mode
   # stream writes the model; `--no-env-resolution` keeps every env_file's values out of it.

@@ -261,6 +261,11 @@ def test_a_mounted_directory_the_checkout_lacks_is_left_to_the_mount_check():
     assert checker.trusted_connector(checker.edge_configuration(missing, root), CONNECTOR, "c") == []
 
 
+def env_file(project: Path, *paths: str) -> dict[str, Any]:
+    """A service's `env_file` as `--no-env-resolution` leaves it: each entry a mapping, its path absolute."""
+    return {"env_file": [{"path": str(project / path), "required": True} for path in paths]}
+
+
 def rendered_stack(project: Path, conf_dir: str, **extra: dict[str, Any]) -> dict[str, Any]:
     """A stack as the gate renders it beside `project`, its edge mounting `conf_dir` and `nginx/shared` of this checkout."""
     edge_volumes = [
@@ -268,7 +273,9 @@ def rendered_stack(project: Path, conf_dir: str, **extra: dict[str, Any]) -> dic
         {"type": "bind", "source": str(project / "nginx/shared"), "target": "/etc/nginx/shared"},
     ]
     nginx = {"volumes": edge_volumes, "command": LISTENING, "tmpfs": ["/run/nginx-control:mode=700"]}
-    return model(nginx=nginx, **extra)
+    frontend = env_file(project, "fl_frontend/.env", ".env")
+    backend = env_file(project, "fl_backend/.env", ".env")
+    return model(nginx=nginx, frontend=frontend, backend=backend, **extra)
 
 
 def run_main(production: dict[str, Any], local: dict[str, Any], project: Path) -> tuple[int, str]:
@@ -290,12 +297,46 @@ def test_both_edges_of_this_checkout_are_judged_and_trust_the_connector_alone():
     """The nginx files as they stand, through `main`: a trust either edge's own directory adds fails this."""
     project = new_root("fl-compose-main-")
     connector = {"networks": {"frankfurtleague-net": {"ipv4_address": CONNECTOR}}}
-    production = rendered_stack(project, "nginx/prod", frontend={}, backend={}, cloudflared=connector)
+    production = rendered_stack(project, "nginx/prod", cloudflared=connector)
     local = rendered_stack(project, "nginx/local")
 
     code, said = run_main(production, local, project)
 
     assert code == 0, said
+
+
+# --- the environment files each application service reads ---------------------------------------------
+
+
+def test_each_service_reading_its_package_file_then_the_checkouts_is_clean():
+    project = Path("/render")
+    rendered = model(frontend=env_file(project, "fl_frontend/.env", ".env"), backend=env_file(project, "fl_backend/.env", ".env"))
+
+    assert checker.env_files(rendered, "p", project) == []
+
+
+def test_the_checkouts_file_listed_first_fails():
+    """Compose would then hand a name both carry the package's value, and the deploy's readers judge the other."""
+    project = Path("/render")
+    rendered = model(frontend=env_file(project, ".env", "fl_frontend/.env"), backend=env_file(project, "fl_backend/.env", ".env"))
+
+    assert len(checker.env_files(rendered, "p", project)) == 1
+
+
+def test_a_service_without_the_checkouts_file_fails():
+    """Its container starts without the keys the deploy's reader found in the union, and the boot gate refuses after the recreate."""
+    project = Path("/render")
+    rendered = model(frontend=env_file(project, "fl_frontend/.env", ".env"), backend=env_file(project, "fl_backend/.env"))
+
+    assert len(checker.env_files(rendered, "p", project)) == 1
+
+
+def test_an_entry_that_is_no_path_refuses():
+    try:
+        checker.env_files(model(frontend={"env_file": [{"required": True}]}, backend={}), "p", Path("/render"))
+    except ValueError:
+        return
+    raise AssertionError("an env_file entry carrying no path was judged")
 
 
 def test_a_connector_without_one_static_address_refuses():

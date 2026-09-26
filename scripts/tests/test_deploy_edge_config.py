@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 from typing import Final
 
-from conftest import base_env, import_scripts, lift_function, new_root, run_shell, write_shell
+from conftest import base_env, import_scripts, lift_assignment, lift_function, new_root, run_shell, write_shell
 
 [checker] = import_scripts("check_compose_model")
 
@@ -103,11 +103,7 @@ if [[ -f "${FL_EDGE_STATE}/reloaded" ]]; then echo reloaded=yes; else echo reloa
 
 
 def _assignment(name: str) -> str:
-    """One assignment out of the script, read rather than restated: an array on one line, or a quoted value."""
-    text = DEPLOY.read_text(encoding="utf-8")
-    found = re.search(rf"""^{name}=(\(.*\)|"[^"\n]*"|'[^']*')$""", text, re.MULTILINE)
-    assert found is not None, f"scripts/ops/deploy.sh assigns no {name}"
-    return found.group(0)
+    return lift_assignment(DEPLOY, name)
 
 
 def _run(loaded: dict[str, bytes], body: str = RELOAD, **overrides: str) -> str:

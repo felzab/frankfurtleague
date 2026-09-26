@@ -3,9 +3,9 @@
 `--force-recreate` discards a container's `json-file` stream and a failed deploy recreates the
 application pair twice, so `:: copy_streams` runs on both paths -- refusing where nothing has been
 recreated yet, and warning inside `:: roll_back`, where the site is already down and a log file is
-not worth leaving it there. `:: check_env_names` is the backend's environment read before the
-recreate: the environment file is a file to the settings class only there, and everything it prints
-is names. `scripts/lib/_lib.sh :: wait_healthy`, sourced whole, is the read after it.
+not worth leaving it there. `:: check_env_names` and `:: check_env_names_held_once` read the
+environment files before the recreate, the one place they are files, and print names alone.
+`scripts/lib/_lib.sh :: wait_healthy`, sourced whole, is the read after it.
 Each is driven behind a stand-in `docker`, so no daemon and no compose file of this machine; the
 snippet that reader hands the image is run for real instead, because a stub records an argv and
 answers nothing about what the image does.
@@ -22,14 +22,13 @@ import re
 from pathlib import Path
 from typing import Final
 
-from conftest import BASH, base_env, lift_function, new_root, run_shell, write_shell
+from conftest import BASH, base_env, lift_assignment, lift_function, new_root, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 REPO_ROOT: Final = SCRIPTS.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 DEPLOY: Final = SCRIPTS / "ops" / "deploy.sh"
 RUNBOOKS: Final = REPO_ROOT / "docs" / "ops" / "runbooks.md"
-BACKEND_DOCKERFILE: Final = REPO_ROOT / "fl_backend" / "Dockerfile"
 
 
 STAMP: Final = "2026-09-07T101500"
@@ -78,15 +77,11 @@ def _lifted(name: str) -> str:
 
 
 def _assignment(name: str) -> str:
-    """One single-quoted multi-line assignment out of the script, delimiter to delimiter.
+    return lift_assignment(DEPLOY, name)
 
-    Read rather than restated: a copy here would pass while the script's own regressed.
-    """
-    text = DEPLOY.read_text(encoding="utf-8")
-    opened = text.find(f"\n{name}='")
-    assert opened >= 0, f"scripts/ops/deploy.sh assigns no {name} as a single-quoted block"
-    closed = text.index("\n'\n", opened + 1)
-    return text[opened + 1 : closed + 2]
+
+# Every assignment the environment readers build their containers from.
+ENV_ASSIGNMENTS: Final = ("SHARED_ENV", "ENV_MOUNTS", "ENV_UNION_DIR", "ENV_UNION_BUILD", "ENV_NAME_CHECK", "ENV_OVERLAP_CHECK")
 
 
 class _Fixture:
@@ -131,12 +126,14 @@ def _run(body: str, **overrides: str) -> tuple[int, str, _Fixture]:
         f'LOG_STAMP="{STAMP}"',
         "COPIED_STREAMS=0",
         "ATTEMPTED_STREAMS=0",
-        _assignment("ENV_NAME_CHECK"),
+        'IMAGE_BACKEND="backend-image"',
+        *(_assignment(name) for name in ENV_ASSIGNMENTS),
         _lifted("service_cid"),
         _lifted("check_compose_config"),
         _lifted("copy_streams"),
         _lifted("read_env_names"),
         _lifted("check_env_names"),
+        _lifted("check_env_names_held_once"),
         body,
         "",
     )
@@ -290,27 +287,48 @@ def test_what_the_container_said_goes_through_the_credential_filter() -> None:
     assert "<redacted>@cluster.example.net" in output, output
 
 
-def test_the_file_is_mounted_read_only_where_the_image_puts_its_working_directory() -> None:
-    """A `WORKDIR` change would leave the settings class with nothing at the path it reads, and the check would pass over every file forever."""
-    workdir = re.search(r"^WORKDIR\s+(\S+)$", BACKEND_DOCKERFILE.read_text(encoding="utf-8"), re.MULTILINE)
-
-    assert workdir is not None, "fl_backend/Dockerfile declares no WORKDIR"
-
+def test_both_files_are_mounted_read_only_and_joined_in_a_tmpfs_the_reader_is_pointed_at() -> None:
+    """The backend's own file alone would leave every name the checkout's holds reading as missing, and refuse every deploy."""
     code, output, fixture = _run(f'printf "identity=%s:%s\\n" "$(id -u)" "$(id -g)" ; {NAMES}')
     argv = fixture.argv.read_text(encoding="utf-8").splitlines()
     identity = re.search(r"^identity=(\S+)$", output, re.MULTILINE)
 
     assert code == 0, output
     assert identity is not None, output
-    mount = next((arg for arg in argv if arg.endswith(":ro")), "")
-    assert mount.endswith(f":{workdir.group(1)}/.env:ro"), argv
-    # The HOST half, which no other assertion reaches: a mount rebuilt from `${PWD}/.env`, or from
-    # the frontend's file, still ends at the working directory the line above pins.
-    assert "/fl_backend/.env:" in mount, argv
+    mounts = [arg for arg in argv if arg.endswith(":ro")]
+    # The HOST halves, which nothing else reaches: the backend's file for the package half, and the
+    # checkout's own, not a package's, for the shared half.
+    assert len(mounts) == 2, argv
+    assert mounts[0].endswith("/checkout/fl_backend/.env:/run/fl-env/package:ro"), argv
+    assert mounts[1].endswith("/checkout/.env:/run/fl-env/shared:ro"), argv
+    assert ["--tmpfs", "/tmp"] == argv[argv.index("--tmpfs") : argv.index("--tmpfs") + 2], argv
+    # The join runs first and hands over to the snippet, which is told the directory it wrote into.
+    # The snippet spans lines of the recorded argv, so only its neighbours are compared.
+    joined = argv.index("-c")
+    build = _assignment("ENV_UNION_BUILD").split("=", 1)[1][1:-1]
+    assert argv[joined - 1 : joined + 5] == ["sh", "-c", build, "/run/fl-env", "/tmp", "python"], argv
+    assert argv[-1] == "/tmp", argv
     # The identity of whoever ran the script, rather than a uid spelled here: a `sudo` deploy mounts
     # as root, so what is asserted is that the script asks, not which answer it gets.
     assert "--user" in argv, argv
     assert argv[argv.index("--user") + 1] == identity.group(1), (argv, identity.group(1))
+
+
+# The join as the reader's container runs it, over two files of the fixture's own: the package's
+# ending without a newline, which is the case the separator is for.
+UNION: Final = """mkdir -p mounts union
+printf 'PACKAGE_NAME=one' > mounts/package
+printf 'SHARED_NAME=two\\n' > mounts/shared
+sh -c "$ENV_UNION_BUILD" mounts union cat union/.env
+"""
+
+
+def test_the_join_puts_the_package_file_first_and_parts_it_from_the_checkouts_by_a_line() -> None:
+    """Compose lets the last file listed win, and a package file ending without a newline would otherwise run into the checkout's first name."""
+    code, output, _ = _run(UNION)
+
+    assert code == 0, output
+    assert output.splitlines()[-2:] == ["PACKAGE_NAME=one", "SHARED_NAME=two"], output
 
 
 def test_the_snippet_reaches_its_refusal_through_the_names_only_path() -> None:
@@ -328,9 +346,8 @@ def test_the_snippet_reaches_its_refusal_through_the_names_only_path() -> None:
 
 # `venv_python` comes from `_lib.sh`, which the parent script already sources; `cd` reaches the
 # fixture's own dotenv, the one file every case here is allowed to read.
-SNIPPET: Final = """cd fl_backend
-snippet_rc=0
-"$(venv_python)" -c "$ENV_NAME_CHECK" || snippet_rc=$?
+SNIPPET: Final = """snippet_rc=0
+"$(venv_python)" -c "$ENV_NAME_CHECK" fl_backend || snippet_rc=$?
 printf 'snippet=%s\\n' "$snippet_rc"
 """
 
@@ -370,6 +387,80 @@ def test_a_settings_module_the_snippet_cannot_import_answers_the_advisory_arm() 
     assert "Traceback" not in output, output
 
 
+# --- a name a package file and the checkout's both hold -------------------------------------------------
+
+HELD_ONCE: Final = "check_env_names_held_once"
+
+
+def test_a_name_both_files_hold_refuses_with_nothing_recreated() -> None:
+    """Exit 3 is the snippet's own answer, and the names are all it prints."""
+    said = "fl_backend/.env and .env both hold: INTERNAL_API_KEY_BASE"
+    code, output, _ = _run(HELD_ONCE, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS=said)
+
+    assert code == 2, output
+    assert said in output, output
+    assert "keeping the one in .env" in output, output
+    assert "NOTHING has been recreated" in output, output
+
+
+def test_a_held_once_check_that_could_not_be_made_is_an_advisory() -> None:
+    code, output, _ = _run(HELD_ONCE, FL_DEPLOY_RUN_RC="125", FL_DEPLOY_RUN_SAYS="Error")
+
+    assert code == 0, output
+    assert "(exit 125)" in output, output
+
+
+def test_the_three_files_are_mounted_read_only_into_a_container_with_no_network() -> None:
+    code, output, fixture = _run(HELD_ONCE)
+    argv = fixture.argv.read_text(encoding="utf-8").splitlines()
+
+    assert code == 0, output
+    mounts = [arg for arg in argv if arg.endswith(":ro")]
+    assert [mount.rsplit("/checkout/", 1)[1] for mount in mounts] == [
+        ".env:/run/fl-env/.env:ro",
+        "fl_frontend/.env:/run/fl-env/fl_frontend/.env:ro",
+        "fl_backend/.env:/run/fl-env/fl_backend/.env:ro",
+    ], argv
+    assert ["--network", "none"] == argv[argv.index("--network") : argv.index("--network") + 2], argv
+    assert argv[-3:] == ["/run/fl-env", "fl_frontend", "fl_backend"], argv
+
+
+# The snippet over three files of the fixture's own, one name in two of them.
+OVERLAP: Final = """mkdir -p fl_frontend
+printf 'SHARED_KEY=a value no case prints\\n' > .env
+printf 'SHARED_KEY=another value no case prints\\nFRONTEND_ONLY=x\\n' > fl_frontend/.env
+snippet_rc=0
+"$(venv_python)" -c "$ENV_OVERLAP_CHECK" . fl_frontend fl_backend || snippet_rc=$?
+printf 'snippet=%s\\n' "$snippet_rc"
+"""
+
+
+def test_the_overlap_snippet_answers_3_naming_the_file_and_the_name_and_never_a_value() -> None:
+    """Every stubbed case proves what the script asks; this proves what the image's python-dotenv answers."""
+    code, output, _ = _run(OVERLAP)
+
+    assert code == 0, output
+    # python-dotenv reaches a dev-group-only venv through testcontainers alone, so the import guard
+    # is pinned where it answers rather than passed over.
+    if "ModuleNotFoundError" in output:
+        assert "snippet=4" in output, output
+        assert "Traceback" not in output, output
+        return
+    assert "snippet=3" in output, output
+    assert "fl_frontend/.env and .env both hold: SHARED_KEY" in output, output
+    assert "fl_backend/.env and" not in output, output
+    assert "value no case prints" not in output, output
+
+
+def test_the_overlap_snippet_answers_0_where_no_name_repeats() -> None:
+    code, output, _ = _run(OVERLAP.replace("SHARED_KEY=another", "OTHER_KEY=another"))
+
+    assert code == 0, output
+    # The guard's own answer, for the reason the case above pins it.
+    if "ModuleNotFoundError" not in output:
+        assert "snippet=0" in output, output
+
+
 # --- the configuration compose reads, before anything is pulled ---------------------------------------
 
 CONFIG: Final = "check_compose_config"
@@ -386,10 +477,11 @@ def test_a_configuration_compose_cannot_read_refuses_with_nothing_pulled_or_recr
     assert code == 2, output
     assert "(exit 15)" in output, output
     assert "NOTHING has been pulled or recreated, and the site is untouched" in output, output
-    # The three files, because the refusal cannot say which of them the message named.
+    # The four files, because the refusal cannot say which of them the message named.
     assert "docker-compose.yml" in output, output
     assert "fl_backend/.env" in output, output
     assert "fl_frontend/.env" in output, output
+    assert "fl_backend/.env and .env." in output, output
     # `redact_uri_credentials` is for a container's log and reaches none of this, and a parse error
     # quotes the line it could not read -- which in an environment file is a value.
     assert "A_VALUE_NO_CASE_READS" not in output, output

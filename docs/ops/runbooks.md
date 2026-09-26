@@ -23,6 +23,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                                      | Who is re-erased, and what the restore took the record of      |
 | [14. The `auth` database's two expiry indexes](#14-the-auth-databases-two-expiry-indexes)                                                       | Which collections grow without one, and what creates it        |
 | [15. When a sign-in link does not arrive](#15-when-a-sign-in-link-does-not-arrive)                                                              | What the person cannot tell apart, and the line that can       |
+| [16. The checkout root's `.env`](#16-the-checkout-roots-env)                                                                                    | What it holds, and how each machine makes its own              |
 
 ---
 
@@ -34,11 +35,12 @@ the machine is outside the repository. What it does tell you:
 - `deploy.sh` refuses to run anywhere but Linux, and runs from a **checkout of this repository on the
   server** — so putting a merge live is `git pull && ./scripts/ops/deploy.sh`, the pull being what brings the
   compose file, `nginx/prod/` and `nginx/shared/` up to date before the containers are recreated.
-- `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod/`, `./nginx/shared/`, `./secrets/tunnel_token` and
-  `./certs/` must all exist beside the compose file — preflight checks each before anything is pulled.
+- `fl_frontend/.env`, `fl_backend/.env`, `./.env`, `./nginx/prod/`, `./nginx/shared/`, `./secrets/tunnel_token`
+  and `./certs/` must all exist beside the compose file — preflight checks each before anything is
+  pulled. What the root's `.env` holds, and how it is made, is §16.
 - **Compose is asked whether it can parse its own configuration before anything is pulled**
   (`scripts/ops/deploy.sh :: check_compose_config`). **It refuses at exit 2 with nothing pulled or
-  recreated**, and names the compose file and both environment files without printing what compose
+  recreated**, and names the compose file and the three environment files without printing what compose
   said, a parse error quoting the line it could not read ([`spec.md`](spec.md) §1.5). To see that
   message, run the same check on the server, where its answer is not being captured:
   `docker compose -f docker-compose.yml config --quiet`.
@@ -46,7 +48,11 @@ the machine is outside the repository. What it does tell you:
   image is pulled** (`scripts/ops/deploy.sh :: fetch_edge_images`): a fetch that fails refuses at
   exit 2 with nothing recreated, and compose's own reason is printed above the refusal
   ([`spec.md`](spec.md) §1.5).
-- **The pulled backend image is then asked to read `fl_backend/.env`** before anything is recreated
+- **A name the root's `.env` holds that a package file repeats refuses the deploy at exit 2** before
+  either image reads anything (`scripts/ops/deploy.sh :: check_env_names_held_once`): the container
+  gets the root's value, so the package's line is one nothing reads. Delete it from the package file.
+- **The pulled backend image is then asked to read `fl_backend/.env` joined to the root's `.env`**
+  before anything is recreated
   (`scripts/ops/deploy.sh :: check_env_names`): compose hands the container its keys as variables,
   and the settings class looks up none but its own, so a typo there reads as an omission and the
   shipped default serves production. **A name the backend does not declare, or a value it will not
@@ -56,7 +62,7 @@ the machine is outside the repository. What it does tell you:
   past. Two things it does not catch: a misspelling whose value is EMPTY, which the settings reader
   drops before the check judges it ([`../backend/spec.md`](../backend/spec.md) §1.5), and a quoting
   form the two parsers read differently ([`spec.md`](spec.md) §1.5).
-- **The pulled frontend image is asked the same of `fl_frontend/.env`**
+- **The pulled frontend image is asked the same of `fl_frontend/.env` joined to the root's**
   (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: **a name the
   frontend does not declare, and a name it requires that the file gives no value, each refuse the
   deploy at exit 2
@@ -131,21 +137,24 @@ own:
 docker run --rm --network <compose-network> \
   -v "$PWD/fl_backend/app:/app/app:ro" \
   -v "$PWD/fl_backend/.env:/app/.env:ro" \
+  -v "$PWD/.env:/.env:ro" \
   <backend-image> python -m app.core.constraints --check
 ```
 
-**Nine variables are required and the environment file is what supplies them.** `BackendConfig`
+**Nine variables are required and the two environment files are what supply them.** `BackendConfig`
 declares nine fields with no default, so a run reaching none of them exits 1 on a validation error
-naming all nine; the settings class reads its file from the image's own working directory
-(`fl_backend/app/core/config.py :: model_config`), which is what the second mount lands it at.
+naming all nine; the settings class reads the package's file from the image's own working directory
+and the checkout root's from the directory above it
+(`fl_backend/app/core/config.py :: model_config`), which is where the second and third mounts land
+them.
 **Mounted rather than retyped, because the URI carries the cluster's credential**: passing the nine
 as `-e` values instead puts that one in the shell's history and in the process list, and sends the
 operator looking up seven values `--check` never reads — the run touches `MONGODB_URI` and
-`DB_BASE_NAME` and nothing else the settings class requires. It is the same mount
-`scripts/ops/deploy.sh :: read_env_names` makes of the same file for the same image (§1).
+`DB_BASE_NAME` and nothing else the settings class requires. They are the two files
+`scripts/ops/deploy.sh :: read_env_names` joins for the same image (§1).
 
-Three caveats, untested against the server itself: the image runs as `uid=100 fl_api_user`, so both
-mounted paths must be readable by that uid — `--user 0:0` before the image name is the way past a
+Three caveats, untested against the server itself: the image runs as `uid=100 fl_api_user`, so every
+mounted path must be readable by that uid — `--user 0:0` before the image name is the way past a
 permission error, `--check` writing nothing either way — and an SELinux host needs `:z` on each
 mount.
 
@@ -1118,3 +1127,28 @@ mailed, to be told so once signed in, unless it is barred. So a quiet window mea
 message the provider accepted and the mailbox never showed, whose bounce the delivery webhook
 reports (§10). The allowlist is read before the backend call (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`), so an
 administrator on it is mailed whether or not the backend answers.
+
+## 16. The checkout root's `.env`
+
+**It holds `INTERNAL_API_KEY_BASE`, `INTERNAL_API_KEY_SYSTEM` and `INTERNAL_API_KEY_ADMIN`, and
+nothing else** ([`spec.md`](spec.md) §1.5, I429). Neither package's `.env` carries them: the deploy
+refuses a name both files hold (I430), and a name only one service declares, or a compose setting,
+is refused by the other service's reader.
+
+**Each machine has its own three keys.** They authenticate one machine's frontend to its own
+backend and nothing else, so a development machine generates fresh ones and never copies
+production's. On a development machine, in Git Bash at the checkout root, this writes the whole
+file and prints nothing:
+
+```bash
+for tier in BASE SYSTEM ADMIN; do printf 'INTERNAL_API_KEY_%s=%s\n' "$tier" "$(openssl rand -hex 32 | tr -d '\r\n')"; done > .env
+```
+
+`openssl rand -hex 32` is the 64 characters both boot gates demand, and the `tr` is not decoration:
+Git Bash's `openssl` ends its line with a carriage return, which command substitution keeps, and a
+65-character key refuses both boots.
+
+**On the server the file holds production's three**, moved out of the two package files rather than
+regenerated, readable by the deploying user alone (`chmod 600 .env`), and kept in the password
+manager as an entry of its own. A key changed there reaches the containers only when they are
+recreated, which the next deploy does: `docker compose restart` re-reads no environment file.

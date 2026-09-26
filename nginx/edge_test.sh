@@ -119,6 +119,7 @@ mkdir -p "${SCRATCH}/model/fl_backend" "${SCRATCH}/model/fl_frontend"
 cp docker-compose.yml docker-compose.local.yml "${SCRATCH}/model/"
 : > "${SCRATCH}/model/fl_backend/.env"
 : > "${SCRATCH}/model/fl_frontend/.env"
+: > "${SCRATCH}/model/.env"
 quietly docker compose -f "${SCRATCH}/model/docker-compose.yml" -f "${SCRATCH}/model/docker-compose.local.yml" \
   config --format json --no-env-resolution --output "${SCRATCH}/model/local.json" \
   || refuse "compose could not render the local stack's model, so the edge's command is unknown."

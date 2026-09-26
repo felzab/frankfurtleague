@@ -263,6 +263,40 @@ def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
     return findings
 
 
+# Each application service's `env_file`, in order, relative to the checkout: its package's file, then
+# the root's, which holds the names the two must hold equal (`docs/ops/spec.md :: I429`).
+ENV_FILES: Final = {"frontend": ("fl_frontend/.env", ".env"), "backend": ("fl_backend/.env", ".env")}
+
+
+def env_files(model: dict[str, Any], name: str, project: Path) -> list[Finding]:
+    """Each service reads its package's file, then the checkout root's, and no other.
+
+    `scripts/ops/deploy.sh :: ENV_UNION_BUILD` joins exactly that pair, so any other list passes the
+    preflight and meets the boot gate after the recreate.
+    """
+    findings: list[Finding] = []
+    declared = services(model, name)
+    for service, expected in ENV_FILES.items():
+        entries = (declared.get(service) or {}).get("env_file") or []
+        read: list[str] = []
+        for entry in [entries] if isinstance(entries, str) else entries:
+            path = entry.get("path") if isinstance(entry, dict) else entry
+            if not isinstance(path, str):
+                raise ValueError(f"{name}: {service} has an env_file entry Compose did not render as a path, so this is not its rendered model")
+            source = Path(path)
+            # Resolved against the directory the model was rendered beside, as `edge_mounts` resolves a mount.
+            read.append(source.relative_to(project).as_posix() if source.is_relative_to(project) else source.as_posix())
+        if tuple(read) != expected:
+            findings.append(
+                Finding(
+                    "fail",
+                    f"{name}: {service} reads env_file {read}, not {list(expected)}\n"
+                    f"{CONTINUATION}the deploy judges the package's file joined to the checkout's, in that order (I429)",
+                )
+            )
+    return findings
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Does either stack expose more than its edge, or mount the edge's configuration by file?")
     parser.add_argument("production", metavar="PROD_JSON", help="docker compose -f docker-compose.yml config --format json")
@@ -275,6 +309,8 @@ def main() -> int:
         prod_pairs, prod_mounts = edge_mounts(prod_model, "production", Path(args.production).resolve().parent, REPO_ROOT)
         local_pairs, local_mounts = edge_mounts(local_model, "local", Path(args.local).resolve().parent, REPO_ROOT)
         findings += prod_mounts + local_mounts + compared(prod_pairs, deploy_pairs(DEPLOY), "production")
+        findings += env_files(prod_model, "production", Path(args.production).resolve().parent)
+        findings += env_files(local_model, "local", Path(args.local).resolve().parent)
         socket = deploy_socket(DEPLOY)
         findings += control_socket(prod_model, "production", socket) + control_socket(local_model, "local", socket)
         # Production's address for both: the local stack starts no connector, and an edge trusting
@@ -292,6 +328,7 @@ def main() -> int:
         print(f"      both edges mount {EDGE_CONFIG_ROOT}/ by directory, production's the pairs the deploy compares")
         print("      both edges open the Control API where the deploy asks it, in a tmpfs of mode 700")
         print(f"      either edge trusts the {CONNECTOR_SERVICE} address alone, and marks it as the fallback")
+        print("      each application service reads its package's environment file, then the checkout's")
     return code
 
 
