@@ -1,11 +1,11 @@
 import Link from "next/link";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
-import { joinUnd } from "@/core/joinUnd";
-import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
+
+import { zeilenOf } from "../../utils";
 
 import type { FunktionZiel } from "../../utils";
 
@@ -14,27 +14,6 @@ import type { FunktionZiel } from "../../utils";
  * its own rather than a flavour of `leer`: records matched, and the person's own link is what is missing.
  */
 export type FunktionenZustand = { zustand: "leer" } | { zustand: "unbestaetigt" } | { zustand: "auswahl"; ziele: readonly FunktionZiel[] };
-
-/** One address's two lines: what it is, and which of the person's Funktionen lead there. */
-function zeilenOf(ziel: FunktionZiel): { titel: string; detail: string } {
-  const [erste] = ziel.funktionen;
-
-  switch (erste.art) {
-    case "kontakt": {
-      // Every seat at one address shares its team and season, so the first names both.
-      const gehalten = new Set(ziel.funktionen.flatMap((funktion) => (funktion.art === "kontakt" ? [funktion.rolle] : [])));
-      // In `KONTAKT_ROLLEN`'s order rather than the lookup's, so one person's roles read alike on every visit.
-      const rollen = KONTAKT_ROLLEN.filter((rolle) => gehalten.has(rolle.value)).map((rolle) => rolle.label);
-      return { titel: erste.team_name, detail: `Saison ${erste.saison_id} · ${joinUnd(rollen)}` };
-    }
-    case "spieler":
-      return { titel: "Spieler", detail: "Dein Kadereintrag" };
-    case "schiedsrichter":
-      return { titel: "Schiedsrichter", detail: "Deine Einsätze" };
-    case "administration":
-      return { titel: "Verwaltung", detail: "Die Verwaltung der Liga" };
-  }
-}
 
 export function FunktionenView(props: FunktionenZustand) {
   return (

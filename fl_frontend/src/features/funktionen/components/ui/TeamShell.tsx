@@ -2,11 +2,13 @@
 
 import { signOutAction } from "@/features/auth/actions";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
+import { FunktionSwitcher } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
 
 import { TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL, TEAM_SIDEMENU_ICONS } from "../../constants";
 import { teamHref } from "../../teamSeats";
 import { SaisonChipSlot } from "./SaisonChipSlot";
 
+import type { FunktionOrt } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
 import type { SidemenuStructure } from "@/shared/types/types";
 import type React from "react";
 import type { TeamIconName } from "../../constants";
@@ -20,6 +22,7 @@ export function TeamShell({
   saisonId,
   structure,
   saison,
+  orte,
   children,
 }: {
   teamId: string;
@@ -27,6 +30,8 @@ export function TeamShell({
   structure: SidemenuStructure<TeamIconName>;
   /** The season as a seat there reports it, `null` where the person holds none and the address is all there is. */
   saison: { isLaufend: boolean } | null;
+  /** The places the person's Funktionen lead to (`fl_frontend/src/features/funktionen/utils.ts :: funktionOrteOf`). */
+  orte: readonly FunktionOrt[];
   children: React.ReactNode;
 }) {
   // The fallback is what heads an address the structure claims no entry for, and with no seat held the
@@ -48,6 +53,13 @@ export function TeamShell({
             isLaufend={saison.isLaufend}
           />
         )
+      }
+      funktionSwitcher={
+        <FunktionSwitcher
+          orte={orte}
+          ohneOrt={TEAM_SHELL_FALLBACK.label}
+          mitBereich
+        />
       }
       fallbackTitle={fallback.label}
       fallbackHint={fallback.hint}

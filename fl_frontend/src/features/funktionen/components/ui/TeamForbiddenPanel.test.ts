@@ -136,7 +136,7 @@ describe("how the forbidden panel draws its ways out", () => {
  */
 async function barHintAt(saison: { isLaufend: boolean } | null): Promise<string> {
   const pathname = `/bereich/team/${TEAM_B}/2526/unsinn`;
-  render(underNext(h(TeamShell, { teamId: TEAM_B, saisonId: "2526", structure: [], saison: saison, children: null }), { pathname }));
+  render(underNext(h(TeamShell, { teamId: TEAM_B, saisonId: "2526", structure: [], saison: saison, orte: [], children: null }), { pathname }));
   await userEvent.setup().click(screen.getByRole("button", { name: `Was auf „${TEAM_SHELL_FALLBACK.label}“ zu finden ist` }));
 
   return document.body.textContent ?? "";

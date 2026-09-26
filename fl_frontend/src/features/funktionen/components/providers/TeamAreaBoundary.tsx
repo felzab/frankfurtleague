@@ -16,12 +16,13 @@ function TeamAreaFallback(_props: object, { error, reset }: ErrorInfo) {
   const { team_id, saison_id } = useParams<{ team_id: string; saison_id: string }>();
 
   return (
-    // No entry and no season chip: which seats the person holds here is what the failing read would have said.
+    // No entry, no season chip and no switcher: which seats the person holds here is what the failing read would have said.
     <TeamShell
       teamId={team_id}
       saisonId={saison_id}
       structure={[]}
-      saison={null}>
+      saison={null}
+      orte={[]}>
       <DashboardErrorBoundary
         error={asCaughtError(error)}
         reset={reset}

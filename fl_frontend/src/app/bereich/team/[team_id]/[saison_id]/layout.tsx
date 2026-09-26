@@ -8,6 +8,7 @@ import { TeamShell } from "@/features/funktionen/components/ui/TeamShell";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { seatsAt } from "@/features/funktionen/teamSeats";
 import { teamStructureFor } from "@/features/funktionen/teamStructure";
+import { funktionOrteOf } from "@/features/funktionen/utils";
 import { PageLoader } from "@/shared/components/ui/PageLoader";
 
 type TeamParams = Promise<{ team_id: string; saison_id: string }>;
@@ -44,7 +45,8 @@ async function TeamChrome({ params, children }: { params: TeamParams; children: 
       teamId={team_id}
       saisonId={saison_id}
       structure={teamStructureFor(seats)}
-      saison={seats.length === 0 ? null : { isLaufend: seats.some((seat) => seat.saison_status === "active") }}>
+      saison={seats.length === 0 ? null : { isLaufend: seats.some((seat) => seat.saison_status === "active") }}
+      orte={funktionOrteOf(funktionen)}>
       {/* In the page's stead, for the chrome: Next runs the page whatever this renders, so the page checks the seat itself (`fl_frontend/src/features/funktionen/resolvers.ts :: requireTeamSeats`). */}
       {seats.length === 0 ? <TeamForbiddenPanel funktionen={funktionen} /> : children}
     </TeamShell>

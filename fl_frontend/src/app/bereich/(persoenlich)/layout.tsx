@@ -6,7 +6,7 @@ import { PersonAreaBoundary } from "@/features/funktionen/components/providers/P
 import { PersonShell } from "@/features/funktionen/components/ui/PersonShell";
 import { personStructureFor } from "@/features/funktionen/constants";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
-import { personEintraegeOf } from "@/features/funktionen/utils";
+import { funktionOrteOf, personEintraegeOf } from "@/features/funktionen/utils";
 import { PageLoader } from "@/shared/components/ui/PageLoader";
 
 /**
@@ -31,5 +31,13 @@ async function PersonChrome({ children }: { children: React.ReactNode }) {
   // The guard's own read, memoised per render (`fl_frontend/src/core/subject.ts :: getSubjectSession`).
   const subject = await requireSubjectSession();
 
-  return <PersonShell structure={personStructureFor(personEintraegeOf(funktionenOf(subject).funktionen))}>{children}</PersonShell>;
+  const { funktionen } = funktionenOf(subject);
+
+  return (
+    <PersonShell
+      structure={personStructureFor(personEintraegeOf(funktionen))}
+      orte={funktionOrteOf(funktionen)}>
+      {children}
+    </PersonShell>
+  );
 }

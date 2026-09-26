@@ -16,8 +16,10 @@ import type { ErrorInfo } from "next/error";
  */
 function AdminAreaFallback(_props: object, { error, reset }: ErrorInfo) {
   return (
-    // No season slot: the season read may be what failed.
-    <AdminShell saisonMetadataDisplay={null}>
+    // No season slot and no switcher: either read may be what failed.
+    <AdminShell
+      saisonMetadataDisplay={null}
+      funktionSwitcher={null}>
       <DashboardErrorBoundary
         error={asCaughtError(error)}
         reset={reset}

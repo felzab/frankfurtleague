@@ -16,8 +16,10 @@ import type { ErrorInfo } from "next/error";
  */
 function PersonAreaFallback(_props: object, { error, reset }: ErrorInfo) {
   return (
-    // No entry: which pages the person holds is what the failing read would have said.
-    <PersonShell structure={[]}>
+    // No entry and no switcher: which pages the person holds is what the failing read would have said.
+    <PersonShell
+      structure={[]}
+      orte={[]}>
       <DashboardErrorBoundary
         error={asCaughtError(error)}
         reset={reset}

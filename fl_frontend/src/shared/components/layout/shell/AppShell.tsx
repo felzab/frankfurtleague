@@ -23,6 +23,7 @@ export function AppShell<TIcon extends string>({
   keepsSaisonQuery,
   iconDictionary,
   saisonMetadataDisplay,
+  funktionSwitcher,
   unlistedSections = {},
   fallbackTitle,
   fallbackHint,
@@ -40,6 +41,11 @@ export function AppShell<TIcon extends string>({
   keepsSaisonQuery: boolean;
   iconDictionary: Record<TIcon, React.ElementType>;
   saisonMetadataDisplay: React.ReactNode;
+  /**
+   * The switch between the person's Funktionen, heading the sidemenu. Required, as `saisonMetadataDisplay`
+   * is: a signed-in shell leaving it out would strand a person holding several in one area.
+   */
+  funktionSwitcher: React.ReactNode;
   /**
    * Sections with a route and no nav entry, by first segment. Such a page carries its own `h2` naming its subject, so
    * the bar names the section and the page names the record.
@@ -136,6 +142,7 @@ export function AppShell<TIcon extends string>({
             keepsSaisonQuery={keepsSaisonQuery}
             iconDictionary={iconDictionary}
             saisonMetadataDisplay={saisonMetadataDisplay}
+            funktionSwitcher={funktionSwitcher}
             onSignOut={onSignOut}
             onManagePasskeys={onManagePasskeys}
             pathname={pathname}

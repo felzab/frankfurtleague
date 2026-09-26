@@ -1,6 +1,10 @@
+import { joinUnd } from "@/core/joinUnd";
+import { KONTAKT_ROLLEN } from "@/features/teams/constants";
+
 import { teamHref } from "./teamSeats";
 
 import type { Funktion } from "@/core/funktionen";
+import type { FunktionOrt } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
 import type { PersonEintrag } from "./constants";
 
 /** The address one Funktion opens on. */
@@ -35,6 +39,35 @@ export function zieleOf(funktionen: readonly Funktion[]): FunktionZiel[] {
   }
 
   return [...byHref].map(([href, held]) => ({ href: href, funktionen: held }));
+}
+
+/** One address's two lines: what it is, and which of the person's Funktionen lead there. */
+export function zeilenOf(ziel: FunktionZiel): { titel: string; detail: string } {
+  const [erste] = ziel.funktionen;
+
+  switch (erste.art) {
+    case "kontakt": {
+      // Every seat at one address shares its team and season, so the first names both.
+      const gehalten = new Set(ziel.funktionen.flatMap((funktion) => (funktion.art === "kontakt" ? [funktion.rolle] : [])));
+      // In `KONTAKT_ROLLEN`'s order rather than the lookup's, so one person's roles read alike on every visit.
+      const rollen = KONTAKT_ROLLEN.filter((rolle) => gehalten.has(rolle.value)).map((rolle) => rolle.label);
+      return { titel: erste.team_name, detail: `Saison ${erste.saison_id} · ${joinUnd(rollen)}` };
+    }
+    case "spieler":
+      return { titel: "Spieler", detail: "Dein Kadereintrag" };
+    case "schiedsrichter":
+      return { titel: "Schiedsrichter", detail: "Deine Einsätze" };
+    case "administration":
+      return { titel: "Verwaltung", detail: "Die Verwaltung der Liga" };
+  }
+}
+
+/**
+ * The places `FunktionSwitcher` lists, labelled as the landing's cards are, in the landing's order.
+ * One place is no choice to offer, so the switcher shows only from two.
+ */
+export function funktionOrteOf(funktionen: readonly Funktion[]): FunktionOrt[] {
+  return zieleOf(funktionen).map((ziel) => ({ href: ziel.href, ...zeilenOf(ziel) }));
 }
 
 /**

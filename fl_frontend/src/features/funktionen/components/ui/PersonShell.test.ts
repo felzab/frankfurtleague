@@ -15,7 +15,7 @@ doubleEveryAction();
    resolver the icon package's bare `./x` imports need as it evaluates, and a static import resolves first. */
 const { PersonShell } = await import("./PersonShell.tsx");
 const { PERSON_SHELL_FALLBACK, PERSON_SIDEMENU_ENTRIES, personStructureFor } = await import("../../constants.ts");
-const { personEintraegeOf } = await import("../../utils.ts");
+const { funktionOrteOf, personEintraegeOf } = await import("../../utils.ts");
 
 const SPIELER: Funktion = { art: "spieler", spieler_id: "6890a1b2c3d4e5f607250001" };
 const SCHIEDSRICHTER: Funktion = { art: "schiedsrichter", schiedsrichter_id: "6890a1b2c3d4e5f607250002" };
@@ -33,6 +33,7 @@ const shellAt = (pathname: string): string =>
     underNext(
       h(PersonShell, {
         structure: personStructureFor(personEintraegeOf([SPIELER, SCHIEDSRICHTER])),
+        orte: funktionOrteOf([SPIELER, SCHIEDSRICHTER]),
         children: h("p", null, "Seiteninhalt"),
       }),
       { pathname, search: "saison_id=2526" },

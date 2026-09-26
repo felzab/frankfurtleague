@@ -17,7 +17,9 @@ const { ShellNotFound } = await import("@/shared/components/ui/ShellNotFound.tsx
 
 /** The shell as the admin layout mounts it at one address, with nothing but a marker in its page slot. */
 const shellAt = (pathname: string): string =>
-  renderTree(underNext(h(AdminShell, { saisonMetadataDisplay: null, children: h("p", null, "Seiteninhalt") }), { pathname }));
+  renderTree(
+    underNext(h(AdminShell, { saisonMetadataDisplay: null, funktionSwitcher: null, children: h("p", null, "Seiteninhalt") }), { pathname }),
+  );
 
 /** The page's one heading, which is what a screen reader lands on first and what WCAG 2.4.6 judges. */
 function heading(html: string): string {
@@ -82,6 +84,7 @@ describe("the season the admin shell links under", () => {
       underNext(
         h(AdminShell, {
           saisonMetadataDisplay: null,
+          funktionSwitcher: null,
           children: h(ShellNotFound, { message: "Probe.", href: "/bereich/admin/probe", linkLabel: "Probe" }),
         }),
         { pathname: "/bereich/admin/zorbanax", search: "saison_id=2526" },
