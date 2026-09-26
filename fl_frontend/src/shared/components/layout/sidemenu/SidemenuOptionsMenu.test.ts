@@ -36,7 +36,7 @@ describe("the drawer's way to the account page (`docs/frontend/spec.md :: I414`)
   it("offers no account item where the shell declares no account page", async () => {
     await openedWith(null);
 
-    assert.equal(screen.queryByRole("menuitem", { name: "Konto" }), null);
+    assert.ok(screen.queryByRole("menuitem", { name: "Konto" }) === null);
     assert.ok(screen.getByRole("menuitem", { name: "Abmelden" }), "the control: the section itself stands");
   });
 });

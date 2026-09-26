@@ -64,7 +64,7 @@ describe("the confirmation by passkey", () => {
 
     await waitFor(() => assert.equal(confirmed, 1));
     assert.equal(asked, 1);
-    assert.equal(screen.queryByRole("alert"), null);
+    assert.ok(screen.queryByRole("alert") === null);
   });
 
   /* The browser offers every account's passkey, and another account's signs that account in
@@ -106,7 +106,7 @@ describe("the confirmation by passkey", () => {
     await press();
 
     await waitFor(() => assert.equal(confirmed, 1));
-    assert.equal(screen.queryByRole("alert"), null);
+    assert.ok(screen.queryByRole("alert") === null);
   });
 
   it("draws the caller's code half beside the passkey's", () => {
