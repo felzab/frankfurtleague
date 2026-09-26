@@ -1813,6 +1813,9 @@ describe("which addresses outside the allowlist the send gate mails", () => {
     ["an address holding a live seat", SEATED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] }, "admitted"],
     ["an address whose records all await confirmation", UNCONFIRMED_EMAIL, { ...NOTHING_HELD, unbestaetigt: true }, "admitted"],
     ["a barred address holding a live seat", BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true }, "barred"],
+    // The two a gate judging the records before the ban would answer otherwise.
+    ["a barred address holding nothing", BARRED_EMAIL, { ...NOTHING_HELD, gesperrt: true }, "barred"],
+    ["a barred address whose records all await confirmation", BARRED_EMAIL, { ...NOTHING_HELD, unbestaetigt: true, gesperrt: true }, "barred"],
     ["an address holding nothing", PERSON_EMAIL, undefined, "holds-nothing"],
     [
       "an address whose only seat is on a past season",
