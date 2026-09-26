@@ -32,6 +32,7 @@ const VARIANTS: { name: string; classes: ReadonlySet<string> }[] = [
   ...(["primary", "outline"] as const).flatMap((intent) => [
     { name: `ctaButton ${intent}`, classes: classesOf(ctaButton({ intent, hover: "aria" })) },
     { name: `ctaButton ${intent} sm`, classes: classesOf(ctaButton({ intent, hover: "css", size: "sm" })) },
+    { name: `ctaButton ${intent} wraps`, classes: classesOf(ctaButton({ intent, hover: "css", wraps: true })) },
   ]),
 ];
 
@@ -262,6 +263,22 @@ describe("the width a button takes in a row that becomes a column", () => {
       // stylesheet order rather than by which one it means.
       assert.ok(!classes.has("h-12"), `${emitted}: a fixed height clips the second line of a wrapped label`);
       assert.ok(classes.has("min-h-12"), `${emitted}: an unwrapped label no longer measures the same as every other button`);
+    }
+  });
+});
+
+describe("the call to action whose label the page does not write", () => {
+  /* A club's name is whatever the club is called: fixed at the base's height, a second line at a phone's
+     width runs out through the button's edge. */
+  it("lets the label wrap and floors the height at the base's step", () => {
+    for (const intent of ["primary", "outline"] as const) {
+      const emitted = ctaButton({ intent, hover: "css", wraps: true });
+      const classes = classesOf(emitted);
+
+      assert.ok(classes.has("whitespace-normal"), `${emitted}: cannot wrap, so a long label leaves the button through its side`);
+      // One property, so emitting both would leave it to stylesheet order rather than to the recipe.
+      assert.ok(!classes.has("h-12"), `${emitted}: a fixed height clips the second line of a wrapped label`);
+      assert.ok(classes.has("min-h-12"), `${emitted}: a one-line label no longer measures the same as every other call to action`);
     }
   });
 });
