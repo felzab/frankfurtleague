@@ -147,6 +147,20 @@ describe("what the sign-in list hands the page", () => {
     );
   });
 
+  /* The adapter answers 100 rows where no limit is named, and the device a holder is looking for would
+     be the one past them. */
+  it("lists every live sign-in, past the adapter's default page of 100", async () => {
+    const elsewhere = await signIn(PERSON_EMAIL);
+    for (let seeded = 1; seeded <= 100; seeded += 1) {
+      store.session.push({ ...elsewhere.row, id: `weitere-${String(seeded)}`, token: `token-${String(seeded)}` });
+    }
+    const { cookie } = await signIn(PERSON_EMAIL);
+
+    const { anmeldungen } = await sicherheitAs(cookie);
+
+    assert.equal(anmeldungen.length, 102);
+  });
+
   /* Judged as the guards judge the served session: a row the next request would refuse is no device
      still signed in, however long the store keeps it. */
   it("leaves out a sign-in past its idle window, one past the library's expiry, and one no factor this league mints made", async () => {

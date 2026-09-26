@@ -24,10 +24,10 @@ type SessionRow = {
 };
 
 /**
- * How many live sign-ins the list reads, the most recently active first. A person holds one per device,
- * so no one reaches it; any beyond it are still ended by „Alle anderen abmelden“.
+ * Every live row: a limit left unnamed is the adapter's default of 100, and a sign-in past it would be
+ * missing from the list a holder searches for a device they do not know (`docs/frontend/spec.md :: I451`).
  */
-const ANMELDUNGEN_LIMIT = 100;
+const EVERY_ROW = Number.MAX_SAFE_INTEGER;
 
 /**
  * Through the store's own adapter rather than the library's `/list-sessions`, which answers every row
@@ -39,13 +39,12 @@ export async function readSicherheit(served: KontoSession): Promise<Sicherheit> 
     auth.$context.then(({ adapter }) =>
       adapter.findMany<SessionRow>({
         model: "session",
-        // Past the library's own expiry a row is dead whatever else holds, so it spends none of the limit.
+        // Past the library's own expiry a row is dead whatever else holds, so the store never sends it.
         where: [
           { field: "userId", value: served.user.id },
           { field: "expiresAt", operator: "gt", value: new Date() },
         ],
-        sortBy: { field: "updatedAt", direction: "desc" },
-        limit: ANMELDUNGEN_LIMIT,
+        limit: EVERY_ROW,
       }),
     ),
   ]);
