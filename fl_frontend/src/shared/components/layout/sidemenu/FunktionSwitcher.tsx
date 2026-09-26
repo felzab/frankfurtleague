@@ -6,6 +6,7 @@ import ArrowRightArrowLeft from "@gravity-ui/icons/ArrowRightArrowLeft";
 import ArrowUturnCwLeft from "@gravity-ui/icons/ArrowUturnCwLeft";
 import ChevronsExpandVertical from "@gravity-ui/icons/ChevronsExpandVertical";
 
+import { Description } from "@heroui/react/description";
 import { Dropdown } from "@heroui/react/dropdown";
 import { Separator } from "@heroui/react/separator";
 
@@ -92,24 +93,29 @@ export function FunktionSwitcher({
         placement={isDesktopCollapsed ? "right top" : "bottom"}
         // The options menu's widths, so the two menus of one rail open alike.
         className={`min-w-[250px] rounded-xl ${isDesktopCollapsed ? "w-[220px]" : "w-[calc(100vw-2rem)] lg:w-(--trigger-width)"}`}>
-        <Dropdown.Menu
-          aria-label="Deine Funktionen"
-          selectionMode="single"
-          selectedKeys={aktuell === undefined ? [] : [aktuell.href]}>
-          <Dropdown.Section aria-label="Deine Funktionen">
+        {/* Named by its trigger, which react-aria's menu button wires, so the list's own name sits on the places'
+            group. The selection is that group's alone: the way to `/bereich` below is an action, never a place. */}
+        <Dropdown.Menu>
+          <Dropdown.Section
+            aria-label="Deine Funktionen"
+            selectionMode="single"
+            selectedKeys={aktuell === undefined ? [] : [aktuell.href]}>
             {orte.map((ort) => (
               <Dropdown.Item
                 key={ort.href}
                 id={ort.href}
                 href={ort.href}
                 textValue={ort.titel}
+                // The title names the item and the detail describes it: read together, every item's name would
+                // run on into its roles. HeroUI's `Label` wires no menu-item slot, where its `Description` does.
+                aria-label={ort.titel}
                 // Each press leaves the shell, so it closes the drawer itself, for `SidemenuFooter`'s reason.
                 onAction={onMobileClose}
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5">
                 <Dropdown.ItemIndicator />
                 <span className="flex min-w-0 flex-col">
                   <span className={`fluid-sm font-semibold text-foreground ${NAME_WRAP_CLASSES}`}>{ort.titel}</span>
-                  <span className="muted-hint">{ort.detail}</span>
+                  <Description className="muted-hint">{ort.detail}</Description>
                 </span>
               </Dropdown.Item>
             ))}
@@ -118,20 +124,18 @@ export function FunktionSwitcher({
           {mitBereich && (
             <>
               <Separator className="my-1" />
-              <Dropdown.Section aria-label="Zu Deinem Bereich">
-                <Dropdown.Item
-                  id={BEREICH_HREF}
-                  href={BEREICH_HREF}
-                  textValue="Zu Deinem Bereich"
-                  onAction={onMobileClose}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5">
-                  <ArrowUturnCwLeft
-                    aria-hidden="true"
-                    className="size-4 shrink-0 text-foreground-muted"
-                  />
-                  <span className="fluid-sm font-semibold text-foreground">Zu Deinem Bereich</span>
-                </Dropdown.Item>
-              </Dropdown.Section>
+              <Dropdown.Item
+                id={BEREICH_HREF}
+                href={BEREICH_HREF}
+                textValue="Zu Deinem Bereich"
+                onAction={onMobileClose}
+                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5">
+                <ArrowUturnCwLeft
+                  aria-hidden="true"
+                  className="size-4 shrink-0 text-foreground-muted"
+                />
+                <span className="fluid-sm font-semibold text-foreground">Zu Deinem Bereich</span>
+              </Dropdown.Item>
             </>
           )}
         </Dropdown.Menu>

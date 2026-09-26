@@ -49,8 +49,8 @@ async function openMenu(name: string): Promise<HTMLElement[]> {
   const menu = screen.getByRole("menu", { name });
   assert.ok(within(menu).getByRole("group", { name: "Deine Funktionen" }), "the places are not named as the person's Funktionen");
 
-  // Radio items, one of them checked: the list is a single selection whose every item is a link.
-  return within(menu).getAllByRole("menuitemradio");
+  // Every item in the order it is offered, the places' radio items and the plain way to `/bereich` alike.
+  return [...menu.querySelectorAll<HTMLElement>('[role="menuitemradio"], [role="menuitem"]')];
 }
 
 describe("when the switcher shows", () => {
@@ -149,9 +149,35 @@ describe("what the switcher lists", () => {
       [
         [GOETHE.href, "false"],
         [SPIELER.href, "true"],
-        ["/bereich", "false"],
+        ["/bereich", null],
       ],
     );
+  });
+
+  /* A place is chosen; the way to `/bereich` is an action beside the places, never one of them, so it is
+     no radio option and sits in no group to announce its own name a second time. */
+  it("offers the way to the person's own area as a plain item outside the places", async () => {
+    switcherAt(GOETHE.href);
+    await openMenu("Goethe-Gymnasium, Funktion wechseln");
+    const menu = screen.getByRole("menu");
+    const bereich = within(menu).getByRole("menuitem", { name: "Zu Deinem Bereich" });
+
+    assert.equal(bereich.getAttribute("aria-checked"), null, "the way to /bereich is offered as a place to choose");
+    assert.equal(bereich.closest('[role="group"]'), null, "the way to /bereich sits in a group of its own name");
+    assert.equal(menu.getAttribute("aria-label"), null, "the menu carries a name its trigger's overrides");
+  });
+
+  /* The roles are the detail, read after the name rather than run on into it. */
+  it("names each place by its title and describes it by its detail", async () => {
+    switcherAt(GOETHE.href);
+    await openMenu("Goethe-Gymnasium, Funktion wechseln");
+
+    for (const ort of [GOETHE, SPIELER]) {
+      assert.ok(
+        screen.getByRole("menuitemradio", { name: ort.titel, description: ort.detail }),
+        `${ort.titel} is not named by its title alone`,
+      );
+    }
   });
 
   /* Each press leaves the shell, and the router hides the departing tree rather than unmounting it. */
