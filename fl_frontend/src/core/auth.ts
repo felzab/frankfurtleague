@@ -24,6 +24,7 @@ import { RolledBackError } from "./errors";
 import { logger } from "./logging";
 import { sendMail } from "./mail";
 import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
+import { passkeyLastUse } from "./passkeyLastUse";
 import { ENROLMENT_CONFLICT, SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
 import { setRequestActor } from "./requestScope";
 import { ADMIN_LIFETIME, ENROLMENT_WINDOW_MS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS, STEP_UP_WINDOW_MS } from "./sessionLifetimes";
@@ -653,6 +654,8 @@ const authOptions = {
       },
       authentication: { afterVerification: ({ verification }) => refuseUnverified(verification.authenticationInfo.userVerified) },
     }),
+
+    passkeyLastUse(),
 
     // Built fresh, never the served object returned whole: the session row carries its own `token`,
     // which is the value of the `httpOnly` cookie (`docs/frontend/spec.md :: I198`).

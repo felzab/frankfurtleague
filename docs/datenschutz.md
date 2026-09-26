@@ -334,7 +334,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
   is what names it as the place a signed-in person's own data sits. Its collections are `user`,
   `session`, `account`, `verification` and `passkey`. The last holds a credential's public key, its
-  identifier and the counters the browser reports, and never a secret the person holds, the private
+  identifier, the counters the browser reports and when it last signed its holder in
+  (`fl_frontend/src/core/passkeyLastUse.ts`), and never a secret the person holds, the private
   key staying on their own device; a `session` row holds the account it belongs to, its own
   expiry, which factor made it and, where a passkey did, that passkey's credential identifier, and
   neither the address nor the browser the sign-in came from. A `user` row's `updatedAt` records when that account, or any of its passkeys, last
