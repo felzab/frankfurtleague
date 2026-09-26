@@ -12,10 +12,12 @@ import { userEvent } from "@testing-library/user-event";
 import { KONTO_HREF } from "@/core/kontoHref.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
+import type { FormState } from "@/shared/types/types.ts";
+
 // `await import`: a static one links the component before the render hooks above can load it.
 const { SidemenuOptionsMenu } = await import("./SidemenuOptionsMenu.tsx");
 
-const signOut = () => Promise.resolve({ success: true, message: "" });
+const signOut = (): Promise<FormState> => Promise.resolve(null);
 
 async function openedWith(kontoHref: string | null): Promise<void> {
   render(underNext(h(SidemenuOptionsMenu, { isDesktopCollapsed: false, onSignOut: signOut, kontoHref: kontoHref }), { pathname: "/bereich" }));

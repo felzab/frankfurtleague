@@ -10,7 +10,7 @@ import { callPage, pageBody, redirectTarget } from "@/shared/testing/pageHarness
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { SubjectSession } from "@/core/subject.ts";
-import type { Sicherheit } from "./types.ts";
+import type { Anmeldung, Sicherheit } from "./types.ts";
 
 const { setSubject } = doubleActionRequest();
 // The shells hand a sign-out action to the bar, and the section's actions are called nowhere here.
@@ -234,7 +234,14 @@ describe("what the security section tells its reader", () => {
     assert.ok(!textOf(html, " ").includes("Alle anderen abmelden"), "a sign-out of other devices is offered where there are none");
 
     // The control: another device's row carries one.
-    const andere = { ...sicherheit().anmeldungen[0], id: "andere", diesesGeraet: false };
+    const andere: Anmeldung = {
+      id: "andere",
+      diesesGeraet: false,
+      angemeldetAm: "2026-09-25T08:00:00.000Z",
+      zuletztAktivAm: "2026-09-25T09:00:00.000Z",
+      endetSpaetestensAm: "2026-10-25T08:00:00.000Z",
+      faktor: { art: "code" },
+    };
     const both = renderTree(underNext(h(SicherheitPanel, { sicherheit: sicherheit({ anmeldungen: [...sicherheit().anmeldungen, andere] }) })));
     assert.match(both, ABMELDEN_BUTTON);
   });
