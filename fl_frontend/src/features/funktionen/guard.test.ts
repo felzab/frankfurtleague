@@ -63,7 +63,7 @@ const sitz = (fields: Partial<FLSubjektSitz> = {}): FLSubjektSitz => ({
 const person = (records: Partial<SubjectSession["subjekt"]> = {}, admin = false): SubjectSession => ({
   email: "pia@example.org",
   admin: admin,
-  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, ...records },
+  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, ...records },
 });
 
 const NO_PROPS = { params: Promise.resolve({}), searchParams: Promise.resolve({}) };

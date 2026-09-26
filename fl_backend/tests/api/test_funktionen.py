@@ -8,7 +8,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.identitaet.crud import funktionen_of
-from app.api.identitaet.schemas import FLSubjektResponse
+from app.api.identitaet.schemas import FLSubjekt
 from app.api.kontakte.services import KONTAKT_SLOTS
 from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -274,7 +274,7 @@ def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
         yield mongo_replica_set_url
 
 
-async def _ask(database: AsyncDatabase, email: str, session: AsyncClientSession) -> FLSubjektResponse:
+async def _ask(database: AsyncDatabase, email: str, session: AsyncClientSession) -> FLSubjekt:
     return await funktionen_of(
         email,
         saison_teams_collection=database[Collection.SAISON_TEAMS],
@@ -285,19 +285,19 @@ async def _ask(database: AsyncDatabase, email: str, session: AsyncClientSession)
     )
 
 
-def answered(url: str, email: str) -> FLSubjektResponse:
-    async def _run() -> FLSubjektResponse:
+def answered(url: str, email: str) -> FLSubjekt:
+    async def _run() -> FLSubjekt:
         async with shared_client(url).start_session() as session:
             return await _ask(shared_client(url)[DATABASE_NAME], email, session)
 
     return on_the_seed_loop(_run())
 
 
-def seats(answer: FLSubjektResponse) -> list[tuple[str, ObjectId, str, str, str]]:
+def seats(answer: FLSubjekt) -> list[tuple[str, ObjectId, str, str, str]]:
     return [(sitz.saison_id, sitz.team_id, sitz.rolle, sitz.team_name, sitz.saison_status) for sitz in answer.sitze]
 
 
-def is_empty(answer: FLSubjektResponse) -> bool:
+def is_empty(answer: FLSubjekt) -> bool:
     return (answer.sitze, answer.spieler, answer.schiedsrichter) == ([], [], [])
 
 
@@ -429,7 +429,7 @@ class TestTheConfirmationNarrowing:
         The seat, the pupil and the referee are stamped and the past season made `future`, in a transaction aborted after.
         """
 
-        async def _run() -> tuple[FLSubjektResponse, FLSubjektResponse, FLSubjektResponse, FLSubjektResponse]:
+        async def _run() -> tuple[FLSubjekt, FLSubjekt, FLSubjekt, FLSubjekt]:
             client = shared_client(seeded_league)
             database = client[DATABASE_NAME]
 

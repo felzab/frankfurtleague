@@ -70,9 +70,10 @@ type Subjekt = {
   spieler: { spieler_id: string }[];
   schiedsrichter: { schiedsrichter_id: string }[];
   unbestaetigt: boolean;
+  gesperrt: boolean;
 };
 
-const empty = (): Subjekt => ({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false });
+const empty = (): Subjekt => ({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false });
 
 const SEAT = { saison_id: "2025/26", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" };
 const PUPIL = { spieler_id: "b".repeat(24) };
@@ -242,14 +243,14 @@ describe("who the seam answers for", () => {
 
   /* The envelope stops here: `acknowledged` says a write landed, which is nothing a panel reading
      records can act on. */
-  it("answers the three lists and the pending flag alone, carrying no transport envelope", async () => {
+  it("answers the three lists and the two flags alone, carrying no transport envelope", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
     arriveAs(cookie);
 
     const answer = await getSubjectSession();
 
     assert.ok(answer);
-    assert.deepEqual(Object.keys(answer.subjekt).sort(), ["schiedsrichter", "sitze", "spieler", "unbestaetigt"]);
+    assert.deepEqual(Object.keys(answer.subjekt).sort(), ["gesperrt", "schiedsrichter", "sitze", "spieler", "unbestaetigt"]);
   });
 
   /* Raised on a body carrying no record, which is the only shape the lookup sets it on: the landing
@@ -257,10 +258,13 @@ describe("who the seam answers for", () => {
   it("carries the lookup's pending flag as the lookup answered it", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    nextAnswer = new Response(JSON.stringify({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: true }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
+    nextAnswer = new Response(
+      JSON.stringify({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: true, gesperrt: false }),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      },
+    );
 
     assert.equal((await getSubjectSession())?.subjekt.unbestaetigt, true);
   });
@@ -270,12 +274,31 @@ describe("who the seam answers for", () => {
   it("carries a lowered pending flag where the lookup matched nothing at all", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    nextAnswer = new Response(JSON.stringify({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false }), {
-      status: 200,
-      headers: { "content-type": "application/json" },
-    });
+    nextAnswer = new Response(
+      JSON.stringify({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false }),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      },
+    );
 
     assert.equal((await getSubjectSession())?.subjekt.unbestaetigt, false);
+  });
+
+  /* Passed through rather than judged here: what a barred address may still reach is the sign-in
+     gate's decision, and the records beside the flag are answered as they are. */
+  it("carries the lookup's ban flag as the lookup answered it, beside the records", async () => {
+    const { cookie } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie);
+    nextAnswer = new Response(
+      JSON.stringify({ acknowledged: 1, sitze: [], spieler: [PUPIL], schiedsrichter: [], unbestaetigt: false, gesperrt: true }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+
+    const answer = await getSubjectSession();
+
+    assert.equal(answer?.subjekt.gesperrt, true);
+    assert.deepEqual(answer?.subjekt.spieler, [PUPIL]);
   });
 
   /* The case the seam exists for: no link reaches such an address while the allowlist gates the

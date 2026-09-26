@@ -13,6 +13,7 @@ from app.api.identitaet.router import get_subjekt
 from app.api.identitaet.schemas import FLSubjektPayload, FLSubjektResponse
 from app.api.identitaet.services import build_referee_pipeline, build_seat_pipeline
 from app.api.kontakte.services import KONTAKT_SLOTS
+from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.security import MISSING_TOKEN, WRONG_SYSTEM_KEY
@@ -30,7 +31,9 @@ DATABASE_NAME = worker_database("fl_identitaet_subjekt_test")
 
 PATH = f"/api/v{API_VERSION}/identitaet/subjekt"
 
-APP = create_app(build_test_config())
+CONFIG = build_test_config()
+
+APP = create_app(CONFIG)
 
 # The folded form a caller sends, and the spellings the league stores it under. Deliberately
 # unusual, so a hit in a seeded corpus cannot be a coincidence.
@@ -61,6 +64,14 @@ BYSTANDER = "baldur.krautzberger@example.com"
 # confirmed on a row that has since been retired.
 UNCONFIRMED = "ottilie.wartezeit@schule.de"
 RETIRED = "rudolf.ruhestand@schule.de"
+
+# A banned address holding a confirmed seat, stored and banned in one spelling and asked in another,
+# and an address whose ban ended with the season before the running one.
+GESPERRT_STORED = "Gerda.Gesperrt@Schule.de"
+GESPERRT_ASKED = "GERDA.GESPERRT@schule.de"
+ABGELAUFEN = "arno.abgelaufen@schule.de"
+BAN_ACTIVE_OID = ObjectId("6890a1b2c3d4e5f607820041")
+BAN_LAPSED_OID = ObjectId("6890a1b2c3d4e5f607820042")
 
 # One mailbox at an internationalised domain, stored as every payload stores it
 # (`docs/backend/spec.md :: I332`): the domain in punycode, and folded too on a pupil's row.
@@ -214,6 +225,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 name="Krautzberg",
                 trainer=BYSTANDER,
                 ansprechperson=_person(UNCONFIRMED, bestaetigt_am=None),
+                stellvertretung=GESPERRT_STORED,
             ),
             _junction(SHARP_S_ROW_OID, FUTURE_SAISON, TEAM_A_OID, name=ROW_NAME_A, trainer=SHARP_S_STORED),
             _junction(DOUBLE_S_ROW_OID, FUTURE_SAISON, TEAM_B_OID, name=ROW_NAME_B, trainer=DOUBLE_S_STORED),
@@ -241,6 +253,23 @@ async def _seed(database: AsyncDatabase) -> None:
             _referee(RETIRED_REFEREE_OID, RETIRED, "G. Ruhestand", inactive_since="2026-03-01"),
         ]
     )
+    await database[Collection.SPERRLISTE].insert_many(
+        [_ban(BAN_ACTIVE_OID, GESPERRT_STORED, bis=FUTURE_SAISON), _ban(BAN_LAPSED_OID, ABGELAUFEN, bis=PAST_SAISON)]
+    )
+
+
+def _ban(ban_id: ObjectId, email: str, *, bis: str) -> dict[str, Any]:
+    """A ban as the write stores one: the address under the test key, and the last season it covers."""
+
+    return {
+        "_id": ban_id,
+        "adresse_hash": adresse_hash(email, schluessel=CONFIG.sperrliste_schluessel),
+        "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
+        "grund": "Wiederholt gemeldet",
+        "erstellt_von": "admin@example.org",
+        "erstellt_am": "2026-01-10",
+        "gesperrt_bis_saison_id": bis,
+    }
 
 
 def on_a_league(url: str, body: Body) -> Any:
@@ -268,6 +297,8 @@ async def call_subjekt(database: AsyncDatabase, email: str) -> FLSubjektResponse
         saisons_collection=database[Collection.SAISONS],
         spieler_collection=database[Collection.SPIELER],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        sperrliste_collection=database[Collection.SPERRLISTE],
+        config=CONFIG,
     )
 
 
@@ -491,6 +522,7 @@ def test_the_mounted_route_serves_the_three_kinds_the_corpus_holds(mongo_url: st
         "spieler": [{"spieler_id": str(PUPIL_ONE_OID)}, {"spieler_id": str(PUPIL_TWO_OID)}],
         "schiedsrichter": [{"schiedsrichter_id": str(REFEREE_ONE_OID)}, {"schiedsrichter_id": str(REFEREE_TWO_OID)}],
         "unbestaetigt": False,
+        "gesperrt": False,
     }
 
 
@@ -501,7 +533,7 @@ def test_the_mounted_route_flags_a_mailbox_whose_every_record_awaits_its_confirm
     response = served_over_http(mongo_url, UNCONFIRMED)
 
     assert response.status_code == 200
-    assert response.json() == {"acknowledged": 1, "sitze": [], "spieler": [], "schiedsrichter": [], "unbestaetigt": True}
+    assert response.json() == {"acknowledged": 1, "sitze": [], "spieler": [], "schiedsrichter": [], "unbestaetigt": True, "gesperrt": False}
 
 
 @pytest.mark.db
@@ -511,4 +543,23 @@ def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(mongo_u
     response = served_over_http(mongo_url, RETIRED)
 
     assert response.status_code == 200
-    assert response.json() == {"acknowledged": 1, "sitze": [], "spieler": [], "schiedsrichter": [], "unbestaetigt": False}
+    assert response.json() == {"acknowledged": 1, "sitze": [], "spieler": [], "schiedsrichter": [], "unbestaetigt": False, "gesperrt": False}
+
+
+@pytest.mark.db
+class TestTheBanFlag:
+    def test_a_banned_address_asked_in_another_spelling_is_flagged_and_keeps_its_seat(self, mongo_url: str):
+        """Asked in a spelling other than the one the ban was keyed under; the seat beside it kills a ban that narrows the records."""
+
+        answer = answered(mongo_url, GESPERRT_ASKED)
+
+        assert answer.gesperrt is True
+        assert [(seat.team_id, seat.rolle) for seat in answer.sitze] == [(TEAM_C_OID, "stellvertretung")]
+
+    def test_an_address_the_list_does_not_hold_is_not_flagged(self, mongo_url: str):
+        assert answered(mongo_url).gesperrt is False
+
+    def test_a_ban_whose_last_season_has_passed_no_longer_flags(self, mongo_url: str):
+        """The row still stands, as it does between the season's end and the rollover that deletes it; its bound is what lapses it."""
+
+        assert answered(mongo_url, ABGELAUFEN).gesperrt is False

@@ -19,6 +19,9 @@ type SubjectRecords = {
   // Beside the lists rather than read off them: the lookup drops every unconfirmed record, so empty
   // lists alone cannot tell a person awaiting confirmation from one the league holds nothing for.
   readonly unbestaetigt: boolean;
+  // Passed through as answered: whether a barred address may still reach a panel is the sign-in
+  // gate's to decide, and a second test of it here would be a second definition of "barred".
+  readonly gesperrt: boolean;
 };
 
 /**
@@ -63,7 +66,7 @@ export const getSubjectSession = cache(async (): Promise<SubjectSession | null> 
     body: JSON.stringify(payload),
   });
 
-  // The records and the pending flag, never the parsed body: `acknowledged` is the transport saying
+  // The records and the two flags, never the parsed body: `acknowledged` is the transport saying
   // a write landed, which a panel reading records has nothing to do with.
   return {
     email: email,
@@ -73,6 +76,7 @@ export const getSubjectSession = cache(async (): Promise<SubjectSession | null> 
       spieler: subjekt.spieler,
       schiedsrichter: subjekt.schiedsrichter,
       unbestaetigt: subjekt.unbestaetigt,
+      gesperrt: subjekt.gesperrt,
     },
   };
 });

@@ -3,7 +3,7 @@ from collections.abc import Mapping, Sequence
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.identitaet.schemas import FLSubjektResponse, FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler
+from app.api.identitaet.schemas import FLSubjekt, FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler
 from app.api.identitaet.services import (
     awaits_confirmation,
     build_pupil_pipeline,
@@ -53,7 +53,7 @@ async def find_subjekt(
     # Carried rather than defaulted, so a later caller judging a Funktion inside its own transaction
     # states which session this read belongs to instead of silently opening a second one.
     session: AsyncClientSession | None,
-) -> FLSubjektResponse:
+) -> FLSubjekt:
     """Every confirmed, live record this folded identifier matches, and whether its granting records are all unconfirmed.
 
     Unbounded on all four reads, as `app/api/kontakte/admin_router.py`'s are: a capped list reads as
@@ -81,7 +81,7 @@ async def find_subjekt(
     # seat's status too, so a seat whose season has no row stays loud whichever list counts it.
     statuses = await _statuses_of(saisons_collection=saisons_collection, saison_ids=[row["saison_id"] for row, _ in seats], session=session)
 
-    return FLSubjektResponse(
+    return FLSubjekt(
         sitze=[
             # `model_validate` rather than the constructor: the slot is a plain string here, and the
             # wire's closed set is what refuses one no endpoint publishes.
@@ -117,7 +117,7 @@ async def funktionen_of(
     # REQUIRED, unlike `find_subjekt`'s: a person endpoint judges this inside the transaction it
     # writes in, so a caller forgetting it is a TypeError rather than a read outside its own write.
     session: AsyncClientSession,
-) -> FLSubjektResponse:
+) -> FLSubjekt:
     """What a person endpoint may authorise against: `find_subjekt`'s answer, its seats narrowed to the seasons granting a panel.
 
     Narrowed here and not in the lookup, each caller narrowing for itself (`docs/backend/spec.md :: I375`).

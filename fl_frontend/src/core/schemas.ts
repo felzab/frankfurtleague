@@ -71,5 +71,8 @@ export const FLSubjektResponseSchema = BaseAPIResponseSchema.extend({
   // that could grant a panel and that nobody has confirmed, not a mailbox the league holds nothing for
   // (`docs/backend/spec.md :: I374`).
   unbestaetigt: z.boolean(),
+  // Whether the address is on the ban list; it narrows none of the lists above
+  // (`docs/backend/spec.md :: I389`).
+  gesperrt: z.boolean(),
 });
 export type FLSubjektResponse = z.infer<typeof FLSubjektResponseSchema>;
