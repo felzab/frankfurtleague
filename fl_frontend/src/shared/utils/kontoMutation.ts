@@ -1,8 +1,4 @@
-import { cache } from "react";
-import { headers } from "next/headers";
-
-import { isUserAdmin } from "@/core/allowlist";
-import { auth, isAdminSession, isFreshlySignedIn, isWithinPersonLifetime } from "@/core/auth";
+import { getKontoSession, isFreshlySignedIn } from "@/core/auth";
 import { STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
 
 import { runGuardedMutation } from "./adminMutation";
@@ -15,29 +11,14 @@ export const KONTO_FORBIDDEN = "Deine Anmeldung ist abgelaufen. Melde Dich neu a
 /** The server's answer to a change sent after the step-up window closed; the page asks before it sends one. */
 const BESTAETIGUNG_NOETIG = "Bestätige zuerst, dass Du es bist.";
 
-/** The signed-in holder of an account page, in either lane; never the row's `token` (`docs/frontend/spec.md :: I198`). */
-export type KontoSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
+/** The signed-in holder of the account page, in either lane; never the row's `token` (`docs/frontend/spec.md :: I198`). */
+export type KontoSession = NonNullable<Awaited<ReturnType<typeof getKontoSession>>>;
 
 /**
  * A change refused for want of a recent sign-in. `bestaetigen` is what the page opens the confirmation
  * on, so the sentence above is read only where the page could not ask first.
  */
 export type BestaetigungFehlt = ActionFailure & { readonly bestaetigen: true };
-
-// React's `cache`, as `getAdminSession` is: the page's sections and a server action's body share one
-// read, and no request another's.
-/**
- * Both lanes' own verdict on the served session: an allowlisted address is admitted by the
- * administrator's guard alone, so a session its mailbox made cannot manage that administrator's passkeys.
- */
-export const getKontoSession = cache(async (): Promise<KontoSession | null> => {
-  const served = await auth.api.getSession({ headers: await headers() });
-  if (served === null) return null;
-
-  if (isUserAdmin(served.user.email)) return isAdminSession(served) ? served : null;
-
-  return isWithinPersonLifetime(served.session) ? served : null;
-});
 
 /** Until when the served session counts as confirmed, as epoch milliseconds, or `null` where it already does not. */
 export function bestaetigtBis(served: KontoSession): number | null {

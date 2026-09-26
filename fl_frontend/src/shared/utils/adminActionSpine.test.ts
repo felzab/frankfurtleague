@@ -16,6 +16,7 @@ registerHooks({
 });
 
 const { ADMIN_FORBIDDEN } = await import("./adminMutation.ts");
+const { KONTO_FORBIDDEN } = await import("./kontoMutation.ts");
 
 /**
  * The two actions that authorize nobody, named by export rather than by their slice, so an admin action added
@@ -23,6 +24,17 @@ const { ADMIN_FORBIDDEN } = await import("./adminMutation.ts");
  * would check.
  */
 const AUTHORIZES_NOBODY: ReadonlySet<string> = new Set(["auth :: handleSignIn", "auth :: signOutAction"]);
+
+/**
+ * The account page's actions, which admit either lane and so answer a caller nobody signed in as the
+ * account's own guard does. Named by export for `AUTHORIZES_NOBODY`'s reason.
+ */
+const ACCOUNT_ACTIONS: ReadonlySet<string> = new Set([
+  "konto :: endAndereAnmeldungenAction",
+  "konto :: endAnmeldungAction",
+  "passkeys :: removePasskeyAction",
+  "passkeys :: renamePasskeyAction",
+]);
 
 const SLICES = path.resolve(import.meta.dirname, "..", "..", "features");
 
@@ -32,6 +44,7 @@ describe("every admin server action", () => {
   it("answers a caller with no admin session through the spine's guard, before any work", async () => {
     const fetched = mock.method(globalThis, "fetch", () => Promise.reject(new Error("an admin action reached the network for nobody")));
     const exempted = new Set<string>();
+    const account = new Set<string>();
 
     try {
       for (const file of filesUnder(SLICES, (name) => name === "actions.ts", 10).sort()) {
@@ -46,9 +59,12 @@ describe("every admin server action", () => {
             continue;
           }
 
+          const lane = ACCOUNT_ACTIONS.has(`${slice} :: ${name}`) ? KONTO_FORBIDDEN : ADMIN_FORBIDDEN;
+          if (lane === KONTO_FORBIDDEN) account.add(`${slice} :: ${name}`);
+
           assert.deepEqual(
             await (action as () => Promise<unknown>)(),
-            { success: false, error: ADMIN_FORBIDDEN },
+            { success: false, error: lane },
             `${slice} :: ${name} does work for a caller nobody authorized`,
           );
         }
@@ -60,5 +76,6 @@ describe("every admin server action", () => {
     assert.equal(fetched.mock.callCount(), 0, "an admin action reached the network for a caller nobody authorized");
     // Each exemption met its export, so one outliving its action cannot stand ready for a later one of that name.
     assert.deepEqual([...exempted].sort(), [...AUTHORIZES_NOBODY].sort());
+    assert.deepEqual([...account].sort(), [...ACCOUNT_ACTIONS].sort());
   });
 });

@@ -54,10 +54,9 @@ const globals = globalThis as unknown as Record<string, unknown>;
 globals[STORE] = store;
 
 // Imported here rather than at the top: a static import resolves before the hooks above are registered.
-const { auth } = await import("@/core/auth");
 const { endAndereAnmeldungenAction, endAnmeldungAction } = await import("./actions.ts");
 const { readSicherheit } = await import("./sicherheit.ts");
-const { getKontoSession } = await import("@/shared/utils/kontoMutation");
+const { auth, getKontoSession } = await import("@/core/auth");
 const { PERSON_LIFETIME } = await import("@/core/sessionLifetimes");
 
 const HOUR_MS = 60 * 60 * 1000;

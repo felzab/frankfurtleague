@@ -270,6 +270,8 @@ const signInStore = (url: string, answers: SignInAnswers): string =>
     "the sign-in store",
     new Map([
       ["getAdminSession", () => administratorOf(answers.session)],
+      // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
+      ["getKontoSession", () => answering(answers.session)],
       ["getSignInDestination", () => Promise.resolve(answers.destination)],
       [
         "endSessionsOfAddress",

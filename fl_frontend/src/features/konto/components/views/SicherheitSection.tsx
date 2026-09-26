@@ -1,4 +1,4 @@
-import { getKontoSession } from "@/shared/utils/kontoMutation";
+import { getKontoSession } from "@/core/auth";
 
 import { readSicherheit } from "../../sicherheit";
 import { SicherheitPanel } from "./SicherheitPanel";

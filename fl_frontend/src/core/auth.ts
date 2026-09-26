@@ -775,6 +775,22 @@ export function isWithinOwnLifetime(email: string, session: { createdAt: Date; u
   return withinLifetime(session, ownLifetime(email));
 }
 
+// React's `cache`, as `getAdminSession` is: the page's sections and a server action's body share one
+// read, and no request another's.
+/**
+ * The account page's guard, both lanes' own verdict on the served session: an allowlisted address is
+ * admitted by the administrator's guard alone, so a session its mailbox made cannot manage that
+ * administrator's passkeys.
+ */
+export const getKontoSession = cache(async (): Promise<ServedSession | null> => {
+  const served = await auth.api.getSession({ headers: await headers() });
+  if (served === null) return null;
+
+  if (isUserAdmin(served.user.email)) return isAdminSession(served) ? served : null;
+
+  return isWithinPersonLifetime(served.session) ? served : null;
+});
+
 /** What every guard below is handed; no HTTP route serves it, `/get-session` being disabled. */
 type ServedSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
 
