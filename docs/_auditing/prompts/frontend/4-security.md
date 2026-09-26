@@ -44,7 +44,11 @@ needs a shown chain or a named bundle file.
 S3. **Protected route coverage.** The required table per route segment: intended protection |
 proxy-matcher coverage | in-layout or in-page guard | gap. Probe the matcher for holes (variants,
 redirects evaluated before the proxy, route handlers and actions that layout guards do not
-protect).
+protect). **Probe the proxy's subtree check as a second surface**: the matcher admits a path, then
+the `/bereich/admin` prefix test inside the proxy decides whether the administrator check runs, and
+it reads the path raw and decoded. A spelling the matcher admits and the prefix test misses — an
+encoded segment, a doubled or trailing slash, a case variant, a malformed escape — reaches the panel
+with no proxy check at all, leaving the in-layout guard alone.
 
 S4. **Privilege escalation via key tiers.** Per `apiClient` call site: authType | routes it is
 reachable from | minimum privilege actually required. A public page transitively invoking an
