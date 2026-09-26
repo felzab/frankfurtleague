@@ -7427,7 +7427,7 @@
     "/api/v0/identitaet/subjekt": {
       "post": {
         "summary": "Say which league records one mailbox holds",
-        "description": "Answer which confirmed contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /kontakte/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival\nand compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain\nasked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de`\nare two domains here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.\n\nA contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode --\nso both are read in two steps: the database narrows to the rows holding the identifier whatever the case of its letters, and the\nfold decides on each candidate's own stored value.\n\nNeither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by\nevery writer that touches either.\n\nA record is answered only once its own person has confirmed it -- a seat's `einwilligung.bestaetigt_am`, judged per seat, and the\nsame stamp on a pupil's and a referee's consent record -- and only while its row is live: a retired pupil or referee is answered\nnothing, and so is the placeholder every erased referee's fixtures name. `unbestaetigt` is true exactly where the mailbox matched\nlive records and none of them is confirmed, so an unconfirmed person is told apart from one the league holds nothing for.\nA seat on a `past` season is still answered, carrying its `saison_status`: which seasons grant a panel is each caller's to decide.\n\nEach list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.\nAn address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.",
+        "description": "Answer which confirmed contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /kontakte/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival\nand compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain\nasked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de`\nare two domains here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.\n\nA contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode --\nso both are read in two steps: the database narrows to the rows holding the identifier whatever the case of its letters, and the\nfold decides on each candidate's own stored value.\n\nNeither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by\nevery writer that touches either.\n\nA record is answered only once its own person has confirmed it -- a seat's `einwilligung.bestaetigt_am`, judged per seat, and the\nsame stamp on a pupil's and a referee's consent record, an empty stamp confirming nothing -- and only while its row is live: a\nretired pupil or referee is answered nothing, and so is the placeholder every erased referee's fixtures name. A seat on a season\nits team withdrew from, by disqualification or withdrawal alike, is answered nothing either; its seats on other seasons stand.\nA seat on a `past` season is still answered, carrying its `saison_status`: which seasons grant a panel is each caller's to decide.\n\n`unbestaetigt` is true exactly where the mailbox holds records that could grant a panel -- a live pupil or referee row, or a seat\non an `active` or `future` season -- and none of them is confirmed, so an unconfirmed person is told apart from one the league\nholds nothing for. A seat on a `past` season counts toward neither answer: confirming it would open nothing.\n\n`gesperrt` says whether the address is on the ban list, judged as a sign-up is: the address in any spelling that folds to the same\nmailbox, and a ban only while the running season is within its bound. It narrows none of the records beside it.\n\nEach list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.\nAn address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.",
         "operationId": "get_subjekt_api_v0_identitaet_subjekt_post",
         "requestBody": {
           "content": {
@@ -17930,6 +17930,10 @@
           "unbestaetigt": {
             "type": "boolean",
             "title": "Unbestaetigt"
+          },
+          "gesperrt": {
+            "type": "boolean",
+            "title": "Gesperrt"
           }
         },
         "type": "object",
@@ -17937,10 +17941,11 @@
           "sitze",
           "spieler",
           "schiedsrichter",
-          "unbestaetigt"
+          "unbestaetigt",
+          "gesperrt"
         ],
         "title": "FLSubjektResponse",
-        "description": "Which confirmed, live records one mailbox matches, as three lists rather than three optional records.\n\nA list under each because one inbox holds seats at two clubs and two pupils share an address\n(`docs/datenschutz.md :: \"Colleagues sharing a school inbox\"`)."
+        "description": "Which confirmed, live records one mailbox matches, and whether the address is on the ban list.\n\nThe ban narrows none of the records: whether a barred person signs in is the sign-in gate's to decide."
       },
       "FLSubjektSchiedsrichter": {
         "properties": {
