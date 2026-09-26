@@ -3,7 +3,7 @@ import Link from "next/link";
 import At from "@gravity-ui/icons/At";
 import CircleInfo from "@gravity-ui/icons/CircleInfo";
 import Eye from "@gravity-ui/icons/Eye";
-import Pencil from "@gravity-ui/icons/Pencil";
+import Person from "@gravity-ui/icons/Person";
 import Persons from "@gravity-ui/icons/Persons";
 
 import { Dropdown } from "@heroui/react/dropdown";
@@ -29,11 +29,12 @@ export function TopNav() {
             Saisonübersicht
           </Link>
 
+          {/* To everyone, as the chrome of a public page knows no session: a visitor signed in nowhere is
+              sent on to the sign-in by the area's own guard. */}
           <Link
-            // eslint-disable-next-line local/admin-link -- the public chrome's way into the admin area; no season is in scope outside it
-            href="/bereich/admin"
+            href="/bereich"
             className="rounded-full px-4 py-1.5 fluid-sm font-semibold text-foreground transition-colors hover:bg-hover">
-            Verwalten
+            Dein Bereich
           </Link>
         </div>
 
@@ -61,13 +62,12 @@ export function TopNav() {
             </Dropdown.Item>
 
             <Dropdown.Item
-              id="admin"
-              textValue="Verwalten"
-              // eslint-disable-next-line local/admin-link -- the public chrome's way into the admin area; no season is in scope outside it
-              href="/bereich/admin"
+              id="bereich"
+              textValue="Dein Bereich"
+              href="/bereich"
               className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
-              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">Verwalten</Label>
-              <Pencil
+              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">Dein Bereich</Label>
+              <Person
                 aria-hidden="true"
                 className="size-4 text-foreground-muted"
               />
