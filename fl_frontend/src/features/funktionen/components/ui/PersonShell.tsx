@@ -19,8 +19,10 @@ export function PersonShell({ structure, children }: { structure: SidemenuStruct
       structure={structure}
       linkPrefix="/bereich"
       iconDictionary={PERSON_SIDEMENU_ICONS}
-      // A person's pages are scoped to the person rather than to a season, so no season slot stands.
+      // A person's pages are scoped to the person rather than to a season, so no season slot stands
+      // and no link carries one.
       saisonMetadataDisplay={null}
+      keepsSaisonQuery={false}
       fallbackTitle={PERSON_SHELL_FALLBACK.label}
       fallbackHint={PERSON_SHELL_FALLBACK.hint}
       onSignOut={signOutAction}>

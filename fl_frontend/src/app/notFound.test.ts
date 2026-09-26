@@ -31,6 +31,7 @@ registerHooks({
 /* Reached with `await import` and never a static import beside the harness
    (`docs/frontend/spec.md` §1.9). */
 const { StatusPanel } = await import("@/shared/components/ui/StatusPanel.tsx");
+const { ShellSaisonQueryProvider } = await import("@/shared/components/layout/shell/ShellSaisonQuery.tsx");
 /* Behind the harness too: Next's resolver requires `server-only` as it evaluates, which only
    `renderTest.ts`'s resolve hook answers with the package's empty build. */
 const { accumulateMetadata } = await import("next/dist/lib/metadata/resolve-metadata.js");
@@ -144,22 +145,25 @@ const catchAllsIn = (dir: string) => CATCH_ALLS.filter((file) => path.dirname(pa
 
 const SAISON = "2526";
 
-// Under a season, which is the state a boundary inside a shell is served in: the way out is built
-// from the query the 404 was answered for.
-async function markupOf(boundary: string): Promise<string> {
+// Under a season, which is the state a boundary inside a shell is served in, and under either answer a
+// shell gives to whether that season rides the query: the way out is built from both.
+async function markupOf(boundary: string, keepsSaisonQuery: boolean): Promise<string> {
   const { default: Boundary } = (await import(pathToFileURL(boundary).href)) as { default: () => React.ReactNode };
 
   // Under the params its own area is served with: a boundary inside a dynamic segment builds its way
   // out from them, and with none it has no address to stay inside.
   return renderTree(
-    underNext(h(Boundary, {}), {
+    underNext(h(ShellSaisonQueryProvider, { keepsSaisonQuery, children: h(Boundary, {}) }), {
       search: `saison_id=${SAISON}`,
       params: paramsOf(path.dirname(boundary)),
     }),
   );
 }
 
-const MARKUP = new Map(await Promise.all(BOUNDARIES.map(async (file) => [file, await markupOf(file)] as const)));
+/** Each boundary under a shell keeping its season out of the query, which every case but one reads. */
+const MARKUP = new Map(await Promise.all(BOUNDARIES.map(async (file) => [file, await markupOf(file, false)] as const)));
+/** The same boundaries under a shell keeping it there. */
+const MARKUP_KEEPING = new Map(await Promise.all(BOUNDARIES.map(async (file) => [file, await markupOf(file, true)] as const)));
 
 const hrefsIn = (markup: string) => [...markup.matchAll(/href="([^"]*)"/g)].map((treffer) => treffer[1]!);
 
@@ -407,12 +411,14 @@ describe("where each 404 sends the reader", () => {
      prefix for a way out to stay inside, and the public routes mount no season selector for a link
      to lose. */
   const SHELLED = PREFIXED.map((dir) => {
-    const markup = MARKUP.get(path.join(dir, "not-found.tsx"));
+    const file = path.join(dir, "not-found.tsx");
+    const markup = MARKUP.get(file);
+    const keeping = MARKUP_KEEPING.get(file);
     // Throw rather than answer undefined: an area whose boundary has moved would otherwise reach
     // the cases below as a crash rather than as the placement finding that explains it.
-    if (markup === undefined) throw new Error(`${prefixOf(dir)} has no boundary at its root to read a way out off`);
+    if (markup === undefined || keeping === undefined) throw new Error(`${prefixOf(dir)} has no boundary at its root to read a way out off`);
 
-    return { dir, markup };
+    return { dir, markup, keeping };
   });
 
   /* The root boundary offers the visitor's start page, so a way out leaving the area hands a reader
@@ -444,14 +450,27 @@ describe("where each 404 sends the reader", () => {
     ]);
   });
 
-  /* Both shells read the season off the live url, so a way out dropping it returns the whole shell
-     to the default season on the way back (`fl_frontend/src/shared/utils/saisonHref.ts`). */
-  it("carries the season the 404 was served under", () => {
-    for (const { dir, markup } of SHELLED) {
+  /* A shell keeping the season in the query reads it off the live url, so a way out dropping it
+     returns the whole shell to the default season on the way back
+     (`fl_frontend/src/shared/utils/saisonHref.ts`). */
+  it("carries the season the 404 was served under where the shell keeps it in the query", () => {
+    for (const { dir, keeping } of SHELLED) {
       assert.deepEqual(
-        hrefsIn(markup).filter((href) => !href.includes(`saison_id=${SAISON}`)),
+        hrefsIn(keeping).filter((href) => !href.includes(`saison_id=${SAISON}`)),
         [],
         `these links drop the season ${prefixOf(dir)}'s shell is showing`,
+      );
+    }
+  });
+
+  /* A shell whose season is in the path, or which has none, would otherwise put a `?saison_id=` the
+     area never reads on every way out of its 404. */
+  it("carries no season where the shell keeps none in the query", () => {
+    for (const { dir, markup } of SHELLED) {
+      assert.deepEqual(
+        hrefsIn(markup).filter((href) => href.includes("saison_id")),
+        [],
+        `these links carry a season ${prefixOf(dir)}'s shell keeps out of the query`,
       );
     }
   });

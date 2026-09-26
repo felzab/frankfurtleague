@@ -13,6 +13,7 @@ doubleEveryAction();
    resolver the icon package's bare `./x` imports need as it evaluates, and a static import resolves first. */
 const { AdminShell } = await import("./AdminShell.tsx");
 const { ADMIN_SHELL_FALLBACK, ADMIN_SIDEMENU_STRUCTURE } = await import("../../constants.ts");
+const { ShellNotFound } = await import("@/shared/components/ui/ShellNotFound.tsx");
 
 /** The shell as the admin layout mounts it at one address, with nothing but a marker in its page slot. */
 const shellAt = (pathname: string): string =>
@@ -70,5 +71,30 @@ describe("the heading the admin shell puts over a page", () => {
   /* The segment is the address bar's, so a name `Object.prototype` holds must not select a member. */
   it("heads a prototype member's name as the unknown address it is", () => {
     assert.equal(heading(shellAt("/bereich/admin/constructor")), heading(shellAt("/bereich/admin/zorbanax")));
+  });
+});
+
+describe("the season the admin shell links under", () => {
+  /* Every admin page reads its season off the live url, so an entry or a 404's way out dropping it
+     returns the whole shell to the default season (`docs/frontend/spec.md :: I359`). */
+  it("carries the season onto every entry and onto its 404's way out", () => {
+    const html = renderTree(
+      underNext(
+        h(AdminShell, {
+          saisonMetadataDisplay: null,
+          children: h(ShellNotFound, { message: "Probe.", href: "/bereich/admin/probe", linkLabel: "Probe" }),
+        }),
+        { pathname: "/bereich/admin/zorbanax", search: "saison_id=2526" },
+      ),
+    );
+    const hrefs = [...html.matchAll(/href="(\/bereich\/admin\/[^"]*)"/g)].map((hit) => hit[1]!);
+
+    assert.ok(hrefs.includes("/bereich/admin/probe?saison_id=2526"), "the 404's way out drops the season");
+    assert.equal(hrefs.length, LISTED.length + 1, `the shell links ${String(hrefs.length)} admin addresses for its entries and one way out`);
+    assert.deepEqual(
+      hrefs.filter((href) => !href.endsWith("?saison_id=2526")),
+      [],
+      "these admin links drop the season",
+    );
   });
 });

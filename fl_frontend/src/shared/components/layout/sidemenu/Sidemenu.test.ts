@@ -34,12 +34,13 @@ const STRUCTURE: SidemenuStructure<keyof typeof ICONS> = [
 
 const LABELS = STRUCTURE.flatMap((group) => group.sub_options.map((option) => option.label));
 
-function rail(isDesktopCollapsed: boolean): string {
+function rail(isDesktopCollapsed: boolean, keepsSaisonQuery = true): string {
   return renderTree(
     underNext(
       h(Sidemenu, {
         structure: STRUCTURE,
         linkPrefix: "/dashboard",
+        keepsSaisonQuery,
         saisonMetadataDisplay: null,
         iconDictionary: ICONS,
         pathname: "/dashboard/spielplan",
@@ -169,6 +170,36 @@ describe("how the rail's two halves line up", () => {
   });
 });
 
+describe("where the rail's entries send the reader", () => {
+  const entryHrefs = (markup: string): string[] => [...markup.matchAll(/<a\b[^>]*href="(\/dashboard\/[^"]*)"/g)].map((hit) => hit[1]!);
+
+  /* A shell reading its season off the live url returns to the default season on any entry that
+     drops it. */
+  it("carries the season onto every entry where the shell keeps it in the query", () => {
+    const hrefs = entryHrefs(rail(false, true));
+
+    assert.equal(hrefs.length, LABELS.length, `the rail links ${String(hrefs.length)} entries for ${String(LABELS.length)} labels`);
+    assert.deepEqual(
+      hrefs.filter((href) => !href.endsWith("?saison_id=2526")),
+      [],
+      "these entries drop the season",
+    );
+  });
+
+  /* A season in the path, or none at all, reads no query: an entry carrying one names a season the
+     page it opens never reads. */
+  it("carries no season onto any entry where the shell keeps none in the query", () => {
+    const hrefs = entryHrefs(rail(false, false));
+
+    assert.equal(hrefs.length, LABELS.length, `the rail links ${String(hrefs.length)} entries for ${String(LABELS.length)} labels`);
+    assert.deepEqual(
+      hrefs.filter((href) => href.includes("saison_id")),
+      [],
+      "these entries carry a season the shell keeps out of the query",
+    );
+  });
+});
+
 describe("which entry the rail marks current where the area has a landing", () => {
   const PREFIX = "/bereich/team/probe-team/probe-saison";
 
@@ -190,6 +221,7 @@ describe("which entry the rail marks current where the area has a landing", () =
         h(Sidemenu, {
           structure: LANDING,
           linkPrefix: PREFIX,
+          keepsSaisonQuery: false,
           saisonMetadataDisplay: null,
           iconDictionary: ICONS,
           pathname,

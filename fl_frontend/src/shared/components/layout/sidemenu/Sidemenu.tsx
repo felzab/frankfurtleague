@@ -18,6 +18,7 @@ import type { FormState, SidemenuStructure } from "@/shared/types/types";
 export function Sidemenu<TIcon extends string>({
   structure,
   linkPrefix,
+  keepsSaisonQuery,
   saisonMetadataDisplay,
   iconDictionary,
   onSignOut,
@@ -30,6 +31,7 @@ export function Sidemenu<TIcon extends string>({
 }: {
   structure: SidemenuStructure<TIcon>;
   linkPrefix: string;
+  keepsSaisonQuery: boolean;
   saisonMetadataDisplay: React.ReactNode;
   iconDictionary: Record<TIcon, React.ElementType>;
   /** Forwarded to the footer's options menu; the bar carries the same control. */
@@ -78,17 +80,25 @@ export function Sidemenu<TIcon extends string>({
           </div>
         </Suspense>
 
-        {/* `useSearchParams()` lives below this boundary and hangs unconditionally during a prerender, so hoisting
-            it bails out the whole route root. Nothing in the fallback may call a dynamic hook either. */}
-        <Suspense
-          fallback={
-            <SidemenuNavLinks
-              {...navLinkProps}
-              queryString=""
-            />
-          }>
-          <SidemenuNavLinksWithSaisonQuery {...navLinkProps} />
-        </Suspense>
+        {/* Only a shell keeping its season in the query reads one, below this boundary: `useSearchParams()` hangs
+            unconditionally during a prerender, so hoisting it bails out the whole route root. Nothing in the fallback
+            may call a dynamic hook either. */}
+        {keepsSaisonQuery ? (
+          <Suspense
+            fallback={
+              <SidemenuNavLinks
+                {...navLinkProps}
+                queryString=""
+              />
+            }>
+            <SidemenuNavLinksWithSaisonQuery {...navLinkProps} />
+          </Suspense>
+        ) : (
+          <SidemenuNavLinks
+            {...navLinkProps}
+            queryString=""
+          />
+        )}
       </div>
 
       <SidemenuFooter

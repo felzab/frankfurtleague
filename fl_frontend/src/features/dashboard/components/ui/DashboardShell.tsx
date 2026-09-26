@@ -14,6 +14,7 @@ export function DashboardShell({ saisonMetadataDisplay, children }: { saisonMeta
     <AppShell
       structure={DASHBOARD_SIDEMENU_STRUCTURE}
       linkPrefix="/dashboard"
+      keepsSaisonQuery
       iconDictionary={DASHBOARD_SIDEMENU_ICONS}
       saisonMetadataDisplay={saisonMetadataDisplay}
       fallbackTitle={DASHBOARD_SHELL_FALLBACK.label}

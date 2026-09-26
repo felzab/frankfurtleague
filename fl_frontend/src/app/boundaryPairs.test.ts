@@ -15,6 +15,7 @@ import type { ReactNode } from "react";
    (`docs/frontend/spec.md` §1.9). */
 const { StatusPanel } = await import("@/shared/components/ui/StatusPanel.tsx");
 const { ctaButton } = await import("@/shared/components/ui/formButtons.ts");
+const { ShellSaisonQueryProvider } = await import("@/shared/components/layout/shell/ShellSaisonQuery.tsx");
 
 const APP_DIR = import.meta.dirname;
 
@@ -64,8 +65,16 @@ async function markupOf(file: string): Promise<string> {
   const { default: Render } = (await import(pathToFileURL(file).href)) as { default: Boundary };
 
   return renderTree(
-    /* A not-found boundary takes the crash props and ignores them, so one reader reaches both kinds. */
-    underNext(h(Render, { error: CRASH, reset: () => undefined }), { search: `saison_id=${SAISON}`, pathname: "/nirgendwo" }),
+    underNext(
+      // Inside the shell's declaration, which an area's own 404 reads its way out off; a boundary under
+      // the public shell reads nothing from it.
+      h(ShellSaisonQueryProvider, {
+        keepsSaisonQuery: true,
+        /* A not-found boundary takes the crash props and ignores them, so one reader reaches both kinds. */
+        children: h(Render, { error: CRASH, reset: () => undefined }),
+      }),
+      { search: `saison_id=${SAISON}`, pathname: "/nirgendwo" },
+    ),
   );
 }
 
