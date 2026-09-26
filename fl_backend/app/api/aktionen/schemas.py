@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from typing import Annotated, Any, Final, Literal, get_args
 
 from bson import ObjectId
-from pydantic import BaseModel, BeforeValidator, Field, TypeAdapter, field_validator, model_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, TypeAdapter, field_validator, model_validator
 
 from app.core.recording import AktorFunktion
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
@@ -47,6 +47,16 @@ class FLAktorMitAdresse(BaseModel):
     email: str
 
 
+# All a read serves of a pseudonym, the log page showing no more: the whole value would put a stable
+# key to one person in every administrator's browser for no control reading it.
+# `fl_frontend/src/features/aktionen/utils.ts :: PSEUDONYM_SHOWN` renders the same count.
+PSEUDONYM_SERVED_LENGTH: Final = 8
+
+
+def _served_prefix(pseudonym: str) -> str:
+    return pseudonym[:PSEUDONYM_SERVED_LENGTH]
+
+
 class FLAktorPerson(BaseModel):
     """A signed-in person, named by a pseudonym and the Funktion the write was authorised under.
 
@@ -54,7 +64,7 @@ class FLAktorPerson(BaseModel):
     """
 
     kind: Literal["person_session"]
-    pseudonym: str
+    pseudonym: Annotated[str, AfterValidator(_served_prefix)]
     funktion: AktorFunktion
 
 

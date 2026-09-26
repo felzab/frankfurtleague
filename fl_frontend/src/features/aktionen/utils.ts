@@ -11,7 +11,10 @@ export function herkunftOfAktor(actor: FLAktor): AktionHerkunft {
   return AKTOR_HERKUNFT[actor.kind];
 }
 
-/** Enough of the pseudonym to tell two people's rows apart on one page, and no more than a reader compares by eye. */
+/**
+ * Enough of the pseudonym to tell two people's rows apart on one page, and no more than a reader compares by eye.
+ * The read serves no more than this (`fl_backend/app/api/aktionen/schemas.py :: PSEUDONYM_SERVED_LENGTH`).
+ */
 const PSEUDONYM_SHOWN = 8;
 
 /** How a signed-in person's row names them: the Funktion the write was authorised under and the start of their pseudonym. */
