@@ -537,6 +537,17 @@ class TestTheSubmissionKey:
         assert second.bestaetigungen is None
         assert after == before
 
+    def test_a_seat_stamped_empty_is_no_answer_and_the_replay_still_hands_links(self, mongo_replica_set_url: str):
+        """`is_confirmed` reads `""` as unconfirmed (`docs/backend/spec.md :: I387`), and the replay's filter reads it the same way."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await submit(database, schluessel=SCHLUESSEL)
+            await database[Collection.BEWERBUNGEN].update_one({}, {"$set": {"kontakte.trainer.einwilligung.bestaetigt_am": ""}})
+
+            return await submit(database, schluessel=SCHLUESSEL)
+
+        assert on_a_league(mongo_replica_set_url, body).bestaetigungen is not None
+
     @pytest.mark.parametrize(
         "zustellung",
         [

@@ -376,7 +376,7 @@ def build_wiederholung_filter(*, bewerbung_raw: Mapping[str, Any], today: str) -
 
         terms[f"bestaetigungen.{seat}.erinnert_am"] = None
         terms[f"bestaetigungen.{seat}.abgelehnt_am"] = None
-        terms[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = None
+        terms[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = UNCONFIRMED_STAMP
         unerreicht.append(zustellung_unerreicht_term(pfad=f"bestaetigungen.{seat}.zustellung"))
 
     # The deadline's own day still takes a link, as `link_is_over` reads it.
@@ -851,7 +851,7 @@ def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[s
     for seat in seats:
         unanswered[f"bestaetigungen.{seat}"] = {"$type": "object"}
         unanswered[f"bestaetigungen.{seat}.abgelehnt_am"] = None
-        unanswered[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = None
+        unanswered[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = UNCONFIRMED_STAMP
 
     return {"_id": bewerbung_id, "status": "eingereicht", **unanswered}
 

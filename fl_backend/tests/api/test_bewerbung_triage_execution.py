@@ -1747,6 +1747,24 @@ async def seed_an_application_a_seat_was_declined_on(database: AsyncDatabase, cl
     await answer_for(database, client, "ansprechperson")
 
 
+class TestAResendToASeatStampedEmpty:
+    """`is_confirmed` reads `""` as unconfirmed (`docs/backend/spec.md :: I387`), and the re-send's filter reads it the same way."""
+
+    def test_the_link_is_minted_rather_than_answered_404(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await seed_an_open_ansprechperson_seat(database)
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": ERNEUT_BEWERBUNG}, {"$set": {"kontakte.ansprechperson.einwilligung.bestaetigt_am": ""}}
+            )
+            response = await resend(database, "ansprechperson")
+
+            return response, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+
+        response, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert stored["bestaetigungen"]["ansprechperson"]["token_hash"] == hash_token(response.token)
+
+
 class TestSeatingAnotherPersonInAnEmptiedSeat:
     """The seat a Widerspruch emptied is the one an administrator may put somebody else in, against a real document."""
 
@@ -1803,9 +1821,9 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         assert on_a_league(mongo_replica_set_url, body) == BEWERBUNG_TOKEN_UNKNOWN
 
     def test_one_person_holding_two_seats_is_seated_in_both_from_one_press(self, mongo_replica_set_url: str):
-        """The pair comes off `trainer_ist_zugleich`, surviving the emptying that hides it from `:: paired_seat`.
+        """The pair comes off `trainer_ist_zugleich`, surviving the emptying that hides it from `paired_seat`.
 
-        That helper answers `None` on these two slots (`app/api/bewerbungen/services.py`), leaving one seat holding the other's link.
+        `app/api/bewerbungen/services.py :: paired_seat` answers `None` on these two slots, leaving one seat holding the other's link.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
