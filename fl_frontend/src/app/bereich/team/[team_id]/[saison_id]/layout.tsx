@@ -5,9 +5,9 @@ import { FunktionenGuard } from "@/features/funktionen/components/providers/Funk
 import { TeamAreaBoundary } from "@/features/funktionen/components/providers/TeamAreaBoundary";
 import { TeamForbiddenPanel } from "@/features/funktionen/components/ui/TeamForbiddenPanel";
 import { TeamShell } from "@/features/funktionen/components/ui/TeamShell";
-import { teamStructureFor } from "@/features/funktionen/constants";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { seatsAt } from "@/features/funktionen/teamSeats";
+import { teamStructureFor } from "@/features/funktionen/teamStructure";
 import { PageLoader } from "@/shared/components/ui/PageLoader";
 
 type TeamParams = Promise<{ team_id: string; saison_id: string }>;
