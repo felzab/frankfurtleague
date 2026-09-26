@@ -10,7 +10,7 @@ import { createElement as h } from "react";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction, exportingModule } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { callPage, redirectTarget, renderPage } from "@/shared/testing/pageHarness.ts";
+import { callPage, clearSteps, readsOf, redirectTarget, renderPage, steps } from "@/shared/testing/pageHarness.ts";
 import { textOf } from "@/shared/testing/renderTest.ts";
 
 import type { FLSubjektSitz } from "@/core/schemas.ts";
@@ -56,6 +56,9 @@ const { default: PersoenlichSpielerPage } = await import("@/app/bereich/(persoen
 const { default: nextConfig } = await import("../../../next.config.ts");
 
 const APP_DIR = path.resolve(import.meta.dirname, "..", "..", "app");
+
+/** Every layout under the person area, the area's own among them, which is the floor. */
+const PERSON_LAYOUTS = filesUnder(path.join(APP_DIR, "bereich", "(persoenlich)"), (name) => name === "layout.tsx", 1);
 
 const TEAM_A = "6890a1b2c3d4e5f607250011";
 const TEAM_B = "6890a1b2c3d4e5f607250012";
@@ -107,6 +110,20 @@ describe("the guard over the person area", () => {
     setSubject(null);
 
     assert.deepEqual(await redirectsOf(() => h(FunktionenGuard, { children: h("p", null, "Seite") })), ["/signin"]);
+  });
+
+  /* A layout above does not rerun on a soft navigation, so a nested one entered on a lapsed session is
+     the first code to run: reading before its own session check, it serves that read to nobody. */
+  it("reads nothing from any person-area layout for a request with no person's session", async () => {
+    setSubject(null);
+
+    for (const file of PERSON_LAYOUTS) {
+      const { default: Layout } = (await import(pathToFileURL(file).href)) as { default: (props: { children: ReactNode }) => ReactNode };
+      clearSteps();
+      await callPage(() => h(Layout, { children: null }), NO_PROPS);
+
+      assert.deepEqual(readsOf(steps), [], `${path.relative(APP_DIR, file)} reads before it checks the session`);
+    }
   });
 
   /* The control for the cases above: a live session passes the layout and reaches the page under it,
