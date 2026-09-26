@@ -488,3 +488,39 @@ describe("a set-up the gate refuses, against a real database", () => {
     );
   });
 });
+
+/* The typed code's own path through the mint: its creation hook stamps the factor and asks the gate,
+   and the rotation ends the session the browser held (`docs/frontend/spec.md :: I399`, `:: I403`). */
+describe("a code sign-in through the mint, against a real database", () => {
+  const PERSON = "spielerin-mit-code@example.org";
+
+  it("stamps the session it mints `code`, and ends the one the browser held", async () => {
+    gateAnswer = { sitze: [LIVE_SEAT], gesperrt: false };
+    const held = await signIn(PERSON);
+    const [before] = await sessionRows();
+    assert.ok(before !== undefined, "the first code sign-in minted nothing, so nothing below is replaced");
+
+    await signInByCode(auth, PERSON, { ...ORIGIN, cookie: held });
+
+    const after = await sessionRows();
+    assert.deepEqual(
+      after.map(({ authFactor }) => authFactor),
+      ["code"],
+      "the replaced session outlived the new one, or the new one was never written",
+    );
+    assert.notEqual(after[0]?.token, before.token);
+  });
+
+  it("mints nothing for a barred address and ends nothing the browser held", async () => {
+    gateAnswer = { sitze: [LIVE_SEAT], gesperrt: false };
+    const held = await signIn(PERSON);
+    const before = await sessionRows();
+
+    gateAnswer = { sitze: [LIVE_SEAT], gesperrt: true };
+    await assert.rejects(signInByCode(auth, PERSON, { ...ORIGIN, cookie: held }), (error: { body?: { code?: unknown } }) => {
+      return error.body?.code === "SIGN_IN_BARRED";
+    });
+
+    assert.deepEqual(await sessionRows(), before, "a refused code sign-in minted a session or ended the held one");
+  });
+});
