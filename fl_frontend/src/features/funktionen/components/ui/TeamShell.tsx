@@ -30,7 +30,10 @@ export function TeamShell({
   teamId: string;
   saisonId: string;
   structure: SidemenuStructure<TeamIconName>;
-  /** The season as a seat there reports it, `null` where the person holds none and the address is all there is. */
+  /**
+   * The season as a seat there reports it; `null` where the address is all there is: the person holds
+   * no seat there, or the area's crash panel stands where the read of the seats failed.
+   */
   saison: { isLaufend: boolean } | null;
   /**
    * Whether the page is the forbidden panel, said rather than read off `saison`: the area's crash
