@@ -95,7 +95,8 @@ const plants = readdirSync(PLANTS)
   .sort()
   .map((name) => {
     const text = readFileSync(path.join(PLANTS, name), "utf8");
-    return { name, text, lintedAs: /^\/\/ Linted as (src\/\S+)\.\n/.exec(text)?.[1] };
+    // `next.config.ts` beside `src/`: the one file outside it a ban reaches.
+    return { name, text, lintedAs: /^\/\/ Linted as (src\/\S+|next\.config\.ts)\.\n/.exec(text)?.[1] };
   });
 
 const marksOf = (text) =>

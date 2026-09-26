@@ -946,6 +946,8 @@ const eslintConfig = defineConfig([
   // Syntax rules rather than test sweeps: a comment naming a spelling is no literal, so prose never
   // trips one.
   ...SOURCE_BAN_BLOCKS,
+  // The one file outside `src` naming page paths: a redirect to the old prefix ships a 404 unseen.
+  { files: ["next.config.ts"], rules: syntaxBans([STALE_ADMIN_BAN]) },
   { files: ["src/**/*.{ts,tsx}"], ignores: TEST_FILES, plugins: { local: { rules: LOCAL_RULES } }, rules: { "local/admin-link": "error" } },
 
   // A dedicated rule wherever one states the ban. `useEditorExit.ts` is exempt from the history ban
