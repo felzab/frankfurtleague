@@ -638,22 +638,22 @@ hours of becoming aware of it** — requesting the upload link does not stop tha
 mirrored from the authority's own pages, which move without us and were read on 2026-09-02.
 
 The clock starts when a person becomes aware, and nothing here raises an alert, so the first minutes
-are yours to spend on the two steps below rather than on looking for one.
+are yours to spend on the steps below rather than on looking for one.
 
-**Copy the container logs off the server before you deploy anything, the fix included.** The
-application services' logs live inside their containers and every deploy recreates both
-([`../logging/spec.md`](../logging/spec.md) §1.2), so a deploy destroys the evidence you are about to
-be asked for. nginx is not recreated by a deploy and carries its own across it. On the server:
+**The fix can ship at once: a deploy keeps both application streams.** Every deploy copies them to
+`/var/log/frankfurtleague/` before it recreates either container, and refuses at exit 2 with nothing
+recreated where it cannot write there (`scripts/ops/deploy.sh :: copy_streams`); a deploy that
+rolls back copies the failed build's streams as well. **Ship it through the deploy and no other route**: a
+`docker compose down`, or an `up --force-recreate` typed by hand, discards a stream with no copy
+taken ([`../logging/spec.md`](../logging/spec.md) §1.2). The edge's own two logs are host files
+under `/var/log/frankfurtleague/nginx`, which no recreate reaches.
 
-```bash
-docker compose logs --no-color --timestamps backend > backend-$(date +%F).log
-docker compose logs --no-color --timestamps frontend > frontend-$(date +%F).log
-```
-
-**What those logs can and cannot answer.** Retention is the container runtime's size rotation
-(`docs/logging/spec.md :: 1.2`), so a busy period rotates its own oldest lines away
-and the window is set by traffic rather than chosen. The edge's access line carries the visitor's
-address, user agent and referer with the credential arms redacted
+**What those logs can and cannot answer.** How far back each reaches is bounded
+([section 7](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)): a running container's
+stream by the runtime's size rotation (`docs/logging/spec.md :: 1.2`), so a busy period rotates its
+own oldest lines away and the window is set by traffic rather than chosen; a deploy's copy by the
+thirty days after the deploy wrote it; and the edge's two logs by eight days at most. The edge's
+access line carries the visitor's address, user agent and referer with the credential arms redacted
 (`docs/logging/spec.md :: L11`), so neither a sign-in token nor a confirmation token is in it; the
 same request line reached Cloudflare unredacted, and what Cloudflare keeps is settled in its
 dashboard rather than here.
@@ -670,8 +670,7 @@ it held.
 the two records above; report inside the 72 hours with what is established and what is not — a report
 may be completed later, and a late one may not; and tell the people affected wherever the risk to
 them is high. Write down what you established and when you established it: the authority asks, and
-the container logs outlive a deploy only as the copies [section 7](#7-the-logs-age-bounds-and-the-copies-a-deploy-leaves-behind)
-bounds to thirty days.
+no log above outlives its bound.
 
 ## 7. The logs' age bounds, and the copies a deploy leaves behind
 
