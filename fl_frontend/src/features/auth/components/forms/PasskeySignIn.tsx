@@ -5,14 +5,12 @@ import { useEffect, useState } from "react";
 import { Button } from "@heroui/react/button";
 
 import { authClient } from "@/core/authClient";
+import { SIGN_IN_LANDING } from "@/core/signInLanding";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { appToast } from "@/shared/utils/appToast";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 
 import { CEREMONY_ABORTED, describeCeremonyRefusal, refusalCode } from "../../passkeyAnswers";
-
-/** `fl_frontend/src/core/auth.ts :: SIGN_IN_LANDING`, which a client module cannot import past `server-only`. */
-const SIGN_IN_LANDING = "/signin/weiter";
 
 /**
  * Awaited before the ceremony, never negated unawaited: the options call writes a challenge row and
