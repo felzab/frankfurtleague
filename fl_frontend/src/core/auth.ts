@@ -75,10 +75,10 @@ const CEREMONY_VERIFY_PATHS: ReadonlySet<string> = new Set([PASSKEY_REGISTRATION
 const CEREMONY_DONE = { status: true };
 
 /** What made a session, stamped on its row and read by every guard (`docs/frontend/spec.md :: I260`). */
-const PASSKEY_FACTOR = "passkey";
+export const PASSKEY_FACTOR = "passkey";
 
 /** A code mailed to the address: whoever holds the mailbox holds this factor. */
-const CODE_FACTOR = "code";
+export const CODE_FACTOR = "code";
 
 type AuthFactor = typeof PASSKEY_FACTOR | typeof CODE_FACTOR;
 

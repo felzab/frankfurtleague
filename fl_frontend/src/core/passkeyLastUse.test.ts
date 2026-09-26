@@ -2,7 +2,16 @@ import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import { beforeEach, describe, it } from "node:test";
 
-import { asDataUrl, cookieHeader, MEMORY_ADAPTER_URL, ORIGIN, registerAuthDoubles } from "./authDoubles.ts";
+import {
+  asDataUrl,
+  configDouble,
+  cookieHeader,
+  GATE_BACKEND_CONFIG,
+  MEMORY_ADAPTER_URL,
+  ORIGIN,
+  registerAuthDoubles,
+  seatEveryAddress,
+} from "./authDoubles.ts";
 
 const STORE = "__flLastUseStore";
 
@@ -13,8 +22,11 @@ const LOGGING_DOUBLE = `export const logger = { debug: () => {}, info: () => {},
 const ADAPTER_DOUBLE = `import { memoryAdapter } from ${JSON.stringify(MEMORY_ADAPTER_URL)};
 export const mongodbAdapter = () => memoryAdapter(globalThis.${STORE});`;
 
+// Every address this file signs in is seated: the gate at session creation is not its subject.
+seatEveryAddress();
+
 registerAuthDoubles({
-  core: { logging: LOGGING_DOUBLE },
+  core: { logging: LOGGING_DOUBLE, config: configDouble(GATE_BACKEND_CONFIG) },
   specifiers: { "next/headers": asDataUrl(HEADERS_DOUBLE), "@better-auth/mongo-adapter": asDataUrl(ADAPTER_DOUBLE) },
 });
 
