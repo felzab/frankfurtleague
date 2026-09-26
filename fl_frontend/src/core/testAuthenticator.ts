@@ -1,9 +1,8 @@
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
 
 /*
- * One P-256 authenticator every suite driving a real passkey ceremony posts as, because nothing else
- * drives one the plugin verifies: the user-verified flag is the authenticator's alone to set, and no
- * double standing in for the library would be carrying it.
+ * The P-256 authenticator every suite driving a real passkey ceremony posts as: the user-verified flag
+ * is the authenticator's alone to set, so no double standing in for the library would carry it.
  */
 const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
 const jwk = publicKey.export({ format: "jwk" });
