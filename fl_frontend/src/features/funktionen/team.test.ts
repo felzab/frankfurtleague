@@ -36,6 +36,7 @@ registerHooks({
    compile step and the doubles as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { default: TeamLayout } = await import("@/app/bereich/team/[team_id]/[saison_id]/layout.tsx");
 const { default: TeamStartPage } = await import("@/app/bereich/team/[team_id]/[saison_id]/page.tsx");
+const { KONTO_HREF } = await import("@/core/kontoHref.ts");
 
 const TEAM_A = "6890a1b2c3d4e5f607250011";
 const TEAM_B = "6890a1b2c3d4e5f607250012";
@@ -94,6 +95,10 @@ const linksIn = (markup: string): { href: string; text: string }[] =>
     href: href!,
     text: textOf(inner!, " ").replace(/\s+/g, " ").trim(),
   }));
+
+/** The ways out the forbidden panel offers: every link into the areas but the shell's own account link, which every signed-in shell carries. */
+const wayOutsIn = (markup: string): { href: string; text: string }[] =>
+  linksIn(markup).filter((link) => link.href.startsWith("/bereich") && link.href !== KONTO_HREF);
 
 const FORBIDDEN_BADGE = "Tribüne";
 
@@ -186,10 +191,7 @@ describe("what a person meets at an address they hold no seat on", () => {
     assert.ok(!text.includes("Du bist hier als"), "the landing renders behind the forbidden panel");
     assert.ok(!markup.includes(TEAM_B), "the answer names the address's team");
     assert.ok(!markup.includes("2627"), "the answer names the address's season");
-    assert.deepEqual(
-      linksIn(markup).filter((link) => link.href.startsWith("/bereich")),
-      [{ href: `/bereich/team/${TEAM_A}/2526`, text: "Goethe-Gymnasium, Saison 2526" }],
-    );
+    assert.deepEqual(wayOutsIn(markup), [{ href: `/bereich/team/${TEAM_A}/2526`, text: "Goethe-Gymnasium, Saison 2526" }]);
   });
 
   /* A seat on a `past` season grants no panel, so its own team's address answers as held by nobody. */
@@ -198,10 +200,7 @@ describe("what a person meets at an address they hold no seat on", () => {
     const { markup } = await rendered(TEAM_A, "2425");
 
     assert.ok(markup.includes(FORBIDDEN_BADGE), "a past season's address renders its panel");
-    assert.deepEqual(
-      linksIn(markup).filter((link) => link.href.startsWith("/bereich")),
-      [{ href: "/bereich", text: "Zu Deinem Bereich" }],
-    );
+    assert.deepEqual(wayOutsIn(markup), [{ href: "/bereich", text: "Zu Deinem Bereich" }]);
   });
 
   /* One way out per team and season: a Trainer who is also the Ansprechperson holds one panel there. */
@@ -214,9 +213,7 @@ describe("what a person meets at an address they hold no seat on", () => {
     const { markup } = await rendered(TEAM_B, "2526");
 
     assert.deepEqual(
-      linksIn(markup)
-        .filter((link) => link.href.startsWith("/bereich"))
-        .map((link) => link.href),
+      wayOutsIn(markup).map((link) => link.href),
       [`/bereich/team/${TEAM_A}/2526`, `/bereich/team/${TEAM_A}/2627`],
     );
   });
