@@ -335,7 +335,7 @@ class TestAnAcceptanceEntersTheSchool:
         assert (rows[0]["team_id"], rows[0]["name"], rows[0]["shorthand"]) == (EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND)
 
     def test_the_three_people_reach_the_junction_row_without_a_date_no_seat_of_theirs_stamped(self, mongo_replica_set_url: str):
-        """They arrive WITH the season's row rather than being typed in after it, which is what `/admin/kontakte` then reads.
+        """They arrive WITH the season's row rather than being typed in after it, which is what `/bereich/admin/kontakte` then reads.
 
         The seeded corpus is a pre-flow application, whose dates its applicant gave for three other
         people.

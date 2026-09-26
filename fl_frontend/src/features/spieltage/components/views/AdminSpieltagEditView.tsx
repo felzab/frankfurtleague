@@ -6,7 +6,7 @@ import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 
 import type { AdminSpieltagEditRow } from "@/features/spieltage/types";
 
-/** The body of `/admin/spieltage/[spieltag_id]`. */
+/** The body of `/bereich/admin/spieltage/[spieltag_id]`. */
 export function AdminSpieltagEditView({
   spieltag,
   saisonSpan,

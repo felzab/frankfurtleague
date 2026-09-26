@@ -14,7 +14,7 @@ doubleActionRequest();
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
-const { default: AdminSperrlistePage } = await import("@/app/admin/sperrliste/page.tsx");
+const { default: AdminSperrlistePage } = await import("@/app/bereich/admin/sperrliste/page.tsx");
 const { AdminCrudShell } = await import("@/shared/components/ui/AdminCrudShell.tsx");
 
 /** The one ban the list read answers, every other read the emptiest body its schema takes. */
@@ -32,7 +32,7 @@ answerReadsWith((endpoint, schema, params) =>
 );
 
 /** The page at its own address. */
-const PAGE = underNext(h(AdminSperrlistePage, {}), { pathname: "/admin/sperrliste" });
+const PAGE = underNext(h(AdminSperrlistePage, {}), { pathname: "/bereich/admin/sperrliste" });
 
 describe("the page the ban list stands on", () => {
   /* One `h1` per page and the admin shell owns it (`.claude/rules/frontend.md`), so what this page

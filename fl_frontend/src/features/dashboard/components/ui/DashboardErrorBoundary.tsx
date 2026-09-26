@@ -8,7 +8,7 @@ import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
 import { DashboardError } from "./DashboardError";
 
 /**
- * The shared body of `fl_frontend/src/app/admin/error.tsx` and
+ * The shared body of `fl_frontend/src/app/bereich/admin/error.tsx` and
  * `fl_frontend/src/app/dashboard/error.tsx`. Next's file convention requires a file per segment, so
  * both route files exist and only the implementation is shared.
  */

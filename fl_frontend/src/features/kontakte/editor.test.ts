@@ -78,7 +78,7 @@ const { AdminKontakteList } = await import("@/features/teams/components/collecti
 const { FormKontakteSection } = await import("./components/forms/AdminKontakteEditForm/FormKontakteSection.tsx");
 const { AdminKontakteEditView } = await import("./components/views/AdminKontakteEditView.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
-const { default: AdminKontakteEditPage } = await import("@/app/admin/kontakte/[team_id]/page.tsx");
+const { default: AdminKontakteEditPage } = await import("@/app/bereich/admin/kontakte/[team_id]/page.tsx");
 const { AdminTeamEditForm } = await import("@/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx");
 const { DRAFT_DISCARDED } = await import("@/shared/utils/draftGuard.ts");
 
@@ -168,7 +168,7 @@ const sectionElement = (kontakte: FLSaisonTeamKontakte | null, isMember = true):
   h(FormKontakteSection, {
     value: kontakte,
     isMember,
-    teamHref: "/admin/teams/t1?saison_id=2526",
+    teamHref: "/bereich/admin/teams/t1?saison_id=2526",
     banners: [],
     onChange: () => undefined,
     onFieldLeft: () => undefined,
@@ -758,7 +758,7 @@ describe("the way in and out of the editor", () => {
     assert.ok(!clubEditor.includes("Trainer hinterlegt"), "the club editor still renders the contacts block");
     assert.equal(
       /<a [^>]*href="([^"]*)"[^>]*>3 Kontakteinträge für Saison 2526 bearbeiten</.exec(clubEditor)?.[1],
-      `/admin/kontakte/${TEAM_ID}?saison_id=2526`,
+      `/bereich/admin/kontakte/${TEAM_ID}?saison_id=2526`,
       "the club editor's link does not open this editor on the season it shows",
     );
   });
@@ -773,7 +773,9 @@ describe("the way in and out of the editor", () => {
       trainer_ist_zugleich: null,
     });
     const linkText = (kontakte: FLSaisonTeamKontakte | null): string =>
-      /<a [^>]*>(.*?)<\/a>/s.exec(renderMarkup(FormKontakteLinkSection, { saisonId: "2526", kontakte, href: "/admin/kontakte/t1" }))?.[1] ?? "";
+      /<a [^>]*>(.*?)<\/a>/s.exec(
+        renderMarkup(FormKontakteLinkSection, { saisonId: "2526", kontakte, href: "/bereich/admin/kontakte/t1" }),
+      )?.[1] ?? "";
 
     /* An erasure leaves a block whose seats are empty, so an emptied block and an absent one read the
        same: a count off the block's presence would call the first of these three. */
@@ -828,11 +830,11 @@ describe("the way in and out of the editor", () => {
       ...new Set([...listMarkup(listRow([seat("trainer", "Trainer", ADA)]), query).matchAll(/href="([^"]*)"/g)].map((found) => found[1])),
     ];
 
-    assert.deepEqual(hrefs("saison_id=2526"), ["/admin/kontakte/t1?saison_id=2526"]);
+    assert.deepEqual(hrefs("saison_id=2526"), ["/bereich/admin/kontakte/t1?saison_id=2526"]);
     // The season the sidemenu holds is the whole of what rides along; every other filter stays behind.
-    assert.deepEqual(hrefs("saison_id=2526&q=alpha&besetzung=teilweise"), ["/admin/kontakte/t1?saison_id=2526"]);
+    assert.deepEqual(hrefs("saison_id=2526&q=alpha&besetzung=teilweise"), ["/bereich/admin/kontakte/t1?saison_id=2526"]);
     // Absent rather than empty: `?saison_id=` would read as a season nobody picked.
-    assert.deepEqual(hrefs("q=alpha"), ["/admin/kontakte/t1"]);
+    assert.deepEqual(hrefs("q=alpha"), ["/bereich/admin/kontakte/t1"]);
   });
 });
 

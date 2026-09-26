@@ -113,7 +113,7 @@ export function BewerbungAngabenPanel({
               // name before it carries a club (`docs/glossary.md :: Bewerbung`). The season is the
               // application's own, this page's URL carrying none.
               <Link
-                href={withSaisonId(`/admin/teams/${bewerbung.team_id}`, bewerbung.saison_id)}
+                href={withSaisonId(`/bereich/admin/teams/${bewerbung.team_id}`, bewerbung.saison_id)}
                 className={textLink()}>
                 {teamName}
               </Link>

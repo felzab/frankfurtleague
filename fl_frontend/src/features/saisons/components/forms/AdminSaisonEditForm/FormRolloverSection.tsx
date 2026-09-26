@@ -187,7 +187,7 @@ export function FormRolloverSection({
                     <span className="min-w-0 flex-1 truncate fluid-xs font-semibold text-foreground">{spiel.paarung}</span>
                     <span className="shrink-0 fluid-xxs text-foreground-muted">{formatSpielDatum(spiel.datum)}</span>
                     <Link
-                      href={saisonHref(`/admin/spiele/${spiel.id}`)}
+                      href={saisonHref(`/bereich/admin/spiele/${spiel.id}`)}
                       className={`${BRAND_INK_OUTSIDE_PROSE_CLASSES} shrink-0 fluid-xxs font-bold`}>
                       Öffnen
                     </Link>

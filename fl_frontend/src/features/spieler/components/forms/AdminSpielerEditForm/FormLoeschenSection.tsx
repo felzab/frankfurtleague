@@ -61,7 +61,7 @@ export function FormLoeschenSection({
       appToast.success("Spieler gelöscht", { description: res.message });
       // `replace`, never `push`: this page is the erased player's own and now answers not-found, so
       // Back must not return to it. The action's own revalidation is what refreshes the list.
-      router.replace(saisonHref("/admin/spieler"));
+      router.replace(saisonHref("/bereich/admin/spieler"));
     });
   };
 

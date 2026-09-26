@@ -34,7 +34,7 @@ const saison = (id: string, status: FLSaisonStatus): AdminSaisonRow => ({
 });
 
 const viewText = (saisons: AdminSaisonRow[]): string =>
-  textOf(renderTree(underNext(h(AdminSaisonsView, { saisons: saisons }), { pathname: "/admin/saisons" })), " ")
+  textOf(renderTree(underNext(h(AdminSaisonsView, { saisons: saisons }), { pathname: "/bereich/admin/saisons" })), " ")
     .replace(/\s+/g, " ")
     .trim();
 

@@ -37,7 +37,7 @@ export default function AdminBewerbungenPage(props: NextPageProps) {
 
 /**
  * Each row carries whether it is for the SELECTED season, so the facet can be turned off to reach
- * other seasons — the row-flag shape `/admin/teams` uses.
+ * other seasons — the row-flag shape `/bereich/admin/teams` uses.
  */
 async function BewerbungenTable({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();

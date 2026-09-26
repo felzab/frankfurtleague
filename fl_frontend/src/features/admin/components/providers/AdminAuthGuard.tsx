@@ -11,7 +11,7 @@ export async function AdminAuthGuard({ children }: { children: React.ReactNode }
   // The builder stage has no reachable Mongo, so a session lookup resolved at build time fails the
   // image build.
   await connection();
-  // Second layer: `proxy.ts` turns an unauthenticated `/admin/*` away first (`docs/frontend/spec.md :: I243`,
+  // Second layer: `proxy.ts` turns an unauthenticated `/bereich/admin/*` away first (`docs/frontend/spec.md :: I243`,
   // `:: I251`). Narrow its matcher and this still redirects, but from inside the stream — a 200 whose shell
   // already went.
   if (!(await getAdminSession())) redirect("/signin");

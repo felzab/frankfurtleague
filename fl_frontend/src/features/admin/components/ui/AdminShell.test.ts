@@ -33,13 +33,13 @@ const LISTED = ADMIN_SIDEMENU_STRUCTURE.flatMap((group) => group.sub_options.map
 
 describe("the heading the admin shell puts over a page", () => {
   it("names a listed section by its nav entry, a detail route beneath it included", () => {
-    assert.equal(heading(shellAt("/admin/teams")), "Teams");
-    assert.equal(heading(shellAt("/admin/teams/6890a1b2c3d4e5f607190001")), "Teams");
+    assert.equal(heading(shellAt("/bereich/admin/teams")), "Teams");
+    assert.equal(heading(shellAt("/bereich/admin/teams/6890a1b2c3d4e5f607190001")), "Teams");
   });
 
   /* A heading names itself from its contents, so a hint inside it is read out as part of the page's name. */
   it("renders the page's hint beside the heading rather than inside it", () => {
-    const [, inside = "", after = ""] = /<h1[^>]*>([\s\S]*?)<\/h1>([\s\S]*)/.exec(shellAt("/admin/teams")) ?? [];
+    const [, inside = "", after = ""] = /<h1[^>]*>([\s\S]*?)<\/h1>([\s\S]*)/.exec(shellAt("/bereich/admin/teams")) ?? [];
 
     // Booleans rather than a match over `after`: a failing match prints the whole rendered page.
     assert.ok(!/<button|role="button"/.test(inside), "the heading holds a control");
@@ -51,12 +51,12 @@ describe("the heading the admin shell puts over a page", () => {
 
   /* The match editor has a route and no nav entry, there being no fixture index to link to. */
   it("names the match editor, which no nav entry lists", () => {
-    assert.equal(heading(shellAt("/admin/spiele/6890a1b2c3d4e5f607190001")), "Spiele");
+    assert.equal(heading(shellAt("/bereich/admin/spiele/6890a1b2c3d4e5f607190001")), "Spiele");
   });
 
   /* The catch-all's 404. Headed as a section, the page tells a screen reader it is somewhere it is not. */
   it("names no section over an address that belongs to none", () => {
-    const html = shellAt("/admin/zorbanax");
+    const html = shellAt("/bereich/admin/zorbanax");
     const title = heading(html);
 
     // First: an empty heading passes every absence below.
@@ -69,6 +69,6 @@ describe("the heading the admin shell puts over a page", () => {
 
   /* The segment is the address bar's, so a name `Object.prototype` holds must not select a member. */
   it("heads a prototype member's name as the unknown address it is", () => {
-    assert.equal(heading(shellAt("/admin/constructor")), heading(shellAt("/admin/zorbanax")));
+    assert.equal(heading(shellAt("/bereich/admin/constructor")), heading(shellAt("/bereich/admin/zorbanax")));
   });
 });

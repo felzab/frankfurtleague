@@ -1,11 +1,11 @@
-/* ADMIN · the HeroUI component styles only /admin renders — the description
-   editors' textarea alone — imported by `app/admin/layout.tsx`. A component
+/* ADMIN · the HeroUI component styles only /bereich/admin renders — the description
+   editors' textarea alone — imported by `app/bereich/admin/layout.tsx`. A component
    belongs here only where the import graph proves no public route reaches it; the
    checklist is `docs/frontend/spec.md` §1.11. */
 
 /* HeroUI's own sheets carry `@apply`, so this is needed even with no rule of ours below it --
    `textarea.css` opens with `@apply`. `@reference` resolves those against
    globals.css's theme without emitting it twice. Removed, `next build` fails and nothing else does. */
-@reference "../globals.css";
+@reference "../../globals.css";
 
 @import "@heroui/styles/components/textarea.css" layer(components);

@@ -23,7 +23,7 @@ export function AdminShell({ saisonMetadataDisplay, children }: { saisonMetadata
       <AppShell
         structure={ADMIN_SIDEMENU_STRUCTURE}
         // eslint-disable-next-line local/admin-link -- the sidemenu's link prefix; SidemenuNavLinksWithSaisonQuery appends the season to each entry it builds
-        linkPrefix="/admin"
+        linkPrefix="/bereich/admin"
         iconDictionary={ADMIN_SIDEMENU_ICONS}
         saisonMetadataDisplay={saisonMetadataDisplay}
         unlistedSections={ADMIN_SHELL_UNLISTED_SECTIONS}

@@ -72,7 +72,7 @@ export function FormAnonymisierenSection({
       appToast.success("Schiedsrichterdaten gelöscht", { description: res.message });
       // `replace`, never `push`: this page is the erased referee's own and now answers not-found, so
       // Back must not return to it. The action's own revalidation is what refreshes the list.
-      router.replace(saisonHref("/admin/schiedsrichter"));
+      router.replace(saisonHref("/bereich/admin/schiedsrichter"));
     });
   };
 

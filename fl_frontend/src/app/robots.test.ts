@@ -53,10 +53,10 @@ describe("what robots.txt keeps out of the crawl", () => {
     assert.equal(EVERYONE.allow, "/", "the public tier is no longer offered to crawlers at all");
   });
 
-  /* Both trees are real, and both are named. `/admin` is behind the session and `/api` answers the
+  /* Both trees are real, and both are named. `/bereich` is behind the session and `/api` answers the
      app's own fetches, so a crawler reaching either spends the budget on pages it may not have. */
   it("names both trees it withholds, and each of them exists", () => {
-    for (const segment of ["admin", "api"]) {
+    for (const segment of ["bereich", "api"]) {
       assert.ok(existsSync(path.join(APP_DIR, segment)), `/${segment}/ is withheld and no such tree exists`);
       assert.ok(paths(EVERYONE?.disallow).includes(`/${segment}/`), `/${segment}/ is offered to every crawler`);
     }

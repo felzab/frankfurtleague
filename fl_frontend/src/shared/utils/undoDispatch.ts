@@ -9,7 +9,7 @@ type UndoOutcome = { success: true; message: string; warn: boolean } | { success
 /**
  * Where the route turned the caller away rather than judging the replay, and what the danger toast
  * says before the page is left: `fl_frontend/src/proxy.ts`'s two destinations, whose sign-in lands on
- * `/admin` rather than back on this change.
+ * `/bereich/admin` rather than back on this change.
  */
 const TURNED_AWAY = {
   signedOut: { destination: "/signin", description: `Melde Dich neu an. ${AENDERUNG_STEHT_WEITERHIN}` },

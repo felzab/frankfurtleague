@@ -6,9 +6,15 @@ import type { NextRequest } from "next/server";
 
 /**
  * No per-request nonce CSP here: the one enforced policy lives in `nginx/shared/security_headers.conf`. That is what lets
- * the matcher stay scoped to `/admin` — the session read is a Mongo round trip, never on a public load.
+ * the matcher stay scoped to `/bereich` — the session read is a Mongo round trip, never on a public load.
  */
 export async function proxy(req: NextRequest): Promise<NextResponse> {
+  // Every other word under `/bereich` is a person's, guarded by its own lane: judged here by the
+  // administrator's verdict, it would turn every person away.
+  if (!inAdminArea(req.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
+
   // A server action's POST takes the checks below too: an action writing a cookie makes Next render
   // the tree at the POSTed URL into its response, admin layout and all (`docs/frontend/spec.md :: I243`).
   const session = await auth.api.getSession({ headers: req.headers });
@@ -40,7 +46,23 @@ function turnAway(req: NextRequest, destination: string): NextResponse {
   return NextResponse.redirect(new URL(destination, req.nextUrl));
 }
 
+// eslint-disable-next-line local/admin-link -- the subtree this guard refuses on, not a link
+const ADMIN_AREA = "/bereich/admin";
+
+/** Raw and decoded both, as Next tests `config.matcher`: the subtree is judged on every spelling the matcher admits. */
+function inAdminArea(pathname: string): boolean {
+  return [pathname, decoded(pathname)].some((path) => path === ADMIN_AREA || path.startsWith(`${ADMIN_AREA}/`));
+}
+
+// A malformed escape is left as written, as Next leaves it: a person's address never throws here.
+function decoded(pathname: string): string {
+  try {
+    return decodeURIComponent(pathname);
+  } catch {
+    return pathname;
+  }
+}
+
 export const config = {
-  // eslint-disable-next-line local/admin-link -- the authorization matcher, not a link
-  matcher: ["/admin/:path*"],
+  matcher: ["/bereich/:path*"],
 };

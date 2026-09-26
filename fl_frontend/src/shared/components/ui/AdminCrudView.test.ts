@@ -274,7 +274,7 @@ const regionOf = ({ shape, hasFacets, commits = true }: Mounted): ReactNode =>
     renderTable: ({ filteredItems }) => (commits ? slotFor(shape, filteredItems) : null),
   });
 
-const underRoute = (tree: ReactNode): ReactNode => underNext(tree, { pathname: "/admin/spieler" });
+const underRoute = (tree: ReactNode): ReactNode => underNext(tree, { pathname: "/bereich/admin/spieler" });
 
 const render = (mounted: Mounted): string => renderTree(underRoute(regionOf(mounted)));
 
@@ -681,7 +681,7 @@ describe("the arithmetic behind the box claims", () => {
   });
 });
 
-const ADMIN = path.join(SRC, "app", "admin");
+const ADMIN = path.join(SRC, "app", "bereich", "admin");
 
 const PROPS: PageProps = { params: Promise.resolve({}), searchParams: Promise.resolve({}) };
 
@@ -701,7 +701,7 @@ const fallbacksIn = (html: string): string[] => FALLBACKS.filter(({ markup }) =>
 const fallbacksInPage = (html: string): string[] =>
   FALLBACKS.filter(({ markup }) => html.includes(asRenderedPage(markup))).map(({ drawn }) => drawn);
 
-const atRoute = (route: string, tree: ReactNode): ReactNode => underNext(tree, { pathname: `/admin/${route}` });
+const atRoute = (route: string, tree: ReactNode): ReactNode => underNext(tree, { pathname: `/bereich/admin/${route}` });
 
 /* Selected on the placeholder each route's loading boundary draws, which is none of the properties the
    cases below assert: a route that stops satisfying one stays in the roster and fails inside it. */

@@ -374,7 +374,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   may lift it earlier. **Either removal keeps a copy in the action log** — the hash, the key label,
   the reason, the administrator and the season it ran to, and no barred address — for the twelve
   months every stamped log row is kept (`docs/backend/spec.md :: I48`, `:: I119`), so a removed ban
-  is readable at `/admin/aktionen` for that period and enforced by nothing from the moment it goes.
+  is readable at `/bereich/admin/aktionen` for that period and enforced by nothing from the moment it goes.
 - **A retired row is never removed because of its age.** A player who left a squad, a referee who
   stopped, a club that left and a past season all keep their rows; a person's row goes only by an
   erasure or by one of the two one-off removals [section 3](#3-the-current-pupil-records-are-reset-once)

@@ -183,7 +183,7 @@ async def annehmen_bewerbung(
                 "austritt": None,
                 "trikot_farbe": annahme_data.trikot_farbe,
                 # The three people arrive WITH the row rather than in a later write: they are what the
-                # application was, and `/admin/kontakte` reads them from here. Composed, never copied:
+                # application was, and `/bereich/admin/kontakte` reads them from here. Composed, never copied:
                 # a pre-flow application's dates are nobody's own (`docs/backend/spec.md :: I141`).
                 "kontakte": compose_kontakte_at_entry(kontakte=bewerbung_raw["kontakte"]),
                 # Copied rather than joined on read (`docs/backend/spec.md :: I95`).

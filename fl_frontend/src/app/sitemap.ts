@@ -81,7 +81,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.2,
     },
-    // /admin, /registrierung and the /bestaetigung and /signin pages stay out: robots.ts disallows
-    // each of them, and every one noindexes itself as well.
+    // /bereich, /registrierung and the /bestaetigung and /signin pages stay out: robots.ts disallows
+    // each of them, and every public one noindexes itself as well.
   ];
 }

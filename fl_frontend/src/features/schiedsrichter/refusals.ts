@@ -55,7 +55,7 @@ export function mapAnonymiseRefusal(error: unknown): string | null {
  */
 const ADRESSE_GESPERRT = buildRefusal({
   reason: "Diese E-Mail-Adresse steht auf der Sperrliste",
-  repair: "Trage eine andere Adresse ein oder hebe die Sperre unter /admin/sperrliste auf",
+  repair: "Trage eine andere Adresse ein oder hebe die Sperre unter /bereich/admin/sperrliste auf",
 });
 
 /** `null` where the refusal is something else. The reactivation is a row's button, so the ban is a sentence and no box's. */

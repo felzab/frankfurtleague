@@ -16,7 +16,7 @@ export const BEWERBUNGEN_SAISONBEZUG_PARAM = "saisonbezug";
 // Module scope is load-bearing (`docs/frontend/spec.md` §1.1).
 export const BEWERBUNGEN_FACETS: readonly Facet<AdminBewerbungRow>[] = [
   {
-    // Its own parameter, never `/admin/teams`'s `zugehoerigkeit`: the two lists label this question
+    // Its own parameter, never `/bereich/admin/teams`'s `zugehoerigkeit`: the two lists label this question
     // alike and answer it in different words, so a value pasted between them would drop out and take
     // this facet's default with it.
     param: BEWERBUNGEN_SAISONBEZUG_PARAM,

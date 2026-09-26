@@ -25,7 +25,7 @@ doubleEveryAction();
    registered as `renderTest` evaluates, and a static import resolves before that. */
 const { FormKontakteSection } = await import("./components/forms/AdminKontakteEditForm/FormKontakteSection.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
-const { default: AdminKontaktePage } = await import("@/app/admin/kontakte/page.tsx");
+const { default: AdminKontaktePage } = await import("@/app/bereich/admin/kontakte/page.tsx");
 
 const person = (vorname: string, nachname: string, email: string): FLKontaktperson => ({
   vorname,
@@ -61,7 +61,7 @@ const sectionMarkup = (kontakte: FLSaisonTeamKontakte): string =>
         children: h(FormKontakteSection, {
           value: kontakte,
           isMember: true,
-          teamHref: "/admin/teams/t1?saison_id=2526",
+          teamHref: "/bereich/admin/teams/t1?saison_id=2526",
           banners: [],
           onChange: () => undefined,
           onFieldLeft: () => undefined,

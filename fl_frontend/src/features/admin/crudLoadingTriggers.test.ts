@@ -18,7 +18,7 @@ import type { ReactElement, ReactNode } from "react";
 
 doubleEveryAction();
 
-const ADMIN = path.resolve(import.meta.dirname, "..", "..", "app", "admin");
+const ADMIN = path.resolve(import.meta.dirname, "..", "..", "app", "bereich", "admin");
 
 /** The trigger's box a fallback draws, laid out and never painted. */
 const BOX = /<div aria-hidden="true" class="(button[^"]*)">([\s\S]*?)<\/div>/;

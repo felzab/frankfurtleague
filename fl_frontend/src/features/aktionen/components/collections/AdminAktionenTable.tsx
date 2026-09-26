@@ -80,7 +80,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     // Navigated rather than searched: the endpoint narrows on `trace_id` itself, where the search
     // reaches only the rows the cap left. Still one capped read, so neither sentence here claims the
     // Vorgang whole; the page's incompleteness callout reports the cut.
-    router.push(withSaisonId(`/admin/aktionen?trace_id=${encodeURIComponent(aktion.trace_id)}`, selectedFromUrl));
+    router.push(withSaisonId(`/bereich/admin/aktionen?trace_id=${encodeURIComponent(aktion.trace_id)}`, selectedFromUrl));
   };
 
   const renderAkteur = (aktion: AdminAktionRow) => {
@@ -218,7 +218,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
           nothing, so neither has a single history to open. */}
       {aktion.document_id !== null && (
         <RowActionLink
-          href={withSaisonId(`/admin/aktionen?document_id=${encodeURIComponent(aktion.document_id)}`, selectedFromUrl)}
+          href={withSaisonId(`/bereich/admin/aktionen?document_id=${encodeURIComponent(aktion.document_id)}`, selectedFromUrl)}
           label="Änderungen an diesem Datensatz"
           ariaLabel={`Alle Änderungen an Datensatz ${aktion.document_id} anzeigen`}>
           <ClockArrowRotateLeft

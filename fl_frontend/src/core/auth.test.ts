@@ -387,7 +387,7 @@ describe("what the narrowed session still gives the guards", () => {
     row.authFactor = "passkey";
     arriveAs(cookie);
 
-    const answer = await proxy(new NextRequest("http://localhost:3000/admin/spiele", { headers: { cookie } }));
+    const answer = await proxy(new NextRequest("http://localhost:3000/bereich/admin/spiele", { headers: { cookie } }));
 
     assert.equal(answer.headers.get("location"), null, "the proxy turned away a session `getAdminSession` admits");
     assert.ok(await getAdminSession());
@@ -397,7 +397,7 @@ describe("what the narrowed session still gives the guards", () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
     arriveAs(cookie);
 
-    const answer = await proxy(new NextRequest("http://localhost:3000/admin/spiele", { headers: { cookie } }));
+    const answer = await proxy(new NextRequest("http://localhost:3000/bereich/admin/spiele", { headers: { cookie } }));
 
     // The landing rather than the public root: it is the one place that decides where a refused
     // session belongs, and `fl_frontend/src/proxy.test.ts` holds the pair to not bouncing a caller.
@@ -470,7 +470,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     arriveAs(cookie);
 
     assert.ok(await getAdminSession());
-    assert.equal(await getSignInDestination(), "/admin");
+    assert.equal(await getSignInDestination(), "/bereich/admin");
   });
 });
 
@@ -490,7 +490,7 @@ describe("the second factor, judged at the same guard", () => {
     arriveAs(cookie);
 
     assert.ok(await getAdminSession());
-    assert.equal(await getSignInDestination(), "/admin");
+    assert.equal(await getSignInDestination(), "/bereich/admin");
   });
 
   /* Enrolment leaves the link-borne session standing, so holding a passkey decides which control
@@ -562,8 +562,8 @@ describe("the second factor, judged at the same guard", () => {
   });
 
   /* The landing re-spelled the guard's conditions once, so a third one added to the guard would
-     send an administrator to an `/admin` the proxy bounces. */
-  it("sends to `/admin` exactly the sessions the guard admits, over the same seeded rows", async () => {
+     send an administrator to an `/bereich/admin` the proxy bounces. */
+  it("sends to `/bereich/admin` exactly the sessions the guard admits, over the same seeded rows", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
 
     for (const factor of ["link", "passkey"]) {
@@ -576,7 +576,11 @@ describe("the second factor, judged at the same guard", () => {
         assert.ok(seen);
         const destination = await getSignInDestination();
 
-        assert.equal(destination === "/admin", isAdminSession(seen), `${factor} at ${String(created / HOUR_MS)}h landed on ${destination}`);
+        assert.equal(
+          destination === "/bereich/admin",
+          isAdminSession(seen),
+          `${factor} at ${String(created / HOUR_MS)}h landed on ${destination}`,
+        );
       }
     }
   });

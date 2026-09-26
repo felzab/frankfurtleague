@@ -51,7 +51,7 @@ deliverable.
 
 **The recording exists and the restore over it does not.** Every write funnels through
 `fl_backend/app/core/crud.py` and is recorded with the actor, the request, the collection, the
-document and the image the write replaced (`fl_backend/app/core/recording.py`); `/admin/aktionen`
+document and the image the write replaced (`fl_backend/app/core/recording.py`); `/bereich/admin/aktionen`
 lists the rows and narrows to one document's history. A row therefore holds what a replay needs, and
 replaying one is a small change over the undo spine the entity editors already share
 (`fl_frontend/src/shared/utils/undoDispatch.ts :: offerUndo`). What is missing is the control that
@@ -476,7 +476,7 @@ returning player recognised rather than duplicated, a number clash raised rather
 Saison page and its editor change with it.
 
 **The representatives' page, the link and the page it opens are built; nothing admits what that page
-collects.** `/admin/kontakte` lists the representatives a season holds. An accepted application tells
+collects.** `/bereich/admin/kontakte` lists the representatives a season holds. An accepted application tells
 its own contacts (`fl_frontend/src/features/bewerbungen/notifications.ts :: sendBewerbungMail`); what
 is still owed is that message for a team entered by hand. How a link is minted, mailed, replaced and
 shut is the contract of [`docs/backend/spec.md`](../backend/spec.md) I277 to I282 and I336. A link names the team
@@ -537,7 +537,7 @@ destroys the whole schedule rather than the part that was wrong, and nothing wri
 a replace reaches is the qualifier count**, the group shape being fixed by the clubs already
 entered; `DELETE /saisons/{saison_id}/spielplan` undraws the season instead, which is the way back
 from a group shape guessed wrong, and [`docs/domain.md`](../domain.md) carries the sequence. Today it
-is a panel an admin presses on `/admin/saisons/[saison_id]` once the clubs are in
+is a panel an admin presses on `/bereich/admin/saisons/[saison_id]` once the clubs are in
 (`fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormSpielplanSection.tsx`),
 which is the hand-run sequence this entry is about rather than a flow.
 
@@ -547,13 +547,13 @@ created season is always `future`, and creating and activating are two steps **o
 single "create it and make it live" call turns a typo in a four-character season id into a silent
 rollover of the running season, produced by a form field. A guided workflow that finishes by making
 the season current is exactly that call with a wizard in front of it. The flow ends at a season that
-is ready and `future`; the rollover stays the panel on `/admin/saisons/[saison_id]`, where the
+is ready and `future`; the rollover stays the panel on `/bereich/admin/saisons/[saison_id]`, where the
 outgoing season's unfinished fixtures are listed rather than counted.
 
 **A matchday follows from the rules rather than from a person, which is what makes generating a
 season a consequence rather than a feature.** A phase takes exactly the matchdays its rules imply —
 one per round, so a knockout round is one matchday and not several — and `position` and
-`saison_phase` are the draw's, on no payload afterwards. `/admin/spieltage` lists what the draw
+`saison_phase` are the draw's, on no payload afterwards. `/bereich/admin/spieltage` lists what the draw
 wrote, and a matchday's own editor sets the span the draw leaves null. What remains of the
 structural half is therefore the flow that collects the rules, not a second writer of anything:
 `spiele.spieltag_id` still has no fixture-level create or delete, and nothing needs one — both
@@ -604,7 +604,7 @@ when a form outgrows one is already fixed: it becomes a page at its own route, w
 section, a field judged when it is left, one save bar, a discard guard and an undo route handler. A
 flow that also picks clubs and creates them passes that threshold by a distance, so the guided
 workflow is a page rather than a larger modal, and the pattern to copy is on
-`/admin/saisons/[saison_id]` —
+`/bereich/admin/saisons/[saison_id]` —
 `fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx` and
 the panels beside it, the Spielplan draw among them. The editor is where a wrong answer from the
 flow is corrected, so every field the flow collects has to be editable afterwards, and the narrowing
@@ -615,7 +615,7 @@ chosen, and building this flow before that offer means building the offer twice.
 it.** The block is embedded rather than given a collection of its own: on the `saison_teams`
 junction (`fl_backend/app/api/teams/schemas.py :: FLSaisonTeamKontakte`) and on an application row,
 both validated through one sub-schema (`fl_backend/app/core/constraints.py :: _KONTAKTE_PROPERTIES`),
-so a role added to the block reaches both collections in the commit that adds it. `/admin/kontakte`
+so a role added to the block reaches both collections in the commit that adds it. `/bereich/admin/kontakte`
 reads the junction's copy, and `fl_backend/app/api/kontakte/admin_router.py :: erase_kontaktperson`
 is the one route that removes a person from either.
 
@@ -770,7 +770,7 @@ guarding it goes:
 
 - every admin page reads the season the header shows, awaits `connection()` before its first read,
   throws nothing but a redirect or a not-found, and sends the admin to the season list where the
-  league holds none (`fl_frontend/src/app/admin/omittedSaison.test.ts`)
+  league holds none (`fl_frontend/src/app/bereich/admin/omittedSaison.test.ts`)
 - a list route's loading fallback draws the search row and trigger box its page draws
   (`fl_frontend/src/features/admin/crudLoadingTriggers.test.ts`,
   `fl_frontend/src/shared/components/ui/AdminCrudView.test.ts`)

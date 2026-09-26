@@ -448,13 +448,13 @@ One person can hold several — a referee is a pupil, and a contact person can b
 
 | Role           | Where their data is read                                                                                                                                                                            |
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                                                                                 |
-| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                                           |
-| Contact person | `/admin/kontakte/{team_id}` for the season's block, and `/admin/bewerbungen/{bewerbung_id}` for the application it was collected on                                                                 |
+| Pupil          | `/bereich/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                                                                         |
+| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                                   |
+| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on                                                 |
 | Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in tokens and the passkey — plus `sperrliste.erstellt_von` on every ban they entered, which no erasure reaches |
 | Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                          |
 
-`/admin/aktionen` answers what was written about them and by whom, and is the only place that
+`/bereich/admin/aktionen` answers what was written about them and by whom, and is the only place that
 question is answered at all. **Two populations sit in that collection and only one has an expiry**:
 a row the log stamped is gone twelve months after the write it recorded and a row carrying no stamp
 is expired by nothing (`docs/backend/spec.md :: I119`), so an answer promising a period has to say
@@ -469,7 +469,7 @@ notice (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) fo
 rather than restating it in the mail.
 
 **A ban is the one record no search finds from the address it is about.** The row holds a keyed hash
-and nothing else of the person, so `/admin/sperrliste` cannot be asked whether a given address is on
+and nothing else of the person, so `/bereich/admin/sperrliste` cannot be asked whether a given address is on
 it: the question is answered by computing that address's hash under `SPERRLISTE_SCHLUESSEL` — the
 same derivation `fl_backend/app/api/sperrliste/services.py :: adresse_hash` performs, label and fold
 included — and looking the value up against `sperrliste.adresse_hash`. The paste that does it belongs
@@ -588,7 +588,7 @@ in the same reply.
 **A false birthdate is found by a person, and the answer is a decision and a ban rather than a
 rule.** The one date anybody enters for themselves is a contact person's, at their own confirmation,
 and nothing verifies it: what surfaces is somebody recognising the person or the school saying so.
-Decline the application and bar the address at `/admin/sperrliste` with the reason in your own words
+Decline the application and bar the address at `/bereich/admin/sperrliste` with the reason in your own words
 and no person named in it, the row outliving that person's erasure
 ([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up)). **The write
 mails the person itself**, naming the reason you typed and the last season the ban covers, so there
@@ -662,7 +662,7 @@ dashboard rather than here.
 log.** Every recorded write appends a row carrying the actor, the route, the collection, the
 operation and the image of what the write replaced or removed
 ([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)), read
-at `/admin/aktionen`. A row whose values an erasure destroyed is emptied in place and stamped
+at `/bereich/admin/aktionen`. A row whose values an erasure destroyed is emptied in place and stamped
 (`docs/backend/spec.md :: I42`), so what survives an erasure is that the write happened and not what
 it held.
 

@@ -50,7 +50,7 @@ export const ADMIN_SHELL_FALLBACK = {
   },
 } as const satisfies { label: string; hint: SidemenuHint };
 
-/** `/admin/spiele/[spiel_id]` gets no nav entry: the nav renders a link per entry, and there is no fixture index to link to. */
+/** `/bereich/admin/spiele/[spiel_id]` gets no nav entry: the nav renders a link per entry, and there is no fixture index to link to. */
 export const ADMIN_SHELL_UNLISTED_SECTIONS = {
   spiele: {
     label: "Spiele",

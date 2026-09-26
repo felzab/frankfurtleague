@@ -14,7 +14,7 @@ import type { NextPageProps } from "@/shared/types/types";
 /**
  * The season's bracket wiring, on the admin-tier reads: this page opens on a season that may still be
  * planned, whose contents the base reads withhold. The page is admin-only through
- * `admin/layout.tsx`'s guard.
+ * `bereich/admin/layout.tsx`'s guard.
  */
 export default async function AdminFinalrundenPage(props: NextPageProps) {
   await connection();

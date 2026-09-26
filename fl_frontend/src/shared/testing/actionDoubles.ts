@@ -193,7 +193,7 @@ const DESTINATION_BUS = "__flSignInDestination";
 /** Where the real store sends a caller the session leaves out, when a case names no other. */
 const destinationOf = (session: AdminSessionDouble): string =>
   // eslint-disable-next-line local/admin-link -- the sign-in store's own landing, which carries no season
-  session === null ? "/signin" : "/admin";
+  session === null ? "/signin" : "/bereich/admin";
 
 /**
  * The sign-in store answering the session and the sign-in destination `doubleActionRequest` holds,

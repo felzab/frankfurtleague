@@ -31,8 +31,7 @@ export default function robots(): MetadataRoute.Robots {
 
         // The disallow is what turns a crawler back BEFORE that fetch; a page's noindex is read only
         // after one.
-        // eslint-disable-next-line local/admin-link -- a crawler disallow rule, not a link
-        disallow: ["/api/", "/admin/", "/bestaetigung", "/signin/bestaetigen", "/registrierung"],
+        disallow: ["/api/", "/bereich/", "/bestaetigung", "/signin/bestaetigen", "/registrierung"],
       },
       ...aiBots.map((bot) => ({
         userAgent: bot,

@@ -88,7 +88,7 @@ export function AppShell<TIcon extends string>({
   const activeOption: SidemenuStructureSubOption<TIcon> | undefined = structure
     .flatMap((group) => group.sub_options)
     .find((option) => option.id === baseSegment);
-  // `hasOwn`, never `in` or a bare index: the segment is whatever the address bar holds, and `/admin/constructor`
+  // `hasOwn`, never `in` or a bare index: the segment is whatever the address bar holds, and `/bereich/admin/constructor`
   // would otherwise select a prototype member and head the page with nothing at all.
   const unlistedSection = baseSegment !== undefined && Object.hasOwn(unlistedSections, baseSegment) ? unlistedSections[baseSegment] : undefined;
   const section: ShellSection = activeOption ?? unlistedSection ?? { label: fallbackTitle, hint: fallbackHint };

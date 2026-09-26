@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/signin/passkey" },
 };
 
-// Under `(public)` and never under `/admin`: the session that must reach this page is the one the
+// Under `(public)` and never under `/bereich/admin`: the session that must reach this page is the one the
 // admin guard is refusing, so a page behind that guard is a page nobody can open.
 
 /**

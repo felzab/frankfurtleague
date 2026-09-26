@@ -448,7 +448,7 @@ describe("the season every admin page reads", () => {
 
     assert.ok(redirects.length > 0, "no page redirected, so the case below proves nothing");
     assert.deepEqual(
-      redirects.filter((entry) => !entry.endsWith(" -> /admin/saisons")),
+      redirects.filter((entry) => !entry.endsWith(" -> /bereich/admin/saisons")),
       [],
     );
   });

@@ -58,7 +58,7 @@ export function AdminAktionenView({
           title="Nur ein Datensatz">
           Angezeigt werden nur die Änderungen an dem Datensatz <span className="font-mono break-all">{dokumentId}</span>.{" "}
           <Link
-            href={withSaisonId("/admin/aktionen", selectedFromUrl)}
+            href={withSaisonId("/bereich/admin/aktionen", selectedFromUrl)}
             className={textLink()}>
             Alle Änderungen anzeigen
           </Link>
@@ -75,7 +75,7 @@ export function AdminAktionenView({
           Angezeigt werden die Zeilen des Vorgangs <span className="font-mono break-all">{vorgangId}</span>
           {vollstaendig && ", vollständig"}.{" "}
           <Link
-            href={withSaisonId("/admin/aktionen", selectedFromUrl)}
+            href={withSaisonId("/bereich/admin/aktionen", selectedFromUrl)}
             className={textLink()}>
             Alle Änderungen anzeigen
           </Link>

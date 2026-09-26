@@ -28,7 +28,7 @@ registerHooks({
 const APP_DIR = import.meta.dirname;
 
 /**
- * The public pages the list withholds, each for a reason no walk of the tree can see. `/admin` is
+ * The public pages the list withholds, each for a reason no walk of the tree can see. `/bereich` is
  * withheld too and needs no entry here: `robots.ts` disallows the whole prefix.
  */
 const WITHHELD = [
@@ -69,7 +69,7 @@ function staticRoutes(dir: string, segments: readonly string[] = []): { route: s
 const FOUND = staticRoutes(APP_DIR);
 
 const PUBLIC_ROUTES = FOUND.map((page) => page.route)
-  .filter((route) => !route.startsWith("/admin") && !WITHHELD.includes(route))
+  .filter((route) => !route.startsWith("/bereich/") && !WITHHELD.includes(route))
   .sort();
 
 const LISTED = sitemap()

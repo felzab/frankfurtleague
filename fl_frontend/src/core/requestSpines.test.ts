@@ -36,7 +36,7 @@ const MODULE_DOUBLES: Record<string, string> = {
   "/src/core/auth.ts": `export const auth = { handler: async (request) => new Response(request.url), api: {} };
 export const SIGN_IN_LANDING = "/signin/weiter";
 export const getAdminSession = async () => ({ user: { email: "vorstand@example.org" } });
-export const getSignInDestination = async () => "/admin";`,
+export const getSignInDestination = async () => "/bereich/admin";`,
 };
 const mail = doubleSendMail();
 

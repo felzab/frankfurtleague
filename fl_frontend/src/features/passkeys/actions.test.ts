@@ -119,7 +119,7 @@ function seedPasskey(userId: string, label: string): Record<string, unknown> {
 }
 
 describe("the session each passkey action opens on", () => {
-  /* The proxy turns an unauthenticated `/admin` POST away, and this is what holds whatever reaches
+  /* The proxy turns an unauthenticated `/bereich/admin` POST away, and this is what holds whatever reaches
      the action anyway — a session the mailed link alone made included. */
   it("refuses the list to a session the passkey did not make, and reads no rows for it", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);

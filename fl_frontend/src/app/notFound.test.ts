@@ -44,21 +44,29 @@ const LAYOUTS = filesUnder(APP_DIR, named("layout.tsx"), 4);
 const BOUNDARIES = filesUnder(APP_DIR, named("not-found.tsx"), 2);
 const PAGES = filesUnder(APP_DIR, named("page.tsx"), 30);
 
+const LAYOUT_DIRS = [...new Set(LAYOUTS.map((file) => path.dirname(file)))].filter((dir) => dir !== APP_DIR);
+
+// The outermost layout on its branch, at whatever depth: `bereich` holds none, so each word under it
+// is an area of its own.
 /**
  * Read off the layouts rather than off the boundaries: a population filtered on the thing this file
  * asserts could never fail, an area with no answer dropping out of the list instead
  * (`docs/_standard/standard.md` PRE-4).
  */
-const AREAS = [...new Set(LAYOUTS.map((file) => path.dirname(file)))].filter((dir) => path.dirname(dir) === APP_DIR).sort();
+const AREAS = LAYOUT_DIRS.filter((dir) => !LAYOUT_DIRS.some((outer) => dir.startsWith(outer + path.sep))).sort();
+
+const segmentsOf = (dir: string) => path.relative(APP_DIR, dir).split(path.sep);
 
 /**
  * A parenthesised name is a route group, so it contributes no url segment and its unmatched
  * addresses are still the root boundary's; a plain name owns a url prefix that nothing else answers.
  */
-const isRouteGroup = (dir: string) => path.basename(dir).startsWith("(");
+const isRouteGroup = (segment: string) => segment.startsWith("(");
 
-const PREFIXED = AREAS.filter((dir) => !isRouteGroup(dir));
-const ROOT_MOUNTED = AREAS.filter(isRouteGroup);
+const isRootMounted = (dir: string) => segmentsOf(dir).every(isRouteGroup);
+
+const PREFIXED = AREAS.filter((dir) => !isRootMounted(dir));
+const ROOT_MOUNTED = AREAS.filter(isRootMounted);
 
 /**
  * The boundaries a 404 meets under the public shell, which carries no `h1`: the root one, and each
@@ -67,7 +75,10 @@ const ROOT_MOUNTED = AREAS.filter(isRouteGroup);
 const UNDER_PUBLIC_SHELL = [path.join(APP_DIR, "not-found.tsx"), ...ROOT_MOUNTED.map((dir) => path.join(dir, "not-found.tsx"))];
 
 /** The url prefix an area occupies, which its own boundary's way out has to stay inside. */
-const prefixOf = (dir: string) => `/${path.basename(dir)}`;
+const prefixOf = (dir: string) =>
+  `/${segmentsOf(dir)
+    .filter((segment) => !isRouteGroup(segment))
+    .join("/")}`;
 
 const inside = (dir: string) => (file: string) => file.startsWith(dir + path.sep);
 

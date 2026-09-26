@@ -127,7 +127,7 @@ export const AdminKontakteList = memo(function AdminKontakteList({
       {/* A link and not a press: all three seats are edited together on the club's own contacts page,
           which is what this row stands for. */}
       <RowActionLink
-        href={withSaisonId(`/admin/kontakte/${row.teamId}`, selectedSaisonId)}
+        href={withSaisonId(`/bereich/admin/kontakte/${row.teamId}`, selectedSaisonId)}
         label="Kontakte bearbeiten"
         ariaLabel={`Kontakte von ${row.teamName} bearbeiten`}>
         <Pencil

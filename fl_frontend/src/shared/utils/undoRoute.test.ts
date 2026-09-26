@@ -35,7 +35,7 @@ export const getSignInDestination = async () => {
   const served = session();
   if (served === null) return "/signin";
   if (served.user.email !== ALLOWLISTED) return "/";
-  return through() ? "/admin" : "/signin";
+  return through() ? "/bereich/admin" : "/signin";
 };`;
 const bus = globalThis as unknown as Record<string, unknown>;
 const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
@@ -135,7 +135,7 @@ describe("what the undo spine answers when nobody can tell whether its replay la
 
 describe("who the undo spine answers before it does any work", () => {
   /* The spine's own authorization: the backend refuses too, but that is a different service, and
-     `proxy.ts` matches `/admin/:path*`, never `/api/admin/*`. */
+     `proxy.ts` matches `/bereich/:path*`, never `/api/admin/*`. */
   it("refuses a caller with no admin session before reading the body or restoring anything", async () => {
     bus.__flUndoRouteSession = null;
     let restored = 0;

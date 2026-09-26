@@ -102,7 +102,7 @@ describe("where the shared undo dispatch sends a caller the route turned away", 
     raised.length = 0;
   });
 
-  /* Said before leaving: a new sign-in lands on `/admin` rather than back on this change, so a
+  /* Said before leaving: a new sign-in lands on `/bereich/admin` rather than back on this change, so a
      departure alone leaves the change the admin meant to take back standing unnoticed. */
   it("says the change still stands, then leaves for `/signin` on the route's 401", async () => {
     const pressed = await pressAgainst(

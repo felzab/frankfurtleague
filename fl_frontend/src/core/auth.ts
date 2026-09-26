@@ -682,7 +682,7 @@ export const getAdminSession = cache(async (): Promise<ServedSession | null> => 
 });
 
 /** Where `/signin/weiter` sends the session it was handed. */
-export type SignInDestination = "/admin" | "/signin/passkey" | "/" | "/signin";
+export type SignInDestination = "/bereich/admin" | "/signin/passkey" | "/" | "/signin";
 
 export async function getSignInDestination(): Promise<SignInDestination> {
   const served = await auth.api.getSession({ headers: await headers() });
@@ -690,10 +690,10 @@ export async function getSignInDestination(): Promise<SignInDestination> {
 
   if (isUserAdmin(served.user.email)) {
     // The guard's own verdict rather than a second spelling of it: a condition added there has to
-    // move this landing with it, or `/admin` is offered to somebody the proxy bounces.
+    // move this landing with it, or `/bereich/admin` is offered to somebody the proxy bounces.
 
     // eslint-disable-next-line local/admin-link -- where a finished sign-in lands; no season is in scope at sign-in
-    if (isAdminSession(served)) return "/admin";
+    if (isAdminSession(served)) return "/bereich/admin";
 
     // Past either figure the session is spent, and an administrator asks for a fresh link rather
     // than being sent to the public root with no way back.

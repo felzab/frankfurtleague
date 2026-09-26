@@ -337,7 +337,7 @@ html:has([data-app-shell]) {
   @apply fluid-xs font-medium text-foreground-muted;
 }
 
-/* A rail card's badge cluster. Here rather than in `admin.css`, which alone loads under `/admin`:
+/* A rail card's badge cluster. Here rather than in `admin.css`, which alone loads under `/bereich/admin`:
    an `@utility` emits nothing from a `@reference`-only sheet, and ESLint resolves class names
    against this file. */
 @utility rail-marker {

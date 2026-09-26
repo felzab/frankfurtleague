@@ -104,7 +104,7 @@ export function AdminSpieltagEditForm({
   };
 
   const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
-    fallbackHref: saisonHref("/admin/spieltage"),
+    fallbackHref: saisonHref("/bereich/admin/spieltage"),
     isDirty,
     resetDraftToStored,
   });

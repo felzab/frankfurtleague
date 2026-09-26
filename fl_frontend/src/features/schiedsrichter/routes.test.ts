@@ -3,8 +3,8 @@ import { describe, it } from "node:test";
 
 import { callPage, clearSteps, OBJECT_ID, readsOf, steps } from "@/shared/testing/pageHarness.ts";
 
-const { default: AdminSchiedsrichterEditPage } = await import("@/app/admin/schiedsrichter/[schiedsrichter_id]/page.tsx");
-const { default: AdminSchiedsrichterPage } = await import("@/app/admin/schiedsrichter/page.tsx");
+const { default: AdminSchiedsrichterEditPage } = await import("@/app/bereich/admin/schiedsrichter/[schiedsrichter_id]/page.tsx");
+const { default: AdminSchiedsrichterPage } = await import("@/app/bereich/admin/schiedsrichter/page.tsx");
 
 /** Every read one page makes, each answered with the emptiest body its schema takes. */
 async function readsOfPage<P>(Page: (props: P) => unknown, props: P): Promise<ReturnType<typeof readsOf>> {

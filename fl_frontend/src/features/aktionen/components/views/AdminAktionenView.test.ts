@@ -157,10 +157,10 @@ describe("the notices a narrowing raises", () => {
      fall back to the default the moment a reader leaves the narrowing. */
   it("carries the shell's season out of the narrowing, and writes no season where the URL names none", () => {
     const withSeason = anchor(notice(view({ dokumentId: ROW.document_id }), HEADING.dokument).body);
-    assert.equal(withSeason.href, "/admin/aktionen?saison_id=2526");
+    assert.equal(withSeason.href, "/bereich/admin/aktionen?saison_id=2526");
     assert.equal(withSeason.name, "Alle Änderungen anzeigen");
 
-    assert.equal(anchor(notice(view({ vorgangId: ROW.trace_id }, ""), HEADING.vorgang).body).href, "/admin/aktionen");
+    assert.equal(anchor(notice(view({ vorgangId: ROW.trace_id }, ""), HEADING.vorgang).body).href, "/bereich/admin/aktionen");
   });
 
   it("raises neither notice while the URL narrows to nothing", () => {

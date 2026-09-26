@@ -408,8 +408,8 @@ database and no empty read is cached for the days the reference reads hold a val
 **The copy is the application database and not the sign-in store beside it** — the backend's
 credential is scoped to one database (the two-users split in [`overview.md`](overview.md)), so the
 local stack starts with an empty `auth` and a sign-in builds it; the allowlist deciding who may
-sign in is an environment value rather than a stored row. **A sign-in alone does not reach `/admin`
-there**: the link stamps its session `link` where the admin guard wants `passkey`
+sign in is an environment value rather than a stored row. **A sign-in alone does not reach
+`/bereich/admin` there**: the link stamps its session `link` where the admin guard wants `passkey`
 (`fl_frontend/src/core/auth.ts :: isAdminSession`), so `/signin/passkey` offers an enrolment first —
 bound to this machine's own authenticator and to `localhost`, the relying party the local `AUTH_URL`
 gives. Every machine, and every `--fresh`, enrols again. A second passkey is added from the

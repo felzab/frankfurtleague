@@ -35,7 +35,9 @@ const SPERREN: FLSperrlisteEintrag[] = [
 
 const viewText = (anzahlGesamt: number): string =>
   textOf(
-    renderTree(underNext(h(AdminSperrlisteView, { sperrliste: SPERREN, anzahlGesamt: anzahlGesamt }), { pathname: "/admin/sperrliste" })),
+    renderTree(
+      underNext(h(AdminSperrlisteView, { sperrliste: SPERREN, anzahlGesamt: anzahlGesamt }), { pathname: "/bereich/admin/sperrliste" }),
+    ),
     " ",
   )
     .replace(/\s+/g, " ")
