@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it, mock } from "node:test";
 import { pathToFileURL } from "node:url";
+
+import ts from "typescript";
 
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
@@ -27,23 +30,25 @@ registerHooks({
   },
 });
 
-const { UnattributedAdminCallError } = await import("@/core/errors.ts");
+const { AdminReadWithoutAdministratorError, UnattributedAdminCallError } = await import("@/core/errors.ts");
 const { ACTOR_HEADER } = await import("@/core/trace.ts");
 
-const SLICES = path.resolve(import.meta.dirname, "..", "..", "features");
+const SRC = path.resolve(import.meta.dirname, "..", "..");
+const SLICES = path.join(SRC, "features");
+const QUERY_FILES = filesUnder(SLICES, (name) => name === "queries.ts", 10).sort();
 
 /** Every exported function of every slice's `queries.ts`, called by name so a read added later is swept too. */
 const QUERIES: [string, (...args: unknown[]) => unknown][] = [];
-for (const file of filesUnder(SLICES, (name) => name === "queries.ts", 10).sort()) {
+for (const file of QUERY_FILES) {
   const slice = path.basename(path.dirname(file));
   for (const [name, value] of Object.entries((await import(pathToFileURL(file).href)) as Record<string, unknown>)) {
     if (typeof value === "function") QUERIES.push([`${slice} :: ${name}`, value as (...args: unknown[]) => unknown]);
   }
 }
 
-/** Each query called with no arguments against a network that answers nothing, reporting what it threw and whether it sent an actor. */
-async function callEvery(): Promise<{ unattributed: string[]; attributed: string[] }> {
-  const unattributed: string[] = [];
+/** Each query called with no arguments against a network that answers nothing: what it threw, and whether it sent an actor. */
+async function callEvery(): Promise<{ thrown: Map<string, unknown>; attributed: string[] }> {
+  const thrown = new Map<string, unknown>();
   const attributed: string[] = [];
 
   for (const [name, query] of QUERIES) {
@@ -55,14 +60,38 @@ async function callEvery(): Promise<{ unattributed: string[]; attributed: string
     try {
       await query();
     } catch (error) {
-      if (error instanceof UnattributedAdminCallError) unattributed.push(name);
+      thrown.set(name, error);
     } finally {
       fetched.mock.restore();
     }
     if (sentActor) attributed.push(name);
   }
 
-  return { unattributed, attributed };
+  return { thrown, attributed };
+}
+
+/** The modules `file` imports by a static declaration, as paths under `src`; a dynamic `import()` is no edge. */
+function staticImports(file: string): string[] {
+  const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest);
+  const found: string[] = [];
+
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+    if (statement.importClause?.isTypeOnly) continue;
+
+    const specifier = statement.moduleSpecifier.text;
+    const base = specifier.startsWith("@/")
+      ? path.join(SRC, specifier.slice(2))
+      : specifier.startsWith(".")
+        ? path.resolve(path.dirname(file), specifier)
+        : null;
+    if (base === null) continue;
+
+    const resolved = ["", ".ts", ".tsx", "/index.ts"].map((suffix) => base + suffix).find((candidate) => ts.sys.fileExists(candidate));
+    if (resolved !== undefined) found.push(path.normalize(resolved));
+  }
+
+  return found;
 }
 
 describe("every admin-tier read", () => {
@@ -70,19 +99,44 @@ describe("every admin-tier read", () => {
      admin-tier call with no actor recorded, which the client refuses by name. */
   it("records the administrator before its call is sent", async () => {
     setSession({ user: { email: "vorstand@example.org" } });
-    const { unattributed, attributed } = await callEvery();
+    const { thrown, attributed } = await callEvery();
 
+    const unattributed = [...thrown].filter(([, error]) => error instanceof UnattributedAdminCallError).map(([name]) => name);
     assert.deepEqual(unattributed, [], "these reads sent an admin-tier call with no actor recorded");
     // Non-vacuity: a sweep reaching no admin-tier read at all would pass the line above.
     assert.ok(attributed.length > 0, "no query sent an admin-tier call, so nothing above was swept");
   });
 
-  /* Only a caller outside the admin guards reaches this, and it must be loud rather than a read the
-     backend would refuse on arrival. */
-  it("sends nothing for a session that is no administrator's", async () => {
-    setSession(null);
+  /* Refused by `runAdminRead` itself rather than by the client after it: the client's refusal would
+     leave nothing sent too, and a read made without the administrator's check would pass unseen. */
+  it("is refused by its own scope for a session that is no administrator's", async () => {
+    setSession({ user: { email: "vorstand@example.org" } });
     const { attributed } = await callEvery();
+    setSession(null);
+    const { thrown } = await callEvery();
 
-    assert.deepEqual(attributed, [], "these reads reached the network naming an actor for nobody");
+    const refusedElsewhere = attributed.filter((name) => !(thrown.get(name) instanceof AdminReadWithoutAdministratorError));
+    assert.deepEqual(refusedElsewhere, [], "these reads were not refused by runAdminRead for a session with no administrator");
+  });
+
+  /* Public pages import these modules for their base reads, and the sign-in store is loaded by the
+     admin reads alone, at their call. */
+  it("leaves the sign-in store out of every query module's static graph", () => {
+    const store = path.join(SRC, "core", "auth.ts");
+    const reaching: string[] = [];
+
+    for (const file of QUERY_FILES) {
+      const seen = new Set<string>();
+      const pending = [path.normalize(file)];
+      while (pending.length > 0) {
+        const next = pending.pop() as string;
+        if (seen.has(next)) continue;
+        seen.add(next);
+        pending.push(...staticImports(next));
+      }
+      if (seen.has(store)) reaching.push(path.relative(SRC, file));
+    }
+
+    assert.deepEqual(reaching, [], "these query modules load the sign-in store for every page that reads them");
   });
 });

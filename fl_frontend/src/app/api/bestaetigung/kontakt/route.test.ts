@@ -3,7 +3,7 @@ import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { doubleSendMail } from "@/core/mailDouble.ts";
-import { doubleActionRequest, NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
@@ -34,10 +34,6 @@ const PACKAGE_DOUBLES: Record<string, string> = {
   "next/headers": NEXT_HEADERS_DOUBLE,
   "next/navigation": `export const unstable_rethrow = () => {};`,
 };
-
-// An administrator's session: every admin-tier read resolves its actor from it before it is sent
-// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
-doubleActionRequest();
 
 registerHooks({
   resolve(specifier, context, nextResolve) {

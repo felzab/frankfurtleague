@@ -47,6 +47,15 @@ export class UnattributedAdminCallError extends Error {
   }
 }
 
+/** An admin-tier read made for a session that is no administrator's: a caller outside the admin guards. */
+export class AdminReadWithoutAdministratorError extends Error {
+  override name = "AdminReadWithoutAdministratorError";
+
+  constructor() {
+    super("An admin-tier read was made for a session that is no administrator's.");
+  }
+}
+
 /**
  * A write the request's deadline refused before it was sent: nothing left, so it changed nothing, as
  * `fl_frontend/src/core/mail.ts :: MailUnsentError` says of a message. `FE-NET-001`, a call the network

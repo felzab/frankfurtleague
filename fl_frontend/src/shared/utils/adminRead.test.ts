@@ -31,6 +31,7 @@ registerHooks({
 
 const { runAdminRead } = await import("./adminRead.ts");
 const { getRequestActor, runWithRequestScope } = await import("@/core/requestScope.ts");
+const { AdminReadWithoutAdministratorError } = await import("@/core/errors.ts");
 
 const TRACE = "a".repeat(32);
 const SPAN = "b".repeat(16);
@@ -51,15 +52,31 @@ describe("an admin-tier read's scope", () => {
     assert.equal(store.reads, 1);
   });
 
-  it("keeps the administrator an action's guard recorded, asking the session nothing", async () => {
-    store.session = { user: { email: "someone@else.example" } };
+  it("keeps an actor a guard recorded where it is this session's administrator", async () => {
+    store.session = { user: { email: "Vorstand@Example.org" } };
 
     const actor = await runWithRequestScope({ traceId: TRACE, spanId: SPAN, actor: "vorstand@example.org" }, () =>
       runAdminRead(() => Promise.resolve(getRequestActor())),
     );
 
     assert.equal(actor, "vorstand@example.org");
-    assert.equal(store.reads, 0, "the read asked the session again inside an action that had resolved it");
+  });
+
+  /* An actor already recorded proves nothing about the admin session: a person's lookup records its
+     own identifier, which the backend's allowlist may still hold. */
+  it("refuses an actor already recorded that is not this session's administrator, the read never running", async () => {
+    store.session = { user: { email: "vorstand@example.org" } };
+    let ran = 0;
+
+    await assert.rejects(
+      runWithRequestScope({ traceId: TRACE, spanId: SPAN, actor: "someone@else.example" }, () =>
+        runAdminRead(() => {
+          ran += 1;
+          return Promise.resolve(undefined);
+        }),
+      ),
+    );
+    assert.equal(ran, 0, "the read ran under an actor that is not the session's administrator");
   });
 
   /* Thrown rather than answered: a read has no failure value, and only a caller outside the admin
@@ -72,7 +89,7 @@ describe("an admin-tier read's scope", () => {
         ran += 1;
         return Promise.resolve(undefined);
       }),
-      /no administrator's/,
+      AdminReadWithoutAdministratorError,
     );
     assert.equal(ran, 0, "the read ran for a session nobody authorized");
   });

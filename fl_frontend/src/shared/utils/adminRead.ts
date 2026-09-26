@@ -1,6 +1,6 @@
-import { getAdminSession } from "@/core/auth";
 import { asSignInIdentifier } from "@/core/emailAddress";
-import { getRequestActor, setRequestActor } from "@/core/requestScope";
+import { AdminReadWithoutAdministratorError } from "@/core/errors";
+import { setRequestActor } from "@/core/requestScope";
 
 import { runWithIncomingTrace } from "./traceScope";
 
@@ -10,18 +10,17 @@ import { runWithIncomingTrace } from "./traceScope";
  */
 export async function runAdminRead<T>(fn: () => Promise<T>): Promise<T> {
   return runWithIncomingTrace(async () => {
-    // A server action's guard has already recorded its administrator, and another session lookup
-    // would cost a round trip outside a render, where `getAdminSession` memoizes nothing.
-    if (getRequestActor() === undefined) {
-      const session = await getAdminSession();
-      // Thrown to the error boundary: a read has no failure answer to return, and only a caller outside
-      // the admin guards reaches this, a programming error that must be loud.
-      if (session === null) throw new Error("An admin-tier read was made for a session that is no administrator's.");
+    // Loaded at the call: every slice's `queries.ts` imports this module, public pages among their
+    // readers, and a static import would put the sign-in store in each of their graphs.
+    const { getAdminSession } = await import("@/core/auth");
+    const session = await getAdminSession();
+    // Thrown to the error boundary: a read has no failure answer to return, and only a caller outside
+    // the admin guards reaches this, a programming error that must be loud.
+    if (session === null) throw new AdminReadWithoutAdministratorError();
 
-      // Recorded here and not left to the guard: a render's `getAdminSession` is memoized, so a guard
-      // that resolved it outside this scope recorded nothing on it.
-      setRequestActor(asSignInIdentifier(session.user.email));
-    }
+    // Recorded even where a guard already recorded an actor: `setRequestActor` refuses one that is not
+    // the signed-in administrator, and a render's memoized lookup recorded nothing inside this scope.
+    setRequestActor(asSignInIdentifier(session.user.email));
 
     return fn();
   });
