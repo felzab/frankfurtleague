@@ -286,19 +286,45 @@ def body_response(body: type[BaseModel], description: str) -> dict[str, Any]:
     return {"description": description, "content": {JSON_MEDIA_TYPE: {"schema": {"$ref": COMPONENT_REF.format(model=body.__name__)}}}}
 
 
+RESPONSE_REF = "#/components/responses/{name}"
+
+
+def shared_response_name(status: str, codes: AbstractSet[str]) -> str:
+    """The status and then the codes, so a reference reads as what it publishes.
+
+    Derived from the content and never numbered: a numbering renames every later response when one
+    operation's codes change.
+    """
+
+    return ".".join([status, *sorted(codes)])
+
+
+def with_shared_responses(document: Mapping[str, Any], shared: Mapping[str, Any]) -> Document:
+    """`document` publishing `shared` under `components.responses` beside what it held."""
+
+    components = document.get("components", {})
+    # Sorted for the reason `with_failure_bodies` sorts the schemas.
+    responses = dict(sorted({**components.get("responses", {}), **shared}.items()))
+
+    return {**document, "components": {**components, "responses": responses}}
+
+
 def with_failure_bodies(document: Mapping[str, Any]) -> Document:
     """`document` publishing this API's failure bodies in place of FastAPI's own."""
 
     components = document.get("components", {})
     schemas = {name: schema for name, schema in components.get("schemas", {}).items() if name not in FASTAPI_VALIDATION_BODIES}
     schemas.update(models_json_schema([(body, "serialization") for body in FAILURE_BODIES], ref_template=COMPONENT_REF)[1]["$defs"])
+    failure = shared_response_name("default", set())
 
     def edit(_: Operation, operation: Mapping[str, Any]) -> Mapping[str, Any]:
         # Written here rather than declared to FastAPI, whose own 422 a declared `default` suppresses everywhere.
-        return {**operation, "responses": {**operation["responses"], "default": body_response(FLFailureBody, "Failure")}}
+        return {**operation, "responses": {**operation["responses"], "default": {"$ref": RESPONSE_REF.format(name=failure)}}}
 
     # Sorted as FastAPI sorts what it generates, so a rewrite of `fl_backend/openapi.json` moves no schema.
-    return with_operations_edited({**document, "components": {**components, "schemas": dict(sorted(schemas.items()))}}, edit)
+    with_bodies = {**document, "components": {**components, "schemas": dict(sorted(schemas.items()))}}
+
+    return with_operations_edited(with_shared_responses(with_bodies, {failure: body_response(FLFailureBody, "Failure")}), edit)
 
 
 # Each operation's refusal codes, keyed by the status each is answered at.
@@ -380,7 +406,9 @@ def publish_refusals(app: FastAPI) -> DocumentPass:
 
 
 def with_refusals(document: Mapping[str, Any], codes: Mapping[Operation, Mapping[HTTPStatus, AbstractSet[str]]]) -> Document:
-    """`document` with each status an operation refuses at replaced by one publishing exactly its codes, whatever it carried."""
+    """`document` with each status an operation refuses at replaced by a reference to the response publishing exactly its codes."""
+
+    shared: dict[str, Any] = {}
 
     def edit(key: Operation, operation: Mapping[str, Any]) -> Mapping[str, Any]:
         statuses = {status: set(found) for status, found in codes.get(key, {}).items()}
@@ -390,11 +418,20 @@ def with_refusals(document: Mapping[str, Any], codes: Mapping[Operation, Mapping
         # A body arrives only where the operation takes one, and only a body can be undecodable.
         if "requestBody" in operation:
             statuses.setdefault(HTTPStatus.BAD_REQUEST, set()).add(BODY_UNREADABLE)
-        refused = {str(status): refusal_response(status, found) for status, found in sorted(statuses.items())}
+        refused: dict[str, Any] = {}
+        for status, found in sorted(statuses.items()):
+            # One response per whole code set and never one per reason: a status holds one response,
+            # so an operation refusing there for two reasons could refer to only one of them.
+            name = shared_response_name(str(int(status)), found)
+            shared[name] = refusal_response(status, found)
+            refused[str(int(status))] = {"$ref": RESPONSE_REF.format(name=name)}
 
         return {**operation, "responses": {**operation["responses"], **refused}}
 
-    return with_operations_edited(document, edit)
+    # Walked before `shared` is published, since `edit` fills it.
+    edited = with_operations_edited(document, edit)
+
+    return with_shared_responses(edited, shared)
 
 
 def create_app(config: BackendConfig | None = None) -> FastAPI:

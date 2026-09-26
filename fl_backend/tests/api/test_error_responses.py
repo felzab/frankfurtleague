@@ -40,7 +40,7 @@ from app.core.exceptions import DUPLICATE_KEY, NO_DATABASE_CLIENT, BaseAPIExcept
 from app.core.logging import JSONFormatter
 from app.core.middlewares import TraceContextMiddleware
 from app.core.security import MISSING_TOKEN, WRONG_BASE_KEY
-from app.main import create_app, dependency_refusals, document_routes, publish_refusals, refusal_codes, with_refusals
+from app.main import RESPONSE_REF, create_app, dependency_refusals, document_routes, publish_refusals, refusal_codes, with_refusals
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 from tests.config import BASE_AUTH, build_test_config
@@ -408,9 +408,27 @@ def sample_segment(document: dict[str, Any], template: str, name: str) -> str:
     return "0" * 23 + "1" if parameter_pattern(document, template, name) else "x"
 
 
+def resolved(document: dict[str, Any], response: dict[str, Any]) -> dict[str, Any]:
+    """The Response Object `response` publishes, a reference to a shared one followed."""
+
+    if (ref := response.get("$ref")) is None:
+        return response
+
+    return document["components"]["responses"][ref.removeprefix(RESPONSE_REF.format(name=""))]
+
+
 def published_operations() -> list[tuple[str, dict[str, Any]]]:
+    """Each operation with its responses resolved, so a reader here sees what it publishes rather than the name it is shared under."""
+
+    document = build_document()
+
     return [
-        (f"{method.upper()} {path}", operation) for path, methods in build_document()["paths"].items() for method, operation in methods.items()
+        (
+            f"{method.upper()} {path}",
+            {**operation, "responses": {status: resolved(document, found) for status, found in operation["responses"].items()}},
+        )
+        for path, methods in document["paths"].items()
+        for method, operation in methods.items()
     ]
 
 
@@ -552,6 +570,32 @@ class TestThePublishedFailureBodies:
         assert FLFailureBody.model_validate(body).model_dump() == body
 
 
+# OpenAPI 3.1.0's pattern for a key under `components`.
+COMPONENT_KEY = re.compile(r"[a-zA-Z0-9.\-_]+")
+
+
+class TestEachFailureResponseIsPublishedOnce:
+    def test_every_failure_response_refers_to_a_shared_one_and_every_shared_one_is_referred_to(self):
+        """Both ways: an inline failure is a second shape for every reader, and an unreferred one is a response nothing answers."""
+
+        document = build_document()
+        referred = [
+            response.get("$ref")
+            for operations in document["paths"].values()
+            for operation in operations.values()
+            for status, response in operation["responses"].items()
+            if status == "default" or status[0] in "45"
+        ]
+
+        assert None not in referred
+        assert set(referred) == {RESPONSE_REF.format(name=name) for name in document["components"]["responses"]}
+
+    def test_every_shared_name_is_a_key_openapi_allows(self):
+        """Named from the codes, which nothing else holds to that pattern."""
+
+        assert [name for name in build_document()["components"]["responses"] if not COMPONENT_KEY.fullmatch(name)] == []
+
+
 PLANTED_PATH = "/planted"
 HIDDEN_PATH = "/hidden"
 # A code no rule and no handler raises, so only the declaration can put it on the 409.
@@ -578,9 +622,9 @@ class TestTheDeclared409:
         """
 
         app = planted_app(refusal_response(HTTPStatus.CONFLICT, {A_SECOND_REASON}))
-        published = with_refusals(app.openapi(), refusal_codes(app))["paths"][PLANTED_PATH]["post"]["responses"]["409"]
+        document = with_refusals(app.openapi(), refusal_codes(app))
 
-        assert refused_codes(published) == {A_SECOND_REASON}
+        assert refused_codes(resolved(document, document["paths"][PLANTED_PATH]["post"]["responses"]["409"])) == {A_SECOND_REASON}
 
     def test_every_read_of_the_document_answers_the_published_refusals(self):
         """FastAPI answers each read after the first from `app.openapi_schema`, which a pass returning its edit alone would leave unedited."""

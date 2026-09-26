@@ -355,7 +355,9 @@ unwrapped**:
 dependency's 400, 401 and 503 (I370), a route's 404 for `DB-COMMON-001` (I369) and 409 for
 `DB-COMMON-002` (I358), each rule's code (I357), `REQ-VAL-001` on the 422 of every operation
 taking input and `REQ-VAL-002` on the 400 of every one taking a body — so `default` is left to the
-500s, whose codes name a server fault rather than the request.
+500s, whose codes name a server fault rather than the request. **Each failure response is published
+once under `components.responses`, named by its status and then its codes, and every operation
+refers to it by `$ref`** (`fl_backend/app/main.py :: with_refusals`).
 
 **A domain refusal answers the status its check chose by
 [RFC 9110](https://www.rfc-editor.org/rfc/rfc9110#section-15.5)'s meanings**
