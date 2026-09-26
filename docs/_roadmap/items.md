@@ -812,6 +812,31 @@ end-to-end testing, and the option needing no dependency is the harness this ent
 asserted there, and the harness and every page case calling it are deleted —
 `git grep -l pageHarness -- fl_frontend` printing nothing.
 
+### `h7h5-rzy4` · Every landing is an „Übersicht“ that shows what comes next, the administrator's included
+
+| Status  | Depends on |
+| ------- | ---------- |
+| Skipped | —          |
+
+**A person's and a team's landing are named „Übersicht“ and hold only a way on.** The person landing
+`/bereich` lists the places a person's Funktionen lead to
+(`fl_frontend/src/features/funktionen/components/views/FunktionenView.tsx`), and a team's landing names
+the team and the person's seats there (`TeamStartView.tsx` beside it). Neither shows what the person
+acts on next: the coming fixture, an answer awaited, a registration waiting for approval. The
+administrator lands on the triage page, whose name and view stay as they are.
+
+Ordered on 2026-09-26: "maybe the Übersicht should be an actual overview or like a custom dashboard?
+If the custom dashboard and admins also havin a Übersicht page is too much to do right now, please
+file a roadmap entry and just make sure all other user types land on Übersicht".
+
+**Done when** each Funktion's landing shows the few things that Funktion acts on next, read through
+reads its own pages already make, and I have ruled whether the administrator gets an
+„Übersicht“ beside the triage page or instead of it.
+
+**The trap:** the sidemenu's Funktion switcher lists the same places as the person landing, through one
+builder (`fl_frontend/src/features/funktionen/utils.ts :: funktionOrteOf` and `zeilenOf`); a dashboard
+keeps that list rather than growing a second one.
+
 ### `k4wq-8mvr` · Every failure carries a closed class beside its code, and the register's kinds are held by a check
 
 | Status | Depends on |
