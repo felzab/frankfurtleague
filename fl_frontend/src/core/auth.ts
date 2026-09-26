@@ -26,7 +26,7 @@ import { sendMail } from "./mail";
 import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
 import { ENROLMENT_CONFLICT, SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
 import { setRequestActor } from "./requestScope";
-import { ADMIN_LIFETIME, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS, STEP_UP_WINDOW_MS } from "./sessionLifetimes";
+import { ADMIN_LIFETIME, ENROLMENT_WINDOW_MS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS, STEP_UP_WINDOW_MS } from "./sessionLifetimes";
 import { mayReceiveSignIn } from "./signInGate";
 
 import type { BetterAuthOptions, DBTransactionAdapter, GenericEndpointContext } from "better-auth";
@@ -118,11 +118,20 @@ type StepUpCaller = {
   readonly session: { readonly createdAt: Date | string; readonly authFactor?: unknown };
 };
 
-function isWithinStepUpWindow(createdAt: Date | string): boolean {
+function isYoungerThan(createdAt: Date | string, window: number): boolean {
   const created = new Date(createdAt).getTime();
 
   // An unreadable stamp is no step-up rather than an unbounded one, as `withinLifetime` reads one.
-  return Number.isFinite(created) && Date.now() - created < STEP_UP_WINDOW_MS;
+  return Number.isFinite(created) && Date.now() - created < window;
+}
+
+function isWithinStepUpWindow(createdAt: Date | string): boolean {
+  return isYoungerThan(createdAt, STEP_UP_WINDOW_MS);
+}
+
+/** Adding a passkey asks a sign-in or confirmation this recent, whoever adds it (`docs/frontend/spec.md :: I411`). */
+function isWithinEnrolmentWindow(createdAt: Date | string): boolean {
+  return isYoungerThan(createdAt, ENROLMENT_WINDOW_MS);
 }
 
 /**
@@ -154,8 +163,8 @@ function asStepUpCaller(served: { user: { email: string }; session: object } | n
 
 /**
  * Every condition an enrolment meets, on both arms. The plugin gates its two registration endpoints
- * on `freshAge` and on nothing else, which a code-borne administrator is inside
- * (`docs/frontend/spec.md :: I261`).
+ * on `freshAge` and on nothing else, which is the wider window every other change takes
+ * (`docs/frontend/spec.md :: I261`, `:: I411`).
  */
 async function refuseEnrolment(
   adapter: DBTransactionAdapter,
@@ -173,13 +182,13 @@ async function refuseEnrolment(
     limit: PASSKEY_LIMIT + 1,
   });
 
+  // For everybody and before any factor: a passkey outlives the session adding it, so only a sign-in
+  // or confirmation of the last minutes may add one.
+  if (!isWithinEnrolmentWindow(caller.session.createdAt)) throw APIError.fromStatus("NOT_FOUND");
+
   // The mailed code enrols an administrator's first passkey and only ever that one: past it a stolen
   // mailbox would put its own authenticator beside the administrator's and never need theirs again.
-  const bootstrap =
-    held.length === 0 &&
-    isUserAdmin(caller.user.email) &&
-    caller.session.authFactor === CODE_FACTOR &&
-    isWithinStepUpWindow(caller.session.createdAt);
+  const bootstrap = held.length === 0 && isUserAdmin(caller.user.email) && caller.session.authFactor === CODE_FACTOR;
 
   if (!bootstrap && !isFreshlySignedIn(caller)) throw APIError.fromStatus("NOT_FOUND");
   if (held.length >= PASSKEY_LIMIT) throw APIError.fromStatus("NOT_FOUND");
@@ -842,8 +851,8 @@ async function passkeyStepOf(served: ServedSession, requestHeaders: Headers): Pr
   // A session the passkey already made needs no card, whatever it holds.
   if (served.session.authFactor === PASSKEY_FACTOR) return null;
 
-  // Past it the library refuses an enrolment, so no card offers one.
-  const mayEnrol = isWithinStepUpWindow(served.session.createdAt);
+  // Past it `refuseEnrolment` refuses the enrolment, so no card offers one.
+  const mayEnrol = isWithinEnrolmentWindow(served.session.createdAt);
   if (!admin && !mayEnrol) return null;
 
   // The same question `refuseEnrolment` puts to the adapter, asked here through the plugin: they

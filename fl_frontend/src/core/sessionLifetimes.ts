@@ -25,3 +25,7 @@ export const SESSION_EXPIRES_IN_DAYS = Math.max(ADMIN_LIFETIME.idle, PERSON_LIFE
 // GitHub's re-authentication window, the widely adopted figure: a change to passkeys or sign-ins asks
 // again past it (`docs/frontend/spec.md :: I261`).
 export const STEP_UP_WINDOW_MS = 2 * HOUR_MS;
+
+// Narrower for ADDING a passkey, which outlives the session that adds it: a borrowed session would
+// otherwise leave its borrower a way in for good (`docs/frontend/spec.md :: I411`).
+export const ENROLMENT_WINDOW_MS = 5 * 60 * 1000;

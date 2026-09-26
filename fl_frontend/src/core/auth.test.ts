@@ -13,7 +13,7 @@ import {
   registerAuthDoubles,
   seedLink,
 } from "./authDoubles.ts";
-import { STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
+import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
 
 const STORE = "__flAuthStore";
 const ADAPTER_CALLS = "__flAuthAdapterCalls";
@@ -621,11 +621,11 @@ describe("the second factor, judged at the same guard", () => {
     assert.equal(await getSignInDestination(), "/bereich");
   });
 
-  /* The library refuses an enrolment past the step-up window, so a card offered there is a press the
-     server refuses: the landing and the page have to agree on where it stops. */
+  /* The enrolment is refused past its own window, so a card offered there is a press the server
+     refuses: the landing and the page have to agree on where it stops, well inside the step-up window. */
   it("stops offering a person the passkey where the enrolment would be refused, and never sends them round", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
-    ageRow(row, { created: STEP_UP_WINDOW_MS + 60_000 });
+    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
     arriveAs(cookie);
 
     assert.equal(await getPasskeyStep(), null);
@@ -636,7 +636,7 @@ describe("the second factor, judged at the same guard", () => {
      passkey page, that page would send them back to the landing and round again. */
   it("sends an administrator whose code session is too old to enrol back to sign in, and asserts one who holds a passkey", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    ageRow(row, { created: STEP_UP_WINDOW_MS + 60_000 });
+    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
     arriveAs(cookie);
 
     assert.equal(await getPasskeyStep(), null);
@@ -695,12 +695,12 @@ describe("the second factor, judged at the same guard", () => {
   });
 });
 
-describe("the window the library lets an enrolment happen inside", () => {
-  /* `freshAge` gates passkey REGISTRATION from `createdAt` and defaults to a day: left there, a stolen
-     cookie enrols its own authenticator for a day where every other step-up asks again at the window. */
-  it("still generates registration options for a code session a minute inside the step-up window", async () => {
+describe("the window an enrolment happens inside", () => {
+  /* A passkey outlives the session that adds it, so only a sign-in or a confirmation of the last
+     minutes adds one (`docs/frontend/spec.md :: I411`). */
+  it("still generates registration options for a code session a minute inside the enrolment window", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    ageRow(row, { created: STEP_UP_WINDOW_MS - 60_000 });
+    ageRow(row, { created: ENROLMENT_WINDOW_MS - 60_000 });
 
     const answer = await overHttp("/passkey/generate-register-options", { cookie });
     assert.equal(answer.status, 200, `the enrolment the page offers was refused: ${JSON.stringify(logged)}`);
@@ -712,17 +712,20 @@ describe("the window the library lets an enrolment happen inside", () => {
     assert.equal(options.rp.id, "localhost", "the relying party is not the origin this stack serves");
   });
 
+  /* Deep inside the library's own freshness gate, so the refusal is the enrolment rule's and not the
+     library's, which answers 403. */
   it("refuses them a minute past it, which is where the page stops offering the step", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    ageRow(row, { created: STEP_UP_WINDOW_MS + 60_000 });
+    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
 
-    // The hook's own refusal, ahead of the library's freshness gate, which answers 403.
     assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
   });
 
-  /* Two hours, GitHub's re-authentication window: the figure every step-up here is judged by. */
-  it("holds the step-up window at two hours, the figure chosen rather than derived", () => {
+  /* Two hours, GitHub's re-authentication window, for every change but adding a passkey; five minutes
+     for that. The library's gate takes the wider one, this module's the narrower. */
+  it("holds the two windows at their figures, chosen rather than derived", () => {
     assert.equal(STEP_UP_WINDOW_MS, 2 * HOUR_MS);
+    assert.equal(ENROLMENT_WINDOW_MS, 5 * 60 * 1000);
     assert.equal(auth.options.session.freshAge, STEP_UP_WINDOW_MS / 1000, "the library's freshness gate and the step-up disagree");
   });
 });
@@ -1088,15 +1091,55 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     );
   });
 
-  it("refuses a person's passkey past the step-up window, whatever made the session", async () => {
+  /* Inside the two hours every other change is allowed in: adding a passkey alone asks for more. */
+  it("refuses a person's passkey past the enrolment window, whatever made the session", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
 
     for (const factor of ["code", "passkey"]) {
       row.authFactor = factor;
-      ageRow(row, { created: STEP_UP_WINDOW_MS + 60_000 });
+      ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
 
       assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404, `${factor} enrolled when stale`);
     }
+    assert.deepEqual(store.passkey, []);
+  });
+
+  it("refuses an administrator's further passkey from a passkey session past the enrolment window", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    steppedUp(row);
+    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
+    store.passkey.push(aPasskeyFor(row.userId));
+
+    assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
+    assert.equal(store.passkey.length, 1);
+  });
+
+  it("refuses an administrator's first passkey from a code session past the enrolment window", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
+
+    assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
+    assert.deepEqual(store.passkey, []);
+  });
+
+  /* The `auth.api` arm, which the hook returns early for, aged inside the library's own freshness gate:
+     the enrolment rule in `registration.afterVerification` is then the only thing that refuses it. */
+  it("refuses a person's enrolment past the enrolment window where the hook never runs", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    const headers = new Headers({ ...ORIGIN, cookie, origin: "http://localhost:3000" });
+
+    const offered = await auth.api.generatePasskeyRegistrationOptions({ headers, returnHeaders: true });
+    const challenge = (offered.response as { challenge: string }).challenge;
+    ageRow(row, { created: ENROLMENT_WINDOW_MS + 60_000 });
+
+    await assert.rejects(
+      () =>
+        auth.api.verifyPasskeyRegistration({
+          body: { response: registrationFor(challenge, true) },
+          headers: new Headers({ ...ORIGIN, cookie: `${cookie}; ${cookieHeader(offered)}`, origin: "http://localhost:3000" }),
+        }),
+      (raised: unknown) => Reflect.get(raised as object, "status") === "NOT_FOUND",
+    );
     assert.deepEqual(store.passkey, []);
   });
 
