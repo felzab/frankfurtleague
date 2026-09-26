@@ -546,6 +546,7 @@ const STALE_ADMIN_URL = String.raw`/[a-z]+:\x2F\x2F[^\x2F\s]+\x2Fadmin(?![A-Za-z
  * origin: a backend path ending in `/admin` and a route handler under `/api/admin` open on neither.
  */
 const STALE_ADMIN_BAN = {
+  // Misses a mail's `${LABEL}: ${origin}/admin`: read after a hole, the prefix also ends `/spiele/${id}/admin`.
   selector: `:matches(Literal[value=${STALE_ADMIN}], TemplateLiteral:matches([quasis.0.value.raw=${STALE_ADMIN}], [quasis.0.value.raw=""][quasis.1.value.raw=${STALE_ADMIN}]), Literal[value=${STALE_ADMIN_URL}], TemplateElement[value.raw=${STALE_ADMIN_URL}])`,
   message: "The admin panel moved off /admin, which answers 404: its pages are under /bereich/admin.",
   tests: true,
