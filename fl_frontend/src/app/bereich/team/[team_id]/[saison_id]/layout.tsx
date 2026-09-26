@@ -46,6 +46,7 @@ async function TeamChrome({ params, children }: { params: TeamParams; children: 
       saisonId={saison_id}
       structure={teamStructureFor(seats)}
       saison={seats.length === 0 ? null : { isLaufend: seats.some((seat) => seat.saison_status === "active") }}
+      isRefused={seats.length === 0}
       orte={funktionOrteOf(funktionen)}>
       {/* In the page's stead, for the chrome: Next runs the page whatever this renders, so the page checks the seat itself (`fl_frontend/src/features/funktionen/resolvers.ts :: requireTeamSeats`). */}
       {seats.length === 0 ? <TeamForbiddenPanel funktionen={funktionen} /> : children}

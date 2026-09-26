@@ -22,6 +22,7 @@ function TeamAreaFallback(_props: object, { error, reset }: ErrorInfo) {
       saisonId={saison_id}
       structure={[]}
       saison={null}
+      isRefused={false}
       orte={[]}>
       <DashboardErrorBoundary
         error={asCaughtError(error)}

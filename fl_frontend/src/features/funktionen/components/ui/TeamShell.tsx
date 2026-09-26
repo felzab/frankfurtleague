@@ -22,6 +22,7 @@ export function TeamShell({
   saisonId,
   structure,
   saison,
+  isRefused,
   orte,
   children,
 }: {
@@ -30,13 +31,17 @@ export function TeamShell({
   structure: SidemenuStructure<TeamIconName>;
   /** The season as a seat there reports it, `null` where the person holds none and the address is all there is. */
   saison: { isLaufend: boolean } | null;
+  /**
+   * Whether the page is the forbidden panel, said rather than read off `saison`: the area's crash
+   * panel holds no season either, and its bar must not tell a seat holder they hold no seat.
+   */
+  isRefused: boolean;
   /** The places the person's Funktionen lead to (`fl_frontend/src/features/funktionen/utils.ts :: funktionOrteOf`). */
   orte: readonly FunktionOrt[];
   children: React.ReactNode;
 }) {
-  // The fallback is what heads an address the structure claims no entry for, and with no seat held the
-  // structure is empty and the page is the forbidden panel, so the refusal's own words head it.
-  const fallback = saison === null ? TEAM_SHELL_REFUSAL : TEAM_SHELL_FALLBACK;
+  // The fallback heads every address the structure claims no entry for, the forbidden panel's among them.
+  const fallback = isRefused ? TEAM_SHELL_REFUSAL : TEAM_SHELL_FALLBACK;
 
   return (
     <AppShell

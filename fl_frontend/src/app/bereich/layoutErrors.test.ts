@@ -8,7 +8,8 @@ import { describe, it } from "node:test";
 import { Component, createElement as h } from "react";
 import { notFound, redirect } from "next/navigation";
 
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 
 import { APIBadStatusError } from "@/core/errors.ts";
 import { doubleActionRequest, doubleEveryAction, exportingModule } from "@/shared/testing/actionDoubles.ts";
@@ -56,6 +57,7 @@ const { default: AdminLayout } = await import("@/app/bereich/admin/layout.tsx");
 const { PersonAreaBoundary } = await import("@/features/funktionen/components/providers/PersonAreaBoundary.tsx");
 const { TeamAreaBoundary } = await import("@/features/funktionen/components/providers/TeamAreaBoundary.tsx");
 const { AdminAreaBoundary } = await import("@/features/admin/components/providers/AdminAreaBoundary.tsx");
+const { TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL } = await import("@/features/funktionen/constants.ts");
 
 const TEAM = { team_id: "6890a1b2c3d4e5f607250011", saison_id: "2526" };
 const NO_PROPS = { params: Promise.resolve({}), searchParams: Promise.resolve({}) };
@@ -188,6 +190,24 @@ describe("a read failing in an area's layout", () => {
           cleanup();
         }
       }
+    }
+  });
+});
+
+describe("the bar over the team area's crash panel", () => {
+  /* A failing read says nothing about the seats the person holds, so the bar keeps the area's own words
+     rather than the refusal's, which would tell a seat holder they hold no seat. */
+  it("keeps the area's own hint and never the refusal's", async () => {
+    fetchDouble.mock.mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })));
+    render(underNext(h(TeamAreaBoundary, null, h(Throwing)), { pathname: `/bereich/team/${TEAM.team_id}/${TEAM.saison_id}`, params: TEAM }));
+    try {
+      await userEvent.setup().click(screen.getByRole("button", { name: `Was auf „${TEAM_SHELL_FALLBACK.label}“ zu finden ist` }));
+      const shown = document.body.textContent;
+
+      assert.ok(shown.includes(TEAM_SHELL_FALLBACK.hint.lead), "the crash panel's bar reads no hint of the area's own");
+      assert.ok(!shown.includes(TEAM_SHELL_REFUSAL.hint.lead), "the crash panel's bar tells a seat holder they hold no seat");
+    } finally {
+      cleanup();
     }
   });
 });

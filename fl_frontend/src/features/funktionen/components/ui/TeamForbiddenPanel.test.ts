@@ -132,11 +132,16 @@ describe("how the forbidden panel draws its ways out", () => {
 
 /**
  * The hint the team shell's bar opens on a press, at an address no page claims: the forbidden panel's
- * whenever `saison` is `null`, and otherwise a seat holder's missing page.
+ * where the shell is told the page is refused, and otherwise a seat holder's missing page.
  */
-async function barHintAt(saison: { isLaufend: boolean } | null): Promise<string> {
+async function barHintAt(saison: { isLaufend: boolean } | null, isRefused: boolean): Promise<string> {
   const pathname = `/bereich/team/${TEAM_B}/2526/unsinn`;
-  render(underNext(h(TeamShell, { teamId: TEAM_B, saisonId: "2526", structure: [], saison: saison, orte: [], children: null }), { pathname }));
+  render(
+    underNext(
+      h(TeamShell, { teamId: TEAM_B, saisonId: "2526", structure: [], saison: saison, isRefused: isRefused, orte: [], children: null }),
+      { pathname },
+    ),
+  );
   await userEvent.setup().click(screen.getByRole("button", { name: `Was auf „${TEAM_SHELL_FALLBACK.label}“ zu finden ist` }));
 
   return document.body.textContent ?? "";
@@ -146,7 +151,7 @@ describe("what the team shell's bar says over an address", () => {
   /* The refusal is not a missing page: over the forbidden panel the bar says why, not that the address
      belongs to no page of the team. */
   it("says the person is not entered on the team where they hold no seat there", async () => {
-    const refused = await barHintAt(null);
+    const refused = await barHintAt(null, true);
 
     assert.ok(refused.includes(TEAM_SHELL_REFUSAL.hint.lead), "the bar over the forbidden panel does not say the person is not entered");
     assert.ok(!refused.includes(TEAM_SHELL_FALLBACK.hint.lead), "the bar over the forbidden panel reads as a missing page");
@@ -155,7 +160,7 @@ describe("what the team shell's bar says over an address", () => {
   /* The control: a seat holder at an address no page claims still reads the area's own fallback, so the
      case above reads a hint that opened. */
   it("keeps the missing page's words for a seat holder at an address no page claims", async () => {
-    const missing = await barHintAt({ isLaufend: true });
+    const missing = await barHintAt({ isLaufend: true }, false);
 
     assert.ok(missing.includes(TEAM_SHELL_FALLBACK.hint.lead), "a seat holder's missing page no longer reads as one");
     assert.ok(!missing.includes(TEAM_SHELL_REFUSAL.hint.lead), "a seat holder is told they are not entered");
