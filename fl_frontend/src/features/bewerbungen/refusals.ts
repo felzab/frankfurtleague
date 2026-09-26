@@ -108,7 +108,6 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
   }
 }
 
-// GERMAN-PENDING: drafted for the coordinator's approval at landing.
 const ERNEUT_ADRESSE_GESPERRT = buildRefusal({
   reason: "Die E-Mail-Adresse dieser Person steht auf der Sperrliste",
   repair: "Korrigiere sie über „Adresse korrigieren“ oder hebe die Sperre unter /bereich/admin/sperrliste auf",

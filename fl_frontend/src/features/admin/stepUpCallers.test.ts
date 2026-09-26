@@ -163,7 +163,7 @@ const seat = (vorname: string, email: string, bestaetigtAm: string | null = null
     bestaetigt_am: bestaetigtAm,
   },
 });
-const OFFEN = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
+const OFFEN = { verschickt_am: "2026-09-01", erinnert_am: null, erinnerung_gesperrt_am: null, abgelehnt_am: null, zustellung: null };
 const strip = (trainerStieAus: boolean) =>
   underNext(
     h(BewerbungBestaetigungStrip, {
