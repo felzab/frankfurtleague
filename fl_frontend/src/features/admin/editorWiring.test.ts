@@ -19,6 +19,7 @@ import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
+import type { FLSaisonRules } from "@/features/saisons/schemas.ts";
 import type { FLKontaktperson } from "@/features/teams/schemas.ts";
 import type { UserEvent } from "@testing-library/user-event";
 import type { ReactNode } from "react";
@@ -1008,18 +1009,24 @@ const FULL_GROUPS = (["A", "B"] as const).flatMap((gruppe) =>
 );
 
 /** The season page as its route renders it: the view holding the redraw's typing above the editor it keys. */
-async function renderSaisonPage(): Promise<{ container: HTMLElement; rerenderSaved: () => Promise<void> }> {
+async function renderSaisonPage(): Promise<{
+  container: HTMLElement;
+  rerenderSaved: () => Promise<void>;
+  rerenderRedrawn: () => Promise<void>;
+}> {
   const { AdminSaisonEditView } = await import("@/features/saisons/components/views/AdminSaisonEditView.tsx");
-  const page = (saved: boolean): ReactNode => {
-    const props = { ...saisonProps({ drawn: true }), ersatz: { rows: FULL_GROUPS, candidates: [] } };
-    const saison = saved ? { ...props.saison, rules: { ...props.saison.rules, tiebreak_order: "direkter_vergleich" as const } } : props.saison;
+  const props = { ...saisonProps({ drawn: true }), ersatz: { rows: FULL_GROUPS, candidates: [] } };
+  const page = (rules: FLSaisonRules): ReactNode =>
+    underNext(h(AdminSaisonEditView, { ...props, saison: { ...props.saison, rules: rules } }), { router, search: "saison_id=2026" });
+  const { container, rerender } = render(page(props.saison.rules));
 
-    return underNext(h(AdminSaisonEditView, { ...props, saison: saison }), { router, search: "saison_id=2026" });
+  return {
+    container,
+    // What the save's refresh hands the page: the stored record moved, which re-keys the editor under the view.
+    rerenderSaved: () => act(async () => void rerender(page({ ...props.saison.rules, tiebreak_order: "direkter_vergleich" }))),
+    // What a redraw's refresh hands it: the stored three moved, which the typing started from.
+    rerenderRedrawn: () => act(async () => void rerender(page({ ...props.saison.rules, qualifiers_per_group: 1 }))),
   };
-  const { container, rerender } = render(page(false));
-
-  // What the save's refresh hands the page: the stored record moved, which re-keys the editor under the view.
-  return { container, rerenderSaved: () => act(async () => void rerender(page(true))) };
 }
 
 /** A redraw's shape moved: the replace picked, and one of its boxes off the stored three. */
@@ -1124,6 +1131,24 @@ describe("a season page holding a redraw's moved shape", () => {
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description]),
       [["warning", "Erst speichern", "Der Spielplan entsteht aus den gespeicherten Regeln, nicht aus den getippten."]],
+    );
+  });
+
+  /* The typing starts from the stored three, so a write that moves them starts it again: kept, a pick and boxes typed
+     against the old three would read as moves off the new ones. */
+  it("starts the redraw's typing again once the stored three move", async () => {
+    const user = userEvent.setup();
+    const { container, rerenderRedrawn } = await renderSaisonPage();
+    await moveShape(user, container);
+
+    assert.equal(screen.getByRole("radio", { name: "Neu anlegen" }).getAttribute("aria-checked"), "true", "the pick never took");
+
+    await rerenderRedrawn();
+
+    assert.equal(
+      screen.getByRole("radio", { name: "Neu anlegen" }).getAttribute("aria-checked") ?? "false",
+      "false",
+      "the pick outlived the moved three",
     );
   });
 
