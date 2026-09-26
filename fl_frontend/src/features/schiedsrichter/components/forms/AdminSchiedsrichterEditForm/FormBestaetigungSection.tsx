@@ -23,6 +23,8 @@ import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
+import { useStepUp } from "@/shared/hooks/useStepUp";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -160,6 +162,7 @@ export function FormBestaetigungSection({
 }) {
   const router = useRouter();
   const [sendet, setSendet] = useState(false);
+  const stepUp = useStepUp();
   const panel = formPanel();
 
   const istBestaetigt = einwilligung?.bestaetigt_am != null;
@@ -179,6 +182,12 @@ export function FormBestaetigungSection({
     if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
 
     setSendet(true);
+    // A new link voids the one the referee holds (`docs/frontend/spec.md :: I432`).
+    if (!(await stepUp.confirm(true))) {
+      setSendet(false);
+      return;
+    }
+
     // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it
     // leaves „Sendet...“ standing for good and reports nothing.
     const res = await einladeSchiedsrichterAction({ id: schiedsrichterId }).catch(rejectedWrite(router, OHNE_ANTWORT));
@@ -258,9 +267,10 @@ export function FormBestaetigungSection({
                 className="size-3.5"
                 aria-hidden="true"
               />
-              <span>{sendet ? "Sendet..." : sendeLabel}</span>
+              <span>{sendet ? stepUp.running("Sendet...") : sendeLabel}</span>
             </Button>
           </Hint>
+          <StepUpRefused refused={stepUp.refused} />
         </div>
       </div>
     </section>

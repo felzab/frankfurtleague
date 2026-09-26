@@ -44,5 +44,7 @@ export async function POST(request: NextRequest) {
     // states at the save this replays: no cached read holds a contact person. The screen is refreshed
     // by the caller instead.
     invalidate: () => undefined,
+    // Undoing a first entry clears the block, the step-up write the clearing panel asks for.
+    stepUp: (payload) => payload.kontakte === null,
   });
 }

@@ -61,7 +61,7 @@ export function AdminBewerbungAblehnenSection({
   /** Whether a box in the confirmation strip holds typing, which this write re-keys the page over. */
   isDirty: boolean;
 }) {
-  const twoPress = useTwoPressConfirm(() => guardAgainstDraft(isDirty, DRAFT_DISCARDED));
+  const twoPress = useTwoPressConfirm({ guard: () => guardAgainstDraft(isDirty, DRAFT_DISCARDED), stepUp: true });
   const { isConfirming, press, cancel } = twoPress;
 
   const [grund, setGrund] = useState("");

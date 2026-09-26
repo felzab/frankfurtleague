@@ -26,6 +26,7 @@ const { Input } = await import("@heroui/react/input");
 const { Label } = await import("@heroui/react/label");
 const { TextField } = await import("@/shared/components/ui/TextField.tsx");
 const { EntityForm } = await import("./EntityForm.tsx");
+const { StepUpContext, STEP_UP_REFUSED } = await import("./stepUp.ts");
 
 type Draft = { name: string };
 
@@ -126,5 +127,70 @@ describe("the create form", () => {
       [["danger", "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.", "unknown"]],
     );
     assert.ok(screen.queryByRole("textbox", { name: "Name" }) !== null, "the rejection took the dialog off the page");
+  });
+});
+
+/** A create under a page past the step-up window, its prompt answering `answer` and counting each run. */
+function renderSteppedUpCreate({ stepUp, answer }: { stepUp: boolean; answer: boolean }) {
+  const order: string[] = [];
+  const onSubmit = (): Promise<ActionResult> => {
+    order.push("write");
+    return Promise.resolve({ success: true, message: "Angelegt" });
+  };
+  const page = {
+    isStale: () => true,
+    confirm: () => {
+      order.push("prompt");
+      return Promise.resolve(answer);
+    },
+  };
+
+  render(
+    underNext(
+      h(
+        StepUpContext.Provider,
+        { value: page },
+        h(EntityForm<Draft, Draft>, {
+          initialDraft: { name: "Ada" },
+          renderFields: () => null,
+          schema: z.object({ name: z.string() }),
+          toPayload: (draft) => draft,
+          onSubmit,
+          successMessage: "Angelegt",
+          onClose: () => undefined,
+          stepUp,
+        }),
+      ),
+    ),
+  );
+
+  return order;
+}
+
+describe("the create form of a step-up write", () => {
+  /* `docs/frontend/spec.md :: I431`: the create declaring it asks before it sends, and one that does
+     not declare it never asks, whatever the page's window says. */
+  it("asks for the passkey before it sends where the create declares it, and only there", async () => {
+    const user = userEvent.setup();
+
+    const declared = renderSteppedUpCreate({ stepUp: true, answer: true });
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await waitFor(() => assert.deepEqual(declared, ["prompt", "write"]));
+
+    document.body.replaceChildren();
+    const undeclared = renderSteppedUpCreate({ stepUp: false, answer: true });
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await waitFor(() => assert.deepEqual(undeclared, ["write"]));
+  });
+
+  /* A refused prompt creates nothing, and the dialog says so under its own controls. */
+  it("sends nothing on a refused prompt and says so in the dialog", async () => {
+    const user = userEvent.setup();
+
+    const order = renderSteppedUpCreate({ stepUp: true, answer: false });
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+
+    assert.equal((await screen.findByText(STEP_UP_REFUSED)).getAttribute("role"), "alert");
+    assert.deepEqual(order, ["prompt"], "a refused prompt created the record");
   });
 });

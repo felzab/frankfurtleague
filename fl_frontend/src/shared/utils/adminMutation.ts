@@ -1,7 +1,7 @@
 import { refresh } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
-import { getAdminSession } from "@/core/auth";
+import { getAdminSession, isFreshlySignedIn } from "@/core/auth";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestWriteSent } from "@/core/requestScope";
@@ -22,6 +22,34 @@ export const ADMIN_FORBIDDEN = "Deine Sitzung hat keine Administratorrechte. Mel
 
 /** The administrator a guarded body runs for, as the guard resolved them. */
 export type AdminSession = NonNullable<Awaited<ReturnType<typeof getAdminSession>>>;
+
+/** The server's answer to a change sent after the step-up window closed; the page asks before it sends one. */
+const STEP_UP_REQUIRED = "Bestätige zuerst, dass Du es bist.";
+
+/**
+ * A change refused for want of a recent sign-in. `stepUp` is what the page opens the confirmation
+ * on, so the sentence above is read only where the page could not ask first.
+ */
+export type StepUpRequired = ActionFailure & { readonly stepUp: true };
+
+// Here under both spines rather than in `fl_frontend/src/shared/utils/kontoMutation.ts`, which builds
+// on this module: the account page's refusal and an administrator's are one shape.
+/** The step-up refusal, for an action judging a window of its own inside the spine's. */
+export function stepUpRequired(): StepUpRequired {
+  return { success: false, error: STEP_UP_REQUIRED, stepUp: true };
+}
+
+/**
+ * A step-up write's refusal from a session past the step-up window, or `null`. The refresh re-reads
+ * the page's own figure, so its next press asks rather than being refused again
+ * (`docs/frontend/spec.md :: I433`).
+ */
+export function refuseUnconfirmed(session: AdminSession): StepUpRequired | null {
+  if (isFreshlySignedIn(session)) return null;
+
+  refresh();
+  return stepUpRequired();
+}
 
 /**
  * A slice's mapped refusal as the failure an action returns.
@@ -113,12 +141,35 @@ export async function runGuardedMutation<S, T extends { success: boolean }>(
   return answer;
 }
 
-/** A server action's spine; a route handler's write takes `runAdminRouteWrite`. */
+/** A guarded action's body, handed the administrator the guard resolved. */
+type AdminBody<T> = (session: AdminSession) => Promise<T>;
+
+/** What an action declares about its write beside its body: `stepUp` for a step-up write. */
+type AdminWrite = { readonly stepUp: boolean };
+
+/**
+ * A server action's spine; a route handler's write takes `runAdminRouteWrite`. A write declaring
+ * `stepUp` is refused ahead of its body from a session past the step-up window.
+ */
+export async function runAdminMutation<T extends { success: boolean }>(mutationName: string, fn: AdminBody<T>): Promise<T | ActionFailure>;
 export async function runAdminMutation<T extends { success: boolean }>(
   mutationName: string,
-  fn: (session: AdminSession) => Promise<T>,
+  declared: AdminWrite,
+  fn: AdminBody<T>,
+): Promise<T | ActionFailure>;
+export async function runAdminMutation<T extends { success: boolean }>(
+  mutationName: string,
+  ...rest: [AdminBody<T>] | [AdminWrite, AdminBody<T>]
 ): Promise<T | ActionFailure> {
-  return runGuardedMutation(mutationName, { ...ADMIN_GUARD, forbidden: ADMIN_FORBIDDEN }, fn);
+  const [{ stepUp }, fn] = rest.length === 1 ? [{ stepUp: false }, rest[0]] : rest;
+
+  return runGuardedMutation(
+    mutationName,
+    { ...ADMIN_GUARD, forbidden: ADMIN_FORBIDDEN },
+    async (session) =>
+      // Ahead of the body, so a stale session's step-up write reaches neither its payload nor the backend.
+      (stepUp ? refuseUnconfirmed(session) : null) ?? fn(session),
+  );
 }
 
 /**

@@ -5,6 +5,7 @@ import ArrowUturnCwLeft from "@gravity-ui/icons/ArrowUturnCwLeft";
 import { Button } from "@heroui/react/button";
 
 import { formButton } from "@/shared/components/ui/formButtons";
+import { STEP_UP_RUNNING } from "@/shared/components/ui/stepUp";
 
 import type { ReactNode } from "react";
 
@@ -17,7 +18,7 @@ export type EditPageHeaderContent = {
    */
   chip?: ReactNode;
   /** Only where the entity can be retired; the write is the row's, not the draft's. */
-  reactivate?: { isPending: boolean; onPress: () => void };
+  reactivate?: { isPending: boolean; isPrompting?: boolean; onPress: () => void };
 };
 
 /**
@@ -65,7 +66,7 @@ export function EditPageHeader({
               onPress={reactivate.onPress}
               isPending={reactivate.isPending}
               className={`${formButton({ intent: "nav", size: "sm" })} shrink-0`}>
-              {reactivate.isPending ? "Stellt wieder her..." : "Reaktivieren"}
+              {reactivate.isPrompting === true ? STEP_UP_RUNNING : reactivate.isPending ? "Stellt wieder her..." : "Reaktivieren"}
             </Button>
           )}
         </div>

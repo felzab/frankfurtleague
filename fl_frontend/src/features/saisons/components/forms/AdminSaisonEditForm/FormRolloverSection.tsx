@@ -58,7 +58,7 @@ export function FormRolloverSection({
   // Only a `future` season has an act on offer: the running season has nothing to switch to, and a
   // `past` one is refused by `REQ-ACTIVATE-002`.
   const panel = formPanel({ tone: saisonStatus === "future" ? "danger" : "neutral" });
-  const twoPress = useTwoPressConfirm(onBeforeActivate);
+  const twoPress = useTwoPressConfirm({ guard: onBeforeActivate, stepUp: true });
   const router = useRouter();
   const { isConfirming, press } = twoPress;
 

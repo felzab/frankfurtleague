@@ -125,7 +125,7 @@ export function FormEinladungVersandSection({
   const [erneut, setErneut] = useState(false);
   const [isLoadingVorschau, startLoadingVorschau] = useTransition();
 
-  const twoPress = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm({ stepUp: true });
   const { isConfirming, press, cancel } = twoPress;
 
   const panel = formPanel();

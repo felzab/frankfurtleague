@@ -26,6 +26,8 @@ import { FIELD_TEXTAREA_CLASSES, FORM_SECTION_HEADING_CLASSES, TOGGLE_GROUP_ALIG
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
+import { useStepUp } from "@/shared/hooks/useStepUp";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
@@ -82,8 +84,9 @@ export function FormEinladungSection({
   // nothing, so escalating it would grade a create as a loss.
   const [isMinting, startMinting] = useTransition();
   const [isMailing, startMailing] = useTransition();
+  const mailStepUp = useStepUp();
 
-  const twoPress = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm({ stepUp: true });
   const router = useRouter();
   const { isConfirming, isPending: isWriting, press, cancel } = twoPress;
 
@@ -141,22 +144,25 @@ export function FormEinladungSection({
   };
 
   const versenden = (offen: FrischeEinladung) => {
-    startMailing(async () => {
-      // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await mailEinladungAction({
-        team_id: teamId,
-        saison_id: saisonId,
-        einladung_id: offen.einladungId,
-        token: offen.token,
-      }).catch(rejectedWrite(router));
+    // It mails a bearer link to the club's seats (`docs/frontend/spec.md :: I432`).
+    mailStepUp.confirmThen(true, () =>
+      startMailing(async () => {
+        // A rejected action may still have saved, and uncaught here it takes the page down with it.
+        const res = await mailEinladungAction({
+          team_id: teamId,
+          saison_id: saisonId,
+          einladung_id: offen.einladungId,
+          token: offen.token,
+        }).catch(rejectedWrite(router));
 
-      if (!res.success) {
-        appToast.failure("Registrierungslink nicht gesendet", res);
-        return;
-      }
+        if (!res.success) {
+          appToast.failure("Registrierungslink nicht gesendet", res);
+          return;
+        }
 
-      appToast.success("Registrierungslink gesendet", { description: res.message });
-    });
+        appToast.success("Registrierungslink gesendet", { description: res.message });
+      }),
+    );
   };
 
   const kopieren = (offen: FrischeEinladung) => {
@@ -275,7 +281,7 @@ export function FormEinladungSection({
                   <Button
                     type="button"
                     variant="primary"
-                    isPending={isMailing}
+                    isPending={isMailing || mailStepUp.isPrompting}
                     isDisabled={!isMailing && busy}
                     onPress={() => versenden(frisch)}
                     className={`${formButton({ stacks: true })} gap-x-2`}>
@@ -283,9 +289,10 @@ export function FormEinladungSection({
                       className="size-4.5"
                       aria-hidden="true"
                     />
-                    {isMailing ? "Sendet..." : "Link per E-Mail senden"}
+                    {isMailing || mailStepUp.isPrompting ? mailStepUp.running("Sendet...") : "Link per E-Mail senden"}
                   </Button>
                 </div>
+                <StepUpRefused refused={mailStepUp.refused} />
               </div>
             )}
 

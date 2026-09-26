@@ -26,6 +26,8 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
+import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
+import { useStepUp } from "@/shared/hooks/useStepUp";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
@@ -70,7 +72,7 @@ function GruppenTauschControl({
   isDirty: boolean;
 }) {
   const router = useRouter();
-  const twoPress = useTwoPressConfirm(() => guardAgainstDraft(isDirty, DRAFT_DISCARDED));
+  const twoPress = useTwoPressConfirm({ guard: () => guardAgainstDraft(isDirty, DRAFT_DISCARDED) });
   const { isConfirming, isPending: isSwapping, press, cancel } = twoPress;
   const [partner, setPartner] = useState<SaisonSwapTeam | null>(null);
 
@@ -266,6 +268,7 @@ export function FormSaisonSection({
 }) {
   const panel = formPanel();
   const [isEntering, startEntering] = useTransition();
+  const entryStepUp = useStepUp();
   const router = useRouter();
 
   /**
@@ -283,28 +286,31 @@ export function FormSaisonSection({
   const handleEnterSaison = () => {
     if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
 
-    startEntering(async () => {
-      // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await postSaisonTeamAction({ team_id: teamId, saison_id: saison.saisonId, gruppe }).catch(rejectedWrite(router));
+    // `saison_teams` has no DELETE, so an entry is a step-up write (`docs/frontend/spec.md :: I432`).
+    entryStepUp.confirmThen(true, () =>
+      startEntering(async () => {
+        // A rejected action may still have saved, and uncaught here it takes the page down with it.
+        const res = await postSaisonTeamAction({ team_id: teamId, saison_id: saison.saisonId, gruppe }).catch(rejectedWrite(router));
 
-      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
-      // so bare it commits before the pending state lifts.
-      startEntering(() => {
-        if (res.success) {
-          setEntryGruppeError(null);
-          appToast.success("Team aufgenommen", { description: res.message });
-          return;
-        }
+        // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+        // so bare it commits before the pending state lifts.
+        startEntering(() => {
+          if (res.success) {
+            setEntryGruppeError(null);
+            appToast.success("Team aufgenommen", { description: res.message });
+            return;
+          }
 
-        const gruppeError = res.fieldErrors?.gruppe ?? null;
-        setEntryGruppeError(gruppeError);
-        // Suppressed where the picker carries the message, so a refusal about the chosen group is not
-        // also said in a toast that names no field.
-        if (gruppeError === null) {
-          appToast.failure("Team nicht aufgenommen", res);
-        }
-      });
-    });
+          const gruppeError = res.fieldErrors?.gruppe ?? null;
+          setEntryGruppeError(gruppeError);
+          // Suppressed where the picker carries the message, so a refusal about the chosen group is not
+          // also said in a toast that names no field.
+          if (gruppeError === null) {
+            appToast.failure("Team nicht aufgenommen", res);
+          }
+        });
+      }),
+    );
   };
 
   return (
@@ -417,13 +423,14 @@ export function FormSaisonSection({
                 <Button
                   type="button"
                   variant="primary"
-                  isPending={isEntering}
+                  isPending={isEntering || entryStepUp.isPrompting}
                   isDisabled={!isEntering && gruppe === null}
                   onPress={handleEnterSaison}
                   className={`${formButton({ intent: "submit" })} w-full`}>
-                  {isEntering ? "Nimmt auf..." : `In Saison ${saison.saisonId} aufnehmen`}
+                  {isEntering || entryStepUp.isPrompting ? entryStepUp.running("Nimmt auf...") : `In Saison ${saison.saisonId} aufnehmen`}
                 </Button>
               </Hint>
+              <StepUpRefused refused={entryStepUp.refused} />
             </div>
           </div>
         ) : (

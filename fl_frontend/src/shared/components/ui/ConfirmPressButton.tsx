@@ -4,6 +4,7 @@ import { Button } from "@heroui/react/button";
 
 import { confirmButton } from "./formButtons";
 import { Hint } from "./Hint";
+import { STEP_UP_LABEL, STEP_UP_RUNNING } from "./stepUp";
 
 import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import type { ReactNode } from "react";
@@ -52,7 +53,9 @@ export function ConfirmPressButton({
   describedBy?: string;
 }) {
   const { isConfirming } = confirm;
-  const label = isConfirming ? armed : resting;
+  // The prompt's words over the panel's armed ones: this press opens the browser's passkey prompt
+  // before it sends anything (`docs/frontend/spec.md :: I431`).
+  const label = !isConfirming ? resting : confirm.asksPasskey ? STEP_UP_LABEL : armed;
   const writing = confirm.isPending || submitting;
   // A write in flight HOLDS the control rather than closing it (§1.14).
   const waiting = writing || held;
@@ -71,7 +74,8 @@ export function ConfirmPressButton({
         aria-describedby={isConfirming ? undefined : describedBy}
         className={confirmButton(isConfirming)}>
         {!isConfirming && icon}
-        {writing ? running : label}
+        {/* The prompt's words while it is open: nothing has been sent yet. */}
+        {confirm.isPrompting ? STEP_UP_RUNNING : writing ? running : label}
       </Button>
     </Hint>
   );

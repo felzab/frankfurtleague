@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { getSignInDestination } from "@/core/auth";
+import { getSignInDestination, isFreshlySignedIn } from "@/core/auth";
 import { logger } from "@/core/logging";
 
 import { AENDERUNG_STEHT_WEITERHIN, isRefusal, RUECKNAHME_UNKLAR } from "./actionError";
-import { ADMIN_FORBIDDEN, runAdminRouteWrite } from "./adminMutation";
+import { ADMIN_FORBIDDEN, runAdminRouteWrite, stepUpRequired } from "./adminMutation";
 import { buildRefusal } from "./refusal";
 
 import type { NextRequest } from "next/server";
@@ -51,6 +51,12 @@ type UndoRoute<TPayload> = {
    * `{ expire: 0 }` belong (`docs/frontend/spec.md` I14 and I55).
    */
   invalidate: (payload: TPayload) => void;
+  /**
+   * Whether this replay is a step-up write, refused from a session past the window before it runs
+   * (`docs/frontend/spec.md :: I432`). Judged on the replay rather than the route: a route's other
+   * replays keep their undo unasked.
+   */
+  stepUp?: (payload: TPayload) => boolean;
 };
 
 /**
@@ -84,12 +90,15 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
     return NextResponse.json({ success: false, error: FREMDE_HERKUNFT });
   }
 
-  const guarded = await runAdminRouteWrite(route.mutationName, async () => {
+  const guarded = await runAdminRouteWrite(route.mutationName, async (session) => {
     const body: unknown = await request.json().catch(() => null);
     const parsed = route.schema.safeParse(body);
     if (!parsed.success) {
       return { success: false as const, error: UNDO_UNREADABLE };
     }
+
+    // No refresh beside it, which a route handler cannot call: the dispatch asks again at its next press.
+    if (route.stepUp?.(parsed.data) === true && !isFreshlySignedIn(session)) return stepUpRequired();
 
     // In a `finally` rather than under the refusal below: a replay committing in parts leaves rows
     // written behind a refusal and behind a throw alike, and a cached read still serves what the undo

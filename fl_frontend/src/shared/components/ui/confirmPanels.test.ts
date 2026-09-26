@@ -10,7 +10,7 @@ import { pathToFileURL } from "node:url";
 
 import { createElement as h, useState } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import ts from "typescript";
 
@@ -18,6 +18,7 @@ import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { CONDITIONALLY_STEPPED_UP, STEP_UP_CALLERS, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
 
 import type { ReactNode } from "react";
 
@@ -40,7 +41,7 @@ registerHooks({
   },
 });
 
-const { answerWith } = doubleEveryAction();
+const { answerWith, calls } = doubleEveryAction();
 doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
@@ -51,11 +52,20 @@ const el = (C: Component, props: object): ReactNode => h(C as (props: object) =>
 
 const { EinladungLinkHolder } = await import("@/features/einladungen/components/EinladungLinkHolder.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
+const { StepUpContext, STEP_UP_LABEL } = await import("@/shared/components/ui/stepUp.ts");
+const { DOUBLE_PRESS_MS } = await import("@/shared/hooks/useTwoPressConfirm.ts");
 
 type User = ReturnType<typeof userEvent.setup>;
 
 /** One operation a panel offers: the panel before it, the picks it needs, the read it arms on, and the press that arms it. */
-type Arming = { render: () => ReactNode; reach?: (user: User) => Promise<void>; answer?: () => Promise<unknown>; resting: string };
+type Arming = {
+  render: () => ReactNode;
+  reach?: (user: User) => Promise<void>;
+  answer?: () => Promise<unknown>;
+  resting: string;
+  /** `false` where the armed write is one a reversal undoes, which asks nothing past the step-up window. */
+  stepUp?: false;
+};
 
 const pick = async (user: User, box: RegExp, option: RegExp) => {
   await user.click(screen.getByRole("button", { name: box }));
@@ -245,6 +255,8 @@ const PANELS: Record<string, Arming[]> = {
   [M.kontaktErasure]: [
     {
       render: () => underNext(el(C.kontaktErasure, { email: "ada@example.org", fullName: "Ada Byron", isDirty: false })),
+      // The read the arming makes, answered: unanswered, it closes the armed control on its refusal.
+      answer: () => Promise.resolve({ success: true, message: "Gelöscht.", ansicht: { saison_teams: [], bewerbungen: [] } }),
       resting: "Kontaktperson löschen",
     },
   ],
@@ -291,8 +303,14 @@ const PANELS: Record<string, Arming[]> = {
               empfaenger: [{ rolle: "ansprechperson", vorname: "Erika", email: "erika@beispiel.de" }],
               uebersprungen: null,
               ersetzt_link: false,
+              // The send's own row beside the preview's, one answer serving the arming read and the write.
+              hatte_link: false,
+              zugestellt: ["erika@beispiel.de"],
+              unerreichbar: [],
+              zurueckgehalten: [],
             },
           ],
+          message: "Gesendet.",
         }),
       resting: "Links an alle Teams senden",
     },
@@ -305,6 +323,7 @@ const PANELS: Record<string, Arming[]> = {
         await pick(user, /^Tauscht Gruppen mit/, /^TSV Beta/);
       },
       resting: "Gruppen tauschen",
+      stepUp: false,
     },
   ],
   [M.rollover]: [
@@ -324,7 +343,12 @@ const PANELS: Record<string, Arming[]> = {
     },
   ],
   [M.spielplan]: [
-    { render: () => underNext(h(HeldSpielplan, UNDRAWN)), resting: "Spielplan anlegen" },
+    { render: () => underNext(h(HeldSpielplan, UNDRAWN)), resting: "Spielplan anlegen", stepUp: false },
+    {
+      render: () => underNext(h(HeldSpielplan, DRAWN)),
+      reach: (user) => user.click(screen.getByRole("radio", { name: "Neu anlegen" })),
+      resting: "Spielplan neu anlegen",
+    },
     {
       render: () => underNext(h(HeldSpielplan, DRAWN)),
       reach: (user) => user.click(screen.getByRole("radio", { name: "Zurücknehmen" })),
@@ -418,6 +442,7 @@ const PANELS: Record<string, Arming[]> = {
         ),
       reach: (user) => pick(user, /Tauschen mit/, /^TSV Beta/),
       resting: "Gruppen tauschen",
+      stepUp: false,
     },
   ],
 };
@@ -471,4 +496,90 @@ describe("one reveal and one action row per panel, whatever it offers", () => {
       });
     }
   }
+});
+
+/** The panels whose armed press is not an administrator's write, and why each is not. */
+const NOT_ADMINISTRATORS: Readonly<Record<string, string>> = {
+  [M.bestaetigung]: "the public confirmation page, a person's own answer to their own link",
+  [M.passkey]: "the passkey list, which asks through the account page's own confirmation",
+  [M.andereAbmelden]: "the account page's sign-out of other devices, which asks through that page's own confirmation",
+};
+
+/** Every step-up write each administrator panel's armed presses have sent, filled by the cases below. */
+const sentAsking = new Map<string, Set<string>>();
+
+/* `docs/frontend/spec.md :: I431`, over every administrator panel the sweep above arms: an arming
+   declaring no step-up sends no write the server always holds to the window, and one declaring it
+   asks and sends nothing unlisted. */
+describe("every administrator panel past the step-up window", () => {
+  it("exempts only panels the sweep above arms", () => {
+    for (const exempted of Object.keys(NOT_ADMINISTRATORS)) assert.ok(exempted in PANELS, `${exempted} is exempted and armed nowhere`);
+  });
+
+  for (const [module, armings] of Object.entries(PANELS).filter(([each]) => !(each in NOT_ADMINISTRATORS))) {
+    for (const arming of armings) {
+      const asks = arming.stepUp !== false;
+      it(`${module}, armed on „${arming.resting}“, ${asks ? "asks for the passkey and then sends only a step-up write" : "asks nothing and sends no step-up write"}`, async (t) => {
+        const user = userEvent.setup();
+        let prompts = 0;
+        const stale = {
+          isStale: () => true,
+          confirm: () => {
+            prompts += 1;
+            return Promise.resolve(true);
+          },
+        };
+        if (arming.answer !== undefined) answerWith(arming.answer);
+        const { unmount } = render(h(StepUpContext.Provider, { value: stale }, arming.render()));
+        await arming.reach?.(user);
+
+        t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
+        await user.click(screen.getByRole("button", { name: arming.resting }));
+        // Found rather than got: a panel that arms once a read it started has answered is armed after the click returns.
+        await screen.findByRole("button", { name: "Abbrechen" });
+        const armed = screen.queryByRole("button", { name: STEP_UP_LABEL });
+        assert.equal(
+          armed !== null,
+          asks,
+          asks ? "a stale session armed without asking for the passkey" : "a reversible write asked for the passkey",
+        );
+        const control = armed ?? screen.getAllByRole("button").find((button) => button.textContent.startsWith("Ja,"));
+        const sent = calls.length;
+        t.mock.timers.tick(DOUBLE_PRESS_MS);
+        await user.click(control ?? assert.fail("the armed panel offers no control to confirm with"));
+        await waitFor(() => assert.ok(calls.length > sent, "the confirmed press sent nothing"));
+        unmount();
+
+        const actions = calls.slice(sent).map((call) => call.action);
+        assert.equal(prompts, asks ? 1 : 0, asks ? "the armed press sent its write without the prompt" : "a reversible write ran the prompt");
+        if (asks) {
+          assert.deepEqual(
+            actions.filter((action) => !(action in STEP_UP_WRITES)),
+            [],
+            "the press sent an action the server does not hold to the step-up window",
+          );
+          for (const action of actions) sentAsking.set(module, (sentAsking.get(module) ?? new Set()).add(action));
+        } else {
+          assert.deepEqual(
+            actions.filter((action) => action in STEP_UP_WRITES && !CONDITIONALLY_STEPPED_UP.has(action)),
+            [],
+            "an arming that asks nothing sent a write the server refuses a stale session",
+          );
+        }
+      });
+    }
+  }
+
+  /* The registry's other half: a two-press caller whose asking arming is missing above holds its
+     write to the window on the server alone, which answers every stale press with a refusal. */
+  it("sends every two-press step-up write of the registry from an arming that asks", () => {
+    const registered = Object.entries(STEP_UP_CALLERS).flatMap(([module, writes]) =>
+      Object.entries(writes)
+        .filter(([, press]) => press === "two-press")
+        .map(([action]) => `${module} :: ${action}`),
+    );
+    const driven = [...sentAsking].flatMap(([module, actions]) => [...actions].map((action) => `${module} :: ${action}`));
+
+    assert.deepEqual(registered.filter((pair) => !driven.includes(pair)).sort(), []);
+  });
 });

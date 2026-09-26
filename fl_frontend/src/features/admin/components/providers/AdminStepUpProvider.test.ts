@@ -1,0 +1,209 @@
+import "@/shared/testing/dom.ts";
+import "@/shared/testing/renderTest.ts";
+
+import assert from "node:assert/strict";
+import { registerHooks } from "node:module";
+import { beforeEach, describe, it } from "node:test";
+
+import { createElement as h } from "react";
+
+import { render, screen } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
+
+import { STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes.ts";
+import { STEP_UP_LABEL, STEP_UP_REFUSED, STEP_UP_RUNNING } from "@/shared/components/ui/stepUp.ts";
+import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
+import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
+
+import type { TestContext } from "node:test";
+
+const BUS = "__flStepUpPrompts";
+
+/* The browser's credential call, replaced at the module boundary: this runner has no
+   `navigator.credentials`, and a test-only prop would be a seam in production code. */
+const CLIENT_DOUBLE = `export const authClient = { signIn: { passkey: () => globalThis.${BUS}.run() } };`;
+
+registerHooks({
+  load(url, context, nextLoad) {
+    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
+    if (url.endsWith("/src/core/authClient.ts")) return { format: "module", source: CLIENT_DOUBLE, shortCircuit: true };
+    return nextLoad(url, context);
+  },
+});
+
+let prompts = 0;
+/** What the next prompt answers. Better Auth reports a cancelled prompt on `error`, never by throwing. */
+let promptAnswer: () => Promise<unknown> = () => Promise.resolve({ data: {}, error: null });
+
+Reflect.set(globalThis, BUS, {
+  run: () => {
+    prompts += 1;
+    return promptAnswer();
+  },
+});
+
+const { calls } = doubleActions({ modules: [/\/features\/sperrliste\/actions\.ts$/] });
+doubleToasts();
+
+/* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
+const { AdminStepUpProvider } = await import("./AdminStepUpProvider.tsx");
+const { AdminSperreAufhebenPanel } = await import("@/features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx");
+
+const RESTING = "Sperre vom 12.03.2026 aufheben";
+const ARMED = "Ja, Sperre vom 12.03.2026 endgültig aufheben";
+
+/** One step-up panel under the provider, as a server render of the administrator's shell hands it over. */
+const page = (confirmedUntil: number | null) =>
+  underNext(
+    h(AdminStepUpProvider, {
+      served: { confirmedUntil },
+      children: h(AdminSperreAufhebenPanel, { sperreId: "6890a1b2c3d4e5f607190001", gesperrtAm: "12.03.2026" }),
+    }),
+  );
+
+/** Arms the panel and answers with the name its armed control then carries. */
+async function arm(user: ReturnType<typeof userEvent.setup>): Promise<string> {
+  await user.click(screen.getByRole("button", { name: RESTING }));
+  const armed = await screen.findByRole("button", { name: new RegExp(`^(${STEP_UP_LABEL}|${ARMED})$`) });
+  return armed.textContent;
+}
+
+/** The armed press, past the double-press window the arming opened. */
+async function confirm(t: TestContext, user: ReturnType<typeof userEvent.setup>, name: string): Promise<void> {
+  t.mock.timers.tick(DOUBLE_PRESS_MS);
+  await user.click(screen.getByRole("button", { name }));
+  await screen.findByRole("button", { name: RESTING });
+}
+
+describe("the administrator's step-up window", () => {
+  beforeEach(() => {
+    prompts = 0;
+    promptAnswer = () => Promise.resolve({ data: {}, error: null });
+  });
+
+  /* A confirmation is a fresh sign-in, so what it buys is the window again: drop the provider's own
+     figure and the second step-up write of a sitting asks for the passkey again. */
+  it("asks once, and the next write inside two hours asks nothing", async (t) => {
+    const user = userEvent.setup();
+    t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
+    const { unmount } = render(page(null));
+
+    assert.equal(await arm(user), STEP_UP_LABEL, "a stale session armed without asking for the passkey");
+    await confirm(t, user, STEP_UP_LABEL);
+    assert.equal(prompts, 1, "the armed press sent the write without the prompt");
+
+    t.mock.timers.tick(STEP_UP_WINDOW_MS - DOUBLE_PRESS_MS - 1);
+    assert.equal(await arm(user), ARMED, "a write inside the window asked for the passkey again");
+    await confirm(t, user, ARMED);
+
+    unmount();
+    assert.equal(prompts, 1, "a write inside the window ran the prompt again");
+    assert.deepEqual(
+      calls.map((call) => call.action),
+      ["deleteSperreAction", "deleteSperreAction"],
+    );
+  });
+
+  /* Half-open at its end, as the server's own test is: the millisecond the window closes is the first
+     it refuses, so the page asks from that same millisecond. */
+  it("asks from the millisecond the window closes", async (t) => {
+    const user = userEvent.setup();
+    t.mock.timers.enable({ apis: ["Date"], now: 5_000_000 });
+    const until = 5_000_000 + DOUBLE_PRESS_MS * 3;
+    const { unmount } = render(page(until));
+
+    t.mock.timers.tick(DOUBLE_PRESS_MS * 3 - 1);
+    assert.equal(await arm(user), ARMED, "the last confirmed millisecond asked");
+    await user.click(screen.getByRole("button", { name: "Abbrechen" }));
+
+    t.mock.timers.tick(1);
+    assert.equal(await arm(user), STEP_UP_LABEL, "the first stale millisecond did not ask");
+    unmount();
+  });
+
+  /* The server's figure takes over whenever a render brings one: a refused write refreshes the page,
+     and a provider holding its own earlier figure would let every later press be refused again. */
+  it("takes the server's figure over its own once a render brings a new one", async (t) => {
+    const user = userEvent.setup();
+    t.mock.timers.enable({ apis: ["Date"], now: 9_000_000 });
+    const { rerender, unmount } = render(page(9_000_000 + STEP_UP_WINDOW_MS));
+
+    assert.equal(await arm(user), ARMED);
+    await user.click(screen.getByRole("button", { name: "Abbrechen" }));
+
+    rerender(page(null));
+    assert.equal(await arm(user), STEP_UP_LABEL, "the server's stale figure did not replace the page's own");
+    unmount();
+  });
+
+  /* A confirmation the server never saw, and a refused write whose refresh hands back the same stale
+     figure: keyed on the figure, the local one stands and every later press is refused unasked. */
+  it("drops a confirmation of its own at the next server render even where the figure is unchanged", async (t) => {
+    const user = userEvent.setup();
+    t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
+    const { rerender, unmount } = render(page(null));
+
+    await arm(user);
+    await confirm(t, user, STEP_UP_LABEL);
+    assert.equal(await arm(user), ARMED, "the page's own confirmation did not open the window");
+    await user.click(screen.getByRole("button", { name: "Abbrechen" }));
+
+    rerender(page(null));
+    assert.equal(await arm(user), STEP_UP_LABEL, "a confirmation the server's render did not carry outlived it");
+    unmount();
+  });
+
+  /* Nothing is sent while the prompt stands, so the control says the prompt rather than the write. */
+  it("says the prompt, never the write, while the prompt is open", async (t) => {
+    const user = userEvent.setup();
+    t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
+    let answerPrompt: (answer: unknown) => void = () => undefined;
+    promptAnswer = () => new Promise((resolve) => (answerPrompt = resolve));
+    const { unmount } = render(page(null));
+
+    await arm(user);
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(screen.getByRole("button", { name: STEP_UP_LABEL }));
+    assert.ok(await screen.findByRole("button", { name: STEP_UP_RUNNING }), "the open prompt shows the write's own running words");
+
+    answerPrompt({ data: {}, error: null });
+    await screen.findByRole("button", { name: RESTING });
+    unmount();
+  });
+
+  /* A refused prompt sends nothing and says so where the control stands, still armed on the prompt. */
+  it("sends nothing on a refused prompt and says so beside the control", async (t) => {
+    const user = userEvent.setup();
+    t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
+    promptAnswer = () => Promise.resolve({ data: null, error: { code: "AUTH_CANCELLED", status: 400 } });
+    const before = calls.length;
+    const { unmount } = render(page(null));
+
+    await arm(user);
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(screen.getByRole("button", { name: STEP_UP_LABEL }));
+    const said = await screen.findByText(STEP_UP_REFUSED);
+
+    assert.equal(said.getAttribute("role"), "alert", "the refusal is announced to nobody");
+    assert.ok(screen.getByRole("button", { name: STEP_UP_LABEL }), "the control left the prompt after a refusal");
+    unmount();
+    assert.equal(calls.length, before, "a refused prompt sent the write");
+  });
+
+  /* The options request throws rather than answering `error` when it never arrives; uncaught, the press
+     takes the page down with it. */
+  it("reads a prompt that could not start as a refusal", async (t) => {
+    const user = userEvent.setup();
+    t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
+    promptAnswer = () => Promise.reject(new TypeError("Failed to fetch"));
+    const { unmount } = render(page(null));
+
+    await arm(user);
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(screen.getByRole("button", { name: STEP_UP_LABEL }));
+
+    assert.ok(await screen.findByText(STEP_UP_REFUSED));
+    unmount();
+  });
+});

@@ -272,6 +272,7 @@ export function AdminCreateSaisonForm({ onClose }: { onClose: () => void }) {
       toPayload={(draft) => draft}
       onSubmit={(draft) => postSaisonAction(draft)}
       marksRequired
+      stepUp
       successMessage="Saison angelegt"
       onClose={onClose}
     />

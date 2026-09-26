@@ -42,7 +42,7 @@ export function FormKontakteLoeschenSection({
   stand: string;
   isDirty: boolean;
 }) {
-  const twoPress = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm({ stepUp: true });
   const router = useRouter();
   const { isConfirming, press } = twoPress;
 

@@ -20,7 +20,8 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { IDENTITY_CONFIRMATION_TITLE, IdentityConfirmation, StepUpRefusal } from "@/shared/components/ui/IdentityConfirmation";
 import { ModalShell } from "@/shared/components/ui/ModalShell";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
-import { STEP_UP_LABEL, usePasskeyStepUp } from "@/shared/hooks/usePasskeyStepUp";
+import { STEP_UP_LABEL, STEP_UP_RUNNING } from "@/shared/components/ui/stepUp";
+import { usePasskeyStepUp } from "@/shared/hooks/usePasskeyStepUp";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
@@ -205,7 +206,7 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
           isPending={hinzufuegenStepUp.isPending}
           onPress={() => void stepUpForEnrolment()}
           className={formButton({ intent: "submit" })}>
-          {hinzufuegenStepUp.isPending ? "Bestätigt..." : STEP_UP_LABEL}
+          {hinzufuegenStepUp.isPending ? STEP_UP_RUNNING : STEP_UP_LABEL}
         </Button>
         <p className="muted-hint text-pretty">{STEP_UP_HINT}</p>
         {hinzufuegenStepUp.refused && <StepUpRefusal />}

@@ -2,7 +2,8 @@
 
 import { Button } from "@heroui/react/button";
 
-import { STEP_UP_LABEL, STEP_UP_REFUSED, usePasskeyStepUp } from "@/shared/hooks/usePasskeyStepUp";
+import { STEP_UP_LABEL, STEP_UP_REFUSED, STEP_UP_RUNNING } from "@/shared/components/ui/stepUp";
+import { usePasskeyStepUp } from "@/shared/hooks/usePasskeyStepUp";
 
 import { formButton } from "./formButtons";
 
@@ -40,7 +41,7 @@ export function IdentityConfirmation({
         isPending={isPending}
         onPress={() => void stepUp().then((confirmed) => confirmed && onConfirmed())}
         className={formButton({ intent: "submit", fullWidth: true })}>
-        {isPending ? "Bestätigt..." : STEP_UP_LABEL}
+        {isPending ? STEP_UP_RUNNING : STEP_UP_LABEL}
       </Button>
 
       {refused && <StepUpRefusal />}

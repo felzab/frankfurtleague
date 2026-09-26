@@ -31,6 +31,7 @@ const through = () => {
   return served !== null && served.user.email === ALLOWLISTED && served.session.authFactor === "passkey";
 };
 export const getAdminSession = async () => (through() ? session() : null);
+export const isFreshlySignedIn = () => true;
 export const getSignInDestination = async () => {
   const served = session();
   if (served === null) return "/signin";

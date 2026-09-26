@@ -6,7 +6,8 @@ import { isAPIError } from "better-auth/api";
 
 import { auth, notifyPasskeyRemoved, PASSKEY_LIMIT, removePasskey } from "@/core/auth";
 import { recordWriteSent } from "@/core/requestScope";
-import { enrolmentUntil, runKontoMutation, stepUpRequired } from "@/shared/utils/kontoMutation";
+import { stepUpRequired } from "@/shared/utils/adminMutation";
+import { enrolmentUntil, runKontoMutation } from "@/shared/utils/kontoMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 

@@ -10,6 +10,7 @@ import { Table } from "@heroui/react/table";
 
 import { reactivateSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { SCHIEDSRICHTER_CRUD_COPY, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants";
+import { returnMayMint } from "@/features/schiedsrichter/linkMint";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
   CELL_EDGE_CLASSES,
@@ -171,7 +172,8 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
             label="Reaktivieren"
             ariaLabel={`${rowSubject} reaktivieren`}
             isPending={isReactivating}
-            onPress={() => reactivate({ id: schiedsrichter.id })}
+            // A return that mints the referee a link is a step-up write.
+            onPress={() => reactivate({ id: schiedsrichter.id }, { stepUp: returnMayMint(schiedsrichter) })}
           />
         )}
         {!isRetired && (

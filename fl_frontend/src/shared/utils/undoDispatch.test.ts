@@ -12,6 +12,7 @@ const { raised } = doubleToasts();
 
 // Imported here rather than at the top: a static import resolves before the hook above is registered.
 const { offerUndo } = await import("./undoDispatch.ts");
+const { STEP_UP_REFUSED } = await import("@/shared/components/ui/stepUp.ts");
 
 /** The ruling's words for an undo nobody can tell landed. */
 const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
@@ -164,6 +165,60 @@ describe("where the shared undo dispatch sends a caller the route turned away", 
     assert.deepEqual(
       pressed.toasts.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),
       [["Änderung nicht zurückgenommen", "Der Spielort wurde inzwischen gelöscht."]],
+    );
+  });
+});
+
+describe("an undo whose replay is a step-up write", () => {
+  beforeEach(() => {
+    raised.length = 0;
+  });
+
+  /** Offers an undo under a page past the window, presses it, and reports the prompts and the dispatches. */
+  async function pressStale(answer: boolean): Promise<{ prompts: number; dispatched: number }> {
+    let prompts = 0;
+    let dispatched = 0;
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => {
+      dispatched++;
+      return Response.json({ success: true, message: "Die Änderung wurde zurückgenommen.", warn: false });
+    };
+
+    try {
+      offerUndo({
+        endpoint: "/api/admin/kontakte/undo",
+        body: {},
+        fallback: "Die Kontakte wurden aktualisiert.",
+        stepUp: {
+          isStale: () => true,
+          confirm: () => {
+            prompts++;
+            return Promise.resolve(answer);
+          },
+        },
+        router: { refresh: () => undefined, replace: () => undefined },
+      });
+      raised[0]?.options?.actionProps?.onPress?.();
+      await settled();
+      await settled();
+
+      return { prompts, dispatched };
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  }
+
+  /* `docs/frontend/spec.md :: I431`: the offer outlives the page's tree, so it asks through the page
+     it was offered under, and the route refuses the replay from a stale session whatever it asked. */
+  it("asks for the passkey before it dispatches", async () => {
+    assert.deepEqual(await pressStale(true), { prompts: 1, dispatched: 1 });
+  });
+
+  it("dispatches nothing on a refused prompt, and says why", async () => {
+    assert.deepEqual(await pressStale(false), { prompts: 1, dispatched: 0 });
+    assert.deepEqual(
+      raised.slice(1).map((toast) => [toast.variant, toast.title, toast.description]),
+      [["danger", "Änderung nicht zurückgenommen", STEP_UP_REFUSED]],
     );
   });
 });

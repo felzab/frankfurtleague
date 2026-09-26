@@ -26,6 +26,7 @@ import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
+import { useStepUp } from "@/shared/hooks/useStepUp";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
@@ -69,6 +70,7 @@ export function AdminKontakteEditForm({
   const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
+  const { page: stepUp } = useStepUp();
 
   const storedMembership = saison.membership;
   // Read ONCE, so the seed, the change list's stored half and the undo body cannot disagree about
@@ -195,6 +197,8 @@ export function AdminKontakteEditForm({
           message: res.message,
           fallback: "Die Kontakte wurden aktualisiert.",
           unrestorable,
+          // Undoing a first entry clears the block, which the undo route refuses a session past the window.
+          stepUp: undoPayload.kontakte === null ? stepUp : undefined,
           router,
         });
 

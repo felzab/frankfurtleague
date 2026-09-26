@@ -50,7 +50,7 @@ export function FormTeamErsatzSection({
   const outgoing = ersatz.rows.find((row) => row.teamId === outgoingId) ?? null;
   const incoming = ersatz.candidates.find((candidate) => candidate.id === incomingId) ?? null;
 
-  const twoPress = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm({ stepUp: true });
   const router = useRouter();
   const { isConfirming, isPending: isReplacing, press, cancel } = twoPress;
 

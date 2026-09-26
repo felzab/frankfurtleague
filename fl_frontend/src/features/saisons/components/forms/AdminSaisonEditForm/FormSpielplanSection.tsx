@@ -111,9 +111,7 @@ export function FormSpielplanSection({
   redraw: RedrawDraft;
   onRedrawChange: (next: RedrawDraft) => void;
 } & SaisonSpielplanContext) {
-  const twoPress = useTwoPressConfirm(onBeforeWrite);
   const router = useRouter();
-  const { isConfirming, isPending: isWriting, press, cancel } = twoPress;
 
   const { picked, shape } = redraw;
 
@@ -141,6 +139,10 @@ export function FormSpielplanSection({
   const { bothOpen, operation, isUnchosen, standingReason, closedReason } = spielplanPress({ input: controlInput, picked, shape });
 
   const isDrawing = operation === "anlegen";
+
+  // A first draw is reversed whole by the undraw; replacing a draw and undrawing one are not.
+  const twoPress = useTwoPressConfirm({ guard: onBeforeWrite, stepUp: replacesDraw || !isDrawing });
+  const { isConfirming, isPending: isWriting, press, cancel } = twoPress;
 
   // The closure the callout below states as a rule, which is the whole of what a reader in this state
   // needs: a hint and a banner on one panel never carry the same fact (`docs/frontend/spec.md` §1.12).

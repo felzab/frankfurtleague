@@ -19,9 +19,10 @@ const replayed = (acknowledged: 0 | 1) => ({
 });
 
 /* The real route and the save's own mutation, called: the request it runs in and the backend client are the doubles. */
-doubleRouteRequest();
+const { setFresh } = doubleRouteRequest();
 const { answerWith, calls } = doubleApiAnswers(() => Promise.resolve(replayed(1)));
 const { POST } = await import("./route.ts");
+const { stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 
 /** What `fl_frontend/src/features/kontakte/mutations.ts :: patchSaisonTeamKontakte` sends, as the backend's own routes spell it. */
 const REPLAY_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte";
@@ -60,6 +61,19 @@ describe("the contacts save's undo", () => {
 
     assert.equal(answer.success, true, String(answer.error));
     assert.deepEqual(requestsOf(calls), [saveOf(earlier)]);
+  });
+
+  /* Undoing a first entry clears the block, which the clearing panel asks the passkey for
+     (`docs/frontend/spec.md :: I432`); any other replay keeps its undo unasked. */
+  it("refuses a replay clearing the block from a session past the step-up window, and no other", async () => {
+    setFresh(false);
+    const clearing = await undo(POST, BODY);
+    assert.deepEqual(clearing, { ...stepUpRequired() }, "a stale session cleared a club's contacts through the undo");
+    assert.deepEqual(calls, [], "the clearing replay reached the backend for a session past the window");
+
+    const seats = { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null };
+    const restoring = await undo(POST, { ...BODY, kontakte: seats });
+    assert.equal(restoring.success, true, "a stale session was refused a replay restoring seats");
   });
 
   /* No cached read holds a contact person, so an invalidation here would clear what the replay never moved. */

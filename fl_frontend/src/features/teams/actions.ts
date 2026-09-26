@@ -206,7 +206,7 @@ export async function postSaisonTeamAction(
   // Draft-shaped for the same reason as the create: an untouched group picker submits null.
   rawPayload: SaisonTeamEnterDraft,
 ): Promise<ActionResult<{ saison_team?: FLSaisonTeamResponse }>> {
-  return runAdminMutation("postSaisonTeamAction", async () => {
+  return runAdminMutation("postSaisonTeamAction", { stepUp: true }, async () => {
     const validated = FLPostSaisonTeamPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -286,7 +286,7 @@ export async function patchSaisonTeamAction(
 export async function replaceSaisonTeamAction(
   rawPayload: FLReplaceSaisonTeamPayload,
 ): Promise<ActionResult<{ replacement?: FLReplaceSaisonTeamResponse }>> {
-  return runAdminMutation("replaceSaisonTeamAction", async () => {
+  return runAdminMutation("replaceSaisonTeamAction", { stepUp: true }, async () => {
     const validated = FLReplaceSaisonTeamPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

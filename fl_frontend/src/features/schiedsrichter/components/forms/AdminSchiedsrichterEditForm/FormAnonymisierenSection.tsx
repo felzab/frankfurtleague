@@ -54,7 +54,7 @@ export function FormAnonymisierenSection({
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const twoPress = useTwoPressConfirm(onBeforeAnonymise);
+  const twoPress = useTwoPressConfirm({ guard: onBeforeAnonymise, stepUp: true });
   const { isConfirming, press } = twoPress;
 
   const panel = formPanel({ tone: "danger" });

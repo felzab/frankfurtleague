@@ -207,7 +207,10 @@ type AdminSessionDouble = { user: { email: string } } | null | Error;
 /** What the doubled `getSubjectSession` answers: a person's records, no person signed in, or a lookup that threw this. */
 type SubjectDouble = SubjectSession | null | Error;
 
-/** What one request's doubled sign-in store answers, until `setSession` or `setSubject` names another for the rest of that case. */
+/**
+ * What one request's doubled sign-in store answers, until `setSession`, `setSubject` or `setFresh` names
+ * another for the rest of that case.
+ */
 type SignInAnswers = {
   session: AdminSessionDouble;
   destination: string;
@@ -217,6 +220,8 @@ type SignInAnswers = {
   signedOut: string[];
   /** What that sign-out throws, where a case asks it to fail. */
   signOutFailure: Error | null;
+  /** `isFreshlySignedIn`'s answer, whatever session it is handed. */
+  fresh: boolean;
 };
 
 /** Where the real store sends a caller the session leaves out, when a case names no other. */
@@ -226,6 +231,7 @@ const destinationOf = (session: AdminSessionDouble): string =>
 
 const answering = (answer: unknown): Promise<unknown> => (answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer));
 
+// Served in the real guard's shape: the admin shell reads the step-up window off the row.
 /**
  * The session, recorded as the request's actor where it is an administrator's, as the real
  * `getAdminSession` records it. Imported at the call, so the scope is the one the code under test loaded.
@@ -237,7 +243,7 @@ async function administratorOf(session: AdminSessionDouble): Promise<unknown> {
     setRequestActor(asSignInIdentifier(session.user.email));
   }
 
-  return answering(session);
+  return answering(administratorServed(session));
 }
 
 /**
@@ -254,12 +260,21 @@ const servedOf = (session: AdminSessionDouble): unknown => {
   };
 };
 
+/** One served session per session a case names, so every read in a case hands over the same object, as one request's reads do. */
+const servedAdministrators = new WeakMap<object, unknown>();
+
+function administratorServed(session: AdminSessionDouble): unknown {
+  if (session === null || session instanceof Error) return session;
+  if (!servedAdministrators.has(session)) servedAdministrators.set(session, servedOf(session));
+  return servedAdministrators.get(session);
+}
+
 /**
  * `url`'s module with `doubled` standing in for the exports it names, the real one opening the
  * database driver as it loads. Every other export throws where called, its name read off the real
  * module so an import links.
  */
-function sessionModule(url: string, what: string, doubled: ReadonlyMap<string, (...args: unknown[]) => Promise<unknown>>): string {
+function sessionModule(url: string, what: string, doubled: ReadonlyMap<string, (...args: unknown[]) => unknown>): string {
   const names = [...readFileSync(fileURLToPath(url), "utf8").matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)].map(
     ([, name = ""]) => name,
   );
@@ -282,11 +297,12 @@ const signInStore = (url: string, answers: SignInAnswers): string =>
   sessionModule(
     url,
     "the sign-in store",
-    new Map([
+    new Map<string, (...args: unknown[]) => unknown>([
       ["getAdminSession", () => administratorOf(answers.session)],
       // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
       ["getKontoSession", () => answering(servedOf(answers.session))],
       ["getSignInDestination", () => Promise.resolve(answers.destination)],
+      ["isFreshlySignedIn", () => answers.fresh],
       [
         "endSessionsOfAddress",
         (address: unknown) => {
@@ -331,6 +347,8 @@ export function doubleActionRequest({
 } = {}): {
   setSession: (next: AdminSessionDouble, destination?: string) => void;
   setSubject: (next: SubjectDouble) => void;
+  /** Whether the session counts as confirmed within the step-up window, for the rest of that case; confirmed by default. */
+  setFresh: (next: boolean) => void;
   /** How often `getSubjectSession` was called since the case began. */
   subjectReads: () => number;
   /** Every address a ban signed out since the case began. */
@@ -345,6 +363,7 @@ export function doubleActionRequest({
     subjectReads: 0,
     signedOut: [],
     signOutFailure: null,
+    fresh: true,
   };
   // The destination goes with the session, so a case cannot leave one standing that another case's session contradicts.
   const setSession = (next: AdminSessionDouble, destination = destinationOf(next)): void => {
@@ -361,6 +380,7 @@ export function doubleActionRequest({
     answers.subjectReads = 0;
     answers.signedOut.length = 0;
     answers.signOutFailure = null;
+    answers.fresh = true;
   });
   registerHooks({
     resolve(specifier, context, nextResolve) {
@@ -379,6 +399,7 @@ export function doubleActionRequest({
   return {
     setSession,
     setSubject,
+    setFresh: (next) => void (answers.fresh = next),
     subjectReads: () => answers.subjectReads,
     signedOut: () => [...answers.signedOut],
     failSignOut: (failure) => void (answers.signOutFailure = failure),

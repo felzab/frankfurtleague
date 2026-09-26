@@ -4,12 +4,6 @@ import { useState } from "react";
 
 import { authClient } from "@/core/authClient";
 
-/** The control that runs the passkey prompt as a confirmation, wherever a page asks for one. */
-export const STEP_UP_LABEL = "Mit Passkey bestätigen";
-
-/** A refused or cancelled prompt, an unknown authenticator and an unverified one read alike to the person at the prompt. */
-export const STEP_UP_REFUSED = "Wir konnten Dich nicht mit einem Passkey bestätigen.";
-
 /** Whether the prompt is running, and whether the last one failed to confirm the page's holder. */
 export interface PasskeyStepUp {
   readonly stepUp: () => Promise<boolean>;

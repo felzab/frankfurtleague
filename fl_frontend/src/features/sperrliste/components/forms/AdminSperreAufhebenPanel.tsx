@@ -19,7 +19,7 @@ import { appToast } from "@/shared/utils/appToast";
  * („stilllegen“) that no ban is, this delete keeping nothing (`docs/frontend/spec.md :: I37`).
  */
 export function AdminSperreAufhebenPanel({ sperreId, gesperrtAm }: { sperreId: string; gesperrtAm: string }) {
-  const twoPress = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm({ stepUp: true });
   const router = useRouter();
   const { isConfirming, press } = twoPress;
 

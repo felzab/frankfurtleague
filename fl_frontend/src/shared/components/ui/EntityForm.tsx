@@ -7,10 +7,12 @@ import { Button } from "@heroui/react/button";
 
 import { Form } from "@/shared/components/ui/Form";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
+import { useStepUp } from "@/shared/hooks/useStepUp";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import { formButton, MODAL_FOOTER_ROW_CLASSES } from "./formButtons";
+import { StepUpRefused } from "./StepUpRefused";
 
 import type { ActionResult } from "@/shared/types/types";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
@@ -29,6 +31,7 @@ export function EntityForm<TDraft, TPayload = TDraft>({
   successMessage,
   onClose,
   marksRequired = false,
+  stepUp: due = false,
 }: {
   initialDraft: TDraft;
   renderFields: (draft: TDraft, setDraft: Dispatch<SetStateAction<TDraft>>) => ReactNode;
@@ -58,8 +61,11 @@ export function EntityForm<TDraft, TPayload = TDraft>({
    * fields are required either way, by the schema this form submits.
    */
   marksRequired?: boolean;
+  /** The create is a step-up write: nothing reverses it, or it mints a link (`docs/frontend/spec.md :: I432`). */
+  stepUp?: boolean;
 }) {
   const [isPending, startSaving] = useTransition();
+  const stepUp = useStepUp();
   const router = useRouter();
   const [draft, setDraft] = useState<TDraft>(initialDraft);
   const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, useForgiveFixed, formWiring } = useDraftFieldErrors({
@@ -79,27 +85,29 @@ export function EntityForm<TDraft, TPayload = TDraft>({
   };
 
   const writeAfterBlock = (payload: TPayload) => {
-    startSaving(async () => {
-      // A rejected action may still have saved, and uncaught here it takes the page down with it.
-      const res = await onSubmit(payload).catch(rejectedWrite(router));
+    stepUp.confirmThen(due, () =>
+      startSaving(async () => {
+        // A rejected action may still have saved, and uncaught here it takes the page down with it.
+        const res = await onSubmit(payload).catch(rejectedWrite(router));
 
-      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
-      // so bare it commits before the pending state lifts.
-      startSaving(() => {
-        if (!res.success) {
-          // The hook owns the press's one toast: none where a field shows the refusal.
-          reportSubmitFailure(res, { entity: payload });
-          return;
-        }
+        // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+        // so bare it commits before the pending state lifts.
+        startSaving(() => {
+          if (!res.success) {
+            // The hook owns the press's one toast: none where a field shows the refusal.
+            reportSubmitFailure(res, { entity: payload });
+            return;
+          }
 
-        setSubmitFieldErrors({}, {});
-        setDraft(initialDraft);
-        // The server's sentence as the body (`docs/frontend/spec.md` §1.12), and never a second copy of
-        // the title: an action with nothing to add sends the title's own words.
-        appToast.success(successMessage, { description: res.message === successMessage ? undefined : res.message });
-        onClose();
-      });
-    });
+          setSubmitFieldErrors({}, {});
+          setDraft(initialDraft);
+          // The server's sentence as the body (`docs/frontend/spec.md` §1.12), and never a second copy of
+          // the title: an action with nothing to add sends the title's own words.
+          appToast.success(successMessage, { description: res.message === successMessage ? undefined : res.message });
+          onClose();
+        });
+      }),
+    );
   };
 
   return (
@@ -120,20 +128,21 @@ export function EntityForm<TDraft, TPayload = TDraft>({
         <Button
           type="submit"
           variant="primary"
-          isPending={isPending}
+          isPending={isPending || stepUp.isPrompting}
           className={formButton({ intent: "submit" })}>
-          {isPending ? "Speichert..." : "Speichern"}
+          {isPending || stepUp.isPrompting ? stepUp.running("Speichert...") : "Speichern"}
         </Button>
         {/* Held in flight: pressing it unmounts the modal from under a running transition, whose toast then
             fires against a dead tree — the record is created and nobody is told. */}
         <Button
           type="button"
           variant="secondary"
-          isPending={isPending}
+          isPending={isPending || stepUp.isPrompting}
           className={formButton({ intent: "cancel" })}
           onPress={onClose}>
           Abbrechen
         </Button>
+        <StepUpRefused refused={stepUp.refused} />
       </div>
     </Form>
   );

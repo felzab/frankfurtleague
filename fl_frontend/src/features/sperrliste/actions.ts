@@ -122,7 +122,7 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
  * `fl_frontend/src/shared/utils/actionError.ts` words as the reload it is.
  */
 export async function deleteSperreAction(rawPayload: FLSperrlisteKeyPayload): Promise<ActionResult> {
-  return runAdminMutation("deleteSperreAction", async () => {
+  return runAdminMutation("deleteSperreAction", { stepUp: true }, async () => {
     const validated = FLSperrlisteKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

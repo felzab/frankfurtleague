@@ -36,9 +36,11 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { PANEL_REVEAL_CLASSES } from "@/shared/components/ui/motion";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { useStepUp } from "@/shared/hooks/useStepUp";
 import { rejectedWrite, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -134,6 +136,7 @@ export function BewerbungBestaetigungStrip({
   const router = useRouter();
   // Per seat rather than one flag: three buttons stand here, and one press must not hold the others.
   const [sendendeRollen, setSendendeRollen] = useState<ReadonlySet<KontaktRolle>>(() => new Set());
+  const stepUp = useStepUp();
 
   /**
    * One editor for the whole strip (`docs/frontend/spec.md :: I66` gives a panel one action row), so
@@ -157,6 +160,12 @@ export function BewerbungBestaetigungStrip({
     if (!guardAgainstDraft(isDirty || boxGetippt, DRAFT_DISCARDED)) return;
 
     setSendendeRollen((vorher) => new Set(vorher).add(rolle));
+
+    // A new link voids the one the seat holds (`docs/frontend/spec.md :: I432`).
+    if (!(await stepUp.confirm(true))) {
+      setSendendeRollen((vorher) => new Set([...vorher].filter((sendend) => sendend !== rolle)));
+      return;
+    }
 
     // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it leaves
     // „Sendet...“ standing for good and reports nothing.
@@ -205,6 +214,7 @@ export function BewerbungBestaetigungStrip({
               hatAngebot={isOpen && angebot.has(sitz.rolle)}
               istNeubesetzbar={isOpen && neubesetzbar.has(sitz.rolle)}
               sendet={sendendeRollen.has(sitz.rolle)}
+              sendetSatz={stepUp.running("Sendet...")}
               bearbeitet={editor?.rolle === sitz.rolle ? editor.art : null}
               isDirty={isDirty}
               onGetipptChange={meldeBox}
@@ -224,6 +234,8 @@ export function BewerbungBestaetigungStrip({
         {/* The deletion date stands here and nowhere else on the page: the reason under the closed
             Zusage says what is missing, and this says what happens if it stays missing. */}
         {loeschung !== null && <p className="muted-hint">{loeschung}</p>}
+
+        <StepUpRefused refused={stepUp.refused} />
       </div>
     </section>
   );
@@ -240,6 +252,7 @@ function SitzZeile({
   hatAngebot,
   istNeubesetzbar,
   sendet,
+  sendetSatz,
   bearbeitet,
   isDirty,
   onGetipptChange,
@@ -255,6 +268,8 @@ function SitzZeile({
   /** Whether this seat's own person stepped out of it, which is the one state another person is written into. */
   istNeubesetzbar: boolean;
   sendet: boolean;
+  /** What the pending re-send says, the prompt's words while it is open. */
+  sendetSatz: string;
   bearbeitet: Bearbeitung | null;
   isDirty: boolean;
   onGetipptChange: (getippt: boolean) => void;
@@ -370,7 +385,7 @@ function SitzZeile({
                 className="size-3.5"
                 aria-hidden="true"
               />
-              <span>{sendet ? "Sendet..." : "Link erneut senden"}</span>
+              <span>{sendet ? sendetSatz : "Link erneut senden"}</span>
             </Button>
           </Hint>
         )}
@@ -432,6 +447,7 @@ function AdresseKorrigieren({
   // Prefilled, because the commonest correction is one wrong character.
   const [email, setEmail] = useState(gespeicherteAdresse ?? "");
   const [sendet, setSendet] = useState(false);
+  const stepUp = useStepUp();
 
   const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } = useDraftFieldErrors({
     schemas: { korrektur: FLBewerbungKontaktEmailPayloadSchema },
@@ -460,6 +476,12 @@ function AdresseKorrigieren({
     }
 
     setSendet(true);
+    // The link it mails voids the seat's standing one (`docs/frontend/spec.md :: I432`).
+    if (!(await stepUp.confirm(true))) {
+      setSendet(false);
+      return;
+    }
+
     // Caught for the re-send's reason: awaited outside a transition, a rejection would leave „Sendet...“ standing.
     // And never reading the page again: that re-keys the strip over the box's typed entry (`docs/frontend/spec.md` §1.3).
     const res = await kontaktEmailKorrigierenAction(payload).catch(() => ({ ...unansweredAction(), error: KORREKTUR_OHNE_ANTWORT }));
@@ -547,7 +569,7 @@ function AdresseKorrigieren({
             isPending={sendet}
             isDisabled={!sendet && unveraendert}
             className={formButton({ intent: "submit", stacks: true })}>
-            {sendet ? "Sendet..." : "Korrigieren und Link senden"}
+            {sendet ? stepUp.running("Sendet...") : "Korrigieren und Link senden"}
           </Button>
         </Hint>
         {/* Held while the write runs: a press that unmounts this box mid-transition drops the toast
@@ -560,6 +582,7 @@ function AdresseKorrigieren({
           className={formButton({ intent: "cancel", stacks: true })}>
           Abbrechen
         </Button>
+        <StepUpRefused refused={stepUp.refused} />
       </div>
     </Form>
   );
@@ -605,6 +628,7 @@ function SitzNeuBesetzen({
 
   const [person, setPerson] = useState(LEERE_PERSON);
   const [sendet, setSendet] = useState(false);
+  const stepUp = useStepUp();
 
   const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } = useDraftFieldErrors({
     schemas: { neubesetzung: FLBewerbungKontaktSitzPayloadSchema },
@@ -638,6 +662,12 @@ function SitzNeuBesetzen({
     }
 
     setSendet(true);
+    // The link it mails voids the seat's standing one (`docs/frontend/spec.md :: I432`).
+    if (!(await stepUp.confirm(true))) {
+      setSendet(false);
+      return;
+    }
+
     // Caught for the re-send's reason: awaited outside a transition, a rejection would leave „Sendet...“ standing.
     // And never reading the page again: that re-keys the strip over the box's typed entry (`docs/frontend/spec.md` §1.3).
     const res = await besetzeKontaktSitzAction(payload).catch(() => ({ ...unansweredAction(), error: BESETZUNG_OHNE_ANTWORT }));
@@ -785,7 +815,7 @@ function SitzNeuBesetzen({
             isPending={sendet}
             isDisabled={!sendet && unvollstaendig}
             className={formButton({ intent: "submit", stacks: true })}>
-            {sendet ? "Sendet..." : "Neu besetzen und Link senden"}
+            {sendet ? stepUp.running("Sendet...") : "Neu besetzen und Link senden"}
           </Button>
         </Hint>
         <Button
@@ -796,6 +826,7 @@ function SitzNeuBesetzen({
           className={formButton({ intent: "cancel", stacks: true })}>
           Abbrechen
         </Button>
+        <StepUpRefused refused={stepUp.refused} />
       </div>
     </Form>
   );

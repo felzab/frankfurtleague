@@ -3,6 +3,7 @@
 import { Button } from "@heroui/react/button";
 
 import { formButton } from "./formButtons";
+import { StepUpRefused } from "./StepUpRefused";
 
 import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import type { ReactNode } from "react";
@@ -36,6 +37,7 @@ export function ConfirmActionRow({
           Abbrechen
         </Button>
       )}
+      <StepUpRefused refused={confirm.passkeyRefused} />
     </div>
   );
 }

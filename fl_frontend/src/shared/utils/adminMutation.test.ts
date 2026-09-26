@@ -13,6 +13,7 @@ const refreshes = (): number => cacheCalls.filter(({ name }) => name === "refres
 
 const { ADMIN_FORBIDDEN, runAdminMutation, runAdminRouteWrite } = await import("./adminMutation.ts");
 const { boundCall, recordWriteSent, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
+const { getAdminSession } = await import("@/core/auth");
 const { APIBadStatusError, APINetworkError, ApiUnsentError, RolledBackError } = await import("@/core/errors");
 
 /** A body that sends a write before it answers, as a call through the API client records one. */
@@ -78,7 +79,7 @@ describe("the session guard every admin write runs behind", () => {
       return Promise.resolve({ success: true });
     });
 
-    assert.equal(seen, ADMIN);
+    assert.equal(seen, await getAdminSession(), "the body was handed a session other than the one the guard resolved");
   });
 });
 

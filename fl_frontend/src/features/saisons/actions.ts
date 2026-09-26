@@ -2,7 +2,7 @@
 
 import { updateTag } from "next/cache";
 
-import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, refuseUnconfirmed, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -74,7 +74,7 @@ export async function postSaisonAction(
   // field error rather than a type error.
   rawPayload: SaisonCreateDraft,
 ): Promise<ActionResult<{ created_id: string }>> {
-  return runAdminMutation("postSaisonAction", async () => {
+  return runAdminMutation("postSaisonAction", { stepUp: true }, async () => {
     const validated = FLPostSaisonPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -153,7 +153,7 @@ export async function patchSaisonAction(
  * - `REQ-ACTIVATE-004` on one whose matchdays are not dated
  */
 export async function activateSaisonAction(rawPayload: FLActivateSaisonPayload): Promise<ActionResult<{ saison?: FLActivateSaisonResponse }>> {
-  return runAdminMutation("activateSaisonAction", async () => {
+  return runAdminMutation("activateSaisonAction", { stepUp: true }, async () => {
     const validated = FLActivateSaisonPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -245,12 +245,17 @@ export async function swapGruppenAction(rawPayload: FLSwapGruppenPayload): Promi
 export async function generateSpielplanAction(
   rawPayload: FLGenerateSpielplanPayload,
 ): Promise<ActionResult<{ spielplan?: FLGenerateSpielplanResponse }>> {
-  return runAdminMutation("generateSpielplanAction", async () => {
+  return runAdminMutation("generateSpielplanAction", async (session) => {
     const validated = FLGenerateSpielplanPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
+
+    // The replacing draw alone is a step-up write: a first draw the undraw removes whole
+    // (`docs/frontend/spec.md :: I432`).
+    const unconfirmed = validated.data.replace === true ? refuseUnconfirmed(session) : null;
+    if (unconfirmed !== null) return unconfirmed;
 
     let generateOperation;
     try {
@@ -295,7 +300,7 @@ export async function generateSpielplanAction(
 export async function undrawSpielplanAction(
   rawPayload: FLUndrawSpielplanPayload,
 ): Promise<ActionResult<{ undraw?: FLUndrawSpielplanResponse }>> {
-  return runAdminMutation("undrawSpielplanAction", async () => {
+  return runAdminMutation("undrawSpielplanAction", { stepUp: true }, async () => {
     const validated = FLUndrawSpielplanPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

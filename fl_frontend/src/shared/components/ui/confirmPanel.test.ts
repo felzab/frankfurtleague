@@ -7,6 +7,7 @@ import { refusalWrappers, renderMarkup, textOf } from "@/shared/testing/renderTe
 
 import { confirmButton, formButton } from "./formButtons";
 import { PANEL_REVEAL_CLASSES } from "./motion";
+import { STEP_UP_LABEL, STEP_UP_REFUSED, STEP_UP_RUNNING } from "./stepUp";
 
 import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 
@@ -26,9 +27,24 @@ const REVEAL = renderMarkup(ConfirmReveal, { children: createElement("p", { id: 
 const PRIMARY = createElement("button", { type: "button" }, "Ja, löschen");
 
 /** The hook's value in the state a case names, its handlers inert: a static render presses nothing. */
-const twoPress = ({ isConfirming = false, isPending = false }: { isConfirming?: boolean; isPending?: boolean }): TwoPressConfirm => ({
+const twoPress = ({
+  isConfirming = false,
+  isPending = false,
+  asksPasskey = false,
+  isPrompting = false,
+  passkeyRefused = false,
+}: {
+  isConfirming?: boolean;
+  isPending?: boolean;
+  asksPasskey?: boolean;
+  isPrompting?: boolean;
+  passkeyRefused?: boolean;
+}): TwoPressConfirm => ({
   isConfirming,
   isPending,
+  asksPasskey,
+  isPrompting,
+  passkeyRefused,
   press: () => undefined,
   cancel: () => undefined,
 });
@@ -92,6 +108,18 @@ describe("the armed action row", () => {
     assert.doesNotMatch(cancelIn(ARMED), /\sdata-pending=|\sdisabled=""/, "the cancel is held before there is anything in flight");
   });
 
+  /* A refused prompt leaves the control armed, so the sentence stands beside it and is announced, and
+     nowhere else: a toast would be gone before the next press. */
+  it("says a refused prompt under the armed control, as an alert, and only then", () => {
+    const refused = renderMarkup(ConfirmActionRow, {
+      confirm: twoPress({ isConfirming: true, asksPasskey: true, passkeyRefused: true }),
+      children: PRIMARY,
+    });
+
+    assert.match(refused, new RegExp(`<p role="alert"[^>]*>${STEP_UP_REFUSED}</p>`), "a refused prompt is not said beside the control");
+    assert.ok(!ARMED.includes(STEP_UP_REFUSED), "an armed row says a refusal nobody met");
+  });
+
   /* The app's one cancel treatment, at the width a column asks for. */
   it("takes the cancel's fill and its column width from the shared intent", () => {
     const worn = (cancelIn(ARMED).match(/\sclass="([^"]*)"/)?.[1] ?? "").split(" ");
@@ -121,16 +149,20 @@ describe("the armed action row", () => {
 const pressButton = ({
   isConfirming,
   isPending,
+  asksPasskey,
+  isPrompting,
   ...rest
 }: {
   isConfirming?: boolean;
   isPending?: boolean;
+  asksPasskey?: boolean;
+  isPrompting?: boolean;
   held?: boolean;
   submitting?: boolean;
   reason?: string | null;
 }): string =>
   renderMarkup(ConfirmPressButton, {
-    confirm: twoPress({ isConfirming, isPending }),
+    confirm: twoPress({ isConfirming, isPending, asksPasskey, isPrompting }),
     reason: null,
     resting: "Spielplan löschen",
     armed: "Ja, Spielplan löschen",
@@ -207,6 +239,19 @@ describe("the shared confirm control", () => {
 
     assert.deepEqual(refusalWrappers(writingAndRefused), [], "a running write is announced as a refusal");
     assert.doesNotMatch(controlTag(writingAndRefused), /\sdisabled=""/, "a reason standing during the write closes the control");
+  });
+
+  /* The armed press of an irreversible write the page must confirm first opens the browser's passkey
+     prompt, so its label names that prompt and not the write; running, it still says the write. */
+  it("names the passkey prompt on the armed press of a write the page must confirm first", () => {
+    assert.equal(controlWords(pressButton({ isConfirming: true, asksPasskey: true })), STEP_UP_LABEL);
+    assert.equal(controlWords(pressButton({ isConfirming: true, isPending: true, asksPasskey: true })), "Löscht...");
+    assert.equal(
+      controlWords(pressButton({ isConfirming: true, isPending: true, asksPasskey: true, isPrompting: true })),
+      STEP_UP_RUNNING,
+      "the open prompt says the write is running, where nothing has been sent",
+    );
+    assert.equal(controlWords(pressButton({ asksPasskey: false })), "Spielplan löschen", "the resting control names the prompt");
   });
 
   /* The one thing that looks different once the reveal is open, so the armed fill is what says the

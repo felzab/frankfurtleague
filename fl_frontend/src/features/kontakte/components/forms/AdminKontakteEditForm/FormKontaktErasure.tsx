@@ -60,7 +60,7 @@ function ErasureAnsichtBody({ ansicht }: { ansicht: ErasureAnsicht | null }) {
  * and both collections. Confirmed in place, so the reader sees whose data it is.
  */
 export function FormKontaktErasure({ email, fullName, isDirty }: { email: string; fullName: string; isDirty: boolean }) {
-  const twoPress = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm({ stepUp: true });
   const router = useRouter();
   const { isConfirming, isPending, press } = twoPress;
   const [gelesen, setGelesen] = useState<ErasureAnsicht | null>(null);

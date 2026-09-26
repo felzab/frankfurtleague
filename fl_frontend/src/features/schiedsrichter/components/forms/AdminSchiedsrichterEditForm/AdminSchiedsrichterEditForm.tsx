@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { patchSchiedsrichterAction } from "@/features/schiedsrichter/actions";
+import { saveMayMint } from "@/features/schiedsrichter/linkMint";
 import { FLPatchSchiedsrichterPayloadSchema, hatAdresse } from "@/features/schiedsrichter/schemas";
 import { deriveSchiedsrichterDraftStatus } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
@@ -17,6 +18,7 @@ import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
+import { useStepUp } from "@/shared/hooks/useStepUp";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
@@ -90,6 +92,7 @@ export function AdminSchiedsrichterEditForm({
   const router = useRouter();
   const saisonHref = useSaisonHref();
   const [isPending, startSaving] = useTransition();
+  const stepUp = useStepUp();
 
   // The BOX is a string where the record may hold no name: an empty one is what the admin then types
   // into, and `PersonNameSchema` refuses it at the submit rather than storing the sentinel back.
@@ -183,59 +186,62 @@ export function AdminSchiedsrichterEditForm({
   };
 
   const writeAfterBlock = () => {
-    startSaving(async () => {
-      // Read before the write: the props still hold the pre-save values, and the toast that replays
-      // them outlives this component.
-      const undoPayload: SchiedsrichterUndoBody = {
-        id: schiedsrichter.id,
-        name: schiedsrichter.name,
-        schule: schiedsrichter.schule,
-        kontakt: schiedsrichter.kontakt,
-        default_payment: schiedsrichter.default_payment,
-      };
-      // The rename earns a sentence because it rewrites the name inside every match naming them.
-      const renameTouched = isChanged("name");
+    // A save minting the referee a new link is a step-up write (`docs/frontend/spec.md :: I432`).
+    stepUp.confirmThen(saveMayMint(schiedsrichter, kontakt.email), () =>
+      startSaving(async () => {
+        // Read before the write: the props still hold the pre-save values, and the toast that replays
+        // them outlives this component.
+        const undoPayload: SchiedsrichterUndoBody = {
+          id: schiedsrichter.id,
+          name: schiedsrichter.name,
+          schule: schiedsrichter.schule,
+          kontakt: schiedsrichter.kontakt,
+          default_payment: schiedsrichter.default_payment,
+        };
+        // The rename earns a sentence because it rewrites the name inside every match naming them.
+        const renameTouched = isChanged("name");
 
-      const payload = buildPayload();
-      // A rejected action may still have saved, and uncaught here it takes the editor down with it.
-      const res = await patchSchiedsrichterAction(payload).catch(unansweredAction);
-      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
-      // so bare it commits before the pending state lifts.
-      startSaving(() => {
-        if (!res.success) {
-          reportSubmitFailure(res, { schiedsrichter: payload });
-          return;
-        }
+        const payload = buildPayload();
+        // A rejected action may still have saved, and uncaught here it takes the editor down with it.
+        const res = await patchSchiedsrichterAction(payload).catch(unansweredAction);
+        // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+        // so bare it commits before the pending state lifts.
+        startSaving(() => {
+          if (!res.success) {
+            reportSubmitFailure(res, { schiedsrichter: payload });
+            return;
+          }
 
-        setSubmitFieldErrors({}, {});
-        setHasSaved(true);
+          setSubmitFieldErrors({}, {});
+          setHasSaved(true);
 
-        // The save's own sentence FIRST: where the address moved it reports a link that went out, and
-        // dropping it leaves an administrator with no record that a message was sent at all.
-        const gespeichertesSatz = [res.versandSatz, renameTouched ? "Der neue Name steht ab sofort auch an jedem Spiel." : undefined]
-          .filter((satz) => satz !== undefined)
-          .join(" ");
+          // The save's own sentence FIRST: where the address moved it reports a link that went out, and
+          // dropping it leaves an administrator with no record that a message was sent at all.
+          const gespeichertesSatz = [res.versandSatz, renameTouched ? "Der neue Name steht ab sofort auch an jedem Spiel." : undefined]
+            .filter((satz) => satz !== undefined)
+            .join(" ");
 
-        offerUndo({
-          endpoint: "/api/admin/schiedsrichter/undo",
-          body: undoPayload,
-          message: gespeichertesSatz === "" ? undefined : gespeichertesSatz,
-          // A save that mailed nothing is clean; one whose link did not leave is graded a warning, the
-          // referee having no working link and nobody else being told.
-          warn: res.versandFehlgeschlagen === true,
-          fallback: "Die Schiedsrichterdaten wurden aktualisiert.",
-          // Judged here and not left to the undo route: the shared spine can only answer a body the
-          // schema refuses with a reload nothing would change.
-          unrestorable: schiedsrichter.name === null ? OHNE_GESPEICHERTEN_NAMEN : gespeicherteAdresseGilt ? null : OHNE_GESPEICHERTE_ADRESSE,
-          router,
+          offerUndo({
+            endpoint: "/api/admin/schiedsrichter/undo",
+            body: undoPayload,
+            message: gespeichertesSatz === "" ? undefined : gespeichertesSatz,
+            // A save that mailed nothing is clean; one whose link did not leave is graded a warning, the
+            // referee having no working link and nobody else being told.
+            warn: res.versandFehlgeschlagen === true,
+            fallback: "Die Schiedsrichterdaten wurden aktualisiert.",
+            // Judged here and not left to the undo route: the shared spine can only answer a body the
+            // schema refuses with a reload nothing would change.
+            unrestorable: schiedsrichter.name === null ? OHNE_GESPEICHERTEN_NAMEN : gespeicherteAdresseGilt ? null : OHNE_GESPEICHERTE_ADRESSE,
+            router,
+          });
+
+          // After the undo payload is built: leaving with typed values still in state lets a save-then-undo
+          // reopen on values the referee does not hold.
+          resetDraftToStored();
+          leavePage();
         });
-
-        // After the undo payload is built: leaving with typed values still in state lets a save-then-undo
-        // reopen on values the referee does not hold.
-        resetDraftToStored();
-        leavePage();
-      });
-    });
+      }),
+    );
   };
 
   return (
@@ -302,7 +308,8 @@ export function AdminSchiedsrichterEditForm({
         </EditFormLayout>
 
         <FormActionBar
-          isPending={isPending}
+          isPending={isPending || stepUp.isPrompting}
+          stepUp={stepUp}
           isLeaving={isLeaving}
           onCancel={requestLeave}
         />

@@ -157,7 +157,9 @@ describe("the request double", () => {
 
   /* After the case above, whose signed-out request would otherwise stand in for this case's caller. */
   it("signs the next case in as the request's own session again", async () => {
-    assert.deepEqual(await getAdminSession(), { user: { email: "vorstand@example.org" } });
+    const served = (await getAdminSession()) as { user: { email: string }; session: object };
+    assert.equal(served.user.email, "vorstand@example.org");
+    assert.ok("createdAt" in served.session, "the administrator is served without the row the step-up window is read off");
     assert.equal(await getSignInDestination(), "/bereich/admin", "the previous case's destination outlived its case");
   });
 

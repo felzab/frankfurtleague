@@ -63,7 +63,7 @@ export function AdminBewerbungAnnehmenSection({
   /** Whether the decline holds a typed reason, which this write re-keys the page over. */
   isDirty: boolean;
 }) {
-  const twoPress = useTwoPressConfirm(() => guardAgainstDraft(isDirty, DRAFT_DISCARDED));
+  const twoPress = useTwoPressConfirm({ guard: () => guardAgainstDraft(isDirty, DRAFT_DISCARDED), stepUp: true });
   const router = useRouter();
   const { isConfirming, press, cancel } = twoPress;
 
