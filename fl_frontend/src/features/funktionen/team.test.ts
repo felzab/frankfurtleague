@@ -1,3 +1,5 @@
+import "@/shared/testing/dom.ts";
+
 import assert from "node:assert/strict";
 import { createRequire, registerHooks } from "node:module";
 import path from "node:path";
@@ -6,10 +8,13 @@ import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
+import { render, screen } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
+
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction, exportingModule } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { callPage, clearSteps, readsOf, redirectTarget, renderPage, steps } from "@/shared/testing/pageHarness.ts";
+import { callPage, clearSteps, pageBody, readsOf, redirectTarget, renderPage, steps } from "@/shared/testing/pageHarness.ts";
 import { textOf } from "@/shared/testing/renderTest.ts";
 
 import type { FLSubjektSitz } from "@/core/schemas.ts";
@@ -37,6 +42,7 @@ registerHooks({
 const { default: TeamLayout } = await import("@/app/bereich/team/[team_id]/[saison_id]/layout.tsx");
 const { default: TeamStartPage } = await import("@/app/bereich/team/[team_id]/[saison_id]/page.tsx");
 const { KONTO_HREF } = await import("@/core/kontoHref.ts");
+const { TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL } = await import("@/features/funktionen/constants.ts");
 
 const TEAM_A = "6890a1b2c3d4e5f607250011";
 const TEAM_B = "6890a1b2c3d4e5f607250012";
@@ -216,5 +222,21 @@ describe("what a person meets at an address they hold no seat on", () => {
       wayOutsIn(markup).map((link) => link.href),
       [`/bereich/team/${TEAM_A}/2526`, `/bereich/team/${TEAM_A}/2627`],
     );
+  });
+
+  /* The layout's own word, where `TeamForbiddenPanel.test.ts` hands the shell its flag: only here does a
+     layout that stops telling the shell the address is refused leave the bar calling it a missing page. */
+  it("opens the bar's hint on why the person is not entered, never on a missing page", async () => {
+    setSubject(person({ sitze: [sitz({ team_id: TEAM_B, team_name: "Lessing-Gymnasium" })] }));
+    const params = { team_id: TEAM_A, saison_id: "2526" };
+    // The guard, then the chrome, each called as Next calls it; what the chrome returns is the browser's to render.
+    const guarded = await pageBody(TeamLayout, { params: Promise.resolve(params), children: h("p", null, "Seite") });
+    const shell = await pageBody(() => guarded, {});
+    render(underNext(shell, { pathname: `/bereich/team/${TEAM_A}/2526`, params: params }));
+    await userEvent.setup().click(screen.getByRole("button", { name: `Was auf „${TEAM_SHELL_FALLBACK.label}“ zu finden ist` }));
+    const shown = document.body.textContent;
+
+    assert.ok(shown.includes(TEAM_SHELL_REFUSAL.hint.lead), "the bar over the forbidden panel does not say the person is not entered");
+    assert.ok(!shown.includes(TEAM_SHELL_FALLBACK.hint.lead), "the bar over the forbidden panel reads as a missing page");
   });
 });
