@@ -72,7 +72,7 @@ const { BestaetigungFormPanel } = await import("./components/views/BestaetigungF
 const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
 const { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, WiderspruchFolge } =
   await import("./components/views/BestaetigungHinweise.tsx");
-const { FaktenBanner, GespeicherteAngaben } = await import("./components/views/BestaetigungPanels.tsx");
+const { FaktenBanner, GespeicherteAngaben, Wert } = await import("./components/views/BestaetigungPanels.tsx");
 const { BestaetigungView } = await import("./components/views/BestaetigungView.tsx");
 
 const FRONTEND_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -139,6 +139,12 @@ const INVITATION_SENTENCE =
 
 /** The outermost element's class list, which is where a recipe lands — read inside its own tag alone. */
 const rootClass = (html: string): string => /class="([^"]*)"/.exec(html.slice(0, html.indexOf(">")))?.[1] ?? "";
+
+// Compared as sets: prettier orders a `className` literal and leaves a `*_CLASSES` constant as typed.
+const classSet = (classes: string): string[] => classes.split(/\s+/).filter(Boolean).sort();
+
+/** The one emphasis a reader's own value wears, read off `Wert` because its class order is the formatter's. */
+const WERT_CLASS = rootClass(renderMarkup(Wert, { children: "" }));
 
 /** The level of the heading a fragment is rendered inside: the last one opened above it. */
 function headingLevelOf(html: string, text: string): number | null {
@@ -943,13 +949,18 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     return allPassages(html).filter((passage) => !STAMPED.has(textOf(passage).trim()));
   }
 
-  const withoutEmphasis = (passage: string): string => passage.replace(/<strong class="text-foreground font-bold">[\s\S]*?<\/strong>/g, "");
+  const withoutEmphasis = (passage: string): string =>
+    passage.replace(/<strong class="([^"]*)">[\s\S]*?<\/strong>/g, (whole, classes) => (classes === WERT_CLASS ? "" : whole));
 
   /* The application form's page, not a card of its own: one column measures the same on both ends of
      the workflow, and a cap typed here is one nobody moves when that page's moves. */
   it("stands in the column the application page stands in", () => {
     assert.match(rootClass(RUNNING_PAGE), /max-w-meta/, "the application page no longer names the width this case compares against");
-    assert.equal(rootClass(VALID_PAGE), rootClass(RUNNING_PAGE), "the confirmation page draws its own column rather than the shared one");
+    assert.deepEqual(
+      classSet(rootClass(VALID_PAGE)),
+      classSet(rootClass(RUNNING_PAGE)),
+      "the confirmation page draws its own column rather than the shared one",
+    );
   });
 
   /* Nested boxes are what a phone pays for twice: each one spends the gutter again, and the words
@@ -1045,7 +1056,7 @@ describe("how the confirmation page banners the facts a reader arrived with", ()
     assert.doesNotMatch(rootClasses, /justify-between|w-full/, "the stored values are spread across the panel rather than sized to themselves");
     assert.doesNotMatch(storedMarkup, /flex-1/, "a stored value takes an equal share of the width rather than its own");
     for (const value of ["01.09.2008", "erlaubt"]) {
-      assert.ok(storedMarkup.includes(`<strong class="text-foreground font-bold">${value}</strong>`), `${value} wears no emphasis`);
+      assert.ok(storedMarkup.includes(`<strong class="${WERT_CLASS}">${value}</strong>`), `${value} wears no emphasis`);
     }
   });
 });

@@ -1041,6 +1041,10 @@ describe("which wording a record cites", () => {
 });
 
 describe("how the editor divides one person from the next", () => {
+  // A class list drawing a rule, its top border and the padding under it matched in either order,
+  // since the order is prettier's to set.
+  const RULE_CLASS = /class="(?=[^"]*(?<=[\s"])border-t(?=[\s"]))(?=[^"]*(?<=[\s"])pt-\d)[^"]*"/g;
+
   /* Two depths drawn the same way read as one: a rule between two people is then the rule between a
      person's details and their Kenntnisnahme, and neither reads as a boundary. */
   it("gives every seat its own panel rather than a rule inside one", () => {
@@ -1056,7 +1060,8 @@ describe("how the editor divides one person from the next", () => {
       // own info icon read as the panel being lost.
       assert.ok(header.includes(`<h2 class="${panel.heading()}`), "a seat spells its own heading again");
     }
-    assert.ok(!sectionMarkup(BLOCK).includes("border-t pt-5 first:border-t-0"), "the seats are back to being slices of one panel");
+    // The slice's own class alone, since prettier sorts others between it and the rule it drops.
+    assert.doesNotMatch(sectionMarkup(BLOCK), /(?<=[\s"])first:border-t-0(?=[\s"])/, "the seats are back to being slices of one panel");
   });
 
   /* An empty card carrying a title and nothing else is what the block heading had become once each
@@ -1104,7 +1109,7 @@ describe("how the editor divides one person from the next", () => {
     /* No address in any seat, so none offers the person's erasure: that control draws its own rule
        from its own file, and what this case is about is the division inside one person. */
     for (const { body } of seatCards(sectionMarkup(BLOCK_WITHOUT_ADDRESS))) {
-      const seatRules = [...body.matchAll(/class="[^"]*\bborder-t pt-\d[^"]*"/g)].map((found) => found[0]);
+      const seatRules = [...body.matchAll(RULE_CLASS)].map((found) => found[0]);
 
       assert.equal(seatRules.length, 1, `the seat draws ${String(seatRules.length)} rules where the Kenntnisnahme needs one`);
       assert.match(
@@ -1116,7 +1121,7 @@ describe("how the editor divides one person from the next", () => {
     /* Counted over the whole section as well: a rule drawn BETWEEN the cards sits inside no seat's body,
        so every count above passes while the two depths are back to being drawn alike. */
     assert.equal(
-      [...sectionMarkup(BLOCK_WITHOUT_ADDRESS).matchAll(/class="[^"]*\bborder-t pt-\d[^"]*"/g)].length,
+      [...sectionMarkup(BLOCK_WITHOUT_ADDRESS).matchAll(RULE_CLASS)].length,
       seatCards(sectionMarkup(BLOCK_WITHOUT_ADDRESS)).length,
       "the section draws a rule outside a seat",
     );
