@@ -161,6 +161,7 @@ const sicherheit = (fields: Partial<Sicherheit> = {}): Sicherheit => ({
     },
   ],
   verwaltung: false,
+  inhaberId: "inhaber",
   freshUntil: null,
   ...fields,
 });
@@ -174,15 +175,29 @@ const karte = (id: string) => ({
   diesesGeraet: false,
 });
 
+const HOUR_MS = 60 * 60 * 1000;
+
+/** A button whose own label is „Abmelden“, which „Alle anderen abmelden“ is not. */
+const ABMELDEN_BUTTON = /<button[^>]*>(?:(?!<\/button>)[\s\S])*>Abmelden<\/button>/;
+
 const shown = (fields: Partial<Sicherheit>): string =>
   textOf(renderTree(underNext(h(SicherheitPanel, { sicherheit: sicherheit(fields) }))), " ");
 
 describe("what the security section tells its reader", () => {
   it("offers a person holding no passkey the sign-in without a code", () => {
-    const text = shown({});
+    const text = shown({ freshUntil: Date.now() + HOUR_MS });
 
     assert.ok(text.includes("Melde Dich ohne Code an"));
     assert.ok(text.includes("Passkey einrichten"));
+  });
+
+  /* The sudo pattern: past the window the add control is the confirmation itself, and it turns into
+     the add control once confirmed (the flow's own cases are `SicherheitPanel.test.ts`). */
+  it("offers the confirmation in the add control's place once the window has closed", () => {
+    const text = shown({ passkeys: [karte("eins")], freshUntil: null });
+
+    assert.ok(text.includes("Mit Passkey bestätigen"));
+    assert.ok(!text.includes("Passkey hinzufügen"), "a stale session is offered the enrolment the server refuses it");
   });
 
   /* An administrator's last passkey is their way into the administration: the second is what keeps
@@ -196,18 +211,31 @@ describe("what the security section tells its reader", () => {
   });
 
   it("draws each passkey's fallback name and set-up date, and no last use for one never stamped", () => {
-    const text = shown({ passkeys: [karte("eins")] });
+    const html = renderTree(underNext(h(SicherheitPanel, { sicherheit: sicherheit({ passkeys: [karte("eins")] }) })));
 
-    assert.ok(text.includes("Passkey"));
-    assert.ok(text.includes("Eingerichtet am 1. September 2026"));
-    assert.ok(!text.includes("Zuletzt verwendet"), "a passkey whose uses were never stamped claims a last use");
+    // The name line alone, which every other „Passkey“ on the page is not.
+    assert.match(html, />Passkey<\/span>/);
+    assert.ok(textOf(html, " ").includes("Eingerichtet am 1. September 2026"));
+    assert.ok(!textOf(html, " ").includes("Zuletzt verwendet"), "a passkey whose uses were never stamped claims a last use");
+
+    // The control: a name the holder chose is the line instead.
+    const named = renderTree(
+      underNext(h(SicherheitPanel, { sicherheit: sicherheit({ passkeys: [{ ...karte("eins"), name: "Mein iPhone" }] }) })),
+    );
+    assert.doesNotMatch(named, />Passkey<\/span>/);
   });
 
   it("marks this device's sign-in, names its factor, and offers no sign-out of it beside the bar's", () => {
-    const text = shown({});
+    const html = renderTree(underNext(h(SicherheitPanel, { sicherheit: sicherheit() })));
 
-    assert.ok(text.includes("Dieses Gerät"));
-    assert.ok(text.includes("Mit Code per E-Mail"));
-    assert.ok(!text.includes("Alle anderen abmelden"), "a sign-out of other devices is offered where there are none");
+    assert.ok(textOf(html, " ").includes("Dieses Gerät"));
+    assert.ok(textOf(html, " ").includes("Mit Code per E-Mail"));
+    assert.doesNotMatch(html, ABMELDEN_BUTTON, "this device's own row offers a sign-out beside the bar's");
+    assert.ok(!textOf(html, " ").includes("Alle anderen abmelden"), "a sign-out of other devices is offered where there are none");
+
+    // The control: another device's row carries one.
+    const andere = { ...sicherheit().anmeldungen[0], id: "andere", diesesGeraet: false };
+    const both = renderTree(underNext(h(SicherheitPanel, { sicherheit: sicherheit({ anmeldungen: [...sicherheit().anmeldungen, andere] }) })));
+    assert.match(both, ABMELDEN_BUTTON);
   });
 });
