@@ -7,6 +7,7 @@ import { Button } from "@heroui/react/button";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
 import { Label } from "@heroui/react/label";
+import { Separator } from "@heroui/react/separator";
 
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { Form } from "@/shared/components/ui/Form";
@@ -22,6 +23,7 @@ import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { handleSignIn } from "../../actions";
 import { SignInActionFallback } from "../ui/SignInActionFallback";
 import { CodeStep, LABEL_CLASSES } from "./CodeStep";
+import { PasskeySignIn } from "./PasskeySignIn";
 
 import type { FormState } from "@/shared/types/types";
 import type { ErrorInfo } from "next/error";
@@ -133,41 +135,56 @@ function SignInPanel({ email, onEmailChange, next }: { email: string; onEmailCha
   }
 
   return (
-    <Form
-      wiring={formWiring}
-      onSubmit={handleFormSubmit}
-      className="flex flex-col gap-y-4">
-      {/* No `aria-label` here: it outranks the visible `<Label>`, so the accessible name
+    <div className="flex flex-col gap-y-4">
+      <Form
+        wiring={formWiring}
+        onSubmit={handleFormSubmit}
+        className="flex flex-col gap-y-4">
+        {/* No `aria-label` here: it outranks the visible `<Label>`, so the accessible name
         stopped matching the words a voice-control user reads. `TextField` associates it. */}
-      <TextField
-        className="flex w-full flex-col gap-y-2"
-        name="email"
-        type="email"
-        value={email}
-        onChange={onEmailChange}
-        // Read-only rather than disabled while the code sends: a disabled field drops the focus of
-        // the visitor who pressed `Enter` in it to the page.
-        isReadOnly={isPending}>
-        <Label className={LABEL_CLASSES}>E-Mail-Adresse</Label>
-        {/* No `required`: `aria` drops react-aria's own, and a hand-written one would put the
-            browser's bubble back on the very blur this mode exists to keep quiet. */}
-        <Input
-          className="w-full rounded-xl border border-control bg-surface px-4 py-3 fluid-xs text-foreground transition-colors duration-(--motion-base) outline-none placeholder:text-foreground-muted sm:fluid-sm"
-          placeholder="z.B. name@beispiel.de"
+        <TextField
+          className="flex w-full flex-col gap-y-2"
+          name="email"
           type="email"
-          // `webauthn` last, where a browser looks for it before it offers a passkey in this box.
-          autoComplete="username webauthn"
-        />
-        <FieldError className={FIELD_ERROR_CLASSES} />
-      </TextField>
+          value={email}
+          onChange={onEmailChange}
+          // Read-only rather than disabled while the code sends: a disabled field drops the focus of
+          // the visitor who pressed `Enter` in it to the page.
+          isReadOnly={isPending}>
+          <Label className={LABEL_CLASSES}>E-Mail-Adresse</Label>
+          {/* No `required`: `aria` drops react-aria's own, and a hand-written one would put the
+            browser's bubble back on the very blur this mode exists to keep quiet. */}
+          <Input
+            className="w-full rounded-xl border border-control bg-surface px-4 py-3 fluid-xs text-foreground transition-colors duration-(--motion-base) outline-none placeholder:text-foreground-muted sm:fluid-sm"
+            placeholder="z.B. name@beispiel.de"
+            type="email"
+            // `webauthn` last, where a browser looks for it before it offers a passkey in this box.
+            autoComplete="username webauthn"
+          />
+          <FieldError className={FIELD_ERROR_CLASSES} />
+        </TextField>
 
-      <Button
-        type="submit"
-        variant="primary"
-        isPending={isPending}
-        className={formButton({ intent: "submit", fullWidth: true })}>
-        {isPending ? "Sendet..." : "Code senden"}
-      </Button>
-    </Form>
+        <Button
+          type="submit"
+          variant="primary"
+          isPending={isPending}
+          className={formButton({ intent: "submit", fullWidth: true })}>
+          {isPending ? "Sendet..." : "Code senden"}
+        </Button>
+      </Form>
+
+      {/* Decoration: the passkey button carries its own name. */}
+      <div
+        aria-hidden="true"
+        className="flex items-center gap-x-3 fluid-xs text-foreground-muted">
+        <Separator className="flex-1 bg-border" />
+        oder
+        <Separator className="flex-1 bg-border" />
+      </div>
+
+      {/* Outside the form, which it submits nothing to, and mounted with the address step alone: its
+          autofill offer is attached to that step's field. */}
+      <PasskeySignIn />
+    </div>
   );
 }

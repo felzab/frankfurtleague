@@ -26,6 +26,10 @@ export const { catchError } = createRequire(${JSON.stringify(import.meta.filenam
    replace: recorded at the module boundary. */
 const NAVIGATION_DOUBLE = `export function leaveDocumentFor(path) { globalThis.${LEFT}.push(path); }`;
 
+/* The passkey button's browser client, which reads the page's origin as it loads, and this window
+   has none. No case presses the button. */
+const CLIENT_DOUBLE = `export const authClient = { signIn: { passkey: async () => ({ error: null }) } };`;
+
 registerHooks({
   resolve(specifier, context, nextResolve) {
     // Narrowed to the card: the shim's own `require` has to reach the real module.
@@ -35,6 +39,7 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     if (url.endsWith("/src/shared/utils/documentNavigation.ts")) return { format: "module", source: NAVIGATION_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/authClient.ts")) return { format: "module", source: CLIENT_DOUBLE, shortCircuit: true };
     return nextLoad(url, context);
   },
 });
@@ -115,6 +120,22 @@ describe("the sign-in card's address step", () => {
     });
 
     assert.equal(calls.length - before, 1, "a second Enter during the send sent a second code");
+  });
+});
+
+describe("the sign-in card's two ways in", () => {
+  /* The button's autofill arms against the address step's own field, so it stands where that field
+     does and nowhere else. */
+  it("offers the passkey beside the address step alone, under the divider", async () => {
+    const user = userEvent.setup();
+    render(h(SignInForm, { next: LANDING }));
+    assert.ok(screen.getByRole("button", { name: "Mit Passkey anmelden" }));
+    assert.ok(screen.getByText("oder"));
+
+    await user.type(screen.getByRole("textbox", { name: "E-Mail-Adresse" }), `${ADDRESS}{Enter}`);
+    await screen.findByLabelText("Code aus der E-Mail");
+
+    assert.ok(screen.queryByRole("button", { name: "Mit Passkey anmelden" }) === null, "the passkey stayed on the code step");
   });
 });
 
