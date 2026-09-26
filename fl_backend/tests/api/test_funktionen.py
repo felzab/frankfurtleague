@@ -422,31 +422,46 @@ class TestTheConfirmationNarrowing:
             False,
         )
 
-    def test_the_same_seat_stamped_inside_the_caller_s_transaction_grants(self, seeded_league: str):
-        """Kills a lookup read outside the caller's session: the stamp exists only inside the transaction, which is aborted after.
+    def test_every_read_sees_what_the_caller_s_transaction_wrote(self, seeded_league: str):
+        """Kills any of the four reads made outside the caller's session: each has its own change to miss.
 
-        The control asks the same question outside the transaction, where the uncommitted stamp is not seen.
+        The seat, the pupil and the referee are stamped and the past season made `future`, in a transaction aborted after.
         """
 
-        async def _run() -> tuple[FLSubjektResponse, FLSubjektResponse]:
+        async def _run() -> tuple[FLSubjektResponse, FLSubjektResponse, FLSubjektResponse, FLSubjektResponse]:
             client = shared_client(seeded_league)
             database = client[DATABASE_NAME]
 
             async with client.start_session() as writer, client.start_session() as bystander:
                 await writer.start_transaction()
                 try:
+                    stamped = {"$set": {"einwilligung.bestaetigt_am": STAMP}}
                     await database[Collection.SAISON_TEAMS].update_one(
-                        {"_id": ROW_ACTIVE_B_OID}, {"$set": {"kontakte.ansprechperson.einwilligung.bestaetigt_am": STAMP}}, session=writer
+                        {"_id": ROW_ACTIVE_C_OID}, {"$set": {"kontakte.stellvertretung.einwilligung.bestaetigt_am": STAMP}}, session=writer
                     )
+                    await database[Collection.SPIELER].update_one({"_id": PUPIL_UNCONFIRMED_OID}, stamped, session=writer)
+                    await database[Collection.SCHIEDSRICHTER].update_one(
+                        {"_id": REFEREE_UNCONFIRMED_OID}, {"$set": {"einwilligung": CONFIRMED}}, session=writer
+                    )
+                    await database[Collection.SAISONS].update_one({"_id": PAST_SAISON}, {"$set": {"status": "future"}}, session=writer)
 
-                    return await _ask(database, OHNE_STEMPEL, writer), await _ask(database, OHNE_STEMPEL, bystander)
+                    return (
+                        await _ask(database, NUR_OFFEN, writer),
+                        await _ask(database, ZEITEN, writer),
+                        await _ask(database, NUR_OFFEN, bystander),
+                        await _ask(database, ZEITEN, bystander),
+                    )
                 finally:
                     await writer.abort_transaction()
 
-        inside, outside = on_the_seed_loop(_run())
+        offen_inside, zeiten_inside, offen_outside, zeiten_outside = on_the_seed_loop(_run())
 
-        assert seats(inside) == [(ACTIVE_SAISON, TEAM_B_OID, "ansprechperson", ROW_NAME_B, "active")]
-        assert outside.sitze == []
+        assert seats(offen_inside) == [(ACTIVE_SAISON, TEAM_C_OID, "stellvertretung", ROW_NAME_C, "active")]
+        assert [row.spieler_id for row in offen_inside.spieler] == [PUPIL_UNCONFIRMED_OID]
+        assert [row.schiedsrichter_id for row in offen_inside.schiedsrichter] == [REFEREE_UNCONFIRMED_OID]
+        assert [(sitz.saison_id, sitz.saison_status) for sitz in zeiten_inside.sitze] == [(PAST_SAISON, "future"), (FUTURE_SAISON, "future")]
+        assert is_empty(offen_outside)
+        assert [sitz.saison_id for sitz in zeiten_outside.sitze] == [FUTURE_SAISON]
 
 
 @pytest.mark.db
