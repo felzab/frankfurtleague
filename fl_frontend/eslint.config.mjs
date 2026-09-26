@@ -665,7 +665,7 @@ const SOURCE_BANS = [
     exempt: ["src/features/saisons/components/ui/laufendDot.ts"],
   },
   {
-    selector: `Program:has(ImportDeclaration[source.value=/badges(\\.ts)?$/] > ImportSpecifier[imported.name="PILL_RADIUS_CLASSES"]) ${inLiteral("bg-muted text-foreground-muted")}`,
+    selector: `Program:has(ImportDeclaration[source.value=/badges(\\.ts)?$/] > ImportSpecifier[imported.name="PILL_RADIUS_CLASSES"]) ${classList({ all: ["bg-muted", "text-foreground-muted"] })}`,
     message: "A pill takes its colour from a `PillTone`, never the neutral pair (docs/frontend/spec.md :: I170).",
   },
   {
