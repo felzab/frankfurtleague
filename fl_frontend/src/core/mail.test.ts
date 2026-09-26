@@ -404,7 +404,7 @@ describe("the sink a deployment that does not mail writes instead", () => {
   });
 
   /* The other arm, so a sink that wrote on EVERY send would fail here rather than read as a pass
-     above: production mails, and a file there would leave a live sign-in token on the host's disk. */
+     above: production mails, and a file there would leave a live sign-in code on the host's disk. */
   it("posts the message and writes no file where the environment is production", async () => {
     const before = sinkNames();
 
@@ -415,7 +415,7 @@ describe("the sink a deployment that does not mail writes instead", () => {
   });
 
   /* Production's own withheld arm, reached where `SKIP_ENV_VALIDATION` stood the key's requirement
-     down. It is still production, so a file here would leave a live sign-in token on the host. */
+     down. It is still production, so a file here would leave a live sign-in code on the host. */
   it("writes no file where production is the deployment and holds no key", async () => {
     switches[RESEND_KEY_SWITCH] = undefined;
     const before = sinkNames();

@@ -66,7 +66,7 @@ export async function mayReceiveSignIn(identifier: string): Promise<SignInVerdic
     // Closed: a sign-in past a failed read would defeat the ban. The person cannot tell this from an
     // unknown address, so the line is the only signal, carrying the name alone as the send's does.
     const refused = failed instanceof APIBadStatusError && failed.serverErrorCode === PAYLOAD_REFUSED;
-    logger.error(refused ? "auth.link_gate_address_refused" : "auth.link_gate_failed", undefined, {
+    logger.error(refused ? "auth.sign_in_gate_address_refused" : "auth.sign_in_gate_failed", undefined, {
       error_code: "FE-AUTH-002",
       name: failed instanceof Error ? failed.name : "unknown",
     });

@@ -417,10 +417,10 @@ describe("what the mounted HTTP surface answers", () => {
     assert.ok(!JSON.stringify(body).includes(row.token), "the served session carries the cookie's own value");
   });
 
-  /* The hole the allowlist exists for: a holder of the mailbox alone reaches a link-borne session,
+  /* The hole the allowlist exists for: a holder of the mailbox alone reaches a code-borne session,
      and these three read, rename and delete the administrator's only passkey behind a bare session
      middleware -- no freshness, no factor. */
-  it("refuses all three passkey management routes to a link-borne session, leaving the passkey standing", async () => {
+  it("refuses all three passkey management routes to a code-borne session, leaving the passkey standing", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     // The caller's own row, so ownership and the lookup both pass: a wrong id answers 404 for its
     // own reason, and every assertion below would then hold with the routes wide open.
@@ -2116,7 +2116,7 @@ describe("which addresses outside the allowlist the send gate mails", () => {
     const lines = logged.slice(loggedBefore);
     assert.deepEqual(
       lines.map((line) => [line.message, line.meta]),
-      [["auth.link_gate_failed", { error_code: "FE-AUTH-002", name: "APINetworkError" }]],
+      [["auth.sign_in_gate_failed", { error_code: "FE-AUTH-002", name: "APINetworkError" }]],
     );
   });
 
@@ -2128,7 +2128,7 @@ describe("which addresses outside the allowlist the send gate mails", () => {
     assert.deepEqual((await askFor(PERSON_EMAIL)).mailed, []);
     assert.deepEqual(
       logged.slice(loggedBefore).map((line) => [line.message, line.meta]),
-      [["auth.link_gate_address_refused", { error_code: "FE-AUTH-002", name: "APIBadStatusError" }]],
+      [["auth.sign_in_gate_address_refused", { error_code: "FE-AUTH-002", name: "APIBadStatusError" }]],
     );
   });
 

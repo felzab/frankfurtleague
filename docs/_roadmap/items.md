@@ -798,7 +798,7 @@ with it.
   `.github/gate-wall-clock.tsv`.
 - **Its data is its own.** `./scripts/ops/local.sh --seed` restores a copy of production, which a CI
   runner never holds.
-- **The admin pages sit behind the mailed sign-in link**, and `.claude/CLAUDE.md` §3 refuses a
+- **The admin pages sit behind a mailed sign-in code**, and `.claude/CLAUDE.md` §3 refuses a
   testing-only way past it in production code.
 - **The `connection()` order's symptom is a failed image build**, the builder reaching no backend
   (`docs/frontend/spec.md :: I6`), and never anything a browser shows. Which run replaces the walk's
@@ -1009,8 +1009,8 @@ same prop through the CSSOM on the client, so
 `fl_frontend/src/core/providers/AppToaster.tsx`'s timer duration, and every overlay position
 react-aria resolves are outside the policy once hydration has run.
 
-**Inside it are two attributes this repository writes, one the library writes, and one stylesheet
-the library injects.** Both swatches render `style={{ backgroundColor: trikotFarbeHex(…) }}` —
+**Inside it are two attributes this repository writes, one the library writes, and two stylesheets
+libraries inject.** Both swatches render `style={{ backgroundColor: trikotFarbeHex(…) }}` —
 `fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx` for the wish and
 `fl_frontend/src/features/teams/components/forms/TrikotFarbeSelect.tsx` for the assignment — and
 `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS` closes the colour set with its
@@ -1021,12 +1021,11 @@ attribute at all. The library's attribute is `--scroll-shadow-size`, which `@her
 **`ScrollShadow` is reached two ways, and the second is why the prerender's count understates the
 work.** `fl_frontend/src/shared/components/ui/FilterLeiste.tsx` renders it directly, and HeroUI's
 `Tabs` renders one internally, which puts it under
-`fl_frontend/src/features/auth/components/forms/SignInForm.tsx`,
 `fl_frontend/src/features/spieltage/components/views/SpielplanView.tsx` and
 `fl_frontend/src/features/admin/components/views/AdminSpieleActionRequiredView.tsx` besides. A
-2026-09-07 build's forty prerendered pages carry exactly one inline style attribute outside
-`_global-error`, and it is the sign-in page's — but a prerender is not the population: every page
-that streams one of those five components server-renders the attribute too, and a `"use client"`
+2026-09-07 build's forty prerendered pages carried exactly one inline style attribute outside
+`_global-error`, on a page rendering `Tabs` — but a prerender is not the population: every page
+that streams one of those four components server-renders the attribute too, and a `"use client"`
 directive does not keep a component off the server render. So this is a restyle of one component
 rather than of one page, and the count to trust is the source's rather than the build's.
 
@@ -1041,6 +1040,14 @@ nineteen elements on the home page, measured on the local stack 2026-08-31. A ha
 invalidated by the library's next release and `style-src-attr` cannot reach an element, so neither
 repairs it; how the rule reaches every pressable once the element is refused is what the fix answers
 before `style-src 'self'` is served at all.
+
+**`input-otp`'s stylesheet is the second, and refusing it shows the code field's own input.**
+`@heroui/react`'s `InputOTP`, which `fl_frontend/src/features/auth/components/forms/CodeStep.tsx`
+renders, sits on `input-otp` 1.5.0, which creates a `<style>` element and fills it through
+`insertRule`, reading a nonce only where one is passed in (the installed `input-otp`'s
+`dist/index.mjs`, read 2026-09-26). Its rules make the real input's text and selection transparent
+under the six slots, so refused, the typed digits show a second time behind them, and nothing goes
+red.
 
 **Two residues stay, and each is accepted rather than covered.** Next's own `_global-error` carries
 both an attribute and a `<style>` element, and renders unstyled under the strict policy — on a page

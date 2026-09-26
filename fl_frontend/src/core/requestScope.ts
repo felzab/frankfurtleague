@@ -129,7 +129,7 @@ export function getRequestActor(): string | undefined {
 
 // Mutates the live store: the session resolves after the scope is entered, and `run()` seeds at
 // entry alone. A no-op outside a scope, and on the address-less session the sign-in library's types
-// admit but a mailed link cannot produce.
+// admit but a mailed code cannot produce.
 export function setRequestActor(actor: string | null | undefined): void {
   const store = storage.getStore();
   if (!store || !actor) return;

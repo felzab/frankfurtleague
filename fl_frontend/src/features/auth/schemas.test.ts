@@ -16,7 +16,7 @@ describe("SignInPayloadSchema", () => {
   });
 
   /* Whatever passes here is folded and mailed, and the action answers both outcomes with the same
-     sentence: an undeliverable address leaves the reader waiting on a link that never went. */
+     sentence: an undeliverable address leaves the reader waiting on a code that never went. */
   it("refuses an address no mailbox can be reached at", () => {
     for (const email of ["erika@ab-.de", "erika@schule", "erika@", "", "erika@@schule.de", "Erika <erika@schule.de>"]) {
       assert.equal(refused(email), true, `expected "${email}" to be rejected`);

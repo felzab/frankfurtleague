@@ -261,7 +261,7 @@ class TestAnEventReachesTheSeatItWasSentTo:
         assert stored is not None and stored["stand"] == "unzustellbar"
 
     def test_an_event_naming_no_seat_writes_nothing(self, mongo_replica_set_url: str):
-        """The sign-in link carries no tags, so the route that verifies it has no seat to name; the answer is still a success."""
+        """An event naming no seat leaves no row to write, and the answer is still a success."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await accept(database, client, rollen=["trainer"])

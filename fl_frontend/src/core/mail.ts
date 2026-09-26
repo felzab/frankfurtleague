@@ -212,7 +212,7 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
   const apiKey = frontend_config.AUTH_RESEND_KEY;
   if (frontend_config.APP_ENV !== "production" || apiKey === undefined) {
     // Never on production, which reaches this arm only where `SKIP_ENV_VALIDATION` stood the key's
-    // requirement down: a file there would leave a live sign-in token on the host's disk.
+    // requirement down: a file there would leave a live sign-in code on the host's disk.
     const sinkFile = frontend_config.APP_ENV === "production" ? undefined : await writeToSink({ to, subject, html, text, tags }, traceId);
 
     // Subject, tags and the file's name, never the recipient or a body: enough to say WHICH message

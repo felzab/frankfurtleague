@@ -730,7 +730,7 @@ class FLPostBewerbungResponse(BaseAPIResponse):
     bestaetigungsfrist: CustomDateString
 
 
-# --- The CONFIRMATION. The token is the whole credential, as it is for a sign-in link, so both
+# --- The CONFIRMATION. The token is the whole credential, as a sign-in code is, so both
 # endpoints are base-tier and every payload forbids an undeclared key.
 
 # Stripped, a token pasted from a mail client arriving with a trailing space more often than not.

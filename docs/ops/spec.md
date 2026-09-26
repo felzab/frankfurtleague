@@ -430,7 +430,7 @@ local stack starts with an empty `auth` and a sign-in builds it; the frontend's 
 which administrator may sign in is an environment value, the grants the backend admits one by arrive
 with the copy (`berechtigungen`), so a `--fresh` stack admits nobody until one is written, and anybody else is
 offered a sign-in only where the local backend holds records for their address (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). **A sign-in alone does not reach
-`/bereich/admin` there**: the link stamps its session `link` where the admin guard wants `passkey`
+`/bereich/admin` there**: the code stamps its session `code` where the admin guard wants `passkey`
 (`fl_frontend/src/core/auth.ts :: isAdminSession`), so `/signin/passkey` offers an enrolment first —
 bound to this machine's own authenticator and to `localhost`, the relying party the local `AUTH_URL`
 gives. Every machine, and every `--fresh`, enrols again. A second passkey is added from the

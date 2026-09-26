@@ -40,7 +40,7 @@ from app.core.recording import build_redaction_filter, build_redaction_update, l
 from app.core.security import bind_public_actor, verify_access_base
 
 # A THIRD router on the prefix, beside the admin one and the public create: the token is the whole
-# credential, as for a sign-in link, so both endpoints are base-tier and bound to the public actor
+# credential, as a sign-in code is, so both endpoints are base-tier and bound to the public actor
 # for `app/api/bewerbungen/public_router.py`'s reason.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/bewerbungen/einwilligung",

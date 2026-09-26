@@ -204,7 +204,7 @@ const WUNSCHGEGNER_SENTENCE = `Als Wunschgegner für den ersten Spieltag haben w
 /** The second control both decisions carry: one page that is a dead end for neither of their readers. */
 const LIGA_AKTION = { label: "Laufende Saison", href: `${ORIGIN}/dashboard` };
 
-/** Spelled out for the reason above. The sign-in link states the same sentence, and the two move together. */
+/** Spelled out for the reason above. */
 const FALLBACK_SENTENCE = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
 
 /* Spelled out rather than imported: a shared inbox reads one message under two floors, and these
@@ -972,7 +972,7 @@ describe("buildBewerbungBestaetigungEmail", () => {
   });
 
   /* One press is what this message exists for. A second destination beside it competes with the one
-     the reader came for, which is the sign-in link's reason. */
+     the reader came for. */
   it("offers one control, and it is the link", () => {
     assert.deepEqual(controlsIn(buildBewerbungBestaetigungEmail(BESTAETIGUNG).html), [{ href: LINK_EINS, label: "Eintrag bestätigen" }]);
   });

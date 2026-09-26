@@ -494,13 +494,13 @@ record, and the action log records the writes you make rather than the request t
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
 One person can hold several — a referee is a pupil, and a contact person can be both.
 
-| Role           | Where their data is read                                                                                                                                                                            |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/bereich/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                                                                         |
-| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                                   |
-| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on                                                 |
-| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in tokens and the passkey — plus `sperrliste.erstellt_von` on every ban they entered, which no erasure reaches |
-| Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                          |
+| Role           | Where their data is read                                                                                                                                                                           |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pupil          | `/bereich/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                                                                        |
+| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                                  |
+| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on                                                |
+| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus `sperrliste.erstellt_von` on every ban they entered, which no erasure reaches |
+| Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                         |
 
 **A pupil, referee or contact person who has signed in is in the sign-in store too**: their first
 code writes their `user` row and a session in the `auth` database, read by hand as an
@@ -1144,11 +1144,11 @@ whether a code went or not, so the frontend's log is the only record, and no lin
 carries the address. Ask when they tried and read that window
 ([`../logging/error-codes.md`](../logging/error-codes.md) for each code):
 
-- `auth.link_gate_failed` under `FE-AUTH-002`: the send gate could not read what the backend holds
-  for the address, its ban included, so it sent nothing — the backend unreachable, failing, or
-  answering unreadably.
-- `auth.link_gate_address_refused` under `FE-AUTH-002`: the backend refused the address as none its
-  own rule accepts, though the sign-in form took it; the two address rules disagree.
+- `auth.sign_in_gate_failed` under `FE-AUTH-002`: the send gate could not read what the backend
+  holds for the address, its ban included, so it sent nothing — the backend unreachable, failing,
+  or answering unreadably.
+- `auth.sign_in_gate_address_refused` under `FE-AUTH-002`: the backend refused the address as none
+  its own rule accepts, though the sign-in form took it; the two address rules disagree.
 - `auth.code_send_failed` or `auth.sign_in_failed` under `FE-AUTH-002`: the gate admitted the
   address, and the send or the library call around it failed; `FE-MAIL-001` under the same trace id
   is the provider refusing the message.

@@ -226,7 +226,7 @@ const ONE_WINS = { statuses: [200, 409], codes: [ENROLMENT_CONFLICT], notices: 1
 
 describe("two enrolments of one administrator at once, against a real database (`docs/frontend/spec.md :: I341`)", () => {
   // The clause holding in sequence is what the concurrent cases below are measured against.
-  it("refuses a second link-borne enrolment made after the first", async () => {
+  it("refuses a second code-borne enrolment made after the first", async () => {
     const a = await offer(await signIn(ADMIN_EMAIL));
     const b = await offer(await signIn(ADMIN_EMAIL));
 
@@ -238,7 +238,7 @@ describe("two enrolments of one administrator at once, against a real database (
 
   // A stolen mailbox racing the administrator's own first enrolment: without the claim both rows
   // stand and neither side is refused.
-  it("lets one of two link-borne sessions judged at zero rows enrol", async () => {
+  it("lets one of two code-borne sessions judged at zero rows enrol", async () => {
     const a = await offer(await signIn(ADMIN_EMAIL));
     const b = await offer(await signIn(ADMIN_EMAIL));
 
@@ -250,7 +250,7 @@ describe("two enrolments of one administrator at once, against a real database (
     assert.deepEqual({ ...raced, rows: (await passkeyRows()).length }, { ...ONE_WINS, rows: 1 });
   });
 
-  it("lets one of two link-borne sessions enrol while the credential index stands", async () => {
+  it("lets one of two code-borne sessions enrol while the credential index stands", async () => {
     await createCredentialIndex();
     const a = await offer(await signIn(ADMIN_EMAIL));
     const b = await offer(await signIn(ADMIN_EMAIL));

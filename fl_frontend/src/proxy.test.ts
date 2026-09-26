@@ -164,22 +164,22 @@ describe("where the admin proxy sends a signed-in request", () => {
     assert.equal(answer.headers.get("x-action-redirect"), "/signin/weiter;replace");
   });
 
-  /* The arm that made the public root wrong: an administrator who has followed the link and not yet
+  /* The arm that made the public root wrong: an administrator who has typed the code and not yet
      used the passkey was dropped on a page offering neither the step nor a way back. */
-  it("sends a link-borne administrator to the landing, which answers the passkey step for it", async () => {
+  it("sends a code-borne administrator to the landing, which answers the passkey step for it", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
 
     assert.equal(redirectedTo(await arriveAtAdmin({ cookie })), "/signin/weiter");
 
     arriveAs(cookie);
-    assert.equal(await getSignInDestination(), "/signin/passkey", "the landing sends a link-borne administrator somewhere else");
+    assert.equal(await getSignInDestination(), "/signin/passkey", "the landing sends a code-borne administrator somewhere else");
   });
 
   /* The landing's `/bereich/admin` answer is the guard's own verdict, so a session it sends there is one the
      proxy lets through: the pair cannot bounce a caller between them. */
   it("sends nobody back to `/bereich/admin` that this proxy would turn away again", async () => {
     for (const { name, cookie } of [
-      { name: "link-borne administrator", cookie: (await signIn(ADMIN_EMAIL)).cookie },
+      { name: "code-borne administrator", cookie: (await signIn(ADMIN_EMAIL)).cookie },
       { name: "address outside the allowlist", cookie: removed.cookie },
       { name: "no session at all", cookie: undefined },
     ]) {
