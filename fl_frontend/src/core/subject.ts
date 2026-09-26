@@ -27,10 +27,6 @@ type SubjectRecords = {
  */
 export type SubjectSession = { readonly email: string; readonly admin: boolean; readonly subjekt: SubjectRecords };
 
-// Both guards on one request is a programming error rather than a shape to support, and
-// `fl_frontend/src/core/requestScope.ts :: setRequestActor` refuses the second actor
-// (`docs/frontend/spec.md :: I272`).
-
 // React's `cache`, never `"use cache"`, which would hand one request's session to another: a layout,
 // a guard and a page of one render pass share one session read and one lookup.
 /**
@@ -53,7 +49,8 @@ export const getSubjectSession = cache(async (): Promise<SubjectSession | null> 
   if (email === "") return null;
 
   // Set here rather than at the write: `fl_backend/app/core/security.py :: bind_actor` refuses a
-  // person's write carrying no actor.
+  // person's write carrying no actor. Both guards on one request is a programming error, so the
+  // second actor throws (`docs/frontend/spec.md :: I272`).
   setRequestActor(email);
 
   const payload: FLSubjektPayload = { email: email };

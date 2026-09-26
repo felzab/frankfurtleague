@@ -50,6 +50,19 @@ describe("which of a subject's seats grant a panel", () => {
     assert.deepEqual(funktionenOf(subject({ sitze: [sitz({ saison_status: "past" })] })).funktionen, []);
   });
 
+  /* Judged seat by seat: a resolver reading one seat's status for all, or keeping every seat once any
+     grants, passes each single-seat case. */
+  it("keeps the granting seat alone of a past and an active one", () => {
+    const { funktionen } = funktionenOf(
+      subject({ sitze: [sitz({ saison_id: "2024/25", saison_status: "past" }), sitz({ saison_id: "2025/26", saison_status: "active" })] }),
+    );
+
+    assert.deepEqual(
+      funktionen.map((funktion) => (funktion.art === "kontakt" ? funktion.saison_id : null)),
+      ["2025/26"],
+    );
+  });
+
   for (const status of ["active", "future"] as const) {
     it(`grants one Funktion for a seat whose season is ${status}, carrying its team's name and its season's status`, () => {
       assert.deepEqual(funktionenOf(subject({ sitze: [sitz({ saison_status: status })] })).funktionen, [
@@ -65,6 +78,10 @@ describe("which of a subject's seats grant a panel", () => {
 
     assert.equal(funktionen.length, 2);
     assert.deepEqual(new Set(funktionen.map((funktion) => (funktion.art === "kontakt" ? funktion.team_id : null))), new Set([TEAM_ID]));
+    assert.deepEqual(
+      new Set(funktionen.map((funktion) => (funktion.art === "kontakt" ? funktion.rolle : null))),
+      new Set(["trainer", "ansprechperson"]),
+    );
   });
 
   it("answers one team's seats in two granting seasons as two Funktionen", () => {

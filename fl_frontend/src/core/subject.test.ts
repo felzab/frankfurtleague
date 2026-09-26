@@ -265,6 +265,19 @@ describe("who the seam answers for", () => {
     assert.equal((await getSubjectSession())?.subjekt.unbestaetigt, true);
   });
 
+  /* The person the flag tells apart: no record anywhere, whom the landing tells the league holds
+     nothing of theirs rather than to confirm. */
+  it("carries a lowered pending flag where the lookup matched nothing at all", async () => {
+    const { cookie } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie);
+    nextAnswer = new Response(JSON.stringify({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+
+    assert.equal((await getSubjectSession())?.subjekt.unbestaetigt, false);
+  });
+
   /* The case the seam exists for: no link reaches such an address while the allowlist gates the
      sign-in, so the row a link would have written is seeded and the library's own verification
      mints the session over it. */
