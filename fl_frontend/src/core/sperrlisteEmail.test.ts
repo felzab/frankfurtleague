@@ -47,11 +47,13 @@ describe("the message a banned address is sent", () => {
     }
   });
 
-  /* Every act the ban refuses, and the sign-ins it ends: a reader told less would try the rest and
-     meet a refusal the one message they get never named. */
-  it("names the acts a ban refuses, and that live sign-ins end while the account is kept", () => {
+  /* Every act the ban refuses, the sign-in among them, and the sign-ins it ends: a reader told less
+     would try the rest and meet a refusal the one message they get never named. */
+  it("names every act a ban refuses, and that live sign-ins end while the account is kept", () => {
     for (const { name, body } of BEIDE) {
+      assert.ok(body.includes("weder anmelden"), `${name} does not say a sign-in is refused`);
       assert.ok(body.includes("registrieren"), `${name} does not say a registration is refused`);
+      assert.ok(body.includes("Kontaktperson in einer Bewerbung"), `${name} does not say an application's contact seat is refused`);
       assert.ok(body.includes("Schiedsrichter"), `${name} does not say a referee entry is refused`);
       assert.ok(body.includes("Anmeldungen mit dieser Adresse werden beendet"), `${name} does not say live sign-ins end`);
       assert.ok(body.includes("Dein Zugang bleibt erhalten"), `${name} does not say the account is kept`);

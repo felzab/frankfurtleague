@@ -10,6 +10,7 @@ import { createElement as h } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 
 const BUS = "__flPasskeySignIn";
@@ -169,6 +170,27 @@ describe("the button", () => {
       [["Nicht angemeldet", "Versuche es noch einmal."]],
     );
     assert.ok(screen.getByRole("button", { name: "Mit Passkey anmelden" }));
+  });
+
+  /* The gate at session creation names its reason, and a retry would meet it again: the ban is named
+     plainly, and an address holding nothing gets the way to ask. */
+  it("words the gate's two refusals as themselves, and a backend that did not answer as a retry", async () => {
+    const user = userEvent.setup();
+    autofill = false;
+    const refusedWith = (code: string, status: number) => () => Promise.resolve({ data: null, error: { code: code, status: status } });
+    answers.push(refusedWith("SIGN_IN_BARRED", 403), refusedWith("SIGN_IN_HOLDS_NOTHING", 403), refusedWith("SERVICE_UNAVAILABLE", 503));
+    render(h(PasskeySignIn));
+
+    for (let press = 0; press < 3; press += 1) await user.click(screen.getByRole("button", { name: "Mit Passkey anmelden" }));
+
+    assert.deepEqual(
+      raised.map((toast) => toast.description),
+      [
+        "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Anmeldung möglich.",
+        `Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn Du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`,
+        "Versuche es noch einmal.",
+      ],
+    );
   });
 
   it("reports a rejected ceremony rather than leaving the pending label standing", async () => {

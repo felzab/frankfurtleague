@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { registerHooks } from "node:module";
+import { after } from "node:test";
 
 import { memoryAdapter } from "better-auth/adapters/memory";
 
@@ -183,6 +184,38 @@ export function seedLink(verification: VerificationRow[], email: string): string
   });
 
   return token;
+}
+
+/** Where the sign-in gate's one backend read goes, for `configDouble` in a suite `seatEveryAddress` answers. */
+export const GATE_BACKEND_CONFIG = {
+  API_URL: "http://backend.test",
+  API_VERSION: 0,
+  INTERNAL_API_KEY_SYSTEM: "fabricated-system-not-a-credential",
+} as const;
+
+/**
+ * Answers the gate's backend read with a live seat for every address, so a suite minting a person's
+ * session gets past the gate at session creation (`docs/frontend/spec.md :: I403`). Needs
+ * `GATE_BACKEND_CONFIG` in the suite's config double.
+ */
+export function seatEveryAddress(): void {
+  const seated = {
+    acknowledged: 1,
+    sitze: [{ saison_id: "2026", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" }],
+    spieler: [],
+    schiedsrichter: [],
+    unbestaetigt: false,
+    gesperrt: false,
+  };
+  const original = globalThis.fetch;
+
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      new Response(JSON.stringify(seated), { status: 200, headers: { "content-type": "application/json" } }),
+    )) as typeof globalThis.fetch;
+  after(() => {
+    globalThis.fetch = original;
+  });
 }
 
 /**

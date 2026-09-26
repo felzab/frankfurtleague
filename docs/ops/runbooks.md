@@ -605,8 +605,10 @@ mails the person itself**, naming the reason you typed and the last season the b
 is nothing to send by hand; where the send fails the page says so, and there is then no address left
 anywhere to try again with. **The same write ends every live sign-in of the address**, keeping its
 account and passkeys for the day the ban ends (`docs/frontend/spec.md :: I402`); where that fails the
-page says so too, and the sessions then run to their own expiry. **The ban refuses the sign-ups that
-ask it and nothing else.** A pupil's registration asks it and is
+page says so too, and the sessions then run to their own expiry. **Every later sign-in of the address
+is refused as its session would be created**, by a code or a passkey alike
+(`docs/frontend/spec.md :: I403`). **Beyond that the ban refuses the sign-ups that ask it and nothing
+else.** A pupil's registration asks it and is
 refused (`REQ-REGISTRIERUNG-009`), and so does every referee write that mints a link; every other
 route consults the list nowhere
 ([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)), so a person reading the queue is

@@ -59,9 +59,9 @@ const GRUNDLAGE_SATZ =
 const widerspruchSatz = (kontakt: string): string =>
   `Du kannst dieser Speicherung nach Art. 21 DSGVO widersprechen. Schreib uns dafür an ${kontakt}; dort beantworten wir auch Fragen zur Sperre.`;
 
-/* „anmelden“ is this branch's verb for the SIGN-IN, which consults no ban list. What a ban actually
-   refuses is a registration and a referee's entry, so the sentence names those two. */
-const EINLEITUNG = `Deine E-Mail-Adresse wurde von der Verwaltung der ${BRAND_NAME} gesperrt. Mit ihr kannst Du Dich vorerst nicht für eine Saison registrieren und auch nicht als Schiedsrichterin oder Schiedsrichter eingetragen werden.`;
+// Every refusal the ban reaches, in one sentence: a sign-in, a registration, a contact seat on an
+// application and a referee's entry. „anmelden“ is the SIGN-IN's verb and „registrieren“ the season's.
+const EINLEITUNG = `Deine E-Mail-Adresse wurde von der Verwaltung der ${BRAND_NAME} gesperrt. Mit ihr kannst Du Dich vorerst weder anmelden noch für eine Saison registrieren, und Du kannst weder als Kontaktperson in einer Bewerbung genannt noch als Schiedsrichterin oder Schiedsrichter eingetragen werden.`;
 
 // „werden beendet“: the mail leaves after the sign-out was attempted and cannot know whether it held,
 // a failure being the administrator's to read.

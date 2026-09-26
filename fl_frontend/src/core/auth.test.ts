@@ -165,7 +165,13 @@ async function signIn(email: string): Promise<{ cookie: string; row: SessionRow 
   // A person's address is mailed nothing, so its link is seeded where the send stayed silent.
   const token = lastMailedToken(sent, email) ?? seedLink(store.verification, email);
 
-  const verified = await auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true });
+  // Seated for the mint alone, unless the case said otherwise: the gate at session creation admits
+  // nobody else, and a seat left standing would change what a later case's send mails.
+  const seated = !BACKENDS.has(email);
+  if (seated) BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT] });
+  const verified = await auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true }).finally(() => {
+    if (seated) BACKENDS.delete(email);
+  });
   const cookie = cookieHeader(verified);
 
   const row = store.session.at(-1);
@@ -1826,6 +1832,88 @@ describe("which addresses outside the allowlist the send gate mails", () => {
       assert.equal(await mayReceiveSignIn(email), verdict);
     });
   }
+});
+
+describe("which sign-ins the gate admits as the session is minted (`docs/frontend/spec.md :: I403`)", () => {
+  const BARRED_EMAIL = "gesperrt-angemeldet@example.org";
+  const EMPTY_EMAIL = "ohne-funktion@example.org";
+
+  afterEach(() => {
+    BACKENDS.delete(BARRED_EMAIL);
+    BACKENDS.delete(EMPTY_EMAIL);
+    BACKENDS.delete(PERSON_EMAIL);
+    BACKENDS.delete(ADMIN_EMAIL);
+  });
+
+  /** A mailbox sign-in for `email` through a seeded link, answering whether it minted a session. */
+  async function mailboxSignIn(email: string): Promise<boolean> {
+    const before = store.session.length;
+    const token = seedLink(store.verification, email);
+    await auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true }).catch(() => undefined);
+
+    return store.session.length > before;
+  }
+
+  /* A code mailed before the ban, or typed after a record went, reaches the mint with no send gate
+     in front of it: the gate here is what refuses it. */
+  it("mints no mailbox session for a barred address, one holding nothing, or one whose read failed", async () => {
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+    BACKENDS.set(EMPTY_EMAIL, NOTHING_HELD);
+    BACKENDS.set(PERSON_EMAIL, "throws");
+
+    assert.deepEqual(
+      [await mailboxSignIn(BARRED_EMAIL), await mailboxSignIn(EMPTY_EMAIL), await mailboxSignIn(PERSON_EMAIL)],
+      [false, false, false],
+    );
+  });
+
+  /* Only the holder of the authenticator reaches this refusal, so it names the reason. */
+  it("refuses a barred address's passkey with the ban's own code, minting nothing and ending nothing", async () => {
+    const { cookie, row } = await signIn(BARRED_EMAIL);
+    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+    const before = [...store.session];
+
+    const refused = await assertPasskey(cookie, true);
+
+    assert.equal(refused.status, 403);
+    assert.equal(((await refused.json()) as { code?: string }).code, "SIGN_IN_BARRED");
+    assert.deepEqual(store.session, before, "a refused passkey sign-in minted a session or ended one");
+  });
+
+  it("refuses the passkey of an address that holds nothing with a code of its own", async () => {
+    const { cookie, row } = await signIn(EMPTY_EMAIL);
+    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+    BACKENDS.set(EMPTY_EMAIL, NOTHING_HELD);
+
+    const refused = await assertPasskey(cookie, true);
+
+    assert.equal(refused.status, 403);
+    assert.equal(((await refused.json()) as { code?: string }).code, "SIGN_IN_HOLDS_NOTHING");
+  });
+
+  /* The set-up that signs in mints inside the registration's transaction, so its refusal takes the
+     passkey row back with it. */
+  it("refuses a passkey set-up that would sign a barred address in, writing no passkey", async () => {
+    const { cookie, row } = await signIn(BARRED_EMAIL);
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+
+    const refused = await enrolPasskey(cookie, { createSession: true });
+
+    assert.equal(refused.status, 403);
+    assert.deepEqual(store.passkey, [], "the refused set-up left its passkey behind");
+    assert.ok(store.session.includes(row), "the refused set-up signed its caller out");
+  });
+
+  /* The allowlist is judged in process ahead of the read, as at the send: an unreachable backend
+     never locks an administrator out. */
+  it("admits an administrator's passkey while the backend read throws", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+    BACKENDS.set(ADMIN_EMAIL, "throws");
+
+    assert.equal((await assertPasskey(cookie, true)).status, 200);
+  });
 });
 
 describe("which spelling of an administrator a write is attributed to", () => {

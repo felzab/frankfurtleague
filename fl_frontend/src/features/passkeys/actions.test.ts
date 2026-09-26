@@ -1,7 +1,18 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { ADMIN_EMAIL, asDataUrl, cookieHeader, MEMORY_ADAPTER_URL, ORIGIN, registerAuthDoubles, seedLink } from "@/core/authDoubles.ts";
+import {
+  ADMIN_EMAIL,
+  asDataUrl,
+  configDouble,
+  cookieHeader,
+  GATE_BACKEND_CONFIG,
+  MEMORY_ADAPTER_URL,
+  ORIGIN,
+  registerAuthDoubles,
+  seatEveryAddress,
+  seedLink,
+} from "@/core/authDoubles.ts";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 const STORE = "__flPasskeyStore";
@@ -24,8 +35,11 @@ export const mongodbAdapter = () => (options) => {
   return served;
 };`;
 
+// Every address this file signs in is seated: the gate at session creation is not its subject.
+seatEveryAddress();
+
 const mail = registerAuthDoubles({
-  core: { logging: LOGGING_DOUBLE },
+  core: { logging: LOGGING_DOUBLE, config: configDouble(GATE_BACKEND_CONFIG) },
   specifiers: {
     "next/headers": asDataUrl(HEADERS_DOUBLE),
     "next/cache": asDataUrl(NEXT_CACHE_DOUBLE),

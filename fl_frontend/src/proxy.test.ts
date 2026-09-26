@@ -1,7 +1,18 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { ADMIN_EMAIL, asDataUrl, cookieHeader, memoryAdapterDouble, ORIGIN, registerAuthDoubles, seedLink } from "./core/authDoubles.ts";
+import {
+  ADMIN_EMAIL,
+  asDataUrl,
+  configDouble,
+  cookieHeader,
+  GATE_BACKEND_CONFIG,
+  memoryAdapterDouble,
+  ORIGIN,
+  registerAuthDoubles,
+  seatEveryAddress,
+  seedLink,
+} from "./core/authDoubles.ts";
 
 const STORE = "__flProxyStore";
 const REQUEST_HEADERS = "__flProxyRequestHeaders";
@@ -12,7 +23,11 @@ const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_
 /** An address the config double's allowlist does not carry, whose session the verdict is what refuses. */
 const REMOVED_EMAIL = "ehemalig@example.org";
 
+// Every address this file signs in is seated: the gate at session creation is not its subject.
+seatEveryAddress();
+
 registerAuthDoubles({
+  core: { config: configDouble(GATE_BACKEND_CONFIG) },
   specifiers: {
     // This file's subject is the SHAPE of a turn-away rather than the store behind it.
     "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),

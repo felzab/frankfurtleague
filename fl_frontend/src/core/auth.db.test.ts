@@ -10,6 +10,7 @@ import {
   BARRIER_TIMEOUT_MS,
   configDouble,
   cookieHeader,
+  GATE_BACKEND_CONFIG,
   lastMailedToken,
   ORIGIN,
   registerAuthDoubles,
@@ -59,8 +60,22 @@ const LOGGING_DOUBLE = `export const logger = {
 };`;
 
 const { sent } = registerAuthDoubles({
-  core: { config: configDouble({ MONGODB_URI: MONGO_URL }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
+  core: { config: configDouble({ MONGODB_URI: MONGO_URL, ...GATE_BACKEND_CONFIG }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
 });
+
+/** What the sign-in gate's backend read answers every address; a case sets it and `beforeEach` resets it. */
+let gateAnswer: { sitze: unknown[]; gesperrt: boolean } = { sitze: [], gesperrt: false };
+const LIVE_SEAT = { saison_id: "2026", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" };
+
+// The backend's origin alone: every other request, the container runtime's among them, goes out as it came.
+const ORIGINAL_FETCH = globalThis.fetch;
+globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
+  const url = input instanceof Request ? input.url : String(input);
+  if (!url.startsWith(GATE_BACKEND_CONFIG.API_URL)) return ORIGINAL_FETCH(input, init);
+
+  const body = { acknowledged: 1, spieler: [], schiedsrichter: [], unbestaetigt: false, ...gateAnswer };
+  return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
+}) as typeof globalThis.fetch;
 
 /**
  * Holds the one write that arrives first until `release`, and passes every later one: the order in
@@ -125,11 +140,13 @@ const realClient = globals[REAL_CLIENT] as RealClient;
 const authDb = () => realClient.db("auth");
 
 after(async () => {
+  globalThis.fetch = ORIGINAL_FETCH;
   await realClient.close();
   await mongod.stop();
 });
 
 beforeEach(async () => {
+  gateAnswer = { sitze: [], gesperrt: false };
   barrier.disarm();
   warnings.length = 0;
   consuming = async () => undefined;
@@ -480,5 +497,41 @@ describe("what a ban ends, against a real database (`docs/frontend/spec.md :: I4
     );
     assert.equal((await authDb().collection("user").find({}).toArray()).length, 2);
     assert.equal((await passkeyRows()).length, 1);
+  });
+});
+
+/* The set-up that signs in mints inside the registration's transaction, so the gate refusing that mint
+   takes the passkey row back with it (`docs/frontend/spec.md :: I403`). */
+describe("a set-up the gate refuses, against a real database", () => {
+  it("writes no passkey for a person barred after signing in, and leaves them signed in by code", async () => {
+    const email = "gesperrt-spaeter@example.org";
+    const token = `fabricated-link-${randomUUID()}`;
+    const { adapter } = await auth.$context;
+    await adapter.create({
+      model: "verification",
+      data: {
+        identifier: createHash("sha256").update(token).digest("base64url"),
+        value: JSON.stringify({ email }),
+        expiresAt: new Date(Date.now() + 60_000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    gateAnswer = { sitze: [LIVE_SEAT], gesperrt: false };
+    const verified = await auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true });
+    const cookie = cookieHeader(verified);
+    assert.equal((await sessionRows()).length, 1, "the seated person was not signed in, so the case below proves nothing");
+
+    const offered = await offer(cookie);
+    gateAnswer = { sitze: [LIVE_SEAT], gesperrt: true };
+    const refused = await verify(offered, AUTHENTICATOR_A, { createSession: true });
+
+    assert.equal(refused.status, 403, await refused.clone().text());
+    assert.deepEqual(await passkeyRows(), [], "the refused set-up left its passkey behind");
+    assert.deepEqual(
+      (await sessionRows()).map(({ authFactor }) => authFactor),
+      ["code"],
+    );
   });
 });

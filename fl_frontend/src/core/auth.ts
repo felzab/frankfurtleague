@@ -24,7 +24,7 @@ import { RolledBackError } from "./errors";
 import { logger } from "./logging";
 import { sendMail } from "./mail";
 import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
-import { ENROLMENT_CONFLICT, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
+import { ENROLMENT_CONFLICT, SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
 import { setRequestActor } from "./requestScope";
 import { ADMIN_LIFETIME, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS, STEP_UP_WINDOW_MS } from "./sessionLifetimes";
 import { mayReceiveSignIn } from "./signInGate";
@@ -274,6 +274,22 @@ async function endReplacedSession(ctx: GenericEndpointContext, mintedToken: stri
   }
 }
 
+/**
+ * The send gate's verdict, asked again of the account a session is about to be minted for: a code
+ * mailed before a ban, and every passkey, would otherwise sign in past it. Only `admitted` mints.
+ */
+async function refuseUnadmitted(ctx: GenericEndpointContext, userId: string): Promise<void> {
+  const account = await ctx.context.internalAdapter.findUserById(userId);
+  const verdict = account === null ? "failed" : await mayReceiveSignIn(account.email);
+  if (verdict === "admitted") return;
+
+  // Worded where the ceremony starts (`fl_frontend/src/features/auth/passkeyAnswers.ts`); a failed
+  // read is the backend's and not the person's, so it answers as a retry would.
+  if (verdict === "barred") throw new APIError("FORBIDDEN", { code: SIGN_IN_BARRED, message: "The address is barred." });
+  if (verdict === "holds-nothing") throw new APIError("FORBIDDEN", { code: SIGN_IN_HOLDS_NOTHING, message: "The address holds nothing." });
+  throw APIError.fromStatus("SERVICE_UNAVAILABLE");
+}
+
 /* The library mounts forty endpoints and an upgrade adds more, so the surface is closed from two
    sides: the documented switch below, and the default-deny hook that also covers what it cannot. */
 
@@ -428,6 +444,11 @@ const authOptions = {
           // falsiness: the library hands `undefined` there, whatever its type says.
           const factor = ctx ? SESSION_FACTOR_BY_PATH.get(ctx.path) : undefined;
           if (!ctx || factor === undefined) throw new SessionFromUnlistedPath();
+
+          // Here, where every sign-in passes -- a code, a passkey, a set-up that signs in, a step-up --
+          // and never at one method's own callback, which the next method would walk past
+          // (`docs/frontend/spec.md :: I403`).
+          await refuseUnadmitted(ctx, session.userId);
 
           return {
             data: {

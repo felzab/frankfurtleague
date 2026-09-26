@@ -321,8 +321,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   removal records).
 - **The erasure of anybody who has signed in includes the sign-in store.** The `auth` database
   holds the address, sessions and sign-in tokens of everyone who has followed a sign-in link — an
-  administrator, and a person the send gate offered one (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`) — and an
-  administrator's passkeys. It is inside the erasure, and it is reached by hand:
+  administrator, and a person the send gate offered one (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`) — and the
+  passkeys of anyone who set one up. It is inside the erasure, and it is reached by hand:
   `fl_frontend/src/core/auth.ts` is where that store is configured, and
   [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
   is what names it as the place a signed-in person's own data sits. Its collections are `user`,
