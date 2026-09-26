@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { startTransition, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Envelope } from "@gravity-ui/icons";
-
-import { Switch } from "@heroui/react";
+import Envelope from "@gravity-ui/icons/Envelope";
 
 import { postEinladungVersandAction, previewEinladungVersandAction } from "@/features/einladungen/actions";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen";
@@ -14,11 +12,13 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { Switch } from "@/shared/components/ui/Switch";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { rejectedWrite, unansweredRead } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { FLEinladungVersandGrund, FLEinladungVersandVorschauZeile } from "@/features/einladungen/schemas";
@@ -123,26 +123,37 @@ export function FormEinladungVersandSection({
   const [vorschau, setVorschau] = useState<readonly FLEinladungVersandVorschauZeile[] | null>(null);
   const [ergebnis, setErgebnis] = useState<readonly EinladungVersandErgebnis[] | null>(null);
   const [erneut, setErneut] = useState(false);
-  const [isLoadingVorschau, startVorschau] = useTransition();
+  const [isLoadingVorschau, startLoadingVorschau] = useTransition();
 
-  const { isConfirming, isPending: isSending, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const { isConfirming, press, cancel } = twoPress;
 
   const panel = formPanel();
 
   const senden = async () => {
-    const res = await postEinladungVersandAction({ id: saisonId, erneut: erneut });
+    // A rejected action may still have saved, and uncaught here it takes the page down with it.
+    const res = await postEinladungVersandAction({ id: saisonId, erneut: erneut }).catch(rejectedWrite(router));
 
     if (!res.success) {
-      appToast.failure("Registrierungslinks nicht gesendet", res);
+      // Wrapped again, as below: the press runs this inside its transition.
+      startTransition(() => {
+        // A send of unknown outcome may have mailed the links the list names, and a press armed over
+        // that list would mint them again under a readout of what was true before it.
+        if (res.outcome === "unknown") setVorschau(null);
+        appToast.failure("Registrierungslinks nicht gesendet", res);
+      });
       return;
     }
 
-    setErgebnis(res.zeilen);
-    // Dropped rather than kept: the rows it held were true before this write, and the skips it
-    // listed have just moved.
-    setVorschau(null);
-    appToast.success("Registrierungslinks gesendet", { description: res.message });
-    router.refresh();
+    // Wrapped again: the press runs this inside its transition, and React leaves an update after an
+    // `await` outside it.
+    startTransition(() => {
+      setErgebnis(res.zeilen);
+      // Dropped rather than kept: the rows it held were true before this write, and the skips it
+      // listed have just moved.
+      setVorschau(null);
+      appToast.success("Registrierungslinks gesendet", { description: res.message });
+    });
   };
 
   const handlePress = () => {
@@ -151,10 +162,11 @@ export function FormEinladungVersandSection({
       return;
     }
 
-    startVorschau(async () => {
+    startLoadingVorschau(async () => {
       // The value the PRESS will carry, so the list names the teams that press will write to: read
-      // with the other value it would show a skip the press is about to ignore.
-      const res = await previewEinladungVersandAction({ id: saisonId, erneut: erneut });
+      // with the other value it would show a skip the press is about to ignore. Uncaught, a rejection
+      // takes the page down.
+      const res = await previewEinladungVersandAction({ id: saisonId, erneut: erneut }).catch(unansweredRead);
 
       if (!res.success) {
         appToast.failure("Vorschau nicht geladen", res);
@@ -164,7 +176,7 @@ export function FormEinladungVersandSection({
       // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
       // so unwrapped the armed label commits a render before the hold lifts, and a press in that
       // render is dropped.
-      startVorschau(() => {
+      startLoadingVorschau(() => {
         setVorschau(res.zeilen);
         // Armed in the gesture that asked for the list, so the reader meets the list and the armed
         // control together rather than pressing a third time to reach the same state.
@@ -248,18 +260,18 @@ export function FormEinladungVersandSection({
 
             {vorschau !== null && vorschau.length > 0 && (
               <div className="flex w-full flex-col gap-y-2">
-                <h3 className={FORM_SECTION_HEADING}>Wer den Link bekommt</h3>
+                <h3 className={FORM_SECTION_HEADING_CLASSES}>Wer den Link bekommt</h3>
                 <ul className="flex w-full flex-col gap-y-1">
                   {vorschau.map((zeile) => (
                     <li
                       key={zeile.team_id}
-                      className="fluid-xxs text-foreground flex flex-row items-baseline justify-between gap-x-3 leading-normal font-medium">
+                      className="flex flex-row items-baseline justify-between gap-x-3 fluid-xxs leading-normal font-medium text-foreground">
                       <span className="font-bold">{zeile.team_name}</span>
-                      <span className="text-foreground-muted min-w-0 text-right">
+                      <span className="min-w-0 text-right text-foreground-muted">
                         {zeile.uebersprungen === null ? (
                           <>
                             {zeile.empfaenger.map((seat) => seat.email).join(", ")}
-                            {zeile.ersetzt_link && <span className="text-warning-strong block font-bold">{ERSETZT_SATZ}</span>}
+                            {zeile.ersetzt_link && <span className="block font-bold text-warning-strong">{ERSETZT_SATZ}</span>}
                           </>
                         ) : (
                           UEBERSPRUNGEN_SATZ[zeile.uebersprungen]
@@ -273,19 +285,19 @@ export function FormEinladungVersandSection({
 
             {ergebnis !== null && ergebnis.length > 0 && (
               <div className="flex w-full flex-col gap-y-2">
-                <h3 className={FORM_SECTION_HEADING}>Was gesendet wurde</h3>
+                <h3 className={FORM_SECTION_HEADING_CLASSES}>Was gesendet wurde</h3>
                 <ul className="flex w-full flex-col gap-y-1">
                   {ergebnis.map((zeile) => (
                     <li
                       key={zeile.team_id}
-                      className="fluid-xxs text-foreground flex flex-row items-baseline justify-between gap-x-3 leading-normal font-medium">
+                      className="flex flex-row items-baseline justify-between gap-x-3 fluid-xxs leading-normal font-medium text-foreground">
                       <span className="font-bold">{zeile.team_name}</span>
-                      <span className="text-foreground-muted min-w-0 text-right">
+                      <span className="min-w-0 text-right text-foreground-muted">
                         {/* Graded apart from the other skips: there the league failed the team
                             rather than passing it over. */}
                         {zeile.uebersprungen !== null && folgeSaetze(zeile).length > 0 ? (
                           <>
-                            <span className="text-danger-strong font-bold">{UEBERSPRUNGEN_SATZ[zeile.uebersprungen]}</span>
+                            <span className="font-bold text-danger-strong">{UEBERSPRUNGEN_SATZ[zeile.uebersprungen]}</span>
                             <span className="block">{folgeSaetze(zeile).join(" ")}</span>
                           </>
                         ) : zeile.uebersprungen !== null ? (
@@ -297,9 +309,9 @@ export function FormEinladungVersandSection({
                                 failed names nobody to write to by hand. A withheld one is dropped —
                                 nobody tried it, so there is nothing to write to by hand. */}
                             {nichtErreicht(zeile).length > 0 && (
-                              <span className="text-danger-strong block font-bold">Nicht erreicht: {nichtErreicht(zeile).join(", ")}</span>
+                              <span className="block font-bold text-danger-strong">Nicht erreicht: {nichtErreicht(zeile).join(", ")}</span>
                             )}
-                            {zeile.ersetzt_link && <span className="text-warning-strong block font-bold">{ERSETZT_VERGANGEN}</span>}
+                            {zeile.ersetzt_link && <span className="block font-bold text-warning-strong">{ERSETZT_VERGANGEN}</span>}
                           </>
                         )}
                       </span>
@@ -312,7 +324,7 @@ export function FormEinladungVersandSection({
             {isConfirming && (
               <ConfirmReveal>
                 <div className="flex w-full flex-col gap-y-1">
-                  <h3 className={FORM_SECTION_HEADING}>Was jetzt hinausgeht</h3>
+                  <h3 className={FORM_SECTION_HEADING_CLASSES}>Was jetzt hinausgeht</h3>
                   <dl className="flex w-full flex-col gap-y-1">
                     <ConfirmReadoutRow
                       label="Teams"
@@ -337,7 +349,7 @@ export function FormEinladungVersandSection({
                     alone: the armed step is the last thing read before the write. */}
                 {/* The count stays in the readout above and out of the sentence: a numeral written
                     before a plural noun reads wrong at one, and the recast keeps both readings. */}
-                <p className="fluid-xxs text-foreground leading-normal font-medium">
+                <p className="fluid-xxs leading-normal font-medium text-foreground">
                   {ersetzteLinks > 0
                     ? "Jedes dieser Teams bekommt einen frischen Link. Bei den Teams, die ihren Link verlieren, funktioniert der bisherige danach nicht mehr. Zurückholen lässt sich eine E-Mail nicht."
                     : "Jedes dieser Teams bekommt einen frischen Link. Zurückholen lässt sich eine E-Mail nicht."}
@@ -345,13 +357,9 @@ export function FormEinladungVersandSection({
               </ConfirmReveal>
             )}
 
-            <ConfirmActionRow
-              isConfirming={isConfirming}
-              isPending={isSending}
-              onCancel={cancel}>
+            <ConfirmActionRow confirm={twoPress}>
               <ConfirmPressButton
-                isConfirming={isConfirming}
-                isPending={isSending}
+                confirm={twoPress}
                 // The read the press waits on, which is pending-marked without claiming a write has
                 // started: nothing is written until the armed press.
                 held={isLoadingVorschau}

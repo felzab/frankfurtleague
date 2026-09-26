@@ -31,6 +31,7 @@ from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.documents import saison_spieler_document, spieler_document
 from tests.openapi_document import build_document
 from tests.worker import worker_database
 
@@ -54,6 +55,9 @@ WITHHELD_FIELDS = ["stufe", "einwilligung", "email", "team_id", "ist_nachnominie
 # Constructing a filter object asks for nothing -- `extra="ignore"` drops an undeclared key first.
 BASE_QUERY_PARAMETERS = {parameter["name"] for parameter in build_document()["paths"][f"/api/v{API_VERSION}/spieler"]["get"]["parameters"]}
 
+# The one person whose squad row is retired, searched for as an absence.
+RETIRED_ROW_VORNAME = "Nils"
+
 SPIELER_OIDS = {
     "Mueller": ObjectId("6890a1b2c3d4e5f607390011"),
     "Adler": ObjectId("6890a1b2c3d4e5f607390012"),
@@ -72,21 +76,17 @@ STORED_SURNAMES = ("Müller", "Adler", "Öztürk", "Weber")
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
-def _spieler(key: str, vorname: str, nachname: str | None, *, inactive_since: str | None = None) -> dict[str, Any]:
-    """A person as `POST /spieler` writes them -- consent record included, which is the point of the corpus."""
+def _consent(umfang: str, *, bestaetigt_am: str | None = "2026-01-20", erteilt_von: str = "erziehungsberechtigt") -> dict[str, Any]:
+    return {"umfang": umfang, "erteilt_von": erteilt_von, "datum": "2026-01-15", "bestaetigt_am": bestaetigt_am}
 
-    return {
-        "_id": SPIELER_OIDS[key],
-        "vorname": vorname,
-        "nachname": nachname,
-        "inactive_since": inactive_since,
-        "einwilligung": {
-            "umfang": "kader_oeffentlich",
-            "erteilt_von": "erziehungsberechtigt",
-            "datum": "2026-01-15",
-            "bestaetigt_am": "2026-01-20",
-        },
-    }
+
+def _spieler(key: str, vorname: str, nachname: str | None, *, inactive_since: str | None = None) -> dict[str, Any]:
+    """A person as `POST /spieler` writes them -- consent record included, which is the point of the corpus.
+
+    A confirmed, published record passed rather than defaulted: the initials this corpus serves are the mask's published arm.
+    """
+
+    return spieler_document(SPIELER_OIDS[key], vorname, nachname, einwilligung=_consent("kader_oeffentlich"), inactive_since=inactive_since)
 
 
 def _squad_row(
@@ -98,17 +98,9 @@ def _squad_row(
     rolle: str | None = None,
     inactive_since: str | None = None,
 ) -> dict[str, Any]:
-    return {
-        "spieler_id": SPIELER_OIDS[key],
-        "saison_id": SAISON,
-        "team_id": TEAM_OID,
-        "nummer": nummer,
-        "position": position,
-        "stufe": stufe,
-        "ist_nachnominiert": False,
-        "rolle": rolle,
-        "inactive_since": inactive_since,
-    }
+    return saison_spieler_document(
+        SPIELER_OIDS[key], SAISON, TEAM_OID, nummer=nummer, position=position, stufe=stufe, rolle=rolle, inactive_since=inactive_since
+    )
 
 
 def _legacy_squad_row(key: str, **fields: Any) -> dict[str, Any]:
@@ -371,7 +363,6 @@ class _Players:
 def _junction_terms(filters: FLSpielerFilterParams, seasons: _Seasons) -> list[Mapping[str, Any]]:
     """The `$match` terms the read narrowed the squad rows on, as the handler itself built them."""
 
-    invalidate_saison_cache()
     players = _Players()
     asyncio.run(
         get_spieler(spieler_collection=cast(AsyncCollection, players), saisons_collection=cast(AsyncCollection, seasons), filters=filters)
@@ -404,7 +395,6 @@ class TestTheSeasonASquadIsReadFor:
 
     def test_naming_a_team_with_no_season_active_is_refused_before_any_player_is_read(self):
         """No read method on the players collection: a handler reading squads with no season to scope them to fails on the attribute."""
-        invalidate_saison_cache()
 
         with pytest.raises(DocumentNotFoundException) as refused:
             asyncio.run(
@@ -493,7 +483,7 @@ class TestTheBaseTierReadExecuted:
 
     def test_a_retired_squad_row_stays_out(self, seeded_url: str):
         """The retirement this read does filter on, so dropping the person's match cannot be mistaken for dropping both."""
-        assert "Nils" not in self._by_vorname(seeded_url)
+        assert RETIRED_ROW_VORNAME not in self._by_vorname(seeded_url)
 
     def test_a_person_whose_every_squad_row_is_retired_still_reads(self, seeded_url: str):
         """Neither id narrows, so the join is loose: Nils survives the unwind with no `saison_data`, and `$project` leaves both keys off."""
@@ -620,7 +610,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
                     _spieler("Ohne", "Lena", None),
                     _spieler("Oeztuerk", "Timo", "Öztürk"),
                     _spieler("Weber", "Jonas", "Weber", inactive_since="2026-05-01"),
-                    _spieler("Kraus", "Nils", "Kraus"),
+                    _spieler("Kraus", RETIRED_ROW_VORNAME, "Kraus"),
                 ]
             )
             await database.saison_spieler.insert_many(
@@ -651,7 +641,6 @@ class TestTheSquadReadNamingNoSeasonExecuted:
 
     def _vornamen(self, url: str, filters: FLSpielerFilterParams) -> list[str]:
         async def body(database: AsyncDatabase) -> Any:
-            invalidate_saison_cache()
             response = await get_spieler(spieler_collection=database.spieler, saisons_collection=database.saisons, filters=filters)
 
             return [row.vorname for row in response.spieler]
@@ -718,10 +707,6 @@ class MaskedRow(NamedTuple):
     # False stores NO `vorname` key. The mask's published arm is `$vorname` itself, so such a row
     # leaves `$project` short of the key rather than carrying a null, which is a different shape.
     stores_a_vorname_key: bool = True
-
-
-def _consent(umfang: str, *, bestaetigt_am: str | None = "2026-01-20", erteilt_von: str = "erziehungsberechtigt") -> dict[str, Any]:
-    return {"umfang": umfang, "erteilt_von": erteilt_von, "datum": "2026-01-15", "bestaetigt_am": bestaetigt_am}
 
 
 # Each served pair is written out rather than composed from `public_initial`, which would compare the
@@ -1029,8 +1014,6 @@ def _on_a_sort_oracle_database(url: str, corpus: str, body: Body) -> Any:
 
 def _on_the_mask_database(url: str, body: Body) -> Any:
     async def _run() -> Any:
-        invalidate_saison_cache()
-
         return await body(shared_client(url)[MASK_DATABASE_NAME])
 
     return on_the_seed_loop(_run())
@@ -1038,10 +1021,6 @@ def _on_the_mask_database(url: str, body: Body) -> Any:
 
 def on_a_database(url: str, body: Body) -> Any:
     async def _run() -> Any:
-        # This corpus stores no season, so the read's gate finds none to withhold -- but the cache
-        # behind it is process-global, and another test's entry under this id would answer here.
-        invalidate_saison_cache()
-
         return await body(shared_client(url)[DATABASE_NAME])
 
     return on_the_seed_loop(_run())

@@ -1,28 +1,50 @@
+import ast
 import asyncio
 import logging
 import re
+import subprocess
+import sys
+from http import HTTPStatus
 from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import FastAPI, Request
+from fastapi import APIRouter, FastAPI, Request
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field, ValidationError
 from pymongo.errors import BulkWriteError, DuplicateKeyError, PyMongoError, WriteError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.config import API_VERSION
+from app.core.crud import refuse
+from app.core.domain import OPERATION_SEPARATOR, RULES
 from app.core.exception_handlers import (
+    BODY_UNREADABLE,
+    DATABASE_FAILED,
+    JSON_MEDIA_TYPE,
+    METHOD_NOT_SERVED,
     NO_DATA_TEXT,
+    NO_ROUTE,
+    PAYLOAD_REFUSED,
+    ROUTING_CODES,
+    STORED_DATA_INVALID,
+    UNHANDLED_CRASH,
     db_exception_handler,
     duplicate_key_exception_handler,
     pydantic_validation_exception_handler,
+    refusal_response,
+    refused_codes,
     register_exception_handlers,
 )
+from app.core.exceptions import DUPLICATE_KEY, NO_DATABASE_CLIENT, BaseAPIException, RequestAuthorizationException, WriteRefusal
 from app.core.logging import JSONFormatter
 from app.core.middlewares import TraceContextMiddleware
-from app.main import create_app
+from app.core.security import MISSING_TOKEN, WRONG_BASE_KEY
+from app.main import RESPONSE_REF, create_app, dependency_refusals, document_routes, publish_refusals, refusal_codes, with_refusals
 from app.shared.schemas.custom import PERSON_NAME_PATTERN
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 from tests.config import BASE_AUTH, build_test_config
+from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes, app_calls, callee, parsed
 from tests.openapi_document import build_document
 
 # Module level: building the app re-runs the logging dictConfig, which inside a test would strip the
@@ -42,7 +64,8 @@ def error_records(caplog) -> list[logging.LogRecord]:
 
 # The value the pattern below refuses. Distinctive, so its absence from a whole log document is
 # evidence rather than coincidence.
-REJECTED_NAME = "Maximilian<script>"
+REJECTED_MARKUP = "<script>"
+REJECTED_NAME = f"Maximilian{REJECTED_MARKUP}"
 
 
 class NamePayload(BaseModel):
@@ -83,6 +106,26 @@ async def refuse_a_nested_field(payload: NestedPayload, limit: int = 0) -> dict[
     return {"ok": True}
 
 
+# A code no rule declares, so only this case's own route can answer it.
+PLANTED_REFUSAL = "REQ-PLANTED-002"
+JUDGED_PATH = ("kontakt", "email")
+
+
+@VALIDATION_APP.post("/refused/{status}")
+async def refuse_at(status: int) -> None:
+    """Refuses at the status its path names, a 422 naming the body path it judged."""
+
+    judged = (JUDGED_PATH,) if status == HTTPStatus.UNPROCESSABLE_CONTENT else ()
+    refuse(WriteRefusal(error_code=PLANTED_REFUSAL, status=HTTPStatus(status), message="planted", fields=judged))
+
+
+@VALIDATION_APP.get("/starlette/{status}")
+async def raise_starlettes_own(status: int) -> None:
+    """Raises the base class the router raises, at the status its path names."""
+
+    raise StarletteHTTPException(status_code=status)
+
+
 def rejected_name_error() -> ValidationError:
     with pytest.raises(ValidationError) as refused:
         NamePayload(vorname=REJECTED_NAME)
@@ -105,7 +148,7 @@ class TestFailureBodies:
 
         assert response.status_code == 401
         body = response.json()
-        assert body["error_code"] == "REQ-AUTH-001"
+        assert body["error_code"] == MISSING_TOKEN
         assert re.fullmatch(r"[a-f0-9]{32}", body["trace_id"])
         assert response.headers["WWW-Authenticate"] == "Bearer"
 
@@ -113,13 +156,13 @@ class TestFailureBodies:
         response = client().get("/api/v0/spiele", headers={"Authorization": "Bearer wrong"})
 
         assert response.status_code == 401
-        assert response.json()["error_code"] == "REQ-AUTH-002"
+        assert response.json()["error_code"] == WRONG_BASE_KEY
 
     def test_an_unavailable_database_is_503_with_dbconn001(self):
         response = client().get("/api/v0/spiele", headers=BASE_AUTH)
 
         assert response.status_code == 503
-        assert response.json()["error_code"] == "DB-CONN-001"
+        assert response.json()["error_code"] == NO_DATABASE_CLIENT
         assert response.headers["Retry-After"] == "30"
 
     def test_a_request_validation_failure_maps_to_reqval001(self):
@@ -135,7 +178,7 @@ class TestFailureBodies:
         response = asyncio.run(request_validation_exception_handler(None, RequestValidationError([])))  # type: ignore[arg-type]
 
         assert response.status_code == 422
-        assert jsonlib.loads(bytes(response.body))["error_code"] == "REQ-VAL-001"
+        assert jsonlib.loads(bytes(response.body))["error_code"] == PAYLOAD_REFUSED
         assert jsonlib.loads(bytes(response.body))["fields"] == []
 
     def test_the_body_carries_nothing_but_the_code_and_the_id(self):
@@ -156,23 +199,22 @@ class TestFailureBodies:
         # The exact SET, not a search for words: a message copied into any header, under any name,
         # moves this. `www-authenticate` is the one header this exception is allowed to add.
         assert response.status_code == 401
-        assert set(response.headers) == {"www-authenticate", "content-length", "content-type"}
+        assert set(response.headers) == {"www-authenticate", "content-length", "content-type", "vary"}
+        # `CORSMiddleware` adds `vary` to every response granting no origin; its value is pinned so
+        # nothing else rides in it.
+        assert response.headers["vary"] == "Origin"
 
         # Named too, so the case cannot pass on a set that matched while a value leaked: this is
         # the message the 401 above actually carries.
-        assert "does not exist or is not valid" not in " ".join(response.headers.values())
+        assert RequestAuthorizationException(MISSING_TOKEN).error_detail["message"] not in " ".join(response.headers.values())
 
 
-def refused(body: object | None = None, *, content: bytes | None = None, query: str = "") -> dict[str, Any]:
+def refused(body: object | None = None, *, query: str = "") -> dict[str, Any]:
     """The 422 a payload earns at `/nested`, asserted to BE one, so no case reads fields off a success."""
 
-    validation_client = TestClient(VALIDATION_APP, raise_server_exceptions=False)
-    if content is None:
-        response = validation_client.post(f"/nested{query}", json=body)
-    else:
-        response = validation_client.post("/nested", content=content, headers={"content-type": "application/json"})
+    response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(f"/nested{query}", json=body)
 
-    assert (response.status_code, response.json()["error_code"]) == (422, "REQ-VAL-001")
+    assert (response.status_code, response.json()["error_code"]) == (422, PAYLOAD_REFUSED)
     return response.json()
 
 
@@ -206,12 +248,25 @@ class TestTheRefusedFieldsReachTheCaller:
 
         assert body["fields"] == [{"in": "query", "path": ["limit"], "kind": "int_parsing"}]
 
-    def test_an_undecodable_body_names_no_path(self):
-        """FastAPI reports the character offset parsing stopped at, which a form would read as a list index."""
+    def test_an_undecodable_body_is_malformed_syntax_naming_no_field(self):
+        """400 and no `fields`: nothing inside the body was read, so no field is at fault."""
 
-        body = refused(content=b'{"kontakt": ')
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(
+            "/nested", content=b'{"kontakt": ', headers={"content-type": "application/json"}
+        )
 
-        assert body["fields"] == [{"in": "body", "path": [], "kind": "json_invalid"}]
+        assert (response.status_code, response.json()["error_code"]) == (400, BODY_UNREADABLE)
+        assert FLFailureBody.model_validate(response.json()).model_dump() == response.json()
+
+    def test_a_body_that_is_not_utf8_is_the_same_unreadable_body(self):
+        """FastAPI raises its own 400 here rather than a validation error, and the routing handler answers it."""
+
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(
+            "/nested", content=b'{"kontakt": "\xff"}', headers={"content-type": "application/json"}
+        )
+
+        assert (response.status_code, response.json()["error_code"]) == (400, BODY_UNREADABLE)
+        assert FLFailureBody.model_validate(response.json()).model_dump() == response.json()
 
     def test_the_value_and_pydantics_english_stay_off_the_wire(self):
         body = refused({"kontakt": {"email": "a@b"}, "namen": [{"vorname": REJECTED_NAME}]})
@@ -223,14 +278,232 @@ class TestTheRefusedFieldsReachTheCaller:
         assert "String should match pattern" not in str(body)
 
 
+class TestTheRouterAnswersInTheEnvelope:
+    """`docs/backend/spec.md` §1.4: every failure answers `{error_code, trace_id}`, one no route serves included."""
+
+    def test_a_path_no_route_serves_is_a_404_naming_its_own_code(self):
+        response = client().get("/api/v0/nowhere")
+
+        assert (response.status_code, response.json()["error_code"]) == (404, NO_ROUTE)
+        assert FLFailureBody.model_validate(response.json()).model_dump() == response.json()
+
+    def test_a_method_the_path_does_not_serve_is_a_405_keeping_its_allow_header(self):
+        response = client().delete("/api/v0/spiele")
+
+        assert (response.status_code, response.json()["error_code"]) == (405, METHOD_NOT_SERVED)
+        assert response.headers["allow"] == "GET"
+
+    def test_every_documented_paths_allow_names_every_method_the_document_serves_there(self):
+        """RFC 9110 section 15.5.6: a 405 lists every method the target serves, whichever router serves it.
+
+        Read off the document, each template matched as its parameters allow, so a second template
+        reaching the path adds its methods.
+        """
+
+        document = build_document()
+        short = {}
+        for template in document["paths"]:
+            url = PATH_PARAMETER.sub(lambda match, template=template: sample_segment(document, template, match[1]), template)
+            expected = {
+                method.upper()
+                for other, operations in document["paths"].items()
+                if re.fullmatch(template_pattern(document, other), url)
+                for method in operations
+            }
+            response = client().put(url)
+            answered = set(response.headers.get("allow", "").split(", "))
+            if response.status_code != 405 or answered != expected:
+                short[url] = (response.status_code, sorted(answered), sorted(expected))
+
+        assert short == {}
+
+    @pytest.mark.parametrize("status", sorted(ROUTING_CODES))
+    def test_each_status_the_routing_layer_raises_answers_its_own_code(self, status: int):
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get(f"/starlette/{status}")
+
+        assert (response.status_code, response.json()["error_code"]) == (status, ROUTING_CODES[status])
+
+    def test_a_status_the_routing_layer_never_raises_is_the_servers_fault(self):
+        """No code names it, so a raise at it is a server bug the catch-all answers, never passed through."""
+
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).get("/starlette/418")
+
+        assert (response.status_code, response.json()["error_code"]) == (500, UNHANDLED_CRASH)
+        assert FLFailureBody.model_validate(response.json()).model_dump() == response.json()
+
+    def test_the_application_raises_the_frameworks_exception_only_through_its_own_base(self):
+        """A bare raise meets the routing handler, which answers a status it has no code for as a crash."""
+
+        names = {
+            alias.asname or alias.name
+            for path in APP_ROOT.rglob("*.py")
+            for node in ast.walk(parsed(path))
+            if isinstance(node, ast.ImportFrom)
+            for alias in node.names
+            if alias.name == "HTTPException"
+        }
+        raised = [f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) in names]
+        extended = {
+            node.name
+            for path in APP_ROOT.rglob("*.py")
+            for node in ast.walk(parsed(path))
+            if isinstance(node, ast.ClassDef) and any(isinstance(base, ast.Name) and base.id in names for base in node.bases)
+        }
+
+        assert names, "the walk found no import of the framework's exception, so it read nothing"
+        assert raised == []
+        assert extended == {BaseAPIException.__name__}
+
+
+class TestARefusalIsAnsweredAtTheStatusItsCheckChose:
+    @pytest.mark.parametrize("status", [HTTPStatus.CONFLICT, HTTPStatus.NOT_FOUND, HTTPStatus.GONE, HTTPStatus.FORBIDDEN])
+    def test_a_refusal_off_422_answers_the_failure_body(self, status: HTTPStatus):
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(f"/refused/{int(status)}")
+
+        assert response.status_code == status
+        assert FLFailureBody.model_validate(response.json()).model_dump() == response.json()
+        assert response.json()["error_code"] == PLANTED_REFUSAL
+
+    def test_a_422_answers_the_refused_payload_naming_what_its_rule_judged(self):
+        response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post(f"/refused/{int(HTTPStatus.UNPROCESSABLE_CONTENT)}")
+
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_CONTENT
+        assert FLRefusedPayloadBody.model_validate(response.json()).model_dump(by_alias=True) == response.json()
+        assert response.json()["fields"] == [{"in": "body", "path": list(JUDGED_PATH), "kind": PLANTED_REFUSAL}]
+
+    def test_fields_off_a_422_are_refused_where_the_check_builds_them(self):
+        """They would reach no body: only a 422's publishes `fields`."""
+
+        with pytest.raises(ValueError, match=PLANTED_REFUSAL):
+            WriteRefusal(error_code=PLANTED_REFUSAL, status=HTTPStatus.CONFLICT, message="planted", fields=(JUDGED_PATH,))
+
+
+PATH_PARAMETER = re.compile(r"\{(\w+)\}")
+A_SEGMENT = "[^/]+"
+
+
+def parameter_pattern(document: dict[str, Any], template: str, name: str) -> str | None:
+    """The pattern a template's path parameter is published with, unanchored, or `None` for any segment."""
+
+    for operation in document["paths"][template].values():
+        for parameter in operation.get("parameters", []):
+            if parameter["in"] == "path" and parameter["name"] == name and "pattern" in parameter["schema"]:
+                return parameter["schema"]["pattern"].removeprefix("^").removesuffix("$")
+    return None
+
+
+def template_pattern(document: dict[str, Any], template: str) -> str:
+    """The URLs a documented template serves, as a pattern."""
+
+    literal = re.split(r"\{\w+\}", template)
+    names = PATH_PARAMETER.findall(template)
+    parameters = [f"(?:{parameter_pattern(document, template, name) or A_SEGMENT})" for name in names]
+
+    return "".join(re.escape(part) + (parameters[index] if index < len(parameters) else "") for index, part in enumerate(literal))
+
+
+def sample_segment(document: dict[str, Any], template: str, name: str) -> str:
+    """A value the parameter takes: an id where the parameter is patterned, a word otherwise."""
+
+    return "0" * 23 + "1" if parameter_pattern(document, template, name) else "x"
+
+
+def resolved(document: dict[str, Any], response: dict[str, Any]) -> dict[str, Any]:
+    """The Response Object `response` publishes, a reference to a shared one followed."""
+
+    if (ref := response.get("$ref")) is None:
+        return response
+
+    return document["components"]["responses"][ref.removeprefix(RESPONSE_REF.format(name=""))]
+
+
 def published_operations() -> list[tuple[str, dict[str, Any]]]:
+    """Each operation with its responses resolved, so a reader here sees what it publishes rather than the name it is shared under."""
+
+    document = build_document()
+
     return [
-        (f"{method.upper()} {path}", operation) for path, methods in build_document()["paths"].items() for method, operation in methods.items()
+        (
+            f"{method.upper()} {path}",
+            {**operation, "responses": {status: resolved(document, found) for status, found in operation["responses"].items()}},
+        )
+        for path, methods in document["paths"].items()
+        for method, operation in methods.items()
     ]
 
 
 def published_schema(response: dict[str, Any]) -> str:
-    return response["content"]["application/json"]["schema"]["$ref"].removeprefix("#/components/schemas/")
+    """The body a response publishes, the one a narrowing composes included."""
+
+    schema = response["content"][JSON_MEDIA_TYPE]["schema"]
+
+    return schema.get("allOf", [schema])[0]["$ref"].removeprefix("#/components/schemas/")
+
+
+# The operations publishing a refusal on the tree this was written against, so an equality over two
+# maps that both went empty still fails.
+REFUSING_OPERATIONS_FLOOR = 59
+
+
+def refusal_codes_by_operation() -> dict[str, dict[str, set[str]]]:
+    """Read off `RULES`, the routes and the dependencies here rather than through the publisher, which is what this is compared against.
+
+    A dependency's codes are taken from `app/main.py :: dependency_refusals`, which
+    `tests/api/test_dependency_refusals.py` holds against what a request meets.
+    """
+
+    declared: dict[str, dict[str, set[str]]] = {}
+    for (path, method), refusals in dependency_refusals(APP).items():
+        for status, codes in refusals.items():
+            declared.setdefault(f"{method.upper()} {path}", {}).setdefault(str(int(status)), set()).update(codes)
+    # Every operation taking input can refuse it, read off its own `parameters` and `requestBody`, and
+    # one taking a body can be sent one that is not JSON at all.
+    for name, operation in published_operations():
+        if operation.get("parameters") or "requestBody" in operation:
+            declared.setdefault(name, {}).setdefault("422", set()).add(PAYLOAD_REFUSED)
+        if "requestBody" in operation:
+            declared.setdefault(name, {}).setdefault("400", set()).add(BODY_UNREADABLE)
+    for rule in RULES:
+        for token in rule.operation.split(OPERATION_SEPARATOR):
+            method, route = token.split(" ", 1)
+            declared.setdefault(f"{method} /api/v{API_VERSION}{route}", {}).setdefault(str(int(rule.status)), set()).add(rule.code)
+
+    for route in api_routes(APP):
+        for status, response in route.responses.items():
+            for method in route.methods or ():
+                declared.setdefault(f"{method} {route.path_format}", {}).setdefault(str(status), set()).update(
+                    narrowed_codes(response["content"][JSON_MEDIA_TYPE]["schema"])
+                )
+
+    return declared
+
+
+def published_schemas() -> dict[str, dict[str, dict[str, Any]]]:
+    """Each operation's failure schemas by status, `default` aside, which narrows to no code."""
+
+    return {
+        name: {
+            status: response["content"][JSON_MEDIA_TYPE]["schema"] for status, response in operation["responses"].items() if status[0] in "45"
+        }
+        for name, operation in published_operations()
+    }
+
+
+def published_refusals() -> dict[str, dict[str, set[str]]]:
+    """Each operation's statuses publishing codes, and the codes each names; one publishing none is left out."""
+
+    published: dict[str, dict[str, set[str]]] = {}
+    for name, schemas in published_schemas().items():
+        if narrowed := {status: codes for status, schema in schemas.items() if (codes := narrowed_codes(schema))}:
+            published[name] = narrowed
+
+    return published
+
+
+def narrowed_codes(schema: dict[str, Any]) -> set[str]:
+    """Empty for a response left as FastAPI wrote it, so the comparison names that operation rather than raising."""
+
+    return {code for part in schema.get("allOf", [])[1:] for code in part.get("properties", {}).get("error_code", {}).get("enum", [])}
 
 
 class TestThePublishedFailureBodies:
@@ -255,6 +528,27 @@ class TestThePublishedFailureBodies:
         # Both sides at once, so the equality above cannot hold over two empty sets.
         assert takes_input and len(takes_input) < len(operations)
 
+    def test_every_operation_publishes_at_each_status_exactly_the_codes_it_refuses_with(self):
+        """Both ways: a status neither a rule nor its route names publishes no code, and one either names publishes that code there."""
+
+        published = published_refusals()
+
+        assert published == refusal_codes_by_operation()
+        assert len(published) >= REFUSING_OPERATIONS_FLOOR
+
+    def test_a_422_narrows_the_refused_payload_and_every_other_status_the_failure_body(self):
+        """The body is the status's own: `fields` travel on a 422 and on nothing else."""
+
+        narrowed = {
+            (status == "422", schema["allOf"][0]["$ref"])
+            for schemas in published_schemas().values()
+            for status, schema in schemas.items()
+            if narrowed_codes(schema)
+        }
+
+        assert narrowed <= {(True, "#/components/schemas/FLRefusedPayloadBody"), (False, "#/components/schemas/FLFailureBody")}
+        assert (False, "#/components/schemas/FLFailureBody") in narrowed
+
     def test_the_schemas_are_published_in_the_order_fastapi_writes_its_own(self):
         """Sorted, so a rewrite of `fl_backend/openapi.json` never moves a schema it did not change."""
 
@@ -276,6 +570,125 @@ class TestThePublishedFailureBodies:
         assert FLFailureBody.model_validate(body).model_dump() == body
 
 
+# OpenAPI 3.1.0's pattern for a key under `components`.
+COMPONENT_KEY = re.compile(r"[a-zA-Z0-9.\-_]+")
+
+
+class TestEachFailureResponseIsPublishedOnce:
+    def test_every_failure_response_refers_to_a_shared_one_and_every_shared_one_is_referred_to(self):
+        """Both ways: an inline failure is a second shape for every reader, and an unreferred one is a response nothing answers."""
+
+        document = build_document()
+        referred = [
+            response.get("$ref")
+            for operations in document["paths"].values()
+            for operation in operations.values()
+            for status, response in operation["responses"].items()
+            if status == "default" or status[0] in "45"
+        ]
+
+        assert None not in referred
+        assert set(referred) == {RESPONSE_REF.format(name=name) for name in document["components"]["responses"]}
+
+    def test_every_shared_name_is_a_key_openapi_allows(self):
+        """Named from the codes, which nothing else holds to that pattern."""
+
+        assert [name for name in build_document()["components"]["responses"] if not COMPONENT_KEY.fullmatch(name)] == []
+
+
+PLANTED_PATH = "/planted"
+HIDDEN_PATH = "/hidden"
+# A code no rule and no handler raises, so only the declaration can put it on the 409.
+A_SECOND_REASON = "REQ-PLANTED-001"
+
+
+def planted_app(conflict: dict[str, Any]) -> FastAPI:
+    """One route declaring `conflict` as its 409, on a path `RULES` never names."""
+
+    app = FastAPI()
+
+    @app.post(PLANTED_PATH, responses={409: conflict})
+    def planted() -> None: ...
+
+    return app
+
+
+class TestTheDeclared409:
+    def test_the_codes_a_declaration_names_are_published_and_no_other(self):
+        """A second reason a route conflicts for, read off the published document.
+
+        The pass over it is where a 409 FastAPI already placed could be taken for the duplicate key
+        and relabelled `DB-COMMON-002`.
+        """
+
+        app = planted_app(refusal_response(HTTPStatus.CONFLICT, {A_SECOND_REASON}))
+        document = with_refusals(app.openapi(), refusal_codes(app))
+
+        assert refused_codes(resolved(document, document["paths"][PLANTED_PATH]["post"]["responses"]["409"])) == {A_SECOND_REASON}
+
+    def test_every_read_of_the_document_answers_the_published_refusals(self):
+        """FastAPI answers each read after the first from `app.openapi_schema`, which a pass returning its edit alone would leave unedited."""
+
+        app = create_app(build_test_config())
+        first = app.openapi()
+
+        assert app.openapi() == first
+
+    def test_a_409_declared_naming_no_code_stops_the_build(self):
+        """Refused before `RULES` is checked against the routes, which this app serves none of."""
+
+        with pytest.raises(ValueError, match=f"POST {PLANTED_PATH}"):
+            publish_refusals(planted_app({"model": FLFailureBody}))
+
+    def test_a_409_an_include_declares_naming_no_code_stops_the_build(self):
+        """Declared at `include_router`, which the document publishes and a walk over the original routes never sees."""
+
+        router = APIRouter()
+
+        @router.post(PLANTED_PATH)
+        def planted() -> None: ...
+
+        app = FastAPI()
+        app.include_router(router, responses={409: {"model": FLFailureBody}})
+
+        with pytest.raises(ValueError, match=f"POST {PLANTED_PATH}"):
+            publish_refusals(app)
+
+    def test_the_operations_read_are_the_operations_the_document_publishes(self):
+        """A hidden route beside a shown one: read as served, a rule naming it would pass the build and publish nothing."""
+
+        app = planted_app(refusal_response(HTTPStatus.CONFLICT, {A_SECOND_REASON}))
+
+        @app.get(HIDDEN_PATH, include_in_schema=False)
+        def hidden() -> None: ...
+
+        read = {(route.path_format, method.lower()) for route in document_routes(app) for method in route.methods}
+        published = {(path, method) for path, operations in app.openapi()["paths"].items() for method in operations}
+
+        assert read == published == {(PLANTED_PATH, "post")}
+
+
+# Two builds in a process of their own, exiting non-zero where their documents differ.
+TWO_BUILDS = (
+    "import sys\n"
+    "from app.main import create_app\n"
+    "from tests.config import build_test_config\n"
+    "sys.exit(create_app(build_test_config()).openapi() != create_app(build_test_config()).openapi())\n"
+)
+
+
+class TestEveryBuildPublishesOneDocument:
+    def test_a_processs_first_build_publishes_what_its_second_does(self):
+        """Never in this process, which has built the app already.
+
+        A build inheriting an earlier one's edits to a shared route hides a defect of the first.
+        """
+
+        done = subprocess.run([sys.executable, "-c", TWO_BUILDS], cwd=BACKEND_ROOT, capture_output=True, text=True, check=False)
+
+        assert done.returncode == 0, done.stderr
+
+
 class TestErrorCodeLogging:
     def test_the_logged_code_is_the_exceptions_own(self, caplog):
         # A `getattr` fallback in the handler would log every `BaseAPIException` as one fixed string
@@ -284,7 +697,7 @@ class TestErrorCodeLogging:
             client().get("/api/v0/spiele")
 
         codes = [getattr(record, "error_code", None) for record in error_records(caplog)]
-        assert "REQ-AUTH-001" in codes
+        assert MISSING_TOKEN in codes
         assert "API_ERROR" not in codes
 
 
@@ -340,28 +753,18 @@ REFUSED_DOCUMENT_REPORT: dict[str, Any] = {
     },
 }
 
+# A validator's refusal inside a batch, carrying the `op` the driver adds: the whole document it
+# tried to write. A duplicate-only batch never reaches this handler, `app/core/crud.py ::
+# post_many_to_db` raising it as `DuplicateKeyError`.
 REFUSED_BULK_INSERT_REPORT: dict[str, Any] = {
     "writeErrors": [
         {
-            "index": 1,
-            "code": 11000,
-            "errmsg": (
-                "E11000 duplicate key error collection: fl_test.saison_spieler index: uniq_spieler_id_saison_id"
-                f" dup key: {{ spieler_id: ObjectId('{REFUSED_SPIELER_OID}'), saison_id: \"2026\" }}"
-            ),
-            "keyPattern": {"spieler_id": 1, "saison_id": 1},
-            "keyValue": {"spieler_id": ObjectId(REFUSED_SPIELER_OID), "saison_id": "2026"},
+            **REFUSED_DOCUMENT_REPORT,
             "op": {
-                "spieler_id": ObjectId(REFUSED_SPIELER_OID),
-                "saison_id": "2026",
-                "team_id": ObjectId("6890a1b2c3d4e5f60fff0013"),
-                "ist_nachnominiert": False,
-                "rolle": None,
-                "stufe": "Q1",
-                "position": "Tor",
-                "nummer": "99",
+                "_id": ObjectId(REFUSED_SPIELER_OID),
+                "vorname": "Anna",
+                "einwilligung": {"erteilt_von": REFUSED_CONSENT_SOURCE},
                 "inactive_since": None,
-                "_id": ObjectId("6890a1b2c3d4e5f60fff0018"),
             },
         }
     ],
@@ -379,12 +782,17 @@ REFUSED_BULK_INSERT_REPORT: dict[str, Any] = {
 # evidence rather than coincidence.
 REFUSED_SHORTHAND = "ZRBX"
 
+# The clause of `errmsg` that introduces the quoted value, sought on its own so no part of it travels.
+DUP_KEY_CLAUSE = "dup key"
+
 # The server's whole report for a single-document duplicate key: `errmsg` quotes the refused value a
 # second time beside `keyValue`, which is why neither may travel to the line.
 REFUSED_DUPLICATE_KEY_REPORT: dict[str, Any] = {
     "index": 0,
     "code": 11000,
-    "errmsg": f'E11000 duplicate key error collection: fl_test.teams index: uniq_shorthand dup key: {{ shorthand: "{REFUSED_SHORTHAND}" }}',
+    "errmsg": (
+        f'E11000 duplicate key error collection: fl_test.teams index: uniq_shorthand {DUP_KEY_CLAUSE}: {{ shorthand: "{REFUSED_SHORTHAND}" }}'
+    ),
     "keyPattern": {"shorthand": 1},
     "keyValue": {"shorthand": REFUSED_SHORTHAND},
 }
@@ -463,7 +871,7 @@ class TestValidationLoggingWithholdsTheValue:
         assert response.status_code == 422
         document = logged_document(caplog)
         assert REJECTED_NAME not in document
-        assert "<script>" not in document
+        assert REJECTED_MARKUP not in document
 
     def test_a_refused_payload_still_names_the_field_the_kind_and_the_reason(self, caplog):
         with caplog.at_level(logging.WARNING, logger="frankfurtleague"):
@@ -473,7 +881,7 @@ class TestValidationLoggingWithholdsTheValue:
         assert "body.vorname" in document
         assert "string_pattern_mismatch" in document
         assert "String should match pattern" in document
-        assert "REQ-VAL-001" in document
+        assert PAYLOAD_REFUSED in document
 
     def test_a_refused_stored_document_never_reaches_the_line(self, caplog):
         with caplog.at_level(logging.ERROR, logger="frankfurtleague"):
@@ -481,7 +889,7 @@ class TestValidationLoggingWithholdsTheValue:
 
         document = logged_document(caplog)
         assert REJECTED_NAME not in document
-        assert "<script>" not in document
+        assert REJECTED_MARKUP not in document
 
     def test_a_refused_stored_document_still_names_the_field_the_kind_and_the_reason(self, caplog):
         with caplog.at_level(logging.ERROR, logger="frankfurtleague"):
@@ -491,7 +899,7 @@ class TestValidationLoggingWithholdsTheValue:
         assert "vorname" in document
         assert "string_pattern_mismatch" in document
         assert "String should match pattern" in document
-        assert "SRV-VAL-001" in document
+        assert STORED_DATA_INVALID in document
 
     def test_a_refused_stored_documents_value_never_reaches_the_line(self, caplog):
         document = database_crash_document(caplog, WriteError("Document failed validation", 121, REFUSED_DOCUMENT_REPORT))
@@ -509,7 +917,7 @@ class TestValidationLoggingWithholdsTheValue:
         # The second rule in the same report, whose shape names properties the document never carried.
         assert "nachname" in document
         assert "WriteError" in document and "code 121" in document
-        assert "DB-FAIL-001" in document
+        assert DATABASE_FAILED in document
 
     def test_the_walk_never_descends_into_the_refused_value(self, caplog):
         """Catches widening the report keys walked to the ones a refused value sits under."""
@@ -523,23 +931,25 @@ class TestValidationLoggingWithholdsTheValue:
     def test_a_bulk_writes_refused_document_never_reaches_the_line(self, caplog):
         document = database_crash_document(caplog, BulkWriteError(REFUSED_BULK_INSERT_REPORT))
 
-        # A batch reports the whole document it tried to write as `op`, and quotes the duplicated key.
+        # `op` holds the refused value a second time, beside the validator's `consideredValue`.
         assert REFUSED_SPIELER_OID not in document
-        assert "dup key" not in document
-        assert "DB-FAIL-001" in document
+        assert REFUSED_CONSENT_SOURCE not in document
+        # Still named, so the case cannot pass on a line that dropped the report whole.
+        assert "einwilligung.erteilt_von" in document
+        assert DATABASE_FAILED in document
 
     def test_a_duplicate_keys_refused_value_never_reaches_the_line(self, caplog):
         document = duplicate_key_document(caplog, REFUSED_DUPLICATE_KEY_REPORT)
 
         # `errmsg` quotes the value once and `keyValue` carries it again, so both stay off the line.
         assert REFUSED_SHORTHAND not in document
-        assert "dup key" not in document
+        assert DUP_KEY_CLAUSE not in document
 
     def test_a_duplicate_key_still_names_the_index_that_refused(self, caplog):
         document = duplicate_key_document(caplog, REFUSED_DUPLICATE_KEY_REPORT)
 
         assert "uniq_shorthand" in document
-        assert "DB-COMMON-002" in document
+        assert DUPLICATE_KEY in document
 
     @pytest.mark.parametrize("details", [None, {"code": 11000}, {"errmsg": "E11000 duplicate key error, malformed"}])
     def test_a_report_with_no_parsable_index_still_writes_a_line(self, caplog, details):
@@ -548,7 +958,7 @@ class TestValidationLoggingWithholdsTheValue:
         document = duplicate_key_document(caplog, details)
 
         assert NO_DATA_TEXT in document
-        assert "DB-COMMON-002" in document
+        assert DUPLICATE_KEY in document
 
     def test_the_refusal_still_hands_back_an_id_to_quote(self):
         response = TestClient(VALIDATION_APP, raise_server_exceptions=False).post("/name", json={"vorname": REJECTED_NAME})

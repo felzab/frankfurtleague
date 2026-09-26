@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { Globe, MapPin } from "@gravity-ui/icons";
+import Globe from "@gravity-ui/icons/Globe";
+import MapPin from "@gravity-ui/icons/MapPin";
 
 import { card } from "@/shared/components/ui/card";
 import { ExpandableDescription } from "@/shared/components/ui/ExpandableDescription";
@@ -20,10 +21,10 @@ export function TeamIdentityCard({ teamData }: { teamData: FLTeam }) {
       {/* Boxed so the name and its detail line take their own rung rather than the card's row rung
           (`docs/frontend/spec.md` §1.20). */}
       <div className="flex flex-col gap-y-0.5">
-        <h2 className="fluid-xl text-foreground font-extrabold tracking-tight">{teamData.name}</h2>
+        <h2 className="fluid-xl font-extrabold tracking-tight text-foreground">{teamData.name}</h2>
 
         {/* Offizieller Schulname. No emptiness guard — both schemas require it. */}
-        <p className="fluid-xs text-foreground-muted font-semibold">{teamData.full_name}</p>
+        <p className="fluid-xs font-semibold text-foreground-muted">{teamData.full_name}</p>
       </div>
 
       <div className="flex flex-col items-start gap-y-1">
@@ -35,7 +36,7 @@ export function TeamIdentityCard({ teamData }: { teamData: FLTeam }) {
             rel="noopener noreferrer"
             prefetch={false}
             href={teamData.website_url}
-            className={`${textLink()} fluid-xs flex flex-row items-center gap-x-2 font-bold`}>
+            className={`${textLink()} flex flex-row items-center gap-x-2 fluid-xs font-bold`}>
             <Globe
               aria-hidden="true"
               className="size-4 shrink-0"
@@ -48,7 +49,7 @@ export function TeamIdentityCard({ teamData }: { teamData: FLTeam }) {
           href={teamMapUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className={`${textLink()} fluid-xs flex flex-row items-start gap-x-2 font-bold`}>
+          className={`${textLink()} flex flex-row items-start gap-x-2 fluid-xs font-bold`}>
           <MapPin
             aria-hidden="true"
             className="mt-0.5 size-4 shrink-0"

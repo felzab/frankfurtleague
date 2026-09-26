@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight } from "@gravity-ui/icons";
+import ArrowRight from "@gravity-ui/icons/ArrowRight";
 
 import { trackCountBadge, trackLabelBadge } from "@/shared/components/ui/badges";
 import { RailChangesSection, RailHinweiseSection } from "@/shared/components/ui/DraftRail";
@@ -115,7 +115,7 @@ export function SpielRail({
                       block: "start",
                     });
                   }}
-                  className="fluid-xs text-foreground hover:text-brand flex flex-row items-center gap-x-2 font-bold transition-colors">
+                  className="flex flex-row items-center gap-x-2 fluid-xs font-bold text-foreground transition-colors hover:text-brand">
                   <ArrowRight
                     aria-hidden="true"
                     className={`size-3.5 shrink-0 ${field.expectedSeverity === "scoring" ? "text-danger-strong" : "text-warning-strong"}`}

@@ -67,6 +67,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
@@ -79,7 +80,13 @@ router = APIRouter(
 )
 
 
-@router.post("", response_model=FLPostSchiedsrichterResponse, status_code=201, summary="Create a Schiedsrichter")
+@router.post(
+    "",
+    response_model=FLPostSchiedsrichterResponse,
+    status_code=201,
+    summary="Create a Schiedsrichter",
+    responses={409: DUPLICATE_KEY_RESPONSE},
+)
 async def post_schiedsrichter(
     schiedsrichter_data: Annotated[FLPostSchiedsrichterPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
@@ -110,7 +117,7 @@ async def post_schiedsrichter(
     async def judge_and_create(session: AsyncClientSession) -> Any:
         """Ask the ban list, then write. The check is handed the transaction's session, so a retry re-asks it."""
 
-        # The season stays `None` in a league that has run none, and the ban list is asked on the
+        # The season stays `None` while no season is running, and the ban list is asked on the
         # hash alone, as the correction and the re-send ask it (`REQ-SCHIEDSRICHTER-007`).
         gesperrt = await address_is_gesperrt(
             sperrliste_collection=sperrliste_collection,
@@ -150,6 +157,7 @@ async def post_schiedsrichter(
     by_id("schiedsrichter_id"),
     response_model=FLPatchSchiedsrichterResponse,
     summary="Update a Schiedsrichter and fan the change out",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -202,7 +210,7 @@ async def patch_schiedsrichter(
         )
         update, minted = compose_korrektur_update(stored=stored, payload=payload, payload_email=email, token_hash=token_hash, today=today)
 
-        # The season is NOT a condition here: it is `None` in a league that has run none, and the
+        # The season is NOT a condition here: it is `None` while no season is running, and the
         # ban list is asked on the hash alone then (`REQ-SCHIEDSRICHTER-007`).
         if minted:
             gesperrt = await address_is_gesperrt(
@@ -247,7 +255,12 @@ async def patch_schiedsrichter(
     return answer
 
 
-@router.delete(by_id("schiedsrichter_id"), response_model=FLSchiedsrichterWriteResponse, summary="Deactivate a Schiedsrichter (soft delete)")
+@router.delete(
+    by_id("schiedsrichter_id"),
+    response_model=FLSchiedsrichterWriteResponse,
+    summary="Deactivate a Schiedsrichter (soft delete)",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+)
 async def delete_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
@@ -299,6 +312,7 @@ async def delete_schiedsrichter(
     f"{by_id('schiedsrichter_id')}/reactivate",
     response_model=FLSchiedsrichterReactivateResponse,
     summary="Bring a deactivated Schiedsrichter back",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def reactivate_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -374,6 +388,7 @@ async def reactivate_schiedsrichter(
     f"{by_id('schiedsrichter_id')}/bestaetigung/einladen",
     response_model=FLSchiedsrichterMintResponse,
     summary="Send a Schiedsrichter a fresh confirmation link",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def einladen_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -462,6 +477,7 @@ async def einladen_schiedsrichter(
     f"{by_id('schiedsrichter_id')}/anonymisieren",
     response_model=FLSchiedsrichterWriteResponse,
     summary="Anonymise a Schiedsrichter",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def anonymise_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,

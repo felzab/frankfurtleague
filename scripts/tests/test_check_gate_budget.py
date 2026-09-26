@@ -1,39 +1,30 @@
-"""SCRIPTS · the gate budget, driven red and green in both of its modes.
+"""SCRIPTS · the gate budget, driven red and green in each of its modes.
 
 `--jobs` is driven over payloads shaped as the Actions jobs API returns them, `--base` over two
-parsed tables with the clock injected, and `main` over both so the exit contract is the thing
-proven rather than the rules alone. The committed reference is driven too, against a payload cut
-from its own budgets: a table the check cannot read, or cannot fail on, would otherwise ship green.
-
-Stdlib only, and `scripts/checks/` is put on the path here because the module under test is run
-as a script everywhere else, which is what seeds that directory onto the path for it.
+parsed tables with the clock injected, `--window` over directories laid out as the workflow leaves
+them, and `main` over each so the exit contract is the thing proven rather than the rules alone.
+The committed reference is driven too, against a payload cut from its own budgets: a table the
+check cannot read, or cannot fail on, would otherwise ship green.
 """
 
 from __future__ import annotations
 
 import contextlib
-import importlib
 import io
 import itertools
 import json
 import re
-import sys
 from datetime import date
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+from conftest import import_scripts
+
 SCRIPTS = Path(__file__).resolve().parents[1]
 REPO_ROOT = SCRIPTS.parent
 
-# Withdrawn again, kernel dropped from the cache with it, matching `test_check_tracked_text.py`.
-sys.path.insert(0, str(SCRIPTS / "checks"))
-try:
-    budget = importlib.import_module("check_gate_budget")
-finally:
-    sys.path.remove(str(SCRIPTS / "checks"))
-    sys.modules.pop("check_gate_budget", None)
-    sys.modules.pop("checker_kernel", None)
+[budget] = import_scripts("check_gate_budget")
 
 TODAY = date(2026, 9, 2)
 STAMP = "24@2026-09-01"
@@ -231,15 +222,15 @@ def test_an_unbudgeted_row_is_measured_and_not_compared():
     assert lines == ["images: 900 s, measured and not budgeted (the header says why)"]
 
 
-def test_the_aggregate_and_the_mapping_are_not_measured():
+def test_the_aggregate_is_not_measured():
     """The report's own exclusion, so this check and the report describe one population."""
-    spans = budget.spans_of(payload(job("verify", 3), job("changes", 8), job("backend", 30)))
+    spans = budget.spans_of(payload(job("verify", 3), job("backend", 30)))
 
     assert [span.job for span in spans] == ["backend"]
 
 
 def test_a_skipped_job_and_a_failed_job_are_lines_rather_than_findings():
-    """A scope the mapping turned off started at nothing; a failed job's length is no evidence."""
+    """A job its condition skipped started at nothing; a failed job's length is no evidence."""
     rows = budget.parse_reference(BASELINE)
     spans = budget.spans_of(payload(job("backend", None, conclusion="skipped"), job("commits", None, conclusion="failure")))
 
@@ -247,7 +238,7 @@ def test_a_skipped_job_and_a_failed_job_are_lines_rather_than_findings():
 
     assert findings == []
     assert lines == [
-        "backend: skipped, its scope turned off by the path mapping",
+        "backend: skipped by its own condition, so no length was taken",
         "commits: did not succeed, so its length is no evidence and was not compared",
     ]
 
@@ -306,6 +297,206 @@ def test_main_annotates_under_actions(tmp_path: Path):
         _, out, _ = run_main("--jobs", str(jobs), "--reference", str(reference))
 
     assert "::error title=Gate budget::`backend` took 61 s against a budget of 60 s" in out
+
+
+def test_an_annotation_carries_its_whole_message_as_one_command() -> None:
+    """A raw line break ends a workflow command there, and the runner reads what follows as log text."""
+    stdout = io.StringIO()
+    with patch.dict(budget.os.environ, {"GITHUB_ACTIONS": "true"}), contextlib.redirect_stdout(stdout):
+        budget.annotate([budget.Finding("fail", "100% over\r\nthe budget")])
+        budget.warn("50% slower\nthan its floor")
+    assert stdout.getvalue().splitlines() == [
+        "::error title=Gate budget::100%25 over%0D%0Athe budget",
+        "::warning title=Gate wall clock::50%25 slower%0Athan its floor",
+    ], stdout.getvalue()
+
+
+# --- the window of main runs -----------------------------------------------------------------------
+
+
+def ok(name: str, seconds: int) -> Any:
+    return budget.Span(name, "ok", seconds)
+
+
+def fetched(directory: Path, runs: dict[int, dict[str, Any] | None]) -> Path:
+    """A directory as the workflow leaves it: the listing, and a jobs payload for each run not None."""
+    directory.mkdir()
+    written(directory / budget.RUNS_FILE, json.dumps({"total_count": len(runs), "workflow_runs": [{"id": run_id} for run_id in runs]}))
+    for run_id, jobs in runs.items():
+        if jobs is not None:
+            written(directory / budget.JOBS_FILE.format(run_id), json.dumps(jobs))
+    return directory
+
+
+def test_a_whole_window_is_every_job_of_every_listed_run(tmp_path: Path):
+    directory = fetched(tmp_path / "w", {1: payload(job("backend", 30)), 2: payload(job("backend", 40), job("verify", 3))})
+
+    assert budget.window_of(directory, 2) == [ok("backend", 30), ok("backend", 40)]
+
+
+def test_a_listing_short_of_the_window_compares_nothing(tmp_path: Path):
+    """Fewer runs than a window holds is a state a young or pruned history is in, and it says so."""
+    directory = fetched(tmp_path / "w", {1: payload(job("backend", 30))})
+
+    try:
+        budget.window_of(directory, 2)
+    except budget.NoComparison as exc:
+        assert str(exc).startswith("1 completed main runs are on record and 2 are needed")
+    else:
+        raise AssertionError("a one-run listing made a two-run window")
+
+
+def test_a_listing_gh_could_not_fetch_compares_nothing(tmp_path: Path):
+    """The workflow leaves no listing where gh failed, and the error body gh prints is no listing either."""
+    for listing in (None, '{"message": "Not Found"}'):
+        directory = tmp_path / f"w{listing is None}"
+        directory.mkdir()
+        if listing is not None:
+            written(directory / budget.RUNS_FILE, listing)
+        try:
+            budget.window_of(directory, 1)
+        except budget.NoComparison as exc:
+            assert "list of completed main runs could not be read" in str(exc)
+        else:
+            raise AssertionError(f"a window was assembled from the listing {listing!r}")
+
+
+def test_a_listing_longer_than_the_window_is_cut_to_its_newest_runs(tmp_path: Path):
+    """The listing's page size is the window, but a page holding more must not widen it: the run past it is never read."""
+    directory = fetched(tmp_path / "w", {1: payload(job("backend", 30)), 2: payload(job("backend", 40)), 3: None})
+
+    assert budget.window_of(directory, 2) == [ok("backend", 30), ok("backend", 40)]
+
+
+def test_one_unread_run_ends_the_window_and_is_named(tmp_path: Path):
+    """Medians over the runs that were read would print as a whole window's."""
+    directory = fetched(tmp_path / "w", {7: payload(job("backend", 30)), 8: None, 9: payload(job("backend", 30))})
+    written(directory / budget.JOBS_FILE.format(9), "not json")
+
+    try:
+        budget.window_of(directory, 3)
+    except budget.NoComparison as exc:
+        assert "main run(s) 8, 9 could not be read" in str(exc)
+    else:
+        raise AssertionError("a window with two unread runs was assembled")
+
+
+def test_every_job_inside_its_floor_is_the_one_clean_sentence():
+    rows = budget.parse_reference(BASELINE)
+
+    text, verdict = budget.report_window(rows, [ok("backend", 40), ok("images", 100)], 12, NAMED)
+
+    assert verdict == "clean"
+    assert text.startswith("**Gate wall clock:** every job median over the last 12 main runs sits inside its own floor.\n")
+    assert f"The reference is `{NAMED}`" in text
+
+
+def test_a_median_past_its_floor_is_a_row_the_largest_first():
+    """The report's reason to exist: each row the median, the reference, the delta and the floor."""
+    rows = budget.parse_reference(BASELINE)
+    spans = [ok("backend", 50), ok("backend", 52), ok("backend", 54), ok("images", 150)]
+
+    text, verdict = budget.report_window(rows, spans, 12, NAMED)
+
+    assert verdict == "regressed"
+    table_rows = [line for line in text.splitlines() if line.startswith("| `")]
+    assert table_rows == ["| `images` | 150s | 97s | +53s (+54.6%) | 10% |", "| `backend` | 52s | 37s | +15s (+40.5%) | 14% |"]
+    assert "| **the whole gate** | **202s** | **134s** | **+68s (+50.7%)** | **5%** |" in text
+
+
+def test_an_even_window_takes_the_median_half_up():
+    """Two middle values a second apart land on the upper one, where Python's own rounding goes to the even one."""
+    rows = budget.parse_reference(table(row("backend", "10", "0", "60", STAMP), row("total", "10", "100", "-", "-")))
+
+    text, _ = budget.report_window(rows, [ok("backend", 10), ok("backend", 11)], 2, NAMED)
+
+    assert "| `backend` | 11s | 10s | +1s (+10.0%) | 0% |" in text
+
+
+def test_a_referenced_job_with_no_successful_run_makes_the_report_partial():
+    """A job compared against nothing, and the whole gate left unsummed rather than read as faster."""
+    rows = budget.parse_reference(BASELINE)
+    spans = [ok("backend", 37), budget.Span("images", "dropped", 0), budget.Span("commits", "skipped", 0)]
+
+    text, verdict = budget.report_window(rows, spans, 12, NAMED)
+
+    assert verdict == "partial"
+    assert "not a clean comparison" in text.splitlines()[0]
+    assert "No successful run in this window: images." in text
+    assert "1 job run(s) in this window did not succeed" in text
+    assert "1 job run(s) never started" in text
+    assert "the whole gate" not in text
+
+
+def test_a_job_with_no_reference_is_named_rather_than_counted():
+    """`commits`' `-` and a job new to the gate both land in the trailer, never in a median."""
+    rows = budget.parse_reference(BASELINE)
+    spans = [ok("backend", 37), ok("images", 97), ok("commits", 9), ok("newjob", 5)]
+
+    text, verdict = budget.report_window(rows, spans, 12, NAMED)
+
+    assert verdict == "clean"
+    assert "Measured with no reference to compare against: commits, newjob." in text
+
+
+def test_a_reference_of_zero_is_named_rather_than_divided_by():
+    """A zero in the seconds column is a hand edit left half done: named in the trailer, never a row."""
+    rows = budget.parse_reference(
+        table(row("backend", "0", "14", "60", STAMP), row("images", "97", "10", "-", STAMP), row("total", "97", "5", "-", "-"))
+    )
+
+    text, _ = budget.report_window(rows, [ok("backend", 40), ok("images", 97)], 12, NAMED)
+
+    assert "Measured with no reference to compare against: backend." in text
+    assert "| `backend` |" not in text
+
+
+def test_the_window_flags_are_refused_beside_another_mode(tmp_path: Path):
+    """Given with `--jobs` or `--base`, either would read as honoured while the mode it belongs to never ran."""
+    jobs = written(tmp_path / "jobs.json", json.dumps(payload(job("backend", 30))))
+    for flags in (("--jobs", str(jobs), "--runs", "12"), ("--base", "--summary", str(tmp_path / "summary.md"))):
+        try:
+            run_main(*flags)
+        except SystemExit as exc:
+            assert exc.code == 2, flags
+        else:
+            raise AssertionError(f"{flags} ran")
+
+
+def test_main_appends_the_report_and_warns_only_off_the_clean_state(tmp_path: Path):
+    """Silence on the checks list is the clean report's alone, so a regressed one annotates."""
+    reference = written(tmp_path / "ref.tsv", BASELINE)
+    summary = written(tmp_path / "summary.md", "written first\n")
+    for name, seconds, warned in (("quiet", 37, False), ("loud", 90, True)):
+        directory = fetched(tmp_path / name, {1: payload(job("backend", seconds), job("images", 97))})
+        with patch.dict(budget.os.environ, {"GITHUB_ACTIONS": "true"}):
+            code, out, _ = run_main("--window", str(directory), "--runs", "1", "--summary", str(summary), "--reference", str(reference))
+        assert code == 0
+        assert ("::warning title=Gate wall clock::A job median has moved past its own floor" in out) is warned
+    text = summary.read_text(encoding="utf-8")
+    assert text.startswith("written first\n**Gate wall clock:** every job median")
+    assert "| `backend` | 90s | 37s |" in text
+
+
+def test_main_says_in_the_summary_that_nothing_was_compared(tmp_path: Path):
+    """A window that could not be assembled, and a reference that could not be read, each leave a block.
+
+    Each exits 0 too: the report is advisory, and never the failure that refuses a publish.
+    """
+    reference = written(tmp_path / "ref.tsv", BASELINE)
+    summary = tmp_path / "summary.md"
+    directory = fetched(tmp_path / "w", {1: payload(job("backend", 30))})
+
+    code, _, _ = run_main("--window", str(directory), "--runs", "2", "--summary", str(summary), "--reference", str(reference))
+    assert code == 0
+    code, _, err = run_main("--window", str(directory), "--runs", "1", "--summary", str(summary), "--reference", str(tmp_path / "absent.tsv"))
+    assert code == 0
+    assert "absent.tsv" in err
+
+    text = summary.read_text(encoding="utf-8")
+    assert text.count("### Gate wall clock — no comparison") == 2
+    assert "1 completed main runs are on record and 2 are needed" in text
+    assert "absent.tsv was not read" in text
 
 
 # --- the file against its base ---------------------------------------------------------------------
@@ -454,12 +645,13 @@ def test_the_committed_reference_can_go_red_and_green():
     assert len(lines) == len(budgeted)
 
 
-def test_the_workflow_runs_both_modes():
-    """A check the workflow never calls is a check that never refuses: both call sites, read as text."""
+def test_the_workflow_runs_every_mode():
+    """A check the workflow never calls is a check that never refuses: each call site, read as text."""
     workflow = (REPO_ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8")
 
     assert re.search(r"scripts/checks/check_gate_budget\.py --jobs ", workflow), "the verify job does not hold the run to its budgets"
-    assert re.search(r"scripts/checks/check_gate_budget\.py --base ", workflow), "the commits job does not hold the reference against its base"
+    assert re.search(r"scripts/checks/check_gate_budget\.py --base ", workflow), "the docs job does not hold the reference against its base"
+    assert re.search(r"scripts/checks/check_gate_budget\.py --window ", workflow), "the verify job does not report the main runs' medians"
     for path in (".github/gate-wall-clock.tsv", "scripts/checks/check_gate_budget.py", "scripts/lib/checker_kernel.py"):
         assert path in workflow, f"the verify job's sparse checkout does not read {path}"
 
@@ -534,19 +726,13 @@ def aggregate_gaps(workflow: str) -> tuple[set[str], set[str]]:
 
 def test_a_job_the_aggregate_does_not_wait_on_is_named():
     """`aggregate_gaps`, over a job left out of the list: a reader that finds no gap anywhere would pass the tree."""
-    workflow = (
-        "on: push\njobs:\n  changes:\n    runs-on: x\n  lint:\n    needs: changes\n    runs-on: x\n"
-        "  verify:\n    needs: [changes]\n    runs-on: x\n"
-    )
+    workflow = "on: push\njobs:\n  commits:\n    runs-on: x\n  lint:\n    runs-on: x\n  verify:\n    needs: [commits]\n    runs-on: x\n"
 
     assert aggregate_gaps(workflow) == ({"lint"}, set())
 
 
 def test_the_aggregate_waits_on_every_other_job():
-    """A job `verify` does not wait on can fail under a green required check, `changes` included.
-
-    A failed `changes` skips every scope keyed on it, and the aggregate passes a skipped scope.
-    """
+    """A job `verify` does not wait on can fail under a green required check."""
     workflow = (REPO_ROOT / ".github" / "workflows" / "verify.yml").read_text(encoding="utf-8")
     missing, unknown = aggregate_gaps(workflow)
 

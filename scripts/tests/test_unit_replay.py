@@ -12,19 +12,17 @@ to `:: pool_units_replayed` is the guard over a unit nothing replays.
 
 from __future__ import annotations
 
-import shutil
+import re
 import tempfile
 from pathlib import Path
 from typing import Final
 
-from conftest import base_env, declared, lift_function, run_shell, write_shell
+from conftest import BASH, base_env, declared, lift_function, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
 
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
-BASH: Final = shutil.which("bash")
 
 # The step-level pair, which most cases below want. `adopt_finished` and `pool_wait` are asked for
 # by name instead, the first sitting inside the block that runs only outside a worker.
@@ -152,15 +150,22 @@ POOL: Final[tuple[tuple[str, str], ...]] = (("pool_wait", ""),)
 
 
 def test_a_scope_that_reached_no_verdict_keeps_a_row_in_the_table() -> None:
-    """Adopting nothing drops the scope out of the table and reports a section fewer than the run had.
+    """An unadopted scope drops out of the table, which then reports a section fewer than the run had.
 
-    A killed worker is the case: its rows say nothing, so the row has to be rank 0 rather than
-    absent, and `finish` turns that into a verdict.
+    A worker the pool never started wrote no rows, so its row is rank 0, which `finish` turns into a
+    verdict.
     """
-    code, output = _parent("adopt_finished ops\nfinish", lifted=ADOPT, statuses={"ops": "137"})
-    assert "ops" in output, "the killed scope left no row at all: " + output
+    code, output = _parent("adopt_finished ops\nfinish", lifted=ADOPT, statuses={"ops": "not-started"})
+    assert "ops" in output, "the unstarted scope left no row at all: " + output
     assert code == 1, f"a scope that proved nothing exited {code}: {output}"
     assert "closed with no verdict" in output, output
+
+
+def test_a_killed_scope_reads_as_the_crash_it_is() -> None:
+    """Its row says `crashed`, and with no other ending set the run ends on it rather than on nothing."""
+    code, output = _parent("adopt_finished ops\nfinish", lifted=ADOPT, statuses={"ops": "137"})
+    assert re.search(r"^ +ops +\S*crashed", output, re.MULTILINE), "the killed scope's row: " + output
+    assert code == 3, f"a killed scope with no other ending exited {code}: {output}"
 
 
 def test_a_scope_the_pool_judged_is_adopted_from_its_own_rows() -> None:
@@ -428,7 +433,7 @@ def _shell_constant(name: str) -> tuple[str, str]:
 
 
 def test_a_later_failing_scope_is_replayed_after_the_first_failures_own_output() -> None:
-    """Rows count a later verdict without quoting it, and no partial re-run reaches the text.
+    """Rows count a later verdict without quoting it, and its text is otherwise another run away.
 
     The scope that passed is the twin: an arm replaying every later one would head a green scope too.
     """

@@ -48,7 +48,7 @@ documents.
    (`docs/_auditing/programme.md` §2), which is why steps 3 to 5 must be genuinely complete first.
    Confirm the folder is gone before step 7. Anything else under `docs/audit/` belongs to no
    programme's lifecycle and stays.
-7. Run the gate at the scope CLAUDE.md's gate section names for what changed, commit the final
-   report and any doc updates, push, open the draft pull request, print its link, and name the
-   conclusion of every check that pull request started, `verify`'s run being one of several
-   (`.claude/CLAUDE.md` §2).
+7. Commit the final report and any doc updates, push, open the draft pull request, print its link,
+   name the conclusion of every check that pull request started, `verify`'s run being one of
+   several, and run the bare `./scripts/gate/verify.sh` over its last push before calling it ready
+   to merge (`.claude/CLAUDE.md` §2; a named scope is only for iterating).

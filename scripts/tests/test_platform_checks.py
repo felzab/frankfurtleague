@@ -3,9 +3,8 @@
 Every case runs `scripts/checks/docs_gate/platform.py` in an interpreter of its own over a throwaway
 repository, in `scripts/tests/test_check_docs.py`'s shape: the gate's copy is imported from inside
 the fixture, so its REPO_ROOT is the fixture and the corpus is what git lists there. The copy sits
-under a folder that is NOT `scripts/`, because here `scripts/` is corpus. Stdlib only, the type
-checker reading `scripts/` with no environment declared; and no plant is spelled at module level
-in a shape the checker reads, each being built inside the case that needs it.
+under a folder that is NOT `scripts/`, because here `scripts/` is corpus. No plant is spelled at
+module level in a shape the checker reads, each being built inside the case that needs it.
 """
 
 from __future__ import annotations
@@ -275,6 +274,15 @@ def test_a_test_standing_down_on_the_platform_is_plat_2_in_each_shape() -> None:
         _only(found, PLATFORM, TOOL_TEST, "PLAT-2", "`SNIPPET`")
         code, found = _run(rows={TOOL_TEST + " :: SNIPPET": "no process group exists to compare off POSIX"})
         assert (code, found) == (GREEN, []), found
+
+
+def test_a_driver_snippet_in_a_form_the_clause_cannot_read_is_named() -> None:
+    """Joined into one string, the same stand-down reads as no snippet at all, so its form is the finding."""
+    joined = 'SNIPPET = "\\n".join(("if not tool.POSIX:", "    raise SystemExit(0)", "assert True"))'
+    with _appended(TOOL_TEST, "", joined):
+        code, found = _run()
+        assert code == RED
+        _only(found, PLATFORM, TOOL_TEST, "PLAT-2", "`SNIPPET`", "tuple or list of string lines")
 
 
 def test_a_constant_or_predicate_bound_to_one_value_alone_is_plat_3() -> None:

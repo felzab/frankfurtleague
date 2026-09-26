@@ -16,7 +16,7 @@ from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.crud import patch_many_in_db, patch_one_in_db, post_many_to_db, post_one_to_db
 from app.core.exceptions import DocumentNotFoundException
-from app.core.logging import trace_id_var
+from app.core.logging import span_id_var, trace_id_var
 from app.core.recording import Actor, _stringify_filter, actor_var, log_stamp, record_write, request_var
 
 # Fixed rather than generated, so a failing test names the same document every run.
@@ -44,6 +44,7 @@ ADMIN_ACTOR = Actor(kind="admin_session", email="admin@example.com")
 # The route TEMPLATE, which is the half of this pair the binder stores.
 ROUTE = ("PATCH", "/api/v0/teams/{team_id}")
 TRACE_ID = "0123456789abcdef0123456789abcdef"
+SPAN_ID = "fedcba9876543210"
 
 # A stand-in for a transaction handle: what is proved is that the row travels inside whatever the caller passed.
 SESSION = cast(AsyncClientSession, object())
@@ -121,6 +122,7 @@ def record_inside_a_request(**arguments: Any) -> None:
         actor_var.set(ADMIN_ACTOR)
         request_var.set(ROUTE)
         trace_id_var.set(TRACE_ID)
+        span_id_var.set(SPAN_ID)
         await record_write(**arguments)
 
     asyncio.run(_run())
@@ -297,6 +299,7 @@ class TestWhoAndWhenARowIsAttributedTo:
 
         assert log.inserted[0]["trace_id"] == TRACE_ID
         assert "span_id" not in log.inserted[0]
+        assert SPAN_ID not in repr(log.inserted[0])
 
     def test_the_timestamp_is_utc_and_carries_its_offset(self):
         """The log is ordered and ranged by this field, and a local-time string sorts October's two identical clock hours the wrong way."""

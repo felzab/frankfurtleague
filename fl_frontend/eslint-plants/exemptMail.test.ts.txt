@@ -1,0 +1,4 @@
+// Linted as src/core/mail.test.ts.
+// The module's test names the provider's endpoint, and every other test ban still reaches it.
+export const ENDPOINT = "https://api.resend.com/emails";
+export const STALE = "/bestaetigung?token=x"; // expect: stale-path

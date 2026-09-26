@@ -1,13 +1,13 @@
 import Link from "next/link";
 
-import { Envelope } from "@gravity-ui/icons";
+import Envelope from "@gravity-ui/icons/Envelope";
 
 import { BrandHero } from "@/shared/components/ui/BrandHero";
-import { BRAND_TILE } from "@/shared/components/ui/brandTile";
+import { BRAND_TILE_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { CardGrid } from "@/shared/components/ui/CardGrid";
 import { ctaButton } from "@/shared/components/ui/formButtons";
-import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
+import { CARDS_CASCADE_CLASSES, PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 
 import { KONTAKT_CHANNELS } from "../../constants";
 import { MetaSection } from "../ui/MetaSection";
@@ -17,9 +17,9 @@ import type { KontaktChannelId } from "../../types";
 
 // Each step is n columns of 16.5rem plus the gaps between them: 16.5rem is the narrowest channel card, at a
 // quarter-rem step, holding the league's address unbroken at its largest type.
-const COLUMNS = "@min-[34.5rem]:grid-cols-2 @min-[52.5rem]:grid-cols-3";
+const COLUMNS_CLASSES = "@min-[34.5rem]:grid-cols-2 @min-[52.5rem]:grid-cols-3";
 
-const MASK = "bg-brand-solid-foreground inline-block size-6 mask-contain mask-center mask-no-repeat";
+const MASK_CLASSES = "inline-block size-6 bg-brand-solid-foreground mask-contain mask-center mask-no-repeat";
 
 // A record rather than a chain: `KontaktChannelId` is a closed set, so a fourth channel fails to
 // compile here rather than rendering an empty tile nothing reports.
@@ -34,13 +34,13 @@ const GLYPH: Record<KontaktChannelId, ReactNode> = {
     <span
       aria-hidden="true"
       title="Instagram by Pixel Icons"
-      className={`${MASK} mask-[url('/icons/footer/instagram/instagram_logo_black.svg')]`}
+      className={`${MASK_CLASSES} mask-[url('/icons/footer/instagram/instagram_logo_black.svg')]`}
     />
   ),
   threads: (
     <span
       aria-hidden="true"
-      className={`${MASK} mask-[url('/icons/footer/threads/threads_logo_black.svg')]`}
+      className={`${MASK_CLASSES} mask-[url('/icons/footer/threads/threads_logo_black.svg')]`}
     />
   ),
 };
@@ -52,7 +52,7 @@ const GLYPH: Record<KontaktChannelId, ReactNode> = {
  */
 export function KontaktView({ bewerbungSlot }: { bewerbungSlot?: ReactNode }) {
   return (
-    <div className={`${PAGE_RISE} flex w-full flex-col gap-y-8 sm:gap-y-12`}>
+    <div className={`${PAGE_RISE_CLASSES} flex w-full flex-col gap-y-8 sm:gap-y-12`}>
       <BrandHero
         title="Kontakt"
         lead="Wir haben immer ein offenes Ohr für Dein Anliegen. Fragen oder Anregungen zur Liga? Schreib uns. Wir melden uns schnellstmöglich bei Dir."
@@ -66,9 +66,9 @@ export function KontaktView({ bewerbungSlot }: { bewerbungSlot?: ReactNode }) {
         eyebrow="So erreichst Du uns"
         title="Kanäle">
         <CardGrid
-          columns={COLUMNS}
+          columns={COLUMNS_CLASSES}
           role="list"
-          className={CARDS_CASCADE}>
+          className={CARDS_CASCADE_CLASSES}>
           {KONTAKT_CHANNELS.map((channel) => (
             <div
               role="listitem"
@@ -78,13 +78,13 @@ export function KontaktView({ bewerbungSlot }: { bewerbungSlot?: ReactNode }) {
                 <div className="flex flex-row items-center gap-x-3">
                   <span
                     aria-hidden="true"
-                    className={BRAND_TILE}>
+                    className={BRAND_TILE_CLASSES}>
                     {GLYPH[channel.id]}
                   </span>
-                  <span className="fluid-base text-foreground font-bold">{channel.name}</span>
+                  <span className="fluid-base font-bold text-foreground">{channel.name}</span>
                 </div>
 
-                <span className="fluid-sm text-foreground font-semibold break-words">{channel.value}</span>
+                <span className="fluid-sm font-semibold break-words text-foreground">{channel.value}</span>
               </div>
 
               <Link

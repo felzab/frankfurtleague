@@ -33,9 +33,9 @@ export function ContentLoader({ fills }: { fills?: "region" | "viewport" } = {})
       <span className="sr-only">Inhalte werden geladen</span>
       {/* `bg-brand`, which flips: the solid fill sinks into the dark page, and a loader nobody
           can see is a blank region. */}
-      <span className="bg-brand animate-loader-dot size-2.5 rounded-full [animation-delay:-0.4s]" />
-      <span className="bg-brand animate-loader-dot size-2.5 rounded-full [animation-delay:-0.2s]" />
-      <span className="bg-brand animate-loader-dot size-2.5 rounded-full" />
+      <span className="size-2.5 animate-loader-dot rounded-full bg-brand [animation-delay:-0.4s]" />
+      <span className="size-2.5 animate-loader-dot rounded-full bg-brand [animation-delay:-0.2s]" />
+      <span className="size-2.5 animate-loader-dot rounded-full bg-brand" />
     </div>
   );
 }

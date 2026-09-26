@@ -1,11 +1,11 @@
 "use client";
 
-import { Bars } from "@gravity-ui/icons";
+import Bars from "@gravity-ui/icons/Bars";
 
 import { BrandLink } from "../../ui/BrandLink";
 import { InfoHint } from "../../ui/InfoHint";
 import { ThemeSwitch } from "../../ui/ThemeSwitch";
-import { RAIL_WIDTH_LG } from "./railWidth";
+import { RAIL_WIDTH_LG_CLASSES } from "./railWidth";
 import { SignOutButton } from "./SignOutButton";
 
 import type { FormState, SidemenuHint } from "@/shared/types/types";
@@ -34,18 +34,18 @@ export function AppTopBar({
 }) {
   // Hoisted out of the class template because the Tailwind lint cannot read a class string through an
   // index expression — it reads `collapsed` and `expanded` as class names.
-  const railWidth = RAIL_WIDTH_LG[isDesktopCollapsed ? "collapsed" : "expanded"];
+  const railWidth = RAIL_WIDTH_LG_CLASSES[isDesktopCollapsed ? "collapsed" : "expanded"];
 
   return (
     /* `inert` with `<main>` and for its reason: the open drawer covers the left of this bar and the
        dismiss layer the rest, so nothing here is a stop the reader can see (WCAG 2.4.11). */
     <header
       inert={isMobileOpen}
-      className="bg-surface border-border z-30 flex h-(--navbar-height) w-full shrink-0 flex-row items-stretch border-b">
+      className="z-30 flex h-(--navbar-height) w-full shrink-0 flex-row items-stretch border-b border-border bg-surface">
       {/* Exactly the rail's width, so the bar's `border-b` and the rail's `border-r` meet in a cross rather than a
           T. `transition-[width]` runs at the rail's own duration, or the bar snaps ahead of the panel. */}
       <div
-        className={`border-border flex shrink-0 flex-row items-center gap-x-3 px-4 transition-[width] duration-300 ease-in-out motion-reduce:transition-none lg:border-r ${
+        className={`flex shrink-0 flex-row items-center gap-x-3 border-border px-4 transition-[width] duration-300 ease-in-out motion-reduce:transition-none lg:border-r ${
           railWidth
         } ${isDesktopCollapsed ? "lg:justify-center lg:px-0" : ""}`}>
         {/* Opens the drawer and only opens it: the bar goes inert with `<main>` while the panel is open and
@@ -56,7 +56,7 @@ export function AppTopBar({
           aria-expanded={isMobileOpen}
           aria-controls="app-sidemenu"
           aria-label="Menü öffnen"
-          className="text-foreground hover:bg-hover -ml-2 shrink-0 rounded-md p-1.5 transition-colors lg:hidden">
+          className="-ml-2 shrink-0 rounded-md p-1.5 text-foreground transition-colors hover:bg-hover lg:hidden">
           <Bars
             className="size-6"
             aria-hidden="true"
@@ -75,10 +75,11 @@ export function AppTopBar({
       {/* No left padding below `lg`: the brand block's own `px-4` is already the gutter, and a second one doubles
           it on a narrow screen. From `lg` a border separates the two blocks, so each wants its own inset. */}
       <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3 pe-4 lg:ps-4">
-        {/* `truncate` and not wrap: the bar is a fixed height, so a wrapped title is clipped mid-letter. The glyph
-            sits inside the h1 to inherit its font size, so `InfoHint`'s 1em icon matches. */}
-        <h1 className="fluid-base text-foreground min-w-0 truncate font-semibold tracking-wide">
-          {title}
+        {/* `truncate` and not wrap: the bar is a fixed height, so a wrapped title is clipped mid-letter. */}
+        <div className="min-w-0 truncate fluid-base">
+          {/* The glyph beside the h1 and not inside it, or a screen reader names the page with the hint's label. Both
+              inline in one block, whose size reaches `InfoHint`'s 1em icon on the title's line box (`docs/frontend/spec.md` I81). */}
+          <h1 className="inline font-semibold tracking-wide text-foreground">{title}</h1>
           {/* `InfoHint` rather than `IconTooltip`: react-aria's tooltip never opens on tap, so a phone could not reach it. */}
           {hint && (
             <InfoHint label={`Was auf „${title}“ zu finden ist`}>
@@ -98,7 +99,7 @@ export function AppTopBar({
               {hint.note && <p className="text-foreground-muted">{hint.note}</p>}
             </InfoHint>
           )}
-        </h1>
+        </div>
 
         {/* Inline rather than behind a menu, so ending a session does not need the drawer opened first. Inside this
             block rather than beside it, so the pair takes the same inset the title does. */}

@@ -11,8 +11,11 @@ them.
 | [`../../docs/backend/spec.md`](../../docs/backend/spec.md) | The contract: the two tiers, the `db` marker, the conventions                                                           |
 | `conftest.py`                                              | The factory fixtures, and the session-scoped `mongod` servers, each yielded as a url                                    |
 | `config.py`                                                | The settings an application under test is built with                                                                    |
+| `app_client.py`                                            | The application under test, served in process to an HTTP client of the test's own                                       |
 | `database.py`                                              | The database a db test opens for itself: built once, emptied per call                                                   |
 | `worker.py`                                                | The per-worker database naming, and the guard that holds every open to it                                               |
+| `tier.py`                                                  | The refusal of a test that uses a database without `@pytest.mark.db`                                                    |
+| `documents.py`                                             | The stored shapes both tiers build from: seeds, and the rules and consent payload fixtures and rules models take        |
 | `payloads.py`                                              | The request bodies a test submits, built from a stored document                                                         |
 | `isolation.py`                                             | What a write raced by a rival reports: its refusal's code, or that it committed                                         |
 | `bracket_reference.py`                                     | The hand-written bracket rows the draw's construction is held to                                                        |
@@ -24,9 +27,7 @@ them.
 ## Two tiers, and one of them needs Docker
 
 `cd fl_backend && uv run pytest` runs the fast tier, which needs no daemon.
-`uv run pytest -m db` runs the tier that starts a real `mongod`. Which tests
-belong to which tier, why the split exists, and every convention the suite is written to are in the
-backend spec sheet.
+`uv run pytest -m db` runs the tier that starts a real `mongod`.
 
 The tree mirrors `app/`'s folders, so a module's tests are in the folder you would look in, `api/`
 being flat.

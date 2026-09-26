@@ -16,7 +16,7 @@ doubleEveryAction();
 
 const { AdminBewerbungAnnehmenSection } = await import("./AdminBewerbungAnnehmenSection.tsx");
 
-const renderAcceptance = (hindernis: string | null) =>
+const renderAcceptance = (hindernis: string | null, isDirty = false) =>
   render(
     underNext(
       h(AdminBewerbungAnnehmenSection, {
@@ -27,6 +27,7 @@ const renderAcceptance = (hindernis: string | null) =>
         saisonStatus: "future",
         gruppeOffer: [{ gruppe: "A", occupied: 1, capacity: 4 }],
         hindernis,
+        isDirty,
       }),
     ),
   );

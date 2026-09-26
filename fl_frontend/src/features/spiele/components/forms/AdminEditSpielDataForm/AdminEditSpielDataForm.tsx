@@ -5,26 +5,23 @@ import { useRouter } from "next/navigation";
 
 import { parseDate, parseTime } from "@internationalized/date";
 
-import { Form } from "@heroui/react";
-
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
 import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
+import { Form } from "@/shared/components/ui/Form";
 import { FormActionBar } from "@/shared/components/ui/FormActionBar";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
-import { appToast } from "@/shared/utils/appToast";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { patchAdminSpielDataAction } from "../../../actions";
 import { admitsShootOut, applyDraftToSpiel, deriveSpielDraftStatus } from "../../../draftStatus";
-import { FLPatchSpielDataPayloadSchema } from "../../../schemas";
+import { buildPatchSpielDataPayloadSchema, FLPatchSpielDataPayloadSchema } from "../../../schemas";
 import { collectKnockoutTeamIds, collectSpieltagTeamOccupancy, isFirstKnockoutRound, listDependentSpiele, toStoredSide } from "../../../utils";
 import { buildSpielBanners, isSpielRefusalBannerId, isSpielRefusalCode } from "./banners";
 import { FormAnsetzungSection } from "./FormAnsetzungSection";
@@ -59,12 +56,6 @@ import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FieldErrors } from "@/shared/utils/validation";
 import type { CalendarDate, Time } from "@internationalized/date";
 import type { SpielRefusalCode } from "./banners";
-
-/**
- * Long enough to transcribe the only copy of a diagnosis, not merely to read it. Deliberately not `UNDO_TIMEOUT_MS`: this stands over a
- * restore that never dispatched, so it must not follow the undo window wherever that is taken.
- */
-const DIAGNOSIS_TIMEOUT_MS = 15000;
 
 /**
  * Lookup lists arrive as props: `useAdmin()` here would make `spiele` depend on `admin`.
@@ -104,7 +95,7 @@ export function AdminEditSpielDataForm({
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSaving] = useTransition();
 
   const [sonderereignis, setSonderereignis] = useState<FLSonderereignis | null>(spielData.sonderereignis);
   // Held, never derived from the value: a scalar has no empty-but-present form, so a derived
@@ -145,11 +136,12 @@ export function AdminEditSpielDataForm({
   // input the refusal was judged on moves, so a corrected draft never carries the previous ones.
   const [refusal, setRefusal] = useState<{ key: string; code: SpielRefusalCode } | null>(null);
 
-  // The same schema `patchAdminSpielDataAction` parses, so a message shown here is the one the
-  // server would have produced.
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { spiel: FLPatchSpielDataPayloadSchema },
-  });
+  // The schema `patchAdminSpielDataAction` parses, so a message shown here is the one the server would have
+  // produced, plus the one rule the switch asserts and the payload has no field for.
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
+    useDraftFieldErrors({
+      schemas: { spiel: buildPatchSpielDataPayloadSchema({ hasSonderereignis }) },
+    });
 
   // Derived rather than handled: `admitsShootOut` names every fixture a record belongs to, so every
   // route out of one drops it here, where no later handler can forget to.
@@ -235,11 +227,11 @@ export function AdminEditSpielDataForm({
 
   // `REQ-STATE-002`'s own subject: the write path refuses on ANY goal count standing beside an event
   // that awards nothing, so a lone 0 in one box is already the refusal.
-  const hasAnyTore = (tore1 !== null && !Number.isNaN(tore1)) || (tore2 !== null && !Number.isNaN(tore2));
+  const hasAnyTore = tore1 !== null || tore2 !== null;
 
   // An abandoned fixture with a decided score may legitimately keep it, or may be waiting for a
   // replay — the one combination on this page a rule cannot settle, hence the warning.
-  const hasDecidedErgebnis = tore1 !== null && tore2 !== null && !Number.isNaN(tore1) && !Number.isNaN(tore2) && tore1 !== tore2;
+  const hasDecidedErgebnis = tore1 !== null && tore2 !== null && tore1 !== tore2;
 
   // Counts entered rather than a record merely switched on: an empty one is nothing to lose.
   const hasEnteredShootOut = elfmeterschiessen !== null && (elfmeterschiessen.team1 !== null || elfmeterschiessen.team2 !== null);
@@ -251,7 +243,7 @@ export function AdminEditSpielDataForm({
     hasEnteredShootOut && elfmeterschiessenInDraft === null && admitsShootOut(spielData.saison_phase, team1Payload, team2Payload, null);
 
   // The void and release entries name fixtures the dry run actually voided, never possibilities —
-  // so a `null` preview means "no answer yet" and contributes nothing, not "nothing would be lost".
+  // so a `null` preview contributes no fixture, never "nothing would be lost", and a failed one says so.
   const banners = buildSpielBanners({
     isKnockout,
     // The same derivation `FormTeamPicker` closes the group choice on, so the closed row and the
@@ -286,8 +278,9 @@ export function AdminEditSpielDataForm({
     hasAnyTore,
     hasDecidedErgebnis,
     dropsShootOut,
-    voidedSpielNummern: voidPreview?.voided ?? [],
-    releasedSpielNummern: voidPreview?.released ?? [],
+    voidedSpielNummern: voidPreview.preview?.voided ?? [],
+    releasedSpielNummern: voidPreview.preview?.released ?? [],
+    voidPreviewFailed: voidPreview.failed,
     refusalCode: refusal?.key === refusalKey ? refusal.code : null,
   });
 
@@ -362,53 +355,50 @@ export function AdminEditSpielDataForm({
     // dialog between them holds it still, so a second failure branch would be one nothing can reach.
     const narrowed = FLPatchSpielDataPayloadSchema.parse(payload);
 
-    startTransition(async () => {
+    startSaving(async () => {
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
       const res = await patchAdminSpielDataAction(narrowed, spielData.saison_id).catch(unansweredAction);
 
-      if (!res.success) {
-        // A field error rather than a toast, so the message lands on the control to change.
-        const occupantErrors = res.errorCode === undefined ? {} : placeOccupantRefusal(res.errorCode, res.error);
-        reportSubmitFailure({ ...res, fieldErrors: { ...(res.fieldErrors ?? {}), ...occupantErrors } }, { spiel: payload });
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startSaving(() => {
+        if (!res.success) {
+          // A field error rather than a toast, so the message lands on the control to change.
+          const occupantErrors = res.errorCode === undefined ? {} : placeOccupantRefusal(res.errorCode, res.error);
+          reportSubmitFailure({ ...res, fieldErrors: { ...(res.fieldErrors ?? {}), ...occupantErrors } }, { spiel: payload });
 
-        // The remedies the field's one sentence has no room for, keyed to the draft just judged.
-        setRefusal(isSpielRefusalCode(res.errorCode) ? { key: refusalKey, code: res.errorCode } : null);
-        return;
-      }
+          // The remedies the field's one sentence has no room for, keyed to the draft just judged.
+          setRefusal(isSpielRefusalCode(res.errorCode) ? { key: refusalKey, code: res.errorCode } : null);
+          return;
+        }
 
-      setSubmitFieldErrors({}, {});
-      setRefusal(null);
-      setHasSaved(true);
+        setSubmitFieldErrors({}, {});
+        setRefusal(null);
+        setHasSaved(true);
 
-      // Built BEFORE leaving: these are this render's props and the toast outlives the page.
-      const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
+        // Built BEFORE leaving: these are this render's props and the toast outlives the page.
+        const affected = [...(res.voidedFixtures ?? []), ...(res.releasedFixtures ?? [])];
 
-      offerUndo({
-        endpoint: "/api/admin/spiele/undo",
-        // Every fixture from the SAVE's own answer, in the order it reported them: the props this
-        // render was served are older than the save, so an undo built from them would revert a field
-        // another writer moved.
-        body: { paarungen: res.priorPaarungen ?? [], saison_id: spielData.saison_id },
-        message: res.message,
-        fallback: "Die Spieldaten wurden aktualisiert.",
-        warn: affected.length > 0,
-        router,
-        // The raw error stays in the description, uniquely here: the dispatch failed in the browser,
-        // so no server log holds the diagnosis. One that reached the server stays generic.
-        reportRejection: (dispatchError) =>
-          appToast.danger("Änderung nicht zurückgenommen", {
-            description: dispatchError instanceof Error ? `${dispatchError.name}: ${dispatchError.message}` : String(dispatchError),
-            timeout: DIAGNOSIS_TIMEOUT_MS,
-          }),
+        offerUndo({
+          endpoint: "/api/admin/spiele/undo",
+          // Every fixture from the SAVE's own answer, in the order it reported them: the props this
+          // render was served are older than the save, so an undo built from them would revert a field
+          // another writer moved.
+          body: { paarungen: res.priorPaarungen ?? [], saison_id: spielData.saison_id },
+          message: res.message,
+          fallback: "Die Spieldaten wurden aktualisiert.",
+          warn: affected.length > 0,
+          router,
+        });
+
+        resetDraftToStored();
+        leavePage();
       });
-
-      resetDraftToStored();
-      leavePage();
     });
   };
 
   /**
-   * The backend answers one code per RULE (`docs/logging/error-codes.md`), so the client works out
+   * The backend answers one code per RULE (`fl_backend/app/core/domain.py :: RULES`), so the client works out
    * the side. A side it cannot identify produces no entry and the caller falls back to the toast,
    * so a refusal is never swallowed.
    */
@@ -460,16 +450,14 @@ export function AdminEditSpielDataForm({
           dialog below asks what the fixture is still waiting on. */}
       <SpielExpectedProvider expected={status.expected}>
         <Form
-          // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-          validationBehavior="aria"
-          ref={formRef}
-          validationErrors={fieldErrors}
+          wiring={formWiring}
           className="flex min-h-0 w-full flex-1 flex-col"
-          onSubmit={runOnSubmit(requestSave)}>
+          onSubmit={requestSave}>
           <EditFormLayout
             header={pageHeader}
             onLeave={requestLeave}
             isLeaving={isLeaving}
+            isDirty={isDirty}
             rail={
               <SpielRail
                 previewSpiel={previewSpiel}

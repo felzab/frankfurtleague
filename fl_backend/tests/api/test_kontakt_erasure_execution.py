@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from pydantic import EmailStr, TypeAdapter
+from pydantic import TypeAdapter
 from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
@@ -20,13 +20,12 @@ from app.core.collections import Collection
 from app.core.crud import patch_one_in_db
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.kontakt import CustomEmail
-from tests.database import a_clean_database, on_the_seed_loop
+from tests import documents
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_kontakt_erasure_test")
 
-# Asserted on rather than caught broadly, so an unrelated failure cannot pass as a rejection.
-DOCUMENT_VALIDATION_FAILED = 121
 
 # Fixed rather than generated, so a failure names the same row every run.
 TEAM_A_OID = ObjectId("6890a1b2c3d4e5f607810001")
@@ -178,19 +177,9 @@ LOG_ROWS_PER_REACHED_ROW = 3
 
 
 def saison_team_document(row_id: ObjectId, saison_id: str, team_id: ObjectId) -> dict[str, Any]:
-    """Every field `app/core/constraints.py :: Collection.SAISON_TEAMS` requires, seeded in the FORMER state."""
-
-    return {
-        "_id": row_id,
-        "saison_id": saison_id,
-        "team_id": team_id,
-        "gruppe": "A",
-        "austritt": None,
-        "trikot_farbe": "blau",
-        "kontakte": FORMER_BLOCKS[row_id],
-        "name": "Testschule",
-        "shorthand": "TS",
-    }
+    return documents.saison_team_document(
+        saison_id, team_id, "Testschule", "TS", _id=row_id, trikot_farbe="blau", kontakte=FORMER_BLOCKS[row_id]
+    )
 
 
 # The three live links every seeded application carries, so an erasure has bookkeeping to reach.
@@ -337,17 +326,7 @@ def a_junction_row(row_id: ObjectId, saison_id: str, block: Mapping[str, Any]) -
     Which is what lets a case seed as many rows as it likes under `uniq_saison_id_team_id`.
     """
 
-    return {
-        "_id": row_id,
-        "saison_id": saison_id,
-        "team_id": row_id,
-        "gruppe": "A",
-        "austritt": None,
-        "trikot_farbe": "blau",
-        "kontakte": dict(block),
-        "name": "Testschule",
-        "shorthand": "TS",
-    }
+    return documents.saison_team_document(saison_id, row_id, "Testschule", "TS", _id=row_id, trikot_farbe="blau", kontakte=dict(block))
 
 
 def a_row_naming(row_id: ObjectId, email: str) -> dict[str, Any]:
@@ -791,12 +770,12 @@ PADDED_SPELLINGS: tuple[str, ...] = (f"{chr(0x20)}{ERASED_EMAIL}", f"{ERASED_EMA
     ("asked", "taken", "missed"),
     [
         pytest.param(VARIANT_REQUEST_EMAIL, (*CASE_VARIANTS, *PADDED_SPELLINGS), NEAR_MISSES, id="one spelling"),
-        # Near misses apart from the decoded spelling in ASCII alone, so both engines read them alike.
+        # Asked in Unicode, which the fold converts before the pattern is built from it.
         pytest.param(
-            "anna@xn--mller-kva.de",
-            ("anna@xn--mller-kva.de", "anna@müller.de", "ANNA@müller.de"),
-            ("xanna@müller.de", "anna@müller.de.org", "xanna@xn--mller-kva.de"),
-            id="two spellings",
+            "anna@MÜLLER.de",
+            ("anna@xn--mller-kva.de", "ANNA@xn--mller-kva.de"),
+            ("xanna@xn--mller-kva.de", "anna@xn--mller-kva.de.org"),
+            id="a Unicode domain asked",
         ),
     ],
 )
@@ -838,7 +817,7 @@ SHARP_S_EMAIL = "wiltrudis.quastenflosser@straße.de"
 DOUBLE_S_EMAIL = "wiltrudis.quastenflosser@strasse.de"
 SHARP_S_ROW_OID = ObjectId("6890a1b2c3d4e5f607816001")
 
-LEGACY_ROW_OID = ObjectId("6890a1b2c3d4e5f607816002")
+HAND_EDITED_ROW_OID = ObjectId("6890a1b2c3d4e5f607816002")
 
 
 @pytest.mark.db
@@ -872,13 +851,13 @@ def test_erasing_one_of_two_people_parted_by_sharp_s_leaves_the_other_seated(mon
     ],
 )
 def test_a_seat_stored_under_an_address_no_payload_takes_now_is_erased(mongo_replica_set_url: str, stored: str):
-    """GDPR Art. 17: a lookup matches what was stored under older rules, so it holds the request to none of today's."""
+    """GDPR Art. 17: a row edited by hand past the address rule still names a person, so the lookup holds the request to no rule."""
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        await database[Collection.SAISON_TEAMS].insert_one(a_row_naming(LEGACY_ROW_OID, stored))
+        await database[Collection.SAISON_TEAMS].insert_one(a_row_naming(HAND_EDITED_ROW_OID, stored))
         await call_erasure(database, client, stored)
 
-        return (await stored_rows(database))[LEGACY_ROW_OID]["kontakte"]["trainer"]
+        return (await stored_rows(database))[HAND_EDITED_ROW_OID]["kontakte"]["trainer"]
 
     assert on_a_league(mongo_replica_set_url, body) is None
 
@@ -887,13 +866,11 @@ IDNA_ROW_OID = ObjectId("6890a1b2c3d4e5f607816003")
 
 CHEROKEE_CAPITALS = f"{chr(0x13A0)}{chr(0x13A1)}"
 
-# A seat as a payload stores it now, or as `EmailStr` stored it before the address rule, asked for in
-# another spelling of the same mailbox. Built from code points where a character renders like its neighbour.
+# A seat as a payload stores it, asked for in another spelling of the same mailbox. Built from code
+# points where a character renders like its neighbour.
 IDNA_SPELLINGS = [
-    pytest.param("anna@müller.de", "anna@xn--mller-kva.de", id="stored in Unicode, asked in punycode"),
     pytest.param("anna@xn--mller-kva.de", "anna@MÜLLER.de", id="stored in punycode, asked in Unicode"),
     pytest.param("anna@schule.de", f"anna@schule{chr(0x3002)}de", id="an ideographic full stop"),
-    pytest.param(f"anna@{CHEROKEE_CAPITALS}.de", f"anna@{chr(0xAB70)}{chr(0xAB71)}.de", id="Cherokee stored in Unicode"),
     pytest.param("anna@xn--58dc.de", f"anna@{CHEROKEE_CAPITALS}.de", id="Cherokee stored in punycode"),
 ]
 
@@ -902,7 +879,7 @@ IDNA_SPELLINGS = [
 def test_each_stored_spelling_is_one_a_payload_stored(stored: str, asked: str):
     """The premise the database case below rests on: seeded any other way, it would compare a spelling no write produced."""
 
-    assert stored in {TypeAdapter(CustomEmail).validate_python(stored), TypeAdapter(EmailStr).validate_python(stored)}
+    assert TypeAdapter(CustomEmail).validate_python(stored) == stored
 
 
 @pytest.mark.parametrize(("stored", "asked"), IDNA_SPELLINGS)
@@ -913,8 +890,6 @@ def test_the_asker_is_keyed_as_the_stored_address_folds(stored: str, asked: str)
 @pytest.mark.db
 @pytest.mark.parametrize(("stored", "asked"), IDNA_SPELLINGS)
 def test_a_seat_asked_for_in_another_spelling_of_its_domain_is_named_and_cleared(mongo_replica_set_url: str, stored: str, asked: str):
-    """The Cherokee pair holds the pre-filter's `i` to UTS46's capitals, which `stored_spellings`' decoded spelling holds in small letters."""
-
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         await database[Collection.SAISON_TEAMS].insert_one(a_row_naming(IDNA_ROW_OID, stored))
         ansicht = await call_ansicht(database, asked)
@@ -947,17 +922,22 @@ def test_an_address_holding_a_nul_names_nobody_and_clears_nothing(mongo_replica_
 
 @pytest.mark.db
 def test_a_label_decoding_to_a_lone_surrogate_names_nobody_and_clears_nothing(mongo_replica_set_url: str):
-    """The address is ASCII, so no guard at the payload sees the surrogate its punycode decodes to, and the driver cannot encode one."""
+    """The payload admits it for holding an `@`, and its punycode decodes to a lone surrogate the driver cannot encode.
+
+    A step on this path decoding the domain would answer 500 here.
+    """
 
     asked = "a@xn--ib9b"
 
     async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-        return await call_ansicht(database, asked), await call_erasure(database, client, asked)
+        return await call_ansicht(database, asked), await call_erasure(database, client, asked), await stored_rows(database)
 
-    ansicht, response = on_a_league(mongo_replica_set_url, body)
+    ansicht, response, rows = on_a_league(mongo_replica_set_url, body)
 
     assert (ansicht.saison_teams, ansicht.bewerbungen) == ([], [])
-    assert (response.cleared_saison_teams, response.cleared_bewerbungen, response.redacted_aktionen) == (0, 0, 0)
+    assert (response.cleared_saison_teams, response.cleared_bewerbungen) == (0, 0)
+    assert (response.cleared_kontakt_slots, response.redacted_aktionen) == (0, 0)
+    assert all(rows[row_id]["kontakte"] == LIVE_BLOCKS[row_id] for row_id in (*SAISON_TEAM_OIDS, *BEWERBUNG_OIDS))
 
 
 @pytest.mark.db
@@ -1062,8 +1042,8 @@ def test_a_log_row_of_an_application_holding_no_image_of_them_is_stamped_anyway(
 # Two colleagues on ONE school mailbox, a season apart -- the case the confirmation exists for. The
 # panel it is opened from names one of them, and the write empties both seats.
 SHARED_INBOX = "sekretariat.quastenflosser@example.com"
-SHARED_EARLIER_OID = ObjectId("6890a1b2c3d4e5f607816001")
-SHARED_LATER_OID = ObjectId("6890a1b2c3d4e5f607816002")
+SHARED_EARLIER_OID = ObjectId("6890a1b2c3d4e5f607816004")
+SHARED_LATER_OID = ObjectId("6890a1b2c3d4e5f607816005")
 
 
 def sharing_the_inbox(nachname: str, telefon: str) -> dict[str, Any]:

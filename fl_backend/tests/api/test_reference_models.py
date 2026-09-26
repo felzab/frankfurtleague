@@ -7,7 +7,7 @@ from bson import ObjectId
 from pydantic import BaseModel, ValidationError
 
 from app.api.saisons.schemas import FLPatchSaisonPayload, FLPostSaisonPayload, FLSaison
-from app.api.schiedsrichter.schemas import FLPostSchiedsrichterPayload, FLSchiedsrichter
+from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLPostSchiedsrichterPayload, FLSchiedsrichter
 from app.api.spiele.schemas import MAX_QUALIFIERS, FLSpielBooking
 from app.api.spieler.schemas import (
     FLEinwilligung,
@@ -30,7 +30,7 @@ from app.api.teams.schemas import (
     FLPostSaisonTeamPayload,
     FLPostTeamPayload,
 )
-from app.shared.schemas.bounds import SAISON_ID_LENGTH
+from app.shared.schemas.bounds import KONTAKT_NAME_MAX_LENGTH, SAISON_ID_LENGTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -160,6 +160,13 @@ class TestSchiedsrichter:
             "name",
         )
 
+    @pytest.mark.parametrize("model", [FLPostSchiedsrichterPayload, FLPatchSchiedsrichterPayload])
+    def test_the_payload_holds_the_name_to_every_persons_ceiling(self, kontakt, assert_rejects, model):
+        body = {"kontakt": kontakt(), "schule": None, "default_payment": 20}
+
+        assert_rejects(model, {**body, "name": "A" * (KONTAKT_NAME_MAX_LENGTH + 1)}, "name")
+        assert len(model.model_validate({**body, "name": "A" * KONTAKT_NAME_MAX_LENGTH}).name) == KONTAKT_NAME_MAX_LENGTH
+
     def test_the_read_model_still_accepts_a_stored_name_the_payload_would_refuse(self, schiedsrichter):
         """A read model refusing a stored name would answer 500 for the whole list because of one row."""
         assert FLSchiedsrichter.model_validate(schiedsrichter(name="A. Referee")).name == "A. Referee"
@@ -234,12 +241,26 @@ class TestSpieler:
 
         assert FLPatchSpielerPayload.model_validate({**without, "geburtsdatum": None}).geburtsdatum is None
 
+    @pytest.mark.parametrize("part", ["vorname", "nachname"])
+    def test_the_person_patch_holds_a_name_to_the_registrations_ceiling(self, part: str):
+        """An administrator's edit may not store a name the pupil's own registration would refuse."""
+
+        names = {"vorname": "Max", "nachname": "Mustermann", "geburtsdatum": None}
+
+        with pytest.raises(ValidationError):
+            FLPatchSpielerPayload.model_validate({**names, part: "A" * (KONTAKT_NAME_MAX_LENGTH + 1)})
+
+        at_the_bound = FLPatchSpielerPayload.model_validate({**names, part: "A" * KONTAKT_NAME_MAX_LENGTH})
+        assert len(getattr(at_the_bound, part) or "") == KONTAKT_NAME_MAX_LENGTH
+
 
 class TestEinwilligung:
     """The consent record: what may be published, who agreed it, and whether anyone confirmed it."""
 
-    def test_accepts_a_collected_consent(self, spieler):
-        assert FLSpieler.model_validate(spieler()).einwilligung.umfang == "kader_oeffentlich"
+    def test_accepts_a_collected_consent(self, spieler, einwilligung):
+        collected = einwilligung(umfang="kader_oeffentlich", erteilt_von="erziehungsberechtigt")
+
+        assert FLSpieler.model_validate(spieler(einwilligung=collected)).einwilligung.umfang == "kader_oeffentlich"
 
     @pytest.mark.parametrize("field", ["umfang", "erteilt_von", "datum", "bestaetigt_am"])
     def test_requires_every_key(self, einwilligung, field, assert_rejects):
@@ -261,7 +282,7 @@ class TestEinwilligung:
     def test_a_media_consent_is_read_beside_the_publication_scope_and_not_inside_it(self, einwilligung):
         """Two independent answers: a reader asking `umfang` whether a photo may be published gets the wrong question's answer."""
 
-        parsed = FLEinwilligung.model_validate(einwilligung(text_version="liga-2026-03", medien=True))
+        parsed = FLEinwilligung.model_validate(einwilligung(umfang="kader_oeffentlich", text_version="liga-2026-03", medien=True))
 
         assert parsed.text_version == "liga-2026-03"
         assert parsed.medien is True

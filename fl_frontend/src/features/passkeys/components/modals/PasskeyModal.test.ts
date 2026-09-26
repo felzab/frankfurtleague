@@ -7,11 +7,12 @@ import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
 
 const BUS = "__flPasskeyModalCeremonies";
 
@@ -53,13 +54,17 @@ let listed = { passkeys: EINTRAEGE, kannHinzufuegen: true };
 /** What the plugin's client hands back for the loser of two changes at once. */
 const CONFLICT = { code: "PASSKEY_ENROLMENT_CONFLICT", message: "x", status: 409, statusText: "CONFLICT" };
 
-const { calls, answerWith } = doubleActions({
+const { calls, answerWith, answerPending } = doubleActions({
   modules: [/\/features\/passkeys\/actions\.ts$/],
   answer: () => Promise.resolve({ success: true, message: "Gespeichert.", ...listed }),
 });
 const { raised } = doubleToasts();
 
 const { PasskeyModal } = await import("./PasskeyModal.tsx");
+const { unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { UNKNOWN_REFUSAL } = await import("@/shared/utils/refusal.ts");
+
+const NICHT_GELADEN = "Deine Passkeys ließen sich nicht laden.";
 
 function open() {
   return render(h(PasskeyModal, { isOpen: true, onClose: () => undefined }));
@@ -67,6 +72,30 @@ function open() {
 
 /** The words on a control, which is what a reader acts on and what speech input finds it by. */
 const controls = (): string[] => screen.getAllByRole("button").map((control) => control.textContent ?? "");
+
+/** Whether the add control takes a press: HeroUI closes a button by either attribute. */
+function addPressable(): boolean {
+  const add = screen.getByRole("button", { name: "Passkey hinzufügen" });
+  return !add.hasAttribute("disabled") && add.getAttribute("aria-disabled") !== "true";
+}
+
+/**
+ * Read once React has committed every update already scheduled: a release scheduled a moment
+ * before the read would otherwise land after it and pass unseen.
+ */
+async function settledPressable(): Promise<boolean> {
+  await act(async () => undefined);
+  return addPressable();
+}
+
+/** A step's answer, held back until the case lets it through. */
+function gate(): { held: Promise<void>; open: () => void } {
+  let open: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    open = resolve;
+  });
+  return { held, open };
+}
 
 beforeEach(() => {
   reached.length = 0;
@@ -113,6 +142,32 @@ describe("what the dialog puts in front of the administrator", () => {
 
     assert.ok(screen.queryByText("Mehr Passkeys gehen nicht. Lösche zuerst einen.") === null);
     assert.ok(screen.queryByText("Windows Hello") === null, "the list resolved, so this case proves nothing");
+    await act(async () => answerPending({ success: true, message: "Gespeichert.", ...listed }));
+  });
+
+  /* A read the edge cut wrote nothing, so it is the failed read it is: uncaught, the opening's
+     spinner stands for good and nothing is said. */
+  it("answers a rejected opening read as a failed read", async () => {
+    answerWith(() => Promise.reject(new Error("An unexpected response was received from the server.")));
+    open();
+
+    await waitFor(() => assert.ok(isInTheFlow(NICHT_GELADEN), "the dialog does not say the list failed to load"));
+    assert.ok(screen.queryByLabelText("Lädt") === null, "the spinner still stands over a read that has answered");
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description]),
+      [["danger", "Passkeys nicht geladen", UNKNOWN_REFUSAL]],
+    );
+  });
+
+  /* A failed read closes the add control as the cap does, and the cap's sentence on it would claim a
+     count nothing read; the failed read is the standing condition, so it is the reason. */
+  it("closes the add control on a failed read with that read as its reason, never the cap", async () => {
+    answerWith(() => Promise.resolve({ success: false, error: UNKNOWN_REFUSAL }));
+    open();
+
+    await waitFor(() => assert.ok(isInTheFlow(NICHT_GELADEN), "the dialog does not say the list failed to load"));
+    closedControl("Passkey hinzufügen", NICHT_GELADEN);
+    assert.ok(screen.queryByText("Mehr Passkeys gehen nicht. Lösche zuerst einen.") === null, "a list nothing read is announced as full");
   });
 });
 
@@ -205,6 +260,81 @@ describe("the step-up both writes take", () => {
     );
   });
 
+  /* The plugin's client answers a verification request that never came back as `UNKNOWN_ERROR` at 500,
+     and an edge's own answer by its status: either may follow a registration the server stored. */
+  for (const [how, error] of [
+    ["is cut", { code: "UNKNOWN_ERROR", message: "Failed to fetch", status: 500, statusText: "INTERNAL_SERVER_ERROR" }],
+    ["meets an edge's 502", { status: 502, statusText: "Bad Gateway" }],
+  ] as const) {
+    it(`marks an enrolment whose verification ${how} as of unknown outcome, and re-reads the list`, async () => {
+      const user = userEvent.setup();
+      answer = () => (reached.length === 1 ? Promise.resolve({ data: {}, error: null }) : Promise.resolve({ data: null, error }));
+      open();
+      await screen.findByText("Windows Hello");
+
+      await user.click(screen.getByRole("button", { name: "Passkey hinzufügen" }));
+      await waitFor(() => assert.equal(raised.length, 1));
+
+      assert.deepEqual(
+        raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
+        [["danger", "Passkey nicht hinzugefügt", unansweredAction().error, "unknown"]],
+      );
+      assert.deepEqual(
+        calls.map((call) => call.action),
+        ["readPasskeysAction", "readPasskeysAction"],
+      );
+    });
+  }
+
+  /* A prompt closed or refused by the browser ends before the verification request is sent, so
+     nothing was stored and a retry is the whole repair. */
+  it("words a ceremony the browser aborted as not added", async () => {
+    const user = userEvent.setup();
+    answer = () =>
+      reached.length === 1
+        ? Promise.resolve({ data: {}, error: null })
+        : Promise.resolve({ data: null, error: { code: "ERROR_CEREMONY_ABORTED", message: "x", status: 400, statusText: "BAD_REQUEST" } });
+    open();
+    await screen.findByText("Windows Hello");
+
+    await user.click(screen.getByRole("button", { name: "Passkey hinzufügen" }));
+    await waitFor(() => assert.equal(raised.length, 1));
+
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
+      [["danger", "Passkey nicht hinzugefügt", "Versuche es noch einmal.", undefined]],
+    );
+  });
+
+  /* An enrolment refused where the cap may be the cause re-reads the list, and a cut re-read, uncaught,
+     leaves the add control on its pending label for good with nothing said. */
+  it("releases the add control when the re-read after a refused enrolment is cut, and says the list failed", async () => {
+    const user = userEvent.setup();
+    answer = () =>
+      reached.length === 1
+        ? Promise.resolve({ data: {}, error: null })
+        : Promise.resolve({ data: null, error: { message: "Not Found", status: 404, statusText: "NOT_FOUND" } });
+    answerWith(() =>
+      calls.length === 1
+        ? Promise.resolve({ success: true, message: "Gespeichert.", ...listed })
+        : Promise.reject(new Error("An unexpected response was received from the server.")),
+    );
+    open();
+    await screen.findByText("Windows Hello");
+
+    await user.click(screen.getByRole("button", { name: "Passkey hinzufügen" }));
+
+    await waitFor(() => assert.ok(isInTheFlow(NICHT_GELADEN), "the dialog does not say the list failed to load"));
+    assert.ok(!controls().includes("Fügt hinzu..."), "the add control stayed on its pending label");
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description]),
+      [
+        ["danger", "Passkeys nicht geladen", UNKNOWN_REFUSAL],
+        ["danger", "Passkey nicht hinzugefügt", "Versuche es noch einmal."],
+      ],
+    );
+  });
+
   /* A refused removal may answer a list another change moved, so the list is read again rather than
      left offering a row that is gone (`docs/frontend/spec.md :: I312`). */
   it("re-reads the list after the server refuses a removal", async (t) => {
@@ -232,6 +362,169 @@ describe("the step-up both writes take", () => {
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description]),
       [["danger", "Passkey nicht gelöscht", "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert. Lade die Seite neu."]],
+    );
+  });
+
+  /* The re-read after a refusal runs inside the row's press transition, where a cut read, uncaught,
+     replaces the page with the error page and the refusal is never said. */
+  it("says both the refusal and the list it could not read when the re-read after a refused removal is cut", async (t) => {
+    const user = userEvent.setup();
+    answerWith(() => {
+      if (calls.at(-1)?.action === "removePasskeyAction") {
+        return Promise.resolve({
+          success: false,
+          error: "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert. Lade die Seite neu.",
+        });
+      }
+      // The opening read answers; the one after the refusal is cut.
+      return calls.length === 1
+        ? Promise.resolve({ success: true, message: "Gespeichert.", ...listed })
+        : Promise.reject(new Error("An unexpected response was received from the server."));
+    });
+    open();
+    await screen.findByText("Windows Hello");
+    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+
+    await user.click(screen.getAllByRole("button", { name: "Löschen" })[0]!);
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
+
+    await waitFor(() => assert.ok(isInTheFlow(NICHT_GELADEN), "the dialog does not say the list failed to load"));
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description]),
+      [
+        ["danger", "Passkeys nicht geladen", UNKNOWN_REFUSAL],
+        ["danger", "Passkey nicht gelöscht", "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert. Lade die Seite neu."],
+      ],
+    );
+  });
+
+  /* A removal nobody can tell landed is marked for the neutral title (`docs/frontend/spec.md ::
+     I326`), whether the server answers so or the edge's cut rejects the action, which uncaught
+     replaces the page with the error page. */
+  for (const [how, removal] of [
+    ["answered", () => Promise.resolve(unansweredAction())],
+    ["cut", () => Promise.reject(new Error("An unexpected response was received from the server."))],
+  ] as const) {
+    it(`marks a removal of unknown outcome as such when it is ${how}, and re-reads the list`, async (t) => {
+      const user = userEvent.setup();
+      answerWith(() =>
+        calls.at(-1)?.action === "removePasskeyAction" ? removal() : Promise.resolve({ success: true, message: "Gespeichert.", ...listed }),
+      );
+      open();
+      await screen.findByText("Windows Hello");
+      t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+
+      await user.click(screen.getAllByRole("button", { name: "Löschen" })[0]!);
+      t.mock.timers.tick(DOUBLE_PRESS_MS);
+      await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
+      await waitFor(() => assert.equal(raised.length, 1));
+
+      const { error, outcome } = unansweredAction();
+      assert.deepEqual(
+        raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
+        [["danger", "Passkey nicht gelöscht", error, outcome]],
+      );
+      assert.deepEqual(
+        calls.map((call) => call.action),
+        ["readPasskeysAction", "removePasskeyAction", "readPasskeysAction"],
+      );
+      assert.ok(screen.queryByText("Windows Hello") !== null, "the removal took the dialog's list off the page");
+    });
+  }
+
+  /* The re-read runs inside the row's press transition, where a cut read, uncaught, replaces the page
+     with the error page over a removal that landed. */
+  it("reports a landed removal whose re-read is cut, and the list it could not read", async (t) => {
+    const user = userEvent.setup();
+    answerWith(() => {
+      const action = calls.at(-1)?.action;
+      if (action === "removePasskeyAction") return Promise.resolve({ success: true, message: "Passkey gelöscht" });
+      // The opening read answers; the one after the removal is cut.
+      return calls.length === 1
+        ? Promise.resolve({ success: true, message: "Gespeichert.", ...listed })
+        : Promise.reject(new Error("An unexpected response was received from the server."));
+    });
+    open();
+    await screen.findByText("Windows Hello");
+    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+
+    await user.click(screen.getAllByRole("button", { name: "Löschen" })[0]!);
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
+
+    await waitFor(() => assert.ok(isInTheFlow(NICHT_GELADEN), "the dialog does not say the list failed to load"));
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description]),
+      [
+        ["success", "Passkey gelöscht", "Alle anderen Geräte wurden abgemeldet."],
+        ["danger", "Passkeys nicht geladen", UNKNOWN_REFUSAL],
+      ],
+    );
+  });
+
+  /* A removal changes the list both of the add control's refusals are read off, so the control is
+     held for as long as the removal runs rather than offered over a list about to move. */
+  for (const [outcome, answered] of [
+    ["done", { success: true, message: "Gelöscht." }],
+    ["refused", { success: false, error: "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert. Lade die Seite neu." }],
+  ] as const) {
+    it(`holds the add control until the list is read again, and releases it once the removal is ${outcome}`, async (t) => {
+      const user = userEvent.setup();
+      const removal = gate();
+      const reread = gate();
+      answerWith(() => {
+        const listing = Promise.resolve({ success: true, message: "Gespeichert.", ...listed });
+        if (calls.at(-1)?.action === "removePasskeyAction") return removal.held.then(() => answered);
+        return calls.some((call) => call.action === "removePasskeyAction") ? reread.held.then(() => listing) : listing;
+      });
+      open();
+      await screen.findByText("Windows Hello");
+      t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+
+      await user.click(screen.getAllByRole("button", { name: "Löschen" })[0]!);
+      t.mock.timers.tick(DOUBLE_PRESS_MS);
+      await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
+      await waitFor(() =>
+        assert.ok(
+          calls.some((call) => call.action === "removePasskeyAction"),
+          "the removal never reached its write",
+        ),
+      );
+      const whileRemoving = await settledPressable();
+      removal.open();
+      await waitFor(() => assert.equal(calls.at(-1)?.action, "readPasskeysAction", "the list was never read again"));
+      const whileRereading = await settledPressable();
+      reread.open();
+
+      assert.equal(whileRemoving, false, "the add control was pressable while the removal ran");
+      assert.equal(whileRereading, false, "the add control was pressable before the list was read again");
+      await waitFor(() => assert.ok(addPressable(), "the add control stayed held after the removal was over"));
+    });
+  }
+
+  /* The step-up's own refusal reads nothing again, so the control reopens the moment it answers. */
+  it("holds the add control while the step-up runs, and releases it once the step-up is refused", async (t) => {
+    const user = userEvent.setup();
+    const stepUp = gate();
+    answer = () => stepUp.held.then(() => ({ data: null, error: { message: "cancelled", status: 400, statusText: "BAD_REQUEST" } }));
+    open();
+    await screen.findByText("Windows Hello");
+    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+
+    await user.click(screen.getAllByRole("button", { name: "Löschen" })[0]!);
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
+    await waitFor(() => assert.deepEqual(reached, ["signInPasskey"], "the removal never asked for the step-up"));
+    const whileAsserting = await settledPressable();
+    stepUp.open();
+
+    assert.equal(whileAsserting, false, "the add control was pressable while the step-up ran");
+    await waitFor(() => assert.ok(addPressable(), "the add control stayed held after the step-up was refused"));
+    assert.deepEqual(
+      calls.map((call) => call.action),
+      ["readPasskeysAction"],
+      "a step-up that failed still reached the removal or a re-read",
     );
   });
 

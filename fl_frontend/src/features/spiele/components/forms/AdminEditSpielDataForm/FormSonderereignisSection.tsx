@@ -1,18 +1,22 @@
-import { FieldError, ListBox, Select, Switch } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { ListBox } from "@heroui/react/list-box";
 
 import { SONDEREREIGNIS_LABELS, SONDEREREIGNIS_OPTIONS } from "@/features/spiele/constants";
 import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_ERROR, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
+import { Select } from "@/shared/components/ui/Select";
+import { Switch } from "@/shared/components/ui/Switch";
 
+import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { FLSonderereignis } from "@/features/spiele/schemas";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { SpielBanner } from "./banners";
 
 /**
@@ -36,7 +40,7 @@ export function FormSonderereignisSection({
   banners: readonly SpielBanner[];
 }) {
   const styles = formPanel({ tone: "danger" });
-  const status = useFieldStatus("sonderereignis");
+  const status = useFieldStatus<SpielFieldPath>("sonderereignis");
   const item = listboxRow();
 
   // An unresolved slot has nobody who could have failed to appear, and the award would have no side
@@ -57,9 +61,8 @@ export function FormSonderereignisSection({
         <PanelHeading
           className={styles.heading()}
           title="Sonderereignis">
-          {/* Written out rather than mapped, so `hintCap.test.ts` can measure it. The two Nichtantreten
-              members are one line: the list is counted against what the reader can reach
-              (`docs/frontend/spec.md` §1.12), and either is the same award. */}
+          {/* The two Nichtantreten members are one line: the list is counted against what the reader
+              can reach (`docs/frontend/spec.md` §1.12), and either is the same award. */}
           <Hint
             mode="reveal"
             label="Hinweis zum Sonderereignis"
@@ -87,9 +90,10 @@ export function FormSonderereignisSection({
             nobody chose, and `ausgefallen` would refuse goals that are already typed. */}
         {hasSonderereignis && (
           <Select
-            // The switch asserts an event, so an empty pick is refused here, by the browser on submit:
-            // the write path accepts `null` and has no rule to lend. Switching off is the way back to
-            // no event.
+            // Marked by hand: the switch asserts an event, which the editor's schema refuses unpicked while
+            // the field's own leaf takes `null`
+            // (`fl_frontend/src/features/spiele/schemas.ts :: buildPatchSpielDataPayloadSchema`).
+            // Switching off is the way back to no event.
             isRequired
             name="sonderereignis"
             // `null` and never `undefined` for no event: react-stately reads `undefined` as uncontrolled, so the first
@@ -98,16 +102,16 @@ export function FormSonderereignisSection({
             onChange={handleChange}
             isInvalid={status?.error ? true : undefined}
             className="w-full">
-            <FieldLabel path="sonderereignis">Sonderereignis</FieldLabel>
+            <FieldLabel<SpielFieldPath> path="sonderereignis">Sonderereignis</FieldLabel>
 
-            <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+            <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
               {/* From the prop rather than `Select.Value`, which resolves its label out of the
                   react-aria collection and shows HeroUI's English placeholder on a render where that
                   collection has not committed — `SaisonSelector`'s reason. */}
-              <span className={sonderereignis === null ? "text-foreground-muted" : "text-danger-strong font-bold"}>
+              <span className={sonderereignis === null ? "text-foreground-muted" : "font-bold text-danger-strong"}>
                 {sonderereignis === null ? "Sonderereignis wählen" : SONDEREREIGNIS_LABELS[sonderereignis]}
               </span>
-              <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+              <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
             </Select.Trigger>
 
             <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
@@ -132,7 +136,7 @@ export function FormSonderereignisSection({
               </ListBox>
             </Select.Popover>
 
-            <FieldError className={FIELD_ERROR}>{status?.error}</FieldError>
+            <FieldError className={FIELD_ERROR_CLASSES}>{status?.error}</FieldError>
           </Select>
         )}
 

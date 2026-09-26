@@ -63,25 +63,18 @@ const { VEREIN_ANSCHRIFT, VEREIN_NAME } = await import("./brand.ts");
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
 
-/** The shell as text, for the claims about its own shape that no return value carries. */
-const SHELL_SOURCE = readFileSync(path.resolve(import.meta.dirname, "emailShell.ts"), "utf8");
-
-/** One colour the shell declares, read off its source so a rename cannot quietly pass. */
-function constant(name: string): string {
-  const declared = SHELL_SOURCE.match(new RegExp(`const ${name} = "(#[0-9a-f]{3,8})";`))?.[1];
-
-  // Throws rather than answering a sentence no colour matches: every reader below builds a pattern
-  // from this, and a pattern matching nothing passes each of them having compared nothing.
-  if (declared === undefined) throw new Error(`${name} is not declared as a lower-case hex literal`);
-
-  return declared;
-}
-
 /**
  * The site's own tokens, read out of the season scheme rather than restated here. Nothing else pins
  * the email's palette to the app's: both are hand-written hex, and a token moving alone is invisible.
  */
 const SCHEME = readFileSync(path.resolve(import.meta.dirname, "..", "app", "schemes", "2027.css"), "utf8");
+const LIGHT = schemeTokens(SCHEME, "light");
+const DARK = schemeTokens(SCHEME, "dark");
+
+/** One token's value in a theme, throwing where the scheme lost it: a pattern built from nothing matches nothing. */
+function token(palette: ReadonlyMap<string, string>, name: string): string {
+  return palette.get(name) ?? assert.fail(`the scheme declares no ${name}`);
+}
 
 /** The one stylesheet, contents included -- the only part of a message not stated inline. */
 function stylesheet(html: string): string {
@@ -121,6 +114,7 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       rollenText: "Ansprechperson",
       gruppe: "B",
       trikotFarbeLabel: "Hellgrün",
+      wunschgegner: null,
     }),
   buildBewerbungAbsageEmail: (origin) =>
     buildBewerbungAbsageEmail({
@@ -297,37 +291,63 @@ describe("the shared email shell", () => {
 
   /* I asked for the site's dark mode rather than a dark mode of the email's own. */
   it("draws both themes in the site's own tokens", () => {
-    const light = schemeTokens(SCHEME, "light");
-    const dark = schemeTokens(SCHEME, "dark");
-
     assertEveryTokenIsRead(SCHEME);
-    for (const [name, token, palette] of [
-      ["CARD_COLOR", "--bg-base", light],
-      ["SURFACE_COLOR", "--bg-surface", light],
-      ["TEXT_COLOR", "--fg-muted", light],
-      ["HEADING_COLOR", "--fg-base", light],
-      ["RULE_COLOR", "--border-base", light],
-      ["BRAND_COLOR", "--accent-brand", light],
-      ["BRAND_SOLID_COLOR", "--accent-brand-solid", light],
-      ["ON_BRAND_COLOR", "--fg-on-brand", light],
-      ["DARK_CARD_COLOR", "--bg-base", dark],
-      ["DARK_SURFACE_COLOR", "--bg-surface", dark],
-      ["DARK_TEXT_COLOR", "--fg-muted", dark],
-      ["DARK_HEADING_COLOR", "--fg-base", dark],
-      ["DARK_RULE_COLOR", "--border-base", dark],
-      ["DARK_BRAND_COLOR", "--accent-brand", dark],
-      ["ON_BRAND_COLOR", "--fg-on-brand", dark],
-    ] as const) {
-      assert.equal(constant(name), palette.get(token), `${name} has drifted from ${token}`);
+
+    // What each hook's elements declare inline, in the light theme, and what its dark rule overrides.
+    const HOOKED: readonly (readonly [className: string, property: string, name: string])[] = [
+      ["fl-page", "background-color", "--bg-surface"],
+      ["fl-card", "background-color", "--bg-base"],
+      ["fl-panel", "background-color", "--bg-surface"],
+      ["fl-panel", "border-color", "--border-base"],
+      ["fl-text", "color", "--fg-muted"],
+      ["fl-head", "color", "--fg-base"],
+      ["fl-brand", "color", "--accent-brand"],
+      ["fl-rule", "border-top-color", "--border-base"],
+      ["fl-ghost", "border-color", "--border-base"],
+    ];
+
+    for (const { name, mail } of MESSAGES) {
+      const darkBlock = stylesheet(mail.html).slice(stylesheet(mail.html).indexOf("prefers-color-scheme"));
+      for (const [className, property, name_] of HOOKED) {
+        const rule = new RegExp(String.raw`\.${className} \{[^}]*\b${property}: ([^ ;]+) !important`).exec(darkBlock)?.[1];
+        assert.equal(rule, token(DARK, name_), `${name}'s dark .${className} ${property} is not the site's ${name_}`);
+      }
     }
+
+    // Light: the colour each hook's own elements declare, the border shorthands carrying theirs.
+    const light = (className: string, property: string): Set<string> =>
+      new Set(
+        MESSAGES.flatMap(({ mail }) =>
+          [...mail.html.matchAll(new RegExp(String.raw`<[a-z][^>]*class="[^"]*\b${className}\b[^"]*"[^>]*style="([^"]*)"`, "g"))].flatMap(
+            ([, style]) =>
+              [...(style ?? "").matchAll(new RegExp(String.raw`(?:^|;)${property}:(?:[^;]* )?(#[0-9a-f]{3,8})`, "g"))].map(
+                (hit) => hit[1] ?? "",
+              ),
+          ),
+        ),
+      );
+    for (const [className, property, name] of [
+      ["fl-page", "background-color", "--bg-surface"],
+      ["fl-card", "background-color", "--bg-base"],
+      ["fl-text", "color", "--fg-muted"],
+      ["fl-head", "color", "--fg-base"],
+      ["fl-brand", "color", "--accent-brand"],
+      ["fl-rule", "border-top", "--border-base"],
+      ["fl-ghost", "border", "--border-base"],
+    ] as const) {
+      assert.deepEqual([...light(className, property)], [token(LIGHT, name)], `.${className}'s ${property} is not the site's light ${name}`);
+    }
+
     // The button fill is `--accent-brand-solid`, which deliberately does NOT flip; the dark rules
     // must therefore leave it alone, or the button's pill takes a second colour in one theme.
-    assert.equal(light.get("--accent-brand-solid"), dark.get("--accent-brand-solid"));
-    // `ON_BRAND_COLOR` is checked against the light token alone, which is safe only while the label
-    // on that unflipping fill does not flip either.
-    assert.equal(light.get("--fg-on-brand"), dark.get("--fg-on-brand"));
+    assert.equal(token(LIGHT, "--accent-brand-solid"), token(DARK, "--accent-brand-solid"));
+    // The label on that unflipping fill carries no hook, which is safe only while it does not flip either.
+    assert.equal(token(LIGHT, "--fg-on-brand"), token(DARK, "--fg-on-brand"));
     for (const { name, mail } of MESSAGES) {
-      assert.ok(!stylesheet(mail.html).includes(`background-color: ${constant("DARK_BRAND_COLOR")}`), `${name} flips a fill the site does not`);
+      assert.ok(
+        !stylesheet(mail.html).includes(`background-color: ${token(DARK, "--accent-brand")}`),
+        `${name} flips a fill the site does not`,
+      );
       // An inline style outranks a rule, so a dark declaration without this is a rule that never lands.
       const darkBlock = stylesheet(mail.html).slice(stylesheet(mail.html).indexOf("prefers-color-scheme"));
       const rules = [...darkBlock.slice(0, darkBlock.indexOf("\n      }")).matchAll(/[a-z-]+: [^;]+;/g)].map((m) => m[0] ?? "");
@@ -352,7 +372,6 @@ describe("the shared email shell", () => {
         assert.ok(rules.has(className), `${name} carries .${className}, which no rule reaches`);
         allClasses.add(className);
       }
-      for (const rule of rules) assert.ok(SHELL_SOURCE.includes(`"${rule}"`) || rule === "fl-actions", `.${rule} is spelled nowhere`);
     }
 
     const rules = new Set([...stylesheet(MESSAGES[0]?.mail.html ?? "").matchAll(/\.(fl-[a-z-]+)/g)].map((hit) => hit[1] ?? ""));
@@ -363,11 +382,11 @@ describe("the shared email shell", () => {
      one heading losing its hook leaves the class on its siblings and the set-level check green. */
   it("hooks every themed colour on the element that declares it", () => {
     const HOOKS = [
-      { declaration: `color:${constant("HEADING_COLOR")};`, className: "fl-head" },
-      { declaration: `color:${constant("TEXT_COLOR")};`, className: "fl-text" },
-      { declaration: `color:${constant("BRAND_COLOR")};`, className: "fl-brand" },
-      { declaration: `background-color:${constant("SURFACE_COLOR")};`, className: "fl-page|fl-panel" },
-      { declaration: `background-color:${constant("CARD_COLOR")};`, className: "fl-card" },
+      { declaration: `color:${token(LIGHT, "--fg-base")};`, className: "fl-head" },
+      { declaration: `color:${token(LIGHT, "--fg-muted")};`, className: "fl-text" },
+      { declaration: `color:${token(LIGHT, "--accent-brand")};`, className: "fl-brand" },
+      { declaration: `background-color:${token(LIGHT, "--bg-surface")};`, className: "fl-page|fl-panel" },
+      { declaration: `background-color:${token(LIGHT, "--bg-base")};`, className: "fl-card" },
     ];
 
     for (const { name, mail } of MESSAGES) {
@@ -388,12 +407,12 @@ describe("the shared email shell", () => {
       }
       /* `--fg-on-brand` is white in BOTH themes and sits on a fill that does not flip, so the button's
          label must carry no hook at all -- one would turn it grey on the brand pill. */
-      const unflipped = tags.filter((single) => new RegExp(`[;"]color:${constant("ON_BRAND_COLOR")};`).test(single));
+      const unflipped = tags.filter((single) => new RegExp(`[;"]color:${token(LIGHT, "--fg-on-brand")};`).test(single));
 
       /* What fills that population is the SOLID control alone: the outline grade rests on the card
          and wears the heading colour, so a message offering only that kind declares this foreground
          nowhere. */
-      const gefuellt = tags.some((single) => new RegExp(`[;"]background-color:${constant("BRAND_SOLID_COLOR")};`).test(single));
+      const gefuellt = tags.some((single) => new RegExp(`[;"]background-color:${token(LIGHT, "--accent-brand-solid")};`).test(single));
 
       // Compared against the fill rather than required outright: an empty population would otherwise
       // pass the loop below having compared nothing.
@@ -403,23 +422,6 @@ describe("the shared email shell", () => {
       }
     }
   });
-
-  /* Both are #ffffff here, so a swap renders identically and no output can tell them apart. Pinned
-     at the source because they are different tokens: the dark theme moves the card, not this. */
-  it("labels the brand fill with the foreground paired to it, not the card colour", () => {
-    const button = SHELL_SOURCE.slice(SHELL_SOURCE.indexOf("function aktionZelle"), SHELL_SOURCE.indexOf("function renderAktionen"));
-
-    assert.match(button, /color:\$\{ON_BRAND_COLOR\}/, "the button label no longer names the foreground paired to the fill");
-    assert.ok(!button.includes("CARD_COLOR"), "the button label follows the card colour");
-    assert.match(button, /background-color:\$\{BRAND_SOLID_COLOR\}/, "the button fill is not the token that stays put");
-  });
-
-  /**
-   * The landing page's own recipe, whose classes carry the design a mail client cannot be handed:
-   * a change there is a change the buttons below have to follow, and nothing else would say so.
-   */
-  const CTA_SOURCE = readFileSync(path.resolve(import.meta.dirname, "..", "shared", "components", "ui", "formButtons.ts"), "utf8");
-  const CTA_RECIPE = CTA_SOURCE.slice(CTA_SOURCE.indexOf("const ctaButtonStyle"), CTA_SOURCE.indexOf("export function ctaButton"));
 
   /** One control as the markup states it: the cell carries fill, border and radius, the anchor the type and the hit area. */
   function buttons(html: string): { cell: string; anchor: string }[] {
@@ -431,20 +433,21 @@ describe("the shared email shell", () => {
 
   const number = (tag: string, pattern: RegExp): number => Number(tag.match(pattern)?.[1] ?? NaN);
 
-  it("still mirrors a landing-page recipe that spells the design it was copied from", () => {
-    for (const className of [
-      "h-12",
-      "px-6",
-      "rounded-xl",
-      "font-bold",
-      "bg-brand-solid",
-      "text-brand-solid-foreground",
-      "shadow-md",
-      "border-border",
-      "bg-transparent",
-      "text-foreground",
-    ]) {
-      assert.ok(CTA_RECIPE.includes(className), `ctaButton no longer spells „${className}“, so the email buttons no longer match it`);
+  /* The landing page's own recipe carries the design a mail client cannot be handed: a change there is
+     a change the buttons below have to follow, and nothing else would say so. */
+  it("still mirrors the landing page's button recipe it was copied from", async () => {
+    // Loaded rather than imported: core imports nothing from shared.
+    const { ctaButton } = await import("@/shared/components/ui/formButtons.ts");
+    const classes = (intent: "primary" | "outline") => new Set(ctaButton({ intent, hover: "css" }).split(/\s+/));
+
+    for (const [intent, expected] of [
+      ["primary", ["h-12", "px-6", "rounded-xl", "font-bold", "bg-brand-solid", "text-brand-solid-foreground", "shadow-md"]],
+      ["outline", ["h-12", "px-6", "rounded-xl", "font-bold", "border-border", "bg-transparent", "text-foreground"]],
+    ] as const) {
+      const worn = classes(intent);
+      for (const className of expected) {
+        assert.ok(worn.has(className), `ctaButton's ${intent} no longer wears „${className}“, so the email buttons no longer match it`);
+      }
     }
   });
 
@@ -479,11 +482,11 @@ describe("the shared email shell", () => {
     const pair = MESSAGES.map(({ mail }) => buttons(mail.html)).find((candidate) => candidate.length === 2) ?? [];
 
     assert.equal(pair.length, 2, "the application messages no longer offer a pair, so this test proves nothing");
-    assert.ok(pair[0]?.cell.includes(`background-color:${constant("BRAND_SOLID_COLOR")};`), "the primary control lost its fill");
+    assert.ok(pair[0]?.cell.includes(`background-color:${token(LIGHT, "--accent-brand-solid")};`), "the primary control lost its fill");
     assert.ok(pair[0]?.cell.includes("box-shadow:"), "the primary control lost shadow-md");
-    assert.ok(pair[1]?.cell.includes(`border:1px solid ${constant("RULE_COLOR")};`), "the outline control lost its border");
+    assert.ok(pair[1]?.cell.includes(`border:1px solid ${token(LIGHT, "--border-base")};`), "the outline control lost its border");
     assert.ok(!pair[1]?.cell.includes("background-color"), "the outline control declares a fill ctaButton leaves transparent");
-    assert.ok(pair[1]?.anchor.includes(`color:${constant("HEADING_COLOR")};`), "the outline control's label is not text-foreground");
+    assert.ok(pair[1]?.anchor.includes(`color:${token(LIGHT, "--fg-base")};`), "the outline control's label is not text-foreground");
   });
 
   /* `Aktion.href` and `Aktion.label` are interface fields. Today's two callers hand them module

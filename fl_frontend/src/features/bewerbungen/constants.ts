@@ -1,6 +1,5 @@
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 
-import type { KontaktRolle } from "@/features/teams/constants";
 import type { PillTone } from "@/shared/components/ui/badges";
 import type { FLBewerbungStatus } from "./schemas";
 
@@ -100,17 +99,6 @@ export const BEWERBUNG_MAX_ALTER = 120;
  */
 export const VERTRETUNG_MIN_ALTER = 18;
 
-/**
- * Which floor each seat asks of its own person, paired with
- * `fl_backend/app/api/bewerbungen/services.py :: SEAT_MIN_AGE_YEARS`. A TABLE rather than the two
- * numbers alone: a seat given the wrong one of two correct numbers offers a date the endpoint refuses.
- */
-export const SEAT_MIN_ALTER: Record<KontaktRolle, number> = {
-  ansprechperson: VERTRETUNG_MIN_ALTER,
-  stellvertretung: VERTRETUNG_MIN_ALTER,
-  trainer: BEWERBUNG_MIN_ALTER,
-};
-
 // Both bounds, never the floor alone: named for the floor, a mistyped year would answer a
 // 190-year-old date with „mindestens 16“, which is a different fault.
 export const alterAusserhalb = (mindestalter: number): string =>
@@ -130,6 +118,13 @@ export const BEWERBUNG_ERINNERUNG_TAGE = 3;
  * token, which no control renders, so it tells a visitor nothing about their link.
  */
 export const BEWERBUNG_TOKEN_MAX_LENGTH = 128;
+
+/**
+ * How many ids one sweep pass sends back, restated from
+ * `fl_backend/app/api/bewerbungen/schemas.py :: DELETIONS_LISTED_PER_PASS` and held to the
+ * `maxItems` both sweep payloads publish by `fl_frontend/src/core/payloadBounds.test.ts`.
+ */
+export const DELETIONS_LISTED_PER_PASS = 125;
 
 /**
  * The picker key standing for „meine Schule ist nicht dabei“.

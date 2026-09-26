@@ -9,7 +9,7 @@ import type { ReactNode } from "react";
 export function LegalSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-y-2">
-      <h2 className="fluid-lg text-foreground font-extrabold">{title}</h2>
+      <h2 className="fluid-lg font-extrabold text-foreground">{title}</h2>
       {children}
     </section>
   );

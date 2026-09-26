@@ -2,25 +2,26 @@
 
 import { useId } from "react";
 
-import { FieldError, Input, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { ToggleButton } from "@heroui/react/toggle-button";
+import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { STUFE_OPTIONS } from "@/features/spieler/constants";
-import { FIELD_ERROR, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, TOGGLE_GROUP_ALIGN_CLASSES } from "@/shared/components/ui/formFieldStyles";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import type { FLSpielerStufe } from "@/features/spieler/schemas";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 // **No hover or press variant here**: HeroUI's own fills are `@layer components` and these are
 // utilities declared last, so each state's resting background is what suppresses them.
 
+// The selected ring is not `--focus`: it sits inset on the selected chip's own fill
+// (`fl_frontend/src/app/schemes/2027.css :: --focus`).
 /** The one toggle-chip appearance, shared with every operation picker that arms one write out of two. */
-export const STUFE_CHIP =
-  "border-border bg-transparent text-foreground-muted " +
-  "data-[selected=true]:border-brand-solid data-[selected=true]:bg-brand-solid data-[selected=true]:text-brand-solid-foreground " +
-  // Not `--focus`: this ring sits inset on the selected chip's own fill
-  // (`fl_frontend/src/app/schemes/2027.css :: --focus`).
-  "data-[selected=true]:ring-brand-solid-foreground " +
-  "fluid-xs h-9 min-w-16 rounded-lg border px-3 font-extrabold tracking-wide transition-colors";
+export const STUFE_CHIP_CLASSES =
+  "h-9 min-w-16 rounded-lg border border-border bg-transparent px-3 fluid-xs font-extrabold tracking-wide text-foreground-muted transition-colors data-[selected=true]:border-brand-solid data-[selected=true]:bg-brand-solid data-[selected=true]:text-brand-solid-foreground data-[selected=true]:ring-brand-solid-foreground";
 
 /**
  * `rules.erlaubte_stufen`. **The hidden `TextField` proxy is what makes a refusal land**:
@@ -73,12 +74,12 @@ export function StufenPicker({
               const picked = new Set([...keys].map(String));
               onChange(STUFE_OPTIONS.filter((stufe) => picked.has(stufe)));
             }}
-            className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
+            className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
             {STUFE_OPTIONS.map((stufe) => (
               <ToggleButton
                 key={stufe}
                 id={stufe}
-                className={STUFE_CHIP}>
+                className={STUFE_CHIP_CLASSES}>
                 {stufe}
               </ToggleButton>
             ))}
@@ -87,7 +88,7 @@ export function StufenPicker({
           <Input className="hidden" />
           <FieldError
             id={errorId}
-            className={FIELD_ERROR}
+            className={FIELD_ERROR_CLASSES}
           />
         </>
       )}

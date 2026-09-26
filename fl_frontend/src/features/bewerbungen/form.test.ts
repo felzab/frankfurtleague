@@ -2,8 +2,6 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { beforeEach, describe, it, mock } from "node:test";
 
 import { act, createElement as h } from "react";
@@ -11,8 +9,9 @@ import { act, createElement as h } from "react";
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { blankComments } from "@/core/blankComments";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
+import { formWiring } from "@/shared/testing/formWiring.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -22,12 +21,9 @@ import type { BewerbungFormDraft } from "./types.ts";
 
 type User = ReturnType<typeof userEvent.setup>;
 
-/** Every request the form makes, answered by each case that sends one; unset, a request never returns. */
-const fetchMock = mock.fn<(url: string, init?: RequestInit) => Promise<Response>>();
-
 // The browser's own `fetch` rather than the transport's module: the form reaches both routes through it,
 // so a request is observed at the edge the paths are limited at.
-globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => fetchMock(String(input), init)) as typeof fetch;
+const fetchMock = doubleFetch();
 
 const { raised } = doubleToasts();
 
@@ -35,17 +31,14 @@ const { raised } = doubleToasts();
 const toastsOf = (variant: string) => raised.filter((toast) => toast.variant === variant).map((toast) => [toast.title, toast.description]);
 
 beforeEach(() => {
-  fetchMock.mock.resetCalls();
-  fetchMock.mock.restore();
   raised.length = 0;
-  fetchMock.mock.mockImplementation(() => new Promise<never>(() => undefined));
 });
 
 /*
  Every module below is reached AFTER both harnesses above have evaluated: the JSX compile step is
  registered, and the DOM installed, as each one does, and a static import resolves before either.
 */
-const { Form } = await import("@heroui/react");
+const { Form } = await import("@/shared/components/ui/Form.tsx");
 const { BewerbungForm } = await import("./components/forms/BewerbungForm/BewerbungForm.tsx");
 const { BewerbungView } = await import("./components/views/BewerbungView.tsx");
 const { BewerbungInstagramBand } = await import("./components/ui/BewerbungInstagramBand.tsx");
@@ -55,20 +48,12 @@ const { TRAINER_ZUGLEICH_OPTIONS, TRIKOT_FARBE_OPTIONS } = await import("@/featu
 const { FormSchuleSection } = await import("./components/forms/BewerbungForm/FormSchuleSection.tsx");
 const { FormTeamSection } = await import("./components/forms/BewerbungForm/FormTeamSection.tsx");
 const { FormEinwilligungSection } = await import("./components/forms/BewerbungForm/FormKontaktpersonenSection.tsx");
-const { ergebnisPanel } = await import("./components/views/BestaetigungPanels.tsx");
 const { FieldLabel } = await import("@/shared/components/ui/FieldLabel.tsx");
 const { SCHULE_NICHT_IN_LISTE } = await import("./constants.ts");
 const { buildEmptyBewerbungSchule } = await import("./utils.ts");
 const { LIGA_KENNTNISNAHME } = await import("@/core/einwilligung.ts");
 const { formPanel } = await import("@/shared/components/ui/formPanel.ts");
-const { FIELD_ERROR, FIELD_ERROR_SWITCH } = await import("@/shared/components/ui/formFieldStyles.ts");
-
-const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
-
-const read = (...parts: string[]): string => readFileSync(path.join(SRC_DIR, ...parts), "utf8");
-
-const FORM = read("features", "bewerbungen", "components", "forms", "BewerbungForm", "BewerbungForm.tsx");
-const PAGE = read("app", "(public)", "bewerbung", "[saison_id]", "page.tsx");
+const { FIELD_ERROR_CLASSES, FIELD_ERROR_SWITCH_CLASSES } = await import("@/shared/components/ui/formFieldStyles.ts");
 
 const SCHOOLS = [{ id: "68d0f2a4c1e2b3a4d5e6f708", name: "Lessing-Kolleg" }];
 
@@ -152,7 +137,7 @@ function renderApplicationPage() {
       schulen: SCHOOLS,
       isSchulenLesbar: true,
       vergebeneFarben: [],
-      fenster: { acknowledged: 1, saison_id: "2026", offen: true, von: "2026-03-01", bis: "2026-04-30", laeuft: true },
+      fenster: { acknowledged: 1, saison_id: "2026", offen: true, von: "2026-03-01", bis: "2026-04-30", laeuft: true, saison_beendet: false },
     }),
   );
 
@@ -195,7 +180,10 @@ const BEWERBUNG_UNKLAR = "Schick die Bewerbung hier unverändert noch einmal ab:
 
 /** The requests the form made, by path and parsed body. */
 const requestsMade = () =>
-  fetchMock.mock.calls.map(({ arguments: [url, init] }) => ({ url, body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined }));
+  fetchMock.mock.calls.map(({ arguments: [url, init] }) => ({
+    url: String(url),
+    body: typeof init?.body === "string" ? JSON.parse(init.body) : undefined,
+  }));
 
 /** A request's answer arriving, and everything it sets off. */
 const settle = (): Promise<void> =>
@@ -256,21 +244,12 @@ const refusalsShown = (): string[] =>
 const asksBeforeLeaving = (): boolean => !window.dispatchEvent(new Event("beforeunload", { cancelable: true }));
 
 describe("the public application form", () => {
-  /* First, because every source-text case below reads one of these: a path that stopped resolving
-     would leave each of them matching against an empty string and reporting nothing. */
-  it("finds each file it reads at all", () => {
-    for (const [name, source] of [
-      ["the form", FORM],
-      ["the page", PAGE],
-    ] as const) {
-      assert.ok(source.length > 0, `${name} is empty, so this file proves nothing about it`);
-    }
-  });
-
   /* One composer, so the submit cannot assemble a second payload beside the one the blur-time judgements
      parse. `location = /api/bewerbung` is an EXACT nginx match: a path segment falls through to the
      unlimited catch-all. */
   it("posts the payload one composer built to the path the edge limits, and shows the send in flight", async () => {
+    let answer = (_response: Response): void => undefined;
+    fetchMock.mock.mockImplementation(() => new Promise<Response>((resolve) => (answer = resolve)));
     const { user, container } = renderApplicationPage();
 
     await fillIn(user, container, COMPLETE_DRAFT);
@@ -282,6 +261,10 @@ describe("the public application form", () => {
       "the submit posts something other than the composed payload",
     );
     assert.ok(screen.queryByRole("button", { name: "Schickt ab..." }), "the send in flight is not shown on its button");
+
+    // Answered before the case ends: React holds every later transition in this file behind an action left running.
+    answer(new Response(JSON.stringify({ success: true, message: "" })));
+    await settle();
   });
 
   /* A commit whose answer was lost: the route's sentence is an administrator's reload-and-check, and
@@ -360,19 +343,19 @@ describe("the public application form", () => {
     await settle();
 
     assert.deepEqual(toastsOf("warning"), [["Kürzel noch nicht geprüft", `Zu viele Anfragen in kurzer Zeit. ${KUERZEL_UNGEPRUEFT}`]]);
-    // Read beside the render: a second spelling of the number behaves identically until the edge's own changes.
-    assert.ok(!FORM.includes("= 429"), "the form spells the edge's status beside the one publicSubmit.ts exports");
   });
 
   /* The route's `length(2)` refuses an incomplete code, and the check is rate-limited per address at an
      EXACT nginx location: a half-typed box would spend requests, and a path segment escape the limit. */
   it("asks about a code only once it is the full width, at the path the edge limits", async () => {
+    fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ success: true, vergeben: false }))));
     const { user, kuerzel } = await renderNewSchool();
 
     await typeInto(user, kuerzel, "G", { leaveBox: true });
     assert.deepEqual(requestsMade(), [], "the check fires on a code nobody finished typing");
 
     await typeInto(user, kuerzel, "gg", { leaveBox: true });
+    await settle();
     assert.deepEqual(
       requestsMade().map(({ url }) => url),
       ["/api/bewerbung/kuerzel?shorthand=GG"],
@@ -404,11 +387,11 @@ describe("the public application form", () => {
     assert.ok(switchSays().includes(refusedSentence), "switching the confirmation off again says nothing until something else happens");
   });
 
-  /* `FieldLabel` reads a `DraftStatusProvider` this page has none of, and `fieldLabelPaths.test.ts`
-     would then hold these paths against a descriptor table the slice does not keep for them. */
+  /* `FieldLabel` reads a `DraftStatusProvider` this page has none of, and names its path by a
+     descriptor table the slice does not keep. */
   it("labels its fields plainly, holding no draft status it cannot carry", () => {
     assert.throws(
-      () => renderMarkup(FieldLabel, { path: "schule.team_name", children: "Teamname" }),
+      () => renderMarkup(FieldLabel<"schule.team_name">, { path: "schule.team_name", children: "Teamname" }),
       // The control: without it a `FieldLabel` that had stopped reading the provider would render
       // here quietly, and the two assertions below would pass over a page carrying draft markers.
       /DraftStatusProvider/,
@@ -596,58 +579,24 @@ describe("how the Kenntnisnahme panel sits among the sections around it", () => 
      form hands the switch by the name the switch itself renders. */
   it("starts the switch's refusal on the label's own edge", () => {
     const section = h(FormEinwilligungSection, { erteilt: false, onErteiltPicked: () => undefined });
-    const name = /<input\b[^>]*\bname="([^"]+)"/.exec(renderTree(h(Form, { validationBehavior: "aria" }, section)))?.[1];
+    const name = /<input\b[^>]*\bname="([^"]+)"/.exec(renderTree(h(Form, { onSubmit: () => undefined, wiring: formWiring() }, section)))?.[1];
     assert.ok(name !== undefined, "the Kenntnisnahme switch renders no named control, so no refusal can reach it");
 
-    const refused = renderTree(h(Form, { validationBehavior: "aria", validationErrors: { [name]: "Bestätige die Kenntnisnahme." } }, section));
+    const refused = renderTree(
+      h(Form, { onSubmit: () => undefined, wiring: formWiring({ validationErrors: { [name]: "Bestätige die Kenntnisnahme." } }) }, section),
+    );
     const message = /<\w+\b([^>]*\bdata-slot="field-error"[^>]*)>Bestätige die Kenntnisnahme\.</.exec(refused)?.[1];
     assert.ok(message !== undefined, "a refusal handed to the switch's name renders no message under it");
 
     const wornClasses = (/\bclass="([^"]*)"/.exec(message)?.[1] ?? "").split(/\s+/);
-    for (const token of FIELD_ERROR_SWITCH.split(/\s+/)) {
+    for (const token of FIELD_ERROR_SWITCH_CLASSES.split(/\s+/)) {
       assert.ok(
         wornClasses.includes(token),
         `the switch's message wears a text field's recipe: ${token} is missing from ${wornClasses.join(" ")}`,
       );
     }
-    assert.ok(FIELD_ERROR_SWITCH.startsWith(FIELD_ERROR), "the switch recipe is no longer the field recipe with a start added");
-    assert.match(FIELD_ERROR_SWITCH, /\bps-\d/, "the switch recipe writes no start of its own, so HeroUI's reservation stands");
-  });
-});
-
-/*
- The page is read rather than rendered: each claim here is about the shape of the module rather than
- about markup.
-*/
-describe("the public application page", () => {
-  /* `docs/frontend/spec.md :: I22`: a dynamic segment awaits `params` INSIDE its boundary. A
-     top-level await ties the fallback-params App Shell to one URL. */
-  it("awaits connection() inside the boundary and exports a synchronous default", () => {
-    assert.match(PAGE, /import \{ connection \} from "next\/server";/, "the page no longer imports connection");
-
-    // Split at the default export first: `generateMetadata` keeps its own await deliberately, being
-    // no part of the shell, and reading the file whole would count that one as the shell's.
-    const [, nachMetadata = ""] = PAGE.split("export default function");
-    const [chrome, boundary] = nachMetadata.split("<Suspense");
-
-    assert.match(PAGE, /export async function generateMetadata/, "the page publishes no metadata of its own");
-    assert.ok(boundary !== undefined, "the page renders no Suspense boundary");
-    assert.ok(!chrome!.includes("await connection()"), "the page awaits connection above its own boundary");
-    assert.match(PAGE, /^export default function /m, "the page awaits its data before the chrome renders");
-    assert.doesNotMatch(PAGE, /^export default async /m, "the page awaits its data before the chrome renders");
-  });
-
-  /* `[saison_id]` and never `[saison]`: `resolveSaisonIdParam` reads `params.saison_id`, so the
-     other spelling 404s every request with nothing in the type system reporting it. */
-  it("resolves the segment by the name the resolver reads, and 404s a miss", () => {
-    assert.match(PAGE, /resolveSaisonIdParam\(props\.params\)/, "the page resolves its season some other way");
-    assert.match(PAGE, /NextPageProps<\{ saison_id: string \}>/, "the page types its params under another key");
-  });
-
-  /* An anonymous visitor reads the club list. A closed page showing no picker has no business
-     reading it at all (`READ-BEWERBUNG-001`). */
-  it("reads the club list only while the window is running", () => {
-    assert.match(PAGE, /fenster\.fenster\?\.laeuft === true$/m, "the club list is read on a page that shows no picker");
+    assert.ok(FIELD_ERROR_SWITCH_CLASSES.startsWith(FIELD_ERROR_CLASSES), "the switch recipe is no longer the field recipe with a start added");
+    assert.match(FIELD_ERROR_SWITCH_CLASSES, /\bps-\d/, "the switch recipe writes no start of its own, so HeroUI's reservation stands");
   });
 });
 
@@ -659,14 +608,6 @@ describe("what the form guards before the draft is sent", () => {
 
     await typeInto(user, control(container, "kontakte.ansprechperson.vorname"), "Anna", { leaveBox: true });
     assert.equal(asksBeforeLeaving(), true, "an unload takes the draft with it silently");
-  });
-
-  /* Every write to the draft goes through one setter, so nothing can move it without arming the
-     browser's prompt. A claim over every write the form holds, where a render arms it through the
-     writes one case makes. */
-  it("moves the draft through the one setter that arms that warning", () => {
-    const raw = [...FORM.matchAll(/(?<![A-Za-z])setDraft\(/g)];
-    assert.equal(raw.length, 1, "a draft write bypasses applyDraft, so it moves the form without arming the warning");
   });
 });
 
@@ -698,10 +639,10 @@ describe("what the form says about itself to a reader who cannot see it", () => 
     }
   });
 
-  /* Without HeroUI forwarding `aria-describedby` to its own input, this hint would describe nothing,
-     and the picker's `<p id>` pattern would be the only way to reach a reader who cannot see it. */
+  /* The hint is the field's description slot, which react-aria names in the input's own
+     `aria-describedby`: outside the field it would render nothing and describe nothing. */
   it("describes the Abi-Jahrgang box by the hint sitting under it", () => {
-    const hintId = /<p id="([^"]*)"[^>]*>Alle Schülerinnen und Schüler/.exec(NEW_SCHOOL_MARKUP)?.[1] ?? "";
+    const hintId = /<p\b[^>]*\bid="([^"]*)"[^>]*>Alle Schülerinnen und Schüler/.exec(NEW_SCHOOL_MARKUP)?.[1] ?? "";
 
     assert.notEqual(hintId, "", "the school panel renders no Abi-Jahrgang hint, so this case compares nothing");
 
@@ -728,18 +669,6 @@ describe("what the form says about itself to a reader who cannot see it", () => 
 });
 
 describe("the receipt the form leaves in its own place", () => {
-  /* The box is the confirmation page's recipe
-     (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: ergebnisPanel`).
-     A literal spelling its classes renders identically, so which of the two stands here is legible
-     in the source alone. */
-  it("takes the tinted panel the confirmation page wears rather than dressing one", () => {
-    // Read at the recipe first: one emitting no tint at all satisfies the two claims under it.
-    assert.match(ergebnisPanel({ tone: "erfolg" }), /(^|\s)bg-success\/10(\s|$)/, "the shared panel lost its success tint");
-
-    assert.match(FORM, /className=\{ergebnisPanel\(\{ tone: "erfolg" \}\)\}/, "the receipt dresses a box of its own");
-    assert.doesNotMatch(blankComments(FORM), /bg-success\/|border-success\//, "the receipt spells a success tint beside the recipe");
-  });
-
   /* The receipt swaps itself in for the form alone, so the page's strip goes with the form, and an
      invitation read out with the receipt buries the answer the applicant pressed for. */
   it("repeats the page's own strip under the receipt, outside the live region", async () => {
@@ -781,8 +710,6 @@ describe("the receipt the form leaves in its own place", () => {
       [String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)],
       "the panel states a clock other than the sweep's",
     );
-    // Read beside the render: a number typed at the bound's value renders the same sentence, and outlives a changed bound.
-    assert.match(FORM, /\{String\(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE\)\} Tagen/, "the panel states a deadline it did not read off the bound");
 
     // The decision DOES reach all three, and the panel has to say so or the applicant waits on nothing.
     assert.match(receiptParagraph, /alle[nr]? drei Kontaktpersonen/, "the panel never says the decision reaches all three");

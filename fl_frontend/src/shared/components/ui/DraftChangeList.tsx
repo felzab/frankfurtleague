@@ -1,8 +1,10 @@
 "use client";
 
-import { Pencil, Plus, Xmark } from "@gravity-ui/icons";
+import Pencil from "@gravity-ui/icons/Pencil";
+import Plus from "@gravity-ui/icons/Plus";
+import Xmark from "@gravity-ui/icons/Xmark";
 
-import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 
 /** The structural slice a field status must satisfy, which is what lets one list serve every editor without importing a feature. */
@@ -48,8 +50,8 @@ export function DraftChangeList({ changed }: { changed: readonly DraftChangeRow[
       {[...grouped.entries()].map(([group, fields]) => (
         <section
           key={group}
-          className="bg-muted/50 flex w-full flex-col gap-y-2 rounded-lg p-2.5">
-          <h3 className={FORM_SECTION_HEADING}>{group}</h3>
+          className="flex w-full flex-col gap-y-2 rounded-lg bg-muted/50 p-2.5">
+          <h3 className={FORM_SECTION_HEADING_CLASSES}>{group}</h3>
           <ul className="flex w-full flex-col gap-y-1">
             {fields.map((field) => {
               const operation = operationOf(field);
@@ -58,12 +60,12 @@ export function DraftChangeList({ changed }: { changed: readonly DraftChangeRow[
               return (
                 <li
                   key={field.path}
-                  className="fluid-xs flex w-full flex-row items-center gap-x-2">
-                  {field.label !== group && <span className="text-foreground-muted min-w-0 shrink-0 font-medium">{field.label}:</span>}
+                  className="flex w-full flex-row items-center gap-x-2 fluid-xs">
+                  {field.label !== group && <span className="min-w-0 shrink-0 font-medium text-foreground-muted">{field.label}:</span>}
                   {operation === "removed" ? (
-                    <s className="text-foreground-muted min-w-0 truncate">{field.storedText}</s>
+                    <s className="min-w-0 truncate text-foreground-muted">{field.storedText}</s>
                   ) : (
-                    <span className="text-foreground min-w-0 truncate font-bold">{field.draftText}</span>
+                    <span className="min-w-0 truncate font-bold text-foreground">{field.draftText}</span>
                   )}
                   <span className="ml-auto flex shrink-0 items-center">
                     {/* The previous value is the whole of what the panel carries, so a new entry gets the

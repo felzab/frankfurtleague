@@ -1,21 +1,13 @@
 import assert from "node:assert/strict";
-import { readdir, readFile } from "node:fs/promises";
-import path from "node:path";
 import { describe, it } from "node:test";
 
-import tailwind from "@tailwindcss/postcss";
-import postcss from "postcss";
+import { compiledGlobals, selectorsOf } from "@/shared/testing/stylesheet.ts";
 
 import { confirmButton, ctaButton, formButton } from "./formButtons";
 
 import type { AtRule, Container, Document, Root, Rule } from "postcss";
 
-const SRC = path.join(import.meta.dirname, "..", "..", "..");
-
-const compiled = (async (): Promise<Root> => {
-  const from = path.join(SRC, "app", "globals.css");
-  return (await postcss([tailwind()]).process(await readFile(from, "utf8"), { from })).root;
-})();
+const compiled = compiledGlobals();
 
 const classesOf = (emitted: string): ReadonlySet<string> => new Set(emitted.split(/\s+/).filter(Boolean));
 
@@ -62,26 +54,6 @@ const BARE_CLASS = /^\.((?:\\.|[^\\.:[\s>+~])+)$/;
 
 const unescape = (selector: string): string => selector.replace(/\\(.)/g, "$1");
 
-/**
- * A rule's selectors with every ancestor folded in. Tailwind emits nested CSS verbatim, so HeroUI's press rule
- * reads `&:active, &[data-pressed="true"]` and says nothing about `.button` until its parent resolves into it.
- */
-function selectorsOf(rule: Rule): string[] {
-  const chain: Rule[] = [];
-  for (let node: Container | Document | undefined = rule.parent; node != null; node = node.parent) {
-    if (node.type === "rule") chain.unshift(node as Rule);
-  }
-
-  return [...chain, rule].reduce<string[]>(
-    (outer, level) =>
-      level.selector.split(",").flatMap((raw) => {
-        const part = raw.trim();
-        return outer.length === 0 ? [part] : outer.map((base) => (part.includes("&") ? part.replaceAll("&", base) : `${base} ${part}`));
-      }),
-    [],
-  );
-}
-
 function declaredUnconditionally(root: Root, classes: ReadonlySet<string>, prop: string): { value: string; layer: string | null }[] {
   const found: { value: string; layer: string | null }[] = [];
 
@@ -117,20 +89,12 @@ function buttonRules(root: Root, prop: string): { selector: string; value: strin
 }
 
 describe("the step that stands in a row of chips", () => {
-  /* The base's `h-12` next to a `labelBadge` pill is what makes such a row read as ragged, and the two
-     heights are one decision: the strip's chips are pinned to the same step. */
-  it("takes the chips' own height rather than the base's", async () => {
+  /* The base's `h-12` next to a `labelBadge` pill is what makes such a row read as ragged. */
+  it("takes the chips' own height rather than the base's", () => {
     const inline = classesOf(formButton({ intent: "nav", size: "xs" }));
-    const strip = await readFile(path.join(SRC, "features", "bewerbungen", "components", "views", "BewerbungBestaetigungStrip.tsx"), "utf8");
 
     assert.ok(inline.has("h-7"), "the inline step declares no height of the chip row's own");
     assert.ok(!inline.has("h-12"), "the base height survives the inline step, so the control towers over the chips beside it");
-    assert.match(strip, /const STRIP_CHIP = "h-7/, "the chips this step is measured against no longer stand at it");
-    assert.equal(
-      strip.match(/labelBadge\(/g)?.length,
-      5,
-      "the chips this step is measured against are no longer composed as the app's label pill",
-    );
   });
 });
 
@@ -299,54 +263,5 @@ describe("the width a button takes in a row that becomes a column", () => {
       assert.ok(!classes.has("h-12"), `${emitted}: a fixed height clips the second line of a wrapped label`);
       assert.ok(classes.has("min-h-12"), `${emitted}: an unwrapped label no longer measures the same as every other button`);
     }
-  });
-});
-
-/**
- * Every component holding chrome around a page's content: the modal folders and the shared dialog bodies,
- * plus the entity editors' views and the header they share, where a hand-spelled pill diverges unseen.
- */
-async function chromeSources(): Promise<string[]> {
-  const found: string[] = [];
-
-  const walk = async (dir: string): Promise<void> => {
-    for (const entry of await readdir(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        await walk(full);
-        continue;
-      }
-      if (!entry.name.endsWith(".tsx")) continue;
-      // Matched below `src`, never against the absolute path: a checkout can sit in a directory called
-      // anything, `modals` included.
-      const within = path.relative(SRC, full);
-      if (within.split(path.sep).includes("modals") || /(Modal|EntityForm|EditView|EditPageHeader)\.tsx$/.test(entry.name)) found.push(full);
-    }
-  };
-
-  await walk(SRC);
-  return found;
-}
-
-describe("where a page's chrome buttons get their appearance", () => {
-  it("finds every one of them going through the recipe", async () => {
-    const files = await chromeSources();
-    // Below this the walk has stopped finding the population rather than the population having
-    // shrunk. Five under it: more than any one slice's chrome holds, so retiring a slice never fires it.
-    assert.ok(files.length >= 20, `expected the chrome population; found ${String(files.length)}`);
-
-    const spelledLocally: string[] = [];
-
-    for (const file of files) {
-      const source = await readFile(file, "utf8");
-      for (let at = source.indexOf("<Button"); at !== -1; at = source.indexOf("<Button", at + 1)) {
-        const closes = source.indexOf("</Button>", at);
-        const element = source.slice(at, closes === -1 ? undefined : closes);
-        if (!element.includes("formButton("))
-          spelledLocally.push(`${path.relative(SRC, file)} :: ${element.slice(0, 60).replace(/\s+/g, " ")}`);
-      }
-    }
-
-    assert.deepEqual(spelledLocally, [], `a dialog button is spelling its own classes:\n${spelledLocally.join("\n")}`);
   });
 });

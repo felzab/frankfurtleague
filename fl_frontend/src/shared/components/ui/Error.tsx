@@ -4,12 +4,12 @@ import { useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { useReportClientCrash } from "@/shared/hooks/useReportClientCrash";
 
 import { CrashReportLink } from "./CrashReportLink";
-import { DISPLAY_HEADING } from "./displayType";
+import { DISPLAY_HEADING_CLASSES } from "./displayType";
 import { ctaButton } from "./formButtons";
 import { StatusPanel } from "./StatusPanel";
 
@@ -57,7 +57,7 @@ export function Error({
         /* `motion-safe:` rather than the global shortening: a glyph this large pulsing behind text
            must stop entirely, not run fast. */
         <span
-          className={`${DISPLAY_HEADING} text-foreground/20 sm:text-foreground/5 text-[5.5rem] leading-none motion-safe:animate-pulse sm:text-[10rem] md:text-[18rem] lg:text-[25rem]`}>
+          className={`${DISPLAY_HEADING_CLASSES} text-[5.5rem] leading-none text-foreground/20 motion-safe:animate-pulse sm:text-[10rem] sm:text-foreground/5 md:text-[18rem] lg:text-[25rem]`}>
           Fehler
         </span>
       }>

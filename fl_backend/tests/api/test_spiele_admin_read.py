@@ -5,37 +5,29 @@ from typing import Any
 import pymongo
 import pytest
 from bson import ObjectId
-from httpx2 import ASGITransport, AsyncClient, Response
-from pymongo import AsyncMongoClient, MongoClient
+from httpx2 import Response
+from pymongo import MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.main import create_app
-from tests.config import ADMIN_AUTH, BASE_AUTH, TEST_BASE_URL, build_test_config
+from app.core.exception_handlers import DATABASE_FAILED
+from app.core.exceptions import DOCUMENT_NOT_FOUND
+from app.core.security import WRONG_ADMIN_KEY, WRONG_BASE_KEY
+from tests import documents
+from tests.app_client import app_client
+from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
 from tests.database import a_clean_database_sync
 
 from .conftest import unwritten
 
 # Which guard refused, and so which route answered: `verify_access_base` guards the public router
 # and `verify_access_admin` the admin one, and no key satisfies both.
-BASE_GUARD_REFUSED = "REQ-AUTH-002"
-ADMIN_GUARD_REFUSED = "REQ-AUTH-004"
+BASE_GUARD_REFUSED = WRONG_BASE_KEY
+ADMIN_GUARD_REFUSED = WRONG_ADMIN_KEY
 
 # Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure,
 # the harness's own included.
-UNREACHED_DATABASE = "DB-FAIL-001"
-DOCUMENT_NOT_FOUND = "DB-COMMON-001"
-
-# Not the configured URI: a developer plausibly runs a real `mongod` on 27017, and a database that
-# answers gives each control something other than the failure it asserts.
-UNANSWERED_URI = "mongodb://localhost:1"
-
-# Positive, because pymongo reads a zero deadline as none at all. Inside a request the app's deadline
-# replaces `serverSelectionTimeoutMS`, so only a deadline set here keeps an unanswered request short.
-UNANSWERED_DEADLINE_S = 0.001
-
-# Ample for a container already accepting connections.
-CONTAINER_SELECTION_MS = 10_000
+UNREACHED_DATABASE = DATABASE_FAILED
 
 SAISON_ID = "2026"
 
@@ -62,47 +54,30 @@ AUSTRITT = {"type": "disqualifikation", "grund": "Nicht angetreten zum Spieltag"
 def spiel_document() -> dict[str, Any]:
     """Every field `FLSpielJoined` requires, so a response that validates proves the whole shape rather than the fields asserted on."""
 
-    return {
-        "_id": SPIEL_ID,
-        "spiel_nr": 1,
-        "saison_id": SAISON_ID,
-        "saison_phase": "gruppenphase",
-        "spieltag_id": SPIELTAG_ID,
-        "team1": {"team_id": HOME, "name": "Alpha", "shorthand": "AL", "tore": 2},
-        "team2": {"team_id": AWAY, "name": "Beta", "shorthand": "BE", "tore": 1},
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": "2026-03-15",
-        "uhrzeit": "14:00:00",
-        "ort": {"spielort_id": SPIELORT_ID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": MIETPREIS},
-        "schiedsrichter": {"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": "Ada Kern", "payment": PAYMENT},
-        "ergebnis": "2:1",
-        "elfmeterschiessen": None,
-        "sonderereignis": None,
-        "notiz": None,
-    }
+    return documents.spiel_document(
+        spiel_id=SPIEL_ID,
+        saison_id=SAISON_ID,
+        spiel_nr=1,
+        spieltag_id=SPIELTAG_ID,
+        team1={"team_id": HOME, "name": "Alpha", "shorthand": "AL", "tore": 2},
+        team2={"team_id": AWAY, "name": "Beta", "shorthand": "BE", "tore": 1},
+        datum="2026-03-15",
+        uhrzeit="14:00:00",
+        ort={"spielort_id": SPIELORT_ID, "name": "Sportplatz Ost", "maps_link": "Sportplatz Ost, Frankfurt", "mietpreis": MIETPREIS},
+        schiedsrichter={"schiedsrichter_id": SCHIEDSRICHTER_ID, "name": "Ada Kern", "payment": PAYMENT},
+        ergebnis="2:1",
+    )
 
 
 def junction_row() -> dict[str, Any]:
-    """A dict rather than a model: `saison_teams` has no model of the row."""
-
-    return {"saison_id": SAISON_ID, "team_id": AWAY, "gruppe": "A", "austritt": dict(AUSTRITT), "name": "Beta", "shorthand": "BE"}
+    return documents.saison_team_document(SAISON_ID, AWAY, "Beta", "BE", austritt=dict(AUSTRITT))
 
 
 def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
-    """One request per client, request and close on ONE loop, no lifespan (`tests/api/test_malformed_ids.py :: answered`)."""
-
     async def _answered() -> Response:
-        app = create_app(build_test_config())
-        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
-
-        try:
-            transport = ASGITransport(app=app, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
-                    return await http.get(path, headers=dict(headers))
-        finally:
-            await app.state.db_client.close()
+        async with app_client(uri) as http:
+            with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
+                return await http.get(path, headers=dict(headers))
 
     return asyncio.run(_answered())
 

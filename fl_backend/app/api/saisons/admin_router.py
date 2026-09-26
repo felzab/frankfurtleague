@@ -44,6 +44,7 @@ from app.api.saisons.schemas import (
 )
 from app.api.saisons.services import (
     RECORDED_FACT_FIELDS,
+    as_the_draw_answers,
     find_activation_refusal,
     find_rules_refusal,
     find_saison_span_refusal,
@@ -56,7 +57,12 @@ from app.api.saisons.services import (
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
 from app.api.teams.schemas import FLGruppenNames
-from app.api.teams.services import find_gruppe_swap_refusal, fixtures_newly_fielding_a_departed_club, has_taken_place
+from app.api.teams.services import (
+    find_gruppe_swap_refusal,
+    find_swap_pair_refusal,
+    fixtures_newly_fielding_a_departed_club,
+    has_taken_place,
+)
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -84,7 +90,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
-from app.core.exception_handlers import UNKNOWN_OUTCOME
+from app.core.exception_handlers import DATABASE_FAILED, DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.logging import fl_logger
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
@@ -221,7 +227,7 @@ async def get_saisons_for_admin(saisons_collection: SaisonsCollection, filters: 
     return FLSaisonsListResponse(saisons=FLSaisonListAdapter.validate_python([with_schedule(raw) for raw in saisons_raw]))
 
 
-@router.post("", response_model=FLPostSaisonResponse, status_code=201, summary="Create a Saison")
+@router.post("", response_model=FLPostSaisonResponse, status_code=201, summary="Create a Saison", responses={409: DUPLICATE_KEY_RESPONSE})
 async def post_saison(
     saison_data: Annotated[FLPostSaisonPayload, Body()],
     saisons_collection: SaisonsCollection,
@@ -275,7 +281,12 @@ class MovableFigures(NamedTuple):
     played_knockout: int
 
 
-@router.patch("/{saison_id}", response_model=FLPatchSaisonResponse, summary="Update a Saison's dates and rules")
+@router.patch(
+    "/{saison_id}",
+    response_model=FLPatchSaisonResponse,
+    summary="Update a Saison's dates and rules",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+)
 async def patch_saison(
     saison_id: str,
     saison_data: Annotated[FLPatchSaisonPayload, Body()],
@@ -454,7 +465,12 @@ async def patch_saison(
     return patched
 
 
-@router.post("/{saison_id}/activate", response_model=FLActivateSaisonResponse, summary="Make this the active Saison")
+@router.post(
+    "/{saison_id}/activate",
+    response_model=FLActivateSaisonResponse,
+    summary="Make this the active Saison",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+)
 async def activate_saison(
     saison_id: str,
     saisons_collection: SaisonsCollection,
@@ -525,7 +541,8 @@ async def activate_saison(
             )
         )
 
-        # `update_many`: a database holding two active seasons is repaired, not half-preserved.
+        # BEFORE the promotion: `uniq_saison_active` is checked at each write rather than at the
+        # commit, so promoting first meets the incumbent and aborts the rollover.
         demoted = await patch_many_in_db(
             collection=saisons_collection,
             db_filter={"status": "active", "_id": {"$ne": saison_id}},
@@ -588,7 +605,12 @@ async def activate_saison(
     return rolled_over
 
 
-@router.post("/{saison_id}/gruppen/swap", response_model=FLSwapGruppenResponse, summary="Exchange two teams' groups")
+@router.post(
+    "/{saison_id}/gruppen/swap",
+    response_model=FLSwapGruppenResponse,
+    summary="Exchange two teams' groups",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+)
 async def swap_gruppen(
     saison_id: str,
     swap_data: Annotated[FLSwapGruppenPayload, Body()],
@@ -604,6 +626,9 @@ async def swap_gruppen(
     Every Gruppenphase fixture fielding either club has that side rewritten in the same transaction,
     so each group stays a round robin. Neither `tore` nor `austritt` moves.
     """
+
+    # Before any read, as FastAPI refuses a malformed body: this pair is refused whatever the season holds.
+    refuse(find_swap_pair_refusal(team1_id=swap_data.team1_id, team2_id=swap_data.team2_id))
 
     # A read first, so an unknown season is a 404 rather than a 409 about clubs holding no row in it.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
@@ -674,7 +699,6 @@ async def swap_gruppen(
 
         refuse(
             find_gruppe_swap_refusal(
-                is_same_team=swap_data.team1_id == swap_data.team2_id,
                 team1_gruppe=gruppe_of.get(swap_data.team1_id),
                 team2_gruppe=gruppe_of.get(swap_data.team2_id),
                 saison_status=str(saison_raw["status"]),
@@ -732,7 +756,13 @@ async def swap_gruppen(
         return await session.with_transaction(exchange_the_two_gruppen)
 
 
-@router.post("/{saison_id}/spielplan", response_model=FLGenerateSpielplanResponse, status_code=201, summary="Draw this Saison's Spielplan")
+@router.post(
+    "/{saison_id}/spielplan",
+    response_model=FLGenerateSpielplanResponse,
+    status_code=201,
+    summary="Draw this Saison's Spielplan",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+)
 async def generate_spielplan(
     saison_id: str,
     saisons_collection: SaisonsCollection,
@@ -827,13 +857,17 @@ async def generate_spielplan(
         # `stored=None` is the create's reading, and the one this wants: every rule judging the
         # numbers alone fires on the payload's own, and every rule judging a standing fixture is
         # skipped, each of those weighing a draw about to cease to exist.
+        shape_stated = spielplan_data.shape is not None
         refuse(
-            find_rules_refusal(
-                saison_status=str(saison_raw["status"]),
-                stored=None,
-                proposed=rules,
-                occupancy_by_gruppe=occupancy,
-                highest_wired_platz=0,
+            as_the_draw_answers(
+                find_rules_refusal(
+                    saison_status=str(saison_raw["status"]),
+                    stored=None,
+                    proposed=rules,
+                    occupancy_by_gruppe=occupancy,
+                    highest_wired_platz=0,
+                ),
+                shape_stated=shape_stated,
             )
         )
 
@@ -841,11 +875,14 @@ async def generate_spielplan(
         # worth measuring. Empty spans -- the draw dates nothing, and a replace has every stored
         # matchday still to delete below.
         refuse(
-            find_saison_span_refusal(
-                start_date=str(saison_raw["start_date"]),
-                end_date=str(saison_raw["end_date"]),
-                rules=rules,
-                spieltag_spans=[],
+            as_the_draw_answers(
+                find_saison_span_refusal(
+                    start_date=str(saison_raw["start_date"]),
+                    end_date=str(saison_raw["end_date"]),
+                    rules=rules,
+                    spieltag_spans=[],
+                ),
+                shape_stated=shape_stated,
             )
         )
 
@@ -928,7 +965,12 @@ async def generate_spielplan(
     return drawn_response
 
 
-@router.delete("/{saison_id}/spielplan", response_model=FLUndrawSpielplanResponse, summary="Undraw this Saison's Spielplan")
+@router.delete(
+    "/{saison_id}/spielplan",
+    response_model=FLUndrawSpielplanResponse,
+    summary="Undraw this Saison's Spielplan",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+)
 async def undraw_spielplan(
     saison_id: str,
     saisons_collection: SaisonsCollection,
@@ -1135,7 +1177,7 @@ async def _mail_one_team(
             fl_logger.error(
                 f"The registration link for team {team['team_id']} in season {saison_id} was "
                 f"{'minted or not, the commit unanswered' if ungewiss else 'not minted'}: {type(failure).__name__}",
-                extra={"error_code": UNKNOWN_OUTCOME if ungewiss else "DB-FAIL-001"},
+                extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
             )
 
             return FLEinladungVersandZeile(
@@ -1152,7 +1194,12 @@ async def _mail_one_team(
             )
 
 
-@router.get("/{saison_id}/einladungen/versand/vorschau", response_model=FLEinladungVersandVorschauResponse, summary="Who the send would reach")
+@router.get(
+    "/{saison_id}/einladungen/versand/vorschau",
+    response_model=FLEinladungVersandVorschauResponse,
+    summary="Who the send would reach",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+)
 async def preview_einladungen_versand(
     saison_id: str,
     saison_teams_collection: SaisonTeamsCollection,
@@ -1209,7 +1256,12 @@ async def preview_einladungen_versand(
     return FLEinladungVersandVorschauResponse(saison_id=saison_id, zeilen=zeilen)
 
 
-@router.post("/{saison_id}/einladungen/versand", response_model=FLEinladungVersandResponse, summary="Mint every admitted team a link")
+@router.post(
+    "/{saison_id}/einladungen/versand",
+    response_model=FLEinladungVersandResponse,
+    summary="Mint every admitted team a link",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+)
 async def post_einladungen_versand(
     saison_id: str,
     versand_data: Annotated[FLEinladungVersandPayload, Body()],

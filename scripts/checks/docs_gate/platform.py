@@ -27,8 +27,9 @@ CRLF_CHECK: Final = "crlf-write"
 # fixtures a shell reads.
 PYTHON_SCOPES: Final[tuple[str, ...]] = ("scripts/", "fl_backend/app/", "fl_backend/tests/")
 TEST_SCOPES: Final[tuple[str, ...]] = ("scripts/tests/", "fl_backend/tests/")
-# `.githooks/` by folder: a hook carries no suffix.
-SHELL_SCOPES: Final[tuple[str, ...]] = ("scripts/", ".claude/hooks/")
+# `.githooks/` holds shell under `.sh` as the other scopes do, and under no suffix, git naming a
+# hook by its event; a module a hook runs there carries its language's own.
+SHELL_SCOPES: Final[tuple[str, ...]] = ("scripts/", ".claude/hooks/", ".githooks/")
 GIT_HOOKS_DIR: Final = ".githooks/"
 
 # Matched on the chain's TAIL, so a driver's `gate_pool.sys.platform` is read as the predicate it
@@ -76,7 +77,7 @@ PLATFORM_ALLOW: Final[dict[str, str]] = {
     "scripts/ops/local.sh :: take_dump": "MSYS rewrites the container-side `/dump` mount",
     "scripts/ops/local.sh :: restore_dump": "MSYS rewrites `/dump` on the way into the container",
     "scripts/ops/local.sh :: dump_collections_seen": "MSYS rewrites `/dump` in the container-side find",
-    ".githooks/pre-commit :: work": "`cygpath -w` for mktemp's MSYS alias, which `git hash-object` cannot open from a worktree",
+    ".githooks/pre-commit :: windows_path": "`cygpath -w`: neither `git hash-object` nor node can open an MSYS path",
 }
 
 # Keyed like `PLATFORM_ALLOW`; the value is why the stream may translate.
@@ -122,7 +123,11 @@ def _test_files() -> tuple[Path, ...]:
 
 @cache
 def _shell_files() -> tuple[Path, ...]:
-    return tuple(p for p in scanned_files() if (p.suffix == ".sh" and _rel(p).startswith(SHELL_SCOPES)) or _rel(p).startswith(GIT_HOOKS_DIR))
+    return tuple(
+        p
+        for p in scanned_files()
+        if (p.suffix == ".sh" and _rel(p).startswith(SHELL_SCOPES)) or (not p.suffix and _rel(p).startswith(GIT_HOOKS_DIR))
+    )
 
 
 @cache
@@ -181,6 +186,10 @@ def _snippet_lines(node: ast.AST) -> list[str] | None:
     if not all(isinstance(elt, ast.Constant) and isinstance(elt.value, str) for elt in value.elts):
         return None
     return [str(elt.value) for elt in value.elts if isinstance(elt, ast.Constant)]
+
+
+def _strings(node: ast.AST) -> list[str]:
+    return [sub.value for sub in ast.walk(node) if isinstance(sub, ast.Constant) and isinstance(sub.value, str)]
 
 
 def _mentions(node: ast.AST, names: frozenset[str]) -> bool:
@@ -283,6 +292,9 @@ def _scan_tests(rel: str, tree: ast.Module, source: Sequence[str], names: frozen
                 lines = _snippet_lines(child)
                 if lines is not None and _snippet_stands_down(lines, names):
                     detail = f"PLAT-2: the driver snippet `{symbol}` stands down on the platform -- {BOTH_ARMS}"
+                    found.append(_site(rel, _line(child), symbol, detail, source))
+                elif lines is None and _mentions_text("\n".join(_strings(child)), names):
+                    detail = f"PLAT-2: `{symbol}` spells the platform in text this clause reads only as a tuple or list of string lines"
                     found.append(_site(rel, _line(child), symbol, detail, source))
             if isinstance(child, ast.If) and _mentions(child.test, names) and _stands_down(child.body):
                 detail = f"PLAT-2: `{symbol or rel}` returns or exits when the platform says so -- {BOTH_ARMS}"

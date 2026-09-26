@@ -9,6 +9,9 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { underNext } from "@/shared/testing/nextContexts.ts";
+import { pressTwice } from "@/shared/testing/twoPress.ts";
+
 import type { ActionResult } from "@/shared/types/types.ts";
 import type { FLDraftStatus } from "@/shared/utils/draftStatus.ts";
 
@@ -25,26 +28,30 @@ describe("a control whose write is running", () => {
     const user = userEvent.setup();
     const onConfirm = mock.fn(() => new Promise<ActionResult>(() => {}));
     render(
-      h(ConfirmDeleteModal, {
-        isOpen: true,
-        onClose: () => undefined,
-        heading: "Spielort stilllegen",
-        entityLabel: "den Spielort",
-        entityName: "Halle West",
-        consequence: "Er fehlt dann in der Auswahl.",
-        successMessage: "Spielort stillgelegt",
-        failureMessage: "Spielort nicht stillgelegt",
-        onConfirm,
-      }),
+      underNext(
+        h(ConfirmDeleteModal, {
+          isOpen: true,
+          onClose: () => undefined,
+          heading: "Spielort stilllegen",
+          entityLabel: "den Spielort",
+          entityName: "Halle West",
+          consequence: "Er fehlt dann in der Auswahl.",
+          successMessage: "Spielort stillgelegt",
+          failureMessage: "Spielort nicht stillgelegt",
+          onConfirm,
+        }),
+      ),
     );
 
-    await user.click(screen.getByRole("button", { name: "Stilllegen" }));
-    await user.click(screen.getByRole("button", { name: "Ja, stilllegen" }));
+    await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
     const running = screen.getByRole("button", { name: "Legt still..." });
     await user.click(running);
 
     assert.equal(onConfirm.mock.callCount(), 1, "a second press during the write sends it again");
     assert.equal((running as HTMLButtonElement).disabled, false, "the running press is closed as though something refused it");
+    // The label is the dialog's own, so the flight a person sees and hears is the controls' pending state.
+    assert.equal(running.getAttribute("data-pending"), "true", "the running press does not say its write is in flight");
+    assert.equal(screen.getByRole("button", { name: "Abbrechen" }).getAttribute("data-pending"), "true", "the way back is not held");
   });
 
   /* And the way back is never held at all: it closes the dialog rather than the save, so a reader
@@ -93,7 +100,14 @@ describe("a control whose write is running", () => {
       storedText: "Halle",
       draftText: "Halle West",
     };
-    const DIRTY: FLDraftStatus<string> = { fields: [NAME], byPath: new Map([[NAME.path, NAME]]), changed: [NAME], invalid: [], isDirty: true };
+    const DIRTY: FLDraftStatus<string> = {
+      fields: [NAME],
+      byPath: new Map([[NAME.path, NAME]]),
+      declared: new Set([NAME.path]),
+      changed: [NAME],
+      invalid: [],
+      isDirty: true,
+    };
 
     render(
       h(DraftStatusProvider, { status: DIRTY, children: h(FormActionBar, { isPending: true, isLeaving: false, onCancel: () => undefined }) }),

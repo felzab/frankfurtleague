@@ -26,7 +26,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, patch_one_in_db
 from app.core.dependencies import AktionenCollection, BewerbungenCollection, DBClient, SaisonTeamsCollection, get_germany_now
-from app.core.exception_handlers import stores_nothing
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.folding import sign_in_identifier
@@ -103,7 +103,12 @@ async def get_kontakt_erasure_ansicht(
     )
 
 
-@router.post("/erasure", response_model=FLKontaktErasureResponse, summary="Erase a Kontaktperson's records")
+@router.post(
+    "/erasure",
+    response_model=FLKontaktErasureResponse,
+    summary="Erase a Kontaktperson's records",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+)
 async def erase_kontaktperson(
     erasure_data: Annotated[FLKontaktErasurePayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,

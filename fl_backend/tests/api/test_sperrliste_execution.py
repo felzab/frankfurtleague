@@ -10,16 +10,16 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.admin_router import delete_sperrliste_eintrag, get_sperrliste, post_sperrliste_eintrag
 from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.api.spieler.admin_router import delete_spieler, erase_spieler
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import rules_document, saison_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -41,6 +41,10 @@ BANNED = "Zorbanax@Beispielschule.de"
 BANNED_RETYPED = "zorbanax@beispielschule.de"
 OTHER = "quillhilde@beispielschule.de"
 
+# Searched for apart, so a row keeping either half of the address is caught where the whole is not.
+BANNED_LOCAL_PART, BANNED_DOMAIN = BANNED.lower().split("@")
+BANNED_SCHOOL = BANNED_DOMAIN.split(".")[0]
+
 GRUND = "Falsches Geburtsdatum bei der Anmeldung"
 
 # The league a ban needs to exist at all (`app/api/sperrliste/services.py ::
@@ -52,32 +56,9 @@ ACTIVE_SAISON_ID = "2026"
 # field, so a row written straight to the collection needs one too.
 LAST_COVERED = "2031"
 
-SAISON_DOCUMENT: dict[str, Any] = {
-    "_id": ACTIVE_SAISON_ID,
-    "start_date": f"{ACTIVE_SAISON_ID}-01-01",
-    "end_date": f"{ACTIVE_SAISON_ID}-06-30",
-    "status": "active",
-    "rules": {
-        "win_points": 3,
-        "draw_points": 1,
-        "qualifiers_per_group": 2,
-        "number_of_groups": 2,
-        "teams_per_group": 4,
-        "tiebreak_order": "tordifferenz",
-        "max_kadergroesse": 18,
-        "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-        "erlaubte_stufen": ["E1"],
-    },
-}
+SAISON_DOCUMENT: dict[str, Any] = saison_document(ACTIVE_SAISON_ID, "active", rules=rules_document(number_of_groups=2, erlaubte_stufen=["E1"]))
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
-
-
-@pytest.fixture(autouse=True)
-def _uncached_saisons() -> None:
-    """Process-global and keyed by season id alone, so an active season another module left would answer here."""
-
-    invalidate_saison_cache()
 
 
 def on_a_clean_list(url: str, body: Body) -> Any:
@@ -154,8 +135,8 @@ class TestWhatABanStores:
         # `erstellt_von` is the ADMINISTRATOR's own address and the one field here that may hold
         # one, so the `@` clause is asked of everything beside it.
         assert "@" not in repr({key: value for key, value in stored.items() if key != "erstellt_von"})
-        assert "zorbanax" not in repr(stored).lower()
-        assert "beispielschule" not in repr(stored).lower()
+        assert BANNED_LOCAL_PART not in repr(stored).lower()
+        assert BANNED_SCHOOL not in repr(stored).lower()
 
     def test_the_write_is_recorded_without_the_address(self, mongo_replica_set_url: str):
         """The log is the second place a value can survive a feature built to keep none: the create files a row here too."""
@@ -168,7 +149,7 @@ class TestWhatABanStores:
         recorded = on_a_clean_list(mongo_replica_set_url, body)
 
         assert "sperrliste" in recorded, "the create filed no log row at all, so the assertion below holds of nothing"
-        assert "Zorbanax".lower() not in recorded.lower()
+        assert BANNED_LOCAL_PART not in recorded.lower()
 
 
 class TestASecondBanOfOneAddress:
@@ -182,7 +163,7 @@ class TestASecondBanOfOneAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
             await ban(database, client)
 
-            with pytest.raises(DocumentConflictException) as raised:
+            with pytest.raises(WriteRefusalException) as raised:
                 await ban(database, client)
 
             assert raised.value.error_code == SPERRLISTE_ADRESSE_GESPERRT
@@ -195,7 +176,7 @@ class TestASecondBanOfOneAddress:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
             await ban(database, client)
 
-            with pytest.raises(DocumentConflictException) as raised:
+            with pytest.raises(WriteRefusalException) as raised:
                 await ban(database, client, email=BANNED_RETYPED)
 
             assert raised.value.error_code == SPERRLISTE_ADRESSE_GESPERRT
@@ -306,7 +287,7 @@ class TestWhatTheListServes:
         rendered = served.model_dump_json()
         # `erstellt_von` carries the administrator's own address, so the banned one is named
         # directly rather than sought by its `@`.
-        assert "zorbanax" not in rendered.lower()
+        assert BANNED_LOCAL_PART not in rendered.lower()
         assert "adresse_hash" not in rendered
         assert served.sperrliste[0].grund == GRUND
         assert served.sperrliste[0].erstellt_von == ADMIN
@@ -424,7 +405,7 @@ class TestLiftingABan:
         assert images[0]["grund"] == GRUND
         # The reason the image is safe to keep: it holds the hash and the administrator, never the
         # address the ban was taken from.
-        assert "zorbanax" not in repr(images).lower()
+        assert BANNED_LOCAL_PART not in repr(images).lower()
 
     def test_an_id_no_row_holds_is_a_404_that_removes_nothing(self, mongo_replica_set_url: str):
         """A removal answering 200 over an empty result tells an administrator a ban is lifted that still stands."""

@@ -13,14 +13,13 @@ from app.shared.schemas.bounds import (
     LIST_LIMIT_MAX,
 )
 from app.shared.schemas.custom import (
-    PERSON_NAME_PATTERN,
     CustomDateString,
     CustomNonEmptyString,
     CustomObjectId,
     CustomOptionalDateString,
     CustomOptionalString,
 )
-from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
+from app.shared.schemas.kontakt import CustomKontaktName, FLKontakt, FLKontaktPayload
 from app.shared.schemas.responses import BaseAPIResponse
 
 # A SECOND spelling of `app/api/spieler/schemas.py :: FLEinwilligung`'s own, which is inline and so
@@ -50,9 +49,9 @@ class _SchiedsrichterPayload(_SchiedsrichterWritable):
     model_config = ConfigDict(extra="forbid")
 
     # Tightened on the WRITE side alone: a read model refusing a stored name would answer 500 for
-    # the whole list over one row (`docs/backend/spec.md :: I36`). Stripped first, so the padding
-    # the pattern's trailing space class admits never reaches a match document.
-    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, pattern=PERSON_NAME_PATTERN)]
+    # the whole list over one row (`docs/backend/spec.md :: I36`). The type every person's name
+    # takes, one ceiling for them all.
+    name: CustomKontaktName
     # Tightened here for the same reason, the telephone rule having been narrowed after rows existed.
     kontakt: FLKontaktPayload
 

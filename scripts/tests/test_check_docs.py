@@ -89,14 +89,8 @@ TEMPLATE_MARKER_PATH: Final = "docs/gone-in-a-template-literal.md"
 RUNAWAY_BLOCK_PATH: Final = "docs/gone-after-a-runaway-block.md"
 # The comment beside them, so the case cannot pass on a reader that blanks the file whole.
 REAL_COMMENT_PATH: Final = "docs/gone-in-a-real-comment.md"
-# One slice per arm the tag checks take: derived, stale and frontend-only. A slice exists only
-# while a file holds its folder open, and `git clean` takes an empty one with it.
 SPIELE_ROUTER: Final = "fl_backend/app/api/spiele/router.py"
-TEAMS_ROUTER: Final = "fl_backend/app/api/teams/router.py"
 SPIELER_PANEL: Final = "fl_frontend/src/features/spieler/Panel.tsx"
-# A file sitting directly under a slice root, so a named segment can be one the tree defines no
-# slice for. Every other fixture path under these roots names a folder.
-SLICE_STRAY: Final = "fl_frontend/src/features/registry.ts"
 SCHEME: Final = "fl_frontend/src/app/schemes/2025-26.css"
 # A second season, planted rather than committed: the past scheme a file-to-file drift needs.
 PAST_SCHEME: Final = "fl_frontend/src/app/schemes/2024-25.css"
@@ -186,11 +180,6 @@ CONF_FILE: Final = "nginx/nginx.conf"
 SHELL_FILE: Final = "nginx/entrypoint.sh"
 # Under `.claude/hooks/` (the shell scope) and outside `PRESERVED`, so `_reset` removes it.
 HOOK_SAMPLE: Final = ".claude/hooks/probe.sh"
-# One committed file per folder the derivation table names that no other fixture holds: a cell's
-# path is a backticked path like any other, so `path` reports one no tree carries.
-COMMIT_HOOK: Final = ".githooks/pre-commit"
-CLAUDE_HOOK: Final = ".claude/hooks/agreement.sh"
-WORKFLOW: Final = ".github/workflows/gate.yml"
 BACKEND_TEST: Final = "fl_backend/tests/test_agreement.py"
 DOCKERFILE: Final = "fl_backend/Dockerfile"
 # A root-level file a citation names, beside the attributes file: every other cited path sits under a
@@ -251,46 +240,8 @@ SLICE_ENTRY: Final = "vb4n-hs9t"
 # What a plant files without an entry under it, and an id carrying a letter the alphabet excludes.
 ORPHAN_ENTRY: Final = "jd8s-hrkm"
 MALFORMED_ENTRY: Final = "kxr7-m2qo"
-# One item's claim, spelled once: the corpus writes it into the index row and the heading alike, and
-# a plant rewriting either has to keep them in step.
 DOCS_ITEM: Final = "Give the gate a fixture net"
 SLICE_ITEM: Final = "Serve a fixture through the slice"
-DOCS_ROW: Final = "| " + _tick(DOCS_ENTRY) + " | " + DOCS_ITEM + " | Docs | Open |"
-SLICE_ROW: Final = "| " + _tick(SLICE_ENTRY) + " | " + SLICE_ITEM + " | BE, spiele | Open |"
-# The derivation the page states, spelled out rather than lifted from the checker's own tuple, for
-# `SCHEME_TOKENS`' reason.
-TAG_DERIVATION: Final[tuple[tuple[str, str, str], ...]] = (
-    ("**Surface**", "FE", "`fl_frontend/`"),
-    # A backticked run that is no repository prefix, here and on the `ci` row: what parts a path
-    # the arm holds from a folder the sentence merely names.
-    ("", "BE", "`fl_backend/` whole, `tests/` included"),
-    ("", "Ops", "`scripts/`, `nginx/`, `.githooks/`, `.claude/hooks/`, a compose file"),
-    ("", "Docs", "`docs/`, `.claude/`"),
-    ("**Concern**", "gate", "`scripts/gate/`, `scripts/checks/`, `.githooks/`, `.claude/hooks/`"),
-    ("", "ci", "`.github/` whole, not its `workflows/` alone"),
-    ("", "tests", "`scripts/tests/`, `fl_backend/tests/`"),
-    ("", "edge", "`nginx/`"),
-)
-DERIVATION_HEADER: Final = "| Axis | Vocabulary | Derived from a path or symbol under |"
-DERIVATION_ROWS: Final[tuple[str, ...]] = tuple(
-    "| " + axis + " | " + _tick(tag) + " | " + sources + " |" for axis, tag, sources in TAG_DERIVATION
-)
-# The row a plant edits: it names four prefixes, so either edit leaves three of them standing and
-# every other row answering.
-GATE_DERIVATION_ROW: Final = next(row for row in DERIVATION_ROWS if _tick("gate") in row)
-DROPPED_GATE_ROW: Final = GATE_DERIVATION_ROW.replace(", " + _tick(".claude/hooks/"), "")
-WIDENED_GATE_ROW: Final = GATE_DERIVATION_ROW.replace(_tick(".claude/hooks/"), _tick(".claude/hooks/") + ", " + _tick("docs/"))
-# A filename none of its own row's prefixes reaches: one they did reach would restate that reach
-# rather than claim a source of its own.
-UNHELD_FILE_ROW: Final = GATE_DERIVATION_ROW.replace(_tick(".claude/hooks/"), _tick(".claude/hooks/") + ", " + _tick("local.conf"))
-# The row a subtree nothing holds is added to, its own cell still naming every prefix `edge` derives
-# from, so the added token is all the comparison leaves.
-EDGE_DERIVATION_ROW: Final = next(row for row in DERIVATION_ROWS if _tick("edge") in row)
-UNHELD_SUBTREE_ROW: Final = EDGE_DERIVATION_ROW.replace(_tick("nginx/"), _tick("nginx/") + ", " + _tick("edgy/"))
-# The same shape written legibly: a folder under a prefix the cell itself writes, which qualifies
-# that prefix rather than deriving the tag from anywhere new.
-BE_DERIVATION_ROW: Final = next(row for row in DERIVATION_ROWS if _tick("BE") in row)
-QUALIFIED_BE_ROW: Final = BE_DERIVATION_ROW.replace(_tick("tests/"), _tick("tests/") + " and " + _tick("app/"))
 
 # The page derives its status vocabulary here, and the fixture holds the table it derives it from.
 PROTOCOL: Final = "docs/_roadmap/protocol.md"
@@ -317,20 +268,32 @@ BACKEND_CODE: Final = "REQ-SAMPLE-001"
 FRONTEND_CODE: Final = "FE-SAMPLE-001"
 BACKEND_RAISE: Final = 'RAISED = "' + BACKEND_CODE + '"'
 FRONTEND_RAISE: Final = '  const code = "' + FRONTEND_CODE + '";'
-# The rule register the wording column's population is derived from, at the path the checker names.
+# The rule register, at the path the checker names: a code it declares is spelled in the backend
+# tree and owed no row, which is what the clean corpus proves by carrying none for it.
 DOMAIN_REGISTER: Final = "fl_backend/app/core/domain.py"
-# One declared rule per arm the wording column takes, so a plant breaking one leaves the rest
-# answering. The first is the code the row comparison above already turns on.
-WORDED_CODES: Final[tuple[str, ...]] = (BACKEND_CODE, "REQ-SAMPLE-002", "REQ-SAMPLE-003", "REQ-SAMPLE-004", "REQ-SAMPLE-005")
-# The module wording them, and one naming a code in a comment alone: a citation resolved by
-# presence would land on the second, which is what the comment arm below refuses.
-REFUSAL_SAMPLE: Final = "fl_frontend/src/refusals.ts"
-REMARK_SAMPLE: Final = "fl_frontend/src/remarks.ts"
-MAPPER_CITATION: Final = "`" + REFUSAL_SAMPLE + " :: mapSampleRefusal`"
-# The second frontend row exists for the boundary arm alone: the first is the anchor two row-
-# comparison plants already grow rows beneath.
+RULE_CODE: Final = "REQ-SAMPLE-002"
+UNENFORCED_SUBJECT: Final = "a sample state the register permits"
+# One live token of every shape a reason may take, each resolving in the corpus below.
+LIVE_REASON: Final = (
+    "Near `REQ-SAMPLE-001` and `REQ-SAMPLE-*`, in `app/sample.py`, as `app/sample.py :: VALUE` and `I1` hold; "
+    "`GET /sample` serves `/sample` over `(saison_id, team_id)`, naming `VALUE` and `3`."
+)
+# The backend the gate imports beside the register: the version its routes are published under,
+# the one index a reason names, and the page an entry is surfaced by, inside a route group.
+BACKEND_CONFIG: Final = "fl_backend/app/core/config.py"
+BACKEND_CONSTRAINTS: Final = "fl_backend/app/core/constraints.py"
+BACKEND_PACKAGE: Final = "fl_backend/app/__init__.py"
+OPENAPI: Final = "fl_backend/openapi.json"
+SAMPLE_PAGE: Final = "fl_frontend/src/app/(site)/sample/page.tsx"
+RULE_OPERATION: Final = "GET /sample"
+SURFACE: Final = "/sample"
+# A second table's row, its prose in a string field and a tuple of them: every declared row is read,
+# and one row may name another by its first field, which no source tree spells.
+AGGREGATE_NAME: Final = "Sample-Plan"
+LIVE_BOUNDARY: Final = "Read by `GET /sample`, beside `Sample-Plan`."
+LIVE_MEMBER: Final = "`/sample`"
+# The code the sample component's second literal spells, so the frontend owes two rows.
 SECOND_FRONTEND_CODE: Final = "FE-SAMPLE-002"
-WORDED_MEANING: Final = "The sample module refused another write"
 SECOND_FRONTEND_MEANING: Final = "The sample component asked for a page that is gone"
 
 # One test module per tier, the case readers differing. Every name below is English: this tree is
@@ -355,46 +318,31 @@ SECOND_PYTHON_CASE: Final = "test_a_case_of_the_second_class"
 UNCITED_PYTHON_CASE: Final = "test_a_case_no_document_cites"
 
 
-def _code_row(code: str, meaning: str, worded: str | None) -> str:
-    """One register row, its wording cell dropped where None -- the shape a row without the column keeps."""
-    return "| `" + code + "` | " + meaning + (" |" if worded is None else " | " + worded + " |")
+def _code_row(code: str, meaning: str) -> str:
+    """One register row."""
+    return "| `" + code + "` | " + meaning + " |"
 
 
-def _refusal_arm(code: str) -> str:
-    """A reader excluding a comment by substring, not by column, takes the answer beside a remark with it."""
-    remark = " // " + code + " is the arm this line answers" if code == WORDED_CODES[1] else ""
-    return '    "' + code + '",' + remark
-
-
-BACKEND_ROW: Final = _code_row(BACKEND_CODE, "The sample module refused a write", MAPPER_CITATION)
-FRONTEND_ROW: Final = _code_row(FRONTEND_CODE, "The sample component could not read the answer", "—")
-SECOND_FRONTEND_ROW: Final = _code_row(SECOND_FRONTEND_CODE, SECOND_FRONTEND_MEANING, "—")
-# One entry per agreement arm, so a plant breaking one leaves the others answering. They ascend as
-# the page's own listings do.
-STATUS_ENTRY: Final = "bqxs-4dtn"
+BACKEND_ROW: Final = _code_row(BACKEND_CODE, "The sample module refused a write")
+FRONTEND_ROW: Final = _code_row(FRONTEND_CODE, "The sample component could not read the answer")
+SECOND_FRONTEND_ROW: Final = _code_row(SECOND_FRONTEND_CODE, SECOND_FRONTEND_MEANING)
+# One entry per status arm, so a plant breaking one leaves the others answering. They ascend as
+# the page's entries do.
+DEPENDS_ENTRY: Final = "bqxs-4dtn"
 VOCAB_ENTRY: Final = "dm93-7kvz"
 BLOCKED_ENTRY: Final = "gtz5-9wqr"
 # Sorting below every one of them, and appended by a plant rather than committed: it is what ends
 # the run the other three are in.
 ORDER_ENTRY: Final = "2xkq-7bnm"
-STATUS_ITEM: Final = "Hold both listings' status cells to each other"
+DEPENDS_ITEM: Final = "Hold a dependency to the entries the page holds"
 VOCAB_ITEM: Final = "Hold a status to the vocabulary deriving it"
 BLOCKED_ITEM: Final = "Hold a blocked entry to the column beside it"
 ORDER_ITEM: Final = "File an entry below the run it belongs to"
-# One effort apiece, a value nothing reads, so a plant naming a field row reaches the entry it means.
-STATUS_FIELDS: Final = "| Docs | Open | L | — |"
-VOCAB_FIELDS: Final = "| Docs | Open | XL | — |"
-BLOCKED_FIELDS: Final = "| Docs | Open | XS | — |"
-ORDER_FIELDS: Final = "| Docs | Open | XXL | — |"
-# One line of prose apiece, each naming the page every fixture entry's tag derives from.
-STATUS_PROSE: Final = "A status arm needs an entry beside `docs/notes.md` whose two cells a plant can part."
+# One line of prose apiece, each naming a repository path, which is what the subject arm asks of an entry.
+DEPENDS_PROSE: Final = "A dependency arm needs an entry beside `docs/notes.md` that a plant can make depend on a departed one."
 VOCAB_PROSE: Final = "A vocabulary arm needs an entry beside `docs/notes.md` carrying a word to put outside the set."
 BLOCKED_PROSE: Final = "A blocked arm needs an entry beside `docs/notes.md` whose dependency column stays an em dash."
 ORDER_PROSE: Final = "An order arm needs an entry beside `docs/notes.md` filed below the run above it."
-STATUS_ROW: Final = "| " + _tick(STATUS_ENTRY) + " | " + STATUS_ITEM + " | Docs | Open |"
-VOCAB_ROW: Final = "| " + _tick(VOCAB_ENTRY) + " | " + VOCAB_ITEM + " | Docs | Open |"
-BLOCKED_ROW: Final = "| " + _tick(BLOCKED_ENTRY) + " | " + BLOCKED_ITEM + " | Docs | Open |"
-ORDER_ROW: Final = "| " + _tick(ORDER_ENTRY) + " | " + ORDER_ITEM + " | Docs | Open |"
 # The heading closing the page. Every plant that APPENDS to this page lands under it, so nothing a
 # case appends is read as the last entry's own prose.
 ROADMAP_TAIL: Final = "Appendix"
@@ -489,21 +437,28 @@ SWALLOWING_STANDARD: Final = _page(
 )
 
 
-def _roadmap_entry(token: str, item: str, fields: str, prose: str) -> str:
-    """One agreement arm's entry, in the shape the page's committed entries carry.
+ROADMAP_FIELD_HEADER: Final = "| Status | Depends on |\n| --- | --- |"
 
-    The claim is spelled once and written into the heading and the index row alike, so a plant
-    parting the two has to say so.
+
+def _field_table(token: str, item: str) -> str:
+    """An open entry's heading and field table, as the page's committed entries carry them.
+
+    The heading rides along because every open entry's cells read alike: it is what a plant naming a
+    table reaches.
     """
-    return _page(
-        _heading(3, _tick(token) + " · " + item),
-        "",
-        "| Tags | Status | Effort | Depends on |",
-        "| --- | --- | --- | --- |",
-        fields,
-        "",
-        prose,
-    ).rstrip("\n")
+    return _page(_heading(3, _tick(token) + " · " + item), "", ROADMAP_FIELD_HEADER, "| Open | — |").rstrip("\n")
+
+
+DEPENDS_FIELDS: Final = _field_table(DEPENDS_ENTRY, DEPENDS_ITEM)
+VOCAB_FIELDS: Final = _field_table(VOCAB_ENTRY, VOCAB_ITEM)
+BLOCKED_FIELDS: Final = _field_table(BLOCKED_ENTRY, BLOCKED_ITEM)
+ORDER_FIELDS: Final = _field_table(ORDER_ENTRY, ORDER_ITEM)
+DOCS_FIELDS: Final = _field_table(DOCS_ENTRY, DOCS_ITEM)
+SLICE_FIELDS: Final = _field_table(SLICE_ENTRY, SLICE_ITEM)
+
+
+def _roadmap_entry(fields: str, prose: str) -> str:
+    return _page(fields, "", prose).rstrip("\n")
 
 
 def _scheme_page() -> str:
@@ -728,40 +683,20 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "",
             "**Purpose:** what is open, in one file.",
             "",
-            DERIVATION_HEADER,
-            "| --- | --- | --- |",
-            *DERIVATION_ROWS,
+            _roadmap_entry(DEPENDS_FIELDS, DEPENDS_PROSE),
             "",
-            "| ID | Item | Tags | Status |",
-            "| --- | --- | --- | --- |",
-            STATUS_ROW,
-            VOCAB_ROW,
-            BLOCKED_ROW,
-            DOCS_ROW,
-            SLICE_ROW,
+            _roadmap_entry(VOCAB_FIELDS, VOCAB_PROSE),
             "",
-            _roadmap_entry(STATUS_ENTRY, STATUS_ITEM, STATUS_FIELDS, STATUS_PROSE),
+            _roadmap_entry(BLOCKED_FIELDS, BLOCKED_PROSE),
             "",
-            _roadmap_entry(VOCAB_ENTRY, VOCAB_ITEM, VOCAB_FIELDS, VOCAB_PROSE),
-            "",
-            _roadmap_entry(BLOCKED_ENTRY, BLOCKED_ITEM, BLOCKED_FIELDS, BLOCKED_PROSE),
-            "",
-            _heading(3, _tick(DOCS_ENTRY) + " · " + DOCS_ITEM),
-            "",
-            "| Tags | Status | Effort | Depends on |",
-            "| --- | --- | --- | --- |",
-            "| Docs | Open | S | — |",
+            DOCS_FIELDS,
             "",
             "No check is driven against a planted violation. A check nobody drives red is one nobody",
             "proved. Done is a net beside `docs/notes.md` that plants one violation per check.",
             "",
-            _heading(3, _tick(SLICE_ENTRY) + " · " + SLICE_ITEM),
+            SLICE_FIELDS,
             "",
-            "| Tags | Status | Effort | Depends on |",
-            "| --- | --- | --- | --- |",
-            "| BE, spiele | Open | M | — |",
-            "",
-            "The slice answers no request. A reader filtering on it meets one half of the feature.",
+            "The slice answers no request. A reader searching for its paths finds half of the feature.",
             SLICE_DONE,
             "",
             _heading(2, ROADMAP_TAIL),
@@ -771,12 +706,11 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
         ERROR_CODES: _page(
             _heading(1, "Logging — error codes"),
             "",
-            "**Purpose:** every code either service raises, and where a declared rule is worded.",
+            "**Purpose:** every code either service raises outside the rule register.",
             "",
-            "| Code | Meaning | Worded by |",
-            "| --- | --- | --- |",
+            "| Code | Meaning |",
+            "| --- | --- |",
             BACKEND_ROW,
-            *(_code_row(code, WORDED_MEANING, MAPPER_CITATION) for code in WORDED_CODES[1:]),
             FRONTEND_ROW,
             SECOND_FRONTEND_ROW,
         ),
@@ -919,22 +853,14 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "UMLAUT = 1",
         ),
         SPIELE_ROUTER: _page(
-            QUOTES + "BACKEND · the slice an entry names, so a derived tag has a folder to come from." + QUOTES,
+            QUOTES + "BACKEND · a live module the other-spelling case names from inside its package." + QUOTES,
             "",
             "SPIELE = 1",
         ),
-        TEAMS_ROUTER: _page(
-            QUOTES + "BACKEND · a second slice, so a row can carry a tag the entry derives nothing for." + QUOTES,
-            "",
-            "TEAMS = 1",
-        ),
         SPIELER_PANEL: _page(
             "export function Panel() {",
-            "  return <output>a third slice, and the one spelled on the frontend alone</output>;",
+            "  return <output>a component under a slice root</output>;",
             "}",
-        ),
-        SLICE_STRAY: _page(
-            "export const REGISTRY = 1;",
         ),
         TSX_SAMPLE: _page(
             "export function Sample() {",
@@ -942,17 +868,6 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             '  const gone = "' + SECOND_FRONTEND_CODE + '";',
             "  return <output>a component the corpus scans, {gone}</output>;",
             "}",
-        ),
-        REFUSAL_SAMPLE: _page(
-            "export function mapSampleRefusal(code: string) {",
-            "  return [",
-            *(_refusal_arm(code) for code in WORDED_CODES),
-            "  ].includes(code);",
-            "}",
-        ),
-        REMARK_SAMPLE: _page(
-            "// " + WORDED_CODES[-1] + " is named here and answered nowhere in this module.",
-            "export const REMARKED = 1;",
         ),
         CASE_MODULE: _page(
             'describe("' + CITED_SUITE + '", () => {',
@@ -970,12 +885,68 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "});",
         ),
         DOMAIN_REGISTER: _page(
-            QUOTES + "BACKEND · the rule register a refusal code's wording is cited against." + QUOTES,
+            QUOTES + "BACKEND · the rule register whose codes the refusal register gives no row." + QUOTES,
+            "",
+            "from dataclasses import dataclass",
+            "",
+            'OPERATION_SEPARATOR = " · "',
+            "",
+            "",
+            "@dataclass(frozen=True)",
+            "class Rule:",
+            "    code: str",
+            "    operation: str",
+            "",
+            "",
+            "@dataclass(frozen=True)",
+            "class Aggregate:",
+            "    name: str",
+            "    boundary: str",
+            "    members: tuple[str, ...] = ()",
+            "",
+            "",
+            "@dataclass(frozen=True)",
+            "class Unenforced:",
+            "    subject: str",
+            "    reason: str",
+            '    surfaced_by: str = ""',
+            "",
             "",
             "RULES: tuple[Rule, ...] = (",
-            *('    Rule(code="' + code + '"),' for code in WORDED_CODES),
+            '    Rule(code="' + RULE_CODE + '", operation="' + RULE_OPERATION + '"),',
+            ")",
+            "",
+            "AGGREGATES: tuple[Aggregate, ...] = (",
+            '    Aggregate(name="' + AGGREGATE_NAME + '", boundary="' + LIVE_BOUNDARY + '", members=("' + LIVE_MEMBER + '",)),',
+            ")",
+            "",
+            "UNENFORCED: tuple[Unenforced, ...] = (",
+            "    Unenforced(",
+            '        subject="' + UNENFORCED_SUBJECT + '",',
+            '        reason="' + LIVE_REASON + '",',
+            '        surfaced_by="' + SURFACE + '",',
+            "    ),",
             ")",
         ),
+        BACKEND_PACKAGE: "",
+        BACKEND_CONFIG: _page(QUOTES + "BACKEND · the version the routes are published under." + QUOTES, "", "API_VERSION = 0"),
+        BACKEND_CONSTRAINTS: _page(
+            QUOTES + "BACKEND · the indexes a reason may name." + QUOTES,
+            "",
+            "from dataclasses import dataclass",
+            "",
+            "",
+            "@dataclass(frozen=True)",
+            "class Index:",
+            "    keys: tuple[str, ...]",
+            "",
+            "",
+            'UNIQUE_INDEXES = (Index(keys=("saison_id", "team_id")),)',
+            "SUPPORT_INDEXES = ()",
+            "TTL_INDEXES = ()",
+        ),
+        OPENAPI: '{"paths": {"/api/v0/sample": {"get": {}}}}\n',
+        SAMPLE_PAGE: _page("export default function Page() {", "  return null;", "}"),
         SCHEME: _scheme_page(),
         APP_GLOBALS: _globals_page(),
         COPY_SAMPLE: _page(
@@ -1006,25 +977,8 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             "# OPS · an entry point, scanned for its comments and nothing else.",
             "exec nginx",
         ),
-        # The four folders the derivation table names that nothing else here holds. Each is one
-        # file, because a folder is tracked only while something under it is.
-        COMMIT_HOOK: _page(
-            "#!/usr/bin/env bash",
-            "# OPS · a commit hook, holding open the folder two derivation rows name.",
-            "exec true",
-        ),
-        CLAUDE_HOOK: _page(
-            "#!/usr/bin/env bash",
-            "# OPS · a guard, holding open the hook folder two derivation rows name.",
-            "exec true",
-        ),
-        WORKFLOW: _page(
-            "# OPS · a workflow, holding open the folder the `ci` row names.",
-            "name: gate",
-            "on: push",
-        ),
         BACKEND_TEST: _page(
-            QUOTES + "BACKEND · a test module, holding open the folder the `tests` row names." + QUOTES,
+            QUOTES + "BACKEND · a test module, whose cases a citation names by class and by function." + QUOTES,
             "",
             "TESTED = 1",
             "",
@@ -1145,6 +1099,8 @@ def _load() -> Fixture:
     """The checker, imported from a copy of scripts/ inside a fresh fixture repository."""
     root = new_root("check-docs-fixture-")
     copy_scripts(root / SCRIPTS_COPY)
+    # `scripts/tests/conftest.py :: import_scripts`'s sequence, apart because it must differ: the
+    # copy's path entry stays for the run, `_module` importing the gate's other modules from it later.
     sys.path.insert(0, str(root / SCRIPTS_COPY / "checks"))
     withdraw("check_docs", "check_pr_body", "checker_kernel", "docs_gate")
     gate = importlib.import_module("check_docs")
@@ -1469,74 +1425,56 @@ def _plant_module_headers() -> None:
 
 
 def _plant_roadmap() -> None:
-    """Every structural shape the file can lose, one producer apiece.
-
-    The tag arms are planted by the cases below this one, where each can be asserted on its own.
-    """
-    # A row nothing files under it.
-    _replace(ROADMAP, DOCS_ROW, DOCS_ROW + "\n| " + _tick(ORPHAN_ENTRY) + " | A row with no entry below it | Docs | Open |")
-    # The status the trailer replaces, in both places a status is written.
-    _replace(ROADMAP, DOCS_ROW, DOCS_ROW.replace("| Open |", "| Closed |"))
-    _replace(ROADMAP, "| Docs | Open | S | — |", "| Docs | Closed | S | — |")
-    # A heading between two entries, which is a category kept in a second place.
-    _replace(ROADMAP, _heading(3, _tick(SLICE_ENTRY)), _heading(2, "The slice work") + "\n\n" + _heading(3, _tick(SLICE_ENTRY)))
+    """Every shape the file can lose, one producer apiece, but an entry naming no path, which `scripts/tests/test_check_docs_arms.py` plants."""
     # A batch naming an id this file holds no entry for.
     _replace(ROADMAP, SLICE_DONE, SLICE_DONE + "\n\nLands with: " + ORPHAN_ENTRY)
     # A second entry under an id already filed, and an id carrying a letter the alphabet excludes.
-    # Both go above the closing heading, or the heading would sit between two entries as well.
+    # Above the closing heading, each with a clean table and a path, so neither draws a stand-in
+    # finding if filed.
     _replace(
         ROADMAP,
         _heading(2, ROADMAP_TAIL),
         _page(
-            _heading(3, _tick(DOCS_ENTRY) + " · " + DOCS_ITEM),
+            _roadmap_entry(DOCS_FIELDS, "A second entry under an id already filed, naming `docs/notes.md`."),
             "",
-            "A second entry under an id already filed, naming `docs/notes.md` so its tags still agree.",
-            "",
-            # A malformed id is planted as a heading and never as a row: the pairing runs over the
-            # well-formed ids alone, so planting both would be one defect reported twice.
-            _heading(3, _tick(MALFORMED_ENTRY) + " · An id no alphabet admits"),
-            "",
-            "An id carrying a letter the alphabet excludes, naming `docs/notes.md` like the one above it.",
+            _roadmap_entry(
+                _field_table(MALFORMED_ENTRY, "An id no alphabet admits"),
+                "An id carrying a letter the alphabet excludes, naming `docs/notes.md` like the one above it.",
+            ),
             "",
             _heading(2, ROADMAP_TAIL),
         ).rstrip("\n"),
     )
-    _plant_roadmap_agreement()
+    # A column the page's field table does not define, on the first entry under that id: the second,
+    # filed above, is reported as a repeat and read no further.
+    _replace(ROADMAP, DOCS_FIELDS, DOCS_FIELDS.replace(ROADMAP_FIELD_HEADER, "| Status | Depends on | Tags |\n| --- | --- | --- |"))
+    _plant_roadmap_status()
 
 
-def _plant_roadmap_agreement() -> None:
-    """The arms holding one listing to the other.
+def _plant_roadmap_status() -> None:
+    """The arms holding the run's order and each entry's status and dependencies.
 
-    A value that is itself the defect is planted in BOTH listings: changing one alone parts the two
-    cells as well, and a plant answering two arms proves neither.
+    One entry per arm, each planted where no other arm reads (PRE-4): a plant two arms could
+    answer would leave one of them proven by the other's finding.
     """
-    # One entry per arm, each planted where no other arm reads (PRE-4): a plant two arms could
-    # answer would leave one of them proven by the other's finding.
-
-    # A token below every one above it, in both listings, so each ends a run of its own.
-    _replace(ROADMAP, SLICE_ROW, SLICE_ROW + "\n" + ORDER_ROW)
+    # A token below every one above it, filed last, so it ends the run.
     _replace(
         ROADMAP,
         _heading(2, ROADMAP_TAIL),
         _page(
-            _roadmap_entry(ORDER_ENTRY, ORDER_ITEM, ORDER_FIELDS, ORDER_PROSE),
+            _roadmap_entry(ORDER_FIELDS, ORDER_PROSE),
             "",
             _heading(2, ROADMAP_TAIL),
         ).rstrip("\n"),
     )
-    # The two cells parted, both values still inside the vocabulary, so this arm answers alone.
-    _replace(ROADMAP, STATUS_FIELDS, STATUS_FIELDS.replace("| Open |", "| Standing |"))
-    # A claim the heading beside it does not carry.
-    _replace(ROADMAP, STATUS_ROW, STATUS_ROW.replace(STATUS_ITEM, "A claim the heading beside it does not carry"))
     # A word the derivation does not produce.
-    _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", "| Parked |"))
     _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open |", "| Parked |"))
     # The same arm at its near miss: a value differing from one of the four in case alone, which a
     # comparison folding case would pass.
-    _replace(ROADMAP, SLICE_ROW, SLICE_ROW.replace("| Open |", "| open |"))
-    _replace(ROADMAP, "| BE, spiele | Open | M | — |", "| BE, spiele | open | M | — |")
-    # Blocked in both listings with an em dash beside it, which names no entry at all.
-    _replace(ROADMAP, BLOCKED_ROW, BLOCKED_ROW.replace("| Open |", "| Blocked |"))
+    _replace(ROADMAP, SLICE_FIELDS, SLICE_FIELDS.replace("| Open |", "| open |"))
+    # An open entry depending on a token that left the page: stale whatever its status says.
+    _replace(ROADMAP, DEPENDS_FIELDS, DEPENDS_FIELDS.replace("| — |", "| " + _tick(ORPHAN_ENTRY) + " |"))
+    # Blocked with an em dash beside it, which names no entry at all.
     _replace(ROADMAP, BLOCKED_FIELDS, BLOCKED_FIELDS.replace("| Open |", "| Blocked |"))
 
 
@@ -1549,47 +1487,20 @@ def _plant_output_verbs() -> None:
     _replace(OPS_SPEC, OUTPUT_VERB_ROW, OUTPUT_VERB_ROW.replace("`step`", "step"))
 
 
-def _reword(code: str, cell: str | None) -> None:
-    """One declared row's wording cell replaced, the row found by its code rather than by position."""
-    _replace(ERROR_CODES, _code_row(code, WORDED_MEANING, MAPPER_CITATION), _code_row(code, WORDED_MEANING, cell))
-
-
 def _plant_error_codes() -> None:
-    """Both directions, the prefix split the whole shape rests on, and every way a citation misses."""
+    """Both directions, the prefix split the whole shape rests on, and a rule given a row of its own."""
     # The register losing a row a tree still raises, and each tree raising a code with no row.
     _drop(ERROR_CODES, BACKEND_ROW)
     _append(SAMPLE, 'OTHER = "REQ-OTHER-002"')
     _append(TSX_SAMPLE, 'const other = ["FE-OTHER-002"];')
     # A row no tree spells at all, and one only the wrong tree spells -- which a merged population
     # would pass, satisfying the row from a spelling the area's own tree never carries.
-    _replace(ERROR_CODES, FRONTEND_ROW, FRONTEND_ROW + "\n| `SRV-SAMPLE-009` | A code neither tree raises | — |")
-    _replace(ERROR_CODES, FRONTEND_ROW, FRONTEND_ROW + "\n| `FE-CROSS-003` | A code only the backend tree spells | — |")
+    _replace(ERROR_CODES, FRONTEND_ROW, FRONTEND_ROW + "\n| `SRV-SAMPLE-009` | A code neither tree raises |")
+    _replace(ERROR_CODES, FRONTEND_ROW, FRONTEND_ROW + "\n| `FE-CROSS-003` | A code only the backend tree spells |")
     _append(SAMPLE, 'CROSSED = "FE-CROSS-003"')
-    # A row losing the column, which a reader keyed on cell position would take from `Meaning`.
-    _reword(WORDED_CODES[1], None)
-    # Prose where a citation belongs; a citation off the surface that words a refusal at all; and
-    # one naming a module that mentions the code without answering it.
-    _reword(WORDED_CODES[2], "the sample mapper")
-    _reword(WORDED_CODES[3], "`" + DOMAIN_REGISTER + " :: RULES`")
-    _reword(WORDED_CODES[4], "`" + REMARK_SAMPLE + " :: REMARKED`")
-    # The boundary: a row no rule declares, carrying a citation rather than the em dash saying
-    # nothing is owed there.
-    _replace(ERROR_CODES, SECOND_FRONTEND_ROW, _code_row(SECOND_FRONTEND_CODE, SECOND_FRONTEND_MEANING, MAPPER_CITATION))
-
-
-def _plant_compose_entry() -> None:
-    """The docs entry given a compose file as a second subject, its index row left as it stands."""
-    _replace(ROADMAP, "`docs/notes.md` that plants", "`docs/notes.md` and `" + COMPOSE_FILE + "` that plant")
-
-
-def _plant_hook_entry() -> None:
-    """The docs entry given a hook as a second subject, its index row left as it stands.
-
-    The file is written rather than committed: the resolver lists an untracked path too, and the
-    reset takes it away again.
-    """
-    write(_gate().root, HOOK_SAMPLE, _page("#!/usr/bin/env bash", "exec true"))
-    _replace(ROADMAP, "`docs/notes.md` that plants", "`docs/notes.md` and `" + HOOK_SAMPLE + "` that plant")
+    # A declared rule given a row: a second statement of what the rule register states, which the
+    # tree's own spelling of the code would otherwise satisfy.
+    _replace(ERROR_CODES, FRONTEND_ROW, FRONTEND_ROW + "\n" + _code_row(RULE_CODE, "The sample rule refused a write"))
 
 
 def _plant_segment_map() -> None:
@@ -1636,28 +1547,6 @@ def _plant_binary_bytes() -> None:
 def _plant_unreadable() -> None:
     root = _gate().root
     (root / NOTES).write_bytes(b"\xff\xfe not decodable as utf-8\n")
-
-
-def _plant_header_see() -> None:
-    """One dead path per shape of what FOLLOWS it.
-
-    Every path is package-relative, which `bare-path` and `path` both leave alone: a top-level
-    prefix would fail each entry twice, and this case could not say which check spoke.
-    """
-    _replace(
-        SAMPLE,
-        QUOTES + "BACKEND · a sample module the corpus scans." + QUOTES,
-        _page(
-            QUOTES + "BACKEND · a sample module the corpus scans.",
-            "",
-            "See:",
-            "- app/gone-em.py — a file that is not there",
-            "- app/gone-bare.py",
-            "- `app/gone-colon.py` : a file that is not there",
-            "- app/gone-cited.py :: a symbol — a file that is not there",
-            QUOTES,
-        ).rstrip("\n"),
-    )
 
 
 def _plant_rule_ids() -> None:
@@ -1771,24 +1660,6 @@ def _undo_enforced_by() -> None:
     kernel.CHECKS.update(_KEPT_CHECKS.pop())
 
 
-def _plant_diagrams() -> None:
-    """OUT-7's two decidable clauses on the fixture's overview: a fence nothing here renders, and a bracket inside a quoted label.
-
-    The clean label beside it parts a reader of the quote from one reading the whole line.
-    """
-    _append(
-        OVERVIEW,
-        FENCE + "plantuml",
-        "A -> B",
-        FENCE,
-        "",
-        FENCE + "mermaid",
-        "graph LR",
-        '    a["a label [with a bracket]"] --> b[("a label in a cylinder")]',
-        FENCE,
-    )
-
-
 def _plant_scheme_token() -> None:
     """One violation per arm the scheme check carries, planted together.
 
@@ -1897,14 +1768,9 @@ def _plant_copy_informal() -> None:
 
 
 def _plant_copy_term() -> None:
-    """Both retired words: a club in both forms the sweep reads, and an adverb opening a sentence.
-
-    `bereits` is no noun, so the capital a sentence's start gives it is a spelling the pattern
-    reads only by folding case there.
-    """
+    """The retired word, in both forms the sweep reads."""
     _append(COPY_SAMPLE, 'export const WER = "Die Mannschaft steht in dieser Gruppe.";')
     _append(COPY_SAMPLE, 'export const ALLE = "Alle Mannschaften stehen in der Tabelle.";')
-    _append(COPY_SAMPLE, 'export const OFFEN = "Bereits eingetragene Spiele behalten diesen Ort.";')
 
 
 def _plant_copy_corpus() -> None:
@@ -2009,18 +1875,16 @@ CASES: Final[tuple[Case, ...]] = (
     Case("copy-dash", _fails("copy-dash", *[COPY_SAMPLE] * 3), _plant_copy_dash),
     Case("copy-formal", _fails("copy-formal", COPY_SAMPLE), _plant_copy_formal),
     Case("copy-informal", _fails("copy-informal", COPY_SAMPLE), _plant_copy_informal),
-    Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
+    Case("copy-term", _fails("copy-term", COPY_SAMPLE, COPY_SAMPLE), _plant_copy_term),
     Case("crlf-write", _fails("crlf-write", SAMPLE), _plant_text_write),
-    Case("diagram", _fails("diagram", OVERVIEW, OVERVIEW), _plant_diagrams),
     # The corpus is walked in path order, so the twin under `docs/frontend/` is the home the two
     # copies below it are told to cite.
     Case("echo", _fails("echo", NOTES), _plant_echo),
     # Six on the registry: the five planted rows, and `glossary-entry`, whose one claiming field
     # the page-side plant names an absent check in.
     Case("enforced-by", _fails("enforced-by", STANDARD, STANDARD, *[KERNEL] * 6), _plant_enforced_by, _undo_enforced_by),
-    Case("error-codes", _fails("error-codes", *[ERROR_CODES] * 10), _plant_error_codes),
+    Case("error-codes", _fails("error-codes", *[ERROR_CODES] * 6), _plant_error_codes),
     Case("glossary-entry", _fails("glossary-entry", GLOSSARY, GLOSSARY), _plant_glossary),
-    Case("header-see", _fails("header-see", *[SAMPLE] * 4), _plant_header_see),
     Case("history", _fails("history", NOTES, NOTICE_FILE, SECOND_SAMPLE), _plant_history),
     Case("inputs", _fails("inputs", NOTICE_FILE, ROADMAP), _plant_missing_inputs),
     Case(
@@ -2043,7 +1907,7 @@ CASES: Final[tuple[Case, ...]] = (
     # Prose lines, not table rows: OUT-3 counts the words a table does not hold, so a plant made of
     # rows would leave the bound unreached however long the page grew.
     Case("readme-cap", _fails("readme-cap", ROOT_README), lambda: _append(ROOT_README, *["A line of README prose." for _ in range(160)])),
-    Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 16), _plant_roadmap),
+    Case("roadmap-shape", _fails("roadmap-shape", *[ROADMAP] * 9), _plant_roadmap),
     # The standard names its own duplicated id, which is what reports the collision: every citer of
     # a multiply homed id fails, and the definition lines are themselves citations.
     Case("rule-id", _fails("rule-id", NOTES, SAMPLE, STANDARD), _plant_rule_ids),
@@ -2102,45 +1966,27 @@ def test_every_registered_check_and_verdict_has_a_plant() -> None:
     assert planted == registered, "unplanted: " + repr(sorted(registered - planted))
 
 
-def test_an_entry_naming_a_compose_file_earns_the_ops_and_edge_tags() -> None:
-    """Driven through the whole gate rather than through the derivation alone.
+def test_a_rule_register_read_as_nothing_is_named_once_and_compared_to_nothing() -> None:
+    """The register's opening renamed, so the declaration reads as empty and the sample rule is still spelled.
 
-    The derivation reads what the resolver placed, so a case handing it paths of its own would pass
-    with the resolver unchanged.
+    One finding: a comparison run after it would add a second, demanding a row for that spelled rule.
     """
     _reset()
-    _plant_compose_entry()
+    _replace(DOMAIN_REGISTER, "RULES: tuple[Rule, ...] = (\n", "RULES: tuple[Rule, ...] = ()\n_DROPPED = (\n")
     try:
-        code, output = _main()
+        _, output = _output()
     finally:
         _reset()
-    assert code == 1, output
-    assert "entry " + DOCS_ENTRY + " names Ops, edge work" in output, output
-    _assert_corpus_restored()
-
-
-def test_an_entry_naming_a_hook_earns_the_ops_and_gate_tags_beside_its_docs_one() -> None:
-    """A hook sits under the prefix `Docs` claims, so derived as documentation alone it is invisible to a `gate` filter.
-
-    Driven through the whole gate for the compose case's reason.
-    """
-    _reset()
-    _plant_hook_entry()
-    try:
-        code, output = _main()
-    finally:
-        _reset()
-    assert code == 1, output
-    assert "entry " + DOCS_ENTRY + " names Ops, gate work" in output, output
+    reported = _reported(output)
+    spoke = {key: count for key, count in reported.items() if key[1] == "error-codes"}
+    assert spoke == {("fail", "error-codes", ERROR_CODES): 1}, "an unreadable rule register was not named alone: " + _shape(reported)
+    said = "`fl_backend/app/core/domain.py :: RULES` declares no rule, so the register was held to nothing"
+    assert said in output, "the finding misstates what it cost: " + output
     _assert_corpus_restored()
 
 
 def test_the_resolver_places_a_tracked_file_at_the_repository_root() -> None:
-    """Asked of the resolver as well as of the case above.
-
-    That case stays green with this arm narrowed to the two compose filenames the derivation reads,
-    leaving every other root-level path resolving to nothing.
-    """
+    """Two root-level files, so an arm narrowed to one filename leaves the other resolving to nothing."""
     _reset()
     kernel = _module("docs_gate.kernel")
     _clear_caches(_gate().root / SCRIPTS_COPY)
@@ -2333,6 +2179,52 @@ def test_a_fence_inside_a_fenced_block_closes_only_its_own_opener() -> None:
     finally:
         _reset()
     assert found == ["path named but not present: " + PAST_FENCE_PATH], repr(found)
+    _assert_corpus_restored()
+
+
+def test_an_indented_code_block_is_code_rather_than_prose() -> None:
+    """A page renders a block indented four spaces as code, so the phrase inside it is shown rather than said.
+
+    The same words as a paragraph are the second run, so a reader blanking the whole page fails it.
+    """
+    _reset()
+    try:
+        _append(NOTES, "", "    The owner reads it, in a sample the page shows.")
+        _, indented = _run()
+        _reset()
+        _append(NOTES, "", "The owner reads it.")
+        _, said = _run()
+    finally:
+        _reset()
+    assert indented[("fail", "owner-voice", NOTES)] == 0, "the indented block was read as prose: " + _shape(indented)
+    assert said[("fail", "owner-voice", NOTES)] == 1, "the page was read by nothing: " + _shape(said)
+    _assert_corpus_restored()
+
+
+# Four spaces after a blank line, where a page would open an indented code block.
+NOTICE_INDENT: Final = "    "
+# Over the duplicate check's floor, and naming nothing another check reads.
+ECHOED_PARAGRAPH: Final = (
+    "A sentence written twice on purpose, long enough for the duplicate check to count it, once in the notice and once on the notes page."
+)
+
+
+def test_a_prose_file_that_is_no_page_is_read_whole_by_every_reader() -> None:
+    """Parsed as Markdown, the indented lines would be a code block and blanked, the dead path and the paragraph with them.
+
+    Two readers take the file: the per-file checks read the path, the duplicate check the paragraph.
+    """
+    _reset()
+    _append(NOTICE_FILE, "", NOTICE_INDENT + "docs/gone-indented-in-the-notice.md", "", NOTICE_INDENT + ECHOED_PARAGRAPH)
+    _append(NOTES, "", ECHOED_PARAGRAPH)
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "bare-path", NOTICE_FILE)] == 1, "the indented path was read as code: " + _shape(reported)
+    # Either page is the home, by the platform's path order; one of the two is the finding.
+    echoes = reported[("fail", "echo", NOTICE_FILE)] + reported[("fail", "echo", NOTES)]
+    assert echoes == 1, "the indented paragraph was read as code: " + _shape(reported)
     _assert_corpus_restored()
 
 

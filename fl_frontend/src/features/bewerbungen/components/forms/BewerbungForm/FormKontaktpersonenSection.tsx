@@ -3,15 +3,25 @@
 import { useId } from "react";
 import Link from "next/link";
 
-import { FieldError, Input, Label, Switch, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { TrainerZugleichPicker } from "@/features/teams/components/forms/TrainerZugleichPicker";
 import { KONTAKT_NAME_MAX_LENGTH } from "@/features/teams/constants";
-import { FIELD_ERROR, FIELD_ERROR_SWITCH, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_ERROR_CLASSES,
+  FIELD_ERROR_SWITCH_CLASSES,
+  FIELD_INPUT_CLASSES,
+  FIELD_LABEL_CLASSES,
+  FIELD_PAIR_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { Switch } from "@/shared/components/ui/Switch";
+import { TextField } from "@/shared/components/ui/TextField";
 import { textLink } from "@/shared/components/ui/textLink";
 
 import type { BewerbungKontaktpersonDraft } from "@/features/bewerbungen/types";
@@ -20,12 +30,7 @@ import type { ReactNode } from "react";
 
 export type SeatRolle = "ansprechperson" | "stellvertretung" | "trainer";
 
-/**
- * What each seat is for, behind the heading's own glyph.
- *
- * **Spelled out per seat rather than looked up from `BEWERBUNG_SEATS`**: `hintCap.test.ts` counts a
- * body written as a literal, and an interpolated one is a hint nothing measures.
- */
+/** What each seat is for, behind the heading's own glyph. */
 const SEAT_HINT: Record<SeatRolle, ReactNode> = {
   trainer: (
     <Hint
@@ -91,13 +96,12 @@ export function FormKontaktpersonenSection({
   const panel = formPanel();
 
   const altersHinweisId = useId();
-  const emailHinweisId = useId();
 
   const path = (feld: string) => `kontakte.${seat}.${feld}`;
 
   /**
    * The wire spells an unanswered claim as `null`, so hiding the boxes until an answer would refuse
-   * six fields on controls nobody can see — which reaches the applicant as the unhandled-path toast.
+   * each box below on a control nobody can see — which reaches the applicant as the unhandled-path toast.
    */
   const zeigtFelder = trainerWahl === undefined || trainerWahl === null;
 
@@ -119,6 +123,8 @@ export function FormKontaktpersonenSection({
           />
         )}
 
+        {/* Beside the fields rather than inside the Vorname box: it states the whole seat's floors
+            above every box, where a description inside one would read as that box's alone. */}
         {zeigtAltersHinweis && (
           <Hint
             mode="inline"
@@ -135,72 +141,62 @@ export function FormKontaktpersonenSection({
 
         {zeigtFelder && (
           <>
-            <div className={FIELD_PAIR}>
+            <div className={FIELD_PAIR_CLASSES}>
               <TextField
-                isRequired
                 aria-describedby={zeigtAltersHinweis ? altersHinweisId : undefined}
                 name={path("vorname")}
                 value={person.vorname}
                 onChange={(next) => onChange({ ...person, vorname: next })}
                 onBlur={() => onFieldLeft([path("vorname")])}
                 maxLength={KONTAKT_NAME_MAX_LENGTH}>
-                <Label className={FIELD_LABEL}>Vorname</Label>
-                <Input className={FIELD_INPUT} />
-                <FieldError className={FIELD_ERROR} />
+                <Label className={FIELD_LABEL_CLASSES}>Vorname</Label>
+                <Input className={FIELD_INPUT_CLASSES} />
+                <FieldError className={FIELD_ERROR_CLASSES} />
               </TextField>
 
               <TextField
-                isRequired
                 name={path("nachname")}
                 value={person.nachname}
                 onChange={(next) => onChange({ ...person, nachname: next })}
                 onBlur={() => onFieldLeft([path("nachname")])}
                 maxLength={KONTAKT_NAME_MAX_LENGTH}>
-                <Label className={FIELD_LABEL}>Nachname</Label>
-                <Input className={FIELD_INPUT} />
-                <FieldError className={FIELD_ERROR} />
+                <Label className={FIELD_LABEL_CLASSES}>Nachname</Label>
+                <Input className={FIELD_INPUT_CLASSES} />
+                <FieldError className={FIELD_ERROR_CLASSES} />
               </TextField>
             </div>
 
-            <div className={FIELD_PAIR}>
-              {/* The hint rides in the same grid cell as the box it explains, so it stays under that
-                  box rather than under whichever field the two-column layout puts beside it. */}
-              <div className="flex w-full flex-col gap-y-1">
-                <TextField
-                  isRequired
-                  type="email"
-                  aria-describedby={emailHinweisId}
-                  name={path("email")}
-                  value={person.email}
-                  onChange={(next) => onChange({ ...person, email: next })}
-                  onBlur={() => onFieldLeft([path("email")])}>
-                  <Label className={FIELD_LABEL}>E-Mail</Label>
-                  <Input
-                    placeholder="z.B. name@beispiel.de"
-                    className={FIELD_INPUT}
-                  />
-                  <FieldError className={FIELD_ERROR} />
-                </TextField>
+            <div className={FIELD_PAIR_CLASSES}>
+              <TextField
+                type="email"
+                name={path("email")}
+                value={person.email}
+                onChange={(next) => onChange({ ...person, email: next })}
+                onBlur={() => onFieldLeft([path("email")])}>
+                <Label className={FIELD_LABEL_CLASSES}>E-Mail</Label>
+                <Input
+                  placeholder="z.B. name@beispiel.de"
+                  className={FIELD_INPUT_CLASSES}
+                />
+                <FieldError className={FIELD_ERROR_CLASSES} />
                 <Hint
-                  mode="inline"
-                  describes={emailHinweisId}
+                  mode="field"
                   text="An diese Adresse schicken wir den Link zur Bestätigung. Dort trägt die Person auch ihr Geburtsdatum ein."
                 />
-              </div>
+              </TextField>
 
               <TextField
-                isRequired
                 type="tel"
                 name={path("telefon")}
                 value={person.telefon}
                 onChange={(next) => onChange({ ...person, telefon: next })}
                 onBlur={() => onFieldLeft([path("telefon")])}>
-                <Label className={FIELD_LABEL}>Telefon</Label>
+                <Label className={FIELD_LABEL_CLASSES}>Telefon</Label>
                 <Input
                   placeholder="z.B. 069 1234567"
-                  className={FIELD_INPUT}
+                  className={FIELD_INPUT_CLASSES}
                 />
-                <FieldError className={FIELD_ERROR} />
+                <FieldError className={FIELD_ERROR_CLASSES} />
               </TextField>
             </div>
           </>
@@ -275,7 +271,6 @@ export function FormEinwilligungSection({
           // The Ansprechperson's path stands for all three: one press writes every seat's `erteilt`,
           // so the schema can never refuse one of them alone.
           name="kontakte.ansprechperson.einwilligung.erteilt"
-          isRequired
           isSelected={erteilt}
           onChange={onErteiltPicked}>
           <Switch.Content className={panel.switchContent()}>
@@ -284,7 +279,7 @@ export function FormEinwilligungSection({
               <Switch.Thumb />
             </Switch.Control>
           </Switch.Content>
-          <FieldError className={FIELD_ERROR_SWITCH} />
+          <FieldError className={FIELD_ERROR_SWITCH_CLASSES} />
         </Switch>
       </div>
     </section>

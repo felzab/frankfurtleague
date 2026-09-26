@@ -90,11 +90,11 @@ The docstring holds why the argument has no default, which sits at no other rung
     """
 ```
 
-And the test keeps its two assertions and loses its docstring:
+And the test's docstring says which case makes it load-bearing, which its name cannot:
 
 ```python
     def test_the_log_is_given_the_image_the_update_itself_replaced(self):
-        stub = _OneDocumentCollection(STORED, pre=REPLACED)
+        """Asked for `AFTER`, so the log's pre-image is shown to come from the update whatever the caller wanted."""
 ```
 
 **What went**
@@ -104,11 +104,11 @@ And the test keeps its two assertions and loses its docstring:
 - **The cell's mechanism** — asking the driver for `BEFORE`, re-reading afterwards, and the driver
   yielding one image. That is how the function does its work, so it belongs at the call site
   (OUT-4), where the comment carries it.
-- **The test's docstring, with nothing in its place.** Its first sentence restates the test's name
-  and its second is the failure mode's fourth copy; nobody standing at that rung needs either
-  (COR-2), and a docstring that would only paraphrase the name is deleted rather than shortened
-  (INC-8). The rung is not emptied of the fact — the two assertions under it are the form the fact
-  takes there.
+- **The test's docstring as it stood.** Its first sentence restates the test's name and its second
+  is the failure mode's fourth copy; nobody standing at that rung needs either (COR-2), and a
+  docstring that would only paraphrase the name is deleted rather than shortened (INC-8). What
+  replaces it names the case — the caller asked for `AFTER` — which is what INC-8 lets a test
+  docstring carry, and the two assertions under it are the form the failure mode takes there.
 
 **What stayed**
 
@@ -286,31 +286,32 @@ what a caller may rely on — true across both surfaces and stated inside neithe
 sheet's rung and not a comment's (COR-14). The ceiling's own sentence is the line constraint, aimed
 at whoever is about to change the number.
 
-**After**, the contract is an invariant row in [`backend/spec.md`](../backend/spec.md#2-invariants),
-taking one past the highest number any sheet defines, which OUT-4 then makes permanent:
+**After**, the contract is invariant row I180 in
+[`backend/spec.md`](../backend/spec.md#2-invariants), its number taken one past the highest any
+sheet defined and made permanent by OUT-4:
 
 ```markdown
-| I<n> | One age span bounds a public application's contact person at both tiers, in whole years against the German day the submission arrives on | `fl_backend/app/api/bewerbungen/schemas.py :: refuse_age_outside_the_bounds`, swept by `fl_backend/tests/api/test_bewerbung_einwilligung_refusal.py :: TestTheAgeAtConfirmation` and compared to the frontend copy by `fl_backend/tests/shared/test_frontend_mirrors.py :: test_every_declared_pair_agrees_on_the_number` |
+| I180 | An application's contact person confirms inside the age span EVERY seat they hold allows, in whole years against the German day they answer on | `fl_backend/app/api/bewerbungen/services.py :: mindestalter_for` over `fl_backend/app/api/bewerbungen/schemas.py :: refuse_age_outside_the_bounds`, swept by `fl_backend/tests/api/test_bewerbung_einwilligung_refusal.py :: TestWhichFloorAPersonClears` and `:: TestTheAgeAtConfirmation`, its numbers compared to the frontend's by `fl_backend/tests/shared/test_frontend_mirrors.py :: test_every_declared_pair_agrees_on_the_number` |
 ```
 
 and the comment is the line constraint plus the line citing the row:
 
 ```python
-# The ceiling refuses a mistyped century rather than a real age (`docs/backend/spec.md :: I<n>`).
+# The ceiling refuses a mistyped century rather than a real age (`docs/backend/spec.md :: I180`).
 BEWERBUNG_KONTAKT_MIN_AGE_YEARS: Final = 16
 BEWERBUNG_KONTAKT_MAX_AGE_YEARS: Final = 120
 ```
 
 **Nothing is deleted and nothing is compressed.** Every clause of the block is still written
-somewhere, in the same words, at the rung its reader stands on: someone about to edit the number
-reads the comment, and someone asking what the API accepts reads the row. Trimming the block to just
-under the bound instead leaves the contract at a rung nobody consults for one, which is the defect
-the bound reveals rather than the repair (COR-5).
+somewhere, at the rung its reader stands on: someone about to edit the number reads the comment,
+and someone asking what the API accepts reads the row. Trimming the block to just under the bound
+instead leaves the contract at a rung nobody consults for one, which is the defect the bound reveals
+rather than the repair (COR-5).
 
 **The row's third column is where a move earns its keep.** It has to say what enforces the claim, and
-here that is two tests: one sweeps the refusal, the other holds the frontend copy to the same two
-numbers. A fact spread across two comments leaves a reader to find both; a row states what they
-prove in one place.
+here that is three tests: two sweep the refusal, and the third holds the frontend copies to the same
+numbers. A fact spread across comments leaves a reader to find each; a row states what they prove
+in one place.
 
 ## A block over the bound can be finished already
 
@@ -339,55 +340,19 @@ answers here:
 A block that answers all three and is still over the bound cannot be made smaller without losing one
 of its two halves, so it stays over it (INC-9).
 
-**This lesson reaches an existing block, and which blocks count as existing is a matching rule
-rather than a judgment.** Gate check `comment-length` holds a block the fork already carried over the
-bound to the word count it ran to there rather than to the bound.
-`scripts/checks/docs_gate/branch.py :: _fork_ancestor` matches a block to its earlier self by the
-content lines the two share — **half of this block's own distinct lines is a match**, the largest overlap
-wins, and a tie goes to the largest fork word count. The candidates are the blocks the fork held **over** the bound,
-anywhere in its tree, so a block carried into a file the fork has no version of keeps its standing.
-The consequences, each of which otherwise costs a rebase to discover:
+**This lesson reaches an existing block, and the gate agrees only for a block the fork already
+carried over the bound.** Gate check `comment-length` holds such a block to the count it ran to at
+the fork rather than to the bound, matched to its earlier self by the lines the two share
+(`scripts/checks/docs_gate/branch.py :: _fork_ancestor`), so improving this block's opening
+sentence costs nothing and a clause added to it fails the branch. A pass is the check's answer
+about matching and never a verdict on the prose, and a rename git does not recognise — more than
+half a file rewritten while it moves — is charged as a fresh file; how the matching charges a
+split or a copy is stated at `:: _fork_ceiling`.
 
-- **Improving this block's opening sentence costs it nothing.** An overlap of lines is not a key on
-  the first one, so the edit an over-bound block most invites is free
-  (`scripts/tests/test_branch_checks.py :: test_rewriting_an_older_block_s_opening_sentence_keeps_its_standing`).
-- **This block may not grow.** Its ceiling is the count it ran to at the fork rather than the bound,
-  so a clause added to it fails the branch at a number the bound alone never reaches, and the finding
-  names both.
-- **A block is new where fewer than half its own distinct content lines sit in any one block the
-  fork held over the bound, at whatever path the fork filed it under.** Padding a fresh block with a
-  line lifted from a legacy one therefore buys nothing, while a block that keeps half of itself inherits
-  that ceiling however differently the rest of it reads. Read a pass as the check's answer about
-  matching rather than as a verdict on the prose: COR-5's test and INC-9's three questions decide
-  the block, and the ceiling only says what the gate will let through.
-- **The blocks in one file matching this one are charged together, against one standing for each
-  copy that arrives there and never more than the fork filed in the file this one forked from — a
-  rename git detects included.** Split this block in two and the halves are charged against the
-  single count it ran to at the fork; copy it inside that file and leave the original standing, and
-  the pair is charged the same way; a file the fork itself filed the block in twice pays for two
-  where two arrive
-  (`scripts/tests/test_branch_checks.py :: test_a_renamed_file_holding_two_identical_blocks_keeps_a_standing_for_each`),
-  and for one where the branch deletes a copy and grows the one it keeps
-  (`scripts/tests/test_branch_checks.py :: test_a_deleted_copy_leaves_its_standing_behind_rather_than_lending_it_to_the_one_that_grew`).
-  The block reported is the one the branch's own diff touched, which is the half a rebase can fix
-  (CUR-6).
-- **A copy in another file inherits one standing and spends none of it, whatever the fork filed
-  beside it.** Charging the pair across files would fail a branch for a file it never opened, so a
-  block carried into a second file passes at the length its earlier self ran to and the pair is
-  `/docs:audit`'s
-  (`scripts/tests/test_branch_checks.py :: test_a_block_copied_into_a_second_file_spends_no_part_of_the_first_s_ceiling`),
-  while two copies pasted into one are charged against that single standing
-  (`scripts/tests/test_branch_checks.py :: test_a_fresh_file_holding_the_fork_s_pair_inherits_one_standing_between_the_two`).
-- **A rename git does not recognise is charged as a fresh file.** The line walk keeps rename
-  detection off, so the pairing comes from the diff's own rename headers; rewrite more than half of a
-  file's lines while moving it and git records a deletion and an addition, so a duplicated over-bound
-  block in it inherits one standing between its copies and the branch fails, loudly, where a silent
-  pass would have let the second copy through
-  (`scripts/tests/test_branch_checks.py :: test_a_rename_git_reads_as_a_fresh_file_charges_its_pair_against_one_standing`).
-- **A truly new block comes under the bound or the gate stays red**, INC-9's stay-over-it clause
-  being no answer to a gate that has already refused. Where the fact will not compress, it is at the
-  wrong rung: take INC-9's first question again and move the contract half out, as the example above
-  does.
+**A truly new block comes under the bound or the gate stays red**, INC-9's stay-over-it clause
+being no answer to a gate that has already refused. Where the fact will not compress, it is at the
+wrong rung: take INC-9's first question again and move the contract half out, as the example
+above does.
 
 **The split INC-9 asks for needs no ceiling to reach**: it puts each half at the line it constrains,
 where each is a single constraint under the bound on its own.

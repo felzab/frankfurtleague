@@ -38,7 +38,7 @@ DRIVER: Final[tuple[str, ...]] = (
     # reason is not read as stopped.
     "STOPPED_BY = -signal.SIGTERM if gate_pool.POSIX else 1",
     "def pool():",
-    "    return gate_pool.Pool(directory=Path(DIRECTORY), merge=False, slots=threading.Semaphore(1))",
+    "    return gate_pool.Pool(directory=Path(DIRECTORY), merge=False)",
 )
 
 TERMINATE: Final[tuple[str, ...]] = (
@@ -173,10 +173,14 @@ WINDOWS_TERMINATED: Final[tuple[str, ...]] = (
     "child.wait(timeout=30)",
 )
 
+# Two bounds, the inner the smaller: the double's own wait for `held` must report before the case's
+# timeout does, whose message names a different failure (the pair is held in order by the case).
+HELD_START_S: Final = 30
+STOPPED_BOUND_S: Final = 90
+
 STOPPED: Final[tuple[str, ...]] = (
     "import time",
     "running = pool()",
-    "running.slots = threading.Semaphore(2)",
     "raiser = gate_pool.Unit(name='raiser', environment={}, command=('never run',))",
     "held = gate_pool.Unit(name='held', environment={}, command=(sys.executable, '-c', 'import time; time.sleep(300)'))",
     "running.results['raiser'] = gate_pool.Result()",
@@ -186,30 +190,17 @@ STOPPED: Final[tuple[str, ...]] = (
     "    if unit.name != 'raiser':",
     "        real_run_unit(running_pool, unit)",
     "        return",
+    f"    deadline = time.monotonic() + {HELD_START_S}",
     "    while 'held' not in running_pool.live:",
+    "        if time.monotonic() > deadline:",
+    # Stopped first, so a unit starting late cannot hold the executor's join past the case's bound.
+    "            gate_pool.terminate(running_pool)",
+    "            raise SystemExit('held never started')",
     "        time.sleep(0.05)",
     "    raise KeyboardInterrupt",
     "gate_pool.run_unit = interrupting",
     "assert gate_pool.drive(running, [raiser, held]) == gate_pool.EXIT_INTERRUPTED",
     "assert running.results['held'].status not in ('0', gate_pool.NOT_STARTED), running.results['held'].status",
-)
-
-SCHEDULE: Final[tuple[str, ...]] = (
-    "seen = []",
-    "gate_pool.drive = lambda running, submission: seen.append((running, [unit.name for unit in submission])) or 0",
-    "units_file = Path(DIRECTORY) / 'schedule.tsv'",
-    "rows = ''.join(name + chr(9) + sys.executable + chr(10) for name in ('ops', 'db', 'frontend'))",
-    "units_file.write_bytes(rows.encode('utf-8'))",
-    "def once(*extra):",
-    "    sys.argv = ['gate_pool.py', '--dir', DIRECTORY, '--units', str(units_file), *extra]",
-    "    assert gate_pool.main() == 0",
-    "    return seen.pop()",
-    "running, order = once('--width', '2')",
-    "expected = sorted(('ops', 'db', 'frontend'), key=lambda name: -gate_pool.TYPICAL_MS[name])",
-    "assert order == expected, (order, expected)",
-    "assert [running.slots.acquire(blocking=False) for _ in range(3)] == [True, True, False]",
-    "running, order = once()",
-    "assert [running.slots.acquire(blocking=False) for _ in range(4)] == [True, True, True, False]",
 )
 
 
@@ -251,11 +242,16 @@ def test_every_unit_s_own_exit_status_reaches_the_manifest_under_its_own_name(tm
     assert [(row[0], row[1]) for row in _rows(tmp_path)] == [("pass", "0"), ("fail", "1"), ("refuse", "2")]
 
 
-def test_the_manifest_is_written_in_the_caller_s_order_and_not_the_schedule_s(tmp_path: Path) -> None:
-    """`longest_first` submits whichever of the two the table ranks longer first; the caller replays in written order."""
-    result = _pool(tmp_path, [("db", *_exits(0)), ("ops", *_exits(0))])
+def test_the_manifest_is_written_in_the_caller_s_order_and_not_the_order_units_finish_in(tmp_path: Path) -> None:
+    """The caller replays in written order, so the manifest keeps it whichever unit finished first."""
+    lingers = (sys.executable, "-c", "import time; time.sleep(1)")
+    result = _pool(tmp_path, [("db", *lingers), ("ops", *_exits(0))])
     assert result.returncode == 0, result.stderr
-    assert [row[0] for row in _rows(tmp_path)] == ["db", "ops"]
+    rows = _rows(tmp_path)
+    assert [(row[0], row[1]) for row in rows] == [("db", "0"), ("ops", "0")]
+    # The premise, read off the manifest's own end times: two units finishing in the written order
+    # would pass a manifest kept in finishing order too.
+    assert int(rows[1][3]) < int(rows[0][3]), f"ops did not finish before db, so the order was never tested: {rows}"
 
 
 def test_a_unit_that_never_started_leaves_a_word_no_exit_status_could_spell(tmp_path: Path) -> None:
@@ -269,7 +265,6 @@ def test_a_unit_that_never_started_leaves_a_word_no_exit_status_could_spell(tmp_
     assert _rows(tmp_path)[0][1] == not_started
 
 
-# A loop, not parametrize, for `scripts/tests/conftest.py`'s pytest invariant.
 MALFORMED: Final[tuple[tuple[list[tuple[str, ...]], str], ...]] = (
     ([("", *_exits(0))], "names no unit"),
     ([("solo",)], "carries no command"),
@@ -328,7 +323,7 @@ def test_the_run_ends_once_the_caller_that_asked_for_it_is_gone(tmp_path: Path) 
 
 
 def test_a_unit_still_queued_when_the_run_ends_never_starts(tmp_path: Path) -> None:
-    """Under a `--width` below the unit count a freed slot would otherwise start a build for nobody."""
+    """A unit whose thread reaches its turn after the stop would otherwise start a build for nobody."""
     result = _drive(QUEUED_UNIT, tmp_path)
     assert result.returncode == 0, result.stderr
 
@@ -377,14 +372,9 @@ def test_a_stop_on_windows_terminates_the_child_rather_than_signalling_a_group(t
 
 def test_an_interrupt_ends_the_units_before_the_run_waits_on_them(tmp_path: Path) -> None:
     """A unit runs in a session of its own, so Ctrl-C reaches this process alone -- and terminating after the join waits out the build."""
+    assert HELD_START_S < STOPPED_BOUND_S, "the double's wait would outlast the case's own bound, whose message names another failure"
     try:
-        result = _drive(STOPPED, tmp_path, timeout=90)
+        result = _drive(STOPPED, tmp_path, timeout=STOPPED_BOUND_S)
     except subprocess.TimeoutExpired:
         raise AssertionError("the run waited on the unit it had been told to stop") from None
-    assert result.returncode == 0, result.stderr
-
-
-def test_the_expected_longest_unit_is_submitted_first_and_width_bounds_the_slots(tmp_path: Path) -> None:
-    """Both are `main`'s wiring rather than a helper's: the schedule and the semaphore are built there and passed on."""
-    result = _drive(SCHEDULE, tmp_path)
     assert result.returncode == 0, result.stderr

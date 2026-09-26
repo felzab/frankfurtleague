@@ -26,8 +26,9 @@ from app.api.teams.services import (
     kontakte_stand_of,
 )
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import saison_team_document
 from tests.worker import worker_database
 
 # Marked per class rather than for the module: what the payload refuses and what the composition
@@ -164,18 +165,11 @@ ERASED_EMAIL = str(RESAVED_AS_RENDERED[ERASED_SEAT]["email"])
 
 
 def junction_document(saison_id: str, kontakte: dict[str, Any] | None) -> dict[str, Any]:
-    """One junction row, filled out as the validator requires and as a season in progress holds it."""
+    """One junction row as a season in progress holds it."""
 
-    return {
-        "saison_id": saison_id,
-        "team_id": TEAM_OID,
-        "gruppe": GRUPPE,
-        "austritt": dict(AUSTRITT),
-        "trikot_farbe": TRIKOT_FARBE,
-        "kontakte": kontakte,
-        "name": TEAM_NAME,
-        "shorthand": TEAM_SHORTHAND,
-    }
+    return saison_team_document(
+        saison_id, TEAM_OID, TEAM_NAME, TEAM_SHORTHAND, gruppe=GRUPPE, austritt=dict(AUSTRITT), trikot_farbe=TRIKOT_FARBE, kontakte=kontakte
+    )
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -504,7 +498,7 @@ class TestAnErasureLandingMidSaveIsNotUndone:
                 erased.append(await erase_the_seats_person(database))
 
             junction = JunctionRunningAHookBeforeTheWrite(database[Collection.SAISON_TEAMS], erase_between)
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await write_kontakte(database, RESAVED_AS_RENDERED, saison_teams_collection=junction)
 
             return erased[0], refused.value, await row_now(database)
@@ -536,7 +530,7 @@ class TestASaveComposedAgainstAnotherBlockIsRefused:
         """A refusal has to stop the write rather than accompany it: the pre-image is the only copy of the block."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await write_kontakte(database, NEW_KONTAKTE, stand=kontakte_stand_of(PARTLY_CONFIRMED))
 
             return refused.value, await row_now(database), await junction_log(database)

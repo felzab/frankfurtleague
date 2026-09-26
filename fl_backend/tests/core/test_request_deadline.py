@@ -8,8 +8,7 @@ from typing import Any
 import pytest
 from bson import ObjectId
 from fastapi import Depends, Request
-from httpx2 import ASGITransport, AsyncClient, Response
-from pymongo import AsyncMongoClient
+from httpx2 import ASGITransport, AsyncClient, Response  # noqa: TID251
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import (
@@ -27,23 +26,28 @@ from app.core import middlewares
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.db import get_einladungen_collection
-from app.core.exception_handlers import STORES_NOTHING_WHEN, UNKNOWN_OUTCOME, db_exception_handler, stores_nothing
+from app.core.exception_handlers import (
+    DATABASE_FAILED,
+    STORES_NOTHING_WHEN,
+    UNHANDLED_CRASH,
+    UNKNOWN_OUTCOME,
+    db_exception_handler,
+    stores_nothing,
+)
 from app.core.logging import fl_logger
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.security import ACTOR_HEADER
-from app.main import STORES_NOTHING_EXTENSION, api_routes, create_app
-from tests.config import ADMIN_AUTH, TEST_BASE_URL, build_test_config
-from tests.core.app_source import APP_ROOT, BACKEND_ROOT
+from app.main import STORES_NOTHING_EXTENSION, create_app
+from tests.app_client import app_client
+from tests.config import ADMIN_AUTH, TEST_BASE_URL, UNANSWERED_URI, build_test_config
+from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import rules_document, saison_document, saison_team_document
 from tests.openapi_document import build_document
 from tests.worker import worker_database
 
 FETCH_CEILING = re.compile(r"const BASE_FETCH_TIMEOUT_MS = (\d+);")
 FRONTEND_API = BACKEND_ROOT.parent / "fl_frontend" / "src" / "core" / "api.ts"
-
-# Not the configured URI: a developer plausibly runs a real `mongod` on 27017, and a database that
-# answers gives the case something other than the failure it asserts.
-UNANSWERED_URI = "mongodb://localhost:1"
 
 # Short, so the default tier pays half a second where the shipped deadline would cost ten; what is
 # asserted is that the route stops at whatever the deadline says.
@@ -53,7 +57,7 @@ SHORT_DEADLINE_S = 0.5
 # the stall's 60 s -- so an answer in time can only be the deadline's doing.
 ANSWERED_WITHIN_S = SHORT_DEADLINE_S + 10
 
-FAILED = "DB-FAIL-001"
+FAILED = DATABASE_FAILED
 
 ADMIN_HEADERS = {**ADMIN_AUTH, ACTOR_HEADER: "admin@frankfurtleague.de"}
 
@@ -90,19 +94,10 @@ def _erasure_answered() -> tuple[Response, float]:
     """`POST /kontakte/erasure`, whose first database call is inside its transaction, against a server nothing answers."""
 
     async def _answered() -> tuple[Response, float]:
-        served = create_app(build_test_config())
-        served.state.db_client = AsyncMongoClient(host=UNANSWERED_URI)
-
-        try:
-            transport = ASGITransport(app=served, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                started = time.monotonic()
-                response = await http.post(
-                    f"/api/v{API_VERSION}/kontakte/erasure", headers=ADMIN_HEADERS, json={"email": "anna.mueller@schule.de"}
-                )
-                return response, time.monotonic() - started
-        finally:
-            await served.state.db_client.close()
+        async with app_client(UNANSWERED_URI) as http:
+            started = time.monotonic()
+            response = await http.post(f"/api/v{API_VERSION}/kontakte/erasure", headers=ADMIN_HEADERS, json={"email": "anna.mueller@schule.de"})
+            return response, time.monotonic() - started
 
     return asyncio.run(_answered())
 
@@ -216,16 +211,14 @@ def _junction_row(team_id: ObjectId) -> dict[str, Any]:
         },
     }
 
-    return {
-        "_id": ObjectId(),
-        "saison_id": SAISON_ID,
-        "team_id": team_id,
-        "gruppe": "A",
-        "austritt": None,
-        "kontakte": {"trainer": trainer, "ansprechperson": None, "stellvertretung": None, "trainer_ist_zugleich": None},
-        "name": TEAM_NAMES[team_id],
-        "shorthand": TEAM_NAMES[team_id][:2].upper(),
-    }
+    return saison_team_document(
+        SAISON_ID,
+        team_id,
+        TEAM_NAMES[team_id],
+        TEAM_NAMES[team_id][:2].upper(),
+        _id=ObjectId(),
+        kontakte={"trainer": trainer, "ansprechperson": None, "stellvertretung": None, "trainer_ist_zugleich": None},
+    )
 
 
 class _StallsOneTeam:
@@ -288,24 +281,12 @@ def _pressed(url: str, stand_in: Callable[[AsyncCollection], Any], *, seed_links
     async def body() -> Pressed:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await database[Collection.SAISONS].insert_one(
-                {
-                    "_id": SAISON_ID,
-                    "start_date": "2026-01-01",
-                    "end_date": "2026-06-30",
-                    "status": "active",
-                    "rules": {
-                        "win_points": 3,
-                        "draw_points": 1,
-                        "qualifiers_per_group": 2,
-                        "number_of_groups": 2,
-                        "teams_per_group": 4,
-                        "tiebreak_order": "tordifferenz",
-                        "max_kadergroesse": 50,
-                        "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-                        "erlaubte_stufen": ["E1"],
-                    },
-                    "registrierung": {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"},
-                }
+                saison_document(
+                    SAISON_ID,
+                    "active",
+                    rules=rules_document(number_of_groups=2, max_kadergroesse=50, erlaubte_stufen=["E1"]),
+                    registrierung={"offen": True, "von": "2026-03-01", "bis": "2026-04-30"},
+                )
             )
             await database[Collection.SAISON_TEAMS].insert_many([_junction_row(team_id) for team_id in TEAM_NAMES])
             if seeded:
@@ -436,7 +417,7 @@ class TestADeadlineCuttingARequestThatStoresNothingIsAFailure:
 
         response = _raised_through_the_app(ValueError("not a database failure"))
 
-        assert (response.status_code, response.json()["error_code"]) == (500, "SRV-FAIL-001")
+        assert (response.status_code, response.json()["error_code"]) == (500, UNHANDLED_CRASH)
 
     @pytest.mark.parametrize("error", DEADLINE_ERRORS)
     def test_a_write_method_declaring_it_stores_nothing_is_a_failure_too(self, error: PyMongoError):

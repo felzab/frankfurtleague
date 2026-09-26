@@ -6,7 +6,7 @@ import { describe, it } from "node:test";
 import ts from "typescript";
 
 import { DECLARED_BY_DEFAULT, KEY_TIER_EXTENSION, KEY_TIERS, keyTierOf } from "@/core/keyTiers.ts";
-import { DOCUMENT_PATH, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
+import { readPublishedDocument, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 import type { KeyTier } from "@/core/keyTiers.ts";
@@ -28,15 +28,7 @@ type JsonObject = Record<string, unknown>;
 
 const asPosix = (file: string): string => path.relative(SRC_DIR, file).split(path.sep).join("/");
 
-function readDocument(): JsonObject {
-  try {
-    return JSON.parse(readFileSync(DOCUMENT_PATH, "utf8")) as JsonObject;
-  } catch (cause) {
-    throw new Error(`Could not read ${DOCUMENT_PATH}. Generate it with the command ${REGENERATE_CITATION} declares.`, { cause });
-  }
-}
-
-const document = readDocument();
+const document = readPublishedDocument() as JsonObject;
 const publishedPaths = (document.paths ?? {}) as Record<string, JsonObject>;
 
 /**
@@ -617,8 +609,8 @@ describe("every call to an operation storing nothing declares itself a read, and
         call.readOnly,
         storesNothing,
         storesNothing
-          ? `${call.where} is a read ${operation.published} declares as storing nothing, and fails as a write of unknown outcome unless it says \`readOnly: true\``
-          : `${call.where} says \`readOnly: true\` to ${operation.published}, which may write: a failure on it would invite the retry that repeats the write`,
+          ? `${call.where} is a read ${operation.published} declares as storing nothing, and refreshes the admin's page and fails as a write of unknown outcome unless it says \`readOnly: true\``
+          : `${call.where} says \`readOnly: true\` to ${operation.published}, which may write: its success would leave the admin's page standing, and a failure on it would invite the retry that repeats the write`,
       );
     });
   }

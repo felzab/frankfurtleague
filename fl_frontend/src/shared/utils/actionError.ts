@@ -1,4 +1,12 @@
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, mayHaveWritten, RolledBackError } from "@/core/errors";
+import {
+  APIBadStatusError,
+  APIMalformedDataError,
+  APINetworkError,
+  isRecordMissing,
+  isRefusalCode,
+  mayHaveWritten,
+  RolledBackError,
+} from "@/core/errors";
 
 import { buildRefusal, UNKNOWN_REFUSAL } from "./refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "./validation";
@@ -15,18 +23,45 @@ import type { FieldErrors } from "./validation";
 export const FELD_ABGELEHNT = "Diese Angabe wurde so nicht übernommen.";
 
 /**
+ * The unique index's refusal (`DB-COMMON-002`), which every undo route answers with too: the conflict
+ * is the same one whichever write met it.
+ */
+export const KONFLIKT_MIT_BESTEHENDEM = "Der Eintrag steht im Konflikt mit einem, den es schon gibt.";
+
+/**
+ * What became of a change an undo did not take back, closing every sentence that says so. Here rather
+ * than beside the undo route, which loads the sign-in store: the browser's dispatch says it too.
+ */
+export const AENDERUNG_STEHT_WEITERHIN = "Die Änderung steht weiterhin.";
+
+/**
  * An admin editor's answer to a `REQ-VAL-001` no rendered control takes, which only a page older than
  * the running API can send: a retry resends the refused body, and a reload fetches the page that fits.
  */
 const EINZELNE_ANGABEN_ABGELEHNT = buildRefusal({ reason: "Einzelne Angaben wurden nicht übernommen", repair: "Lade die Seite neu" });
 
 /**
- * The body fields a `REQ-VAL-001` names, keyed as the inputs are named, or `null` where it names none. A
- * form showing nothing under any of them is `useServerFieldErrors`'s to announce, never this map's.
+ * Whether the API refused the request, which every mapper asks before reading the code: a 4xx, at
+ * whatever status the code's rule answers with. Never a 5xx, after which a write may have landed.
  */
-function refusedFieldErrors(error: unknown): FieldErrors | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 422) return null;
+export function isRefusal(error: unknown): error is APIBadStatusError {
+  return error instanceof APIBadStatusError && error.statusCode >= 400 && error.statusCode < 500;
+}
 
+/**
+ * Whether one of the API's rules refused the request, by the code's class
+ * (`fl_frontend/src/core/errors.ts :: isRefusalCode`): a code no arm names reaches its kind's fallback
+ * at any status, and a protocol code, a routing one included, never does.
+ */
+export function isRuleRefusal(error: unknown): error is APIBadStatusError {
+  return isRefusal(error) && isRefusalCode(error.serverErrorCode);
+}
+
+/**
+ * The body fields a refusal names, a `REQ-VAL-001`'s or a rule's, keyed as the inputs are named, or `null`
+ * where it names none. A form showing nothing under any of them is `useServerFieldErrors`'s to announce.
+ */
+function refusedFieldErrors(error: APIBadStatusError): FieldErrors | null {
   const fieldErrors: FieldErrors = {};
   for (const field of error.refusedFields) {
     // A query or header value belongs to no control, and an empty path is the body as a whole.
@@ -62,8 +97,17 @@ function answerBeside(fieldErrors: FieldErrors | null, sentence: string): Refuse
   return fieldErrors === null ? { error: sentence } : { fieldErrors, unplacedError: sentence };
 }
 
+/** A refusal no mapper words, as the failure a form renders: its named boxes marked, `sentence` for the rest. */
+export function refusedFailure(error: APIBadStatusError, sentence: string): ActionFailure {
+  const fieldErrors = refusedFieldErrors(error);
+
+  return fieldErrors === null
+    ? { success: false, error: sentence }
+    : { success: false, error: VALIDATION_FAILED, fieldErrors, unplacedError: sentence };
+}
+
 /**
- * The Spiel refusals `fl_frontend/src/features/spiele/actions.ts :: mapSpielRefusal` does not map.
+ * The Spiel refusals `fl_frontend/src/features/spiele/refusals.ts :: mapSpielRefusal` does not map.
  * Three name an OCCUPANT, which the form places at fault; the two REQ-STATE codes name none, so
  * their code rides back unused and the message lands as a toast.
  */
@@ -88,6 +132,13 @@ const OUTCOME_UNKNOWN: ActionFailure = {
 };
 
 /**
+ * An undo nobody can tell landed, said by the route for a replay that threw and by the dispatch for
+ * one that never answered: „nicht zurückgenommen“ would send the admin to undo by hand what may
+ * already be undone.
+ */
+export const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
+
+/**
  * An editor's answer to its own action rejecting, a dropped connection among the causes: the press may
  * have reached the server, and uncaught inside a transition the rejection replaces the editor with the
  * error page.
@@ -97,60 +148,96 @@ export function unansweredAction(): ActionFailure {
 }
 
 /**
+ * A write action's rejection answered as `unansweredAction` answers it, with the page read again: a rejection brings
+ * no server refresh back while the write may stand. `repair` is a control's own sentence where it has one.
+ */
+export function rejectedWrite(router: { refresh: () => void }, repair?: string): () => ActionFailure {
+  return () => {
+    router.refresh();
+    const unanswered = unansweredAction();
+
+    return repair === undefined ? unanswered : { ...unanswered, error: repair };
+  };
+}
+
+/**
+ * An admin read's answer to its own action rejecting: it wrote nothing, so it is the failure it is
+ * (`docs/frontend/spec.md` §1.3), never `unansweredAction`'s unclear save. One sentence for every read.
+ */
+export function unansweredRead(): ActionFailure {
+  return { success: false, error: UNKNOWN_REFUSAL };
+}
+
+/** A refusal in the words its code is given here, or `null` for one no arm words and no rule made. */
+function refusedAnswer(error: APIBadStatusError): ActionFailure | null {
+  // A request the running API does not take, naming only a query parameter or the body whole, or
+  // unreadable (`REQ-VAL-002`): the page that fits it comes with a reload, where a retry resends it
+  // unchanged.
+  if (error.serverErrorCode === "REQ-VAL-001" || error.serverErrorCode === "REQ-VAL-002") {
+    return refusedFailure(error, EINZELNE_ANGABEN_ABGELEHNT);
+  }
+
+  if (error.serverErrorCode === "REQ-WIRING-001") {
+    // The form does not offer these shapes, so the request was built against a season that has since moved.
+    return { success: false, error: "Die Saison wurde inzwischen geändert. Lade die Seite neu." };
+  }
+  if (error.serverErrorCode === "REQ-WIRING-002") {
+    // NOT the reload above: the form offered this answer and a reload only closes it, so what the
+    // admin wanted needs a different source rather than a fresh page.
+    return {
+      success: false,
+      error: buildRefusal({
+        reason:
+          "Eine Seite dieses Spiels hat als Herkunft einen Platz in einer Gruppe, und das ist nur in der ersten KO-Runde der Saison möglich",
+        repair: "Wähle für diese Seite stattdessen ein früheres Spiel als Herkunft, oder setze das Team manuell",
+      }),
+    };
+  }
+  if (error.serverErrorCode === "REQ-WIRING-003") {
+    // The picker offers only the season's own groups, so this arriving means the season was
+    // redrawn narrower under the open form: the offer itself is stale, and a reload renews it.
+    return {
+      success: false,
+      error: buildRefusal({
+        reason: "Als Herkunft ist ein Platz in einer Gruppe gewählt, die es in dieser Saison nicht gibt",
+        repair: "Lade die Seite neu und wähle dann eine Gruppe dieser Saison",
+      }),
+    };
+  }
+  if (error.serverErrorCode !== undefined) {
+    // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
+    const occupantRefusal = Object.hasOwn(OCCUPANT_REFUSALS, error.serverErrorCode) ? OCCUPANT_REFUSALS[error.serverErrorCode] : undefined;
+    if (occupantRefusal !== undefined) {
+      // Unlike the stale-form refusal above, reloading fixes none of these. The code rides back out
+      // so the form can put the message on the side that caused it.
+      return { success: false, error: occupantRefusal, errorCode: error.serverErrorCode };
+    }
+  }
+  if (error.serverErrorCode === "DB-COMMON-002") {
+    // The ordinary outcome of a create hitting a unique index, possibly a retired row keeping its slot.
+    return { success: false, error: KONFLIKT_MIT_BESTEHENDEM };
+  }
+  if (isRuleRefusal(error)) {
+    // Any other code is a rule no mapper here words, and naming the unique index for it would send the
+    // admin looking for an entry that may not exist.
+    return refusedFailure(error, UNKNOWN_REFUSAL);
+  }
+
+  return null;
+}
+
+/**
  * Maps whatever a mutation threw onto the refusal the admin forms render. Each message names the way out rather
  * than the failure: the diagnosis is in the server log, and the toast's title says what became of the save.
  */
 export function toActionErrorResult(error: unknown, answering?: SentRequest): ActionFailure {
-  if (error instanceof APIBadStatusError) {
-    const fieldErrors = refusedFieldErrors(error);
-    if (fieldErrors !== null) return { success: false, error: VALIDATION_FAILED, fieldErrors, unplacedError: EINZELNE_ANGABEN_ABGELEHNT };
-    // Naming only a query parameter or the body whole, it is still a request the running API no
-    // longer takes, and the page that fits it comes with a reload.
-    if (error.statusCode === 422) return { success: false, error: EINZELNE_ANGABEN_ABGELEHNT };
+  if (isRefusal(error)) {
+    const refused = refusedAnswer(error);
+    if (refused !== null) return refused;
+    if (isRecordMissing(error)) return { success: false, error: "Der Eintrag wurde nicht gefunden. Lade die Seite neu." };
+  }
 
-    if (error.statusCode === 409 && error.serverErrorCode === "REQ-WIRING-001") {
-      // The form does not offer these shapes, so the request was built against a season that has since moved.
-      return { success: false, error: "Die Saison wurde inzwischen geändert. Lade die Seite neu." };
-    }
-    if (error.statusCode === 409 && error.serverErrorCode === "REQ-WIRING-002") {
-      // NOT the reload above: the form offered this answer and a reload only closes it, so what the
-      // admin wanted needs a different source rather than a fresh page.
-      return {
-        success: false,
-        error: buildRefusal({
-          reason:
-            "Eine Seite dieses Spiels hat als Herkunft einen Platz in einer Gruppe, und das ist nur in der ersten KO-Runde der Saison möglich",
-          repair: "Wähle für diese Seite stattdessen ein früheres Spiel als Herkunft, oder setze das Team manuell",
-        }),
-      };
-    }
-    if (error.statusCode === 409 && error.serverErrorCode === "REQ-WIRING-003") {
-      // The picker offers only the season's own groups, so this arriving means the season was
-      // redrawn narrower under the open form: the offer itself is stale, and a reload renews it.
-      return {
-        success: false,
-        error: buildRefusal({
-          reason: "Als Herkunft ist ein Platz in einer Gruppe gewählt, die es in dieser Saison nicht gibt",
-          repair: "Lade die Seite neu und wähle dann eine Gruppe dieser Saison",
-        }),
-      };
-    }
-    if (error.statusCode === 409 && error.serverErrorCode !== undefined) {
-      // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
-      const occupantRefusal = Object.hasOwn(OCCUPANT_REFUSALS, error.serverErrorCode) ? OCCUPANT_REFUSALS[error.serverErrorCode] : undefined;
-      if (occupantRefusal !== undefined) {
-        // Unlike the stale-form refusal above, reloading fixes none of these. The code rides back out
-        // so the form can put the message on the side that caused it.
-        return { success: false, error: occupantRefusal, errorCode: error.serverErrorCode };
-      }
-    }
-    if (error.statusCode === 409) {
-      // The ordinary outcome of a create hitting a unique index (DB-COMMON-002), possibly a retired row keeping its slot.
-      return { success: false, error: "Der Eintrag steht im Konflikt mit einem, den es schon gibt." };
-    }
-    if (error.statusCode === 404) {
-      return { success: false, error: "Der Eintrag wurde nicht gefunden. Lade die Seite neu." };
-    }
+  if (error instanceof APIBadStatusError) {
     if (error.statusCode === 500 && error.serverErrorCode === "DB-FAIL-002") {
       // A commit went unanswered, or the deadline cut a write, so the write may stand: "try again"
       // would repeat it, and the retry then meets its own "already exists".

@@ -1,18 +1,18 @@
 import { revalidateTag } from "next/cache";
 
-import { APIBadStatusError } from "@/core/errors";
 import { patchSchiedsrichter } from "@/features/schiedsrichter/mutations";
 import { describeLinkMail, mailSchiedsrichterLink } from "@/features/schiedsrichter/notifications";
 import { FLPatchSchiedsrichterPayloadSchema } from "@/features/schiedsrichter/schemas";
-import { handleUndoRequest } from "@/shared/utils/undoRoute";
+import { KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
+import { handleUndoRequest, refusedReplay } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
 
 /** Worded for the undo: the save's own sentences send an admin to a form this toast has not got. */
 const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-SCHIEDSRICHTER-007":
-    "Die Änderung steht weiterhin. Die frühere E-Mail-Adresse steht auf der Sperrliste, und zurückschreiben würde ihr " +
-    "einen neuen Bestätigungslink schicken.",
+    "Die frühere E-Mail-Adresse steht auf der Sperrliste, und zurückschreiben würde ihr einen neuen Bestätigungslink schicken.",
+  "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
 };
 
 export async function POST(request: NextRequest) {
@@ -24,16 +24,11 @@ export async function POST(request: NextRequest) {
       try {
         operation = await patchSchiedsrichter(payload);
       } catch (error) {
-        const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
-        // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
-        const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
-        if (refusal === undefined) throw error;
-
-        return { refusal };
+        return refusedReplay(error, REPLAY_REFUSALS);
       }
 
       if (!operation.acknowledged) {
-        return { refusal: "Die Änderung steht weiterhin. Die Rücknahme wurde abgebrochen; prüfe die Schiedsrichterdaten." };
+        return { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Schiedsrichterdaten." };
       }
 
       // The replay puts the earlier address back, which the endpoint reads as a correction and mints

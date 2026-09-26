@@ -3,22 +3,22 @@
 import { useMemo } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
-import { Tabs } from "@heroui/react";
+import { Tabs } from "@heroui/react/tabs";
 
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { SpielCardGrid } from "@/features/spiele/components/ui/SpielCardGrid";
 import { groupBracketFaultsBySpielId } from "@/features/spiele/utils";
-import { COUNT_BADGE, trackCountBadge } from "@/shared/components/ui/badges";
+import { COUNT_BADGE_CLASSES, trackCountBadge } from "@/shared/components/ui/badges";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
-import { TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
+import { TAB_INDICATOR_CLASSES, TAB_ITEM_CLASSES, TAB_TRACK_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
-import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
+import { CARDS_CASCADE_CLASSES, PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 
 import { ACTION_REQUIRED_LABELS, buildActionRequiredSections } from "../../utils";
 
 import type { FLBracketFault, FLSpiel } from "@/features/spiele/schemas";
 import type { FeedbackTone } from "@/shared/components/ui/badges";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { FLActionUrgency } from "../../utils";
 
 /**
@@ -44,7 +44,7 @@ const URGENCY_TONE: Record<FLActionUrgency, FeedbackTone> = {
  * fits it: it borrows that fill's foreground instead of adding a third colour, a pairing that
  * holds in both themes while `--fg-base` flips.
  */
-const SELECTED_BADGE = `${COUNT_BADGE} bg-brand-solid-foreground/20 text-brand-solid-foreground`;
+const SELECTED_BADGE_CLASSES = `${COUNT_BADGE_CLASSES} bg-brand-solid-foreground/20 text-brand-solid-foreground`;
 
 export function AdminSpieleActionRequiredView({
   overviewSpiele,
@@ -109,24 +109,24 @@ export function AdminSpieleActionRequiredView({
     <Tabs
       selectedKey={activeSection.category}
       onSelectionChange={(key: Key) => selectSection(String(key))}
-      className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center`}>
+      className={`${PAGE_RISE_CLASSES} relative flex w-full flex-1 flex-col items-center`}>
       {/* `Tabs.ListContainer` holds only the track: it injects a collection slot rather than
           wrapping, so a sibling passed to it is swallowed, and its chevrons are positioned against
           it — the track's edge only while it is the track. */}
-      <div className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8">
-        <div className="max-w-toolbar flex w-full flex-row items-center justify-center gap-x-2">
+      <div className="sticky top-0 z-20 flex w-full flex-col items-center bg-background px-4 py-4 sm:px-8 lg:py-8">
+        <div className="flex w-full max-w-toolbar flex-row items-center justify-center gap-x-2">
           {/* No `overflow-x-auto` on the list: the container's chevrons appear only while its
               `ScrollShadow` detects overflow, and a list that scrolls itself hides that. `w-max` is
               the half of HeroUI's floor that must stay — it is what the detection reads. */}
           <Tabs.ListContainer className="max-w-full min-w-0 bg-transparent [&>div]:max-w-full [&>div]:min-w-0 [&>div]:[--scroll-shadow-size:24px]!">
             <Tabs.List
               aria-label="Kategorie auswählen"
-              className={`${TAB_TRACK} flex w-max min-w-fit flex-row items-center gap-1 p-1.5 shadow-sm`}>
+              className={`${TAB_TRACK_CLASSES} flex w-max min-w-fit flex-row items-center gap-1 p-1.5 shadow-sm`}>
               {sections.map((section) => {
                 const label = ACTION_REQUIRED_LABELS[section.category];
                 const isActive = section.category === activeSection.category;
                 const isCleared = section.spiele.length === 0;
-                const countClass = isActive ? SELECTED_BADGE : trackCountBadge(isCleared ? "success" : URGENCY_TONE[label.urgency]);
+                const countClass = isActive ? SELECTED_BADGE_CLASSES : trackCountBadge(isCleared ? "success" : URGENCY_TONE[label.urgency]);
 
                 return (
                   <Tabs.Tab
@@ -134,10 +134,10 @@ export function AdminSpieleActionRequiredView({
                     id={section.category}
                     /* `w-fit` undoes HeroUI's `w-full` on `.tabs__tab`: left at `w-full` the tabs
                      share the rail equally and become slabs. */
-                    className={`${TAB_ITEM} flex h-11 w-fit items-center gap-x-2 px-5 whitespace-nowrap md:px-6`}>
+                    className={`${TAB_ITEM_CLASSES} flex h-11 w-fit items-center gap-x-2 px-5 whitespace-nowrap md:px-6`}>
                     {label.short}
                     <span className={countClass}>{section.spiele.length}</span>
-                    <Tabs.Indicator className={TAB_INDICATOR} />
+                    <Tabs.Indicator className={TAB_INDICATOR_CLASSES} />
                   </Tabs.Tab>
                 );
               })}
@@ -161,7 +161,7 @@ export function AdminSpieleActionRequiredView({
           key={section.category}
           id={section.category}
           className="flex w-full flex-col items-center px-4 pt-0 pb-4 outline-none sm:px-8">
-          <div className="max-w-page flex w-full flex-col items-center gap-y-6">
+          <div className="flex w-full max-w-page flex-col items-center gap-y-6">
             {section.spiele.length === 0 ? (
               <EmptyState
                 tone="positive"
@@ -172,7 +172,7 @@ export function AdminSpieleActionRequiredView({
               // diagnosis, and the only category whose tab cannot state the reason itself.
               <SpielCardGrid
                 role="list"
-                className={CARDS_CASCADE}>
+                className={CARDS_CASCADE_CLASSES}>
                 <SpielCardsList
                   spiele={[...section.spiele]}
                   today={today}

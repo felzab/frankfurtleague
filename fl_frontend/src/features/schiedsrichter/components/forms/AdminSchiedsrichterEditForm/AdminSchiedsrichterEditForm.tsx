@@ -3,25 +3,24 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Form } from "@heroui/react";
-
 import { patchSchiedsrichterAction } from "@/features/schiedsrichter/actions";
-import { bestehtSchreibregel, FLPatchSchiedsrichterPayloadSchema } from "@/features/schiedsrichter/schemas";
+import { FLPatchSchiedsrichterPayloadSchema, hatAdresse } from "@/features/schiedsrichter/schemas";
 import { deriveSchiedsrichterDraftStatus } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 import { ConfirmDiscardModal } from "@/shared/components/ui/ConfirmDiscardModal";
 import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
 import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
 import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
+import { Form } from "@/shared/components/ui/Form";
 import { FormActionBar } from "@/shared/components/ui/FormActionBar";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
-import { guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { fieldStatus } from "@/shared/utils/draftStatus";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
@@ -37,7 +36,7 @@ import type {
   FLSchiedsrichterBestaetigung,
   FLSchiedsrichterPayloadDraft,
 } from "@/features/schiedsrichter/schemas";
-import type { FLSchiedsrichterDraftFields } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
+import type { FLSchiedsrichterDraftFields, SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 import type { FLEinwilligung } from "@/features/spieler/schemas";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
@@ -90,7 +89,7 @@ export function AdminSchiedsrichterEditForm({
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSaving] = useTransition();
 
   // The BOX is a string where the record may hold no name: an empty one is what the admin then types
   // into, and `PersonNameSchema` refuses it at the submit rather than storing the sentinel back.
@@ -101,14 +100,15 @@ export function AdminSchiedsrichterEditForm({
 
   // Over the STORED address: null, or the placeholder a row without one is given, is somewhere no
   // link can go and no undo may write back.
-  const gespeicherteAdresseGilt = bestehtSchreibregel(schiedsrichter.kontakt.email);
+  const gespeicherteAdresseGilt = hatAdresse(schiedsrichter.kontakt.email);
 
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { schiedsrichter: FLPatchSchiedsrichterPayloadSchema },
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
+    useDraftFieldErrors({
+      schemas: { schiedsrichter: FLPatchSchiedsrichterPayloadSchema },
+    });
 
   // The wire carries `id` in the path, so no refusal can name it and no input renders it.
 
@@ -151,7 +151,7 @@ export function AdminSchiedsrichterEditForm({
   const validatePicked = (paths: readonly string[], picked: { default_payment: number | null }) =>
     validatePaths("schiedsrichter", { ...buildPayload(), ...picked }, paths);
 
-  const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
+  const isChanged = (path: SchiedsrichterFieldPath) => fieldStatus(status, path)?.isChanged ?? false;
 
   const banners = buildSchiedsrichterBanners({
     isRetired,
@@ -183,7 +183,7 @@ export function AdminSchiedsrichterEditForm({
   };
 
   const writeAfterBlock = () => {
-    startTransition(async () => {
+    startSaving(async () => {
       // Read before the write: the props still hold the pre-save values, and the toast that replays
       // them outlives this component.
       const undoPayload: SchiedsrichterUndoBody = {
@@ -199,54 +199,56 @@ export function AdminSchiedsrichterEditForm({
       const payload = buildPayload();
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
       const res = await patchSchiedsrichterAction(payload).catch(unansweredAction);
-      if (!res.success) {
-        reportSubmitFailure(res, { schiedsrichter: payload });
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startSaving(() => {
+        if (!res.success) {
+          reportSubmitFailure(res, { schiedsrichter: payload });
+          return;
+        }
 
-      setSubmitFieldErrors({}, {});
-      setHasSaved(true);
+        setSubmitFieldErrors({}, {});
+        setHasSaved(true);
 
-      // The save's own sentence FIRST: where the address moved it reports a link that went out, and
-      // dropping it leaves an administrator with no record that a message was sent at all.
-      const gespeichertesSatz = [res.versandSatz, renameTouched ? "Der neue Name steht ab sofort auch an jedem Spiel." : undefined]
-        .filter((satz) => satz !== undefined)
-        .join(" ");
+        // The save's own sentence FIRST: where the address moved it reports a link that went out, and
+        // dropping it leaves an administrator with no record that a message was sent at all.
+        const gespeichertesSatz = [res.versandSatz, renameTouched ? "Der neue Name steht ab sofort auch an jedem Spiel." : undefined]
+          .filter((satz) => satz !== undefined)
+          .join(" ");
 
-      offerUndo({
-        endpoint: "/api/admin/schiedsrichter/undo",
-        body: undoPayload,
-        message: gespeichertesSatz === "" ? undefined : gespeichertesSatz,
-        // A save that mailed nothing is clean; one whose link did not leave is graded a warning, the
-        // referee having no working link and nobody else being told.
-        warn: res.versandFehlgeschlagen === true,
-        fallback: "Die Schiedsrichterdaten wurden aktualisiert.",
-        // Judged here and not left to the undo route: the shared spine can only answer a body the
-        // schema refuses with a reload nothing would change.
-        unrestorable: schiedsrichter.name === null ? OHNE_GESPEICHERTEN_NAMEN : gespeicherteAdresseGilt ? null : OHNE_GESPEICHERTE_ADRESSE,
-        router,
+        offerUndo({
+          endpoint: "/api/admin/schiedsrichter/undo",
+          body: undoPayload,
+          message: gespeichertesSatz === "" ? undefined : gespeichertesSatz,
+          // A save that mailed nothing is clean; one whose link did not leave is graded a warning, the
+          // referee having no working link and nobody else being told.
+          warn: res.versandFehlgeschlagen === true,
+          fallback: "Die Schiedsrichterdaten wurden aktualisiert.",
+          // Judged here and not left to the undo route: the shared spine can only answer a body the
+          // schema refuses with a reload nothing would change.
+          unrestorable: schiedsrichter.name === null ? OHNE_GESPEICHERTEN_NAMEN : gespeicherteAdresseGilt ? null : OHNE_GESPEICHERTE_ADRESSE,
+          router,
+        });
+
+        // After the undo payload is built: leaving with typed values still in state lets a save-then-undo
+        // reopen on values the referee does not hold.
+        resetDraftToStored();
+        leavePage();
       });
-
-      // After the undo payload is built: leaving with typed values still in state let a save-then-undo
-      // reopen on values the referee no longer holds.
-      resetDraftToStored();
-      leavePage();
     });
   };
 
   return (
     <DraftStatusProvider status={status}>
       <Form
-        // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-        validationBehavior="aria"
-        ref={formRef}
-        validationErrors={fieldErrors}
+        wiring={formWiring}
         className="flex min-h-0 w-full flex-1 flex-col"
-        onSubmit={runOnSubmit(requestSave)}>
+        onSubmit={requestSave}>
         <EditFormLayout
           header={pageHeader}
           onLeave={requestLeave}
           isLeaving={isLeaving}
+          isDirty={isDirty}
           rail={
             <DraftRail
               banners={banners}
@@ -276,6 +278,7 @@ export function AdminSchiedsrichterEditForm({
           {/* The STORED address, never `kontakt`: the send goes to what is saved, and a typed box
               the save bar has not committed is nowhere a message can reach. */}
           <FormBestaetigungSection
+            isDirty={isDirty}
             schiedsrichterId={schiedsrichter.id}
             hatAdresse={gespeicherteAdresseGilt}
             isRetired={isRetired}
@@ -294,7 +297,7 @@ export function AdminSchiedsrichterEditForm({
             kontakt={schiedsrichter.kontakt}
             // The page keys this view on the STORED record, so the write's refresh remounts the form
             // onto the cleared one — an unsaved draft would go with it.
-            onBeforeAnonymise={() => guardAgainstDraft(isDirty, "Das Löschen verwirft die nicht gespeicherten Änderungen.")}
+            onBeforeAnonymise={() => guardAgainstDraft(isDirty, DRAFT_DISCARDED)}
           />
         </EditFormLayout>
 

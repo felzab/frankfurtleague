@@ -21,7 +21,7 @@ export function BewerbungInstagramBand() {
             paragraph: a brand-red logo under a header already carrying five brand accents reads as an ad. */}
         <span
           aria-hidden="true"
-          className="bg-foreground mt-0.5 inline-block size-5 shrink-0 mask-[url('/icons/footer/instagram/instagram_logo_black.svg')] mask-contain mask-center mask-no-repeat"
+          className="mt-0.5 inline-block size-5 shrink-0 bg-foreground mask-[url('/icons/footer/instagram/instagram_logo_black.svg')] mask-contain mask-center mask-no-repeat"
         />
 
         {/* The page's own paragraph grade, which the lead and the closed-state panels wear. Not bold:

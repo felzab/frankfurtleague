@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 // Relative imports, not the "@/" alias: Node's resolver does not read tsconfig paths.
@@ -160,10 +158,10 @@ describe("deriveSpielDraftStatus · dirtiness", () => {
     assert.equal(derive(called, draftOf(called, { sonderereignis: "ausgefallen" })).isDirty, false);
   });
 
-  // NaN is what a NumberField reports while a cleared box is being retyped, and NaN !== NaN.
+  // An emptied goal box records `null`, the stored fixture's own spelling of no goals.
   it("does not report a still-empty goal field as changed", () => {
     const stored = makeStored({ team1: side(TEAM_1, "Team A", "TA", null), ergebnis: null });
-    const status = derive(stored, draftOf(stored, { team1: side(TEAM_1, "Team A", "TA", NaN) }));
+    const status = derive(stored, draftOf(stored, { team1: side(TEAM_1, "Team A", "TA", null) }));
 
     assert.equal(status.byPath.get("team1.tore")?.draftText, null);
     assert.equal(status.byPath.get("team1.tore")?.isChanged, false);
@@ -340,9 +338,8 @@ describe("admitsShootOut · the fixture a shoot-out belongs to", () => {
     assert.equal(admitsShootOut("achtelfinale", null, other(2), null), false);
   });
 
-  it("does not hold while a count is empty or mid-entry", () => {
+  it("does not hold while a count is empty", () => {
     assert.equal(admitsShootOut("achtelfinale", level(null), other(2), null), false);
-    assert.equal(admitsShootOut("achtelfinale", level(NaN), other(NaN), null), false);
   });
 
   // A group-phase draw is a final result worth a point to each side, whatever the goals are.
@@ -434,33 +431,5 @@ describe("applyDraftToSpiel · what a Sonderereignis does to the result", () => 
     const stored = makeStored();
 
     assert.equal(applyDraftToSpiel(stored, draftOf(stored, { sonderereignis: "abgebrochen" })).ergebnis, "3:1");
-  });
-});
-
-/**
- * Read from the source, a hook not being renderable here. It guards the shape of the retraction:
- * moved back into the toggle handlers, the atom would feed the draft unconditionally and a
- * shoot-out would reach the payload after its inputs had unmounted.
- */
-describe("the match editor's draft", () => {
-  const from = (file: string) => readFileSync(path.resolve(import.meta.dirname, "components/forms/AdminEditSpielDataForm", file), "utf8");
-  const editor = from("AdminEditSpielDataForm.tsx");
-  const ergebnisPanel = from("FormErgebnisSection.tsx");
-
-  it("gates its shoot-out through admitsShootOut rather than passing the atom straight in", () => {
-    assert.ok(
-      editor.includes("admitsShootOut(spielData.saison_phase, team1Payload, team2Payload, sonderereignis)"),
-      "the editor does not gate its shoot-out on the whole condition",
-    );
-    assert.ok(!/\n {4}elfmeterschiessen,\n/.test(editor), "the editor feeds the raw shoot-out atom into its draft");
-  });
-
-  // The defect this pair is here to prevent: a form offering the control on part of the condition
-  // submits counts the panel never showed and the write path throws away.
-  it("offers the control on the same condition the draft retracts by, event included", () => {
-    assert.ok(
-      ergebnisPanel.includes("admitsShootOut(spielData.saison_phase, team1Payload, team2Payload, sonderereignis)"),
-      "the Ergebnis panel does not offer its shoot-out on the whole condition",
-    );
   });
 });

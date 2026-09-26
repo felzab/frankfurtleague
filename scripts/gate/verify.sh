@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 #
-# SCRIPTS · the pre-merge gate — everything, or exactly the surfaces a change touched.
+# SCRIPTS · the pre-merge gate — every scope, or the scopes a run names.
 #
 # Never writes, but `next build` rewrites the tracked `fl_frontend/tsconfig.json` when a
-# `compilerOptions` key is absent; the frontend CI job diffs that path. Name no other tool's flag
-# in this block: `scripts/gate/selfcheck.sh` reads every double-dashed word here as one this takes.
+# `compilerOptions` key is absent; the frontend CI job diffs that path.
 #
-#   ./scripts/gate/verify.sh                   every scope — the full gate; the image builds take minutes
+#   ./scripts/gate/verify.sh                   every scope — the run a pull request is called ready to merge on; the image builds take minutes
 #   ./scripts/gate/verify.sh --scripts --docs --backend --format --frontend-units --frontend --ops --db --images
 #   VERIFY_TEST_SHARD=<i>/<n> ./scripts/gate/verify.sh --frontend-units   shard i of n of the frontend unit tests
 #   ./scripts/gate/verify.sh --quick           the scopes needing no Docker: not ops, not db, not images
@@ -44,11 +43,11 @@ if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FORMAT || RUN_FRONTEND_UN
   RUN_SCRIPTS=1; RUN_DOCS=1; RUN_BACKEND=1; RUN_FORMAT=1; RUN_FRONTEND_UNITS=1; RUN_FRONTEND=1; RUN_OPS=1; RUN_DB=1; RUN_IMAGES=1
 fi
 
-# The implication `docs/ops/spec.md` §1.6 states, so `check_scope.py` never calls either scope
-# unproven. Never in a worker, which would run each twice.
+# The implication `docs/ops/spec.md` §1.6 states: the frontend scope owes the formatter and the unit
+# tests over the files it reads. Never in a worker, which would run each twice.
 if (( RUN_FRONTEND )) && ! worker; then
-  # Not on a runner, whose workflow runs each as a job of its own beside this one and no scope check.
-  # `GITHUB_ACTIONS` rather than `CI`, which a developer's shell may export.
+  # Not on a runner, whose workflow runs each as a job of its own beside this one. `GITHUB_ACTIONS`
+  # rather than `CI`, which a developer's shell may export.
   if [[ -z "${GITHUB_ACTIONS:-}" ]]; then RUN_FORMAT=1; RUN_FRONTEND_UNITS=1; fi
 fi
 
@@ -75,6 +74,17 @@ if (( RUN_FORMAT || RUN_FRONTEND_UNITS || RUN_FRONTEND || RUN_DB )); then
   require_dir fl_frontend/node_modules "Every frontend tool this run starts is installed there. Install it with:  cd fl_frontend && pnpm install"
 fi
 
+# pnpm's dependency check (`verifyDepsBeforeRun` in fl_frontend/pnpm-workspace.yaml) runs on every
+# `pnpm run` and `pnpm exec` (https://pnpm.io/settings/build), so one exec's exit code answers for
+# every step below, before any of them runs.
+pnpm_starts() { ( cd fl_frontend && pnpm exec node -e "" ); }
+if (( RUN_FORMAT || RUN_FRONTEND_UNITS || RUN_FRONTEND || RUN_DB )) && ! worker && [[ -z "${FL_GATE_STEP:-}" ]]; then
+  quietly pnpm_starts \
+    || refuse "pnpm would not start a command in fl_frontend: its dependency check found node_modules
+not answering the manifest and lockfile, or pnpm itself did not start (its own words are above), so no
+frontend step ran. Fix with:  cd fl_frontend && pnpm install  -- and commit the lockfile if it changes."
+fi
+
 # One capture directory per pool run, holding its units file, their output and its manifest.
 # Declared up here because the EXIT trap below reclaims them, and `set -u` refuses an array that
 # does not exist.
@@ -94,8 +104,19 @@ step_worker() { [[ -n "$STEP_UNIT" ]]; }
 # failed check never runs. Never add INT or TERM — `_lib.sh` owns them, and re-trapping either
 # loses the interrupted closing statement.
 cleanup() { :; }
+# Each unit a pool recorded as crashed, as `name status`: past 2, an interrupt aside.
+crashed_units() { # $1 a pool directory
+  local name unit_status rest
+  [[ -r "$1/manifest.tsv" ]] || return 0
+  while IFS=$'\t' read -r name unit_status rest; do
+    if [[ "$unit_status" =~ ^[0-9]+$ ]] && (( unit_status >= 3 && unit_status != 130 )); then
+      printf '%s %s\n' "$name" "$unit_status"
+    fi
+  done < "$1/manifest.tsv"
+}
 gate_exit() {
-  local dir
+  # First, before any command replaces it: the status this process is ending on.
+  local status=$? dir crashed name unit_status
   if step_worker; then return 0; fi
   # From the trap, not the end of the body: `die`, `refuse` and `on_error` exit where they stand,
   # so a body-final call misses exactly the rows whose verdict matters most.
@@ -105,7 +126,21 @@ gate_exit() {
   cleanup || true
   if [[ -n "$DB_RUN_MARKER" ]]; then rm -rf "$DB_RUN_MARKER" || true; fi
   if (( ${#POOL_DIRS[@]} )); then
-    for dir in "${POOL_DIRS[@]}"; do rm -rf "$dir" || true; done
+    # A crash keeps them, named: each unit's own output and the status the pool recorded are all
+    # that can say which process ended it, and nothing past this exit reads them otherwise.
+    if (( status >= 3 && status != 130 )); then
+      for dir in "${POOL_DIRS[@]}"; do detail "kept for reading, as this crash left it: ${dir}" >&2; done
+    else
+      # A unit's crash behind an earlier verdict is read by nothing else: the run ended first.
+      for dir in "${POOL_DIRS[@]}"; do
+        crashed="$(crashed_units "$dir")"
+        if [[ -z "$crashed" ]]; then rm -rf "$dir" || true; continue; fi
+        while IFS=" " read -r name unit_status; do
+          detail "the ${name} unit crashed with status ${unit_status} behind the ending above" >&2
+        done <<< "$crashed"
+        detail "kept for reading, as this crash left it: ${dir}" >&2
+      done
+    fi
   fi
   # Only the opener: the path is exported, so a re-entry exiting above the scripts scope's own
   # `mktemp` would reclaim the parent's file mid-write, and the `>>` after it recreates a file
@@ -166,8 +201,9 @@ fi
 
 # --- how many workers a tool may start -----------------------------------------------------------
 
-# A tool's width is a property of its WORK, the budget a property of the machine; `gate_width`
-# reconciles the two.
+# A tool's width is a property of its WORK: each is its measured optimum, which `-n auto` caps at
+# the machine's cores. Two sharing a smaller machine oversubscribe it, slowing the run and moving
+# no verdict.
 
 # MEASURED 2026-09-02 on one contended 16-core machine: an upper bound, and no contract. Three
 # interleaved readings each of `scripts/tests` -- `-n 16` gave 94.7/47.1/80.6s, `-n 8` gave
@@ -176,11 +212,6 @@ GATE_WIDTH_SCRIPTS_PYTEST=8
 # MEASURED 2026-09-07 on the same machine idle, one run at a time: 8, 12 and 16 landed within 2.2s
 # of one another (53.9-56.1s), 6 cost 12.7s more and 4 cost 33s more, twice.
 
-# Below this a worker costs more than it collects: it pays its own process start, its own
-# interpreter and this suite's fixture repository before it takes a case -- the reason `do_pytest`
-# distributes over `--dist loadfile`.
-GATE_WIDTH_SCRIPTS_PYTEST_FLOOR=8
-
 # MEASURED 2026-09-02, two interleaved pairs of the db tier: `--maxprocesses 8` gave 55.9/40.3s and
 # `6` gave 47.2/28.5s, six faster in both. A cap on `auto`, never a floor: a two-core runner
 # resolves `auto` below it and takes nothing up.
@@ -188,29 +219,9 @@ GATE_WIDTH_DB_PYTEST=6
 # MEASURED 2026-09-07 idle, each width a converged pair: 4 gave 21.0/20.9s against 18.5/18.5s at
 # 6 and 19.2/19.4s at 8, while 3, 2 and 1 gave 24.0, 30.1 and 48-49s -- flat above, steep below.
 
-# Below this the tier's workers stop paying for themselves against the two shared mongods they
-# already queue on, so a narrower share buys nothing back.
-GATE_WIDTH_DB_PYTEST_FLOOR=4
-
-gate_width() { # $1 the tool's own measured optimum · $2 the floor declared beside it
-  local want="$1" floor="$2" budget="${FL_GATE_BUDGET:-0}" demand="${FL_GATE_DEMAND:-0}" share
-  if (( budget <= 0 || demand <= 0 || budget >= demand )); then printf '%s' "$want"; return 0; fi
-  # In proportion, never in equal shares: an equal split takes the most from the tool asking for the
-  # most, which is the section already setting the run's wall clock.
-  share=$(( want * budget / demand ))
-  # The consumer's own floor rather than one worker: under it a runner is slower than at the floor
-  # rather than merely narrower, and `gate_widths_fit` has already refused the pool where the
-  # floors do not fit together.
-  if (( share < floor )); then share="$floor"; fi
-  printf '%s' "$share"
-}
-
-gate_widths_fit() { # every enabled consumer's floor against the budget, before a pool is opened
-  local budget="${FL_GATE_BUDGET:-0}" floors="${FL_GATE_FLOOR_DEMAND:-0}"
-  # A section narrowed under its floor runs slower for the whole run, while one that waits its turn
-  # runs at a width that works. So a budget too small to hold every floor sequences the scopes.
-  (( budget <= 0 || floors <= 0 || budget >= floors ))
-}
+# MEASURED 2026-09-26 idle, five interleaved rounds of the default tier: 6 gave 17.6-18.3s against
+# 17.5-17.8s at 8, 20.3-21.5s at 4, 29.5-30.1s at 2 and 46.0-46.6s serial.
+GATE_WIDTH_BACKEND_PYTEST=6
 
 # --- what a unit runs --------------------------------------------------------------------------------
 
@@ -231,7 +242,7 @@ do_pyright() { ( cd "${REPO_ROOT}/scripts" && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "
 # copytree and its `git init` once per worker that draws a case from the module.
 do_pytest() {
   "$PY" -m pytest scripts/tests -n auto --dist loadfile \
-    --maxprocesses "$(gate_width "$GATE_WIDTH_SCRIPTS_PYTEST" "$GATE_WIDTH_SCRIPTS_PYTEST_FLOOR")"
+    --maxprocesses "$GATE_WIDTH_SCRIPTS_PYTEST"
 }
 
 # Only `check_docs.py` writes `.git/index` (`scripts/checks/docs_gate/branch.py :: _added_by_file`), so
@@ -243,7 +254,6 @@ do_docs_gate() {
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then "$PY" scripts/checks/check_docs.py --output-format github
   else "$PY" scripts/checks/check_docs.py; fi
 }
-do_commit_messages() { "$PY" scripts/checks/check_commits.py; }
 do_public_routes() { "$PY" scripts/checks/check_public_routes.py; }
 do_log_quoting_class() { "$PY" scripts/checks/check_log_quoting_class.py; }
 # `PYTHONPATH` rather than a `cd`, which `run_checker` cannot do: a subshell around it would run
@@ -261,71 +271,46 @@ do_backend_ruff() {
   ( cd fl_backend && "$PY" -m ruff format --check app tests )
 }
 do_backend_pyright() { ( cd fl_backend && PYRIGHT_PYTHON_IGNORE_WARNINGS=1 "$PY" -m pyright ); } # no PyPI release lookup: uv.lock pins what runs
-do_backend_pytest()  { ( cd fl_backend && "$PY" -m pytest ); }
+# Distributed by file as the db tier is: serial, this tier alone takes the backend job past its
+# budget on a runner. No worker starts a server (`fl_backend/tests/conftest.py ::
+# pytest_configure_node`).
+do_backend_pytest()  { ( cd fl_backend && "$PY" -m pytest -n auto --dist loadfile --maxprocesses "$GATE_WIDTH_BACKEND_PYTEST" ); }
 # What ruff, pyright and pytest between them cannot answer: pytest runs what it collected, and says
 # nothing about a guarantee that stopped being collected.
 do_backend_estate()  { "$PY" scripts/checks/check_test_estate.py; }
+# `app/` alone, deptry's default: `tests/` imports the dev group by design, and `scripts/` would
+# need every first-party module it imports off `sys.path` named to deptry by hand.
+do_backend_deps()    { ( cd fl_backend && "$PY" -m deptry . ); }
+do_backend_db() {
+  ( cd fl_backend && "$PY" -m pytest -m db -n auto --dist loadfile --maxprocesses "$GATE_WIDTH_DB_PYTEST" )
+}
+do_frontend_db()     { ( cd fl_frontend && pnpm run test:db ); }
 
+# No `--cache-to` here: buildx answers one status for the whole solve, so a cache export failing after
+# the image loaded would read as a failed build. `export_image_cache` exports in a run of its own.
 build_image() {
   local name="$1" dockerfile="$2" context="$3"
   if [[ "${VERIFY_IMAGES_CACHE:-}" == "gha" ]]; then
     # `scope` keeps the images' caches apart, buildx overwriting rather than merging a key. It stays
     # the bare image name: a run id would miss earlier runs' layers. `version` stays unpinned,
     # buildx picking the live cache service.
-    docker buildx build --load \
-      --cache-from "type=gha,scope=${name}" \
-      --cache-to "type=gha,scope=${name},mode=max" \
+    docker buildx build --load --cache-from "type=gha,scope=${name}" \
       -f "$dockerfile" -t "${VERIFY_TAG}:${name}" "$context"
   else
     docker build -f "$dockerfile" -t "${VERIFY_TAG}:${name}" "$context"
   fi
 }
+# The same solve again, answered from the builder's own cache the build just filled, with `cacheonly`
+# exporting nothing but the layers (https://docs.docker.com/build/exporters/).
+export_image_cache() {
+  local name="$1" dockerfile="$2" context="$3"
+  docker buildx build --output type=cacheonly --cache-from "type=gha,scope=${name}" \
+    --cache-to "type=gha,scope=${name},mode=max" -f "$dockerfile" "$context"
+}
 do_build_frontend() { build_image frontend fl_frontend/Dockerfile fl_frontend; }
 do_build_backend()  { build_image backend fl_backend/Dockerfile fl_backend; }
-
-# Two promises a build keeps silently or not at all: a USER line lost in a refactor still builds,
-# and so does a context the dockerignore stopped covering.
-do_image_user() {
-  local name uid rc
-  for name in frontend backend; do
-    rc=0
-    uid="$(docker run --rm --entrypoint sh "${VERIFY_TAG}:${name}" -c 'id -u')" || rc=$?
-    # 130 travels: flattened to 3 it reads as a refusal, and the caller cannot recover the interrupt.
-    if (( rc == 130 )); then return 130; fi
-    if (( rc )); then
-      printf '%s\n' "the ${name} image would not run, so its runtime user was never read"
-      return 3
-    fi
-    if [[ "$uid" == "0" ]]; then
-      printf '%s\n' "the ${name} image runs as uid 0, so no USER line takes effect in it"
-      return 1
-    fi
-  done
-}
-
-# The build context alone: filesystem-wide, the OS trust store and the dependency trees ship
-# certificates of their own, and the check widens until it says nothing.
-
-# The shapes both `.dockerignore` files exclude; `scripts/tests/test_image_assertions.py` holds the
-# two lists together.
-IMAGE_CONTEXT_FIND='find /app -xdev \( -name node_modules -o -name .venv \) -prune -o \( -name ".env" -o -name ".env.*" -o -name "*.pem" -o -name "*.key" -o -name "*.crt" -o -name ".npmrc" -o -name ".tmp-*" \) -print'
-do_image_context() {
-  local name found rc
-  for name in frontend backend; do
-    rc=0
-    found="$(docker run --rm --entrypoint sh "${VERIFY_TAG}:${name}" -c "$IMAGE_CONTEXT_FIND")" || rc=$?
-    # For `do_image_user`'s reason.
-    if (( rc == 130 )); then return 130; fi
-    if (( rc )); then
-      printf '%s\n' "the ${name} image would not run, so its context was never read"
-      return 3
-    fi
-    if [[ -n "$found" ]]; then
-      printf '%s\n' "the ${name} image carries what its dockerignore exists to keep out:" "$found"
-      return 1
-    fi
-  done
-}
+do_cache_frontend() { export_image_cache frontend fl_frontend/Dockerfile fl_frontend; }
+do_cache_backend()  { export_image_cache backend fl_backend/Dockerfile fl_backend; }
 
 # Each `cd`s in a subshell: in the serial form the body runs in this process, whose directory every
 # later step assumes.
@@ -338,6 +323,7 @@ do_typecheck()  { ( cd fl_frontend && pnpm typecheck:only ); }
 # keeps the flag one word under `_lib.sh`'s IFS.
 do_eslint()     { ( cd fl_frontend && pnpm lint ${GITHUB_ACTIONS:+--concurrency=auto} ); }
 do_audit()      { ( cd fl_frontend && pnpm audit:prod ); }
+do_knip()       { ( cd fl_frontend && pnpm knip ); }
 # The shard travels in NODE_OPTIONS: `pnpm test` ends in the runner's file patterns, and a flag pnpm
 # appends after them reaches the runner unapplied, every shard then running the whole suite.
 do_unit_tests() {
@@ -352,7 +338,7 @@ do_next_build() {
 
 # The two phases: a pooled unit may read `fl_frontend/tsconfig.json`, and each writer rewrites it
 # through Next's `writeConfigurationDefaults`, so a unit in both lists would read it mid-write.
-FRONTEND_POOL=(typecheck eslint audit)
+FRONTEND_POOL=(typecheck eslint knip audit)
 FRONTEND_WRITERS=(typegen next_build)
 frontend_phases_disjoint() {
   local unit writer
@@ -378,9 +364,9 @@ run_writer() { # $1 unit
 # The other two scopes' phases, as data for the same reason. `uv lock --check` stands apart: it
 # proves the lockfile before any tool runs out of the virtualenv, so a pool would run them
 # beside that proof rather than behind it.
-DOCS_POOL=(tracked_text docs_gate commit_messages public_routes log_quoting_class openapi)
+DOCS_POOL=(tracked_text docs_gate public_routes log_quoting_class openapi)
 BACKEND_SERIAL=(backend_lock)
-BACKEND_POOL=(backend_ruff backend_pyright backend_pytest backend_estate)
+BACKEND_POOL=(backend_ruff backend_pyright backend_pytest backend_estate backend_deps)
 
 # A name with no body reaches `FL_GATE_STEP` as a child-process crash; refused here, where the
 # list is written.
@@ -473,9 +459,10 @@ run_checker() {
     "$@" || rc=$?
   else
     quietly "$@" || rc=$?
-    # `quietly` prints its capture only on a non-zero status, and a green run's scanned-population
-    # line is the whole of what a passing checker says. Guarded on rc, or a failure prints twice.
-    if [[ "$mode" == "annotate" ]] && (( ! rc )) && [[ -n "$QUIETLY_OUTPUT" ]]; then
+    # A green run's scanned-population line is the whole of what a passing checker says, and
+    # `quietly` replays nothing on a pass. Not on a failure or under `--verbose`: `quietly` has
+    # shown the output there already.
+    if [[ "$mode" == "annotate" ]] && (( ! rc )) && ! verbose && [[ -n "$QUIETLY_OUTPUT" ]]; then
       printf '%s\n' "$QUIETLY_OUTPUT" | detail
     fi
   fi
@@ -488,8 +475,8 @@ run_checker() {
     2) refuse "${label} could not judge its input, so nothing here stands as a verdict on the
 change. Its own reason is above." ;;
     130) on_interrupt ;;
-    # `skip` is right for the scope check below and wrong here: a named scope whose checker never
-    # ran has proved nothing.
+    # Never `skip`: a named scope whose checker never ran has proved nothing. On Windows a bare 127
+    # can also be a checker that crashed, which Git Bash's runtime reports with that same number.
     *) on_error "$rc" "${BASH_LINENO[0]}" "$label" ;;
   esac
 }
@@ -504,7 +491,7 @@ STEP_JOBS=1
 if (( SERIAL || VERBOSE )); then STEP_JOBS=0; fi
 # Every scope whose section calls `start_steps`, and no other: a run holding none of them has no
 # step pool to lose, so the fallback notice below would describe a slowdown it does not have.
-if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FRONTEND || RUN_IMAGES) )); then STEP_JOBS=0; fi
+if (( ! (RUN_SCRIPTS || RUN_DOCS || RUN_BACKEND || RUN_FRONTEND || RUN_IMAGES || RUN_DB) )); then STEP_JOBS=0; fi
 
 # Replayed in written order, so a parallel run reads as the serial one it must match.
 PARALLEL=1
@@ -640,13 +627,11 @@ unit_verdict() { # $1 unit · $2 the line to blame a crash on · $3 the remedy f
   esac
 }
 
-# --- scope -------------------------------------------------------------------------------------------
+# --- what the run covers -----------------------------------------------------------------------------
 
-# Before any scope runs: the same refusal after a `next build` has cost the minutes it exists to
-# save. Parent only — the parent asks for the whole run, and a worker asking again would put
-# another `scope` row in the table it replays into.
+# In no section: a line proving nothing would open one closing with no verdict, which `finish`
+# fails. Parent only — a worker would announce its own scope as the whole run.
 if ! worker; then
-  section scope
   info "this run covers: ${SCOPES_RAN% }"
 
   # Here, not where the pool would have started: by then the scopes are already running.
@@ -655,93 +640,15 @@ if ! worker; then
 scope and every check runs one at a time — the same proof, at the cost of their sum rather than
 their longest. \`cd fl_backend && uv sync --dev\` creates an interpreter that meets it."
   fi
-
-  # Skipped in CI, where the scopes are separate jobs and the mapping comes from paths rather than
-  # being typed: one job would fail for a scope another job is running. `GITHUB_ACTIONS` rather than
-  # `CI`, which a developer's shell may export.
-  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-    skip "scope check: CI maps scopes from paths itself, so there is no typed scope to check"
-  else
-    step "scope · does this run cover what the branch changed?"
-    SCOPE_PY="$(any_python || true)"
-    SCOPE_RC=0
-    if [[ -z "$SCOPE_PY" ]]; then
-      skip "no python found — this run was not checked against the diff"
-    # Ahead of the run rather than graded after it: below the floor the checker dies compiling, and
-    # the 1 a SyntaxError exits would reach the refusal arm below as a scope this run does not cover.
-    elif ! python_at_floor "$SCOPE_PY"; then
-      skip "this is ${PYTHON_FOUND:-an interpreter no version could be read from}, below the checkers' floor of ${PYTHON_FLOOR} — this run was not checked against the diff"
-    else
-      # Captured so the verdict below can count `scripts/checks/check_scope.py :: check`'s report lines,
-      # and printed, those being the useful half of a green answer.
-      SCOPE_OUT="$("$SCOPE_PY" scripts/checks/check_scope.py --ran "$SCOPES_RAN")" || SCOPE_RC=$?
-      if [[ -n "$SCOPE_OUT" ]]; then printf '%s\n' "$SCOPE_OUT"; fi
-      case "$SCOPE_RC" in
-        # 0 is "nothing refuses this run", not "the run covers the change": an unproven surface
-        # passes through as a `report` line (`scripts/lib/checker_kernel.py :: report_findings`).
-        0) SCOPE_UNPROVEN="$(printf '%s\n' "$SCOPE_OUT" | grep -c '^ *report  ' || true)"
-           if (( SCOPE_UNPROVEN > 0 )); then
-             ok "no file this branch changed refuses this run, and the ${SCOPE_UNPROVEN} report line(s) above
-name a surface the run leaves unproven"
-           else
-             ok "the scopes named cover the change"
-           fi ;;
-        1) refuse "This run is not wide enough to merge on. The finding above names the file and the flag." ;;
-        2) refuse "The scope check could not judge its input, so this run was not checked against the
-diff. Its own reason is above." ;;
-        130) on_interrupt ;;
-        # Never a refusal: a checker that broke says nothing about the scope, and a refusal naming
-        # nothing is worse than a skip.
-        *) skip "the scope check itself failed (exit ${SCOPE_RC}), so this run was not checked against the diff" ;;
-      esac
-    fi
-  fi
 fi
 
 # --- the scopes, concurrently ------------------------------------------------------------------------
 
-# Ahead of the block below, because what it answers is whether there is a pool at all. A run this
-# clears reaches the same serial sections a CI job takes, each section alone with the machine.
 if (( PARALLEL )); then
-  FL_GATE_BUDGET="$(nproc 2>/dev/null || printf '%s' "${NUMBER_OF_PROCESSORS:-0}")"
-  if [[ ! "$FL_GATE_BUDGET" =~ ^[1-9][0-9]*$ ]]; then FL_GATE_BUDGET=0; fi
-  # The self-check's 16 workers stay out of this sum: MEASURED 2026-09-02, counted in they made
-  # demand 30 against 16 cores, cutting these two to 4 and 3; under the floors that would
-  # sequence the run.
-  FL_GATE_DEMAND=0
-  FL_GATE_FLOOR_DEMAND=0
-  if (( RUN_SCRIPTS )); then
-    FL_GATE_DEMAND=$(( FL_GATE_DEMAND + GATE_WIDTH_SCRIPTS_PYTEST ))
-    FL_GATE_FLOOR_DEMAND=$(( FL_GATE_FLOOR_DEMAND + GATE_WIDTH_SCRIPTS_PYTEST_FLOOR ))
-  fi
-  if (( RUN_DB )); then
-    FL_GATE_DEMAND=$(( FL_GATE_DEMAND + GATE_WIDTH_DB_PYTEST ))
-    FL_GATE_FLOOR_DEMAND=$(( FL_GATE_FLOOR_DEMAND + GATE_WIDTH_DB_PYTEST_FLOOR ))
-  fi
-  if ! gate_widths_fit; then
-    # Reported rather than taken quietly, as the pool's own fallback is: a run whose scopes
-    # never overlapped is one whose wall clock nobody can account for.
-    info "a budget of ${FL_GATE_BUDGET} cannot hold the ${FL_GATE_FLOOR_DEMAND} workers the enabled scopes floor at, so the scopes run in sequence, each alone with the machine at its own measured width"
-    # Unset rather than left standing: a scope's call site is a command substitution, which
-    # reads these as shell variables whether or not they were ever exported, so a budget
-    # surviving the decision would divide a pool that never opened.
-    unset FL_GATE_BUDGET FL_GATE_DEMAND FL_GATE_FLOOR_DEMAND
-    PARALLEL=0
-  fi
-fi
-
-if (( PARALLEL )); then
-  # Closed before the pool, or the scope section's row reports the whole run's wall clock.
-  end_section
-
   # Never `FORCE_COLOR` or `NO_COLOR`: prettier, pnpm and eslint each read those as instructions.
   # Only here: a scope is replayed to the parent's terminal, where a step's capture is read back
   # by the same `quietly` the serial run uses.
   if [[ -n "$C_RED" ]]; then export FL_GATE_COLOR=1; else export FL_GATE_COLOR=0; fi
-
-  # Exported here alone: the scopes compete only in a pool, and elsewhere -- serial, verbose, a
-  # worker, CI's one job per runner -- a tool keeps the optimum it was measured at.
-  export FL_GATE_BUDGET FL_GATE_DEMAND
 
   # `pnpm install` and every pnpm call the `packageManager` pin switches open a store, writing and
   # deleting a probe file in fl_frontend that the format scope's walk can list and then not read.
@@ -752,6 +659,8 @@ if (( PARALLEL )); then
   fi
 
   pool_open
+  # No scope waits on another for sharing a `__pycache__` or `.pytest_cache`, which couples nothing:
+  # read the commit `git log --all --grep lastfailed` returns before adding a wait on that reasoning.
   for u_scope in "${SCOPE_ORDER[@]}"; do pool_add_scope "$u_scope"; done
   pool_wait 0 "${#SCOPE_ORDER[@]} scopes running concurrently"
 
@@ -786,9 +695,8 @@ if (( PARALLEL )); then
     REPLAY_STATUS="$status"
   }
 
-  # A later scope's own text, which rows count but never quote. A branch whose diff asks for every
-  # scope cannot re-run one alone (`scripts/checks/check_scope.py`), so text left unread here costs a
-  # second full run.
+  # A later scope's own text, which rows count but never quote: left unread here, it costs a run of
+  # that scope to read.
 
   # Findings and a refusal both reach it, and the exit contract keeps those two apart
   # (`docs/ops/spec.md` §1.7), so the heading names neither.
@@ -811,8 +719,22 @@ if (( PARALLEL )); then
           if [[ -s "${POOL_DIR}/${scope}.err" ]]; then cat "${POOL_DIR}/${scope}.err" >&2; fi
         fi
         ;;
-      # Rank 0, for `adopt_rows`' reason: no row at all drops the scope out of the table.
-      *)     adopt_section "$scope" 0 "${UNIT_MS[$scope]:-0}" 0 0 ;;
+      # A number past 2, an interrupt aside, is a process that crashed. Anything else never ran,
+      # and takes rank 0 for `adopt_rows`' reason: no row drops the scope out of the table.
+      *)
+        if [[ ! "$status" =~ ^[0-9]+$ ]] || (( status == 130 )); then
+          adopt_section "$scope" 0 "${UNIT_MS[$scope]:-0}" 0 0
+          return 0
+        fi
+        adopt_section "$scope" "$RANK_CRASHED" "${UNIT_MS[$scope]:-0}" 0 0
+        # A crash's own text holds the pool directories its worker kept, and named nowhere else they
+        # outlive the run unread.
+        if [[ -s "${POOL_DIR}/${scope}.out" || -s "${POOL_DIR}/${scope}.err" ]]; then
+          info "the ${scope} scope crashed with status ${status}, and the run ended at the failure above rather than at this one — its own output follows"
+          if [[ -s "${POOL_DIR}/${scope}.out" ]]; then cat "${POOL_DIR}/${scope}.out"; fi
+          if [[ -s "${POOL_DIR}/${scope}.err" ]]; then cat "${POOL_DIR}/${scope}.err" >&2; fi
+        fi
+        ;;
     esac
   }
 
@@ -931,8 +853,8 @@ character, or spell it by code point where a test is about the character itself.
     DOCS_OK=0
   fi
 
-  # They collect rather than stop: stopping at the first leaves the commit messages unexamined
-  # while the exit code reads as though they were checked.
+  # They collect rather than stop: stopping at the first leaves the checks after it unexamined
+  # while the exit code reads as though they ran.
   step "docs · citations, links and shapes"
   unit_join docs_gate
   # `annotate`, for `run_checker`'s reason.
@@ -945,21 +867,9 @@ check's own name. Checks: scripts/checks/docs_gate/kernel.py :: CHECKS" \
     DOCS_OK=0
   fi
 
-  # Commit messages ride in this scope rather than one of their own; the argument is in
-  # `scripts/checks/check_commits.py`'s own header.
-  step "docs · commit messages on this branch"
-  unit_join commit_messages
-  if run_checker collect "scripts/checks/check_commits.py" "The commit message gate failed. Each finding above names the
-commit and what is wrong with it. The form is docs/_git/templates.md." \
-    unit_replay commit_messages; then
-    ok "commit messages follow the convention"
-  else
-    DOCS_OK=0
-  fi
-
-  # This scope rather than `ops`: the check reads the App Router tree and `nginx/prod.conf`, whose
-  # scopes are `format frontend docs` and `ops docs`, and `docs` is the one a diff touching either
-  # selects.
+  # This scope rather than `ops`: the check reads the App Router tree and `nginx/shared/site.conf`,
+  # whose scopes are `format frontend docs` and `ops docs`, and `docs` is the one a diff touching
+  # either selects.
 
   step "docs · every route handler and metadata convention is metered or accounted for"
   unit_join public_routes
@@ -987,8 +897,7 @@ characters only one package quotes. Edit the two literals together." \
   fi
 
   # `openapi.json` publishes every endpoint and model docstring as a `description`, so a reword
-  # edits it -- and `check_scope.py` reads that edit as comment-only, asking for this scope and
-  # not `--backend`, where the pytest case covering it lives.
+  # edits it, and this scope is the one that reads the document without the backend suite.
 
   # Needs no database and no environment: `build_test_config` supplies the settings. The backend
   # virtualenv it does need is already this scope's prerequisite, above.
@@ -1051,6 +960,12 @@ These are the same errors Pylance shows in the editor."
   unit_join backend_estate
   unit_verdict backend_estate "${LINENO}" "The backend suite carries a guarantee nothing is checking."
   ok "the estate answers loudly"
+
+  step "backend · deptry  (what app/ imports against what the manifest declares)"
+  unit_join backend_deps
+  unit_verdict backend_deps "${LINENO}" "fl_backend/pyproject.toml and what app/ imports disagree. The finding above names the
+package and its rule (https://deptry.com/rules-violations/); after a manifest edit:  cd fl_backend && uv lock"
+  ok "the manifest declares what app/ imports"
 fi
 
 # --- format ----------------------------------------------------------------------------------------
@@ -1106,9 +1021,31 @@ if (( RUN_FRONTEND )); then
   step "frontend · pnpm  (manifest and lockfile agree)"
   # `--frozen-lockfile` makes `--lockfile-only`'s write impossible rather than unlikely: pnpm's
   # own words are "don't generate a lockfile and fail if an update is needed".
-  quietly do_lockfile \
-    || die "fl_frontend's manifest and lockfile disagree — the packages are named above.
-Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile."
+  LOCKFILE_RC=0
+  quietly do_lockfile || LOCKFILE_RC=$?
+
+  # pnpm checks every committed entry against its release-age policy before it compares, and only
+  # its error code tells a young release from a drift.
+  if (( LOCKFILE_RC )); then
+    case "$QUIETLY_OUTPUT" in
+      # The second code is a drift in a workspace setting the lockfile records, such as `overrides`
+      # or `patchedDependencies`, rather than in the manifest.
+      *ERR_PNPM_OUTDATED_LOCKFILE* | *ERR_PNPM_LOCKFILE_CONFIG_MISMATCH*)
+        die "fl_frontend's lockfile no longer answers its manifest or pnpm-workspace.yaml — pnpm names
+what differs above.
+Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile." ;;
+      *ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION*)
+        # `refuse`, not `die`: pnpm stopped before comparing, so the step declined to judge the
+        # lockfile (`docs/ops/spec.md` §1.7's `refused`).
+        refuse "fl_frontend's lockfile pins releases younger than pnpm's minimumReleaseAge — pnpm names
+them above, with its own remedy, and the manifest was never compared.
+Each passes unchanged once it is old enough." ;;
+      # `refuse`, not `die`: naming no cause, the step cannot say the change needs work.
+      *)
+        refuse "pnpm stopped on fl_frontend's lockfile for a reason this step does not read — its own
+output is above." ;;
+    esac
+  fi
   ok "manifest and lockfile agree"
 
   # A `FRONTEND_WRITERS` entry, for that list's reason.
@@ -1116,7 +1053,8 @@ Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile."
   run_writer typegen || die "next typegen failed — its own output is above."
   ok "route types generated"
 
-  # Readers only: each writes its own cache, and the audit is a network call touching nothing.
+  # Readers only: tsc and eslint each write their own cache, knip writes nothing, and the audit is a
+  # network call touching nothing.
   start_steps --frontend "${FRONTEND_POOL[@]}"
 
   step "frontend · tsc"
@@ -1128,6 +1066,12 @@ Fix with:  cd fl_frontend && pnpm install  -- then commit the lockfile."
   unit_join eslint
   unit_verdict eslint "${LINENO}" "eslint failed."
   ok "lint clean"
+
+  step "frontend · knip  (unused files, exports and dependencies)"
+  unit_join knip
+  unit_verdict knip "${LINENO}" "knip found something nothing uses, named above. Delete it, or drop the export only its own file reads.
+Where a reader knip cannot see holds it, name that reader in fl_frontend/knip.json beside the entry."
+  ok "nothing unused"
 
   # Advisory, not fatal: something published upstream overnight must not block an unrelated merge.
   # Never `unit_verdict`, which turns this check's 1 into `die`.
@@ -1197,7 +1141,7 @@ written at the rule, never suppressed at this call site." \
   fi
 
   step "ops · compose files parse"
-  # Compose refuses to parse a file whose env_file is missing, so each file is parsed from a
+  # Compose refuses to parse a file whose env_file is missing, so each stack is parsed from a
   # scratch copy beside stand-in .envs -- never the real trees, which the backend, db and
   # frontend scopes read while they run. The EXIT trap removes the scratch.
   OPS_SCRATCH="$(mktemp -d)"
@@ -1205,59 +1149,34 @@ written at the rule, never suppressed at this call site." \
   cp docker-compose.yml docker-compose.local.yml "${OPS_SCRATCH}/"
   : > "${OPS_SCRATCH}/fl_backend/.env"
   : > "${OPS_SCRATCH}/fl_frontend/.env"
-  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.yml" config --quiet \
+  # The local stack is the merge `scripts/ops/local.sh` runs, never docker-compose.local.yml alone,
+  # which is an override and no stack at all. `--output` rather than a redirect, so no text-mode
+  # stream writes the model; `--no-env-resolution` keeps every env_file's values out of it.
+  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.yml" config --format json --no-env-resolution \
+    --output "${OPS_SCRATCH}/production.json" \
     || die "docker-compose.yml does not parse."
-  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.local.yml" config --quiet \
-    || die "docker-compose.local.yml does not parse."
-  ok "both compose files parse"
+  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.yml" -f "${OPS_SCRATCH}/docker-compose.local.yml" \
+    config --format json --no-env-resolution --output "${OPS_SCRATCH}/local.json" \
+    || die "docker-compose.local.yml does not merge over docker-compose.yml."
+  ok "both stacks parse"
 
-  # Both files parse whatever they say, so nothing else holds the local stack to production's
-  # shape: a setting production gains and local does not is a difference local can never catch.
-  step "ops · the local stack still mirrors production"
+  # A parse accepts a published port and a database alike, so nothing else holds
+  # `docs/ops/spec.md` I1 and I174.
+  step "ops · only the edge is reachable off this host"
 
   # The interpreter is the only thing this step may skip for; past that guard the checker's
   # verdict stands, refusals included.
   OPS_PY="$(any_python || true)"
-  OPS_AT_FLOOR=0
-  # Read once, the three steps below sharing one answer: a per-step probe would spawn an interpreter
-  # each time to learn what the first already knew.
-  if [[ -n "$OPS_PY" ]] && python_at_floor "$OPS_PY"; then OPS_AT_FLOOR=1; fi
   if [[ -z "$OPS_PY" ]]; then
-    skip "no python found, so the compose files were not compared"
-  elif (( ! OPS_AT_FLOOR )); then
-    skip "this python is below the checkers' floor, so the compose files were not compared"
+    skip "no python found, so neither stack's exposure was judged"
+  elif ! python_at_floor "$OPS_PY"; then
+    skip "this python is below the checkers' floor, so neither stack's exposure was judged"
   else
-    run_checker stop "scripts/checks/check_compose_mirror.py" "The compose files have drifted. The findings above name
-the service and the key, and the declared deltas are the checker's own list." \
-      "$OPS_PY" scripts/checks/check_compose_mirror.py
-    ok "every delta between the two files is a declared one"
-  fi
-
-  # `nginx -t` below reads no location it parses, so nothing else notices one location's copy of the
-  # policy drifting from the server block's. Same interpreter guard as the step above.
-  step "ops · each nginx file's Content-Security-Policy says one thing"
-  if [[ -z "$OPS_PY" ]]; then
-    skip "no python found, so the policy's copies were not compared"
-  elif (( ! OPS_AT_FLOOR )); then
-    skip "this python is below the checkers' floor, so the policy's copies were not compared"
-  else
-    run_checker stop "scripts/checks/check_csp_identity.py" "A Content-Security-Policy copy has drifted. Each finding above names
-the site and the site it disagrees with, both inside one file." \
-      "$OPS_PY" scripts/checks/check_csp_identity.py
-    ok "every declaration in a file matches that file's first"
-  fi
-
-  step "ops · the local edge still mirrors production"
-
-  if [[ -z "$OPS_PY" ]]; then
-    skip "no python found, so the edge files were not compared"
-  elif (( ! OPS_AT_FLOOR )); then
-    skip "this python is below the checkers' floor, so the edge files were not compared"
-  else
-    run_checker stop "scripts/checks/check_nginx_mirror.py" "The two edge configurations have drifted. The findings above name
-the block and the directive, and the declared deltas are the checker's own list." \
-      "$OPS_PY" scripts/checks/check_nginx_mirror.py
-    ok "every difference between the two edge files is a declared one"
+    run_checker stop "scripts/checks/check_compose_model.py" "A stack exposes more than its edge, mounts or starts the edge other
+than the deploy reads it, or trusts an address that is not the connector's. The findings above name
+the service and the rule: docs/ops/spec.md I1, I174, I355 or I18." \
+      "$OPS_PY" scripts/checks/check_compose_model.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json"
+    ok "production publishes nothing and declares no database; locally only nginx leaves loopback; both edges mount nginx/ by directory and open the Control API where the deploy asks it; production's edge trusts the connector alone"
   fi
 
   step "ops · nginx accepts prod.conf"
@@ -1273,26 +1192,47 @@ the block and the directive, and the declared deltas are the checker's own list.
   MSYS2_ARG_CONV_EXCL="/CN" quietly openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj "/CN=localhost" \
     -keyout .tmp-nginx-check/key.pem -out .tmp-nginx-check/cert.pem \
     || die "could not generate a throwaway certificate for the nginx check."
-  # The tag both compose files pin, so the nginx accepting prod.conf here is the one that serves
-  # it. A floating tag would move this check to a version the servers do not run.
-  MSYS_NO_PATHCONV=1 quietly docker run --rm \
-    --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
-    -v "/${REPO_ROOT}/nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro" \
-    -v "/${REPO_ROOT}/.tmp-nginx-check:/etc/nginx/certs:ro" \
-    -v "/${REPO_ROOT}/.tmp-nginx-check/log:/var/log/frankfurtleague/nginx" \
-    nginx:1.31-alpine nginx -t \
-    || die "nginx refuses prod.conf — its own explanation is above."
-  ok "nginx accepts prod.conf"
+  # The image production's model names, read rather than spelled again, so the nginx accepting
+  # prod.conf here is the one that serves it. `write`, not `print`: a Windows stdout would end the
+  # name in a carriage return.
+  NGINX_IMAGE=""
+  if [[ -n "$OPS_PY" ]] && python_at_floor "$OPS_PY"; then
+    NGINX_IMAGE="$("$OPS_PY" -c 'import json, sys; sys.stdout.write(json.loads(open(sys.argv[1], "rb").read())["services"]["nginx"]["image"])' \
+      "${OPS_SCRATCH}/production.json")" \
+      || refuse "production's model names no image for nginx, so there is no release to parse prod.conf with."
+  fi
+  if [[ -z "$NGINX_IMAGE" ]]; then
+    skip "no python at the checkers' floor, so the image production runs was not read and prod.conf was not parsed"
+  else
+    # Fetched apart, where this host lacks it, so the run below fails on nginx's own parse alone: a
+    # release that could not be fetched leaves prod.conf unjudged, a refusal rather than a finding.
+    if ! docker image inspect "$NGINX_IMAGE" >/dev/null 2>&1; then
+      quietly docker pull "$NGINX_IMAGE" \
+        || refuse "${NGINX_IMAGE} could not be fetched, so prod.conf was not parsed. Docker's own reason is above."
+    fi
+    # The config mounts are docker-compose.yml's, so a file dropped into `nginx/prod/` is parsed here
+    # as the server would load it.
+    MSYS_NO_PATHCONV=1 quietly docker run --rm --pull never \
+      --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
+      -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
+      -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
+      -v "/${REPO_ROOT}/.tmp-nginx-check:/etc/nginx/certs:ro" \
+      -v "/${REPO_ROOT}/.tmp-nginx-check/log:/var/log/frankfurtleague/nginx" \
+      "$NGINX_IMAGE" nginx -t \
+      || die "nginx refuses prod.conf — its own explanation is above."
+    ok "${NGINX_IMAGE} accepts prod.conf"
+  fi
 
-  # A parse cannot see a log line, so nothing else here asserts what the access line CONTAINS
-  # (`docs/logging/spec.md` L11). Below `nginx -t`, whose pull this reuses rather than paying twice.
-  step "ops · the edge's access log carries no credential"
-  # `nginx/local.conf` alone: prod.conf terminates TLS and could not serve a request without a
-  # certificate, and its copy of the maps and the `log_format` is held in step by hand.
-  run_checker stop "nginx/redaction_test.sh" "A credential reached an access line. Each failing case above is what nginx WROTE,
-and nginx/local.conf's map blocks are what decide it." \
-    bash nginx/redaction_test.sh
-  ok "every spelling in the table logged with its token and address gone"
+  # A parse sees neither a log line nor a response, so nothing else here asserts what the access
+  # line CONTAINS (`docs/logging/spec.md` L11) or which headers a location sends
+  # (`docs/ops/spec.md` I2). Below `nginx -t`, reusing its pull.
+  step "ops · the edge logs no credential and sends every security header once"
+  # `nginx/local/` for every location, started with the command and tmpfs the rendered model
+  # gives the edge, and `nginx/prod/` behind a certificate the test makes, for the www redirect.
+  run_checker stop "nginx/edge_test.sh" "The running edge failed a case. Each failing case above is what nginx WROTE or SENT,
+and the files under nginx/shared/ are what decide it." \
+    bash nginx/edge_test.sh
+  ok "every spelling in the table logged with its token and address gone, every location and the www redirect sent each header once as written, no visitor's traceparent or actor reached Next, and the Control API answered as the deploy reads it"
 fi
 
 # --- db --------------------------------------------------------------------------------------------
@@ -1392,23 +1332,36 @@ if (( RUN_DB )); then
   # little as the red (`docs/ops/spec.md` §1.6).
   claim_db_run
 
+  # Together only where this section runs alone, as in a CI db job or a bare `--db`: beside other
+  # sections the frontend's 3 s store bounds overrun. A worker is one of several; the section list,
+  # not `GITHUB_ACTIONS`, says which.
+  DB_TOGETHER=0
+  if ! worker && (( ${#SCOPE_ORDER[@]} == 1 )); then
+    DB_TOGETHER=1
+    start_steps --db backend_db frontend_db
+  fi
+
   # `loadfile` for cost, not isolation: `fl_backend/tests/worker.py :: worker_database` is what
   # isolates, so `--dist load` would hold too.
 
   # Both mongods are shared (`fl_backend/tests/conftest.py :: pytest_configure_node`), so past
   # `GATE_WIDTH_DB_PYTEST` the workers fight over the same servers whatever the core count.
   step "db · pytest -m db, distributed over the two shared mongods"
-  DB_WIDTH="$(gate_width "$GATE_WIDTH_DB_PYTEST" "$GATE_WIDTH_DB_PYTEST_FLOOR")"
   # pytest answers its own codes, not this gate's: 2 is a collection error, 4 a usage error and 5
   # no test collected, and none is a db-tier failure. The width flag is the live route to a 4, an
   # empty one otherwise reading as the tests having failed.
   DB_RC=0
-  ( cd fl_backend && quietly "$PY" -m pytest -m db -n auto --dist loadfile --maxprocesses "$DB_WIDTH" ) || DB_RC=$?
+  if (( DB_TOGETHER )); then
+    unit_join backend_db
+    quietly unit_replay backend_db || DB_RC=$?
+  else
+    quietly do_backend_db || DB_RC=$?
+  fi
   case "$DB_RC" in
     0) ;;
     1) die "fl_backend db-tier tests failed.
-testcontainers starts and removes mongo:8 itself; a failure here is the code, not the daemon.
-Re-run without \`-n auto --dist loadfile --maxprocesses ${DB_WIDTH}\` to see whether distribution is what broke it." ;;
+testcontainers starts and removes the mongo \`fl_backend/tests/conftest.py :: MONGO_IMAGE\` pins itself; a failure here is the code, not the daemon.
+Re-run without \`-n auto --dist loadfile --maxprocesses ${GATE_WIDTH_DB_PYTEST}\` to see whether distribution is what broke it." ;;
     130) on_interrupt ;;
     *) on_error "$DB_RC" "${LINENO}" "pytest -m db" ;;
   esac
@@ -1420,11 +1373,16 @@ Re-run without \`-n auto --dist loadfile --maxprocesses ${DB_WIDTH}\` to see whe
   # The runner's own codes, as the unit tests read them: 1 is a failing test, anything else a run
   # that reached no verdict.
   FRONTEND_DB_RC=0
-  ( cd fl_frontend && quietly pnpm run test:db ) || FRONTEND_DB_RC=$?
+  if (( DB_TOGETHER )); then
+    unit_join frontend_db
+    quietly unit_replay frontend_db || FRONTEND_DB_RC=$?
+  else
+    quietly do_frontend_db || FRONTEND_DB_RC=$?
+  fi
   case "$FRONTEND_DB_RC" in
     0) ;;
     1) die "fl_frontend db-tier tests failed.
-testcontainers starts and removes mongo:8 itself; a failure here is the code, not the daemon." ;;
+testcontainers starts and removes the mongo release \`fl_backend/tests/conftest.py :: MONGO_IMAGE\` pins itself; a failure here is the code, not the daemon." ;;
     130) on_interrupt ;;
     *) on_error "$FRONTEND_DB_RC" "${LINENO}" "pnpm run test:db" ;;
   esac
@@ -1442,7 +1400,9 @@ if (( RUN_IMAGES )); then
   # unable to export a cache. The export runs after every layer, so an unauthenticated backend
   # costs the whole build before naming what is missing.
   if [[ "${VERIFY_IMAGES_CACHE:-}" == "gha" && -z "${ACTIONS_RUNTIME_TOKEN:-}" ]]; then
-    die "VERIFY_IMAGES_CACHE=gha, but ACTIONS_RUNTIME_TOKEN is not set, so the type=gha backend
+    # `refuse`, not `die`: the scope stops before building, so it declined to judge the images
+    # (`docs/ops/spec.md` §1.7's `refused`).
+    refuse "VERIFY_IMAGES_CACHE=gha, but ACTIONS_RUNTIME_TOKEN is not set, so the type=gha backend
 cannot authenticate and buildx would fail the cache export after building everything.
 The credential comes from .github/actions/actions-runtime-env, which must run before
 this step in the job."
@@ -1463,28 +1423,23 @@ this step in the job."
   ok "backend image builds"
 
   step "images · instrumentation.js is actually in the frontend image"
-  # From the repo root this file compiles but is not traced into the standalone output, which
-  # silently disables the startup env gate and onRequestError.
-
-  # 1 is the test's answer, higher is docker's and says nothing about the file: refused, as
-  # `scripts/ops/publish.sh` grades the same probe. 130 is neither, here or below.
+  # 3 is an image that never ran, so a `die` here and below would send the reader to a file that is fine.
   PROBE_RC=0
-  quietly docker run --rm --entrypoint sh "${VERIFY_TAG}:frontend" -c '[ -f .next/server/instrumentation.js ]' || PROBE_RC=$?
+  quietly image_has_instrumentation "${VERIFY_TAG}:frontend" || PROBE_RC=$?
   if (( PROBE_RC == 0 )); then
     ok "instrumentation.js present — env gate and error logging will run"
   elif (( PROBE_RC == 1 )); then
     die "instrumentation.js is MISSING from the image. It must live at fl_frontend/src/instrumentation.ts, not the repo root."
   elif (( PROBE_RC == 130 )); then on_interrupt
   else
-    refuse "the probe container did not run (exit ${PROBE_RC}), so whether instrumentation.js reached
-the image is unknown. Ask the image directly:
+    refuse "the probe container did not run (the capture above names its exit), so whether
+instrumentation.js reached the image is unknown. Ask the image directly:
   docker run --rm --entrypoint sh ${VERIFY_TAG}:frontend -c 'ls .next/server'"
   fi
 
   step "images · neither image runs as root"
-  # Graded as the probe above: a `die` would send the reader to a USER line that is fine.
   IMAGE_USER_RC=0
-  quietly do_image_user || IMAGE_USER_RC=$?
+  quietly image_runs_unprivileged "${VERIFY_TAG}:frontend" "${VERIFY_TAG}:backend" || IMAGE_USER_RC=$?
   if (( IMAGE_USER_RC == 0 )); then
     ok "both images drop to an unprivileged user"
   elif (( IMAGE_USER_RC == 1 )); then
@@ -1498,10 +1453,8 @@ and nothing here judges either USER line. The capture above names the image. Ask
   fi
 
   step "images · the dockerignore kept its promise about the build context"
-  # Graded as the probes above: an image that would not run is a context never read, which is not
-  # a dockerignore that stopped covering it.
   IMAGE_CONTEXT_RC=0
-  quietly do_image_context || IMAGE_CONTEXT_RC=$?
+  quietly image_context_clean "${VERIFY_TAG}:frontend" "${VERIFY_TAG}:backend" || IMAGE_CONTEXT_RC=$?
   if (( IMAGE_CONTEXT_RC == 0 )); then
     ok "no environment file, key, certificate or npm configuration reached either image"
   elif (( IMAGE_CONTEXT_RC == 1 )); then
@@ -1511,6 +1464,33 @@ The capture above names the image and the path inside it."
   else
     refuse "an image would not run (exit ${IMAGE_CONTEXT_RC}), so its build context was never read
 and nothing here judges either dockerignore. The capture above names the image."
+  fi
+
+  # Last, so every verdict above stands whatever the cache service answers. Refused rather than
+  # failed: a lost export says nothing about the tree, and never ignored, since the next run then
+  # builds cold with nothing saying why.
+  if [[ "${VERIFY_IMAGES_CACHE:-}" == "gha" ]]; then
+    start_steps --images cache_frontend cache_backend
+    for u_image in frontend backend; do
+      step "images · the ${u_image} layer cache reaches GitHub Actions"
+      unit_join "cache_${u_image}"
+      CACHE_RC=0
+      if [[ "$u_image" == "frontend" ]]; then
+        quietly unit_replay cache_frontend || CACHE_RC=$?
+      else
+        quietly unit_replay cache_backend || CACHE_RC=$?
+      fi
+      # buildx answers a failed export with 1; anything else is a docker that never ran or a replay
+      # that reached no status, which names neither the cache service nor the change.
+      case "$CACHE_RC" in
+        0)   ok "the ${u_image} layers are cached for the next run" ;;
+        1)   refuse "the ${u_image} image built and passed every probe above, and exporting its layer cache
+to GitHub Actions then failed, buildx's own words above. That is the cache service's answer and
+none about the change: re-run the job." ;;
+        130) on_interrupt ;;
+        *)   on_error "$CACHE_RC" "${LINENO}" "${_STEP_LABEL:-cache_${u_image}}" ;;
+      esac
+    done
   fi
 fi
 

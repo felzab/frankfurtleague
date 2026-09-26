@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowUturnCwLeft } from "@gravity-ui/icons";
+import ArrowUturnCwLeft from "@gravity-ui/icons/ArrowUturnCwLeft";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { formButton } from "@/shared/components/ui/formButtons";
 
@@ -58,7 +58,7 @@ export function EditPageHeader({
         {/* `flex-row` with no wrap at any width: the title truncates and the chip keeps its place, where
             wrapping would drop a phone's chip onto a ragged second line under the heading. */}
         <div className="flex w-full flex-row items-center gap-x-3">
-          <h2 className="fluid-2xl text-foreground min-w-0 truncate font-extrabold tracking-tight">{title}</h2>
+          <h2 className="min-w-0 truncate fluid-2xl font-extrabold tracking-tight text-foreground">{title}</h2>
           {chip !== undefined && <div className="flex shrink-0 items-center">{chip}</div>}
           {reactivate !== undefined && (
             <Button

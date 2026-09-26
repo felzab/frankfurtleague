@@ -1,6 +1,6 @@
 "use client";
 
-import { SearchField } from "@heroui/react";
+import { SearchField } from "@heroui/react/search-field";
 
 import { dismissControl } from "@/core/dismissControl";
 
@@ -32,13 +32,13 @@ export function SearchBar({
       onChange={onChange}
       className={className}>
       <SearchField.Group
-        className={`bg-surface border-control flex h-12 w-full items-center gap-3 rounded-xl border px-4 shadow-sm transition-colors duration-(--motion-base) lg:h-15 ${
+        className={`flex h-12 w-full items-center gap-3 rounded-xl border border-control bg-surface px-4 shadow-sm transition-colors duration-(--motion-base) lg:h-15 ${
           attachEnd ? "max-sm:rounded-r-none max-sm:border-r-0" : ""
         }`}>
-        <SearchField.SearchIcon className="text-foreground-muted shrink-0" />
+        <SearchField.SearchIcon className="shrink-0 text-foreground-muted" />
         <SearchField.Input
           placeholder={placeholder}
-          className="fluid-sm w-full bg-transparent outline-none"
+          className="w-full bg-transparent fluid-sm outline-none"
         />
         {/* Generic wording: `label` is a whole phrase, so a name derived from it would read as broken German. */}
         <SearchField.ClearButton {...dismissControl({ label: "Suche zurücksetzen" })} />

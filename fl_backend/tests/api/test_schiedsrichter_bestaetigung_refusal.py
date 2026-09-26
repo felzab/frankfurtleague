@@ -40,7 +40,6 @@ from app.api.schiedsrichter.services import (
     find_alter_refusal,
     find_expired_token_refusal,
     find_gesperrt_refusal,
-    find_korrektur_mint,
     find_medien_refusal,
     find_missing_address_refusal,
     find_retired_refusal,
@@ -72,9 +71,10 @@ A_CHILDS_BIRTHDATE = "2018-01-01"
 
 LIVE_BLOCK: Mapping[str, Any] = compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)
 
-# One mailbox: as a row stored before the address rule holds it, and as a save of it stores it now.
-UNICODE_STORED = "anna@müller.de"
-PUNYCODE_SAVED = "anna@xn--mller-kva.de"
+# One mailbox, its domain spelled in two cases (RFC 5321 §2.4). The address rule stores the lower one,
+# and a row written before any rule held the referee's address may hold the other.
+CAPITALS_STORED = "anna@Mueller.DE"
+LOWER_CASE_SAVED = "anna@mueller.de"
 
 
 def confirmed(*, bestaetigt_am: str = TODAY) -> dict[str, Any]:
@@ -102,6 +102,7 @@ class TestTheStoredBlock:
 
     def test_a_fresh_mint_chases_nobody_and_carries_no_delivery_state(self):
         assert LIVE_BLOCK["erinnert_am"] is None
+        assert "zustellung" in _SCHIEDSRICHTER_BESTAETIGUNG["properties"]
         assert "zustellung" not in LIVE_BLOCK
 
     def test_the_lookup_is_the_hash_alone(self):
@@ -410,11 +411,11 @@ class TestARetiredRefereeTakesNoFreshLink:
         assert update == {"$set": payload, "$unset": {BESTAETIGUNG_FELD: ""}}
 
     def test_a_retired_referees_unmoved_address_keeps_its_link_in_whichever_spelling_it_was_stored(self):
-        stored = {"kontakt": {"email": UNICODE_STORED}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}
-        payload = {"kontakt": {"telefon": None, "email": PUNYCODE_SAVED}}
+        stored = {"kontakt": {"email": CAPITALS_STORED}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}
+        payload = {"kontakt": {"telefon": None, "email": LOWER_CASE_SAVED}}
 
         update, minted = compose_korrektur_update(
-            stored=stored, payload=payload, payload_email=PUNYCODE_SAVED, token_hash=TOKEN_HASH, today=TODAY
+            stored=stored, payload=payload, payload_email=LOWER_CASE_SAVED, token_hash=TOKEN_HASH, today=TODAY
         )
 
         assert (update, minted) == ({"$set": payload}, False)
@@ -487,6 +488,14 @@ class TestAnAddressOnTheBanList:
         assert refusal.error_code == SCHIEDSRICHTER_ADRESSE_GESPERRT
 
 
+def korrektur(stored: Mapping[str, Any], payload_email: str, *, today: str = TODAY) -> tuple[dict[str, Any], bool]:
+    """The save's update over an empty payload, so all it `$set`s is what the save minted."""
+
+    return compose_korrektur_update(
+        stored={"inactive_since": None, **stored}, payload={}, payload_email=payload_email, token_hash=TOKEN_HASH, today=today
+    )
+
+
 class TestACorrectedAddressReMints:
     """The ruled behaviour: an unconfirmed referee's old link was posted to a mailbox nobody reads."""
 
@@ -502,21 +511,22 @@ class TestACorrectedAddressReMints:
         ids=["address-moved", "address-moved-in-the-local-part-s-case-alone", "address-entered", "placeholder-replaced"],
     )
     def test_an_unconfirmed_referee_whose_address_moves_gets_a_fresh_block(self, stored: Mapping[str, Any], payload_email: str):
-        minted = find_korrektur_mint(stored=stored, payload_email=payload_email, token_hash=TOKEN_HASH, today=TODAY)
-
-        assert minted == {BESTAETIGUNG_FELD: compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)}
+        assert korrektur(stored, payload_email) == (
+            {"$set": {BESTAETIGUNG_FELD: compose_bestaetigung(token_hash=TOKEN_HASH, today=TODAY)}},
+            True,
+        )
 
     @pytest.mark.parametrize(
         ("stored", "payload_email"),
         [
             ({"kontakt": {"email": "same@example.com"}, EINWILLIGUNG_FELD: None}, "same@example.com"),
-            ({"kontakt": {"email": UNICODE_STORED}, EINWILLIGUNG_FELD: None}, PUNYCODE_SAVED),
+            ({"kontakt": {"email": CAPITALS_STORED}, EINWILLIGUNG_FELD: None}, LOWER_CASE_SAVED),
             ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: confirmed()}, "new@example.com"),
         ],
-        ids=["address-unchanged", "address-unchanged-but-stored-before-the-address-rule", "already-confirmed"],
+        ids=["address-unchanged", "address-unchanged-but-its-domain-in-capitals", "already-confirmed"],
     )
     def test_every_other_save_mints_nothing(self, stored: Mapping[str, Any], payload_email: str):
-        assert find_korrektur_mint(stored=stored, payload_email=payload_email, token_hash=TOKEN_HASH, today=TODAY) is None
+        assert korrektur(stored, payload_email) == ({"$set": {}}, False)
 
     def test_a_confirmed_referees_corrected_address_is_stopped_here_and_by_no_refusal(self):
         """The already-answered half of the save's mint is this early return, which the two refusals beside it never reach.
@@ -526,20 +536,15 @@ class TestACorrectedAddressReMints:
 
         stored = {"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: confirmed(), "inactive_since": None}
 
-        assert find_korrektur_mint(stored=stored, payload_email="new@example.com", token_hash=TOKEN_HASH, today=TODAY) is None
+        assert korrektur(stored, "new@example.com") == ({"$set": {}}, False)
         assert find_already_confirmed_refusal(einwilligung=stored[EINWILLIGUNG_FELD]) is not None
         assert find_retired_refusal(inactive_since=stored["inactive_since"]) is None
 
     def test_the_fresh_block_restarts_the_deadline(self):
-        minted = find_korrektur_mint(
-            stored={"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None},
-            payload_email="new@example.com",
-            token_hash=TOKEN_HASH,
-            today=TOMORROW,
-        )
+        update, minted = korrektur({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: None}, "new@example.com", today=TOMORROW)
 
-        assert minted is not None
-        assert minted[BESTAETIGUNG_FELD]["frist"] == bestaetigung_frist_from(today=TOMORROW)
+        assert minted is True
+        assert update["$set"][BESTAETIGUNG_FELD]["frist"] == bestaetigung_frist_from(today=TOMORROW)
 
 
 class TestTheDeadlineIsStoredRatherThanDerived:

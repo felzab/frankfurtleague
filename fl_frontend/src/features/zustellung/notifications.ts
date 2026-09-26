@@ -1,8 +1,10 @@
 import "server-only";
 
-import { MailSendError } from "@/core/errors";
+import { APINetworkError, MailSendError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { MailRecipientError, MailWithheldError, sendMail } from "@/core/mail";
+import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
+import { markOutcomeUnknown } from "@/core/requestScope";
 
 import { meldeZielZustellungAbgewiesen, meldeZielZustellungAngenommen } from "./mutations";
 import { FLZustellungAbgewiesenPayloadSchema } from "./schemas";
@@ -20,8 +22,8 @@ export type ZielAuftrag = {
   zielId: string;
   anlass: ZustellAnlass;
   /**
-   * The day the idempotency key is scoped to, set ONLY where the body cannot change inside the
-   * provider's window: a key reused over a changed body is refused rather than ignored.
+   * What the key is scoped to beside the record, a day or a press, set ONLY where the body cannot
+   * change inside the provider's window. It also lets the transport retry a broken send.
    */
   idempotenzTag?: string;
 };
@@ -37,6 +39,12 @@ export type ZielMailOutcome = {
    * every address lands in `unreachable`.
    */
   withheld: readonly string[];
+  /**
+   * The addresses whose send broke off unanswered, which the provider may have accepted: in neither
+   * list above. The fan-out marks the request, and its spine answers it as of unknown outcome
+   * (`docs/frontend/spec.md :: I366`).
+   */
+  ungewiss: readonly string[];
 };
 
 /** One message, without the envelope the fan-out fills in. */
@@ -52,12 +60,12 @@ export function zielZustellungTags({ ziel, zielId, anlass }: ZielAuftrag): Recor
 }
 
 /**
- * **Only for a message whose body cannot change inside the provider's 24-hour window.** A reused key
- * over a different body is refused rather than ignored, so any message carrying a freshly minted
- * token must go without one.
+ * **Only for a message whose body cannot change inside the provider's 24-hour window**, a key reused
+ * over another body being refused: a token minted again under one record goes keyless, one minted on
+ * its own record keys safely.
  */
-export function zielIdempotenzSchluessel({ ziel, zielId, anlass }: ZielAuftrag, tag: string): string {
-  return [anlass, ziel, zielId, tag].join("_");
+export function zielIdempotenzSchluessel({ ziel, zielId, anlass }: ZielAuftrag, tag: string, address: string): string {
+  return mailIdempotencyKey([anlass, ziel, zielId, tag], address);
 }
 
 /** The record one accepted message covered, stamped with THIS server's clock. */
@@ -156,7 +164,7 @@ export async function sendZielMail({
         html: mail.html,
         text: mail.text,
         tags: zielZustellungTags(auftrag),
-        idempotencyKey: auftrag.idempotenzTag === undefined ? undefined : zielIdempotenzSchluessel(auftrag, auftrag.idempotenzTag),
+        idempotencyKey: auftrag.idempotenzTag === undefined ? undefined : zielIdempotenzSchluessel(auftrag, auftrag.idempotenzTag, address),
       });
     }),
   );
@@ -164,6 +172,7 @@ export async function sendZielMail({
   const delivered: string[] = [];
   const unreachable: string[] = [];
   const withheld: string[] = [];
+  const ungewiss: string[] = [];
   const gemeldet: Promise<void>[] = [];
 
   settled.forEach((result, index) => {
@@ -178,7 +187,10 @@ export async function sendZielMail({
       return;
     }
 
-    unreachable.push(address);
+    if (result.reason instanceof APINetworkError) {
+      ungewiss.push(address);
+      markOutcomeUnknown();
+    } else unreachable.push(address);
     // Beside rather than instead: every caller reading `unreachable` alone keeps the answer it had.
     if (result.reason instanceof MailWithheldError) withheld.push(address);
     // The submit is where a refused address is learnt at all: no message was minted, so no delivery
@@ -196,5 +208,5 @@ export async function sendZielMail({
   // Together rather than one after another: each round trip is independent of the others.
   await Promise.all(gemeldet);
 
-  return { delivered: delivered, unreachable: unreachable, withheld: withheld };
+  return { delivered: delivered, unreachable: unreachable, withheld: withheld, ungewiss: ungewiss };
 }

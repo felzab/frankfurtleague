@@ -47,7 +47,7 @@ through a pipe, between <time> and <time> on <date>. Where a fact would have nee
 this session could not run, say so instead of guessing.>
 
 - Branch, and the commit SUBJECTS -- never SHAs, which a rebase invalidates silently.
-- Gate state: the scope run, the real exit code, the findings.
+- Gate state: the full `./scripts/gate/verify.sh`'s real exit code, its closing line, the findings.
 - Counts, each with who measured it, the moment it was taken, and a note that it will move. A
   figure whose provenance the next session cannot see is one it will act on without re-measuring.
 - What could NOT be established here, and why.

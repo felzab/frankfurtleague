@@ -1,0 +1,28 @@
+// Linted as src/features/sperrliste/queries.ts.
+"use cache"; // expect: uncached-read
+import { cache } from "react";
+
+import { cacheLife, cacheTag } from "next/cache"; // expect: uncached-read expect: uncached-read
+import * as nextCache from "next/cache";
+
+export async function plantedReads(): Promise<void> {
+  "use cache"; // expect: uncached-read
+  cacheTag("sperrliste"); // expect: uncached-read
+  cacheLife("hours"); // expect: uncached-read
+  nextCache.cacheTag("sperrliste"); // expect: uncached-read
+  nextCache.cacheLife("hours"); // expect: uncached-read
+  nextCache["cacheTag"]("sperrliste"); // expect: uncached-read
+  nextCache["cacheLife"]("hours"); // expect: uncached-read
+}
+
+export async function plantedPrivate(): Promise<void> {
+  "use cache: private"; // expect: uncached-read
+}
+
+// React's `cache` dedupes within one render pass, and a string naming the directive is no directive.
+export const memoised = cache(async () => "use cache");
+export async function notAPrologue(): Promise<string> {
+  await memoised();
+  return "use cache";
+}
+export const GAP = "flex gap-5"; // expect: gap

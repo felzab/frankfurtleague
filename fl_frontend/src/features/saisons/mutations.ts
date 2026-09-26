@@ -25,7 +25,7 @@ import type {
 } from "./schemas";
 
 // The one create whose payload carries its own id: `saisons._id` is chosen rather than generated, so
-// a reuse is refused by the index and comes back as a 409 with no error code on it.
+// a reuse is refused by the index and comes back as `DB-COMMON-002`, no rule's code.
 export async function postSaison(payload: FLPostSaisonPayload): Promise<FLPostSaisonResponse> {
   return apiClient<FLPostSaisonResponse>("/saisons", FLPostSaisonResponseSchema, {
     method: "POST",

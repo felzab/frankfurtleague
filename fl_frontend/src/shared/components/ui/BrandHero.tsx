@@ -1,4 +1,4 @@
-import { DISPLAY_HEADING, WORDMARK } from "./displayType";
+import { DISPLAY_HEADING_CLASSES, WORDMARK_CLASSES } from "./displayType";
 import { FLLogo } from "./FLLogo";
 
 /**
@@ -7,28 +7,28 @@ import { FLLogo } from "./FLLogo";
  */
 export function BrandHero({ title, lead }: { title: string; lead: string }) {
   return (
-    <header className="bg-brand-solid text-brand-solid-foreground border-brand-solid-foreground/15 relative flex w-full flex-row items-center gap-x-6 overflow-hidden rounded-3xl border px-4 py-6 shadow-sm sm:gap-x-8 sm:p-8 lg:p-10">
+    <header className="relative flex w-full flex-row items-center gap-x-6 overflow-hidden rounded-3xl border border-brand-solid-foreground/15 bg-brand-solid px-4 py-6 text-brand-solid-foreground shadow-sm sm:gap-x-8 sm:p-8 lg:p-10">
       <PitchTrace />
 
       <div className="relative flex min-w-0 flex-1 flex-col gap-y-3">
         {/* `aria-hidden` because the navbar's wordmark is the link a reader is given the name by. */}
         <span
           aria-hidden="true"
-          className={`${WORDMARK} fluid-sm text-brand-solid-accent`}>
+          className={`${WORDMARK_CLASSES} fluid-sm text-brand-solid-accent`}>
           Frankfurt League
         </span>
-        <h1 className={`${DISPLAY_HEADING} fluid-4xl text-balance`}>{title}</h1>
-        <p className="fluid-lg text-brand-solid-foreground/85 max-w-2xl font-medium text-pretty">{lead}</p>
+        <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-4xl text-balance`}>{title}</h1>
+        <p className="max-w-2xl fluid-lg font-medium text-pretty text-brand-solid-foreground/85">{lead}</p>
       </div>
 
       {/* `relative`, so the mark stacks over the trace rather than under it. */}
-      <FLLogo className="text-brand-solid-accent relative h-20 w-auto shrink-0 sm:h-28 lg:h-40" />
+      <FLLogo className="relative h-20 w-auto shrink-0 text-brand-solid-accent sm:h-28 lg:h-40" />
     </header>
   );
 }
 
 // Shared by both ends, so one scale governs the drawing: a marking is the same size at either edge.
-const PITCH_LINE = "pointer-events-none absolute top-0 h-full w-auto";
+const PITCH_LINE_CLASSES = "pointer-events-none absolute top-0 h-full w-auto";
 
 /**
  * The two ends of one half pitch, each pinned to the block's own edge: the block is far wider than
@@ -47,7 +47,7 @@ function PitchTrace() {
         stroke="currentColor"
         strokeOpacity={0.13}
         strokeWidth={2}
-        className={`${PITCH_LINE} left-0 max-w-[38%]`}>
+        className={`${PITCH_LINE_CLASSES} left-0 max-w-[38%]`}>
         {/* `non-scaling-stroke` on every stroked shape, because the drawing is sized off the block:
             without it the stroke thickens with the hero's height instead of staying a drawn line. */}
         <circle
@@ -76,7 +76,7 @@ function PitchTrace() {
         stroke="currentColor"
         strokeOpacity={0.13}
         strokeWidth={2}
-        className={`${PITCH_LINE} right-0 max-w-[62%]`}>
+        className={`${PITCH_LINE_CLASSES} right-0 max-w-[62%]`}>
         <path
           d="M0 -20.16H-16.5V20.16H0"
           vectorEffect="non-scaling-stroke"

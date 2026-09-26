@@ -18,9 +18,9 @@ export type VoidPreview = {
 const PREVIEW_DEBOUNCE_MS = 450;
 
 /**
- * **`null` is "no answer", never "nothing would be destroyed"**: the first render, an in-flight
- * request and a failed one all produce it, so a caller rendering reassurance would promise what the
- * preview never said.
+ * **`preview: null` is "no answer", never "nothing would be destroyed"**: the first render, a request
+ * in flight and a failed one all produce it, and reassurance would promise what the preview never
+ * said. `failed` parts out the failed one.
  */
 export function useVoidPreview({
   previewKey,
@@ -32,13 +32,13 @@ export function useVoidPreview({
   buildPayload: () => FLPatchSpielDataPayloadDraft;
   /** False while there is nothing to preview — a group-phase fixture that feeds no bracket slot. */
   isEnabled: boolean;
-}): VoidPreview | null {
+}): { preview: VoidPreview | null; failed: boolean } {
   /**
    * **Stored with the draft it answers**, which makes the staleness rule enforceable rather than
    * remembered: an answer renders only while its key is current, so an edited draft shows nothing
    * rather than the previous draft's fixtures.
    */
-  const [answered, setAnswered] = useState<{ key: string; preview: VoidPreview } | null>(null);
+  const [answered, setAnswered] = useState<{ key: string; preview: VoidPreview | null } | null>(null);
 
   // Read through a ref, deliberately not a dependency: the form rebuilds `buildPayload` every
   // render, so the debounce would never elapse. `previewKey` decides when to ask again.
@@ -55,10 +55,14 @@ export function useVoidPreview({
     let isCurrent = true;
 
     const timer = setTimeout(async () => {
-      const result = await previewAdminSpielDataAction(buildPayloadRef.current());
-      if (!isCurrent || !result.success) return;
+      // A cut request rejects the action, and from this timer nothing else would answer it: settled as a failed preview.
+      const result = await previewAdminSpielDataAction(buildPayloadRef.current()).catch(() => null);
+      if (!isCurrent) return;
 
-      setAnswered({ key: previewKey, preview: { voided: result.voidedFixtures ?? [], released: result.releasedFixtures ?? [] } });
+      setAnswered({
+        key: previewKey,
+        preview: result === null || !result.success ? null : { voided: result.voidedFixtures ?? [], released: result.releasedFixtures ?? [] },
+      });
     }, PREVIEW_DEBOUNCE_MS);
 
     return () => {
@@ -68,5 +72,7 @@ export function useVoidPreview({
   }, [previewKey, isEnabled]);
 
   // Derived at render rather than cleared in an effect: both inputs come from the draft already.
-  return isEnabled && answered?.key === previewKey ? answered.preview : null;
+  const current = isEnabled && answered?.key === previewKey ? answered : null;
+
+  return { preview: current?.preview ?? null, failed: current !== null && current.preview === null };
 }

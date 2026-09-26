@@ -2,7 +2,7 @@
 
 import { reactivateSpielortAction } from "@/features/spielorte/actions";
 import { AdminSpielortEditForm } from "@/features/spielorte/components/forms/AdminSpielortEditForm/AdminSpielortEditForm";
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 /**
  * Retiring is the list's dialog; reactivating is here, a fact about the row rather than a value the
@@ -25,7 +25,7 @@ export function AdminSpielortEditView({
   const isRetired = inactiveSince !== null;
 
   return (
-    <div className={`${PAGE_RISE} flex min-h-0 w-full flex-1 flex-col`}>
+    <div className={`${PAGE_RISE_CLASSES} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminSpielortEditForm
         spielort={spielort}
         isRetired={isRetired}

@@ -17,15 +17,21 @@ from __future__ import annotations
 from collections import Counter
 from typing import Final
 
+import pytest
 from conftest import write
 from test_check_docs import (
     ABSENT_ANCHOR,
+    AGGREGATE_NAME,
+    BACKEND_RAISE,
+    BACKEND_SPEC,
     BACKEND_TEST,
     CASE_MODULE,
     CITED_CASE,
     CITED_HEADING,
     CITED_PYTHON_CASE,
+    COMPOSE_FILE,
     DEAD_ROOT_FOLDER_PATH,
+    DOMAIN_REGISTER,
     ESCAPED_CASE,
     ESCAPED_SOURCE,
     FENCED_ANCHOR,
@@ -38,14 +44,17 @@ from test_check_docs import (
     IGNORED_MODULE,
     IGNORED_PAGE,
     KERNEL,
+    LIVE_MEMBER,
     MARKER_TSX,
     NOTES,
+    OPENAPI,
     OTHER_SPELLING,
     QUOTE,
     QUOTED_ERROR,
     RENAMED_HEADING,
     RETIRED_ID,
     ROOT_FOLDER_FILE,
+    RULE_OPERATION,
     SAMPLE,
     SCRIPTS_COPY,
     SECOND_CASE,
@@ -54,9 +63,11 @@ from test_check_docs import (
     SHARED_BASENAME,
     SPIELER_PANEL,
     STANDARD,
+    SURFACE,
     TWIN_NOTES,
     UNCITED_CASE,
     UNCITED_PYTHON_CASE,
+    UNENFORCED_SUBJECT,
     UNSTAGED_MODULE,
     UNTRACKED_TWIN,
     _append,
@@ -274,6 +285,308 @@ def test_a_citation_of_a_case_name_the_source_escapes_is_refused_before_any_coun
     assert code == 1, output
     assert "no longer appears" in output, output
     assert "test cases in" not in output, output
+    _assert_corpus_restored()
+
+
+# Each dead address a reason can argue from, one per shape the gate reads, beside a live read rule.
+DEAD_REASON: Final = (
+    "`REQ-GONE-001`, `REQ-GONE-*`, `READ-SAMPLE-002`, `app/gone.py`, `app/sample.py :: GONE`, "
+    "`app/core/domain.py :: RULES` and `I999`, where `READ-SAMPLE-001` stands."
+)
+READ_RULE_TABLE: Final = "It answers with one document.\n\n| Rule | Withholds |\n| --- | --- |\n| `READ-SAMPLE-001` | A name |"
+
+
+def _declare_unenforced(*entries: str) -> None:
+    """Entries after the fixture's own, each a `reason=` expression as the source spells it."""
+    rows = "".join(
+        f'    Unenforced(\n        subject="a planted state {n}",\n        reason={reason},\n    ),\n' for n, reason in enumerate(entries)
+    )
+    _replace(DOMAIN_REGISTER, "    ),\n)\n", "    ),\n" + rows + ")\n")
+
+
+def test_every_address_a_reason_argues_from_is_resolved_and_a_dead_one_named_by_its_check() -> None:
+    """One finding per dead address; the live read rule and the fixture's own entry raise none."""
+    _reset()
+    _replace(BACKEND_SPEC, "It answers with one document.", READ_RULE_TABLE)
+    _declare_unenforced('"' + DEAD_REASON + '"')
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    about = {check: reported[("fail", check, DOMAIN_REGISTER)] for check in ("citation", "path", "invariant-id")}
+    assert about == {"citation": 5, "path": 1, "invariant-id": 1}, _shape(reported)
+    assert "READ-SAMPLE-001" not in output, output
+    assert UNENFORCED_SUBJECT not in output, output
+    _assert_corpus_restored()
+
+
+def test_a_register_declaring_no_unenforced_state_is_named_rather_than_read_as_clean() -> None:
+    """A reader that found no tuple would otherwise pass every reason it never read."""
+    _reset()
+    _replace(DOMAIN_REGISTER, "UNENFORCED: tuple[Unenforced, ...] = (", "STATES = (")
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "citation", DOMAIN_REGISTER)] == 1, _shape(reported)
+    assert "declares no `UNENFORCED` entry" in output, output
+    _assert_corpus_restored()
+
+
+def test_a_tree_raising_no_rule_code_is_named_rather_than_failing_every_code_a_reason_names() -> None:
+    """The one module raising a code goes quiet, so the listing reason codes resolve against is empty."""
+    _reset()
+    _drop(SAMPLE, BACKEND_RAISE)
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "citation", DOMAIN_REGISTER)] == 1, _shape(reported)
+    assert "so codes were read against nothing" in output, output
+    _assert_corpus_restored()
+
+
+# One token of each shape the gate took over from the backend's suite, turned into one nothing answers.
+@pytest.mark.parametrize(
+    ("old", "new", "check", "said"),
+    [
+        pytest.param("`GET /sample`", "`GET /gone`", "citation", f"a route `{OPENAPI}` does not publish", id="endpoint"),
+        pytest.param(f"`{SURFACE}`", "`/gone`", "path", "a path no `page.tsx`", id="surface"),
+        pytest.param(f"`{SURFACE}`", "`/(site)/sample`", "path", "a path no `page.tsx`", id="route-group-spelled"),
+        pytest.param("`(saison_id, team_id)`", "`(saison_id, gone_id)`", "citation", "an index key no index", id="index-key"),
+        pytest.param("naming `VALUE`", "naming `GONE_NAME`", "citation", "a name neither source tree spells", id="name"),
+        pytest.param("and `3`.", "and `?!`.", "citation", "a shape nothing here reads", id="unread-shape"),
+    ],
+)
+def test_a_reason_s_token_nothing_answers_for_is_named_by_its_kind(old: str, new: str, check: str, said: str) -> None:
+    """The reader imports the declaration, so the plant reaches it as the application would."""
+    _reset()
+    _replace(DOMAIN_REGISTER, old, new)
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", check, DOMAIN_REGISTER)] == 1, _shape(reported)
+    assert said in output, output
+    _assert_corpus_restored()
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "check", "said"),
+    [
+        pytest.param("Read by `GET /sample`", "Read by `GET /gone`", "citation", f"a route `{OPENAPI}` does not publish", id="string-field"),
+        pytest.param(LIVE_MEMBER, "`/gone`", "path", "a path no `page.tsx`", id="tuple-field"),
+        pytest.param(f"beside `{AGGREGATE_NAME}`", "beside `Gone-Plan`", "citation", "a shape nothing here reads", id="declared-name"),
+    ],
+)
+def test_a_token_in_any_declared_row_s_prose_is_held_to_the_tree(old: str, new: str, check: str, said: str) -> None:
+    """Another table than `UNENFORCED`, found by its rows: its string field, its tuple of strings, and a row's name."""
+    _reset()
+    _replace(DOMAIN_REGISTER, old, new)
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", check, DOMAIN_REGISTER)] == 1, _shape(reported)
+    assert said in output, output
+    _assert_corpus_restored()
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "check", "said"),
+    [
+        pytest.param(f'surfaced_by="{SURFACE}"', 'surfaced_by="/gone"', "path", "is surfaced by `/gone`, which serves nothing", id="surface"),
+        pytest.param(f'operation="{RULE_OPERATION}"', 'operation="POST /sample"', "citation", "declares `POST /sample`", id="rule-route"),
+    ],
+)
+def test_an_entry_s_surface_and_a_rule_s_route_are_held_to_the_tree(old: str, new: str, check: str, said: str) -> None:
+    """The two addressed fields beside the reason, resolved by the same reader."""
+    _reset()
+    _replace(DOMAIN_REGISTER, old, new)
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", check, DOMAIN_REGISTER)] == 1, _shape(reported)
+    assert said in output, output
+    _assert_corpus_restored()
+
+
+def test_a_backend_that_will_not_import_refuses_the_run() -> None:
+    """Exit 2 and no finding: nothing about a rule or a declared state was read, so nothing about one is wrong."""
+    _reset()
+    _append(DOMAIN_REGISTER, 'raise RuntimeError("the declaration will not import")')
+    try:
+        code, output = _output()
+    finally:
+        _reset()
+    assert code == 2, output
+    assert "fl_backend could not be imported (RuntimeError: the declaration will not import)" in output, output
+    assert "failing finding" not in output, output
+    _assert_corpus_restored()
+
+
+# The registry's own opening, as `docs_gate/kernel.py` spells it.
+REGISTRY_OPENING: Final = "CHECKS: Final[dict[str, Check]] = {"
+
+
+@pytest.mark.parametrize(
+    ("rel", "rebinding", "check", "name"),
+    [pytest.param(KERNEL, "CHECKS = dict(CHECKS)", "enforced-by", "CHECKS", id="check-registry")],
+)
+def test_a_name_the_gate_reads_from_source_bound_twice_is_named(rel: str, rebinding: str, check: str, name: str) -> None:
+    """The gate reads a name's first binding, and Python runs with its last.
+
+    Written back by hand: the scripts copy the kernel sits in is left standing by the reset.
+    """
+    _reset()
+    kept = _read(rel)
+    _append(rel, rebinding)
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        write(_gate().root, rel, kept)
+        _reset()
+    assert reported[("fail", check, rel)] == 1, _shape(reported)
+    assert f"binds `{name}` a second time" in output, output
+    _assert_corpus_restored()
+
+
+def test_a_check_registry_spelled_as_no_dict_literal_is_named() -> None:
+    """The literal renamed and the registry bound to a copy of it: the lines a row's claim may not prove itself from go unread."""
+    _reset()
+    kept = _read(KERNEL)
+    _replace(KERNEL, REGISTRY_OPENING, REGISTRY_OPENING.replace("CHECKS", "_ROWS"))
+    _append(KERNEL, "CHECKS: Final = dict(_ROWS)")
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        write(_gate().root, KERNEL, kept)
+        _reset()
+    assert reported[("fail", "enforced-by", KERNEL)] == 1, _shape(reported)
+    assert "`CHECKS` is no annotated dict literal keyed by names" in output, output
+    _assert_corpus_restored()
+
+
+def test_a_check_registered_outside_the_registry_literal_is_named() -> None:
+    """A row added at run time has no lines in the literal, so its claims would be read against nothing."""
+    _reset()
+    kernel = _module("docs_gate.kernel")
+    kernel.CHECKS["late-check"] = kernel.CHECKS[SELF_CLAIMED_CHECK]
+    try:
+        _, output = _output()
+    finally:
+        del kernel.CHECKS["late-check"]
+        _reset()
+    assert "`late-check` is registered outside the `CHECKS` literal" in output, output
+    _assert_corpus_restored()
+
+
+def test_a_code_only_a_comment_spells_is_no_code_a_reason_may_argue_from() -> None:
+    """The sample's one raise commented out, so the reason citing its code argues from a module that talks about it."""
+    _reset()
+    _replace(SAMPLE, BACKEND_RAISE, HASH + " " + BACKEND_RAISE)
+    # Another of the family kept: the reason argues from the family too, and it still resolves.
+    _append(SAMPLE, 'KEPT = "REQ-SAMPLE-005"')
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "citation", DOMAIN_REGISTER)] == 1, _shape(reported)
+    assert "which no module's code spells outside the declaration" in output, output
+    _assert_corpus_restored()
+
+
+# A module whose code holds a tick in a string, on the line of a comment citing it.
+TICKED_MODULE: Final = "fl_frontend/src/ticked.ts"
+TICKED_ANCHOR: Final = "a phrase only citations spell"
+
+
+def test_a_citation_beside_a_tick_in_code_proves_nothing_of_its_own_anchor() -> None:
+    """Over the raw text the string's tick pairs with the comment's, and the continuation it parts proves the first.
+
+    Two findings, each citation being spelled only by a citation; one means the continuation
+    answered for its neighbour.
+    """
+    _reset()
+    write(
+        _gate().root,
+        TICKED_MODULE,
+        _page(
+            "// See `" + TICKED_MODULE + " :: " + TICKED_ANCHOR + "`.",
+            # A paragraph apart, so no tick above can pair the line's odd one away.
+            "",
+            'export const again = "`"; // and `:: ' + TICKED_ANCHOR + "`",
+        ),
+    )
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported[("fail", "citation", TICKED_MODULE)] == 2, _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_name_cut_short_resolves_nowhere_while_the_whole_name_and_a_quoted_fragment_do() -> None:
+    """Read as a substring, a name resolves inside any longer one, and a symbol renamed by a suffix certifies.
+
+    `MARKED` catches a reader failing every name; the quoted run stays a fragment, matched as spelled.
+    """
+    _reset()
+    cited = [MARKER_TSX + " :: " + anchor for anchor in ("MARK", "MARKED", QUOTE + "MARK" + QUOTE)]
+    _append(NOTES, "The marker module's constant: " + ", ".join(_tick(citation) for citation in cited) + ".")
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 1, "a whole name or a fragment of one was judged wrongly: " + _shape(reported)
+    assert "anchor 'MARK' no longer appears in " + MARKER_TSX in output, output
+    _assert_corpus_restored()
+
+
+def test_a_hyphen_continues_a_name_in_yaml_and_ends_one_in_typescript() -> None:
+    """A compose option spells `--no-autoupdate`, so `autoupdate` there is no name; `1-SPAN` subtracts a name.
+
+    One finding: the dead YAML name. The live YAML key and the TypeScript name each resolve.
+    """
+    _reset()
+    _append(COMPOSE_FILE, "    command: --no-autoupdate")
+    _append(MARKER_TSX, "export const minus = 1-SPAN;")
+    cited = [COMPOSE_FILE + " :: autoupdate", COMPOSE_FILE + " :: fixture", MARKER_TSX + " :: SPAN"]
+    _append(NOTES, "Three names: " + ", ".join(_tick(citation) for citation in cited) + ".")
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "citation", NOTES)] == 1, _shape(reported)
+    assert "anchor 'autoupdate' no longer appears in " + COMPOSE_FILE in output, output
+    _assert_corpus_restored()
+
+
+def test_a_path_a_command_or_a_mount_spells_from_the_root_is_read_up_to_its_first_argument() -> None:
+    """`./` is how a page tells a reader to run a script, and read as prose it survives a rename.
+
+    The live span's argument is no part of its path; a mount's container half follows a colon.
+    """
+    _reset()
+    _append(NOTES, "A live " + _tick("./" + KERNEL + " --a-flag") + ", a dead " + _tick("./docs/gone-led-by-a-dot.md --a-flag") + ".")
+    _append(TWIN_NOTES, "A dead mount " + _tick("./docs/gone-mounted.md:/etc/gone.md") + ".")
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    assert reported == Counter({("fail", "path", NOTES): 1, ("fail", "path", TWIN_NOTES): 1}), _shape(reported)
     _assert_corpus_restored()
 
 

@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
+import { FLTeamWithMembershipsSchema } from "@/features/teams/schemas.ts";
 import { submitDecision } from "@/shared/hooks/useDraftFieldErrors";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { answer, answerReadsWith, EMPTIEST_ANSWER, OBJECT_ID, renderPage, saisonFields } from "@/shared/testing/pageHarness.ts";
+import { answerShown, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree } from "@/shared/testing/renderTest";
 
 import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
@@ -17,22 +18,6 @@ import { describeKontaktErasureUmfang, mirrorKontakte, toKontaktePayload } from 
 
 import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { FLKontaktErasureResponse } from "./schemas.ts";
-
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
-/**
- * Read rather than called: what each case asserts is which module carries a step — which declares a
- * tier, which composes the report — and a call reports an outcome rather than the site.
- */
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
-const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
-/** Whitespace-collapsed: the admin list page's copy is JSX text, so the formatter picks its line breaks. */
-const PAGE_SOURCE = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "kontakte", "page.tsx"), "utf8");
-const SECTION = readFileSync(
-  path.resolve(import.meta.dirname, "components", "forms", "AdminKontakteEditForm", "FormKontakteSection.tsx"),
-  "utf8",
-).replace(/\s+/g, " ");
-const PAGE = PAGE_SOURCE.replace(/\s+/g, " ");
 
 doubleEveryAction();
 
@@ -91,35 +76,37 @@ const sectionMarkup = (kontakte: FLSaisonTeamKontakte): string =>
 /** One rendered seat per entry, cut at the next seat's own title. */
 const seatPanels = (html: string): string[] => html.split("<h2").slice(1);
 
-/** The list page's own return. Its table sits behind the boundary, whose fallback stands here. */
-const PAGE_MARKUP = renderTree(
+/** The list page at the address naming the season `BLOCK` is held in. */
+const listPage = () =>
   underNext(h(AdminKontaktePage, { params: Promise.resolve({}), searchParams: Promise.resolve({ saison_id: "2526" }) }), {
     search: "saison_id=2526",
-  }),
-);
+  });
+
+/** The season the address names. */
+const SAISON = answer(FLSaisonSchema, "/saisons/list/admin", saisonFields("2526", "active"));
+
+/* One club holding `BLOCK` in the season the address names; every other read takes the emptiest
+   body its schema accepts. */
+answerReadsWith((endpoint, schema, params) => {
+  if (endpoint === "/saisons/list/admin") return answer(schema, endpoint, { saisons: [SAISON] });
+  if (endpoint === "/teams/memberships") {
+    const club = answer(FLTeamWithMembershipsSchema, endpoint, {
+      id: OBJECT_ID,
+      name: "SG Alpha",
+      shorthand: "SA",
+      full_name: "Sportgemeinschaft Alpha",
+      address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
+      memberships: [{ saison_id: "2526", gruppe: "A", austritt: null, trikot_farbe: null, kontakte: BLOCK, kontakte_stand: "9f2c" }],
+    });
+    return answer(schema, endpoint, { teams: [club] });
+  }
+  return EMPTIEST_ANSWER(endpoint, schema, params);
+});
+
+/** The list page resolved whole, its table and every row in it. */
+const LIST_MARKUP = await renderPage(listPage());
 
 const ERASURE_OPERATION = "POST /kontakte/erasure";
-
-/* Each declaration is cut at the one named after it, the header above the first included: a boundary
-   that stopped matching then fails the case pinning the cut rather than every case reading the slice. */
-const ERASE_ACTION = sliceBetween(ACTIONS, "export async function eraseKontaktpersonAction", " * The three seats one club holds");
-const ACTION_HEADER = sliceBetween(ACTIONS, '"use server"', "export async function eraseKontaktpersonAction");
-/* The erasure's own half of `mutations.ts`. Cut, because the module holds the seats' write too, and
-   an assertion over the whole file would answer about whichever of the two moved last. */
-const ERASE_MUTATION = sliceBetween(MUTATIONS, "export async function eraseKontaktperson", "// Both ids go in the PATH");
-const RESPONSE_SCHEMA = sliceBetween(SCHEMAS, "export const FLKontaktErasureResponseSchema", null);
-
-/**
- * One function body's statements, comments and blank lines dropped. What the text tests below can
- * assert is the SHAPE of a handler; that it behaves is not reachable from here, and is said so at
- * each case rather than dressed up in a longer regex.
- */
-function statementsOf(slice: string): string[] {
-  return slice
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line !== "" && !line.startsWith("//") && !line.startsWith("/*") && !line.startsWith("*"));
-}
 
 /** One response, spelled once so a report case names only the figures it is about. */
 function erasure(counts: Partial<Omit<FLKontaktErasureResponse, "acknowledged">>): FLKontaktErasureResponse {
@@ -133,64 +120,17 @@ function erasure(counts: Partial<Omit<FLKontaktErasureResponse, "acknowledged">>
   };
 }
 
-describe("the erasure against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
-  it("cuts the action out of the file before reading it", () => {
-    assert.ok(ERASE_ACTION.includes("eraseKontaktperson(validated.data)"), "the erasure's call is outside its slice");
-    assert.ok(!ERASE_ACTION.includes("import {"), "the erasure's slice reaches back over the module's imports");
-    assert.ok(!ERASE_ACTION.includes("patchSaisonTeamKontakte("), "the erasure's slice runs on into the seats' write");
-    assert.ok(ERASE_MUTATION.includes('"/kontakte/erasure"'), "the erasure's mutation is outside its slice");
-    assert.ok(!ERASE_MUTATION.includes("/saisons/"), "the erasure's mutation slice runs on into the seats' write");
-    assert.ok(
-      ACTION_HEADER.includes('eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht } from "./mutations"'),
-      "the header's slice no longer holds the import",
-    );
-    assert.ok(RESPONSE_SCHEMA.includes("redacted_aktionen"), "the response schema's slice does not reach its fields");
-  });
-
-  /* The endpoint refuses nothing: a person may want their details gone while the club they were
-     reached for still plays. A rule declared against it later fails here, rather than reaching the
-     admin unmapped. */
-  it("has no refusal to map, and maps none", () => {
-    assert.deepEqual(declaredCodes(ERASURE_OPERATION), []);
-    assert.ok(!ERASE_ACTION.includes("serverErrorCode"), "the erasure maps a code its endpoint does not answer");
-    assert.ok(!ERASE_ACTION.includes("APIBadStatusError"), "the erasure catches a refusal its endpoint does not raise");
-  });
-
-  /* The floor under the case above: an empty list has to mean "this endpoint declares none" rather
-     than "the register was read as nothing at all". */
-  it("reads a declared refusal where one exists", () => {
-    assert.deepEqual(declaredCodes("DELETE /spieler/{spieler_id}/erasure"), ["REQ-PURGE-001"]);
-  });
-});
-
-describe("what the erasure moves", () => {
-  /* No cached read holds a contact person: the memberships read is admin-tier and memoised per
-     render pass, the public team reads carry no `kontakte` at all, and the applications and the log
-     are uncached too. */
-  it("moves no tag, and says why", () => {
-    assert.ok(!ACTIONS.includes("updateTag("), "a contacts write clears a cached read its endpoint does not move");
-    // The import spelled whole: the slice reaches `next/cache` for the router refresh and nothing else.
-    assert.match(ACTIONS, /^import \{ refresh \} from "next\/cache";$/m, "a contacts write reaches the cache API for more than a refresh");
-    // Both of the module's writes, so a second one added without the reasoning fails here.
-    assert.equal([...ACTIONS.matchAll(/No tag moves/g)].length, 2, "an absent invalidation is left unexplained");
-  });
-
-  /* The address travels in the BODY. A path or a query segment would file it in the access log, in
-     nginx's log and in `aktionen.request.path` — three fresh copies of the value being destroyed. */
-  it("sends the address in the body, to the erasure endpoint, as a POST", () => {
-    assert.match(ERASE_MUTATION, /"\/kontakte\/erasure"/, "the mutation no longer addresses the erasure endpoint");
-    assert.match(ERASE_MUTATION, /FLKontaktErasureResponseSchema,\s*\{\s*method: "POST"/, "the erasure is sent as something other than a POST");
-    assert.match(ERASE_MUTATION, /body: JSON\.stringify\(payload\)/, "the payload no longer travels in the body");
-    assert.ok(!ERASE_MUTATION.includes("params:"), "the address is sent as a query parameter, which the access log keeps");
-    assert.ok(!/\$\{[^}]*\}/.test(ERASE_MUTATION), "the endpoint interpolates a value into the path");
-  });
-
-  /* The response carries counts and no person, and nothing on this side may put one back. */
-  it("reports counts and never the address", () => {
-    assert.ok(!RESPONSE_SCHEMA.includes("email"), "the response mirror carries an address the endpoint withholds");
-    assert.ok(!/\bemail\b/.test(ERASE_ACTION), "the action's own report reads the address it was handed");
-    assert.match(ERASE_ACTION, /message: describeKontaktErasureUmfang\(erasure\)/, "the report is composed somewhere else now");
+describe("the erasure's refusals", () => {
+  /* The endpoint refuses on no rule: a person may want their details gone while the club they were
+     reached for still plays. A rule published against it later fails here until a mapper words it. */
+  it("maps no refusal of its own", () => {
+    for (const code of publishedRefusals(ERASURE_OPERATION)) {
+      assert.notEqual(
+        answerShown(ERASURE_OPERATION, code, () => null),
+        null,
+        `${code} is published on the erasure and reaches the admin unmapped`,
+      );
+    }
   });
 });
 
@@ -284,13 +224,9 @@ describe("where the control stands", () => {
       ["Grace Hopper", "Alan Turing", "Ada Byron"],
       "a seat offers the erasure of somebody it does not hold, or offers none",
     );
-    // The ADDRESS is the key the write travels with, and nothing paints a value the markup never shows.
-    assert.match(SECTION, /<FormKontaktErasure email=\{person\.email\}/, "the erasure is keyed on something other than the seat's own address");
-
-    assert.ok(!PAGE_MARKUP.includes("Kontaktperson löschen"), "the list's own chrome offers the erasure");
-    /* The list's rows render behind the boundary that chrome carries, so what the table hands a row
-       is read here rather than met in the markup above. */
-    assert.ok(!PAGE.includes("FormKontaktErasure"), "the erasure is on the list, detached from the person");
+    // The control: the list rendered the person whose erasure it must not offer.
+    assert.ok(LIST_MARKUP.includes("Hopper"), "the list renders no row, so the absence below proves nothing");
+    assert.ok(!LIST_MARKUP.includes("Kontaktperson löschen"), "the erasure is on the list, detached from the person");
   });
 
   /* The claim points two seats at one record. Offered on both, the same person would read as two, and
@@ -312,26 +248,18 @@ describe("where the control stands", () => {
 
   /* One `h1` per page and the shell owns it; the heading LEVEL is `PanelHeading`'s and pinned there. */
   it("raises no heading the shell already owns", () => {
-    assert.ok(!PAGE_MARKUP.includes("<h1"), "the page's own chrome raises an h1 the shell already owns");
-    /* The control that absence needs: the page's whole return is one boundary, so what renders is
-       the fallback, and a page rendering nothing at all would satisfy the line above unread. */
-    assert.ok(PAGE_MARKUP.includes('role="status"'), "the page's chrome renders nothing, so the absence above proves nothing");
-    // The list itself renders behind the boundary, so what the table returns is read rather than met.
-    assert.ok(!PAGE.includes("<h1"), "the page raises an h1 the shell already owns");
+    // The control: a page rendering no row at all would satisfy the absence below unread.
+    assert.ok(LIST_MARKUP.includes("Hopper"), "the list renders no row, so the absence below proves nothing");
+    assert.ok(!LIST_MARKUP.includes("<h1"), "the page raises an h1 the shell already owns");
   });
 
-  /* The page's chrome may never wait on the list, and the fetch below the boundary may never run in
-     the image build. */
-  it("leaves the page's shape intact", () => {
-    assert.match(PAGE, /export default function AdminKontaktePage/, "the page's default export became async");
-    // The FIRST statement, not merely a present one: the image builder reaches no backend, so a fetch
-    // ordered above this call runs at build time. `[\s\S]*?` would have admitted one in between.
-    assert.equal(
-      // Index 1: index 0 is the function's own signature, which the cut opens on.
-      statementsOf(sliceBetween(PAGE_SOURCE, "async function KontakteTable", null))[1],
-      "await connection();",
-      "the data component no longer opens with await connection()",
-    );
+  /* The page's chrome may never wait on the list: rendered with no boundary awaited, the bar stands
+     beside the list's fallback, where an async page would suspend whole. */
+  it("renders its chrome before the list resolves", () => {
+    const chrome = renderTree(listPage());
+
+    assert.ok(chrome.includes('role="status"'), "no fallback stands where the list will resolve");
+    assert.ok(chrome.includes('type="search"'), "the page's bar waits on the list");
   });
 });
 

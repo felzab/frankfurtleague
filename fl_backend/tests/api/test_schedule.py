@@ -16,21 +16,14 @@ from app.api.saisons.services import RULES_FIXTURES_OVER_ONE_READ, find_rules_re
 from app.api.spiele.schemas import KNOCKOUT_PHASES, MAX_QUALIFIERS, PHASE_ORDER, PHASE_RANK, FLSaisonPhase
 from app.core.exceptions import WriteRefusal
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from tests.documents import rules_document
 
 
 def rules(*, groups: int = 4, per_group: int = 4, qualifiers: int = 2) -> FLSaisonRules:
     return FLSaisonRules.model_validate(
-        {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": qualifiers,
-            "number_of_groups": groups,
-            "teams_per_group": per_group,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1", "E2", "Q1", "Q2"],
-        }
+        rules_document(
+            qualifiers_per_group=qualifiers, number_of_groups=groups, teams_per_group=per_group, erlaubte_stufen=["E1", "E2", "Q1", "Q2"]
+        )
     )
 
 

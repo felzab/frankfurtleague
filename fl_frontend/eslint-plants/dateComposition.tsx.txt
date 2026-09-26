@@ -1,0 +1,35 @@
+// Linted as src/shared/components/ui/DateTimeFields.tsx.
+import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
+// The composition may import the segmented controls, and still only under their own names.
+import { DatePicker as Picker } from "@heroui/react/date-picker"; // expect: date-alias
+// A namespace import of any HeroUI subpath is read as taking its form as well.
+import * as Fields from "@heroui/react/date-field"; // expect: date-alias expect: heroui-form
+import { TimeField } from "@heroui/react/time-field";
+// Every other import ban still reaches it.
+import { DateField } from "@heroui/react"; // expect: vendor-root
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
+import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { NumberField as HeroNumberField } from "@heroui/react/number-field"; // expect: number-field
+import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect: marked-field
+import { HintPanel } from "./InfoHint"; // expect: hint-internals
+import { captureStdout } from "@/core/stdoutCapture"; // expect: test-only
+import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
+
+declare const bounds: object;
+import { createRequire as loadVia } from "node:module"; // expect: node-module
+import { SITE_URL } from "@/core/brand"; // expect: site-origin
+
+export const USED = [TimeField, DateField, AppRouterContext, HeroForm, HintPanel, captureStdout, TEAM_FACETS];
+
+export function AppDatePicker() {
+  return (
+    <Picker minValue={bounds}>
+      <Fields.DateField />
+    </Picker>
+  );
+}
+export const NODE_MODULE_USED = [loadVia];
+export const ORIGIN_USED = SITE_URL;
+export const NUMBER_FIELD_USED = HeroNumberField;
+export const LOCALE_USED = PinnedLocale;
+export const TEXT_FIELD_USED = HeroTextField;

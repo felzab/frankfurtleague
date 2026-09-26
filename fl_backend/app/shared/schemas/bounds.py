@@ -81,7 +81,8 @@ TEAM_WEBSITE_URL_MAX_LENGTH: Final = 300
 # `TEAM_FULL_NAME_MAX_LENGTH`'s width: nothing holds an applicant to a league short name.
 BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH: Final = 120
 
-# One part of one contact person's name, on the public application and the junction patch alike.
+# A person's name, or one part of one, wherever `app/shared/schemas/kontakt.py :: CustomKontaktName`
+# types it.
 # `PERSON_NAME_PATTERN` bounds the ALPHABET and not the length. Generous against a hyphenated
 # double name and a multi-part surname both.
 KONTAKT_NAME_MAX_LENGTH: Final = 80

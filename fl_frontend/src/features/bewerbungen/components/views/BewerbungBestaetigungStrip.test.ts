@@ -23,7 +23,7 @@ import type { FLBewerbung } from "@/features/bewerbungen/schemas.ts";
 type Answer = { success: boolean; message?: string; error?: string; verschickt?: boolean };
 
 /** The strip's two writes, replaced at the module boundary: a real one needs a session and a backend. */
-const { calls, answerWith } = doubleActions({
+const { calls, answerWith, answerPending } = doubleActions({
   modules: ["/src/features/bewerbungen/actions.ts"],
   answer: () => new Promise(() => undefined),
 });
@@ -103,7 +103,17 @@ function renderStrip({
   isOpen = true,
 }: { stands?: SitzBestaetigung[]; frist?: string; isOpen?: boolean } = {}) {
   return render(
-    underNext(h(BewerbungBestaetigungStrip, { bewerbungId: "68d0f2a4c1e2b3a4d5e6f708", staende: stands, frist, isOpen }), { router }),
+    underNext(
+      h(BewerbungBestaetigungStrip, {
+        bewerbungId: "68d0f2a4c1e2b3a4d5e6f708",
+        staende: stands,
+        frist,
+        isOpen,
+        isDirty: false,
+        onGetipptChange: () => undefined,
+      }),
+      { router },
+    ),
   );
 }
 
@@ -274,6 +284,7 @@ describe("the address correction", () => {
       ["anna.neu@schule.example"],
       "the mirror's address is refused as another person's",
     );
+    await act(async () => answerPending({ success: true, message: "Der neue Link ging an anna.neu@schule.example." }));
   });
 
   /* The sign-in fold reads the two as one person, and the mail goes to the bytes stored: a stored
@@ -285,6 +296,7 @@ describe("the address correction", () => {
     await correctClara(user, "clara@schule.example{Enter}");
 
     assert.equal(ran("kontaktEmailKorrigierenAction"), 1, "the press stayed closed over a delivery target that moved");
+    await act(async () => answerPending({ success: true, message: "Der neue Link ging an clara@schule.example." }));
   });
 
   /* A pending submit button stops being a submit button, so `Enter` in the box submits the form by itself,
@@ -297,6 +309,7 @@ describe("the address correction", () => {
     await user.type(addressBox(), "{Enter}");
 
     assert.equal(ran("kontaktEmailKorrigierenAction"), 1, "a second Enter while the write runs sent it again");
+    await act(async () => answerPending({ success: true, message: "Der neue Link ging an clara.neu@schule.example." }));
   });
 
   it("reports a refusal, a sent link and an address corrected behind a message that did not go", async () => {
@@ -353,6 +366,7 @@ describe("two re-sends running at once", () => {
     await settle({ success: true, message: "Der neue Link ging an bernd@schule.example." });
     assert.equal(send("Stellvertretung")?.textContent, "Link erneut senden", "a settled write left its seat held");
     assert.equal(send("Trainer")?.textContent, "Sendet...", "the first write's answer lifted the second seat's hold");
+    await settle({ success: true, message: "Der neue Link ging an clara@schule.example." });
   });
 });
 
@@ -372,6 +386,9 @@ const UNCLEAR_ARMS: Record<string, () => Promise<unknown>> = {
   answered: () => Promise.resolve({ success: false, error: ANSWERED, outcome: "unknown" }),
 };
 
+/* The re-send, holding nothing typed, reads the row again after a rejection alone: an answer comes back with its action's own refresh. */
+const readAgain: Record<string, number> = { thrown: 1, answered: 0 };
+
 /** What the toast over each arm says: the control's own repair where the action threw, the answer's sentence where it answered. */
 const repairOn = (arm: string, own: string): string => (arm === "thrown" ? own : ANSWERED);
 
@@ -387,7 +404,7 @@ describe("a write whose answer never arrives", () => {
       await user.click(send("Trainer") ?? assert.fail("Clara is offered no re-send"));
 
       assert.equal(send("Trainer")?.textContent, "Link erneut senden", "the rejected write left „Sendet...“ standing");
-      assert.equal(seen.refresh, 1, "a write that may have committed leaves the row as it was");
+      assert.equal(seen.refresh, readAgain[arm], "a rejection left the row as it was, or an answer read it twice");
       assert.deepEqual(unknowns(), [
         [
           "Link nicht erneut gesendet",
@@ -411,6 +428,8 @@ describe("a write whose answer never arrives", () => {
     assert.deepEqual(titles("danger"), ["Link nicht erneut gesendet"]);
     assert.deepEqual(unknowns(), [], "a refusal was raised as a write of unknown outcome");
     assert.deepEqual(titles("success"), ["Link erneut gesendet"]);
+    // Both answered, so a landed write came back refreshed by the action itself.
+    assert.equal(seen.refresh, 0, "an answered re-send read the page a second time");
   });
 
   for (const [arm, answer] of Object.entries(UNCLEAR_ARMS)) {
@@ -423,7 +442,7 @@ describe("a write whose answer never arrives", () => {
 
       assert.equal(addressBox().value, "clara.neu@schule.example", "the draft a second press would send is gone");
       assert.ok(screen.getByRole("button", { name: "Korrigieren und Link senden" }), "the rejected write left „Sendet...“ standing");
-      assert.equal(seen.refresh, 1);
+      assert.equal(seen.refresh, 0, "the page was read again over the box's typed entry");
       assert.deepEqual(unknowns(), [
         [
           "Adresse nicht korrigiert",
@@ -446,7 +465,7 @@ describe("a write whose answer never arrives", () => {
         "Doreen",
         "the person a second press would send is gone",
       );
-      assert.equal(seen.refresh, 1, "a write that may have committed leaves the row as it was");
+      assert.equal(seen.refresh, 0, "the page was read again over the box's typed entry");
       assert.deepEqual(unknowns(), [
         [
           "Rolle nicht neu besetzt",
@@ -573,6 +592,7 @@ describe("seating another person where one stepped out", () => {
       telefon: "069 7654321",
       text_version: LIGA_KENNTNISNAHME.textVersion,
     });
+    await act(async () => answerPending({ success: true, verschickt: true, message: "Der Link ging an doreen@schule.example." }));
   });
 
   /* The seat stands filled whatever the message did, so the arm reporting a refused send must not read
@@ -593,8 +613,8 @@ describe("seating another person where one stepped out", () => {
     }
 
     assert.deepEqual(titles("danger"), ["Rolle nicht neu besetzt"]);
-    // Its own title rather than the correction's „Link nicht gesendet“, which `core/toastTitles.test.ts`
-    // registers to one site: the two outcomes differ in what stands afterwards.
+    // Its own title rather than the correction's „Link nicht gesendet“: the two outcomes differ in
+    // what stands afterwards.
     assert.deepEqual(titles("warning"), ["Rolle besetzt, Link nicht gesendet"]);
     assert.deepEqual(titles("success"), ["Rolle neu besetzt"]);
   });

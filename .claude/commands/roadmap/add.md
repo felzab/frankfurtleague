@@ -46,7 +46,7 @@ branch named for the change (CLAUDE.md §2).
    establish and write down:
 
    - **What it touches**, cited as COR-6 requires — `` `<path> :: <symbol>` `` or a repository path.
-     This is also what the entry's tags are derived from, so an entry naming nothing is not filed.
+     It is how a reader finds the entry, so an entry naming nothing is not filed.
    - **What is already decided.** Search CLAUDE.md §7 with every file it indexes under
      `.claude/rules/`, and the spec sheets' `## 2. Invariants`, and state in prose what each one
      settles.
@@ -74,34 +74,30 @@ branch named for the change (CLAUDE.md §2).
    ```
    ### <ID> · <the claim, as a sentence>
 
-   | Tags | Status | Depends on |
-   | ---- | ------ | ---------- |
-   | <derived> | <derived> | <an id, or an em dash> |
+   | Status | Depends on |
+   | ------ | ---------- |
+   | <derived> | <an id, or an em dash> |
 
    <What is wrong.> <Why it matters.> <What done looks like.>
    ```
 
-   - **Tags are derived from the paths the entry names**, never chosen, on all three axes at
-     `docs/_roadmap/items.md :: What every entry carries` — surface, concern and slice — and an entry
-     carries every tag it earns. **A slice is a whole path segment**: `spiele` sits inside
-     `spieler`, so a path merely containing a slice name earns nothing.
    - **`Status` is derived**, never chosen, by `docs/_roadmap/protocol.md` §4.
    - Three sentences is the shape rather than a bound. Analysis stays where it changes the
      approach — a rejected alternative written as a present constraint, a failure mode, a trap the
      implementer would otherwise walk into. **Everything else goes into the body of the commit
      adding the entry**, which `git log -S` reaches.
    - Where the item should land together with another because they share one pass, add the
-     `Lands with:` line `docs/_roadmap/items.md :: What every entry carries` describes, naming the other
-     ids. Only a real shared pass earns one — relatedness by subject is what the tags already answer.
-   - Add the row to the page's index table: id, the claim in short form, tags, status.
+     `Lands with:` line `docs/_roadmap/items.md :: What every entry carries` describes, naming the
+     other ids. Only a real shared pass earns one — relatedness by subject is what the named paths
+     already answer.
    - Optimise the owner's description into the entry rather than transcribing it. An instruction
      inside the description — consult me first, check this against a source, record this reminder —
      survives into the entry: the session that works the item reads only the entry.
 
-7. **Re-derive every row's `Status`** by `docs/_roadmap/protocol.md` §4, not only the new rows.
-   `Blocked` is a claim about another row, so an added entry changes rows nobody edited. Set
-   `Depends on` on every row a new entry blocks, and delete any batching line the new entries make
-   wrong.
+7. **Re-derive every entry's `Status`** by `docs/_roadmap/protocol.md` §4, not only the new
+   entries. `Blocked` is a claim about another entry, so an added entry changes entries nobody
+   edited. Set `Depends on` on every entry a new one blocks, and delete any batching line the new
+   entries make wrong.
 
 8. **Add the new ids wherever the repository indexes them**, per CLAUDE.md's same-commit rule:
 
@@ -121,14 +117,13 @@ branch named for the change (CLAUDE.md §2).
    - **Every _every_, _only_ and _never_.** The exception is usually the interesting half.
    - **Every claim about a framework** rather than about this repository: cite the repository's own
      comment, or mark the claim unverified (COR-9).
-   - **The structure**: every index row has an entry and every entry an index row, each row's tags
-     are the ones its entry's paths derive, and no id appears twice.
 
    Correct what is wrong, and report what this step caught.
 
-10. **Ship it as one commit**, closing per CLAUDE.md §2 with the gate at `--docs --format`. The
+10. **Ship it as one commit**, closing per CLAUDE.md §2 with the bare `./scripts/gate/verify.sh`
+    before the pull request is called ready to merge; `--docs --format` is only for iterating. The
     `Closes:` trailer belongs to closing an item and does not apply here.
 
-11. **Hand over:** the new ids and what each is tagged · the questions answered and how each shaped
+11. **Hand over:** the new ids · the questions answered and how each shaped
     an entry · what step 9 caught · what you could not verify · which entries the new ones block, and
     which they should land beside.

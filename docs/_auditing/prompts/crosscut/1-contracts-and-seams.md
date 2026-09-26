@@ -7,9 +7,8 @@ Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pa
 to `docs/audit/programme/x1-contracts-seams.md`.
 
 **A seam defect is correct on both sides and wrong in between**, so no single-surface pass and no
-gate can see it — types pass, lint passes, both test suites pass, and the two halves still disagree
-at runtime. This pass owns that class as **join tables**: every check below produces a row per pair,
-and a pair with no counterpart is the finding.
+gate can see it. This pass owns that class as **join tables**: every check below produces a row per
+pair, and a pair with no counterpart is the finding.
 
 **Derive both sides from the code, and never treat a report as the source for one half of a join** —
 a table read rather than derived is a table one programme out of date, which is exactly the defect
@@ -55,14 +54,14 @@ THE CHECKS, in priority order:
    handler** — including any fan-out into other collections | cache tags the action invalidates |
    the queries those tags serve | does the invalidated set cover everything the backend write
    changed? A backend write with a fan-out the frontend does not know about is invisible to the
-   frontend's own invalidation map, which is why this check cannot live in the frontend pass.
+   frontend's own invalidation map.
 
 4. **AUTHORIZATION, END TO END.** Derive both halves: each call site's `authType`, and each backend
    route's router-level guard. One row per pair: entry point (public page / admin page / route
    handler) | action or call site | `authType` sent | guard the backend route requires | minimum
    privilege the operation actually needs | verdict. **A public entry point that transitively reaches
    an admin-guarded route, or a route whose guard is weaker than its effect, is CRITICAL** with a
-   one-sentence exploit. Neither surface's table alone shows this.
+   one-sentence exploit.
 
 5. **DUPLICATED AND DIVERGENT DEFINITIONS ACROSS THE SEAM.** The required table, one row per pair:
    concept | its definition on each surface, as `<file> :: <symbol>` | do they agree at the boundaries —

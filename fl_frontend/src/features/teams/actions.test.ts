@@ -1,86 +1,261 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
-import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
+import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
+import {
+  mapAlreadyEnteredRefusal,
+  mapEntryRefusal,
+  mapReplacementRefusal,
+  mapRetireRefusal,
+  mapShorthandRefusal,
+  SHORTHAND_TAKEN_ON_CREATE,
+  SHORTHAND_TAKEN_ON_EDIT,
+} from "./refusals.ts";
 
-/* `REQ-ENTER-005` is answered TWICE in this file, once per mapper, so a search over the whole source
-   is satisfied by whichever function happens to carry the arm. Every assertion below reads the one
-   slice it is about. */
-const ENTRY_MAP = sliceBetween(ACTIONS, "function mapEntryRefusal", "function mapReplacementRefusal");
-const REPLACEMENT_MAP = sliceBetween(ACTIONS, "function mapReplacementRefusal", "export async function postTeamAction");
-/* The last declaration in the module, so its slice runs to the end of the file. */
-const REPLACE_ACTION = sliceBetween(ACTIONS, "export async function replaceSaisonTeamAction", null);
+import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
-/**
- * The German one branch returns, and not the reasoning above it: several comments here name the very
- * words their message must avoid, so an assertion over a branch's source would read those instead.
- */
-function messageIn(slice: string, code: string): string {
-  const branch = slice.split(`error.serverErrorCode === "${code}"`)[1] ?? "";
-
-  return /return "([^"]*)";/.exec(branch)?.[1] ?? "";
-}
+/* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
+doubleActionRequest();
+const { answerWith, calls } = doubleApiAnswers();
+const {
+  deleteTeamAction,
+  patchSaisonTeamAction,
+  patchTeamAction,
+  postSaisonTeamAction,
+  postTeamAction,
+  reactivateTeamAction,
+  replaceSaisonTeamAction,
+} = await import("./actions.ts");
 
 /* Each operation is named once. Written twice, a route rename could be answered on one of the two
-   and leave the other reading a string the register no longer holds. */
+   and leave the other reading a string the document does not publish. */
+const CREATE_OPERATION = "POST /teams";
+const EDIT_OPERATION = "PATCH /teams/{team_id}";
+const RETIRE_OPERATION = "DELETE /teams/{team_id}";
+const REACTIVATE_OPERATION = "POST /teams/{team_id}/reactivate";
 const ENTRY_OPERATION = "POST /teams/{team_id}/saisons";
 const REPLACEMENT_OPERATION = "POST /teams/{team_id}/saisons/{saison_id}/replace";
+/* Neither `ENTRY_OPERATION` nor `REPLACEMENT_OPERATION`: the junction patch is a third endpoint, and the one the undo replays. */
+const JUNCTION_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}";
 
 const ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"];
-const REPLACEMENT_CODES = ["REQ-ENTER-005", "REQ-REPLACE-001", "REQ-REPLACE-002", "REQ-REPLACE-003"];
+const REPLACEMENT_CODES = ["REQ-ENTER-005", "REQ-REPLACE-001", "REQ-REPLACE-002", "REQ-REPLACE-003", "REQ-REPLACE-004"];
 
-describe("the team actions against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
-  it("cuts each mapper out of the file before reading it", () => {
-    assert.ok(ENTRY_MAP.includes('error.serverErrorCode === "REQ-ENTER-002"'), "the entry mapper's branches are outside its slice");
-    assert.ok(!ENTRY_MAP.includes("REQ-REPLACE"), "the entry mapper's slice runs on into the replacement's branches");
+const TEAM_ID = "6890a1b2c3d4e5f607182932";
+const SAISON_ID = "2026";
 
-    assert.ok(REPLACEMENT_MAP.includes('error.serverErrorCode === "REQ-REPLACE-001"'), "the replacement's branches are outside its slice");
-    assert.ok(!REPLACEMENT_MAP.includes("REQ-ENTER-002"), "the replacement's slice reaches the entry mapper's branches");
+/** A club both write schemas take as it stands, so each write reaches the doubled request rather than the parse. */
+const CLUB = {
+  name: "SG Alpha",
+  shorthand: "SA",
+  description: "",
+  full_name: "Sportgemeinschaft Alpha",
+  website_url: null,
+  address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
+  schulform: null,
+};
 
-    assert.ok(REPLACE_ACTION.includes("replaceSaisonTeam(validated.data)"), "the replacement action is outside its slice");
-    assert.ok(!REPLACE_ACTION.includes("patchSaisonTeam("), "the replacement action's slice reaches the junction patch");
+const INCOMING_ID = "6890a1b2c3d4e5f607182933";
+
+/** The replacement's answer as the backend sends it, the incoming club seated in group A. */
+const REPLACED = {
+  acknowledged: 1,
+  saison_id: SAISON_ID,
+  outgoing_team_id: TEAM_ID,
+  incoming_team_id: INCOMING_ID,
+  gruppe: "A",
+  trikot_farbe: null,
+  kontakte: null,
+  name: "SG Beta",
+  shorthand: "SB",
+  fanned_out_to_spiele: 0,
+  ausgetragene_squad_rows: 0,
+};
+
+/** The German the replacement shows for one code, or "" where its mapper leaves the code. */
+const replacementMessage = (code: string, statusCode = 409): string =>
+  mapReplacementRefusal(refusedOn(REPLACEMENT_OPERATION, code, statusCode)) ?? "";
+
+/** The entry's own answer, as the action asks: the rules first, then the unique index on the junction's key. */
+const entryAnswer = (error: unknown) => mapEntryRefusal(error) ?? mapAlreadyEnteredRefusal(error);
+
+/** Each write's answer as the backend sends it where the write landed. */
+function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
+  const record = { id: TEAM_ID, ...CLUB, inactive_since: null };
+  if (endpoint === "/teams") return { acknowledged: 1, created_id: TEAM_ID };
+  if (endpoint.endsWith("/replace")) return REPLACED;
+  if (endpoint.includes("/saisons")) {
+    return {
+      acknowledged: 1,
+      saison_id: SAISON_ID,
+      team_id: TEAM_ID,
+      gruppe: "A",
+      austritt: null,
+      trikot_farbe: null,
+      kontakte: null,
+      name: CLUB.name,
+      shorthand: CLUB.shorthand,
+    };
+  }
+  return method === "PATCH"
+    ? { acknowledged: 1, updated_document: record, fanned_out_to_spiele: 0, fanned_out_to_saison_teams: 0 }
+    : { acknowledged: 1, updated_document: record };
+}
+
+describe("the club's writes", () => {
+  it("reach each published path and method, the ids in the path and the fields alone in the body", async () => {
+    answerWith((call) => Promise.resolve(landed(call)));
+    const junction = { gruppe: "B", austritt: null, trikot_farbe: null } as const;
+
+    await postTeamAction({ ...CLUB, saison_id: SAISON_ID, gruppe: "A" });
+    await patchTeamAction({ id: TEAM_ID, ...CLUB });
+    await deleteTeamAction({ id: TEAM_ID });
+    await reactivateTeamAction({ id: TEAM_ID });
+    await postSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, gruppe: "A" });
+    await patchSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, ...junction });
+    await replaceSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, incoming_team_id: INCOMING_ID });
+
+    const club = `/teams/${TEAM_ID}`;
+    assert.deepEqual(requestsOf(calls), [
+      { endpoint: "/teams", method: "POST", body: CLUB },
+      { endpoint: `${club}/saisons`, method: "POST", body: { saison_id: SAISON_ID, gruppe: "A" } },
+      { endpoint: club, method: "PATCH", body: CLUB },
+      { endpoint: club, method: "DELETE", body: undefined },
+      { endpoint: `${club}/reactivate`, method: "POST", body: undefined },
+      { endpoint: `${club}/saisons`, method: "POST", body: { saison_id: SAISON_ID, gruppe: "A" } },
+      { endpoint: `${club}/saisons/${SAISON_ID}`, method: "PATCH", body: junction },
+      { endpoint: `${club}/saisons/${SAISON_ID}/replace`, method: "POST", body: { incoming_team_id: INCOMING_ID } },
+    ]);
+  });
+});
+
+describe("the team actions against the codes their endpoints publish", () => {
+  /* `POST /teams/{team_id}/saisons` is a prefix of the replacement's operation, and each endpoint's
+     mapper answers its own set: the two share `REQ-ENTER-005` and nothing else. */
+  it("reads each junction operation's own codes", () => {
+    assert.deepEqual(
+      publishedRefusals(ENTRY_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ENTRY_CODES,
+    );
+    assert.deepEqual(
+      publishedRefusals(REPLACEMENT_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      REPLACEMENT_CODES,
+    );
   });
 
-  /* `POST /teams/{team_id}/saisons` is a prefix of the replacement's operation, so a substring match
-     would hand the entry's codes to the replacement and the replacement's to the entry. */
-  it("reads each junction operation as a whole token, not as a prefix", () => {
-    assert.deepEqual(declaredCodes(ENTRY_OPERATION), ENTRY_CODES);
-    assert.deepEqual(declaredCodes(REPLACEMENT_OPERATION), REPLACEMENT_CODES);
+  /* A code missing from the mapper is rethrown, and `toActionErrorResult` answers a refusal it does not
+     word with no reason, which a retry meets again. */
+  it("answers every refusal the replacement publishes with the replacement's own mapper", async () => {
+    for (const code of publishedRefusals(REPLACEMENT_OPERATION)) {
+      assert.notEqual(answerShown(REPLACEMENT_OPERATION, code, mapReplacementRefusal), null, `${code} reaches the admin with no reason`);
+    }
+    await assertEachAnswered({
+      operation: REPLACEMENT_OPERATION,
+      refuseWith: answerWith,
+      act: () => replaceSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, incoming_team_id: INCOMING_ID }),
+      mapped: mapReplacementRefusal,
+    });
   });
 
-  /* A code missing from the mapper is rethrown, and `toActionErrorResult` answers a 409 with the
-     message about an entry that already exists — confidently wrong for three of these four. */
-  it("maps every refusal the replacement endpoint declares", () => {
-    const declared = declaredCodes(REPLACEMENT_OPERATION);
-
-    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
-    assert.deepEqual(declared, REPLACEMENT_CODES);
-    for (const code of declared)
-      assert.ok(REPLACEMENT_MAP.includes(`error.serverErrorCode === "${code}"`), `${code} reaches the admin as a generic conflict`);
+  it("answers every refusal the entry publishes, its rules before its unique index", async () => {
+    for (const code of publishedRefusals(ENTRY_OPERATION)) {
+      assert.notEqual(answerShown(ENTRY_OPERATION, code, entryAnswer), null, `${code} reaches the admin with no reason`);
+    }
+    await assertEachAnswered({
+      operation: ENTRY_OPERATION,
+      refuseWith: answerWith,
+      act: () => postSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, gruppe: "A" }),
+      mapped: entryAnswer,
+    });
   });
 
-  /* Asserted before the German below it: an extraction that stopped matching would return "" for
-     every code, and each `doesNotMatch` over it would then pass vacuously. */
-  it("carries German for every branch it maps", () => {
-    for (const code of REPLACEMENT_CODES) assert.notEqual(messageIn(REPLACEMENT_MAP, code), "", `${code} has no message`);
+  it("answers every refusal the retirement publishes", async () => {
+    for (const code of publishedRefusals(RETIRE_OPERATION)) {
+      assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin with no reason`);
+    }
+    await assertEachAnswered({
+      operation: RETIRE_OPERATION,
+      refuseWith: answerWith,
+      act: () => deleteTeamAction({ id: TEAM_ID }),
+      mapped: mapRetireRefusal,
+    });
+  });
+
+  /* Asks no mapper: the one code it publishes is the unique index's, whose sentence is the shared
+     reader's own. A rule published on it later fails here until a mapper words it. */
+  it("leaves every refusal the reactivation publishes to the shared reader", async () => {
+    for (const code of publishedRefusals(REACTIVATE_OPERATION)) {
+      assert.notEqual(
+        answerShown(REACTIVATE_OPERATION, code, () => null),
+        null,
+        `${code} reaches the admin with no reason`,
+      );
+    }
+    await assertEachAnswered({
+      operation: REACTIVATE_OPERATION,
+      refuseWith: answerWith,
+      act: () => reactivateTeamAction({ id: TEAM_ID }),
+      mapped: () => null,
+    });
+  });
+
+  /* A club's only unique key is its shorthand, so every 409 lands on that box, worded per page. Only
+     while the duplicate is the one code published: a later rule would read as a taken shorthand. */
+  it("lands every refusal the create and the edit publish on the shorthand box", async () => {
+    assert.deepEqual(
+      publishedRefusals(CREATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      [],
+      "the club create now publishes a rule its mapper reports as a taken shorthand",
+    );
+    for (const [operation, published, taken] of [
+      [CREATE_OPERATION, publishedRefusals(CREATE_OPERATION), SHORTHAND_TAKEN_ON_CREATE],
+      [EDIT_OPERATION, publishedRefusals(EDIT_OPERATION), SHORTHAND_TAKEN_ON_EDIT],
+    ] as const) {
+      assert.ok(published.includes(DUPLICATE_KEY), `${operation} no longer publishes the duplicate shorthand its mapper places`);
+      for (const code of published) {
+        assert.deepEqual(
+          mapShorthandRefusal(refusedOn(operation, code), taken),
+          { fieldErrors: { shorthand: taken } },
+          `${code} on ${operation}`,
+        );
+      }
+    }
+
+    await assertEachAnswered({
+      operation: CREATE_OPERATION,
+      refuseWith: answerWith,
+      act: () => postTeamAction({ ...CLUB, saison_id: SAISON_ID, gruppe: "A" }),
+      mapped: (refusal) => mapShorthandRefusal(refusal, SHORTHAND_TAKEN_ON_CREATE),
+    });
+    await assertEachAnswered({
+      operation: EDIT_OPERATION,
+      refuseWith: answerWith,
+      act: () => patchTeamAction({ id: TEAM_ID, ...CLUB }),
+      mapped: (refusal) => mapShorthandRefusal(refusal, SHORTHAND_TAKEN_ON_EDIT),
+    });
   });
 
   /* Three resources, because one write moves all three: the junction row, the fixtures' sides, and
      the outgoing club's squad rows, which the same transaction retires. */
-  it("invalidates the clubs, the fixtures and the squads — the three reads the write moves", () => {
-    assert.ok(REPLACE_ACTION.includes('invalidateSeasonScoped("teams", validated.data.saison_id)'), "the league table keeps the old club");
-    assert.ok(REPLACE_ACTION.includes('invalidateSeasonScoped("spiele", validated.data.saison_id)'), "the schedule keeps the old club");
-    assert.ok(REPLACE_ACTION.includes('updateTag("spieler")'), "the public squad serves the retired players for days");
-  });
+  it("invalidates the clubs, the fixtures and the squads — the three reads the write moves", async () => {
+    answerWith(() => Promise.resolve(REPLACED));
 
-  it("consults the replacement's own mapper and never the entry mapper", () => {
-    assert.ok(REPLACE_ACTION.includes("mapReplacementRefusal(error)"), "the replacement answers its refusals somewhere else");
-    assert.ok(!REPLACE_ACTION.includes("mapEntryRefusal"), "the entry mapper's words reach a replacement");
+    const result = await replaceSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, incoming_team_id: INCOMING_ID });
+
+    assert.equal(result.success, true, "the replacement never landed, so its tags are judged on nothing");
+    // The league table and the schedule read the season-scoped pair, every unscoped read the base
+    // tags, and the public squad the `spieler` tag.
+    assert.deepEqual(cacheCalls, [
+      { name: "updateTag", args: ["teams"] },
+      { name: "updateTag", args: [`teams:saison_id:${SAISON_ID}`] },
+      { name: "updateTag", args: ["spiele"] },
+      { name: "updateTag", args: [`spiele:saison_id:${SAISON_ID}`] },
+      { name: "updateTag", args: ["spieler"] },
+      { name: "refresh", args: [] },
+    ]);
   });
 });
 
@@ -88,7 +263,7 @@ describe("the German each replacement refusal renders", () => {
   /* `REQ-REPLACE-001` refuses a `past` season, which no reload changes — so the message may not spend
      its remedy on one, and has to name the seasons that are still open. */
   it("names a finished season and the seasons still open, never a reload", () => {
-    const message = messageIn(REPLACEMENT_MAP, "REQ-REPLACE-001");
+    const message = replacementMessage("REQ-REPLACE-001");
 
     assert.match(message, /abgeschlossen/);
     assert.match(message, /laufenden oder geplanten Saison/);
@@ -99,7 +274,7 @@ describe("the German each replacement refusal renders", () => {
      no-show, and FALSE for a fixture called off or annulled — naming either of those sends the admin
      to a fixture that is still free to move. */
   it("names the five shapes that leave a record, and no shape that leaves none", () => {
-    const message = messageIn(REPLACEMENT_MAP, "REQ-REPLACE-002");
+    const message = replacementMessage("REQ-REPLACE-002");
 
     assert.match(message, /Ergebnis/);
     assert.match(message, /Tore/);
@@ -113,38 +288,41 @@ describe("the German each replacement refusal renders", () => {
   /* The record is what the refusal protects, so the remedy cannot be to delete it. An Austritt
      records the same departure and leaves every fixture standing. */
   it("offers the austritt as the repair, never the removal of a result", () => {
-    const message = messageIn(REPLACEMENT_MAP, "REQ-REPLACE-002");
+    const message = replacementMessage("REQ-REPLACE-002");
 
     assert.match(message, /Austritt/);
     assert.doesNotMatch(message, /[Ll]ösche|[Ee]ntferne/);
   });
 
-  /* Both shapes at once: the row being replaced is itself a row the incoming club holds, so a club
-     named on both ends lands on this code too. */
-  it("covers both shapes of the already-entered refusal, without claiming the club plays", () => {
-    const message = messageIn(REPLACEMENT_MAP, "REQ-REPLACE-003");
+  /* Each code names its own cause and no other: a club already holding a row, or one club named on
+     both ends, which the backend refuses under a code of its own. */
+  it("words the already-entered refusal and the club named twice apart, without claiming the club plays", () => {
+    const entered = replacementMessage("REQ-REPLACE-003");
+    const twice = replacementMessage("REQ-REPLACE-004");
 
-    assert.match(message, /schon einen Platz/);
-    assert.match(message, /dasselbe Team/);
-    assert.doesNotMatch(message, /spielt/, "a withdrawn club holds a row and plays nothing");
+    assert.match(entered, /schon einen Platz/);
+    assert.doesNotMatch(entered, /dasselbe Team/, "the already-entered refusal names the club named twice");
+    assert.doesNotMatch(entered, /spielt/, "a withdrawn club holds a row and plays nothing");
+    assert.match(twice, /dasselbe Team/);
+    assert.doesNotMatch(twice, /schon einen Platz/, "the club named twice is told it already has a row");
   });
 
   /* Both mappers answer `REQ-ENTER-005`, about different clubs: the entry is refused for the club
      whose page is open, the replacement for a club the admin picked out of a list. */
   it("sends the reactivation to the club the admin picked, not to the page's own club", () => {
-    const message = messageIn(REPLACEMENT_MAP, "REQ-ENTER-005");
+    const message = replacementMessage("REQ-ENTER-005");
 
     assert.match(message, /nachrückende Team/);
     assert.match(message, /Reaktiviere es/);
-    assert.notEqual(message, messageIn(ENTRY_MAP, "REQ-ENTER-005"));
+    assert.notEqual(message, mapEntryRefusal(refusedOn(ENTRY_OPERATION, "REQ-ENTER-005"))?.error);
   });
 
   /* The replacement repairs a junction row whose `team_id` resolves to no club, so it reads the
      INCOMING club alone. A message asking for the outgoing one is unactionable when there is none. */
   it("asks nothing of the outgoing club, which the endpoint never resolves", () => {
-    for (const code of REPLACEMENT_CODES) assert.doesNotMatch(messageIn(REPLACEMENT_MAP, code), /ausscheidende Team ist/);
+    for (const code of REPLACEMENT_CODES) assert.doesNotMatch(replacementMessage(code), /ausscheidende Team ist/);
 
-    const notFound = /return "([^"]*)";/.exec(REPLACEMENT_MAP.split("statusCode === 404")[1] ?? "")?.[1] ?? "";
+    const notFound = replacementMessage("DB-COMMON-001", 404);
 
     assert.match(notFound, /Saison, Saison-Zugehörigkeit oder das nachrückende Team/);
     assert.doesNotMatch(notFound, /ausscheidende/);
@@ -152,51 +330,48 @@ describe("the German each replacement refusal renders", () => {
 
   /* The response carries no `austritt` — a replacement always clears it — so the action cannot know
      whether one stood there, and reports the state rather than an event it did not observe. */
-  it("reports the cleared austritt as state, never as something it saw happen", () => {
-    assert.match(REPLACE_ACTION, /kein Austritt eingetragen/);
-    assert.doesNotMatch(REPLACE_ACTION, /Austritt wurde|aufgehoben/);
+  it("reports the cleared austritt as state, never as something it saw happen", async () => {
+    answerWith(() => Promise.resolve(REPLACED));
+
+    const result = await replaceSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, incoming_team_id: INCOMING_ID });
+    const message = result.success ? (result.message ?? "") : result.error;
+
+    assert.match(message, /Für SG Beta ist in dieser Saison kein Austritt eingetragen\./);
+    assert.doesNotMatch(message, /Austritt wurde|aufgehoben/);
   });
 });
 
-describe("the junction edit's refusals when the undo replays it", () => {
-  const UNDO_ROUTE = readFileSync(path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin", "teams", "undo", "route.ts"), "utf8");
-
-  /** One row of the route's replay table, which is a literal keyed by code. */
-  const replayRow = (code: string): string => new RegExp(`"${code}":\\s*"([^"]*)"`).exec(UNDO_ROUTE)?.[1] ?? "";
-
-  /* Neither `ENTRY_OPERATION` nor `REPLACEMENT_OPERATION`: the junction patch is a third endpoint, and the one the undo replays. */
-  const PATCH_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}";
-
-  /* `PATCH /teams/{team_id}` is a prefix of it, so a substring read would hand the junction's codes to
-     the club row. The club patch declares none, which is why the route catches nothing around it. */
-  it("reads the junction patch as a whole token, not as a prefix", () => {
-    assert.deepEqual(declaredCodes(PATCH_OPERATION), ["REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-004"]);
-    assert.deepEqual(declaredCodes("PATCH /teams/{team_id}"), [], "the club patch now declares a rule the replay does not answer");
-  });
-
-  /* Two outcomes and not one: the club half goes back before the junction is replayed, so a refusal
-     after it may not tell the admin the change stands whole. */
-  it("carries both outcome sentences, outside the rows", () => {
-    assert.ok(UNDO_ROUTE.includes('const CHANGE_STANDS = "Die Änderung steht weiterhin.";'), "the whole-change outcome is gone");
-    assert.ok(
-      UNDO_ROUTE.includes('const CLUB_HALF_RESTORED = "Nur die Stammdaten wurden zurückgesetzt.";'),
-      "the half-restore outcome is gone",
+describe("the junction edit's refusals", () => {
+  /* `PATCH /teams/{team_id}` is a prefix of it, and the club patch refuses on no rule: its one refusal,
+     the duplicate shorthand, the undo route words with the junction's table. */
+  it("reads the junction patch's own rules, and none on the club patch", () => {
+    assert.deepEqual(
+      publishedRefusals(JUNCTION_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-004"],
     );
-    assert.ok(UNDO_ROUTE.includes("club === undefined ? CHANGE_STANDS : CLUB_HALF_RESTORED"), "one outcome now answers both halves");
+    assert.deepEqual(
+      publishedRefusals(EDIT_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      [],
+      "the club patch now publishes a rule the replay does not answer",
+    );
   });
 
-  for (const code of declaredCodes(PATCH_OPERATION)) {
-    it(`${code} reaches the admin in German on both write paths`, () => {
-      const row = replayRow(code);
+  it("answers every refusal the junction patch publishes with the entry's mapper", async () => {
+    await assertEachAnswered({
+      operation: JUNCTION_OPERATION,
+      refuseWith: answerWith,
+      act: () => patchSaisonTeamAction({ team_id: TEAM_ID, saison_id: SAISON_ID, gruppe: "A", austritt: null, trikot_farbe: null }),
+      mapped: mapEntryRefusal,
+    });
+  });
 
-      assert.ok(
-        ENTRY_MAP.includes(`error.serverErrorCode === "${code}"`),
-        `${code} falls through to the generic conflict message when the edit is saved`,
+  for (const code of publishedRefusals(JUNCTION_OPERATION)) {
+    it(`${code} reaches the admin in German when the edit is saved`, () => {
+      assert.notEqual(
+        answerShown(JUNCTION_OPERATION, code, mapEntryRefusal),
+        null,
+        `${code} reaches the admin with no reason when the edit is saved`,
       );
-      assert.notEqual(row, "", `${code} falls through to the generic conflict message when the edit is undone`);
-      // The route joins the row to the outcome with a space, so a row without its own stop runs the two sentences together.
-      assert.ok(row.endsWith("."), `${code}'s replay row does not close its sentence`);
-      assert.ok(!row.includes("Die Änderung steht weiterhin"), `${code}'s row states the outcome the route already adds`);
     });
   }
 });

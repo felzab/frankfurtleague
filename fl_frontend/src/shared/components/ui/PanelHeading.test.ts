@@ -18,7 +18,6 @@ const { PanelHeading } = await import("./PanelHeading.tsx");
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 
 const FILES = filesUnder(SRC, (name) => name.endsWith(".tsx") && !isTestFile(name), 200);
-const COMPONENT = path.join(SRC, "shared", "components", "ui", "PanelHeading.tsx");
 const rel = (file: string) => path.relative(SRC, file).split(path.sep).join("/");
 
 /** Comments blanked, so a heading NAMED in prose is not scanned as one rendered. */
@@ -82,34 +81,25 @@ function hintBearingNames(source: string): Set<string> {
 const mentions = (body: string, names: Set<string>) => body.split(/[^A-Za-z0-9_$]+/).some((token) => names.has(token));
 
 describe("a panel's hint sits beside its heading", () => {
-  it("leaves no hint inside a heading, by any route", () => {
-    // A heading names itself from its contents and `Hint` renders a `role="button"` carrying a label of
-    // its own, so a nested one is read out as part of the title.
+  // A hint inside a heading is read out as part of the title. `hint-nest` in
+  // `fl_frontend/eslint.config.mjs :: SOURCE_BANS` refuses a `<Hint…>` or `<InfoHint>` tag written there; no selector
+  // follows a name to the declaration rendering one.
+  it("leaves no hint inside a heading through a name that renders one", () => {
     const nested = FILES.filter((file) => {
       const source = code(readFileSync(file, "utf8"));
       const names = hintBearingNames(source);
 
-      return headings(source, rel(file)).some(({ body }) => body.includes("<Hint") || mentions(body, names));
+      return headings(source, rel(file)).some(({ body }) => mentions(body, names));
     });
 
     assert.deepEqual(nested.map(rel), []);
   });
 
-  it("leaves no panel heading spelled outside the shared one", () => {
-    // What closes the route the case above cannot follow: a hint handed in as a PROP crosses a module
-    // boundary no reader of one file can resolve. A panel that spells no heading can nest nothing in one.
-    const spelled = FILES.filter(
-      (file) => file !== COMPONENT && headings(code(readFileSync(file, "utf8")), rel(file)).some(({ tag }) => tag.includes("heading()")),
-    );
+  it("reads the headings the tree renders", () => {
+    // Anti-vacuity: the case above is equally true of a reader that stopped finding headings at all.
+    const read = FILES.flatMap((file) => headings(code(readFileSync(file, "utf8")), rel(file)));
 
-    assert.deepEqual(spelled.map(rel), []);
-  });
-
-  it("is the mechanism those headings use", () => {
-    // Anti-vacuity: both cases above are equally true of a tree that stopped rendering panels at all.
-    const users = FILES.filter((file) => readFileSync(file, "utf8").includes("<PanelHeading"));
-
-    assert.ok(users.length >= 35, `expected the shared heading in at least 35 panels, found ${String(users.length)}`);
+    assert.ok(read.length >= 60, `expected at least 60 headings across the tree, the sweep read ${String(read.length)}`);
   });
 
   it("puts nothing but the title in the one heading it renders", () => {
@@ -132,8 +122,8 @@ describe("a panel's hint sits beside its heading", () => {
     assert.ok(headings(HEADING, "PanelHeading")[0]?.tag.includes("inline"), "the heading takes the whole line, leaving the hint below it");
   });
 
-  /* A heading this walk discards sits in no list, and both sweeps above read an empty list as a
-     clean tree — so the one shape that could hide a nested hint is the one they never see. */
+  /* A heading this walk discards sits in no list, and the sweep above reads an empty list as a clean
+     tree — so the one shape that could hide a nested hint is the one it never sees. */
   it("fails on a heading it cannot read rather than dropping it", () => {
     assert.throws(() => headings("<h2 title={x}<div>Kontaktpersonen</h2>", "unlesbar"), /could not be read/);
     assert.throws(() => headings('<h2 className="fluid-md">Kontaktpersonen', "offen"), /never closes/);

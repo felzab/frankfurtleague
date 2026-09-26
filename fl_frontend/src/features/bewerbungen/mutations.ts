@@ -1,5 +1,5 @@
 import { apiClient } from "@/core/api";
-import { IDEMPOTENCY_KEY_HEADER } from "@/shared/utils/publicSubmit";
+import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 
 import {
   FLAblehnenBewerbungResponseSchema,

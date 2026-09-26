@@ -1,10 +1,8 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 
-// The production file and never the local one: `nginx/local.conf` mirrors it under
-// `scripts/checks/check_nginx_mirror.py`, and the access line a credential could reach is served
-// by this one.
-const EDGE_CONFIG = path.resolve(import.meta.dirname, "..", "..", "..", "nginx", "prod.conf");
+// The http-level file both edges include, so the map read here is the one production serves.
+const EDGE_CONFIG = path.resolve(import.meta.dirname, "..", "..", "..", "nginx", "shared", "http.conf");
 
 /** The alternation each arm of the map matches on, one entry per arm, in the file's order. */
 function armAlternations(arms: string): string[][] {

@@ -5,9 +5,9 @@ import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { computeSpielStatus, ergebnisTone, formatQuelle, formatSpielDisplay } from "../../../utils";
 import { SaisonPhaseChip } from "../../ui/SaisonPhaseChip";
-import { ERGEBNIS_INK, SpielScore } from "../../ui/SpielScore";
+import { ERGEBNIS_INK_CLASSES, SpielScore } from "../../ui/SpielScore";
 import { SpielStatusChip } from "../../ui/SpielStatusChip";
-import { SLOT_LABEL_WRAP, TEAM_NAME_TRACK, TEAM_NAME_WRAP } from "../../ui/teamName";
+import { SLOT_LABEL_WRAP_CLASSES, TEAM_NAME_TRACK_CLASSES, TEAM_NAME_WRAP_CLASSES } from "../../ui/teamName";
 
 import type { FLSpielWithDraftFields } from "@/features/spiele/schemas";
 
@@ -37,11 +37,11 @@ export function SpielDraftPreview({
   // The fall-through every card uses, so this names a side exactly as the bracket will: a club clamped
   // at two lines, a label never.
   const sideName = (team: FLSpielWithDraftFields["team1"], quelle: FLSpielWithDraftFields["team1_quelle"], align: string) => (
-    <span className={`fluid-xs text-foreground font-bold ${align} ${TEAM_NAME_TRACK}`}>
+    <span className={`fluid-xs font-bold text-foreground ${align} ${TEAM_NAME_TRACK_CLASSES}`}>
       {team?.name ? (
-        <span className={`${align} ${TEAM_NAME_WRAP}`}>{team.name}</span>
+        <span className={`${align} ${TEAM_NAME_WRAP_CLASSES}`}>{team.name}</span>
       ) : (
-        <span className={`${align} ${SLOT_LABEL_WRAP}`}>{formatQuelle(quelle) ?? PLACEHOLDER.slot}</span>
+        <span className={`${align} ${SLOT_LABEL_WRAP_CLASSES}`}>{formatQuelle(quelle) ?? PLACEHOLDER.slot}</span>
       )}
     </span>
   );
@@ -53,7 +53,7 @@ export function SpielDraftPreview({
           next — and a layout that is sometimes one row and sometimes two reads as two designs. */}
       <div className="flex w-full flex-col gap-y-1">
         <div className="flex w-full flex-row items-baseline gap-x-2">
-          <span className="fluid-xs text-foreground font-bold">{datum}</span>
+          <span className="fluid-xs font-bold text-foreground">{datum}</span>
           <span className="muted-meta">{uhrzeit}</span>
         </div>
         <div className="flex w-full flex-row flex-wrap items-center gap-2">
@@ -64,26 +64,26 @@ export function SpielDraftPreview({
 
       {/* The equal-track grid every scoreline uses: both 1fr columns resolve to the wider
           name's width, so the score stays centred however the two names differ. */}
-      <div className="bg-muted grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center rounded-xl p-2">
+      <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center rounded-xl bg-muted p-2">
         {sideName(previewSpiel.team1, previewSpiel.team1_quelle, "text-right")}
         <SpielScore
           ergebnis={ergebnis}
           elfmeterschiessen={elfmeterschiessen}
-          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold ${ERGEBNIS_INK[ergebnisTone(previewSpiel)]}`}
+          className={`flex w-fit flex-col items-center px-3 text-center fluid-base font-extrabold ${ERGEBNIS_INK_CLASSES[ergebnisTone(previewSpiel)]}`}
         />
         {sideName(previewSpiel.team2, previewSpiel.team2_quelle, "text-left")}
       </div>
 
-      {isAwaitingForfeit && <p className="muted-meta text-center">Das Ergebnis steht erst nach dem Speichern fest.</p>}
+      {isAwaitingForfeit && <p className="text-center muted-meta">Das Ergebnis steht erst nach dem Speichern fest.</p>}
 
       <dl className="flex w-full flex-col gap-y-1">
         <div className="flex flex-row items-baseline justify-between gap-x-3">
-          <dt className="fluid-xxs text-foreground-muted font-bold">Ort</dt>
-          <dd className="fluid-xs text-foreground min-w-0 truncate font-semibold">{previewSpiel.ort?.name ?? PLACEHOLDER.entity}</dd>
+          <dt className="fluid-xxs font-bold text-foreground-muted">Ort</dt>
+          <dd className="min-w-0 truncate fluid-xs font-semibold text-foreground">{previewSpiel.ort?.name ?? PLACEHOLDER.entity}</dd>
         </div>
         <div className="flex flex-row items-baseline justify-between gap-x-3">
-          <dt className="fluid-xxs text-foreground-muted font-bold">Schiedsrichter</dt>
-          <dd className="fluid-xs text-foreground min-w-0 truncate font-semibold">{spielSchiedsrichterAnzeige(previewSpiel.schiedsrichter)}</dd>
+          <dt className="fluid-xxs font-bold text-foreground-muted">Schiedsrichter</dt>
+          <dd className="min-w-0 truncate fluid-xs font-semibold text-foreground">{spielSchiedsrichterAnzeige(previewSpiel.schiedsrichter)}</dd>
         </div>
       </dl>
     </div>

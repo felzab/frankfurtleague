@@ -63,7 +63,7 @@ backend has no user sessions.
 fl_frontend/     Next.js app — feature slices under src/features/
 fl_backend/      FastAPI app — one package per entity under app/api/
 nginx/           reverse proxy config, local and prod
-scripts/         verify, publish, deploy, and their self-checks
+scripts/         verify, deploy, and their self-checks
 docs/            the documentation set
 ```
 
@@ -90,8 +90,9 @@ Short-lived topic branches off `main`, one PR each, merged with a merge commit. 
 real weight here — they explain _why_ and record what was verified, and they are kept rather than
 squashed; [`docs/_git/spec.md`](docs/_git/spec.md) is the convention.
 
-Run `./scripts/gate/verify.sh` before opening a PR, at a scope covering every surface the branch touched —
-[`docs/ops/spec.md`](docs/ops/spec.md) tables the scopes. CI runs it too.
+Run `./scripts/gate/verify.sh` with no flags before calling a pull request ready to merge: it runs
+every scope, and
+[`docs/ops/spec.md`](docs/ops/spec.md) tables them. CI runs it too.
 
 ## Status
 

@@ -1,0 +1,10 @@
+// Linted as src/app/zzplant/route.ts.
+import { TEAM_FACETS } from "@/features/teams/facets"; // expect: facets-server
+
+export const REFUSAL = "REQ-EINLADUNG-001"; // expect: invite-refusal
+export const REFUSAL_TEMPLATE = `REQ-EINLADUNG-${REFUSAL.length}`; // expect: invite-refusal
+export const FADE = "hover:opacity-50"; // expect: hover-opacity
+
+export function GET(): Response {
+  return new Response(String(TEAM_FACETS.length));
+}

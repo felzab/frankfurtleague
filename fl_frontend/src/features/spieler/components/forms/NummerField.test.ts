@@ -108,7 +108,7 @@ describe("the cap the sentence names", () => {
   /* `SQUAD_NUMMER_REGEX` spells its figure for the backend mirror to pair, so nothing but this ties it to
      the cap the box holds and the sentence names. */
   it("is the one the box holds and the schema refuses past", () => {
-    const box = renderMarkup(NummerField, { label: "Nummer", value: "", onChange: () => undefined });
+    const box = renderMarkup(NummerField, { label: "Nummer", value: "", onChange: () => undefined, onBlur: () => undefined });
     const nummer = FLPostSaisonSpielerPayloadSchema.shape.nummer;
 
     assert.match(box, new RegExp(`maxLength="${String(NUMMER_MAX_LENGTH)}"`, "i"), "the box holds a cap the sentence does not name");

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { deriveDraftStatus, emptyAsNull, numberAsNull } from "./draftStatus.ts";
+import { deriveDraftStatus, emptyAsNull, fieldStatus, numberAsNull } from "./draftStatus.ts";
 
 import type { FLFieldDescriptor } from "./draftStatus.ts";
 import type { FieldErrors } from "./validation.ts";
@@ -221,5 +221,17 @@ describe("deriveDraftStatus", () => {
       [...status.byPath.keys()],
       status.fields.map((field) => field.path),
     );
+  });
+});
+
+describe("fieldStatus", () => {
+  it("answers no row for a declared path whose descriptor does not apply to the draft", () => {
+    assert.equal(fieldStatus(derive({ draft: draftFrom({ slot: null }) }), "slot"), undefined);
+  });
+
+  /* The label and the editor's own lookup both read through here, and `undefined` would pass a misspelt
+     path off as a field left unchanged. */
+  it("throws for a path the table does not declare", () => {
+    assert.throws(() => fieldStatus(derive({ draft: draftFrom({}) }), "nmae"), /nmae is no path/);
   });
 });

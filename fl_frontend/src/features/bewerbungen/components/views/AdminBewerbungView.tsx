@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
+
 import { bestaetigungsStand, zusageHindernis } from "@/features/bewerbungen/bestaetigungStand";
 import { BEWERBUNG_STATUS_TINT, bewerbungStatusLabel } from "@/features/bewerbungen/constants";
 import { BackButton } from "@/shared/components/ui/BackButton";
 import { labelBadge } from "@/shared/components/ui/badges";
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 
 import { AdminBewerbungAblehnenSection } from "../forms/AdminBewerbungAblehnenSection";
@@ -37,19 +39,24 @@ export function AdminBewerbungView({
 
   const isOpen = bewerbung.status === "eingereicht";
 
+  // What each panel holds typed, which every other panel's write re-keys the page over. The acceptance
+  // guards on the reason alone: the strip's boxes open only on a seat that closes it.
+  const [grundGetippt, setGrundGetippt] = useState(false);
+  const [boxGetippt, setBoxGetippt] = useState(false);
+
   // `null` for an application submitted before the workflow: it carries no per-seat state, and the
   // acceptance is not closed against one.
   const staende = bestaetigungsStand(bewerbung);
   const hindernis = zusageHindernis(staende, teamName);
 
   return (
-    <div className={`${PAGE_RISE} w-full p-6 sm:p-8`}>
-      <div className="max-w-page mx-auto flex w-full flex-col">
+    <div className={`${PAGE_RISE_CLASSES} w-full p-6 sm:p-8`}>
+      <div className="mx-auto flex w-full max-w-page flex-col">
         <BackButton fallbackHref={saisonHref("/admin/bewerbungen")} />
 
         <header className="mb-6 flex w-full flex-row items-center gap-x-3">
           {/* `h2`, never `h1`: the shell's top bar owns the page's one heading. */}
-          <h2 className="fluid-2xl text-foreground min-w-0 truncate font-extrabold tracking-tight">
+          <h2 className="min-w-0 truncate fluid-2xl font-extrabold tracking-tight text-foreground">
             {teamName ?? `Bewerbung für die Saison ${bewerbung.saison_id}`}
           </h2>
           <span className="shrink-0">
@@ -64,6 +71,8 @@ export function AdminBewerbungView({
               staende={staende}
               frist={bewerbung.bestaetigungsfrist}
               isOpen={isOpen}
+              isDirty={grundGetippt}
+              onGetipptChange={setBoxGetippt}
             />
           )}
 
@@ -84,6 +93,7 @@ export function AdminBewerbungView({
               saisonStatus={saisonStatus}
               gruppeOffer={gruppeOffer}
               hindernis={hindernis}
+              isDirty={grundGetippt}
             />
           )}
 
@@ -92,6 +102,8 @@ export function AdminBewerbungView({
               bewerbungId={bewerbung.id}
               teamName={teamName}
               saisonId={bewerbung.saison_id}
+              onGetipptChange={setGrundGetippt}
+              isDirty={boxGetippt}
             />
           )}
         </div>

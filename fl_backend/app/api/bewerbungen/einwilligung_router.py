@@ -35,7 +35,7 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, pull_one_from_db, refuse
 from app.core.dependencies import AktionenCollection, BewerbungenCollection, DBClient, TeamsCollection, get_german_date_str, get_germany_now
-from app.core.exception_handlers import stores_nothing
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_public_actor, verify_access_base
 
@@ -65,6 +65,7 @@ async def _schule_name(*, bewerbung_raw: Mapping[str, Any], teams_collection: Te
     response_model=FLBewerbungEinwilligungAnsichtResponse,
     summary="What one confirmation link opens",
     dependencies=[Depends(stores_nothing)],
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_einwilligung_ansicht(
     ansicht_data: Annotated[FLBewerbungEinwilligungAnsichtPayload, Body()],
@@ -112,7 +113,12 @@ async def get_einwilligung_ansicht(
     )
 
 
-@router.post("", response_model=FLBewerbungEinwilligungAntwortResponse, summary="Confirm or decline one seat of a Bewerbung")
+@router.post(
+    "",
+    response_model=FLBewerbungEinwilligungAntwortResponse,
+    summary="Confirm or decline one seat of a Bewerbung",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+)
 async def post_einwilligung(
     antwort_data: Annotated[FLBewerbungEinwilligungAntwortPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,

@@ -9,6 +9,7 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { ActionResult } from "@/shared/types/types.ts";
 
@@ -17,16 +18,18 @@ const { raised } = doubleToasts();
 /* `await import`, never a static import beside the double: the hook below reaches the toast module,
    and a static import would have resolved the real one before the hook above registered. */
 const { useReactivation } = await import("./useReactivation.ts");
+const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 
 function Probe({ answer }: { answer: () => Promise<ActionResult> }): ReturnType<typeof h> {
-  const { reactivate } = useReactivation({ action: answer, noun: "Team" });
+  const { isReactivating, reactivate } = useReactivation({ action: answer, noun: "Team" });
 
-  return h("button", { type: "button", onClick: () => void reactivate({ id: "t1" }) }, "Reaktivieren");
+  // The label follows the transition, so a case can wait for the press to be over rather than for its toast.
+  return h("button", { type: "button", onClick: () => void reactivate({ id: "t1" }) }, isReactivating ? "Reaktiviert..." : "Reaktivieren");
 }
 
 const press = async (answer: () => Promise<ActionResult>): Promise<void> => {
   const user = userEvent.setup();
-  render(h(Probe, { answer }));
+  render(underNext(h(Probe, { answer })));
   await user.click(screen.getByRole("button", { name: "Reaktivieren" }));
 };
 
@@ -66,6 +69,20 @@ describe("what a reactivation tells the reader", () => {
     assert.deepEqual(
       raised.map(({ variant, title, description }) => ({ variant, title, description })),
       [{ variant: "warning", title: "Mit Folgen reaktiviert", description: "Der Bestätigungslink konnte nicht an a@b.de zugestellt werden." }],
+    );
+  });
+
+  /* The edge cutting the request rejects the action after the row may have come back, and a
+     rejection left to the hook's transition replaces the page with the error page. */
+  it("says nobody can tell whether a rejected return landed, and leaves the row standing", async () => {
+    await press(() => Promise.reject(new Error("An unexpected response was received from the server.")));
+    // Found by its resting label, which comes back only once the transition holding the rejection is over.
+    await screen.findByRole("button", { name: "Reaktivieren" });
+
+    const { error, outcome } = unansweredAction();
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
+      [["danger", "Team nicht reaktiviert", error, outcome]],
     );
   });
 

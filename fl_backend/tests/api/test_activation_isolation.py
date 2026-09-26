@@ -8,14 +8,14 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import activate_saison, generate_spielplan, undraw_spielplan
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import FLActivateSaisonResponse, FLGenerateSpielplanPayload
 from app.api.saisons.services import ACTIVATE_SAISON_UNFINISHED, ACTIVATE_TARGET_PAST, ACTIVATE_TARGET_UNDRAWN
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -45,47 +45,30 @@ ENTRY_BLOCK = {OUTGOING: "1", TARGET: "2", RIVAL: "3"}
 COMMITTED = "the rollover committed"
 
 
-def saison_document(saison_id: str, status: str) -> dict[str, Any]:
-    """Complete, because the promoted document is validated as `FLSaison` on the way back out.
+def seeded_saison(saison_id: str, status: str) -> dict[str, Any]:
+    """The shape rules spelled out: the seed fills and draws each season by them."""
 
-    The span covers the schedule the rules imply, the seed drawing these seasons through the route
-    that measures one against the other.
-    """
-
-    return {
-        "_id": saison_id,
-        "start_date": f"{saison_id}-01-01",
-        "end_date": f"{saison_id}-06-30",
-        "status": status,
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": QUALIFIERS,
-            "number_of_groups": GROUPS,
-            "teams_per_group": TEAMS_PER_GROUP,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-        },
-    }
+    return saison_document(
+        saison_id,
+        status,
+        rules=rules_document(qualifiers_per_group=QUALIFIERS, number_of_groups=GROUPS, teams_per_group=TEAMS_PER_GROUP),
+    )
 
 
 def entry_rows(saison_id: str) -> list[dict[str, Any]]:
     """Every offered group filled to `teams_per_group`, which is what `REQ-SPIELPLAN-004` asks of a season about to be drawn."""
 
     return [
-        {
-            "_id": ObjectId(f"6890a1b2c3d4e5f60{ENTRY_BLOCK[saison_id]}7{index:05d}"),
-            "saison_id": saison_id,
+        saison_team_document(
+            saison_id,
             # The same clubs in every seeded season: a `team_id` names a club, and a club plays year
             # after year. Only the junction row is the season's own.
-            "team_id": ObjectId(f"6890a1b2c3d4e5f6079{index:05d}"),
-            "gruppe": gruppe,
-            "austritt": None,
-            "name": f"{gruppe}{seat + 1}-Schule",
-            "shorthand": f"{gruppe}{seat + 1}",
-        }
+            ObjectId(f"6890a1b2c3d4e5f6079{index:05d}"),
+            f"{gruppe}{seat + 1}-Schule",
+            f"{gruppe}{seat + 1}",
+            _id=ObjectId(f"6890a1b2c3d4e5f60{ENTRY_BLOCK[saison_id]}7{index:05d}"),
+            gruppe=gruppe,
+        )
         for index, (seat, gruppe) in enumerate(product(range(TEAMS_PER_GROUP), offered_gruppen(GROUPS)))
     ]
 
@@ -140,9 +123,6 @@ def on_a_league(
         # The SHIPPED validators and unique indexes, and every collection -- including the one the
         # action log appends to inside each transaction below.
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # Process-global and keyed by season id, so an entry another module left would answer for this one.
-            invalidate_saison_cache()
-
             await database[Collection.SAISONS].insert_many(saisons)
             for saison_id in entered:
                 await database[Collection.SAISON_TEAMS].insert_many(entry_rows(saison_id))
@@ -221,7 +201,7 @@ async def rollover_under(database: AsyncDatabase, client: AsyncMongoClient, hook
     try:
         await call_activate(database, client, TARGET, saisons_collection=seasons)
         outcome = COMMITTED
-    except DocumentConflictException as refusal:
+    except WriteRefusalException as refusal:
         outcome = refusal.error_code
 
     return outcome, seasons.season_reads
@@ -268,7 +248,7 @@ class TestADrawLandingMidRolloverIsJudgedAgain:
             mongo_replica_set_url,
             body,
             # The outgoing season is undrawn, which is what makes it read as owing nothing.
-            saisons=[saison_document(OUTGOING, "active"), saison_document(TARGET, "future")],
+            saisons=[seeded_saison(OUTGOING, "active"), seeded_saison(TARGET, "future")],
             entered=(OUTGOING, TARGET),
             drawn=(TARGET,),
         )
@@ -300,7 +280,7 @@ class TestAnUndrawLandingMidRolloverIsJudgedAgain:
             mongo_replica_set_url,
             body,
             # Nothing holds `active`, so no incumbent can be the reason for the refusal below.
-            saisons=[saison_document(TARGET, "future")],
+            saisons=[seeded_saison(TARGET, "future")],
             entered=(TARGET,),
             drawn=(TARGET,),
         )
@@ -312,41 +292,30 @@ class TestAnUndrawLandingMidRolloverIsJudgedAgain:
         assert fixtures == 0, "the interfering undraw left the target its fixtures, so the rule above had nothing to refuse"
 
 
-class TestARivalRolloverLandingMidRolloverIsJudgedAgain:
-    """The target holds `active` when the rollover judges and `past` when it writes, a rival having been promoted.
+class TestTwoFirstActivationsRacing:
+    """Nothing holds `active`, so neither demotion matches a row and the two write sets are disjoint: only `uniq_saison_active` parts them."""
 
-    Two seasons hold `active` here, which `app/core/domain.py :: UNENFORCED` says nothing prevents.
-    """
-
-    def test_a_target_demoted_under_the_rollover_is_refused_as_past(self, mongo_replica_set_url: str):
+    def test_the_later_promotion_is_judged_against_the_earlier(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             async def promote_the_rival() -> None:
-                # Permitted: both incumbents are played out, so this rollover has nothing of its own
-                # to refuse -- and it demotes the pair, the target included.
+                # Permitted: nothing is running, so the rival's rollover has no incumbent to refuse on.
                 await call_activate(database, client, RIVAL)
 
-            outcome, season_reads = await rollover_under(database, client, promote_the_rival)
+            outcome, _ = await rollover_under(database, client, promote_the_rival)
 
-            return outcome, season_reads, await statuses_now(database), await unplayed_now(database, RIVAL)
+            return outcome, await statuses_now(database)
 
-        outcome, season_reads, statuses, unplayed = on_a_league(
+        outcome, statuses = on_a_league(
             mongo_replica_set_url,
             body,
-            # Both incumbents matter: a rival's rollover demotes the target out from under this one,
-            # and with only one seeded the demotion matches nothing -- the promotion then changes no
-            # field, takes no write conflict and is never re-judged.
-            saisons=[saison_document(OUTGOING, "active"), saison_document(TARGET, "active"), saison_document(RIVAL, "future")],
-            entered=(OUTGOING, TARGET, RIVAL),
-            drawn=(OUTGOING, TARGET, RIVAL),
-            finished=(OUTGOING, TARGET),
+            saisons=[seeded_saison(TARGET, "future"), seeded_saison(RIVAL, "future")],
+            entered=(TARGET, RIVAL),
+            drawn=(TARGET, RIVAL),
         )
 
-        # The rival keeps what the interference gave it: a season promoted and then swept straight
-        # back to `past` unplayed is the second thing this refusal saves.
-        assert (outcome, statuses) == (ACTIVATE_TARGET_PAST, {OUTGOING: "past", TARGET: "past", RIVAL: "active"})
-        assert season_reads == 2, "the callback judged once, so the write conflicted without being re-judged"
-
-        assert unplayed > 0, "the rival was seeded played out, and demoting it would then have broken no rule"
+        # The index answers the promotion with a write conflict, and the retry finds the rival
+        # running with its whole Spielplan still to play. Unindexed, both commit.
+        assert (outcome, statuses) == (ACTIVATE_SAISON_UNFINISHED, {TARGET: "future", RIVAL: "active"})
 
 
 class TestARivalRolloverLandingMidReactivationIsJudgedAgain:
@@ -372,7 +341,7 @@ class TestARivalRolloverLandingMidReactivationIsJudgedAgain:
             body,
             # ONE incumbent, and it is the target: nothing else holds `active`, so the demotion matches
             # nothing and the promotion is the no-op this case exists for.
-            saisons=[saison_document(TARGET, "active"), saison_document(RIVAL, "future")],
+            saisons=[seeded_saison(TARGET, "active"), seeded_saison(RIVAL, "future")],
             entered=(TARGET, RIVAL),
             drawn=(TARGET, RIVAL),
             finished=(TARGET,),
@@ -401,7 +370,7 @@ class TestTheRolloverStillCommitsWithNothingInterfering:
             mongo_replica_set_url,
             body,
             # The same seed the draw case runs on, interference apart.
-            saisons=[saison_document(OUTGOING, "active"), saison_document(TARGET, "future")],
+            saisons=[seeded_saison(OUTGOING, "active"), seeded_saison(TARGET, "future")],
             entered=(OUTGOING, TARGET),
             drawn=(TARGET,),
         )
@@ -421,7 +390,7 @@ class TestTheRolloverStillCommitsWithNothingInterfering:
         response, statuses = on_a_league(
             mongo_replica_set_url,
             body,
-            saisons=[saison_document(TARGET, "active")],
+            saisons=[seeded_saison(TARGET, "active")],
             entered=(TARGET,),
             drawn=(TARGET,),
         )

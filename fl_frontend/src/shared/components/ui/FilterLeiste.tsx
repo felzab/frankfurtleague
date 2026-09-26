@@ -3,10 +3,16 @@
 import { useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
-import { ArrowUpArrowDown, Sliders, Xmark } from "@gravity-ui/icons";
+import ArrowUpArrowDown from "@gravity-ui/icons/ArrowUpArrowDown";
+import Sliders from "@gravity-ui/icons/Sliders";
+import Xmark from "@gravity-ui/icons/Xmark";
 
-import { Button, ListBox, Popover, ScrollShadow, Select } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { ListBox } from "@heroui/react/list-box";
+import { Popover } from "@heroui/react/popover";
+import { ScrollShadow } from "@heroui/react/scroll-shadow";
 
+import { Select } from "@/shared/components/ui/Select";
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { offeredOptions } from "@/shared/utils/facets";
 import { leserichtungHref } from "@/shared/utils/leserichtung";
@@ -15,39 +21,39 @@ import { countBadge } from "./badges";
 import { FilterPanel, useFilterPanelWidth } from "./FilterPanel";
 import { IconTooltip } from "./IconTooltip";
 import { overlayPanel } from "./overlayPanel";
-import { PICKED_OPTION } from "./pickedOption";
+import { PICKED_OPTION_CLASSES } from "./pickedOption";
 
 import type { Facet, FacetCounts, FacetOption, FacetSelection } from "@/shared/utils/facets";
 import type { Leserichtung } from "@/shared/utils/leserichtung";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 /** The add control and a pill share this box because they are peers in one row, not a control and state drawn beside it. */
-const CONTROL_BOX = "bg-surface fluid-xs flex h-10 shrink-0 flex-row rounded-xl border font-bold shadow-sm";
+const CONTROL_BOX_CLASSES = "flex h-10 shrink-0 flex-row rounded-xl border bg-surface fluid-xs font-bold shadow-sm";
 
 /** `items-stretch` so the remove control is full height; `overflow-hidden` so its fill takes the corner. */
-const PILL_SHELL = `${CONTROL_BOX} border-border items-stretch overflow-hidden`;
+const PILL_SHELL_CLASSES = `${CONTROL_BOX_CLASSES} items-stretch overflow-hidden border-border`;
 
-/** Split from `ICON_SHELL` because the picker is a field and its three neighbours are buttons their own text identifies; `docs/frontend/spec.md` §1.17 has the grade and why a field takes no hover fill. */
-const FIELD_SHELL = `${CONTROL_BOX} border-control text-foreground cursor-pointer items-center gap-x-2 px-3 whitespace-nowrap transition-colors duration-(--motion-fast)`;
+/** Split from `ICON_SHELL_CLASSES` because the picker is a field and its three neighbours are buttons their own text identifies; `docs/frontend/spec.md` §1.17 has the grade and why a field takes no hover fill. */
+const FIELD_SHELL_CLASSES = `${CONTROL_BOX_CLASSES} cursor-pointer items-center gap-x-2 border-control px-3 whitespace-nowrap text-foreground transition-colors duration-(--motion-fast)`;
 
 /** The same box holding one 16px icon: `px-3` either side makes it 40 wide, its own height. */
-const ICON_SHELL = `${CONTROL_BOX} border-border items-center gap-x-2 px-3 whitespace-nowrap transition-colors duration-(--motion-fast)`;
+const ICON_SHELL_CLASSES = `${CONTROL_BOX_CLASSES} items-center gap-x-2 border-border px-3 whitespace-nowrap transition-colors duration-(--motion-fast)`;
 
-/** The ink, the fill and the cursor sit here rather than in `ICON_SHELL`: the exhausted twin below wears the same box
+/** The ink, the fill and the cursor sit here rather than in `ICON_SHELL_CLASSES`: the exhausted twin below wears the same box
  *  and offers no press, and a fill on something unpressable is an affordance it does not have. */
-const ADD_FACE = `${ICON_SHELL} text-foreground hover:bg-hover cursor-pointer`;
+const ADD_FACE_CLASSES = `${ICON_SHELL_CLASSES} cursor-pointer text-foreground hover:bg-hover`;
 
-// `ring-inset` because `PILL_SHELL` clips its overflow and this box is flush with the pill's trailing
+// `ring-inset` because `PILL_SHELL_CLASSES` clips its overflow and this box is flush with the pill's trailing
 // edge: HeroUI draws its ring outside, where the clip takes it and a keyboard reader sees nothing.
 /** Sized by `w-8` rather than by padding: HeroUI's `.button svg` pulls an icon 2px in each side, so content sizing would
  *  make the width a property of the icon's margins, and the glyph's own side margins are the pill's right gap. */
-const CLEAR_FACE = "flex h-full w-8 shrink-0 items-center justify-center rounded-none p-0 ring-inset";
+const CLEAR_FACE_CLASSES = "flex h-full w-8 shrink-0 items-center justify-center rounded-none p-0 ring-inset";
 
 /**
  * The ceiling on a picked value, in `em` so it holds the same character count at every type size. `min-w-0` is what
  * makes it bite — a flex item's automatic minimum is its content, and outranks the maximum.
  */
-const VALUE_CAP = "min-w-0 max-w-[7em] md:max-w-[16em]";
+const VALUE_CAP_CLASSES = "max-w-[7em] min-w-0 md:max-w-[16em]";
 
 /** What the add control paints from `md`. Short, because the row is a row of controls. */
 const ADD_LABEL = "Filter";
@@ -71,8 +77,8 @@ const ORDER_OPTIONS: readonly { value: Leserichtung; label: string }[] = [
 ];
 
 /** Reset-everything: `h-7` is the app's small control, and this is the row's only one. */
-const CLEAR_ALL_FACE =
-  "border-border text-foreground-muted data-hovered:bg-hover-danger data-hovered:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-2 rounded-lg border px-2.5 font-bold transition-colors duration-(--motion-fast)";
+const CLEAR_ALL_FACE_CLASSES =
+  "flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-2 rounded-lg border border-border px-2.5 fluid-xxs font-bold text-foreground-muted transition-colors duration-(--motion-fast) data-hovered:bg-hover-danger data-hovered:text-danger-strong";
 
 /**
  * In the facet's own option order rather than the click order, so one selection looks the same however it was arrived at.
@@ -108,15 +114,15 @@ function FilterPill<TItem>({
   const chosen = pickedOptions(facet, selection[facet.param] ?? []);
 
   return (
-    <div className={PILL_SHELL}>
+    <div className={PILL_SHELL_CLASSES}>
       <Popover>
         {/* `pr-0.5` because the control beside it centres its glyph in a wider box, so this reads as the pill's own gap. */}
-        {/* The negative offset for `CLEAR_FACE`'s reason: this stop is flush with the pill's leading edge, and
+        {/* The negative offset for `CLEAR_FACE_CLASSES`'s reason: this stop is flush with the pill's leading edge, and
             `globals.css`'s base outline for a `[tabindex]` draws two pixels outside the clip. */}
         <Popover.Trigger
           aria-label={`${facet.label}: ${chosen.map((option) => option.label).join(", ")} ändern`}
-          className="hover:bg-hover flex h-full cursor-pointer flex-row items-center gap-x-2 pr-0.5 pl-3 whitespace-nowrap -outline-offset-3 transition-colors duration-(--motion-fast)">
-          <span className={`text-brand truncate ${VALUE_CAP}`}>{chosen[0]?.label ?? ""}</span>
+          className="flex h-full cursor-pointer flex-row items-center gap-x-2 pr-0.5 pl-3 whitespace-nowrap -outline-offset-3 transition-colors duration-(--motion-fast) hover:bg-hover">
+          <span className={`truncate text-brand ${VALUE_CAP_CLASSES}`}>{chosen[0]?.label ?? ""}</span>
           {chosen.length > 1 && <span className={`${countBadge("brandSolid")} shrink-0`}>+{chosen.length - 1}</span>}
         </Popover.Trigger>
         <Popover.Content
@@ -143,7 +149,7 @@ function FilterPill<TItem>({
         onPress={() => {
           onClear(facet.param);
         }}
-        className={`${CLEAR_FACE} text-foreground-muted data-hovered:bg-hover-danger data-hovered:text-danger-strong min-w-0 cursor-pointer transition-colors duration-(--motion-fast)`}>
+        className={`${CLEAR_FACE_CLASSES} min-w-0 cursor-pointer text-foreground-muted transition-colors duration-(--motion-fast) data-hovered:bg-hover-danger data-hovered:text-danger-strong`}>
         <Xmark
           aria-hidden="true"
           className="size-3.5 shrink-0"
@@ -190,7 +196,7 @@ function LeserichtungSelect({ richtung }: { richtung: Leserichtung }) {
             // `SaisonSelector` carries why: react-aria hands focus back after a dismiss, and the field-focus
             // rule in `globals.css` would hold the brand border on a control clicked away from.
             data-border-on-open="true"
-            className={FIELD_SHELL}>
+            className={FIELD_SHELL_CLASSES}>
             <ArrowUpArrowDown
               className="size-4"
               aria-hidden="true"
@@ -210,7 +216,7 @@ function LeserichtungSelect({ richtung }: { richtung: Leserichtung }) {
                   key={option.value}
                   id={option.value}
                   textValue={option.label}
-                  className={`${PICKED_OPTION} text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-(--motion-fast)`}>
+                  className={`${PICKED_OPTION_CLASSES} rounded-lg px-3 py-2.5 fluid-sm font-bold text-foreground-muted transition-colors duration-(--motion-fast) data-hovered:bg-hover data-hovered:text-brand`}>
                   {option.label}
                 </ListBox.Item>
               ))}
@@ -308,7 +314,7 @@ function FilterRow<TItem>({
             type="button"
             disabled
             aria-label={ADD_HINT}
-            className={`${ICON_SHELL} text-foreground-muted cursor-not-allowed opacity-50`}>
+            className={`${ICON_SHELL_CLASSES} cursor-not-allowed text-foreground-muted opacity-50`}>
             {addFace}
           </button>
         ) : (
@@ -316,7 +322,7 @@ function FilterRow<TItem>({
             <Popover>
               <Popover.Trigger
                 aria-label={ADD_HINT}
-                className={ADD_FACE}>
+                className={ADD_FACE_CLASSES}>
                 {addFace}
               </Popover.Trigger>
               <Popover.Content
@@ -371,7 +377,7 @@ function FilterRow<TItem>({
         <Button
           variant="ghost"
           onPress={clearAll}
-          className={`${CLEAR_ALL_FACE} self-start`}>
+          className={`${CLEAR_ALL_FACE_CLASSES} self-start`}>
           <Xmark
             aria-hidden="true"
             className="size-3.5 shrink-0"

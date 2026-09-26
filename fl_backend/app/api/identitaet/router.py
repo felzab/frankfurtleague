@@ -40,16 +40,15 @@ async def get_subjekt(
 
     The address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival
     and compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain
-    stored as `müller.de` for `xn--mller-kva.de`. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de` are two domains
-    here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.
+    asked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de`
+    are two domains here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.
 
-    A contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode,
-    or in Unicode where the row predates that rule -- so both are read in two steps: the database narrows to the rows holding the
-    identifier in either spelling of its domain, whatever the case of its letters, and the fold decides on each candidate's own stored value.
+    A contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode --
+    so both are read in two steps: the database narrows to the rows holding the identifier whatever the case of its letters, and the
+    fold decides on each candidate's own stored value.
 
-    A row predating the rule whose local part holds a character above ASCII answers no identifier, this payload taking an ASCII
-    local part alone; no sign-in reaches such a mailbox either. Neither collection stores a folded copy beside the address it
-    holds: a second copy on two collections has to be kept true by every writer that touches either.
+    Neither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by
+    every writer that touches either.
 
     Each list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.
     An address the league holds nothing for is answered with three empty lists rather than a 404.

@@ -1,0 +1,7 @@
+// Linted as src/shared/testing/zzPlant.ts.
+// The suite's harness may import a test-only module, as a test may.
+import { publishedCeilings } from "@/core/publishedCeilings";
+import { captureStdout } from "@/core/stdoutCapture";
+import { registerHooks } from "node:module";
+
+export const USED = [publishedCeilings, captureStdout, registerHooks];

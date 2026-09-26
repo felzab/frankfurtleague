@@ -13,12 +13,14 @@ from app.api.teams.schemas import FLReplaceSaisonTeamPayload
 from app.api.teams.services import (
     CLUB_RETIRED,
     REPLACE_INCOMING_ALREADY_ENTERED,
+    REPLACE_ONE_CLUB_ON_BOTH_ENDS,
     REPLACE_OUTGOING_HAS_A_RECORD,
     REPLACE_SAISON_FINISHED,
 )
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import saison_document, saison_spieler_document, saison_team_document, spiel_document, team_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -62,32 +64,6 @@ PLAYED_AS = {
 
 EXIT = {"type": "rueckzug", "grund": "Zu wenige Spieler", "datum": "2026-04-01"}
 
-# Required by the shipped `saisons` validator and read by nothing below: no case here turns on a rule.
-RULES = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 4,
-    "teams_per_group": 4,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-}
-
-# Likewise for `teams`: a club carries an address and nothing in this suite reads one.
-CLUB_ADDRESS = {"strasse": "Hanauer Landstrasse", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
-
-# The `spiele` keys the shipped validator requires and no case here moves: a fixture nobody has
-# assigned a source, a pitch, a referee or a shoot-out.
-UNFILLED_SPIEL_FIELDS: dict[str, Any] = {
-    "team1_quelle": None,
-    "team2_quelle": None,
-    "ort": None,
-    "schiedsrichter": None,
-    "elfmeterschiessen": None,
-}
-
 SPIELTAG_OID = ObjectId("6890a1b2c3d4e5f6072600f1")
 
 INCOMING_SIDE = {"team_id": INCOMING, "name": "Incoming", "shorthand": "IN", "tore": None}
@@ -125,20 +101,18 @@ OUTGOING_TRIKOT_FARBE = "bordeaux"
 
 
 def junction(team_id: ObjectId, gruppe: str, austritt: dict[str, Any] | None = None) -> dict[str, Any]:
-    """A dict rather than a model: `saison_teams` is the one collection with no model of the row."""
-
     name, shorthand = PLAYED_AS[team_id]
 
-    return {
-        "saison_id": SAISON_ID,
-        "team_id": team_id,
-        "gruppe": gruppe,
-        "austritt": austritt,
-        "name": name,
-        "shorthand": shorthand,
-        "trikot_farbe": OUTGOING_TRIKOT_FARBE,
-        "kontakte": copy.deepcopy(OUTGOING_KONTAKTE),
-    }
+    return saison_team_document(
+        SAISON_ID,
+        team_id,
+        name,
+        shorthand,
+        gruppe=gruppe,
+        austritt=austritt,
+        trikot_farbe=OUTGOING_TRIKOT_FARBE,
+        kontakte=copy.deepcopy(OUTGOING_KONTAKTE),
+    )
 
 
 def default_junctions() -> list[dict[str, Any]]:
@@ -160,18 +134,14 @@ def squad_row(
     `person` names the `spieler_id`, so one player can hold a row in two seasons.
     """
 
-    return {
-        "_id": ObjectId(SQUAD_ROW_ID.format(index)),
-        "spieler_id": ObjectId(SQUAD_PERSON_ID.format(index if person is None else person)),
-        "saison_id": saison_id,
-        "team_id": team_id,
-        "ist_nachnominiert": False,
-        "rolle": None,
-        "stufe": "Q2",
-        "position": "Angriff",
-        "nummer": str(index),
-        "inactive_since": inactive_since,
-    }
+    return saison_spieler_document(
+        ObjectId(SQUAD_PERSON_ID.format(index if person is None else person)),
+        saison_id,
+        team_id,
+        _id=ObjectId(SQUAD_ROW_ID.format(index)),
+        nummer=str(index),
+        inactive_since=inactive_since,
+    )
 
 
 # The outgoing club's live squad, a row that left it earlier, another club's squad in the same
@@ -188,16 +158,14 @@ SQUAD_ROWS = [
 def club(team_id: ObjectId, inactive_since: str | None = None) -> dict[str, Any]:
     name, shorthand = CLUB_NAMES[team_id]
 
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"{name}-Schule Frankfurt",
-        "website_url": f"https://{shorthand.lower()}.example.de",
-        "address": dict(CLUB_ADDRESS),
-        "inactive_since": inactive_since,
-    }
+    return team_document(
+        team_id,
+        name,
+        shorthand,
+        full_name=f"{name}-Schule Frankfurt",
+        website_url=f"https://{shorthand.lower()}.example.de",
+        inactive_since=inactive_since,
+    )
 
 
 def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
@@ -220,37 +188,33 @@ def gruppen_fixture(
 ) -> dict[str, Any]:
     """`datum`, `uhrzeit` and `spieltag_id` are the schedule a replacement leaves standing, so every fixture carries all three."""
 
-    return {
-        "saison_id": saison_id,
-        "saison_phase": "gruppenphase",
-        "spiel_nr": spiel_nr,
-        "spieltag_id": SPIELTAG_OID,
-        "datum": "2026-03-15",
-        "uhrzeit": "18:00:00",
-        "team1": side(home, tore[0]),
-        "team2": side(away, tore[1]),
-        **UNFILLED_SPIEL_FIELDS,
-        "ergebnis": ergebnis,
-        "sonderereignis": sonderereignis,
-    }
+    return spiel_document(
+        spiel_id=ObjectId(),
+        saison_id=saison_id,
+        spiel_nr=spiel_nr,
+        spieltag_id=SPIELTAG_OID,
+        datum="2026-03-15",
+        uhrzeit="18:00:00",
+        team1=side(home, tore[0]),
+        team2=side(away, tore[1]),
+        ergebnis=ergebnis,
+        sonderereignis=sonderereignis,
+    )
 
 
 def knockout_fixture(spiel_nr: int, home: ObjectId) -> dict[str, Any]:
     """A bracket slot with its second side still unfilled -- a shape the replacement has to survive."""
 
-    return {
-        "saison_id": SAISON_ID,
-        "saison_phase": "viertelfinale",
-        "spiel_nr": spiel_nr,
-        "spieltag_id": SPIELTAG_OID,
-        "datum": "2026-05-20",
-        "uhrzeit": "18:00:00",
-        "team1": side(home),
-        "team2": None,
-        **UNFILLED_SPIEL_FIELDS,
-        "ergebnis": None,
-        "sonderereignis": None,
-    }
+    return spiel_document(
+        spiel_id=ObjectId(),
+        saison_id=SAISON_ID,
+        spiel_nr=spiel_nr,
+        spieltag_id=SPIELTAG_OID,
+        saison_phase="viertelfinale",
+        datum="2026-05-20",
+        uhrzeit="18:00:00",
+        team1=side(home),
+    )
 
 
 # Three fixtures field the outgoing club and three do not: a group fixture on each slot, a bracket
@@ -287,12 +251,9 @@ def on_a_seeded_season(
 
     async def _run() -> Any:
         async with a_clean_database(url, database_name, constraints=constrained, collections=collections) as (client, database):
-            # Each season spans its own calendar year, so the two seeded spans do not overlap.
+            # No case here turns on a season's rules; each season spans its own calendar year.
             await database[Collection.SAISONS].insert_many(
-                [
-                    {"_id": year, "start_date": f"{year}-01-01", "end_date": f"{year}-06-30", "status": status, "rules": dict(RULES)}
-                    for year, status in ((SAISON_ID, saison_status), (PRIOR_SAISON_ID, "past"))
-                ]
+                [saison_document(SAISON_ID, saison_status), saison_document(PRIOR_SAISON_ID, "past")]
             )
             await database[Collection.SAISON_TEAMS].insert_many(list(default_junctions() if junctions is None else junctions))
             # No document for PHANTOM, which is the whole point of that junction row.
@@ -374,7 +335,7 @@ async def _squad_after(database: AsyncDatabase, client: AsyncMongoClient) -> Any
 async def _refused(database: AsyncDatabase, client: AsyncMongoClient, incoming: ObjectId = INCOMING) -> Any:
     """The code, plus the two surfaces a refusal has to have left alone."""
 
-    with pytest.raises(DocumentConflictException) as refusal:
+    with pytest.raises(WriteRefusalException) as refusal:
         await call_replace(database, client, incoming_team_id=incoming)
 
     return refusal.value.error_code, await row_of(database, WITHDRAWN), await spiele_now(database)
@@ -731,12 +692,13 @@ class TestWhoMayArrive:
         assert code == REPLACE_INCOMING_ALREADY_ENTERED
         assert row is not None
 
-    def test_one_club_named_on_both_ends_is_refused(self, mongo_replica_set_url: str):
-        """The same arm: the row being replaced is itself a row the incoming club holds."""
+    def test_one_club_named_on_both_ends_is_refused_as_the_payload(self, mongo_replica_set_url: str):
+        """`REQ-REPLACE-004`, judged before any read, so the row and the fixtures are left alone."""
 
-        code, _, _ = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=WITHDRAWN))
+        code, row, _ = on_a_seeded_season(mongo_replica_set_url, lambda database, client: _refused(database, client, incoming=WITHDRAWN))
 
-        assert code == REPLACE_INCOMING_ALREADY_ENTERED
+        assert code == REPLACE_ONE_CLUB_ON_BOTH_ENDS
+        assert row is not None
 
     def test_a_club_that_left_the_league_is_refused(self, mongo_replica_set_url: str):
         """The entry gate's own code, because a replacement is one more way of bringing a club into a season."""

@@ -1,148 +1,163 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { pathToFileURL } from "node:url";
 
-import { filesUnder, isTestFile } from "./treeWalk.ts";
+import { doubleSendMail } from "./mailDouble.ts";
+import { filesUnder } from "./treeWalk.ts";
 
-const SRC_DIR = path.resolve(import.meta.dirname, "..");
-const APP_DIR = path.join(SRC_DIR, "app");
+const APP_DIR = path.resolve(import.meta.dirname, "..", "app");
 
-/** The guard's first line, whole: a module carrying this is one of the sites the rules below reach. */
-const KOPF = 'const secFetchSite = request.headers.get("sec-fetch-site");';
-
-/** `null` passes deliberately: a browser too old to send the header is still a reader of this page. */
-const BEDINGUNG = 'secFetchSite !== null && secFetchSite !== "same-origin"';
-
-/* The sign-in library's verification path is followed out of a mail client, so it arrives
-   cross-site by construction and this guard would refuse it; the library brings an origin check of
-   its own to every path a browser posts to. */
-
-// The provider's delivery webhook takes neither spine, and the reason is in its own doc
-// block: `handlePublicRequest` always answers 200, which would tell a caller that retries on
-// non-200 that a forgery and an unreachable backend were both accepted.
-const UNGUARDED_BY_DECISION = [path.join("api", "auth", "[...all]", "route.ts"), path.join("api", "mail", "zustellung", "route.ts")];
-
-const SOURCES = new Map<string, string>();
-
-function sourceOf(file: string): string {
-  const held = SOURCES.get(file);
-  if (held !== undefined) return held;
-
-  const read = readFileSync(file, "utf8");
-  SOURCES.set(file, read);
-
-  return read;
+/* Each handler runs for real against these: a refused request must reach none of them, and a
+   request let through reaches whichever it reaches first, which the request itself records. */
+const PACKAGE_DOUBLES: Record<string, string> = {
+  "server-only": "export {};",
+  "next/cache":
+    "const inert = () => undefined; export { inert as updateTag, inert as refresh, inert as revalidateTag, inert as cacheTag, inert as cacheLife };",
+  "next/headers": "export const headers = async () => new Headers();",
+  "next/server": `export class NextResponse {
+  constructor(body, init) { this.body = body; this.status = init?.status ?? 200; }
+  static json(body, init) { return new NextResponse(body, init); }
+  static redirect(url, status) { return new NextResponse(null, { status: status ?? 307 }); }
 }
+export const after = () => undefined;
+export const connection = async () => undefined;`,
+  "next/navigation": "export const unstable_rethrow = () => undefined;",
+};
 
-/** Where one import specifier lands inside this tree, or `null` where it names a package. */
-function resolveInTree(from: string, specifier: string): string | null {
-  const base = specifier.startsWith("@/")
-    ? path.join(SRC_DIR, specifier.slice("@/".length))
-    : specifier.startsWith(".")
-      ? path.resolve(path.dirname(from), specifier)
-      : null;
+const unreached = (name: string) => `() => { throw new Error("${name} is past the guard and not doubled"); }`;
 
-  if (base === null) return null;
+const MODULE_DOUBLES: Record<string, string> = {
+  "/src/core/api.ts": `export const apiClient = ${unreached("the backend")};`,
+  "/src/core/logging.ts": "const inert = () => undefined; export const logger = { debug: inert, info: inert, warn: inert, error: inert };",
+  "/src/core/config.ts": `export const frontend_config = { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" };`,
+  // Signed in, so the undo spine's session check lets a request through to the body it reads.
+  "/src/core/auth.ts": `export const auth = { handler: async (request) => new Response(request.url), api: {} };
+export const SIGN_IN_LANDING = "/signin/weiter";
+export const getAdminSession = async () => ({ user: { email: "vorstand@example.org" } });
+export const getSignInDestination = async () => "/admin";`,
+};
+const mail = doubleSendMail();
 
-  return [`${base}.ts`, `${base}.tsx`, base].find((candidate) => /\.tsx?$/.test(candidate) && existsSync(candidate)) ?? null;
-}
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    const double = PACKAGE_DOUBLES[specifier];
+    return double === undefined
+      ? nextResolve(specifier, context)
+      : { url: `data:text/javascript,${encodeURIComponent(double)}`, shortCircuit: true };
+  },
+  load(url, context, nextLoad) {
+    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
+    const double = Object.entries(MODULE_DOUBLES).find(([ending]) => url.endsWith(ending))?.[1];
+    return double === undefined ? nextLoad(url, context) : { format: "module", source: double, shortCircuit: true };
+  },
+});
 
-/** Every module one file imports from inside this tree; an in-tree specifier resolving to nothing FAILS rather than being passed over. */
-function importsOf(file: string): string[] {
-  return [...sourceOf(file).matchAll(/from "([^"]+)"/g)]
-    .map(([, specifier]) => specifier ?? "")
-    .filter((specifier) => specifier.startsWith("@/") || specifier.startsWith("."))
-    .map((specifier) => {
-      const target = resolveInTree(file, specifier);
-      assert.ok(target !== null, `${path.relative(SRC_DIR, file)} imports ${specifier}, which resolves to no module this sweep can read`);
+/** Every method Next routes to a handler. */
+const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 
-      return target;
-    });
-}
+type Handler = (request: unknown, context: unknown) => Promise<unknown>;
 
-function declaresGuard(file: string): boolean {
-  return sourceOf(file).includes(KOPF);
-}
-
-/** One module's guard read whole: the condition it branches on, and the statement it returns. */
-function guardOf(file: string): { bedingung: string; rumpf: string } {
-  const source = sourceOf(file);
-  const ab = source.slice(source.indexOf(KOPF) + KOPF.length);
-
-  assert.ok(ab.includes(") {"), `${path.relative(SRC_DIR, file)} reads Sec-Fetch-Site and then branches on nothing`);
-
-  return {
-    bedingung: ab.slice(ab.indexOf("if (") + "if (".length, ab.indexOf(") {")),
-    // Cut at the statement's own semicolon: the first `}` past the brace can belong to an object
-    // literal inside the call rather than to the block.
-    rumpf: ab.slice(ab.indexOf(") {") + ") {".length, ab.indexOf(";", ab.indexOf(") {")) + 1).trim(),
-  };
-}
+/** The handlers this guard must not stand in front of, and why. */
+const UNGUARDED: Record<string, string> = {
+  "api/auth/[...all]/route.ts GET":
+    "the sign-in library's verification path is followed out of a mail client, so it arrives cross-site by construction",
+  "api/auth/[...all]/route.ts POST": "the sign-in library brings an origin check of its own to every path a browser posts to",
+  "api/mail/zustellung/route.ts POST":
+    "the provider's delivery webhook, which a 200 from the spine would tell that a forgery and an unreachable backend were both accepted",
+};
+const UNGUARDED_BY_DECISION = Object.keys(UNGUARDED);
 
 // Next's own routing convention decides this listing, so a handler added tomorrow is swept with no
 // edit here. Both suffixes: `route.tsx` is as much a handler as `route.ts`.
-const ROUTES = filesUnder(APP_DIR, (name) => name === "route.ts" || name === "route.tsx", 8);
-
-/* One hop and no further: a handler either reads the header itself or hands the request straight to
-   a spine that does, so a guard reached through a chain is reported as no guard at all. */
-const guardingByRoute = new Set<string>();
-const unguarded: string[] = [];
-
-for (const route of ROUTES) {
-  const reached = [route, ...importsOf(route)].filter(declaresGuard);
-
-  if (reached.length === 0) unguarded.push(path.relative(APP_DIR, route));
-  for (const file of reached) guardingByRoute.add(file);
+const HANDLERS: { name: string; handler: Handler }[] = [];
+for (const file of filesUnder(APP_DIR, (name) => name === "route.ts" || name === "route.tsx", 8)) {
+  const routeModule = (await import(pathToFileURL(file).href)) as Partial<Record<(typeof METHODS)[number], Handler>>;
+  for (const method of METHODS) {
+    const handler = routeModule[method];
+    if (handler !== undefined) HANDLERS.push({ name: `${path.relative(APP_DIR, file).split(path.sep).join("/")} ${method}`, handler });
+  }
 }
 
-/* Test files are out: `fl_frontend/src/features/bewerbungen/publicRoutes.test.ts` quotes the
-   guard's first line as a fixture, and a sweep taking that for the code would be reading its own
-   words back (`.claude/rules/cross-surface.md`). */
-const isSweptSource = (name: string) => /\.tsx?$/.test(name) && !isTestFile(name);
+/**
+ * What one handler read of a request carrying `secFetchSite`, the guard's own header aside, and what
+ * it answered. A guard refuses before it reads anything else, so an empty list is a refusal.
+ */
+async function send(handler: Handler, secFetchSite: string | null): Promise<{ read: string[]; answered: unknown }> {
+  const read: string[] = [];
+  const headers = new Headers(secFetchSite === null ? {} : { "sec-fetch-site": secFetchSite });
+  const watchedHeaders = new Proxy(headers, {
+    get(target, key) {
+      if (key !== "get") read.push(`headers.${String(key)}`);
+      const value = Reflect.get(target, key, target) as unknown;
+      if (key !== "get" || typeof value !== "function") return typeof value === "function" ? value.bind(target) : value;
+      return (name: string) => {
+        if (name.toLowerCase() !== "sec-fetch-site") read.push(`headers.get(${name})`);
+        return target.get(name);
+      };
+    },
+  });
+  const url = "http://localhost:3000/api/sweep?shorthand=AB";
+  const request = new Proxy(
+    {
+      headers: watchedHeaders,
+      method: "POST",
+      url: url,
+      nextUrl: new URL(url),
+      json: async () => ({}),
+      text: async () => "",
+      formData: async () => new FormData(),
+    },
+    {
+      get(target, key, receiver) {
+        if (key !== "headers") read.push(String(key));
+        return Reflect.get(target, key, receiver) as unknown;
+      },
+    },
+  );
 
-/* The same listing reached off the tree instead of off the routes, which is what leaves either one
-   able to fail (`docs/_standard/standard.md :: PRE-4`). */
-const guardingByTree = filesUnder(SRC_DIR, isSweptSource, 350).filter(declaresGuard);
+  let answered: unknown;
+  try {
+    answered = await handler(request, { params: Promise.resolve({ all: ["session"] }) });
+  } catch (error) {
+    answered = error;
+  }
+  return { read, answered };
+}
 
 describe("the cross-site guard every session-less route stands behind", () => {
-  /* One of each shape rather than two modules: `(new )?` below asserts over both a bare status and a
-     rendered German body, and a population holding one shape leaves the other branch over nothing. */
-  it("finds a guarded module for either shape of refusal", () => {
-    const rumpfe = guardingByTree.map((file) => guardOf(file).rumpf);
+  /* The control: a sweep loading no handler, or losing the exempt ones to a rename, judges nothing. */
+  it("sweeps every handler the exemptions name", () => {
+    const names = HANDLERS.map(({ name }) => name);
 
-    assert.ok(
-      rumpfe.some((rumpf) => rumpf.startsWith("return new NextResponse")),
-      `none of ${String(rumpfe.length)} guarded modules refuses with a bare status, so the rule below asserts that shape over nothing`,
-    );
-    assert.ok(
-      rumpfe.some((rumpf) => rumpf.startsWith("return NextResponse.json")),
-      `none of ${String(rumpfe.length)} guarded modules refuses with a rendered body, so the rule below asserts that shape over nothing`,
-    );
+    for (const exempt of UNGUARDED_BY_DECISION) assert.ok(names.includes(exempt), `${exempt} is no longer among the swept handlers`);
+    assert.ok(names.length > UNGUARDED_BY_DECISION.length, "the sweep reached no guarded handler");
   });
 
-  it("guards every route handler, bar the one that must not be guarded", () => {
-    assert.deepEqual(unguarded.sort(), [...UNGUARDED_BY_DECISION].sort());
-  });
-
-  /* The guard compared WHOLE, not searched: every weakening leaves the words a search looks for
-     standing. A deleted `return` is invisible to `tsc` and to ESLint at --max-warnings 0, a bare
-     call being a side effect. */
-  it("returns the refusal it builds, on exactly the condition it declares", () => {
-    for (const file of guardingByTree) {
-      const name = path.relative(SRC_DIR, file);
-      const { bedingung, rumpf } = guardOf(file);
-
-      assert.equal(bedingung, BEDINGUNG, `${name}'s condition was widened or made conditional`);
-      /* WHICH refusal is deliberately not pinned: `app/api/client-error/route.ts` answers a bare 403
-         because no reader renders its body, where both spines answer 200 with a German sentence. */
-      assert.match(rumpf, /^return (new )?NextResponse\b/, `${name} builds a refusal it does not return, or answers with something else`);
+  /* Refused unread: every weakening of the guard — a widened condition, a refusal built and not
+     returned — lets the request reach the next line, which reads it. */
+  it("refuses a cross-site request before reading it, on every handler bar the ones that must not be guarded", async () => {
+    const through: string[] = [];
+    for (const { name, handler } of HANDLERS) {
+      const { read, answered } = await send(handler, "cross-site");
+      if (read.length > 0) through.push(name);
+      else assert.ok(answered !== undefined && !(answered instanceof Error), `${name} refuses by answering nothing`);
     }
+
+    assert.deepEqual(through.sort(), [...UNGUARDED_BY_DECISION].sort());
+    assert.deepEqual(mail.sent, [], "a cross-site request reached the mailer");
   });
 
-  it("reaches the same modules by walking the routes and by walking the tree", () => {
-    const named = (files: Iterable<string>) => [...files].map((file) => path.relative(SRC_DIR, file)).sort();
-
-    assert.deepEqual(named(guardingByRoute), named(guardingByTree));
+  /* `null` passes deliberately: a browser too old to send the header is still a reader of this page. */
+  it("lets a same-origin request and one sending no header through, and refuses every other value", async () => {
+    for (const { name, handler } of HANDLERS.filter((entry) => !UNGUARDED_BY_DECISION.includes(entry.name))) {
+      for (const secFetchSite of ["same-origin", null]) {
+        assert.notDeepEqual((await send(handler, secFetchSite)).read, [], `${name} refuses a request sent with ${String(secFetchSite)}`);
+      }
+      for (const secFetchSite of ["same-site", "none"]) {
+        assert.deepEqual((await send(handler, secFetchSite)).read, [], `${name} lets a request sent with ${secFetchSite} through`);
+      }
+    }
   });
 });

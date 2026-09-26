@@ -1,8 +1,14 @@
 import Link from "next/link";
 
-import { At, CircleInfo, Eye, Pencil, Persons } from "@gravity-ui/icons";
+import At from "@gravity-ui/icons/At";
+import CircleInfo from "@gravity-ui/icons/CircleInfo";
+import Eye from "@gravity-ui/icons/Eye";
+import Pencil from "@gravity-ui/icons/Pencil";
+import Persons from "@gravity-ui/icons/Persons";
 
-import { Dropdown, Label, Separator } from "@heroui/react";
+import { Dropdown } from "@heroui/react/dropdown";
+import { Label } from "@heroui/react/label";
+import { Separator } from "@heroui/react/separator";
 
 import { BrandLink } from "../../ui/BrandLink";
 import { ThemeSwitch } from "../../ui/ThemeSwitch";
@@ -19,13 +25,14 @@ export function TopNav() {
         <div className="hidden items-center gap-1 lg:flex">
           <Link
             href="/dashboard"
-            className="fluid-sm text-foreground hover:bg-hover rounded-full px-4 py-1.5 font-semibold transition-colors">
+            className="rounded-full px-4 py-1.5 fluid-sm font-semibold text-foreground transition-colors hover:bg-hover">
             Saisonübersicht
           </Link>
 
           <Link
+            // eslint-disable-next-line local/admin-link -- the public chrome's way into the admin area; no season is in scope outside it
             href="/admin"
-            className="fluid-sm text-foreground hover:bg-hover rounded-full px-4 py-1.5 font-semibold transition-colors">
+            className="rounded-full px-4 py-1.5 fluid-sm font-semibold text-foreground transition-colors hover:bg-hover">
             Verwalten
           </Link>
         </div>
@@ -33,7 +40,7 @@ export function TopNav() {
         {/* Outside the link group, so the row's own gap parts it from both neighbours rather than
             one gap plus a margin. */}
         <div
-          className="bg-border hidden h-8 w-px lg:block"
+          className="hidden h-8 w-px bg-border lg:block"
           aria-hidden="true"
         />
 
@@ -45,23 +52,24 @@ export function TopNav() {
               id="dashboard"
               textValue="Saisonübersicht"
               href="/dashboard"
-              className="data-hovered:bg-hover flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
-              <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Saisonübersicht</Label>
+              className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
+              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">Saisonübersicht</Label>
               <Eye
                 aria-hidden="true"
-                className="text-foreground-muted size-4"
+                className="size-4 text-foreground-muted"
               />
             </Dropdown.Item>
 
             <Dropdown.Item
               id="admin"
               textValue="Verwalten"
+              // eslint-disable-next-line local/admin-link -- the public chrome's way into the admin area; no season is in scope outside it
               href="/admin"
-              className="data-hovered:bg-hover flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
-              <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Verwalten</Label>
+              className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
+              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">Verwalten</Label>
               <Pencil
                 aria-hidden="true"
-                className="text-foreground-muted size-4"
+                className="size-4 text-foreground-muted"
               />
             </Dropdown.Item>
           </Dropdown.Section>
@@ -73,11 +81,11 @@ export function TopNav() {
               id="about"
               textValue="About"
               href="/about"
-              className="data-hovered:bg-hover flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
-              <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">About</Label>
+              className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
+              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">About</Label>
               <CircleInfo
                 aria-hidden="true"
-                className="text-foreground-muted size-4"
+                className="size-4 text-foreground-muted"
               />
             </Dropdown.Item>
 
@@ -85,11 +93,11 @@ export function TopNav() {
               id="organisation"
               textValue="Organisation"
               href="/organisation"
-              className="data-hovered:bg-hover flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
-              <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Organisation</Label>
+              className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
+              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">Organisation</Label>
               <Persons
                 aria-hidden="true"
-                className="text-foreground-muted size-4"
+                className="size-4 text-foreground-muted"
               />
             </Dropdown.Item>
 
@@ -97,11 +105,11 @@ export function TopNav() {
               id="kontakt"
               textValue="Kontakt"
               href="/kontakt"
-              className="data-hovered:bg-hover flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
-              <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Kontakt</Label>
+              className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
+              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">Kontakt</Label>
               <At
                 aria-hidden="true"
-                className="text-foreground-muted size-4"
+                className="size-4 text-foreground-muted"
               />
             </Dropdown.Item>
           </Dropdown.Section>
@@ -115,7 +123,7 @@ export function TopNav() {
               textValue="Modus"
               shouldCloseOnSelect={false}
               className="flex w-full cursor-default items-center justify-between bg-transparent! px-2 py-1.5">
-              <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Modus</Label>
+              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">Modus</Label>
               <ThemeSwitch compact />
             </Dropdown.Item>
           </Dropdown.Section>

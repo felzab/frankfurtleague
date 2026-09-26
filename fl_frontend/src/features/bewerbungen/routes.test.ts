@@ -1,42 +1,40 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import ts from "typescript";
+import { ADMIN_SIDEMENU_STRUCTURE } from "@/features/admin/constants.ts";
+import {
+  answer,
+  answerReadsWith,
+  backendNotFound,
+  callPage,
+  clearSteps,
+  EMPTIEST_ANSWER,
+  pageBody,
+  readsOf,
+  saisonFields,
+  steps,
+} from "@/shared/testing/pageHarness.ts";
 
-import "@/shared/testing/renderTest.ts";
-
+import type { AnswerSchema, PageProps } from "@/shared/testing/pageHarness.ts";
 import type { Metadata } from "next";
+import type { ReactElement } from "react";
 import type { FLBewerbungFensterResponse } from "./schemas";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
 const ROUTE_DIR = path.join(SRC_DIR, "app", "admin", "bewerbungen");
 
-const SIDEMENU = readFileSync(path.join(SRC_DIR, "features", "admin", "constants.ts"), "utf8");
-const LIST_PAGE = readFileSync(path.join(ROUTE_DIR, "page.tsx"), "utf8");
-const DETAIL_PAGE = readFileSync(path.join(ROUTE_DIR, "[bewerbung_id]", "page.tsx"), "utf8");
-
-/** This slice's own entry, cut out of the structure so the assertions below read one object. */
-const ENTRY = /\{\s*id: "([^"]+)",\s*label: "Bewerbungen",[\s\S]*?\n {6}\}/.exec(SIDEMENU);
-
 describe("the route the sidemenu names", () => {
-  /* First: an entry the cut no longer finds would leave every assertion below reading `null`. */
-  it("finds this slice's entry in the structure at all", () => {
-    assert.ok(ENTRY, "no sidemenu entry labelled Bewerbungen was found");
-    assert.match(ENTRY[0], /iconName: "\w+"/, "the entry names no icon");
-    assert.match(ENTRY[0], /hint: \{/, "the entry carries no hint");
-  });
-
   /* The id IS the route segment: the nav builds its href from it and `AppTopBar` reads the page's
      one `<h1>` off the entry it matches. Renamed, both break and nothing else in the suite sees it. */
   it("names a segment that exists under /admin", () => {
-    assert.ok(ENTRY, "no sidemenu entry labelled Bewerbungen was found");
-    const id = ENTRY[1]!;
+    const entry = ADMIN_SIDEMENU_STRUCTURE.flatMap((group) => group.sub_options).find((option) => option.label === "Bewerbungen");
 
-    assert.equal(id, "bewerbungen", "the entry's id moved off this slice's route segment");
-    assert.ok(existsSync(path.join(SRC_DIR, "app", "admin", id, "page.tsx")), `/admin/${id} has no page`);
+    assert.ok(entry, "no sidemenu entry is labelled Bewerbungen");
+    assert.equal(entry.id, "bewerbungen", "the entry's id moved off this slice's route segment");
+    assert.ok(existsSync(path.join(SRC_DIR, "app", "admin", entry.id, "page.tsx")), `/admin/${entry.id} has no page`);
   });
 
   /* Both segments draw a skeleton while their data resolves; without one the shell holds an empty
@@ -47,161 +45,62 @@ describe("the route the sidemenu names", () => {
   });
 });
 
-describe("where each page opts out of prerendering", () => {
-  /* `docs/frontend/spec.md :: I22`: awaited INSIDE the boundary, so the chrome renders while the
-     read runs. Dropped, only ESLint's unused-import rule stands between it and a prerender. */
-  for (const [page, where] of [
-    [LIST_PAGE, "the list page"],
-    [DETAIL_PAGE, "the detail page"],
-  ] as const) {
-    it(`${where} awaits connection() inside the boundary`, () => {
-      assert.match(page, /import \{ connection \} from "next\/server";/, `${where} no longer imports connection`);
-      assert.match(page, /await connection\(\);/, `${where} no longer awaits connection`);
-
-      const [chrome, boundary] = page.split("<Suspense");
-      assert.ok(boundary !== undefined, `${where} renders no Suspense boundary`);
-      assert.ok(!chrome!.includes("await connection()"), `${where} awaits connection above its own boundary`);
-    });
-
-    it(`${where} exports a synchronous default`, () => {
-      assert.match(page, /^export default function /m, `${where} awaits its data before the chrome renders`);
-      assert.doesNotMatch(page, /^export default async /m, `${where} awaits its data before the chrome renders`);
-    });
-  }
-});
-
-describe("how the list page reads the header's season", () => {
-  /* The selector writes `?saison_id=`, and the page reaches it only through its own props: without
-     the parameter forwarded, the season resolves to `undefined` on every navigation. */
-  it("forwards the page's searchParams into the boundary", () => {
-    assert.match(LIST_PAGE, /searchParams=\{props\.searchParams\}/, "the list page keeps its search parameters from the boundary");
-  });
-
-  /* The `"admin"` tier, or a planned season the selector offers is redirected straight back off:
-     `fl_frontend/src/features/saisons/resolvers.ts :: resolveSaisonId`. */
-  it("resolves the season at the admin tier", () => {
-    assert.match(LIST_PAGE, /resolveSaisonId\(searchParams, "admin"\)/, "the list page no longer resolves the season at the admin tier");
-  });
-
-  /* Where the season actually lands: the rows carry it, and the facet reads it off them. Dropped,
-     every row would answer the season facet the same way and the list would open on nothing. */
-  it("hands the resolved season to the row build", () => {
-    assert.match(LIST_PAGE, /buildBewerbungRows\([^)]*selectedSaisonId\)/, "the season never reaches the rows the facet reads");
-    assert.match(LIST_PAGE, /status === "active"/, "the page no longer falls back to the active season");
-  });
-});
-
-/**
- * Every JSX attribute whose value mentions `name`, and how many element CHILDREN do. Read off the
- * syntax tree: a text search cannot tell an attribute from a child, and the attribute is the half
- * that turns a stored value into a sink.
- */
-function whereValueLands(source: string, file: string, name: string): { attributes: string[]; children: number } {
-  const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const attributes: string[] = [];
-  let children = 0;
-
-  const mentions = (node: ts.Node): boolean => {
-    if (ts.isIdentifier(node) && node.text === name) return true;
-    return node.getChildren(tree).some(mentions);
-  };
-
-  const visit = (node: ts.Node): void => {
-    if (ts.isJsxAttribute(node) && node.initializer !== undefined && mentions(node.initializer)) {
-      attributes.push(`${node.name.getText(tree)} at line ${String(tree.getLineAndCharacterOfPosition(node.getStart(tree)).line + 1)}`);
-    }
-    if (ts.isJsxExpression(node) && ts.isJsxElement(node.parent) && node.expression !== undefined && mentions(node.expression)) children += 1;
-
-    node.forEachChild(visit);
-  };
-  visit(tree);
-
-  return { attributes: attributes, children: children };
-}
-
-describe("how the triage renders what the applicant typed", () => {
-  const PANEL_FILE = path.join(SRC_DIR, "features", "bewerbungen", "components", "views", "BewerbungAngabenPanel.tsx");
-  const PANEL = readFileSync(PANEL_FILE, "utf8");
-  const foundProp = whereValueLands(PANEL, PANEL_FILE, "wunschgegner");
-
-  // Floored by the render in
-  // `fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.test.ts` and never
-  // by a second reader here: a panel rendering nothing at all would satisfy the case below.
-
-  /* Applicant-controlled and read by an administrator. As element CONTENT React escapes it; in an
-     attribute it is an `href` or a `srcDoc` away from executing. */
-  it("puts it in element content and in no attribute", () => {
-    assert.deepEqual(foundProp.attributes, [], `the wished opponent reaches a JSX attribute: ${foundProp.attributes.join(", ")}`);
-  });
-
-  /* The other half of the same rule, and the one ESLint's `react/no-danger` would catch -- asserted
-     here too because `.claude/rules/cross-surface.md` forbids disabling that rule, so a suppression comment is the way past it. */
-  it("hands the panel no raw markup at all", () => {
-    assert.doesNotMatch(PANEL, /dangerouslySetInnerHTML/, "the triage panel writes raw markup, which stored applicant text can reach");
-  });
-});
-
-/** Where the doubled window read takes its answer from, one case at a time. */
-const ANSWER = "__flBewerbungFensterAntwort";
-/** The club list's own answer, so a case can fail that read alone. */
-const SCHOOLS_ANSWER = "__flBewerbungSchulenAntwort";
-
-/* The page's own three reads. A case sets what the window read answers; the two beside it are read
-   inside the boundary alone, which no case here renders. */
-const BEWERBUNGEN_QUERIES_DOUBLE = `export const getBewerbungFenster = async () => {
-  if (globalThis.${ANSWER} instanceof Error) throw globalThis.${ANSWER};
-  return globalThis.${ANSWER};
-};
-export const getBewerbungSchulen = async () => {
-  if (globalThis.${SCHOOLS_ANSWER} instanceof Error) throw globalThis.${SCHOOLS_ANSWER};
-  return { schulen: [] };
-};
-export const getBewerbungTrikotfarben = async () => ({ vergeben: [] });`;
-
-const SAISONS_QUERIES_DOUBLE = `export const getSaisons = async () => ({ saisons: [] });
-export const getAdminSaisons = async () => ({ saisons: [] });`;
-
 const RENDERS_NOTHING = `export const BewerbungView = () => null;
 export const ContentLoader = () => null;`;
 
-/** Stands in for `next/server`, whose `connection()` is request-only and this process makes no request. */
-const CONNECTION_DOUBLE = `export const connection = async () => undefined;`;
-
-/* Everything under the page is doubled -- its reads, its view, its loader and the season list the
-   segment resolver imports -- so a case decides what the window answer does to the metadata. */
+/* The public page's view and loader render nothing, so a case reads the props the page hands them;
+   every read answers through the harness's client double. */
 const DOUBLED: [string, string][] = [
-  ["/src/features/bewerbungen/queries.ts", BEWERBUNGEN_QUERIES_DOUBLE],
-  ["/src/features/saisons/queries.ts", SAISONS_QUERIES_DOUBLE],
   ["/src/features/bewerbungen/components/views/BewerbungView.tsx", RENDERS_NOTHING],
   ["/src/shared/components/ui/ContentLoader.tsx", RENDERS_NOTHING],
 ];
 
-// The page itself compiles through the shared harness's step, which this hook runs ahead of.
 registerHooks({
   load(url, context, nextLoad) {
-    if (url.endsWith("/next/server.js")) return { format: "module", source: CONNECTION_DOUBLE, shortCircuit: true };
-
     const doubled = DOUBLED.find(([ending]) => url.endsWith(ending));
     if (doubled !== undefined) return { format: "module", source: doubled[1], shortCircuit: true };
     return nextLoad(url, context);
   },
 });
 
-/* Loaded rather than read: what a crawler is told is the object `generateMetadata` returns, and no
-   assertion over the page's source text can show that. */
-const { default: BewerbungPage, generateMetadata } = await import("@/app/(public)/bewerbung/[saison_id]/page.tsx");
+const PUBLIC_PAGE = "@/app/(public)/bewerbung/[saison_id]/page.tsx";
+const { default: BewerbungPage, generateMetadata } = await import(PUBLIC_PAGE);
+const { default: AdminBewerbungenPage } = await import("@/app/admin/bewerbungen/page.tsx");
+const { default: AdminBewerbungPage } = await import("@/app/admin/bewerbungen/[bewerbung_id]/page.tsx");
+const { FLBewerbungSchema } = await import("./schemas.ts");
 
-/** What the window read answers in a case: a season's window, no season, or a read that failed. */
+/** The public page's one dynamic segment, named as its directory names it, which is the key Next hands it under. */
+const SEGMENT = /\[(\w+)\]/.exec(PUBLIC_PAGE)![1]!;
+
+/** What the window read answers in a case: a season's window, no window, no season at all, or a read that failed. */
 type WindowRead = { fenster: FLBewerbungFensterResponse | null } | null | Error;
 
-const PAGE_PROPS = { params: Promise.resolve({ saison_id: "2026" }), searchParams: Promise.resolve({}) };
+/** An answer carrying `fields`, built against the schema its read hands over so the client's check takes it. */
+const built =
+  (endpoint: string, fields: Record<string, unknown>) =>
+  (schema: AnswerSchema): unknown =>
+    answer(schema, endpoint, fields);
 
-/** One season's metadata, with the window read answering `antwort`. */
-async function metadataFor(antwort: WindowRead): Promise<Metadata> {
-  (globalThis as unknown as Record<string, unknown>)[ANSWER] = antwort;
+/** What each read answers in the running case, by the endpoint it asks; an `Error` is thrown, a function built. */
+let answers = new Map<string, unknown>();
 
-  return generateMetadata(PAGE_PROPS);
+answerReadsWith((endpoint, schema, params) => {
+  if (!answers.has(endpoint)) return EMPTIEST_ANSWER(endpoint, schema, params);
+  const answered = answers.get(endpoint);
+  if (answered instanceof Error) throw answered;
+  return typeof answered === "function" ? (answered as ReturnType<typeof built>)(schema) : answered;
+});
+
+/** The backend's answer for one season's window, as `window` describes it. */
+function windowAnswer(saisonId: string, window: WindowRead): unknown {
+  const endpoint = `/bewerbungen/fenster/${saisonId}`;
+  if (window === null) return backendNotFound(endpoint);
+  if (window instanceof Error || window.fenster !== null) return window instanceof Error ? window : window.fenster;
+  return { acknowledged: 1, saison_id: saisonId, fenster: null };
 }
+
+/** The public page's props for one season, keyed by the segment's own name. */
+const publicProps = (saisonId: string): PageProps => ({ params: Promise.resolve({ [SEGMENT]: saisonId }), searchParams: Promise.resolve({}) });
 
 const ABGELAUFEN: FLBewerbungFensterResponse = {
   acknowledged: 1,
@@ -210,7 +109,136 @@ const ABGELAUFEN: FLBewerbungFensterResponse = {
   von: "2026-03-01",
   bis: "2026-04-30",
   laeuft: false,
+  saison_beendet: false,
 };
+const LAEUFT: FLBewerbungFensterResponse = { ...ABGELAUFEN, laeuft: true };
+
+/** The fields the club list and the colours answer with, or the `Error` each read throws. */
+type PublicReads = { schulen?: Record<string, unknown> | Error; farben?: Record<string, unknown> | Error };
+
+/** Season 2026's reads: its window, the club list and the assigned colours. */
+function answerPublic(window: WindowRead, { schulen = { schulen: [] }, farben = { vergeben: [] } }: PublicReads = {}): void {
+  answers = new Map<string, unknown>([
+    ["/bewerbungen/fenster/2026", windowAnswer("2026", window)],
+    ["/bewerbungen/schulen", schulen instanceof Error ? schulen : built("/bewerbungen/schulen", schulen)],
+    ["/bewerbungen/trikotfarben/2026", farben instanceof Error ? farben : built("/bewerbungen/trikotfarben/2026", farben)],
+  ]);
+}
+
+/** One season's metadata, with the window read answering `window`. */
+async function metadataFor(window: WindowRead): Promise<Metadata> {
+  answerPublic(window);
+
+  return generateMetadata(publicProps("2026"));
+}
+
+type BewerbungViewProps = {
+  fenster: unknown;
+  isUnlesbar: boolean;
+  schulen: unknown[];
+  isSchulenLesbar: boolean;
+  vergebeneFarben: unknown[];
+};
+
+/** The public page's body for 2026, and the endpoints it read on the way. */
+async function publicBody(window: WindowRead, reads: PublicReads = {}): Promise<BewerbungViewProps> {
+  answerPublic(window, reads);
+  clearSteps();
+
+  return ((await pageBody(BewerbungPage, publicProps("2026"))) as ReactElement<BewerbungViewProps>).props;
+}
+
+const endpointsRead = (): string[] => readsOf(steps).map(({ endpoint }) => endpoint);
+
+/* `docs/frontend/spec.md :: I22`: a dynamic segment's page awaits `params`, and every runtime API,
+   inside its boundary. An async default would hold the chrome for the whole read. */
+describe("where each page opts out of prerendering", () => {
+  const ADMIN_PROPS: PageProps = { params: Promise.resolve({ bewerbung_id: "6890a1b2c3d4e5f607181001" }), searchParams: Promise.resolve({}) };
+
+  for (const [where, Page, props] of [
+    ["the admin list page", AdminBewerbungenPage, ADMIN_PROPS],
+    ["the admin detail page", AdminBewerbungPage, ADMIN_PROPS],
+    ["the public application page", BewerbungPage, publicProps("2026")],
+  ] as const) {
+    it(`${where} returns its chrome synchronously`, () => {
+      const returned: unknown = (Page as (props: PageProps) => unknown)(props);
+
+      assert.equal(returned instanceof Promise, false, `${where} awaits its data before the chrome renders`);
+    });
+  }
+
+  /* The admin pages are held to the same order by the walk in `fl_frontend/src/app/admin/omittedSaison.test.ts`,
+     which reaches no public page. */
+  it("the public application page awaits connection() before its first read", async () => {
+    answerPublic({ fenster: LAEUFT });
+    clearSteps();
+    const { thrown, unconnected } = await callPage(BewerbungPage, publicProps("2026"));
+
+    assert.deepEqual(thrown, []);
+    assert.ok(endpointsRead().includes("/bewerbungen/fenster/2026"), "the body made no read, so the order below proves nothing");
+    assert.deepEqual(unconnected, [], "a read runs before connection(), which the image build reaches no backend for");
+  });
+});
+
+describe("how the list page reads the header's season", () => {
+  const saison = (id: string, status: "active" | "future") => ({
+    ...saisonFields(id, status),
+    start_date: `${id}-03-07`,
+    end_date: `${id}-10-31`,
+    schedule: [],
+    spielplan: null,
+    bewerbung: null,
+    registrierung: null,
+  });
+  const LEAGUE = [saison("2026", "active"), saison("2027", "future")];
+  /** Shaped as the backend's ids, as the row schema demands; the last four digits name the row's season. */
+  const rowId = (saison_id: string) => `6890a1b2c3d4e5f60718${saison_id}`;
+  const row = (saison_id: string) =>
+    answer(FLBewerbungSchema, "/bewerbungen", { id: rowId(saison_id), saison_id, schule: null, team_id: null });
+
+  /** The list page's body where the address names 2027 and the queue answers one application per season. */
+  async function listBody(): Promise<ReactElement<{ bewerbungen: { id: string; inSelectedSaison: boolean }[] }>> {
+    answers = new Map<string, unknown>([
+      ["/saisons/list/admin", built("/saisons/list/admin", { saisons: LEAGUE })],
+      ["/bewerbungen", built("/bewerbungen", { bewerbungen: [row("2026"), row("2027")], vollstaendig: true })],
+    ]);
+    clearSteps();
+
+    return (await pageBody(AdminBewerbungenPage, {
+      params: Promise.resolve({}),
+      searchParams: Promise.resolve({ saison_id: "2027" }),
+    })) as ReactElement<{
+      bewerbungen: { id: string; inSelectedSaison: boolean }[];
+    }>;
+  }
+
+  /* The selector writes `?saison_id=`, and the page reaches it only through its own props: without
+     the parameter forwarded, the queue is asked against the running season on every navigation. */
+  it("asks the queue against the season the address names", async () => {
+    await listBody();
+
+    assert.deepEqual(
+      readsOf(steps)
+        .filter(({ endpoint }) => endpoint === "/bewerbungen")
+        .map(({ params }) => params.saison_id),
+      ["2027"],
+    );
+  });
+
+  /* Where the season actually lands: the rows carry it, and the facet reads it off them. Dropped,
+     every row would answer the season facet the same way and the list would open on nothing. */
+  it("marks the rows of that season, and only those", async () => {
+    const rows = (await listBody()).props.bewerbungen;
+
+    assert.deepEqual(
+      rows.map(({ id, inSelectedSaison }) => [id, inSelectedSaison]),
+      [
+        [rowId("2026"), false],
+        [rowId("2027"), true],
+      ],
+    );
+  });
+});
 
 describe("what the public application page tells a crawler about its season", () => {
   /* A season nobody has recorded a deadline for renders one sentence and no form. Indexed, that
@@ -232,49 +260,77 @@ describe("what the public application page tells a crawler about its season", ()
   });
 });
 
-type ElementOf<P> = { type: (props: P) => Promise<unknown>; props: P };
-
-// Reached through the element's own `props.children` rather than rendered, which is a private shape
-// a React release can move: the body is an async Server Component, so `renderTree` draws the
-// boundary's fallback and never the component's own answer (`docs/frontend/spec.md` §1.9).
-/** The page's body: the boundary's one child, where the season's read and its 404 sit. */
-async function renderBody(antwort: WindowRead, schulen: Error | null = null): Promise<unknown> {
-  (globalThis as unknown as Record<string, unknown>)[ANSWER] = antwort;
-  (globalThis as unknown as Record<string, unknown>)[SCHOOLS_ANSWER] = schulen;
-  const boundary = BewerbungPage(PAGE_PROPS) as unknown as { props: { children: ElementOf<typeof PAGE_PROPS> } };
-  const body = boundary.props.children;
-
-  return body.type(body.props);
-}
-
 describe("what the public application page answers for a season nobody knows", () => {
   /* The metadata only titles the panel; the body's throw is the one thing making an unknown season a
      404, and one thrown inside the read's own handlers would be caught as a read that failed. */
   it("throws not-found from the body where no season carries the id", async () => {
     await assert.rejects(
-      renderBody(null),
+      publicBody(null),
       (error: { digest?: string }) => error.digest === "NEXT_HTTP_ERROR_FALLBACK;404",
       "an unknown season renders the page instead of the not-found panel",
     );
   });
 
+  /* `resolveSaisonIdParam` reads the segment under the name its directory gives it: read under another,
+     every season would 404, and a malformed one would reach the backend. */
+  it("reads its season off the segment, and 404s a malformed one before any read", async () => {
+    answerPublic({ fenster: ABGELAUFEN });
+    clearSteps();
+    await pageBody(BewerbungPage, publicProps("2026"));
+    assert.deepEqual(endpointsRead(), ["/bewerbungen/fenster/2026"], "the page reads another season than its segment names");
+
+    clearSteps();
+    await assert.rejects(
+      pageBody(BewerbungPage, publicProps("20x")),
+      (error: { digest?: string }) => error.digest === "NEXT_HTTP_ERROR_FALLBACK;404",
+      "a malformed season renders a page",
+    );
+    assert.deepEqual(endpointsRead(), [], "a malformed season reaches the backend");
+  });
+
   /* The control, and the state the page owes a failed read: it renders the view with no window rather
      than throwing, and says the window is unreadable rather than closed. */
   it("hands the view an unreadable window where the read failed", async () => {
-    const renderedProps = (await renderBody(new Error("backend unreachable"))) as { props: { isUnlesbar: boolean; fenster: unknown } };
+    const props = await publicBody(new Error("backend unreachable"));
 
-    assert.equal(renderedProps.props.isUnlesbar, true, "a failed window read is reported as a state the page knows");
-    assert.equal(renderedProps.props.fenster, null, "a failed window read hands the view a window it never got");
+    assert.equal(props.isUnlesbar, true, "a failed window read is reported as a state the page knows");
+    assert.equal(props.fenster, null, "a failed window read hands the view a window it never got");
+  });
+});
+
+describe("what the public application page reads while its window runs", () => {
+  /* An anonymous visitor reads the club list and the assigned colours. A closed page showing no picker
+     has no business reading either (`READ-BEWERBUNG-001`). */
+  it("reads the club list and the colours only while the window is running", async () => {
+    await publicBody({ fenster: ABGELAUFEN });
+    assert.deepEqual(endpointsRead(), ["/bewerbungen/fenster/2026"], "a closed page reads what only a picker needs");
+
+    await publicBody({ fenster: LAEUFT });
+    assert.deepEqual(endpointsRead(), ["/bewerbungen/fenster/2026", "/bewerbungen/schulen", "/bewerbungen/trikotfarben/2026"]);
   });
 
-  /* Read while the window runs, which is the one state that offers a picker: uncaught, one unreachable
-     list would take the whole form down with it. */
+  /* Uncaught, one unreachable list would take the whole form down with it. */
   it("hands the view an unread club list where that read failed", async () => {
-    const renderedProps = (await renderBody({ fenster: { ...ABGELAUFEN, laeuft: true } }, new Error("backend unreachable"))) as {
-      props: { isSchulenLesbar: boolean; schulen: unknown[] };
-    };
+    const props = await publicBody({ fenster: LAEUFT }, { schulen: new Error("backend unreachable") });
 
-    assert.equal(renderedProps.props.isSchulenLesbar, false, "a failed club list read is reported as a list that was read");
-    assert.deepEqual(renderedProps.props.schulen, [], "a failed club list read hands the view clubs it never got");
+    assert.equal(props.isSchulenLesbar, false, "a failed club list read is reported as a list that was read");
+    assert.deepEqual(props.schulen, [], "a failed club list read hands the view clubs it never got");
+  });
+
+  /* The season's ASSIGNED colours, never another application's wish: a wish is no claim on a colour,
+     and offering it as taken would narrow the picker on something nobody decided. */
+  it("hands the picker the colours the page's own season has assigned", async () => {
+    const props = await publicBody({ fenster: LAEUFT }, { farben: { vergeben: ["rot", "blau"] } });
+
+    assert.deepEqual(props.vergebeneFarben, ["rot", "blau"]);
+  });
+
+  /* An unreadable answer means nothing is KNOWN to be taken, so the whole palette is offered rather
+     than the form going down with the read. */
+  it("offers every colour where the assignments could not be read", async () => {
+    const props = await publicBody({ fenster: LAEUFT }, { farben: new Error("backend unreachable") });
+
+    assert.deepEqual(props.vergebeneFarben, []);
+    assert.equal(props.isSchulenLesbar, true, "the colours' failure took the club list with it");
   });
 });

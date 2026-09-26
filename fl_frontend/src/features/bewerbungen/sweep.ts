@@ -237,7 +237,7 @@ async function mailErinnerung(erinnerung: FLBewerbungSweepErinnerung): Promise<v
   await sendBewerbungLinkMail({
     operation: SWEEP_OPERATION,
     // No idempotency key: every reminder mints a fresh token, so one key over two bodies would be
-    // refused rather than collapsed (`fl_frontend/src/features/bewerbungen/zustellung.ts :: zustellungIdempotenzSchluessel`).
+    // refused rather than collapsed (`fl_frontend/src/features/bewerbungen/notifications.ts :: zustellungIdempotenzSchluessel`).
     auftrag: { bewerbungId: erinnerung.bewerbung_id, anlass: "erinnerung" },
     recipients: [empfaenger],
     buildMail: (seats) =>

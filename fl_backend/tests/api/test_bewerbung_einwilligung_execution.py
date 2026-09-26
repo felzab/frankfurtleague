@@ -16,16 +16,19 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_ALREADY_DECIDED,
     BEWERBUNG_KONTAKT_ALTER,
     BEWERBUNG_SEAT_ALREADY_ANSWERED,
-    BEWERBUNG_TOKEN_EXPIRED,
+    BEWERBUNG_TOKEN_DECIDED,
+    BEWERBUNG_TOKEN_PAST_DEADLINE,
     BEWERBUNG_TOKEN_UNKNOWN,
     KONTAKT_SEATS,
+    SEAT_MIN_AGE_YEARS,
     TOKEN_HASH_FIELDS,
     compose_bestaetigungen,
     hash_token,
 )
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import ADDRESS, kontaktperson_document, team_document
 from tests.worker import worker_database
 
 # Module level, as the submission suite marks its own: every test below reaches a real mongod.
@@ -56,14 +59,6 @@ AN_ADULTS_BIRTHDATE = "1984-05-09"
 # 17 years and 364 days against `TODAY`: the one age the two floors answer differently.
 A_SEVENTEEN_YEAR_OLDS_BIRTHDATE = "2008-04-02"
 
-ADDRESS: Mapping[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
-
 
 def _seat_paths(block: str, *leaves: str) -> set[str]:
     return {f"{block}.{seat}.{leaf}" for seat in KONTAKT_SEATS for leaf in leaves}
@@ -87,23 +82,16 @@ ANTWORT_RESOLVES = frozenset(
 )
 
 
-def person(vorname: str) -> dict[str, Any]:
-    """One seat as the submission stores it: no date, no stamp, entered on the person's behalf."""
+# Sought as fragments by the leak searches, so a response carrying any part of a seat's record is caught.
+NACHNAME = "Mustermann"
+MAIL_DOMAIN = "example.com"
+TELEFON = "1234567"
 
-    return {
-        "vorname": vorname,
-        "nachname": f"{vorname}-Mustermann",
-        "email": f"{vorname.lower()}@example.com",
-        "telefon": "+49 170 1234567",
-        "geburtsdatum": None,
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "administrativ",
-            "text_version": "v3",
-            "datum": "2026-03-20",
-            "bestaetigt_am": None,
-        },
-    }
+
+def person(vorname: str) -> dict[str, Any]:
+    return kontaktperson_document(
+        vorname, nachname=f"{vorname}-{NACHNAME}", email=f"{vorname.lower()}@{MAIL_DOMAIN}", telefon=f"+49 170 {TELEFON}"
+    )
 
 
 def kontakte(*, trainer_ist_zugleich: str | None = None) -> dict[str, Any]:
@@ -151,19 +139,7 @@ def on_a_league(url: str, body: Body, *, documents: list[dict[str, Any]] | None 
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            await database[Collection.TEAMS].insert_one(
-                {
-                    "_id": CLUB_OID,
-                    "name": CLUB_NAME,
-                    "shorthand": "AD",
-                    "description": "",
-                    "full_name": f"{CLUB_NAME}-Schule",
-                    "website_url": None,
-                    "schulform": "gymnasium_g9",
-                    "address": dict(ADDRESS),
-                    "inactive_since": None,
-                }
-            )
+            await database[Collection.TEAMS].insert_one(team_document(CLUB_OID, CLUB_NAME, "AD", website_url=None, schulform="gymnasium_g9"))
             await database[Collection.BEWERBUNGEN].insert_many(documents if documents is not None else [bewerbung_document()])
 
             return await body(database, client)
@@ -263,7 +239,7 @@ class TestWhatALinkOpens:
         assert (response.zustand, response.saison_id, response.schule, response.rolle) == ("gueltig", SAISON_ID, SCHOOL_NAME, "ansprechperson")
         assert (response.vorname, response.text_version, response.zugleich_rolle) == ("Quillhilde", "v3", None)
         rendered = response.model_dump_json()
-        assert "Mustermann" not in rendered and "example.com" not in rendered and "1234567" not in rendered
+        assert NACHNAME not in rendered and MAIL_DOMAIN not in rendered and TELEFON not in rendered
 
     @pytest.mark.parametrize(
         ("seat", "zugleich_rolle"),
@@ -323,7 +299,7 @@ class TestWhatALinkOpens:
 
     def test_a_token_no_seat_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await ansicht(database, "a-stranger's-guess")
 
             return conflict.value.error_code
@@ -445,7 +421,7 @@ class TestTheLinkIsSpentByTheStamp:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await answer(database, client, RAW["trainer"])
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW["trainer"], geburtsdatum="1990-01-01")
 
             return (
@@ -464,7 +440,7 @@ class TestTheLinkIsSpentByTheStamp:
         """A mistyped year is the commonest error on a date field; a link voided by one has no remedy but a re-send."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW["trainer"], geburtsdatum=A_CHILDS_BIRTHDATE)
 
             return conflict.value.error_code, await ansicht(database, RAW["trainer"]), await stored(database), await log_rows(database)
@@ -480,7 +456,7 @@ class TestTheLinkIsSpentByTheStamp:
         """The same date the Trainer's link takes: a floor judged for the application rather than the seat admits this person."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW["ansprechperson"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)
 
             return conflict.value.error_code, conflict.value.error_detail["message"], await stored(database), await log_rows(database)
@@ -488,8 +464,8 @@ class TestTheLinkIsSpentByTheStamp:
         code, message, document, rows = on_a_league(mongo_replica_set_url, body)
 
         assert code == BEWERBUNG_KONTAKT_ALTER
-        # The person reads this sentence, so „16“ here would tell them the date they typed was fine.
-        assert "18" in message and "16" not in message
+        # The person reads this sentence, so the Trainer's lower floor here would tell them the date they typed was fine.
+        assert str(SEAT_MIN_AGE_YEARS["ansprechperson"]) in message and str(SEAT_MIN_AGE_YEARS["trainer"]) not in message
         assert document == bewerbung_document()
         assert rows == []
 
@@ -510,12 +486,40 @@ class TestTheLinkIsSpentByTheStamp:
         expired = bewerbung_document(bestaetigungsfrist=YESTERDAY)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW["trainer"])
 
             return conflict.value.error_code
 
-        assert on_a_league(mongo_replica_set_url, body, documents=[expired]) == BEWERBUNG_TOKEN_EXPIRED
+        assert on_a_league(mongo_replica_set_url, body, documents=[expired]) == BEWERBUNG_TOKEN_PAST_DEADLINE
+
+    def test_a_resend_of_one_seat_reopens_every_other_seats_link_past_the_deadline(self, mongo_replica_set_url: str):
+        """Why `REQ-BEWERBUNG-017` is a 409 and not a spent link: the deadline is the application's one field, and a re-send restarts it."""
+
+        expired = bewerbung_document(bestaetigungsfrist=YESTERDAY)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW["stellvertretung"])
+            await resend(database, "ansprechperson")
+            answered = await answer(database, client, RAW["stellvertretung"])
+
+            return refused.value.error_code, answered.ergebnis
+
+        assert on_a_league(mongo_replica_set_url, body, documents=[expired]) == (BEWERBUNG_TOKEN_PAST_DEADLINE, "bestaetigt")
+
+    def test_a_decided_application_refuses_every_link_as_spent(self, mongo_replica_set_url: str):
+        """`REQ-BEWERBUNG-010`: nothing sets `status` back to `eingereicht`, and a decided application takes no re-send."""
+
+        decided = bewerbung_document(status="abgelehnt")
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW["trainer"])
+
+            return refused.value.error_code
+
+        assert on_a_league(mongo_replica_set_url, body, documents=[decided]) == BEWERBUNG_TOKEN_DECIDED
 
 
 class TestADecline:
@@ -552,7 +556,7 @@ class TestADecline:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             await answer(database, client, RAW["stellvertretung"], antwort="abgelehnt", geburtsdatum=None, whatsapp=False)
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW["stellvertretung"])
 
             return conflict.value.error_code
@@ -606,8 +610,8 @@ class TestWhatTheAnswerHandsTheMailer:
 
         rendered = on_a_league(mongo_replica_set_url, lambda database, client: answer(database, client, RAW["trainer"])).model_dump_json()
 
-        assert "bramblewick@example.com" not in rendered and "wraxlington@example.com" not in rendered
-        assert "Mustermann" not in rendered and "1234567" not in rendered
+        assert kontakte()["stellvertretung"]["email"] not in rendered and kontakte()["trainer"]["email"] not in rendered
+        assert NACHNAME not in rendered and TELEFON not in rendered
 
 
 class TestNoHashReachesAnAdminRead:
@@ -642,7 +646,7 @@ class TestAResend:
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             response = await resend(database, "trainer")
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await ansicht(database, RAW["trainer"])
 
             return response, conflict.value.error_code, await ansicht(database, response.token), await stored(database)
@@ -666,7 +670,7 @@ class TestAResend:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             await answer(database, client, RAW["trainer"])
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await resend(database, "trainer")
 
             return conflict.value.error_code
@@ -677,7 +681,7 @@ class TestAResend:
         decided = bewerbung_document(status="abgelehnt", entscheidung={"getroffen_am": YESTERDAY, "von": "admin", "grund": "kein Platz"})
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await resend(database, "trainer")
 
             return conflict.value.error_code
@@ -690,7 +694,7 @@ class TestAResend:
         del before_the_flow["bestaetigungsfrist"]
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await resend(database, "trainer")
 
             return conflict.value.error_code

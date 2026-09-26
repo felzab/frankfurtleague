@@ -12,20 +12,16 @@ A worker's exit status and the rows it sent home are two accounts of one run and
 
 from __future__ import annotations
 
-import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from conftest import base_env, lift_function, run_shell, write_shell
+from conftest import BASH, base_env, lift_function, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 VERIFY: Final = SCRIPTS / "gate" / "verify.sh"
-
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
-BASH: Final = shutil.which("bash")
 
 
 def _lifted(name: str, indent: str = "") -> str:

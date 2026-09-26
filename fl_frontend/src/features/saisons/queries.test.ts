@@ -3,53 +3,34 @@ import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { beginRenderPass, itOpensAScopeThatMemoizes, requireFromFrontend, SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
 
 /** The saison modules under test, whose `react` imports are the ones the server build must answer. */
 const FEATURE_URL = pathToFileURL(import.meta.dirname).href + "/";
 
 /** Stands in for `next/headers`, whose `headers()` needs a request context no test process has. */
-const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export const headers = async () => new Headers();")}`;
-
-/** Endpoints the doubled client was asked for, cumulative across every pass in this file. */
-const reads: string[] = [];
-const RECORDER = "__flAdminSaisonReads";
-(globalThis as unknown as Record<string, string[]>)[RECORDER] = reads;
+const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
 // Replaced at the module boundary rather than the season code being reshaped to admit a seam: the
 // real client reaches a backend no test process runs, at a base URL no test run holds.
-const API_DOUBLE = `export const apiClient = async (endpoint) => {
-  globalThis.${RECORDER}.push(endpoint);
-  return { saisons: [{ id: "2526" }] };
-};`;
-
-// Real modules, resolved through CJS: these are extensionless files, which Node's ESM resolver
-// will not add an extension for and its CJS one will. Resolved up here, because `require.resolve`
-// re-enters the hook below and would recurse without end.
-const NEXT_MODULE_URLS = new Map(
-  ["next/cache", "next/navigation"].map((specifier) => [specifier, pathToFileURL(requireFromFrontend.resolve(specifier)).href]),
-);
+/** Every request the doubled client was asked for, cumulative across every pass in this file. */
+const reads = doubleApiClient(() => ({ saisons: [{ id: "2526" }] }));
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
     // Only for the modules under test: Next's client runtime is in this process and needs the client build.
     if (specifier === "react" && context.parentURL?.startsWith(FEATURE_URL)) return { url: SERVER_REACT_URL, shortCircuit: true };
     if (specifier === "next/headers") return { url: HEADERS_DOUBLE_URL, shortCircuit: true };
-    const nextUrl = NEXT_MODULE_URLS.get(specifier);
-    if (nextUrl) return { url: nextUrl, shortCircuit: true };
     return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
   },
 });
 
 const { getAdminSaisons } = await import("./queries.ts");
 const { resolveSaisonId } = await import("./resolvers.ts");
 
-const adminReads = (): number => reads.filter((endpoint) => endpoint === "/saisons/list/admin").length;
+const adminReads = (): number => reads.filter(({ endpoint }) => endpoint === "/saisons/list/admin").length;
 
 describe("the admin season list across a render pass", () => {
   /* First, so a scope that failed to take fails here rather than under every count below. */

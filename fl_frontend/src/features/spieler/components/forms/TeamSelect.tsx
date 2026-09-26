@@ -1,14 +1,17 @@
 "use client";
 
-import { FieldError, Label, ListBox, Select } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Label } from "@heroui/react/label";
+import { ListBox } from "@heroui/react/list-box";
 
-import { SHORTHAND_CHIP } from "@/shared/components/ui/brandTile";
-import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { SHORTHAND_CHIP_CLASSES } from "@/shared/components/ui/brandTile";
+import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
+import { Select } from "@/shared/components/ui/Select";
 
 import type { SpielerTeamOption } from "@/features/spieler/types";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 /**
  * Offers **the selected season's teams**, which is what stops a player being put in a team that is
@@ -18,30 +21,20 @@ export function TeamSelect({
   value,
   onChange,
   teams,
-  name = "team_id",
   error,
   withOwnLabel = true,
-  isRequired = false,
 }: {
   value: string | null;
   onChange: (teamId: string) => void;
   /** The selected season's teams — the caller names the season. */
   teams: readonly SpielerTeamOption[];
-  /** The field's path in the enclosing payload, so `Form`'s `validationErrors` reach it by name. */
-  name?: string;
   /**
-   * A message this caller owns, shown over anything `Form`'s `validationErrors` hold for `name` — for
+   * A message this caller owns, shown over anything `Form`'s `validationErrors` hold for `team_id` — for
    * a caller with no `<Form>`, and for the entry control whose write is not the form's.
    */
   error?: string;
   /** Off for the caller whose label is a marker-carrying `FieldLabel` rendered outside. */
   withOwnLabel?: boolean;
-  /**
-   * Refuse an empty pick, and let the BROWSER say so — react-aria runs native constraint validation
-   * on submit. Letting the value reach the action instead surfaced Zod's English
-   * "expected string, received null".
-   */
-  isRequired?: boolean;
 }) {
   const item = listboxRow();
 
@@ -61,8 +54,7 @@ export function TeamSelect({
 
   return (
     <Select
-      isRequired={isRequired}
-      name={name}
+      name="team_id"
       // Only without the visible `Label`: beside it the trigger is named twice, „Team Team“.
       aria-label={withOwnLabel ? undefined : "Team"}
       // `null` and never `undefined` for no team: react-stately reads `undefined` as uncontrolled, so the first pick
@@ -71,14 +63,14 @@ export function TeamSelect({
       onChange={handleChange}
       isInvalid={error ? true : undefined}
       className="w-full">
-      {withOwnLabel && <Label className={FIELD_LABEL}>Team</Label>}
-      <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+      {withOwnLabel && <Label className={FIELD_LABEL_CLASSES}>Team</Label>}
+      <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
         <span className={value ? "" : "text-foreground-muted"}>
           {value === null ? "Team wählen" : (selected?.name ?? "Team außerhalb dieser Saison")}
         </span>
-        <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+        <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
       </Select.Trigger>
-      <FieldError className={FIELD_ERROR}>{error}</FieldError>
+      <FieldError className={FIELD_ERROR_CLASSES}>{error}</FieldError>
       <Select.Popover className={`${overlayPanel()} mt-2 max-h-80 overflow-y-auto p-1.5`}>
         <ListBox aria-label="Teams dieser Saison">
           {teams.map((team) => (
@@ -96,7 +88,7 @@ export function TeamSelect({
               <span className="flex shrink-0 flex-row items-center gap-x-2">
                 {team.isSquadFull === true && <span className={item.note()}>Kader voll</span>}
                 {/* A declared fill, not an alpha: this row's hover is a ground an alpha would shift against. */}
-                <span className={`${SHORTHAND_CHIP} w-10`}>{team.shorthand}</span>
+                <span className={`${SHORTHAND_CHIP_CLASSES} w-10`}>{team.shorthand}</span>
               </span>
             </ListBox.Item>
           ))}

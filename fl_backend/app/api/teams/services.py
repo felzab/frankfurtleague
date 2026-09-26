@@ -1,5 +1,6 @@
 from collections.abc import Callable, Iterable, Mapping, Sequence, Set
 from dataclasses import dataclass
+from http import HTTPStatus
 from itertools import combinations, product
 from typing import Any, get_args
 
@@ -990,7 +991,7 @@ def compose_kontakte_at_entry(*, kontakte: Any) -> Any:
     return composed
 
 
-# What every code below refuses is `docs/logging/error-codes.md`.
+# What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
 KONTAKTE_MOVED_UNDER_THE_SAVE = "REQ-KONTAKT-001"
 
 
@@ -1006,6 +1007,7 @@ def find_kontakte_precondition_refusal(*, erwartet: str, stored: Any) -> WriteRe
 
     return WriteRefusal(
         error_code=KONTAKTE_MOVED_UNDER_THE_SAVE,
+        status=HTTPStatus.CONFLICT,
         message="the stored contacts have moved since this save was composed; re-read the row and send the change again",
     )
 
@@ -1027,6 +1029,7 @@ def find_club_entry_refusal(*, inactive_since: str | None) -> WriteRefusal | Non
     if inactive_since is not None:
         return WriteRefusal(
             error_code=CLUB_RETIRED,
+            status=HTTPStatus.CONFLICT,
             message=f"this club left the league on {inactive_since}; reactivate it before entering it into a season",
         )
 
@@ -1051,6 +1054,7 @@ def find_gruppe_move_refusal(*, fixtures_drawn: int) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=ENTRY_GRUPPE_LOCKED,
+        status=HTTPStatus.CONFLICT,
         message=f"the team already has {fixtures_drawn} {noun} drawn in this season; "
         "a group change would leave them played against the group it left, and the group swap is what rewrites both",
     )
@@ -1065,22 +1069,31 @@ def find_entry_refusal(saison_status: str, gruppe: FLGruppenNames, rules: FLSais
 
     if saison_status != "future":
         return WriteRefusal(
-            error_code=ENTRY_SAISON_NOT_FUTURE, message=f"season is {saison_status}; a team enters a season only while it is future"
+            error_code=ENTRY_SAISON_NOT_FUTURE,
+            status=HTTPStatus.CONFLICT,
+            message=f"season is {saison_status}; a team enters a season only while it is future",
         )
 
     if gruppe not in offered_gruppen(rules.number_of_groups):
         return WriteRefusal(
-            error_code=ENTRY_GRUPPE_NOT_OFFERED, message=f"gruppe {gruppe} is not offered; this season runs {rules.number_of_groups} group(s)"
+            error_code=ENTRY_GRUPPE_NOT_OFFERED,
+            status=HTTPStatus.CONFLICT,
+            message=f"gruppe {gruppe} is not offered; this season runs {rules.number_of_groups} group(s)",
         )
 
     if occupied >= rules.teams_per_group:
-        return WriteRefusal(error_code=ENTRY_GRUPPE_FULL, message=f"gruppe {gruppe} is full ({occupied}/{rules.teams_per_group} teams)")
+        return WriteRefusal(
+            error_code=ENTRY_GRUPPE_FULL,
+            status=HTTPStatus.CONFLICT,
+            message=f"gruppe {gruppe} is full ({occupied}/{rules.teams_per_group} teams)",
+        )
 
     return None
 
 
 # A swap is neither an entry nor the move `REQ-ENTER-004` locks, so it carries codes of its own.
-# One code covers the three "not a swap" shapes, because the control offers only pairs that are one.
+# One code covers the two "not a swap" shapes the season decides, because the control offers only
+# pairs that are one.
 SWAP_NOT_A_SWAP = "REQ-SWAP-001"
 SWAP_KNOCKOUT_STARTED = "REQ-SWAP-002"
 SWAP_SAISON_FINISHED = "REQ-SWAP-003"
@@ -1088,6 +1101,8 @@ SWAP_GRUPPENPHASE_PLAYED = "REQ-SWAP-004"
 SWAP_SPIELTAG_CLASH = "REQ-SWAP-005"
 # `REQ-SWAP-006` is FORWARDS ONLY, exactly as `REQ-ELIGIBILITY-001` is: the past is left alone.
 SWAP_FIELDS_DISQUALIFIED = "REQ-SWAP-006"
+# Apart from `REQ-SWAP-001`, being the payload's own fault: no season could make one club a pair.
+SWAP_ONE_CLUB_TWICE = "REQ-SWAP-007"
 
 
 def fixtures_newly_fielding_a_departed_club(
@@ -1131,9 +1146,22 @@ def fixtures_newly_fielding_a_departed_club(
     return offending
 
 
+def find_swap_pair_refusal(*, team1_id: Any, team2_id: Any) -> WriteRefusal | None:
+    """Why this pair names no swap whatever the season holds, or `None`. Judged before any read."""
+
+    if team1_id != team2_id:
+        return None
+
+    return WriteRefusal(
+        error_code=SWAP_ONE_CLUB_TWICE,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        message="both ids name one club; a swap exchanges two of them",
+        fields=(("team1_id",), ("team2_id",)),
+    )
+
+
 def find_gruppe_swap_refusal(
     *,
-    is_same_team: bool,
     team1_gruppe: str | None,
     team2_gruppe: str | None,
     saison_status: str,
@@ -1148,24 +1176,25 @@ def find_gruppe_swap_refusal(
     and the REPAIRABLE refusals come last, so nobody does work a terminal refusal wastes.
     """
 
-    if is_same_team:
-        return WriteRefusal(error_code=SWAP_NOT_A_SWAP, message="both ids name one club; a swap exchanges two of them")
-
     missing = [label for label, gruppe in (("team1", team1_gruppe), ("team2", team2_gruppe)) if gruppe is None]
     if missing:
         return WriteRefusal(
             error_code=SWAP_NOT_A_SWAP,
+            status=HTTPStatus.CONFLICT,
             message=f"no saison_teams row for {' and '.join(missing)}; a swap exchanges two clubs that are both entered in the season",
         )
 
     if team1_gruppe == team2_gruppe:
         return WriteRefusal(
-            error_code=SWAP_NOT_A_SWAP, message=f"both clubs stand in gruppe {team1_gruppe}; a swap exchanges two different groups"
+            error_code=SWAP_NOT_A_SWAP,
+            status=HTTPStatus.CONFLICT,
+            message=f"both clubs stand in gruppe {team1_gruppe}; a swap exchanges two different groups",
         )
 
     if saison_status == "past":
         return WriteRefusal(
             error_code=SWAP_SAISON_FINISHED,
+            status=HTTPStatus.CONFLICT,
             message="season is past; its groups are frozen because the league table is derived from them on every read",
         )
 
@@ -1175,6 +1204,7 @@ def find_gruppe_swap_refusal(
 
         return WriteRefusal(
             error_code=SWAP_KNOCKOUT_STARTED,
+            status=HTTPStatus.CONFLICT,
             message=(f"{played_knockout_fixtures} knockout {noun} already left a record; the bracket has been seeded from these groups"),
         )
 
@@ -1184,6 +1214,7 @@ def find_gruppe_swap_refusal(
 
         return WriteRefusal(
             error_code=SWAP_GRUPPENPHASE_PLAYED,
+            status=HTTPStatus.CONFLICT,
             message=f"{played_gruppenphase_fixtures} gruppenphase {noun} already left a record for these two clubs; "
             "a club that has played inside its group cannot leave it without leaving a round robin that is not one",
         )
@@ -1193,6 +1224,7 @@ def find_gruppe_swap_refusal(
 
         return WriteRefusal(
             error_code=SWAP_SPIELTAG_CLASH,
+            status=HTTPStatus.CONFLICT,
             message=f"{clashing_spieltage} {noun} field one of the two clubs twice after the exchange; "
             "a club plays at most one match per spieltag, and a bracket side does not move with the swap",
         )
@@ -1202,6 +1234,7 @@ def find_gruppe_swap_refusal(
 
         return WriteRefusal(
             error_code=SWAP_FIELDS_DISQUALIFIED,
+            status=HTTPStatus.CONFLICT,
             message=f"the exchange would field a club that has left the season in {departed_fixtures} {noun} dated on or "
             "after its exit; lift the austritt, swap, then re-apply it",
         )
@@ -1214,6 +1247,8 @@ def find_gruppe_swap_refusal(
 REPLACE_SAISON_FINISHED = "REQ-REPLACE-001"
 REPLACE_OUTGOING_HAS_A_RECORD = "REQ-REPLACE-002"
 REPLACE_INCOMING_ALREADY_ENTERED = "REQ-REPLACE-003"
+# Apart from `REQ-REPLACE-003`, being the payload's own fault: no season makes a club its own replacement.
+REPLACE_ONE_CLUB_ON_BOTH_ENDS = "REQ-REPLACE-004"
 
 
 def has_taken_place(spiel: Mapping[str, Any]) -> bool:
@@ -1233,6 +1268,20 @@ def has_taken_place(spiel: Mapping[str, Any]) -> bool:
     return any((spiel.get(slot) or {}).get("tore") is not None for slot in ("team1", "team2"))
 
 
+def find_replacement_pair_refusal(*, team_id: Any, incoming_team_id: Any) -> WriteRefusal | None:
+    """Why this replacement names one club on both ends, or `None`. Judged before any read."""
+
+    if team_id != incoming_team_id:
+        return None
+
+    return WriteRefusal(
+        error_code=REPLACE_ONE_CLUB_ON_BOTH_ENDS,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        message="the incoming club is the club being replaced; a replacement hands the row to another club",
+        fields=(("incoming_team_id",),),
+    )
+
+
 def find_replacement_refusal(
     *,
     saison_status: str,
@@ -1249,6 +1298,7 @@ def find_replacement_refusal(
     if saison_status == "past":
         return WriteRefusal(
             error_code=REPLACE_SAISON_FINISHED,
+            status=HTTPStatus.CONFLICT,
             message="season is past; its fixtures and the table derived from them are the record of who played, and a replacement rewrites it",
         )
 
@@ -1259,6 +1309,7 @@ def find_replacement_refusal(
 
         return WriteRefusal(
             error_code=REPLACE_OUTGOING_HAS_A_RECORD,
+            status=HTTPStatus.CONFLICT,
             message=f"{fixtures_with_a_record} {noun} already left a record for the outgoing club; "
             "a replacement carries its fixtures over, and a played one cannot change hands",
         )
@@ -1272,8 +1323,7 @@ def find_replacement_refusal(
     if incoming_already_entered:
         return WriteRefusal(
             error_code=REPLACE_INCOMING_ALREADY_ENTERED,
-            # Also the arm that catches one club named on both ends: the row being replaced is
-            # itself a row the incoming club holds, so replacing a club by itself lands here.
+            status=HTTPStatus.CONFLICT,
             message="the incoming club already holds a row in this season; a replacement brings in a club that is not entered yet",
         )
 
@@ -1292,5 +1342,6 @@ def find_retire_refusal(saison_statuses: Iterable[str]) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=RETIRE_BLOCKED,
+        status=HTTPStatus.CONFLICT,
         message=f"club is entered in a season with status {'/'.join(blocking)}; only a club whose seasons are all past may be retired",
     )

@@ -16,7 +16,7 @@ export function parseModule(file: string, text: string): ts.SourceFile {
  * A template's own text counts, so a utility beside a `${…}` hole is still declared; the hole itself
  * is `interpolatedNames`'s.
  */
-export function classText(node: ts.Node | undefined): string {
+function classText(node: ts.Node | undefined): string {
   if (node === undefined) return "";
   if (ts.isStringLiteralLike(node)) return node.text;
   if (ts.isJsxExpression(node)) return classText(node.expression);
@@ -28,14 +28,14 @@ export function classText(node: ts.Node | undefined): string {
 const tokensOf = (text: string): string[] => text.split(/\s+/).filter((token) => token !== "");
 
 /** One named attribute of an opening tag, or `undefined` where it declares none. */
-export function attributeNode(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile, name: string): ts.JsxAttribute | undefined {
+function attributeNode(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile, name: string): ts.JsxAttribute | undefined {
   const found = opening.attributes.properties.find((property) => ts.isJsxAttribute(property) && property.name.getText(source) === name);
 
   return found !== undefined && ts.isJsxAttribute(found) ? found : undefined;
 }
 
 /** The class attribute's value, however it is spelled — a bare string, an expression, a template. */
-export function classAttribute(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile): ts.Node | undefined {
+function classAttribute(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile): ts.Node | undefined {
   return attributeNode(opening, source, "className")?.initializer;
 }
 
@@ -54,7 +54,7 @@ export function staticValue(value: ts.Node | undefined): string | null {
  * A shared inset or a recipe call arrives as one of these, never as a token `classes` can read, so a
  * sweep over tokens alone reports an element wearing it as bare.
  */
-export function interpolatedNames(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile): string[] {
+function interpolatedNames(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile): string[] {
   const declared = classAttribute(opening, source);
   if (declared === undefined || !ts.isJsxExpression(declared) || declared.expression === undefined) return [];
 

@@ -11,8 +11,8 @@ import { formatLogLine, LOG_THRESHOLDS } from "./logFormat";
 type ValidationIssues = Parameters<NonNullable<Parameters<typeof createEnv>[0]["onValidationError"]>>[0];
 
 // Printable ASCII with no space, the class `fl_backend/app/core/config.py :: InternalAPIKey` pins:
-// `secrets.compare_digest` there raises for a non-ASCII key, and `length` counts UTF-16 units here
-// against that side's code points, so only ASCII makes the two agree (`docs/ops/spec.md :: I11`).
+// what `secrets.compare_digest` there accepts, which raises for a non-ASCII key
+// (`docs/ops/spec.md :: I11`).
 export const INTERNAL_API_KEY = z
   .string()
   .length(64)

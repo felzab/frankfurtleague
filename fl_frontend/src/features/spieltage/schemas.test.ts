@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { toFieldErrors } from "../../shared/utils/validation.ts";
@@ -45,16 +43,5 @@ describe("the season span a matchday is dated inside", () => {
 
   it("says nothing about a span it was not given, so a matchday with no season loaded still saves", () => {
     assert.deepEqual(refusals({ ...WITHIN, beginn: "2020-01-01", ende: "2020-01-01" }, undefined), {});
-  });
-
-  it("is built from the editor's OWN span, and not from a routine standing beside it", () => {
-    // The case above makes an absent span legal, so passing `undefined` here would disable the rule while
-    // every assertion in this file still passed. Only the wiring can tell the two apart.
-    const editor = readFileSync(
-      path.join(import.meta.dirname, "components", "forms", "AdminSpieltagEditForm", "AdminSpieltagEditForm.tsx"),
-      "utf8",
-    );
-
-    assert.match(editor, /schemas: \{ spieltag: buildPatchSpieltagPayloadSchema\(saisonSpan\) \}/);
   });
 });

@@ -7,6 +7,7 @@ import {
   ASIDE_TEXT,
   BRAND_NAME,
   escapeHtml,
+  link,
   mailOrigin,
   paragraph,
   renderKarte,
@@ -55,7 +56,8 @@ const GRUNDLAGE_SATZ =
  * Art. 21 (4) asks that the right to object be brought to the reader's attention EXPLICITLY and
  * SEPARATELY at the first communication, which this message is.
  */
-const WIDERSPRUCH_SATZ = `Du kannst dieser Speicherung nach Art. 21 DSGVO widersprechen. Schreib uns dafür an ${KONTAKT_EMAIL}; dort beantworten wir auch Fragen zur Sperre.`;
+const widerspruchSatz = (kontakt: string): string =>
+  `Du kannst dieser Speicherung nach Art. 21 DSGVO widersprechen. Schreib uns dafür an ${kontakt}; dort beantworten wir auch Fragen zur Sperre.`;
 
 /* „anmelden“ is this branch's verb for the SIGN-IN, which consults no ban list. What a ban actually
    refuses is a registration and a referee's entry, so the sentence names those two. */
@@ -80,7 +82,8 @@ function renderHtml(grund: string, gesperrtBisSaisonId: string, origin: string):
       paragraph(escapeHtml(GESPEICHERT_SATZ), "0 0 16px", ASIDE_TEXT),
       paragraph(escapeHtml(GRUNDLAGE_SATZ), "0 0 16px", ASIDE_TEXT),
       // Its own paragraph and the last before the control, which is the separateness Art. 21 (4) asks for.
-      paragraph(escapeHtml(WIDERSPRUCH_SATZ), "0", ASIDE_TEXT),
+      // The address as a marked link here too: the objection is one a reader has to select and paste otherwise.
+      paragraph(widerspruchSatz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0", ASIDE_TEXT),
     ],
     aktionen: aktionen(),
     fuss: ANTWORT_SATZ_HTML,
@@ -100,7 +103,7 @@ function renderText(grund: string, gesperrtBisSaisonId: string, origin: string):
     "",
     GRUNDLAGE_SATZ,
     "",
-    WIDERSPRUCH_SATZ,
+    widerspruchSatz(KONTAKT_EMAIL),
   ];
 
   return [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(origin, [ANTWORT_SATZ_TEXT])].join("\n");

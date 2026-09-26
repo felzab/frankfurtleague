@@ -5,13 +5,13 @@ import pytest
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import get_saisons_for_admin
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.router import get_saison, get_saisons
 from app.api.saisons.schemas import FLSaisonsFilterParams
 from app.api.saisons.services import base_tier_status_term
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
+from tests.documents import saison_document
 from tests.worker import worker_database
 
 from .conftest import unwritten
@@ -21,28 +21,6 @@ DATABASE_NAME = worker_database("fl_saison_visibility_test")
 ARCHIVED = "2024"
 RUNNING = "2025"
 PLANNED = "2026"
-
-
-def saison_document(saison_id: str, status: str) -> dict[str, Any]:
-    """Complete, because every season read here is validated as `FLSaison` on the way back out."""
-
-    return {
-        "_id": saison_id,
-        "start_date": f"{saison_id}-01-01",
-        "end_date": f"{saison_id}-06-30",
-        "status": status,
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 4,
-            "teams_per_group": 4,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-        },
-    }
 
 
 SEEDED = [saison_document(ARCHIVED, "past"), saison_document(RUNNING, "active"), saison_document(PLANNED, "future")]
@@ -85,9 +63,6 @@ def seeded_league(mongo_replica_set_url: str) -> Iterator[str]:
 
 def on_a_league(url: str, body: Body) -> Any:
     async def _run() -> Any:
-        # Process-global and keyed by season id, so an entry another test left would answer for this one.
-        invalidate_saison_cache()
-
         return await body(shared_client(url)[DATABASE_NAME])
 
     return on_the_seed_loop(_run())

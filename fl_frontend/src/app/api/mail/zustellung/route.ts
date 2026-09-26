@@ -3,11 +3,12 @@ import { NextResponse } from "next/server";
 import { Webhook } from "svix";
 
 import { frontend_config } from "@/core/config";
-import { APIBadStatusError, APINetworkError } from "@/core/errors";
+import { APIBadStatusError, isRecordMissing } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { meldeZustellEreignis } from "@/features/bewerbungen/mutations";
 import { leseZustellEreignis } from "@/features/bewerbungen/zustellung";
 import { meldeZielZustellEreignis } from "@/features/zustellung/mutations";
+import { isRuleRefusal } from "@/shared/utils/actionError";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import type { FLKontaktRolle } from "@/features/bewerbungen/schemas";
@@ -100,7 +101,9 @@ export async function POST(request: NextRequest) {
       const { angewendet } = await meldeZielZustellEreignis(meldung.meldung);
       return ZIEL_ANGEWENDET(angewendet);
     } catch (error) {
-      const unerreichbar = error instanceof APINetworkError || (error instanceof APIBadStatusError && error.statusCode >= 500);
+      // Settled only on the API's answer about the event's own record: gone, or refused by a rule or the
+      // unique index. Any other answer, a route mid-deploy or an unsent write, leaves it for the provider to send again.
+      const beantwortet = isRecordMissing(error) || isRuleRefusal(error);
 
       // Never the tag block, the address or the provider's prose (`docs/logging/spec.md :: L9`).
       logger.error("mail.zustellung_ungeschrieben", undefined, {
@@ -109,10 +112,9 @@ export async function POST(request: NextRequest) {
         status: error instanceof APIBadStatusError ? error.statusCode : undefined,
       });
 
-      // A 404 is a record an erasure or the retention sweep has already taken, and every other
-      // answered status is a contract this side got wrong: retrying either buys nothing and spends
-      // the endpoint's standing with the provider.
-      return unerreichbar ? KEIN_BACKEND() : ANGEWENDET([]);
+      // A record missing is one an erasure or the retention sweep has already taken, and a refusal is the
+      // event's own answer: retrying either buys nothing and spends the endpoint's standing with the provider.
+      return beantwortet ? ANGEWENDET([]) : KEIN_BACKEND();
     }
   });
 }

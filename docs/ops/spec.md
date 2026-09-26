@@ -4,7 +4,7 @@
 
 | Section                                                       | Answers                                                                      |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| [1.1 Service inventory](#11-service-inventory)                | What runs in production, with which limits and health checks                 |
+| [1.1 Service inventory](#11-service-inventory)                | What runs in production, and where its limits and health checks are set      |
 | [1.2 Mounts](#12-mounts)                                      | Which host paths must exist before `up`                                      |
 | [1.3 nginx routing](#13-nginx-routing)                        | Which upstream serves which path                                             |
 | [1.4 Security headers](#14-security-headers)                  | What is set, and why `'unsafe-inline'` survives                              |
@@ -16,9 +16,7 @@
 | [3. Violation → remedy](#3-violation--remedy)                 | A symptom, its cause, and what to do about it                                |
 | [4. Known-open](#4-known-open)                                | The accepted gaps                                                            |
 
-The recurring procedures — the constraints checker, an admin revocation, a flooded queue — are in
-[`runbooks.md`](runbooks.md). This page covers the contracts and constraints those procedures depend
-on, and the scripts that carry them.
+The recurring procedures are in [`runbooks.md`](runbooks.md).
 
 ---
 
@@ -26,19 +24,44 @@ on, and the scripts that carry them.
 
 ### 1.1 Service inventory
 
-| Service       | Image                                            | Ports published | Resource limits                   | Health check                         |
-| ------------- | ------------------------------------------------ | --------------- | --------------------------------- | ------------------------------------ |
-| `frontend`    | `ghcr.io/felzab/frankfurtleague-frontend:latest` | none            | 1.5 CPU / 2 GB, 512 MB reserved   | `wget` on `/favicon.ico`             |
-| `backend`     | `ghcr.io/felzab/frankfurtleague-backend:latest`  | none            | 0.8 CPU / 512 MB, 128 MB reserved | `urllib` on `/api/v0/system/is_live` |
-| `nginx`       | `nginx:1.31-alpine`                              | none            | 0.5 CPU / 256 MB, 128 MB reserved | none                                 |
-| `cloudflared` | `cloudflare/cloudflared:2026.8.3`                | none            | none                              | none                                 |
-
-**Production publishes no port at all** (I1): `cloudflared` dials out to Cloudflare and carries every
+**Production's four services, `frontend`, `backend`, `nginx` and `cloudflared`, publish no port at
+all** (I1): `cloudflared` dials out to Cloudflare and carries every
 request back over `frankfurtleague-net`, so nginx needs no host port to be reached from the
-internet, and the connector holds a static address on that network because `nginx/prod.conf` trusts
+internet, and the connector holds a static address on that network because `nginx/prod/prod.conf` trusts
 it by address (§1.3). It reads its credential with `--token-file` from a host file no environment
 variable and no command line carries (§1.2), and the tunnel's own public hostnames and origin
 settings are dashboard state (§1.8).
+
+Each service's image, resource limits and health check are `docker-compose.yml`'s own, at its
+`image:`, its `deploy.resources` and its `healthcheck:`.
+
+**Every base image in a Dockerfile's `FROM`, every image either compose file names, and every image
+`scripts/gate/selfcheck.sh` and `scripts/ops/local.sh` run is pinned by tag and digest**
+(`name:tag@sha256:<digest>`), this repository's two own images excepted: a build or a pull fetches
+the digest, the registry's multi-platform index, so a tag rebuilt or repointed upstream changes
+nothing here until a pull request moves it, while the tag is what `.github/dependabot.yml`'s
+`docker` and `docker-compose` ecosystems compare to propose the next pair; the two scripts' pins
+move by hand, no ecosystem reading a shell string. **Each tag names the exact release its digest
+is**, the runtime bases included, whose series `fl_backend/.python-version` and
+`fl_frontend/package.json`'s `engines` pin: a series tag (`mongo:8`) is a label no reader can hold to
+one release. `local.sh`'s
+copy and the backend's database test tier run the local stack's own mongo, digest included, so a
+`docker-compose` update moving the stack alone fails. `scripts/tests/test_image_pins.py` holds every
+such reference to that form, and the copy and the tier to the stack (I367).
+
+**The digest alone decides what runs, and nothing checks the tag against it.** An official image is
+rebuilt under the same tags whenever the image it is built `FROM` is refreshed
+([the Official Images FAQ](https://github.com/docker-library/faq/blob/ce1a70af72a522f8638d6bffd930ef3252de7837/README.md#why-does-my-security-scanner-show-that-an-image-has-cves),
+read 2026-09-25), so a correct pin's digest and its tag's current one routinely differ, and a
+registry comparison would refuse pins that are right. The tag is an unverified label that Dependabot
+keeps beside the digest it rewrites, and a hand edit moving one without the other goes unnoticed.
+
+**The frontend's database test tier names mongo by tag alone**, the release
+`fl_backend/tests/conftest.py :: MONGO_IMAGE` pins, in its `*.db.test.ts` files:
+`@testcontainers/mongodb` reads the server's version off the tag, and a digest reference hands it
+the digest instead, so its health check falls back to the `mongo` shell a MongoDB 8 image does not
+carry and the container never reports healthy. The backend's tier takes the digest, its library
+waiting on the server's log line rather than on a shell.
 
 **A recreated nginx needs no connector restart**, so nothing is owed after the manual recreate §3
 sends a reader to: the connector resolves its origin on every new connection and holds no address
@@ -46,8 +69,8 @@ between them, and only the sockets it had pooled to the container that went fail
 from cloudflared's own source at the release `docker-compose.yml` pins, 2026-09-07, and a version
 bump moves it; nothing here observes it.
 
-All four: `restart: unless-stopped`, and JSON file logging capped at 3 × 10 MB, on the
-`frankfurtleague-net` bridge network. **That cap is the whole bound on a container's own stream**:
+All four: `restart: unless-stopped`, and JSON file logging capped by
+`docker-compose.yml :: x-logging`, on the `frankfurtleague-net` bridge network. **That cap is the whole bound on a container's own stream**:
 the deploy copies both application streams to `/var/log/frankfurtleague/` before the recreate
 destroys them (`scripts/ops/deploy.sh :: LOG_DIR`), and host files the deploy cannot install bound
 those copies to thirty days, through `systemd-tmpfiles`, and the edge's access and error logs —
@@ -55,22 +78,16 @@ host files rather than a container stream (§1.2), holding every line that names
 (I352) — to eight, through an hourly `logrotate`
 ([`runbooks.md`](runbooks.md) §7). **`cap_drop: ALL` and `no-new-privileges:true` are every
 service's but `nginx`'s** — it declares neither, which is recorded in §4 rather than assumed to be
-deliberate. `nginx` declares `depends_on` both application services with
-`condition: service_healthy`, and `cloudflared` declares one on `nginx` with no condition to give,
-`nginx` carrying no health check to wait on.
+deliberate.
 
 **The frontend container is also what runs the retention sweep.**
 `fl_frontend/src/instrumentation.ts :: register` arms
 `fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep` under a production build with
-`BEWERBUNG_SWEEP` on, and it then runs one pass a minute
-after start and then hourly. Each pass lists the seasons at `GET /bewerbungen/sweep`, calls
-`POST /bewerbungen/sweep/{saison_id}` per season and, for the applications whose deletion notice was
-delivered, the `angekuendigt` and `loeschen` calls beside it in
-`fl_frontend/src/features/bewerbungen/mutations.ts`, so every retention clock — the reminder, the
-deletion of an unconfirmed application, the two erasure clocks and the contact block's — runs in the
-process that serves the site and stops when it stops. Production declares no replicas, so one process
-arms one timer (I149), and a tick finding the previous pass still running skips with one line rather
-than overlapping it. The four clocks that write inside the pass select on dates and are idempotent,
+`BEWERBUNG_SWEEP` on, and it then runs one pass a minute after start and then hourly, so every
+retention clock runs in the process that serves the site and stops when it stops. Production
+declares no replicas, so one process arms one timer (I149), and a tick finding the previous pass
+still running skips with one line rather than overlapping it. The clocks that write inside the pass
+select on dates and are idempotent,
 so a redeploy, a restart and a double-arm each cost nothing; the deletion notice is idempotent to one
 floor, a crash between a delivery and its stamp repeating that one notice once
 ([`docs/backend/spec.md`](../backend/spec.md) I156). `BEWERBUNG_SWEEP` is what turns it off on a
@@ -89,18 +106,50 @@ where a version left behind breaks something; §3 carries what each failure look
 
 | Host path                        | Container path                   | Mode       |
 | -------------------------------- | -------------------------------- | ---------- |
-| `./nginx/prod.conf`              | `/etc/nginx/conf.d/default.conf` | read-only  |
+| `./nginx/prod`                   | `/etc/nginx/conf.d`              | read-only  |
+| `./nginx/shared`                 | `/etc/nginx/shared`              | read-only  |
 | `./certs`                        | `/etc/nginx/certs`               | read-only  |
 | `/var/log/frankfurtleague/nginx` | `/var/log/frankfurtleague/nginx` | read-write |
 | `./secrets/tunnel_token`         | `/run/secrets/tunnel_token`      | read-only  |
 
-Each must exist before `up`. `deploy.sh` checks the two read-only ones before anything is stopped or
-pulled, and creates the log directory itself in the same run ([`runbooks.md`](runbooks.md) §7); a
-directory it left to Docker would be root-owned, and the host's `logrotate` file names it. If a
-mounted config file is missing, Docker creates a **directory** at that path and nginx fails with
-`not a directory`; the token is a Compose secret rather than a bind mount, so a missing one fails
-the `up` itself. **`./secrets/` is `.gitignore`d**, which is what keeps the credential
-uncommittable from a checkout that has to hold it.
+Each must exist before `up`. `deploy.sh` checks the read-only ones, every file under `./nginx/prod`
+and `./nginx/shared` included, before anything is stopped or pulled, and creates the log directory
+itself in the same run ([`runbooks.md`](runbooks.md) §7); a directory it left to Docker would be
+root-owned, and the host's `logrotate` file names it. A missing config directory is mounted empty,
+so nginx loads no server of this site's or fails on its includes; the token is a Compose secret
+rather than a bind mount, so a missing one fails the `up` itself. The token file is owned by uid and gid 65532 with mode `400`: the pinned connector
+image runs as that user, and Compose hands the secret over with the host file's owner and mode, so
+a file readable by root alone leaves the connector restarting in a loop.
+**`./secrets/` is `.gitignore`d**,
+which is what keeps the credential uncommittable from a checkout that has to hold it.
+
+**nginx's configuration is mounted as directories, never as a file** (I355). A bind-mounted file
+stays the inode it was created with, and a `git pull` writes a changed file as a new one, so a
+container mounting the file keeps reading the old one and a reload applies it again. A directory
+mount shows what the checkout holds, and the reload `deploy.sh` sends applies it with no restart.
+Recreating nginx on every change to its files would apply it too, while refusing connections and
+dropping the requests in flight for the length of a start, which a reload leaves the old workers to
+finish.
+
+**Every file under `nginx/prod/` and `nginx/shared/` is one nginx loads.** The deploy compares
+each with what nginx holds in memory, so a file nothing includes, a README among them, reads as
+absent and fails every deploy (`scripts/ops/deploy.sh :: EDGE_CONFIG_DIRS`).
+
+**nginx also takes a tmpfs at `/run/nginx-control`, mode 700**, where it opens the Control API
+the deploy reloads through (`docker-compose.yml :: nginx`, `scripts/ops/deploy.sh ::
+EDGE_CONTROL_SOCKET`). A tmpfs because a master killed outright leaves its socket behind and the
+next start refuses to bind it; mode 700 because Docker's default, 1777, lets every user in the
+container into the directory. `scripts/checks/check_compose_model.py :: control_socket` holds
+both, and `nginx/edge_test.sh` reads the mode off a running edge.
+
+**The Control API needs nginx 1.31.5 or newer** (nginx's `CHANGES` and command-line page, read
+2026-09-24), and an older release refuses the `-l` switch and never starts. So
+`docker-compose.yml :: nginx` names an exact release rather than the minor, with its digest (§1.1): the
+release is what an update is compared against, and it must stay at 1.31.5 or newer.
+`scripts/tests/test_image_pins.py` holds the tag's release to that floor, which fails the scripts
+scope. The tag is a label the digest is not checked against (§1.1), so the ops scope's
+`nginx/edge_test.sh` starts the pinned image with the `-l` switch too, and a digest below the floor
+never publishes its port, which ends that scope refused.
 
 ### 1.3 nginx routing
 
@@ -117,7 +166,7 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | `= /api/registrierung`               | `frontend:3000` | Next route handler, a pupil's registration through their team's invite — paired `limit_req` `zone=registrierung burst=40` and `zone=registrierung48 burst=400`, and `client_max_body_size 8k`        |
 | `= /api/bestaetigung/spieler`        | `frontend:3000` | Next route handler, the pupil's confirmation — paired `limit_req` `zone=spielerlink burst=40` and `zone=spielerlink48 burst=400`, and `client_max_body_size 8k`                                      |
 | `= /api/bestaetigung/schiedsrichter` | `frontend:3000` | Next route handler, the referee's confirmation link — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                               |
-| `= /api/mail/zustellung`             | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`                                                         |
+| `= /api/mail/zustellung`             | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`, and `client_max_body_size 8k`                          |
 | the `/` twins                        | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
 | `/api/admin/`                        | `frontend:3000` | The page-owned editors' undo handlers                                                                                                                                                                |
 | `= /api/v0/system/is_live`           | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (I13, §3)                                                                                             |
@@ -139,7 +188,7 @@ page-owned undo handlers, `/api/auth` for the sign-in library's catch-all. **A h
 dynamic segment is unmeterable unless a prefix covers it**, an exact match being unable to name the
 URLs a catch-all answers. The accounting is total rather than aimed at the public handlers alone because no predicate
 selects those: `fl_frontend/src/app/api/client-error/route.ts` is public and does not go through
-`fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`, which three handlers use. A
+`fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`. A
 recorded reason covering no handler is a finding, as is a metered exact match standing without its
 trailing-slash twin, and a location construct the checker cannot place refuses rather than reading
 as coverage — a path two exact matches declare included, which nginx refuses outright and which
@@ -169,14 +218,14 @@ URI this block matches decodes either to the probe or to nothing — but the err
 the framework the origin runs.
 
 **`$remote_addr` is the visitor rather than the tunnel's connector**, and every zone keys on what
-that rewrite produced (`nginx/prod.conf :: real_ip_header`, `:: set_real_ip_from`); the access line
+that rewrite produced (`nginx/prod/prod.conf :: real_ip_header`, `:: set_real_ip_from`); the access line
 records it ([`docs/logging/spec.md`](../logging/spec.md) §1.2). **The trusted set is one address,
 the connector's** — nothing else reaches this origin (§1.1, I1) — which is what Cloudflare's
 published ranges could never be, being every customer's egress rather than this account's. **A
 fallback to the connector's own address is marked rather than silent**: the access line carries
 `realip_fallback`, `1` where the rewrite did not take (each case measured 2026-08-31 against a
 running nginx: recovered `0`, absent `1`, malformed `1`). The marker costs a second copy of that
-address per file, both pinned to `scripts/checks/check_nginx_mirror.py :: TUNNEL` (§1.6).
+address in `nginx/prod/prod.conf`, the `geo` beside `set_real_ip_from`, and the two change together.
 
 **A zone keyed on the POST map limits no GET on its path** — an empty key is exempt from
 `limit_req` — so every zone over `$signin_limit_key` or `$signin_limit_key48` reaches POSTs alone.
@@ -184,7 +233,7 @@ address per file, both pinned to `scripts/checks/check_nginx_mirror.py :: TUNNEL
 under `/api/auth`, would otherwise read as limited and be unlimited.
 
 **Underneath both, the key is a NETWORK rather than an address, and there are two of them** —
-`nginx/prod.conf :: map $remote_addr $client_net` for the /64 and `:: map $remote_addr
+`nginx/shared/http.conf :: map $remote_addr $client_net` for the /64 and `:: map $remote_addr
 $client_net48` for the /48, the whole address on IPv4 either way. A /56 key is not expressible from
 these strings at all, nginx stripping a group's leading zeros.
 
@@ -192,26 +241,7 @@ these strings at all, nginx stripping a group's leading zeros.
 `nginx:1.31-alpine` answering with what it rendered, driven across every zero/non-zero group
 pattern and address class: no prefix split across two keys, no two prefixes shared one, no address
 reached the fail-open `default`, and no two addresses shared a /64 while differing in /48 (measured
-2026-08-30). Both files carry the same map arms in the same order, held there by
-`scripts/checks/check_nginx_mirror.py` (§1.6), which compares arms rather than bytes: a body
-respaced on one side passes. **Source order is the grain wherever nginx acts on it**: a `map` or
-`geo` body's arms and every repeated directive compare in the order they are written, because nginx
-tests an arm and runs a `rewrite` that way. **The exception is a list of the comparator's own**,
-`scripts/checks/check_nginx_mirror.py :: ORDER_FREE`, whose repetitions compare sorted on the
-leading arguments that identify one of them, two sharing an identity staying in source order — a
-second `add_header` or `proxy_set_header` on one field name is emitted in it, so a swap there is a
-difference. **A name joins that list against nginx's semantics, and half of it rests on
-inference**: nginx's pages state that several `add_header` or `limit_req` may stand on a level and
-inherit all-or-nothing, and `proxy_set_header`'s gives that rule without an order, leaving distinct
-field names to HTTP's own indifference to the order of unlike fields; the `listen`,
-`limit_req_zone` and `set_real_ip_from` pages say nothing about repetition at all, and read as a
-bound socket, an independently named zone and a membership test. Freeing a name wrongly is the one
-direction that hides a difference.
-
-**Two shapes refuse rather than compare**: a level writing two of the rewrite module's ordered
-directives — `break`, `return`, `rewrite`, `set` — whose relative order a reader keying a level by
-directive name keeps nothing of, and a regex `location`, which nginx tests in source order while a
-server's locations are keyed on their text.
+2026-08-30), and both edges serve the one copy in `nginx/shared/http.conf`.
 
 **Both zones are repeated inside every limited location rather than declared once at server
 level**: nginx inherits `limit_req` only where the level declares none — the
@@ -229,18 +259,16 @@ resolves each before matching, all three measured reaching their zone (measured 
 the pairs are held apart per unit of WORK rather than pooled — two paths reaching the same work
 share one pair. `bewerbung48` is the one deliberate exception to the multiplier, and it is on the
 RATE alone: three times rather than ten, on a count of applications per season rather than a ratio.
-What decides that number, and what it risks, is at the zone in `nginx/prod.conf`.
+What decides that number, and what it risks, is at the zone in `nginx/shared/http.conf`.
 
 **`location /` takes a connection ceiling rather than a rate zone**, `limit_conn conn 50` on the
 narrow key, sized for HTTP/2 where nginx counts each concurrent request as a connection. **That
-makes one directive count differently in the two files**: `nginx/local.conf` serves HTTP/1.1, so
-the identical line bounds whole connections locally. The mirror holds the two lines equal (§1.6)
-and cannot see that they mean different things.
+makes one directive count differently on the two stacks**: `nginx/local/local.conf` serves HTTP/1.1, so
+the one line in `nginx/shared/site.conf` bounds whole connections locally.
 
-**Three public writes cap their bodies against the server block's `20M`** — the application form's
-at `64k`, the confirmation link's and the sign-in link's completion at `8k`. The `64k` cap alone is
-measured, 2026-08-30: a 100,049-byte POST is refused `413` at the edge, while a 4,049-byte POST
-reaches the handler.
+**A body cap below the server block's `20M` is set at the location it bounds.** The application
+form's `64k` cap alone is measured, 2026-08-30: a 100,049-byte POST is refused `413` at the edge,
+while a 4,049-byte POST reaches the handler.
 
 **A zone has been observed refusing, and what that establishes is the MECHANISM, not the numbers.**
 A burst at the Kürzel check was refused past the burst as `429` (not nginx's `503` default), the
@@ -253,9 +281,10 @@ both sitting below that log's own level. nginx puts the request line there WHOLE
 `Referer` with it, and no `map` reaches that log — the open-source build has no option over what a
 line carries, `error_log`'s `json` and `error_log_tag` being commercial-only
 ([`docs/logging/spec.md`](../logging/spec.md) §1.2). Both records were driven against
-`nginx:1.31-alpine` and read back, 2026-09-21. The live sign-in token travels in the
-query of `/signin/bestaetigen`, a page, so what stands over it is `location /`'s connection ceiling
-rather than any rate zone. **What the pair does not close is every OTHER `error`-level line**, an
+`nginx:1.31-alpine` and read back, 2026-09-21. Every minted link's live token travels in the
+query of a page — the sign-in, confirmation and invitation landing pages — so what stands over it
+is `location /`'s connection ceiling rather than any rate zone, the zones metering the writes those
+pages post. **What the pair does not close is every OTHER line about a request, at any level**, an
 upstream failure among them, which repeats the same request line
 ([`docs/logging/spec.md`](../logging/spec.md) §4); and what it costs a reader is the name of the
 zone that refused, the access line carrying `status` alone.
@@ -290,25 +319,34 @@ extending it** — the mechanism I2 records for `add_header`, and what decides w
 edge-controlled headers, `traceparent` and `X-FL-Actor`, reaches an upstream (L7 and L10,
 [`docs/logging/spec.md`](../logging/spec.md) §1.1). The liveness location restates the set in full
 so that FastAPI is addressed as the upstream `proxy_pass` names and the public hostname needs no
-place in `api_trusted_hosts` (I13); `location /_next/static/` restates `Host` alone, dropping the
-other two with it, nothing under that prefix running application code.
+place in `api_trusted_hosts` (I13). It is the only location declaring one, and
+`nginx/edge_test.sh` fails any location proxying to the frontend that hands Next either header as
+a visitor sent it.
 
 ### 1.4 Security headers
 
-Set at server level with `always`:
+Every response carries five, each sent with `always`:
 
-| Header                      | Value                                                                                                                                                                                                                                              |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload`                                                                                                                                                                                                     |
-| `X-Frame-Options`           | `SAMEORIGIN`                                                                                                                                                                                                                                       |
-| `X-Content-Type-Options`    | `nosniff`                                                                                                                                                                                                                                          |
-| `Referrer-Policy`           | `strict-origin-when-cross-origin`                                                                                                                                                                                                                  |
-| `Content-Security-Policy`   | `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self';` |
+- `Strict-Transport-Security`
+- `X-Frame-Options`
+- `X-Content-Type-Options`
+- `Referrer-Policy`
+- `Content-Security-Policy`
 
-`'unsafe-inline'` remains on `script-src` because a per-request nonce cannot cover build-time
-prerendered HTML, which this application prerenders (`cacheComponents` in
-`fl_frontend/next.config.ts`). The compensating control is the `react/no-danger` rule
-[`docs/frontend/spec.md`](../frontend/spec.md) §1.8 records.
+**The one enforced policy keeps `'unsafe-inline'` on `script-src`, because Next cannot put a nonce
+or a hash on the inline hydration scripts of a prerendered shell**, and every page here is one
+(`cacheComponents` in `fl_frontend/next.config.ts`). Next's guide calls Partial Prerendering, which
+`cacheComponents` turns on, "incompatible" with a nonce-based CSP, and its experimental SRI puts
+`integrity` on script files alone — the installed release's copy,
+`fl_frontend/node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md`, and a Next
+maintainer's open correction to it, https://github.com/vercel/next.js/pull/96281, both read
+2026-09-25 and moving without us. A nonce for the stream beside build-time hashes for the shell and
+`'self'` for its chunks would cover every script, and is refused: three mechanisms is a patchwork
+rather than a rule. The compensating control is the `react/no-danger` rule
+[`docs/frontend/spec.md`](../frontend/spec.md) §1.8 records, which keeps every HTML sink out of the
+application. **Revisit when the application renders user-supplied markup, or when Next ships
+inline-script hashing that covers prerendered shells** — and at the first, reconsider the policy,
+never the lint rule.
 
 `style-src` carries it for a narrower reason: several components set a runtime-computed inline
 `style` **attribute**, for which CSP offers no nonce or hash. Narrowing to `style-src 'self'` with
@@ -318,12 +356,13 @@ carrying an inline `<style>` — a directive on attributes does not reach an ele
 would render unstyled. Every route this application declares carries none.
 `docs/_roadmap/items.md :: qw6j-scru` owns the decision.
 
-**The policy is written six times, and every pairing is held.** Each of the two nginx files
-declares it at server level, in the liveness location and in
-`location /_next/static/`, because `add_header` in a location replaces the inherited set (I2);
-`scripts/checks/check_csp_identity.py` holds each file's three to each other and fails any further
-block that sets a header without restating the policy, while the pair across the two files is
-`scripts/checks/check_nginx_mirror.py`'s (§1.6).
+**The policy is written once**, in `nginx/shared/security_headers.conf`, which
+`nginx/shared/site.conf` includes at server level and again in each location adding a header of
+its own, because `add_header` in a location replaces the inherited set (I2), and which
+`nginx/prod/prod.conf`'s www redirect includes too. `nginx/edge_test.sh` asks every location and the
+www redirect for it, and compares each header's value with that file's. A
+restated copy would be a second enforcing policy, which the
+[`.claude/rules/cross-surface.md`](../../.claude/rules/cross-surface.md) **csp** clause forbids.
 
 **The rest of the policy is load-bearing and does not depend on `script-src`:** `frame-ancestors
 'none'` blocks framing, `object-src 'none'` blocks plugin content, `base-uri 'self'` blocks base-tag
@@ -347,8 +386,8 @@ platform.
 
 **The local stack points both application services at its own database through compose's
 `environment`**, so no `.env` is edited and no run is left aimed at the wrong cluster
-(`docker-compose.local.yml`, whose invariant block lists the overrides while each argument sits at
-the line it constrains). The same
+(`docker-compose.local.yml`, an override Compose merges over `docker-compose.yml`, whose invariant
+block says so while each argument sits at the line it constrains). The same
 block sets `BEWERBUNG_SWEEP` off and `APP_ENV` to `local`. The database is a copy of production, so
 an armed pass here deletes real applications and stamps real rows; `APP_ENV` is what keeps the
 notices it raises off the people those rows name, each landing in the sink instead
@@ -439,10 +478,16 @@ and report a build that broke over a stack nothing stopped. The refusal names th
 prints nothing compose itself said: the filter in §1.7 reaches a container's log alone, and a parse
 error quotes the line it could not read.
 
-**`scripts/gate/scope_map.sh` is the one copy of the path-to-scope mapping.** Every CI workflow that
-maps paths reads it, and so does `scripts/checks/check_scope.py` through its `--stdin` mode; every other
-statement of which paths select which scope — the packaging list included — cites that file rather
-than repeating it.
+**Before either application image is pulled, the deploy fetches every image the edge runs that the
+host lacks** (`scripts/ops/deploy.sh :: fetch_edge_images`), under the `missing` policy `up` itself
+applies, so a tag the host holds is never refreshed under a running edge. A failed fetch refuses at
+exit 2 with nothing recreated; left to the `up` that reloads nginx, it would arrive once the
+application pair was replaced, nginx still proxying to the containers it replaced.
+
+**A pair the deploy refuses leaves the host's `:latest` tags as it found them**: a pinned run moves
+them only once `scripts/ops/deploy.sh :: compare_pulled_pair` accepts the pair, and a bare run puts
+back what they named before its pull (`:: put_latest_back`), since an `up` reaching the application
+recreates it from whatever they name.
 
 **The checkers are python, and one kernel is what makes their answers comparable** —
 `scripts/lib/checker_kernel.py`, whose own header holds the inventory (§1.7). **The interpreter floor
@@ -450,9 +495,7 @@ is bash's** (`scripts/lib/_lib.sh :: PYTHON_FLOOR`), asked at every entry point 
 handed a file: below it a checker dies compiling and python exits 1, which this scale reads as a
 finding about the change, so no checker's own body is written for an interpreter that cannot compile
 it. **`check_pr_body.py` runs only in CI** — a pull request body is not in the
-repository, so `.github/workflows/pr-body.yml` is the only place it is addressable. The one
-javascript helper is `scripts/checks/ts_normalize.mjs`, whose comment at
-`scripts/checks/ts_normalize.mjs :: printer` argues the exception.
+repository, so `.github/workflows/pr-body.yml` is the only place it is addressable.
 
 **`scripts/tests/` is the pytest suite that proves the gate's own coverage** (PRE-4); what a module
 covers is its own header, and a check `scripts/checks/docs_gate/kernel.py :: CHECKS` registers
@@ -463,14 +506,9 @@ without a planted violation beside it fails
 step — reach for it directly after editing anything in `scripts/`, `.claude/hooks/` or
 `.githooks/`. Its passes catch the defects Windows hides: CRLF endings, and an executable bit that
 `chmod +x` in Git Bash never reaches, either of which works locally and fails on the server (I10).
-It also holds the two decisions that are silent when wrong — `check_scope.py`'s comment-only
-classifier, and `_lib.sh`'s log redaction (§1.7), whose failure is either a credential on the
-operator's terminal or the host redacted out of the log a failing deploy is read from.
-
-**That classifier's TypeScript half needs node and the frontend's `typescript`, and the scope
-requires neither**: where either is missing, the classifier is required to answer "code", and
-the self-check asserts that degradation. CI's `scripts` job installs the frontend dependencies for
-exactly this reason — otherwise the parser half would be exercised on no machine but the author's.
+It also holds a decision that is silent when wrong — `_lib.sh`'s log redaction (§1.7), whose
+failure is either a credential on the operator's terminal or the host redacted out of the log a
+failing deploy is read from.
 
 **shellcheck and actionlint are pinned, and nothing but a person bumps them** — the versions are
 written in the self-check itself, where no dependency ecosystem can read them, the deliberate
@@ -480,18 +518,25 @@ rather than fails outside CI**, so the shell and the workflows go unlinted while
 scope passes; in CI the same shortfall is a finding. `require_docker` runs for the ops, database
 and image scopes alone, so nothing announces the shortfall before a `--scripts` run starts.
 
-**Publishing needs a classic token with `write:packages`** (`docker login ghcr.io -u felzab`): a
-fine-grained token logs in and then fails the push with `permission_denied`, ghcr evaluating
-package write only at push time, a first push being a create that repository scopes do not cover.
-If a previous login stored another token, `docker logout ghcr.io` first; the server needs no token,
-both packages pulling anonymously.
-
-**`publish.sh` refuses at exit 2 wherever it is asked to judge something it could not read, and
-pushes nothing when it does**: the `instrumentation.js` probe refuses where the container could not
-run at all — a different answer from the exit 1 where the file is genuinely missing — and the
-preflight refuses where a remote could not be asked which branches it has (I12). **It prunes the
-SUPERSEDED local sha tags after a successful push**, which never become dangling and so escape
-`docker image prune`.
+**Publishing is a CI run I start, with the workflow's own token** (`.github/workflows/publish.yml`,
+`gh workflow run publish.yml --ref main`): it refuses any ref but `main`, a commit `main` has moved
+past, and any commit whose own push run of `verify` did not pass. It builds both images with no
+cache from an earlier run and loads them, and **pushes nothing before the loaded pair passes the
+images scope's three assertions** (`scripts/lib/_lib.sh :: image_has_instrumentation`,
+`:: image_runs_unprivileged`, `:: image_context_clean`); the push rebuilds from the same builder's
+layers, under `sha-` and the commit's short hash (`docker/metadata-action`'s `type=sha`). A pushed
+image whose layers or user differ from the one checked is refused, and only then do both `:latest`
+tags move (I353, I365, I7). A merge
+publishes nothing, and re-running an old publish run refuses rather than moving `:latest` backward.
+**A `verify` run failed on its wall-clock budget alone still counts as passed**: the budget judges
+how long the gate took, not the tree, so `scripts/checks/check_publish_verdict.py` reads that run's
+jobs and accepts it when the aggregate job's budget step is the one step that failed, its
+`continue-on-error` reports apart (`scripts/checks/check_publish_verdict.py :: ADVISORY_STEPS`). The
+token can push only because each package grants this repository's workflows write access — the package
+settings' **Manage Actions access** — so a package created or re-created by hand needs that grant
+first. The server needs no
+token, both packages pulling anonymously. **A publish that failed between the two `:latest` moves
+is repaired by dispatching again**, and `deploy.sh` refuses the mismatched pair meanwhile (I7).
 
 **Registry pruning stays manual and optional**, a botched delete destroying rollback history (§4).
 When pruning, keep roughly the last five `sha-` tags per package and never delete what is live
@@ -510,9 +555,10 @@ applied to it.
 **A stopped service is graded as a finding rather than an advisory**, because the edge can still
 answer 200 from a worker that outlived it: a green probe over a stopped pair is what a stale nginx
 or a stray container looks like, and it is the state that most resembles a healthy one from
-outside. That probe is the only line in the report not taken from a container, nginx resolving its
+outside. **That probe and nginx's own dump of the configuration it holds are the report's two reads
+of the edge**, and every other row is read from the application's containers: nginx resolves its
 upstreams once as it loads, so a healthy pair says nothing about whether the edge is still pointed
-at it (I9).
+at it (I9), nor whether it holds this checkout's files (I355).
 
 **`curl` writing `000`, on the other hand, is an advisory**, because `deploy.sh` runs on the server:
 the read is the host asking for its own public hostname, so a host that does not resolve the domain
@@ -530,18 +576,15 @@ In CI the implication is off, each of the three being a job of its own.
 Scopes **run concurrently by default**, one worker process each, and `verify.sh` replays their
 captured output in written order — so a parallel run reads as the serial one per stream, on the
 terms below: a terminal merging stdout and stderr sees a scope's error lines after its output rather
-than between it, which is the merge and not a defect. **That default holds only where the machine
-can hold every width-taking section's declared floor** (`scripts/gate/verify.sh :: gate_widths_fit`);
-under it the scopes run one at a time, each alone with the machine at the width its own work was
-measured at. A failing scope still ends the run at its
+than between it, which is the merge and not a defect. A failing scope still ends the run at its
 own replay, but only after every later scope that finished with a verdict has its ledger rows
 adopted — and, where that later scope failed or was refused itself, its own captured output replayed
 after those rows under a heading naming it
 (`scripts/gate/verify.sh :: LATER_VERDICT_HEADING`). The closing table then tells a passing scope
 from one that never ran, a session fixing the failure knows what it need not pay for again, and a
-second failure's own words are on screen rather than behind another full run:
-`scripts/checks/check_scope.py` names every scope a partial re-run leaves out, so none passes for the
-whole run.
+second failure's own words are on screen rather than behind another run. A re-run naming its scopes
+is for iterating, and its ending withholds "Safe to merge." (`scripts/gate/verify.sh :: wrap_up`),
+so none passes for the whole run.
 Byte-identity with the serial run holds wherever both forms ran the same work — every green run, and
 a failing one whose failure is in the last unit either form would reach, a failure earlier than that
 stopping the serial run where the parallel one carried on — and `--serial` is what that comparison is
@@ -549,19 +592,14 @@ measured against, **on everything but the run's own timing**, which `scripts/lib
 writes into each step's suffix, into the closing table's duration cell and into the ending's elapsed,
 and which no two runs of the same work share. The pair is held to that by
 `scripts/tests/test_gate_forms.py :: test_the_pooled_run_replays_what_the_serial_run_printed_byte_for_byte`
-and by `:: test_the_two_forms_read_alike_on_the_failure_path_too`, which drive two stub-tooled scopes
-once each way, green and then failing at the last unit, mask those three sites and compare the rest
-per stream. **The other exception is a machine below the checkers' floor**
-(`scripts/lib/_lib.sh :: PYTHON_FLOOR`): the pooled form asks whether the interpreter it found clears
-the floor and, finding none that does, falls back to the serial path and, where a pool would have
-run, prints a line naming the floor where the scopes are announced, while `--serial` sets both pool
-switches off ahead of that question and can never print it
-(`scripts/gate/verify.sh :: POOL_FALLBACK`). The byte-for-byte pair cannot see that machine — its
-fixture puts an interpreter at the floor on `PATH` as `python3` — so the two forms differ there by
-exactly that one line, which
+and by `:: test_the_two_forms_read_alike_on_the_failure_path_too`, green and then failing at the
+last unit. **The other exception is a machine below the checkers' floor**
+(`scripts/lib/_lib.sh :: PYTHON_FLOOR`): the pooled form falls back to the serial path there and,
+where a pool would have run, prints a line naming the floor where the scopes are announced, while
+`--serial` can never print it (`scripts/gate/verify.sh :: POOL_FALLBACK`). The byte-for-byte pair
+cannot see that machine, so the two forms differ there by exactly that one line, which
 `scripts/tests/test_gate_forms.py :: test_a_run_a_pool_serves_names_the_pool_fallback` and
-`:: test_a_run_no_pool_serves_says_nothing_of_the_pool_fallback` hold instead, putting one below the
-floor ahead of it.
+`:: test_a_run_no_pool_serves_says_nothing_of_the_pool_fallback` hold instead.
 **No scope depends on another's result**, so a concurrent run's floor is its longest scope and a
 sequenced one's is their sum.
 
@@ -572,8 +610,9 @@ says: the fault is in this gate's own handoff, and nothing in the tree under tes
 answer for it.
 
 **Most scopes carry that shape one level down, through the same pool**, so a scope costs its
-slowest check rather than the sum; the format, frontend-units, ops and database scopes run theirs
-in place. **A pool's own wiring is refused at 3 before anything runs**, each refusal carrying its
+slowest check rather than the sum; the format, frontend-units and ops scopes run theirs
+in place, and so does the database scope wherever other scopes run beside it, the frontend's
+db-tier files asserting the sign-in store's 3 s bounds. **A pool's own wiring is refused at 3 before anything runs**, each refusal carrying its
 argument at the line it guards.
 
 **A failure is reported once the pool is done, never while it runs**, so a scope whose first check
@@ -592,7 +631,7 @@ same `tsconfig.json` program over the same working tree the scope's tsc has just
 types included, so `scripts/gate/verify.sh :: do_next_build` sets `SKIP_BUILD_TYPE_CHECK`
 (`fl_frontend/next.config.ts :: ignoreBuildErrors`). **No image build ever sets it**: an image's
 context is the tree after `.dockerignore`, which no tsc has checked, so the images scope and
-`scripts/ops/publish.sh` each keep the build's own pass. The two phases are data (`scripts/gate/verify.sh :: FRONTEND_POOL`, `:: FRONTEND_WRITERS`) and a unit
+`.github/workflows/publish.yml` each keep the build's own pass. The two phases are data (`scripts/gate/verify.sh :: FRONTEND_POOL`, `:: FRONTEND_WRITERS`) and a unit
 in both is refused. Prettier is in neither: the format section runs it in place, before the
 frontend's opens.
 
@@ -600,8 +639,8 @@ frontend's opens.
 choice is the clock's: every worker thread loads the whole configuration again, which a warm run on a
 loaded machine pays at several times the serial span — eslint's own `ESLintPoorConcurrencyWarning`
 advises disabling concurrency there — while an uncached run divides its work between them. A
-development machine mostly answers from the cache and runs serial; a runner restores the pnpm store
-and never `node_modules`, so it pays the cold fill on every run, and `scripts/gate/verify.sh ::
+development machine mostly answers from the cache and runs serial; a runner restores no eslint
+cache, so it pays the cold fill on every run, and `scripts/gate/verify.sh ::
 do_eslint` adds `--concurrency auto` where `GITHUB_ACTIONS` is set — never on `CI`, which a
 developer's shell may export. **The cache lives under
 `fl_frontend/node_modules/.cache/eslint/` and never at eslint's default location**, because eslint
@@ -614,17 +653,31 @@ grown to cover costs a false green on a development machine rather than a merged
 measurements behind the trade are in the body of the commit that moved the cache under
 `node_modules/.cache/`.
 
+**knip refuses a file, an export or a dependency nothing reads**, so what a change leaves unused is
+removed in that change rather than found by a later sweep. `fl_frontend/knip.json` names, beside
+each ignore, the reader knip cannot see; a configuration hint fails the step as a finding does.
+
 **No formatter the gate runs writes a tracked file** — prettier runs in check mode everywhere, so a
 run cannot hand back a tree different from the one its later steps measured. Formatting happens at
-commit time instead: `.githooks/pre-commit` refuses a commit on `main`, formats what is staged and
-re-stages it, and refuses a file staged in part. The hook is convenience and never the enforcement — a clone that has not
-pointed `core.hooksPath` at it has no hook at all, and this scope and CI are what bind. The
-formatter's own cache is keyed on content, and what it cannot see is a prettier plugin's own
-change, so a plugin bump warrants deleting that cache file — prettier's documented caveat, accepted
-because a plugin moves only through the lockfile and CI runs uncached either way. **What the cache
-spares is the parse and never the walk**: prettier lists every entry under `..`, `node_modules` and
-`.git` included, before it asks `.prettierignore` which files to read, so a tool cache that file does
-not name is read on every run.
+commit time instead: `.githooks/pre-commit` refuses a commit on `main` and re-stages every staged
+file prettier formats, formatted from its staged copy. **Of the working tree it writes only a fully
+staged file's copy**, last, once the index holds what the commit will, and only while that copy
+still holds the staged text; a file staged in part keeps its working copy as the author left it, so
+`git status` shows the formatting as an unstaged change until the file is formatted and staged. It
+never stashes, hides or resets the working tree, and a commit it refuses leaves the index and the
+working tree as they were (I354). The hook is convenience and never the enforcement — a clone that
+has not pointed `core.hooksPath` at it has no hook at all, and this scope and CI are what bind. The
+formatter's own cache is keyed on content, and what it cannot see is a prettier plugin's own change —
+prettier's documented caveat — or the contents of the Tailwind stylesheet `.prettierrc.json` names by
+path. A plugin bump, or a stylesheet edit that moves a class's sort order, warrants deleting that
+cache file; it is accepted on a development machine because the stale verdict there is a false green
+that CI's own run then fails. **CI's format verdict never rests on a verdict another lockfile or
+another stylesheet wrote**: the format job restores prettier's cache under a key carrying the
+lockfile's hash and that of every stylesheet under `fl_frontend/src`, so either change starts a
+runner from an empty cache. **What the cache spares is
+the parse and never the walk**: prettier lists every entry under `..`, `node_modules` and `.git`
+included, before it asks `.prettierignore` which files to read, so a tool cache that file does not
+name is read on every run.
 
 **An editor formats earlier still, and binds no more than the hook does**: `.vscode/settings.json`
 names the module, the configuration and the ignore file the gate itself reads, and a developer
@@ -656,19 +709,13 @@ which the decode drops. That rule alone exempts a path, through
 invisible characters are the file's subject; an entry naming a file that carries none fails, so
 the list cannot outlive its reason.
 
-**The estate check refuses three silences the backend suite would otherwise pass**
-(`scripts/checks/check_test_estate.py`): a test whose transitive reach — through a helper it calls
-or a fixture it takes — needs a server and carries no `@pytest.mark.db`, so it runs in the default
-tier that starts no container; a fixture whose name no parameter and no `usefixtures` string
-anywhere under `fl_backend/tests/` repeats, so a name an unrelated helper's parameter happens to
-share reads as consumed; and a pytest configuration leaving `empty_parameter_set_mark` at its
-default, where a parametrised sweep whose discovery found nothing passes as one skip. **The database
-rule exempts a client built from a source-written URI naming a port nothing here serves**
-(`scripts/checks/check_test_estate.py :: SERVED_PORT`) — the idiom that tells a guard's refusal from
-a route that does not exist — and that exemption follows the constant into a helper it is passed to,
-so it releases the call site rather than the helper. A URI on the served port is refused however it
-is written, `./scripts/ops/local.sh` answering it on the author's machine and nothing answering it
-in CI.
+**The estate check refuses two silences the backend suite would otherwise pass**
+(`scripts/checks/check_test_estate.py`): a fixture whose name no parameter and no `usefixtures`
+string anywhere under `fl_backend/tests/` repeats, so a name an unrelated helper's parameter
+happens to share reads as consumed; and a pytest configuration leaving `empty_parameter_set_mark` at
+its default, where a parametrised sweep whose discovery found nothing passes as one skip. A test
+reaching a database without `@pytest.mark.db` is the suite's own to refuse, as it runs
+([`docs/backend/spec.md`](../backend/spec.md#16-the-test-suite)).
 
 **One db tier at a time on a machine, and the second gate run is refused rather than queued**
 (`scripts/gate/verify.sh :: claim_db_run`). Two at once make each other's failures unreadable, §3
@@ -682,43 +729,40 @@ do; on Windows that directory is the signed-in user's own, which is as wide as t
 and on Linux it is the host's, where an abandoned claim can be another account's and a temporary
 directory carrying the sticky bit lets only that user or root `rm -rf` it. A claim a killed run left
 behind names its pid, so the next run reports it and takes it over rather than waiting for a process
-that is gone; the takeover alone is serialised, by `scripts/gate/verify.sh :: DB_RUN_LOCK` taken
-before the claim is moved, because a rename orders nothing against a run that has not started one. **A db-tier figure counts only where a pair of
+that is gone. **A db-tier figure counts only where a pair of
 runs lands within a fifth of a second of each other on an idle machine** — a wider pair is a reading
 of the machine rather than of the tier, and neither half of it belongs in
 `.github/gate-wall-clock.tsv`.
 
-CI runs the same checks as parallel jobs mapped from the paths a pull request touches:
-`scripts/gate/scope_map.sh` emits one `name=true|false` line per `verify.sh` flag, so a scope's name in
-the mapping and the flag that proves it are one word. Which paths select `format` is decided by
-extension, because prettier's reach is; CI's `format` job runs wherever the formatter's paths
-changed, and the `frontend-units` shards beside the frontend job wherever it runs, that job running
-neither. **The `frontend` job maps its own scope** in its first step rather
-than waiting on `changes`, so the run's longest job starts with no job in front of it; the argument,
-and why a job mapped off reads as `skipped`, is at that job in `.github/workflows/verify.yml`.
+**CI runs every scope on every event**, one parallel job per scope (`.claude/CLAUDE.md` §7, **ci**).
+The `format` job and the `frontend-units` shards run beside the `frontend` job, which runs
+neither. **The aggregate `verify` job fails on a skipped job**, and **no scope job or its run step
+carries an `if:` or a `continue-on-error`**, either of which leaves the job `success` over a scope
+that never ran or failed
+(`scripts/tests/test_check_publish_verdict.py :: test_every_scope_job_runs_its_scope_with_nothing_able_to_skip_or_absorb_it`).
 
 **Every CI job that needs the backend virtualenv creates it with `uv sync --locked`**, the dev group
 alone where nothing imports the application, on the uv `fl_backend/pyproject.toml` pins through
-`version-file`; each flag's argument is at the `scripts` job in `.github/workflows/verify.yml`.
+`version-file`; each flag's argument is in `.github/actions/backend-toolchain/action.yml`, which
+every such job calls.
 **Every other CI job that runs python takes the interpreter `fl_backend/.python-version` pins through
 `actions/setup-python`**, the file the virtualenv's interpreter is read from too, so one pin decides
-every job's version; the reason is at that workflow's `commits` job.
+every job's version; the reason is at that workflow's `verify` job.
 
-| Scope              | Runs                                                                                                                                                                                                                                                                          | Needs                                                                                                                                        |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--scripts`        | `selfcheck.sh`, `ruff` and `pyright` over the python in `scripts/`, and the pytest suite in `scripts/tests/` (§1.5)                                                                                                                                                           | the backend venv, `pytest` included; shellcheck and actionlint from PATH, else Docker                                                        |
-| `--docs`           | `check_tracked_text.py` over every tracked file; `check_docs.py`; `check_commits.py`; `check_public_routes.py`; `check_log_quoting_class.py`; and `fl_backend/tests/openapi_document.py` in `--check` mode, the published document against the docstrings it is composed from | the backend venv                                                                                                                             |
-| `--backend`        | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier) and `check_test_estate.py` started together behind it                                                                                                                                      | the backend venv, and for the lockfile check the uv `fl_backend/pyproject.toml`'s `required-version` names; any other uv refuses at start-up |
-| `--format`         | prettier in check mode over the whole repository                                                                                                                                                                                                                              | pnpm install                                                                                                                                 |
-| `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`; given `VERIFY_TEST_SHARD=<i>/<n>`, one of `n` shards of them, taken only where this scope runs alone                                                                                    | pnpm install                                                                                                                                 |
-| `--frontend`       | the frozen lockfile check, `next typegen`, then tsc, eslint and the dependency audit as one pool, then `next build` alone                                                                                                                                                     | pnpm install                                                                                                                                 |
-| `--ops`            | zizmor audits `.github/`; both compose files parse; `check_compose_mirror.py`, `check_nginx_mirror.py` and `check_csp_identity.py` compare what `nginx -t` cannot; nginx accepts `prod.conf`; no credential in its access line                                                | Docker, and the backend virtualenv — zizmor's home, and an interpreter at the checkers' floor                                                |
-| `--db`             | `pytest -m db -n auto --dist loadfile` against the xdist controller's two real `mongod`s (`docs/backend/spec.md` §1.6), then `pnpm run test:db` (`docs/frontend/spec.md` §1.9)                                                                                                | venv + pnpm install + Docker                                                                                                                 |
-| `--images`         | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                                                                        | Docker                                                                                                                                       |
+| Scope              | Runs                                                                                                                                                                                                                                                      | Needs                                                                                                                                        |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--scripts`        | `selfcheck.sh`, `ruff` and `pyright` over the python in `scripts/`, and the pytest suite in `scripts/tests/` (§1.5)                                                                                                                                       | the backend venv, `pytest` included; shellcheck and actionlint from PATH, else Docker                                                        |
+| `--docs`           | `check_tracked_text.py` over every tracked file; `check_docs.py`; `check_public_routes.py`; `check_log_quoting_class.py`; and `fl_backend/tests/openapi_document.py` in `--check` mode, the published document against the docstrings it is composed from | the backend venv                                                                                                                             |
+| `--backend`        | `uv lock --check` alone and first, then `ruff`, `pyright`, `pytest` (default tier), `check_test_estate.py` and `deptry` over `app/` started together behind it                                                                                            | the backend venv, and for the lockfile check the uv `fl_backend/pyproject.toml`'s `required-version` names; any other uv refuses at start-up |
+| `--format`         | prettier in check mode over the whole repository                                                                                                                                                                                                          | pnpm install                                                                                                                                 |
+| `--frontend-units` | the unit tests `fl_frontend/package.json`'s `test` script finds under `fl_frontend/`; given `VERIFY_TEST_SHARD=<i>/<n>`, one of `n` shards of them, taken only where this scope runs alone                                                                | pnpm install                                                                                                                                 |
+| `--frontend`       | the frozen lockfile check, `next typegen`, then tsc, eslint, knip and the dependency audit as one pool, then `next build` alone                                                                                                                           | pnpm install                                                                                                                                 |
+| `--ops`            | zizmor audits `.github/`; both stacks parse; `check_compose_model.py` judges both models; nginx accepts `prod.conf`; the edge logs no credential and sends each security header once                                                                      | Docker, and the backend virtualenv — zizmor's home, and an interpreter at the checkers' floor                                                |
+| `--db`             | `pytest -m db -n auto --dist loadfile` against the xdist controller's two real `mongod`s (`docs/backend/spec.md` §1.6) and `pnpm run test:db` (`docs/frontend/spec.md` §1.9), concurrent when alone                                                       | venv + pnpm install + Docker                                                                                                                 |
+| `--images`         | both `docker build`s, then what a build does not prove: `instrumentation.js` present, neither image running as uid 0, neither holding a file its dockerignore excludes                                                                                    | Docker                                                                                                                                       |
 
 **Each of the images scope's three probes answers three ways, and the third is a refusal**: an
-image that would not run at all is refused at exit 2 rather than graded, as `publish.sh`'s
-`instrumentation.js` probe refuses the same answer (§1.5). The context probe and both
+image that would not run at all is refused at exit 2 rather than graded. The context probe and both
 `.dockerignore` files hold the same list of credential shapes, and
 `scripts/tests/test_image_assertions.py` holds the two to each other.
 
@@ -732,7 +776,7 @@ for; the virtualenv's and the frontend install's refusals are driven by
 and `:: test_a_run_with_no_frontend_install_refuses_and_reaches_no_scope`. Each tool is its own step, tool output is captured and
 shown only when its step fails, and `--verbose` streams everything instead (§1.7). **The
 documentation gate is the one exception, because a passing run's output is worth reading**: its
-printed population is what says the sweep read the tree rather than an empty collection (§1.5). The
+printed population is what says the sweep read the tree rather than an empty collection. The
 self-check's skips and warnings would otherwise read as passes, so they reach the reader by another
 route — `scripts/gate/selfcheck.sh :: _ledger`, replayed at the end of the run.
 
@@ -741,14 +785,8 @@ frontend scope resolves the lockfile against `package.json` and the backend scop
 `uv lock --check`, both cheap, where otherwise the breach surfaced only where discovery is
 expensive.
 
-**Before any of them runs, `check_scope.py` compares the scopes named against what the branch
-actually changed.** It refuses a run whose diff reaches the image build with a change that is more
-than comments, and merely reports every other surface the run leaves unproven. **What counts as
-"more than comments" is decided by a parser, and anything unproven counts as code**; two shapes a
-parser calls a comment are excluded by name because a tool downstream reads them
-(`scripts/checks/check_scope.py :: TOOLCHAIN_DIRECTIVE`, `:: DOCSTRINGS_ARE_PUBLISHED`), and those
-two exclusions are pattern matches on comment text where the rest of the decision deliberately is
-not. The check is skipped in CI, which maps its own scopes from the paths.
+**Nothing reads the diff to choose a scope**, so only the bare run is sure to cover a change, and it is the run a
+pull request is called ready to merge on ([`docs/_git/spec.md`](../_git/spec.md) §1.5).
 
 **The scripts scope lints and type-checks its own python**, through configs that sit at the top of
 `scripts/` rather than at the repository root or inside one of its five directories: a root config
@@ -763,63 +801,50 @@ version rather than letting pyright infer one, which would answer differently pe
 caller would be the alternative, and it would have to be spelled again in every workflow `run:`
 line, every hook and every test.
 
-**Commit messages ride in the docs scope**, the commit bodies being documentation and merges never
-squashed precisely so they survive ([`docs/_git/spec.md`](../_git/spec.md) §1.4). In CI the check
-can ride nowhere, a commit message having no path to filter on, so `.github/workflows/verify.yml`
-gives it a `commits` job of its own that the `verify` aggregate lists among its `needs`, which is
-what keeps the required check gating on it.
+**No scope reads a commit message**: the `commit-msg` hook is the only reader, a message being
+correct before it is committed or never, since commits are never rewritten
+([`docs/_git/spec.md`](../_git/spec.md) §1.3).
 
-**The two call sites resolve the base differently, and the difference is safe in one direction
-only.** CI passes `--base origin/<the pull request's base>`; the gate passes nothing and takes
-`scripts/lib/checker_kernel.py :: DEFAULT_BASE`, which is `main`. They agree for a pull request into
-`main`, which is every pull request here — `main` is the only long-lived branch
-([`docs/_git/spec.md`](../_git/spec.md) §1.2). Where a branch is stacked on another and merges into
-it, the default reads from `main` instead and so covers the commits below the fork as well: a
-superset, already checked when the branch beneath was, so the local run is stricter than CI rather
-than blinder.
-
-**The `changes` job writes a line-delta glance** into its run summary on every pull request. It
-decides nothing and can shrink no scope.
+**The `docs` job writes a line-delta glance** into its run summary on every pull request. It
+decides nothing.
 
 The **ops** scope exists because the compose files have no compiler and no test suite, and the
 nginx config has no compiler — without it, a typo in either surfaces on the server, at deploy
-time. What the nginx half does have is `nginx/redaction_test.sh`, which drives a real request
-through a real edge and reads the access line back (`docs/logging/spec.md` L11).
+time. What the nginx half does have is `nginx/edge_test.sh`, which drives a real request
+through a real edge started as `docker-compose.yml` starts it, reads the access line back
+(`docs/logging/spec.md` L11), asks every location and the www redirect for its security headers,
+each compared with `nginx/shared/security_headers.conf` (I2), fails a frontend location handing
+Next a visitor's `traceparent` or `X-FL-Actor` (`docs/logging/spec.md` L7 and L10), and drives
+the Control API the deploy reloads through: an applied reload, a refused one, the dump, and a
+worker user it refuses.
 
-**The scope also holds the local stack to production's shape.** The differences meant to be there
-are the local file's declared list, restated as data in `scripts/checks/check_compose_mirror.py` so
-the claim is testable, and a declared delta matching no real difference is a finding too: the list
-stays honest in both directions. A compose construct outside the reader's parsed subset is a
-refusal rather than a verdict (§1.7). **A declared delta covering a whole service covers its ports
-with it**, which is why I1 is held by a check of its own over both files rather than by that list.
-
-**An arm reaches across the package boundary wherever one package's suite reads the other's file as
-source text**, and what makes it necessary is that the assertion sits on the far side: a scope
-confined to the changed file's own package never runs the check written to catch that change, so the
-finding waits for the push to main. Four couplings take that shape — the generated contract both
-packages hold, the backend modules a frontend suite reads off disk, the frontend modules retyping a
-bound a backend suite compares, and the one frontend module a backend suite cuts a refusal's German
-out of. Which paths those are is in `scripts/gate/scope_map.sh`, and
-`scripts/tests/test_scope_decisions.py` holds each arm both to the
-scopes it must select and to the reads that earn it: it derives what each package reads of the other
-from the two trees and probes the mapping itself, so an arm short of a read and an arm outliving one
-are each a red branch. **A suite that discovers its subjects by walking the far tree is outside that
-equality**, an arm matching a path and a walk naming none, so those reaches are declared in that
-module and every path under one is spared — which is why a change anywhere in `fl_frontend/src` can
-still reach a backend assertion no arm carries.
+**The local stack is `docker-compose.local.yml` merged over `docker-compose.yml`**, so only what
+the override writes differs, and each difference is argued at its key. What no merge can hold is
+exposure, so `scripts/checks/check_compose_model.py` reads the two models
+`docker compose config` renders, production's alone and the merged pair: production publishes no
+port and declares exactly `:: PRODUCTION_SERVICES`, and locally only nginx leaves loopback (I1,
+I174). It also holds every mount the edge takes from `nginx/` to a directory on both stacks,
+production's to the pairs `scripts/ops/deploy.sh :: EDGE_CONFIG_DIRS` compares (I355), and the
+edge's Control API socket and tmpfs to the deploy's, and `nginx/prod/prod.conf` to trusting the
+connector's rendered address alone (I18). A model it cannot read, a short-syntax port or volume
+among them, is a refusal rather than a verdict (§1.7).
 
 **In CI the images scope caches layers through the Actions cache service**
-(`VERIFY_IMAGES_CACHE=gha`), and **stops before building where the variable is set and the
+(`VERIFY_IMAGES_CACHE=gha`), and **refuses at 2 before building where the variable is set and the
 credential `.github/actions/actions-runtime-env` re-exports is missing** — buildx would fail too,
 but only after every layer has been built, naming a missing token rather than the missing step.
-Locally the variable is unset and the build runs against the daemon's own cache.
+Locally the variable is unset and the build runs against the daemon's own cache. **The export is a
+buildx run of its own, after the probes** (`scripts/gate/verify.sh :: export_image_cache`), so a
+cache service failing it is refused at 2 over images already judged, never reported as a build that
+failed. **A failed build or probe ends the run before either export**, so the next run builds from
+the last cache a passing run left, the cost of keeping a cache write out of every verdict.
 
 **The aggregate `verify` job writes a wall-clock report** into its run summary on every push to
 main: per-job medians over the completed main runs already on record, against
 [`.github/gate-wall-clock.tsv`](../../.github/gate-wall-clock.tsv), which holds one reference figure
-and one floor per job. Main pushes are the only comparable population — they alone run every scope,
-where a pull request's jobs are path-filtered. How a median is taken, and which jobs the report
-leaves out of one, are at that job in `.github/workflows/verify.yml`.
+and one floor per job. The report reads main pushes, the population every row with a reference
+is cut from; a row cut from pull-request runs carries `-` there and is held by its budget alone. `scripts/checks/check_gate_budget.py` under `--window`
+writes it, and how a median is taken is at `:: _median`.
 
 **The reference is carried forward, never recomputed from the recent past.** A report comparing a
 window against the window before it ratchets: each window silently becomes the next one's normal, so
@@ -836,36 +861,36 @@ the noisy ones. Each floor in the table is that job's own p95, so a delta under 
 
 **The report decides nothing** — no threshold in it refuses anything and pull requests skip it, so
 the seconds it costs land where no merge is waiting; the budget below is where a figure refuses.
-What the report cannot see it names itself rather than leaving to be assumed, and which jobs it
-counts apart from the ones it measures are at that job in `.github/workflows/verify.yml`.
+What the report cannot see it names itself rather than leaving to be assumed. The jobs it never
+measures are at `scripts/checks/check_gate_budget.py :: UNMEASURED_JOBS`, and the ones it counts
+apart from those it measures at `:: report_window`.
 
 **Every job has a wall-clock budget, and the aggregate job refuses the run that breaks one.** The
 same table carries two more columns: `budget`, the most a single run of the job may span from its
 first step to its last, and `measured`, the completed runs the row was taken over, as
-`<runs>@<date>`. After the scope verdict and on every event, `scripts/checks/check_gate_budget.py` under
+`<runs>@<date>`. After the scope verdict, whatever the scope jobs concluded, and on every event, `scripts/checks/check_gate_budget.py` under
 `--jobs` reads this run's own jobs from the runs API and fails the required check on a job over its budget,
 naming the job and both figures; on a job that ran with no row, so a check added to the gate arrives
 with its measured cost or goes red; and on a successful job the API carries no step timestamp for,
 a length nothing measured being no pass. A single run swings far wider than a median,
-which is why a budget is not the reference: each is the population's highest single-run span plus a
-quarter of
-it or ten seconds,
-whichever is more, rounded up to the next five, a rule the table's header records. **One exceedance
+which is why a budget is not the reference; the rule each budget is set by is the table's header's.
+**One exceedance
 fails**: the ceiling sits above every run in the population it was set from, so a run over it is a
-re-run or a regression, and the re-run is the repeat measurement at the cost of a click rather than
-a commit. Two decisions sit beside the measurements. `images` is measured and not budgeted, its span
+re-run or a regression, and a re-run of all jobs is the repeat measurement at the cost of a click
+rather than a commit; re-running the failed jobs alone keeps each carried-over job's first timing.
+Two decisions sit beside the measurements. `images` is measured and not budgeted, its span
 being the layer cache's before it is the tree's — the table's header records the spread that row's
 stamped runs show and declines to say which of them ran warm, and the Dockerfile change most worth
 catching is the one that empties that cache —
 so the median report is its only
-guard. `commits` runs on pull requests alone, and `format` on every push to main as well, but both
-rows are measured from pull-request runs and carry `-` where the report,
-cut from main runs, would read a reference, until main runs of `format` exist to cut its row from.
-**Raising a budget or a reference costs a measurement.** In the `commits` job,
+guard. `format` runs on every event, but its row is measured from pull-request runs and carries
+`-` where the report, cut from main runs, would read a reference, until main runs of `format` exist
+to cut its row from.
+**Raising a budget or a reference costs a measurement.** In a pull request's `docs` job,
 `scripts/checks/check_gate_budget.py` under `--base` holds the file against the pull request's base and refuses a
 figure that rose on an unchanged stamp, a stamp dated after today or before the one it replaces, or a
 budget dropped to `-`; lowering is free, and so is deleting the row of a job the gate no longer
-runs. Either mode reads the table through `--reference`, so a copy is judged before it is committed
+runs. Every mode reads the table through `--reference`, so a copy is judged before it is committed
 and the checker's suite needs no repository of its own. What the ceiling cannot see is a slowdown that stays under it — a check costing seconds on a
 job with a minute of headroom — which the median report names after the fact and the `gate` clause
 in [`.claude/rules/ops.md`](../../.claude/rules/ops.md) forbids before it; the ceiling, the report
@@ -907,13 +932,8 @@ with the reader.
 [`../logging/error-codes.md`](../logging/error-codes.md)'s rows and the
 codes `fl_backend/app/` and `fl_frontend/src/` spell must agree in both directions, each tree
 answering for its own prefixes so that the backend codes the frontend words for a reader are not
-read as the frontend's own.
-
-**That register's `Worded by` column is held by the same checker**: every code
-`fl_backend/app/core/domain.py :: RULES` declares carries a citation naming a `fl_frontend/src/`
-module that spells the code outside a comment, and a row no rule declares carries none. The
-citation's resolution is the whole of it
-([`docs/logging/error-codes.md`](../logging/error-codes.md#1-backend-codes)).
+read as the frontend's own. A code `fl_backend/app/core/domain.py :: RULES` declares is owed no row
+and may take none, `RULES` being where it is stated.
 
 **The backend steps** exist because the frontend's toolchain runs nothing against `fl_backend`
 ([`docs/backend/spec.md`](../backend/spec.md) §1.6); `pyright` is separate from `ruff` because ruff
@@ -924,10 +944,8 @@ before pytest, so the download is attributed in the log rather than hidden insid
 **The image scope** exists because code that compiles can still fail to build inside the image, or
 be omitted from the standalone output entirely.
 
-`--quick` is the scopes that need no Docker — scripts, docs, backend, format and frontend — and is
-**not sufficient** before a merge touching a packaging path: `scripts/gate/scope_map.sh` holds the list,
-and CI builds both images on any pull request touching one. An audit remediation wave runs the full
-form regardless of what it touched, unless it changed documentation only.
+`--quick` is every scope that needs no Docker, a run for iterating like any named one: it builds no
+image, and CI builds both on every run.
 
 ### 1.7 Script conventions
 
@@ -1007,7 +1025,10 @@ dashes** (`scripts/lib/_lib.sh :: _find_unreached`). It is neither a scope nobod
 the not-run line names, nor one that reached a verdict, which a rank would say — and an ending
 reached partway through a run would otherwise leave it named nowhere at all, having been announced
 as covered. The row is reporting alone: the finding, refusal or crash that stopped the run short of
-the scope is what the exit code still answers for. **Colour is decided centrally, through
+the scope is what the exit code still answers for. A scope that crashes after the run's ending is
+already set reads `crashed` (`scripts/lib/_lib.sh :: RANK_CRASHED`), and its own output follows under a
+heading naming its status; like `unreached`, the row reports and the ending still answers for the
+earlier failure. **Colour is decided centrally, through
 `FL_GATE_COLOR` ahead of everything else** — the gate's own variable, how a parent hands a worker
 its answer without exporting one every tool would take as an instruction.
 
@@ -1032,10 +1053,8 @@ its streams whatever the flag says**: the configuration validation in
 file (§1.5).
 
 **A script whose output only a machine reads is exempt, and the interface is what decides, never the
-folder.** `scripts/gate/scope_map.sh` writes `$GITHUB_OUTPUT`'s `key=value` lines and the assistant hooks
-answer in JSON, so a heading, a fold marker or a colour code in either is a corrupt answer
-rather than a nicer log. `scope_map.sh` accordingly takes no `--verbose`, and puts its
-human-readable line on stderr, where it cannot reach the outputs.
+folder.** The assistant hooks answer in JSON, so a heading, a fold marker or a colour code in one is
+a corrupt answer rather than a nicer log.
 
 ### 1.8 The edge's declared state
 
@@ -1047,11 +1066,11 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 - **A remotely managed tunnel is the only route to the origin**, its public hostnames
   `frankfurtleague.de` and `www.frankfurtleague.de`. Each routes to nginx over
   `frankfurtleague-net` with TLS kept, its `Origin Server Name` set to the name the mounted
-  certificate carries (§1.2) and `No TLS Verify` off, so the header set and the certificates in
-  `nginx/prod.conf` are what a visitor's request still meets. **The dashboard is where its token is
-  issued**, and the server holds the issued value at `./secrets/tunnel_token` (§1.2). Each
-  hostname's DNS record is the tunnel's own, written when the hostname was added, so the zone holds
-  no record naming the origin's address.
+  certificate carries (§1.2) and `No TLS Verify` off, so the certificates `nginx/prod/prod.conf`
+  names and the header set `nginx/shared/security_headers.conf` holds are what a visitor's request
+  still meets. **The dashboard is where its token is issued**, and the server holds the issued
+  value at `./secrets/tunnel_token` (§1.2). Each hostname's DNS record is the tunnel's own, written
+  when the hostname was added, so the zone holds no record naming the origin's address.
 - **The AI-bot controls admit an agent and refuse a trainer**: AI training blocked, AI agents
   allowed, AI search allowed, and the managed `robots.txt` on. An agent fetching a page for a
   person is a visitor; a crawler filling a training set is not, and the distinction is the whole
@@ -1067,81 +1086,88 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 
 | #    | Invariant                                                                                                                                                                     | Enforced by                                                                                                                                                                                                                                                                        |
 | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| I1   | No service but `nginx` publishes a port another host can reach, and production's `nginx` publishes none: the connector reaches it over `frankfurtleague-net` (§1.1)           | `scripts/checks/check_compose_mirror.py :: off_host_ports` over both files, and its `:: DECLARED_DELTAS` row pinning production's `services.nginx.ports` absent                                                                                                                    |
-| I2   | Security headers are repeated in every `location` that sets any header                                                                                                        | `scripts/checks/check_csp_identity.py :: dropped` for the policy, over every block that sets a header and does not redirect; the other four observed carrying, 2026-08-30                                                                                                          |
+| I1   | No service but `nginx` publishes a port another host can reach, and production's `nginx` publishes none: the connector reaches it over `frankfurtleague-net` (§1.1)           | `scripts/checks/check_compose_model.py :: production` and `:: local`, over the models `docker compose config` renders                                                                                                                                                              |
+| I2   | Security headers are included in every `location` that sets any header, from `nginx/shared/security_headers.conf`                                                             | `nginx/edge_test.sh`, requesting every location `nginx/shared/site.conf` declares and the www redirect: a missing, doubled or differently valued header fails, an underivable location refuses                                                                                     |
 | I3   | A `default_server` block rejects unknown hosts                                                                                                                                | `ssl_reject_handshake on`                                                                                                                                                                                                                                                          |
 | I4   | Sign-in metering is POST-keyed and edge-only: the library's limiter is off, and a request meets the zone its PATH fell to and nothing else                                    | the `map` producing an empty key otherwise, and the library's own limiter, on by default in production, turned off in `fl_frontend/src/core/auth.ts`                                                                                                                               |
 | I5   | The builder stage has no reachable backend or real env                                                                                                                        | `SKIP_ENV_VALIDATION=true`, placeholder `MONGODB_URI`, no `API_URL`                                                                                                                                                                                                                |
 | I6   | Production never builds                                                                                                                                                       | `deploy.sh` only pulls                                                                                                                                                                                                                                                             |
-| I7   | Both images build before either is pushed                                                                                                                                     | `publish.sh`; and `deploy.sh`, which compares the pulled `:latest` builds' `version` labels before recreating anything, warning rather than failing where an image carries none                                                                                                    |
-| I8   | Publishing stops on a dirty tree by default                                                                                                                                   | `publish.sh`, whose `--allow-dirty` escape suffixes the tag `-dirty` and a fingerprint of the tree (`scripts/ops/publish.sh :: DIRTY_ID`)                                                                                                                                          |
+| I7   | Neither `:latest` tag moves until both packages hold the build under its `sha-` tag                                                                                           | `.github/workflows/publish.yml`'s last step moves both; `scripts/ops/deploy.sh :: compare_pulled_pair` refuses a `:latest` pair whose `version` labels differ or are absent before recreating, driven by `scripts/tests/test_deploy_pair.py`                                       |
 | I9   | Deploy recreates the application containers in place, leaving nginx running and reloading it                                                                                  | `deploy.sh`                                                                                                                                                                                                                                                                        |
 | I10  | Scripts use LF line endings and carry the git executable bit                                                                                                                  | `selfcheck.sh` (its LF and executable-bit checks)                                                                                                                                                                                                                                  |
-| I11  | The three API keys are 64 printable ASCII characters and match on both sides                                                                                                  | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: InternalAPIKey`; the class is what `secrets.compare_digest` accepts, and what makes the two length counts agree                                                                         |
-| I12  | Publishing stops on a commit no remote holds — any remote branch clears the bar, not only an ancestor of `main`                                                               | `publish.sh`, whose preflight requires HEAD to be an ancestor of a branch tip a remote answered for, `--dry-run` included (§1.5)                                                                                                                                                   |
-| I13  | Exactly one backend endpoint is reachable from the edge — `= /api/v0/system/is_live`, exact-match so nothing joins it, restating the whole `proxy_set_header` set (§1.3)      | partly — `scripts/checks/check_nginx_mirror.py` holds the two files' `location` sets equal (§1.6); `nginx -t` reads no location and no test requests a backend path                                                                                                                |
-| I14  | Every `limit_req` zone is PAIRED, one narrow key and one wide, the wide at a multiple of the narrow's rate and burst (§1.3)                                                   | `nginx/prod.conf`'s paired zones, each declared inside every limited location (§1.3); unenforced by the gate                                                                                                                                                                       |
+| I11  | The three API keys are 64 printable ASCII characters and match on both sides                                                                                                  | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: InternalAPIKey`; the class is what `secrets.compare_digest` accepts                                                                                                                     |
+| I13  | Exactly one backend endpoint is reachable from the edge — `= /api/v0/system/is_live`, exact-match so nothing joins it, restating the whole `proxy_set_header` set (§1.3)      | partly — both stacks serve `nginx/shared/site.conf`'s one location set; `nginx -t` reads no location and no test requests a backend path                                                                                                                                           |
+| I14  | Every `limit_req` zone is PAIRED, one narrow key and one wide, the wide at a multiple of the narrow's rate and burst (§1.3)                                                   | `nginx/shared/http.conf`'s paired zones, each declared inside every limited location (§1.3); unenforced by the gate                                                                                                                                                                |
 | I15  | Every platform-conditional branch `scripts/checks/docs_gate/platform.py` reaches is a named module constant or an allowlist row carrying its reason (§1.6, PLAT-1 to PLAT-4)  | gate check `platform-branch`, over `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`; the effect a branch selects is proven by the `verify` workflow's Linux run alone                                                                                                      |
 | I16  | No Python in `scripts/checks/docs_gate/platform.py :: PYTHON_SCOPES` opens a text-mode writer without `newline=""`, so nothing it writes carries CRLF to a Linux shell (§1.6) | gate check `crlf-write`, over `scripts/checks/docs_gate/platform.py :: TEXT_WRITE_ALLOW`; a shell redirect of a program's stdout carries no call to read and stays the reader's                                                                                                    |
-| I17  | No `verify` job spans longer than its budget in `.github/gate-wall-clock.tsv`, no job runs without a row, and no figure rises unmeasured (§1.6)                               | `scripts/checks/check_gate_budget.py`, `--jobs` in the aggregate `verify` job and `--base` in `commits`; `scripts/tests/test_check_gate_budget.py` drives the committed table red and green (§1.6)                                                                                 |
-| I18  | A rate-limit key is the visitor's own network, never the tunnel connector's address, and no prefix splits across two keys (§1.3)                                              | `nginx/prod.conf :: map $remote_addr $client_net`, `:: map $remote_addr $client_net48`, `:: set_real_ip_from` and `:: real_ip_header`; unenforced by the gate, on §1.3's one-off measurement alone                                                                                 |
-| I133 | The catch-all makes a Next route handler reachable the moment it exists, its OWN authorization the only guard in front of it (§1.3)                                           | unenforced — `nginx/prod.conf :: location /` is a prefix matching everything, and nothing sweeps a new route handler for its guard                                                                                                                                                 |
-| I134 | FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by the app but reachable from no edge route, so nothing off this host meets them (I13)                             | unenforced — `fl_backend/app/main.py :: create_app` sets no `docs_url`, `nginx/prod.conf` names no `/docs` location, and nothing checks either                                                                                                                                     |
-| I149 | One `frontend` service per compose file and no replica count is what lets the retention sweep hold one timer per process with no lease                                        | unenforced — `docker-compose.yml` and `docker-compose.local.yml` each declare the service once, and nothing refuses a second or a `deploy.replicas`                                                                                                                                |
-| I174 | Production declares no database service; the managed cluster is the one store, and `mongo` in `docker-compose.local.yml` is a declared delta                                  | `scripts/lib/checker_kernel.py :: uncovered` over `scripts/checks/check_compose_mirror.py :: DECLARED_DELTAS`, where production declares a database and the `services.mongo` delta covers nothing; `:: declaring`, for an unpinned difference                                      |
-| I176 | Every refusal-register row is spelled in the tree its area names, and every code a tree spells under its own prefixes has a row (§1.6)                                        | gate check `error-codes`, over `scripts/checks/docs_gate/error_codes.py :: CODE_RE`; `fl_backend/tests/core/test_domain.py` holds the codes raised under `app/api/` to `domain.py :: RULES`, the protocol codes excused by name                                                    |
+| I17  | No `verify` job spans longer than its budget in `.github/gate-wall-clock.tsv`, no job runs without a row, and no figure rises unmeasured (§1.6)                               | `scripts/checks/check_gate_budget.py`, `--jobs` in the aggregate `verify` job and `--base` in a pull request's `docs` job; `scripts/tests/test_check_gate_budget.py` drives the committed table red and green (§1.6)                                                               |
+| I18  | A rate-limit key is the visitor's own network, never the tunnel connector's address, and no prefix splits across two keys (§1.3)                                              | `nginx/shared/http.conf :: map $remote_addr $client_net` and `:: map $remote_addr $client_net48`, `nginx/prod/prod.conf :: set_real_ip_from` and `:: real_ip_header`; trust held by `scripts/checks/check_compose_model.py :: trusted_connector`, keys unenforced                  |
+| I133 | The catch-all makes a Next route handler reachable the moment it exists, its OWN authorization the only guard in front of it (§1.3)                                           | unenforced — `nginx/shared/site.conf :: location /` is a prefix matching everything, and nothing sweeps a new route handler for its guard                                                                                                                                          |
+| I134 | FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by the app but reachable from no edge route, so nothing off this host meets them (I13)                             | unenforced — `fl_backend/app/main.py :: create_app` sets no `docs_url`, `nginx/shared/site.conf` names no `/docs` location, and nothing checks either                                                                                                                              |
+| I149 | One `frontend` service, declared once, and no replica count is what lets the retention sweep hold one timer per process with no lease                                         | unenforced — `docker-compose.yml` declares the service and the local file merges into it; nothing refuses a second or a `deploy.replicas`                                                                                                                                          |
+| I174 | Production declares no database service; the managed cluster is the one store, and `mongo` is declared in `docker-compose.local.yml` alone                                    | `scripts/checks/check_compose_model.py :: PRODUCTION_SERVICES`, over the model `docker compose config` renders                                                                                                                                                                     |
+| I176 | Every refusal-register row is spelled in its area's tree, and every code a tree spells has a row unless `RULES` declares it (§1.6)                                            | gate check `error-codes`, over `scripts/checks/docs_gate/error_codes.py :: CODE_RE`; `fl_backend/tests/core/test_domain.py` holds the codes raised under `app/api/` to `domain.py :: RULES`, the protocol codes excused by name                                                    |
 | I177 | A Cloudflare challenge may meet a top-level navigation and never a server action's POST or an `/api/*` route, which cannot render an interstitial (§1.3)                      | unenforced — nothing in this repository can read a Cloudflare rule                                                                                                                                                                                                                 |
 | I178 | `deploy.sh` reads `secrets/tunnel_token` for existence alone, and `fl_frontend/.env` for its names besides; a value either holds is refused at boot or not at all             | `scripts/lib/_lib.sh :: require_file`, which tests existence alone; the frontend's values are `fl_frontend/src/core/config.ts :: frontend_config`'s                                                                                                                                |
 | I179 | A startup refusal names the failing variables, or a failure type where no variable was judged, and never a value                                                              | `fl_backend/app/core/config.py :: get_config` and `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment`; `fl_backend/tests/core/test_config.py :: TestTheNamesOnlyErrorPath`, `:: TestTheStartupPing` and `fl_frontend/src/core/config.test.ts` assert no value appears     |
 | I181 | The pulled backend image reads `fl_backend/.env` in preflight, refusing at exit 2 any name or value `get_config` rejects, a missing required one included                     | `scripts/ops/deploy.sh :: check_env_names`, whose refusal and advisory arms `scripts/tests/test_deploy_streams.py` drives, the snippet run for real                                                                                                                                |
 | I182 | Every file under `fl_frontend/src/app/` answering a URL is accounted for: a handler against the edge's locations, a metadata convention against its recorded decision         | `scripts/checks/check_public_routes.py :: METADATA` and `:: METADATA_IMAGES`, driven red in `scripts/tests/test_check_public_routes.py`; a reserved name it cannot place refuses                                                                                                   |
 | I183 | The pulled frontend image reads `fl_frontend/.env` in preflight, refusing at exit 2 an undeclared name or a missing required one; values stay the boot gate's                 | `scripts/ops/deploy.sh :: check_frontend_env_names` over the key sets `fl_frontend/emit-environment-names.mjs` writes into the image; driven by `scripts/tests/test_deploy_env_names.py`, `fl_frontend/check-environment-names.test.mjs` and `fl_frontend/src/core/config.test.ts` |
-| I187 | Every domain rule's row in the refusal register cites the frontend module answering its code (§1.6)                                                                           | gate check `error-codes`, whose population is `fl_backend/app/core/domain.py :: RULES`; `scripts/tests/test_check_docs.py :: _plant_error_codes` drives each way a cell can miss                                                                                                   |
-| I202 | A named cross-package read is carried into the far package's scope by an arm, and no arm outlives the read that earned it (§1.6)                                              | `scripts/tests/test_scope_decisions.py`, which derives both populations and probes `scripts/gate/scope_map.sh` rather than parsing it; a suite walking the far tree is declared in that module's `UNNAMEABLE`                                                                      |
-| I342 | A file the frontend's db tier imports directly, or `test:db` loads ahead of it, selects the db scope (§1.6)                                                                   | `scripts/tests/test_scope_decisions.py :: test_every_file_the_frontend_db_tier_loads_directly_selects_the_db_scope`, which derives the set from the db-tier files and `fl_frontend/package.json`                                                                                   |
-| I352 | Nothing the edge writes to its container's stdout or stderr names a visitor; every line that does lands in a host file `docs/ops/runbooks.md` §7 rotates                      | `nginx/redaction_test.sh`, serving `nginx/local.conf`, whose logging directives `scripts/checks/check_nginx_mirror.py` holds equal to `nginx/prod.conf`'s                                                                                                                          |
+| I352 | Nothing the edge writes to its container's stdout or stderr names a visitor; every line that does lands in a host file `docs/ops/runbooks.md` §7 rotates                      | `nginx/edge_test.sh`, serving `nginx/local/local.conf`, whose logging directives are `nginx/shared/http.conf`'s, which `nginx/prod/prod.conf` includes too                                                                                                                         |
+| I353 | A published build is `main`'s tip, and every job that ran in its own push run of `verify` passed, the wall-clock budget step alone excepted                                   | `scripts/checks/check_publish_verdict.py`, which `.github/workflows/publish.yml` runs before building, after its ref check; `scripts/tests/test_check_publish_verdict.py` drives every refusal and holds the budget and advisory step names to `.github/workflows/verify.yml`      |
+| I354 | The commit hook commits no file's unstaged half, writes no partly staged file's working copy, and never stashes, hides or resets the working tree (§1.6)                      | `scripts/tests/test_pre_commit_format.py`                                                                                                                                                                                                                                          |
+| I355 | nginx loads its configuration through directory mounts, and a deploy or `--status` finding it holding anything but this checkout's files ends in a finding (§1.2)             | `scripts/ops/deploy.sh :: edge_reads_checkout`, over nginx's own dump, after every reload and in `--status`; `scripts/checks/check_compose_model.py :: edge_mounts` holds both stacks' mounts                                                                                      |
+| I365 | A pushed image has passed the images scope's three assertions, and `:latest` moves only onto one whose layers and user match the checked image                                | `.github/workflows/publish.yml`'s check step, calling the images scope's assertions in `scripts/lib/_lib.sh`, and its comparison step; `scripts/tests/test_image_assertions.py` runs both steps' own text                                                                          |
+| I367 | Every base, stack, script-run and test-tier image this repository does not build is pinned by tag and digest, the frontend db tier's `mongo` alone excepted                   | `scripts/tests/test_image_pins.py`, over both Dockerfiles, both compose files, `scripts/gate/selfcheck.sh`, `scripts/ops/local.sh` and `fl_backend/tests/conftest.py`, and holding the frontend db tier's tag to the backend's                                                     |
 
 ## 3. Violation → remedy
 
-| Symptom                                                                           | Cause                                                                                                                                           | Remedy                                                                                                                                                                                                               |
-| --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `not a directory` from nginx                                                      | A mounted config file was missing, so Docker created a directory                                                                                | `git pull`, remove the stray directory                                                                                                                                                                               |
-| `Invalid environment variables: <NAMES>` then no traffic                          | Startup environment gate                                                                                                                        | Fix those names in the relevant `.env`                                                                                                                                                                               |
-| `The environment could not be read: <TYPE>` then no traffic                       | The backend's settings reader failed before any variable was judged — a `.env` file it cannot decode is the reachable case                      | Read `fl_backend/.env` as utf-8; no variable is named because none was reached (I179)                                                                                                                                |
-| Deploy reports healthy but the site is unreachable                                | nginx, or the connector in front of it (§1.1)                                                                                                   | prod: `docker compose logs nginx` for startup, `/var/log/frankfurtleague/nginx/error.log` for requests, then `docker compose logs cloudflared`                                                                       |
-| `up` refuses the connector's static address on the tunnel's first deploy          | The network predates the declared subnet and carries no recorded configuration, so `up` reuses it as it stands                                  | `docker compose down` first, then the deploy ([`runbooks.md`](runbooks.md) §8)                                                                                                                                       |
-| No tunnel registers, or the connector restarts in a loop                          | The token file is missing, unreadable by the connector's uid 65532, or not this tunnel's, or the release rejects the run arguments              | `docker compose logs cloudflared`. Preflight refuses a missing `./secrets/tunnel_token` by name, so a loop means its owner and mode, the value or the arguments (§1.2)                                               |
-| The tunnel is up and Cloudflare answers 502 or 1033                               | The dashboard routes a hostname to nothing, or its `Origin Server Name` names something other than the mounted certificate (§1.8)               | `docker compose logs cloudflared` names the origin it dialled. Both settings are dashboard state, so nothing here can be edited to fix it                                                                            |
-| `failed to connect to the docker API at npipe:...`                                | Docker Desktop is not running                                                                                                                   | Start it and wait for it to settle                                                                                                                                                                                   |
-| Deploy stops in preflight naming the Docker Engine version                        | The host's engine is below what the compose files' `start_interval` needs                                                                       | Nothing was stopped or pulled. Upgrade the engine, or drop `start_interval` from both compose files (§1.5)                                                                                                           |
-| Deploy refuses in preflight saying compose could not read its configuration       | The compose file or an environment file will not parse — an unterminated quote is the reachable case                                            | Nothing was pulled or recreated. Read the message by hand: `docker compose -f docker-compose.yml config --quiet`, whose output can carry a value (§1.5)                                                              |
-| `./scripts/ops/deploy.sh --status` exits 1 naming two different builds            | A publish moved one package's `:latest` and failed on the other, so this host pulled a pair no build names                                      | Deploy the build both packages have: `./scripts/ops/deploy.sh <tag>`, the tag the report names                                                                                                                       |
-| `./scripts/ops/deploy.sh --status` exits 1 over a pair it has just called healthy | The edge is not serving them — nginx resolved its upstreams as it loaded, and nothing has re-resolved them since those containers were replaced | Reload the edge, then re-run `--status`; the report's own detail line names the command (`scripts/ops/deploy.sh :: serve_through_nginx`)                                                                             |
-| `./scripts/ops/publish.sh` refuses, naming a remote it could not ask              | The remote did not answer `git ls-remote --heads`, so nothing establishes that this commit is fetchable                                         | Nothing was built or pushed. Restore the network or the credentials and re-run (I12)                                                                                                                                 |
-| `EBUSY`, or `.next` locked during a build                                         | A `pnpm dev` is still running, or the folder is open in an editor                                                                               | Stop the dev server; nothing else may hold port 3000 while the local stack runs                                                                                                                                      |
-| `./scripts/ops/local.sh` reports `mongo` unhealthy                                | The local database has not elected itself primary, so no transaction opens and no validator applies                                             | Read the log excerpt the script prints under `mongo`'s health step; it waits on `mongo` by name, so this reports as itself                                                                                           |
-| `./scripts/ops/local.sh --seed` dies during the copy from production              | The production tier throttles past its operations-per-second cap, and anything else querying the cluster shares that budget                     | Nothing was written to the local database. Re-run with nothing else talking to production; the dump already takes one collection at a time (§1.5)                                                                    |
-| The local stack's data disagrees with production, in either direction             | Working as intended — `--seed` reuses the copy already on disk however old it is                                                                | `./scripts/ops/local.sh --refresh-db` takes a fresh one (§1.5)                                                                                                                                                       |
-| A db-tier run reports a wall of failures naming validators and unique indexes     | A second `pytest -m db` ran beside it, bare rather than through the gate, whose db step refuses one                                             | Trust neither verdict, the green one included. Re-run with nothing else on the tier; a db-tier figure needs an idle machine (§1.6)                                                                                   |
-| Container unhealthy, health log empty, `FailingStreak: 0`                         | The app died before the first probe                                                                                                             | Usually a malformed `.env` value restored by hand. Read `docker compose logs <service>` on the server                                                                                                                |
-| A directory appeared named `something;C`                                          | MSYS rewrote a POSIX-looking path in a hand-typed `docker run -v`                                                                               | Delete it, and prefix the command with `MSYS_NO_PATHCONV=1`                                                                                                                                                          |
-| `UnicodeEncodeError: 'charmap' codec` from `fastapi dev`                          | Windows only, when the output is piped or redirected                                                                                            | The CLI banner needs UTF-8. Prefix the command with `PYTHONUTF8=1`                                                                                                                                                   |
-| Static assets served without security headers                                     | A `location` block set a header and dropped the inherited set                                                                                   | I2 — repeat every header in that block                                                                                                                                                                               |
-| Backend healthcheck fails after an API version bump                               | The healthcheck spells the API version itself                                                                                                   | Move the path in both compose files, and in both nginx configs with them (§4)                                                                                                                                        |
-| The uptime monitor 404s while the backend container reports healthy               | The nginx liveness location still spells the old version, so the probe matches `location /` and Next answers it                                 | Move the path in both nginx configs, then re-point the monitor at the apex host with no trailing slash (§4)                                                                                                          |
-| Sign-in returns 429                                                               | Working as intended — the sign-in POST is rate-limited at the edge                                                                              | Nothing. The limit is `nginx/prod.conf`'s `signin` zone, and it applies to POST alone (I4)                                                                                                                           |
-| Uptime monitor shows green during a backend outage                                | The error page streams after headers, so the edge status is 200                                                                                 | Monitor `GET https://frankfurtleague.de/api/v0/system/is_live` at the apex host: a trailing slash redirects and reads green, a `HEAD` is answered 405 (`fl_backend/app/api/system/router.py :: check_is_live`, §1.3) |
-| Application container logs are empty right after a deploy                         | Working as intended — `json-file` logs live in the container, and the deploy replaces both application containers; nginx keeps its own          | Nothing. The deploy copied them to `/var/log/frankfurtleague/` first (`scripts/ops/deploy.sh :: LOG_DIR`)                                                                                                            |
-| Reference data stale for up to a day                                              | Working as intended — an out-of-band MongoDB edit invalidates nothing                                                                           | Nothing. The bound is the cache lifetime: wait for the daily expiry, or recreate the frontend container                                                                                                              |
-| League table or fixtures stale after a season edit                                | Same cause — a season decides the default season and the points                                                                                 | Same remedy, and the backend's own season cache expires separately ([`docs/backend/spec.md`](../backend/spec.md) I131); recreation drops every cached page at once                                                   |
-| The `verify` check is red naming a job, its seconds and a budget                  | The job spanned longer than its ceiling in `.github/gate-wall-clock.tsv` — a cost the change added, or a slow runner (§1.6)                     | Re-run first, then take the cost out rather than raise the figure; a right raise stamps the row with its measuring runs (§1.6)                                                                                       |
-| The `commits` job is red naming a row that rose on an unchanged stamp             | A budget or a reference in `.github/gate-wall-clock.tsv` was raised by editing the number alone (§1.6)                                          | Measure on CI's own runs, never a development machine, and write the count and the newest run's day into the row's `measured` column (§1.6)                                                                          |
+| Symptom                                                                                           | Cause                                                                                                                                           | Remedy                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Invalid environment variables: <NAMES>` then no traffic                                          | Startup environment gate                                                                                                                        | Fix those names in the relevant `.env`                                                                                                                                                                               |
+| `The environment could not be read: <TYPE>` then no traffic                                       | The backend's settings reader failed before any variable was judged — a `.env` file it cannot decode is the reachable case                      | Read `fl_backend/.env` as utf-8; no variable is named because none was reached (I179)                                                                                                                                |
+| Deploy reports healthy but the site is unreachable                                                | nginx, or the connector in front of it (§1.1)                                                                                                   | prod: `docker compose logs nginx` for startup, `/var/log/frankfurtleague/nginx/error.log` for requests, then `docker compose logs cloudflared`                                                                       |
+| No tunnel registers, or the connector restarts in a loop                                          | The token file is missing, unreadable by the connector's uid 65532, or not this tunnel's, or the release rejects the run arguments              | `docker compose logs cloudflared`. Preflight refuses a missing `./secrets/tunnel_token` by name, so a loop means its owner and mode, the value or the arguments (§1.2)                                               |
+| An `up` fails: `Pool overlaps with other one on this address space`                               | Another Docker network on this host holds `172.30.0.0/24`, which `docker-compose.yml` declares so the connector's address is fixed (I18)        | Find it with `docker network inspect`, then remove or re-subnet it; moving this stack's subnet moves the connector's address (I18)                                                                                   |
+| The tunnel is up and Cloudflare answers 502 or 1033                                               | The dashboard routes a hostname to nothing, or its `Origin Server Name` names something other than the mounted certificate (§1.8)               | `docker compose logs cloudflared` names the origin it dialled. Both settings are dashboard state, so nothing here can be edited to fix it                                                                            |
+| `failed to connect to the docker API at npipe:...`                                                | Docker Desktop is not running                                                                                                                   | Start it and wait for it to settle                                                                                                                                                                                   |
+| Deploy stops in preflight naming the Docker Engine version                                        | The host's engine is below what the compose files' `start_interval` needs                                                                       | Nothing was stopped or pulled. Upgrade the engine, or drop `start_interval` from both compose files (§1.5)                                                                                                           |
+| Deploy refuses in preflight saying compose could not read its configuration                       | The compose file or an environment file will not parse — an unterminated quote is the reachable case                                            | Nothing was pulled or recreated. Read the message by hand: `docker compose -f docker-compose.yml config --quiet`, whose output can carry a value (§1.5)                                                              |
+| `./scripts/ops/deploy.sh --status` exits 1 naming two different builds                            | A publish moved one package's `:latest` and failed on the other, so this host pulled a pair no build names                                      | Deploy the build both packages have: `./scripts/ops/deploy.sh <tag>`, the tag the report names                                                                                                                       |
+| A bare `./scripts/ops/deploy.sh` refuses: a pulled `:latest` image carries no published-tag label | An image `publish.yml` did not build holds `:latest`                                                                                            | Nothing was recreated. Publish a build, or deploy one by tag: `./scripts/ops/deploy.sh <tag>` (I7)                                                                                                                   |
+| `./scripts/ops/deploy.sh --status` exits 1 over a pair it has just called healthy                 | The edge is not serving them — nginx resolved its upstreams as it loaded, and nothing has re-resolved them since those containers were replaced | Reload the edge, then re-run `--status`; the report's own detail line names the command (`scripts/ops/deploy.sh :: serve_through_nginx`)                                                                             |
+| A deploy or `--status` fails: nginx holds a configuration not this checkout's                     | It was not reloaded after a pull, mounts something other than `nginx/prod` and `nginx/shared`, or keeps a file mount's replaced file            | `docker compose -f docker-compose.yml up -d --force-recreate nginx`, then `./scripts/ops/deploy.sh --status` (I355)                                                                                                  |
+| After a recreate, nginx restarts in a loop and the deploy refuses, the edge unanswered            | Its image predates the Control API, so it refuses the `-l` switch its command passes (§1.2)                                                     | `docker compose -f docker-compose.yml logs nginx`: `invalid option: "l"` there means a release older than 1.31.5. Pin one that has the API, then deploy                                                              |
+| A deploy fails: nginx refused the reloaded configuration                                          | Applying it failed, so the master rolled it back and kept serving the configuration it had                                                      | The run prints nginx's own lines; fix what they name, then recreate nginx as above                                                                                                                                   |
+| `publish.yml` fails at the push with `denied` or `permission_denied`                              | The package does not grant this repository's workflows write access                                                                             | Package settings → Manage Actions access → add this repository with the Write role, then re-run the job (§1.5)                                                                                                       |
+| `publish.yml` refuses: `verify has no push run on main`                                           | The run has not appeared yet, or never will: a skip instruction in the merge's message starts none, and `verify` has no manual trigger          | Nothing was built. Dispatch again once the run has finished; where none will come, publish the next commit to reach `main` (I353)                                                                                    |
+| `publish.yml` refuses: `verify on main ... did not pass`, naming each run                         | A job or step other than the budget failed in that run, or the run is unfinished or cancelled                                                   | Nothing was built. Fix what the named job reports, or re-run `verify` or let it finish; then dispatch again (I353)                                                                                                   |
+| `publish.yml` refuses: `... is not main's tip`                                                    | `main` moved after the dispatch, or an old publish run was re-run                                                                               | Nothing was built. Dispatch again: `gh workflow run publish.yml --ref main` (I353)                                                                                                                                   |
+| `publish.yml` refuses: `main's tip could not be read`                                             | The API request for `main`'s ref failed, so nothing judged the commit                                                                           | Nothing was built. Dispatch again once the API answers (I353)                                                                                                                                                        |
+| `EBUSY`, or `.next` locked during a build                                                         | A `pnpm dev` is still running, or the folder is open in an editor                                                                               | Stop the dev server; nothing else may hold port 3000 while the local stack runs                                                                                                                                      |
+| `./scripts/ops/local.sh` reports `mongo` unhealthy                                                | The local database has not elected itself primary, so no transaction opens and no validator applies                                             | Read the log excerpt the script prints under `mongo`'s health step; it waits on `mongo` by name, so this reports as itself                                                                                           |
+| `./scripts/ops/local.sh --seed` dies during the copy from production                              | The production tier throttles past its operations-per-second cap, and anything else querying the cluster shares that budget                     | Nothing was written to the local database. Re-run with nothing else talking to production; the dump already takes one collection at a time (§1.5)                                                                    |
+| The local stack's data disagrees with production, in either direction                             | Working as intended — `--seed` reuses the copy already on disk however old it is                                                                | `./scripts/ops/local.sh --refresh-db` takes a fresh one (§1.5)                                                                                                                                                       |
+| A db-tier run reports a wall of failures naming validators and unique indexes                     | A second `pytest -m db` ran beside it, bare rather than through the gate, whose db step refuses one                                             | Trust neither verdict, the green one included. Re-run with nothing else on the tier; a db-tier figure needs an idle machine (§1.6)                                                                                   |
+| Container unhealthy, health log empty, `FailingStreak: 0`                                         | The app died before the first probe                                                                                                             | Usually a malformed `.env` value restored by hand. Read `docker compose logs <service>` on the server                                                                                                                |
+| A directory appeared named `something;C`                                                          | MSYS rewrote a POSIX-looking path in a hand-typed `docker run -v`                                                                               | Delete it, and prefix the command with `MSYS_NO_PATHCONV=1`                                                                                                                                                          |
+| `UnicodeEncodeError: 'charmap' codec` from `fastapi dev`                                          | Windows only, when the output is piped or redirected                                                                                            | The CLI banner needs UTF-8. Prefix the command with `PYTHONUTF8=1`                                                                                                                                                   |
+| Static assets served without security headers                                                     | A `location` block set a header and dropped the inherited set                                                                                   | I2 — include `nginx/shared/security_headers.conf` in that block                                                                                                                                                      |
+| Backend healthcheck fails after an API version bump                                               | The healthcheck spells the API version itself                                                                                                   | Move the path in `docker-compose.yml`'s backend healthcheck, and in `nginx/shared/site.conf`'s liveness location with it (§4)                                                                                        |
+| The uptime monitor 404s while the backend container reports healthy                               | The nginx liveness location still spells the old version, so the probe matches `location /` and Next answers it                                 | Move the path in `nginx/shared/site.conf`'s liveness location, then re-point the monitor at the apex host with no trailing slash (§4)                                                                                |
+| Sign-in returns 429                                                                               | Working as intended — the sign-in POST is rate-limited at the edge                                                                              | Nothing. The limit is `nginx/shared/http.conf`'s `signin` zone, and it applies to POST alone (I4)                                                                                                                    |
+| Uptime monitor shows green during a backend outage                                                | The error page streams after headers, so the edge status is 200                                                                                 | Monitor `GET https://frankfurtleague.de/api/v0/system/is_live` at the apex host: a trailing slash redirects and reads green, a `HEAD` is answered 405 (`fl_backend/app/api/system/router.py :: check_is_live`, §1.3) |
+| Application container logs are empty right after a deploy                                         | Working as intended — `json-file` logs live in the container, and the deploy replaces both application containers; nginx keeps its own          | Nothing. The deploy copied them to `/var/log/frankfurtleague/` first (`scripts/ops/deploy.sh :: LOG_DIR`)                                                                                                            |
+| Reference data stale for up to a day                                                              | Working as intended — an out-of-band MongoDB edit invalidates nothing                                                                           | Nothing. The bound is the cache lifetime: wait for the daily expiry, or recreate the frontend container                                                                                                              |
+| League table or fixtures stale after a season edit                                                | Same cause — a season decides the default season and the points                                                                                 | Same remedy, and the backend's own season cache expires separately ([`docs/backend/spec.md`](../backend/spec.md) I131); recreation drops every cached page at once                                                   |
+| The `verify` check is red naming a job, its seconds and a budget                                  | The job spanned longer than its ceiling in `.github/gate-wall-clock.tsv` — a cost the change added, or a slow runner (§1.6)                     | Re-run all jobs, not the failed ones alone, then take the cost out rather than raise it; a right raise stamps its measuring runs (§1.6)                                                                              |
+| The `docs` job is red naming a row that rose on an unchanged stamp                                | A budget or a reference in `.github/gate-wall-clock.tsv` was raised by editing the number alone (§1.6)                                          | Measure on CI's own runs, never a development machine, and write the count and the newest run's day into the row's `measured` column (§1.6)                                                                          |
 
 ## 4. Known-open
 
 | Item                                                              | State                                                                                                                                                                                              |
 | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The API version is spelled in tracked files outside the code      | Open — the backend healthcheck in each compose file, the liveness location in each nginx config, and `scripts/ops/deploy.sh :: PROBE_URL`; §3 carries each symptom                                 |
+| The API version is spelled in tracked files outside the code      | Open — `docker-compose.yml`'s backend healthcheck, `nginx/shared/site.conf`'s liveness location, `nginx/edge_test.sh` and `scripts/ops/deploy.sh :: PROBE_URL`; §3 carries two symptoms            |
 | The frontend's `API_VERSION` is deployed rather than committed    | Open — `fl_frontend/src/core/config.ts :: frontend_config` reads a per-environment value no commit carries, so a stale one sends every fetch to `location /` (I13)                                 |
 | A rollback moves nothing in the registry                          | Accepted — `scripts/ops/deploy.sh :: roll_back` re-tags this host's local `:latest` and reaches no registry, so a re-deploy pulls the failed build back ([`runbooks.md`](runbooks.md) §1)          |
 | Registry tag pruning is manual                                    | Accepted — a botched delete destroys rollback history. The retention procedure is in §1.5                                                                                                          |

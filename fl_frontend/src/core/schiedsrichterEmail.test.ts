@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { redactedParameterNames } from "./edgeRedaction.ts";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
+
+/** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
+const ORIGIN = "http://localhost:3000";
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -19,9 +20,6 @@ registerHooks({
 const { buildSchiedsrichterBestaetigungEmail, schiedsrichterBestaetigungsLink, SCHIEDSRICHTER_BESTAETIGUNG_PATH } =
   await import("./schiedsrichterEmail.ts");
 const { KONTAKT_EMAIL } = await import("./brand.ts");
-
-/** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
-const ORIGIN = "http://localhost:3000";
 
 const TOKEN = "abc123";
 const FRIST = "05.10.2026";
@@ -52,13 +50,6 @@ const flat = (text: string): string => text.replace(/\s+/g, " ").trim();
 
 const daten = { origin: ORIGIN, vorname: "Anna", token: TOKEN, fristText: FRIST };
 
-/* Every module that mints this link, read as source: which variable a call site hands the builder is
-   nothing a render shows. One entry today; the sweep is what a second minter has to satisfy. */
-const MINTER = ["../features/schiedsrichter/notifications.ts"].map((relativ) => ({
-  name: relativ,
-  source: readFileSync(path.resolve(import.meta.dirname, relativ), "utf8"),
-}));
-
 describe("the link this message spells", () => {
   it("puts the token on the origin it was handed, under the referee's confirmation path", () => {
     assert.equal(schiedsrichterBestaetigungsLink(ORIGIN, TOKEN), `${ORIGIN}${SCHIEDSRICHTER_BESTAETIGUNG_PATH}?token=${TOKEN}`);
@@ -72,17 +63,6 @@ describe("the link this message spells", () => {
 
     assert.ok(redacted.length > 0, "the edge's map was read as replacing no parameter at all, so this case compares nothing");
     assert.ok(redacted.includes(name), `the link is spelled \`${name}=\`, which the edge does not redact`);
-  });
-
-  /* A link built on the published origin sends a reader of the local stack into production, and the
-     two origins are separate settings for the reason `docs/frontend/spec.md :: I186` gives. */
-  it("is minted on the configured origin by every module that mints one, and on the published one by none", () => {
-    for (const { name, source } of MINTER) {
-      assert.match(source, /origin: frontend_config\.AUTH_URL/, `${name} hands the builder something other than the configured origin`);
-      // The import rather than the identifier: a comment naming the published origin to refuse it is
-      // not a use of it.
-      assert.doesNotMatch(source, /^import \{[^}]*\bSITE_URL\b/m, `${name} imports the published origin`);
-    }
   });
 
   /* The origin is normalised INSIDE the builder, which is what puts a trailing slash on
@@ -133,6 +113,11 @@ describe("the referee's confirmation message", () => {
       assert.match(words, /erscheint Dein Name nirgends auf der Website/);
       assert.ok(words.includes(KONTAKT_EMAIL), "the escape route names no address");
     }
+    assert.match(
+      mail.html,
+      /schreib uns an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a>\.<\/p>/,
+      "the card's escape route is an address to copy, not a link",
+    );
   });
 
   /* A referee's first contact, and Art. 21(4) DSGVO asks the objection to reach them there apart from

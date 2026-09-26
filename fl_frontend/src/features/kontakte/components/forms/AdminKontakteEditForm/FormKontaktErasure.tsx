@@ -3,20 +3,20 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { TrashBin } from "@gravity-ui/icons";
+import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { eraseKontaktpersonAction, readKontaktErasureAnsichtAction } from "@/features/kontakte/actions";
 import { settledErasureAnsicht } from "@/features/kontakte/utils";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { skeletonBlock } from "@/shared/components/ui/skeleton";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
-import { guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 
-import { DRAFT_IN_THE_WAY } from "./banners";
 import { FormKontaktReveal } from "./FormKontaktReveal";
 
 import type { ErasureAnsicht } from "@/features/kontakte/types";
@@ -37,7 +37,7 @@ function ErasureAnsichtBody({ ansicht }: { ansicht: ErasureAnsicht | null }) {
   }
 
   if (ansicht?.status === "refused") {
-    return <p className="fluid-xxs text-foreground leading-normal font-medium">{ohneUebersicht(ansicht.reason)}</p>;
+    return <p className="fluid-xxs leading-normal font-medium text-foreground">{ohneUebersicht(ansicht.reason)}</p>;
   }
 
   // The app's one „not yet here“ treatment rather than a sentence the names then replace: what
@@ -60,8 +60,9 @@ function ErasureAnsichtBody({ ansicht }: { ansicht: ErasureAnsicht | null }) {
  * and both collections. Confirmed in place, so the reader sees whose data it is.
  */
 export function FormKontaktErasure({ email, fullName, isDirty }: { email: string; fullName: string; isDirty: boolean }) {
+  const twoPress = useTwoPressConfirm();
   const router = useRouter();
-  const { isConfirming, isPending, press, cancel } = useTwoPressConfirm();
+  const { isConfirming, isPending, press } = twoPress;
   const [gelesen, setGelesen] = useState<ErasureAnsicht | null>(null);
 
   const ansicht = gelesen?.email === email ? gelesen : null;
@@ -78,14 +79,15 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
   };
 
   const handleErase = () => {
-    if (!guardAgainstDraft(isDirty, DRAFT_IN_THE_WAY)) return;
+    if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
 
     // On the arming press and on no other: this read serves contact records, so it is made when
     // somebody asks whom the address holds rather than on every render of the panel.
     if (!isConfirming) void readAnsicht();
 
     press(async () => {
-      const res = await eraseKontaktpersonAction({ email });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await eraseKontaktpersonAction({ email }).catch(rejectedWrite(router));
 
       if (!res.success) {
         appToast.failure("Kontaktperson nicht gelöscht", res);
@@ -96,10 +98,6 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
          reporting that as „gelöscht“ would be a lie of the quiet kind. */
       if (res.cleared === 0) appToast.warning("Nichts gefunden", { description: res.message });
       else appToast.success("Kontaktperson gelöscht", { description: res.message });
-
-      // Stays on the page: the erasure nulls the SLOT, never the block, so this row survives with the
-      // other two seats standing. A refresh is what shows the seat empty.
-      router.refresh();
     });
   };
 
@@ -116,8 +114,8 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
   // The seat's own sub-block rule, as the Kenntnisnahme block above it uses: one divider treatment per
   // depth. The destructive grading is the confirm reveal's and the button's, both recipes.
   return (
-    <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
-      <h4 className={FORM_SECTION_HEADING}>Kontaktperson löschen</h4>
+    <div className="flex w-full flex-col gap-y-4 border-t border-border/60 pt-4">
+      <h4 className={FORM_SECTION_HEADING_CLASSES}>Kontaktperson löschen</h4>
 
       <p className="muted-hint">
         Löscht <strong>{fullName}</strong> überall, nicht nur hier. Für eine Person, die vergessen werden möchte.
@@ -129,13 +127,9 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
         </ConfirmReveal>
       )}
 
-      <ConfirmActionRow
-        isConfirming={isConfirming}
-        isPending={isPending}
-        onCancel={cancel}>
+      <ConfirmActionRow confirm={twoPress}>
         <ConfirmPressButton
-          isConfirming={isConfirming}
-          isPending={isPending}
+          confirm={twoPress}
           // The arming read holds the press without being the write: the press left the keyboard's
           // focus here, and the control says „Löscht...“ for the deletion alone.
           held={isReading}

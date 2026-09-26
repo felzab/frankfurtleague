@@ -1,15 +1,19 @@
 "use client";
 
-import { FieldError, Label, ListBox, Select } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Label } from "@heroui/react/label";
+import { ListBox } from "@heroui/react/list-box";
 
 import { trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
 import { offeredTrikotFarben } from "@/features/teams/utils";
-import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
+import { useRequiredMark } from "@/shared/components/ui/RequiredMarks";
+import { Select } from "@/shared/components/ui/Select";
 
 import type { FLTrikotFarbe } from "@/features/teams/schemas";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 /** The picker's key for the answer the field spells as `null`, a listbox having no empty item. */
 const KEINE_FARBE = "keine";
@@ -23,7 +27,7 @@ function Swatch({ farbe }: { farbe: FLTrikotFarbe }) {
     <span
       aria-hidden="true"
       style={{ backgroundColor: trikotFarbeHex(farbe) }}
-      className="border-border size-4 shrink-0 rounded-full border shadow-sm"
+      className="size-4 shrink-0 rounded-full border border-border shadow-sm"
     />
   );
 }
@@ -37,7 +41,6 @@ export function TrikotFarbeSelect({
   onChange,
   name = "trikot_farbe",
   label = "Trikotfarbe",
-  isRequired = false,
   withOwnLabel = true,
   vergeben = [],
 }: {
@@ -50,11 +53,6 @@ export function TrikotFarbeSelect({
    * renaming the field cannot leave the two disagreeing (WCAG 2.5.3).
    */
   label?: string;
-  /**
-   * Whether an answer is owed. On for the applicant's wish, off for the administrator's assignment,
-   * which a club may genuinely stand without.
-   */
-  isRequired?: boolean;
   /** Off for the caller whose label is a marker-carrying `FieldLabel` rendered outside. */
   withOwnLabel?: boolean;
   /**
@@ -63,6 +61,10 @@ export function TrikotFarbeSelect({
    */
   vergeben?: readonly FLTrikotFarbe[];
 }) {
+  // Owed where the form's schema refuses no colour: the applicant's wish, never the administrator's
+  // assignment, which a club may genuinely stand without.
+  const isRequired = useRequiredMark(name, null);
+
   /**
    * **A required picker offers no empty row.** A „Keine Angabe“ row carries a key, so picking it is
    * an answer: the field would count as filled while meaning the opposite. Without the row, nothing
@@ -81,24 +83,23 @@ export function TrikotFarbeSelect({
 
   return (
     <Select
-      isRequired={isRequired}
       name={name}
       // Only without the visible `Label`: beside it the trigger is named twice, „Trikotfarbe Trikotfarbe“.
       aria-label={withOwnLabel ? undefined : label}
       value={value ?? leerschluessel}
       onChange={handleChange}
       className="w-full">
-      {withOwnLabel && <Label className={FIELD_LABEL}>{label}</Label>}
-      <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+      {withOwnLabel && <Label className={FIELD_LABEL_CLASSES}>{label}</Label>}
+      <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
         {/* From the prop, not `Select.Value` — the collection can lag a render behind and would then
             show HeroUI's English placeholder. */}
         <span className="flex min-w-0 flex-row items-center gap-x-2">
           {value !== null && <Swatch farbe={value} />}
-          <span className={value ? "truncate" : "text-foreground-muted truncate"}>{value ? trikotFarbeLabel(value) : platzhalter}</span>
+          <span className={value ? "truncate" : "truncate text-foreground-muted"}>{value ? trikotFarbeLabel(value) : platzhalter}</span>
         </span>
-        <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+        <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
       </Select.Trigger>
-      <FieldError className={FIELD_ERROR} />
+      <FieldError className={FIELD_ERROR_CLASSES} />
       <Select.Popover className={`${overlayPanel()} mt-2 max-h-80 overflow-y-auto p-1.5`}>
         <ListBox aria-label="Trikotfarben">
           {!isRequired && (

@@ -1,17 +1,18 @@
 "use server";
 
-import { refresh } from "next/cache";
-
-import { getAdminSession } from "@/core/auth";
-import { APIBadStatusError } from "@/core/errors";
-import { ADMIN_FORBIDDEN, runAdminMutation } from "@/shared/utils/adminMutation";
+import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
+import { BEWERBUNG_VERALTET, nenntLaufendeFassung } from "@/features/bewerbungen/utils";
+import { getTeamMemberships } from "@/features/teams/queries";
+import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { eraseKontaktperson, patchSaisonTeamKontakte, readKontaktErasureAnsicht } from "./mutations";
+import { mapStaleBlockRefusal } from "./refusals";
 import { FLKontaktErasurePayloadSchema, FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas";
 import { describeKontaktErasureUmfang } from "./utils";
 
+import type { FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { ActionResult, QueryResult } from "@/shared/types/types";
 import type {
   FLKontaktErasureAnsichtResponse,
@@ -21,29 +22,12 @@ import type {
 } from "./schemas";
 
 /**
- * The stale-block refusal, or `null` when the 409 is something else. It lands on no field: the whole
- * screen is behind the row, so no box the admin could correct is at fault.
- */
-function mapStaleBlockRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409 || error.serverErrorCode !== "REQ-KONTAKT-001") return null;
-
-  return buildRefusal({
-    reason: "Die Kontakte dieser Saison wurden inzwischen geändert, meistens durch das Löschen einer Kontaktperson",
-    repair: "Lade die Seite neu und trage Deine Änderung dort erneut ein",
-  });
-}
-
-/**
  * Clears one contact person from every season's junction row, every application, and the log's saved
  * images of both. **Permanent, with no undo.** It refuses nothing: a person may ask to be forgotten
  * while the club they were reached for still plays.
  */
 export async function eraseKontaktpersonAction(rawPayload: FLKontaktErasurePayload): Promise<ActionResult<{ cleared?: number }>> {
-  return runAdminMutation("eraseKontaktpersonAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("eraseKontaktpersonAction", async () => {
     const validated = FLKontaktErasurePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -61,10 +45,8 @@ export async function eraseKontaktpersonAction(rawPayload: FLKontaktErasurePaylo
 
     // No tag moves: no cached read holds a contact person.
     // `fl_frontend/src/features/teams/queries.ts :: getTeamMemberships` is memoised per render pass
-    // and not across requests, and no public team read carries `kontakte`.
-
-    // The admin's own list is uncached, so no tag reaches it.
-    refresh();
+    // and not across requests, and no public team read carries `kontakte`. The admin's own list is
+    // uncached, so no tag reaches it.
 
     return {
       success: true,
@@ -86,11 +68,7 @@ export async function patchSaisonTeamKontakteAction(
   // field no control renders is a block with no repair.
   rawPayload: FLPatchSaisonTeamKontaktePayload,
 ): Promise<ActionResult<{ saison_team?: FLPatchSaisonTeamKontakteResponse }>> {
-  return runAdminMutation("patchSaisonTeamKontakteAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("patchSaisonTeamKontakteAction", async () => {
     const validated = FLPatchSaisonTeamKontaktePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -100,6 +78,10 @@ export async function patchSaisonTeamKontakteAction(
         fieldErrors: toFieldErrors(validated.error),
       };
     }
+
+    // After the parse, where the application's check comes before it: only a parsed payload names
+    // the row whose stored block admits its labels.
+    if (!(await nenntZugelasseneFassungen(validated.data))) return { success: false, error: BEWERBUNG_VERALTET };
 
     // `validated.data` and never `rawPayload`, whose type is a promise the wire does not keep.
     // The refusal belongs on the page that asked, not on the error page.
@@ -117,7 +99,6 @@ export async function patchSaisonTeamKontakteAction(
     }
 
     // No tag moves, for the erasure's reason above, and its list is uncached for the same reason.
-    refresh();
 
     return {
       success: true,
@@ -136,11 +117,7 @@ export async function patchSaisonTeamKontakteAction(
 export async function readKontaktErasureAnsichtAction(
   rawPayload: FLKontaktErasurePayload,
 ): Promise<QueryResult<{ ansicht?: FLKontaktErasureAnsichtResponse }>> {
-  return runAdminMutation("readKontaktErasureAnsichtAction", { readOnly: true }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("readKontaktErasureAnsichtAction", async () => {
     const validated = FLKontaktErasurePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -152,5 +129,39 @@ export async function readKontaktErasureAnsichtAction(
     }
 
     return { success: true, ansicht: await readKontaktErasureAnsicht(validated.data) };
+  });
+}
+
+const SITZE = ["trainer", "ansprechperson", "stellvertretung"] as const;
+
+/**
+ * Admits the running label, or the one that seat already stores: the editor sends each stored seat
+ * back under its own, a confirmed one under the confirmation page's.
+ */
+async function nenntZugelasseneFassungen({ team_id, saison_id, kontakte }: FLPatchSaisonTeamKontaktePayload): Promise<boolean> {
+  const laufend = LIGA_KENNTNISNAHME.textVersion;
+  const gesendet = SITZE.flatMap((rolle) => {
+    const sitz = kontakte?.[rolle];
+    return sitz ? [{ rolle, einwilligung: sitz.einwilligung }] : [];
+  });
+
+  // No read where nothing needs one: a block of new seats is judged by the running label alone.
+  if (gesendet.every(({ einwilligung }) => nenntLaufendeFassung(einwilligung, laufend))) return true;
+
+  // The one read serving a stored block. A block moving between it and the write is refused there
+  // (`REQ-KONTAKT-001`), so the race costs a sentence rather than a stale label.
+  const { teams } = await getTeamMemberships();
+  const gespeichert: FLSaisonTeamKontakte | null =
+    teams.find(({ id }) => id === team_id)?.memberships.find((membership) => membership.saison_id === saison_id)?.kontakte ?? null;
+
+  return gesendet.every(({ rolle, einwilligung }) => {
+    // A mirrored Trainer is the seat it copies, sent under that seat's label.
+    const quelle = rolle === "trainer" && kontakte?.trainer_ist_zugleich ? kontakte.trainer_ist_zugleich : rolle;
+    const gespeicherteFassung = gespeichert?.[quelle]?.einwilligung.text_version;
+
+    return (
+      nenntLaufendeFassung(einwilligung, laufend) ||
+      (gespeicherteFassung !== undefined && nenntLaufendeFassung(einwilligung, gespeicherteFassung))
+    );
   });
 }

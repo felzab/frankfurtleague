@@ -1,0 +1,24 @@
+// Linted as src/core/zzPlant.test.ts.
+import { Button } from "@heroui/react"; // expect: vendor-root
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
+import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
+import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { NumberField as HeroNumberField } from "@heroui/react/number-field"; // expect: number-field
+import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect: marked-field
+import { HintPopover } from "@/shared/components/ui/InfoHint"; // expect: hint-internals expect: layer-core
+import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-core
+// A test may import a test-only module.
+import { captureStdout } from "./stdoutCapture";
+
+export const USED = [Button, AppRouterContext, DatePicker, HeroForm, HintPopover, TEAM_FACETS, captureStdout];
+// A test loads a slice to sweep it, and a test-only module to use it.
+export const LOADED_SLICE = await import("@/features/teams/facets");
+export const LOADED_CAPTURE = await import("./stdoutCapture.ts");
+// A test may take the loader's hooks, a `createRequire` held in a name among them.
+import { createRequire } from "node:module";
+import { SITE_URL } from "./brand";
+export const REQUIRE_HERE = createRequire(import.meta.url);
+// A test may name the published origin, to assert a link stands on another.
+export const ORIGIN_USED = SITE_URL;
+export const NUMBER_FIELD_USED = HeroNumberField;
+export const TEXT_FIELD_USED = HeroTextField;

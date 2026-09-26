@@ -1,23 +1,47 @@
 import re
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any
+from collections.abc import Set as AbstractSet
+from http import HTTPStatus
+from typing import Any, Final
 
-from bson.errors import InvalidId
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.routing import iter_route_contexts
 from pydantic import ValidationError
 from pymongo.errors import DuplicateKeyError, PyMongoError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.routing import Match
 
-from app.core.exceptions import BaseAPIException
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DUPLICATE_KEY, BaseAPIException
 from app.core.logging import fl_logger, trace_id_var
 from app.core.security import SAFE_METHODS
+from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
 NO_DATA_TEXT = "//- No Data -//"
 
+PAYLOAD_REFUSED = "REQ-VAL-001"
+# A body no field could be read from: malformed syntax, RFC 9110's 400, never a refused payload's 422.
+BODY_UNREADABLE = "REQ-VAL-002"
+STORED_DATA_INVALID = "SRV-VAL-001"
+UNHANDLED_CRASH = "SRV-FAIL-001"
+DATABASE_FAILED = "DB-FAIL-001"
+# FastAPI's error type for a body that is not JSON at all, reported before any field is read.
+UNDECODABLE_BODY = "json_invalid"
 # A write that may stand: its own code, because a page told "failed" sends the person to repeat a
 # write that is already there.
 UNKNOWN_OUTCOME = "DB-FAIL-002"
+
+# The routing layer's own refusals, raised before any handler runs.
+NO_ROUTE = "REQ-ROUTE-001"
+METHOD_NOT_SERVED = "REQ-ROUTE-002"
+# Every status the router and FastAPI's request parsing raise. FastAPI's one 400 is a body it could
+# not parse, and a status outside these is a server fault the catch-all answers.
+ROUTING_CODES: Final[Mapping[int, str]] = {
+    HTTPStatus.BAD_REQUEST: BODY_UNREADABLE,
+    HTTPStatus.NOT_FOUND: NO_ROUTE,
+    HTTPStatus.METHOD_NOT_ALLOWED: METHOD_NOT_SERVED,
+}
 
 
 def error_response(
@@ -41,7 +65,38 @@ async def base_api_exception_handler(request: Request, exc: BaseAPIException):
         extra={"error_code": exc.error_code},
     )
 
-    return error_response(exc.status_code, exc.error_code, headers=exc.headers)
+    return error_response(exc.status_code, exc.error_code, headers=exc.headers, fields=exc.fields)
+
+
+async def routing_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Starlette's refusal in the envelope every other failure answers with, its status and headers kept."""
+
+    error_code = ROUTING_CODES.get(exc.status_code)
+    if error_code is None:
+        return await global_catch_all_exception_handler(request, exc)
+
+    fl_logger.warning(f"Routing refusal ({exc.status_code}): {exc.detail or NO_DATA_TEXT}", extra={"error_code": error_code})
+    headers = exc.headers
+    if exc.status_code == HTTPStatus.METHOD_NOT_ALLOWED:
+        headers = {**(headers or {}), "Allow": ", ".join(served_methods(request))}
+
+    return error_response(exc.status_code, error_code, headers=headers)
+
+
+def served_methods(request: Request) -> list[str]:
+    """Every method some route serving this path accepts, as RFC 9110 section 15.5.6 asks of `Allow`.
+
+    FastAPI names the first matching route's alone, and a read and a write router split one path.
+    """
+
+    return sorted(
+        {
+            method
+            for context in iter_route_contexts(request.app.routes)
+            if context.route.matches(request.scope)[0] is Match.PARTIAL
+            for method in context.methods or ()
+        }
+    )
 
 
 async def pydantic_validation_exception_handler(request: Request, exc: ValidationError):
@@ -49,20 +104,24 @@ async def pydantic_validation_exception_handler(request: Request, exc: Validatio
     # `RequestValidationError` instead. 500, not 422.
     fl_logger.error(
         f"Model validation failed outside request parsing: {rejected_fields_of(exc.errors()) or NO_DATA_TEXT}",
-        extra={"error_code": "SRV-VAL-001"},
+        extra={"error_code": STORED_DATA_INVALID},
     )
 
-    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "SRV-VAL-001")
+    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, STORED_DATA_INVALID)
 
 
 async def request_validation_exception_handler(request: Request, exc: RequestValidationError):
     errors = exc.errors()
+    if any(error["type"] == UNDECODABLE_BODY for error in errors):
+        fl_logger.warning(f"Request body unreadable: {rejected_fields_of(errors) or NO_DATA_TEXT}", extra={"error_code": BODY_UNREADABLE})
+        return error_response(status.HTTP_400_BAD_REQUEST, BODY_UNREADABLE)
+
     fl_logger.warning(
         f"Payload validation failed: {rejected_fields_of(errors) or NO_DATA_TEXT}",
-        extra={"error_code": "REQ-VAL-001"},
+        extra={"error_code": PAYLOAD_REFUSED},
     )
 
-    return error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, "REQ-VAL-001", fields=refused_fields_of(errors))
+    return error_response(status.HTTP_422_UNPROCESSABLE_CONTENT, PAYLOAD_REFUSED, fields=refused_fields_of(errors))
 
 
 def refused_fields_of(errors: Sequence[Any]) -> list[dict[str, Any]]:
@@ -78,10 +137,6 @@ def refused_fields_of(errors: Sequence[Any]) -> list[dict[str, Any]]:
 def _refused_field(error: Any) -> dict[str, Any]:
     # FastAPI prefixes every `loc` with where the value arrived; the rest is the path inside it.
     location, *path = error["loc"]
-    # FastAPI's undecodable body reports the character offset parsing stopped at, which a caller
-    # would read as a list index.
-    if error["type"] == "json_invalid":
-        path = []
 
     return {"in": str(location), "path": path, "kind": error["type"]}
 
@@ -103,10 +158,10 @@ async def duplicate_key_exception_handler(request: Request, exc: DuplicateKeyErr
     """
     fl_logger.warning(
         f"Unique index refused a write: {refused_index_of(exc) or NO_DATA_TEXT}",
-        extra={"error_code": "DB-COMMON-002"},
+        extra={"error_code": DUPLICATE_KEY},
     )
 
-    return error_response(status.HTTP_409_CONFLICT, "DB-COMMON-002")
+    return error_response(status.HTTP_409_CONFLICT, DUPLICATE_KEY)
 
 
 # The server's own spelling in `errmsg`; `keyValue` sits right beside it, which is why the whole
@@ -124,6 +179,39 @@ def refused_index_of(exc: DuplicateKeyError) -> str | None:
     match = _INDEX_NAME.search((exc.details or {}).get("errmsg", ""))
 
     return match.group(1) if match else None
+
+
+COMPONENT_REF = "#/components/schemas/{model}"
+JSON_MEDIA_TYPE = "application/json"
+
+
+def refusal_response(status: HTTPStatus, codes: AbstractSet[str]) -> dict[str, Any]:
+    """A failure status as an OpenAPI Response Object: the body it answers, its `error_code` narrowed to `codes`."""
+
+    # A 422 alone carries `fields` (`error_response`'s callers), so it alone publishes that body.
+    body = FLRefusedPayloadBody if status is HTTPStatus.UNPROCESSABLE_CONTENT else FLFailureBody
+    # The component narrowed rather than restated, so each failure body keeps one published shape.
+    narrowed = {"properties": {"error_code": {"enum": sorted(codes)}}}
+    schema = {"allOf": [{"$ref": COMPONENT_REF.format(model=body.__name__)}, narrowed]}
+
+    # The reason phrase, FastAPI's own default for a declared response, being true of every code the status carries.
+    return {"description": status.phrase, "content": {JSON_MEDIA_TYPE: {"schema": schema}}}
+
+
+def refused_codes(response: Mapping[str, Any]) -> set[str]:
+    """The codes a `refusal_response` narrows to, and none for a response of any other shape."""
+
+    schema = response.get("content", {}).get(JSON_MEDIA_TYPE, {}).get("schema", {})
+
+    return {code for part in schema.get("allOf", [])[1:] for code in part.get("properties", {}).get("error_code", {}).get("enum", [])}
+
+
+# A Response Object and never a status-keyed dict: two such dicts unpacked into one `responses` keep
+# the second 409 alone, so a second reason joins this code in one `refusal_response`
+# (`docs/backend/spec.md :: I358`).
+DUPLICATE_KEY_RESPONSE: Final = refusal_response(HTTPStatus.CONFLICT, {DUPLICATE_KEY})
+# Declared as the duplicate key is, and for its reason (`docs/backend/spec.md :: I369`).
+DOCUMENT_NOT_FOUND_RESPONSE: Final = refusal_response(HTTPStatus.NOT_FOUND, {DOCUMENT_NOT_FOUND})
 
 
 def stores_nothing(request: Request) -> None:
@@ -155,7 +243,7 @@ async def db_exception_handler(request: Request, exc: PyMongoError):
     # Unknown where a write may stand: a commit the driver labels so, or any write request the
     # deadline cut, a write outside a transaction carrying no label (`docs/backend/spec.md :: I321`).
     unknown = exc.has_error_label("UnknownTransactionCommitResult") or (exc.timeout and _may_have_written(request))
-    error_code = UNKNOWN_OUTCOME if unknown else "DB-FAIL-001"
+    error_code = UNKNOWN_OUTCOME if unknown else DATABASE_FAILED
     what = "Database deadline passed" if exc.timeout else "Database crash"
 
     # `str(exc)` quotes the document the server refused -- `consideredValue` under a validator, the
@@ -214,32 +302,25 @@ def _dotted(path: str, name: Any) -> str:
     return f"{path}.{name}" if path else str(name)
 
 
-async def invalid_bson_oid_exception_handler(request: Request, exc: InvalidId):
-    fl_logger.warning(
-        f"Invalid ObjectId format received: {str(exc) or NO_DATA_TEXT}",
-        extra={"error_code": "REQ-OID-001"},
-    )
-
-    return error_response(status.HTTP_400_BAD_REQUEST, "REQ-OID-001")
-
-
 async def global_catch_all_exception_handler(request: Request, exc: Exception):
     fl_logger.error(
         f"Unhandled Server Crash: {str(exc) or NO_DATA_TEXT}",
         exc_info=True,
-        extra={"error_code": "SRV-FAIL-001"},
+        extra={"error_code": UNHANDLED_CRASH},
     )
 
-    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, "SRV-FAIL-001")
+    return error_response(status.HTTP_500_INTERNAL_SERVER_ERROR, UNHANDLED_CRASH)
 
 
 def register_exception_handlers(app: FastAPI):
     app.add_exception_handler(BaseAPIException, base_api_exception_handler)  # type: ignore
+    # The base `BaseAPIException` extends: the most specific class in a raise's MRO wins, so this takes
+    # only Starlette's own, which the router raises before any route runs.
+    app.add_exception_handler(StarletteHTTPException, routing_exception_handler)  # type: ignore
     app.add_exception_handler(RequestValidationError, request_validation_exception_handler)  # type: ignore
     app.add_exception_handler(ValidationError, pydantic_validation_exception_handler)  # type: ignore
     # Starlette resolves a handler by walking `type(exc).__mro__`, so this subclass wins over the
     # line below by being more specific, not by being registered first.
     app.add_exception_handler(DuplicateKeyError, duplicate_key_exception_handler)  # type: ignore
     app.add_exception_handler(PyMongoError, db_exception_handler)  # type: ignore
-    app.add_exception_handler(InvalidId, invalid_bson_oid_exception_handler)  # type: ignore
     app.add_exception_handler(Exception, global_catch_all_exception_handler)

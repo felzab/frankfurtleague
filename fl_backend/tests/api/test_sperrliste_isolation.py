@@ -16,12 +16,12 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
 from app.api.saisons.admin_router import activate_saison
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.admin_router import post_sperrliste_eintrag
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
+from tests import documents
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -80,47 +80,19 @@ class SeasonsRunningARivalAfterTheFirstRead:
 
 
 def saison_document(saison_id: str, status: str) -> dict[str, Any]:
-    return {
-        "_id": saison_id,
-        "start_date": f"{saison_id}-01-01",
-        "end_date": f"{saison_id}-06-30",
-        "status": status,
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 2,
-            "teams_per_group": 4,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1"],
-        },
-    }
+    return documents.saison_document(saison_id, status, rules=documents.rules_document(number_of_groups=2, erlaubte_stufen=["E1"]))
 
 
 def a_targets_fixture(target: str) -> dict[str, Any]:
     """What makes a target activatable (`REQ-ACTIVATE-003`); no matchday row is seeded, so `-004` has none to count."""
 
-    return {
-        "_id": ObjectId(),
-        "spiel_nr": 1,
-        "saison_id": target,
-        "saison_phase": "gruppenphase",
-        "spieltag_id": SPIELTAG_ID,
-        "team1": {"team_id": TEAM_ID, "name": "Alpha", "shorthand": "AL", "tore": None},
-        "team2": None,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": None,
-        "uhrzeit": None,
-        "ort": None,
-        "schiedsrichter": None,
-        "ergebnis": None,
-        "elfmeterschiessen": None,
-        "sonderereignis": None,
-        "notiz": None,
-    }
+    return documents.spiel_document(
+        spiel_id=ObjectId(),
+        saison_id=target,
+        spiel_nr=1,
+        spieltag_id=SPIELTAG_ID,
+        team1={"team_id": TEAM_ID, "name": "Alpha", "shorthand": "AL", "tore": None},
+    )
 
 
 def the_lapsing_ban() -> dict[str, Any]:
@@ -145,7 +117,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, saisons: Any
             erstellt_von=ADMIN,
             today=TODAY,
         )
-    except DocumentConflictException as refusal:
+    except WriteRefusalException as refusal:
         return str(refusal.error_code)
     except DuplicateKeyError:
         return DUPLICATE
@@ -165,20 +137,15 @@ def on_a_league(url: str, body: Callable[[AsyncDatabase, AsyncMongoClient], Awai
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # Process-global and keyed by season id alone, so a season another module left would answer here.
-            invalidate_saison_cache()
-            try:
-                # Already counted, as a running season is once anything anchored it: `$inc` on a missing
-                # field creates it, so an anchor that rewrites nothing would still conflict here without it.
-                running = {**saison_document(RUNNING, "active"), "bounded_writes": 3}
-                await database[Collection.SAISONS].insert_many([running, saison_document(target, "future")])
-                await database[Collection.SPIELE].insert_one(a_targets_fixture(target))
-                if lapsing:
-                    await database[Collection.SPERRLISTE].insert_one(the_lapsing_ban())
+            # Already counted, as a running season is once anything anchored it: `$inc` on a missing
+            # field creates it, so an anchor that rewrites nothing would still conflict here without it.
+            running = {**saison_document(RUNNING, "active"), "bounded_writes": 3}
+            await database[Collection.SAISONS].insert_many([running, saison_document(target, "future")])
+            await database[Collection.SPIELE].insert_one(a_targets_fixture(target))
+            if lapsing:
+                await database[Collection.SPERRLISTE].insert_one(the_lapsing_ban())
 
-                return await body(database, client)
-            finally:
-                invalidate_saison_cache()
+            return await body(database, client)
 
     return on_the_seed_loop(_run())
 

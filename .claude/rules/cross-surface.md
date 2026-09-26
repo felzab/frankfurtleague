@@ -15,7 +15,7 @@ paths:
 `.claude/CLAUDE.md` §7's never-clauses that a session on either side can break, on §7's terms.
 
 - **db** — Add a second direct `MongoClient`
-- **openapi** — Generate the Zod mirror; compare past presence, required, nullable, type or enum
+- **openapi** — Generate the Zod mirror; compare past presence, required, nullable, type, enum or a published ceiling
 - **system** — Remove `checkIsReady`, `getSystemInfo`, or the system key
 - **cache** — Re-add a reference-data invalidation endpoint; fault sub-24h staleness
 - **csp** — Disable `react/no-danger`; add a second enforcing CSP
@@ -46,9 +46,11 @@ paths:
 `.claude/CLAUDE.md` §6's, on §6's terms: it fails silently.
 
 - A backend refusal and its German are three sites. `fl_backend/app/core/domain.py` declares the rule
-  and its code; the feature slice's `actions.ts` words it for the save, and where the replayed
-  endpoint declares refusals the undo `route.ts` words it again in its own `REPLAY_REFUSALS`. A code
-  either path leaves unmapped falls through to the 409 fallback in
-  `fl_frontend/src/shared/utils/actionError.ts`, which tells the admin an equivalent entry already
-  exists. Tests reading `fl_frontend/src/shared/testing/refusalRegister.ts :: declaredCodes` hold
-  both paths to this, per slice.
+  and its code; a mapper in the feature slice words it for the save, and where the replayed
+  endpoint declares refusals the undo route words it again in its own replay table. The frontend
+  reads a refusal by its code, and the backend answers it at the status its rule's check chose, so a
+  code either path leaves unmapped falls through, at any status, to the shared fallback in
+  `fl_frontend/src/shared/utils/actionError.ts`, which names no reason and sends the admin to a retry
+  the same rule refuses again. Each slice's test asks its mapper about every refusal code
+  `fl_backend/openapi.json` publishes on that endpoint (`fl_frontend/src/shared/testing/publishedRefusals.ts`),
+  and `fl_frontend/src/app/refusalCoverage.test.ts` fails for a published code its table's mapper leaves unworded.

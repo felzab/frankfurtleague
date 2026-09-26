@@ -1,9 +1,10 @@
+import { AENDERUNG_STEHT_WEITERHIN, RUECKNAHME_UNKLAR } from "./actionError";
 import { appToast, UNDO_TIMEOUT_MS } from "./appToast";
 
 import type { ActionFailure } from "@/shared/types/types";
 
 /** `warn` where the committed restore cost something, which is what grades the outcome toast below. */
-type UndoOutcome = { success: boolean; message?: string; error?: string; warn?: boolean; outcome?: ActionFailure["outcome"] };
+type UndoOutcome = { success: true; message: string; warn: boolean } | { success: false; error: string; outcome?: ActionFailure["outcome"] };
 
 /**
  * Where the route turned the caller away rather than judging the replay, and what the danger toast
@@ -11,9 +12,9 @@ type UndoOutcome = { success: boolean; message?: string; error?: string; warn?: 
  * `/admin` rather than back on this change.
  */
 const TURNED_AWAY = {
-  signedOut: { destination: "/signin", description: "Die Änderung steht weiterhin. Melde Dich neu an." },
+  signedOut: { destination: "/signin", description: `Melde Dich neu an. ${AENDERUNG_STEHT_WEITERHIN}` },
   // No repair: signing in again is refused to an address the allowlist does not hold.
-  withoutAdminRole: { destination: "/", description: "Die Änderung steht weiterhin. Deine Sitzung hat keine Administratorrechte." },
+  withoutAdminRole: { destination: "/", description: `Deine Sitzung hat keine Administratorrechte. ${AENDERUNG_STEHT_WEITERHIN}` },
 } as const;
 
 type TurnedAway = (typeof TURNED_AWAY)[keyof typeof TURNED_AWAY];
@@ -41,8 +42,6 @@ type UndoOffer<TPayload> = {
   unrestorable?: string | null;
   /** A stable singleton, so the detached press closure may call its `refresh` and its `replace`. */
   router: { refresh: () => void; replace: (href: string) => void };
-  /** Replaces the transport-failure toast — `AdminEditSpielDataForm` reports the raw error. */
-  reportRejection?: (dispatchError: unknown) => void;
 };
 
 /**
@@ -89,7 +88,6 @@ export function offerUndo<TPayload>({
   warn = false,
   unrestorable = null,
   router,
-  reportRejection,
 }: UndoOffer<TPayload>): void {
   const raise = warn ? appToast.warning : appToast.success;
 
@@ -118,8 +116,9 @@ export function offerUndo<TPayload>({
         const refreshTheScreen = () => {
           try {
             router.refresh();
-          } catch (refreshError) {
-            console.warn("Undo answered, refresh failed", refreshError);
+          } catch {
+            // Unlogged: the browser's one path into the log is the crash report (`docs/logging/spec.md`
+            // §1.3), and a bare `console` call writes outside the envelope.
           }
         };
 
@@ -137,10 +136,9 @@ export function offerUndo<TPayload>({
             }
 
             if (!result.success) {
-              appToast.failure("Änderung nicht zurückgenommen", {
-                error: result.error ?? "Die Änderung steht weiterhin.",
-                outcome: result.outcome,
-              });
+              // The route's own sentence under either title: it names what to check.
+              if (result.outcome === "unknown") appToast.danger("Rücknahme unklar", { description: result.error });
+              else appToast.failure("Änderung nicht zurückgenommen", { error: result.error });
 
               // Re-read on a refusal too: a restore that stopped part-way put rows back, and `success`
               // says the undo did not finish rather than that nothing moved.
@@ -156,19 +154,12 @@ export function offerUndo<TPayload>({
 
             refreshTheScreen();
           },
-          (dispatchError) => {
+          () => {
             appToast.close(pendingKey);
-            console.warn("Undo dispatch failed", dispatchError);
-            if (reportRejection !== undefined) {
-              reportRejection(dispatchError);
-              return;
-            }
-
-            appToast.danger("Änderung nicht zurückgenommen", {
-              // The connection alone: the request reached no judgement, so naming what was saved
-              // would send the admin to inspect values nothing here read.
-              description: "Die Änderung steht weiterhin. Prüfe die Verbindung.",
-            });
+            // Unlogged, for the reason the refresh's catch gives: the toast is the whole report.
+            appToast.danger("Rücknahme unklar", { description: RUECKNAHME_UNKLAR });
+            // Re-read as the route's unknown outcome is: the restore may have landed on its way.
+            refreshTheScreen();
           },
         );
       },

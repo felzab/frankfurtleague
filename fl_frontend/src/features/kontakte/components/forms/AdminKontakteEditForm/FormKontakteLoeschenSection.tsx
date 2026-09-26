@@ -2,22 +2,21 @@
 
 import { useRouter } from "next/navigation";
 
-import { TrashBin } from "@gravity-ui/icons";
+import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { patchSaisonTeamKontakteAction } from "@/features/kontakte/actions";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
-import { guardAgainstDraft } from "@/shared/utils/draftGuard";
-
-import { DRAFT_IN_THE_WAY } from "./banners";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 /** Said in the body and on the closed control alike, so the two cannot describe the empty row differently. */
 const KEINE_KONTAKTE = "Für diese Saison sind keine Kontakte gespeichert.";
@@ -43,18 +42,22 @@ export function FormKontakteLoeschenSection({
   stand: string;
   isDirty: boolean;
 }) {
+  const twoPress = useTwoPressConfirm();
   const router = useRouter();
-  const { isConfirming, isPending, press, cancel } = useTwoPressConfirm();
+  const { isConfirming, press } = twoPress;
 
   // Graded only where there is something to take: a red panel over an empty row spends the grade on
   // a page where nothing is at stake.
   const panel = formPanel({ tone: hasStored ? "danger" : "neutral" });
 
   const handleClear = () => {
-    if (!guardAgainstDraft(isDirty, DRAFT_IN_THE_WAY)) return;
+    if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
 
     press(async () => {
-      const res = await patchSaisonTeamKontakteAction({ team_id: teamId, saison_id: saisonId, kontakte: null, kontakte_stand: stand });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await patchSaisonTeamKontakteAction({ team_id: teamId, saison_id: saisonId, kontakte: null, kontakte_stand: stand }).catch(
+        rejectedWrite(router),
+      );
 
       if (!res.success) {
         appToast.failure("Kontakte nicht gelöscht", res);
@@ -62,7 +65,6 @@ export function FormKontakteLoeschenSection({
       }
 
       appToast.success("Kontakte gelöscht", { description: "Für diese Saison sind jetzt keine Kontaktpersonen hinterlegt." });
-      router.refresh();
     });
   };
 
@@ -98,7 +100,7 @@ export function FormKontakteLoeschenSection({
         {isConfirming && (
           <ConfirmReveal>
             <div className="flex w-full flex-col gap-y-1">
-              <h3 className={FORM_SECTION_HEADING}>Was dabei geleert wird</h3>
+              <h3 className={FORM_SECTION_HEADING_CLASSES}>Was dabei geleert wird</h3>
               <dl className="flex w-full flex-col gap-y-1">
                 <ConfirmReadoutRow
                   label="Saison"
@@ -115,22 +117,18 @@ export function FormKontakteLoeschenSection({
               </dl>
             </div>
 
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
+            <p className="fluid-xxs leading-normal font-medium text-foreground">
               Danach ist für die Saison {saisonId} niemand mehr hinterlegt. Die Zugehörigkeit des Teams zur Saison bleibt bestehen, und die
               Personen bleiben in jeder anderen Saison stehen.
             </p>
           </ConfirmReveal>
         )}
 
-        <ConfirmActionRow
-          isConfirming={isConfirming}
-          isPending={isPending}
-          onCancel={cancel}>
+        <ConfirmActionRow confirm={twoPress}>
           {/* On the control as well as in the body, the treatment `docs/frontend/spec.md` §1.14 gives a
               standing closure. */}
           <ConfirmPressButton
-            isConfirming={isConfirming}
-            isPending={isPending}
+            confirm={twoPress}
             reason={hasStored ? null : KEINE_KONTAKTE}
             resting="Kontakte löschen"
             // The object stays in the label: „Ja, endgültig löschen“ under a trash icon reads as the

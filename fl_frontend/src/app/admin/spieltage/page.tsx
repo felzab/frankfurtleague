@@ -1,8 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 
-import { getAdminSaisons } from "@/features/saisons/queries";
-import { resolveSaisonId } from "@/features/saisons/resolvers";
+import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { AdminSpieltageView } from "@/features/spieltage/components/views/AdminSpieltageView";
 import { SPIELTAGE_CRUD_COPY } from "@/features/spieltage/constants";
 import { getAdminSpieltage } from "@/features/spieltage/queries";
@@ -11,7 +10,6 @@ import { AdminCrudFallback } from "@/shared/components/ui/AdminCrudFallback";
 import { AdminCrudSearch } from "@/shared/components/ui/AdminCrudSearch";
 import { AdminCrudShell } from "@/shared/components/ui/AdminCrudShell";
 
-import type { FLSaison } from "@/features/saisons/schemas";
 import type { AdminSpieltagRow } from "@/features/spieltage/types";
 import type { NextPageProps } from "@/shared/types/types";
 
@@ -37,31 +35,17 @@ export default function AdminSpieltagePage(props: NextPageProps) {
   );
 }
 
-/** `null` only where the league holds no seasons at all, never for a season that was not found. */
-async function resolveSelectedSaison(searchParams: NextPageProps["searchParams"]): Promise<FLSaison | null> {
-  const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
-  const saisonsRes = await getAdminSaisons();
-
-  // The whole season rather than its id: its schedule is what each phase's matchday count is read
-  // against.
-  return (
-    saisonsRes.saisons.find((saison) => saison.id === requestedSaisonId) ??
-    saisonsRes.saisons.find((saison) => saison.status === "active") ??
-    saisonsRes.saisons[0] ??
-    null
-  );
-}
-
 /**
  * The labels are built HERE, over the whole season rather than in the view that filters: a knockout
  * round's label counts the matchdays its phase holds (`docs/frontend/spec.md` I27).
  */
 async function SpieltageList({ searchParams }: { searchParams: NextPageProps["searchParams"] }) {
   await connection();
-  const saison = await resolveSelectedSaison(searchParams);
-  const saisonId = saison?.id ?? null;
+  // The whole season rather than its id: its schedule is what each phase's matchday count is read
+  // against.
+  const saison = await resolveAdminSaison(searchParams);
 
-  if (saisonId === null) {
+  if (saison === undefined) {
     return (
       <AdminSpieltageView
         spieltage={[]}
@@ -70,7 +54,7 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
     );
   }
 
-  const spieltageRes = await getAdminSpieltage({ saison_id: saisonId });
+  const spieltageRes = await getAdminSpieltage({ saison_id: saison.id });
 
   const labels = spieltagLabels(spieltageRes.spieltage);
 
@@ -90,8 +74,8 @@ async function SpieltageList({ searchParams }: { searchParams: NextPageProps["se
   return (
     <AdminSpieltageView
       spieltage={rows}
-      saisonId={saisonId}
-      phaseProgress={buildSpieltagPhaseProgress(saison?.schedule ?? [], spieltageRes.spieltage)}
+      saisonId={saison.id}
+      phaseProgress={buildSpieltagPhaseProgress(saison.schedule, spieltageRes.spieltage)}
     />
   );
 }

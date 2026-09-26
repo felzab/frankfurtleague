@@ -2,29 +2,42 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { describe, it } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { buildEmptyBewerbungKontaktperson } from "@/features/bewerbungen/utils";
+import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
 import { einwilligungHerkunftLabel, TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
-import { FLTeamMembershipSchema } from "@/features/teams/schemas";
+import { FLTeamMembershipSchema, FLTeamWithMembershipsSchema } from "@/features/teams/schemas";
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
-import { doubleActions } from "@/shared/testing/actionDoubles.ts";
-import { underNext } from "@/shared/testing/nextContexts.ts";
-import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
+import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
+import {
+  answer,
+  answerReadsWith,
+  clearSteps,
+  EMPTIEST_ANSWER,
+  OBJECT_ID,
+  pageBody,
+  readsOf,
+  saisonFields,
+  steps,
+} from "@/shared/testing/pageHarness.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderMarkup, renderTree } from "@/shared/testing/renderTest";
+import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import { buildKontakteBanners } from "./components/forms/AdminKontakteEditForm/banners.ts";
 import { deriveKontakteDraftStatus } from "./kontakteDraftStatus.ts";
+import { mapStaleBlockRefusal } from "./refusals.ts";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "./schemas.ts";
 import { describeUnrestorableKontakte, teamPageHref, toKontaktePayload } from "./utils.ts";
 
@@ -32,31 +45,31 @@ import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/sch
 import type { AdminKontakteRow, AdminKontaktSeat } from "@/features/teams/types";
 import type { ReactNode } from "react";
 import type { KontakteBanner } from "./components/forms/AdminKontakteEditForm/banners.ts";
+import type { FLPatchSaisonTeamKontaktePayload } from "./schemas.ts";
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
-const SRC = path.resolve(REPO_ROOT, "fl_frontend", "src");
+/**
+ * Every slice's writes, replaced at the module boundary: a real one needs a session and a backend, and
+ * the club editor rendered below reaches its own slices' actions.
+ */
+const { calls, answerWith } = doubleEveryAction();
 
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
-const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
+/* The real module hands its raising to HeroUI's queue rather than back to the case that caused it. */
+const { raised: toasts } = doubleToasts();
 
-const EDITOR_DIR = path.resolve(import.meta.dirname, "components", "forms", "AdminKontakteEditForm");
-const FORM_SOURCE = readFileSync(path.resolve(EDITOR_DIR, "AdminKontakteEditForm.tsx"), "utf8");
-const SECTION_SOURCE = readFileSync(path.resolve(EDITOR_DIR, "FormKontakteSection.tsx"), "utf8");
-const CLEAR_SECTION = readFileSync(path.resolve(EDITOR_DIR, "FormKontakteLoeschenSection.tsx"), "utf8");
-const ERASURE = readFileSync(path.resolve(EDITOR_DIR, "FormKontaktErasure.tsx"), "utf8");
-/** Whitespace-collapsed: the section's copy is JSX text, so the formatter picks its line breaks. */
-const SECTION = SECTION_SOURCE.replace(/\s+/g, " ");
+/** The undo's dispatch, which posts to a route handler with the browser's own `fetch`. */
+const fetchMock = doubleFetch();
 
-const PAGE_SOURCE = readFileSync(path.resolve(SRC, "app", "admin", "kontakte", "[team_id]", "page.tsx"), "utf8");
-const PAGE = PAGE_SOURCE.replace(/\s+/g, " ");
+/** Each navigation a control makes, which both destructive controls and both ways out are judged by. */
+const { router, seen } = recordingRouter();
 
-/** The club editor, which lost the block and shows the way here instead. */
-const TEAM_FORM_DIR = path.resolve(SRC, "features", "teams", "components", "forms", "AdminTeamEditForm");
-const TEAM_FORM = readFileSync(path.resolve(TEAM_FORM_DIR, "AdminTeamEditForm.tsx"), "utf8");
-
-/** The slice's writes, replaced at the module boundary: a real one needs a session and a backend. */
-const { calls, answerWith } = doubleActions({ modules: ["/src/features/kontakte/actions.ts"] });
+beforeEach(() => {
+  calls.length = 0;
+  toasts.length = 0;
+  seen.pushed.length = 0;
+  seen.replaced.length = 0;
+  seen.back = 0;
+  seen.refresh = 0;
+});
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
@@ -66,6 +79,8 @@ const { FormKontakteSection } = await import("./components/forms/AdminKontakteEd
 const { AdminKontakteEditView } = await import("./components/views/AdminKontakteEditView.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 const { default: AdminKontakteEditPage } = await import("@/app/admin/kontakte/[team_id]/page.tsx");
+const { AdminTeamEditForm } = await import("@/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm.tsx");
+const { DRAFT_DISCARDED } = await import("@/shared/utils/draftGuard.ts");
 
 /** The stored shape, which the list seat takes a subset of, so one person serves both renders below. */
 const ADA: FLKontaktperson = {
@@ -144,7 +159,7 @@ const editorElement = (node: ReactNode, kontakte: FLSaisonTeamKontakte | null): 
       status: deriveKontakteDraftStatus({ stored: { kontakte }, draft: { kontakte }, fieldErrors: {} }),
       children: node,
     }),
-    { search: "saison_id=2526" },
+    { search: "saison_id=2526", router },
   );
 
 const editorTree = (node: ReactNode, kontakte: FLSaisonTeamKontakte | null): string => renderTree(editorElement(node, kontakte));
@@ -179,10 +194,88 @@ const viewElement = (kontakte: FLSaisonTeamKontakte | null, hasRow = true, teamI
 
 const viewMarkup = (kontakte: FLSaisonTeamKontakte | null, hasRow = true): string => editorTree(viewElement(kontakte, hasRow), kontakte);
 
-/** The page's own return. Its data component sits behind the boundary, whose fallback stands here. */
-const PAGE_MARKUP = renderTree(
-  h(AdminKontakteEditPage, { params: Promise.resolve({ team_id: "t1" }), searchParams: Promise.resolve({ saison_id: "2526" }) }),
-);
+/** A club id the payload's mirror takes, so a save reaches the write rather than stopping at the block. */
+const TEAM_ID = "507f1f77bcf86cd799439011";
+
+/** The write's answer to a save, carrying the token of the block it left. */
+const SAVED = { success: true, message: "Kontakte gespeichert.", saison_team: { kontakte_stand: "a1b2" } };
+
+/** Lets a transition's answer, and everything it sets off, land. */
+const settle = (): Promise<void> =>
+  act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+/** Every box a refusal marks, read off its description as a reader of the box hears it. */
+const refusedBoxes = (): HTMLElement[] => screen.queryAllByRole("textbox", { description: /./ });
+
+/** The editor over `stored`, saved once `change` has edited it; the telephone, over which no banner is raised, by default. */
+async function saveOver(
+  stored: FLSaisonTeamKontakte,
+  answered: unknown = SAVED,
+  change = async (user: ReturnType<typeof userEvent.setup>) => {
+    const phone = screen.getAllByRole("textbox", { name: "Telefon" })[0] ?? assert.fail("the seats render no telephone box");
+    await user.clear(phone);
+    await user.type(phone, "069 222");
+  },
+): Promise<void> {
+  const user = userEvent.setup({ delay: null });
+  answerWith(() => Promise.resolve(answered));
+  render(editorElement(viewElement(stored, true, TEAM_ID), stored));
+  await change(user);
+  await user.click(screen.getByRole("button", { name: "Speichern" }));
+  await settle();
+}
+
+/** Presses the Rückgängig the save's toast offered, as the toast's own button does. */
+async function pressUndo(): Promise<void> {
+  const offer = toasts.find(({ options }) => options?.actionProps?.onPress !== undefined) ?? assert.fail("the save offered no undo");
+  offer.options?.actionProps?.onPress?.();
+  await settle();
+}
+
+/** One seat's person as nobody has confirmed them, so a new name there costs no confirmation and raises no dialog. */
+const unconfirmed = (vorname: string, nachname: string, email: string): FLKontaktperson => ({
+  ...ADA,
+  vorname,
+  nachname,
+  email,
+  einwilligung: { ...ADA.einwilligung, erfasst_von: "administrativ", bestaetigt_am: null },
+});
+
+/** Three people and one address among them, so the page offers exactly one person's erasure. */
+const ONE_ADDRESS: FLSaisonTeamKontakte = { ...BLOCK_WITHOUT_ADDRESS, ansprechperson: seatPerson("Grace", "Hopper", "grace@example.org") };
+
+/** What the erasure's arming read answers: one seat, in a season this page does not show. */
+const ERASURE_READ = {
+  success: true,
+  ansicht: { acknowledged: 1, saison_teams: [{ saison_id: "2425", rolle: "trainer", vorname: "Grace", nachname: "Hopper" }], bewerbungen: [] },
+};
+
+/** The editor page's address: the club the answers below hold, in the season they hold it in. */
+const PAGE_PROPS = { params: Promise.resolve({ team_id: OBJECT_ID }), searchParams: Promise.resolve({ saison_id: "2526" }) };
+
+/** The block the page's memberships read answers with, as the backend holds it at that moment. */
+let storedBlock: FLSaisonTeamKontakte = BLOCK;
+
+/** The season the address names. */
+const SAISON = answer(FLSaisonSchema, "/saisons/list/admin", saisonFields("2526", "active"));
+
+answerReadsWith((endpoint, schema, params) => {
+  if (endpoint === "/saisons/list/admin") return answer(schema, endpoint, { saisons: [SAISON] });
+  if (endpoint === "/teams/memberships") {
+    const club = answer(FLTeamWithMembershipsSchema, endpoint, {
+      id: OBJECT_ID,
+      name: "SG Alpha",
+      shorthand: "SA",
+      full_name: "Sportgemeinschaft Alpha",
+      address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
+      memberships: [{ saison_id: "2526", gruppe: "A", austritt: null, trikot_farbe: null, kontakte: storedBlock, kontakte_stand: "9f2c" }],
+    });
+    return answer(schema, endpoint, { teams: [club] });
+  }
+  return EMPTIEST_ANSWER(endpoint, schema, params);
+});
 
 /** The words a reader hears at one heading level, in the order the markup carries them. */
 const headings = (html: string, level: string): string[] =>
@@ -202,203 +295,78 @@ const seatCards = (html: string): { header: string; body: string }[] => {
     });
 };
 
-/* What is asserted of the undo is which site carries a step — where the payload is judged, which
-   mutation restores it — and a call reports an outcome rather than the site. */
-const UNDO_ROUTE = readFileSync(path.resolve(SRC, "app", "api", "admin", "kontakte", "undo", "route.ts"), "utf8");
-/** The shared dispatch the editor rides, whose own copy is `undoDispatch.test.ts`'s to hold. */
-const DISPATCH = readFileSync(path.resolve(SRC, "shared", "utils", "undoDispatch.ts"), "utf8");
-/** The shared way out the editor rides. The cases below are where its shape is held, for all eight editors. */
-const EXIT_HOOK = readFileSync(path.resolve(SRC, "shared", "hooks", "useEditorExit.ts"), "utf8");
-
 const KONTAKTE_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte";
-/* Spelled out rather than read off the register, which is the very thing the case below compares it
-   to: a code taken from `declaredCodes` would agree with itself whatever the backend declares. */
+/* Spelled out rather than read off the published document, which is the very thing the case below
+   compares it to: a code taken from `publishedRefusals` would agree with itself whatever the backend publishes. */
 const STALE_BLOCK = "REQ-KONTAKT-001";
 
-/* Each declaration is cut at the one named after it: a boundary that stopped matching then fails the
-   case pinning the cut rather than every case reading the slice. */
-const REFUSAL_MAP = sliceBetween(ACTIONS, "function mapStaleBlockRefusal", "export async function eraseKontaktpersonAction");
-const PATCH_ACTION = sliceBetween(ACTIONS, "export async function patchSaisonTeamKontakteAction", null);
-const PATCH_MUTATION = sliceBetween(MUTATIONS, "export async function patchSaisonTeamKontakte", null);
-const PAYLOAD_SCHEMA = sliceBetween(
-  SCHEMAS,
-  "export const FLPatchSaisonTeamKontaktePayloadSchema",
-  "export type FLPatchSaisonTeamKontaktePayload",
-);
-const RESPONSE_SCHEMA = sliceBetween(
-  SCHEMAS,
-  "export const FLPatchSaisonTeamKontakteResponseSchema",
-  "export type FLPatchSaisonTeamKontakteResponse",
-);
-const SUBMIT = sliceBetween(FORM_SOURCE, "const requestSave", "return (");
-const REQUEST_LEAVE = sliceBetween(EXIT_HOOK, "const requestLeave", "const discardAndLeave");
-const OFFER_UNDO = sliceBetween(FORM_SOURCE, "offerUndo({", "});");
-/* Cut at the signature's closing brace rather than at the declaration: the parameter list spans
-   several lines, and each would otherwise read as a statement of the body. */
-const PAGE_CONTENT = sliceBetween(PAGE_SOURCE, "}) {", null);
+describe("the contacts write against the codes its endpoint publishes", () => {
+  /* Worded apart from the undo, whose toast has not got the form the save's sentence sends the admin to
+     (`fl_frontend/src/app/api/admin/kontakte/undo/route.test.ts`). A code the save leaves unmapped
+     falls through to the shared fallback, which names no reason. */
+  it("words the one refusal its endpoint publishes, at the save", () => {
+    const published = publishedRefusals(KONTAKTE_OPERATION);
 
-/**
- * One function body's statements, comments and blank lines dropped. What the text tests below can
- * assert is the SHAPE of a handler; that it behaves is not reachable from here.
- */
-function statementsOf(slice: string): string[] {
-  return slice
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line !== "" && !line.startsWith("//") && !line.startsWith("/*") && !line.startsWith("*"));
-}
-
-describe("the contacts write against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
-  it("cuts each declaration out of its file before reading it", () => {
-    assert.ok(PATCH_ACTION.includes("patchSaisonTeamKontakte(validated.data)"), "the write's call is outside its slice");
-    assert.ok(!PATCH_ACTION.includes("eraseKontaktperson("), "the write's slice reaches back over the erasure");
-    assert.ok(REFUSAL_MAP.includes("APIBadStatusError"), "the refusal map's slice does not reach the error it narrows");
-    assert.ok(!REFUSAL_MAP.includes("runAdminMutation"), "the refusal map's slice reaches forward over the write");
-    assert.ok(PATCH_MUTATION.includes("/kontakte`"), "the mutation's slice does not reach the endpoint it addresses");
-    assert.ok(!PATCH_MUTATION.includes("/kontakte/erasure"), "the mutation's slice reaches back over the erasure");
-    assert.ok(PAYLOAD_SCHEMA.includes("team_id"), "the payload mirror's slice does not reach its fields");
-    assert.ok(RESPONSE_SCHEMA.includes("kontakte"), "the response mirror's slice does not reach its fields");
-    assert.ok(SUBMIT.includes("patchSaisonTeamKontakteAction("), "the submit's slice does not reach its dispatch");
-    assert.ok(REQUEST_LEAVE.includes("leavePage()"), "the leave request's slice does not reach the navigation it guards");
-    assert.ok(!REQUEST_LEAVE.includes("resetDraftToStored"), "the leave request's slice reaches forward over the reset");
-    assert.ok(OFFER_UNDO.includes("body: undoPayload,"), "the undo offer's slice does not reach the payload it hands on");
-    assert.notEqual(PAGE_CONTENT, "", "the page's data component is no longer where the cut looks for it");
-  });
-
-  /* The two are worded apart: the save's sentence sends the admin to a form the undo toast has not
-     got. A code either path leaves unmapped falls through to the shared 409 fallback, which reports
-     a duplicate entry. */
-  it("words the one refusal its endpoint declares, at the save and at the undo", () => {
-    assert.deepEqual(declaredCodes(KONTAKTE_OPERATION), [STALE_BLOCK]);
-    assert.match(REFUSAL_MAP, new RegExp(`serverErrorCode !== "${STALE_BLOCK}"`), "the write maps something other than the stale block");
-    assert.match(REFUSAL_MAP, /buildRefusal\(\{/, "the refusal is worded outside the shared refusal shape");
-    assert.ok(PATCH_ACTION.includes("mapStaleBlockRefusal(error)"), "the write no longer maps the refusal it raises");
-    assert.ok(UNDO_ROUTE.includes(`"${STALE_BLOCK}":`), "the undo route leaves its replay's refusal to the 409 fallback");
-  });
-
-  /* The floor under the case above: an empty list has to mean "this endpoint declares none" rather
-     than "the register was read as nothing at all". */
-  it("reads a declared refusal where one exists", () => {
-    assert.deepEqual(declaredCodes("POST /teams/{team_id}/saisons"), ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"]);
-  });
-
-  /* The house shape, in order: the session first, because `runAdminMutation` seeds the scope the
-     actor header is read from, then the parse, then the write, then the acknowledgement. */
-  it("takes the house shape for an admin write", () => {
-    assert.match(PATCH_ACTION, /runAdminMutation\("patchSaisonTeamKontakteAction"/, "the write runs outside runAdminMutation");
-    const order = ["getAdminSession()", "FLPatchSaisonTeamKontaktePayloadSchema.safeParse", "patchSaisonTeamKontakte(", "acknowledged"].map(
-      (token) => PATCH_ACTION.indexOf(token),
-    );
-    assert.ok(
-      order.every((at, index) => at !== -1 && (index === 0 || at > (order[index - 1] ?? -1))),
-      `the write's steps are out of order or missing: ${order.join(", ")}`,
-    );
-  });
-
-  /* Both ids in the PATH: a backend payload model that saw one refuses the whole body. */
-  it("addresses the junction row by its natural key and sends the block alone", () => {
-    assert.match(PATCH_MUTATION, /method: "PATCH"/, "the block is written by something other than a PATCH");
-    assert.match(PATCH_MUTATION, /`\/teams\/\$\{team_id\}\/saisons\/\$\{saison_id\}\/kontakte`/, "the endpoint moved");
-    assert.match(PATCH_MUTATION, /body: JSON\.stringify\(body\)/, "the block no longer travels in the body");
-    // Destructured out of the body, so neither id can be sent twice.
-    assert.deepEqual(statementsOf(PATCH_MUTATION).slice(1, 5), [
-      "team_id,",
-      "saison_id,",
-      "...body",
-      "}: FLPatchSaisonTeamKontaktePayload): Promise<FLPatchSaisonTeamKontakteResponse> {",
-    ]);
-  });
-
-  /* The block as stored and its own token, and no other field of the row: the group, the kit colour
-     and the Austritt are the club editor's, and echoing one would give this page a second subject. */
-  it("mirrors a response carrying the block, its token and nothing beside it", () => {
     assert.deepEqual(
-      [...RESPONSE_SCHEMA.matchAll(/^\s{2}(\w+):/gm)].map((match) => match[1]),
-      ["saison_id", "team_id", "kontakte", "kontakte_stand"],
+      published.filter((code) => code !== DUPLICATE_KEY),
+      [STALE_BLOCK],
     );
-  });
-
-  /* The payload mirror is composed from the club editor's, never restated: the two write the same
-     block, and a second spelling would drift with nothing able to see it. */
-  it("reuses the block's own mirror rather than restating it", () => {
-    assert.match(PAYLOAD_SCHEMA, /kontakte: FLSaisonTeamKontaktePayloadSchema\.nullable\(\)/, "the payload spells the block a second time");
-    assert.match(SCHEMAS, /from "@\/features\/teams\/schemas"/, "the block's mirror is no longer imported");
-  });
-});
-
-describe("what the contacts write moves", () => {
-  /* No cached read holds a contact person: the memberships read is admin-tier and memoised per
-     render pass, and no public team read carries `kontakte` at all. */
-  it("moves no tag, and says why", () => {
-    assert.ok(!PATCH_ACTION.includes("updateTag("), "the write clears a cached read its endpoint does not move");
-    assert.match(PATCH_ACTION, /No tag moves/, "the absent invalidation is left unexplained");
-  });
-
-  /* The whole block or nothing. A partial send would leave the row holding one half of a Kenntnisnahme,
-     which is why the field is required with no default on either side. */
-  it("sends the block whole, nullable, and with no default", () => {
-    assert.ok(!PAYLOAD_SCHEMA.includes(".optional()"), "the block may be omitted, which leaves the stored one standing unannounced");
-    assert.ok(!PAYLOAD_SCHEMA.includes(".default("), "the block carries a default, so a form that forgot it would write one");
+    for (const code of published) {
+      assert.notEqual(answerShown(KONTAKTE_OPERATION, code, mapStaleBlockRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+    }
+    // Two sentences, the way out second: the shared refusal shape, which a hand-spelled pair drifts from.
+    assert.match(String(mapStaleBlockRefusal(refusedOn(KONTAKTE_OPERATION, STALE_BLOCK))), /^[^.]+\. [^.]+\.$/);
   });
 });
 
 describe("the editor's shape", () => {
-  /* The shared editor surface, in full: a slice contributes its descriptors and its banners and
-     takes everything structural from `shared/components/ui`. */
-  it("is built from the shared editor modules and declares none of its own", () => {
-    for (const shared of [
-      "EditFormLayout",
-      "FormActionBar",
-      "DraftRail",
-      "DraftStatusProvider",
-      "ConfirmDiscardModal",
-      "ConfirmSaveModal",
-      "useDraftFieldErrors",
-      "runOnSubmit",
-    ]) {
-      assert.ok(FORM_SOURCE.includes(`{ ${shared} }`), `the editor no longer takes ${shared} from the shared surface`);
-    }
-    assert.match(FORM_SOURCE, /deriveKontakteDraftStatus/, "the editor derives its draft status somewhere else");
-  });
-
   /* One `h1` per page and the shell owns it. The heading LEVEL is `PanelHeading`'s now and pinned there;
      what a seat owes is using it. */
-  it("raises no heading the shell already owns", () => {
-    const editor = viewMarkup(BLOCK);
+  it("raises no heading the shell already owns", async () => {
+    const { container, unmount } = render(underNext(await pageBody(AdminKontakteEditPage, PAGE_PROPS), { search: "saison_id=2526" }));
 
-    assert.ok(!editor.includes("<h1"), "the editor raises an h1 the shell already owns");
-    // The control: an editor rendering no title at all would satisfy the absence above.
-    assert.ok(headings(editor, "h2").includes("Trainer"), "the editor renders no seat title, so the absence above proves nothing");
-    assert.ok(!PAGE_MARKUP.includes("<h1"), "the page's own chrome raises an h1 the shell already owns");
-    /* The control the absence above needs more than the editor's: the page's whole return is one
-       boundary, so this render is the fallback and an empty one would satisfy it unread. */
-    assert.ok(PAGE_MARKUP.includes('role="status"'), "the page's chrome renders nothing, so the absence above proves nothing");
-    /* The page's remaining half is its data component, which sits behind the boundary the chrome
-       renders: what stands in the markup above is the fallback, so what it wraps the view in is read. */
-    assert.ok(!PAGE.includes("<h1"), "the page raises an h1 the shell already owns");
+    // The control: an editor rendering no title at all would satisfy the absence below.
+    assert.ok(
+      [...container.querySelectorAll("h2")].some((heading) => heading.textContent === "Trainer"),
+      "the page renders no seat title, so the absence below proves nothing",
+    );
+    // A boolean rather than the node: a failing assertion over a DOM node serialises its whole tree.
+    assert.ok(container.querySelector("h1") === null, "the page raises an h1 the shell already owns");
+    unmount();
   });
 
-  /* The page's chrome may never wait on the row, and the fetch below the boundary may never run in
-     the image build. `params` is awaited INSIDE the boundary for the same reason. */
-  it("leaves the page's shape intact", () => {
-    assert.match(PAGE, /export default function AdminKontakteEditPage/, "the page's default export became async");
-    // The FIRST statement, not merely a present one: the image builder reaches no backend, so a fetch
-    // ordered above this call runs at build time.
-    assert.equal(
-      // Index 1: index 0 is the signature's closing line, which the cut opens on.
-      statementsOf(PAGE_CONTENT)[1],
-      "await connection();",
-      "the data component no longer opens with await connection()",
-    );
-    assert.match(PAGE, /await resolveTeamId\(params\)/, "the route's own id is resolved outside the boundary");
-    assert.match(PAGE, /resolveSaisonId\(searchParams, "admin"\)/, "the season is resolved at the wrong tier, or not at all");
+  /* The page's chrome may never wait on the row: rendered with no boundary awaited, its fallback
+     stands, where an async page would suspend whole. */
+  it("renders its fallback before the row resolves", () => {
+    assert.ok(renderTree(h(AdminKontakteEditPage, PAGE_PROPS)).includes('role="status"'), "the page waits on the row before it renders");
+  });
+
+  /* The club is judged before the backend is asked: a malformed id reads nothing. */
+  it("answers a malformed club id with a 404 before any read", async () => {
+    clearSteps();
+
+    await assert.rejects(pageBody(AdminKontakteEditPage, { ...PAGE_PROPS, params: Promise.resolve({ team_id: "kein-team" }) }), {
+      digest: "NEXT_HTTP_ERROR_FALLBACK;404",
+    });
+    assert.deepEqual(readsOf(steps), [], "the page asked the backend about an id it could have refused unread");
   });
 
   /* Re-seeding is a `key`, not a prop: every field is `useState` initialised from the row, and an
      initialiser runs once per mounted instance. */
-  it("keys the view by the state the draft mirrors", () => {
-    assert.match(PAGE, /key=\{JSON\.stringify\(\{ team, saison \}\)\}/, "the editor's subtree is keyed by something else");
+  it("keys the view by the state the draft mirrors", async () => {
+    const user = userEvent.setup({ delay: null });
+    storedBlock = BLOCK;
+    const { rerender, unmount } = render(underNext(await pageBody(AdminKontakteEditPage, PAGE_PROPS), { search: "saison_id=2526" }));
+    const addresses = () => screen.getAllByRole<HTMLInputElement>("textbox", { name: "E-Mail" });
+    await user.clear(addresses()[0] ?? assert.fail("the seats render no address box"));
+    await user.paste("erika@example.org");
+
+    // The refresh after a save re-reads the row as the backend stored it, which is not what was typed.
+    storedBlock = { ...BLOCK, ansprechperson: seatPerson("Grace", "Hopper", "grace.hopper@example.org") };
+    rerender(underNext(await pageBody(AdminKontakteEditPage, PAGE_PROPS), { search: "saison_id=2526" }));
+
+    assert.equal(addresses()[0]?.value, "grace.hopper@example.org", "the box keeps the draft over the block the save stored");
+    unmount();
   });
 
   /* A ratified decision (`.claude/rules/frontend.md`): a typed field is judged when it is LEFT. A
@@ -421,12 +389,31 @@ describe("the editor's shape", () => {
   /* The claim is honoured at the ONE compose site. Written into the draft it overwrites whichever of
      two real people it does not name, on the first keystroke and with no undo — a stored row can hold
      the claim over two DIFFERENT people. */
-  it("honours the claim when the payload is composed, and never in the draft", () => {
-    assert.match(
-      FORM_SOURCE,
-      /kontakte: toKontaktePayload\(kontakte === null \? null : mirrorKontakte\(kontakte\)\)/,
-      "the payload no longer composes the claim, so the editor saves whatever the draft happens to hold",
+  it("honours the claim when the payload is composed, and never in the draft", async () => {
+    const claimed: FLSaisonTeamKontakte = {
+      trainer: unconfirmed("Ada", "Byron", "ada@example.org"),
+      ansprechperson: unconfirmed("Grace", "Hopper", "grace@example.org"),
+      stellvertretung: unconfirmed("Alan", "Turing", "alan@example.org"),
+      trainer_ist_zugleich: "ansprechperson",
+    };
+    await saveOver(claimed);
+
+    const [saved] = calls.map(({ payload }) => payload as FLPatchSaisonTeamKontaktePayload);
+    assert.equal(
+      saved?.kontakte?.trainer?.vorname,
+      "Grace",
+      "the payload no longer composes the claim, so the save writes the draft's Trainer",
     );
+    cleanup();
+
+    // The draft keeps the Trainer's own person through a pick and back, which a claim written into it would overwrite.
+    const user = userEvent.setup({ delay: null });
+    render(editorElement(viewElement(BLOCK), BLOCK));
+    const trainerFirstName = () => screen.getAllByRole<HTMLInputElement>("textbox", { name: "Vorname" })[2]?.value;
+    await user.click(screen.getByRole("radio", { name: "Die Ansprechperson" }));
+    await user.click(screen.getByRole("radio", { name: "Eine andere Person" }));
+
+    assert.equal(trainerFirstName(), "Ada", "the claim was written into the draft, and the Trainer it named over is gone");
   });
 
   /* A seat switched off and on again is one press somebody may take back, and the person it held is
@@ -448,20 +435,23 @@ describe("the editor's shape", () => {
     assert.equal(firstNames()[0]?.value, held, "the seat comes back empty, so the press cost the person it held");
   });
 
-  /* Both controls hand their re-judging decision to a pure function, and the blur hands its path set
-     to one: an inline condition at any of the three is a rule stated twice, and `utils.test.ts` is
-     where each of them is proven in every direction. */
-  it("takes every re-judging decision from the shared helpers", () => {
-    // The decision comes FROM the helper, whatever it is passed: the argument list is the switch's
-    // business, and pinning it made restoring a switched-off seat read as a regression.
-    assert.match(SECTION, /const \{ next, revalidate \} = applySeatPresence\(/, "a seat's switch judges the mirror itself");
-    assert.match(SECTION, /const \{ next, revalidate \} = applySharedSeat\(/, "the shared-seat picker judges the mirror itself");
-    assert.match(
-      SECTION,
-      /onFieldLeft\(mirroredJudgedPaths\(paths, mirroredSeat\)\)/,
-      "a left field is judged without the mirror's copy of it",
+  /* While the claim stands the Trainer is the named seat's person, so leaving one of that seat's
+     fields judges the Trainer's copy too: judged alone, the copy keeps a verdict over a value it never saw. */
+  it("judges the Trainer's copy when a field of the seat it copies is left", async () => {
+    const user = userEvent.setup({ delay: null });
+    const claimed: FLSaisonTeamKontakte = { ...BLOCK, trainer_ist_zugleich: "ansprechperson" };
+    render(editorElement(viewElement(claimed), claimed));
+    const [address] = screen.getAllByRole("textbox", { name: "E-Mail" });
+
+    await user.clear(address ?? assert.fail("the seats render no address box"));
+    await user.paste("grace@");
+    await user.tab();
+
+    assert.deepEqual(
+      refusedBoxes().map((box) => box.getAttribute("name")),
+      ["kontakte.ansprechperson.email", "kontakte.trainer.email"],
+      "a left field is judged without the Trainer's copy of it",
     );
-    assert.match(SECTION, /onFieldLeft=\{judgeFieldsLeft\}/, "the seats are handed the raw handler, so the mirror's copy is never re-judged");
   });
 
   /* An empty seat is a saveable state rather than a half-finished one, and the record keeps no field
@@ -535,76 +525,75 @@ describe("the editor's shape", () => {
     assert.equal(phone.value, BLOCK.ansprechperson?.telefon, "a save leaves typed values standing in the tree");
   });
 
-  /* Unsaved work may not leave unasked. No markup carries which handler a control was given, so what
-     is asserted is the handler's SHAPE — the whole body, so a guard weakened into a no-op still fails. */
-  it("takes the shape that guards the way out on unsaved changes", () => {
-    assert.deepEqual(statementsOf(REQUEST_LEAVE), [
-      "const requestLeave = () => {",
-      "if (isDirty) {",
-      "setHasLeftViaDiscard(false);",
-      "setIsConfirmingDiscard(true);",
-      "return;",
-      "}",
-      "leavePage();",
-      "};",
-    ]);
-    assert.match(FORM_SOURCE, /onLeave=\{requestLeave\}/, "the header's way out skips the discard guard");
-    assert.match(FORM_SOURCE, /onCancel=\{requestLeave\}/, "the action bar's way out skips the discard guard");
+  /* Unsaved work may not leave unasked, by the header's way out or by the action bar's. */
+  it("asks before leaving over unsaved work, by either way out", async () => {
+    for (const wayOut of [/Zurück/, /^Abbrechen$/]) {
+      const user = userEvent.setup({ delay: null });
+      const { unmount } = render(editorElement(viewElement(BLOCK), BLOCK));
+      const phone = screen.getAllByRole("textbox", { name: "Telefon" })[0] ?? assert.fail("the seats render no telephone box");
+      await user.type(phone, "2");
+      await user.click(screen.getByRole("button", { name: wayOut }));
+
+      assert.ok(screen.queryByRole("button", { name: "Verwerfen" }) !== null, `${String(wayOut)} leaves unsaved work unasked`);
+      assert.deepEqual([seen.back, seen.pushed], [0, []], `${String(wayOut)} navigated over unsaved work`);
+      unmount();
+
+      // The control: with nothing typed, the same press leaves, so the refusal above is the draft's.
+      const clean = render(editorElement(viewElement(BLOCK), BLOCK));
+      await user.click(screen.getByRole("button", { name: wayOut }));
+      assert.equal(seen.back + seen.pushed.length, 1, `${String(wayOut)} does not leave a clean editor, so the refusal above proves nothing`);
+      clean.unmount();
+      seen.back = 0;
+      seen.pushed.length = 0;
+    }
   });
 
-  /* A page-owned editor, so §1.3 allows its undo a route handler. The write replaces the block whole
-     on a row the path names, so the pre-save block restores through the same PATCH. */
-  it("offers an undo, and dispatches it to its own route handler", () => {
-    assert.ok(OFFER_UNDO.includes('endpoint: "/api/admin/kontakte/undo"'), "the undo dispatches somewhere other than its own route");
-    // A `fetch` and not a server action: the press lands after this component has unmounted, which is
-    // the whole of why the eight undos are route handlers at all.
-    assert.match(DISPATCH, /await fetch\(endpoint, \{/, "the shared dispatch no longer posts over fetch");
-    assert.ok(!DISPATCH.includes('"use server"'), "the undo went back to a server action while E592 still reproduces");
-  });
-
-  /* The eighth handler, on the spine the others share, replaying the save's own mutation rather than
-     a second write path. It clears nothing: no cached read holds a contact person. */
-  it("stands the undo on the shared spine and clears no cached read", () => {
-    assert.match(UNDO_ROUTE, /handleUndoRequest\(request, \{/, "the route no longer runs on the shared undo spine");
-    assert.match(UNDO_ROUTE, /schema: FLPatchSaisonTeamKontaktePayloadSchema,/, "the route parses something other than the save's payload");
-    assert.match(UNDO_ROUTE, /await patchSaisonTeamKontakte\(payload\)/, "the restore calls something other than the save's own mutation");
-    assert.ok(!UNDO_ROUTE.includes("revalidateTag"), "the undo clears a cached read its endpoint does not move");
-    assert.match(UNDO_ROUTE, /invalidate: \(\) => undefined,/, "the undo grew an invalidation");
-    assert.match(UNDO_ROUTE, /Nothing to clear/, "the absent invalidation is left unexplained");
-  });
-
-  /* The STORED block and both ids, which is the payload's restorable half — so the restore is the
-     save run backwards rather than a second write shape nothing else exercises. */
-  it("sends the pre-save block, captured before the write that replaces it", () => {
-    assert.match(
-      SUBMIT,
-      /const wiederherstellbar = \{ team_id: teamId, saison_id: saison\.saisonId, kontakte: toKontaktePayload\(storedKontakte\) \};/,
-      "the undo replays something other than the pre-save block",
+  /* A page-owned editor's undo is a route handler (`docs/frontend/spec.md` §1.3). The STORED block and
+     both ids restore through the same PATCH: the save run backwards, never a second write shape. */
+  it("offers an undo that replays the pre-save block to its own route handler", async () => {
+    fetchMock.mock.mockImplementation(() =>
+      Promise.resolve(Response.json({ success: true, message: "Kontakte wiederhergestellt.", warn: false })),
     );
-    const capturedAt = SUBMIT.indexOf("const wiederherstellbar");
-    const writtenAt = SUBMIT.indexOf("patchSaisonTeamKontakteAction(");
-    assert.ok(capturedAt !== -1 && writtenAt !== -1 && capturedAt < writtenAt, "the undo payload is captured after the write that moves it");
-    // Unconditional: a ratified decision keeps the offer on the save the confirmation dialog gated too.
-    assert.match(SUBMIT, /offerUndo\(\{/, "the undo offer is scoped to some saves rather than every one");
-  });
+    await saveOver(BLOCK);
 
-  /* The precondition is the one half that CANNOT come from the render: this save has just moved the
-     row past the block the page read, so replaying that one asks the endpoint to refuse. */
-  it("takes the undo's precondition off the write's own answer", () => {
-    assert.match(SUBMIT, /const nachStand = res\.saison_team\?\.kontakte_stand;/, "the undo's precondition comes from somewhere else");
-    assert.match(SUBMIT, /kontakte_stand: nachStand \?\? ""/, "the undo replays a precondition other than the write's own answer");
-    const answeredAt = SUBMIT.indexOf("const nachStand");
-    const writtenAt = SUBMIT.indexOf("patchSaisonTeamKontakteAction(");
-    assert.ok(answeredAt > writtenAt, "the precondition is read before the write that produces it");
     // The save's own body carries the token the page was SERVED, which is the whole of what it judges.
-    assert.match(FORM_SOURCE, /kontakte_stand: kontakteStand,/, "the save sends no precondition, or one it composed itself");
-    assert.match(
-      FORM_SOURCE,
-      /const kontakteStand = storedMembership\?\.kontakte_stand \?\? "";/,
-      "the save's precondition is derived here rather than taken as the row served it",
+    assert.deepEqual(
+      calls.map(({ action, payload }) => [action, (payload as { kontakte_stand?: unknown }).kontakte_stand]),
+      [["patchSaisonTeamKontakteAction", "9f2c"]],
     );
-    // The clearing is a save on the same endpoint, and one sent without the token is refused whole.
-    assert.match(CLEAR_SECTION, /kontakte_stand: stand/, "the clearing sends no precondition");
+
+    await pressUndo();
+    assert.deepEqual(
+      fetchMock.mock.calls.map((call) => [String(call.arguments[0]), JSON.parse(String(call.arguments[1]?.body)) as unknown]),
+      [
+        [
+          "/api/admin/kontakte/undo",
+          // The precondition is the write's own answer: this save has moved the row past the block the
+          // page read, so replaying that one asks the endpoint to refuse.
+          { team_id: TEAM_ID, saison_id: "2526", kontakte: toKontaktePayload(BLOCK), kontakte_stand: SAVED.saison_team.kontakte_stand },
+        ],
+      ],
+    );
+  });
+
+  /* A ratified decision (`.claude/rules/frontend.md`) keeps the offer on the save the confirmation dialog gated too. */
+  it("offers the same undo on a save the confirmation dialog gated", async () => {
+    fetchMock.mock.mockImplementation(() =>
+      Promise.resolve(Response.json({ success: true, message: "Kontakte wiederhergestellt.", warn: false })),
+    );
+    await saveOver(BLOCK, SAVED, async (user) => {
+      await user.click(screen.getByRole("switch", { name: "Stellvertretung hinterlegt" }));
+    });
+    const user = userEvent.setup({ delay: null });
+    await user.click(screen.getByRole("button", { name: "Trotzdem speichern" }));
+    await settle();
+
+    assert.equal(calls.length, 1, "the dialog's confirmation never reached the write, so the offer below is judged over nothing");
+    await pressUndo();
+    assert.deepEqual(
+      fetchMock.mock.calls.map((call) => (JSON.parse(String(call.arguments[1]?.body)) as { kontakte?: unknown }).kontakte),
+      [toKontaktePayload(BLOCK)],
+    );
   });
 
   /* The token is what every save is judged against, so a mirror dropping it leaves the editor sending
@@ -648,24 +637,38 @@ describe("what the undo says when it cannot run", () => {
   /* It is raised one press after the save's own „Kontakte gespeichert“, and a reload replaces the
      block on screen with the one that save wrote: an imperative to reload destroys the very values
      the sentence then asks for by hand. */
-  it("asks for the pre-save values without sending anybody through a reload first", () => {
-    const refusalSentence = sliceBetween(FORM_SOURCE, "const OHNE_NACHSTAND", "});");
+  it("asks for the pre-save values without sending anybody through a reload first", async () => {
+    // A save whose answer carried no token for the block it left, so the replay has no precondition.
+    await saveOver(BLOCK, { success: true, message: "Kontakte gespeichert." });
+    await pressUndo();
 
-    assert.ok(refusalSentence.includes("von Hand ein"), "the refusal no longer asks for the pre-save values by hand");
-    assert.ok(!refusalSentence.includes("Lade die Seite neu"), "the refusal reloads away the values it then asks for");
+    const [refused] = toasts.filter(({ variant }) => variant === "danger").map(({ description }) => description ?? "");
+    assert.match(refused ?? "", /von Hand ein/, "the refusal no longer asks for the pre-save values by hand");
+    assert.doesNotMatch(refused ?? "", /Lade die Seite neu/, "the refusal reloads away the values it then asks for");
+    assert.equal(fetchMock.mock.callCount(), 0, "a replay with no precondition was dispatched");
   });
 
   /* Backend I36 (`docs/backend/spec.md`) admits a malformed address on READ, and such a block is no
      legal write. The spine can only answer that body with a reload, so the caller — which alone
      holds the payload and the reason — diagnoses first. */
   // The diagnosis itself: `fl_frontend/src/features/kontakte/utils.test.ts :: describeUnrestorableKontakte`.
-  it("diagnoses an unrestorable block itself rather than dispatching it", () => {
-    assert.match(SUBMIT, /describeUnrestorableKontakte\(undoPayload\)/, "the offer no longer judges the body it hands on");
-    assert.ok(OFFER_UNDO.includes("unrestorable,"), "the offer dispatches without the verdict beside it");
-    const judgedAt = DISPATCH.indexOf("if (unrestorable !== null)");
-    const dispatchedAt = DISPATCH.indexOf("postUndo(endpoint, body)");
-    assert.ok(judgedAt !== -1 && dispatchedAt !== -1 && judgedAt < dispatchedAt, "the payload is judged after the dispatch it would spare");
-    assert.match(DISPATCH, /if \(unrestorable !== null\) \{[\s\S]*?return;/, "an unrestorable block is dispatched anyway");
+  it("diagnoses an unrestorable block itself rather than dispatching it", async () => {
+    const malformed: FLSaisonTeamKontakte = { ...BLOCK, stellvertretung: unconfirmed("Alan", "Turing", "alan.example.org") };
+    const restorable = { team_id: TEAM_ID, saison_id: "2526", kontakte: toKontaktePayload(malformed), kontakte_stand: "a1b2" };
+    // The address corrected, which is the save such a row takes: the stored block is what the undo replays.
+    await saveOver(malformed, SAVED, async (user) => {
+      const address = screen.getAllByRole("textbox", { name: "E-Mail" })[1] ?? assert.fail("the seats render no second address box");
+      await user.clear(address);
+      await user.type(address, "alan@example.org");
+    });
+    assert.equal(calls.length, 1, "the corrected save never reached the write, so the offer below is judged over nothing");
+
+    await pressUndo();
+    assert.deepEqual(
+      toasts.filter(({ variant }) => variant === "danger").map(({ title, description }) => [title, description]),
+      [["Änderung nicht zurückgenommen", describeUnrestorableKontakte(restorable)]],
+    );
+    assert.equal(fetchMock.mock.callCount(), 0, "an unrestorable block was dispatched to a route that can only answer it with a reload");
   });
 });
 
@@ -720,12 +723,44 @@ describe("the way in and out of the editor", () => {
   /* The club editor holds none of the block any more, and the link in its place carries the season:
      the seats are season-scoped, so a link without it would open another season's three people. */
   it("leaves the club editor with a link and none of the block", () => {
-    assert.ok(!TEAM_FORM.includes("FormKontakteSection"), "the club editor still renders the contacts block");
-    assert.ok(!TEAM_FORM.includes("setKontakte"), "the club editor still holds the block in state");
-    assert.match(TEAM_FORM, /href=\{`\/admin\/kontakte\/\$\{team\.id\}\?saison_id=\$\{encodeURIComponent\(saison\.saisonId\)\}`\}/);
-    // Off the junction payload entirely: `FLPatchSaisonTeamPayloadSchema` declares no `kontakte`, the
-    // backend refuses one sent there, and the seats travel through their own endpoint instead.
-    assert.ok(!/kontakte: /.test(TEAM_FORM), "the club editor's junction payload carries the block a second endpoint owns");
+    const clubEditor = renderTree(
+      underNext(
+        h(AdminTeamEditForm, {
+          team: {
+            id: TEAM_ID,
+            name: "SG Alpha",
+            shorthand: "ALP",
+            description: "",
+            full_name: "Sportgemeinschaft Alpha",
+            website_url: null,
+            address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
+            schulform: null,
+            inactive_since: null,
+          },
+          saison: {
+            saisonId: "2526",
+            saisonStatus: "active",
+            membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte: BLOCK, kontakte_stand: "9f2c" },
+          },
+          today: "2026-03-01",
+          gruppeLocked: false,
+          gruppeOffer: [{ gruppe: "A", occupied: 1, capacity: 4 }],
+          swap: { teams: [], playedKnockoutSpiele: 0 },
+          einladung: null,
+          pageHeader: { title: "SG Alpha" },
+        }),
+        { search: "saison_id=2526" },
+      ),
+    );
+
+    // The control: the club's season panel renders, so the absence of the seats below is the editor's.
+    assert.match(clubEditor, /name="gruppe"/, "the club editor rendered no season panel, so the absence below proves nothing");
+    assert.ok(!clubEditor.includes("Trainer hinterlegt"), "the club editor still renders the contacts block");
+    assert.equal(
+      /<a [^>]*href="([^"]*)"[^>]*>3 Kontakteinträge für Saison 2526 bearbeiten</.exec(clubEditor)?.[1],
+      `/admin/kontakte/${TEAM_ID}?saison_id=2526`,
+      "the club editor's link does not open this editor on the season it shows",
+    );
   });
 
   /* Seats HELD, never the three the block always carries: an erasure leaves a block whose seats are
@@ -755,13 +790,6 @@ describe("the way in and out of the editor", () => {
     const wayOut = /<a [^>]*href="([^"]*)"[^>]*>Zur Seite des Teams</.exec(viewMarkup(null, false))?.[1] ?? "";
 
     assert.equal(wayOut, teamPageHref("t1", "2526"), "the way out is spelled a second time, or lost the season");
-    /* Read beside the render: this season needs no escaping, so a literal template renders the same
-       href while dropping the `encodeURIComponent` the builder puts round a season that does. */
-    assert.match(
-      FORM_SOURCE,
-      /teamHref=\{teamPageHref\(teamId, saison\.saisonId\)\}/,
-      "the way out is built at the call site rather than by the builder",
-    );
   });
 
   /* One noun for one concept: `Saison-Zugehörigkeit` is what the admin surface calls a junction row,
@@ -823,7 +851,6 @@ describe("how the editor clears a season's contact block", () => {
     );
     // The control: one switch per seat is what stayed, so a render carrying none proves nothing above.
     assert.ok(renderedSeats.includes("Trainer hinterlegt"), "the seats render no switch at all");
-    assert.ok(!SECTION.includes("toggleBlock"), "the block toggle's logic is back");
   });
 
   /* Its own red section, and LAST: every editor on the site puts its destructive section at the
@@ -843,9 +870,6 @@ describe("how the editor clears a season's contact block", () => {
     assert.ok(editor.includes(`<section class="${danger.root()}">`), "the deletion's box is not graded as destructive");
     assert.ok(editor.includes(`<div class="${danger.header()}">`), "the deletion's header band is not graded as destructive");
     assert.ok(editor.includes(`<h2 class="${danger.heading()}`), "the deletion's title is not graded as destructive");
-    // Read beside the render: spelling all three by hand renders identical markup, and what picks the
-    // tone is the one thing no state of this panel puts in the markup.
-    assert.match(CLEAR_SECTION, /formPanel\(\{ tone: hasStored \? "danger" : "neutral" \}\)/, "the grade is no longer the recipe's to give");
     // Nothing stored is nothing at stake, so the grade is spent nowhere.
     assert.ok(!viewMarkup(null).includes("border-danger/30"), "an empty block is graded as destructive");
     assert.ok(
@@ -903,10 +927,7 @@ describe("how the editor clears a season's contact block", () => {
 
   /* A person's erasure is keyed on an ADDRESS across every season and both collections. This clears
      ONE junction row. Merging them would answer a request to be forgotten by emptying one season. */
-  it("clears this season's block and never reaches a person's erasure", () => {
-    assert.ok(!CLEAR_SECTION.includes("eraseKontaktperson"), "the section reaches for the erasure action");
-    assert.ok(!CLEAR_SECTION.includes("email"), "the section is keyed on an address rather than on this row");
-
+  it("clears this season's block and never reaches a person's erasure", async () => {
     const editor = viewMarkup(BLOCK);
 
     assert.match(
@@ -914,6 +935,17 @@ describe("how the editor clears a season's contact block", () => {
       /Saison-Zugehörigkeit/,
       "the section does not say which record it clears",
     );
+
+    const user = userEvent.setup({ delay: null });
+    render(editorElement(viewElement(BLOCK), BLOCK));
+    await pressTwice(user, { resting: "Kontakte löschen", armed: "Ja, Kontakte dieser Saison endgültig löschen" });
+    await settle();
+
+    // This row, by its natural key and under the token the page was served: the clearing is a save on
+    // the same endpoint, and one sent without the token is refused whole.
+    assert.deepEqual(calls, [
+      { action: "patchSaisonTeamKontakteAction", payload: { team_id: "t1", saison_id: "2526", kontakte: null, kontakte_stand: "9f2c" } },
+    ]);
   });
 });
 
@@ -996,18 +1028,6 @@ describe("which wording a record cites", () => {
       LIGA_KENNTNISNAHME.textVersion,
       "the public form stamps its own version",
     );
-    // The identifier as well as the value: a literal that happens to agree today drifts on the next bump.
-    for (const [name, file] of [
-      ["the public form", path.resolve(SRC, "features", "bewerbungen", "utils.ts")],
-      ["the admin editor", path.resolve(SRC, "features", "teams", "utils.ts")],
-      ["the confirmation page", path.resolve(SRC, "features", "bewerbungen", "components", "views", "BestaetigungFormPanel.tsx")],
-    ] as const) {
-      assert.match(
-        readFileSync(file, "utf8"),
-        /LIGA_KENNTNISNAHME|BESTAETIGUNG_KENNTNISNAHME/,
-        `${name} spells the version rather than reading it`,
-      );
-    }
   });
 
   /* Typed by hand, the version is a value nobody decided stored as though somebody had — and an edit
@@ -1017,17 +1037,14 @@ describe("which wording a record cites", () => {
 
     assert.notEqual(box, "", "the Fassung field is no longer rendered at all");
     assert.match(box, /readonly=""/i, "the Fassung field is no longer read-only");
-
-    // Both handlers, which no markup carries: read-only stops the caret, and a write reaching the
-    // field by either handler would still rewrite which text a stored record cites.
-    const fieldName = /<TextField[^>]*isReadOnly[\s\S]{0,400}?einwilligung\.text_version[\s\S]*?<\/TextField>/.exec(SECTION_SOURCE)?.[0] ?? "";
-
-    assert.match(fieldName, /onChange=\{\(\) => undefined\}/, "the Fassung field still writes what is typed into it");
-    assert.doesNotMatch(fieldName, /setEinwilligung\(\{ text_version/, "the Fassung field still edits the stored version");
   });
 });
 
 describe("how the editor divides one person from the next", () => {
+  // A class list drawing a rule, its top border and the padding under it matched in either order,
+  // since the order is prettier's to set.
+  const RULE_CLASS = /class="(?=[^"]*(?<=[\s"])border-t(?=[\s"]))(?=[^"]*(?<=[\s"])pt-\d)[^"]*"/g;
+
   /* Two depths drawn the same way read as one: a rule between two people is then the rule between a
      person's details and their Kenntnisnahme, and neither reads as a boundary. */
   it("gives every seat its own panel rather than a rule inside one", () => {
@@ -1043,14 +1060,8 @@ describe("how the editor divides one person from the next", () => {
       // own info icon read as the panel being lost.
       assert.ok(header.includes(`<h2 class="${panel.heading()}`), "a seat spells its own heading again");
     }
-    assert.ok(!sectionMarkup(BLOCK).includes("border-t pt-5 first:border-t-0"), "the seats are back to being slices of one panel");
-    /* Read beside the render: a literal spelling those same classes renders identical markup, and the
-       copy drifts at the next change to the recipe with nothing able to see it. */
-    assert.match(
-      SECTION,
-      /<section className=\{panel\.root\(\)\}> <div className=\{panel\.header\(\)\}> <PanelHeading className=\{panel\.heading\(\)\}/,
-      "a seat's panel is spelled out instead of read off formPanel",
-    );
+    // The slice's own class alone, since prettier sorts others between it and the rule it drops.
+    assert.doesNotMatch(sectionMarkup(BLOCK), /(?<=[\s"])first:border-t-0(?=[\s"])/, "the seats are back to being slices of one panel");
   });
 
   /* An empty card carrying a title and nothing else is what the block heading had become once each
@@ -1098,7 +1109,7 @@ describe("how the editor divides one person from the next", () => {
     /* No address in any seat, so none offers the person's erasure: that control draws its own rule
        from its own file, and what this case is about is the division inside one person. */
     for (const { body } of seatCards(sectionMarkup(BLOCK_WITHOUT_ADDRESS))) {
-      const seatRules = [...body.matchAll(/class="[^"]*\bborder-t pt-\d[^"]*"/g)].map((found) => found[0]);
+      const seatRules = [...body.matchAll(RULE_CLASS)].map((found) => found[0]);
 
       assert.equal(seatRules.length, 1, `the seat draws ${String(seatRules.length)} rules where the Kenntnisnahme needs one`);
       assert.match(
@@ -1107,49 +1118,88 @@ describe("how the editor divides one person from the next", () => {
         "the seat's one rule opens something other than the Kenntnisnahme",
       );
     }
-    /* Counted over the file as well: a rule drawn BETWEEN the cards sits inside no seat's body, so
-       every count above passes while the two depths are back to being drawn alike. */
-    assert.equal([...SECTION_SOURCE.matchAll(/border-t pt-\d/g)].length, 1, "the section draws a rule outside a seat");
+    /* Counted over the whole section as well: a rule drawn BETWEEN the cards sits inside no seat's body,
+       so every count above passes while the two depths are back to being drawn alike. */
+    assert.equal(
+      [...sectionMarkup(BLOCK_WITHOUT_ADDRESS).matchAll(RULE_CLASS)].length,
+      seatCards(sectionMarkup(BLOCK_WITHOUT_ADDRESS)).length,
+      "the section draws a rule outside a seat",
+    );
   });
 });
 
 describe("what the two destructive controls do to the page", () => {
   /* Both write on the server and then re-read the page, so an unsaved draft would be diffed against a
      baseline that moved underneath it. Every one-way control here guards the same way. */
-  it("refuses to write over unsaved work, on both", () => {
-    for (const [name, source] of [
-      ["the person's erasure", ERASURE],
-      ["the season's clear", CLEAR_SECTION],
-    ] as const) {
-      assert.match(source, /if \(!guardAgainstDraft\(isDirty, DRAFT_IN_THE_WAY\)\) return;/, `${name} writes over an unsaved draft`);
-    }
+  it("refuses to write over unsaved work, on both", async () => {
+    const user = userEvent.setup({ delay: null });
+    render(editorElement(viewElement(ONE_ADDRESS), ONE_ADDRESS));
+    await user.type(screen.getAllByRole("textbox", { name: "Telefon" })[0] ?? assert.fail("the seats render no telephone box"), "2");
+
+    await user.click(screen.getByRole("button", { name: "Kontaktperson löschen" }));
+    await user.click(screen.getByRole("button", { name: "Kontakte löschen" }));
+
+    assert.deepEqual(
+      toasts.map(({ variant, title, description }) => [variant, title, description]),
+      [
+        ["warning", "Erst speichern", DRAFT_DISCARDED],
+        ["warning", "Erst speichern", DRAFT_DISCARDED],
+      ],
+      "a destructive control pressed over an unsaved draft does not say why it refused",
+    );
+    assert.equal(screen.queryAllByRole("button", { name: /^Ja, / }).length, 0, "a destructive control armed over an unsaved draft");
+    assert.deepEqual(calls, [], "a destructive control asked or wrote over an unsaved draft");
   });
 
   /* The row is the team BEING IN the season, so clearing its contacts cannot remove it. Navigating to
      a list that still shows the entry would read as a failed delete. */
-  it("stays on the page and re-reads it, on both", () => {
-    for (const [name, source] of [
-      ["the person's erasure", ERASURE],
-      ["the season's clear", CLEAR_SECTION],
+  it("stays on the page and leaves the re-read to the action, on both", async () => {
+    for (const [resting, armed] of [
+      ["Kontaktperson löschen", "Ja, Kontaktperson endgültig löschen"],
+      ["Kontakte löschen", "Ja, Kontakte dieser Saison endgültig löschen"],
     ] as const) {
-      assert.match(source, /router\.refresh\(\);/, `${name} does not re-read the row it just changed`);
-      assert.doesNotMatch(source, /router\.(replace|push)\(/, `${name} navigates away from a page that still has content`);
+      const user = userEvent.setup({ delay: null });
+      const { unmount } = render(editorElement(viewElement(ONE_ADDRESS), ONE_ADDRESS));
+      answerWith(() => Promise.resolve(ERASURE_READ));
+      await pressTwice(user, {
+        resting,
+        armed,
+        whileArmed: async () => {
+          await settle();
+          answerWith(() => Promise.resolve({ success: true, cleared: 1, message: "Gelöscht." }));
+        },
+      });
+      await settle();
+
+      // The re-read comes back with the action's own answer, so a second one from here re-renders nothing new.
+      assert.deepEqual([seen.refresh, seen.pushed, seen.replaced], [0, [], []], `${resting} leaves the page, or reads it a second time`);
+      unmount();
     }
   });
 
-  /* `POST /kontakte/erasure` refuses NOTHING, so an address matching nobody succeeds and clears zero.
-     Reported as „gelöscht“, that is a lie of the quiet kind. */
-  it("counts what an erasure cleared", () => {
-    assert.match(ACTIONS, /cleared: erasure\.cleared_kontakt_slots \+ erasure\.redacted_aktionen,/, "the action reports no count to judge by");
-  });
+  /* On a page showing one season, an erasure without its reach spelled out reads as clearing this seat.
+     The ADDRESS keys both the read and the write; the list itself is
+     `fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktReveal.test.ts`'s. */
+  it("reads whom the address holds before the write can be confirmed", async () => {
+    const user = userEvent.setup({ delay: null });
+    render(editorElement(viewElement(ONE_ADDRESS), ONE_ADDRESS));
+    answerWith(() => Promise.resolve(ERASURE_READ));
 
-  /* The whole safety of moving this control off a page that showed an address onto a page that shows
-     one season: without the reach spelled out it reads as clearing this seat. */
-  it("reads whom the address holds before the write can be confirmed", () => {
-    /* The wiring between the panel and the read is the subject here; what the list itself renders is
-       `fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktReveal.test.ts`'s. */
-    assert.match(ERASURE, /if \(!isConfirming\) void readAnsicht\(\);/, "the panel arms without asking whom the address holds");
-    assert.match(ERASURE, /<FormKontaktReveal\b/, "the armed panel names none of the seats the write would clear");
+    await pressTwice(user, {
+      resting: "Kontaktperson löschen",
+      armed: "Ja, Kontaktperson endgültig löschen",
+      whileArmed: async () => {
+        await settle();
+        assert.ok(document.body.textContent.includes("Saison 2425 · Trainer"), "the armed panel names none of the seats the write would clear");
+        answerWith(() => Promise.resolve({ success: true, cleared: 1, message: "Gelöscht." }));
+      },
+    });
+    await settle();
+
+    assert.deepEqual(calls, [
+      { action: "readKontaktErasureAnsichtAction", payload: { email: "grace@example.org" } },
+      { action: "eraseKontaktpersonAction", payload: { email: "grace@example.org" } },
+    ]);
   });
 
   /* The season's own delete sends a reader who wants a person gone everywhere to a control by name, and
@@ -1196,40 +1246,43 @@ describe("which way the claim runs, at every site that reads it", () => {
 
   /* A blur judges `buildPayload()`, which is composed. Spread raw, a pick was judged against the
      unmirrored draft, so the two disagreed about who the Trainer is. */
-  it("judges a pick against the block the save would write", () => {
-    assert.match(
-      FORM_SOURCE,
-      /kontakte: toKontaktePayload\(selected\.kontakte === null \? null : mirrorKontakte\(selected\.kontakte\)\)/,
-      "a pick is judged against the raw draft while a blur is judged against the composed block",
+  it("judges a pick against the block the save would write", async () => {
+    // The named seat's address is malformed and the Trainer's own is not: composed, the Trainer the save
+    // writes carries the malformed one, which the raw draft's Trainer does not.
+    const malformedSource: FLSaisonTeamKontakte = { ...BLOCK, ansprechperson: seatPerson("Grace", "Hopper", "grace@") };
+    const user = userEvent.setup({ delay: null });
+    render(editorElement(viewElement(malformedSource), malformedSource));
+
+    await user.click(screen.getByRole("radio", { name: "Die Ansprechperson" }));
+
+    assert.deepEqual(
+      refusedBoxes().map((box) => box.getAttribute("name")),
+      ["kontakte.ansprechperson.email", "kontakte.trainer.email"],
+      "a pick is judged against the raw draft, whose Trainer the save never writes",
     );
   });
 
   /* Emptying or renaming the seat the claim names reaches the composed Trainer. Read off the raw draft,
      neither banner would name the seat the save is about to change. */
-  it("warns about the seats the composed block empties and renames", () => {
-    for (const helperName of ["emptiedSeatLabels", "renamedConfirmedSeatLabels"])
-      assert.match(
-        FORM_SOURCE,
-        new RegExp(`${helperName}\\(storedKontakte, kontakte === null \\? null : mirrorKontakte\\(kontakte\\)\\)`),
-        `${helperName} reads the raw draft, so a seat the save changes goes unnamed`,
-      );
-  });
+  it("warns about the seats the composed block empties and renames", async () => {
+    const user = userEvent.setup({ delay: null });
+    const said = () => document.body.textContent;
 
-  /* The admin editor and the public form run one direction through one function. Divergence here is
-     what this whole case was. */
-  it("runs the same direction as the public form's own judgement", () => {
-    const publicSource = readFileSync(path.resolve(SRC, "features", "bewerbungen", "utils.ts"), "utf8");
+    // Renaming: the claim puts the named seat's person where the Trainer who confirmed stood.
+    const renamed = render(editorElement(viewElement(BLOCK), BLOCK));
+    assert.ok(!said().includes("Betroffen:"), "the editor warns before anything changed, so the warning below proves nothing");
+    await user.click(screen.getByRole("radio", { name: "Die Ansprechperson" }));
+    assert.ok(said().includes("Betroffen: Trainer."), "a claim renaming the Trainer raises no warning, the banner reading the raw draft");
+    renamed.unmount();
 
-    for (const [name, source] of [
-      ["the admin editor", readFileSync(path.resolve(import.meta.dirname, "utils.ts"), "utf8")],
-      ["the public form", publicSource],
-    ] as const) {
-      assert.match(
-        source,
-        /\.filter\(\(path\) => path\.startsWith\(`kontakte\.\$\{mirroredSeat\}\.`\)\)|\.filter\(\(path\) => path\.startsWith\(`kontakte\.\$\{mirroredSeat\}\.`\),/,
-        `${name} judges the claim's copies the other way round`,
-      );
-    }
+    // Emptying: switching off the named seat empties the Trainer that copies it.
+    const claimed: FLSaisonTeamKontakte = { ...BLOCK, trainer_ist_zugleich: "ansprechperson" };
+    render(editorElement(viewElement(claimed), claimed));
+    await user.click(screen.getByRole("switch", { name: "Ansprechperson hinterlegt" }));
+    assert.ok(
+      said().includes("Betroffen: Ansprechperson, Trainer."),
+      "emptying the named seat does not name the Trainer it empties, the banner reading the raw draft",
+    );
   });
 });
 

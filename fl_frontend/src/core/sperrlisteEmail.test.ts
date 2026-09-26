@@ -65,6 +65,11 @@ describe("the message a banned address is sent", () => {
       assert.ok(body.includes("Art. 21 DSGVO widersprechen"), `${name} does not bring the objection right to the reader`);
       assert.ok(body.includes("endet die Sperre von selbst"), `${name} does not state the lapse the ban form promises it explains`);
     }
+    assert.match(
+      MAIL.html,
+      /Schreib uns dafür an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a>; dort beantworten wir auch Fragen zur Sperre\.<\/p>/,
+      "the card's objection is an address to copy, not a link",
+    );
   });
 
   /* A message quoting the address back would put it in a mailbox, a provider's log and a bounce

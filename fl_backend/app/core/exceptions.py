@@ -2,24 +2,38 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import Any
 
 from fastapi import HTTPException, status
 
 # Named once, because a literal repeated across files is one a rename leaves behind.
 DOCUMENT_NOT_FOUND = "DB-COMMON-001"
+DUPLICATE_KEY = "DB-COMMON-002"
 NO_DATABASE_CLIENT = "DB-CONN-001"
+DATABASE_UNREACHABLE = "DB-CONN-002"
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class WriteRefusal:
-    """Why a write path refuses: the code, and the English detail.
+    """Why a write path refuses: the code, the status its check chose, and the English detail.
 
-    A named pair, not a `(str, str)` tuple: both are strings, so a reversed one type-checks.
+    Named fields, not a tuple: the two strings type-check reversed. Keyword-only, so every check spells
+    its `status` where `fl_backend/tests/core/test_domain.py` reads it.
     """
 
     error_code: str
+    # Chosen by the check, never looked up from `RULES`, which no write path reads; the test it
+    # answers is `docs/backend/spec.md` §1.4's.
+    status: HTTPStatus
     message: str
+    # The body paths a 422 judged, each as a `REQ-VAL-001` names its own, so a form can mark the field.
+    fields: tuple[tuple[str | int, ...], ...] = ()
+
+    def __post_init__(self) -> None:
+        # A 422's published body is the one carrying `fields`, so on any other status they would vanish.
+        if self.fields and self.status is not HTTPStatus.UNPROCESSABLE_CONTENT:
+            raise ValueError(f"{self.error_code} names fields on a {self.status}, whose body carries none")
 
 
 class BaseAPIException(HTTPException):
@@ -35,6 +49,8 @@ class BaseAPIException(HTTPException):
         # every log line silently replaces with a fallback.
         self.error_code = error_code
         self.error_detail = {"error_code": error_code, "message": message}
+        # A refused payload's `fields`, which a 422 alone publishes; `None` keeps them off every other body.
+        self.fields: list[dict[str, Any]] | None = None
         super().__init__(status_code=status_code, detail=self.error_detail, headers=headers)
 
 
@@ -50,6 +66,17 @@ class RequestAuthorizationException(BaseAPIException):
             message=message,
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+class MalformedRequestException(BaseAPIException):
+    """A header the request needs is missing or malformed.
+
+    400 and never 401: it is judged after the key has passed, and no `WWW-Authenticate` scheme covers
+    the header, so a 401's challenge would name a credential that was valid.
+    """
+
+    def __init__(self, error_code: str, message: str):
+        super().__init__(status_code=status.HTTP_400_BAD_REQUEST, error_code=error_code, message=message)
 
 
 class DatabaseUnavailableException(BaseAPIException):
@@ -77,22 +104,11 @@ class DocumentNotFoundException(BaseAPIException):
         )
 
 
-class DocumentConflictException(BaseAPIException):
-    """The write is well-formed and the current state refuses it.
+class WriteRefusalException(BaseAPIException):
+    """The one route from a refused write to its response, at the status its check chose."""
 
-    409, not 422: nothing about the payload is wrong, and the same request would have succeeded a
-    moment earlier.
-    """
-
-    def __init__(self, error_code: str, message: str = "The request conflicts with the current state of the resource"):
-        super().__init__(
-            status_code=status.HTTP_409_CONFLICT,
-            error_code=error_code,
-            message=message,
-        )
-
-    @classmethod
-    def from_refusal(cls, refusal: WriteRefusal) -> DocumentConflictException:
-        """The one route from a refused write to its response: a rule owns its code beside the check that raises it."""
-
-        return cls(error_code=refusal.error_code, message=refusal.message)
+    def __init__(self, refusal: WriteRefusal):
+        super().__init__(status_code=refusal.status, error_code=refusal.error_code, message=refusal.message)
+        if refusal.status is HTTPStatus.UNPROCESSABLE_CONTENT:
+            # The rule's own code as the `kind`, where a `REQ-VAL-001` carries pydantic's error type.
+            self.fields = [{"in": "body", "path": list(path), "kind": refusal.error_code} for path in refusal.fields]

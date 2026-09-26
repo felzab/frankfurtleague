@@ -18,8 +18,9 @@ from app.api.registrierungen.services import (
     compose_bestaetigung,
 )
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
+from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -45,6 +46,10 @@ TWIN_OID = ObjectId("6890a1b2c3d4e5f607960022")
 TEAM_NAME = "Adler"
 TEAM_FULL_NAME = "Zorbanax-Gesamtschule"
 
+# The other team in the league, whose name no link to this team may carry.
+OTHER_TEAM_NAME = "Falken"
+OTHER_SCHOOL = "Wraxlington"
+
 RAW = "raw-token-for-this-pupil"
 TOKEN_HASH = hash_token(RAW)
 RAW_ERINNERT = "the-first-link-this-pupil-was-mailed"
@@ -64,27 +69,9 @@ A_TWINS_BIRTHDATE = "2007-02-02"
 THIS_SEASONS_LABEL = "2026-09-spielerseite"
 AN_OLDER_LABEL = "2025-09-spielerseite"
 
-ADDRESS: Mapping[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
-
 
 def team_document(team_id: ObjectId, name: str, full_name: str) -> dict[str, Any]:
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": name[:2].upper(),
-        "description": "",
-        "full_name": full_name,
-        "website_url": None,
-        "schulform": "gymnasium_g9",
-        "address": dict(ADDRESS),
-        "inactive_since": None,
-    }
+    return documents.team_document(team_id, name, name[:2].upper(), full_name=full_name, website_url=None, schulform="gymnasium_g9")
 
 
 def einwilligung(**overrides: Any) -> dict[str, Any]:
@@ -102,16 +89,11 @@ def einwilligung(**overrides: Any) -> dict[str, Any]:
 def spieler_document(spieler_id: ObjectId, **overrides: Any) -> dict[str, Any]:
     """One person the league already holds, whose record a returning pupil's page shows back."""
 
-    return {
-        "_id": spieler_id,
-        "vorname": "Quillhilde",
-        "nachname": "Brackenmoor",
-        "geburtsdatum": A_RETURNING_PUPILS_BIRTHDATE,
-        "einwilligung": einwilligung(),
-        "email": FOLDED_EMAIL,
-        "inactive_since": None,
-        **overrides,
-    }
+    person = documents.spieler_document(
+        spieler_id, "Quillhilde", "Brackenmoor", geburtsdatum=A_RETURNING_PUPILS_BIRTHDATE, einwilligung=einwilligung(), email=FOLDED_EMAIL
+    )
+
+    return {**person, **overrides}
 
 
 def registrierung_document(**overrides: Any) -> dict[str, Any]:
@@ -155,7 +137,7 @@ def on_a_league(
             await database[Collection.TEAMS].insert_many(
                 [
                     team_document(TEAM_OID, TEAM_NAME, TEAM_FULL_NAME),
-                    team_document(OTHER_TEAM_OID, "Falken", "Wraxlington-Gymnasium"),
+                    team_document(OTHER_TEAM_OID, OTHER_TEAM_NAME, f"{OTHER_SCHOOL}-Gymnasium"),
                 ]
             )
             await database[Collection.REGISTRIERUNGEN].insert_many(
@@ -224,10 +206,11 @@ class TestWhatALinkOpens:
 
         rendered = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW)).model_dump_json()
 
-        assert "Falken" not in rendered and "Wraxlington" not in rendered
-        assert "Brackenmoor" not in rendered
+        registration = registrierung_document()
+        assert OTHER_TEAM_NAME not in rendered and OTHER_SCHOOL not in rendered
+        assert registration["nachname"] not in rendered
         assert TYPED_EMAIL not in rendered and FOLDED_EMAIL not in rendered
-        assert "Abwehr" not in rendered and "Q1" not in rendered
+        assert registration["position"] not in rendered and registration["stufe"] not in rendered
 
     def test_a_first_timer_is_asked_rather_than_shown(self, mongo_replica_set_url: str):
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW))
@@ -255,21 +238,6 @@ class TestWhatALinkOpens:
         response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=[capitalised])
 
         assert response.geburtsdatum is None
-
-    def test_the_join_reaches_a_pupil_whose_domain_was_stored_in_unicode(self, mongo_replica_set_url: str):
-        """A registration stores the punycode, and a pupil stored before the address rule the decoded domain.
-
-        An equality on one spelling shows this pupil nothing.
-        """
-
-        typed = registrierung_document(email="quillhilde@xn--exmple-cua.com")
-        stored_before = spieler_document(SPIELER_OID, email="quillhilde@exämple.com")
-
-        response = on_a_league(
-            mongo_replica_set_url, lambda database, _: ansicht(database, RAW), registrierungen=[typed], spieler=[stored_before]
-        )
-
-        assert response.geburtsdatum == A_RETURNING_PUPILS_BIRTHDATE
 
     def test_a_differently_named_pupil_at_the_same_mailbox_is_shown_nothing(self, mongo_replica_set_url: str):
         """The defect the name narrowing exists for.
@@ -333,7 +301,7 @@ class TestWhatALinkOpens:
 
     def test_a_token_no_registration_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await ansicht(database, "a-stranger's-guess")
 
             return conflict.value.error_code
@@ -453,7 +421,7 @@ class TestWhatAConfirmationWrites:
 
         rendered = on_a_league(mongo_replica_set_url, lambda database, client: answer(database, client, RAW)).model_dump_json()
 
-        assert "Brackenmoor" not in rendered and TYPED_EMAIL not in rendered
+        assert registrierung_document()["nachname"] not in rendered and TYPED_EMAIL not in rendered
         assert TOKEN_HASH not in rendered and RAW not in rendered
 
 
@@ -464,7 +432,7 @@ class TestTheLinkIsSpentByTheStamp:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await answer(database, client, RAW, geburtsdatum=AT_THE_MEDIA_AGE, medien=True)
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW, umfang="intern", medien=False)
 
             return conflict.value.error_code, await stored(database), await ansicht(database, RAW)
@@ -479,7 +447,7 @@ class TestTheLinkIsSpentByTheStamp:
         """A mistyped year is the commonest error on a date field, and a link voided by one has no remedy but registering again."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
 
             return conflict.value.error_code, await ansicht(database, RAW), await stored(database), await log_rows(database)
@@ -502,7 +470,7 @@ class TestTheLinkIsSpentByTheStamp:
         expired = registrierung_document(bestaetigung=compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-20", frist=YESTERDAY))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW)
 
             return conflict.value.error_code, await stored(database)
@@ -519,7 +487,7 @@ class TestTheLinkIsSpentByTheStamp:
         declined = registrierung_document(status="abgelehnt", entscheidung=entscheidung)
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW)
 
             return conflict.value.error_code
@@ -532,7 +500,7 @@ class TestTheLinkIsSpentByTheStamp:
         expired = registrierung_document(bestaetigung=compose_bestaetigung(token_hash=TOKEN_HASH, today="2026-03-20", frist=YESTERDAY))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
 
             return conflict.value.error_code
@@ -545,7 +513,7 @@ class TestTheLinkIsSpentByTheStamp:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             await answer(database, client, RAW)
 
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
 
             return conflict.value.error_code
@@ -554,7 +522,7 @@ class TestTheLinkIsSpentByTheStamp:
 
     def test_a_token_no_registration_holds_is_refused_before_anything_is_read_of_a_row(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, "a-stranger's-guess")
 
             return conflict.value.error_code, await stored(database)
@@ -578,7 +546,7 @@ class TestTheMediaAge:
 
     def test_a_yes_a_day_short_of_the_media_age_is_refused_and_spends_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, medien=True)
 
             return conflict.value.error_code, await stored(database), await log_rows(database)

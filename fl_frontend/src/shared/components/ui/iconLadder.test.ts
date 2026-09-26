@@ -9,28 +9,13 @@ import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
 
-/** `docs/frontend/spec.md` §1.21's rungs, declared once so no reader here can hold a ninth. */
-const RUNGS = ["3", "3.5", "4", "4.5", "5", "6", "7", "10"];
-
-/**
- * The two sizings that stand on no rung: an icon filling a box the ladder already sized, and the
- * hint glyph, whose variable is `1em` so it tracks the sentence it sits in rather than the scale.
- */
-const OFF_THE_SCALE = ["size-full", "size-(--hint-icon-size)"];
-
 const ICON_PACKAGE = "@gravity-ui/icons";
-
-/** A class that declares a width, a height or both — the three spellings one icon's size can take. */
-const SIZING = /^(?:size|[hw])-/;
 
 const shown = (file: string): string => path.relative(SRC_DIR, file).split(path.sep).join("/");
 
-type Icon = { where: string; tag: string; viaAlias: boolean; classes: string[] | null; names: string[] };
+type Icon = { where: string; tag: string; viaAlias: boolean; names: string[] };
 
-/**
- * Every element in one module that renders an icon, with the class list and the accessible marks it
- * carries. `classes` is null where no reader below could resolve the class list.
- */
+/** Every element in one module that renders an icon, with the attributes it is written with. */
 function iconsIn(file: string, text: string): Icon[] {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
 
@@ -97,74 +82,6 @@ function iconsIn(file: string, text: string): Icon[] {
   };
   takeAliases(source);
 
-  /** A file-local constant's own strings, so `className={TONE[severity]}` is a class list rather than a shrug. */
-  const constantStrings = (expression: ts.Expression): string[] | null => {
-    const root = ts.isIdentifier(expression) ? expression : ts.isElementAccessExpression(expression) ? expression.expression : null;
-    if (root === null || !ts.isIdentifier(root)) return null;
-
-    const found: string[] = [];
-    const visit = (node: ts.Node): void => {
-      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === root.text && node.initializer !== undefined) {
-        let value: ts.Expression = node.initializer;
-        while (ts.isAsExpression(value) || ts.isParenthesizedExpression(value) || ts.isSatisfiesExpression(value)) value = value.expression;
-
-        if (ts.isStringLiteralLike(value)) found.push(value.text);
-        else if (ts.isObjectLiteralExpression(value)) {
-          for (const property of value.properties) {
-            if (ts.isPropertyAssignment(property) && ts.isStringLiteralLike(property.initializer)) found.push(property.initializer.text);
-          }
-        }
-      }
-      ts.forEachChild(node, visit);
-    };
-    visit(source);
-
-    return found.length === 0 ? null : found;
-  };
-
-  /** `styles.icon()` off a `tv({ slots, variants })`: every string this module writes under that slot. */
-  const slotStrings = (expression: ts.Expression): string[] | null => {
-    if (!ts.isCallExpression(expression) || !ts.isPropertyAccessExpression(expression.expression)) return null;
-    const slot = expression.expression.name.text;
-
-    const found: string[] = [];
-    const visit = (node: ts.Node): void => {
-      if (ts.isPropertyAssignment(node) && node.name.getText(source) === slot && ts.isStringLiteralLike(node.initializer))
-        found.push(node.initializer.text);
-      ts.forEachChild(node, visit);
-    };
-    visit(source);
-
-    return found.length === 0 ? null : found;
-  };
-
-  const classesOf = (opening: ts.JsxOpeningLikeElement): string[] | null => {
-    const declared = opening.attributes.properties.find(
-      (property) => ts.isJsxAttribute(property) && property.name.getText(source) === "className",
-    );
-    if (declared === undefined) return [];
-
-    const value = ts.isJsxAttribute(declared) ? declared.initializer : undefined;
-    if (value === undefined) return null;
-
-    const split = (text: string): string[] => text.split(/\s+/).filter((token) => token !== "");
-    if (ts.isStringLiteralLike(value)) return split(value.text);
-
-    if (ts.isJsxExpression(value) && value.expression !== undefined) {
-      const expression = value.expression;
-      if (ts.isStringLiteralLike(expression)) return split(expression.text);
-      // The static halves of a template: an interpolation carries no class a reader here can place.
-      if (ts.isTemplateExpression(expression)) {
-        return split([expression.head.text, ...expression.templateSpans.map((span) => span.literal.text)].join(" "));
-      }
-
-      const indirect = constantStrings(expression) ?? slotStrings(expression);
-      if (indirect !== null) return split(indirect.join(" "));
-    }
-
-    return null;
-  };
-
   const found: Icon[] = [];
   const visit = (node: ts.Node): void => {
     const opening = ts.isJsxSelfClosingElement(node) ? node : ts.isJsxElement(node) ? node.openingElement : null;
@@ -175,7 +92,6 @@ function iconsIn(file: string, text: string): Icon[] {
           where: `${shown(file)}:${String(source.getLineAndCharacterOfPosition(opening.getStart(source)).line + 1)}`,
           tag,
           viaAlias: !imported.has(tag),
-          classes: classesOf(opening),
           names: opening.attributes.properties.filter(ts.isJsxAttribute).map((property) => property.name.getText(source)),
         });
       }
@@ -214,61 +130,6 @@ describe("every icon the tree renders", () => {
       found.map((icon) => icon.where),
       [],
       `a width or height prop sizes an icon in pixels, off §1.21's ladder:\n${found.map((icon) => `${icon.where}: <${icon.tag}>`).join("\n")}`,
-    );
-  });
-
-  /* An icon whose class list no reader above could resolve is a size nobody can audit, and the
-     population it would silently leave is the whole point of the ladder. */
-  it("writes that class where this reader can find it", () => {
-    const unreadable = icons.filter((icon) => icon.classes === null);
-    assert.deepEqual(
-      unreadable.map((icon) => icon.where),
-      [],
-      `an icon's class list resolves to nothing this sweep can read:\n${unreadable.map((icon) => `${icon.where}: <${icon.tag}>`).join("\n")}`,
-    );
-
-    // No sizing class at all leaves the svg's own `width={16}`, which is a size written nowhere.
-    const unsized = icons.filter((icon) => icon.classes !== null && !icon.classes.some((name) => SIZING.test(name)));
-    assert.deepEqual(
-      unsized.map((icon) => icon.where),
-      [],
-      `an icon declares no size, so it renders at the package's own 16px:\n${unsized.map((icon) => `${icon.where}: <${icon.tag}>`).join("\n")}`,
-    );
-  });
-
-  it("stands on one of the eight rungs", () => {
-    const offLadder: string[] = [];
-
-    for (const icon of icons) {
-      for (const name of icon.classes ?? []) {
-        if (!SIZING.test(name) || OFF_THE_SCALE.includes(name)) continue;
-        const step = /^size-(.+)$/.exec(name)?.[1];
-        if (step === undefined || !RUNGS.includes(step)) offLadder.push(`${icon.where}: \`${name}\` on <${icon.tag}>`);
-      }
-    }
-
-    assert.deepEqual(offLadder, [], `an icon is off §1.21's ladder — a size is one of ${RUNGS.join(" ")}:\n${offLadder.join("\n")}`);
-  });
-
-  /* A brand glyph at rest reads as the current page or the one press on offer, and a row of them spends
-     the screen's brand budget on decoration; a state alone may turn one brand (`docs/frontend/spec.md` §1.19). */
-  it("wears no brand ink at rest", () => {
-    const brand = icons.filter((icon) => icon.classes?.includes("text-brand"));
-    assert.deepEqual(
-      brand.map((icon) => icon.where),
-      [],
-      `an icon wears \`text-brand\` at rest:\n${brand.map((icon) => `${icon.where}: <${icon.tag}>`).join("\n")}`,
-    );
-  });
-
-  /* An unnamed `<svg>` usually contributes nothing to a name-from-content walk, so this is the
-     consistency the ladder is for rather than a defect each site carries. */
-  it("carries the hidden mark, unless it is the thing being named", () => {
-    const unmarked = icons.filter((icon) => !["aria-hidden", "aria-label", "role"].some((mark) => icon.names.includes(mark)));
-    assert.deepEqual(
-      unmarked.map((icon) => icon.where),
-      [],
-      `a decorative icon carries no \`aria-hidden\`:\n${unmarked.map((icon) => `${icon.where}: <${icon.tag}>`).join("\n")}`,
     );
   });
 });

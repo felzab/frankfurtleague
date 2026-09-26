@@ -1,11 +1,10 @@
 import ast
 import functools
 import importlib
-import json
-import re
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from pathlib import Path
-from typing import Any
+from types import ModuleType
+from typing import Any, get_args, get_origin
 
 import pytest
 from pydantic import BaseModel
@@ -18,13 +17,28 @@ from app.api.spielorte.schemas import FLSpielort
 from app.api.spieltage.schemas import FLSpieltag
 from app.api.teams.schemas import FLTeam
 from app.core.collections import Collection
-from app.core.constraints import COLLECTION_VALIDATORS, SUPPORT_INDEXES, TTL_INDEXES, UNIQUE_INDEXES
-from app.core.domain import AGGREGATES, FIELD_POLICIES, REFERENCES, RULES, UNENFORCED, UNUSED_ACTIONS, Action, Editability
+from app.core.config import API_VERSION
+from app.core.constraints import COLLECTION_VALIDATORS
+from app.core.domain import (
+    AGGREGATES,
+    FIELD_POLICIES,
+    OPERATION_SEPARATOR,
+    REFERENCES,
+    RULES,
+    UNENFORCED,
+    UNUSED_ACTIONS,
+    Action,
+    Editability,
+)
+from app.core.exception_handlers import BODY_UNREADABLE, METHOD_NOT_SERVED, NO_ROUTE, PAYLOAD_REFUSED
+from app.core.exceptions import WriteRefusal
+from app.core.security import MISSING_ACTOR, MISSING_TOKEN, WRONG_ADMIN_KEY, WRONG_BASE_KEY, WRONG_SYSTEM_KEY
+from app.main import create_app
+from tests.config import build_test_config
+from tests.core.app_source import Declaration, api_routes, declared, module_of, parsed, resolve_callee, scoped_calls
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 APP_ROOT = BACKEND_ROOT / "app"
-# The frontend, because `Unenforced.surfaced_by` names the page or component reporting the state.
-REPO_ROOT = BACKEND_ROOT.parent
 
 # One file, so the pairing below can be exact in both directions.
 UNENFORCED_TESTS = "tests/core/test_unenforced.py"
@@ -43,52 +57,26 @@ ROOT_MODELS: Mapping[Collection, type[BaseModel]] = {
 
 # Not domain rules: each is a property of the transport, and sitting in `app/core/` is what the
 # coverage test keys on — a boundary rather than an exception list.
-PROTOCOL_CODES = frozenset({"REQ-AUTH-001", "REQ-AUTH-002", "REQ-AUTH-003", "REQ-AUTH-004", "REQ-AUTH-005", "REQ-VAL-001", "REQ-OID-001"})
+PROTOCOL_CODES = frozenset(
+    {
+        MISSING_TOKEN,
+        WRONG_BASE_KEY,
+        WRONG_SYSTEM_KEY,
+        WRONG_ADMIN_KEY,
+        MISSING_ACTOR,
+        PAYLOAD_REFUSED,
+        BODY_UNREADABLE,
+        NO_ROUTE,
+        METHOD_NOT_SERVED,
+    }
+)
 
 _CODE_PATTERN = "REQ-"
 
-# Spelled here as well as in `fl_frontend/src/shared/testing/refusalRegister.ts`, which cannot
-# import a Python constant: a rule declared against several endpoints joins them, and a reader
-# taking the whole string as one token would find no route serving it.
-OPERATION_SEPARATOR = " · "
-
 # The declaration's own module, which never answers for a reason's own text: it is dropped from
-# every listing built out of the source trees, and a citation naming it resolves against nothing
-# (`docs/_standard/standard.md :: PRE-4`).
+# every listing built out of the source trees (`docs/_standard/standard.md :: PRE-4`).
 DECLARATION = APP_ROOT / "core" / "domain.py"
-
-# A `READ-*` rule refuses nothing, so no endpoint carries its code and `_codes_in` cannot reach one.
-# Its home is the read-rules table in `docs/backend/spec.md`, whose every row opens on the code.
-READ_RULES_SHEET = REPO_ROOT / "docs" / "backend" / "spec.md"
-_READ_RULE_ROW = re.compile(r"^\| `(READ-[A-Z]+-\d+)` ")
-
-# What a `reason=` cites, by shape. Each kind carries its own idea of resolving, so a token is
-# classified before it is looked up, and one matching no shape at all fails rather than passing.
-_REASON_TOKEN = re.compile(r"`([^`]+)`")
-_RULE_CODE = re.compile(r"^(?:REQ|READ)-[A-Z]+-\d+$")
-_CODE_FAMILY = re.compile(r"^((?:REQ|READ)-[A-Z]+-)\*$")
-_CITATION = re.compile(r"^(\S+\.\w+) :: (.+)$")
-_ENDPOINT = re.compile(r"^(GET|POST|PUT|PATCH|DELETE) (/\S*)$")
-_SURFACE = re.compile(r"^/\S*$")
-_REPO_PATH = re.compile(r"^[\w.\-]+(?:/[\w.\-]*)+$")
-_INDEX_KEY = re.compile(r"^\(([a-z_]+(?:, [a-z_]+)+)\)$")
-# Ahead of the name shape, which every letter-and-digit token satisfies: an `I<n>` resolves against
-# the invariant tables, one namespace across the surface sheets with the logging band beside it
-# (OUT-4).
-_INVARIANT = re.compile(r"^[IL]\d{1,3}[a-z]?$")
-_NAME = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*$")
-_WORD = re.compile(r"[A-Za-z_]\w*")
-
-_SPEC_SHEETS = "docs/*/spec.md"
-_INVARIANTS_HEADING = re.compile(r"^## 2\. Invariants *$", re.MULTILINE)
-_SECTION_HEADING = re.compile(r"^## ", re.MULTILINE)
-_INVARIANT_ROW = re.compile(r"^\|\s*([IL]\d{1,3}[a-z]?)\s*\|", re.MULTILINE)
-
-# The kinds that name no address, spared by shape and never by a list of tokens: a stored value, a
-# field beside the value it holds, and a type expression.
-_VALUE = re.compile(r"^\d+$")
-_FIELD_VALUE = re.compile(r"^[\w.]+: \S+$")
-_TYPE_EXPRESSION = re.compile(r"^[\w\[\], |]*[\[|][\w\[\], |]*$")
+DECLARATION_MODULE = "app.core.domain"
 
 
 def _codes_in(root: Path, skip: Path | None = None) -> set[str]:
@@ -107,130 +95,6 @@ def _codes_in(root: Path, skip: Path | None = None) -> set[str]:
             if code.count("-") == 2 and code.rsplit("-", 1)[1].isdigit():
                 found.add(code)
     return found
-
-
-def _resolved_path(cited: str) -> Path | None:
-    """Package-relative first: a reason spells a backend path as the package does, `app/core/crud.py` rather than repository-relative."""
-
-    return next((candidate for candidate in (BACKEND_ROOT / cited, REPO_ROOT / cited) if candidate.exists()), None)
-
-
-@functools.cache
-def _resolvable_codes() -> frozenset[str]:
-    """Two listings reached by different routes.
-
-    A `REQ-*` code reaches `app/` through the endpoint that raises it; a `READ-*` rule refuses
-    nothing, so the spec sheet's table is its only home.
-    """
-
-    rows = READ_RULES_SHEET.read_text(encoding="utf-8").splitlines()
-    read_rules = {match.group(1) for line in rows if (match := _READ_RULE_ROW.match(line))}
-
-    return frozenset(_codes_in(APP_ROOT, skip=DECLARATION) | read_rules)
-
-
-@functools.cache
-def _declared_index_keys() -> frozenset[tuple[str, ...]]:
-    """Key fields alone, the sort direction dropped: a reason names the group an index covers, never the order it walks it in."""
-
-    return frozenset(
-        {tuple(index.keys) for index in UNIQUE_INDEXES}
-        | {tuple(field for field, _ in support.keys) for support in SUPPORT_INDEXES}
-        | {(ttl.key,) for ttl in TTL_INDEXES}
-    )
-
-
-@functools.cache
-def _published_routes() -> Mapping[str, Any]:
-    """`openapi.json` rather than the application object.
-
-    The published document is the surface a route claim is about, and the gate holds it to the
-    endpoints it describes.
-    """
-
-    return json.loads((BACKEND_ROOT / "openapi.json").read_text(encoding="utf-8"))["paths"]
-
-
-@functools.cache
-def _names_the_source_trees_spell() -> frozenset[str]:
-    """Weak on purpose, because the rot it answers is a rename.
-
-    A name neither tree spells is gone, whatever it named -- a field, a symbol, an index, or a
-    label a page prints.
-    """
-
-    words: set[str] = set()
-    for root, suffixes in ((APP_ROOT, ("*.py",)), (REPO_ROOT / "fl_frontend" / "src", ("*.ts", "*.tsx", "*.css"))):
-        for suffix in suffixes:
-            for path in root.rglob(suffix):
-                if path != DECLARATION:
-                    words.update(_WORD.findall(path.read_text(encoding="utf-8")))
-
-    return frozenset(words)
-
-
-@functools.cache
-def _invariants_the_spec_sheets_define() -> frozenset[str]:
-    """Every number a sheet's own `## 2. Invariants` table declares.
-
-    Read here rather than through the documentation gate: `scripts/` is another package, and this
-    suite runs with the backend virtualenv alone on its path.
-    """
-
-    numbers: set[str] = set()
-    for sheet in sorted(REPO_ROOT.glob(_SPEC_SHEETS)):
-        text = sheet.read_text(encoding="utf-8")
-        opened = _INVARIANTS_HEADING.search(text)
-        if opened is None:
-            continue
-        closing = _SECTION_HEADING.search(text, opened.end())
-        numbers.update(_INVARIANT_ROW.findall(text[opened.end() : closing.start() if closing else len(text)]))
-    return frozenset(numbers)
-
-
-def _classify(token: str) -> tuple[str, bool | None]:
-    """The kind, and whether it resolves -- `None` where the kind has no address, parting a spared value from one nothing answers for."""
-
-    if _RULE_CODE.match(token):
-        return "rule code", token in _resolvable_codes()
-
-    if family := _CODE_FAMILY.match(token):
-        return "code family", any(code.startswith(family.group(1)) for code in _resolvable_codes())
-
-    if citation := _CITATION.match(token):
-        file = _resolved_path(citation.group(1))
-        anchor = re.escape(citation.group(2))
-        cited = (
-            file is not None
-            and file != DECLARATION
-            and file.is_file()
-            and re.search(rf"(?<!\w){anchor}(?!\w)", file.read_text(encoding="utf-8")) is not None
-        )
-        return "citation", cited
-
-    if endpoint := _ENDPOINT.match(token):
-        route, method = endpoint.group(2), endpoint.group(1).lower()
-        return "endpoint", any(path.endswith(route) and method in operations for path, operations in _published_routes().items())
-
-    if _SURFACE.match(token):
-        return "surface", (REPO_ROOT / f"fl_frontend/src/app{token}/page.tsx").is_file()
-
-    if _REPO_PATH.match(token):
-        return "path", _resolved_path(token) is not None
-
-    if key := _INDEX_KEY.match(token):
-        return "index key", tuple(key.group(1).split(", ")) in _declared_index_keys()
-
-    if _INVARIANT.match(token):
-        return "invariant", token in _invariants_the_spec_sheets_define()
-
-    if _NAME.match(token):
-        return "name", all(segment in _names_the_source_trees_spell() for segment in token.split("."))
-
-    if _VALUE.match(token) or _FIELD_VALUE.match(token) or _TYPE_EXPRESSION.match(token):
-        return "value", None
-
-    return "a shape this check does not read", False
 
 
 def _validator_properties(collection: Collection) -> Mapping[str, Any]:
@@ -261,13 +125,6 @@ def _resolves(collection: Collection, path: str) -> bool:
 
 
 @functools.cache
-def _parsed(file: Path) -> ast.Module:
-    """Cached across the declarations citing one file; every walk below starts here."""
-
-    return ast.parse(file.read_text(encoding="utf-8"))
-
-
-@functools.cache
 def _declared_classes(file: Path) -> frozenset[str]:
     """Every class the file declares, at any nesting depth.
 
@@ -275,14 +132,7 @@ def _declared_classes(file: Path) -> frozenset[str]:
     otherwise report as missing.
     """
 
-    return frozenset(node.name for node in ast.walk(_parsed(file)) if isinstance(node, ast.ClassDef))
-
-
-@functools.cache
-def _declared_functions(file: Path) -> Mapping[str, ast.FunctionDef | ast.AsyncFunctionDef]:
-    """Every function the file declares, by name. A shadowed name resolves to the last one, as the module itself would."""
-
-    return {node.name: node for node in ast.walk(_parsed(file)) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    return frozenset(node.name for node in ast.walk(parsed(file)) if isinstance(node, ast.ClassDef))
 
 
 def _names_referenced(node: ast.AST) -> frozenset[str]:
@@ -298,7 +148,7 @@ def _import_origins(file: Path) -> Mapping[str, tuple[str, str]]:
     """Each `from x import y` name in the file, as `(module, symbol)`, so a value resolves without importing the file."""
 
     origins: dict[str, tuple[str, str]] = {}
-    for node in ast.walk(_parsed(file)):
+    for node in ast.walk(parsed(file)):
         if isinstance(node, ast.ImportFrom) and node.module:
             for alias in node.names:
                 origins[alias.asname or alias.name] = (node.module, alias.name)
@@ -306,34 +156,84 @@ def _import_origins(file: Path) -> Mapping[str, tuple[str, str]]:
     return origins
 
 
-def _module_file(dotted: str) -> Path:
-    return Path(importlib.import_module(dotted).__file__ or "")
+def _modules_imported(file: Path, tree: ast.Module | None = None) -> frozenset[str]:
+    """Every module the file imports, and every name it imports from one read as a submodule, relative levels resolved against its package."""
+
+    # A module's package and an `__init__.py`'s package are both the path without its last part.
+    package = file.relative_to(BACKEND_ROOT).with_suffix("").parts[:-1]
+    found: set[str] = set()
+    for node in ast.walk(tree or parsed(file)):
+        if isinstance(node, ast.Import):
+            found.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            base = ".".join((*package[: len(package) - node.level + 1], *([node.module] if node.module else []))) if node.level else node.module
+            found.add(base or "")
+            found.update(f"{base}.{alias.name}" for alias in node.names)
+
+    return frozenset(found)
+
+
+def _module_of(file: Path) -> ModuleType:
+    return importlib.import_module(".".join(file.relative_to(BACKEND_ROOT).with_suffix("").parts))
+
+
+def _reached_functions(dotted: str) -> list[tuple[ModuleType, Declaration]]:
+    """The callable at `dotted` and every application function it calls, each with the module its names resolve in.
+
+    Calls are followed because a shared builder is where a code several messages carry ends up
+    (`app/api/spiele/services.py :: _wiring_refusal`).
+    """
+
+    function = _import_symbol(dotted)
+    pending = [(declared(function), module_of(function))]
+    reached: dict[tuple[Path, int], tuple[ModuleType, Declaration]] = {}
+    while pending:
+        declaration, path = pending.pop()
+        if (path, declaration.lineno) in reached:
+            continue
+        reached[(path, declaration.lineno)] = (_module_of(path), declaration)
+        pending.extend(found for chain, call in scoped_calls(declaration, (declaration,)) if (found := resolve_callee(call, chain, path)))
+
+    return list(reached.values())
 
 
 def _reaches_code(dotted: str, code: str) -> bool:
-    """Whether the callable at `dotted` reaches the constant holding `code`.
+    """Whether the callable at `dotted` reaches the constant holding `code`."""
 
-    Same-module helpers are followed, because a shared refusal builder is exactly where a code that
-    several messages carry ends up (`app/api/spiele/services.py :: _wiring_refusal`).
-    """
+    return any(
+        code in _codes_held(getattr(module, referenced, None))
+        for module, function in _reached_functions(dotted)
+        for referenced in _names_referenced(function)
+    )
 
-    module_path, _, symbol = dotted.rpartition(".")
-    module = importlib.import_module(module_path)
-    functions = _declared_functions(_module_file(module_path))
 
-    seen: set[str] = set()
-    pending = [symbol]
-    while pending:
-        name = pending.pop()
-        if name in seen or name not in functions:
-            continue
-        seen.add(name)
-        for referenced in _names_referenced(functions[name]):
-            if getattr(module, referenced, None) == code:
-                return True
-            pending.append(referenced)
+def _codes_held(value: Any) -> tuple[Any, ...]:
+    """A constant's code, or each code a mapping of codes hands out: a draw twin is spelled as one."""
 
-    return False
+    return tuple(value.values()) if isinstance(value, Mapping) else (value,)
+
+
+def _resolved(node: ast.expr, module: ModuleType) -> Any:
+    """The value a bare name or an attribute chain spells in `module`, which is how every refusal spells its code and its status."""
+
+    if isinstance(node, ast.Name):
+        return getattr(module, node.id)
+    if isinstance(node, ast.Attribute):
+        return getattr(_resolved(node.value, module), node.attr)
+    raise TypeError(f"line {node.lineno} spells a value the trace cannot resolve: {ast.unparse(node)}")
+
+
+def _refusals_built(module: ModuleType, node: ast.AST) -> Iterator[tuple[str, Any]]:
+    """Each `WriteRefusal` constructed under `node`, as the code and the status it spells."""
+
+    for call in ast.walk(node):
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == WriteRefusal.__name__:
+            spelled = {keyword.arg: keyword.value for keyword in call.keywords}
+            code = spelled["error_code"]
+            # A code read off a mapping by the refusal it re-codes is every code the mapping holds.
+            codes = _codes_held(_resolved(code.value, module)) if isinstance(code, ast.Subscript) else (_resolved(code, module),)
+            status = _resolved(spelled["status"], module)
+            yield from ((each, status) for each in codes)
 
 
 def _test_class_asserts_code(tested_by: str, code: str) -> bool:
@@ -345,7 +245,7 @@ def _test_class_asserts_code(tested_by: str, code: str) -> bool:
 
     path, _, class_name = tested_by.partition("::")
     file = BACKEND_ROOT / path
-    node = next((entry for entry in ast.walk(_parsed(file)) if isinstance(entry, ast.ClassDef) and entry.name == class_name), None)
+    node = next((entry for entry in ast.walk(parsed(file)) if isinstance(entry, ast.ClassDef) and entry.name == class_name), None)
     if node is None:
         return False
 
@@ -499,11 +399,100 @@ def test_every_rule_is_implemented_where_it_says(rule):
 
 
 @pytest.mark.parametrize("rule", RULES, ids=lambda rule: rule.code)
-def test_every_rule_names_operations_the_document_publishes(rule):
-    """No refusal is raised from `operation`, so a route it names wrongly is read by a person and caught by nothing."""
+def test_every_rule_is_answered_at_the_status_it_declares(rule):
+    """The row publishes the status and the check answers it, so a disagreement is a response the document never names."""
 
-    for token in rule.operation.split(OPERATION_SEPARATOR):
-        assert _classify(token) == ("endpoint", True), f"{rule.code} declares {token!r}, which the published document does not serve"
+    built = {
+        status
+        for module, function in _reached_functions(rule.implemented_by)
+        for code, status in _refusals_built(module, function)
+        if code == rule.code
+    }
+
+    assert built == {rule.status}, f"{rule.code} declares {rule.status!r} and {rule.implemented_by} builds {built}"
+
+
+def test_every_refusal_the_application_builds_is_answered_at_its_rules_status():
+    """Over every construction under `app/`, a code's second implementer included, which no `implemented_by` names."""
+
+    statuses = {rule.code: rule.status for rule in RULES}
+    built = [
+        (path.relative_to(BACKEND_ROOT).as_posix(), code, status)
+        for path in sorted(APP_ROOT.rglob("*.py"))
+        if f"{WriteRefusal.__name__}(" in path.read_text(encoding="utf-8")
+        for code, status in _refusals_built(_module_of(path), parsed(path))
+    ]
+
+    assert len(built) >= len(RULES), "fewer refusals were found than rules declared, so the walk reads less than the tree holds"
+    assert [entry for entry in built if statuses.get(entry[1]) != entry[2]] == []
+
+
+def _field_of(model: Any, path: tuple[str | int, ...]) -> bool:
+    """Whether `path` names a field inside `model`, an index stepping into a list's item type."""
+
+    current: Any = model
+    for step in path:
+        # `Optional[...]`, `Annotated[...]` and a union step to the one member a path can walk into.
+        while get_origin(current) is not None and get_origin(current) is not list:
+            current = next((member for member in get_args(current) if member is not type(None)), None)
+        if isinstance(step, int):
+            if get_origin(current) is not list:
+                return False
+            current = get_args(current)[0]
+        elif isinstance(current, type) and issubclass(current, BaseModel):
+            field = next((info for name, info in current.model_fields.items() if step in (name, info.alias)), None)
+            if field is None:
+                return False
+            current = field.annotation
+        else:
+            return False
+
+    return True
+
+
+@functools.cache
+def _body_models() -> Mapping[str, Any]:
+    """Each served operation's body model, keyed as `RULES` spells an operation."""
+
+    prefix = f"/api/v{API_VERSION}"
+
+    return {
+        f"{method} {route.path_format.removeprefix(prefix)}": route.dependant.body_params[0].field_info.annotation
+        for route in api_routes(create_app(build_test_config()))
+        if route.dependant.body_params
+        for method in route.methods or ()
+    }
+
+
+def test_every_field_a_refusal_names_is_a_field_of_the_body_its_operations_take():
+    """A form marks the field a 422 names, and the frontend throws on a path its form does not hold.
+
+    Resolved on the body of every operation `RULES` names for the refusal's code.
+    """
+
+    operations = {rule.code: rule.operation.split(OPERATION_SEPARATOR) for rule in RULES}
+    named: list[tuple[str, str, tuple[str | int, ...]]] = []
+    for path in sorted(APP_ROOT.rglob("*.py")):
+        if f"{WriteRefusal.__name__}(" not in path.read_text(encoding="utf-8"):
+            continue
+        module = _module_of(path)
+        for call in ast.walk(parsed(path)):
+            if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == WriteRefusal.__name__):
+                continue
+            spelled = {keyword.arg: keyword.value for keyword in call.keywords}
+            if "fields" in spelled:
+                code = _resolved(spelled["error_code"], module)
+                named.extend((code, operation, field) for field in ast.literal_eval(spelled["fields"]) for operation in operations[code])
+
+    unresolved = [entry for entry in named if not _field_of(_body_models().get(entry[1]), entry[2])]
+
+    assert len(named) >= NAMED_FIELDS_FLOOR, "fewer named fields were found than the tree holds, so the walk reads less than it should"
+    assert unresolved == []
+
+
+# The (code, operation, field) triples the sweep above found on the tree this was written against,
+# so a walk that read nothing cannot pass it.
+NAMED_FIELDS_FLOOR = 12
 
 
 @pytest.mark.parametrize("rule", RULES, ids=lambda rule: rule.code)
@@ -533,65 +522,6 @@ def test_every_unenforced_entry_names_the_rule_a_reader_would_expect(entry):
     unknown = [code for code in entry.near if code not in defined]
 
     assert not unknown, f"'{entry.subject}' sits near {unknown}, which the application defines nowhere"
-
-
-@pytest.mark.parametrize("entry", UNENFORCED, ids=lambda entry: entry.subject)
-def test_every_unenforced_surface_resolves(entry):
-    """A dead surface is the rot this catches: an entry claiming a person can see the state, pointing at a page that is gone."""
-
-    if not entry.surfaced_by:
-        return
-
-    target = REPO_ROOT / (f"fl_frontend/src/app{entry.surfaced_by}/page.tsx" if entry.surfaced_by.startswith("/") else entry.surfaced_by)
-
-    assert target.is_file(), f"'{entry.subject}' is surfaced by {entry.surfaced_by}, which resolves to no file"
-
-
-@pytest.mark.parametrize("entry", UNENFORCED, ids=lambda entry: entry.subject)
-def test_every_anchor_a_reason_names_resolves(entry):
-    """The entry's argument, held to the bar its three addressed fields meet.
-
-    A reason arguing from a rule, a page or an index renamed away reads as evidence and is none.
-    """
-
-    unresolved = []
-    for token in _REASON_TOKEN.findall(entry.reason):
-        kind, resolved = _classify(token)
-        if resolved is False:
-            unresolved.append(f"`{token}` ({kind})")
-
-    assert not unresolved, f"'{entry.subject}' argues from {unresolved}, which this repository answers for nowhere"
-
-
-def test_an_invariant_number_resolves_against_the_spec_sheets_rather_than_the_source_trees():
-    """A letter and a digit is a word either tree spells, so read as a bare name a renamed row resolves."""
-
-    assert _classify("I1") == ("invariant", True)
-    assert _classify("L1") == ("invariant", True)
-    assert _classify("I999") == ("invariant", False)
-
-
-def test_every_kind_of_anchor_a_reason_names_resolves_at_least_once():
-    """Per kind: one arm resolving whatever the trees spell satisfies a bare floor for all of them.
-
-    A listing that answers nothing is then named here, rather than reaching
-    `fl_backend/tests/core/test_domain.py :: test_every_anchor_a_reason_names_resolves` alone, as
-    reasons that invented their evidence.
-    """
-
-    present: set[str] = set()
-    resolved: set[str] = set()
-    for entry in UNENFORCED:
-        for token in _REASON_TOKEN.findall(entry.reason):
-            kind, answer = _classify(token)
-            if answer is None:
-                continue
-            present.add(kind)
-            if answer:
-                resolved.add(kind)
-
-    assert present, "no reason names anything with an address, so the per-entry sweep passed over nothing"
-    assert present == resolved, f"nothing resolved for {sorted(present - resolved)}, so the listing behind that kind answers for nothing"
 
 
 def test_every_unenforced_entry_is_paired_with_the_test_that_proves_it():
@@ -630,13 +560,24 @@ def test_every_declaration_carries_its_reason():
         assert entry.reason.strip(), f"'{entry.subject}' is unenforced and states no reason"
 
 
-def test_no_application_module_imports_the_domain_model():
-    """A caller reading these tables turns them into an engine every write must remember to consult; the refusal lives at the endpoint."""
+def test_the_document_publisher_is_the_one_application_module_reading_the_domain_model():
+    """A write reading these tables turns them into an engine every write must remember to consult; the refusal lives at the endpoint.
+
+    Exact, so a second reader and a publisher that stopped reading both fail.
+    """
 
     importers = [
-        path.relative_to(BACKEND_ROOT).as_posix()
-        for path in sorted(APP_ROOT.rglob("*.py"))
-        if path.name != "domain.py" and "core.domain" in path.read_text(encoding="utf-8")
+        path.relative_to(BACKEND_ROOT).as_posix() for path in sorted(APP_ROOT.rglob("*.py")) if DECLARATION_MODULE in _modules_imported(path)
     ]
 
-    assert not importers, f"application code reads the declaration: {importers}"
+    assert importers == ["app/main.py"], f"the declaration is read by {importers}, where `app/main.py :: declared_refusals` alone may read it"
+
+
+def test_the_importer_reading_resolves_every_spelling_of_the_import():
+    """Relative and plain imports name the module without the dotted path a text search keys on."""
+
+    spellings = ["import app.core.domain", "from app.core import domain", "from . import domain", "from .domain import RULES"]
+    beside = APP_ROOT / "core" / "reader.py"
+
+    assert all(DECLARATION_MODULE in _modules_imported(beside, ast.parse(source)) for source in spellings)
+    assert DECLARATION_MODULE not in _modules_imported(beside, ast.parse("from . import collections"))

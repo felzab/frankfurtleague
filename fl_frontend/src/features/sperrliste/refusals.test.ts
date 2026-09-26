@@ -1,25 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { APIBadStatusError } from "@/core/errors.ts";
-import { declaredCodes } from "@/shared/testing/refusalRegister.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
 import { mapAdresseRefusal } from "./refusals.ts";
 
+const CREATE_OPERATION = "POST /sperrliste";
+
 const ON_THE_BOX = { fieldErrors: { email: "Diese Adresse ist schon gesperrt." } };
 
-/** What the API client raises for one refused create, built here so the mapper is asked rather than read. */
-const refusedWith = (statusCode: number, serverErrorCode: string): APIBadStatusError =>
-  new APIBadStatusError({
-    message: "the backend refused the create",
-    url: "https://api.invalid/sperrliste",
-    statusCode,
-    serverErrorCode,
-    endpoint: "/sperrliste",
-    method: "POST",
-    readOnly: false,
-    traceId: "00000000000000000000000000000000",
-  });
+const refusedWith = (statusCode: number, serverErrorCode: string) => refusedOn(CREATE_OPERATION, serverErrorCode, statusCode);
 
 describe("the address a unique index already holds", () => {
   /* `uniq_sperrliste_adresse_hash` is this collection's only unique index, so the 409 it raises is
@@ -27,16 +17,17 @@ describe("the address a unique index already holds", () => {
      sentence about an entry, which names no box and no way out. */
   it("lands both spellings of a duplicate on the address box", () => {
     assert.deepEqual(mapAdresseRefusal(refusedWith(409, "REQ-SPERRLISTE-001")), ON_THE_BOX);
-    assert.deepEqual(mapAdresseRefusal(refusedWith(409, "DB-COMMON-002")), ON_THE_BOX);
+    assert.deepEqual(mapAdresseRefusal(refusedWith(409, DUPLICATE_KEY)), ON_THE_BOX);
   });
 
-  it("answers every refusal the create declares", () => {
-    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
-    const declared = declaredCodes("POST /sperrliste");
-    assert.deepEqual(declared, ["REQ-SPERRLISTE-001", "REQ-SPERRLISTE-002"]);
-
-    for (const code of declared) {
-      assert.notEqual(mapAdresseRefusal(refusedWith(409, code)), null, `${code} reaches the admin as an unhandled conflict`);
+  /* The rules restated, so a code retired from the endpoint fails here rather than leaving a dead arm behind. */
+  it("answers every refusal the create publishes", () => {
+    assert.deepEqual(
+      publishedRefusals(CREATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-SPERRLISTE-001", "REQ-SPERRLISTE-002"],
+    );
+    for (const code of publishedRefusals(CREATE_OPERATION)) {
+      assert.notEqual(answerShown(CREATE_OPERATION, code, mapAdresseRefusal), null, `${code} reaches the admin as an unhandled conflict`);
     }
   });
 
@@ -53,10 +44,12 @@ describe("the address a unique index already holds", () => {
     assert.equal(mapAdresseRefusal(refusedWith(409, "REQ-VAL-001")), null);
   });
 
-  it("reads the status and not the code alone", () => {
-    /* The same code at 404 is a row another administrator has already lifted, which
+  it("reads the code and not the status", () => {
+    // Codes are unique across the API, so a rule moved to another status keeps its answer.
+    assert.deepEqual(mapAdresseRefusal(refusedWith(422, DUPLICATE_KEY)), mapAdresseRefusal(refusedWith(409, DUPLICATE_KEY)));
+    /* A row another administrator has already lifted is `DB-COMMON-001`, which
        `fl_frontend/src/shared/utils/actionError.ts` words as the reload it is. */
-    assert.equal(mapAdresseRefusal(refusedWith(404, "DB-COMMON-002")), null);
+    assert.equal(mapAdresseRefusal(refusedWith(404, "DB-COMMON-001")), null);
   });
 
   it("leaves an error that never came from the API alone", () => {

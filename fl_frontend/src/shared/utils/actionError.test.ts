@@ -3,10 +3,12 @@ import { describe, it } from "node:test";
 
 import { z } from "zod";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, RolledBackError } from "@/core/errors.ts";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, isRefusalCode, RolledBackError } from "@/core/errors.ts";
+import { publishedOperations } from "@/core/openapiDocument.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 
-import { FELD_ABGELEHNT, refusedDraftAnswer, toActionErrorResult } from "./actionError.ts";
+import { FELD_ABGELEHNT, isRuleRefusal, refusedDraftAnswer, rejectedWrite, toActionErrorResult, unansweredAction } from "./actionError.ts";
+import { UNKNOWN_REFUSAL } from "./refusal.ts";
 import { VALIDATION_FAILED } from "./validation.ts";
 
 const base = { url: "http://backend:8000/api/v0/x", endpoint: "/x", traceId: "ab".repeat(16) };
@@ -26,6 +28,16 @@ describe("toActionErrorResult", () => {
 
     assert.equal(result.success, false);
     assert.match(result.error ?? "", /Konflikt/);
+  });
+
+  /* The unique index's sentence sends the admin looking for an entry that exists, which a rule refusing
+     for any other reason leaves them searching for in vain. */
+  it("answers a 409 no reader here words with the way out alone, never the unique index's conflict", () => {
+    const result = toActionErrorResult(
+      new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode: "REQ-UNCLAIMED-000" }),
+    );
+
+    assert.deepEqual(result, { success: false, error: UNKNOWN_REFUSAL });
   });
 
   it("gives each occupant refusal its own advice, and hands the code back", () => {
@@ -103,8 +115,8 @@ describe("toActionErrorResult", () => {
     for (const serverErrorCode of ["toString", "constructor", "valueOf"]) {
       const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode }));
 
-      assert.equal(typeof result.error, "string", serverErrorCode);
-      assert.match(result.error ?? "", /Konflikt/, serverErrorCode);
+      // No rule's code either, so the answer is the unexplained failure's sentence.
+      assert.equal(result.error, "Der Server hat mit einem Fehler geantwortet. Versuche es erneut.", serverErrorCode);
       assert.equal(result.errorCode, undefined, serverErrorCode);
     }
   });
@@ -178,7 +190,7 @@ describe("toActionErrorResult", () => {
   });
 
   it("maps a 404 onto the vanished-record message", () => {
-    const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 404 }));
+    const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 404, serverErrorCode: "DB-COMMON-001" }));
 
     assert.match(result.error ?? "", /nicht gefunden/);
   });
@@ -250,6 +262,92 @@ describe("toActionErrorResult", () => {
   });
 });
 
+describe("a refusal read by its code, whatever its status", () => {
+  const refused = (statusCode: number, serverErrorCode: string | undefined, refusedFields: Parameters<typeof refusedPayload>[0] = []) =>
+    toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode, serverErrorCode, refusedFields }));
+
+  /* Codes are unique across the API, so a rule moved off 409 keeps the words its code is given here. */
+  it("keeps each worded code's answer at any status a rule answers with", () => {
+    for (const code of ["REQ-WIRING-001", "REQ-WIRING-002", "REQ-WIRING-003", "REQ-STATE-002", "REQ-ELIGIBILITY-001", "DB-COMMON-002"]) {
+      for (const status of [422, 404, 410, 403])
+        assert.deepEqual(refused(status, code), refused(409, code), `${String(code)} at ${String(status)}`);
+    }
+  });
+
+  it("answers a rule no reader here words with the way out alone, at any status a rule answers with", () => {
+    for (const status of [422, 404, 410, 403]) {
+      assert.deepEqual(refused(status, "REQ-UNCLAIMED-000"), { success: false, error: UNKNOWN_REFUSAL }, String(status));
+    }
+  });
+
+  it("marks the box a rule's refusal names, with the way out for the rest", () => {
+    assert.deepEqual(refused(422, "REQ-UNCLAIMED-000", [bodyField(["geburtsdatum"], "REQ-UNCLAIMED-000")]), {
+      success: false,
+      error: VALIDATION_FAILED,
+      fieldErrors: { geburtsdatum: FELD_ABGELEHNT },
+      unplacedError: UNKNOWN_REFUSAL,
+    });
+  });
+
+  /* A body the API cannot decode answers 400 under a code of its own. A retry would send the same
+     bytes, so it takes the refused payload's reload rather than the server error's retry. */
+  it("answers the unreadable body as it answers the refused payload", () => {
+    assert.deepEqual(refused(400, "REQ-VAL-002"), refused(422, "REQ-VAL-001"));
+    assert.equal(refused(400, "REQ-VAL-002").error, "Einzelne Angaben wurden nicht übernommen. Lade die Seite neu.");
+  });
+
+  /* None of these refuses what the admin asked for, so none takes a rule's fallback. */
+  it("answers a vanished record, a refused request and a refused credential on their own terms", () => {
+    assert.match(refused(404, "DB-COMMON-001").error, /nicht gefunden/);
+    // A route the framework did not serve, or one no code names at all, is never a record the API says
+    // is gone, nor a rule's refusal: a page older or newer than the API meets these mid-deploy.
+    for (const [status, code] of [
+      [400, "REQ-AUTH-005"],
+      [401, "REQ-AUTH-002"],
+      [404, undefined],
+      [404, "REQ-ROUTE-001"],
+      [405, "REQ-ROUTE-002"],
+      [409, undefined],
+    ] as const) {
+      assert.equal(
+        refused(status, code).error,
+        "Der Server hat mit einem Fehler geantwortet. Versuche es erneut.",
+        `${String(code)} at ${String(status)}`,
+      );
+    }
+  });
+
+  /* By the class alone: each protocol class keeps any code the backend adds to it, and only a rule's
+     code or the unique index's is ever a refusal a mapper words. */
+  it("classifies a code by its class, whatever it is numbered", () => {
+    for (const code of ["REQ-AUTH-005", "REQ-VAL-001", "REQ-VAL-002", "REQ-ROUTE-001", "DB-COMMON-001", "DB-CONN-001", "SRV-FAIL-001"]) {
+      assert.equal(isRefusalCode(code), false, code);
+    }
+    for (const code of ["REQ-SWAP-007", "REQ-BEWERBUNG-009", "REQ-UNCLAIMED-000", "DB-COMMON-002"])
+      assert.equal(isRefusalCode(code), true, code);
+    assert.equal(isRefusalCode(undefined), false);
+  });
+
+  /* The harness reads the same predicate, so this asks the document itself: every code it publishes at
+     a 4xx is a refusal exactly where the predicate says so, at the status it is published under. */
+  it("reads a published refusal as a rule's at its published status, and nothing else", () => {
+    const answers = publishedOperations().flatMap(({ operation, answers: published }) => published.map((answer) => ({ operation, ...answer })));
+    assert.ok(answers.some(({ code }) => isRefusalCode(code)) && answers.some(({ code }) => !isRefusalCode(code)), "one class is missing");
+
+    for (const { operation, code, status } of answers.filter(({ status: published }) => published < 500)) {
+      const refusal = new APIBadStatusError({ ...write, message: "bad", statusCode: status, serverErrorCode: code });
+      assert.equal(isRuleRefusal(refusal), isRefusalCode(code), `${code} at ${String(status)} on ${operation}`);
+    }
+  });
+
+  /* A write a 5xx answered may have landed, and a refusal's words would say it did not. */
+  it("never words a server error by the code it carries", () => {
+    for (const code of ["REQ-WIRING-001", "REQ-STATE-002", "DB-COMMON-002", "REQ-UNCLAIMED-000"]) {
+      assert.equal(refused(500, code).outcome, "unknown", code);
+    }
+  });
+});
+
 describe("a payload the API refused", () => {
   const refused = (fields: Parameters<typeof refusedPayload>[0]) => toActionErrorResult(refusedPayload(fields));
 
@@ -306,5 +404,17 @@ describe("a public route's own parse refusing the body", () => {
 
   it("answers the sentence alone where the refusal names no path, which no control could mark", () => {
     assert.deepEqual(refusal("kein Objekt"), { error: SATZ });
+  });
+});
+
+describe("a write action that rejected", () => {
+  /* No answer came back, so no server refresh did either, while the write may stand. */
+  it("reads the page again and answers as of unknown outcome, in the control's own words where it has them", () => {
+    let refreshed = 0;
+    const router = { refresh: () => void (refreshed += 1) };
+
+    assert.deepEqual(rejectedWrite(router)(), unansweredAction());
+    assert.deepEqual(rejectedWrite(router, "Prüfe die Verbindung.")(), { ...unansweredAction(), error: "Prüfe die Verbindung." });
+    assert.equal(refreshed, 2, "a rejected write left the page as it was");
   });
 });

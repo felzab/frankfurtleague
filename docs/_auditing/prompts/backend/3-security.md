@@ -15,9 +15,9 @@ CONTEXT — derive, do not assume: auth is internal API keys in tiers (base / sy
 in `app/core/security.py` and `dependencies.py`; the only caller of any route that touches
 application data is the Next.js server, over the compose network, and the edge routes exactly one
 path here — the keyless, database-free liveness probe — so **network topology is a load-bearing
-control** (FastAPI's own `/docs` is unreachable for exactly this reason). Every
+control**. Every
 reachability judgment must therefore state which network position the attacker holds: internet via
-nginx, compose-network, or a compromised frontend key. Verify the nginx configs (`nginx/*.conf`)
+nginx, compose-network, or a compromised frontend key. Verify the nginx configs (`nginx/**/*.conf`)
 before calling anything unreachable — do not assert topology from memory.
 
 THE CHECKS, in priority order:
@@ -82,9 +82,6 @@ THE CHECKS, in priority order:
    no in-band check: list them with what breaks if an nginx location is ever added or the compose
    network changes. The point is that each such control is _named_, so no future nginx edit removes
    one unknowingly. Hand the list to `ops 2`, which owns the nginx side.
-
-SEVERITY HONESTY: a finding reachable only by an attacker who already holds an internal API key or
-compose-network access is real but must be rated for that position, not for the open internet.
 
 FIX PRESCRIPTIONS: verify any fix touching auth flow, config gating or container runtime against the
 running stack or a built image before prescribing it, or label it unverified — a security fix

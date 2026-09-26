@@ -1,78 +1,24 @@
-import { Fragment } from "react";
-import Link from "next/link";
-
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { BESTAETIGUNG_ABSAETZE } from "@/core/einwilligung";
-import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
-import { textLink } from "@/shared/components/ui/textLink";
+import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 
-import { ABSATZ, BestaetigungAbschnitt, Wert } from "./BestaetigungPanels";
+import { ABSATZ_CLASSES, BestaetigungAbschnitt, Gefuellt } from "./BestaetigungPanels";
 
-import type { ReactNode } from "react";
+import type { Slots } from "./BestaetigungPanels";
 
-const LISTE = `${ABSATZ} flex list-disc flex-col gap-y-1 pl-5`;
-const ABSCHNITT = "flex flex-col gap-y-2";
+const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
+const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
 
 // No `{minAlter}` here: two of the three seats answer it differently, so a constant would put a
 // number on the page that the press is not judged by.
 /** What fills a slot for every reader alike; the rest come off the record the page was opened with. */
 const KONSTANTEN = { kontakt: KONTAKT_EMAIL } as const;
 
-/** The `{datenschutz}` slot's value, so the stored sentence and the rendered one read the same. */
-const DATENSCHUTZ_TEXT = "Datenschutzerklärung";
-const DATENSCHUTZ_SLOT = "datenschutz";
-
 /**
- * The slots a record fills from the person who opened the link. **Emphasis is presentation**, so it
- * is decided here rather than in the stored sentence, whose words and digest do not move for it.
+ * The slots a record fills from the person who opened the link
+ * (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: Gefuellt`).
  */
 const EIGENE_SLOTS = new Set(["vorname", "schule", "saison", "rolle"]);
-
-type Slots = Readonly<Record<string, string>>;
-
-/** Split on the slots themselves, so the capture group keeps each one as a piece of its own. */
-const SLOT_TEILER = /(\{\w+\})/;
-
-function DatenschutzLink() {
-  return (
-    <Link
-      href="/datenschutz"
-      prefetch={false}
-      className={textLink()}>
-      {DATENSCHUTZ_TEXT}
-    </Link>
-  );
-}
-
-/** One piece of a split sentence: a slot in whatever its kind earns, or the words as they stand. */
-function stueckInhalt(stueck: string, werte: Slots): ReactNode {
-  const name = /^\{(\w+)\}$/.exec(stueck)?.[1];
-
-  if (name === undefined) return stueck;
-  // Ahead of the record, which holds no value for it: this slot's words are the link's own.
-  if (name === DATENSCHUTZ_SLOT) return <DatenschutzLink />;
-
-  const wert = werte[name];
-
-  // A slot no record filled stands as written, which is `fuelleFassung`'s rule at the string end.
-  if (wert === undefined) return stueck;
-
-  return EIGENE_SLOTS.has(name) ? <Wert>{wert}</Wert> : wert;
-}
-
-/**
- * A stored sentence with its slots filled here rather than by `fuelleFassung`, which answers a
- * string: a string cannot carry the mark a reader's own name has to wear, nor the privacy link.
- */
-function Gefuellt({ text, werte }: { text: string; werte: Slots }) {
-  return (
-    <>
-      {text.split(SLOT_TEILER).map((stueck, index) => (
-        <Fragment key={`${String(index)}-${stueck}`}>{stueckInhalt(stueck, werte)}</Fragment>
-      ))}
-    </>
-  );
-}
 
 /** A stamped paragraph, whichever key it stands under, filled as this page fills it wherever else it is quoted. */
 export function Absatz({ schluessel, werte }: { schluessel: keyof typeof BESTAETIGUNG_ABSAETZE; werte: Slots }) {
@@ -80,6 +26,7 @@ export function Absatz({ schluessel, werte }: { schluessel: keyof typeof BESTAET
     <Gefuellt
       text={BESTAETIGUNG_ABSAETZE[schluessel]}
       werte={werte}
+      eigene={EIGENE_SLOTS}
     />
   );
 }
@@ -108,9 +55,9 @@ export function BestaetigungHinweise({
 
   return (
     <BestaetigungAbschnitt titel="Was das bedeutet">
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Worum es geht</h3>
-        <p className={ABSATZ}>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Worum es geht</h3>
+        <p className={ABSATZ_CLASSES}>
           <Absatz
             schluessel="worum"
             werte={werte}
@@ -118,21 +65,21 @@ export function BestaetigungHinweise({
         </p>
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Was gespeichert ist und wozu</h3>
-        <p className={ABSATZ}>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Was gespeichert ist und wozu</h3>
+        <p className={ABSATZ_CLASSES}>
           <Absatz
             schluessel="gespeichert"
             werte={werte}
           />
         </p>
-        <p className={ABSATZ}>
+        <p className={ABSATZ_CLASSES}>
           <Absatz
             schluessel="geburtsdatum"
             werte={werte}
           />
         </p>
-        <p className={ABSATZ}>
+        <p className={ABSATZ_CLASSES}>
           <Absatz
             schluessel="rechtsgrundlage"
             werte={werte}
@@ -140,9 +87,9 @@ export function BestaetigungHinweise({
         </p>
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Was nicht passiert</h3>
-        <p className={ABSATZ}>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Was nicht passiert</h3>
+        <p className={ABSATZ_CLASSES}>
           <Absatz
             schluessel="nichtOeffentlich"
             werte={werte}
@@ -150,9 +97,9 @@ export function BestaetigungHinweise({
         </p>
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Wie lange wir sie behalten</h3>
-        <ul className={LISTE}>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Wie lange wir sie behalten</h3>
+        <ul className={LISTE_CLASSES}>
           <li>
             <Absatz
               schluessel="fristAbgelehnt"
@@ -180,21 +127,21 @@ export function BestaetigungHinweise({
         </ul>
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Wenn Du nicht einverstanden bist</h3>
-        <p className={ABSATZ}>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Wenn Du nicht einverstanden bist</h3>
+        <p className={ABSATZ_CLASSES}>
           <Absatz
             schluessel="ablehnen"
             werte={werte}
           />
         </p>
-        <p className={ABSATZ}>
+        <p className={ABSATZ_CLASSES}>
           <Absatz
             schluessel="widerruf"
             werte={werte}
           />
         </p>
-        <p className={ABSATZ}>
+        <p className={ABSATZ_CLASSES}>
           <Absatz
             schluessel="art21"
             werte={werte}
@@ -210,10 +157,10 @@ export function BestaetigungHinweise({
  * paragraph in the form, so the stamped text is rendered from one place whichever screen shows it.
  */
 export function WiderspruchFolge() {
-  // The reveal's body scale rather than `ABSATZ`: this paragraph is read inside an escalation panel
+  // The reveal's body scale rather than `ABSATZ_CLASSES`: this paragraph is read inside an escalation panel
   // and beside the rest of that panel's copy.
   return (
-    <p className="fluid-xxs text-foreground leading-normal font-medium">
+    <p className="fluid-xxs leading-normal font-medium text-foreground">
       <Absatz
         schluessel="ablehnenFolge"
         werte={KONSTANTEN}
@@ -225,7 +172,7 @@ export function WiderspruchFolge() {
 /** Rendered whole under the switch it belongs to: the withdrawal sentence has to stand beside the consent it withdraws. */
 export function WhatsappHinweis() {
   return (
-    <p className={ABSATZ}>
+    <p className={ABSATZ_CLASSES}>
       <Absatz
         schluessel="whatsapp"
         werte={KONSTANTEN}
@@ -258,8 +205,8 @@ export function KlickBestaetigung({
     <div
       id={id}
       className="flex flex-col gap-y-3">
-      <h3 className={FORM_SECTION_HEADING}>Was Du mit dem Klick bestätigst</h3>
-      <ul className={LISTE}>
+      <h3 className={FORM_SECTION_HEADING_CLASSES}>Was Du mit dem Klick bestätigst</h3>
+      <ul className={LISTE_CLASSES}>
         <li>
           <Absatz
             schluessel="klickIdentitaet"
@@ -285,7 +232,7 @@ export function KlickBestaetigung({
           />
         </li>
       </ul>
-      <p className={ABSATZ}>
+      <p className={ABSATZ_CLASSES}>
         <Absatz
           schluessel="keineEinwilligung"
           werte={werte}

@@ -6,31 +6,19 @@ comparison against the three answers it owes -- a pair that agrees, one that dri
 class it could not expand at all.
 
 The real pair is driven too, so a drift in either file fails here and not only at the gate.
-
-`scripts/checks/` is put on the path here because the module under test is run as a script
-everywhere else, which is what seeds that directory onto the path for it.
 """
 
 from __future__ import annotations
 
 import contextlib
-import importlib
 import sys
 from pathlib import Path
 
-from conftest import details, severities, withdraw, write
+from conftest import details, import_scripts, severities, write
 
 SCRIPTS = Path(__file__).resolve().parents[1]
 
-# Withdrawn at module import, kernel dropped from the cache with it: `test_check_docs.py` runs the
-# gate from a throwaway copy of scripts/, and a `checker_kernel` cached here would answer its
-# imports and root every check at the wrong repository.
-sys.path.insert(0, str(SCRIPTS / "checks"))
-try:
-    quoting = importlib.import_module("check_log_quoting_class")
-finally:
-    sys.path.remove(str(SCRIPTS / "checks"))
-    withdraw("check_log_quoting_class", "checker_kernel")
+[quoting] = import_scripts("check_log_quoting_class")
 
 # The class both packages spell today, as the source text of either literal carries it. Written as
 # escapes here for the reason the two literals are: every character in it is invisible.
@@ -85,8 +73,6 @@ def test_a_hyphen_ending_a_class_is_a_character_and_not_a_range():
     assert read(r"\u0041-") == frozenset({0x41, ord("-")})
 
 
-# `suppress` and a raise, not `pytest.raises`, throughout this file, for `scripts/tests/conftest.py`'s
-# pytest invariant.
 def test_a_shorthand_class_refuses():
     """The drift this checker exists for: `\\s` and `str.isspace()` disagree, so two shorthands compare nothing."""
     with contextlib.suppress(quoting.Unreadable):

@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 
-import { TriangleExclamation } from "@gravity-ui/icons";
+import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 
 import { Callout } from "./Callout";
-import { formButton, MODAL_FOOTER_STACK } from "./formButtons";
+import { formButton, MODAL_FOOTER_STACK_CLASSES } from "./formButtons";
 import { ModalShell } from "./ModalShell";
 
 import type { BlockingBanners } from "./railBanner";
@@ -60,10 +60,10 @@ export function ConfirmSaveModal({
       size="form"
       role="alertdialog"
       icon={
-        <div className="bg-danger/15 flex size-10 shrink-0 items-center justify-center rounded-xl">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-danger/15">
           <TriangleExclamation
             aria-hidden="true"
-            className="text-danger-strong size-5"
+            className="size-5 text-danger-strong"
           />
         </div>
       }>
@@ -71,8 +71,8 @@ export function ConfirmSaveModal({
         {/* The count and the banners it counts keep a rung of their own, so the column above them is
             free to give the band the distance a block in a column takes (`docs/frontend/spec.md` §1.20). */}
         <div className="flex w-full flex-col gap-y-4">
-          <p className="fluid-sm text-foreground-muted leading-relaxed text-pretty">
-            <span className="bg-danger/15 text-danger-strong rounded-md px-1.5 py-0.5 font-bold whitespace-nowrap">
+          <p className="fluid-sm leading-relaxed text-pretty text-foreground-muted">
+            <span className="rounded-md bg-danger/15 px-1.5 py-0.5 font-bold whitespace-nowrap text-danger-strong">
               {count === 1 ? "1 Hinweis" : `${String(count)} Hinweise`}
             </span>{" "}
             {count === 1 ? "gilt" : "gelten"} für diesen Entwurf.
@@ -91,7 +91,7 @@ export function ConfirmSaveModal({
         </div>
 
         {/* Stacked, since one of the pair accepts every consequence listed above it. The band declares its own width. */}
-        <div className={MODAL_FOOTER_STACK}>
+        <div className={MODAL_FOOTER_STACK_CLASSES}>
           {/* Held, never closed: the press that started the save left the keyboard's focus here, and a
               disabled button drops it to the page (`docs/frontend/spec.md` §1.14). */}
           <Button

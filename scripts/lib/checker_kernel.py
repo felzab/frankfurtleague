@@ -1,8 +1,7 @@
 """SCRIPTS · what every checker under `scripts/` is built on.
 
-git, the repository root, the branch's base, the finding-to-exit-code tail and the declared-delta
-comparison a mirror checker runs, once each: a checker taking any from its own copy drifts into its
-own behaviour. The exit contract is 0 pass · 1 findings · 2 could not judge the input · 3 or more
+git, the repository root, the branch's base and the finding-to-exit-code tail, once each: a checker
+taking any from its own copy drifts into its own behaviour. The exit contract is 0 pass · 1 findings · 2 could not judge the input · 3 or more
 the environment is broken, spelled as a literal by no checker.
 """
 
@@ -12,10 +11,10 @@ import io
 import subprocess
 import sys
 import traceback
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Literal, TextIO
+from typing import Final, Literal, TextIO
 
 # Three levels: this file sits in `scripts/lib/`, and a fixture copies the whole of `scripts/`
 # into a throwaway repository whose root is what every checker then has to resolve against.
@@ -43,6 +42,19 @@ UNLAUNCHABLE: Final = (OSError, ValueError)
 for _stream in (sys.stdout, sys.stderr):
     if isinstance(_stream, io.TextIOWrapper):
         _stream.reconfigure(encoding="utf-8", errors="replace")
+
+
+# A workflow command's message as the runner decodes it: `escapeData` in
+# https://github.com/actions/toolkit/blob/ed3ea3b5ba8cf9cc0232e157f2080a9864305bd5/packages/core/src/command.ts
+# (read 2026-09-25). `%` goes first, or it would escape the codes the others write.
+COMMAND_ESCAPES: Final[tuple[tuple[str, str], ...]] = (("%", "%25"), ("\r", "%0D"), ("\n", "%0A"))
+
+
+def workflow_message(text: str) -> str:
+    """One text as a workflow command carries it: a raw line break ends the command there."""
+    for char, code in COMMAND_ESCAPES:
+        text = text.replace(char, code)
+    return text
 
 
 Severity = Literal["fail", "report"]
@@ -166,8 +178,8 @@ def report_findings(findings: Iterable[Finding], *, indent: int = 6, stream: Tex
 def run(entry: Callable[[], int]) -> int:
     """A checker's `__main__` line, so one exit code means one thing whichever checker answered.
 
-    An unexpected exception is `EXIT_CRASH`, never `EXIT_FINDINGS`: that separates "not wide enough
-    to merge on" from "the check itself failed".
+    An unexpected exception is `EXIT_CRASH`, never `EXIT_FINDINGS`: that separates "the change needs
+    work" from "the check itself failed".
     """
     try:
         return entry()
@@ -178,87 +190,3 @@ def run(entry: Callable[[], int]) -> int:
         traceback.print_exc()
         print("\n  The check above did not finish, so it proved nothing. This is a crash, not a finding.", file=sys.stderr)
         return EXIT_CRASH
-
-
-class Marker:
-    """A stand-in for a value that is not there, or for one a declared list does not pin."""
-
-    def __init__(self, text: str) -> None:
-        self.text = text
-
-    def __repr__(self) -> str:
-        return self.text
-
-
-# `absent` is a value, not a missing entry: "that file does not write it" is the commonest thing
-# either side of a difference has to say.
-ABSENT: Final = Marker("absent")
-ANY: Final = Marker("whatever that file writes there")
-
-
-@dataclass(frozen=True)
-class Delta:
-    """One difference the local file's header declares, at the grain it declares it."""
-
-    path: str
-    prod: Any
-    local: Any
-    why: str
-
-
-@dataclass(frozen=True)
-class Difference:
-    """One place the two files disagree, described by what each side has there."""
-
-    path: str
-    prod: Any
-    local: Any
-
-
-def diff(prod: Any, local: Any, path: str = "") -> list[Difference]:
-    """Every place the two documents disagree, reported at the deepest key they share."""
-    if isinstance(prod, dict) and isinstance(local, dict):
-        found: list[Difference] = []
-        for key in sorted(set(prod) | set(local)):
-            here = f"{path}.{key}" if path else key
-            if key not in local:
-                found.append(Difference(here, prod[key], ABSENT))
-            elif key not in prod:
-                found.append(Difference(here, ABSENT, local[key]))
-            else:
-                found.extend(diff(prod[key], local[key], here))
-        return found
-    if prod == local:
-        return []
-    return [Difference(path, prod, local)]
-
-
-def side_matches(declared: Any, observed: Any) -> bool:
-    """Whether one side of a difference is what the delta declares for it."""
-    if declared is ANY:
-        return observed is not ABSENT
-    return declared == observed
-
-
-def declaring(difference: Difference, deltas: Sequence[Delta]) -> Delta | None:
-    """The delta that declares this difference, or None where none does."""
-    for delta in deltas:
-        if delta.path == difference.path and side_matches(delta.prod, difference.prod) and side_matches(delta.local, difference.local):
-            return delta
-    return None
-
-
-def uncovered(judged: list[tuple[Difference, Delta | None]], deltas: Sequence[Delta]) -> list[Finding]:
-    """Every declared delta that matched no difference -- the allowlist rotting the other way."""
-    # Identity, not equality: each row is its own object, so two rows spelling the same path cannot
-    # mark one another matched.
-    matched = {id(delta) for _, delta in judged if delta is not None}
-    return [
-        Finding(
-            "fail",
-            f"the declared delta {delta.path} ({delta.why}) covered nothing\n"
-            f"{CONTINUATION}the files agree there, or the difference is no longer the one it pins",
-        )
-        for delta in deltas
-        if id(delta) not in matched
-    ]

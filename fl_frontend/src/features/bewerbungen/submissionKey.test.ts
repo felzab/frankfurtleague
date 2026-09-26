@@ -2,7 +2,7 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { beforeEach, describe, it, mock } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 
 import { act, createElement as h } from "react";
 
@@ -10,25 +10,18 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 
 import type { BewerbungFormDraft } from "./types.ts";
 
 type User = ReturnType<typeof userEvent.setup>;
 
-/*
- A file of its own rather than cases in `fl_frontend/src/features/bewerbungen/form.test.ts`: that suite
- leaves a request that never returns, and an async transition still pending holds every later form's
- `isPending`, so a second press never finds its button again.
-*/
-const fetchMock = mock.fn<(url: string, init?: RequestInit) => Promise<Response>>();
-
-globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => fetchMock(String(input), init)) as typeof fetch;
+// The browser's own `fetch`, so the key is read off the request the form actually makes.
+const fetchMock = doubleFetch();
 
 const { raised } = doubleToasts();
 
 beforeEach(() => {
-  fetchMock.mock.resetCalls();
-  fetchMock.mock.restore();
   raised.length = 0;
 });
 
@@ -109,7 +102,7 @@ const settle = (): Promise<void> =>
 /** The key each request to the submission route carried, in the order the presses were made. */
 const keysSent = (): (string | null)[] =>
   fetchMock.mock.calls
-    .filter(({ arguments: [url] }) => url === "/api/bewerbung")
+    .filter(({ arguments: [input] }) => String(input) === "/api/bewerbung")
     .map(({ arguments: [, init] }) => new Headers(init?.headers).get("Idempotency-Key"));
 
 const answering = (body: unknown) => fetchMock.mock.mockImplementation(() => Promise.resolve(new Response(JSON.stringify(body))));

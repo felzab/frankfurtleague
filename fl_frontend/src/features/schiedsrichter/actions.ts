@@ -1,10 +1,8 @@
 "use server";
 
-import { refresh, updateTag } from "next/cache";
+import { updateTag } from "next/cache";
 
-import { getAdminSession } from "@/core/auth";
-import { APIBadStatusError } from "@/core/errors";
-import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -20,6 +18,15 @@ import {
 import { describeLinkMail, mailSchiedsrichterLink } from "./notifications";
 import { getSchiedsrichterById } from "./queries";
 import {
+  KEINE_ADRESSE,
+  mapAnonymiseRefusal,
+  mapEinladenRefusal,
+  mapGesperrteAdresseRefusal,
+  mapNameRefusal,
+  mapReactivateRefusal,
+  mapRetireRefusal,
+} from "./refusals";
+import {
   FLAnonymiseSchiedsrichterPayloadSchema,
   FLPatchSchiedsrichterPayloadSchema,
   FLPostSchiedsrichterPayloadSchema,
@@ -30,7 +37,6 @@ import {
 
 import type { FLSchiedsrichterPayloadDraft } from "@/features/schiedsrichter/schemas";
 import type { ActionResult } from "@/shared/types/types";
-import type { FieldErrors } from "@/shared/utils/validation";
 import type {
   FLAnonymiseSchiedsrichterPayload,
   FLPatchSchiedsrichterPayload,
@@ -40,115 +46,11 @@ import type {
   FLSchiedsrichterKeyPayload,
 } from "./schemas";
 
-/**
- * `null` where the 409 is something else. It lands on the NAME box: `uniq_schiedsrichter_name` is this
- * collection's only unique index, so the code can be about no other value the create or the edit sent.
- */
-function mapNameRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
-
-  // No repair sentence: the box carrying the message is itself the way out (`docs/frontend/spec.md` §1.12).
-  if (error.serverErrorCode === "DB-COMMON-002") {
-    return { fieldErrors: { name: "Diesen Namen gibt es schon." } };
-  }
-  return null;
-}
-
-/** `null` where the 409 is something else; it lands on no field, the retire control being a dialog. */
-function mapRetireRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
-
-  if (error.serverErrorCode === "REQ-RETIRE-004") {
-    return buildRefusal({
-      reason: "Diese Person ist noch für Spiele eingeteilt, die kein Ergebnis haben",
-      repair: "Teile die Spiele jemand anderem zu oder sage sie ab",
-    });
-  }
-  return null;
-}
-
-/**
- * The anonymisation refusal, or `null` when the 409 is something else. It lands on no field: the
- * control is a dialog rather than a form.
- */
-function mapAnonymiseRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
-
-  if (error.serverErrorCode === "REQ-ANONYMISE-004") {
-    return buildRefusal({
-      // The reader reached this by opening a link to the row every erased referee's fixtures point
-      // at, so the repair names the referee they meant rather than a way to retry this one.
-      reason: "Hinter diesem Eintrag steht keine Person, er sammelt nur die Spiele gelöschter Schiedsrichter",
-      repair: "Öffne den Schiedsrichter, dessen Daten Du löschen willst",
-    });
-  }
-  return null;
-}
-
-/**
- * The administrator's own sentence rather than a visitor's neutral one: every site raising it here
- * is admin-tier, and hiding the ban from the person who keeps the list hides it from the one reader
- * who can act on it.
- */
-const ADRESSE_GESPERRT = buildRefusal({
-  reason: "Diese E-Mail-Adresse steht auf der Sperrliste",
-  repair: "Trage eine andere Adresse ein oder hebe die Sperre unter /admin/sperrliste auf",
-});
-
-/** `null` where the 409 is something else. It lands on the address box, which is the value the list refused. */
-function mapGesperrteAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
-
-  return error.serverErrorCode === "REQ-SCHIEDSRICHTER-007" ? { fieldErrors: { "kontakt.email": ADRESSE_GESPERRT } } : null;
-}
-
-/** The re-send's own two refusals, or `null`. Neither lands on a field: the control is a panel button, not a form. */
-function mapEinladenRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
-
-  switch (error.serverErrorCode) {
-    case "REQ-SCHIEDSRICHTER-001":
-      return buildRefusal({
-        // A retired row takes no booking, so what the link would collect is consent for a role
-        // nobody can give this person.
-        reason: "Diese Person ist stillgelegt und wird zu keinem Spiel mehr eingeteilt",
-        repair: "Reaktiviere den Eintrag, bevor Du einen Link sendest",
-      });
-    case "REQ-SCHIEDSRICHTER-004":
-      return SCHON_BESTAETIGT;
-    case "REQ-SCHIEDSRICHTER-006":
-      return KEINE_ADRESSE;
-    case "REQ-SCHIEDSRICHTER-007":
-      return ADRESSE_GESPERRT;
-    default:
-      return null;
-  }
-}
-
-/**
- * Raised at the control as well, where the panel beside it already shows the answer: the endpoint
- * refuses a second link for a person who has confirmed, there being no page left for them to open.
- */
-const SCHON_BESTAETIGT = buildRefusal({
-  reason: "Diese Person hat ihren Eintrag schon bestätigt",
-  repair: "Ein neuer Link führt auf keine Seite mehr; Änderungen an der Einwilligung nimmt die Person selbst vor",
-});
-
-/** Raised at the action as well, where the row already says so: a round trip to be told what the page can see is one nobody owes. */
-const KEINE_ADRESSE = buildRefusal({
-  reason: "Für diese Person ist keine verwendbare E-Mail-Adresse hinterlegt",
-  repair: "Trage oben eine E-Mail-Adresse ein und speichere",
-});
-
 export async function postSchiedsrichterAction(
   // The DRAFT shape: an emptied money field submits `null`, which the schema below makes a field error.
   rawPayload: FLSchiedsrichterPayloadDraft<FLPostSchiedsrichterPayload>,
 ): Promise<ActionResult<{ created_id: string }>> {
-  return runAdminMutation("postSchiedsrichterAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("postSchiedsrichterAction", async () => {
     const validated = FLPostSchiedsrichterPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -172,8 +74,6 @@ export async function postSchiedsrichterAction(
     if (!postOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
-
-    refresh();
 
     const mint = postOperation.bestaetigung;
     // The address the MINT names, never the one this caller sent: only the mint's own transaction
@@ -201,11 +101,7 @@ export async function patchSchiedsrichterAction(
   // A flag beside the message rather than a sentence the caller parses: the editor grades the toast
   // a warning on it, and the save landed either way.
 ): Promise<ActionResult<{ updated_document?: FLSchiedsrichter; versandSatz?: string; versandFehlgeschlagen?: boolean }>> {
-  return runAdminMutation("patchSchiedsrichterAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("patchSchiedsrichterAction", async () => {
     const validated = FLPatchSchiedsrichterPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -235,7 +131,6 @@ export async function patchSchiedsrichterAction(
 
     // A rename fans the name into every match, the one cached read it reaches; a match keeps its own fee.
     updateTag("spiele");
-    refresh();
 
     // Non-null only where the correction moved an unconfirmed referee's address: the old link was
     // posted to a mailbox nobody reads, and leaving it live is a credential in the wrong inbox.
@@ -271,11 +166,7 @@ export async function patchSchiedsrichterAction(
  * would leave the referee with no working link and no message.
  */
 export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEinladenPayload): Promise<ActionResult<object>> {
-  return runAdminMutation("einladeSchiedsrichterAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("einladeSchiedsrichterAction", async () => {
     const validated = FLSchiedsrichterEinladenPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -311,8 +202,6 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
       return { success: false, error: buildRefusal({ reason: "Der Bestätigungslink wurde nicht gesendet", repair: "Versuche es erneut" }) };
     }
 
-    refresh();
-
     // The address the MINT read in its own transaction, never `email` above: this read is the older
     // of the two, and a save landing between them moved the mailbox the credential was made for.
     const mint = mintOperation.bestaetigung;
@@ -337,11 +226,7 @@ export async function einladeSchiedsrichterAction(rawPayload: FLSchiedsrichterEi
 export async function deleteSchiedsrichterAction(
   rawPayload: FLSchiedsrichterKeyPayload,
 ): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
-  return runAdminMutation("deleteSchiedsrichterAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("deleteSchiedsrichterAction", async () => {
     const validated = FLSchiedsrichterKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -366,8 +251,6 @@ export async function deleteSchiedsrichterAction(
       return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht stillgelegt", repair: "Versuche es erneut" }) };
     }
 
-    refresh();
-
     return {
       success: true,
       updated_document: postOperation.updated_document,
@@ -377,7 +260,7 @@ export async function deleteSchiedsrichterAction(
 }
 
 /**
- * No tag moves, unlike the patch: `inactive_since` reaches no cached read. The refresh below is for
+ * No tag moves, unlike the patch: `inactive_since` reaches no cached read. The spine's refresh is for
  * the admin's own list, which is uncached.
  */
 export async function reactivateSchiedsrichterAction(
@@ -385,11 +268,7 @@ export async function reactivateSchiedsrichterAction(
   // The save's flag, for the save's reason: the reactivation landed either way, and the row grades
   // its toast a warning where the link it minted did not leave.
 ): Promise<ActionResult<{ updated_document?: FLSchiedsrichter; versandFehlgeschlagen?: boolean }>> {
-  return runAdminMutation("reactivateSchiedsrichterAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("reactivateSchiedsrichterAction", async () => {
     const validated = FLSchiedsrichterKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -405,17 +284,14 @@ export async function reactivateSchiedsrichterAction(
     try {
       reactivateOperation = await reactivateSchiedsrichter(validated.data);
     } catch (error) {
-      if (error instanceof APIBadStatusError && error.statusCode === 409 && error.serverErrorCode === "REQ-SCHIEDSRICHTER-007") {
-        return { success: false, error: ADRESSE_GESPERRT };
-      }
+      const refusal = mapReactivateRefusal(error);
+      if (refusal !== null) return { success: false, error: refusal };
       throw error;
     }
 
     if (!reactivateOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Der Schiedsrichter wurde nicht reaktiviert", repair: "Versuche es erneut" }) };
     }
-
-    refresh();
 
     // Non-null where the row came back unanswered: a retired referee's save mails nothing, so
     // coming back is what asks them. The address is the one the mint read.
@@ -449,11 +325,7 @@ export async function reactivateSchiedsrichterAction(
 export async function anonymiseSchiedsrichterAction(
   rawPayload: FLAnonymiseSchiedsrichterPayload,
 ): Promise<ActionResult<{ updated_document?: FLSchiedsrichter }>> {
-  return runAdminMutation("anonymiseSchiedsrichterAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("anonymiseSchiedsrichterAction", async () => {
     const validated = FLAnonymiseSchiedsrichterPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -481,7 +353,6 @@ export async function anonymiseSchiedsrichterAction(
     // The repointed booking fans into every match as a rename does, so the same one cached read is
     // stale here. The referee list and the log are uncached.
     updateTag("spiele");
-    refresh();
 
     return {
       success: true,

@@ -5,10 +5,10 @@ import { tv } from "tailwind-variants";
  * only for one that responds to a click, or it advertises an affordance it does not have.
  */
 export const card = tv({
-  base: "bg-surface border-border text-foreground rounded-2xl border shadow-sm",
+  base: "rounded-2xl border border-border bg-surface text-foreground shadow-sm",
   variants: {
     interactive: {
-      true: "hover:border-brand transition-[border-color] duration-(--motion-base)",
+      true: "transition-[border-color] duration-(--motion-base) hover:border-brand",
       false: "",
     },
   },

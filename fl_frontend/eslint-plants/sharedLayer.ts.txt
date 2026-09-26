@@ -1,0 +1,29 @@
+// Linted as src/shared/zzPlant.ts.
+import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
+import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
+import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { NumberField as HeroNumberField } from "@heroui/react/number-field"; // expect: number-field
+import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect: marked-field
+import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
+import { Bars } from "@gravity-ui/icons"; // expect: vendor-root
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
+import { HintPanel } from "./components/ui/InfoHint"; // expect: hint-internals
+import { captureStdout } from "../core/stdoutCapture"; // expect: test-only
+// A path from inside shared names no shared.
+import { renderTest } from "./testing/renderTest"; // expect: test-only
+import { fixtures } from "../shared/testing/fixtures.ts"; // expect: test-only
+import { TEAM_FACETS as TEAMS_RELATIVE } from "../features/teams/facets"; // expect: layer-shared
+import { createRequire as loadVia } from "node:module"; // expect: node-module
+import { SITE_URL } from "@/core/brand"; // expect: site-origin
+
+export const USED = [TEAM_FACETS, HeroForm, DatePicker, Bars, AppRouterContext, HintPanel, captureStdout, TEAMS_RELATIVE];
+export const LOADED_SLICE = await import("@/features/teams/facets"); // expect: layer-shared-load
+export const LOADED_RELATIVE = import("../features/teams/facets"); // expect: layer-shared-load
+// shared may load itself and core.
+export const LOADED_OWN = import("./components/ui/formFieldStyles");
+export const NODE_MODULE_USED = [loadVia];
+export const HARNESS_USED = [renderTest, fixtures];
+export const ORIGIN_USED = SITE_URL;
+export const NUMBER_FIELD_USED = HeroNumberField;
+export const LOCALE_USED = PinnedLocale;
+export const TEXT_FIELD_USED = HeroTextField;

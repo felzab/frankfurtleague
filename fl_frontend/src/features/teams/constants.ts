@@ -80,8 +80,11 @@ export const DESCRIPTION_MAX_LENGTH = 4096;
 export const TEAM_NAME_MAX_LENGTH = 60;
 export const TEAM_FULL_NAME_MAX_LENGTH = 120;
 export const TEAM_WEBSITE_URL_MAX_LENGTH = 300;
-// One part of one contact person's name, on the junction patch and the application both.
+// A person's name, or one part of one, at every field the backend types with
+// `fl_backend/app/shared/schemas/kontakt.py :: CustomKontaktName`.
 export const KONTAKT_NAME_MAX_LENGTH = 80;
+// The one refusal of that ceiling, for every form that holds a name to it.
+export const KONTAKT_NAME_ZU_LANG = `Der Name darf höchstens ${String(KONTAKT_NAME_MAX_LENGTH)} Zeichen lang sein.`;
 
 type SchulformOption = {
   readonly value: FLSchulform;
@@ -216,8 +219,8 @@ type TrainerZugleichOption = {
 export const TRAINER_ZUGLEICH_OPTIONS: readonly TrainerZugleichOption[] = [
   { key: "ansprechperson", value: "ansprechperson", label: "Die Ansprechperson" },
   { key: "stellvertretung", value: "stellvertretung", label: "Die Stellvertretung" },
-  // Last, because it is the one answer that opens six further boxes below the picker: the two seat
-  // answers collapse them, and a chip that reveals belongs beside what it reveals.
+  // Last, because it is the one answer that leaves the Trainer's boxes below the picker to be typed
+  // into: a seat answer hides them on the public form and fills them read-only in the admin's editor.
   { key: "niemand", value: null, label: "Eine andere Person" },
 ];
 

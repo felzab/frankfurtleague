@@ -1,4 +1,10 @@
-import { Calendar, ClockArrowRotateLeft, LayoutHeaderCells, Magnifier, Medal, Person, Persons } from "@gravity-ui/icons";
+import Calendar from "@gravity-ui/icons/Calendar";
+import ClockArrowRotateLeft from "@gravity-ui/icons/ClockArrowRotateLeft";
+import LayoutHeaderCells from "@gravity-ui/icons/LayoutHeaderCells";
+import Magnifier from "@gravity-ui/icons/Magnifier";
+import Medal from "@gravity-ui/icons/Medal";
+import Person from "@gravity-ui/icons/Person";
+import Persons from "@gravity-ui/icons/Persons";
 
 import type { SidemenuHint, SidemenuStructure } from "@/shared/types/types";
 import type React from "react";

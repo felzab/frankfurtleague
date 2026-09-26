@@ -1,0 +1,5 @@
+// Linted as src/features/spiele/components/forms/AdminEditSpielDataForm/FormTeamPicker.tsx.
+// The team picker, whose emptying drops the whole side, and every other ban still reaches it.
+declare const Autocomplete: (props: object) => null;
+
+export const TEAM_PICK = <Autocomplete isRequired={false} name="team1.team_id" className="flex gap-5" />; // expect: gap

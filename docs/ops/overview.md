@@ -3,8 +3,8 @@
 **Scope:** `docker-compose*.yml`, `nginx/`, `scripts/`, both Dockerfiles
 
 Four containers on one host, reached through a tunnel connector rather than a published port and
-deployed by pulling published images. There is no orchestrator, no CI runner and no build on the
-server — deliberately, because a server that builds is a server that can fail a build.
+deployed by pulling the images CI published. There is no orchestrator and no build on the server —
+deliberately, because a server that builds is a server that can fail a build.
 
 ## How it is organised
 
@@ -52,7 +52,7 @@ Nothing here manages the Cloudflare account, its DNS or its SSL mode, and none o
 visible from a configuration file in this repository.
 
 - **A visitor's TLS session terminates at Cloudflare, not at nginx.** The cipher suites, session
-  settings and OCSP stapling in `nginx/prod.conf` govern the hop from the tunnel connector to
+  settings and OCSP stapling in `nginx/prod/prod.conf` govern the hop from the tunnel connector to
   nginx inside the compose network, not what a browser negotiates. An origin failure can accordingly surface as a Cloudflare error code
   ([`spec.md`](spec.md) §1.3).
 - **The headers a visitor receives are whatever survives the proxy.** They matched `prod.conf` when
@@ -85,20 +85,19 @@ Cloudflare can promote to a 103. What is actually set is readable only in the Cl
 A backend route is unreachable from the internet unless an nginx location publishes it
 ([`spec.md`](spec.md) I13); **a frontend route runs the other way round** — the catch-all carries every
 path nginx does not name to Next, so a route handler is reachable the moment it exists, and its own
-authorization is all that stands in front of it.
+authorization is all that stands in front of it ([`spec.md`](spec.md) I133).
 
 FastAPI's Swagger UI sits at the app root (`/docs`), which the catch-all sends to Next, so the API
-documentation is a development and in-network tool.
+documentation is a development and in-network tool ([`spec.md`](spec.md) I134).
 
 ## Security posture
 
 **The origin is hardened even though a proxy sits above it** — TLS 1.2/1.3 only, the header set at
 [`spec.md`](spec.md) §1.4, and I3's `default_server` rejecting an unknown `Host` at TLS time.
 
-**The published unauthenticated writes are rate-limited at the edge**: the sign-in POST, whose action
-id ships in a client chunk, the client-error ingest, the public application form's submit, and the
-confirmation link's answer, the last two being the ones that write league data. The zones, their
-pairing and what carries no zone at all are [`spec.md`](spec.md) §1.3.
+**The published unauthenticated writes are rate-limited at the edge**, the sign-in POST among them,
+whose action id ships in a client chunk. Which paths carry a zone, their pairing and what carries no
+zone at all are [`spec.md`](spec.md) §1.3.
 
 ## Images and deployment
 

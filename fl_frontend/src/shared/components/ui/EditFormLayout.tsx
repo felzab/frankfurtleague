@@ -1,4 +1,5 @@
 import { EditPageHeader } from "@/shared/components/ui/EditPageHeader";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { ReactNode } from "react";
@@ -11,6 +12,7 @@ export function EditFormLayout({
   header,
   onLeave,
   isLeaving,
+  isDirty,
   rail,
   children,
 }: {
@@ -23,14 +25,29 @@ export function EditFormLayout({
    * `pointerleave` follows a click that leaves, so without it the pill returns painted hovered.
    */
   isLeaving: boolean;
+  /** The editor's unsaved typing, which the reactivation's write would re-key the editor over. */
+  isDirty: boolean;
   rail: ReactNode;
   children: ReactNode;
 }) {
+  const { reactivate } = header;
+
   return (
     <div className="min-h-0 w-full flex-1 scrollbar-gutter-stable overflow-y-auto px-4 pt-6 pb-10 sm:px-8">
-      <div className="max-w-page mx-auto flex w-full flex-col">
+      <div className="mx-auto flex w-full max-w-page flex-col">
         <EditPageHeader
           {...header}
+          // Guarded here, once, for every editor offering it: the write moves the record the page keys the editor by.
+          reactivate={
+            reactivate === undefined
+              ? undefined
+              : {
+                  ...reactivate,
+                  onPress: () => {
+                    if (guardAgainstDraft(isDirty, DRAFT_DISCARDED)) reactivate.onPress();
+                  },
+                }
+          }
           onLeave={onLeave}
           isLeaving={isLeaving}
         />

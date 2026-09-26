@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+
 /** Stands in for `next/headers`, whose real `headers()` throws outside a request scope. */
-const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export const headers = async () => new Headers();")}`;
+const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
 const SPENT = "__flAnmeldeTokenSpent";
 
@@ -33,8 +35,6 @@ const CONFIG_DOUBLE = `export const frontend_config = { AUTH_URL: "http://localh
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "next/headers") return { url: HEADERS_DOUBLE_URL, shortCircuit: true };
-    // Node resolves the package's subpath only with its extension; Next's own bundler needs none.
-    if (specifier === "next/server") return nextResolve("next/server.js", context);
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {

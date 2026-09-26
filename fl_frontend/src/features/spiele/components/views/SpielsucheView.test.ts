@@ -5,14 +5,11 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries either context — the bar's `useUrlFilters` reads the first and every
-   `useSearchParams` the second. A Next release that moves either module fails this file at import. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { render, screen } from "@testing-library/react";
 
-import { nextRouter } from "@/shared/testing/nextContexts.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
+import { formatSpielDatum } from "@/shared/utils/format.ts";
 
 import type { FLSpiel } from "../../schemas.ts";
 
@@ -73,13 +70,7 @@ const ADMIN: ViewProps = {
   schiedsrichter: [{ id: BEISPIEL, name: "Rafael Beispiel" }],
 };
 
-const renderView = (query: string, props: ViewProps = ADMIN) =>
-  render(
-    h(AppRouterContext.Provider, {
-      value: nextRouter(),
-      children: h(SearchParamsContext.Provider, { value: new URLSearchParams(query), children: h(SpielsucheView, props) }),
-    }),
-  );
+const renderView = (query: string, props: ViewProps = ADMIN) => render(underNext(h(SpielsucheView, props), { search: query }));
 
 const PROMPT = "Suche nach einem Spiel oder setze einen Filter.";
 
@@ -132,5 +123,39 @@ describe("the sentence under the bar", () => {
     renderView("q=zzzzzz");
 
     screen.getByText("Keine Spiele für „zzzzzz“.");
+  });
+});
+
+describe("the date a typed query is matched against", () => {
+  /** Two fixtures a stored spelling would confuse: the day of the first reads, stored, as the second's month. */
+  const MAERZ: FLSpiel = { ...SPIEL, datum: "2026-03-14" };
+  const NOVEMBER: FLSpiel = {
+    ...SPIEL,
+    id: "6890a1b2c3d4e5f607184002",
+    spiel_nr: 2,
+    datum: "2026-11-03",
+    team1: { team_id: GAMMA, name: "TSV Gamma", shorthand: "GA", tore: null, austritt_type: null },
+    team2: { team_id: "6890a1b2c3d4e5f607184014", name: "SC Delta", shorthand: "DE", tore: null, austritt_type: null },
+  };
+
+  /** Which of the two fixtures a typed query leaves on screen. */
+  const found = (query: string): string[] => {
+    const { unmount } = renderView(new URLSearchParams({ q: query }).toString(), { ...ADMIN, spiele: [MAERZ, NOVEMBER] });
+    const shown = ["FC Alpha", "TSV Gamma"].filter((team) => screen.queryAllByText(team).length > 0);
+    unmount();
+
+    return shown;
+  };
+
+  /* One formatter for both spellings, or the searched date drifts off the rendered one the day the
+     rendered format changes. */
+  it("finds a fixture by the date its card prints", () => {
+    assert.deepEqual(found(formatSpielDatum(MAERZ.datum)), ["FC Alpha"]);
+  });
+
+  /* No surface renders the stored spelling, so nobody has seen one to type, and a key for it would
+     only widen a numeric query: "2026-03" would then also reach the fixture played in November. */
+  it("reaches no fixture of another month through the stored spelling", () => {
+    assert.deepEqual(found("2026-03"), [], "the stored date is searched, and a month typed in its spelling reaches November");
   });
 });

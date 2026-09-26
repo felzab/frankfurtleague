@@ -1,15 +1,16 @@
 "use client";
 
-import { CircleExclamation } from "@gravity-ui/icons";
+import CircleExclamation from "@gravity-ui/icons/CircleExclamation";
 
-import { Button, Card } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Card } from "@heroui/react/card";
 
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 
 import { ergebnisTone, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "./SaisonPhaseChip";
-import { ERGEBNIS_INK, SpielScore } from "./SpielScore";
+import { ERGEBNIS_INK_CLASSES, SpielScore } from "./SpielScore";
 import { SpielTeamSlot } from "./SpielTeamSlot";
 
 import type { FLSpiel } from "../../schemas";
@@ -39,7 +40,7 @@ export function SpielCardCompact({
         <div className="flex h-fit w-full flex-row items-center gap-x-4">
           <div className="flex min-w-0 flex-row flex-wrap items-center gap-x-4 gap-y-2">
             {/* One non-breaking unit: a date split across lines reads as two dates. */}
-            <div className="fluid-sm text-foreground-muted flex shrink-0 flex-row items-center gap-x-2 font-bold whitespace-nowrap">
+            <div className="flex shrink-0 flex-row items-center gap-x-2 fluid-sm font-bold whitespace-nowrap text-foreground-muted">
               {/* A comma joins the pair, never a dash: no dash is punctuation (`docs/frontend/spec.md` §1.12). */}
               <span>{spielDatum},</span>
               <span>{spielUhrzeit}</span>
@@ -62,7 +63,7 @@ export function SpielCardCompact({
                   /* `flex` here and on the span, and `bg-hover-muted`, for `SpielCard.tsx`'s
                      reasons at the same control. `rounded-xl` is spelled, not inherited: HeroUI's
                      base radius clamps to a circle at this size. */
-                  className="bg-muted text-foreground data-hovered:bg-hover-muted flex size-8 rounded-xl p-0 transition-colors duration-(--motion-base)">
+                  className="flex size-8 rounded-xl bg-muted p-0 text-foreground transition-colors duration-(--motion-base) data-hovered:bg-hover-muted">
                   <CircleExclamation
                     aria-hidden="true"
                     className="m-0 size-4.5"
@@ -82,7 +83,7 @@ export function SpielCardCompact({
               quelle={spielData.team1_quelle}
               saisonId={spielData.saison_id}
               text={spielData.team1?.name || "Team 1"}
-              className="fluid-sm lg:fluid-base text-right font-bold"
+              className="text-right fluid-sm font-bold lg:fluid-base"
             />
           </span>
 
@@ -90,7 +91,7 @@ export function SpielCardCompact({
           <SpielScore
             ergebnis={spielErgebnis}
             elfmeterschiessen={spielElfmeterschiessen}
-            className={`fluid-base flex flex-col items-center px-2 py-1 text-center font-extrabold ${ERGEBNIS_INK[ergebnisTone(spielData)]}`}
+            className={`flex flex-col items-center px-2 py-1 text-center fluid-base font-extrabold ${ERGEBNIS_INK_CLASSES[ergebnisTone(spielData)]}`}
           />
 
           <span className="flex min-w-0 justify-start">
@@ -99,7 +100,7 @@ export function SpielCardCompact({
               quelle={spielData.team2_quelle}
               saisonId={spielData.saison_id}
               text={spielData.team2?.name || "Team 2"}
-              className="fluid-sm lg:fluid-base text-left font-bold"
+              className="text-left fluid-sm font-bold lg:fluid-base"
             />
           </span>
         </div>

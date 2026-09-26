@@ -1,15 +1,21 @@
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { createElement as h } from "react";
+
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { TEAM_FACETS, TEAMS_ANY_SAISON_QUERY } from "@/features/teams/facets";
+import { underNext } from "@/shared/testing/nextContexts.ts";
+import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { applyFacets, countFacetOptions, isFacetOptionReachable, readFacetSelection } from "@/shared/utils/facets.ts";
 
 import { BEWERBUNGEN_FACETS, BEWERBUNGEN_STATUS_PARAM, bewerbungenQueueFacetCounts, bewerbungenQueueTerms } from "./facets.ts";
 
+import type { KontaktRolle } from "@/features/teams/constants";
+import type { FLKontaktperson } from "@/features/teams/schemas";
 import type { Facet } from "@/shared/utils/facets.ts";
 import type { FLBewerbungStatus } from "./schemas.ts";
 import type { AdminBewerbungRow } from "./types.ts";
@@ -390,23 +396,60 @@ describe("the season parameter this list owns", () => {
   });
 });
 
-/** The list's other way of narrowing, declared beside the facets it sits next to on the same bar. */
-const SEARCH_KEYS = (
-  readFileSync(path.resolve(import.meta.dirname, "components", "views", "AdminBewerbungenView.tsx"), "utf8").split(
-    "const SEARCH_KEYS = [",
-  )[1] ?? ""
-).split("] as const;")[0];
+/* Reached with `await import` and never a static import beside the harness: the JSX compile step is
+   registered as `renderTest` evaluates, and a static import resolves before that. */
+const { AdminBewerbungenView } = await import("./components/views/AdminBewerbungenView.tsx");
+
+/** Whose seat an application's one named person sits in, and how that person is found again. */
+const SEATED: Record<KontaktRolle, { team: string; nachname: string; email: string }> = {
+  ansprechperson: { team: "Adlerhorst", nachname: "Quandtmeyer", email: "posteingang-eins@example.com" },
+  stellvertretung: { team: "Birkenhain", nachname: "Wiesenthaler", email: "zweite-adresse@example.com" },
+  trainer: { team: "Cedernwald", nachname: "Yildirimova", email: "dritter-kasten@example.com" },
+};
+
+/** One application per seat, each naming its one person in that seat alone. */
+const SEAT_ROWS = KONTAKT_ROLLEN.map(({ value }, index): AdminBewerbungRow => {
+  const { team, nachname, email } = SEATED[value];
+  const person: FLKontaktperson = {
+    vorname: "Kim",
+    nachname,
+    email,
+    telefon: "069 1234567",
+    geburtsdatum: null,
+    einwilligung: { umfang: "kontaktdaten", erfasst_von: "person", text_version: "2026-08", datum: "2026-08-01", bestaetigt_am: null },
+  };
+
+  return {
+    ...row(`6890a1b2c3d4e5f60719002${String(index)}`, true),
+    teamName: team,
+    kontakte: { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null, [value]: person },
+  };
+});
+
+/** The teams the triage list shows for a query typed into its search, every facet of the read turned off. */
+function foundBy(query: string): string[] {
+  const shown = textOf(
+    renderTree(
+      underNext(
+        h(AdminBewerbungenView, {
+          bewerbungen: SEAT_ROWS,
+          anzahlJeStatus: { eingereicht: SEAT_ROWS.length, angenommen: 0, abgelehnt: 0 },
+          anzahlJeSaisonbezug: { diese_saison: SEAT_ROWS.length, andere_saison: 0 },
+          dublettenSchluessel: [],
+          richtung: "desc",
+        }),
+        { search: new URLSearchParams({ q: query, saisonbezug: "", status: "" }) },
+      ),
+    ),
+    " ",
+  );
+
+  return Object.values(SEATED)
+    .map(({ team }) => team)
+    .filter((team) => shown.includes(team));
+}
 
 describe("what the triage list's search reaches", () => {
-  /* First: a declaration the cut no longer finds leaves an empty string, in which no key is missing
-     and the case below would pass over nothing. */
-  it("reads the list's keys out of the view at all", () => {
-    // The empty string, never `undefined`: a cut that finds nothing still splits to one element, so a
-    // floor asking for a value at all would be met by the miss it exists to catch.
-    assert.notEqual(SEARCH_KEYS, "", "no SEARCH_KEYS declaration was found in the view");
-    assert.match(SEARCH_KEYS ?? "", /"teamName"/, "the keys were cut to something that does not hold them");
-  });
-
   /* The seats the case below iterates. A shrunk `KONTAKT_ROLLEN` leaves it sweeping fewer seats than
      an application records, and the keys of the seat that left could then go with it, green. */
   it("sweeps every seat an application records before judging the keys", () => {
@@ -420,10 +463,18 @@ describe("what the triage list's search reaches", () => {
   /* All three seats or none. A school names a Stellvertretung as readily as a Trainer, and the admin
      searching a name read off the application has no way to tell a seat nobody indexed from a name
      nobody applied under. */
-  it("reaches every contact seat an application records", () => {
+  it("reaches every contact seat an application records, by name and by address", () => {
+    // The control: an empty query shows every application, so a miss below is the search's and not the render's.
+    assert.deepEqual(
+      foundBy(""),
+      Object.values(SEATED).map(({ team }) => team),
+    );
+
     for (const { value, label } of KONTAKT_ROLLEN) {
-      assert.ok(SEARCH_KEYS?.includes(`"kontakte.${value}.nachname"`), `a ${label} is unsearchable by name`);
-      assert.ok(SEARCH_KEYS?.includes(`"kontakte.${value}.email"`), `a ${label} is unsearchable by address`);
+      const { team, nachname, email } = SEATED[value];
+
+      assert.deepEqual(foundBy(nachname), [team], `a ${label} is unsearchable by name`);
+      assert.deepEqual(foundBy(email), [team], `a ${label} is unsearchable by address`);
     }
   });
 });

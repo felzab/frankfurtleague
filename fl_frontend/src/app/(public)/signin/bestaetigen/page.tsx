@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/signin/bestaetigen" },
 };
 
-const ABSATZ = "fluid-sm text-foreground leading-relaxed font-medium text-pretty";
+const ABSATZ_CLASSES = "fluid-sm leading-relaxed font-medium text-pretty text-foreground";
 
 /**
  * Resolves nothing itself: a top-level await would tie the App Shell to one URL, and this page's
@@ -52,7 +52,7 @@ async function AnmeldungBestaetigenInhalt(props: NextPageProps) {
         /* One wording for a dead, a spent and an expired link: telling them apart would tell a
            guessed link whether an address it names was ever sent one. */
         <div className="flex flex-col gap-y-4">
-          <p className={ABSATZ}>Dieser Link ist ungültig oder abgelaufen.</p>
+          <p className={ABSATZ_CLASSES}>Dieser Link ist ungültig oder abgelaufen.</p>
           <Link
             href="/signin"
             prefetch={false}

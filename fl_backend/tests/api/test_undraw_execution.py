@@ -10,7 +10,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import generate_spielplan, patch_saison, undraw_spielplan
-from app.api.saisons.cache import invalidate_saison_cache, read_cached_saison, saison_cache_generation, store_cached_saison
+from app.api.saisons.cache import read_cached_saison, saison_cache_generation, store_cached_saison
 from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
     FLGenerateSpielplanResponse,
@@ -26,17 +26,16 @@ from app.api.teams.admin_router import post_saison_team
 from app.api.teams.schemas import FLGruppenNames, FLPostSaisonTeamPayload, FLSaisonTeamResponse
 from app.api.teams.services import ENTRY_GRUPPE_FULL, offered_gruppen
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
 from app.core.logging import trace_id_var
-from tests.database import a_clean_database, on_the_seed_loop
+from tests import documents
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_undraw_write_test")
 
-# Named rather than caught broadly: another failure must not read as the rollback this suite proves.
-DOCUMENT_VALIDATION_FAILED = 121
 
 SAISON_ID = "2026"
 
@@ -87,35 +86,13 @@ AKTIONEN_REFUSING_A_SAISON_ROW: dict[str, Any] = {"collection": {"$ne": str(Coll
 
 
 def rules_document(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: int = QUALIFIERS) -> dict[str, Any]:
-    """3/1 and a 3:0 forfeit are the ordinary competition, so no rule this file is not about refuses the draw first."""
-
-    return {
-        "win_points": 3,
-        "draw_points": 1,
-        "qualifiers_per_group": qualifiers,
-        "number_of_groups": groups,
-        "teams_per_group": teams,
-        "tiebreak_order": "tordifferenz",
-        "max_kadergroesse": 18,
-        "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-        "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-    }
+    return documents.rules_document(qualifiers_per_group=qualifiers, number_of_groups=groups, teams_per_group=teams)
 
 
 def saison_document(*, saison_id: str = SAISON_ID, status: str = "future", spielplan: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Every key spelled out: the shipped `saisons` validator is attached before this is inserted.
+    """`spielplan` is OMITTED where absent rather than nulled, which is the shape a season nobody has drawn carries."""
 
-    `spielplan` is OMITTED where absent rather than nulled, which is the shape a season nobody has
-    drawn carries.
-    """
-
-    document: dict[str, Any] = {
-        "_id": saison_id,
-        "start_date": "2026-01-01",
-        "end_date": "2026-06-30",
-        "status": status,
-        "rules": rules_document(),
-    }
+    document = documents.saison_document(saison_id, status, start_date="2026-01-01", end_date="2026-06-30", rules=rules_document())
 
     return document if spielplan is None else {**document, "spielplan": spielplan}
 
@@ -123,22 +100,7 @@ def saison_document(*, saison_id: str = SAISON_ID, status: str = "future", spiel
 def team_document(oid: ObjectId, shorthand: str) -> dict[str, Any]:
     """A club as `teams` holds one: the entry endpoint reads it to seed the season's own copy of the name."""
 
-    return {
-        "_id": oid,
-        "name": f"{shorthand}-Schule",
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"{shorthand}-Schule Frankfurt",
-        "website_url": f"https://{shorthand.lower()}.example.de",
-        "address": {
-            "strasse": "Hanauer Landstrasse",
-            "hausnummer": "12a",
-            "plz": "60314",
-            "stadtteil": "Ostend",
-            "stadt": "Frankfurt am Main",
-        },
-        "inactive_since": None,
-    }
+    return documents.team_document(oid, f"{shorthand}-Schule", shorthand)
 
 
 def entry_rows(*, saison_id: str = SAISON_ID, offset: int = 0, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP) -> list[dict[str, Any]]:
@@ -149,15 +111,14 @@ def entry_rows(*, saison_id: str = SAISON_ID, offset: int = 0, groups: int = GRO
     """
 
     return [
-        {
-            "_id": ObjectId(f"6890a1b2c3d4e5f6077{index + offset:05d}"),
-            "saison_id": saison_id,
-            "team_id": ObjectId(f"6890a1b2c3d4e5f6078{index + offset:05d}"),
-            "gruppe": gruppe,
-            "austritt": None,
-            "name": f"{gruppe}{seat + 1}-Schule",
-            "shorthand": f"{gruppe}{seat + 1}",
-        }
+        documents.saison_team_document(
+            saison_id,
+            ObjectId(f"6890a1b2c3d4e5f6078{index + offset:05d}"),
+            f"{gruppe}{seat + 1}-Schule",
+            f"{gruppe}{seat + 1}",
+            _id=ObjectId(f"6890a1b2c3d4e5f6077{index + offset:05d}"),
+            gruppe=gruppe,
+        )
         for index, (seat, gruppe) in enumerate(product(range(teams), offered_gruppen(groups)))
     ]
 
@@ -188,8 +149,6 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutate
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
-            # Process-global and keyed by season id, so an entry another module left would answer for this one.
-            invalidate_saison_cache()
             # `on_the_seed_loop` runs this in a task of its own, which copies the context, so nothing set here reaches another test.
             trace_id_var.set(TRACE_ID)
 
@@ -611,7 +570,7 @@ def an_undraw_refused_on(url: str, *, status: str | None = None, record: dict[st
         if record is not None:
             await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": record})
 
-        with pytest.raises(DocumentConflictException) as refused:
+        with pytest.raises(WriteRefusalException) as refused:
             await call_undraw(database, client)
 
         spieltage, spiele = await counts_now(database)
@@ -730,7 +689,7 @@ def a_bracket_slot_seeded_by_hand(url: str) -> SeededBracket:
 
         await call_patch_spiel(database, client, spiel_id=slot["_id"], payload=seeding_payload(slot, entered["team_id"]))
 
-        with pytest.raises(DocumentConflictException) as refused:
+        with pytest.raises(WriteRefusalException) as refused:
             await call_undraw(database, client)
 
         stored = await database[Collection.SPIELE].find_one({"_id": slot["_id"]})
@@ -840,7 +799,7 @@ class TestTheSeasonCacheIsDroppedHoweverTheUndrawEnds:
             store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
             await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "active"}})
 
-            with pytest.raises(DocumentConflictException):
+            with pytest.raises(WriteRefusalException):
                 await call_undraw(database, client)
 
             return read_cached_saison(SAISON_ID)
@@ -872,10 +831,10 @@ class TestWhatAnUndrawReopens:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> ReopenedSeason:
             await call_draw(database, client)
 
-            with pytest.raises(DocumentConflictException) as refused_patch:
+            with pytest.raises(WriteRefusalException) as refused_patch:
                 await call_patch_rules(database, teams_per_group=WIDER_PER_GROUP)
 
-            with pytest.raises(DocumentConflictException) as refused_entry:
+            with pytest.raises(WriteRefusalException) as refused_entry:
                 await call_entry(database)
 
             await call_undraw(database, client)

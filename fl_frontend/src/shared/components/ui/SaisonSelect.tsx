@@ -1,12 +1,16 @@
 "use client";
 
-import { FieldError, Label, ListBox, Select } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Label } from "@heroui/react/label";
+import { ListBox } from "@heroui/react/list-box";
 
-import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "./formFieldStyles";
+import { Select } from "@/shared/components/ui/Select";
+
+import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "./formFieldStyles";
 import { overlayPanel } from "./overlayPanel";
 import { listboxRow } from "./refusableOption";
 
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 /**
  * The season a create form writes. Distinct from `SaisonSelector`, which navigates: a pick here changes a draft
@@ -29,21 +33,17 @@ export function SaisonSelect({
   };
 
   return (
-    // A literal mark: `fl_frontend/src/core/schemaGerman.test.ts :: requiredNamesIn` cannot resolve
-    // `isRequired={…}`, and writing one here would drop every schema asserted to refuse an empty
-    // `saison_id` with the gate still green.
     <Select
-      isRequired
       name="saison_id"
       value={value}
       onChange={handleChange}
       className="w-full">
-      <Label className={FIELD_LABEL}>Saison</Label>
-      <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+      <Label className={FIELD_LABEL_CLASSES}>Saison</Label>
+      <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
         <span>Saison {value}</span>
-        <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+        <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
       </Select.Trigger>
-      <FieldError className={FIELD_ERROR} />
+      <FieldError className={FIELD_ERROR_CLASSES} />
       <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
         <ListBox aria-label="Verfügbare Saisons">
           {saisonIds.map((saisonId) => (

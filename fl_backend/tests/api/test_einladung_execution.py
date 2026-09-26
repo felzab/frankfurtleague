@@ -21,8 +21,10 @@ from app.api.einladungen.services import (
 from app.api.saisons.admin_router import post_einladungen_versand, preview_einladungen_versand
 from app.api.teams.admin_router import delete_einladung, get_einladung, post_einladung
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
-from tests.database import a_clean_database, on_the_seed_loop
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.documents import rules_document, saison_document, saison_team_document
+from tests.holds import HeldCollection
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -48,18 +50,6 @@ WITHDRAWN = ObjectId("6890a1b2c3d4e5f607260006")
 NOT_ENTERED = ObjectId("6890a1b2c3d4e5f607260005")
 
 SEEDED_EINLADUNG = ObjectId("6890a1b2c3d4e5f607260011")
-
-RULES: Mapping[str, Any] = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 2,
-    "teams_per_group": 4,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 50,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-}
 
 REGISTRIERUNG: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
 
@@ -113,16 +103,15 @@ SEEDED_KONTAKTE: Mapping[ObjectId, Any] = {
 def junction_row(team_id: ObjectId, *, saison_id: str = SAISON_ID) -> dict[str, Any]:
     name = TEAM_NAMES[team_id]
 
-    return {
-        "_id": ObjectId(),
-        "saison_id": saison_id,
-        "team_id": team_id,
-        "gruppe": "A",
-        "austritt": dict(AUSTRITT) if team_id == WITHDRAWN else None,
-        "kontakte": SEEDED_KONTAKTE[team_id],
-        "name": name,
-        "shorthand": name[:2].upper(),
-    }
+    return saison_team_document(
+        saison_id,
+        team_id,
+        name,
+        name[:2].upper(),
+        _id=ObjectId(),
+        austritt=dict(AUSTRITT) if team_id == WITHDRAWN else None,
+        kontakte=SEEDED_KONTAKTE[team_id],
+    )
 
 
 def einladung_row(team_id: ObjectId, *, versand: Any, widerrufen_am: str | None = None, _id: ObjectId | None = None) -> dict[str, Any]:
@@ -151,14 +140,12 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "active", teams: t
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
             await database[Collection.SAISONS].insert_one(
-                {
-                    "_id": SAISON_ID,
-                    "start_date": "2026-01-01",
-                    "end_date": "2026-06-30",
-                    "status": saison_status,
-                    "rules": dict(RULES),
-                    "registrierung": dict(REGISTRIERUNG),
-                }
+                saison_document(
+                    SAISON_ID,
+                    saison_status,
+                    rules=rules_document(number_of_groups=2, max_kadergroesse=50),
+                    registrierung=dict(REGISTRIERUNG),
+                )
             )
             if teams:
                 await database[Collection.SAISON_TEAMS].insert_many([junction_row(team_id) for team_id in teams])
@@ -172,11 +159,11 @@ def on_a_league(url: str, body: Body, *, saison_status: str = "active", teams: t
     return on_the_seed_loop(_run())
 
 
-async def mint(database: AsyncDatabase, team_id: ObjectId, *, saison_id: str = SAISON_ID) -> Any:
+async def mint(database: AsyncDatabase, team_id: ObjectId, *, saison_id: str = SAISON_ID, einladungen: Any = None) -> Any:
     return await post_einladung(
         team_id=team_id,
         saison_id=saison_id,
-        einladungen_collection=database[Collection.EINLADUNGEN],
+        einladungen_collection=einladungen if einladungen is not None else database[Collection.EINLADUNGEN],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saisons_collection=database[Collection.SAISONS],
         db=database.client,
@@ -394,6 +381,53 @@ class TestTwoMintsAtOnce:
         assert set(outcomes) <= {"FLEinladungMintResponse", "DuplicateKeyError"}
         assert live == 1
 
+    def test_a_mint_whose_revoke_ran_before_the_first_commit_is_answered_by_the_retry(self, mongo_replica_set_url: str):
+        """The interleaving the case above cannot promise: without the hold a serial run passes it too."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            committed = asyncio.Event()
+            held = _HoldsAfterItsRevoke(database[Collection.EINLADUNGEN], committed)
+            second = asyncio.create_task(mint(database, TWO_SEATS, einladungen=held))
+            await held.until_held(second)
+
+            try:
+                first = await mint(database, TWO_SEATS)
+            except BaseException:
+                await held.abandon(second)
+                raise
+            committed.set()
+            answered = await second
+
+            live = await database[Collection.EINLADUNGEN].find({"team_id": TWO_SEATS, "widerrufen_am": None}).to_list(length=None)
+
+            return first.einladung_id, answered.einladung_id, held.revokes, held.insert_failures, [row["_id"] for row in live]
+
+        first, second, revokes, failures, live = on_a_league(mongo_replica_set_url, body)
+
+        # 112 is `WriteConflict`, which `with_transaction` retries: the second run revokes the first's link.
+        assert (revokes, failures) == (2, ["OperationFailure:112"])
+        assert live == [second] and first != second
+
+
+class _HoldsAfterItsRevoke(HeldCollection):
+    """A second mint held between its revoke and its insert until the first mint has committed.
+
+    Records each revoke as well: how many attempts ran.
+    """
+
+    MISSED = "the second mint answered without revoking, so nothing held it across the first mint's commit"
+
+    def __init__(self, collection: Any, committed: asyncio.Event) -> None:
+        super().__init__(collection, committed)
+        self.revokes = 0
+
+    async def update_many(self, *args: Any, **kwargs: Any) -> Any:
+        result = await self._collection.update_many(*args, **kwargs)
+        self.revokes += 1
+        await self.hold()
+
+        return result
+
 
 class TestTheRuleOfOneLiveInvitation:
     """`uniq_einladung_live`, this tree's first partial index: the rule reaches the rows holding a null `widerrufen_am`.
@@ -454,9 +488,7 @@ class TestTheRuleOfOneLiveInvitation:
 
         code, stored = on_a_league(mongo_replica_set_url, body)
 
-        # 121 is `DocumentValidationFailure`, so the insert was refused by the schema rather than by
-        # an unrelated write error.
-        assert code == 121
+        assert code == DOCUMENT_VALIDATION_FAILED
         assert stored == 0
 
     def test_two_teams_hold_a_live_invitation_each(self, mongo_replica_set_url: str):
@@ -474,7 +506,7 @@ class TestTheRuleOfOneLiveInvitation:
 class TestWhatAMintRefuses:
     def test_a_team_the_season_does_not_hold_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await mint(database, NOT_ENTERED)
 
             return conflict.value.error_code, await database[Collection.EINLADUNGEN].count_documents({"team_id": NOT_ENTERED})
@@ -486,7 +518,7 @@ class TestWhatAMintRefuses:
 
     def test_a_season_that_has_ended_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await mint(database, TWO_SEATS)
 
             # The team the refused mint named: the seeded league holds an invitation of its own,
@@ -502,7 +534,7 @@ class TestWhatAMintRefuses:
         """A team the season never held would refuse too, and entering it into a season that has ended repairs nothing."""
 
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await mint(database, NOT_ENTERED)
 
             return conflict.value.error_code
@@ -884,7 +916,7 @@ class TestTheSeasonWidePress:
 
     def test_a_season_that_has_ended_refuses_the_press(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await press(database)
 
             return conflict.value.error_code, await database[Collection.EINLADUNGEN].count_documents({"widerrufen_am": None})

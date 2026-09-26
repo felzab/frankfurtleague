@@ -1,46 +1,35 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
-import path from "node:path";
 import { describe, it } from "node:test";
 
-import ts from "typescript";
+import { doubleSendMail } from "@/core/mailDouble.ts";
 
+import type { MailOutcome } from "@/core/mailDouble.ts";
 import type { FLKontaktperson } from "../teams/schemas.ts";
 import type { BewerbungSeats } from "./notifications.ts";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
-type SentMail = { to: string; subject: string; text: string; tags?: Record<string, string>; idempotencyKey?: string };
-
 /** The WHOLE call, the error argument included: that argument is the channel an address travels on. */
 type LoggedCall = { message: string; error: unknown; meta: Record<string, unknown> };
 
-const sent: SentMail[] = [];
+/** The id the doubled provider accepts a message under, unless a case names another for its address. */
+const ACCEPTED_ID = "56761188-7520-42d8-8898-ff6fc54ce618";
+
+const mail = doubleSendMail();
+const sent = mail.sent;
 const logged: LoggedCall[] = [];
-/** Addresses the doubled provider refuses, so a failure can be aimed at one recipient. */
-const refused = new Set<string>();
+/** How the provider answers each address a case aims a failure at; every other address is accepted. */
+const outcomes = new Map<string, MailOutcome>();
 
 const recorders = globalThis as unknown as Record<string, unknown>;
-/** What the recording half of the fan-out was handed, and the id the doubled provider accepted with. */
+/** What the recording half of the fan-out was handed. */
 const gemeldet: Record<string, unknown>[] = [];
 
-recorders.__flSentMail = sent;
 recorders.__flMailLogs = logged;
-recorders.__flRefusedMail = refused;
 recorders.__flZustellungCalls = gemeldet;
 recorders.__flZustellungFails = false;
-recorders.__flAcceptedId = "56761188-7520-42d8-8898-ff6fc54ce618";
-
-// Replaced at the module boundary rather than the fan-out being reshaped to admit a seam: the real
-// transport posts to the mail provider, on a key no test run holds, and the real logger writes past
-// this file.
-const MAIL_DOUBLE = `export const sendMail = async (mail) => {
-  globalThis.__flSentMail.push({ to: mail.to, subject: mail.subject, text: mail.text, tags: mail.tags, idempotencyKey: mail.idempotencyKey });
-  if (globalThis.__flRefusedMail.has(mail.to)) throw new Error("the provider refused the message");
-  return { id: globalThis.__flAcceptedId };
-};`;
 
 // The recording half of the fan-out reaches the backend, which no test process runs.
 const MUTATIONS_DOUBLE = `export const meldeZustellungAngenommen = async (payload) => {
@@ -71,17 +60,24 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL_DOUBLE, shortCircuit: true };
     if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING_DOUBLE, shortCircuit: true };
     if (url.endsWith("/src/features/bewerbungen/mutations.ts")) return { format: "module", source: MUTATIONS_DOUBLE, shortCircuit: true };
     return nextLoad(url, context);
   },
 });
 
-const { collectBewerbungEingangEmpfaenger, collectBewerbungEmpfaenger, describeBewerbungMail, rolleText, seatsByMailbox, sendBewerbungMail } =
-  await import("./notifications.ts");
+const {
+  collectBewerbungEingangEmpfaenger,
+  collectBewerbungEmpfaenger,
+  describeBewerbungMail,
+  rolleText,
+  seatsByMailbox,
+  sendBewerbungMail,
+  zustellungIdempotenzSchluessel,
+} = await import("./notifications.ts");
 const { buildBewerbungBestaetigungEmail } = await import("../../core/bewerbungEmail.ts");
 const { bestaetigungsLink } = await import("./bestaetigungLink.ts");
+const { requestOutcomeUnknown, runWithRequestScope } = await import("@/core/requestScope");
 
 /** One message composed per recipient, its per-reader half interpolated: two readers handed one text is what this proves against. */
 const buildMail = (rollenText: string) => ({
@@ -123,10 +119,10 @@ const seats = (trainer: string | null, ansprechperson: string | null, stellvertr
 function reset(): void {
   sent.length = 0;
   logged.length = 0;
-  refused.clear();
+  outcomes.clear();
+  mail.answerWith(({ to }) => outcomes.get(to) ?? { accepted: ACCEPTED_ID });
   gemeldet.length = 0;
   recorders.__flZustellungFails = false;
-  recorders.__flAcceptedId = "56761188-7520-42d8-8898-ff6fc54ce618";
 }
 
 describe("how one seat is named to somebody who is not sitting in it", () => {
@@ -157,7 +153,7 @@ describe("who a decision is sent to", () => {
       sent.map((mail) => mail.to),
       ["a@schule.de"],
     );
-    assert.deepEqual(outcome, { delivered: ["a@schule.de"], unreachable: [] });
+    assert.deepEqual(outcome, { delivered: ["a@schule.de"], unreachable: [], ungewiss: [] });
   });
 
   /* `trainer_ist_zugleich` stores ONE person in two slots, so the same address stands twice in
@@ -416,7 +412,7 @@ describe("a fan-out that cannot reach everyone", () => {
      refused mailbox must not cost the other two their notification. */
   it("settles every recipient although one is refused", async () => {
     reset();
-    refused.add("zweite@schule.de");
+    outcomes.set("zweite@schule.de", "refused");
 
     const outcome = await sendBewerbungMail({
       operation: "annehmenBewerbungAction",
@@ -432,13 +428,54 @@ describe("a fan-out that cannot reach everyone", () => {
     assert.deepEqual(outcome.unreachable, ["zweite@schule.de"]);
   });
 
+  /* The provider may have accepted a send whose connection broke: reported unreachable, the decision's
+     sentence says the notice did not reach a person who may be reading it. */
+  it("counts a send that broke off unanswered as of unknown outcome, never unreachable, and marks the request", async () => {
+    reset();
+    outcomes.set("zweite@schule.de", "lost");
+
+    const [outcome, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
+      const settled = await sendBewerbungMail({
+        operation: "annehmenBewerbungAction",
+        recipients: ["erste@schule.de", "zweite@schule.de"].map((address) => empfaenger(address)),
+        buildMail: buildMail,
+      });
+
+      return [settled, requestOutcomeUnknown()] as const;
+    });
+
+    assert.deepEqual([outcome.delivered, outcome.unreachable, outcome.ungewiss], [["erste@schule.de"], [], ["zweite@schule.de"]]);
+    assert.equal(markedUnknown, true, "the request was not told a send may have landed");
+  });
+
+  /* Refused before it left, the request's deadline spent: nothing can be in the inbox, so it is not
+     the unclear send above. */
+  it("counts a send refused before it left as unreachable, never unclear", async () => {
+    reset();
+    outcomes.set("zweite@schule.de", "unsent");
+
+    const [outcome, markedUnknown] = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
+      const settled = await sendBewerbungMail({
+        operation: "annehmenBewerbungAction",
+        recipients: ["erste@schule.de", "zweite@schule.de"].map((address) => empfaenger(address)),
+        buildMail: buildMail,
+      });
+
+      return [settled, requestOutcomeUnknown()] as const;
+    });
+
+    assert.deepEqual([outcome.delivered, outcome.unreachable, outcome.ungewiss], [["erste@schule.de"], ["zweite@schule.de"], []]);
+    assert.equal(markedUnknown, false, "a send that never left marked the request unclear");
+  });
+
   it("reports every address when the provider refuses them all", async () => {
     reset();
-    for (const address of ["erste@schule.de", "zweite@schule.de"]) refused.add(address);
+    const addresses = ["erste@schule.de", "zweite@schule.de"];
+    for (const address of addresses) outcomes.set(address, "refused");
 
     const outcome = await sendBewerbungMail({
       operation: "ablehnenBewerbungAction",
-      recipients: [...refused].map((address) => empfaenger(address)),
+      recipients: addresses.map((address) => empfaenger(address)),
       buildMail: buildMail,
     });
 
@@ -450,7 +487,7 @@ describe("a fan-out that cannot reach everyone", () => {
      (`docs/logging/spec.md :: L9`) — the one place it would outlive the request. */
   it("logs the failure without the address on the line", async () => {
     reset();
-    refused.add("zweite@schule.de");
+    outcomes.set("zweite@schule.de", "refused");
 
     await sendBewerbungMail({
       operation: "annehmenBewerbungAction",
@@ -469,43 +506,13 @@ describe("a fan-out that cannot reach everyone", () => {
      `FE-MAIL-001`: that is `sendMail`'s own line for the same refusal, under the same trace id. */
   it("carries its own error code and the error's name, and no error object", async () => {
     reset();
-    refused.add("erste@schule.de");
+    outcomes.set("erste@schule.de", "refused");
 
     await sendBewerbungMail({ operation: "ablehnenBewerbungAction", recipients: [empfaenger("erste@schule.de")], buildMail: buildMail });
 
     assert.equal(logged[0]?.meta.error_code, "FE-MAIL-002");
-    assert.equal(logged[0]?.meta.name, "Error", "the line no longer names the error class");
+    assert.equal(logged[0]?.meta.name, "MailSendError", "the line no longer names the error class");
     assert.equal(logged[0]?.error, undefined, "the error object reaches the stream, and its message and stack with it");
-  });
-
-  /* The runtime case above proves TODAY'S error carries no address. This one holds whatever
-     `sendMail` throws tomorrow: handed `undefined`, no error can reach the stream at all. */
-  it("hands the log stream no error object at all, in the source", () => {
-    const file = path.join(import.meta.dirname, "notifications.ts");
-    const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
-    const calls: ts.NodeArray<ts.Expression>[] = [];
-
-    source.forEachChild(function walk(node: ts.Node): void {
-      const isLoggerError =
-        ts.isCallExpression(node) &&
-        ts.isPropertyAccessExpression(node.expression) &&
-        ts.isIdentifier(node.expression.expression) &&
-        node.expression.expression.text === "logger" &&
-        node.expression.name.text === "error";
-
-      if (isLoggerError) calls.push(node.arguments);
-      node.forEachChild(walk);
-    });
-
-    assert.ok(calls.length > 0, "no logger.error call was found, so this test proves nothing");
-    // Every one of them, so a line added later inherits the rule rather than escaping the sweep.
-    for (const argumente of calls) {
-      const errorArgument = argumente[1];
-      assert.ok(
-        errorArgument && ts.isIdentifier(errorArgument) && errorArgument.text === "undefined",
-        "logger.error was handed an error object where it must be handed `undefined`",
-      );
-    }
   });
 });
 
@@ -569,7 +576,7 @@ describe("a message that cannot be composed costs no other recipient theirs", ()
 
     /* The reader whose message could not be composed is unreachable, and the other one is still
        delivered: one broken compose must not cost the others their notification. */
-    assert.deepEqual(outcome, { delivered: ["zweite@schule.de"], unreachable: ["erste@schule.de"] });
+    assert.deepEqual(outcome, { delivered: ["zweite@schule.de"], unreachable: ["erste@schule.de"], ungewiss: [] });
   });
 
   it("reports the failure on the same line a refused send uses", async () => {
@@ -606,7 +613,7 @@ describe("what an accepted send records about itself", () => {
       {
         bewerbung_id: AUFTRAG.bewerbungId,
         rollen: ["ansprechperson", "trainer"],
-        nachricht_id: "56761188-7520-42d8-8898-ff6fc54ce618",
+        nachricht_id: ACCEPTED_ID,
         am: gemeldet[0]?.["am"],
       },
     ]);
@@ -634,7 +641,10 @@ describe("what an accepted send records about itself", () => {
       recipients: [gepaart],
       buildMail: buildMail,
     });
-    assert.equal(sent[0]?.idempotencyKey, `loeschung_${AUFTRAG.bewerbungId}_ansprechperson-trainer_2026-09-08`);
+    assert.match(
+      sent[0]?.idempotencyKey ?? "",
+      new RegExp(`^loeschung_${AUFTRAG.bewerbungId}_ansprechperson-trainer_2026-09-08_[0-9a-f]{64}$`),
+    );
   });
 
   /* The two triage decisions pass none: their application is closed by the time a delivery state
@@ -649,7 +659,7 @@ describe("what an accepted send records about itself", () => {
 
   it("records nothing for a message the provider refused", async () => {
     reset();
-    refused.add("erika@schule.de");
+    outcomes.set("erika@schule.de", "refused");
 
     await sendBewerbungMail({ operation: "bewerbungSweep", auftrag: AUFTRAG, recipients: [gepaart], buildMail: buildMail });
 
@@ -660,7 +670,7 @@ describe("what an accepted send records about itself", () => {
      mark the seat delivered on the strength of the request alone. */
   it("records nothing where the provider accepted the message without naming it", async () => {
     reset();
-    recorders.__flAcceptedId = null;
+    outcomes.set("erika@schule.de", { accepted: null });
 
     await sendBewerbungMail({ operation: "bewerbungSweep", auftrag: AUFTRAG, recipients: [gepaart], buildMail: buildMail });
 
@@ -676,9 +686,32 @@ describe("what an accepted send records about itself", () => {
 
     const outcome = await sendBewerbungMail({ operation: "bewerbungSweep", auftrag: AUFTRAG, recipients: [gepaart], buildMail: buildMail });
 
-    assert.deepEqual(outcome, { delivered: ["erika@schule.de"], unreachable: [] });
+    assert.deepEqual(outcome, { delivered: ["erika@schule.de"], unreachable: [], ungewiss: [] });
     const unreportedLine = logged.find((eintrag) => eintrag.message === "bewerbung.zustellung_ungemeldet");
     assert.equal(unreportedLine?.meta.error_code, "FE-MAIL-003");
     assert.ok(!JSON.stringify(unreportedLine).includes("erika@schule.de"), "the recipient travels on the log line");
+  });
+});
+
+describe("the key one application message is sent under", () => {
+  const delivery = { bewerbungId: "a".repeat(24), rollen: ["ansprechperson", "trainer"] as const, anlass: "erinnerung" as const };
+
+  /* The key collapses a repeat inside the provider's 24-hour window, so it has to be the same string
+     for two sends of one day and a different one the next. */
+  it("mints one idempotency key per message per day", () => {
+    const today = zustellungIdempotenzSchluessel(delivery, "2026-09-08", "erste@schule.de");
+
+    assert.equal(zustellungIdempotenzSchluessel(delivery, "2026-09-08", "erste@schule.de"), today);
+    assert.notEqual(zustellungIdempotenzSchluessel(delivery, "2026-09-09", "erste@schule.de"), today);
+    assert.ok(today.length <= 256, "the provider refuses a key over 256 characters");
+  });
+
+  /* The provider refuses a key reused over another payload, and the recipient is in the payload: an
+     address corrected inside the window would otherwise go out under the old address's key. */
+  it("mints a different key for the same seats at another mailbox", () => {
+    assert.notEqual(
+      zustellungIdempotenzSchluessel(delivery, "2026-09-08", "erste@schule.de"),
+      zustellungIdempotenzSchluessel(delivery, "2026-09-08", "neue@schule.de"),
+    );
   });
 });

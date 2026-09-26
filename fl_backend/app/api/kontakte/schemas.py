@@ -21,9 +21,8 @@ class FLKontaktErasurePayload(BaseModel):
     # In the BODY and on no path or query: an address in a path lands in the access log, in nginx's
     # log and in `aktionen.request.path`, three fresh copies of the value the request exists to destroy.
 
-    # A lookup and never a store, so held to no address rule: a seat stored under an older rule, a
-    # local part above ASCII among them, would leave its person unerasable (GDPR Art. 17). The fold
-    # that matches never raises.
+    # A lookup and never a store, so held to no address rule: a seat stored under an older rule would
+    # leave its person unerasable (GDPR Art. 17). The fold that matches never raises.
     email: Annotated[str, StringConstraints(max_length=KONTAKT_EMAIL_MAX_LENGTH, pattern="@")]
 
 

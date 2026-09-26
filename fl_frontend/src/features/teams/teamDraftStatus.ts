@@ -40,7 +40,7 @@ export type FLTeamDraftStatus = FLDraftStatus<FLTeamFieldGroup>;
  */
 const inSaison = (source: FLTeamDraftFields) => source.membership !== null;
 
-const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLTeamDraftFields, FLTeamFieldGroup>[] = [
+const FIELD_DESCRIPTORS = [
   { path: "name", label: "Name", group: "Team", read: (source) => emptyAsNull(source.name) },
   { path: "shorthand", label: "Kürzel", group: "Team", read: (source) => emptyAsNull(source.shorthand) },
   { path: "full_name", label: "Vollständiger Name", group: "Team", read: (source) => emptyAsNull(source.full_name) },
@@ -91,7 +91,9 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLTeamDraftFields, FLTeamFie
       return farbe === null ? null : trikotFarbeLabel(farbe);
     },
   },
-];
+] as const satisfies readonly FLFieldDescriptor<FLTeamDraftFields, FLTeamFieldGroup>[];
+
+export type TeamFieldPath = (typeof FIELD_DESCRIPTORS)[number]["path"];
 
 export function deriveTeamDraftStatus({
   stored,

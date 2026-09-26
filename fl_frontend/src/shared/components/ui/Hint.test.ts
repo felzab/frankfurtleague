@@ -16,7 +16,10 @@ import type { ReactNode } from "react";
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { Hint } = await import("./Hint.tsx");
 const { InfoHint } = await import("./InfoHint.tsx");
-const { Button } = await import("@heroui/react");
+const { Button } = await import("@heroui/react/button");
+const { Input } = await import("@heroui/react/input");
+const { Label } = await import("@heroui/react/label");
+const { TextField } = await import("@/shared/components/ui/TextField.tsx");
 
 const REASON = "Es gibt noch keine Änderung zu speichern.";
 const LABEL = "Speichern";
@@ -228,5 +231,21 @@ describe("the shared refusal reader over this overlay's own markup", () => {
 
     assert.notEqual(renamed, html, "the overlay's name is not where this case renames it");
     assert.throws(() => refusalWrappers(renamed), /Sichern.*Speichern/);
+  });
+});
+
+const FIELD_HINT = "An diese Adresse schicken wir den Link.";
+
+describe("a hint inside the field it explains", () => {
+  /* The field names its description itself, so no call site can leave the sentence describing nothing. */
+  it("describes the field's own input", () => {
+    render(h(TextField, null, h(Label, null, "E-Mail"), h(Input), h(Hint, { mode: "field", text: FIELD_HINT })));
+
+    const hint = screen.getByText(FIELD_HINT);
+    assert.ok(hint.id !== "", "the hint publishes no id");
+    assert.ok(
+      (screen.getByRole("textbox", { name: "E-Mail" }).getAttribute("aria-describedby") ?? "").split(" ").includes(hint.id),
+      "the input is not described by the hint inside its field",
+    );
   });
 });

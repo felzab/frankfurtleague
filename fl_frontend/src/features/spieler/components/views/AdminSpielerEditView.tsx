@@ -2,7 +2,7 @@
 
 import { reactivateSpielerAction } from "@/features/spieler/actions";
 import { AdminSpielerEditForm } from "@/features/spieler/components/forms/AdminSpielerEditForm/AdminSpielerEditForm";
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 /**
  * Every exit routes through the form's discard guard.
@@ -36,7 +36,7 @@ export function AdminSpielerEditView({
   const fullName = spieler.nachname === null ? spieler.vorname : `${spieler.vorname} ${spieler.nachname}`;
 
   return (
-    <div className={`${PAGE_RISE} flex min-h-0 w-full flex-1 flex-col`}>
+    <div className={`${PAGE_RISE_CLASSES} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminSpielerEditForm
         spieler={spieler}
         einwilligung={einwilligung}
@@ -49,7 +49,7 @@ export function AdminSpielerEditView({
           chip: isRetired ? (
             <RetiredBadge since={spieler.inactive_since} />
           ) : saison.membership?.nummer ? (
-            <span className="bg-muted text-foreground flex h-10 min-w-10 items-center justify-center rounded-xl px-2 font-extrabold shadow-sm">
+            <span className="flex h-10 min-w-10 items-center justify-center rounded-xl bg-muted px-2 font-extrabold text-foreground shadow-sm">
               {saison.membership.nummer}
             </span>
           ) : undefined,

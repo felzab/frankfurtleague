@@ -6,21 +6,18 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from httpx2 import ASGITransport, AsyncClient, Response
-from pymongo import AsyncMongoClient, MongoClient
+from httpx2 import Response
+from pymongo import MongoClient
 
-from app.api.saisons.cache import invalidate_saison_cache
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.dependencies import get_germany_now
-from app.main import create_app
-from tests.config import BASE_AUTH, TEST_BASE_URL, build_test_config
+from tests.app_client import app_client
+from tests.config import BASE_AUTH, build_test_config
 from tests.database import a_clean_database_sync
+from tests.documents import rules_document, saison_document, saison_team_document, team_document
 from tests.worker import worker_database
 
 from .conftest import config_for, unwritten
-
-CONTAINER_SELECTION_MS = 30_000
 
 # The database `build_test_config` names -- the one an app built from that config resolves its
 # collections from, and the home of the corpus every case sharing `seeded_url` reads.
@@ -50,6 +47,10 @@ CLUBS = (
 )
 
 # The season taking applications today, the one whose window has passed, and the one carrying none.
+# A club that has left, which the picker may not offer; its row still holds the season it left.
+RETIRED_CLUB = ("Verlassen", "VE", RETIRED_OID)
+AUSTRITT: Mapping[str, Any] = {"type": "rueckzug", "grund": "keine Mannschaft", "datum": "2026-03-15"}
+
 OPEN_SAISON = "2026"
 SHUT_SAISON = "2025"
 WINDOWLESS_SAISON = "2024"
@@ -64,6 +65,8 @@ FLAG_OFF_SAISON = "2027"
 NOT_YET_OPEN_SAISON = "2028"
 ALREADY_CLOSED_SAISON = "2029"
 
+# Spelled here rather than taken from `tests/documents.py :: ADDRESS`: the picker's suite searches its
+# body for this street and postcode (`tests/api/test_bewerbung_public_picker.py`).
 ADDRESS: Mapping[str, Any] = {
     "strasse": "Hanauer Landstraße",
     "hausnummer": "12a",
@@ -78,28 +81,11 @@ OPEN_SAISON_FARBEN = ["rot", "gruen", "blau"]
 OTHER_SEASON_FARBE = "magenta"
 
 
+# `future` by default: `docs/backend/spec.md :: I47` withholds one from this tier, which is why the
+# window has a read of its own. Overridden only where a case asks what the status does: `past`
+# alone, which ends the window.
 def _saison(saison_id: str, *, bewerbung: Any, status: str = "future") -> dict[str, Any]:
-    return {
-        "_id": saison_id,
-        "start_date": f"{saison_id}-01-01",
-        "end_date": f"{saison_id}-06-30",
-        # `future` by default: `docs/backend/spec.md :: I47` withholds one from this tier, which is
-        # why the window has a read of its own. Overridden only where a case asks what the status
-        # does: `past` alone, which ends the window.
-        "status": status,
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 4,
-            "teams_per_group": 4,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["Q1", "Q2"],
-        },
-        "bewerbung": bewerbung,
-    }
+    return saison_document(saison_id, status, rules=rules_document(erlaubte_stufen=["Q1", "Q2"]), bewerbung=bewerbung)
 
 
 def _junction(
@@ -107,36 +93,30 @@ def _junction(
 ) -> dict[str, Any]:
     """One `saison_teams` row -- the colour an administrator ASSIGNED, which is what the colour read answers off."""
 
-    return {
-        "saison_id": saison_id,
-        "team_id": team_id,
-        "gruppe": "A",
-        "austritt": austritt,
-        "trikot_farbe": trikot_farbe,
-        "name": name,
-        "shorthand": shorthand,
-    }
+    return saison_team_document(saison_id, team_id, name, shorthand, austritt=austritt, trikot_farbe=trikot_farbe)
+
+
+# Searched for in the picker's body too, which imports them with `website_host`: a copy spelled
+# there drifts from the seed and then searches for nothing (`tests/api/test_bewerbung_public_picker.py`).
+DESCRIPTION = "Eine Schule mit langer Tradition."
+SCHULFORM = "gymnasium_g9"
+
+
+def website_host(name: str) -> str:
+    return f"{name.lower()}.example.de"
 
 
 def _club(name: str, shorthand: str, team_id: ObjectId, *, inactive_since: str | None = None) -> dict[str, Any]:
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": shorthand,
-        "description": "Eine Schule mit langer Tradition.",
-        "full_name": f"{name}-Schule",
-        "website_url": f"https://{name.lower()}.example.de",
-        "schulform": "gymnasium_g9",
-        "address": dict(ADDRESS),
-        "inactive_since": inactive_since,
-    }
-
-
-@pytest.fixture(autouse=True)
-def _uncached_saisons() -> None:
-    """Process-global and keyed by season id alone, so an entry another test -- or another database -- left would answer here."""
-
-    invalidate_saison_cache()
+    return team_document(
+        team_id,
+        name,
+        shorthand,
+        description=DESCRIPTION,
+        website_url=f"https://{website_host(name)}",
+        schulform=SCHULFORM,
+        address=dict(ADDRESS),
+        inactive_since=inactive_since,
+    )
 
 
 def seed_the_public_corpus(mongo_url: str) -> Iterator[str]:
@@ -164,8 +144,7 @@ def seed_the_public_corpus(mongo_url: str) -> Iterator[str]:
             ]
         )
         database[Collection.TEAMS].insert_many(
-            [_club(name, shorthand, team_id) for name, shorthand, team_id in CLUBS]
-            + [_club("Verlassen", "VE", RETIRED_OID, inactive_since="2025-08-01")]
+            [_club(name, shorthand, team_id) for name, shorthand, team_id in CLUBS] + [_club(*RETIRED_CLUB, inactive_since="2025-08-01")]
         )
         database[Collection.SAISON_TEAMS].insert_many(
             [
@@ -176,14 +155,7 @@ def seed_the_public_corpus(mongo_url: str) -> Iterator[str]:
                 _junction(OPEN_SAISON, *CLUBS[2], trikot_farbe=None),
                 # A club that LEFT the season, still holding its colour: the assignment stands until
                 # an administrator clears it, which is the set the admin sees too.
-                _junction(
-                    OPEN_SAISON,
-                    "Verlassen",
-                    "VE",
-                    RETIRED_OID,
-                    trikot_farbe="gruen",
-                    austritt={"type": "rueckzug", "grund": "keine Mannschaft", "datum": "2026-03-15"},
-                ),
+                _junction(OPEN_SAISON, *RETIRED_CLUB, trikot_farbe="gruen", austritt=dict(AUSTRITT)),
                 # Another season's assignment, so an answer dropping the season term serves it too.
                 _junction(SHUT_SAISON, *CLUBS[0], trikot_farbe=OTHER_SEASON_FARBE),
             ]
@@ -225,19 +197,9 @@ def seeded_with(mongo_url: str, saisons: list[dict[str, Any]], *, constrained: b
 
 
 def answered(uri: str, path: str, headers: Mapping[str, str] = BASE_AUTH, *, database_name: str = CORPUS_DATABASE) -> Response:
-    """One request per client, request and close on ONE loop, no lifespan (`tests/api/test_malformed_ids.py :: answered`)."""
-
     async def _answered() -> Response:
-        app = create_app(config_for(database_name))
-        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
-        app.dependency_overrides[get_germany_now] = lambda: NOW
-
-        try:
-            transport = ASGITransport(app=app, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                return await http.get(path, headers=dict(headers))
-        finally:
-            await app.state.db_client.close()
+        async with app_client(uri, config=config_for(database_name), now=NOW) as http:
+            return await http.get(path, headers=dict(headers))
 
     return asyncio.run(_answered())
 
@@ -305,7 +267,8 @@ class TestTheWindowReads:
         response = answered(seeded_url, f"{PREFIX}/fenster/{WINDOWLESS_SAISON}")
 
         assert set(response.json()) == {"acknowledged", "saison_id", "fenster"}
-        for withheld in ("future", f"{WINDOWLESS_SAISON}-01-01", "tordifferenz"):
+        stored = _saison(WINDOWLESS_SAISON, bewerbung=None)
+        for withheld in (stored["status"], stored["start_date"], stored["rules"]["tiebreak_order"]):
             assert withheld not in response.text
 
     def test_the_window_body_carries_no_other_field_of_the_season(self, seeded_url: str):
@@ -313,7 +276,7 @@ class TestTheWindowReads:
 
         body = answered(seeded_url, f"{PREFIX}/fenster/{OPEN_SAISON}").json()
 
-        assert set(body) == {"acknowledged", "saison_id", "offen", "von", "bis", "laeuft"}
+        assert set(body) == {"acknowledged", "saison_id", "offen", "von", "bis", "laeuft", "saison_beendet"}
 
 
 class TestTheAssignedColoursRead:
@@ -339,7 +302,7 @@ class TestTheAssignedColoursRead:
 
         rendered = answered(seeded_url, f"{PREFIX}/trikotfarben/{OPEN_SAISON}").text
 
-        for withheld in ("Zetteltal", "Adlerhorst", "ZE", "rueckzug", str(OPEN_OID)):
+        for withheld in (*CLUBS[0][:2], CLUBS[1][0], *RETIRED_CLUB[:2], AUSTRITT["type"], str(OPEN_OID)):
             assert withheld not in rendered
 
     def test_the_body_carries_the_season_and_the_colours_and_nothing_else(self, seeded_url: str):
@@ -408,6 +371,21 @@ class TestASeasonThatHasEndedTakesNoApplication:
         database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW), status="past")])
 
         assert answered(mongo_url, f"{PREFIX}/fenster/{OPEN_SAISON}", database_name=database).json()["laeuft"] is False
+
+    @pytest.mark.parametrize(
+        ("status", "beendet"),
+        [
+            pytest.param("past", True, id="an ended season"),
+            pytest.param("active", False, id="the running season"),
+            pytest.param("future", False, id="a planned season"),
+        ],
+    )
+    def test_its_own_window_read_serves_that_it_has_ended_and_no_other_season_s_does(self, mongo_url: str, status: str, beendet: bool):
+        """Both sides: a field answering one value fails a case, and `active` answers as `future` does (`docs/backend/spec.md :: I47`)."""
+
+        database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW), status=status)])
+
+        assert answered(mongo_url, f"{PREFIX}/fenster/{OPEN_SAISON}", database_name=database).json()["saison_beendet"] is beendet
 
     def test_its_colour_read_answers_as_an_unknown_id_does(self, mongo_url: str):
         database = seeded_with(mongo_url, [_saison(OPEN_SAISON, bewerbung=dict(RUNNING_WINDOW), status="past")])

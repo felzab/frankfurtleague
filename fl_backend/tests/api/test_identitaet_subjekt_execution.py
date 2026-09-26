@@ -5,9 +5,7 @@ from typing import Any, get_args
 import pytest
 from bson import ObjectId
 from fastapi.testclient import TestClient
-from httpx2 import ASGITransport, AsyncClient, Response
-from pydantic import EmailStr, TypeAdapter
-from pymongo import AsyncMongoClient
+from httpx2 import Response
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.bewerbungen.schemas import FLKontaktRolle
@@ -17,10 +15,13 @@ from app.api.identitaet.services import build_referee_pipeline, build_seat_pipel
 from app.api.kontakte.services import KONTAKT_SLOTS
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.security import MISSING_TOKEN, WRONG_SYSTEM_KEY
 from app.main import create_app
-from app.shared.folding import sign_in_identifier
-from tests.config import BASE_AUTH, SYSTEM_AUTH, TEST_BASE_URL, build_test_config
+from app.shared.folding import league_address, sign_in_identifier
+from tests.app_client import app_client
+from tests.config import BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import rules_document, saison_document, saison_team_document, spieler_document, team_document
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -29,17 +30,7 @@ DATABASE_NAME = worker_database("fl_identitaet_subjekt_test")
 
 PATH = f"/api/v{API_VERSION}/identitaet/subjekt"
 
-# The container is started for this tier and a laptop's own `mongod` is not what answers here, so the
-# driver's default would give up before the first handshake on a cold start.
-CONTAINER_SELECTION_MS = 30_000
-
 APP = create_app(build_test_config())
-
-# The code a request carrying no bearer draws, and the one `verify_access_system` itself raises: each
-# guard is built with its OWN (`app/core/security.py :: verify_api_key`), so the base key answers the
-# system guard's code rather than `verify_access_base`'s.
-MISSING_BEARER_TOKEN = "REQ-AUTH-001"
-WRONG_KEY_FOR_THIS_GUARD = "REQ-AUTH-003"
 
 # The folded form a caller sends, and the spellings the league stores it under. Deliberately
 # unusual, so a hit in a seeded corpus cannot be a coincidence.
@@ -51,27 +42,27 @@ PUPIL_STORED = "ortrud.zwiebelmayer@schule.de"
 REFEREE_STORED = "ORTRUD.ZWIEBELMAYER@schule.de"
 REFEREE_STORED_MIXED = "Ortrud.Zwiebelmayer@schule.de"
 
-# A spelling the database's case-blind match takes and the fold parts from the asker: a row stored
-# before the address rule, its local part holding a long s the match reads as „s“.
+# A spelling the database's case-blind match takes and the fold parts from the asker: a row edited by
+# hand past the address rule, its local part holding a long s the match reads as „s“.
 PARTED_ASKED = "ortrud.schmidt@schule.de"
-LEGACY_LOCAL_STORED = f"ortrud.{chr(0x17F)}chmidt@schule.de"
+HAND_EDITED_STORED = f"ortrud.{chr(0x17F)}chmidt@schule.de"
 
 # The „ß“ decision, never a `casefold`: IDNA 2008 keeps „ß“ in a domain, so these are two mailboxes,
-# each holding a seat. The sharp-s one is stored in Unicode, as a row predating the address rule holds it.
+# each holding a seat. The sharp-s one is stored in punycode, as a payload stores it.
 SHARP_S_ASKED = "Post@straße.de"
-SHARP_S_STORED = "Post@straße.de"
+SHARP_S_STORED = "Post@xn--strae-oqa.de"
 DOUBLE_S_ASKED = "post@strasse.de"
 DOUBLE_S_STORED = "Post@strasse.de"
 
 # Nobody this identifier may reach, in each of the three collections.
 BYSTANDER = "baldur.krautzberger@example.com"
 
-# One mailbox at an internationalised domain, stored as payloads stored it before the address rule
-# (`docs/backend/spec.md :: I332`): the domain decoded, and folded too on a pupil's row.
+# One mailbox at an internationalised domain, stored as every payload stores it
+# (`docs/backend/spec.md :: I332`): the domain in punycode, and folded too on a pupil's row.
 # Asked in punycode, the only form the sign-in library hands over.
 IDN_ASKED = "anna@xn--mller-kva.de"
-IDN_SEAT_STORED = "Anna@müller.de"
-IDN_PUPIL_STORED = "anna@müller.de"
+IDN_SEAT_STORED = "Anna@xn--mller-kva.de"
+IDN_PUPIL_STORED = "anna@xn--mller-kva.de"
 
 PAST_SAISON = "2425"
 ACTIVE_SAISON = "2526"
@@ -87,7 +78,7 @@ SEAT_ROW_B_OID = ObjectId("6890a1b2c3d4e5f607820012")
 BYSTANDER_ROW_OID = ObjectId("6890a1b2c3d4e5f607820013")
 SHARP_S_ROW_OID = ObjectId("6890a1b2c3d4e5f607820014")
 DOUBLE_S_ROW_OID = ObjectId("6890a1b2c3d4e5f607820015")
-LEGACY_LOCAL_ROW_OID = ObjectId("6890a1b2c3d4e5f607820016")
+HAND_EDITED_ROW_OID = ObjectId("6890a1b2c3d4e5f607820016")
 IDN_ROW_OID = ObjectId("6890a1b2c3d4e5f607820017")
 PUPIL_ONE_OID = ObjectId("6890a1b2c3d4e5f607820021")
 PUPIL_TWO_OID = ObjectId("6890a1b2c3d4e5f607820022")
@@ -95,7 +86,7 @@ IDN_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820023")
 BYSTANDER_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820029")
 REFEREE_ONE_OID = ObjectId("6890a1b2c3d4e5f607820031")
 REFEREE_TWO_OID = ObjectId("6890a1b2c3d4e5f607820032")
-LEGACY_LOCAL_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820033")
+HAND_EDITED_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820033")
 IDN_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820034")
 BYSTANDER_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820039")
 
@@ -105,22 +96,7 @@ ROW_NAME_A = "Helmholtz"
 CLUB_NAME_A_NOW = "Helmholtz-Gymnasium"
 ROW_NAME_B = "Lessing"
 
-ADDRESS: dict[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
-
 KENNTNISNAHME: dict[str, Any] = {"umfang": "kontaktdaten", "erfasst_von": "administrativ", "text_version": "v1", "datum": "2026-01-05"}
-
-EINWILLIGUNG: dict[str, Any] = {
-    "umfang": "kader_oeffentlich",
-    "erteilt_von": "erziehungsberechtigt",
-    "datum": "2026-01-15",
-    "bestaetigt_am": "2026-01-20",
-}
 
 
 def _person(email: str) -> dict[str, Any]:
@@ -132,70 +108,42 @@ def _person(email: str) -> dict[str, Any]:
 def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str, **slots: str) -> dict[str, Any]:
     """A `saison_teams` row seating whoever the caller names, the slots it does not name left empty."""
 
-    return {
-        "_id": row_id,
-        "saison_id": saison_id,
-        "team_id": team_id,
-        "gruppe": "A",
-        "austritt": None,
-        "kontakte": {
+    return saison_team_document(
+        saison_id,
+        team_id,
+        name,
+        name[:2].upper(),
+        _id=row_id,
+        kontakte={
             **{slot: None for slot in KONTAKT_SLOTS},
             **{slot: _person(email) for slot, email in slots.items()},
             # A declaration about two slots rather than a slot of its own, so it names nobody and
             # no case here turns on it (`app/api/kontakte/services.py :: KONTAKT_SLOTS`).
             "trainer_ist_zugleich": None,
         },
-        "name": name,
-        "shorthand": name[:2].upper(),
-    }
+    )
 
 
 def _saison(saison_id: str, status: str) -> dict[str, Any]:
-    return {
-        "_id": saison_id,
-        "start_date": f"20{saison_id[:2]}-08-01",
-        "end_date": f"20{saison_id[2:]}-06-30",
-        "status": status,
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 4,
-            "teams_per_group": 4,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["Q1", "Q2"],
-        },
-    }
+    return saison_document(
+        saison_id,
+        status,
+        start_date=f"20{saison_id[:2]}-08-01",
+        end_date=f"20{saison_id[2:]}-06-30",
+        rules=rules_document(erlaubte_stufen=["Q1", "Q2"]),
+    )
 
 
 def _club(team_id: ObjectId, name: str, shorthand: str) -> dict[str, Any]:
     # `shorthand` per club rather than one for all: `app/core/constraints.py :: uniq_shorthand`
     # indexes it, so a seed sharing one refuses its second club and fails every case here.
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"{name}-Schule",
-        "website_url": None,
-        "address": dict(ADDRESS),
-        "inactive_since": None,
-    }
+    return team_document(team_id, name, shorthand, website_url=None)
 
 
 def _pupil(pupil_id: ObjectId, email: str) -> dict[str, Any]:
     """`email` stored in the folded form, which is what S6's admission writes and what the join compares."""
 
-    return {
-        "_id": pupil_id,
-        "vorname": "Anna",
-        "nachname": "Müller",
-        "einwilligung": dict(EINWILLIGUNG),
-        "inactive_since": None,
-        "email": email,
-    }
+    return spieler_document(pupil_id, "Anna", "Müller", email=email)
 
 
 def _referee(referee_id: ObjectId, email: str, name: str) -> dict[str, Any]:
@@ -238,7 +186,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _junction(BYSTANDER_ROW_OID, ACTIVE_SAISON, TEAM_C_OID, name="Krautzberg", trainer=BYSTANDER),
             _junction(SHARP_S_ROW_OID, FUTURE_SAISON, TEAM_A_OID, name=ROW_NAME_A, trainer=SHARP_S_STORED),
             _junction(DOUBLE_S_ROW_OID, FUTURE_SAISON, TEAM_B_OID, name=ROW_NAME_B, trainer=DOUBLE_S_STORED),
-            _junction(LEGACY_LOCAL_ROW_OID, FUTURE_SAISON, TEAM_C_OID, name="Krautzberg", trainer=LEGACY_LOCAL_STORED),
+            _junction(HAND_EDITED_ROW_OID, FUTURE_SAISON, TEAM_C_OID, name="Krautzberg", trainer=HAND_EDITED_STORED),
             _junction(IDN_ROW_OID, PAST_SAISON, TEAM_C_OID, name="Krautzberg", trainer=IDN_SEAT_STORED),
         ]
     )
@@ -254,7 +202,7 @@ async def _seed(database: AsyncDatabase) -> None:
         [
             _referee(REFEREE_ONE_OID, REFEREE_STORED, "A. Referee"),
             _referee(REFEREE_TWO_OID, REFEREE_STORED_MIXED, "C. Zweitpfeife"),
-            _referee(LEGACY_LOCAL_REFEREE_OID, LEGACY_LOCAL_STORED, "D. Umlaut"),
+            _referee(HAND_EDITED_REFEREE_OID, HAND_EDITED_STORED, "D. Umlaut"),
             _referee(IDN_REFEREE_OID, IDN_SEAT_STORED, "E. Umlaut"),
             _referee(BYSTANDER_REFEREE_OID, BYSTANDER, "B. Krautzberger"),
         ]
@@ -370,22 +318,20 @@ def test_the_parted_spelling_is_one_the_database_match_reaches(mongo_url: str):
 
     seat_ids, referee_ids = on_a_league(mongo_url, candidates)
 
-    assert (LEGACY_LOCAL_ROW_OID in seat_ids, LEGACY_LOCAL_REFEREE_OID in referee_ids) == (True, True)
+    assert (HAND_EDITED_ROW_OID in seat_ids, HAND_EDITED_REFEREE_OID in referee_ids) == (True, True)
 
 
-def test_the_parted_spelling_is_one_an_older_rule_stored_and_the_fold_parts():
-    """The premise of the three cases above: seeded any other way, they would judge a row no write produced."""
+def test_the_parted_spelling_is_one_no_payload_stores_and_the_fold_parts():
+    """The premise of the three cases above: the row is a hand edit the fold still keeps from the asker, no write storing it."""
 
-    assert TypeAdapter(EmailStr).validate_python(LEGACY_LOCAL_STORED) == LEGACY_LOCAL_STORED
-    assert sign_in_identifier(LEGACY_LOCAL_STORED) != sign_in_identifier(PARTED_ASKED)
+    with pytest.raises(ValueError):
+        league_address(HAND_EDITED_STORED)
+    assert sign_in_identifier(HAND_EDITED_STORED) != sign_in_identifier(PARTED_ASKED)
 
 
 @pytest.mark.db
-def test_an_internationalised_domain_stored_before_the_address_rule_answers_all_three_kinds(mongo_url: str):
-    """Each row holds the decoded domain, and a pupil's the older fold's lower case.
-
-    Only the second spelling `stored_spellings` names reaches them.
-    """
+def test_an_internationalised_domain_answers_all_three_kinds(mongo_url: str):
+    """Kills a fold that decodes the punycode it is handed, which no stored row then equals."""
 
     answer = answered(mongo_url, IDN_ASKED)
 
@@ -448,37 +394,26 @@ def test_the_operation_is_unreachable_without_a_bearer_token():
     response = TestClient(APP, raise_server_exceptions=False).post(PATH, json={"erfundenes_feld": 1})
 
     assert response.status_code == 401
-    assert response.json()["error_code"] == MISSING_BEARER_TOKEN
+    assert response.json()["error_code"] == MISSING_TOKEN
 
 
 def test_the_base_key_draws_the_system_guard_s_own_code():
-    """`REQ-AUTH-002` here would mean `verify_access_base` is on this route; the code names the guard, never the key presented."""
+    """`WRONG_BASE_KEY` here would mean `verify_access_base` is on this route; each guard answers its own code, whatever key arrives."""
 
     response = TestClient(APP, raise_server_exceptions=False).post(PATH, headers=BASE_AUTH, json={"email": IDENTIFIER})
 
     assert response.status_code == 401
-    assert response.json()["error_code"] == WRONG_KEY_FOR_THIS_GUARD
+    assert response.json()["error_code"] == WRONG_SYSTEM_KEY
 
 
 def served_over_http(url: str, email: str = IDENTIFIER) -> Response:
-    """The corpus seeded, then one request through the MOUNTED route.
-
-    No lifespan: it would open its own client at the settings' URI and apply the constraints there
-    (`fl_backend/tests/api/test_malformed_ids.py :: answered`).
-    """
+    """The corpus seeded, then one request through the MOUNTED route."""
 
     on_a_league(url, _no_body)
 
     async def _answered() -> Response:
-        app = create_app(config_for(DATABASE_NAME))
-        app.state.db_client = AsyncMongoClient(host=url, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
-
-        try:
-            transport = ASGITransport(app=app, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": email})
-        finally:
-            await app.state.db_client.close()
+        async with app_client(url, config=config_for(DATABASE_NAME)) as http:
+            return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": email})
 
     return asyncio.run(_answered())
 

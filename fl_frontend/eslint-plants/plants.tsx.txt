@@ -1,0 +1,170 @@
+// Linted as src/features/zzplant/plants.tsx.
+"use client";
+
+import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
+import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
+import { DateField } from "@heroui/react/date-field"; // expect: segmented-import
+import { Calendar } from "@heroui/react/calendar";
+import * as HeroUI from "@heroui/react"; // expect: segmented-import expect: heroui-form expect: vendor-root expect: date-alias
+import { DatePicker as Picker } from "@heroui/react/date-picker"; // expect: segmented-import expect: date-alias
+import { CalendarRoot } from "@heroui/react/calendar"; // expect: date-alias
+import * as TimeFields from "@heroui/react/time-field"; // expect: segmented-import expect: heroui-form expect: date-alias
+import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { NumberField as HeroNumberField } from "@heroui/react/number-field"; // expect: number-field
+import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect: marked-field
+import { Select as HeroSelect } from "@heroui/react/select"; // expect: marked-field
+import { Switch as HeroSwitch } from "@heroui/react/switch"; // expect: marked-field
+import { Autocomplete as HeroAutocomplete } from "@heroui/react/autocomplete"; // expect: marked-field
+import { ComboBox as HeroComboBox } from "@heroui/react/combo-box"; // expect: marked-field
+import { Button } from "@heroui/react"; // expect: vendor-root
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
+
+import { PILL_RADIUS_CLASSES } from "@/shared/components/ui/badges";
+import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { Hint } from "@/shared/components/ui/Hint";
+import { InfoHint } from "@/shared/components/ui/InfoHint";
+import { TextField } from "@/shared/components/ui/TextField";
+import { HintPopover } from "@/shared/components/ui/InfoHint"; // expect: hint-internals
+import { HintPanel } from "@/shared/components/ui/InfoHint.tsx"; // expect: hint-internals
+import { captureStdout } from "@/core/stdoutCapture"; // expect: test-only
+import { underNext } from "@/shared/testing/nextContexts"; // expect: test-only
+
+declare const auth: { api: { getSession: (options: object) => unknown } };
+declare const router: { push: (to: string) => void; replace: (to: string) => void; back: () => void };
+declare const redirect: (to: string) => never;
+declare const heading: () => string;
+declare const panel: { heading: () => string };
+declare const Select: (props: object) => null;
+declare const AppDatePicker: (props: object) => null;
+declare const owed: boolean;
+declare const headers: Headers;
+declare const request: Request;
+declare const id: string;
+declare const extra: string;
+declare const bounds: object;
+import { createRequire as loadVia } from "node:module"; // expect: node-module
+import { SITE_URL } from "@/core/brand"; // expect: site-origin
+
+export const FADE = "p-2 data-hovered:opacity-60"; // expect: hover-opacity
+export const TINT = "hover:bg-brand/20"; // expect: hover-alpha
+export const GAP = "flex gap-5"; // expect: gap
+export const GAP_X = "grid sm:gap-x-7"; // expect: gap
+export const LINK = "text-brand hover:underline"; // expect: link-decoration
+export const GRADE = "dark:hover:text-brand-solid-accent"; // expect: brand-grade
+export const HINT_COPY = "font-medium fluid-sm text-foreground-muted"; // expect: muted-hint
+export const TILE = "bg-brand-solid flex size-10 rounded-xl shadow-sm"; // expect: BRAND_TILE
+export const TILE_ACROSS_A_HOLE = `bg-brand-solid size-10 ${extra} rounded-xl`; // expect: BRAND_TILE
+export const DOT = "bg-brand size-2 animate-ping rounded-full"; // expect: dot
+export const TONES = { unbekannt: "bg-muted text-foreground-muted" }; // expect: neutral-pill
+export const TONES_APART = { neu: "bg-muted px-2 text-foreground-muted" }; // expect: neutral-pill
+export const TONES_REVERSED = { alt: "text-foreground-muted bg-muted" }; // expect: neutral-pill
+export const FIGURES = "fluid-xs tabular-nums"; // expect: numeric-pair
+export const TALL = "min-h-[100vh]"; // expect: vh
+export const ENDPOINT = "https://api.resend.com/emails"; // expect: resend
+export const STALE = "/bestaetigung?token=x"; // expect: stale-path
+export const STALE_HANDLER = "/api/bestaetigung"; // expect: stale-path
+export const RADIUS = PILL_RADIUS_CLASSES;
+export const CONTEXT = AppRouterContext;
+export const NAMESPACE = HeroUI;
+export const RENAMED = [Picker, CalendarRoot, TimeFields];
+export const FORM = HeroForm;
+export const BUTTON = Button;
+export const POPOVER = HintPopover;
+export const PANEL = HintPanel;
+export const CAPTURE = captureStdout;
+export const DELETION = "deletePasskey"; // expect: passkey-deletion
+// eslint-disable-next-line no-restricted-syntax -- an excuse whose line spells nothing, expect: unused-disable
+export const EXCUSED = "flex";
+// Each literal ban's template arm, a hole beside the spelling.
+export const FADE_TEMPLATE = `p-2 ${extra} hover:opacity-60`; // expect: hover-opacity
+export const TINT_TEMPLATE = `${extra} hover:bg-brand/20`; // expect: hover-alpha
+export const GAP_TEMPLATE = `flex gap-5 ${extra}`; // expect: gap
+export const LINK_TEMPLATE = `${extra} hover:underline`; // expect: link-decoration
+export const GRADE_TEMPLATE = `${extra} hover:text-brand-solid`; // expect: brand-grade
+export const TONES_TEMPLATE = { offen: `bg-muted text-foreground-muted ${extra}` }; // expect: neutral-pill
+export const TONES_ACROSS_A_HOLE = { offen: `bg-muted ${extra} text-foreground-muted` }; // expect: neutral-pill
+export const EMPTY_TEMPLATE = `Für diese Saison gibt es ${extra}`; // expect: season-empty
+export const TALL_TEMPLATE = `min-h-[100vh] ${extra}`; // expect: vh
+export const ENDPOINT_TEMPLATE = `https://api.resend.com/emails`; // expect: resend
+export const STALE_TEMPLATE = `/bestaetigung?token=${id}`; // expect: stale-path
+export const STALE_HANDLER_TEMPLATE = `/api/bestaetigung`; // expect: stale-path
+export const DELETION_TEMPLATE = `deletePasskey`; // expect: passkey-deletion
+export const DELETION_MEMBER = auth.api.deletePasskey; // expect: passkey-deletion
+export const ROOT_LOADED = await import("@heroui/react"); // expect: vendor-root-load
+export const ICONS_LOADED = import(`@gravity-ui/icons`); // expect: vendor-root-load
+export const FORM_LOADED = await import("@heroui/react/form"); // expect: heroui-form-load
+export const FORM_TEMPLATE_LOADED = import(`@heroui/react/form`); // expect: heroui-form-load
+export const NUMBER_FIELD_LOADED = import("@heroui/react/number-field"); // expect: number-field-load
+export const TEXT_FIELD_LOADED = import("@heroui/react/textfield"); // expect: marked-field-load
+export const SELECT_LOADED = import(`@heroui/react/select`); // expect: marked-field-load
+export const SWITCH_LOADED = import("@heroui/react/switch"); // expect: marked-field-load
+export const AUTOCOMPLETE_LOADED = import("@heroui/react/autocomplete"); // expect: marked-field-load
+export const COMBO_BOX_LOADED = import("@heroui/react/combo-box"); // expect: marked-field-load
+export const SEARCH_LOADED = import("next/dist/shared/lib/hooks-client-context.shared-runtime.js"); // expect: next-private-load
+export const TIME_LOADED = import(`@heroui/react/time-field`); // expect: segmented-load
+export const CALENDAR_LOADED = import("@heroui/react/calendar"); // expect: calendar-load
+export const PRIVATE_PATH = "next/dist/shared/lib/app-router-context.shared-runtime"; // expect: next-private-string
+export const { HintPopover: LoadedPopover } = await import("@/shared/components/ui/InfoHint"); // expect: hint-internals-load
+export const DOUBLES_LOADED = import("@/core/authDoubles"); // expect: test-only-load
+export const HARNESS_LOADED = import("@/shared/testing/dom"); // expect: test-only-load
+export { Calendar as Days } from "@heroui/react/calendar"; // expect: date-alias
+export { CalendarRoot as DaysRoot, Calendar } from "@heroui/react/calendar"; // expect: date-alias expect: date-alias
+export * as CalendarParts from "@heroui/react/calendar"; // expect: date-alias expect: segmented-import expect: heroui-form
+export * from "@heroui/react/calendar"; // expect: date-alias expect: segmented-import expect: heroui-form
+// A subpath loads its component alone, and a hole leaves the specifier to run time.
+export const BUTTON_LOADED = import("@heroui/react/button");
+export const HOLED_LOADED = import(`@heroui/react${extra}`);
+
+export async function plantedCalls(): Promise<void> {
+  await auth.api.getSession({ headers, request }); // expect: auth-request
+  router.push("teams"); // expect: relative-nav
+  router.replace(`teams/${id}`); // expect: relative-nav
+  router.back(); // expect: history-back
+  redirect(`teams/${id}`); // expect: relative-nav
+}
+
+export function AdminPlantView({ facets }: { facets: unknown }) {
+  return (
+    <div>
+      <EmptyState>Für diese Saison gibt es keine Spiele.</EmptyState>{/* expect: season-empty */}
+      <DatePicker minValue={bounds} /* expect: date-bound */ />
+      <DateField {...bounds} /* expect: date-spread */ />
+      <DatePicker.Root maxValue={bounds} /* expect: date-bound */ />
+      <DateField.Root {...bounds} /* expect: date-spread */ />
+      <Calendar {...bounds} /* expect: date-spread */ />
+      <Calendar.Root {...bounds} /* expect: date-spread */ />
+      <h2 className={heading()} /* expect: heading */>Titel</h2>
+      <h2 className={panel.heading()} /* expect: heading */>Titel</h2>
+      <h3>
+        Titel <Hint /* expect: hint-nest */ />
+      </h3>
+      <h4>
+        Titel <HintPopover /* expect: hint-nest */ />
+      </h4>
+      <h1 className="inline">
+        Titel <InfoHint label="Hinweis" /* expect: hint-nest */>Text</InfoHint>
+      </h1>
+      <span>fluid-xs tabular-nums</span>{/* expect: numeric-pair */}
+      {String(facets)}
+    </div>
+  );
+}
+export const NODE_MODULE_USED = [loadVia];
+export const HARNESS_USED = [underNext];
+export const ORIGIN_USED = SITE_URL;
+export const NUMBER_FIELD_USED = HeroNumberField;
+export const LOCALE_USED = PinnedLocale;
+export const RAC_LOADED = import("@heroui/react/rac"); // expect: locale-load
+export const TEXT_FIELD_USED = HeroTextField;
+export const MARKED_FIELDS_USED = [HeroSelect, HeroSwitch, HeroAutocomplete, HeroComboBox];
+export const NATIVE_FORM = <form method="post" />; // expect: native-form
+export const LOOSE_HINT = <Hint mode="field" text="Beschreibt nichts." />; // expect: field-hint
+export const LOOSE_EXPRESSION_HINT = <Hint mode={"field"} text="Beschreibt nichts." />; // expect: field-hint
+// Inside the field it explains, a field hint is that field's description, and the ban leaves it.
+export const FIELD_HINT = <TextField name="email"><Hint mode="field" text="Beschreibt das Feld." /></TextField>;
+export const BARE_MARK = <Select isRequired name="gruppe" />; // expect: hand-set-required
+export const LITERAL_MARK = <AppDatePicker isRequired={true} name="datum" />; // expect: hand-set-required
+export const LITERAL_UNMARK = <Select isRequired={false} name="gruppe" />; // expect: hand-set-required
+// A mark worked out at a call site is set by hand as much as a literal is.
+export const DERIVED_MARK = <Select isRequired={owed} name="gruppe" />; // expect: hand-set-required
+export const COMPUTED_MARK = <Select isRequired={!false} name="gruppe" />; // expect: hand-set-required

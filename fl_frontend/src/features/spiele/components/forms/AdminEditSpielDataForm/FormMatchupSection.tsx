@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { Separator } from "@heroui/react";
+import { Separator } from "@heroui/react/separator";
 
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -77,9 +77,8 @@ export function FormMatchupSection({
         <PanelHeading
           className={styles.heading()}
           title="Begegnung">
-          {/* Two elements rather than one with a conditional body: `hintCap.test.ts` counts a
-              literal, and a ternary is a body it cannot measure. What a manual side COSTS is the
-              takeover banner's, so this row says only what the choice does. */}
+          {/* What a manual side COSTS is the takeover banner's, so this row says only what the
+              choice does. */}
           {isKnockout ? (
             <Hint
               mode="reveal"
@@ -124,7 +123,7 @@ export function FormMatchupSection({
         {/* Full-bleed across the body's own padding, so it reads like the header's border
             rather than an inset rule between the two pickers. `w-auto` because
             negative margins and `w-full` overflow together. */}
-        <Separator className="bg-border -mx-4 h-px w-auto sm:-mx-5" />
+        <Separator className="-mx-4 h-px w-auto bg-border sm:-mx-5" />
 
         <FormTeamPicker
           label="Team 2"

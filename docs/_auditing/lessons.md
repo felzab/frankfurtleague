@@ -106,11 +106,10 @@ Where you did not check, say so plainly. The beliefs this repository has already
 
 ## 5. Treat a green gate as evidence and never as proof
 
-**Rule:** the gate proves what it runs, and its coverage is narrower than "it passed" sounds. Run the
-full form unless the wave changed documentation only, keep a mechanical mega-commit — a formatter
-config change, a token repointing — in a commit with nothing else in it, and make every suite fail
-loudly rather than skip quietly. Otherwise a defect class the gate cannot see ships in an image it
-reported green.
+**Rule:** the gate proves what it runs, and its coverage is narrower than "it passed" sounds. Keep a
+mechanical mega-commit — a formatter config change, a token repointing — in a commit with nothing
+else in it, and make every suite fail loudly rather than skip quietly. Otherwise a defect class the
+gate cannot see ships in an image it reported green.
 
 **Instances**
 
@@ -125,10 +124,10 @@ reported green.
   case where fifty were owed; a bare `pytest.raises(ValidationError)` passes whatever went wrong, so
   assert the failing field; `node --test` collects any `test-*` file including tooling files and
   reports them as passing tests.
-- **A gate over an uncommitted tree has checked nothing that is not tracked, and a gate that stops at
-  its first failing scope understates the branch.** Citations resolve against tracked files, so a new
-  file's breaches appear only once it is committed; and the scopes after the failing one never run,
-  so a single reported finding can hide a second failing scope entirely.
+- **A gate that stops at its first failing scope understates the branch.** Under `--serial` the
+  scopes after the failing one never run, so a single reported finding can hide a second failing
+  scope entirely; the default run replays every later scope's verdict
+  ([`../ops/spec.md`](../ops/spec.md) §1.6).
 - **No gate sees these**: React Server Component serialization rules (`.claude/rules/frontend.md`'s
   render-prop trap, which throws only at request time on a dynamic route), emitted-but-wrong class
   strings, manifest URLs, cache-tag wiring, and everything behind an auth wall.
@@ -206,8 +205,8 @@ not the variable.**
 
 - **My review rounds are where the truth arrives.** They surface reversals of a wave's largest
   decisions, and controls that silently never run — things the gate cannot see.
-- **Coupled cross-repository changes ship in one pull request.** The publish script builds both
-  images before pushing either, so no window exists in which a new frontend meets an old backend.
+- **Coupled frontend and backend changes ship in one pull request**: no window exists in which a new
+  frontend meets an old backend (`docs/ops/spec.md :: I7`).
 - **When a fix is reversed, verify its artifacts are actually gone.** A removed dependency can
   survive in the lockfile until `node_modules` and the lockfile are rebuilt clean. Put the reversal
   trigger on the row.

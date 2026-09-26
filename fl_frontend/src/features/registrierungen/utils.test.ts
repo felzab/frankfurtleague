@@ -3,10 +3,11 @@ import { describe, it } from "node:test";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
-import { DECLARED_RULES } from "@/shared/testing/refusalRegister.ts";
+import { nummerPayload } from "@/features/spieler/utils.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
-import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/publicSubmit.ts";
+import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink.ts";
 
 import { alterAusserhalb } from "./constants.ts";
 import {
@@ -75,6 +76,14 @@ describe("the draft as the submission spells it", () => {
     assert.equal(registrierungPayload({ ...DRAFT, nummer: "7" }, "t").nummer, "7");
   });
 
+  // The squad editor's own boundary, so a number the editor would take is never refused to a pupil.
+  it("sends a number typed with space around it trimmed, as the squad editor does", () => {
+    const nummer = registrierungPayload({ ...DRAFT, nummer: " 7 " }, "t").nummer;
+
+    assert.equal(nummer, "7", "the pupil is refused over a space nobody sees");
+    assert.equal(nummer, nummerPayload(" 7 "), "the registration and the squad editor send one number two ways");
+  });
+
   it("carries the link's token rather than anything the form rendered", () => {
     assert.equal(registrierungPayload(DRAFT, "kein-echtes-token").token, "kein-echtes-token");
   });
@@ -87,6 +96,12 @@ describe("what one refused submission shows", () => {
     assert.equal(mapRegistrierungSubmitRefusal(refusal("REQ-REGISTRIERUNG-001", 500)), null);
     assert.equal(mapRegistrierungSubmitRefusal(new Error("kein API-Fehler")), null);
     assert.equal(mapRegistrierungSubmitRefusal(refusal("REQ-BEWERBUNG-004")), null, "a code of another flow's is mapped here");
+  });
+
+  /* The record missing is a season or club the link named and nothing holds now: the dead-link page,
+     never the admin's „nicht gefunden“ with a reload. */
+  it("answers the link's record gone as the link void", () => {
+    assert.deepEqual(mapRegistrierungSubmitRefusal(refusedOn("POST /registrierungen", "DB-COMMON-001")), { zustand: "ungueltig" });
   });
 
   it("puts a body refusal naming a field on that field's box, with the team's link for a box the form lacks", () => {
@@ -103,6 +118,8 @@ describe("what one refused submission shows", () => {
       assert.deepEqual(mapRegistrierungSubmitRefusal(refusal(code)), { error: REGISTRIERUNG_NEU_OEFFNEN }, code);
     }
     assert.equal(mapRegistrierungSubmitRefusal(refusal("REQ-VAL-001", 422))?.error, REGISTRIERUNG_NEU_OEFFNEN);
+    // A body the API could not read at all: the same drifted page, and a retry sends the same bytes.
+    assert.equal(mapRegistrierungSubmitRefusal(refusedOn("POST /registrierungen", "REQ-VAL-002"))?.error, REGISTRIERUNG_NEU_OEFFNEN);
   });
 
   it("sends a dead invite to the page's own panel rather than to a field", () => {
@@ -147,10 +164,10 @@ describe("what one refused submission shows", () => {
     }
   });
 
-  /* Both directions against the backend's own register: a code the write path raises and this mapper
-     does not know falls through to the 409 fallback, which tells a pupil an equivalent entry exists. */
-  it("maps every code the write path declares, and no code it does not", () => {
-    const declared = DECLARED_RULES.filter((rule) => rule.operations.includes("POST /registrierungen")).map((rule) => rule.code);
+  /* Both directions against the published document: a code the write path raises and this mapper
+     does not know falls through to the shared fallback, which tells a pupil no reason. */
+  it("maps every code the write path publishes, and no rule it does not", () => {
+    const published = publishedRefusals("POST /registrierungen");
     const mapped = [
       "REQ-EINLADUNG-003",
       "REQ-REGISTRIERUNG-011",
@@ -161,10 +178,13 @@ describe("what one refused submission shows", () => {
       "REQ-REGISTRIERUNG-009",
     ];
 
-    for (const code of mapped) {
-      assert.notEqual(mapRegistrierungSubmitRefusal(refusal(code)), null, `${code} is listed here and maps to nothing`);
+    for (const code of new Set([...published, ...mapped])) {
+      assert.notEqual(answerShown("POST /registrierungen", code, mapRegistrierungSubmitRefusal), null, `${code} maps to nothing`);
     }
-    assert.deepEqual([...declared].sort(), [...mapped].sort());
+    assert.deepEqual(
+      published.filter((code) => code !== DUPLICATE_KEY),
+      [...mapped].sort(),
+    );
   });
 });
 
@@ -185,6 +205,12 @@ describe("what one refused confirmation shows", () => {
   it("answers nothing for a status this flow never reaches", async () => {
     assert.equal(await mapBestaetigungRefusal(refusal("REQ-REGISTRIERUNG-004", 500), floorOf(16).lesen), null);
     assert.equal(await mapBestaetigungRefusal(new Error("kein API-Fehler"), floorOf(16).lesen), null);
+  });
+
+  it("answers the link's record gone as the link void", async () => {
+    assert.deepEqual(await mapBestaetigungRefusal(refusedOn("POST /registrierungen/bestaetigung", "DB-COMMON-001"), floorOf(16).lesen), {
+      zustand: "ungueltig",
+    });
   });
 
   it("tells the three link states apart, each on its own panel", async () => {
@@ -234,6 +260,13 @@ describe("what one refused confirmation shows", () => {
     assert.deepEqual(mapped, await mapBestaetigungRefusal(refusal("REQ-VAL-001", 422), floorOf(16).lesen));
   });
 
+  /* A body the API could not read at all is the same drifted client, and a retry sends the same bytes. */
+  it("answers a body the API could not read with the mail's link", async () => {
+    assert.deepEqual(await mapBestaetigungRefusal(refusedOn("POST /registrierungen/bestaetigung", "REQ-VAL-002"), floorOf(16).lesen), {
+      error: ANTWORT_NEU_OEFFNEN,
+    });
+  });
+
   it("puts a body refusal naming a field on that field's box, with the mail's link beside it, reading no floor", async () => {
     const mapped = await mapBestaetigungRefusal(refusedAt("geburtsdatum"), () => Promise.reject(new Error("the floor was read")));
 
@@ -244,10 +277,10 @@ describe("what one refused confirmation shows", () => {
     assert.equal((await mapBestaetigungRefusal(refusal("REQ-REGISTRIERUNG-007"), floorOf(16).lesen))?.zustand, undefined);
   });
 
-  /* Both directions against the backend's own register, as the submission's twin has: a code the
-     confirmation raises and this mapper does not know falls through to the 409 fallback. */
-  it("maps every code the confirmation declares, and no code it does not", async () => {
-    const declared = DECLARED_RULES.filter((rule) => rule.operations.includes("POST /registrierungen/bestaetigung")).map((rule) => rule.code);
+  /* Both directions against the published document, as the submission's twin has: a code the
+     confirmation raises and this mapper does not know falls through to the shared fallback. */
+  it("maps every code the confirmation publishes, and no rule it does not", async () => {
+    const published = publishedRefusals("POST /registrierungen/bestaetigung");
     const mapped = [
       "REQ-REGISTRIERUNG-004",
       "REQ-REGISTRIERUNG-005",
@@ -256,10 +289,14 @@ describe("what one refused confirmation shows", () => {
       "REQ-REGISTRIERUNG-010",
     ];
 
-    for (const code of mapped) {
-      assert.notEqual(await mapBestaetigungRefusal(refusal(code), floorOf(16).lesen), null, `${code} is listed here and maps to nothing`);
+    for (const code of new Set([...published, ...mapped])) {
+      const own = await mapBestaetigungRefusal(refusedOn("POST /registrierungen/bestaetigung", code), floorOf(16).lesen);
+      assert.notEqual(own ?? answerShown("POST /registrierungen/bestaetigung", code, () => null), null, `${code} maps to nothing`);
     }
-    assert.deepEqual([...declared].sort(), [...mapped].sort());
+    assert.deepEqual(
+      published.filter((code) => code !== DUPLICATE_KEY),
+      [...mapped].sort(),
+    );
   });
 });
 
@@ -275,12 +312,39 @@ describe("which verdict of the invite's read closes the form", () => {
 });
 
 describe("what a refused READ says about a link", () => {
+  /* Both reads, the invite's and the confirmation link's, answer every refusal alike, so each code
+     either publishes is a link nothing could place. */
+  it("calls the link void on every refusal either read publishes", () => {
+    for (const code of publishedRefusals("POST /registrierungen/einladung/ansicht")) {
+      assert.equal(mapRegistrierungAnsichtRefusal(refusedOn("POST /registrierungen/einladung/ansicht", code)), "ungueltig", code);
+    }
+    for (const code of publishedRefusals("POST /registrierungen/bestaetigung/ansicht")) {
+      assert.equal(mapRegistrierungAnsichtRefusal(refusedOn("POST /registrierungen/bestaetigung/ansicht", code)), "ungueltig", code);
+    }
+  });
+
   it("calls a token no tier will parse void rather than offering a reload", () => {
     assert.equal(mapRegistrierungAnsichtRefusal(refusal("REQ-VAL-001", 422)), "ungueltig");
+  });
+
+  /* The season, club or registration a link names gone is as dead a link, as both writes answer it. */
+  it("calls the link void where the record it names is gone, on either read", () => {
+    assert.equal(mapRegistrierungAnsichtRefusal(refusedOn("POST /registrierungen/einladung/ansicht", "DB-COMMON-001")), "ungueltig");
+    assert.equal(mapRegistrierungAnsichtRefusal(refusedOn("POST /registrierungen/bestaetigung/ansicht", "DB-COMMON-001")), "ungueltig");
   });
 
   it("leaves a failed read to the page's own state", () => {
     assert.equal(mapRegistrierungAnsichtRefusal(refusal("DB-COMMON-001", 503)), null);
     assert.equal(mapRegistrierungAnsichtRefusal(new Error("keine Verbindung")), null);
+  });
+
+  /* Neither judged the token: a route the API does not serve is met mid-deploy, and an unreadable body
+     failed in the page's own encoding. The dead-link panel would send the pupil away from a live link. */
+  it("leaves a routing refusal or an unreadable body to the page's own state, never the dead-link panel", () => {
+    assert.equal(mapRegistrierungAnsichtRefusal(refusal("REQ-ROUTE-001", 404)), null);
+    assert.equal(mapRegistrierungAnsichtRefusal(refusal("REQ-ROUTE-002", 405)), null);
+    for (const operation of ["POST /registrierungen/einladung/ansicht", "POST /registrierungen/bestaetigung/ansicht"]) {
+      assert.equal(mapRegistrierungAnsichtRefusal(refusedOn(operation, "REQ-VAL-002")), null, operation);
+    }
   });
 });

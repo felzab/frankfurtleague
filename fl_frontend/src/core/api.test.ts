@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import { afterEach, describe, it, mock } from "node:test";
+import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
 import { z } from "zod";
 
@@ -33,15 +33,15 @@ registerHooks({
 });
 
 const { apiClient } = await import("./api.ts");
-const { APIBadStatusError, APIMalformedDataError, APINetworkError } = await import("./errors.ts");
-const { runWithRequestScope } = await import("./requestScope.ts");
+const { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } = await import("./errors.ts");
+const { REQUEST_DEADLINE_MS, requestOutcomeUnknown, requestWriteSent, runWithRequestScope } = await import("./requestScope.ts");
 const { ACTOR_HEADER, readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
 
 const TRACE = "a".repeat(32);
 const SPAN = "b".repeat(16);
 
-/** What the doubled transport was asked to send. */
-const sends: { url: string; init: RequestInit }[] = [];
+/** What the doubled transport was asked to send, and whether the request had recorded a write by then. */
+const sends: { url: string; init: RequestInit; wroteBeforeSend: boolean }[] = [];
 
 /** The backend's answer to the next call, read once; unset, an empty list. */
 let nextAnswer: Response | undefined;
@@ -52,8 +52,16 @@ let nextTimesOut = false;
 /** Whether the next call's headers arrive and its body then never does until the call aborts, read once. */
 let nextStalls = false;
 
+/** How long the next call takes to answer, on the mocked timers, read once. */
+let nextAnswersAfterMs: number | undefined;
+
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
-  sends.push({ url: String(input), init: init ?? {} });
+  sends.push({ url: String(input), init: init ?? {}, wroteBeforeSend: requestWriteSent() });
+  if (nextAnswersAfterMs !== undefined) {
+    const delay = nextAnswersAfterMs;
+    nextAnswersAfterMs = undefined;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
   if (nextTimesOut) {
     nextTimesOut = false;
     throw new DOMException("The operation was aborted.", "AbortError");
@@ -249,12 +257,46 @@ describe("a call the caller declares read-only", () => {
   }
 });
 
+describe("the write a call records in its request", () => {
+  /** Whether the request recorded a write once `options` was sent and failed or answered. */
+  const recorded = (options: RequestInit & { readOnly?: true }, arrange: () => void = () => undefined) =>
+    runWithRequestScope({ traceId: TRACE, spanId: SPAN }, async () => {
+      arrange();
+      await apiClient("/x", z.unknown(), options).catch(() => undefined);
+
+      return requestWriteSent();
+    });
+
+  /* Recorded as it leaves: a write whose answer never came may still have landed. */
+  it("records a write as it is sent, answered or not", async () => {
+    assert.equal(await recorded({ method: "POST" }), true, "an answered write went unrecorded");
+    assert.equal(await recorded({ method: "PATCH" }, () => void (nextTimesOut = true)), true, "an unanswered write went unrecorded");
+  });
+
+  /* The transport is where the answer may be lost, so the write is on the record before it is handed over. */
+  it("records a write before the transport is handed it", async () => {
+    await recorded({ method: "PATCH" });
+
+    assert.equal(sends.at(-1)?.wroteBeforeSend, true, "the write was recorded only once the transport had it");
+  });
+
+  it("records none for a GET, or for a POST declaring itself read-only", async () => {
+    assert.deepEqual([await recorded({}), await recorded({ method: "POST", readOnly: true })], [false, false]);
+  });
+
+  /* `fetch` sends a method exactly as typed, so a safe method spelled in lower case changes nothing either. */
+  it("reads a method's spelling as the backend does", async () => {
+    assert.deepEqual([await recorded({ method: "get" }), await recorded({ method: "patch" })], [false, true]);
+  });
+});
+
 describe("the client's own timeout", () => {
   const TIMEOUT_MS = 1000;
 
-  /* `fetch` resolves on the headers, so a timer cleared there leaves the body's read unbounded and a
-     stalled backend hangs the render. Bounded here, so that regression fails rather than hangs. */
-  it("aborts a body that stalls once the headers have arrived, as a timed-out request", { timeout: 5000 }, async () => {
+  /* `fetch` resolves on the headers, so a timer cleared there leaves a stalled body hanging the render.
+     Asserted at the tick: on a mocked clock nothing else ends that body, so the regression fails
+     rather than hangs. */
+  it("aborts a body that stalls once the headers have arrived, as a timed-out request", async () => {
     mock.timers.enable({ apis: ["setTimeout"] });
     try {
       nextStalls = true;
@@ -264,6 +306,8 @@ describe("the client's own timeout", () => {
       );
       await new Promise((resolve) => setImmediate(resolve));
       mock.timers.tick(TIMEOUT_MS);
+      const signal = sends.at(-1)?.init.signal ?? assert.fail("the call sent no signal");
+      assert.equal(signal.aborted, true, "the timeout elapsed and nothing aborted the stalled body");
 
       const thrown = await pending;
       assert.ok(thrown instanceof APINetworkError, "the stalled body was not thrown as a network error");
@@ -284,5 +328,92 @@ describe("the client's own timeout", () => {
     } finally {
       mock.timers.reset();
     }
+  });
+});
+
+describe("the request's deadline over a chain of calls", () => {
+  /** Each link answers inside the client's own bound, and two of them leave less than one bound of the deadline. */
+  const LINK_MS = 14000;
+
+  /** `performance.now()`'s reading, which the mocked timers leave alone and `advance` moves beside them. */
+  let clock = 0;
+  const advance = (ms: number) => {
+    clock += ms;
+    mock.timers.tick(ms);
+  };
+  const reachFetch = () => new Promise((resolve) => setImmediate(resolve));
+
+  beforeEach(() => {
+    clock = 0;
+    mock.method(performance, "now", () => clock);
+    mock.timers.enable({ apis: ["setTimeout"] });
+  });
+
+  afterEach(() => {
+    mock.timers.reset();
+    mock.restoreAll();
+  });
+
+  /* Asserted at the tick, one millisecond either side: on the mocked clock nothing else ends the stalled
+     third body, so a client ignoring the deadline fails here instead of hanging. */
+  it("aborts the call that would outlast it at what the chain left, not at the call's own bound", async () => {
+    const [thrown, cut] = await runWithRequestScope({ traceId: TRACE, spanId: SPAN }, async () => {
+      for (const link of ["/erste", "/zweite"]) {
+        nextAnswersAfterMs = LINK_MS;
+        const answered = apiClient(link, z.unknown());
+        await reachFetch();
+        advance(LINK_MS);
+        await answered;
+      }
+
+      nextStalls = true;
+      const third = apiClient("/dritte", z.unknown(), { method: "POST" }).then(
+        () => assert.fail("the stalled body resolved"),
+        (error: unknown) => error,
+      );
+      await reachFetch();
+      const signal = sends.at(-1)?.init.signal ?? assert.fail("the third call sent no signal");
+
+      advance(REQUEST_DEADLINE_MS - 2 * LINK_MS - 1);
+      assert.equal(signal.aborted, false, "the third call was aborted before the deadline");
+      advance(1);
+      assert.equal(signal.aborted, true, "the deadline passed and the third call ran on to its own bound");
+
+      return [await third, requestOutcomeUnknown()];
+    });
+
+    assert.ok(thrown instanceof APINetworkError, "the cut call was not thrown as a network error");
+    assert.equal(thrown.isTimeout, true, "the cut call was not answered as a timeout");
+    assert.equal(cut, true, "the request does not know its deadline cut a call");
+  });
+
+  /** What a call made once nothing is left throws, and whether the request recorded a write for it. */
+  const refusedUnsent = (options: RequestInit) =>
+    runWithRequestScope({ traceId: TRACE, spanId: SPAN }, async () => {
+      advance(REQUEST_DEADLINE_MS);
+
+      const error = await apiClient("/x", z.unknown(), options).then(
+        () => assert.fail("the call past the deadline resolved"),
+        (failure: unknown) => failure,
+      );
+
+      return [error, requestWriteSent()] as const;
+    });
+
+  /* Not a network error, which every reader of one takes for a write that may have landed: nothing left. */
+  it("draws no request once nothing is left, and throws a write as unsent", async () => {
+    const [thrown, wrote] = await refusedUnsent({ method: "POST" });
+
+    assert.equal(sends.length, 0, "a request was drawn after the deadline had passed");
+    assert.equal(wrote, false, "a write the deadline refused unsent was recorded as sent");
+    assert.ok(thrown instanceof ApiUnsentError, "the refused write was thrown as one that may have landed");
+  });
+
+  it("throws a read refused unsent as the timeout it answers like", async () => {
+    const [thrown] = await refusedUnsent({});
+
+    assert.equal(sends.length, 0, "a request was drawn after the deadline had passed");
+    assert.ok(thrown instanceof APINetworkError, "the refused read was not thrown as a network error");
+    assert.deepEqual([thrown.isTimeout, thrown.method], [true, "GET"]);
   });
 });

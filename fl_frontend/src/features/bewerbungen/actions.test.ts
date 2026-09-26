@@ -1,38 +1,110 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-import { describe, it } from "node:test";
+import { registerHooks } from "node:module";
+import { beforeEach, describe, it } from "node:test";
 
-import ts from "typescript";
-
-import { DECLARED_RULES, declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
+import { doubleSendMail } from "@/core/mailDouble.ts";
+import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
+import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { toActionErrorResult } from "@/shared/utils/actionError.ts";
+import { formatSpielDatum } from "@/shared/utils/format.ts";
 
 import { labelBadge } from "../../shared/components/ui/badges.ts";
 import { buildTeamBanners } from "../teams/components/forms/AdminTeamEditForm/banners.ts";
+import { mapAlreadyEnteredRefusal, mapEntryRefusal, mapReplacementRefusal } from "../teams/refusals.ts";
+import { bestaetigungsLink } from "./bestaetigungLink.ts";
 import { BEWERBUNG_GRUND_MAX_LENGTH, ERNEUT_OHNE_ADRESSE } from "./constants.ts";
-import { FLAblehnenBewerbungPayloadSchema } from "./schemas.ts";
+import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals.ts";
+import { FLAblehnenBewerbungPayloadSchema, FLBewerbungSchema } from "./schemas.ts";
 
+import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 import type { TeamSaisonMembership } from "../teams/types.ts";
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
-const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
-const CONSTANTS = readFileSync(path.resolve(import.meta.dirname, "constants.ts"), "utf8");
-/** The bound the decline's reason is mirrored from, read where it is written. */
-const BOUNDS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "shared", "schemas", "bounds.py"), "utf8");
-/** The endpoint itself, which is what says which of the season's services an acceptance reaches. */
-const ADMIN_ROUTER = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "bewerbungen", "admin_router.py"), "utf8");
-/** The season's entry write, which the acceptance reaches the group rule through rather than calling it. */
-const TEAMS_CRUD = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "teams", "crud.py"), "utf8");
-/** Where a duplicate key becomes a 409, which is the only channel a Kürzel collision arrives on. */
-const EXCEPTION_HANDLERS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "exception_handlers.py"), "utf8");
+const BEWERBUNG_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
+const PERSON = { vorname: "Anna", email: "anna@example.de" };
 
-/** The club editor's own mapper, which answers `REQ-ENTER-005` about the same stored state this one does. */
-const TEAMS_ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "teams", "actions.ts"), "utf8");
+/**
+ * The application the three contact repairs read before their write: a proposed school, whose name
+ * needs no club list, and a seat holding a person with an address, so each repair reaches its write.
+ */
+const GELESEN = {
+  bewerbung: { saison_id: "2026", schule: { team_name: "Gymnasium Beispiel" }, team_id: null, kontakte: { ansprechperson: PERSON } },
+};
 
-/** The two decision messages, read for the fields their call sites in `actions.ts` have to fill. */
-const EMAIL = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "core", "bewerbungEmail.ts"), "utf8");
+/** The same application naming a club the league already holds rather than a new school. */
+const GEWAEHLT = { bewerbung: { ...GELESEN.bewerbung, schule: null, team_id: "6890a1b2c3d4e5f607182932" } };
+
+/** An acceptance of the application, whatever its group. */
+const ANNAHME = { id: BEWERBUNG_ID, gruppe: "A", trikot_farbe: null } as const;
+
+/** The triage mapper as the acceptance asks it about `GELESEN`, a proposed school. */
+const acceptanceMapped = (refusal: unknown) => mapTriageRefusal(refusal, "neue_schule");
+
+/** The triage mapper as the decline asks it, entering nothing. */
+const declineMapped = (refusal: unknown) => mapTriageRefusal(refusal, null);
+
+/** What a failed action says, or nothing where it succeeded. */
+const errorOf = (result: { success: boolean; error?: string }): string => result.error ?? "";
+
+/** The origin this run is configured with, which no published address shares. */
+const ORIGIN = "http://localhost:3000";
+/** Every argument each logger call was handed, whatever its level. */
+const logged: unknown[][] = [];
+const recorders = globalThis as unknown as Record<string, unknown>;
+recorders.__flBewerbungLogged = logged;
+registerHooks({
+  load(url, context, nextLoad) {
+    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
+    if (url.endsWith("/src/core/config.ts")) {
+      return { format: "module", source: `export const frontend_config = { AUTH_URL: "${ORIGIN}" };`, shortCircuit: true };
+    }
+    return nextLoad(url, context);
+  },
+});
+
+/* The real actions and their mutations, called: the request they run in, the application three of
+   them read first, the club list, the backend client and the mailer are the doubles. */
+doubleActionRequest();
+const { sent: mailed, answerWith: answerMailWith } = doubleSendMail();
+// After the request's own doubles, whose silent logger this one stands in front of: the stream is
+// where a token must never reach.
+registerHooks({
+  load(url, context, nextLoad) {
+    if (!url.endsWith("/src/core/logging.ts")) return nextLoad(url, context);
+    const source = `const record = (...args) => void globalThis.__flBewerbungLogged.push(args);
+export const logger = { debug: record, info: record, warn: record, error: record };`;
+    return { format: "module", source, shortCircuit: true };
+  },
+});
+/** Whether `call` is the delivery report a sent message files, after the write the case is about. */
+const reportsDelivery = ({ endpoint }: ApiCall): boolean => endpoint.startsWith("/bewerbungen/zustellung");
+/** The report's answer as the endpoint sends it: every seat the message named, applied. */
+const deliveryApplied = ({ body }: ApiCall) => ({ acknowledged: 1, angewendet: (JSON.parse(body ?? "{}") as { rollen: string[] }).rollen });
+
+const client = doubleApiAnswers((call) => Promise.resolve(reportsDelivery(call) ? deliveryApplied(call) : { acknowledged: 1 }));
+const writes = client.calls;
+/** Answers the write a case presses with `next`, the delivery report after it as the endpoint does. */
+const answerWith = (next: () => Promise<unknown>): void =>
+  client.answerWith((call) => (reportsDelivery(call) ? Promise.resolve(deliveryApplied(call)) : next()));
+const { answerWith: readWith } = doubleActions({ modules: ["/src/features/bewerbungen/queries.ts"], answer: () => Promise.resolve(GELESEN) });
+const { answerWith: clubsWith } = doubleActions({
+  modules: ["/src/features/teams/queries.ts"],
+  answer: () => Promise.resolve({ teams: [{ id: GEWAEHLT.bewerbung.team_id, name: "Helmholtz" }] }),
+});
+
+beforeEach(() => {
+  logged.length = 0;
+});
+const {
+  ablehnenBewerbungAction,
+  annehmenBewerbungAction,
+  besetzeKontaktSitzAction,
+  einwilligungErneutSendenAction,
+  kontaktEmailKorrigierenAction,
+} = await import("./actions.ts");
+/* After the doubles, as the actions are: a static import would load the real mail module first. */
+const { rollenText } = await import("./notifications.ts");
 
 const ANNEHMEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/annehmen";
 const ABLEHNEN_OPERATION = "POST /bewerbungen/{bewerbung_id}/ablehnen";
@@ -40,34 +112,8 @@ const ERNEUT_OPERATION = "POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/e
 /** Where the entry rules acceptance REUSES are declared: they belong to the season's boundary, not the triage's. */
 const ENTRY_OPERATION = "POST /teams/{team_id}/saisons";
 
-/** The season's entry services, which `annehmen_bewerbung` reaches rather than restating. */
-const REUSED_SERVICES = ["find_entry_refusal", "find_club_entry_refusal"];
-
-/** The group rule is reached through this helper rather than called (`docs/backend/spec.md :: I53`). */
-const ENTRY_CHOKE_POINT = "refuse_a_full_gruppe";
-
-/** The entry rules those services implement, and so the ones an acceptance can answer. */
+/** The season's entry rules, which `annehmen_bewerbung` reaches rather than restating, and so the ones an acceptance can answer. */
 const REUSED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003", "REQ-ENTER-005"];
-
-const MAPPER = sliceBetween(ACTIONS, "function mapTriageRefusal", "async function resolveBewerbungTeamName");
-const ANNEHMEN_ACTION = sliceBetween(ACTIONS, "export async function annehmenBewerbungAction", "export async function ablehnenBewerbungAction");
-const ABLEHNEN_ACTION = sliceBetween(ACTIONS, "export async function ablehnenBewerbungAction", "function mapEinwilligungErneutRefusal");
-/** Everything both decisions run AFTER their write has committed. */
-const NOTIFY = sliceBetween(ACTIONS, "async function notifyBewerbung", "export async function annehmenBewerbungAction");
-
-const ERNEUT_MAPPER = sliceBetween(ACTIONS, "function mapEinwilligungErneutRefusal", "const BEWERBUNG_WEG");
-/** Every sentence the re-send answers with instead of a link, read as its declaration writes it. */
-const resendSentence = (name: string): string => new RegExp(String.raw`const ` + name + String.raw` =([\s\S]*?);\n`).exec(ACTIONS)?.[1] ?? "";
-/** What the re-send runs after its own write, which is where the minted token is spent. */
-const ERNEUT_SENDER = sliceBetween(ACTIONS, "async function sendeBestaetigungErneut", "export async function einwilligungErneutSendenAction");
-const ERNEUT_ACTION = sliceBetween(ACTIONS, "export async function einwilligungErneutSendenAction", "function mapKontaktEmailRefusal");
-
-const KORREKTUR_MAPPER = sliceBetween(ACTIONS, "function mapKontaktEmailRefusal", "export async function kontaktEmailKorrigierenAction");
-const KORREKTUR_ACTION = sliceBetween(ACTIONS, "export async function kontaktEmailKorrigierenAction", "function mapKontaktSitzRefusal");
-
-const SITZ_MAPPER = sliceBetween(ACTIONS, "function mapKontaktSitzRefusal", "export async function besetzeKontaktSitzAction");
-/* The reseat is the last declaration in the module, so its slice runs to the end of the file. */
-const SITZ_ACTION = sliceBetween(ACTIONS, "export async function besetzeKontaktSitzAction", null);
 
 /** The one field of a submitted application an administrator may move, in the backend's own spelling. */
 const KORREKTUR_OPERATION = "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email";
@@ -75,166 +121,318 @@ const KORREKTUR_OPERATION = "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/em
 /** The one path that writes a whole person onto a submitted application, in the backend's own spelling. */
 const SITZ_OPERATION = "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}";
 
-/** Every code the correction answers, read off its own switch rather than the re-send's. */
-const korrekturCodes = [...KORREKTUR_MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
+describe("the triage's refusals against the codes its endpoints publish", () => {
+  it("answers every code the acceptance publishes through the triage's mapper", async () => {
+    const published = publishedRefusals(ANNEHMEN_OPERATION);
 
-/** Every code the reseat answers, read off its own switch rather than the correction's. */
-const sitzCodes = [...SITZ_MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
-
-/**
- * Parsed rather than matched: a regex has to guess where a call ends, and the shape it guesses at is
- * the multi-line one — a one-line call then reaches the stream unread by anything below.
- */
-function loggerCalls(): { level: string; argument: string }[] {
-  const source = ts.createSourceFile(path.resolve(import.meta.dirname, "actions.ts"), ACTIONS, ts.ScriptTarget.Latest, true);
-  const found: { level: string; argument: string }[] = [];
-
-  source.forEachChild(function walk(node: ts.Node): void {
-    if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
-      const callee = node.expression;
-
-      if (ts.isIdentifier(callee.expression) && callee.expression.text === "logger") {
-        for (const argument of node.arguments) found.push({ level: callee.name.text, argument: argument.getText(source) });
-      }
-    }
-    node.forEachChild(walk);
-  });
-
-  return found;
-}
-
-/** Every code the re-send answers, read off its own switch rather than the triage's. */
-const erneutCodes = [...ERNEUT_MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
-
-/** Every code the mapper answers, read off its switch. */
-const mappedCodes = [...MAPPER.matchAll(/case "(REQ-[A-Z]+-\d+)"/g)].map((match) => match[1]!);
-
-describe("the slices these assertions read", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
-  it("cuts the mapper and both actions out of the file before reading them", () => {
-    assert.ok(MAPPER.includes("error.serverErrorCode"), "the mapper's switch is outside its slice");
-    assert.ok(!MAPPER.includes("annehmenBewerbung(validated.data)"), "the mapper's slice reaches the acceptance");
-
-    assert.ok(ANNEHMEN_ACTION.includes("annehmenBewerbung(validated.data)"), "the acceptance's call is outside its slice");
-    assert.ok(!ANNEHMEN_ACTION.includes("ablehnenBewerbung("), "the acceptance's slice reaches the decline");
-
-    assert.ok(ABLEHNEN_ACTION.includes("ablehnenBewerbung(validated.data)"), "the decline's call is outside its slice");
-    assert.ok(!ABLEHNEN_ACTION.includes("annehmenBewerbung("), "the decline's slice reaches the acceptance");
-
-    assert.ok(NOTIFY.includes("await resolveBewerbungTeamName("), "the club-name read is outside the notification's slice");
-    assert.ok(!NOTIFY.includes("annehmenBewerbung("), "the notification's slice reaches the acceptance");
-
-    assert.ok(mappedCodes.length > 0, "no refusal code could be read out of the mapper at all");
-  });
-
-  it("cuts the re-send's mapper, its send and its action apart", () => {
-    assert.ok(ERNEUT_MAPPER.includes("error.serverErrorCode"), "the re-send mapper's switch is outside its slice");
-    assert.ok(!ERNEUT_MAPPER.includes("sendBewerbungMail("), "the re-send mapper's slice reaches the send");
-    assert.ok(resendSentence("KEIN_LINK_VERSCHICKT") !== "", "the re-send's own sentences are no longer where this file reads them");
-
-    assert.ok(ERNEUT_SENDER.includes("await sendBewerbungMail("), "the re-send's send is outside its slice");
-    assert.ok(!ERNEUT_SENDER.includes("erneutSendenEinwilligung("), "the send's slice reaches the write it reports");
-
-    assert.ok(ERNEUT_ACTION.includes("erneutSendenEinwilligung(validated.data)"), "the re-send's call is outside its slice");
-    assert.ok(!ERNEUT_ACTION.includes("ablehnenBewerbung("), "the re-send's slice reaches the decline");
-
-    assert.ok(erneutCodes.length > 0, "no refusal code could be read out of the re-send's mapper at all");
-  });
-});
-
-describe("the triage's refusals against the backend's register", () => {
-  /* Before every comparison below: a test looping over an empty declared list maps nothing and
-     stays green. An empty list here is the harness failing, not the source. */
-  it("finds rules declared against both endpoints and against the entry they reuse", () => {
-    assert.ok(declaredCodes(ANNEHMEN_OPERATION).length > 0, `no rule is declared against ${ANNEHMEN_OPERATION}`);
-    assert.ok(declaredCodes(ABLEHNEN_OPERATION).length > 0, `no rule is declared against ${ABLEHNEN_OPERATION}`);
-    assert.ok(declaredCodes(ENTRY_OPERATION).length > 0, `no rule is declared against ${ENTRY_OPERATION}`);
-  });
-
-  it("maps every code the acceptance declares", () => {
-    const declared = declaredCodes(ANNEHMEN_OPERATION);
-
-    // A floor rather than the exact set: the register grows an operation onto a rule whenever an
-    // endpoint starts reusing it, and what harms an admin is a declared code nobody maps.
+    // A floor rather than the exact set: the backend grows an operation onto a rule whenever an
+    // endpoint starts reusing it, and what harms an admin is a published code nobody maps.
     for (const code of ["REQ-BEWERBUNG-001", "REQ-BEWERBUNG-002"]) {
-      assert.ok(declared.includes(code), `${code} is no longer declared against the acceptance`);
+      assert.ok(published.includes(code), `${code} is no longer published on the acceptance`);
     }
-    for (const code of declared) {
-      assert.ok(mappedCodes.includes(code), `${code} is declared against the acceptance and reaches the admin unmapped`);
+    for (const code of published) {
+      assert.notEqual(
+        answerShown(ANNEHMEN_OPERATION, code, acceptanceMapped),
+        null,
+        `${code} is published on the acceptance and reaches the admin unmapped`,
+      );
     }
+    await assertEachAnswered({
+      operation: ANNEHMEN_OPERATION,
+      refuseWith: answerWith,
+      act: () => annehmenBewerbungAction(ANNAHME),
+      mapped: acceptanceMapped,
+    });
   });
 
-  it("maps every code the decline declares", () => {
-    const declared = declaredCodes(ABLEHNEN_OPERATION);
+  it("answers every code the decline publishes through the triage's mapper", async () => {
+    const published = publishedRefusals(ABLEHNEN_OPERATION);
 
-    assert.deepEqual(declared, ["REQ-BEWERBUNG-001"]);
-    for (const code of declared) {
-      assert.ok(mappedCodes.includes(code), `${code} is declared against the decline and reaches the admin unmapped`);
-    }
-  });
-
-  /* Pinned through the SERVICES the acceptance calls, not only through the operation strings: those
-     are typed by hand on each rule, while which entry rules can refuse an acceptance follows from
-     the calls. */
-  it("maps the entry rules the acceptance reuses", () => {
-    assert.ok(
-      ADMIN_ROUTER.includes(`${ENTRY_CHOKE_POINT}(`),
-      `the acceptance no longer reaches ${ENTRY_CHOKE_POINT}, so the group rules cannot refuse it`,
+    assert.deepEqual(
+      published.filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-BEWERBUNG-001"],
     );
-    assert.ok(TEAMS_CRUD.includes("find_entry_refusal("), `${ENTRY_CHOKE_POINT} no longer judges the group's own rule`);
-    assert.ok(ADMIN_ROUTER.includes("find_club_entry_refusal("), "the acceptance no longer judges the club's own entry");
+    for (const code of published) {
+      assert.notEqual(
+        answerShown(ABLEHNEN_OPERATION, code, declineMapped),
+        null,
+        `${code} is published on the decline and reaches the admin unmapped`,
+      );
+    }
+    await assertEachAnswered({
+      operation: ABLEHNEN_OPERATION,
+      refuseWith: answerWith,
+      act: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, grund: "Die Liga ist voll." }),
+      mapped: declineMapped,
+    });
+  });
+
+  /* Asked of the acceptance itself rather than of the entry endpoint: `annehmen_bewerbung` reaches the
+     season's entry services, so each of their rules is one an acceptance can be refused on. */
+  it("maps the entry rules the acceptance reuses", () => {
+    const published = publishedRefusals(ANNEHMEN_OPERATION);
 
     for (const code of REUSED_ENTRY_CODES) {
-      const rule = DECLARED_RULES.find((declared) => declared.code === code);
-
-      assert.ok(rule, `${code} is declared by no rule at all`);
-      assert.ok(
-        REUSED_SERVICES.some((service) => rule.source.includes(service)),
-        `${code} is implemented by neither service the acceptance calls`,
+      assert.ok(published.includes(code), `${code} is no longer published on the acceptance`);
+      assert.notEqual(
+        acceptanceMapped(refusedOn(ANNEHMEN_OPERATION, code)),
+        null,
+        `${code} can refuse an acceptance and the mapper does not answer it`,
       );
-      assert.ok(mappedCodes.includes(code), `${code} can refuse an acceptance and the mapper does not answer it`);
     }
   });
 
-  it("answers the Kürzel collision with the repair rather than the generic conflict", () => {
-    assert.ok(EXCEPTION_HANDLERS.includes('HTTP_409_CONFLICT, "DB-COMMON-002"'), "a duplicate key no longer arrives as a 409");
-    assert.match(MAPPER, /case "DB-COMMON-002":/, "the Kürzel collision falls through to the generic conflict message");
-    assert.match(MAPPER, /Kürzel des anderen Teams/, "the collision names no way out of itself");
+  /* The stored application tells a new school's `uniq_shorthand` collision from a picked club's
+     `uniq_saison_id_team_id` one, and each gets the repair its own index asks for. */
+  it("answers a new school's duplicate key with the Kürzel repair rather than the generic conflict", async () => {
+    assert.ok(publishedRefusals(ANNEHMEN_OPERATION).includes(DUPLICATE_KEY), "a duplicate key is no longer published on the acceptance");
+    answerWith(() => Promise.reject(refusedOn(ANNEHMEN_OPERATION, DUPLICATE_KEY)));
+
+    assert.match(errorOf(await annehmenBewerbungAction(ANNAHME)), /Kürzel des anderen Teams/, "the collision names no way out of itself");
   });
 
-  /* The register above pins that the code is answered; this pins WHAT it answers. Which of the
-     school's fields fails never reaches the wire, so the message names the candidates, and no edit
-     path turns the application into a shape acceptance takes. */
+  it("answers a picked club's duplicate key in the club editor's words for a club already in the season", async () => {
+    const collision = refusedOn(ANNEHMEN_OPERATION, DUPLICATE_KEY);
+    answerWith(() => Promise.reject(collision));
+    readWith(() => Promise.resolve(GEWAEHLT));
+
+    const answer = errorOf(await annehmenBewerbungAction(ANNAHME));
+
+    assert.equal(answer, mapAlreadyEnteredRefusal(collision), "a club already in the season is sent to change another club's Kürzel");
+  });
+
+  /* Neither sentence without the application: each tells the admin to repair something that may not be at fault. */
+  it("leaves the duplicate key to the shared reader where the application cannot be read", async () => {
+    const collision = refusedOn(ANNEHMEN_OPERATION, DUPLICATE_KEY);
+    answerWith(() => Promise.reject(collision));
+    readWith(() => Promise.reject(new Error("the read failed")));
+
+    assert.equal(errorOf(await annehmenBewerbungAction(ANNAHME)), toActionErrorResult(collision).error);
+  });
+
+  /* The loop above pins that it is answered, this what it says. Which of the school's fields
+     fails never reaches the wire, so the message names the candidates, and no edit path turns the
+     application into a shape acceptance takes. */
   it("names the school's own fields, and a repair that exists, when no club can be created", () => {
-    assert.match(MAPPER, /case "REQ-BEWERBUNG-003":/, "a school no club can be created from falls through to the generic conflict");
-    assert.match(MAPPER, /Team, vollständiger Name, Kürzel, Adresse oder Website/, "the refusal names no field an administrator could look at");
-    assert.match(MAPPER, /Lehne die Bewerbung ab und lege das Team/, "the refusal offers no route the admin surface actually has");
+    const refusal = acceptanceMapped(refusedOn(ANNEHMEN_OPERATION, "REQ-BEWERBUNG-003"))?.error ?? "";
+
+    assert.match(
+      refusal,
+      /Team, vollständiger Name, Kürzel, Adresse oder Website/,
+      "the refusal names no field an administrator could look at",
+    );
+    assert.match(refusal, /Lehne die Bewerbung ab und lege das Team/, "the refusal offers no route the admin surface actually has");
   });
 
-  /* Found through the SERVICE rather than by its number, which is the backend's to assign. A code
-     the mapper misses falls through to the 409 fallback (`.claude/rules/cross-surface.md`). */
+  /* `fl_backend/app/api/bewerbungen/services.py :: find_unconfirmed_kontakte_refusal`'s code. A code the
+     mapper misses falls through to the shared fallback (`.claude/rules/cross-surface.md`). */
   it("answers the acceptance's refusal over an unconfirmed seat", () => {
-    const rule = DECLARED_RULES.find((declared) => declared.source.includes("find_unconfirmed_kontakte_refusal"));
-
-    assert.ok(rule, "no rule is implemented by find_unconfirmed_kontakte_refusal");
-    assert.ok(rule.operations.includes(ANNEHMEN_OPERATION), `${rule.code} is not declared against the acceptance`);
-    assert.ok(mappedCodes.includes(rule.code), `${rule.code} refuses an acceptance over an unconfirmed seat and the mapper does not answer it`);
-  });
-
-  it("maps no code the backend does not declare at all", () => {
-    for (const code of mappedCodes) {
-      assert.ok(
-        DECLARED_RULES.some((rule) => rule.code === code),
-        `${code} is mapped here and declared by no rule`,
-      );
-    }
+    assert.ok(
+      publishedRefusals(ANNEHMEN_OPERATION).includes("REQ-BEWERBUNG-013"),
+      "the unconfirmed seat's rule is no longer published on the acceptance",
+    );
+    assert.match(acceptanceMapped(refusedOn(ANNEHMEN_OPERATION, "REQ-BEWERBUNG-013"))?.error ?? "", /Kontaktperson/);
   });
 
   /* `REQ-ENTER-004` guards a group MOVE, which no acceptance performs: a row is created here, never
      moved. Reaching it from this action would refuse an acceptance over fixtures it does not touch. */
   it("leaves the group move's own refusal on the move", () => {
-    assert.ok(!mappedCodes.includes("REQ-ENTER-004"), "the triage answers the group move's refusal");
-    assert.ok(!declaredCodes(ANNEHMEN_OPERATION).includes("REQ-ENTER-004"), "the register moved the lock onto the acceptance");
+    assert.ok(!publishedRefusals(ANNEHMEN_OPERATION).includes("REQ-ENTER-004"), "the document moved the lock onto the acceptance");
+  });
+});
+
+/**
+ * The application a decision's write answers with: a proposed school, one seat holding a mailbox.
+ * Parsed at construction, so a field the read model gains fails here rather than in the answer.
+ */
+const ENTSCHIEDEN = FLBewerbungSchema.parse({
+  id: BEWERBUNG_ID,
+  saison_id: "2026",
+  eingereicht_am: "2026-09-01",
+  status: "eingereicht",
+  team_id: null,
+  schule: {
+    team_name: "Gymnasium Beispiel",
+    full_name: "Gymnasium Beispiel Frankfurt",
+    shorthand: "GB",
+    schulform: null,
+    address: { strasse: "Schulweg", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
+    website_url: null,
+  },
+  kontakte: {
+    trainer: null,
+    ansprechperson: {
+      ...PERSON,
+      nachname: "Meier",
+      telefon: "069 1234567",
+      geburtsdatum: null,
+      einwilligung: {
+        umfang: "kontaktdaten",
+        erfasst_von: "person",
+        text_version: LIGA_KENNTNISNAHME.textVersion,
+        datum: "2026-09-01",
+        bestaetigt_am: null,
+      },
+    },
+    stellvertretung: null,
+    trainer_ist_zugleich: null,
+  },
+  trikot: { vorhandener_satz: "Ein Satz", wunschfarbe: null },
+  kader: { voraussichtliche_groesse: 14, gute_spieler: 2 },
+  stufengroesse: null,
+  wunschgegner: null,
+  entscheidung: null,
+  bestaetigungen: null,
+  bestaetigungsfrist: null,
+});
+
+/** Both decisions, each pressed as its panel presses it and answered, where it lands, with `document`. */
+const DECISIONS = [
+  {
+    where: "the acceptance",
+    betreff: "Zusage",
+    operation: ANNEHMEN_OPERATION,
+    landed: (document: object) => ({
+      acknowledged: 1,
+      saison_id: "2026",
+      gruppe: "A",
+      trikot_farbe: null,
+      created_team: true,
+      team_id: GEWAEHLT.bewerbung.team_id,
+      updated_document: document,
+    }),
+    press: () => annehmenBewerbungAction(ANNAHME),
+  },
+  {
+    where: "the decline",
+    betreff: "Absage",
+    operation: ABLEHNEN_OPERATION,
+    landed: (document: object) => ({ acknowledged: 1, updated_document: document }),
+    press: () => ablehnenBewerbungAction({ id: BEWERBUNG_ID, grund: "Die Liga ist voll." }),
+  },
+] as const;
+
+/** Each repair's payload, as its control sends it for the Ansprechperson's seat. */
+const ERNEUT = { id: BEWERBUNG_ID, rolle: "ansprechperson" } as const;
+const KORREKTUR = { id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@example.de" } as const;
+const SITZ = {
+  id: BEWERBUNG_ID,
+  rolle: "ansprechperson",
+  vorname: "Berta",
+  nachname: "Beispiel",
+  email: "berta@example.de",
+  telefon: "069 1234567",
+  text_version: LIGA_KENNTNISNAHME.textVersion,
+} as const;
+
+/** The paths of the three repairs above, each a write that mints the seat's link and so spends the one it held. */
+const ERNEUT_PATH = `/bewerbungen/${BEWERBUNG_ID}/einwilligung/ansprechperson/erneut`;
+const KORREKTUR_PATH = `/bewerbungen/${BEWERBUNG_ID}/kontakte/ansprechperson/email`;
+const SITZ_PATH = `/bewerbungen/${BEWERBUNG_ID}/kontakte/ansprechperson`;
+const MINTS: readonly string[] = [ERNEUT_PATH, KORREKTUR_PATH, SITZ_PATH];
+
+/** The application read as the page drew it, with the deadline a seat's link stood under before any repair. */
+const VOR_DER_REPARATUR = { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: "2026-09-01" } };
+
+/**
+ * The application read, answering `before` until a repair's write has landed and `after` from then
+ * on, an `Error` as a read that failed: the message is composed from the read that follows the write.
+ */
+function readAcrossTheWrite(before: unknown, after: unknown): void {
+  readWith(() => {
+    const answer = requestsOf(writes).some(({ endpoint }) => MINTS.includes(endpoint)) ? after : before;
+    return answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer);
+  });
+}
+
+/** The re-send's answer to each state it cannot compose a message from. */
+async function unsendableAnswers(): Promise<Record<"weg" | "leer" | "ohneAdresse" | "ohneTeam", string>> {
+  const pressOn = async (gelesen: unknown): Promise<string> => {
+    readWith(() => Promise.resolve(gelesen));
+    return errorOf(await einwilligungErneutSendenAction(ERNEUT));
+  };
+
+  return {
+    weg: await pressOn(null),
+    leer: await pressOn({ bewerbung: { ...GELESEN.bewerbung, kontakte: { ansprechperson: null } } }),
+    ohneAdresse: await pressOn({ bewerbung: { ...GELESEN.bewerbung, kontakte: { ansprechperson: { ...PERSON, email: "" } } } }),
+    ohneTeam: await pressOn({ bewerbung: { ...GELESEN.bewerbung, schule: null, team_id: null } }),
+  };
+}
+
+/** What the re-send's write answers where it lands, minting `token-neu` for the seat and mailbox it matched. */
+const erneutGeschrieben = (overrides: object = {}) => ({
+  acknowledged: 1,
+  token: "token-neu",
+  rolle: "ansprechperson",
+  email: PERSON.email,
+  rollen: ["ansprechperson"],
+  bestaetigungsfrist: "2026-09-18",
+  ...overrides,
+});
+
+/** What the correction's write answers where it lands. */
+const korrigiert = () => ({
+  acknowledged: 1,
+  email: KORREKTUR.email,
+  rollen: ["ansprechperson"],
+  token: "token-korrektur",
+  bestaetigungsfrist: "2026-09-18",
+});
+
+/** What the reseat's write answers where it lands, for the seats it filled. */
+const besetzt = (rollen: readonly string[] = ["ansprechperson"]) => ({
+  acknowledged: 1,
+  rollen: rollen,
+  token: "token-sitz",
+  bestaetigungsfrist: "2026-09-18",
+});
+
+/** A success's report, or the refusal's sentence where the action failed. */
+const answerOf = (result: { success: boolean; message?: string; error?: string }): string => result.message ?? result.error ?? "";
+
+/** What a landed write that moves no cached read leaves in `cacheCalls`: the spine's refresh, and nothing else. */
+const REFRESH_ALONE = [{ name: "refresh", args: [] }];
+
+describe("the application's writes", () => {
+  it("reach each published path and method, the id and the seat in the path and the fields alone in the body", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    for (const { press, landed } of DECISIONS) {
+      answerWith(() => Promise.resolve(landed(ENTSCHIEDEN)));
+      await press();
+    }
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+    await einwilligungErneutSendenAction(ERNEUT);
+    answerWith(() => Promise.resolve(korrigiert()));
+    await kontaktEmailKorrigierenAction(KORREKTUR);
+    answerWith(() => Promise.resolve(besetzt()));
+    await besetzeKontaktSitzAction(SITZ);
+
+    // A delivery report's `am` is the moment the provider took the message, so it is held to its form alone.
+    const sent = requestsOf(writes).map((request) => {
+      if (request.body === undefined) return request;
+      const { am, ...body } = request.body as { am?: unknown };
+      if (am !== undefined) assert.match(String(am), /^\d{4}-\d\d-\d\dT[\d:.]+Z$/, "a delivery report dated in another form");
+      return { ...request, body };
+    });
+    const bewerbung = `/bewerbungen/${BEWERBUNG_ID}`;
+    // Filed under the id the provider gave the message: the two decisions' messages are the first two.
+    const report = (nachricht: number) => ({
+      endpoint: "/bewerbungen/zustellung/angenommen",
+      method: "POST",
+      body: { bewerbung_id: BEWERBUNG_ID, nachricht_id: `msg-${String(nachricht)}`, rollen: ["ansprechperson"] },
+    });
+    const { id: _id, rolle: _rolle, ...person } = SITZ;
+    assert.deepEqual(sent, [
+      { endpoint: `${bewerbung}/annehmen`, method: "POST", body: { gruppe: ANNAHME.gruppe, trikot_farbe: ANNAHME.trikot_farbe } },
+      { endpoint: `${bewerbung}/ablehnen`, method: "POST", body: { grund: "Die Liga ist voll." } },
+      { endpoint: `${bewerbung}/einwilligung/ansprechperson/erneut`, method: "POST", body: undefined },
+      report(3),
+      { endpoint: `${bewerbung}/kontakte/ansprechperson/email`, method: "POST", body: { email: KORREKTUR.email } },
+      report(4),
+      { endpoint: `${bewerbung}/kontakte/ansprechperson`, method: "POST", body: person },
+      report(5),
+    ]);
   });
 });
 
@@ -242,108 +440,79 @@ describe("what each decision moves", () => {
   /* The acceptance created or entered a club, which is what the cached team reads answer. Both tags
      or neither: the base one alone leaves a season-scoped read stale, and the granular one alone
      leaves every unscoped read stale. */
-  it("invalidates the club reads the acceptance wrote into", () => {
-    assert.ok(ANNEHMEN_ACTION.includes('updateTag("teams")'), "the acceptance stopped invalidating the club reads");
-    assert.match(
-      ANNEHMEN_ACTION,
-      /updateTag\(`teams:saison_id:\$\{annahmeOperation\.saison_id\}`\)/,
-      "the acceptance no longer invalidates the season it entered the club into",
+  it("invalidates the club reads the acceptance wrote into", async () => {
+    const [acceptance] = DECISIONS;
+    answerWith(() => Promise.resolve(acceptance.landed(ENTSCHIEDEN)));
+
+    assert.equal((await acceptance.press()).success, true, "the acceptance never landed, so its tags are judged on nothing");
+    assert.deepEqual(
+      cacheCalls,
+      [{ name: "updateTag", args: ["teams"] }, { name: "updateTag", args: ["teams:saison_id:2026"] }, ...REFRESH_ALONE],
+      "the acceptance clears other than the club reads it wrote into",
     );
   });
 
   /* A decline moves this application's own `status` and `entscheidung`, and nothing cached holds an
      application: both triage reads are uncached because an application is personal data. */
-  it("moves no tag on a decline, and says why", () => {
-    assert.ok(!ABLEHNEN_ACTION.includes("updateTag("), "the decline clears a cached read its endpoint does not move");
-    assert.match(ABLEHNEN_ACTION, /No tag moves/, "the decline no longer says why it invalidates nothing");
+  it("moves no tag on a decline", async () => {
+    const [, decline] = DECISIONS;
+    answerWith(() => Promise.resolve(decline.landed(ENTSCHIEDEN)));
+
+    assert.equal((await decline.press()).success, true, "the decline never landed, so its tags are judged on nothing");
+    assert.deepEqual(cacheCalls, REFRESH_ALONE, "the decline clears a cached read its endpoint does not move");
   });
 });
 
 describe("the message that follows a decision", () => {
   /* After the write in both, and the write is what the report is about: a message sent first would
      tell a school it was accepted over a request the backend went on to refuse. */
-  it("mails only after the API write has answered", () => {
-    for (const [slice, call, where] of [
-      [ANNEHMEN_ACTION, "annehmenBewerbung(validated.data)", "the acceptance"],
-      [ABLEHNEN_ACTION, "ablehnenBewerbung(validated.data)", "the decline"],
-    ] as const) {
-      const wrote = slice.indexOf(call);
-      const notified = slice.indexOf("await notifyBewerbung(");
+  it("mails nothing where the API write is refused", async () => {
+    for (const { where, operation, press } of DECISIONS) {
+      answerWith(() => Promise.reject(refusedOn(operation, "REQ-BEWERBUNG-001")));
 
-      assert.notEqual(notified, -1, `${where} sends no message at all`);
-      assert.ok(wrote < notified, `${where} sends its message before the write it reports`);
+      const result = await press();
+
+      assert.equal(result.success, false, `${where} was not refused, so the mail below is judged on nothing`);
+      assert.deepEqual(mailed, [], `${where} told the school of a decision the backend refused`);
     }
   });
 
   /* The decision is committed and no endpoint takes it back, so nothing after the send may report a
      failure — the addresses that were not reached travel in the success message instead. */
-  it("reports the decision as taken whatever the mail did", () => {
-    for (const [slice, where] of [
-      [ANNEHMEN_ACTION, "the acceptance"],
-      [ABLEHNEN_ACTION, "the decline"],
-    ] as const) {
-      const notified = slice.indexOf("await notifyBewerbung(");
+  it("reports the decision as taken whatever the mail did", async () => {
+    answerMailWith(() => "refused");
 
-      assert.ok(!slice.slice(notified).includes("success: false"), `${where} fails the whole decision over a message it could not send`);
-      assert.match(slice.slice(notified), /message: /, `${where} drops the delivery report out of what it returns`);
+    for (const { where, betreff, landed, press } of DECISIONS) {
+      answerWith(() => Promise.resolve(landed(ENTSCHIEDEN)));
+
+      const result = await press();
+
+      assert.equal(result.success, true, `${where} fails the whole decision over a message it could not send`);
+      assert.match(answerOf(result), new RegExp(`Die ${betreff} konnte niemandem zugestellt werden`), `${where} drops the delivery report`);
     }
   });
 });
 
-describe("how each endpoint is addressed", () => {
-  it("posts to the two triage endpoints, with the id in the path", () => {
-    assert.match(MUTATIONS, /`\/bewerbungen\/\$\{id\}\/annehmen`/, "the acceptance no longer addresses its own endpoint");
-    assert.match(MUTATIONS, /`\/bewerbungen\/\$\{id\}\/ablehnen`/, "the decline no longer addresses its own endpoint");
-
-    for (const endpoint of ["annehmen", "ablehnen"]) {
-      assert.match(
-        MUTATIONS,
-        new RegExp(`${endpoint}\`,\\s*FL\\w+ResponseSchema,\\s*\\{\\s*method: "POST"`),
-        `the ${endpoint} is sent as something other than a POST`,
-      );
-    }
-  });
-
-  /* The id is split off into the path by both mutations; a body carrying one is refused whole, the
-     backend payloads forbidding an extra field. */
-  it("splits the id out of both bodies", () => {
-    const splits = [...MUTATIONS.matchAll(/\{ id, \.\.\.fields \}/g)];
-
-    assert.equal(splits.length, 2, `expected both mutations to split the id off, saw ${String(splits.length)}`);
-    assert.ok(!MUTATIONS.includes("JSON.stringify(validated.data)"), "a mutation sends the whole payload, id included");
-  });
-});
-
-/** One branch with its comments dropped: only a rendered string is German a reader ever sees. */
-const withoutComments = (source: string): string => source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
-
-/** The German inside one branch: a quoted literal holding a space, which no identifier beside it is. */
-const sentencesOf = (rendering: string): string[] => [...rendering.matchAll(/"([^"]*\s[^"]*)"/g)].map((match) => match[1]!);
-
-/**
- * Where one surface's German comes from. A mapper hands over its own text and the cut below finds the
- * branch; a builder hands over what it returned, its title being a template literal no cut can read.
- */
-type RenderingSource = { where: string; source: string } | { where: string; rendered: readonly string[] };
+/** Where one surface's German comes from: what it rendered, split into its sentences. */
+type RenderingSource = { where: string; rendered: readonly string[] };
 
 /**
  * Every rendering of one refusal code. Read across the surfaces rather than out of one: what a code
  * means is the backend's, and two surfaces naming that meaning differently is what this looks for.
  */
-function renderingsOf(code: string, sources: readonly RenderingSource[]): { where: string; german: string; sentences: string[] }[] {
-  return sources.flatMap((source) =>
-    "rendered" in source
-      ? [{ where: source.where, german: source.rendered.join(" "), sentences: [...source.rendered] }]
-      : source.source
-          .split(`"${code}"`)
-          .slice(1)
-          // To the next branch: a `case` label, another `if` on the same field, or the mapper's own close.
-          .map((tail, index) => {
-            const german = withoutComments(tail.split(/case "|serverErrorCode ===|default:|\n\}/)[0] ?? "");
+function renderingsOf(sources: readonly RenderingSource[]): { where: string; german: string; sentences: string[] }[] {
+  return sources.map((source) => ({ where: source.where, german: source.rendered.join(" "), sentences: [...source.rendered] }));
+}
 
-            return { where: `${source.where} #${String(index + 1)}`, german: german, sentences: sentencesOf(german) };
-          }),
-  );
+/**
+ * What one mapper renders for one code, one sentence per entry: a banner's reason and its repair,
+ * or a field's message. Nothing where the mapper leaves the code, which the counts below then catch.
+ */
+function renderedBy(where: string, answer: string | { error?: string; fieldErrors?: Record<string, string> } | null): RenderingSource[] {
+  if (answer === null) return [];
+  const texts = typeof answer === "string" ? [answer] : [answer.error ?? "", ...Object.values(answer.fieldErrors ?? {})];
+
+  return [{ where: where, rendered: texts.flatMap((text) => text.split(/(?<=\.)\s+/)).filter((sentence) => sentence !== "") }];
 }
 
 /**
@@ -379,9 +548,13 @@ const retiredBannerOn = (saisonStatus: TeamSaisonMembership["saisonStatus"]): Re
  */
 const SAISON_STATUSES = ["future", "active", "past"] as const satisfies readonly TeamSaisonMembership["saisonStatus"][];
 
-const RETIRED_RENDERINGS = renderingsOf("REQ-ENTER-005", [
-  { where: "the triage", source: MAPPER },
-  { where: "the club editor", source: TEAMS_ACTIONS },
+const RETIRED_RENDERINGS = renderingsOf([
+  ...renderedBy("the triage", mapTriageRefusal(refusedOn(ANNEHMEN_OPERATION, "REQ-ENTER-005"), "bestehendes_team")),
+  ...renderedBy("the club editor's entry", mapEntryRefusal(refusedOn(ENTRY_OPERATION, "REQ-ENTER-005"))),
+  ...renderedBy(
+    "the club editor's replacement",
+    mapReplacementRefusal(refusedOn("POST /teams/{team_id}/saisons/{saison_id}/replace", "REQ-ENTER-005")),
+  ),
   ...SAISON_STATUSES.flatMap(retiredBannerOn),
 ]);
 
@@ -481,9 +654,9 @@ const SHARED_ENTRY_CODES = ["REQ-ENTER-001", "REQ-ENTER-002", "REQ-ENTER-003"];
 
 const ENTRY_RENDERINGS = SHARED_ENTRY_CODES.map((code) => ({
   code: code,
-  renderings: renderingsOf(code, [
-    { where: "the triage", source: MAPPER },
-    { where: "the club editor", source: TEAMS_ACTIONS },
+  renderings: renderingsOf([
+    ...renderedBy("the triage", acceptanceMapped(refusedOn(ANNEHMEN_OPERATION, code))),
+    ...renderedBy("the club editor", mapEntryRefusal(refusedOn(ENTRY_OPERATION, code))),
   ]),
 }));
 
@@ -514,24 +687,6 @@ describe("the sentence both entry surfaces render for one code", () => {
 });
 
 describe("the decline's bound", () => {
-  /* Mirrored, never recalled: past the backend's ceiling the API's `REQ-VAL-001` marks the box with a
-     generic sentence rather than the bound's German. */
-  it("caps the reason at the number the backend states", () => {
-    const backend = /^BEWERBUNG_GRUND_MAX_LENGTH: Final = (\d+)$/m.exec(BOUNDS)?.[1] ?? "";
-    const frontend = /^export const BEWERBUNG_GRUND_MAX_LENGTH = (\d+);$/m.exec(CONSTANTS)?.[1] ?? "";
-
-    assert.notEqual(backend, "", "the backend no longer states the bound under that name");
-    assert.equal(frontend, backend, "the frontend mirror disagrees with the backend's bound");
-    assert.ok(SCHEMAS.includes("BEWERBUNG_GRUND_MAX_LENGTH"), "the payload schema stopped reading the mirrored bound");
-    /* The ceiling the schema enforces, beside the mention of it: a wider one written beside the import
-       still reads the mirror, and the reason it lets through is the one the API marks no field for. */
-    assert.equal(
-      FLAblehnenBewerbungPayloadSchema.safeParse({ id: "68d0f2a4c1e2b3a4d5e6f708", grund: "a".repeat(BEWERBUNG_GRUND_MAX_LENGTH + 1) }).success,
-      false,
-      "a reason one character past the mirrored bound is taken here and refused only by the backend",
-    );
-  });
-
   /* A decline is stored on the application and mailed to the school in one irreversible step, so
      „   “ has to be refused as the empty reason it is. The backend's `min_length` does not strip, and
      the browser is where the value still can be. */
@@ -569,400 +724,457 @@ describe("a message that cannot be sent", () => {
   /* Thrown out of a decision, a read AFTER its write turns one that stands into a reported failure,
      and the retry it invites is refused as already taken (`REQ-BEWERBUNG-001`). Thrown BEFORE the
      re-send's mint, the same read has cost nothing. */
-  it("guards the club-name read that follows a write, and lets the one preceding a mint throw", () => {
-    const file = path.resolve(import.meta.dirname, "actions.ts");
-    const source = ts.createSourceFile(file, ACTIONS, ts.ScriptTarget.Latest, true);
-    const reads: { holder: string; guarded: boolean; at: number }[] = [];
+  it("reports a decision whose club read failed as taken, and tells the administrator to write to the contacts", async () => {
+    clubsWith(() => Promise.reject(new Error("the club list answered nothing")));
 
-    source.forEachChild(function walk(node: ts.Node): void {
-      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "resolveBewerbungTeamName") {
-        let guarded = false;
-        let holder = "";
+    for (const { where, betreff, landed, press } of DECISIONS) {
+      // A picked club, whose name only the club list answers.
+      answerWith(() => Promise.resolve(landed({ ...ENTSCHIEDEN, schule: null, team_id: GEWAEHLT.bewerbung.team_id })));
 
-        for (let ancestor: ts.Node | undefined = node; ancestor?.parent; ancestor = ancestor.parent) {
-          const parent: ts.Node = ancestor.parent;
+      const result = await press();
 
-          // The TRY block specifically: the same call standing in the catch would be unguarded again.
-          if (ts.isTryStatement(parent) && parent.tryBlock === ancestor && parent.catchClause) guarded = true;
-          if (holder === "" && ts.isFunctionDeclaration(parent) && parent.name !== undefined) holder = parent.name.text;
-        }
-        reads.push({ holder: holder, guarded: guarded, at: node.getStart(source) });
-      }
-      node.forEachChild(walk);
-    });
-
-    // The exact count rather than a floor: each reader is judged by its own rule below, and a
-    // further one is a path whose side of the write nobody has decided.
-    assert.equal(reads.length, 4, `expected four club-name readers, found ${String(reads.length)}`);
-
-    const afterTheWrite = reads.find((read) => read.holder === "notifyBewerbung");
-    assert.ok(afterTheWrite?.guarded, "a failed club read reports a committed decision as one that did not happen");
-
-    // Each of the three that mint: each reads before its own write, where a throw has cost nothing.
-    for (const [holder, schreiben] of [
-      ["einwilligungErneutSendenAction", "await erneutSendenEinwilligung("],
-      ["kontaktEmailKorrigierenAction", "await korrigierenKontaktEmail("],
-      ["besetzeKontaktSitzAction", "await besetzenKontaktSitz("],
-    ] as const) {
-      const beforeTheMint = reads.find((read) => read.holder === holder);
-
-      assert.ok(beforeTheMint, `${holder} reads the club's name outside the action that mints, where a throw costs a link`);
-      assert.ok(
-        beforeTheMint.at < ACTIONS.indexOf(schreiben),
-        `${holder} reads the club's name after spending the seat's link on a message it may not be able to compose`,
+      assert.equal(result.success, true, `${where} reports a committed decision as one that did not happen`);
+      assert.match(
+        answerOf(result),
+        new RegExp(`Die ${betreff} konnte nicht verschickt werden\\. Melde Dich selbst bei den Kontaktpersonen der Bewerbung\\.`),
+        `${where} leaves the administrator no remedy for the message nobody received`,
       );
     }
   });
 
-  /* What the administrator is left with: the decision is taken, nobody was written to, and the only
-     remedy is theirs. */
-  it("tells the administrator to write to the contacts itself", () => {
-    assert.match(NOTIFY, /konnte nicht verschickt werden/, "the caught failure reports nothing to the administrator");
-    assert.match(NOTIFY, /Melde Dich selbst bei den Kontaktpersonen der Bewerbung\./, "the report names no remedy");
-    assert.ok(!NOTIFY.includes("throw"), "the notification throws again, so the committed decision still reports a failure");
-  });
-});
+  it("lets the club read that precedes a mint throw, before any link is spent", async () => {
+    readWith(() => Promise.resolve(GEWAEHLT));
+    clubsWith(() => Promise.reject(new Error("the club list answered nothing")));
 
-describe("what each decision message is told", () => {
-  /* An OPTIONAL field the call site never fills compiles, lints and builds, and mails the message
-     with the sentence it feeds silently missing. Read off the message rather than listed here. */
-  it("fills every field the message declares", () => {
-    const fields = (block: string) => [...block.matchAll(/^ {2}(\w+)\??:/gm)].map((treffer) => treffer[1]!);
-    const acceptMail = fields(sliceBetween(EMAIL, "export interface BewerbungZusageData", "\n}"));
-    const declineMail = fields(sliceBetween(EMAIL, "export interface BewerbungAbsageData", "\n}"));
+    for (const [where, press, mint] of [
+      ["the re-send", () => einwilligungErneutSendenAction(ERNEUT), ERNEUT_PATH],
+      ["the correction", () => kontaktEmailKorrigierenAction(KORREKTUR), KORREKTUR_PATH],
+      ["the reseat", () => besetzeKontaktSitzAction(SITZ), SITZ_PATH],
+    ] as const) {
+      const result = await press();
 
-    // Anti-vacuity: a moved interface would leave both lists empty and this assertion true of nothing.
-    assert.ok(acceptMail.length > 0 && declineMail.length > 0, "neither message's field list was found, so nothing was compared");
-
-    // The BUILDER's own argument, never the whole action: `gruppe` is also a key of the sentence
-    // `describeAufnahme` composes, so a search over the action passes a mail that dropped it.
-    const acceptCall = sliceBetween(ACTIONS, "buildBewerbungZusageEmail({", "})");
-    const declineCall = sliceBetween(ACTIONS, "buildBewerbungAbsageEmail({", "})");
-
-    assert.ok(acceptCall !== "" && declineCall !== "", "one of the two mail builders is no longer called with an object literal");
-
-    // Collected rather than asserted one at a time: a per-field assertion stops at the first gap, so
-    // a second one is invisible until the first is closed.
-    const unfilled = [
-      ...acceptMail.map((feld) => [feld, acceptCall, "annehmen"] as const),
-      ...declineMail.map((feld) => [feld, declineCall, "ablehnen"] as const),
-    ]
-      .filter(([feld, aufruf]) => !new RegExp(`\\b${feld}:`).test(aufruf))
-      .map(([feld, , wo]) => `${wo}/${feld}`)
-      .sort();
-
-    assert.deepEqual(unfilled, [], `these declared message fields reach no call site: ${unfilled.join(", ")}`);
+      assert.equal(result.success, false, `${where} answered as though the club read had not failed`);
+      assert.deepEqual(
+        requestsOf(writes).filter(({ endpoint }) => endpoint === mint),
+        [],
+        `${where} spent the seat's link before a club read that could not compose its message`,
+      );
+    }
   });
 });
 
 describe("the re-sent confirmation link", () => {
-  /* Before the comparison below: a test looping over an empty declared list maps nothing and stays
-     green, and this endpoint's operation string is the backend's to spell. */
-  it("finds rules declared against the endpoint it addresses", () => {
-    assert.ok(declaredCodes(ERNEUT_OPERATION).length > 0, `no rule is declared against ${ERNEUT_OPERATION}`);
-  });
-
-  it("maps every code the re-send declares", () => {
-    for (const code of declaredCodes(ERNEUT_OPERATION)) {
-      assert.ok(erneutCodes.includes(code), `${code} is declared against the re-send and reaches the admin unmapped`);
-    }
-  });
-
-  it("maps no code the backend does not declare at all", () => {
-    for (const code of erneutCodes) {
-      assert.ok(
-        DECLARED_RULES.some((rule) => rule.code === code),
-        `${code} is mapped by the re-send and declared by no rule`,
+  it("answers every code the re-send publishes through its own mapper", async () => {
+    for (const code of publishedRefusals(ERNEUT_OPERATION)) {
+      assert.notEqual(
+        answerShown(ERNEUT_OPERATION, code, mapEinwilligungErneutRefusal),
+        null,
+        `${code} is published on the re-send and reaches the admin unmapped`,
       );
     }
+    await assertEachAnswered({
+      operation: ERNEUT_OPERATION,
+      refuseWith: answerWith,
+      act: () => einwilligungErneutSendenAction({ id: BEWERBUNG_ID, rolle: "ansprechperson" }),
+      mapped: mapEinwilligungErneutRefusal,
+    });
   });
 
-  it("addresses its own endpoint, with the seat in the path", () => {
-    assert.match(MUTATIONS, /`\/bewerbungen\/\$\{id\}\/einwilligung\/\$\{rolle\}\/erneut`/, "the re-send no longer addresses its own endpoint");
+  /* A link built on the published origin sends a reader of the local stack into production
+     (`docs/frontend/spec.md :: I186`). */
+  it("mints the re-sent link on the configured origin", async () => {
+    mailed.length = 0;
+    const frist = "2026-09-18";
+    readWith(() => Promise.resolve({ bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: frist } }));
+    answerWith(() =>
+      Promise.resolve({
+        acknowledged: 1,
+        token: "token-neu",
+        rolle: "ansprechperson",
+        email: PERSON.email,
+        rollen: ["ansprechperson"],
+        bestaetigungsfrist: frist,
+      }),
+    );
+
+    const result = await einwilligungErneutSendenAction({ id: BEWERBUNG_ID, rolle: "ansprechperson" });
+
+    assert.equal(result.success, true, "the re-send mailed nothing, so the origin below is judged on nothing");
+    assert.ok(
+      mailed.some(({ text }) => text.includes(`${ORIGIN}/bestaetigung/kontakt?token=token-neu`)),
+      "the re-sent link is minted on an origin this run was not configured with",
+    );
   });
 
   /* The token is minted and the deadline moved by the time the message is composed, so the read that
      carries the new deadline has to come after the write rather than from the page's own copy. */
-  it("mails only after the API write has answered", () => {
-    const wrote = ERNEUT_ACTION.indexOf("erneutSendenEinwilligung(validated.data)");
-    const notified = ERNEUT_ACTION.indexOf("await sendeBestaetigungErneut(");
+  it("mails nothing where the write is refused, and states the deadline the write set", async () => {
+    answerWith(() => Promise.reject(refusedOn(ERNEUT_OPERATION, publishedRefusals(ERNEUT_OPERATION)[0] ?? "")));
 
-    assert.notEqual(notified, -1, "the re-send sends no message at all");
-    assert.ok(wrote < notified, "the re-send sends its message before the write that mints the token");
-    assert.ok(ERNEUT_SENDER.includes("await getBewerbungById("), "the message is composed without re-reading the deadline the write moved");
+    assert.equal((await einwilligungErneutSendenAction(ERNEUT)).success, false, "the re-send was not refused, so nothing is judged");
+    assert.equal(mailed.length, 0, "the re-send mailed a link the backend refused to mint");
+
+    // The refused write is recorded too, and the read below tells before from after by the writes.
+    writes.length = 0;
+    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: "2026-09-18" } });
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+
+    assert.equal(
+      (await einwilligungErneutSendenAction(ERNEUT)).success,
+      true,
+      "the re-send mailed nothing, so the deadline is judged on nothing",
+    );
+    assert.ok(
+      mailed[0]?.text.includes(formatSpielDatum("2026-09-18")),
+      "the message states the deadline the page held, not the one the write set",
+    );
   });
 
   /* Judged before the mint, because `compose_erneut_update` replaces the seat's entry whole: a press
      that could never compose a message would otherwise void the link that seat is holding. */
-  it("refuses what it could not send before it spends the seat's link", () => {
-    const mint = ERNEUT_ACTION.indexOf("await erneutSendenEinwilligung(");
+  it("refuses what it could not send before it spends the seat's link", async () => {
+    const answers = await unsendableAnswers();
 
-    assert.notEqual(mint, -1, "the re-send no longer calls the write these cases are about");
-
-    for (const [pruefung, satz] of [
-      ["gelesen === null", "BEWERBUNG_WEG"],
-      ["person === null", "SITZ_LEER"],
-      ['person.email === ""', "ERNEUT_OHNE_ADRESSE"],
-      ["benanntesTeam === null", "KEIN_TEAM"],
-    ] as const) {
-      const at = ERNEUT_ACTION.indexOf(pruefung);
-
-      assert.notEqual(at, -1, `the re-send no longer judges \`${pruefung}\``);
-      assert.ok(at < mint, `the re-send judges \`${pruefung}\` after a mint that has already voided the seat's link`);
-      assert.ok(ERNEUT_ACTION.slice(at, mint).includes(`error: ${satz}`), `\`${pruefung}\` no longer answers with ${satz}`);
-    }
+    assert.match(answers.weg, /Diese Bewerbung gibt es nicht mehr/);
+    assert.match(answers.leer, /Für diese Rolle steht niemand mehr in der Bewerbung/);
+    assert.equal(answers.ohneAdresse, ERNEUT_OHNE_ADRESSE);
+    assert.match(answers.ohneTeam, /Diese Bewerbung nennt kein Team/);
+    assert.deepEqual(writes, [], "the re-send spent the seat's link on a press that could never compose its message");
   });
 
   /* One sentence for four states told an administrator the seat had no address where the application
      named no club at all, and the repair each of them offers is a different one. */
-  it("gives each of those states a sentence of its own", () => {
+  it("gives each of those states a sentence of its own", async () => {
     // Punctuation dropped: a refusal built from a reason and a repair carries the stops `buildRefusal`
     // writes, and comparing them would call two identical answers different.
-    const comparable = (germanSentences: string[]): string =>
-      germanSentences
-        .join(" ")
+    const comparable = (satz: string): string =>
+      satz
         .toLowerCase()
         .replace(/[^\p{L}\p{N}]+/gu, " ")
         .trim();
-    const readBack = (name: string): string => comparable(sentencesOf(resendSentence(name)));
 
-    // The empty address's sentence is the one the strip shares, so it is read off the constant both import.
-    const germanSentences = [
-      ...["BEWERBUNG_WEG", "SITZ_LEER"].map(readBack),
-      comparable([ERNEUT_OHNE_ADRESSE]),
-      ...["KEIN_TEAM", "KEIN_LINK_VERSCHICKT"].map(readBack),
-    ];
+    const unsendable = Object.values(await unsendableAnswers());
+    answerMailWith(() => "refused");
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+    const unsent = errorOf(await einwilligungErneutSendenAction(ERNEUT));
+
+    const saetze = [...unsendable, unsent].map(comparable);
 
     assert.ok(
-      germanSentences.every((satz) => satz !== ""),
-      `a re-send sentence reaches no literal at all: ${germanSentences.join(" | ")}`,
+      saetze.every((satz) => satz !== ""),
+      `a re-send answered with no sentence at all: ${saetze.join(" | ")}`,
     );
-    assert.equal(new Set(germanSentences).size, germanSentences.length, "two of the re-send's answers say the same thing");
+    assert.equal(new Set(saetze).size, saetze.length, "two of the re-send's answers say the same thing");
   });
 
   /* A success title over a message that never went out leaves an administrator waiting on an answer
      to a link that reached nobody, while the seat's previous one is spent. */
-  it("answers a message that did not go out as a failure, naming what the press cost", () => {
-    const notified = ERNEUT_ACTION.indexOf("await sendeBestaetigungErneut(");
+  it("answers a message that did not go out as a failure, naming what the press cost", async () => {
+    answerMailWith(() => "refused");
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
 
-    assert.notEqual(notified, -1, "the re-send sends no message at all");
-    assert.match(
-      ERNEUT_ACTION.slice(notified),
-      /zustellung\.verschickt \? \{ success: true/,
-      "the send's own verdict no longer decides the answer",
-    );
-    assert.match(
-      ERNEUT_ACTION.slice(notified),
-      /success: false, error: zustellung\.error/,
-      "a refused send is still reported as a link on its way",
-    );
-    assert.match(ERNEUT_ACTION.slice(notified), /message: /, "the re-send drops the delivery report out of what it returns");
+    const result = await einwilligungErneutSendenAction(ERNEUT);
 
-    const costs = resendSentence("KEIN_LINK_VERSCHICKT");
+    assert.equal(result.success, false, "a refused send is still reported as a link on its way");
+    assert.match(errorOf(result), /Der alte Link gilt nicht mehr/, "the failure does not say the previous link is spent");
+    assert.match(errorOf(result), /Versuche es noch einmal/, "the failure names no way out");
+  });
 
-    assert.match(costs, /Der alte Link gilt nicht mehr/, "the failure does not say the previous link is spent");
-    assert.match(costs, /Versuche es noch einmal/, "the failure names no way out");
+  /* The spine leaves a refusal standing, and a message that did not go leaves the mint standing: the
+     seat's old link is spent and its deadline moved, which the page shows. */
+  it("refreshes the page after a re-send whose message did not go", async () => {
+    readAcrossTheWrite(VOR_DER_REPARATUR, null);
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+
+    const result = await einwilligungErneutSendenAction(ERNEUT);
+
+    assert.equal(result.success, false, "the message went, so the refresh below is judged on nothing");
+    assert.equal(cacheCalls.filter(({ name }) => name === "refresh").length, 1, "the page keeps a link the mint has already spent");
   });
 
   /* The endpoint writes the deadline in the same update that mints the token, so an application
      answering none afterwards is a contract broken rather than a state to word for an administrator. */
-  it("throws where the write it has just made answers no deadline", () => {
-    const at = ERNEUT_SENDER.indexOf("frist === null");
+  it("throws where the write it has just made answers no deadline", async () => {
+    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
 
-    assert.notEqual(at, -1, "the send no longer judges the deadline the write moved");
-    assert.match(
-      ERNEUT_SENDER.slice(at),
-      /^frist === null\) throw new Error\(/,
+    const result = await einwilligungErneutSendenAction(ERNEUT);
+    const thrown = logged.find(([line]) => line === "Admin mutation failed: einwilligungErneutSendenAction")?.[1];
+
+    assert.equal(result.success, false);
+    assert.ok(
+      thrown instanceof Error && /Bestätigungsfrist/.test(thrown.message),
       "a missing deadline is worded for an administrator rather than thrown",
     );
+    assert.deepEqual(mailed, [], "a message went out stating no deadline");
+  });
+
+  /* The throw above lands after the mint, which stands behind it as behind a refused send. */
+  it("refreshes the page after a re-send that threw after the mint", async () => {
+    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+
+    await einwilligungErneutSendenAction(ERNEUT);
+
+    assert.equal(cacheCalls.filter(({ name }) => name === "refresh").length, 1, "the page keeps a link the mint has already spent");
   });
 
   /* A correction landing between the page's read and this write moves the mailbox, and only the
      write's own image knows it: the read would mail the address the correction replaced. */
-  it("mails the address and the seats the write itself answered", () => {
-    const notified = ERNEUT_ACTION.indexOf("await sendeBestaetigungErneut(");
+  it("mails the address and the seats the write itself answered", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(erneutGeschrieben({ email: "anna.neu@example.de", rollen: ["trainer", "ansprechperson"] })));
 
-    assert.notEqual(notified, -1, "the re-send sends no message at all");
-    assert.match(ERNEUT_ACTION.slice(notified), /email: erneutOperation\.email/, "the re-send mails the address its own read held");
-    assert.match(ERNEUT_ACTION.slice(notified), /sitze: erneutOperation\.rollen/, "the re-send names seats its own read paired");
-    assert.ok(!ERNEUT_ACTION.includes("gepaarteSitze("), "the re-send recomputes the pair off the page it was drawn from");
-    assert.match(SCHEMAS, /FLBewerbungEinwilligungErneutResponseSchema = BaseAPIResponseSchema\.extend\(\{[^}]*email: z\.string\(\)/);
+    await einwilligungErneutSendenAction(ERNEUT);
+
+    assert.deepEqual(
+      mailed.map(({ to }) => to),
+      ["anna.neu@example.de"],
+      "the re-send mails the address its own read held",
+    );
+    assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the re-send names seats its own read paired");
   });
 
   /* The one thing on this path that must not reach a second reader. A toast, a log line or a returned
      sentence carrying it hands the seat's credential to whoever can see the screen or the stream. */
-  it("spells the minted token into the link and into nothing else", () => {
-    const link = "bestaetigungsLink(origin, token)";
+  it("spells the minted token into the link and into nothing else", async () => {
+    const token = "token-geheim";
+    const results: unknown[] = [];
 
-    assert.ok(ACTIONS.includes(link), "the confirmation link is no longer built where this case reads it");
-    assert.ok(!ACTIONS.includes("${token}"), "the minted token is spelled into a string of this module's own");
+    // Every path a minted token is in scope on that answers or logs: a landed send, a refused one,
+    // a failed read after the write, and each repair's caught throw.
+    readAcrossTheWrite(VOR_DER_REPARATUR, VOR_DER_REPARATUR);
+    answerWith(() => Promise.resolve(erneutGeschrieben({ token })));
+    results.push(await einwilligungErneutSendenAction(ERNEUT));
+    assert.ok(
+      mailed.some(({ text }) => text.includes(bestaetigungsLink(ORIGIN, token))),
+      "the landed send mailed no link, so the token is judged on nothing",
+    );
 
-    const loggedLine = loggerCalls();
+    answerMailWith(() => "refused");
+    results.push(await einwilligungErneutSendenAction(ERNEUT));
+    answerMailWith(() => "accepted");
 
-    // The module logs, so a walk that found nothing is this sweep broken rather than a clean module.
-    assert.ok(loggedLine.length > 0, "no logger call was found at all, so nothing below was judged");
+    writes.length = 0;
+    readAcrossTheWrite(VOR_DER_REPARATUR, new Error("the read after the write answered nothing"));
+    results.push(await einwilligungErneutSendenAction(ERNEUT));
 
-    for (const { level, argument } of loggedLine) {
-      // Every call in the module and every argument of it, never the re-send's slice: a line moved
-      // one function along is the same credential on the same stream.
-      assert.doesNotMatch(argument, /\btoken\b/, `logger.${level} names the token in \`${argument}\``);
-      assert.ok(!argument.includes(link), `logger.${level} names the confirmation link in \`${argument}\``);
+    for (const [press, answer] of [
+      [() => kontaktEmailKorrigierenAction(KORREKTUR), { acknowledged: 1, token, email: KORREKTUR.email, rollen: ["ansprechperson"] }],
+      [() => besetzeKontaktSitzAction(SITZ), { acknowledged: 1, token, rollen: ["ansprechperson"] }],
+    ] as const) {
+      writes.length = 0;
+      readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
+      answerWith(() => Promise.resolve({ ...answer, bestaetigungsfrist: "2026-09-18" }));
+      results.push(await press());
     }
+
+    // The module logs on these paths, so a stream that recorded nothing is this case broken rather
+    // than a clean module.
+    assert.ok(logged.length > 0, "no logger call was recorded at all, so nothing below was judged");
+
+    const spelled = (value: unknown): string =>
+      JSON.stringify(value, (_key, inner: unknown) =>
+        inner instanceof Error ? `${inner.name}: ${inner.message} ${inner.stack ?? ""}` : inner,
+      );
+    for (const args of logged) assert.ok(!spelled(args).includes(token), `a log line names the token: ${spelled(args)}`);
+    for (const result of results) assert.ok(!spelled(result).includes(token), `an answer names the token: ${spelled(result)}`);
   });
 
   /* This moves the application's own confirmation block and its deadline, and no cached read holds an
      application: both triage reads are uncached because an application is personal data. */
-  it("moves no tag, and says why", () => {
-    assert.ok(!ERNEUT_ACTION.includes("updateTag("), "the re-send clears a cached read its endpoint does not move");
-    assert.match(ERNEUT_ACTION, /No tag moves/, "the re-send no longer says why it invalidates nothing");
+  it("moves no tag", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+
+    assert.equal((await einwilligungErneutSendenAction(ERNEUT)).success, true, "the re-send never landed, so its tags are judged on nothing");
+    assert.deepEqual(cacheCalls, REFRESH_ALONE, "the re-send clears a cached read its endpoint does not move");
   });
 });
 
 describe("the corrected contact address", () => {
-  /* Before the comparison below: a test looping over an empty declared list maps nothing and stays
-     green, and this endpoint's operation string is the backend's to spell. */
-  it("finds rules declared against the endpoint it addresses", () => {
-    assert.ok(declaredCodes(KORREKTUR_OPERATION).length > 0, `no rule is declared against ${KORREKTUR_OPERATION}`);
-  });
-
-  it("maps every code the correction declares", () => {
-    for (const code of declaredCodes(KORREKTUR_OPERATION)) {
-      assert.ok(korrekturCodes.includes(code), `${code} is declared against the correction and reaches the admin unmapped`);
-    }
-  });
-
-  it("maps no code the backend does not declare at all", () => {
-    for (const code of korrekturCodes) {
-      assert.ok(
-        DECLARED_RULES.some((rule) => rule.code === code),
-        `${code} is mapped by the correction and declared by no rule`,
+  it("answers every code the correction publishes through its own mapper", async () => {
+    for (const code of publishedRefusals(KORREKTUR_OPERATION)) {
+      assert.notEqual(
+        answerShown(KORREKTUR_OPERATION, code, mapKontaktEmailRefusal),
+        null,
+        `${code} is published on the correction and reaches the admin unmapped`,
       );
     }
-  });
-
-  it("addresses its own endpoint, with the seat in the path and the address in the body", () => {
-    assert.match(MUTATIONS, /`\/bewerbungen\/\$\{id\}\/kontakte\/\$\{rolle\}\/email`/, "the correction no longer addresses its own endpoint");
-    assert.match(MUTATIONS, /body: JSON\.stringify\(\{ email: email \}\)/, "the correction sends something other than the address alone");
+    await assertEachAnswered({
+      operation: KORREKTUR_OPERATION,
+      refuseWith: answerWith,
+      act: () => kontaktEmailKorrigierenAction({ id: BEWERBUNG_ID, rolle: "ansprechperson", email: "anna.neu@example.de" }),
+      mapped: mapKontaktEmailRefusal,
+    });
   });
 
   /* The read that carries the person's first name was taken BEFORE the write, so it still holds the
      address the correction replaced. Mailing that one sends the new link to the bounced mailbox. */
-  it("mails the address the write stored, never the one the read still holds", () => {
-    assert.match(
-      KORREKTUR_ACTION,
-      /email: validated\.data\.email/,
+  it("mails the address the write stored, never the one the read still holds", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(korrigiert()));
+
+    await kontaktEmailKorrigierenAction(KORREKTUR);
+
+    assert.deepEqual(
+      mailed.map(({ to }) => to),
+      [KORREKTUR.email],
       "the correction composes its message against the address the application held before the write",
     );
   });
 
   /* The address IS corrected whatever the message did, so a failure arm here would tell the
      administrator to try a correction that has already happened. */
-  it("reports a corrected address whose message did not go as a correction that stands", () => {
-    assert.match(KORREKTUR_ACTION, /success: true, verschickt: false/, "a refused send reports the correction as one that did not happen");
-    assert.ok(!KORREKTUR_ACTION.includes("success: false, error: zustellung.error"), "the correction takes the re-send's failure arm");
+  it("reports a corrected address whose message did not go as a correction that stands", async () => {
+    answerMailWith(() => "refused");
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(korrigiert()));
+
+    const result = await kontaktEmailKorrigierenAction(KORREKTUR);
+
+    assert.equal(result.success, true, "a refused send reports the correction as one that did not happen");
+    assert.equal(result.success ? result.verschickt : undefined, false, "a refused send reports a link on its way");
+    assert.match(answerOf(result), /Der alte Link gilt nicht mehr/, "the report does not say the previous link is spent");
   });
 
   /* The send throws where the write it follows answered no deadline, and `runAdminMutation` turns a
      throw into `success: false` — which raises „Adresse nicht korrigiert“ over an address that is
      written, with the seat's previous link already dead. */
-  it("catches a message that threw, the address being stored before it is composed", () => {
-    const sentMail = KORREKTUR_ACTION.indexOf("sendeBestaetigungErneut({");
-    const caught = KORREKTUR_ACTION.indexOf("} catch (error) {", sentMail);
+  it("catches a message that threw, the address being stored before it is composed", async () => {
+    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
+    answerWith(() => Promise.resolve(korrigiert()));
 
-    assert.notEqual(sentMail, -1, "the correction sends no message at all");
-    assert.notEqual(caught, -1, "a throw from the send escapes the correction as a write that did not happen");
-    assert.match(
-      KORREKTUR_ACTION.slice(caught),
-      /success: true, verschickt: false, message: KEIN_LINK_VERSCHICKT/,
-      "the caught throw answers with something other than the correction standing and no link sent",
-    );
+    const result = await kontaktEmailKorrigierenAction(KORREKTUR);
+
+    assert.equal(result.success, true, "a throw from the send escapes the correction as a write that did not happen");
+    assert.equal(result.success ? result.verschickt : undefined, false);
+    assert.match(answerOf(result), /Der alte Link gilt nicht mehr/, "the caught throw answers with something other than no link sent");
   });
 
   /* One press writes every seat the person holds (`fl_frontend/src/features/bewerbungen/bestaetigungStand.ts :: gepaarteSitze`), so
      the message names both or a reader goes looking for a second link that will never come. */
-  it("names every seat of a mirrored pair in the message it sends", () => {
-    assert.match(
-      KORREKTUR_ACTION,
-      /sitze: gepaarteSitze\(bewerbung, validated\.data\.rolle\)/,
-      "the correction names one seat of a mirrored pair",
+  it("names every seat of a mirrored pair in the message it sends", async () => {
+    readWith(() =>
+      Promise.resolve({
+        bewerbung: {
+          ...VOR_DER_REPARATUR.bewerbung,
+          kontakte: { trainer: PERSON, ansprechperson: PERSON, stellvertretung: null, trainer_ist_zugleich: "ansprechperson" },
+          bestaetigungen: { trainer: { bestaetigt_am: null }, ansprechperson: { bestaetigt_am: null }, stellvertretung: null },
+        },
+      }),
     );
+    answerWith(() => Promise.resolve(korrigiert()));
+
+    await kontaktEmailKorrigierenAction(KORREKTUR);
+
+    assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the correction names one seat of a mirrored pair");
   });
 
-  it("moves no tag, and says why", () => {
-    assert.ok(!KORREKTUR_ACTION.includes("updateTag("), "the correction clears a cached read its endpoint does not move");
-    assert.match(KORREKTUR_ACTION, /No tag moves/, "the correction no longer says why it invalidates nothing");
+  it("moves no tag", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(korrigiert()));
+
+    assert.equal(
+      (await kontaktEmailKorrigierenAction(KORREKTUR)).success,
+      true,
+      "the correction never landed, so its tags are judged on nothing",
+    );
+    assert.deepEqual(cacheCalls, REFRESH_ALONE, "the correction clears a cached read its endpoint does not move");
   });
 });
 
 describe("the person seated where one stepped out", () => {
-  /* First, so a boundary that stopped matching fails here rather than leaving every assertion below
-     reading an empty string and passing. */
-  it("cuts the reseat's mapper and its action out of the file", () => {
-    assert.ok(SITZ_MAPPER.includes("error.serverErrorCode"), "the reseat mapper's switch is outside its slice");
-    assert.ok(!SITZ_MAPPER.includes("besetzenKontaktSitz("), "the reseat mapper's slice reaches the write");
-
-    assert.ok(SITZ_ACTION.includes("besetzenKontaktSitz(validated.data)"), "the reseat's call is outside its slice");
-    assert.ok(!KORREKTUR_ACTION.includes("besetzenKontaktSitz("), "the correction's slice still runs to the end of the file");
-
-    assert.ok(sitzCodes.length > 0, "no refusal code could be read out of the reseat's mapper at all");
-  });
-
-  /* Before the comparison below: a test looping over an empty declared list maps nothing and stays
-     green, and this endpoint's operation string is the backend's to spell. */
-  it("finds rules declared against the endpoint it addresses", () => {
-    assert.ok(declaredCodes(SITZ_OPERATION).length > 0, `no rule is declared against ${SITZ_OPERATION}`);
-  });
-
-  it("maps every code the reseat declares", () => {
-    for (const code of declaredCodes(SITZ_OPERATION)) {
-      assert.ok(sitzCodes.includes(code), `${code} is declared against the reseat and reaches the admin unmapped`);
-    }
-  });
-
-  it("maps no code the backend does not declare at all", () => {
-    for (const code of sitzCodes) {
-      assert.ok(
-        DECLARED_RULES.some((rule) => rule.code === code),
-        `${code} is mapped by the reseat and declared by no rule`,
+  it("answers every code the reseat publishes through its own mapper", async () => {
+    for (const code of publishedRefusals(SITZ_OPERATION)) {
+      assert.notEqual(
+        answerShown(SITZ_OPERATION, code, mapKontaktSitzRefusal),
+        null,
+        `${code} is published on the reseat and reaches the admin unmapped`,
       );
     }
-  });
-
-  /* The correction's own path with the `/email` segment dropped, and it takes a body: everything but
-     the application and the seat is typed, so a path-only request would seat nobody. */
-  it("addresses its own endpoint, with the seat in the path and the person in the body", () => {
-    assert.match(MUTATIONS, /`\/bewerbungen\/\$\{id\}\/kontakte\/\$\{rolle\}`/, "the reseat no longer addresses its own endpoint");
-    assert.match(MUTATIONS, /body: JSON\.stringify\(person\)/, "the reseat sends something other than the person it was given");
+    await assertEachAnswered({
+      operation: SITZ_OPERATION,
+      refuseWith: answerWith,
+      act: () =>
+        besetzeKontaktSitzAction({
+          id: BEWERBUNG_ID,
+          rolle: "ansprechperson",
+          vorname: "Berta",
+          nachname: "Beispiel",
+          email: "berta@example.de",
+          telefon: "069 1234567",
+          text_version: LIGA_KENNTNISNAHME.textVersion,
+        }),
+      mapped: mapKontaktSitzRefusal,
+    });
   });
 
   /* `SITZ_LEER` is the correction's guard on an empty slot, and an empty slot is what this write runs
      ON: copied here it would refuse every press the control is offered for. */
-  it("judges no empty seat of its own, that being its entry condition", () => {
-    assert.ok(!SITZ_ACTION.includes("SITZ_LEER"), "the reseat refuses the seat state it exists to repair");
-    assert.ok(SITZ_ACTION.includes("BEWERBUNG_WEG") && SITZ_ACTION.includes("KEIN_TEAM"), "the reseat stopped judging what it cannot compose");
+  it("judges no empty seat of its own, that being its entry condition", async () => {
+    readWith(() => Promise.resolve({ bewerbung: { ...VOR_DER_REPARATUR.bewerbung, kontakte: { ansprechperson: null } } }));
+    answerWith(() => Promise.resolve(besetzt()));
+
+    const result = await besetzeKontaktSitzAction(SITZ);
+
+    assert.equal(result.success, true, `the reseat refuses the seat state it exists to repair: ${answerOf(result)}`);
+    assert.ok(
+      requestsOf(writes).some(({ endpoint }) => endpoint === SITZ_PATH),
+      "the reseat never reached its write",
+    );
+  });
+
+  it("still refuses what it cannot compose a message from, before it seats anybody", async () => {
+    readWith(() => Promise.resolve(null));
+    assert.match(errorOf(await besetzeKontaktSitzAction(SITZ)), /Diese Bewerbung gibt es nicht mehr/);
+
+    readWith(() => Promise.resolve({ bewerbung: { ...VOR_DER_REPARATUR.bewerbung, schule: null, team_id: null } }));
+    assert.match(errorOf(await besetzeKontaktSitzAction(SITZ)), /Diese Bewerbung nennt kein Team/);
+
+    assert.deepEqual(writes, [], "the reseat seated a person behind a message nobody could compose");
   });
 
   /* `gepaarteSitze` mirrors `paired_seat`, which drops a seat missing either half — and every seat
      this write fills was emptied, so a message composed from it names one seat of a pair. */
-  it("names the seats the write itself answered rather than recomputing the pair", () => {
-    assert.match(SITZ_ACTION, /sitze: sitzOperation\.rollen/, "the reseat recomputes a pair the emptied slots hide");
-    assert.ok(!SITZ_ACTION.includes("gepaarteSitze("), "the reseat reads the pair off the page it was drawn from");
+  it("names the seats the write itself answered rather than recomputing the pair", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(besetzt(["trainer", "ansprechperson"])));
+
+    await besetzeKontaktSitzAction(SITZ);
+
+    assert.ok(mailed[0]?.text.includes(rollenText(["trainer", "ansprechperson"])), "the reseat recomputes a pair the emptied slots hide");
   });
 
   /* The person IS seated whatever the message did, so a failure arm here would tell the
      administrator to seat somebody who is already in the application. */
-  it("reports a filled seat whose message did not go as a seat that stands", () => {
-    const sentMail = SITZ_ACTION.indexOf("sendeBestaetigungErneut({");
-    const caught = SITZ_ACTION.indexOf("} catch (error) {", sentMail);
+  it("reports a filled seat whose message did not go as a seat that stands", async () => {
+    readAcrossTheWrite(VOR_DER_REPARATUR, { bewerbung: { ...GELESEN.bewerbung, bestaetigungsfrist: null } });
+    answerWith(() => Promise.resolve(besetzt()));
+    const thrown = await besetzeKontaktSitzAction(SITZ);
 
-    assert.notEqual(sentMail, -1, "the reseat sends no message at all");
-    assert.notEqual(caught, -1, "a throw from the send escapes the reseat as a write that did not happen");
-    assert.match(SITZ_ACTION.slice(caught), /success: true, verschickt: false, message: KEIN_LINK_VERSCHICKT/);
-    assert.ok(!SITZ_ACTION.includes("success: false, error: zustellung.error"), "the reseat takes the re-send's failure arm");
+    writes.length = 0;
+    answerMailWith(() => "refused");
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    const refused = await besetzeKontaktSitzAction(SITZ);
+
+    for (const [how, result] of [
+      ["a throw from the send", thrown],
+      ["a refused send", refused],
+    ] as const) {
+      assert.equal(result.success, true, `${how} reports the seat as one that was never filled`);
+      assert.equal(result.success ? result.verschickt : undefined, false, `${how} reports a link on its way`);
+      assert.match(answerOf(result), /Der alte Link gilt nicht mehr/, `${how} is reported as something other than no link sent`);
+    }
   });
 
-  it("moves no tag, and says why", () => {
-    assert.ok(!SITZ_ACTION.includes("updateTag("), "the reseat clears a cached read its endpoint does not move");
-    assert.match(SITZ_ACTION, /No tag moves/, "the reseat no longer says why it invalidates nothing");
+  it("moves no tag", async () => {
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(besetzt()));
+
+    assert.equal((await besetzeKontaktSitzAction(SITZ)).success, true, "the reseat never landed, so its tags are judged on nothing");
+    assert.deepEqual(cacheCalls, REFRESH_ALONE, "the reseat clears a cached read its endpoint does not move");
   });
 });

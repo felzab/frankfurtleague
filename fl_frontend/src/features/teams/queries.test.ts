@@ -4,28 +4,20 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { beginRenderPass, itOpensAScopeThatMemoizes, requireFromFrontend, SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
 
 /** The two membership modules under test, whose `react` imports the server build must answer. */
 const FEATURE_URLS = ["teams", "spieler"].map((feature) => `${pathToFileURL(path.join(import.meta.dirname, "..", feature)).href}/`);
 
 /** Stands in for `next/headers`, whose `headers()` needs a request context no test process has. */
-const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export const headers = async () => new Headers();")}`;
-
-/** Endpoints the doubled client was asked for, cumulative across every pass in this file. */
-const reads: string[] = [];
-const RECORDER = "__flAdminMembershipReads";
-(globalThis as unknown as Record<string, string[]>)[RECORDER] = reads;
+const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
 // Replaced at the module boundary rather than the reads being reshaped to admit a seam: the real
 // client reaches a backend no test process runs, at a base URL no test run holds.
-const API_DOUBLE = `export const apiClient = async (endpoint) => {
-  globalThis.${RECORDER}.push(endpoint);
-  return { teams: [], spieler: [] };
-};`;
-
-// Extensionless, not an exports-map subpath: only CJS resolution adds one. Up here: `require.resolve` re-enters the hook.
-const NEXT_CACHE_URL = pathToFileURL(requireFromFrontend.resolve("next/cache")).href;
+/** Every request the doubled client was asked for, cumulative across every pass in this file. */
+const reads = doubleApiClient(() => ({ teams: [], spieler: [] }));
 
 const TEAMS_ENDPOINT = "/teams/memberships";
 const SPIELER_ENDPOINT = "/spieler/memberships";
@@ -36,20 +28,14 @@ registerHooks({
     const parent = context.parentURL;
     if (specifier === "react" && FEATURE_URLS.some((url) => parent?.startsWith(url))) return { url: SERVER_REACT_URL, shortCircuit: true };
     if (specifier === "next/headers") return { url: HEADERS_DOUBLE_URL, shortCircuit: true };
-    if (specifier === "next/cache") return { url: NEXT_CACHE_URL, shortCircuit: true };
     return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
   },
 });
 
 const { getTeamMemberships } = await import("./queries.ts");
 const { getSpielerMemberships } = await import("../spieler/queries.ts");
 
-const countOf = (endpoint: string): number => reads.filter((read) => read === endpoint).length;
+const countOf = (endpoint: string): number => reads.filter((read) => read.endpoint === endpoint).length;
 
 describe("the admin membership lists across a render pass", () => {
   /* First, so a scope that failed to take fails here rather than under every count below. */

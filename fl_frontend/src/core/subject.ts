@@ -11,7 +11,7 @@ import { FLSubjektResponseSchema } from "./schemas";
 import type { FLSubjektPayload, FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler } from "./schemas";
 
 /** Read-only to the depth a panel reaches: what the league holds is the endpoint's to change. */
-export type SubjectRecords = {
+type SubjectRecords = {
   readonly sitze: readonly Readonly<FLSubjektSitz>[];
   readonly spieler: readonly Readonly<FLSubjektSpieler>[];
   readonly schiedsrichter: readonly Readonly<FLSubjektSchiedsrichter>[];

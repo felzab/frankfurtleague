@@ -8,7 +8,6 @@ export function SeasonEmptyState({
   nothing,
   hint,
   isFinishedSaison,
-  className,
 }: {
   /**
    * What the season has none of, negated article included — „keinen Spielplan“, „keine Tabelle“.
@@ -19,21 +18,13 @@ export function SeasonEmptyState({
   /** What will put something here, said in the running season alone. */
   hint: string;
   isFinishedSaison: boolean;
-  className?: string;
 }) {
-  if (isFinishedSaison)
-    return (
-      <EmptyState
-        title={`Für diese Saison gibt es ${nothing}.`}
-        className={className}
-      />
-    );
+  if (isFinishedSaison) return <EmptyState title={`Für diese Saison gibt es ${nothing}.`} />;
 
   return (
     <EmptyState
       title={`Für diese Saison gibt es noch ${nothing}.`}
       hint={hint}
-      className={className}
     />
   );
 }

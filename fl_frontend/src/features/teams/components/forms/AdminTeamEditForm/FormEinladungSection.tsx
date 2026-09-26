@@ -1,40 +1,49 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { startTransition, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Ban, Copy, Envelope, Link } from "@gravity-ui/icons";
+import Ban from "@gravity-ui/icons/Ban";
+import Copy from "@gravity-ui/icons/Copy";
+import Envelope from "@gravity-ui/icons/Envelope";
+import Link from "@gravity-ui/icons/Link";
 
-import { Button, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { ToggleButton } from "@heroui/react/toggle-button";
+import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { deleteEinladungAction, mailEinladungAction, postEinladungAction } from "@/features/einladungen/actions";
 import { useEinladungLink } from "@/features/einladungen/components/EinladungLinkHolder";
-import { STUFE_CHIP } from "@/features/saisons/components/forms/StufenPicker";
+import { STUFE_CHIP_CLASSES } from "@/features/saisons/components/forms/StufenPicker";
 import { Callout } from "@/shared/components/ui/Callout";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_TEXTAREA, FORM_SECTION_HEADING, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_TEXTAREA_CLASSES, FORM_SECTION_HEADING_CLASSES, TOGGLE_GROUP_ALIGN_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FrischeEinladung } from "@/features/einladungen/components/EinladungLinkHolder";
 import type { FLEinladung } from "@/features/einladungen/schemas";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 /**
  * **The one sentence that has to survive every rewrite of this panel**: the store keeps a hash, so
  * the value an administrator can copy or mail exists only until this page is left.
  */
 const LINK_NUR_JETZT = "Der Link selbst wird nicht gespeichert. Lege einen neuen Link an, wenn Du ihn weitergeben willst.";
+
+/** A mint of unknown outcome: its token went with the answer and no read serves it back, so the repair is the row a reload shows. */
+const MINT_UNKLAR = "Lade die Seite neu. Steht dort ein Link, ziehe ihn zurück und erstelle einen neuen.";
 
 /** Where a reader goes when the browser refuses the clipboard, beside the box the value stands in. */
 const VON_HAND_KOPIEREN = "Markiere den Link im Feld darüber und kopiere ihn von Hand.";
@@ -65,7 +74,6 @@ export function FormEinladungSection({
   /** Whether the registration window is open today, which is the link's only expiry. */
   laeuft: boolean;
 }) {
-  const router = useRouter();
   // Held outside this panel's own subtree, which the editor re-keys on every stored value a save
   // moves (`fl_frontend/src/features/einladungen/components/EinladungLinkHolder.tsx`).
   const { frisch, setFrisch } = useEinladungLink();
@@ -75,37 +83,45 @@ export function FormEinladungSection({
   const [isMinting, startMinting] = useTransition();
   const [isMailing, startMailing] = useTransition();
 
-  const { isConfirming, isPending: isWriting, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const router = useRouter();
+  const { isConfirming, isPending: isWriting, press, cancel } = twoPress;
 
   const panel = formPanel();
   const busy = isMinting || isMailing || isWriting;
 
   const mint = async () => {
-    const res = await postEinladungAction({ team_id: teamId, saison_id: saisonId });
+    // A rejected action may still have saved, and uncaught here it takes the page down with it.
+    const res = await postEinladungAction({ team_id: teamId, saison_id: saisonId }).catch(rejectedWrite(router));
 
     if (!res.success) {
-      appToast.failure("Registrierungslink nicht angelegt", res);
+      appToast.failure("Registrierungslink nicht angelegt", res.outcome === "unknown" ? { ...res, error: MINT_UNKLAR } : res);
       return;
     }
 
-    setFrisch({ einladungId: res.einladung_id, token: res.token, link: res.link });
-    appToast.success("Registrierungslink angelegt", { description: res.message });
-    // The action's invalidation reaches the caches; this re-renders the page the admin stands on,
-    // whose state read now has to show the row this press wrote.
-    router.refresh();
+    // Wrapped again: both callers run this inside a transition, and React leaves an update after an
+    // `await` outside it.
+    startTransition(() => {
+      setFrisch({ einladungId: res.einladung_id, token: res.token, link: res.link });
+      appToast.success("Registrierungslink angelegt", { description: res.message });
+    });
   };
 
   const widerrufen = async () => {
-    const res = await deleteEinladungAction({ team_id: teamId, saison_id: saisonId });
+    // A rejected action may still have saved, and uncaught here it takes the page down with it.
+    const res = await deleteEinladungAction({ team_id: teamId, saison_id: saisonId }).catch(rejectedWrite(router));
 
     if (!res.success) {
       appToast.failure("Link nicht zurückgezogen", res);
       return;
     }
 
-    setFrisch(null);
-    appToast.success("Link zurückgezogen", { description: res.message });
-    router.refresh();
+    // Wrapped again: the press runs this inside its transition, and React leaves an update after an
+    // `await` outside it.
+    startTransition(() => {
+      setFrisch(null);
+      appToast.success("Link zurückgezogen", { description: res.message });
+    });
   };
 
   const handlePress = () => {
@@ -114,15 +130,25 @@ export function FormEinladungSection({
 
     press(async () => {
       await (gewaehlt === "ersetzen" ? mint() : widerrufen());
-      // Cleared with the write that consumed it: a choice left standing would preselect itself the
-      // next time both acts are open.
-      setGewaehlt(null);
+      // Wrapped again: the press runs this inside its transition, and React leaves an update after an
+      // `await` outside it.
+      startTransition(() => {
+        // Cleared with the write that consumed it: a choice left standing would preselect itself the
+        // next time both acts are open.
+        setGewaehlt(null);
+      });
     });
   };
 
   const versenden = (offen: FrischeEinladung) => {
     startMailing(async () => {
-      const res = await mailEinladungAction({ team_id: teamId, saison_id: saisonId, einladung_id: offen.einladungId, token: offen.token });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await mailEinladungAction({
+        team_id: teamId,
+        saison_id: saisonId,
+        einladung_id: offen.einladungId,
+        token: offen.token,
+      }).catch(rejectedWrite(router));
 
       if (!res.success) {
         appToast.failure("Registrierungslink nicht gesendet", res);
@@ -130,7 +156,6 @@ export function FormEinladungSection({
       }
 
       appToast.success("Registrierungslink gesendet", { description: res.message });
-      router.refresh();
     });
   };
 
@@ -194,7 +219,7 @@ export function FormEinladungSection({
             )}
 
             <div className="flex w-full flex-col gap-y-1">
-              <h3 className={FORM_SECTION_HEADING}>Stand</h3>
+              <h3 className={FORM_SECTION_HEADING_CLASSES}>Stand</h3>
               <dl className="flex w-full flex-col gap-y-1">
                 <ConfirmReadoutRow
                   label="Offener Link"
@@ -217,7 +242,7 @@ export function FormEinladungSection({
 
             {frisch !== null && (
               <div className="flex w-full flex-col gap-y-2">
-                <h3 className={FORM_SECTION_HEADING}>Der Link</h3>
+                <h3 className={FORM_SECTION_HEADING_CLASSES}>Der Link</h3>
                 {/* Read-only rather than a paragraph: the value is long and is meant to be selected,
                     and a textarea is the one field that wraps it without a scroll bar. */}
                 <textarea
@@ -225,7 +250,7 @@ export function FormEinladungSection({
                   aria-label="Registrierungslink"
                   rows={2}
                   value={frisch.link}
-                  className={`${FIELD_TEXTAREA} w-full break-all`}
+                  className={`${FIELD_TEXTAREA_CLASSES} w-full break-all`}
                 />
                 {/* Beside the box rather than under the failed press: a reader whose browser refuses
                     the clipboard is standing at the value, and the toast is gone in seconds. */}
@@ -296,15 +321,15 @@ export function FormEinladungSection({
                     cancel();
                     setGewaehlt(next === "ersetzen" || next === "zurueckziehen" ? next : null);
                   }}
-                  className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
+                  className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
                   <ToggleButton
                     id="ersetzen"
-                    className={STUFE_CHIP}>
+                    className={STUFE_CHIP_CLASSES}>
                     Ersetzen
                   </ToggleButton>
                   <ToggleButton
                     id="zurueckziehen"
-                    className={STUFE_CHIP}>
+                    className={STUFE_CHIP_CLASSES}>
                     Zurückziehen
                   </ToggleButton>
                 </ToggleButtonGroup>
@@ -316,7 +341,7 @@ export function FormEinladungSection({
 
                 {isConfirming && (
                   <ConfirmReveal>
-                    <p className="fluid-xxs text-foreground leading-normal font-medium">
+                    <p className="fluid-xxs leading-normal font-medium text-foreground">
                       {gewaehlt === "zurueckziehen"
                         ? "Danach steht für dieses Team kein Link mehr offen. Wer den bisherigen weitergegeben hat, muss die Empfängerinnen und Empfänger selbst benachrichtigen."
                         : "Der bisherige Link öffnet danach nichts mehr. Der neue muss an alle, die den alten haben, erneut weitergegeben werden."}
@@ -324,13 +349,9 @@ export function FormEinladungSection({
                   </ConfirmReveal>
                 )}
 
-                <ConfirmActionRow
-                  isConfirming={isConfirming}
-                  isPending={isWriting}
-                  onCancel={cancel}>
+                <ConfirmActionRow confirm={twoPress}>
                   <ConfirmPressButton
-                    isConfirming={isConfirming}
-                    isPending={isWriting}
+                    confirm={twoPress}
                     reason={
                       gewaehlt === null
                         ? "Wähle, was mit dem offenen Link passieren soll."

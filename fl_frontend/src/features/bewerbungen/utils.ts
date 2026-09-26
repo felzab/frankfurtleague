@@ -2,13 +2,13 @@ import { parseDate } from "@internationalized/date";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
-import { APIBadStatusError } from "@/core/errors";
-import { refusedPayloadAnswer } from "@/shared/utils/actionError";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
+import { isRecordMissing } from "@/core/errors";
+import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
-import { alterAusserhalb, BEWERBUNG_MAX_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE, SEAT_MIN_ALTER } from "./constants";
+import { alterAusserhalb, BEWERBUNG_MAX_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
 
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { FLTrainerZugleich } from "@/features/teams/schemas";
@@ -103,15 +103,6 @@ export function describeAufnahme({ createdTeam, gruppe, saisonId }: { createdTea
 }
 
 /**
- * The floor the PERSON clears, mirroring `fl_backend/app/api/bewerbungen/services.py ::
- * mindestalter_for`: the highest any seat they hold asks for. Never the one seat a surface happens
- * to be rendering, or a Trainer sitting in one of the other two is offered sixteen.
- */
-export function mindestalterFuer(seats: readonly KontaktRolle[]): number {
-  return Math.max(...seats.map((seat) => SEAT_MIN_ALTER[seat]));
-}
-
-/**
  * Bounds rather than an age: a date control takes a `minValue` and a schema a string comparison, so
  * one derivation serves both. The floor is the seat's, which the link's own read answers
  * (`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungEinwilligungAnsichtResponse`).
@@ -144,15 +135,14 @@ export const BEWERBUNG_VERALTET = buildRefusal({
 export function mapBewerbungSubmitRefusal(
   error: unknown,
 ): { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; schonAngekommen?: true } | null {
-  if (!(error instanceof APIBadStatusError)) return null;
-
-  // Every body rule the form can break is mirrored, so a refusal no box can take is of a drifted
-  // client, which a reload replaces.
-  if (error.statusCode === 422) return refusedPayloadAnswer(error, BEWERBUNG_VERALTET);
-
-  if (error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
+    // Every body rule the form can break is mirrored, so a refusal no box can take is of a drifted
+    // client, which a reload replaces.
+    case "REQ-VAL-002":
+    case "REQ-VAL-001":
+      return refusedPayloadAnswer(error, BEWERBUNG_VERALTET);
     // The window closed between the page loading and this press. A reload is the whole remedy: the
     // page then says so itself instead of offering a form nothing accepts.
     case "REQ-BEWERBUNG-004":
@@ -190,6 +180,12 @@ export function mapBewerbungSubmitRefusal(
           repair: `Soll sich daran etwas ändern, schreib uns an ${KONTAKT_EMAIL}`,
         }),
       };
+    // With the record missing, the season this page names is one the running API does not hold: only a
+    // page from before a data reset, or a crafted body, sends it, and the reload fetches the window open now.
+    case "DB-COMMON-001":
+    // A seat names words other than the form's, which only a page loaded before a deploy sends.
+    case "REQ-BEWERBUNG-016":
+      return { error: BEWERBUNG_VERALTET };
     default:
       return null;
   }
@@ -215,24 +211,28 @@ export type EinwilligungRefusal = {
 };
 
 /**
- * A confirmation 409 as what the page should show, or `null` where the code is none of these.
+ * A confirmation refusal as what the page should show, or `null` where the code is none of these.
  *
  * `mindestalter` comes from the token's own view: a number of this mapper's own would be wrong for
  * two of the three seats.
  */
 export function mapEinwilligungRefusal(error: unknown, mindestalter: number): EinwilligungRefusal | null {
-  if (!(error instanceof APIBadStatusError)) return null;
-
-  // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
-  // mail's link replaces.
-  if (error.statusCode === 422) return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
-
-  if (error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
+    // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
+    // mail's link replaces.
+    case "REQ-VAL-002":
+    case "REQ-VAL-001":
+      return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
+    // With the record missing, the application the link names is gone, which is a link nothing places.
+    case "DB-COMMON-001":
     case "REQ-BEWERBUNG-009":
       return { zustand: "ungueltig" };
+    // A decided application, or a deadline passed that only a re-sent link restarts: one panel names
+    // both, the link being spent either way for this person.
     case "REQ-BEWERBUNG-010":
+    case "REQ-BEWERBUNG-017":
       return { zustand: "abgelaufen" };
     // One code covers both answers, so „bestätigt“ here would tell a seat declined in another window
     // that it confirmed. Which way it went is the read's to say.
@@ -249,18 +249,19 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number): Ei
 
 /** A refused confirmation read as the panel it renders, or `null` where the read failed instead. */
 export function mapEinwilligungAnsichtRefusal(error: unknown): LinkZustand | null {
-  if (!(error instanceof APIBadStatusError)) return null;
+  if (!isRefusal(error)) return null;
 
   // A token the backend will not parse matches no record, so the page calls the link void rather
   // than offering a reload that cannot succeed. `docs/frontend/spec.md` §4 accepts that the two
   // tiers bound its length apart.
-  if (error.statusCode === 422) return "ungueltig";
+  if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
 
-  if (error.statusCode !== 409) return null;
+  // The record the link names gone, which the confirmation answers alike.
+  if (isRecordMissing(error)) return "ungueltig";
 
-  // Every 409 alike: a spent link answers its own `zustand` in a 200, so a refusal is a token nothing
-  // could place, and a code nobody planned reads the same way.
-  return "ungueltig";
+  // Every rule's refusal alike: a spent link answers its own `zustand` in a 200, so a refusal is a
+  // token nothing could place, and a code nobody planned reads the same way.
+  return isRuleRefusal(error) ? "ungueltig" : null;
 }
 
 /**
@@ -272,12 +273,15 @@ export function mapEinwilligungAnsichtRefusal(error: unknown): LinkZustand | nul
 export function fensterZustand(fenster: FLBewerbungFensterResponse | null, today: string): FensterZustand {
   if (fenster === null) return "keine-frist";
   if (fenster.laeuft) return "laeuft";
+  // Ahead of every date answer: an ended season takes no application again, so „gerade geschlossen“
+  // or „noch nicht offen“ would send a school to wait for a window that never reopens.
+  if (fenster.saison_beendet) return "vorbei";
   // Before either date: the league closed it, which is not the same as a deadline passing.
   if (!fenster.offen) return "geschlossen";
   if (today < fenster.von) return "noch-nicht";
 
   // Never `vorbei` by default: `laeuft` is false with the span still open where this clock and the
-  // server's disagree or the season has ended, and "abgelaufen" would name a deadline nobody reached.
+  // server's disagree, and "abgelaufen" would name a deadline nobody reached.
   return today > fenster.bis ? "vorbei" : "geschlossen";
 }
 

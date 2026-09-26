@@ -1,20 +1,21 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
-import { APIBadStatusError } from "@/core/errors.ts";
-import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
-import { toActionErrorResult } from "@/shared/utils/actionError.ts";
+import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
+import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
 
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
+import { mapSpielRefusal } from "./refusals.ts";
+
+/* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
+doubleActionRequest();
+const { answerWith, calls } = doubleApiAnswers();
+const { patchAdminSpielDataAction, previewAdminSpielDataAction } = await import("./actions.ts");
 
 /** The one endpoint both write paths send, the dry run included, so one operation carries every refusal either can draw. */
 const PATCH_OPERATION = "PATCH /spiele/{spiel_id}";
 
-const DECLARED_CODES = declaredCodes(PATCH_OPERATION);
-
-/** The same set restated, so a code retired from the register fails here rather than leaving a dead arm behind. */
+/** The rules restated, so a code retired from the endpoint fails here rather than leaving a dead arm behind. */
 const PATCH_CODES = [
   "REQ-BOOKING-001",
   "REQ-CLASH-001",
@@ -31,90 +32,80 @@ const PATCH_CODES = [
   "REQ-WIRING-003",
 ];
 
-/* Read per slice rather than over the file: both write paths repeat the mapper's call, and a search
-   over the whole source is satisfied by whichever of the three happens to carry the code. */
-const SPIEL_MAP = sliceBetween(ACTIONS, "function mapSpielRefusal", "export async function patchAdminSpielDataAction");
+/** A fixture edit the schema takes as it stands, every field cleared, so each write reaches the doubled request. */
+const EDIT = {
+  datum: null,
+  uhrzeit: null,
+  ort: null,
+  schiedsrichter: null,
+  team1: null,
+  team2: null,
+  team1_quelle: null,
+  team2_quelle: null,
+  elfmeterschiessen: null,
+  notiz: null,
+  spiel_id: "6890a1b2c3d4e5f607182930",
+  sonderereignis: null,
+};
 
-/**
- * What the shared fallback answers for one code. Asked rather than read as source text: it is an
- * ordinary exported function, and its answer is what the admin gets.
+/*
+ * The dry run shares the save's endpoint, payload and answer, so its flag and its read mark are all
+ * that keep it from committing the edit and from refreshing the page under an editor's draft.
  */
-function sharedAnswer(serverErrorCode: string): string {
-  const refusal = new APIBadStatusError({
-    message: "conflict",
-    url: "http://backend:8000/api/v0/spiele/x",
-    endpoint: "/spiele/{spiel_id}",
-    method: "PATCH",
-    readOnly: false,
-    traceId: "ab".repeat(16),
-    statusCode: 409,
-    serverErrorCode,
+describe("the match's writes", () => {
+  it("send the dry run with its flag and marked a read, and the save without either", async () => {
+    answerWith(() => Promise.resolve({ acknowledged: 1, advanced_to: [], released_sides: [], bracket_faults: [], prior_paarungen: [] }));
+    const edit = { ...EDIT, notiz: "Platz 2" };
+    const { spiel_id, ...fields } = edit;
+
+    assert.equal((await previewAdminSpielDataAction(edit)).success, true, "the dry run never landed, so what it moves is judged on nothing");
+    assert.deepEqual(cacheCalls, [], "a dry run moved a cached read or refreshed the page under the editor's draft");
+    assert.equal((await patchAdminSpielDataAction(edit, "2026")).success, true, "the save never landed, so what it moves is judged on nothing");
+
+    assert.deepEqual(requestsOf(calls), [
+      { endpoint: `/spiele/${spiel_id}?dry_run=true`, method: "PATCH", body: fields, readOnly: true },
+      { endpoint: `/spiele/${spiel_id}`, method: "PATCH", body: fields },
+    ]);
+    assert.deepEqual(cacheCalls, [
+      { name: "updateTag", args: ["spiele"] },
+      { name: "updateTag", args: ["teams"] },
+      { name: "updateTag", args: ["spiele:saison_id:2026"] },
+      { name: "updateTag", args: ["teams:saison_id:2026"] },
+      { name: "refresh", args: [] },
+    ]);
   });
-
-  return toActionErrorResult(refusal).error;
-}
-
-/**
- * The sentence `fl_frontend/src/shared/utils/actionError.ts` gives a 409 no arm claimed, asked for
- * with a code no rule declares rather than restated, so a rewording of it costs this file nothing.
- */
-const FALLBACK = sharedAnswer("REQ-NOTHING-000");
-
-describe("the match editor's refusals against the backend's register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
-  it("cuts the mapper out of the file before reading it", () => {
-    assert.ok(SPIEL_MAP.includes("serverErrorCode"), "the mapper's arms are outside its slice");
-    assert.ok(!SPIEL_MAP.includes("patchAdminSpielData(validated.data)"), "the mapper's slice runs on into the save");
-  });
-
-  it("finds every rule the match endpoint declares", () => {
-    assert.deepEqual(DECLARED_CODES, PATCH_CODES);
-  });
-
-  /* Pinned before the cases below read it: an unmapped code is told apart from a mapped one by this
-     sentence alone, and an empty one would make every case pass for a code nobody answers. */
-  it("keeps a sentence for the refusals nothing claims", () => {
-    assert.match(FALLBACK, /Konflikt/);
-  });
-
-  /* Two sites answer them: the slice's own mapper, and the shared fallback behind it. A code neither
-     claims reaches the admin as the sentence above, which is false for every rule declared here. */
-  for (const code of DECLARED_CODES) {
-    it(`${code} reaches the admin as its own refusal`, () => {
-      const shared = sharedAnswer(code);
-      const answered = SPIEL_MAP.includes(`serverErrorCode === "${code}"`) || (shared !== "" && shared !== FALLBACK);
-
-      assert.ok(answered, `${code} tells the admin an equivalent entry already exists`);
-    });
-  }
 });
 
-describe("the match edit's refusals when the undo replays it", () => {
-  const UNDO_ROUTE = readFileSync(path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin", "spiele", "undo", "route.ts"), "utf8");
-
-  /** One row of the route's replay table, which is a literal keyed by code. */
-  const replayRow = (code: string): string => new RegExp(`"${code}":\\s*"([^"]*)"`).exec(UNDO_ROUTE)?.[1] ?? "";
-
-  it("adds the outcome sentence once, outside the rows", () => {
-    assert.ok(UNDO_ROUTE.includes('const CHANGE_STANDS = "Die Änderung steht weiterhin.";'), "the whole-change outcome is gone");
-    // Unconditional, which is what the one transaction buys: a refusal on any entry leaves the whole
-    // change standing rather than the part a stopped replay had already put back.
-    assert.ok(UNDO_ROUTE.includes("${refusal} ${CHANGE_STANDS}"), "a refusal no longer closes with the outcome");
+describe("the match editor's refusals against the codes its endpoint publishes", () => {
+  it("finds every rule the match endpoint publishes", () => {
+    assert.deepEqual(
+      publishedRefusals(PATCH_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      PATCH_CODES,
+    );
   });
 
-  /* The route's own rows, never `sharedAnswer`'s: eight of these codes reach a named arm there,
-     whose German is written for a save — one of them says to delete the goals the undo is putting back. */
-  for (const code of DECLARED_CODES) {
-    it(`${code} reaches the admin in German when the edit is undone`, () => {
-      const row = replayRow(code);
-
-      assert.notEqual(row, "", `${code} falls through to the generic conflict message when the edit is undone`);
-      // The route joins the row to the outcome with a space, so a row without its own stop runs the two sentences together.
-      assert.ok(row.endsWith("."), `${code}'s replay row does not close its sentence`);
-      assert.ok(!row.includes("Die Änderung steht weiterhin"), `${code}'s row states the outcome the route already adds`);
-      /* One replay carries several fixtures, so a row pointing at one of them is wrong on the rest.
-         Case-insensitive: every row is a sentence, and the singular a row would open with is capital. */
-      assert.doesNotMatch(row, /\b(?:dieses|diesem|das)\s+Spiels?\b/i, `${code}'s row points at a single fixture the replay may not have`);
+  /* Two sites answer them: the slice's own mapper, and the shared reader behind it. A code neither
+     claims reaches the admin as the fallback's bare retry, which names no rule and meets it again. */
+  for (const code of publishedRefusals(PATCH_OPERATION)) {
+    it(`${code} reaches the admin as its own refusal`, () => {
+      assert.notEqual(answerShown(PATCH_OPERATION, code, mapSpielRefusal), null, `${code} reaches the admin with no reason`);
     });
   }
+
+  /* The dry run draws every refusal the save does, so both answer through the one mapper. */
+  it("answers every refusal on the save and on the dry run through the mapper", async () => {
+    await assertEachAnswered({
+      operation: PATCH_OPERATION,
+      refuseWith: answerWith,
+      act: () => patchAdminSpielDataAction(EDIT, "2026"),
+      mapped: mapSpielRefusal,
+    });
+    await assertEachAnswered({
+      operation: PATCH_OPERATION,
+      refuseWith: answerWith,
+      act: () => previewAdminSpielDataAction(EDIT),
+      mapped: mapSpielRefusal,
+      readOnly: true,
+    });
+  });
 });

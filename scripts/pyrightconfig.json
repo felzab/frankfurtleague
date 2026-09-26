@@ -11,9 +11,9 @@
 // for none of them: `lib/` through each entry point's own insert, `checks/` because python seeds
 // the script's directory.
 
-// No venvPath or venv, deliberately: every import here is standard library or a module in `lib/`
-// or `checks/`, and naming the backend's virtualenv would make the gate's own tooling depend on
-// that environment being installed.
+// `venvPath` and `venv` name the backend's virtualenv, the one every python scope of the gate runs
+// in, so the documentation gate's markdown-it-py import resolves for the gate and for a plain
+// `pyright` run from this folder alike.
 
 // `standard` is pyright's own default, and this folder is clean at it. The backend keeps `basic`
 // for the reason its own block records, so the two settings are measured separately rather than
@@ -21,6 +21,8 @@
 {
   "include": ["."],
   "extraPaths": ["lib", "checks"],
+  "venvPath": "../fl_backend",
+  "venv": ".venv",
   "typeCheckingMode": "standard",
   "pythonVersion": "3.14"
 }

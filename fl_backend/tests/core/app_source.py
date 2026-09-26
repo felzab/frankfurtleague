@@ -1,5 +1,5 @@
 """
-CORE · the application's own source read as syntax, for the sweeps holding a convention across every module
+CORE · the application's own source, read as syntax or as the routes it mounts, for the sweeps holding a convention across every module
 
 Every sweep over the whole of `app/` is cached for the run and answers a value no caller can change:
 each parametrised case asks again, and every caller is handed the one shared object, so a list one
@@ -18,6 +18,9 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from fastapi import FastAPI
+from fastapi.routing import APIRoute, iter_route_contexts
 
 from app.core.collections import Collection
 
@@ -191,6 +194,27 @@ def calls_in(node: ast.AST, scope: str) -> Iterator[tuple[str, ast.Call]]:
 
     for chain, call in scoped_calls(node, ()):
         yield (chain[-1].name if chain else scope), call
+
+
+def unfollowed_references(names: frozenset[str], *, skip: frozenset[Path] = frozenset()) -> list[str]:
+    """Every reference under `app/` to `names` that `resolve_callee` cannot follow: anything but a call's bare callee.
+
+    Whole modules, since an alias held outside every traced function is one such reference too.
+    """
+
+    found: list[str] = []
+    for path in sorted(APP_ROOT.rglob("*.py")):
+        if path in skip:
+            continue
+
+        tree = parsed(path)
+        followed = {id(node.func) for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
+        for node in ast.walk(tree):
+            name = node.id if isinstance(node, ast.Name) else node.attr if isinstance(node, ast.Attribute) else None
+            if name in names and id(node) not in followed:
+                found.append(f"{path.relative_to(BACKEND_ROOT).as_posix()}:{getattr(node, 'lineno', 0)} `{ast.unparse(node)}`")
+
+    return found
 
 
 @functools.cache
@@ -451,28 +475,39 @@ def _parameters_of(scope: ast.Module | Declaration) -> list[ast.arg]:
     ]
 
 
+@functools.cache
+def _imports_by_name(tree: ast.Module) -> dict[str, tuple[str, str]]:
+    """Each name a module's `from` imports bind, to its source module and name.
+
+    Once a tree: the traces resolve thousands of callees, and a walk per lookup costs nearly all
+    their time. The first binding in walk order wins.
+    """
+
+    bound: dict[str, tuple[str, str]] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                bound.setdefault(alias.asname or alias.name, (node.module or "", alias.name))
+
+    return bound
+
+
 def _imported_declaration(name: str, tree: ast.Module) -> tuple[Declaration, Path] | None:
     """One name's declaration where the module imports it from `app/`, or `None` where nothing under `app/` declares it."""
 
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.ImportFrom):
-            continue
+    imported = _imports_by_name(tree).get(name)
+    if imported is None:
+        return None
 
-        for alias in node.names:
-            if (alias.asname or alias.name) != name:
-                continue
+    dotted, original = imported
+    if not dotted.startswith("app."):
+        return None
 
-            dotted = node.module or ""
-            if not dotted.startswith("app."):
-                return None
+    candidate = BACKEND_ROOT.joinpath(*dotted.split("."))
+    origin = candidate.with_suffix(".py") if candidate.with_suffix(".py").exists() else candidate / "__init__.py"
+    found = _declared_directly_in(parsed(origin)).get(original) if origin.exists() else None
 
-            candidate = BACKEND_ROOT.joinpath(*dotted.split("."))
-            origin = candidate.with_suffix(".py") if candidate.with_suffix(".py").exists() else candidate / "__init__.py"
-            found = _declared_directly_in(parsed(origin)).get(alias.name) if origin.exists() else None
-
-            return (found, origin) if found is not None else None
-
-    return None
+    return (found, origin) if found is not None else None
 
 
 def resolve_callee(call: ast.Call, chain: tuple[Declaration, ...], module: Path) -> tuple[Declaration, Path] | None:
@@ -512,7 +547,7 @@ class Binding:
     by_position: bool
 
 
-def _bound_at(call: ast.Call, parameter: str, position: int | None) -> Binding:
+def bound_at(call: ast.Call, parameter: str, position: int | None) -> Binding:
     """What one call binds to a named parameter.
 
     The explicit keyword first, then the position, and a `**` spread only where neither answered: read
@@ -569,7 +604,7 @@ def session_handoffs() -> tuple[SessionHandoff, ...]:
             carried = {parameter for scope in chain[len(outer) :] for parameter, _ in session_parameters(scope)}
 
             for parameter, position in session_parameters(declaration):
-                binding = _bound_at(call, parameter, position)
+                binding = bound_at(call, parameter, position)
                 found.append(
                     SessionHandoff(
                         where=f"{module} :: {callback.name}",
@@ -634,7 +669,7 @@ def session_carriers() -> tuple[SessionCarrier, ...]:
             carried = {parameter} | {name for scope in chain[1:] for name, _ in session_parameters(scope)}
 
             if _reads_the_database_by_name(call):
-                reads.append((callee(call), _bound_at(call, "session", None).argument in carried))
+                reads.append((callee(call), bound_at(call, "session", None).argument in carried))
 
             resolved = resolve_callee(call, chain, path)
             if resolved is None:
@@ -642,9 +677,7 @@ def session_carriers() -> tuple[SessionCarrier, ...]:
 
             called, called_in = resolved
             frontier += [
-                (called, called_in, name)
-                for name, position in session_parameters(called)
-                if _bound_at(call, name, position).argument in carried
+                (called, called_in, name) for name, position in session_parameters(called) if bound_at(call, name, position).argument in carried
             ]
 
         found.append(
@@ -656,3 +689,15 @@ def session_carriers() -> tuple[SessionCarrier, ...]:
         )
 
     return tuple(sorted(found, key=lambda carrier: carrier.where))
+
+
+def api_routes(app: FastAPI) -> Iterator[APIRoute]:
+    """Every route the application serves, nested includes opened.
+
+    Read and never edited: each is the object its module-level router holds, which every `create_app`
+    in a process shares.
+    """
+
+    for context in iter_route_contexts(app.routes):
+        if isinstance(context.original_route, APIRoute):
+            yield context.original_route

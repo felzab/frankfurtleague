@@ -4,7 +4,7 @@ import ast
 import asyncio
 import inspect
 import textwrap
-from collections.abc import Iterator, Mapping
+from collections.abc import Mapping
 from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -29,8 +29,9 @@ from app.api.registrierungen.services import (
     link_is_unreachable,
     undecided_erasure_is_due,
 )
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.crud import pull_current_saison
+from app.core.collections import Collection
+from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import drain, refuse_a_stalled_page
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_ERINNERUNG_TAGE
@@ -269,6 +270,7 @@ class TestWhatThePassStamps:
         """One key over both passes would answer `it ran` for a registration sweep that stopped a week ago."""
 
         assert REGISTRIERUNG_SWEEP_FELD == "registrierung_sweep_gelaufen_am"
+        assert "sweep_gelaufen_am" in COLLECTION_VALIDATORS[Collection.SAISONS]["$jsonSchema"]["properties"]
         assert "sweep_gelaufen_am" not in build_stale_stamp_filter(today=TODAY)
 
 
@@ -493,17 +495,14 @@ class _Collection:
         self.rows = rows
         self.database = database
         self.answers_reads = answers_reads
-        self.queries = 0
 
     async def find_one(self, filter: Mapping[str, Any], projection: Any = None, session: Any = None) -> dict[str, Any] | None:
-        self.queries += 1
         for row in self.rows:
             if _matches(row, filter):
                 return dict(row)
         return None
 
     def find(self, filter: Mapping[str, Any], projection: Any = None, collation: Any = None, session: Any = None) -> _Cursor:
-        self.queries += 1
         if not self.answers_reads:
             return _Cursor([])
 
@@ -542,17 +541,8 @@ class _Db:
         return None
 
 
-@pytest.fixture
-def a_dropped_cache() -> Iterator[None]:
-    """One process holds one cache, so a case leaving an entry behind would decide the next one."""
-
-    invalidate_saison_cache()
-    yield
-    invalidate_saison_cache()
-
-
 class TestTheStampDropsTheCachedSeason:
-    def test_a_cached_season_read_after_the_pass_carries_the_day(self, a_dropped_cache: None):
+    def test_a_cached_season_read_after_the_pass_carries_the_day(self):
         """A season write that leaves the cache standing serves the old document for a whole TTL.
 
         Driven over doubles: the drop leaves no trace on the wire.

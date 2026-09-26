@@ -19,6 +19,7 @@ const { calls, answerWith } = doubleActions({ modules: ["/src/features/sperrlist
 const { raised } = doubleToasts();
 
 const { AdminSperreAufhebenPanel } = await import("./AdminSperreAufhebenPanel.tsx");
+const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 const { SPERRE_AUFHEBEN_CONSEQUENCE } = await import("@/features/sperrliste/constants.ts");
 
 const SPERRE_ID = "6890a1b2c3d4e5f607190001";
@@ -82,5 +83,23 @@ describe("lifting one ban from the row it stands on", () => {
     assert.equal(raised[0]?.variant, "danger");
     assert.equal(raised[0]?.title, "Sperre nicht aufgehoben");
     assert.equal(raised[0]?.description, "Der Eintrag wurde nicht gefunden. Lade die Seite neu.");
+  });
+
+  /* The edge cutting the request rejects the action after the removal may have landed, and a
+     rejection left to the press's transition replaces the page with the error page. */
+  it("stays on the page over a rejected removal, and says nobody can tell whether the ban went", async () => {
+    const user = userEvent.setup();
+    answerWith(() => Promise.reject(new Error("An unexpected response was received from the server.")));
+    mount();
+
+    await pressTwice(user, { resting: RESTING, armed: ARMED });
+    // Found rather than got: the press lets go once the rejection has been answered.
+    await screen.findByRole("button", { name: RESTING });
+
+    const { error, outcome } = unansweredAction();
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
+      [["danger", "Sperre nicht aufgehoben", error, outcome]],
+    );
   });
 });

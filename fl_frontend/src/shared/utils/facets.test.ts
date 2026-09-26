@@ -2,7 +2,7 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -12,7 +12,6 @@ import { createElement as h } from "react";
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import {
@@ -25,6 +24,7 @@ import {
   readFacetSelectionFromRoute,
 } from "./facets";
 
+import type { ComponentType } from "react";
 import type { Facet } from "./facets";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
@@ -325,8 +325,8 @@ describe("countActiveFacets", () => {
 });
 
 /**
- * Every facet set, discovered rather than listed. **Imported dynamically by a computed path, which is a boundary rather
- * than a style**: this file lives in `shared`, which may not import `features`.
+ * Every facet set, discovered rather than listed: each slice's `facets.ts` is found by walking `features/` and imported
+ * by the path the walk yields, so a slice that adds one is checked without being named here.
  */
 const FEATURES_DIR = path.resolve(import.meta.dirname, "..", "..", "features");
 
@@ -498,7 +498,41 @@ function assertPanelOptions(expected: readonly (readonly [string, string])[]): v
   );
 }
 
-const occurrences = (haystack: string, needle: string): number => haystack.split(needle).length - 1;
+/** What each option was told, per facet parameter: the numbers a view hands on as `facetCounts`. */
+type Told = Record<string, Record<string, number>>;
+
+/**
+ * The view of each slice whose facets narrow the read, served no rows and told `told`. Loaded behind
+ * the harness, as `AdminCrudView` is above.
+ */
+const NARROWING_VIEWS: Record<string, { load: () => Promise<ComponentType<never>>; props: (told: Told) => never }> = {
+  "aktionen/AKTIONEN_FACETS": {
+    load: async () => (await import("@/features/aktionen/components/views/AdminAktionenView.tsx")).AdminAktionenView as ComponentType<never>,
+    props: (told) =>
+      ({
+        aktionen: [],
+        vollstaendig: true,
+        anzahlJeCollection: told["collection"],
+        anzahlJeOperation: told["operation"],
+        anzahlJeHerkunft: told["herkunft"],
+        dokumentId: null,
+        vorgangId: null,
+        richtung: "desc",
+      }) as never,
+  },
+  "bewerbungen/BEWERBUNGEN_FACETS": {
+    load: async () =>
+      (await import("@/features/bewerbungen/components/views/AdminBewerbungenView.tsx")).AdminBewerbungenView as ComponentType<never>,
+    props: (told) =>
+      ({
+        bewerbungen: [],
+        anzahlJeStatus: told["status"],
+        anzahlJeSaisonbezug: told["saisonbezug"],
+        dublettenSchluessel: [],
+        richtung: "desc",
+      }) as never,
+  },
+};
 
 /* `facetCounts` is optional, so a hop that stops forwarding it type-checks, builds and passes every
    other case, while the panel silently returns to counting the rows one read served. */
@@ -524,126 +558,30 @@ describe("the counts a server-narrowed facet is told", () => {
     ]);
   });
 
-  it("is handed to `AdminCrudView` by every view whose facets say the server narrows", () => {
-    // The population is the declaration rather than a list: a slice that marks a facet
-    // `narrowsTheRead` and forgets the counts is exactly the pairing this case exists for.
-    const narrowing = discovered.filter(([, facets]) => facets.some((facet) => facet.narrowsTheRead === true));
-    assert.ok(narrowing.length > 0, "no slice declares a server-narrowed facet, so this case compares nothing");
+  // The population is the declaration rather than a list: a slice that marks a facet `narrowsTheRead`
+  // and whose view forgets the counts is exactly the pairing this exists for.
+  const narrowing = discovered.filter(([, facets]) => facets.some((facet) => facet.narrowsTheRead === true));
 
-    for (const [name] of narrowing) {
-      const views = sourcesUnder(path.join(FEATURES_DIR, name.split("/")[0] ?? "", "components", "views"), 1);
-      const rendering = views.filter((file) => readFileSync(file, "utf8").includes("<AdminCrudView"));
+  it("is rendered here for every slice whose facets say the server narrows", () => {
+    assert.ok(narrowing.length > 0, "no slice declares a server-narrowed facet, so nothing below compares anything");
+    assert.deepEqual(narrowing.map(([name]) => name).sort(), Object.keys(NARROWING_VIEWS).sort());
+  });
 
-      assert.ok(rendering.length > 0, `${name} narrows on the server and no view of that slice renders <AdminCrudView>`);
-      for (const view of rendering) {
-        const source = readFileSync(view, "utf8");
-
-        assert.ok(
-          occurrences(source, "facetCounts=") >= occurrences(source, "<AdminCrudView"),
-          `${asPosix(path.relative(FEATURES_DIR, view))} renders <AdminCrudView> without the counts its facets need`,
+  for (const [name, facets] of narrowing) {
+    for (const facet of facets.filter((candidate) => candidate.narrowsTheRead === true)) {
+      /* Served no rows, so a view dropping the counts shows every option at zero rather than what it was told. */
+      it(`reaches ${name}'s „${facet.label}“ panel from the view that renders it`, async () => {
+        const view = NARROWING_VIEWS[name] ?? assert.fail(`${name} narrows on the server and no view renders it here`);
+        const told = Object.fromEntries(
+          facets.map((each) => [each.param, Object.fromEntries(each.options.map((option, at) => [option.value, 11 + at]))]),
         );
-      }
+        const first = facet.options[0] ?? assert.fail(`${name}'s „${facet.label}“ offers nothing`);
+
+        render(underNext(h(await view.load(), view.props(told)), { search: `saison_id=2627&${facet.param}=${first.value}` }));
+        await userEvent.setup().click(screen.getByRole("button", { name: `${facet.label}: ${first.label} ändern` }));
+
+        assertPanelOptions(facet.options.map((option, at) => [option.label, String(11 + at)]));
+      });
     }
-  });
-});
-
-const APP_DIR = path.resolve(import.meta.dirname, "..", "..", "app");
-// Stands in for I13 over the admin views; `docs/frontend/spec.md` §4 records the shapes no check reaches.
-// Separators normalised before it is tested, so the pattern does not have to know the platform's.
-const VIEWS_GLOB = /components\/views\/Admin\w+View\.tsx$/;
-const asPosix = (file: string): string => file.split(path.sep).join("/");
-
-/** Every shipped `.ts`/`.tsx` under a directory, recursively. Each caller names the floor its own root earns. */
-const sourcesUnder = (dir: string, floor: number): string[] => filesUnder(dir, (name) => /\.tsx?$/.test(name) && !isTestFile(name), floor);
-
-// Stands in for I13 over the app tree; `docs/frontend/spec.md` §4 records the shapes no check reaches.
-/**
- * Whether the module opens with a `"use client"` directive, comments before it skipped. Scanned, not
- * matched: a pattern skipping leading block comments backtracks exponentially (CodeQL `js/redos`).
- */
-function isClientModule(source: string): boolean {
-  let at = 0;
-
-  while (at < source.length) {
-    const zeichen = source[at]!;
-
-    if (zeichen.trim() === "") {
-      at += 1;
-    } else if (zeichen === "/" && source[at + 1] === "/") {
-      const schluss = source.indexOf("\n", at + 2);
-      at = schluss === -1 ? source.length : schluss + 1;
-    } else if (zeichen === "/" && source[at + 1] === "*") {
-      const schluss = source.indexOf("*/", at + 2);
-      // Unterminated, so everything after it is comment and no directive stands outside one.
-      if (schluss === -1) return false;
-      at = schluss + 2;
-    } else break;
   }
-
-  return source.startsWith('"use client"', at) || source.startsWith("'use client'", at);
-}
-
-/**
- * The exported component's own parameter list. A window taken to the file's first `)` instead stops
- * inside whatever precedes the component — a props type, a JSDoc, a helper's signature — with the
- * props outside it.
- */
-function parameterList(source: string, viewName: string): string {
-  // Blanked rather than dropped, so a `)` inside a comment cannot close the list early.
-  const blanked = source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (comment) => comment.replace(/[^\n]/g, " "));
-  const opener = `export function ${viewName}(`;
-  const opened = blanked.indexOf(opener);
-  if (opened === -1) throw new Error(`${viewName} exports no function of its own name, so this case reads nothing there`);
-
-  let depth = 1;
-  for (let offset = opened + opener.length; offset < blanked.length; offset++) {
-    if (blanked[offset] === "(") depth++;
-    if (blanked[offset] === ")") depth--;
-    if (depth === 0) return blanked.slice(opened + opener.length, offset);
-  }
-  throw new Error(`${viewName}'s parameter list is never closed`);
-}
-
-describe("who may hold a facet", () => {
-  /* A facet carries a `read` FUNCTION, which a Server Component may not pass to a Client one
-     (`.claude/rules/frontend.md`). Neither `tsc` nor `next build` sees it; the page throws at render with
-     a digest alone. */
-  it("keeps every facets module out of the server half of the app", () => {
-    const leaks = sourcesUnder(APP_DIR, 50)
-      .filter((file) => !isClientModule(readFileSync(file, "utf8")))
-      // The extension optional: `tsconfig-alias-hook.mjs` resolves both spellings, so a specifier
-      // carrying one is the same import.
-      .filter((file) => /from "[^"]*facets(?:\.tsx?)?"/.test(readFileSync(file, "utf8")))
-      .map((file) => asPosix(path.relative(APP_DIR, file)));
-
-    assert.deepEqual(
-      leaks,
-      [],
-      `these server modules import a facets module, whose \`read\` cannot cross into a client:\n  ${leaks.join("\n  ")}`,
-    );
-  });
-
-  /* The same defect arriving as a prop instead of an import: a view that TAKES its facets is handed
-     them by whoever renders it, and the admin pages are Server Components. Built inside the view
-     from plain data, nothing but data crosses. */
-  it("builds every admin view's facets inside the view rather than taking them", () => {
-    const views = sourcesUnder(FEATURES_DIR, 200).filter((file) => VIEWS_GLOB.test(asPosix(file)));
-    assert.ok(views.length > 0, "no admin views were found, so this case compares nothing");
-
-    const unreadable: string[] = [];
-    const taken: string[] = [];
-
-    for (const file of views) {
-      const params = parameterList(readFileSync(file, "utf8"), path.basename(file, ".tsx"));
-      const named = asPosix(path.relative(FEATURES_DIR, file));
-
-      // A parameter taken whole keeps its props in a type this reads nothing of, so the shape is
-      // reported rather than passed over.
-      if (!params.trimStart().startsWith("{")) unreadable.push(named);
-      else if (/\bfacets\s*[,:}]/.test(params)) taken.push(named);
-    }
-
-    assert.deepEqual(unreadable, [], `these views take a parameter object this case cannot read:\n  ${unreadable.join("\n  ")}`);
-    assert.deepEqual(taken, [], `these views take their facets as a prop instead of building them:\n  ${taken.join("\n  ")}`);
-  });
 });

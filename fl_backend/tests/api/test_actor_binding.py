@@ -1,14 +1,13 @@
 import asyncio
 import contextlib
 from collections import Counter
-from collections.abc import Iterator
 
 import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-from app.core.exceptions import RequestAuthorizationException
+from app.core.exceptions import NO_DATABASE_CLIENT, MalformedRequestException
 from app.core.recording import PUBLIC_ACTOR, PUBLIC_ACTOR_EMAIL, SYSTEM_ACTOR, Actor, actor_var, request_var
 from app.core.security import (
     ACTOR_HEADER,
@@ -22,6 +21,7 @@ from app.core.security import (
 )
 from app.main import create_app
 from tests.config import ADMIN_AUTH, build_test_config
+from tests.core.app_source import api_routes
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
 
@@ -44,7 +44,7 @@ PUBLIC_WRITE_PATH = "/api/v0/bewerbungen"
 
 # Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure,
 # the harness's own included.
-UNREACHED_DATABASE = "DB-CONN-001"
+UNREACHED_DATABASE = NO_DATABASE_CLIENT
 
 
 def client() -> TestClient:
@@ -137,15 +137,17 @@ class TestTheGuardOverAServedRequest:
         """Fail closed: an unattributed write is the one thing a log complete by construction cannot allow."""
         response = getattr(client(), method)(path, headers=ADMIN_AUTH)
 
-        assert response.status_code == 401
+        assert response.status_code == 400
         assert response.json()["error_code"] == MISSING_ACTOR
+        # The key passed, so a challenge would name a credential that was valid.
+        assert "www-authenticate" not in response.headers
 
     @pytest.mark.parametrize("actor", MALFORMED_ACTORS)
     def test_a_write_carrying_a_malformed_actor_is_refused(self, actor: str):
         """A shape check and a bound, not an address validation: the value was composed by the frontend from its own session."""
         response = client().delete(WRITE_PATH, headers={**ADMIN_AUTH, ACTOR_HEADER: actor})
 
-        assert response.status_code == 401
+        assert response.status_code == 400
         assert response.json()["error_code"] == MISSING_ACTOR
 
     def test_a_write_carrying_a_well_formed_actor_reaches_the_database(self):
@@ -166,7 +168,7 @@ class TestTheGuardOverAServedRequest:
 class TestTheGuardDecidesByMethodAlone:
     @pytest.mark.parametrize("method", sorted(SAFE_METHODS))
     def test_a_safe_method_passes_with_no_actor(self, method: str):
-        """HEAD and OPTIONS reach no route of this application's own, and refusing them would answer a preflight with a 401."""
+        """HEAD and OPTIONS reach no route of this application's own, and refusing them would answer a preflight with a 400."""
         during, _ = asyncio.run(through_the_binder(request_for(method, None)))
 
         assert during == (SYSTEM_ACTOR, None)
@@ -174,10 +176,10 @@ class TestTheGuardDecidesByMethodAlone:
     @pytest.mark.parametrize("method", ["POST", "PATCH", "DELETE", "PUT"])
     def test_an_unsafe_method_with_no_actor_raises(self, method: str):
         """The decision is the METHOD's, not the route's: `PUT` is served nowhere and would still have to fail closed."""
-        with pytest.raises(RequestAuthorizationException) as excinfo:
+        with pytest.raises(MalformedRequestException) as excinfo:
             asyncio.run(through_the_binder(request_for(method, None)))
 
-        assert excinfo.value.status_code == 401
+        assert excinfo.value.status_code == 400
         assert excinfo.value.error_code == MISSING_ACTOR
 
 
@@ -210,18 +212,7 @@ class TestWhatTheBindingLeavesBehind:
         assert asyncio.run(_two_requests()) is SYSTEM_ACTOR
 
 
-def api_routes() -> Iterator[APIRoute]:
-    """Every `APIRoute` the app serves, reached through the `_IncludedRouter` wrappers holding them."""
-    for entry in APP.routes:
-        original_router = getattr(entry, "original_router", None)
-        candidates = original_router.routes if original_router is not None else [entry]
-
-        for route in candidates:
-            if isinstance(route, APIRoute):
-                yield route
-
-
-MOUNTED_OPERATIONS = [((route.path, method), route) for route in api_routes() for method in (route.methods or ())]
+MOUNTED_OPERATIONS = [((route.path, method), route) for route in api_routes(APP) for method in (route.methods or ())]
 
 ROUTES_BY_OPERATION = dict(MOUNTED_OPERATIONS)
 
@@ -414,7 +405,7 @@ def test_an_actor_carrying_a_control_character_is_refused(code_point: int):
 
     assert WELL_FORMED_ACTOR.fullmatch(forged) is None
 
-    with pytest.raises(RequestAuthorizationException) as excinfo:
+    with pytest.raises(MalformedRequestException) as excinfo:
         asyncio.run(through_the_binder(request_for("PATCH", forged)))
 
     assert excinfo.value.error_code == MISSING_ACTOR

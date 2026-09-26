@@ -1,0 +1,9 @@
+// Linted as src/shared/components/ui/SeasonEmptyState.tsx.
+// The component spells the season's empty sentence, and every other ban still reaches it.
+declare const EmptyState: (props: { children: string }) => null;
+
+export function SeasonEmptyState() {
+  return <EmptyState>Für diese Saison gibt es keine Spiele.</EmptyState>;
+}
+
+export const GAP = "flex gap-5"; // expect: gap

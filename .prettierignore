@@ -25,8 +25,8 @@ next-env.d.ts
 fl_backend/openapi.json
 pnpm-lock.yaml
 
-# Nested worktrees and the gate's throwaway fixtures are held outside git by mechanisms
-# --ignore-path cannot read -- .git/info/exclude, and an EXIT trap that Ctrl-C skips.
+# Each nested worktree is another branch's whole tree, with its own installs; the fixtures are what
+# a gate run leaves when Ctrl-C skips its EXIT trap.
 .claude/worktrees/
 .tmp-*/
 

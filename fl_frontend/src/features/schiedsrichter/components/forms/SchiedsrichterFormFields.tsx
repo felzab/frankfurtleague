@@ -1,12 +1,21 @@
 "use client";
 
-import { FieldError, Input, Label, NumberField, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
 
-import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP, FIELD_INPUT, FIELD_LABEL } from "@/shared/components/ui/formFieldStyles";
+import { KONTAKT_NAME_MAX_LENGTH } from "@/features/teams/constants";
+import {
+  FIELD_COUNT_INPUT_CLASSES,
+  FIELD_ERROR_CLASSES,
+  FIELD_GROUP_CLASSES,
+  FIELD_INPUT_CLASSES,
+  FIELD_LABEL_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
+import { NumberField } from "@/shared/components/ui/NumberField";
+import { TextField } from "@/shared/components/ui/TextField";
 import { emptyAsNull } from "@/shared/utils/draftStatus";
-import { enteredNumber } from "@/shared/utils/numberField";
 
-import type { FieldErrors } from "@/shared/utils/validation";
 import type { SchiedsrichterDraft } from "../../types";
 
 /**
@@ -16,94 +25,84 @@ import type { SchiedsrichterDraft } from "../../types";
 export function SchiedsrichterFormFields<T extends SchiedsrichterDraft>({
   draft,
   onChange,
-  errors,
 }: {
   draft: T;
   onChange: (updatedDraft: T) => void;
-  /** For the inline-create panel, inside the match form's `<form>` where `Form`'s `validationErrors` cannot reach. */
-  errors?: FieldErrors;
 }) {
   return (
     <>
       <TextField
-        isRequired
         name="name"
-        value={draft.name}
-        onChange={(next) => onChange({ ...draft, name: next })}
         // `value`/`onChange` belong on the field, not the inner `<Input>`: that is RAC's controlled
         // API, and on the input react-aria's field state never sees a value at all.
-        isInvalid={errors?.["name"] ? true : undefined}>
-        <Label className={FIELD_LABEL}>Name</Label>
+        value={draft.name}
+        onChange={(next) => onChange({ ...draft, name: next })}
+        maxLength={KONTAKT_NAME_MAX_LENGTH}>
+        <Label className={FIELD_LABEL_CLASSES}>Name</Label>
         <Input
           placeholder="z.B. Pierluigi Collina"
-          className={FIELD_INPUT}
+          className={FIELD_INPUT_CLASSES}
         />
-        <FieldError className={FIELD_ERROR}>{errors?.["name"]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES} />
       </TextField>
 
       <TextField
         name="schule"
         value={draft.schule ?? ""}
-        onChange={(next) => onChange({ ...draft, schule: next })}
-        isInvalid={errors?.["schule"] ? true : undefined}>
-        <Label className={FIELD_LABEL}>Schule / Verein</Label>
+        onChange={(next) => onChange({ ...draft, schule: next })}>
+        <Label className={FIELD_LABEL_CLASSES}>Schule / Verein</Label>
         <Input
           placeholder="z.B. Goethe-Gymnasium"
-          className={FIELD_INPUT}
+          className={FIELD_INPUT_CLASSES}
         />
-        <FieldError className={FIELD_ERROR}>{errors?.["schule"]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES} />
       </TextField>
 
       <TextField
-        isRequired
         type="email"
         name="kontakt.email"
         value={draft.kontakt.email ?? ""}
-        onChange={(next) => onChange({ ...draft, kontakt: { ...draft.kontakt, email: emptyAsNull(next) } })}
-        isInvalid={errors?.["kontakt.email"] ? true : undefined}>
-        <Label className={FIELD_LABEL}>E-Mail</Label>
+        onChange={(next) => onChange({ ...draft, kontakt: { ...draft.kontakt, email: emptyAsNull(next) } })}>
+        <Label className={FIELD_LABEL_CLASSES}>E-Mail</Label>
         <Input
           placeholder="z.B. ref@beispiel.de"
-          className={FIELD_INPUT}
+          className={FIELD_INPUT_CLASSES}
         />
-        <FieldError className={FIELD_ERROR}>{errors?.["kontakt.email"]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES} />
       </TextField>
 
       <TextField
         type="tel"
         name="kontakt.telefon"
         value={draft.kontakt.telefon ?? ""}
-        onChange={(next) => onChange({ ...draft, kontakt: { ...draft.kontakt, telefon: next } })}
-        isInvalid={errors?.["kontakt.telefon"] ? true : undefined}>
-        <Label className={FIELD_LABEL}>Telefon</Label>
+        onChange={(next) => onChange({ ...draft, kontakt: { ...draft.kontakt, telefon: next } })}>
+        <Label className={FIELD_LABEL_CLASSES}>Telefon</Label>
         <Input
           placeholder="z.B. 0151 12345678"
-          className={FIELD_INPUT}
+          className={FIELD_INPUT_CLASSES}
         />
-        <FieldError className={FIELD_ERROR}>{errors?.["kontakt.telefon"]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES} />
       </TextField>
 
       <NumberField
         minValue={0}
-        isRequired
         name="default_payment"
-        isInvalid={errors?.["default_payment"] ? true : undefined}
         step={5}
-        value={draft.default_payment ?? Number.NaN}
+        value={draft.default_payment}
         onChange={(val) =>
           onChange({
             ...draft,
-            default_payment: enteredNumber(val),
+            default_payment: val,
           })
         }
         formatOptions={{ style: "currency", currency: "EUR" }}>
-        <Label className={FIELD_LABEL}>Standard-Honorar</Label>
-        <NumberField.Group className={FIELD_GROUP}>
+        <Label className={FIELD_LABEL_CLASSES}>Standard-Honorar</Label>
+        <NumberField.Group className={FIELD_GROUP_CLASSES}>
           <NumberField.DecrementButton />
-          <NumberField.Input className={FIELD_COUNT_INPUT} />
+          <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
           <NumberField.IncrementButton />
         </NumberField.Group>
-        <FieldError className={FIELD_ERROR}>{errors?.["default_payment"]}</FieldError>
+        <FieldError className={FIELD_ERROR_CLASSES} />
       </NumberField>
     </>
   );

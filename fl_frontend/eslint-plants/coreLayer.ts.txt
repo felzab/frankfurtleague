@@ -1,0 +1,60 @@
+// Linted as src/core/zzPlant.ts.
+import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
+import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-core
+import { FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles"; // expect: layer-core
+import { captureStdout } from "./stdoutCapture"; // expect: test-only
+import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { NumberField as HeroNumberField } from "@heroui/react/number-field"; // expect: number-field
+import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect: marked-field
+import { DatePicker } from "@heroui/react/date-picker"; // expect: segmented-import
+import { Button } from "@heroui/react"; // expect: vendor-root
+import { HintPanel } from "@/shared/components/ui/InfoHint"; // expect: hint-internals expect: layer-core
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
+// Every glob of the test-only and layer groups, each spelling once.
+import { captureStdout as captureTyped } from "./stdoutCapture.ts"; // expect: test-only
+import { installAuthDoubles } from "./authDoubles"; // expect: test-only
+import { installAuthDoubles as installTyped } from "./authDoubles.ts"; // expect: test-only
+import { doubleSendMail } from "./mailDouble"; // expect: test-only
+import { doubleSendMail as doubleSendMailTyped } from "./mailDouble.ts"; // expect: test-only
+import { readScheme } from "./schemeReader"; // expect: test-only
+import { readScheme as readTyped } from "./schemeReader.ts"; // expect: test-only
+import { redact } from "./edgeRedaction"; // expect: test-only
+import { redact as redactTyped } from "./edgeRedaction.ts"; // expect: test-only
+import { walkFiles } from "./treeWalk"; // expect: test-only
+import { walkFiles as walkFilesTyped } from "./treeWalk.ts"; // expect: test-only
+import { schemaModules } from "./schemaModules"; // expect: test-only
+import { schemaModules as schemaModulesTyped } from "./schemaModules.ts"; // expect: test-only
+import { DOCUMENT_PATH } from "./openapiDocument"; // expect: test-only
+import { DOCUMENT_PATH as DOCUMENT_PATHTyped } from "./openapiDocument.ts"; // expect: test-only
+import { publishedCeilings } from "./publishedCeilings"; // expect: test-only
+import { publishedCeilings as publishedCeilingsTyped } from "./publishedCeilings.ts"; // expect: test-only
+import { blankComments } from "./blankComments"; // expect: test-only
+import { blankComments as blankCommentsTyped } from "./blankComments.ts"; // expect: test-only
+import { openingTagAt } from "./openingTag"; // expect: test-only
+import { openingTagAt as openingTagAtTyped } from "./openingTag.ts"; // expect: test-only
+import { withoutPythonComments } from "./pythonComments"; // expect: test-only
+import { withoutPythonComments as withoutPythonCommentsTyped } from "./pythonComments.ts"; // expect: test-only
+import { KEY_TIERS } from "./keyTiers"; // expect: test-only
+import { KEY_TIERS as KEY_TIERSTyped } from "./keyTiers.ts"; // expect: test-only
+import { TEAM_FACETS as TEAMS_RELATIVE } from "../features/teams/facets"; // expect: layer-core
+import { FIELD_LABEL_CLASSES as LABEL_RELATIVE } from "../shared/components/ui/formFieldStyles"; // expect: layer-core
+import { TEAM_FACETS as TEAMS_FROM_ROOT } from "../../src/features/teams/facets"; // expect: layer-core
+import { createRequire as loadVia } from "node:module"; // expect: node-module
+import { registerHooks as hookVia } from "module"; // expect: node-module
+import { SITE_URL } from "./brand"; // expect: site-origin
+import { SITE_URL as SITE_URL_TYPED } from "./brand.ts"; // expect: site-origin
+
+export const USED = [TEAM_FACETS, FIELD_LABEL_CLASSES, captureStdout, HeroForm, DatePicker, Button, AppRouterContext, HintPanel];
+export const SPELLINGS = [captureTyped, installAuthDoubles, installTyped, doubleSendMail, doubleSendMailTyped, readScheme, readTyped, redact, redactTyped, TEAMS_RELATIVE, LABEL_RELATIVE, TEAMS_FROM_ROOT];
+export const MORE_SPELLINGS = [walkFiles, walkFilesTyped, schemaModules, schemaModulesTyped, DOCUMENT_PATH, DOCUMENT_PATHTyped, publishedCeilings, publishedCeilingsTyped, blankComments, blankCommentsTyped, openingTagAt, openingTagAtTyped, withoutPythonComments, withoutPythonCommentsTyped, KEY_TIERS, KEY_TIERSTyped];
+// A package's own path crosses no layer, however its directories are named.
+export const NEXT_SHARED_LOADED = import("next/dist/shared/lib/utils.js");
+export const LOADED_SLICE = await import("@/features/teams/facets"); // expect: layer-core-load
+export const LOADED_SHARED = import(`../shared/components/ui/formFieldStyles`); // expect: layer-core-load
+export const LOADED_CAPTURE = import("./stdoutCapture.ts"); // expect: test-only-load
+export const NODE_MODULE_USED = [loadVia, hookVia];
+export const LOADED_LOADER = import("node:module"); // expect: test-only-load
+export const ORIGIN_USED = [SITE_URL, SITE_URL_TYPED];
+export const NUMBER_FIELD_USED = HeroNumberField;
+export const LOCALE_USED = PinnedLocale;
+export const TEXT_FIELD_USED = HeroTextField;

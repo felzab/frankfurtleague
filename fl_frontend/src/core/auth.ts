@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { headers } from "next/headers";
 
 import { mongodbAdapter } from "@better-auth/mongo-adapter";
@@ -310,7 +311,7 @@ const sessionOptions = {
   },
 } satisfies BetterAuthOptions["session"];
 
-export function isUserAdmin(email?: string | null): boolean {
+function isUserAdmin(email?: string | null): boolean {
   if (!email || !frontend_config.ALLOWED_ADMIN_EMAILS) return false;
 
   // Folded here because the library folds only CASE, and only on the row it stores: the address a
@@ -662,11 +663,14 @@ export function isAdminSession(served: ServedSession): boolean {
   return isAdminWithinWindow(served) && served.session.authFactor === PASSKEY_FACTOR;
 }
 
+// React's `cache`, never `"use cache"`, which would hand one request's session to another: one read
+// serves every guard of a render pass, and none outside it, where a server action and the proxy
+// each read their own.
 /**
  * Neither throws nor redirects — hence `get`, not `require` — so it guards nothing on its own line.
  * **Check the return value** (`docs/frontend/spec.md` I8).
  */
-export async function getAdminSession(): Promise<ServedSession | null> {
+export const getAdminSession = cache(async (): Promise<ServedSession | null> => {
   const served = await auth.api.getSession({ headers: await headers() });
   if (!served || !isAdminSession(served)) return null;
 
@@ -675,7 +679,7 @@ export async function getAdminSession(): Promise<ServedSession | null> {
   setRequestActor(asSignInIdentifier(served.user.email));
 
   return served;
-}
+});
 
 /** Where `/signin/weiter` sends the session it was handed. */
 export type SignInDestination = "/admin" | "/signin/passkey" | "/" | "/signin";
@@ -687,6 +691,8 @@ export async function getSignInDestination(): Promise<SignInDestination> {
   if (isUserAdmin(served.user.email)) {
     // The guard's own verdict rather than a second spelling of it: a condition added there has to
     // move this landing with it, or `/admin` is offered to somebody the proxy bounces.
+
+    // eslint-disable-next-line local/admin-link -- where a finished sign-in lands; no season is in scope at sign-in
     if (isAdminSession(served)) return "/admin";
 
     // Past either figure the session is spent, and an administrator asks for a fresh link rather

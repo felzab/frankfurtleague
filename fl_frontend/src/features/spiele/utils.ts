@@ -280,7 +280,7 @@ export const toStoredSide = (side: FLSpielTeamFieldJoined | null): FLSpielTeamFi
  * The wire shape of one side: which club and what it scored. The display copies are left behind
  * because the server composes them from the club's own row, so one sent back could only disagree.
  */
-export const toPayloadSide = (side: FLSpielTeamField | null): FLSpielTeamFieldPayload | null =>
+const toPayloadSide = (side: FLSpielTeamField | null): FLSpielTeamFieldPayload | null =>
   side === null ? null : { team_id: side.team_id, tore: side.tore };
 
 /**

@@ -73,11 +73,6 @@ THE CHECKS, in priority order:
    failure — and is any partial state one that serves stale or wrong data silently rather than
    failing visibly?
 
-SEVERITY HONESTY: rate findings for the attacker position that can actually reach them. A
-compose-network-only exposure is real but is not an internet-facing CRITICAL. Cite the
-ratified clause, in `.claude/CLAUDE.md` §7 or a `.claude/rules/` file, or the spec-sheet invariant
-before flagging any ratified posture.
-
 BOUNDARIES — not this pass: image contents, script correctness, CI mechanics and pipeline excess →
 `ops 1` · application auth logic → the surface programmes · FastAPI-side injection and leakage →
 `backend 3`.

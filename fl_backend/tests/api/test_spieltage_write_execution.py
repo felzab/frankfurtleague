@@ -11,7 +11,8 @@ from app.api.saisons.services import SAISON_SPAN_BELOW_SPIELTAGE
 from app.api.spieltage.admin_router import patch_spieltag
 from app.api.spieltage.schemas import FLPatchSpieltagPayload
 from app.api.spieltage.services import SPIELTAG_BEGINN_OUT_OF_ORDER, SPIELTAG_SPAN_BELOW_FIXTURES
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
+from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -63,17 +64,8 @@ WIDENED_ENDE = "2026-06-19"
 OTHER_SAISON_BEGINN = "2025-06-25"
 OTHER_SAISON_ENDE = "2025-06-26"
 
-RULES = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 4,
-    "teams_per_group": 4,
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-}
+# The shape the two match counts below follow from.
+RULES = documents.rules_document(number_of_groups=4, teams_per_group=4, qualifiers_per_group=2)
 
 # Spelled out rather than computed, so a `schedule_for` change that stops matching is visible here.
 GRUPPENPHASE_MATCHES = 8
@@ -81,15 +73,7 @@ FINALE_MATCHES = 1
 
 
 def saison_document() -> dict[str, Any]:
-    """`schedule` is derived on read and on no document."""
-
-    return {
-        "_id": SAISON_ID,
-        "start_date": SAISON_START,
-        "end_date": SAISON_END,
-        "status": "active",
-        "rules": dict(RULES),
-    }
+    return documents.saison_document(SAISON_ID, "active", start_date=SAISON_START, end_date=SAISON_END, rules=dict(RULES))
 
 
 def spieltag_document(**overrides: Any) -> dict[str, Any]:
@@ -107,29 +91,9 @@ def spieltag_document(**overrides: Any) -> dict[str, Any]:
 
 
 def spiel_document(*, spiel_nr: int, **overrides: Any) -> dict[str, Any]:
-    """Every key the shipped validator requires, nulled where this suite has no opinion: only the date is ever read here."""
+    """Only the date is ever read here."""
 
-    return {
-        "_id": ObjectId(),
-        "team1": None,
-        "team2": None,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": None,
-        "uhrzeit": None,
-        "ort": None,
-        "schiedsrichter": None,
-        "ergebnis": None,
-        "elfmeterschiessen": None,
-        "spieltag_id": SPIELTAG_OID,
-        # Required of the caller rather than defaulted: `uniq_saison_id_spiel_nr` refuses a second
-        # fixture in this season reusing a number, and a default is what a caller forgets to override.
-        "spiel_nr": spiel_nr,
-        "sonderereignis": None,
-        "saison_phase": "gruppenphase",
-        "saison_id": SAISON_ID,
-        **overrides,
-    }
+    return {**documents.spiel_document(spiel_id=ObjectId(), saison_id=SAISON_ID, spiel_nr=spiel_nr, spieltag_id=SPIELTAG_OID), **overrides}
 
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
@@ -179,9 +143,9 @@ class TestASeasonKeepsCoveringTheMatchdaysItStores:
     """`REQ-DATE-004` through the endpoint: only a database proves the spans it judges are read from `spieltage` at all."""
 
     def test_a_shrink_past_a_stored_matchday_is_refused(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> WriteRefusalException:
             # Ends before the seeded matchday begins, so the matchday would be left outside.
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await move_the_seasons_end(database, "2026-05-31")
 
             return excinfo.value
@@ -249,11 +213,11 @@ class TestAMatchdayKeepsCoveringItsFixtures:
         await database.spiele.insert_one(spiel_document(spiel_nr=1, datum=datum))
 
     def test_a_shrink_past_a_dated_fixture_is_refused(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> WriteRefusalException:
             # On the matchday's last day, so pulling `ende` back to its first leaves the fixture outside.
             await self._with_a_fixture_on(database, SPIELTAG_ENDE)
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await re_date(database, SPIELTAG_OID, beginn=SPIELTAG_BEGINN, ende=SPIELTAG_BEGINN)
 
             return excinfo.value
@@ -302,10 +266,10 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
         )
 
     def test_a_move_past_the_next_position_is_refused(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> tuple[DocumentConflictException, Any]:
+        async def body(database: AsyncDatabase) -> tuple[WriteRefusalException, Any]:
             await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=NEIGHBOUR_BEGINN)
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await re_date(database, SPIELTAG_OID, beginn=AFTER_THE_NEIGHBOUR, ende=PAST_THE_NEIGHBOUR)
 
             stored = await database.spieltage.find_one({"_id": SPIELTAG_OID}, {"beginn": 1})
@@ -322,10 +286,10 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
     def test_a_move_before_the_previous_position_is_refused(self, mongo_replica_set_url: str):
         """The other neighbour, and the other direction: a rule reading one side would let this one through."""
 
-        async def body(database: AsyncDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> WriteRefusalException:
             await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=NEIGHBOUR_BEGINN)
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await re_date(database, SECOND_OID, beginn=BEFORE_THE_FIRST_BEGINN, ende=BEFORE_THE_FIRST_ENDE)
 
             return excinfo.value
@@ -350,11 +314,11 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
     def test_an_undated_neighbour_is_stepped_over_for_the_next_dated_one(self, mongo_replica_set_url: str):
         """A drawn matchday is undated, so stopping at the adjacent position would go blind for most of a phase being dated."""
 
-        async def body(database: AsyncDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> WriteRefusalException:
             await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=None)
             await self._with_a_matchday(database, oid=THIRD_OID, position=3, beginn=NEIGHBOUR_BEGINN)
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await re_date(database, SPIELTAG_OID, beginn=AFTER_THE_NEIGHBOUR, ende=PAST_THE_NEIGHBOUR)
 
             return excinfo.value
@@ -367,11 +331,11 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
     def test_an_undated_position_below_is_stepped_over_too(self, mongo_replica_set_url: str):
         """The other side of the same gap: a phase is dated in whatever order somebody works it, so undated rows sit on both sides."""
 
-        async def body(database: AsyncDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> WriteRefusalException:
             await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=None)
             await self._with_a_matchday(database, oid=THIRD_OID, position=3, beginn=NEIGHBOUR_BEGINN)
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await re_date(database, THIRD_OID, beginn=BEFORE_THE_FIRST_BEGINN, ende=BEFORE_THE_FIRST_ENDE)
 
             return excinfo.value
@@ -384,11 +348,11 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
     def test_the_nearest_dated_position_below_is_what_judges_the_move(self, mongo_replica_set_url: str):
         """Two dated rows below the subject at different days: the phase's earliest one would let this step through."""
 
-        async def body(database: AsyncDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> WriteRefusalException:
             await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=MIDDLE_BEGINN)
             await self._with_a_matchday(database, oid=THIRD_OID, position=3, beginn=NEIGHBOUR_BEGINN)
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await re_date(database, THIRD_OID, beginn=BEFORE_THE_MIDDLE, ende=MIDDLE_BEGINN)
 
             return excinfo.value
@@ -426,7 +390,7 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
         async def body(database: AsyncDatabase) -> tuple[str, Any]:
             await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=NEIGHBOUR_BEGINN)
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await re_date(database, SECOND_OID, beginn=BEFORE_THE_FIRST_BEGINN, ende=BEFORE_THE_FIRST_ENDE)
 
             # The predecessor widened as the message reads it, its own `beginn` untouched.
@@ -445,7 +409,7 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
         async def body(database: AsyncDatabase) -> tuple[str, Any]:
             await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=BEFORE_THE_FIRST_BEGINN, ende=BEFORE_THE_FIRST_ENDE)
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await re_date(database, SECOND_OID, beginn=BELOW_THE_BACKWARDS_PAIR, ende=BEFORE_THE_FIRST_ENDE)
 
             # Held at the floor the message names, its `ende` moved so the echo shows a write.
@@ -466,7 +430,7 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
             await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=None)
             await self._with_a_matchday(database, oid=THIRD_OID, position=3, beginn=NEIGHBOUR_BEGINN)
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await re_date(database, SECOND_OID, beginn=AFTER_THE_NEIGHBOUR, ende=PAST_THE_NEIGHBOUR)
 
             # Dated on the follower's own day, which is the latest the message offers.
@@ -485,7 +449,7 @@ class TestAMatchdayNeverBeginsBeforeItsPredecessor:
         async def body(database: AsyncDatabase) -> tuple[str, Any]:
             await self._with_a_matchday(database, oid=SECOND_OID, position=2, beginn=NEIGHBOUR_BEGINN)
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await re_date(database, SPIELTAG_OID, beginn=AFTER_THE_NEIGHBOUR, ende=PAST_THE_NEIGHBOUR)
 
             # The message's own remedy, submitted as it reads it: the stored `beginn` back, and the

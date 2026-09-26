@@ -340,8 +340,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   submits the form is held there — an allowlisted administrator's and a stranger's alike — until
   that retention index removes it
   ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-two-expiry-indexes)). Nothing else is
-  recorded of such a person: no `user` row is written until a link is followed, and a session row
-  carries neither the caller's address nor their browser identifier
+  recorded of such a person: no `user` row is written until a link is followed
   (`fl_frontend/src/core/auth.ts`).
 - **No log row names a person as the one who wrote it today, and a person's own write is to be
   recorded under a pseudonym rather than their address.** `fl_frontend/src/core/subject.ts :: getSubjectSession`
@@ -370,13 +369,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
   in it past their own erasure: the person barred, whom the free-text reason may name outright, and
   the administrator, whose own address stands in `erstellt_von` in plain. The basis for keeping
   either is what [section 11](#11-open-and-owed-a-decision) asks the Datenschutzexperte to confirm.
-  **It is bounded by the league's own calendar**: the row names the last season it covers, five full
-  seasons after the one it was entered under, and the activation that runs past it removes the row
-  without anybody asking (`docs/backend/spec.md :: I273`). An administrator may lift it
-  earlier. **Either removal keeps a copy in the action log** — the hash, the key label, the reason,
-  the administrator and the season it ran to, and no barred address — for the twelve months every
-  stamped log row is kept (`docs/backend/spec.md :: I48`, `:: I119`), so a removed ban is readable
-  at `/admin/aktionen` for that period and enforced by nothing from the moment it goes.
+  **It is bounded by the league's own calendar** and removed without anybody asking at the season
+  activation [section 6](#6-retention-is-bounded-where-a-bound-was-chosen) names; an administrator
+  may lift it earlier. **Either removal keeps a copy in the action log** — the hash, the key label,
+  the reason, the administrator and the season it ran to, and no barred address — for the twelve
+  months every stamped log row is kept (`docs/backend/spec.md :: I48`, `:: I119`), so a removed ban
+  is readable at `/admin/aktionen` for that period and enforced by nothing from the moment it goes.
 - **A retired row is never removed because of its age.** A player who left a squad, a referee who
   stopped, a club that left and a past season all keep their rows; a person's row goes only by an
   erasure or by one of the two one-off removals [section 3](#3-the-current-pupil-records-are-reset-once)
@@ -418,10 +416,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   sign-in library's settings (`fl_frontend/src/core/auth.ts`). **An application whose deletion notice the
   provider refuses is held past that window rather than erased** (`docs/backend/spec.md :: I196`):
   the provider accepts a send to a suppressed address and skips it, so erasing on a stamp saying
-  the notice went out is erasing somebody who was told nothing, which is what the sweep's own
-  ordering refuses: it mails the un-announced, stamps what was delivered and erases only what was
-  announced. It stands until an administrator enters a reachable address or decides the
-  application, and in neither case past the end of the season it applied for. Ruled 2026-09-08.
+  the notice went out is erasing somebody who was told nothing. It stands until an administrator
+  enters a reachable address or decides the application, and in neither case past the end of the
+  season it applied for. Ruled 2026-09-08.
 - **A registration is bounded at each of its three ends, and a pupil's own confirmation is what
   starts the longest of them.** The confirmation writes the birthdate and the whole consent record
   in one update (`fl_backend/app/api/registrierungen/services.py :: compose_confirmation_update`), so
@@ -522,31 +519,25 @@ Every ruling below is the sign-up flow as it stands for the next season.
 - **Access logs stay on the host and are kept for at most eight days. The application logs are
   bounded by size while they run, and by thirty days as the copy each deploy makes.** The access
   log is a file on the host rather than a stream inside the nginx container — it carries the
-  visitor's address, user agent and referer, and it survives a deploy — so `logrotate` keeps seven
-  dated files beside the live day and deletes the eighth, rotating once a day and earlier on a day
-  the file outgrows its size cap, which is what keeps the disk bounded whatever the traffic.
-  **The edge's error log is a host file beside it under the same rotation**, every line of it about
-  a request naming the visitor's address too, and nothing the edge writes to its container's own
-  size-bounded stream names one (`docs/ops/spec.md :: I352`). The published notice tells a
-  visitor that a failed request leaves such an entry under the same eight days
-  (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`); ruled 2026-09-24.
-  Deletion happens at a rotation and nowhere else, which is why the timer is hourly rather than
-  daily: a size cap bites only when the rotation runs, so a spike between two daily runs would sit
-  unbounded ([`ops/runbooks.md`](ops/runbooks.md) §7). The mechanism is
-  installed by hand in the same deployment that publishes these figures. That is an age bound
-  rather than one traffic volume sets, which a size rotation is: under a size bound alone a quiet
-  month would keep addresses far longer than a busy one. The application logs keep the container
-  runtime's size rotation as their only live bound
-  (`docs/logging/spec.md :: 1.2`), because the only way to rotate a file the
-  runtime holds open loses lines; the deploy copies each stream off before replacing its container,
-  and those copies are what the thirty days reach (`scripts/ops/deploy.sh :: LOG_DIR`), the host's
-  own `systemd-tmpfiles` sweep deleting each one thirty days after the deploy wrote it. A copy is
-  written once and never appended, so its bound is a deletion by age rather than a rotation. The
+  visitor's address, user agent and referer, and it survives a deploy — and its eight days are an
+  age bound rather than one traffic volume sets, which a size rotation is: under a size bound alone
+  a quiet month would keep addresses far longer than a busy one. **The edge's error log is a host
+  file beside it under the same rotation**, every line of it about a request naming the visitor's
+  address too, and nothing the edge writes to its container's own size-bounded stream names one
+  (`docs/ops/spec.md :: I352`). The published notice tells a visitor that a failed request leaves
+  such an entry under the same eight days
+  (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`); ruled 2026-09-24. The
+  application logs keep the container runtime's size rotation as their only live bound
+  (`docs/logging/spec.md :: 1.2`), because the only way to rotate a file the runtime holds open
+  loses lines, and the thirty days reach the copy the deploy takes of each stream before replacing
+  its container (`scripts/ops/deploy.sh :: LOG_DIR`). The host files enforcing both figures are
+  installed by hand in the same deployment that publishes them
+  ([`ops/runbooks.md`](ops/runbooks.md) §7). The
   eight is the backup window an erased person is told about
   ([section 5](#5-erasure-reaches-everyone-who-asks)), which lets one figure answer both the
   access-log question and the erasure question. Nothing is shipped to a collector: that would
   lengthen retention and add a processor receiving visitors' addresses. That the access line carries
-  no credential is a separate guarantee, held by `nginx/redaction_test.sh` in the gate's ops scope.
+  no credential is a separate guarantee, held by `nginx/edge_test.sh` in the gate's ops scope.
   Ruled 2026-09-06, re-ruled 2026-09-07.
 
 ## 7. Processors and third parties
@@ -635,19 +626,15 @@ the `Entry` column carries a token only where one still resolves in that file.
   repository. The host's bound is a file outside it ([`ops/runbooks.md`](ops/runbooks.md) §7), so a
   claim that it was honoured rests on reading the host rather than on a report.
 - **The ban list's surviving row is kept about two people past their own erasure, for the
-  Datenschutzexperte.** What is kept of the person barred is an HMAC of their canonicalised
-  email address (`docs/backend/spec.md :: I269`) under a key this controller holds, so it is pseudonymised personal data rather than
-  no personal data at all; beside it stand a free-text reason that may name them and the entering
-  administrator's own address in plain ([section 5](#5-erasure-reaches-everyone-who-asks)). The basis
+  Datenschutzexperte**: the person barred, pseudonymised and possibly named by the reason, and the
+  entering administrator in plain ([section 5](#5-erasure-reaches-everyone-who-asks)). The basis
   for keeping any of it is legitimate interest in refusing a re-registration the league has already
   declined — a refusal the ban's own create, the public registration and every referee write that
   mints a confirmation link perform ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)).
-  The key the hash is taken under can never be rotated, a replacement disarming every ban in
-  silence (`docs/glossary.md :: Sperrliste`). One question to put: what
-  an access request reaches, given that no route finds the row from the address it was taken from
-  while the reason beside it may name its subject outright. The bound is
-  [section 6](#6-retention-is-bounded-where-a-bound-was-chosen)'s, and the procedure
-  for the lookup is [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)'s.
+  One question to put: what an access request reaches, given that no route finds the row from the
+  address it was taken from while the reason beside it may name its subject outright. The bound is
+  [section 6](#6-retention-is-bounded-where-a-bound-was-chosen)'s, and the procedure for the lookup
+  is [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)'s.
 - **Publication rests on a consent no surface can withdraw, and Art. 7 (3) asks that withdrawing be
   as easy as giving, for the Datenschutzexperte.** A pupil's consent record is written by their own
   confirmation (`fl_backend/app/api/registrierungen/services.py :: compose_confirmation_update`) and
@@ -689,12 +676,12 @@ the `Entry` column carries a token only where one still resolves in that file.
   published notice does not name it, for the Datenschutzexperte.** Every box that stores an address
   refuses one ([section 2](#2-consent-comes-from-the-person-from-16-or-18)), so a person whose only
   mailbox is spelled that way cannot register, apply or be entered under it, and the box asks them
-  for another address. The notice says that of what a person enters, only a birthdate outside its
-  span and a barred address are refused with no human involved
-  (`DatenschutzView.tsx :: Von dem, was Du auf dieser Website eintragen kannst`), and names a full
-  squad beside them as a limit rather than a decision. The questions to put: whether this refusal is
-  a limit of what the league can take, as the full squad is, or a judgement about the person; and
-  so whether the notice names it beside the full squad or among the refusals it offers a review of.
+  for another address, while the notice names only two refusals, a birthdate outside its span and a
+  barred address, and a full squad beside them as a limit rather than a decision
+  ([section 2](#2-consent-comes-from-the-person-from-16-or-18)). The questions to put: whether this
+  refusal is a limit of what the league can take, as the full squad is, or a judgement about the
+  person; and so whether the notice names it beside the full squad or among the refusals it offers
+  a review of.
 - **What carries a pupil's own consent from sixteen, for the Datenschutzexperte.**
   [Section 4](#4-what-is-published-and-on-what-basis) records that a pupil consents to their name's
   publication on their own from sixteen, with no guardian asked. Art. 8 (1) sets an age only for
@@ -734,11 +721,11 @@ the `Entry` column carries a token only where one still resolves in that file.
 - **The referees standing today, for the Datenschutzexperte.** Their rows were entered by an
   administrator before the confirmation link existed and carry no consent record, and their names are
   published on every fixture they officiate on the basis the notice gives for every referee; the rows
-  are dropped whole, once, and their past fixtures go to the ghost with the name emptied
+  are dropped whole, once, their past fixtures go to the ghost with the name emptied, and the drop
+  redacts the action log's images of them as an erasure does
   ([section 3](#3-the-current-pupil-records-are-reset-once),
   [`ops/runbooks.md`](ops/runbooks.md#12-deleting-this-seasons-player-records-and-resetting-the-action-log)).
-  The log images of those rows stand until the action log's reset or its retention takes them, and no
-  route reaches them by the person. Nothing informs these people under Art. 14: a placeholder row is
+  Nothing informs these people under Art. 14: a placeholder row is
   never mailed ([section 2](#2-consent-comes-from-the-person-from-16-or-18)), and a row holding a
   real address is mailed its link only when an administrator's write mints one
   ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)). Art. 14 (5)(b) lifts the duty where

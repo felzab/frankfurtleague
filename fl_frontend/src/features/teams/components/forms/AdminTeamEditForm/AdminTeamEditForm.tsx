@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 
 import { parseDate } from "@internationalized/date";
 
-import { Form } from "@heroui/react";
-
 import { patchSaisonTeamAction, patchTeamAction } from "@/features/teams/actions";
 import { austrittZustand } from "@/features/teams/constants";
 import { FLPatchSaisonTeamPayloadSchema, FLPatchTeamPayloadSchema } from "@/features/teams/schemas";
@@ -16,8 +14,8 @@ import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
 import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
 import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
+import { Form } from "@/shared/components/ui/Form";
 import { FormActionBar } from "@/shared/components/ui/FormActionBar";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -26,6 +24,7 @@ import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { fieldStatus } from "@/shared/utils/draftStatus";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildTeamBanners } from "./banners";
@@ -49,7 +48,7 @@ import type {
   FLTeamRecord,
   FLTrikotFarbe,
 } from "@/features/teams/schemas";
-import type { FLTeamDraftFields } from "@/features/teams/teamDraftStatus";
+import type { FLTeamDraftFields, TeamFieldPath } from "@/features/teams/teamDraftStatus";
 import type { GruppeOffer, TeamSaisonMembership } from "@/features/teams/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
@@ -90,7 +89,7 @@ export function AdminTeamEditForm({
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSaving] = useTransition();
 
   const storedMembership = saison.membership;
 
@@ -118,9 +117,10 @@ export function AdminTeamEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { team: FLPatchTeamPayloadSchema, saisonTeam: FLPatchSaisonTeamPayloadSchema },
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
+    useDraftFieldErrors({
+      schemas: { team: FLPatchTeamPayloadSchema, saisonTeam: FLPatchSaisonTeamPayloadSchema },
+    });
 
   // The record as the draft would save it. `""` for a cleared date is what the schema rejects with
   // its own German message, so a half-entered record is a field error rather than a silent skip.
@@ -173,7 +173,7 @@ export function AdminTeamEditForm({
   const validateTrikotSelection = (paths: readonly string[], selected: { trikot_farbe: FLTrikotFarbe | null }) =>
     validatePaths("saisonTeam", { ...buildSaisonPayload(), ...selected }, paths);
 
-  const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
+  const isChanged = (path: TeamFieldPath) => fieldStatus(status, path)?.isChanged ?? false;
   const clubDirty = status.changed.some((field) => field.group !== "Saison");
   const saisonDirty = storedMembership !== null && status.changed.some((field) => field.group === "Saison");
 
@@ -236,7 +236,7 @@ export function AdminTeamEditForm({
   };
 
   const writeAfterBlock = () => {
-    startTransition(async () => {
+    startSaving(async () => {
       const collectedErrors: FieldErrors = {};
       // Built once, so what goes to each action is also what a later blur is graded against.
       const clubPayload = buildClubPayload();
@@ -286,92 +286,94 @@ export function AdminTeamEditForm({
         }
       }
 
-      if (failures.length > 0) {
-        // One press, one failure: the half that saved leads each sentence, and one half of unknown
-        // outcome makes the whole press one, whatever the other half answered.
-        reportSubmitFailure(
-          {
-            success: false,
-            error: [...savedParts, ...failures.map((failure) => failure.error)].join(" "),
-            fieldErrors: collectedErrors,
-            unplacedError: [...savedParts, ...failures.map((failure) => failure.unplacedError ?? failure.error)].join(" "),
-            outcome: failures.some((failure) => failure.outcome === "unknown") ? "unknown" : undefined,
-          },
-          { team: clubPayload, saisonTeam: saisonPayload },
-          {
-            raise: (shown) => appToast.failure(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", shown),
-            // A mark speaks for its own half alone: a half that saved, or one failing with no map, is
-            // said nowhere else.
-            evenWhenShown: savedParts.length > 0 || failures.some((failure) => !hasFieldErrors(failure.fieldErrors)),
-          },
-        );
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startSaving(() => {
+        if (failures.length > 0) {
+          // One press, one failure: the half that saved leads each sentence, and one half of unknown
+          // outcome makes the whole press one, whatever the other half answered.
+          reportSubmitFailure(
+            {
+              success: false,
+              error: [...savedParts, ...failures.map((failure) => failure.error)].join(" "),
+              fieldErrors: collectedErrors,
+              unplacedError: [...savedParts, ...failures.map((failure) => failure.unplacedError ?? failure.error)].join(" "),
+              outcome: failures.some((failure) => failure.outcome === "unknown") ? "unknown" : undefined,
+            },
+            { team: clubPayload, saisonTeam: saisonPayload },
+            {
+              raise: (shown) => appToast.failure(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", shown),
+              // A mark speaks for its own half alone: a half that saved, or one failing with no map, is
+              // said nowhere else.
+              evenWhenShown: savedParts.length > 0 || failures.some((failure) => !hasFieldErrors(failure.fieldErrors)),
+            },
+          );
+          return;
+        }
 
-      setSubmitFieldErrors({}, {});
-      setHasSaved(true);
+        setSubmitFieldErrors({}, {});
+        setHasSaved(true);
 
-      // `team` and `storedMembership` are this render's props, so they still carry the pre-save
-      // values. Built BEFORE leaving, because the toast outlives the page.
-      const undoPayloads: TeamUndoPayloads = {
-        ...(clubDirty
-          ? {
-              club: {
-                id: team.id,
-                name: team.name,
-                shorthand: team.shorthand,
-                full_name: team.full_name,
-                website_url: team.website_url,
-                description: team.description,
-                address: team.address,
-                schulform: team.schulform,
-              },
-            }
-          : {}),
-        ...(saisonDirty && storedMembership !== null
-          ? {
-              saison: {
-                team_id: team.id,
-                saison_id: saison.saisonId,
-                gruppe: storedMembership.gruppe,
-                austritt: storedMembership.austritt,
-                trikot_farbe: storedMembership.trikot_farbe,
-              },
-            }
-          : {}),
-      };
-      // A lifted disqualification is the one thing this save can destroy that nothing else copies,
-      // so that grade is a warning; an ordinary save is a reversible success.
-      const destroyedSomething = austrittTouched && draftAustritt === null && storedMembership?.austritt != null;
-      offerUndo({
-        endpoint: "/api/admin/teams/undo",
-        body: undoPayloads,
-        message: consequenceNotes.join(" ") || undefined,
-        fallback: "Die Teamdaten wurden aktualisiert.",
-        warn: destroyedSomething,
-        router,
+        // `team` and `storedMembership` are this render's props, so they still carry the pre-save
+        // values. Built BEFORE leaving, because the toast outlives the page.
+        const undoPayloads: TeamUndoPayloads = {
+          ...(clubDirty
+            ? {
+                club: {
+                  id: team.id,
+                  name: team.name,
+                  shorthand: team.shorthand,
+                  full_name: team.full_name,
+                  website_url: team.website_url,
+                  description: team.description,
+                  address: team.address,
+                  schulform: team.schulform,
+                },
+              }
+            : {}),
+          ...(saisonDirty && storedMembership !== null
+            ? {
+                saison: {
+                  team_id: team.id,
+                  saison_id: saison.saisonId,
+                  gruppe: storedMembership.gruppe,
+                  austritt: storedMembership.austritt,
+                  trikot_farbe: storedMembership.trikot_farbe,
+                },
+              }
+            : {}),
+        };
+        // A lifted disqualification is the one thing this save can destroy that nothing else copies,
+        // so that grade is a warning; an ordinary save is a reversible success.
+        const destroyedSomething = austrittTouched && draftAustritt === null && storedMembership?.austritt != null;
+        offerUndo({
+          endpoint: "/api/admin/teams/undo",
+          body: undoPayloads,
+          message: consequenceNotes.join(" ") || undefined,
+          fallback: "Die Teamdaten wurden aktualisiert.",
+          warn: destroyedSomething,
+          router,
+        });
+
+        // AFTER the undo payloads are built: leaving with typed values still in state lets a
+        // save-then-undo reopen on values the club does not hold.
+        resetDraftToStored();
+        leavePage();
       });
-
-      // AFTER the undo payloads are built: leaving with typed values still in state is what let a
-      // save-then-undo reopen on values the club no longer holds.
-      resetDraftToStored();
-      leavePage();
     });
   };
 
   return (
     <DraftStatusProvider status={status}>
       <Form
-        // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-        validationBehavior="aria"
-        ref={formRef}
-        validationErrors={fieldErrors}
+        wiring={formWiring}
         className="flex min-h-0 w-full flex-1 flex-col"
-        onSubmit={runOnSubmit(requestSave)}>
+        onSubmit={requestSave}>
         <EditFormLayout
           header={pageHeader}
           onLeave={requestLeave}
           isLeaving={isLeaving}
+          isDirty={isDirty}
           rail={
             <DraftRail
               banners={banners}
@@ -392,6 +394,7 @@ export function AdminTeamEditForm({
           />
 
           <FormSaisonSection
+            isDirty={isDirty}
             saison={{ saisonId: saison.saisonId, saisonStatus: saison.saisonStatus }}
             gruppeOffer={gruppeOffer}
             gruppeLock={{ locked: gruppeLocked }}

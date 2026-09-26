@@ -1,4 +1,7 @@
+from http import HTTPStatus
+
 import pytest
+from bson import ObjectId
 
 from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.api.teams.services import (
@@ -6,9 +9,11 @@ from app.api.teams.services import (
     SWAP_GRUPPENPHASE_PLAYED,
     SWAP_KNOCKOUT_STARTED,
     SWAP_NOT_A_SWAP,
+    SWAP_ONE_CLUB_TWICE,
     SWAP_SAISON_FINISHED,
     SWAP_SPIELTAG_CLASH,
     find_gruppe_swap_refusal,
+    find_swap_pair_refusal,
     fixtures_newly_fielding_a_departed_club,
 )
 
@@ -17,7 +22,6 @@ def swap(**overrides):
     """A legal swap, with the field under test overridden."""
 
     payload = {
-        "is_same_team": False,
         "team1_gruppe": "A",
         "team2_gruppe": "B",
         "saison_status": "active",
@@ -31,20 +35,32 @@ def swap(**overrides):
     return find_gruppe_swap_refusal(**payload)
 
 
+OID = ObjectId("6890a1b2c3d4e5f60fff0001")
+
+
+class TestOneClubNamedTwice:
+    def test_two_clubs_pass(self):
+        assert find_swap_pair_refusal(team1_id=OID, team2_id=ObjectId("6890a1b2c3d4e5f60fff0002")) is None
+
+    def test_one_club_named_twice_is_refused_as_the_payload(self):
+        """The ids say so, not the groups, which agree either way; a 422 naming both fields, no season making one club a pair."""
+
+        refusal = find_swap_pair_refusal(team1_id=OID, team2_id=ObjectId(str(OID)))
+
+        assert refusal is not None
+        assert (refusal.error_code, refusal.status, refusal.fields) == (
+            SWAP_ONE_CLUB_TWICE,
+            HTTPStatus.UNPROCESSABLE_CONTENT,
+            (("team1_id",), ("team2_id",)),
+        )
+
+
 class TestWhatCountsAsASwap:
     def test_two_clubs_in_two_groups_pass(self):
         assert swap() is None
 
     def test_the_direction_does_not_matter(self):
         assert swap(team1_gruppe="B", team2_gruppe="A") is None
-
-    def test_one_club_named_twice_is_refused(self):
-        """The ids say so, not the groups, which agree either way."""
-
-        refusal = swap(is_same_team=True, team2_gruppe="A")
-
-        assert refusal is not None
-        assert refusal.error_code == SWAP_NOT_A_SWAP
 
     @pytest.mark.parametrize(
         ("team1_gruppe", "team2_gruppe", "named"),
@@ -97,9 +113,9 @@ class TestTheKnockoutClosesTheWindow:
         assert "left a record" in refusal.message
 
     def test_a_pair_that_is_not_a_swap_is_refused_as_that_first(self):
-        """Answering the bracket would send the admin to a payload that describes no swap."""
+        """Answering the bracket would send the admin to a pair that describes no swap."""
 
-        refusal = swap(is_same_team=True, team2_gruppe="A", played_knockout_fixtures=6)
+        refusal = swap(team2_gruppe=None, played_knockout_fixtures=6)
 
         assert refusal is not None
         assert refusal.error_code == SWAP_NOT_A_SWAP

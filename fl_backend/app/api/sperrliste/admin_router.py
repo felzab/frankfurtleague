@@ -25,6 +25,7 @@ from app.api.sperrliste.services import (
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import delete_many_from_db, patch_many_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import DBClient, SaisonsCollection, SperrlisteCollection, get_german_date_str
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -43,7 +44,7 @@ async def _pull_the_season_a_ban_counts_from(
     # TypeError at the call rather than a silent reopening of it.
     session: AsyncClientSession,
 ) -> str:
-    """The season a ban's `SPERRE_DAUER_SAISONS` are counted from, refused `REQ-SPERRLISTE-002` where the league has run none."""
+    """The season a ban's `SPERRE_DAUER_SAISONS` are counted from, refused `REQ-SPERRLISTE-002` while no season is running."""
 
     # Through the session: the rollover moves the season and sweeps the lapsed bans in one
     # transaction, and a season read outside this snapshot counts a ban one season short against
@@ -86,7 +87,9 @@ async def get_sperrliste(sperrliste_collection: SperrlisteCollection) -> FLSperr
     )
 
 
-@router.post("", response_model=FLPostSperrlisteResponse, status_code=201, summary="Ban an email address")
+@router.post(
+    "", response_model=FLPostSperrlisteResponse, status_code=201, summary="Ban an email address", responses={409: DUPLICATE_KEY_RESPONSE}
+)
 async def post_sperrliste_eintrag(
     sperrliste_data: Annotated[FLPostSperrlistePayload, Body()],
     sperrliste_collection: SperrlisteCollection,
@@ -99,8 +102,8 @@ async def post_sperrliste_eintrag(
     """
     Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.
 
-    Refused where the list already holds the address (`REQ-SPERRLISTE-001`), and where the league has
-    never run a season, there being nothing to count the ban's five seasons from
+    Refused where the list already holds the address (`REQ-SPERRLISTE-001`), and while no season is
+    running, there being nothing to count the ban's five seasons from
     (`REQ-SPERRLISTE-002`). The ban covers the fifth season after the one running now — the last one
     it covers is answered as `gesperrt_bis_saison_id` — and it survives that person's erasure.
     """
@@ -152,7 +155,9 @@ async def post_sperrliste_eintrag(
     )
 
 
-@router.delete(by_id("sperrliste_id"), response_model=FLSperrlisteWriteResponse, summary="Lift a ban")
+@router.delete(
+    by_id("sperrliste_id"), response_model=FLSperrlisteWriteResponse, summary="Lift a ban", responses={404: DOCUMENT_NOT_FOUND_RESPONSE}
+)
 async def delete_sperrliste_eintrag(
     sperrliste_id: CustomRouteObjectId,
     sperrliste_collection: SperrlisteCollection,

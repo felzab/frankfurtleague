@@ -2,13 +2,17 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it, mock } from "node:test";
 
+import { doubleSendMail } from "@/core/mailDouble.ts";
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+
+import type { SentMail } from "@/core/mailDouble.ts";
+
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
 /** One thing that happened, in the order it happened: the two orderings this slice owes are orderings between the two kinds. */
 type SweepEvent =
-  | { kind: "api"; endpoint: string; method: string; params?: Record<string, string>; body?: string }
-  | { kind: "mail"; to: string; subject: string; text: string; tags?: Record<string, string>; idempotencyKey?: string };
+  { kind: "api"; endpoint: string; method: string; params?: Record<string, string>; body?: string } | ({ kind: "mail" } & SentMail);
 
 const events: SweepEvent[] = [];
 /** Addresses the doubled provider refuses, so a deletion notice can fail for one application alone. */
@@ -21,30 +25,22 @@ const logs: SweepLog[] = [];
 
 const recorders = globalThis as unknown as Record<string, unknown>;
 recorders.__flSweepLogs = logs;
-recorders.__flSweepEvents = events;
-recorders.__flSweepRefused = refused;
 recorders.__flSweepSwitch = "on";
-recorders.__flSweepAnswer = () => ({});
+
+let apiAnswer: (call: ApiEvent) => unknown = () => ({});
 
 // Replaced at the module boundary rather than the sweep being reshaped to admit a seam: the real
 // client reaches a backend no test process runs, and the real transport posts on a key none holds.
-const API_DOUBLE = `export const apiClient = async (endpoint, schema, options = {}) => {
-  const call = { kind: "api", endpoint, method: options.method ?? "GET", params: options.params, body: options.body };
-  globalThis.__flSweepEvents.push(call);
+doubleApiClient(({ endpoint, method, params, body }, schema) => {
+  // Into the one ordered list the mail double appends to, so a read and a send stay in the order they ran.
+  const call: ApiEvent = { kind: "api", endpoint, method: method ?? "GET", params: params as ApiEvent["params"], body };
+  events.push(call);
   // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift
   // from the shape the caller is written against.
-  return schema.parse(globalThis.__flSweepAnswer(call));
-};`;
+  return schema.parse(apiAnswer(call));
+});
 
-// The real error classes beside the doubled transport: the fan-out this sweep drives tells a
-// withheld send from a refused one with `instanceof`, which a look-alike passes only by accident.
-const MAIL_DOUBLE = `export { MailRecipientError, MailWithheldError } from "./mail.ts?real";
-
-export const sendMail = async (mail) => {
-  globalThis.__flSweepEvents.push({ kind: "mail", to: mail.to, subject: mail.subject, text: mail.text, tags: mail.tags, idempotencyKey: mail.idempotencyKey });
-  if (globalThis.__flSweepRefused.has(mail.to)) throw new Error("the provider refused the message");
-  return { id: "56761188-7520-42d8-8898-ff6fc54ce618" };
-};`;
+const mail = doubleSendMail();
 
 // The error arm records: which EVENT a failure is filed under is what tells an operator which half
 // of a season's pass stopped, and that is a line rather than a call the transport shows.
@@ -69,8 +65,6 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL_DOUBLE, shortCircuit: true };
     if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING_DOUBLE, shortCircuit: true };
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
     return nextLoad(url, context);
@@ -107,7 +101,7 @@ const registrierungPasses = (): ApiEvent[] => passesUnder("registrierungen");
 const callTo = (endpoint: string): ApiEvent | undefined => apiCalls().find((call) => call.endpoint === endpoint);
 
 function answerWith(answer: (call: ApiEvent) => unknown): void {
-  recorders.__flSweepAnswer = answer;
+  apiAnswer = answer;
 }
 
 /** One season's pass, with nothing for either side to do unless a case says otherwise. */
@@ -183,6 +177,11 @@ beforeEach(() => {
   events.length = 0;
   logs.length = 0;
   refused.clear();
+  // Appended as the send happens, so a send and the calls around it stay in the order they ran.
+  mail.answerWith((sent) => {
+    events.push({ kind: "mail", ...sent });
+    return refused.has(sent.to) ? "refused" : "accepted";
+  });
   recorders.__flSweepSwitch = "on";
   sweepAnswers({});
 });
@@ -210,7 +209,7 @@ describe("the switch the retention sweep is armed by", () => {
 
   let probe = 0;
 
-  /** The real module's own parse, with the gate the `test` script stands down put back up. */
+  /** The real module's own parse, with the gate the `test:base` script stands down put back up. */
   async function parseWith(value: string | undefined): Promise<{ BEWERBUNG_SWEEP: string }> {
     const before = { ...process.env };
     Object.assign(process.env, COMPLETE_ENV);
@@ -395,6 +394,11 @@ describe("one pass of the sweep", () => {
 
     const reminder = events.find((event) => event.kind === "mail");
     assert.equal(reminder?.text.match(/\/bestaetigung\/kontakt\?token=/g)?.length, 1, "the paired mailbox was sent a second link");
+    // The CONFIGURED origin and never the published one (`docs/frontend/spec.md :: I186`).
+    assert.ok(
+      reminder?.text.includes("http://localhost:3000/bestaetigung/kontakt?token=token-paar"),
+      "the reminder's link is minted on an origin this run was not configured with",
+    );
     assert.ok(reminder?.text.includes("Ansprechperson und Trainerin oder Trainer"), "the one link names one of the two seats it answers");
   });
 

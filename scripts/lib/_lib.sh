@@ -91,7 +91,10 @@ if [[ "${FL_GATE_WORKER:-}" == "1" ]]; then _WORKER=1; fi
 
 # A verdict may only make a row worse. `failed` outranks `refused`: where a section produced both,
 # the definite verdict is the actionable one.
-_RANK_LABELS=("no verdict" "skipped" "pass" "advisory" "refused" "failed")
+_RANK_LABELS=("no verdict" "skipped" "pass" "advisory" "refused" "failed" "crashed")
+# Adopted alone, for a scope that crashed after the run's ending was set: the row reports it, and
+# `finish` reads no verdict from it.
+RANK_CRASHED=6
 
 # Bash's own clock, not `date`: a process spawn per step is the expensive part on Windows.
 _now_ms() {
@@ -277,25 +280,37 @@ excerpt() {
   fi
 }
 
-# Readable because `add_findings <n>` needs a count only the tool's output carries, and re-running
-# it to read that back would pay for the gate's slowest steps twice.
+# Readable because a caller grades a failure by the tool's own words, and re-running the tool to
+# read them back would pay for the gate's slowest steps twice.
 
 QUIETLY_OUTPUT=""
+# The streaming arm's copy while its command runs, so an interrupt can reclaim it.
+_QUIETLY_CAPTURE=""
 
 quietly() {
   local out rc=0
+  local -a piped=()
   QUIETLY_OUTPUT=""
   if (( VERBOSE )); then
-    "$@" || rc=$?
+    # Kept as well as streamed, or a caller grading by the output grades this form differently. A
+    # file rather than `/dev/fd/1`, which Linux reopens: a redirected log would lose its start.
+    _QUIETLY_CAPTURE="$(mktemp)"
+    # `PIPESTATUS`, not the pipeline's status, which is `tee`'s without `pipefail`. Left of `||`, so
+    # neither `set -e` nor the ERR trap acts on the tool's own failure.
+    { "$@" 2>&1 | tee "$_QUIETLY_CAPTURE"; piped=("${PIPESTATUS[@]}"); } || :
+    rc="${piped[0]}"
+    out="$(<"$_QUIETLY_CAPTURE")"
+    rm -f -- "$_QUIETLY_CAPTURE"
+    _QUIETLY_CAPTURE=""
   else
     # The one wrapper the spinner needs: a captured command is the stretch where a run looks hung.
     if (( _CHROME )); then spinner_start "$_STEP_LABEL"; fi
     out="$("$@" 2>&1)" || rc=$?
     spinner_stop
-    # shellcheck disable=SC2034  # read by the scripts that source this file
-    QUIETLY_OUTPUT="$out"
     if (( rc )); then printf '%s\n' "$out" | detail; fi
   fi
+  # shellcheck disable=SC2034  # read by the scripts that source this file
+  QUIETLY_OUTPUT="$out"
   return "$rc"
 }
 
@@ -422,7 +437,7 @@ _summary_table() {
     case "$rank" in
       2) colour="$C_GREEN" ;;
       3) colour="$C_YELLOW" ;;
-      4|5) colour="$C_RED" ;;
+      4|5|6) colour="$C_RED" ;;
       *) colour="$C_DIM" ;;
     esac
     printf '      %-*s  %s%-10s%s  %9s  %8s\n' \
@@ -480,12 +495,13 @@ ran, so nothing here is a verdict on the change (exit 130)." >&2 ;;
 # Exits rather than returning: a script free to carry on past its closing statement prints a
 # second one. A sentence passed in is appended to the green statement alone.
 finish() {
-  local i count worst=0
+  local i count worst=0 crashed=0
   end_section
   count="${#_SECTION_NAMES[@]}"
   # A section closing with no verdict is a caller defect: green would print "no findings" beside a
   # row reading `no verdict`. `fail`, not `warn` — a section proving nothing must not pass.
   for (( i = 0; i < count; i++ )); do
+    if (( _SECTION_RANKS[i] == RANK_CRASHED )); then crashed=1; continue; fi
     if (( _SECTION_RANKS[i] == 0 )); then
       fail "section '${_SECTION_NAMES[i]}' closed with no verdict — nothing in it proves anything"
     fi
@@ -495,6 +511,8 @@ finish() {
   # its input ends the same either way.
   if (( _RUN_FINDINGS > 0 || worst >= 5 )); then _closing findings; exit 1; fi
   if (( worst == 4 )); then _closing refused; exit 2; fi
+  # Only where no other row set the ending, which a crashed row is adopted behind.
+  if (( crashed )); then _closing crashed; exit 3; fi
   # No row reached `pass`, so nothing judged anything and green would read as a run that did.
   # Below the endings owning rank 0 and rank 4; `count` because a script speaking the verbs
   # plainly opens no section at all.
@@ -561,7 +579,7 @@ adopt_section() {
     [[ "$value" =~ ^[0-9]+$ ]] \
       || on_error 3 "${BASH_LINENO[0]}" "adopt_section: '${value}' is not a count. Arguments: name rank ms findings [advisories]."
   done
-  (( rank <= 5 )) || on_error 3 "${BASH_LINENO[0]}" "adopt_section: rank ${rank} is outside 0-5."
+  (( rank <= RANK_CRASHED )) || on_error 3 "${BASH_LINENO[0]}" "adopt_section: rank ${rank} is outside 0-${RANK_CRASHED}."
   # A row appended under an open section sorts before the section still running, and the fixed
   # order is the point of adopting rather than printing.
   (( _SECTION_OPEN < 0 )) \
@@ -658,6 +676,7 @@ trap 'on_error "$?" "$LINENO" "$BASH_COMMAND"' ERR
 # fires each script's own EXIT trap, so fixtures and throwaway tags are still reclaimed.
 on_interrupt() {
   spinner_stop
+  if [[ -n "$_QUIETLY_CAPTURE" ]]; then rm -f -- "$_QUIETLY_CAPTURE" || true; fi
   printf '\n' >&2
   if (( _CHROME )); then
     _closing interrupted
@@ -706,13 +725,10 @@ venv_python() {
   fi
 }
 
-# Wider than `venv_python`: the scope check runs on every `scripts/gate/verify.sh` invocation, and
-# skipping it for a missing backend virtualenv buys a prerequisite for nothing.
+# Wider than `venv_python`: the step pool and the ops scope's checkers run on any interpreter at the
+# floor, and skipping them for a missing backend virtualenv buys a prerequisite for nothing.
 any_python() {
-  local win="${REPO_ROOT}/fl_backend/.venv/Scripts/python.exe"
-  local nix="${REPO_ROOT}/fl_backend/.venv/bin/python"
-  if   [[ -x "$win" ]]; then printf '%s' "$win"
-  elif [[ -x "$nix" ]]; then printf '%s' "$nix"
+  if venv_python; then return 0
   elif command -v python3 >/dev/null 2>&1; then printf 'python3'
   elif command -v python  >/dev/null 2>&1; then printf 'python'
   else return 1
@@ -754,11 +770,6 @@ $2}"; }
 require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
 
-# --- Git -------------------------------------------------------------------------------------------
-git_sha()    { git rev-parse --short=7 HEAD; }
-git_branch() { git rev-parse --abbrev-ref HEAD; }
-git_clean()  { [[ -z "$(git status --porcelain)" ]]; }
-
 # --- Redaction -------------------------------------------------------------------------------------
 
 # A filter for anything a CONTAINER's log is printed through. `mongodb-connection-string-url` throws
@@ -780,12 +791,14 @@ WAIT_HEALTHY_REASON=""
 # A started container and a working app are different statements: on a bad environment variable
 # the frontend stays up and 500s on every route.
 wait_healthy() {
+  # An empty compose file leaves the choice to COMPOSE_FILE, which is how `scripts/ops/local.sh`
+  # names its two-file stack.
   local compose_file="$1" service="$2" timeout="${3:-150}" waited=0 state cid rc log_tail matched
   WAIT_HEALTHY_REASON=""
   info "waiting for '${service}' to become healthy (up to ${timeout}s)"
   while (( waited < timeout )); do
     rc=0
-    cid="$(docker compose -f "$compose_file" ps -q "$service" 2>/dev/null)" || rc=$?
+    cid="$(docker compose ${compose_file:+-f "$compose_file"} ps -q "$service" 2>/dev/null)" || rc=$?
     # An unasked question and an answered one both leave `cid` empty, and "no running container"
     # about a daemon that never replied sends an operator to the container, not the engine.
     if (( rc )); then
@@ -797,7 +810,7 @@ This says nothing about the container; the daemon or the compose file is what di
     if [[ -z "$cid" ]]; then
       WAIT_HEALTHY_REASON="no-container"
       warn "'${service}' has no running container"
-      docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | redact_uri_credentials | detail
+      docker compose ${compose_file:+-f "$compose_file"} logs --tail=30 "$service" 2>&1 | redact_uri_credentials | detail
       return 1
     fi
     # A service with no healthcheck reports "" — treat "running" as good enough for those.
@@ -809,7 +822,7 @@ This says nothing about the container; the daemon or the compose file is what di
         warn "'${service}' reports UNHEALTHY. Its own explanation, if it gave one:"
         # Filtered in memory: `grep | head` fails the pipeline on SIGPIPE under `pipefail`, which
         # prints the arm below underneath the lines it just found.
-        log_tail="$(docker compose -f "$compose_file" logs --tail=60 "$service" 2>&1 | redact_uri_credentials || true)"
+        log_tail="$(docker compose ${compose_file:+-f "$compose_file"} logs --tail=60 "$service" 2>&1 | redact_uri_credentials || true)"
         matched="$(printf '%s\n' "$log_tail" | grep -iE "invalid environment|failed to prepare|error|refused" || true)"
         if [[ -n "$matched" ]]; then
           printf '%s\n' "$matched" | excerpt 12
@@ -818,7 +831,7 @@ This says nothing about the container; the daemon or the compose file is what di
           printf '%s\n' "$log_tail" | tail -30 | detail
         else
           detail "(no log came back for '${service}' — ask compose yourself)" \
-                 "   docker compose -f ${compose_file} logs ${service}"
+                 "   docker compose ${compose_file:+-f ${compose_file}} logs ${service}"
         fi
         return 1 ;;
     esac
@@ -827,7 +840,7 @@ This says nothing about the container; the daemon or the compose file is what di
   # shellcheck disable=SC2034  # read by the scripts that source this file
   WAIT_HEALTHY_REASON="timeout"
   warn "'${service}' did not become healthy within ${timeout}s. Last 30 log lines:"
-  docker compose -f "$compose_file" logs --tail=30 "$service" 2>&1 | redact_uri_credentials | detail
+  docker compose ${compose_file:+-f "$compose_file"} logs --tail=30 "$service" 2>&1 | redact_uri_credentials | detail
   return 1
 }
 
@@ -850,7 +863,7 @@ image_revision_display() {
   local v rc=0; v="$(image_revision "$1")" || rc=$?
   if (( rc )); then printf 'could not be read'
   elif [[ -n "$v" ]]; then printf '%s' "$v"
-  else printf 'unlabelled (not built by publish.sh)'
+  else printf 'unlabelled (not built by publish.yml)'
   fi
 }
 image_created_display() {
@@ -859,4 +872,70 @@ image_created_display() {
   elif [[ -n "$v" ]]; then printf '%s' "$v"
   else printf 'unknown'
   fi
+}
+
+# --- What a successful build does not prove ------------------------------------------------------------
+
+# Asked of the image itself, by the gate's images scope and by `.github/workflows/publish.yml` before
+# it pushes. Each answers 0, 1 for what it found, and 3 for an image that would not run, which says
+# nothing about the image.
+
+# From the repo root `instrumentation.ts` compiles but is not traced into the standalone output,
+# which silently disables the startup env gate and onRequestError.
+image_has_instrumentation() { # $1 the frontend image
+  local rc=0
+  docker run --rm --entrypoint sh "$1" -c '[ -f .next/server/instrumentation.js ]' || rc=$?
+  case "$rc" in
+    0) ;;
+    # The test's own answer. Anything higher is docker's, and says nothing about the file.
+    1) printf '%s\n' "the ${1} image has no .next/server/instrumentation.js"; return 1 ;;
+    # 130 travels: flattened to 3 it reads as a refusal, and the caller cannot recover the interrupt.
+    130) return 130 ;;
+    *) printf '%s\n' "the ${1} image would not run (exit ${rc}), so whether instrumentation.js reached it was never read"
+       return 3 ;;
+  esac
+}
+
+# A USER line lost in a refactor still builds.
+image_runs_unprivileged() { # $1.. the images
+  local image uid rc
+  for image in "$@"; do
+    rc=0
+    uid="$(docker run --rm --entrypoint sh "$image" -c 'id -u')" || rc=$?
+    # For `image_has_instrumentation`'s reason.
+    if (( rc == 130 )); then return 130; fi
+    if (( rc )); then
+      printf '%s\n' "the ${image} image would not run, so its runtime user was never read"
+      return 3
+    fi
+    if [[ "$uid" == "0" ]]; then
+      printf '%s\n' "the ${image} image runs as uid 0, so no USER line takes effect in it"
+      return 1
+    fi
+  done
+}
+
+# The build context alone: filesystem-wide, the OS trust store and the dependency trees ship
+# certificates of their own, and the check widens until it says nothing.
+
+# The shapes both `.dockerignore` files exclude; `scripts/tests/test_image_assertions.py` holds the
+# two lists together.
+IMAGE_CONTEXT_FIND='find /app -xdev \( -name node_modules -o -name .venv \) -prune -o \( -name ".env" -o -name ".env.*" -o -name "*.pem" -o -name "*.key" -o -name "*.crt" -o -name ".npmrc" -o -name ".tmp-*" \) -print'
+# A context the dockerignore stopped covering still builds.
+image_context_clean() { # $1.. the images
+  local image found rc
+  for image in "$@"; do
+    rc=0
+    found="$(docker run --rm --entrypoint sh "$image" -c "$IMAGE_CONTEXT_FIND")" || rc=$?
+    # For `image_has_instrumentation`'s reason.
+    if (( rc == 130 )); then return 130; fi
+    if (( rc )); then
+      printf '%s\n' "the ${image} image would not run, so its context was never read"
+      return 3
+    fi
+    if [[ -n "$found" ]]; then
+      printf '%s\n' "the ${image} image carries what its dockerignore exists to keep out:" "$found"
+      return 1
+    fi
+  done
 }

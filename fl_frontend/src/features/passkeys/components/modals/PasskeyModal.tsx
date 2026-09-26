@@ -1,21 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useOptimistic, useState } from "react";
 
-import { Plus } from "@gravity-ui/icons";
+import Plus from "@gravity-ui/icons/Plus";
 
-import { Button, Spinner } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Spinner } from "@heroui/react/spinner";
 
 import { authClient } from "@/core/authClient";
 import { ENROLMENT_CONFLICT } from "@/core/passkeyRefusal";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { Hint } from "@/shared/components/ui/Hint";
 import { ModalShell } from "@/shared/components/ui/ModalShell";
+import { unansweredAction, unansweredRead } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import { readPasskeysAction, removePasskeyAction } from "../../actions";
 import { PasskeyEintragRow } from "./PasskeyEintragRow";
 
+import type { ActionFailure } from "@/shared/types/types";
 import type { PasskeyEintrag } from "../../types";
 
 const UEBERSCHRIFT = "Passkeys";
@@ -46,7 +49,7 @@ const GLEICHZEITIG_HINZUGEFUEGT = "Gleichzeitig wurde ein anderer Passkey hinzug
  * What the reader is told, and, where the list on screen may be missing a row, what they are told
  * instead once the re-read shows the cap reached.
  */
-type Held = { readonly description: string; readonly whenFull: string | null };
+type Held = { readonly description: string; readonly whenFull: string | null; readonly outcome?: ActionFailure["outcome"] };
 
 /**
  * The same sentence `fl_frontend/src/features/passkeys/actions.ts :: LETZTER_PASSKEY` answers: this
@@ -63,6 +66,12 @@ const NICHT_GELADEN = "Deine Passkeys ließen sich nicht laden.";
 const KEINE_PASSKEYS = "Für diesen Zugang ist kein Passkey eingetragen.";
 
 /**
+ * The list read, caught at every call: uncaught, the opening's spinner stands for good and a
+ * removal's re-read takes the page down.
+ */
+const liesPasskeys = (): ReturnType<typeof readPasskeysAction> => readPasskeysAction().catch(unansweredRead);
+
+/**
  * The dialog the sidemenu's options drop-up opens, never a page under `/admin`: managing one's own
  * credentials is account business rather than a section of the league's administration.
  */
@@ -71,6 +80,9 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
   const [kannHinzufuegen, setKannHinzufuegen] = useState(false);
   const [ladefehler, setLadefehler] = useState(false);
   const [istBeschaeftigt, setIstBeschaeftigt] = useState(false);
+  // Optimistic, never plain state: a removal runs inside its row's press transition, which holds a
+  // plain update back until the removal is over, so the add control would never be held.
+  const [entferntGerade, setEntferntGerade] = useOptimistic(false);
 
   /** One answer applied, from wherever it was asked for: the opening below, or a finished write. */
   const uebernimm = (result: Awaited<ReturnType<typeof readPasskeysAction>>): void => {
@@ -91,7 +103,7 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
 
   /** Whether the list read now stands at the cap. */
   const lade = async (): Promise<boolean> => {
-    const result = await readPasskeysAction();
+    const result = await liesPasskeys();
     uebernimm(result);
     return result.success && !result.kannHinzufuegen;
   };
@@ -113,7 +125,7 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
     // Guarded rather than awaited: a dialog closed and opened again while the first read is still
     // in flight would otherwise take that read's answer over the second's.
     let current = true;
-    void readPasskeysAction().then((result) => {
+    void liesPasskeys().then((result) => {
       if (current) uebernimm(result);
     });
 
@@ -154,8 +166,14 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
       // cap among its causes.
       if (error.status === 404) return { description: VERSUCHE_ES_ERNEUT, whenFull: ZU_VIELE };
 
+      // A verification that never came back arrives as a 500 and an edge's answer as its own 5xx, and
+      // either may follow a stored passkey (`docs/frontend/spec.md :: I326`); the browser's refusals are 400s.
+      if (error.status >= 500) return { description: unansweredAction().error, whenFull: null, outcome: "unknown" };
+
       return { description: VERSUCHE_ES_ERNEUT, whenFull: null };
     } catch {
+      // Thrown only by the options request, ahead of the ceremony: the plugin's client answers every
+      // later failure on `error` (`@better-auth/passkey` 1.7.5, read 2026-09-24).
       return { description: VERSUCHE_ES_ERNEUT, whenFull: null };
     }
   };
@@ -165,12 +183,16 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
     const held = await enrolmentHeld();
 
     if (held !== null) {
-      // The list may be missing the other change's row, which may also have closed the add control.
-      const full = held.whenFull !== null && (await lade());
+      // The list may be missing the other change's row, which may also have closed the add control,
+      // or the row an enrolment of unknown outcome stored.
+      const full = (held.whenFull !== null || held.outcome === "unknown") && (await lade());
       setIstBeschaeftigt(false);
-      // One raising per outcome, and the literals at the call: `core/toastTitles.test.ts` reads a
-      // title from the call site, and a second site sharing one is told apart by its description.
-      appToast.danger("Passkey nicht hinzugefügt", { description: full && held.whenFull !== null ? held.whenFull : held.description });
+      // One raising per outcome: a second site sharing a title is told apart by its description
+      // (`docs/frontend/spec.md :: I42`).
+      appToast.failure("Passkey nicht hinzugefügt", {
+        error: full && held.whenFull !== null ? held.whenFull : held.description,
+        outcome: held.outcome,
+      });
       return;
     }
 
@@ -181,33 +203,43 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
     setIstBeschaeftigt(false);
   };
 
-  /** Why the removal did not happen, and whether the server answered it, the list then being suspect. */
-  const removalHeld = async (id: string): Promise<{ description: string; reread: boolean } | null> => {
-    if (!(await bestaetigt())) return { description: BESTAETIGUNG_FEHLT, reread: false };
+  /** Why the removal did not plainly land, and whether it reached the server, the list then being suspect. */
+  const removalHeld = async (id: string): Promise<(Pick<ActionFailure, "error" | "outcome"> & { reread: boolean }) | null> => {
+    if (!(await bestaetigt())) return { error: BESTAETIGUNG_FEHLT, reread: false };
 
-    const result = await removePasskeyAction(id);
+    // A rejected action may still have removed the row, and uncaught here it takes the page down with it.
+    const result = await removePasskeyAction(id).catch(unansweredAction);
 
-    return result.success ? null : { description: result.error, reread: true };
+    // The outcome rides along: a removal nobody can tell landed is titled neither way (`docs/frontend/spec.md :: I326`).
+    return result.success ? null : { error: result.error, outcome: result.outcome, reread: true };
   };
 
   const entfernen = async (id: string): Promise<void> => {
     // Held for a REMOVAL too, or the add control stays pressable over a list one of the rows below
-    // is in the middle of changing.
-    setIstBeschaeftigt(true);
+    // is in the middle of changing; the press's transition ending is what releases it.
+    setEntferntGerade(true);
     const held = await removalHeld(id);
 
     if (held !== null) {
       // The server's refusal may answer a list another change moved -- a row already gone, or one
       // added or removed at the same moment -- so the list is read again before the control reopens.
-      if (held.reread) await lade();
-      setIstBeschaeftigt(false);
-      appToast.danger("Passkey nicht gelöscht", { description: held.description });
+      const gelesen = held.reread ? await liesPasskeys() : null;
+      // Wrapped again, to the end of the path: the press runs this inside its transition, and React
+      // leaves an update after an `await` outside it. The toast queue is an external store, so no
+      // wrap holds the toast back.
+      startTransition(() => {
+        if (gelesen !== null) uebernimm(gelesen);
+        appToast.failure("Passkey nicht gelöscht", held);
+      });
       return;
     }
 
     appToast.success("Passkey gelöscht", { description: "Alle anderen Geräte wurden abgemeldet." });
-    await lade();
-    setIstBeschaeftigt(false);
+    const gelesen = await liesPasskeys();
+    // Wrapped again, as above: the list commits with the press's own release, and the hold with it.
+    startTransition(() => {
+      uebernimm(gelesen);
+    });
   };
 
   return (
@@ -237,17 +269,17 @@ export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: ()
         {eintraege !== null && ladefehler ? <p className="muted-hint">{NICHT_GELADEN}</p> : null}
         {eintraege !== null && !ladefehler && eintraege.length === 0 ? <p className="muted-hint">{KEINE_PASSKEYS}</p> : null}
 
-        {/* The cap is announced off a list that has landed: before the read resolves the flag is
-            still its own initial value, and a reader would meet a refusal nothing has judged. */}
+        {/* The cap is announced off a list that has landed: before the read resolves, or after it
+            failed, the flag holds no count, and a reader would meet a refusal nothing has judged. */}
         <Hint
           mode="refusal"
-          reason={eintraege === null || kannHinzufuegen ? null : ZU_VIELE}
+          reason={eintraege === null ? null : ladefehler ? NICHT_GELADEN : kannHinzufuegen ? null : ZU_VIELE}
           label="Passkey hinzufügen">
           <Button
             type="button"
             variant="primary"
             isPending={istBeschaeftigt}
-            isDisabled={eintraege === null || !kannHinzufuegen}
+            isDisabled={eintraege === null || !kannHinzufuegen || entferntGerade}
             onPress={() => void hinzufuegen()}
             className={formButton({ intent: "submit", fullWidth: true })}>
             <Plus

@@ -7,7 +7,7 @@ import { createElement as h } from "react";
 
 import { render, screen } from "@testing-library/react";
 
-import { Label } from "@heroui/react";
+import { Label } from "@heroui/react/label";
 
 import type { ReactNode } from "react";
 

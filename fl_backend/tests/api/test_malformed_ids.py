@@ -1,14 +1,19 @@
 import asyncio
+import re
 from collections.abc import Mapping
 from typing import Any
 
 import pymongo
 import pytest
-from httpx2 import ASGITransport, AsyncClient, Response
-from pymongo import AsyncMongoClient
+from httpx2 import Response
 
+from app.core.exception_handlers import DATABASE_FAILED, NO_ROUTE, PAYLOAD_REFUSED
+from app.core.routing import CONVERTOR_NAME, OBJECT_ID_REGEX
 from app.main import create_app
-from tests.config import BASE_AUTH, TEST_BASE_URL, build_test_config
+from tests.app_client import app_client
+from tests.config import BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
+from tests.core.app_source import api_routes
+from tests.openapi_document import build_document
 
 HEX_ID = "6890a1b2c3d4e5f607182930"
 
@@ -16,37 +21,18 @@ HEX_ID = "6890a1b2c3d4e5f607182930"
 # characters rather than on its length.
 NON_HEX_ID = "z" * 24
 
-# Not the configured URI: a developer plausibly runs a real `mongod` on 27017, and a database that
-# answers gives each control something other than the failure it asserts.
-UNANSWERED_URI = "mongodb://localhost:1"
-
-# Positive, because pymongo reads a zero deadline as none at all. Inside a request the app's deadline
-# replaces `serverSelectionTimeoutMS`, so only a deadline set here keeps an unanswered request short.
-UNANSWERED_DEADLINE_S = 0.001
-
 # Named rather than compared with `!=`: a control asserting only "not 404" passes on any failure,
 # the harness's own included.
-UNREACHED_DATABASE = "DB-FAIL-001"
+UNREACHED_DATABASE = DATABASE_FAILED
 
 
 def answered(path: str, *, params: Mapping[str, Any] | None = None) -> Response:
-    """One request per client, the request and the close on ONE loop.
-
-    The driver binds a client to the loop it first ran on, so this returns the response, never the
-    client. No lifespan: it would open its own client and apply the constraints.
-    """
+    """The response, never the client: the driver binds a client to the loop it first ran on."""
 
     async def _answered() -> Response:
-        app = create_app(build_test_config())
-        app.state.db_client = AsyncMongoClient(host=UNANSWERED_URI)
-
-        try:
-            transport = ASGITransport(app=app, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                with pymongo.timeout(UNANSWERED_DEADLINE_S):
-                    return await http.get(path, params=params, headers=BASE_AUTH)
-        finally:
-            await app.state.db_client.close()
+        async with app_client(UNANSWERED_URI) as http:
+            with pymongo.timeout(UNANSWERED_DEADLINE_S):
+                return await http.get(path, params=params, headers=BASE_AUTH)
 
     return asyncio.run(_answered())
 
@@ -57,7 +43,9 @@ MALFORMED_IDS = ["not-an-id", NON_HEX_ID, HEX_ID[:-1], f"{HEX_ID}0"]
 @pytest.mark.parametrize("spiel_id", MALFORMED_IDS)
 def test_a_malformed_path_id_is_a_404(spiel_id: str):
     """A path identifies, so an id naming nothing is a 404 — decided by the `objectid` convertor before a handler runs."""
-    assert answered(f"/api/v0/spiele/{spiel_id}").status_code == 404
+    response = answered(f"/api/v0/spiele/{spiel_id}")
+
+    assert (response.status_code, response.json()["error_code"]) == (404, NO_ROUTE)
 
 
 def test_a_well_formed_path_id_reaches_the_database():
@@ -76,7 +64,7 @@ def test_a_malformed_query_id_is_a_422(team_id: str):
     response = answered("/api/v0/spieler", params={"team_id": team_id})
 
     assert response.status_code == 422
-    assert response.json()["error_code"] == "REQ-VAL-001"
+    assert response.json()["error_code"] == PAYLOAD_REFUSED
 
 
 def test_a_well_formed_query_id_reaches_the_database():
@@ -85,3 +73,25 @@ def test_a_well_formed_query_id_reaches_the_database():
 
     assert response.status_code == 500
     assert response.json()["error_code"] == UNREACHED_DATABASE
+
+
+def test_every_objectid_path_parameter_publishes_the_pattern_its_convertor_matches():
+    """Read off each route's own path, so a malformed id is visibly no id this operation serves, and no other parameter claims one."""
+
+    document = build_document()
+    convertor_named = {
+        (route.path_format, method.lower(), name)
+        for route in api_routes(create_app(build_test_config()))
+        for method in route.methods or ()
+        for name in re.findall(rf"{{(\w+):{CONVERTOR_NAME}}}", route.path)
+    }
+    published = {
+        (path, method, parameter["name"])
+        for path, operations in document["paths"].items()
+        for method, operation in operations.items()
+        for parameter in operation.get("parameters", [])
+        if parameter["in"] == "path" and parameter["schema"].get("pattern") == f"^{OBJECT_ID_REGEX}$"
+    }
+
+    assert convertor_named and published == convertor_named
+    assert not any(re.fullmatch(OBJECT_ID_REGEX, malformed) for malformed in MALFORMED_IDS)

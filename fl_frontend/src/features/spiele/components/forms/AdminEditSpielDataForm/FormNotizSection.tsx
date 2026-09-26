@@ -1,21 +1,22 @@
 import { useRef } from "react";
 
-import { Xmark } from "@gravity-ui/icons";
+import Xmark from "@gravity-ui/icons/Xmark";
 
-import { FieldError, TextArea, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { TextArea } from "@heroui/react/textarea";
 
 import { NOTIZ_MAX_LENGTH } from "@/features/spiele/constants";
 import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_ERROR, FIELD_TEXTAREA } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_TEXTAREA_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 
-/** The id the durability sentence publishes, carried by the note's own field in `aria-describedby`. */
-const NOTIZ_HINT_ID = "notiz-dauerhaft-hinweis";
+import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 
 /**
  * **Its own panel, outside Ergebnis**, whose fields arm behind a deliberate unlock flip: a note is
@@ -33,7 +34,7 @@ export function FormNotizSection({
   onValidateFields: (paths: readonly string[]) => void;
 }) {
   const styles = formPanel();
-  const status = useFieldStatus("notiz");
+  const status = useFieldStatus<SpielFieldPath>("notiz");
   const notizRef = useRef<HTMLTextAreaElement>(null);
 
   // Whitespace is empty, as `fl_frontend/src/features/spiele/draftStatus.ts`'s `notiz` descriptor reads it, or the
@@ -60,14 +61,13 @@ export function FormNotizSection({
       <div className={styles.body()}>
         <TextField
           name="notiz"
-          aria-describedby={NOTIZ_HINT_ID}
           value={notiz ?? ""}
           // "" is held as null at once, so the draft compares equal to a fixture without a note.
           onChange={(next) => onNotizChange(next === "" ? null : next)}
           onBlur={() => onValidateFields(["notiz"])}
           maxLength={NOTIZ_MAX_LENGTH}
           isInvalid={status?.error ? true : undefined}>
-          <FieldLabel
+          <FieldLabel<SpielFieldPath>
             path="notiz"
             extraMarker={<ExpectedMarker path="notiz" />}>
             Notiz zum Spiel
@@ -76,15 +76,14 @@ export function FormNotizSection({
             ref={notizRef}
             fullWidth
             placeholder="z.B. Nachholspiel wegen Regen"
-            className={`${FIELD_TEXTAREA} min-h-24`}
+            className={`${FIELD_TEXTAREA_CLASSES} min-h-24`}
           />
-          <FieldError className={FIELD_ERROR}>{status?.error}</FieldError>
+          <FieldError className={FIELD_ERROR_CLASSES}>{status?.error}</FieldError>
 
           {/* Under the field rather than in the panel's hint, which opens on a press: the reader this
               sentence has to reach is the admin already typing a name into the box. */}
           <Hint
-            mode="inline"
-            describes={NOTIZ_HINT_ID}
+            mode="field"
             text="Ein Name hier bleibt öffentlich stehen, auch wenn die Person später vergessen werden möchte."
           />
 
@@ -104,7 +103,7 @@ export function FormNotizSection({
                   notizRef.current?.focus();
                   onNotizChange(null);
                 }}
-                className="border-border text-foreground-muted hover:bg-hover-danger hover:text-danger-strong fluid-xxs flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-2 rounded-lg border px-2.5 font-bold transition-colors">
+                className="flex h-7 shrink-0 cursor-pointer flex-row items-center gap-x-2 rounded-lg border border-border px-2.5 fluid-xxs font-bold text-foreground-muted transition-colors hover:bg-hover-danger hover:text-danger-strong">
                 <Xmark
                   aria-hidden="true"
                   className="size-3.5 shrink-0"

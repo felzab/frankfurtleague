@@ -1,0 +1,5 @@
+// Linted as src/app/(public)/signin/bestaetigen/page.tsx.
+// The sign-in link's confirmation posts as a native form, and every other ban still reaches it.
+export default function PlantPage() {
+  return <form action="/api/signin/bestaetigen" method="post" className="flex gap-5" />; // expect: gap
+}

@@ -48,7 +48,7 @@ export const orderRoundsByWiring = (rounds: readonly FLSpieltagWithSpiele[]): FL
  * a knockout round needs distinguishing: four quarter-finals over two dates are two matchdays a
  * reader has to tell apart.
  */
-export function spieltagLabel({ phase, ordinal, countInPhase }: { phase: FLSaisonPhase; ordinal: number; countInPhase: number }): string {
+function spieltagLabel({ phase, ordinal, countInPhase }: { phase: FLSaisonPhase; ordinal: number; countInPhase: number }): string {
   if (phase === "gruppenphase") return `${String(ordinal)}. Spieltag`;
 
   return countInPhase > 1 ? `${PHASE_LABELS[phase]} (${String(ordinal)})` : PHASE_LABELS[phase];

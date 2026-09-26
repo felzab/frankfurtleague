@@ -1,13 +1,12 @@
 "use server";
 
-import { refresh } from "next/cache";
-
-import { getAdminSession } from "@/core/auth";
 import { frontend_config } from "@/core/config";
+import { APINetworkError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
+import { runAnsweringOwnCut } from "@/core/requestScope";
 import { buildSperreEmail } from "@/core/sperrlisteEmail";
-import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -20,6 +19,7 @@ import type { ActionResult } from "@/shared/types/types";
 import type { FLPostSperrlistePayload, FLSperrlisteKeyPayload } from "./schemas";
 
 const NICHT_BENACHRICHTIGT = "Die Sperre steht. Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.";
+const BENACHRICHTIGUNG_UNKLAR = "Die Sperre steht. Ob die Benachrichtigung angekommen ist, ist unklar.";
 
 /**
  * The typed address is on no row, in no log line and in no error message, so this send is the one
@@ -27,7 +27,7 @@ const NICHT_BENACHRICHTIGT = "Die Sperre steht. Die Benachrichtigung an die Adre
  */
 // A failure leaves the ban standing rather than undoing it: the write is acknowledged and no address
 // survives to re-send to, so the administrator is told instead.
-async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId: string): Promise<boolean> {
+async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId: string): Promise<string> {
   const { subject, html, text } = buildSperreEmail({
     grund: grund,
     gesperrtBisSaisonId: gesperrtBisSaisonId,
@@ -35,9 +35,11 @@ async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId
   });
 
   try {
-    await sendMail({ to: email, subject: subject, html: html, text: text });
+    // Unwrapped, a deadline cut here answers the whole press as of unknown outcome, sending the administrator to
+    // check a ban written before this send (`docs/frontend/spec.md :: I372`).
+    await runAnsweringOwnCut(() => sendMail({ to: email, subject: subject, html: html, text: text }));
 
-    return true;
+    return SPERRE_ERFOLG;
   } catch (failed) {
     // The NAME alone: a failure on this path routinely carries the address, and
     // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and a stack in full.
@@ -45,17 +47,14 @@ async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId
       error_code: "FE-MAIL-008",
       name: failed instanceof Error ? failed.name : "unknown",
     });
-
-    return false;
+    // A connection broken after the send left may be a message the provider accepted, as the fan-outs
+    // settle it. Only the notice is unclear: the ban's own write was acknowledged, so the press saved.
+    return failed instanceof APINetworkError ? BENACHRICHTIGUNG_UNKLAR : NICHT_BENACHRICHTIGT;
   }
 }
 
 export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Promise<ActionResult<{ created_id: string }>> {
-  return runAdminMutation("postSperreAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("postSperreAction", async () => {
     const validated = FLPostSperrlistePayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -82,25 +81,19 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
 
     // AFTER the write is acknowledged, so nobody is told they are barred by a request that then
     // failed, and on the response's own bound rather than a second read the sweep could beat.
-    const benachrichtigt = await benachrichtigen(validated.data.email, validated.data.grund, postOperation.gesperrt_bis_saison_id);
+    const message = await benachrichtigen(validated.data.email, validated.data.grund, postOperation.gesperrt_bis_saison_id);
 
-    refresh();
-
-    return { success: true, created_id: postOperation.created_id, message: benachrichtigt ? SPERRE_ERFOLG : NICHT_BENACHRICHTIGT };
+    return { success: true, created_id: postOperation.created_id, message: message };
   });
 }
 
 /**
- * No tag moves: the ban list reaches no cached read, and the refresh below is for the admin's own
+ * No tag moves: the ban list reaches no cached read, and the spine's refresh is for the admin's own
  * uncached list. A row another administrator has already lifted answers 404, which
  * `fl_frontend/src/shared/utils/actionError.ts` words as the reload it is.
  */
 export async function deleteSperreAction(rawPayload: FLSperrlisteKeyPayload): Promise<ActionResult> {
-  return runAdminMutation("deleteSperreAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("deleteSperreAction", async () => {
     const validated = FLSperrlisteKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -116,8 +109,6 @@ export async function deleteSperreAction(rawPayload: FLSperrlisteKeyPayload): Pr
     if (!deleteOperation.acknowledged) {
       return { success: false, error: buildRefusal({ reason: "Die Sperre wurde nicht aufgehoben", repair: "Versuche es erneut" }) };
     }
-
-    refresh();
 
     return { success: true, message: "Diese Adresse wird nicht mehr abgewiesen." };
   });

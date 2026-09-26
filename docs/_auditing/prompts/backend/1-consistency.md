@@ -6,9 +6,6 @@ every write land where its readers read, atomically, exactly once, in the right 
 Read `docs/_auditing/prompts/_shared-protocol.md` and follow it for the whole pass. Write the report
 to `docs/audit/programme/b1-consistency.md`.
 
-Run this pass first in the backend surface: a write that silently does not reach its readers corrupts
-data invisibly, for as long as nobody looks.
-
 **The method this pass exists to apply: build the write→read map from the aggregation pipelines and
 projections, never from field names.** A write and a read can name the same field on different
 documents — invisible to any name-based comparison, and survivable indefinitely, because every

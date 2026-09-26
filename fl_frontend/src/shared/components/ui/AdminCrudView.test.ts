@@ -1,28 +1,36 @@
+import "@/shared/testing/pageHarness.ts";
+
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, it } from "node:test";
+import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
 import tailwind from "@tailwindcss/postcss";
 import postcss from "postcss";
-import ts from "typescript";
 
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { asRenderedPage, isNavigation, renderPage } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
+import type { PageProps } from "@/shared/testing/pageHarness.ts";
 import type { Facet } from "@/shared/utils/facets";
 import type { Rule as CssRule } from "postcss";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { AdminCrudShape } from "./AdminCrudFallback";
+
+// The admin pages below mount create modals, whose real actions reach the sign-in store.
+doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { AdminCrudFallback } = await import("./AdminCrudFallback.tsx");
 const { AdminCrudLoading } = await import("./AdminCrudLoading.tsx");
+const { AdminCrudSearch } = await import("./AdminCrudSearch.tsx");
 const { AdminCrudShell } = await import("./AdminCrudShell.tsx");
 const { AdminCrudView } = await import("./AdminCrudView.tsx");
 const { SearchBar } = await import("./SearchBar.tsx");
@@ -575,6 +583,13 @@ describe("the hold every admin CRUD region reads", () => {
   });
 });
 
+/** The classes the loaded bar opens on, beside a trigger or on a row of its own. */
+const loadedBar = (attachEnd: boolean): string[] =>
+  classesAt(renderTree(underNext(h(AdminCrudSearch, { searchLabel: "Suchen", searchPlaceholder: "Suchen", attachEnd }))), 0);
+
+/** A trigger's box, laid out and never painted, and the words that size it. */
+const BOX = /<div aria-hidden="true" class="(button[^"]*)">([\s\S]*?)<\/div>/;
+
 /* A route's loading boundary is replaced by its page whole, so whatever the page's shell draws around the
    list and the loading boundary does not is how far the list moves when the page arrives. */
 describe("the placeholder a list route draws while its page loads", () => {
@@ -602,12 +617,9 @@ describe("the placeholder a list route draws while its page loads", () => {
   /* The bar takes what a trigger beside it leaves, and the trigger is as wide as its words: a placeholder bar
      spanning the row, or standing beside a box of another width, moves when the page arrives. */
   it("draws the loaded bar's width, and beside a trigger a box of the trigger's own recipe", async () => {
-    const { AdminCrudSearch } = await import("./AdminCrudSearch.tsx");
-    const { Button } = await import("@heroui/react");
+    const { Button } = await import("@heroui/react/button");
     const { formButton } = await import("./formButtons.ts");
 
-    const loadedBar = (attachEnd: boolean): string[] =>
-      classesAt(renderTree(underNext(h(AdminCrudSearch, { searchLabel: "Suchen", searchPlaceholder: "Suchen", attachEnd }))), 0);
     const WIDTH = ["width", "min-width", "max-width", "flex"] as const;
     const widthOf = (classes: readonly string[]) => WIDTH.map((property) => [property, declared(classes, property)]);
 
@@ -629,7 +641,7 @@ describe("the placeholder a list route draws while its page loads", () => {
 
     // HeroUI's own half included: its rule pulls a trigger's glyph in at both sides, which a box of the recipe alone misses.
     const trigger = classesAt(renderTree(h(Button, { className: formButton({ intent: "trigger" }) }, "Neu anlegen")), 0);
-    const drawn = /<div aria-hidden="true" class="([^"]*)">([\s\S]*?)<\/div>/.exec(mit.slice(chrome.length));
+    const drawn = BOX.exec(mit.slice(chrome.length));
     assert.ok(drawn !== null, "the placeholder beside a trigger draws no trigger box");
     assert.deepEqual(
       drawn[1]!.split(/\s+/).filter((className) => className !== "invisible"),
@@ -637,7 +649,7 @@ describe("the placeholder a list route draws while its page loads", () => {
       "the trigger's box is drawn from classes the trigger does not wear",
     );
     assert.equal(textOf(drawn[2]!).trim(), "Neu anlegen", "the trigger's box is sized by words other than the ones it was handed");
-    assert.ok(!ohne.includes('aria-hidden="true" class="button'), "a row whose page passes no trigger draws a trigger's box");
+    assert.ok(!BOX.test(ohne), "a row whose page passes no trigger draws a trigger's box");
   });
 });
 
@@ -670,160 +682,113 @@ describe("the arithmetic behind the box claims", () => {
 });
 
 const ADMIN = path.join(SRC, "app", "admin");
-const VIEWS = path.join(SRC, "features");
 
-const parse = async (file: string): Promise<ts.SourceFile> =>
-  ts.createSourceFile(file, await readFile(file, "utf8"), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+const PROPS: PageProps = { params: Promise.resolve({}), searchParams: Promise.resolve({}) };
 
-/* Selected on the fallback each route draws, which is neither of the properties the two cases below
-   assert: a route that stops satisfying either stays in the roster and fails inside it. */
-const ROUTES: string[] = [];
+type ListPage = (props: PageProps) => ReactElement<{ search: ReactNode; createModal?: ReactNode }>;
+
+/** Each placeholder the shared fallback draws, under the shape and facet state it was drawn for. */
+const FALLBACKS = SHAPES.flatMap((shape) =>
+  [true, false].map((hasFacets) => ({
+    drawn: `${shape}, facets ${String(hasFacets)}`,
+    markup: renderMarkup(AdminCrudFallback, { shape, hasFacets }),
+  })),
+);
+
+const fallbacksIn = (html: string): string[] => FALLBACKS.filter(({ markup }) => html.includes(markup)).map(({ drawn }) => drawn);
+
+/** The same over `renderPage`'s answer, which the DOM spells rather than React. */
+const fallbacksInPage = (html: string): string[] =>
+  FALLBACKS.filter(({ markup }) => html.includes(asRenderedPage(markup))).map(({ drawn }) => drawn);
+
+const atRoute = (route: string, tree: ReactNode): ReactNode => underNext(tree, { pathname: `/admin/${route}` });
+
+/* Selected on the placeholder each route's loading boundary draws, which is none of the properties the
+   cases below assert: a route that stops satisfying one stays in the roster and fails inside it. */
+const ROUTES: { route: string; loading: string; Page: ListPage }[] = [];
 for (const entry of await readdir(ADMIN, { withFileTypes: true })) {
-  if (!entry.isDirectory()) continue;
-  const page = await parse(path.join(ADMIN, entry.name, "page.tsx")).catch(() => null);
-  if (page?.text.includes("AdminCrudFallback") === true) ROUTES.push(entry.name);
+  const file = path.join(ADMIN, entry.name, "loading.tsx");
+  if (!entry.isDirectory() || !existsSync(file)) continue;
+
+  const { default: Loading } = (await import(pathToFileURL(file).href)) as { default: () => ReactNode };
+  const loading = renderTree(h(Loading));
+  if (fallbacksIn(loading).length === 0) continue;
+
+  const { default: Page } = (await import(pathToFileURL(path.join(ADMIN, entry.name, "page.tsx")).href)) as { default: ListPage };
+  ROUTES.push({ route: entry.name, loading, Page });
 }
 
-type Element = { tag: string; attributes: Map<string, ts.JsxAttributeValue | undefined> };
-
-function elementsOf(source: ts.SourceFile): Element[] {
-  const found: Element[] = [];
-
-  const visit = (node: ts.Node): void => {
-    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
-      const opening = ts.isJsxElement(node) ? node.openingElement : node;
-      const attributes = new Map<string, ts.JsxAttributeValue | undefined>();
-      for (const attribute of opening.attributes.properties)
-        if (ts.isJsxAttribute(attribute)) attributes.set(attribute.name.getText(source), attribute.initializer);
-
-      found.push({ tag: opening.tagName.getText(source).replace(/<.*$/s, ""), attributes: attributes });
-    }
-    ts.forEachChild(node, visit);
-  };
-
-  visit(source);
-  return found;
-}
-
-type Drawn = { shape: string; hasFacets: boolean };
-
-/** A shape nothing names is the prop's own default, which is what a route drawing a table passes. */
-function drawnBy(element: Element, facetProp: string): Drawn {
-  const shape = element.attributes.get("shape");
-  const facets = element.attributes.get(facetProp);
-
-  return {
-    shape: shape !== undefined && ts.isStringLiteral(shape) ? shape.text : "table",
-    hasFacets: facetProp === "facets" ? facets !== undefined : facets?.getText().includes("false") !== true,
-  };
-}
-
-/** The element a page renders as the whole of its output, which everything it mounts sits under. */
-function returnedBy(page: ts.SourceFile): string {
-  const exported = page.statements.find(
-    (statement): statement is ts.FunctionDeclaration =>
-      ts.isFunctionDeclaration(statement) && statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword) === true,
-  );
-  assert.ok(exported?.body !== undefined, `${page.fileName}: exports no default function`);
-
-  let returned = exported.body.statements.find(ts.isReturnStatement)?.expression;
-  while (returned !== undefined && ts.isParenthesizedExpression(returned)) returned = returned.expression;
-  assert.ok(
-    returned !== undefined && (ts.isJsxElement(returned) || ts.isJsxSelfClosingElement(returned)),
-    `${page.fileName}: returns no element`,
-  );
-
-  return (ts.isJsxElement(returned) ? returned.openingElement : returned).tagName.getText(page);
-}
-
-function oneElement(elements: readonly Element[], tag: string, file: string): Element {
-  const matching = elements.filter((element) => element.tag === tag);
-  assert.equal(matching.length, 1, `${file}: holds ${String(matching.length)} ${tag} elements`);
-
-  return matching[0]!;
-}
-
-/* The wiring between a route's own fallback and the view under it: two files, and no render of
-   either shows what the other draws. */
 describe("every admin CRUD route", () => {
   it("draws one shape and one facet state from its own fallback down to its view", async () => {
     assert.ok(ROUTES.length > 0, "no admin route draws the shared fallback");
 
-    /* Derived twice, by two routes that must agree (`docs/frontend/spec.md` §1.9): a view reached
-       only through its own page would drop out of the roster rather than fail against it. */
-    const rendering = filesUnder(VIEWS, (name) => name.endsWith("View.tsx") && !isTestFile(name), 20)
-      .filter((file) => readFileSync(file, "utf8").includes("<AdminCrudView"))
-      .map((file) => file.split(path.sep).join("/"));
-    assert.equal(
-      ROUTES.length,
-      rendering.length,
-      `${String(ROUTES.length)} routes draw the placeholder, ${String(rendering.length)} views hold it`,
-    );
+    for (const { route, loading, Page } of ROUTES) {
+      const drawn = fallbacksIn(loading);
+      assert.equal(drawn.length, 1, `${route}: its loading boundary draws ${drawn.join(" and ")}`);
 
-    const reached: string[] = [];
-    for (const route of ROUTES) {
-      const page = await parse(path.join(ADMIN, route, "page.tsx"));
-      const loading = await parse(path.join(ADMIN, route, "loading.tsx"));
+      assert.deepEqual(
+        fallbacksIn(renderTree(atRoute(route, h(Page, PROPS)))),
+        drawn,
+        `${route}: its page's own boundary draws another placeholder`,
+      );
+      // Resolved, the page draws its view, whose cover is the placeholder the view was built for.
+      assert.deepEqual(
+        fallbacksInPage(await renderPage(atRoute(route, h(Page, PROPS)))),
+        drawn,
+        `${route}: its view covers itself with another placeholder`,
+      );
+    }
+  });
 
-      const viewName = elementsOf(page).find((element) => /^Admin\w+View$/.test(element.tag))?.tag;
-      assert.ok(viewName !== undefined, `${route}: its page renders no admin view`);
+  /* Derived twice, by two routes that must agree (`docs/_standard/standard.md :: PRE-4`): a view whose
+     route draws no placeholder would drop out of the roster above rather than fail against it. */
+  it("holds a region under every route that draws its placeholder, and under no other", async () => {
+    const holding: string[] = [];
 
-      const specifier = page.statements
-        .filter(ts.isImportDeclaration)
-        .find((statement) => statement.getText(page).includes(viewName))
-        ?.moduleSpecifier.getText(page)
-        .replaceAll('"', "");
-      assert.ok(specifier?.startsWith("@/features/") === true, `${route}: ${viewName} comes from ${String(specifier)}`);
+    for (const entry of await readdir(ADMIN, { withFileTypes: true })) {
+      const file = path.join(ADMIN, entry.name, "page.tsx");
+      if (!entry.isDirectory() || !existsSync(file)) continue;
 
-      const view = await parse(path.join(SRC, `${specifier.slice("@/".length)}.tsx`));
-      reached.push(view.fileName);
-
-      const drawn = drawnBy(oneElement(elementsOf(page), "AdminCrudFallback", `${route}/page.tsx`), "hasFacets");
-
-      assert.deepEqual(drawnBy(oneElement(elementsOf(loading), "AdminCrudLoading", `${route}/loading.tsx`), "hasFacets"), drawn);
-      assert.deepEqual(drawnBy(oneElement(elementsOf(view), "AdminCrudView", specifier), "facets"), drawn, `${route}: ${viewName} disagrees`);
+      const { default: Page } = (await import(pathToFileURL(file).href)) as { default: ListPage };
+      // A page answering a league with no season by sending the reader elsewhere draws nothing to judge.
+      const markup = await renderPage(atRoute(entry.name, h(Page, PROPS))).catch((error: unknown) => {
+        if (isNavigation(error)) return "";
+        throw error;
+      });
+      if (markup.includes(COVER)) holding.push(entry.name);
     }
 
-    assert.deepEqual(reached.sort(), rendering.sort(), "a view holding the region sits under no route that draws its placeholder");
+    assert.deepEqual(
+      holding.sort(),
+      ROUTES.map(({ route }) => route).sort(),
+      "a view holding the region sits under a route that draws no placeholder",
+    );
   });
 
   /* The wiring between a route's fallback and its page: a trigger's box drawn where the shell passes none, or
      missing where it passes one, moves the bar on arrival. Its words are
      `fl_frontend/src/features/admin/crudLoadingTriggers.test.ts`'s. */
-  it("draws a trigger's box exactly where the page's shell passes a trigger", async () => {
+  it("draws a trigger's box exactly where the page's shell passes a trigger", () => {
     assert.ok(ROUTES.length > 0, "no admin route draws the shared fallback");
 
-    for (const route of ROUTES) {
-      const page = await parse(path.join(ADMIN, route, "page.tsx"));
-      const loading = await parse(path.join(ADMIN, route, "loading.tsx"));
+    for (const { route, loading, Page } of ROUTES) {
+      const shell = Page(PROPS);
+      const hasTrigger = shell.props.createModal !== undefined;
 
-      const hasTrigger = oneElement(elementsOf(page), "AdminCrudShell", `${route}/page.tsx`).attributes.has("createModal");
-      const attachEnd = oneElement(elementsOf(page), "AdminCrudSearch", `${route}/page.tsx`).attributes.get("attachEnd");
-
-      assert.equal(
-        oneElement(elementsOf(loading), "AdminCrudLoading", `${route}/loading.tsx`).attributes.has("createLabel"),
-        hasTrigger,
-        `${route}: its fallback and its page disagree on a trigger`,
+      assert.equal(BOX.test(loading), hasTrigger, `${route}: its fallback and its page disagree on a trigger`);
+      assert.deepEqual(
+        classesAt(renderTree(atRoute(route, shell.props.search)), 0),
+        loadedBar(hasTrigger),
+        `${route}: its bar joins a trigger its shell does not pass`,
       );
-      assert.equal(attachEnd?.getText().includes("false") !== true, hasTrigger, `${route}: its bar joins a trigger its shell does not pass`);
     }
   });
 
   /* The shell is the only thing in the tree that runs the hold, and a region reaching no shell reads
      the property's own initial value instead: released from its first frame, with nothing failing. */
-  it("returns the shell that runs the hold, so every region it mounts inherits one", async () => {
+  it("returns the shell that runs the hold, so every region it mounts inherits one", () => {
     assert.ok(ROUTES.length > 0, "no admin route draws the shared fallback");
 
-    for (const route of ROUTES) {
-      const page = await parse(path.join(ADMIN, route, "page.tsx"));
-      assert.equal(returnedBy(page), "AdminCrudShell", `${route}: its page returns something else`);
-
-      const specifier = page.statements
-        .filter(ts.isImportDeclaration)
-        .find((statement) => statement.getText(page).includes("AdminCrudShell"))
-        ?.moduleSpecifier.getText(page)
-        .replaceAll('"', "");
-      assert.equal(specifier, "@/shared/components/ui/AdminCrudShell", `${route}: its shell comes from ${String(specifier)}`);
-    }
+    for (const { route, Page } of ROUTES) assert.equal(Page(PROPS).type, AdminCrudShell, `${route}: its page returns something else`);
   });
 });

@@ -1,13 +1,11 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
-import { pathToFileURL } from "node:url";
 
 import z from "zod";
 
-import { DOCUMENT_PATH, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
-import { filesUnder } from "@/core/treeWalk.ts";
+import { readPublishedDocument, REGENERATE_CITATION } from "@/core/openapiDocument.ts";
+import { isZodSchema, schemaModules } from "@/core/schemaModules.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
@@ -159,8 +157,9 @@ const FRONTEND_ONLY_FIELDS: Record<string, string[]> = {
 type JsonSchema = Record<string, unknown>;
 
 /**
- * The whole of what is compared. Patterns, lengths, bounds and messages diverge by design, and
- * comparing validation policy produces failures nobody can act on.
+ * The whole of what is compared here. Patterns, floors and messages diverge by design, and
+ * comparing validation policy produces failures nobody can act on; a published ceiling is compared
+ * on its own (`fl_frontend/src/core/payloadBounds.test.ts`).
  */
 type FieldFacts = {
   required: boolean;
@@ -168,24 +167,6 @@ type FieldFacts = {
   types: string[];
   enumValues: string[] | null;
 };
-
-function readDocument(): JsonSchema {
-  try {
-    return JSON.parse(readFileSync(DOCUMENT_PATH, "utf8")) as JsonSchema;
-  } catch (cause) {
-    throw new Error(`Could not read ${DOCUMENT_PATH}. Generate it with the command ${REGENERATE_CITATION} declares.`, { cause });
-  }
-}
-
-function findSchemaModules(dir: string): string[] {
-  // Sorted because `mirrors.set` below lets a later module overwrite an earlier one: without a
-  // fixed order, a name two modules both export would attribute to either of them run to run.
-  return filesUnder(dir, (name) => name === "schemas.ts", 8).sort();
-}
-
-function isZodSchema(value: unknown): value is z.ZodType {
-  return typeof value === "object" && value !== null && "_zod" in value;
-}
 
 /**
  * The sorted members of a closed string set, in any spelling either side emits, or `null`.
@@ -292,6 +273,8 @@ function describeObject(node: JsonSchema, root: JsonSchema, allRequired: boolean
   return fields;
 }
 
+const SHARED_RESPONSE = "#/components/responses/";
+
 /**
  * Every component one side of the operations reaches, closed over what those reference.
  *
@@ -300,14 +283,17 @@ function describeObject(node: JsonSchema, root: JsonSchema, allRequired: boolean
  */
 function reachableFrom(document: JsonSchema, side: "requestBody" | "responses"): Set<string> {
   const components = ((document.components as JsonSchema | undefined)?.schemas ?? {}) as Record<string, JsonSchema>;
+  const shared = ((document.components as JsonSchema | undefined)?.responses ?? {}) as Record<string, JsonSchema>;
   const reached = new Set<string>();
 
   const collect = (value: unknown, into: Set<string>) => {
     if (Array.isArray(value)) return value.forEach((item) => collect(item, into));
     if (typeof value !== "object" || value === null) return;
     for (const [key, nested] of Object.entries(value)) {
-      if (key === "$ref" && typeof nested === "string") into.add(nested.replace("#/components/schemas/", ""));
-      else collect(nested, into);
+      if (key !== "$ref" || typeof nested !== "string") collect(nested, into);
+      // A shared response names no schema itself: the bodies it publishes are reached through it.
+      else if (nested.startsWith(SHARED_RESPONSE)) collect(shared[nested.slice(SHARED_RESPONSE.length)], into);
+      else into.add(nested.replace("#/components/schemas/", ""));
     }
   };
 
@@ -326,18 +312,15 @@ function reachableFrom(document: JsonSchema, side: "requestBody" | "responses"):
   return reached;
 }
 
-const document = readDocument();
+const document = readPublishedDocument() as JsonSchema;
 const components = ((document.components as JsonSchema | undefined)?.schemas ?? {}) as Record<string, JsonSchema>;
 const RESPONSE_REACHABLE = reachableFrom(document, "responses");
 const REQUEST_REACHABLE = reachableFrom(document, "requestBody");
 
 const mirrors = new Map<string, { schema: z.ZodType; module: string }>();
-for (const file of findSchemaModules(SRC_DIR)) {
-  const loaded: Record<string, unknown> = await import(pathToFileURL(file).href);
-  for (const [name, value] of Object.entries(loaded)) {
-    if (isZodSchema(value) && name.endsWith("Schema")) {
-      mirrors.set(name.slice(0, -"Schema".length), { schema: value, module: path.relative(SRC_DIR, file) });
-    }
+for (const { module, exports } of await schemaModules(SRC_DIR)) {
+  for (const [name, value] of Object.entries(exports)) {
+    if (isZodSchema(value) && name.endsWith("Schema")) mirrors.set(name.slice(0, -"Schema".length), { schema: value, module });
   }
 }
 
@@ -471,6 +454,14 @@ describe("every shape is paired or recorded", () => {
       `No component is reached from both a request and a response, so the ambiguity guard below cannot fail.\n` +
         `  request-reachable: ${REQUEST_REACHABLE.size}, response-reachable: ${RESPONSE_REACHABLE.size}`,
     );
+  });
+
+  /* Every operation reaches these through a shared response alone, so a walk that stopped following
+     one would compare them under the request rule, and every pair would still pass. */
+  it("reaches the failure bodies from the responses", () => {
+    const unreached = ["FLFailureBody", "FLRefusedPayloadBody", "FLRefusedField"].filter((name) => !RESPONSE_REACHABLE.has(name));
+
+    assert.deepEqual(unreached, [], `These failure bodies are reached from no response, so they are compared as request shapes: ${unreached}`);
   });
 
   it("has no component reached from both a request and a response while carrying a default", () => {

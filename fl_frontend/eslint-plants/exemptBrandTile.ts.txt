@@ -1,0 +1,6 @@
+// Linted as src/shared/components/ui/brandTile.ts.
+// The module spells the three boxes, and every other ban still reaches it.
+export const BRAND_TILE_CLASSES = "size-10 rounded-xl bg-brand-solid";
+export const BRAND_ICON_BUTTON_CLASSES = "size-9 rounded-xl bg-brand-solid";
+export const SHORTHAND_CHIP_CLASSES = "rounded-md bg-brand-solid font-extrabold";
+export const GAP = "flex gap-5"; // expect: gap

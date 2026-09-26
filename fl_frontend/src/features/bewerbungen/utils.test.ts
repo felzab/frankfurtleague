@@ -1,22 +1,22 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { parseDate } from "@internationalized/date";
 
 import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
-import { declaredCodes } from "@/shared/testing/refusalRegister.ts";
+import { TEAM_FACETS } from "@/features/teams/facets";
+import { answerShown, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError";
 import { getGermanTodayStr } from "@/shared/utils/date";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import { alterAusserhalb, BEWERBUNG_MAX_ALTER, BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
 import { buildEinwilligungAntwortPayloadSchema } from "./schemas.ts";
 import {
   abiJahrgang,
+  BEWERBUNG_VERALTET,
   bewerbungHerkunft,
   bewerbungJudgedPaths,
   bewerbungTeamName,
@@ -38,8 +38,6 @@ import {
 
 import type { FLBewerbung, FLBewerbungFensterResponse } from "./schemas.ts";
 import type { BewerbungKontakteDraft, BewerbungKontaktpersonDraft } from "./types.ts";
-
-const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
 
 /** The proposed school, of which only `team_name` decides the answer. */
 const SCHOOL: FLBewerbung["schule"] = {
@@ -180,6 +178,7 @@ describe("which state the window puts the page in", () => {
     von: "2026-05-01",
     bis: "2026-07-31",
     laeuft: false,
+    saison_beendet: false,
     ...overrides,
   });
 
@@ -215,6 +214,15 @@ describe("which state the window puts the page in", () => {
      arriving on last year's link has a question, and a 404 answers none of it. */
   it("reads a season with no window as its own state rather than as expired", () => {
     assert.equal(fensterZustand(null, "2026-06-01"), "keine-frist");
+  });
+
+  /* An ended season takes no application again, so every date answer would send a school to wait
+     for a window that never reopens: the span still running, the league's switch off, a span not
+     yet begun. */
+  it("reads every window of a season that has ended as over, whatever its dates and its switch say", () => {
+    assert.equal(fensterZustand(fenster({ saison_beendet: true }), "2026-06-01"), "vorbei");
+    assert.equal(fensterZustand(fenster({ saison_beendet: true, offen: false }), "2026-06-01"), "vorbei");
+    assert.equal(fensterZustand(fenster({ saison_beendet: true }), "2026-04-30"), "vorbei");
   });
 });
 
@@ -376,9 +384,10 @@ describe("which paths one judgement covers in the public form", () => {
   });
 });
 
-/** The public write, spelled as `fl_backend/app/core/domain.py` spells the operation it declares. */
+/** The public write, spelled as the backend's own routes spell it. */
 const SUBMIT_OPERATION = "POST /bewerbungen";
 const CONFIRM_OPERATION = "POST /bewerbungen/einwilligung";
+const ANSICHT_OPERATION = "POST /bewerbungen/einwilligung/ansicht";
 
 /** One refusal as the client sees it: a 409 carrying the code, which is the whole of what it maps on. */
 const badStatus = (statusCode: number, serverErrorCode: string) =>
@@ -393,10 +402,18 @@ const badStatus = (statusCode: number, serverErrorCode: string) =>
     traceId: "0123456789abcdef",
   });
 
-const refusalFor = (code: string) => badStatus(409, code);
+/**
+ * `code` as `operation` refuses with it, asserted published there first: an arm kept for a code the
+ * backend stopped publishing fails here rather than passing on a refusal nothing sends.
+ */
+function publishedOn(operation: string, code: string) {
+  assert.ok(publishedRefusals(operation).includes(code), `${code} is no longer published on ${operation}`);
+
+  return refusedOn(operation, code);
+}
 
 describe("what a submission's refusal is shown as", () => {
-  const refusal = (code: string) => mapBewerbungSubmitRefusal(refusalFor(code));
+  const refusal = (code: string) => mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, code));
 
   /* Asserted before the arms below: a mapper that stopped recognising a 409 at all would return
      `null` everywhere, and every "names no field" assertion would pass over nothing. */
@@ -438,31 +455,35 @@ describe("what a submission's refusal is shown as", () => {
   });
 
   it("maps nothing it does not recognise, so an unknown code falls through to the shared handler", () => {
-    assert.equal(refusal("REQ-BEWERBUNG-999"), null);
+    assert.equal(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-999", 409)), null);
     assert.equal(mapBewerbungSubmitRefusal(new Error("boom")), null);
-    assert.equal(mapBewerbungSubmitRefusal(badStatus(404, "REQ-BEWERBUNG-005")), null);
+    // A write answered with a 5xx may have landed, which no refusal's words may deny.
+    assert.equal(mapBewerbungSubmitRefusal(badStatus(500, "REQ-BEWERBUNG-005")), null);
+  });
+
+  /* Codes are unique across the API, so a rule moved to another status keeps its answer. */
+  it("answers a code alike at whatever status its rule answers with", () => {
+    for (const code of ["REQ-BEWERBUNG-005", "REQ-BEWERBUNG-015"]) {
+      assert.deepEqual(mapBewerbungSubmitRefusal(badStatus(422, code)), refusal(code), code);
+    }
   });
 });
 
-describe("the submission's refusals against the backend's register", () => {
-  /* Before every comparison below: a loop over an operation the register no longer names runs zero
-     times and proves nothing. An empty list here is the harness failing, not the source. */
-  it("finds rules declared against the submission at all", () => {
-    assert.ok(declaredCodes(SUBMIT_OPERATION).length > 0, `no rule is declared against ${SUBMIT_OPERATION}`);
-  });
-
-  /* The one class a unit test here CAN hold: a declared code this maps nowhere reaches the applicant
+describe("the submission's refusals against the codes its endpoint publishes", () => {
+  /* The one class a unit test here CAN hold: a published code this maps nowhere reaches the applicant
      as the generic sentence, which names no field and no way out. */
-  it("maps every code the submission declares", () => {
-    const mapped = declaredCodes(SUBMIT_OPERATION).filter((code) => mapBewerbungSubmitRefusal(refusalFor(code)) !== null);
-
-    assert.deepEqual(mapped, declaredCodes(SUBMIT_OPERATION));
+  it("maps every code the submission publishes", () => {
+    for (const code of publishedRefusals(SUBMIT_OPERATION)) {
+      assert.notEqual(answerShown(SUBMIT_OPERATION, code, mapBewerbungSubmitRefusal), null, `${code} reaches the applicant unmapped`);
+    }
   });
 
-  /* Five codes, five answers. Sharing one sentence between two of them is the failure this catches:
+  /* One code, one answer. Sharing one sentence between two of them is the failure this catches:
      each names a different thing to change, and a reader given the wrong one changes the wrong box. */
   it("gives each code its own answer", () => {
-    const answers = declaredCodes(SUBMIT_OPERATION).map((code) => JSON.stringify(mapBewerbungSubmitRefusal(refusalFor(code))));
+    const answers = publishedRefusals(SUBMIT_OPERATION).map((code) =>
+      JSON.stringify(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, code))),
+    );
 
     assert.equal(new Set(answers).size, answers.length, "two codes are answered with the same sentence");
   });
@@ -471,8 +492,9 @@ describe("the submission's refusals against the backend's register", () => {
      „spielt schon mit“ are two readings a German sentence separates and no structural check does —
      and only one is what the backend refuses. */
   it("says of each code what the backend constant it answers refuses", () => {
-    const fieldOf = (code: string) => Object.values(mapBewerbungSubmitRefusal(refusalFor(code))?.fieldErrors ?? {}).join(" ");
-    const banner = (code: string) => mapBewerbungSubmitRefusal(refusalFor(code))?.error ?? "";
+    const fieldOf = (code: string) =>
+      Object.values(mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, code))?.fieldErrors ?? {}).join(" ");
+    const banner = (code: string) => mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, code))?.error ?? "";
 
     // The season stopped taking applications; nothing about the school is at fault.
     assert.match(banner("REQ-BEWERBUNG-004"), /keine Bewerbungen/);
@@ -492,14 +514,23 @@ describe("the submission's refusals against the backend's register", () => {
     assert.match(fieldOf("REQ-BEWERBUNG-007"), /\bspielt\b/);
     assert.match(fieldOf("REQ-BEWERBUNG-007"), /dieser Saison/);
     assert.doesNotMatch(fieldOf("REQ-BEWERBUNG-007"), /beworben|Bewerbung|gespielt|früher|einmal/);
+
+    // An earlier wording on a seat is a page older than the deploy, which a reload replaces: the
+    // sentence the form's own parse gives such a page, and no box, none of them being at fault.
+    assert.deepEqual(mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, "REQ-BEWERBUNG-016")), { error: BEWERBUNG_VERALTET });
+  });
+
+  /* The record missing is a season the running API does not hold, which only a page from before a
+     data reset names: the older page's sentence and reload, never the admin's „nicht gefunden“. */
+  it("answers a missing season as the page gone stale", () => {
+    assert.deepEqual(mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "DB-COMMON-001")), { error: BEWERBUNG_VERALTET });
   });
 
   /* `READ-BEWERBUNG-001`: these two answer an anonymous caller, so neither may disclose that a club
-     exists or its state. The vocabulary is READ OFF the teams facet, so a status added there is
+     exists or its state. The vocabulary is the teams list's status facet, so a status added there is
      covered here too. */
   it("keeps both roster-facing refusals free of every status word the app uses", () => {
-    const facets = readFileSync(path.join(SRC_DIR, "features", "teams", "facets.ts"), "utf8");
-    const statuses = [...facets.matchAll(/value: "(stillgelegt|ausgeschieden|\w+)", label: "([A-ZÄÖÜ]\w+)"/g)].map((t) => t[2]!);
+    const statuses = (TEAM_FACETS.find((facet) => facet.param === "status")?.options ?? []).map((option) => option.label);
 
     assert.ok(statuses.length > 0, "no status vocabulary was read, so this test compares nothing");
 
@@ -507,7 +538,7 @@ describe("the submission's refusals against the backend's register", () => {
     const telltale = [...statuses, "existiert", "gibt es", "früher", "ehemalig", "gelöscht", "entfernt", "reaktiv"];
 
     for (const code of ["REQ-BEWERBUNG-006", "REQ-BEWERBUNG-008"]) {
-      const refusalText = Object.values(mapBewerbungSubmitRefusal(refusalFor(code))?.fieldErrors ?? {}).join(" ");
+      const refusalText = Object.values(mapBewerbungSubmitRefusal(publishedOn(SUBMIT_OPERATION, code))?.fieldErrors ?? {}).join(" ");
 
       for (const numberWord of telltale) {
         assert.ok(!refusalText.toLowerCase().includes(numberWord.toLowerCase()), `${code} discloses roster state with „${numberWord}“`);
@@ -518,6 +549,14 @@ describe("the submission's refusals against the backend's register", () => {
   /* Naming no field, the 422 refused the body's shape, so the answer names no box. Every body rule the
      form can break is mirrored: this is a drifted client, whose remedy is a reload, not „Versuche es
      erneut“. */
+  /* A body the API could not read at all is the same drifted client, and a retry sends the same bytes. */
+  it("answers a body the API could not read as a body refusal naming no field", () => {
+    const unreadable = mapBewerbungSubmitRefusal(refusedOn(SUBMIT_OPERATION, "REQ-VAL-002"));
+
+    assert.notEqual(unreadable, null, "the unreadable body falls through to the shared handler's retry");
+    assert.deepEqual(unreadable, mapBewerbungSubmitRefusal(refusedPayload([], "/bewerbungen")));
+  });
+
   it("answers a body refusal naming no field without sending the applicant to a box", () => {
     const mappedRefusal = mapBewerbungSubmitRefusal(refusedPayload([], "/bewerbungen"));
 
@@ -576,35 +615,50 @@ describe("what the blur-time Kürzel check says short of a refusal", () => {
   });
 });
 
-describe("the confirmation's refusals against the backend's register", () => {
-  /* As above: a loop over an operation the register does not name runs zero times and proves
-     nothing. */
-  it("finds rules declared against the confirmation at all", () => {
-    assert.ok(declaredCodes(CONFIRM_OPERATION).length > 0, `no rule is declared against ${CONFIRM_OPERATION}`);
-  });
-
-  /* A declared code this maps nowhere reaches the contact person as a bare „Antwort nicht gespeichert“
+describe("the confirmation's refusals against the codes its endpoint publishes", () => {
+  /* A published code this maps nowhere reaches the contact person as a bare „Antwort nicht gespeichert“
      toast, which names neither the field to fix nor the panel that would explain the dead link. */
-  it("maps every code the confirmation declares", () => {
-    const mapped = declaredCodes(CONFIRM_OPERATION).filter((code) => mapEinwilligungRefusal(refusalFor(code), VERTRETUNG_MIN_ALTER) !== null);
-
-    assert.deepEqual(mapped, declaredCodes(CONFIRM_OPERATION));
+  it("maps every code the confirmation publishes", () => {
+    for (const code of publishedRefusals(CONFIRM_OPERATION)) {
+      const answered = answerShown(CONFIRM_OPERATION, code, (error) => mapEinwilligungRefusal(error, VERTRETUNG_MIN_ALTER));
+      assert.notEqual(answered, null, `${code} reaches the contact person unmapped`);
+    }
   });
 
-  /* Each code names a different thing: three dead-link panels and one field. Two sharing an answer
-     is a reader sent to the wrong one of the two, with no way to tell. */
-  it("gives each code its own answer", () => {
-    const answers = declaredCodes(CONFIRM_OPERATION).map((code) =>
-      JSON.stringify(mapEinwilligungRefusal(refusalFor(code), VERTRETUNG_MIN_ALTER)),
+  /* The record missing is an application the link named and nothing holds now: the dead-link panel,
+     never the admin's „nicht gefunden“ with a reload. */
+  it("answers the link's record gone as the link void", () => {
+    assert.deepEqual(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "DB-COMMON-001"), VERTRETUNG_MIN_ALTER), { zustand: "ungueltig" });
+  });
+
+  /* The link's own read answers every refusal alike: a spent link answers its state in a 200, so a
+     refusal is a token nothing could place. */
+  it("calls the link void on every refusal its read publishes", () => {
+    for (const code of publishedRefusals(ANSICHT_OPERATION)) {
+      assert.equal(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)), "ungueltig", code);
+    }
+  });
+
+  /* Two codes sharing an answer leave the reader no way to tell which one happened. The exempt pair
+     both spend this person's link: a decided application, and a deadline only the league's re-send
+     restarts. */
+  it("gives each code its own answer, the two spent links one panel", () => {
+    const answers = new Map(
+      publishedRefusals(CONFIRM_OPERATION).map((code) => [
+        code,
+        JSON.stringify(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, code), VERTRETUNG_MIN_ALTER)),
+      ]),
     );
 
-    assert.equal(new Set(answers).size, answers.length, "two codes are answered with the same panel or sentence");
+    assert.equal(answers.get("REQ-BEWERBUNG-017"), answers.get("REQ-BEWERBUNG-010"), "the passed deadline leaves the spent-link panel");
+    answers.delete("REQ-BEWERBUNG-017");
+    assert.equal(new Set(answers.values()).size, answers.size, "two codes are answered with the same panel or sentence");
   });
 
   /* One code covers a confirmation and a decline alike, so a state picked here tells a seat that
      declined in another window that it confirmed. Which way it went is the ansicht read's to say. */
   it("asks its caller to read the already-answered link rather than naming a state", () => {
-    const mappedRefusal = mapEinwilligungRefusal(refusalFor("REQ-BEWERBUNG-011"), VERTRETUNG_MIN_ALTER);
+    const mappedRefusal = mapEinwilligungRefusal(publishedOn(CONFIRM_OPERATION, "REQ-BEWERBUNG-011"), VERTRETUNG_MIN_ALTER);
 
     assert.equal(mappedRefusal?.nachlesen, true, "the already-answered refusal no longer asks for the read");
     assert.equal(mappedRefusal?.zustand, undefined, "one code picked a panel it has no way to tell from the other");
@@ -615,7 +669,7 @@ describe("the confirmation's refusals against the backend's register", () => {
      here would replace a live form with a dead-link panel and lose the date the person typed. */
   it("answers the age refusal at the field, naming the floor it was given and never a state", () => {
     for (const floor of [BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER]) {
-      const mappedRefusal = mapEinwilligungRefusal(refusalFor("REQ-BEWERBUNG-012"), floor);
+      const mappedRefusal = mapEinwilligungRefusal(publishedOn(CONFIRM_OPERATION, "REQ-BEWERBUNG-012"), floor);
       const gesagt = mappedRefusal?.fieldErrors?.geburtsdatum ?? "";
 
       assert.equal(mappedRefusal?.zustand, undefined, "a refusal the token survives closed the form anyway");
@@ -641,6 +695,13 @@ describe("the confirmation's refusals against the backend's register", () => {
     const mappedRefusal = mapEinwilligungRefusal(refusedPayload([], "/bewerbungen"), VERTRETUNG_MIN_ALTER);
 
     assert.deepEqual(mappedRefusal, { error: ANTWORT_NEU_OEFFNEN });
+  });
+
+  /* A body the API could not read at all is the same drifted client, and a retry sends the same bytes. */
+  it("answers a body the API could not read with the mail's link", () => {
+    assert.deepEqual(mapEinwilligungRefusal(refusedOn(CONFIRM_OPERATION, "REQ-VAL-002"), VERTRETUNG_MIN_ALTER), {
+      error: ANTWORT_NEU_OEFFNEN,
+    });
   });
 
   it("puts a body refusal naming a field on that field's box, with the mail's link for a box the panel lacks", () => {
@@ -673,8 +734,10 @@ describe("mapEinwilligungAnsichtRefusal", () => {
   /* The read refuses an unknown token alone; a spent, declined or expired link answers its own
      `zustand` in a 200. Fail-closed, so a code nobody planned still renders the panel naming nobody. */
   it("reads every refusal as the panel that names nobody", () => {
-    assert.equal(mapEinwilligungAnsichtRefusal(refusalFor("REQ-BEWERBUNG-009")), "ungueltig");
-    assert.equal(mapEinwilligungAnsichtRefusal(refusalFor("REQ-SOMETHING-NEW")), "ungueltig");
+    assert.equal(mapEinwilligungAnsichtRefusal(publishedOn(ANSICHT_OPERATION, "REQ-BEWERBUNG-009")), "ungueltig");
+    for (const status of [409, 404, 410]) {
+      assert.equal(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-SOMETHING-NEW", status)), "ungueltig", String(status));
+    }
   });
 
   /* A token past `CustomBewerbungToken`'s length, or malformed, never reaches a record, so the read
@@ -683,10 +746,27 @@ describe("mapEinwilligungAnsichtRefusal", () => {
     assert.equal(mapEinwilligungAnsichtRefusal(refusedPayload([], "/bewerbungen")), "ungueltig");
   });
 
+  /* The record the link names gone is as dead a link, as the confirmation answers it. */
+  it("calls the link void where the record it names is gone", () => {
+    assert.equal(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "DB-COMMON-001")), "ungueltig");
+  });
+
   /* A failed read is the page's own state: answering „ungueltig“ on a 500 would call a live link
      void on a day the backend was unreachable. */
   it("leaves anything that is not a refusal to the caller", () => {
     assert.equal(mapEinwilligungAnsichtRefusal(badStatus(500, "")), null);
     assert.equal(mapEinwilligungAnsichtRefusal(new Error("socket hang up")), null);
+  });
+
+  /* Neither judged the token: a route the API does not serve is met mid-deploy, and an unreadable body
+     failed in the page's own encoding. The dead-link panel would send the visitor away from a live link. */
+  it("leaves a routing refusal or an unreadable body to the caller, never the dead-link panel", () => {
+    for (const [status, code] of [
+      [404, "REQ-ROUTE-001"],
+      [405, "REQ-ROUTE-002"],
+    ] as const) {
+      assert.equal(mapEinwilligungAnsichtRefusal(badStatus(status, code)), null, code);
+    }
+    assert.equal(mapEinwilligungAnsichtRefusal(refusedOn(ANSICHT_OPERATION, "REQ-VAL-002")), null);
   });
 });

@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 
 /** Every package these modules reach that this process cannot load, doubled at resolve time. */
 const PACKAGE_DOUBLES: Record<string, string> = {
   "server-only": "export {};",
-  "next/headers": `export const headers = async () => new Headers();`,
+  "next/headers": NEXT_HEADERS_DOUBLE,
   "next/cache": `export const revalidateTag = () => {}; export const updateTag = () => {};`,
 };
 
@@ -26,9 +28,11 @@ const { schiedsrichterVorname } = await import("./constants.ts");
 const { describeLinkMail } = await import("./notifications.ts");
 const { mapSchiedsrichterAnsichtRefusal, mapSchiedsrichterBestaetigungRefusal } = await import("./queries.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
-const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/publicSubmit.ts");
+const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
+const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
+/** Typed rather than taken from `SCHIEDSRICHTER_MIN_ALTER`: the refusal is worded at the floor the link's read answers, the one it was minted under. */
 const MINDESTALTER = 16;
 
 /** One refused answer as the client raises it; only the status and the code are read past this file. */
@@ -52,6 +56,8 @@ describe("what one refused confirmation asks the referee's page to show", () => 
      administrator re-sending while the page stands open is the ordinary race, not an edge case. */
   for (const [code, zustand] of [
     ["REQ-SCHIEDSRICHTER-002", "ungueltig"],
+    // The referee the link named is gone, which is as dead a link.
+    ["DB-COMMON-001", "ungueltig"],
     ["REQ-SCHIEDSRICHTER-003", "abgelaufen"],
     ["REQ-SCHIEDSRICHTER-004", "bestaetigt"],
   ] as const) {
@@ -101,10 +107,29 @@ describe("what one refused confirmation asks the referee's page to show", () => 
   /* The page strips its token from the address bar, so a reload lands a live link on the panel
      calling it void; only the mail's link reopens it. */
   it("sends the referee back to the mail's link where the body, or a media yes only an older page offers, was refused", async () => {
-    assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(aRefusal(422, ""), floor), { error: ANTWORT_NEU_OEFFNEN });
+    assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(refusedPayload([], "/schiedsrichter/bestaetigung"), floor), {
+      error: ANTWORT_NEU_OEFFNEN,
+    });
     assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(aRefusal(409, "REQ-SCHIEDSRICHTER-008"), floor), {
       error: ANTWORT_NEU_OEFFNEN,
     });
+    // A body the API could not read at all: the same drifted page, and a retry sends the same bytes.
+    assert.deepEqual(await mapSchiedsrichterBestaetigungRefusal(refusedOn("POST /schiedsrichter/bestaetigung", "REQ-VAL-002"), floor), {
+      error: ANTWORT_NEU_OEFFNEN,
+    });
+  });
+
+  /* Codes are unique across the API, so a rule moved to another status keeps its answer. */
+  it("answers each code alike at whatever status its rule answers with", async () => {
+    for (const [code, statuses] of [
+      ["REQ-SCHIEDSRICHTER-002", [404, 409]],
+      ["REQ-SCHIEDSRICHTER-003", [410, 409]],
+      ["REQ-SCHIEDSRICHTER-008", [422, 409]],
+    ] as const) {
+      const [moved, conflict] = statuses.map((status) => mapSchiedsrichterBestaetigungRefusal(aRefusal(status, code), floor));
+      assert.deepEqual(await moved, await conflict, code);
+      assert.notEqual(await moved, null, code);
+    }
   });
 
   it("answers nothing for a code it does not word, so the caller reports a failure rather than a state", async () => {
@@ -119,11 +144,19 @@ describe("what one refused link read asks the page to show", () => {
      could place, and a code nobody planned reads the same way. */
   it("calls the link void on a refusal, whatever the code", () => {
     assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(409, "REQ-SCHIEDSRICHTER-002")), "ungueltig");
-    assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(422, "")), "ungueltig");
+    assert.equal(mapSchiedsrichterAnsichtRefusal(refusedPayload([], "/schiedsrichter/bestaetigung/ansicht")), "ungueltig");
+    // The unknown token's rule answers 404, which a vanished record answers too; the code tells them apart.
+    assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(404, "REQ-SCHIEDSRICHTER-002")), "ungueltig");
   });
 
   it("leaves anything but a refusal to the page's own failed-read state", () => {
     assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(503, "")), null);
+    assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(404, "DB-COMMON-001")), null);
+    assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(401, "REQ-AUTH-002")), null);
+    // A route the API does not serve is met mid-deploy, while the referee's link is still live.
+    assert.equal(mapSchiedsrichterAnsichtRefusal(aRefusal(404, "REQ-ROUTE-001")), null);
+    // A body the API could not read judged no token, the page having encoded whatever the link held.
+    assert.equal(mapSchiedsrichterAnsichtRefusal(refusedOn("POST /schiedsrichter/bestaetigung/ansicht", "REQ-VAL-002")), null);
     assert.equal(mapSchiedsrichterAnsichtRefusal(new Error("network")), null);
   });
 });

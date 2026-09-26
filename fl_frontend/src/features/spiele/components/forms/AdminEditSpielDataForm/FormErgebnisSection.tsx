@@ -1,18 +1,26 @@
-import { FieldError, NumberField, Separator, Switch } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Separator } from "@heroui/react/separator";
 
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_COUNT_INPUT_CLASSES,
+  FIELD_ERROR_CLASSES,
+  FIELD_GROUP_CLASSES,
+  FIELD_PAIR_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { NumberField } from "@/shared/components/ui/NumberField";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { Switch } from "@/shared/components/ui/Switch";
 import { PLACEHOLDER } from "@/shared/utils/format";
-import { enteredNumber } from "@/shared/utils/numberField";
 
 import { admitsShootOut } from "../../../draftStatus";
 import { formatQuelle } from "../../../utils";
 import { ExpectedMarker } from "./ExpectedMarker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
+import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { FLSonderereignis, FLSpiel, FLSpielElfmeterschiessenDraft, FLSpielQuelle, FLSpielTeamField } from "@/features/spiele/schemas";
 
 /** The goal fields' paths, refreshed together because the outcome is a pair. */
@@ -22,8 +30,8 @@ const TORE_PATHS = ["team1.tore", "team2.tore"] as const;
 const ELFMETER_PATHS = ["elfmeterschiessen.team1", "elfmeterschiessen.team2"] as const;
 
 /**
- * **`NaN` is an empty goal in the UI, `null` one in the payload**: either conversion wrong turns an
- * unplayed match into a 0:0 the backend counts as a real draw.
+ * **An empty goal is `null`, never 0**: a 0 in its place turns an unplayed match into a 0:0 the
+ * backend counts as a real draw.
  *
  * The shoot-out control appears exactly where `admitsShootOut` allows a record.
  */
@@ -77,11 +85,11 @@ export function FormErgebnisSection({
     }
   };
 
-  const handleToreChange = (slot: "team1" | "team2") => (val: number) => {
+  const handleToreChange = (slot: "team1" | "team2") => (val: number | null) => {
     const payload = slot === "team1" ? team1Payload : team2Payload;
     const onChange = slot === "team1" ? onTeam1Change : onTeam2Change;
 
-    if (payload) onChange({ ...payload, tore: enteredNumber(val) });
+    if (payload) onChange({ ...payload, tore: val });
   };
 
   // The draft's own condition, whole: with any term of it left out here, the form would offer a
@@ -93,16 +101,16 @@ export function FormErgebnisSection({
     onElfmeterschiessenChange(isSelected ? { team1: null, team2: null } : null);
   };
 
-  const handleElfmeterChange = (slot: "team1" | "team2") => (val: number) => {
+  const handleElfmeterChange = (slot: "team1" | "team2") => (val: number | null) => {
     // Reads through a null record, so the first keystroke after the toggle cannot land on nothing.
-    onElfmeterschiessenChange({ team1: null, team2: null, ...elfmeterschiessen, [slot]: enteredNumber(val) });
+    onElfmeterschiessenChange({ team1: null, team2: null, ...elfmeterschiessen, [slot]: val });
   };
 
   // Team, then provenance, then the shared placeholder — the fall-through every card uses.
   const team1Name = team1Payload?.name || formatQuelle(team1Quelle) || PLACEHOLDER.slot;
   const team2Name = team2Payload?.name || formatQuelle(team2Quelle) || PLACEHOLDER.slot;
-  const team1Tore = team1Payload?.tore ?? NaN;
-  const team2Tore = team2Payload?.tore ?? NaN;
+  const team1Tore = team1Payload?.tore ?? null;
+  const team2Tore = team2Payload?.tore ?? null;
 
   // `null` while either count is empty or the two are equal: a level shoot-out names nobody.
   const elfmeterSiegerName =
@@ -165,12 +173,12 @@ export function FormErgebnisSection({
 
         {/* Side by side from `sm`: the counts are one answer, but two steppers in a phone row
             leave neither wide enough to hit. */}
-        <div className={FIELD_PAIR}>
+        <div className={FIELD_PAIR_CLASSES}>
           {(
             [
               { slot: "team1" as const, name: team1Name, value: team1Tore },
               { slot: "team2" as const, name: team2Name, value: team2Tore },
-            ] satisfies { slot: "team1" | "team2"; name: string; value: number }[]
+            ] satisfies { slot: "team1" | "team2"; name: string; value: number | null }[]
           ).map(({ slot, name, value }) => (
             <NumberField
               key={slot}
@@ -181,17 +189,17 @@ export function FormErgebnisSection({
               onChange={handleToreChange(slot)}
               onBlur={() => onValidateFields(TORE_PATHS)}>
               {/* The team's name alone: the panel title already says these are goals. */}
-              <FieldLabel
+              <FieldLabel<SpielFieldPath>
                 path={`${slot}.tore`}
                 extraMarker={<ExpectedMarker path={`${slot}.tore`} />}>
                 {name}
               </FieldLabel>
-              <NumberField.Group className={FIELD_GROUP}>
+              <NumberField.Group className={FIELD_GROUP_CLASSES}>
                 <NumberField.DecrementButton />
-                <NumberField.Input className={FIELD_COUNT_INPUT} />
+                <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
                 <NumberField.IncrementButton />
               </NumberField.Group>
-              <FieldError className={FIELD_ERROR} />
+              <FieldError className={FIELD_ERROR_CLASSES} />
             </NumberField>
           ))}
         </div>
@@ -212,7 +220,7 @@ export function FormErgebnisSection({
             </Switch>
 
             {elfmeterschiessen !== null && (
-              <div className={FIELD_PAIR}>
+              <div className={FIELD_PAIR_CLASSES}>
                 {(
                   [
                     { slot: "team1" as const, name: team1Name, value: elfmeterschiessen.team1 },
@@ -223,20 +231,20 @@ export function FormErgebnisSection({
                     key={slot}
                     minValue={0}
                     name={`elfmeterschiessen.${slot}`}
-                    value={value ?? NaN}
+                    value={value}
                     onChange={handleElfmeterChange(slot)}
                     onBlur={() => onValidateFields(ELFMETER_PATHS)}>
-                    <FieldLabel
+                    <FieldLabel<SpielFieldPath>
                       path={`elfmeterschiessen.${slot}`}
                       extraMarker={<ExpectedMarker path={`elfmeterschiessen.${slot}`} />}>
                       {name}: Treffer
                     </FieldLabel>
-                    <NumberField.Group className={FIELD_GROUP}>
+                    <NumberField.Group className={FIELD_GROUP_CLASSES}>
                       <NumberField.DecrementButton />
-                      <NumberField.Input className={FIELD_COUNT_INPUT} />
+                      <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
                       <NumberField.IncrementButton />
                     </NumberField.Group>
-                    <FieldError className={FIELD_ERROR} />
+                    <FieldError className={FIELD_ERROR_CLASSES} />
                   </NumberField>
                 ))}
               </div>
@@ -250,10 +258,10 @@ export function FormErgebnisSection({
           role="status"
           aria-live="polite"
           className="flex w-full justify-center">
-          {isNaN(team1Tore) || isNaN(team2Tore) ? (
+          {team1Tore === null || team2Tore === null ? (
             <p className="muted-meta italic">Noch kein Ergebnis</p>
           ) : (
-            <p className="fluid-sm text-brand font-extrabold tracking-wide">
+            <p className="fluid-sm font-extrabold tracking-wide text-brand">
               {team1Tore === team2Tore &&
                 `Unentschieden${elfmeterSiegerName === null ? "" : `, ${elfmeterSiegerName} gewinnt im Elfmeterschießen`}`}
               {team1Tore > team2Tore && `Sieg für ${team1Name}`}

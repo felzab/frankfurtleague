@@ -6,7 +6,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from httpx2 import ASGITransport, AsyncClient
 from pymongo import AsyncMongoClient, MongoClient, ReturnDocument, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -40,12 +39,12 @@ from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zu
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
-from app.core.dependencies import get_germany_now
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.recording import SYSTEM_ACTOR_EMAIL
-from app.main import create_app
-from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, TEST_BASE_URL, build_test_config
+from tests.app_client import app_client
+from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
+from tests.documents import ADDRESS, kontaktperson_document, rules_document, saison_document, saison_team_document, team_document
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -78,34 +77,17 @@ JUNCTION_OID = ObjectId("6890a1b2c3d4e5f607960021")
 CLUB_NAME = "Adler"
 SCHOOL_NAME = "Zorbanax"
 
-ADDRESS: Mapping[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
-
 
 def first_hashes(prefix: str) -> dict[str, str]:
     return {seat: hash_token(f"{prefix}-{seat}") for seat in KONTAKT_SEATS}
 
 
-def person(vorname: str, *, email: str | None = None) -> dict[str, Any]:
-    return {
-        "vorname": vorname,
-        "nachname": f"{vorname}-Mustermann",
-        "email": email or f"{vorname.lower()}@example.com",
-        "telefon": "+49 170 1234567",
-        "geburtsdatum": None,
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "administrativ",
-            "text_version": "v3",
-            "datum": "2026-03-20",
-            "bestaetigt_am": None,
-        },
-    }
+# Sought by the leak search over the candidates, so a surname reaching one is caught.
+NACHNAME = "Mustermann"
+
+
+def person(vorname: str, **fields: Any) -> dict[str, Any]:
+    return kontaktperson_document(vorname, nachname=f"{vorname}-{NACHNAME}", **fields)
 
 
 def kontakte() -> dict[str, Any]:
@@ -169,40 +151,17 @@ def the_corpus() -> list[dict[str, Any]]:
 
 
 def season(saison_id: str, status: str) -> dict[str, Any]:
-    return {"_id": saison_id, "start_date": f"{saison_id}-01-01", "end_date": f"{saison_id}-06-30", "status": status, "rules": RULES}
-
-
-RULES: Mapping[str, Any] = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 2,
-    "teams_per_group": 2,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-}
+    return saison_document(saison_id, status, rules=rules_document(number_of_groups=2, teams_per_group=2))
 
 
 def junction_row() -> dict[str, Any]:
-    return {
-        "_id": JUNCTION_OID,
-        "saison_id": SAISON_ID,
-        "team_id": CLUB_OID,
-        "gruppe": "A",
-        "austritt": None,
-        "trikot_farbe": "blau",
-        "kontakte": kontakte(),
-        "name": CLUB_NAME,
-        "shorthand": "AD",
-    }
+    return saison_team_document(SAISON_ID, CLUB_OID, CLUB_NAME, "AD", _id=JUNCTION_OID, trikot_farbe="blau", kontakte=kontakte())
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-def on_a_league(url: str, body: Body, *, next_status: str | None = "active", status: str = "active") -> Any:
+def on_a_league(url: str, body: Body, *, next_status: str | None = "future", status: str = "active") -> Any:
     """The SHIPPED validators, with a history on every row so the redaction has images to empty."""
 
     async def _run() -> Any:
@@ -211,19 +170,7 @@ def on_a_league(url: str, body: Body, *, next_status: str | None = "active", sta
             if next_status is not None:
                 seasons.append(season(NEXT_SAISON_ID, next_status))
             await database[Collection.SAISONS].insert_many(seasons)
-            await database[Collection.TEAMS].insert_one(
-                {
-                    "_id": CLUB_OID,
-                    "name": CLUB_NAME,
-                    "shorthand": "AD",
-                    "description": "",
-                    "full_name": f"{CLUB_NAME}-Schule",
-                    "website_url": None,
-                    "schulform": "gymnasium_g9",
-                    "address": dict(ADDRESS),
-                    "inactive_since": None,
-                }
-            )
+            await database[Collection.TEAMS].insert_one(team_document(CLUB_OID, CLUB_NAME, "AD", website_url=None, schulform="gymnasium_g9"))
             await database[Collection.SAISON_TEAMS].insert_one(junction_row())
             await database[Collection.BEWERBUNGEN].insert_many(the_corpus())
             # One recorded write per row, so every one has a log image holding its people.
@@ -427,7 +374,7 @@ class TestTheReminderClock:
             # own copy -- the one a re-send writing a single entry leaves open.
             tot = []
             for gone in (erinnert, f"{REMIND_OID}-trainer", f"{REMIND_OID}-ansprechperson"):
-                with pytest.raises(DocumentConflictException) as conflict:
+                with pytest.raises(WriteRefusalException) as conflict:
                     await ansicht(database, gone)
                 tot.append(conflict.value.error_code)
 
@@ -540,7 +487,7 @@ class TestTheFourteenDayClock:
         ]
         # The candidates alone: the reminders beside them carry their raw tokens by design.
         rendered = str([entry.model_dump(mode="json") for entry in response.loeschungen])
-        assert "token" not in rendered and "Mustermann" not in rendered
+        assert "token" not in rendered and NACHNAME not in rendered
 
     def test_the_erasure_takes_exactly_the_announced_ids_and_redacts_their_rows(self, mongo_replica_set_url: str):
         """Mail, stamp, erase: an id that does not qualify -- still inside its deadline, or another season's -- is skipped."""
@@ -758,7 +705,9 @@ class TestTheSeasonsOwnEndClock:
                 await erasure_rows(database),
             )
 
-        response, confirmed, past_its_deadline, accepted, rows, erasures = on_a_league(mongo_replica_set_url, body, status="past")
+        response, confirmed, past_its_deadline, accepted, rows, erasures = on_a_league(
+            mongo_replica_set_url, body, status="past", next_status="active"
+        )
 
         assert (response.ohne_entscheidung_geloescht, confirmed, past_its_deadline) == (2, None, None)
         # The accepted one is the successor season's business, and that season still runs.
@@ -786,7 +735,7 @@ class TestTheSeasonsOwnEndClock:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             return await sweep(database, client)
 
-        response = on_a_league(mongo_replica_set_url, body, status="past")
+        response = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
 
         assert (response.erinnerungen, response.loeschungen) == ([], [])
         assert response.ohne_entscheidung_geloescht == 2
@@ -800,7 +749,7 @@ class TestTheSeasonsOwnEndClock:
 
             return response, await stored(database, DELETE_OID)
 
-        response, document = on_a_league(mongo_replica_set_url, body, status="past")
+        response, document = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
 
         assert (response.ohne_entscheidung_geloescht, document) == (2, None)
 
@@ -811,7 +760,7 @@ class TestTheSeasonsOwnEndClock:
             return first.ohne_entscheidung_geloescht, (await sweep(database, client)).ohne_entscheidung_geloescht
 
         # The first count as well as the second: a clock taking nothing at all answers zero twice.
-        assert on_a_league(mongo_replica_set_url, body, status="past") == (2, 0)
+        assert on_a_league(mongo_replica_set_url, body, status="past", next_status="active") == (2, 0)
 
 
 class TestTheSeasonAndOneClock:
@@ -821,7 +770,7 @@ class TestTheSeasonAndOneClock:
 
             return response, await stored(database, ACCEPTED_OID), await database[Collection.SAISON_TEAMS].find_one({"_id": JUNCTION_OID})
 
-        response, document, row = on_a_league(mongo_replica_set_url, body, next_status="active")
+        response, document, row = on_a_league(mongo_replica_set_url, body, status="past", next_status="active")
 
         assert (response.angenommene_geloescht, response.kontaktbloecke_geleert) == (0, 0)
         assert document is not None and row is not None and row["kontakte"] is not None
@@ -881,17 +830,9 @@ def through_the_app(url: str, path: str, body: Mapping[str, Any] | None, *, auth
         database[Collection.BEWERBUNGEN].insert_one(application(DELETE_OID, bestaetigungsfrist=YESTERDAY, loeschung_angekuendigt_am=YESTERDAY))
 
         async def _called() -> int:
-            app = create_app(build_test_config())
-            app.state.db_client = AsyncMongoClient(host=url, serverSelectionTimeoutMS=30_000)
-            app.dependency_overrides[get_germany_now] = lambda: NOW
-
-            try:
-                transport = ASGITransport(app=app, raise_app_exceptions=False)
-                async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                    response = await http.post(f"/api/v{API_VERSION}{path}", json=body, headers=dict(auth))
-                    return response.status_code
-            finally:
-                await app.state.db_client.close()
+            async with app_client(url, now=NOW) as http:
+                response = await http.post(f"/api/v{API_VERSION}{path}", json=body, headers=dict(auth))
+                return response.status_code
 
         status = asyncio.run(_called())
 
@@ -1236,7 +1177,7 @@ class TestAPageAndOneMoreIsDrained:
 
             return response.ohne_entscheidung_geloescht, await database[Collection.BEWERBUNGEN].count_documents({"saison_id": SAISON_ID})
 
-        assert on_a_league(mongo_replica_set_url, body, status="past") == (overflow, 0)
+        assert on_a_league(mongo_replica_set_url, body, status="past", next_status="active") == (overflow, 0)
 
     def test_every_accepted_application_goes_in_one_pass_once_the_next_season_is_past(self, mongo_replica_set_url: str):
         overflow = SWEEP_PAGE + 5

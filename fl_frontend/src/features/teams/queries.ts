@@ -2,7 +2,7 @@ import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
-import { APIBadStatusError } from "@/core/errors";
+import { isRecordMissing } from "@/core/errors";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { FLTeamsMembershipsResponseSchema, FLTeamsResponseSchema, FLTeamsSingleResponseSchema } from "./schemas";
@@ -51,7 +51,7 @@ export async function getTeam(teamId: string, filters: FLTeamSingleFilterParams 
   }).catch((error: unknown) => {
     // A 404 is "no such team" OR "no junction row for this season": the join is strict
     // (`docs/backend/spec.md` I11).
-    if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
+    if (isRecordMissing(error)) return null;
     throw error;
   });
 }

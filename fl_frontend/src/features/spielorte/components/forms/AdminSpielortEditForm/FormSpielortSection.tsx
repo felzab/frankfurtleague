@@ -1,12 +1,16 @@
 "use client";
 
-import { FieldError, Input, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
 
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_ERROR, FIELD_INPUT } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { TextField } from "@/shared/components/ui/TextField";
+
+import type { SpielortFieldPath } from "@/features/spielorte/spielortDraftStatus";
 
 /**
  * The name fans out: the patch rewrites the embedded `ort.name` on every Spiel at this venue, and
@@ -39,17 +43,16 @@ export function FormSpielortSection({
 
       <div className={panel.body()}>
         <TextField
-          isRequired
           name="name"
           value={name}
           onChange={onNameChange}
           onBlur={() => onFieldLeft(["name"])}>
-          <FieldLabel path="name">Name</FieldLabel>
+          <FieldLabel<SpielortFieldPath> path="name">Name</FieldLabel>
           <Input
             placeholder="z.B. Sportpark Nord"
-            className={FIELD_INPUT}
+            className={FIELD_INPUT_CLASSES}
           />
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
       </div>
     </section>

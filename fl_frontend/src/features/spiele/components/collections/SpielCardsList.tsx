@@ -57,7 +57,7 @@ export function SpielCardsList({
             key={spielData.id}
             role="listitem"
             className="flex w-full flex-col">
-            <ul className="border-danger/30 bg-danger/5 text-danger-strong fluid-xxs flex w-full flex-col gap-y-1 rounded-xl border px-3.5 py-2.5 font-semibold">
+            <ul className="flex w-full flex-col gap-y-1 rounded-xl border border-danger/30 bg-danger/5 px-3.5 py-2.5 fluid-xxs font-semibold text-danger-strong">
               {faults.map((sentence) => (
                 <li key={sentence}>{sentence}</li>
               ))}
@@ -68,8 +68,8 @@ export function SpielCardsList({
             <div
               aria-hidden="true"
               className="flex shrink-0 flex-row justify-between px-7">
-              <span className="bg-danger/30 h-3 w-px" />
-              <span className="bg-danger/30 h-3 w-px" />
+              <span className="h-3 w-px bg-danger/30" />
+              <span className="h-3 w-px bg-danger/30" />
             </div>
             {/* `*:grow` stretches the card to the cell's remaining height, which is what the grid's
                 own align-stretch did for it while it was the listitem — so a faulted card and its

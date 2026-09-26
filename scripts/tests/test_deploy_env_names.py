@@ -16,11 +16,10 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 from pathlib import Path
 from typing import Final
 
-from conftest import base_env, lift_function, new_root, run_shell, write_shell
+from conftest import BASH, base_env, lift_function, new_root, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 REPO_ROOT: Final = SCRIPTS.parent
@@ -28,8 +27,6 @@ LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 DEPLOY: Final = SCRIPTS / "ops" / "deploy.sh"
 FRONTEND_DOCKERFILE: Final = REPO_ROOT / "fl_frontend" / "Dockerfile"
 
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
-BASH: Final = shutil.which("bash")
 
 # `scripts/tests/test_deploy_streams.py :: STUB` without the compose arms, which no case here
 # reaches: a stand-in answering subcommands nothing asks would hide an arm that stopped being run.

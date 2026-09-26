@@ -6,6 +6,7 @@ import { SAISON_ID_LENGTH } from "@/features/saisons/constants";
 import {
   EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
   KONTAKT_NAME_MAX_LENGTH,
+  KONTAKT_NAME_ZU_LANG,
   TEAM_FULL_NAME_MAX_LENGTH,
   TEAM_NAME_MAX_LENGTH,
   TEAM_WEBSITE_URL_MAX_LENGTH,
@@ -39,6 +40,7 @@ import {
   BEWERBUNG_TOKEN_MAX_LENGTH,
   BEWERBUNG_TRIKOT_SATZ_MAX_LENGTH,
   BEWERBUNG_WUNSCHGEGNER_MAX_LENGTH,
+  DELETIONS_LISTED_PER_PASS,
   KUERZEL_LAENGE,
 } from "./constants";
 import { geburtsdatumSpanne } from "./utils";
@@ -253,7 +255,7 @@ export const FLAblehnenBewerbungResponseSchema = BaseAPIResponseSchema.extend({
 export type FLAblehnenBewerbungResponse = z.infer<typeof FLAblehnenBewerbungResponseSchema>;
 
 /**
- * Mirrors `FLBewerbungFensterResponse` — one season's window and nothing else of it.
+ * Mirrors `FLBewerbungFensterResponse` — one season's window and whether that season has ended, and nothing else of it.
  * `docs/backend/spec.md :: I47` withholds a `future` season from the base tier, and a season taking
  * applications IS one.
  */
@@ -265,6 +267,7 @@ export const FLBewerbungFensterResponseSchema = BaseAPIResponseSchema.extend({
   // The whole judgement — `offen` AND today inside the span — computed server-side, so no client
   // re-derives it against a clock the server does not share.
   laeuft: z.boolean(),
+  saison_beendet: z.boolean(),
 });
 export type FLBewerbungFensterResponse = z.infer<typeof FLBewerbungFensterResponseSchema>;
 
@@ -364,7 +367,6 @@ export const FLBewerbungEinwilligungPayloadSchema = z.object({
 });
 export type FLBewerbungEinwilligungPayload = z.infer<typeof FLBewerbungEinwilligungPayloadSchema>;
 
-const NAME_ZU_LANG = `Der Name darf höchstens ${String(KONTAKT_NAME_MAX_LENGTH)} Zeichen lang sein.`;
 const KADER_ZU_GROSS = `Bitte gib höchstens ${String(BEWERBUNG_KADER_GROESSE_MAX)} Spieler an.`;
 
 /**
@@ -372,8 +374,8 @@ const KADER_ZU_GROSS = `Bitte gib höchstens ${String(BEWERBUNG_KADER_GROESSE_MA
  * Kenntnisnahme the form gathers for all three seats at once.
  */
 export const FLBewerbungKontaktpersonPayloadSchema = z.object({
-  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
-  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
+  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
+  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   email: KontaktEmailSchema,
   telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
   // No birthdate: each contact enters their own on the confirmation page, and the key is undeclared
@@ -858,8 +860,8 @@ export type FLBewerbungKontaktEmailResponse = z.infer<typeof FLBewerbungKontaktE
 export const FLBewerbungKontaktSitzPayloadSchema = z.object({
   id: CustomObjectIdStringSchema,
   rolle: FLKontaktRolleSchema,
-  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
-  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: NAME_ZU_LANG }),
+  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
+  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   email: KontaktEmailSchema,
   telefon: z.string().regex(PHONE_REGEX, { error: "Bitte gib eine gültige Telefonnummer ein." }),
   // The label alone and no `erteilt`: it says which wording the new person will be shown, and their
@@ -998,7 +1000,7 @@ export type FLBewerbungSweepResponse = z.infer<typeof FLBewerbungSweepResponseSc
 
 /** Which candidates' notices the caller delivered. The backend re-judges them, so an id that has stopped qualifying is skipped. */
 export const FLBewerbungSweepAngekuendigtPayloadSchema = z.object({
-  bewerbung_ids: z.array(CustomObjectIdStringSchema),
+  bewerbung_ids: z.array(CustomObjectIdStringSchema).max(DELETIONS_LISTED_PER_PASS),
 });
 export type FLBewerbungSweepAngekuendigtPayload = z.infer<typeof FLBewerbungSweepAngekuendigtPayloadSchema>;
 
@@ -1010,7 +1012,7 @@ export type FLBewerbungSweepAngekuendigtResponse = z.infer<typeof FLBewerbungSwe
 
 /** Which candidates to erase. The backend re-selects them, so an id that has stopped qualifying, or that was never announced, is skipped. */
 export const FLBewerbungSweepLoeschenPayloadSchema = z.object({
-  bewerbung_ids: z.array(CustomObjectIdStringSchema),
+  bewerbung_ids: z.array(CustomObjectIdStringSchema).max(DELETIONS_LISTED_PER_PASS),
 });
 export type FLBewerbungSweepLoeschenPayload = z.infer<typeof FLBewerbungSweepLoeschenPayloadSchema>;
 

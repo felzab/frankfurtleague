@@ -1,148 +1,43 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
+import { readPublishedDocument } from "@/core/openapiDocument";
+import { publishedCeilings } from "@/core/publishedCeilings";
 import { renderMarkup } from "@/shared/testing/renderTest";
 
 import { kaderWithSquad, strongPlayerCeiling } from "./components/forms/BewerbungForm/kaderBounds.ts";
-import { BEWERBUNG_KADER_GROESSE_MAX, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
-import {
-  FLBewerbungKaderPayloadSchema,
-  FLBewerbungKontaktpersonPayloadSchema,
-  FLBewerbungSchulePayloadSchema,
-  FLBewerbungTrikotPayloadSchema,
-  FLPostBewerbungPayloadSchema,
-} from "./schemas.ts";
+import { BEWERBUNG_KADER_GROESSE_MAX, BEWERBUNG_STUFENGROESSE_MAX, SCHULE_NICHT_IN_LISTE } from "./constants.ts";
+import { FLBewerbungKaderPayloadSchema } from "./schemas.ts";
 
-import type { ZodType } from "zod";
+import type { PublishedDocument } from "@/core/publishedCeilings";
 
-const DOCUMENT = path.resolve(import.meta.dirname, "..", "..", "..", "..", "fl_backend", "openapi.json");
-
-/**
- * Discovered from the backend's own document rather than listed here: a ceiling this file names is one somebody
- * remembered, and the ceiling added next is the one nobody adds.
- */
-const MIRRORS: Record<string, ZodType> = {
+/*
+ The components whose fields this form's boxes write. Whether each mirror refuses their ceilings is
+ `fl_frontend/src/core/payloadBounds.test.ts`'s, over every payload; this file asks whether a ceiling
+ reaches the box the applicant types in, which only a render of this form answers.
+*/
+const FORM_COMPONENTS = [
   // The submission's own root, whose two capped fields sit on no nested block: an application's
   // season and the opponent it wishes for.
-  FLPostBewerbungPayload: FLPostBewerbungPayloadSchema,
-  FLBewerbungSchulePayload: FLBewerbungSchulePayloadSchema,
-  FLBewerbungTrikotPayload: FLBewerbungTrikotPayloadSchema,
-  FLBewerbungKaderPayload: FLBewerbungKaderPayloadSchema,
-  FLBewerbungKontaktpersonPayload: FLBewerbungKontaktpersonPayloadSchema,
-};
-
-/** `characters` is `null` where the field is bounded by a `maximum` instead, which caps a count and no box's width. */
-type Capped = { component: string; field: string; characters: number | null; at: unknown; over: unknown };
-
-/** A host of exactly this many characters: `z.regexes.domain` caps ONE label at 63, so past that it dots. */
-function dottedHost(length: number): string {
-  const labels: string[] = [];
-  let left = length;
-
-  // 61, not 60: leaving exactly zero would append an empty final label and trail the host with a dot.
-  while (left > 61) {
-    labels.push("a".repeat(60));
-    left -= 61;
-  }
-  labels.push("a".repeat(left));
-
-  return labels.join(".");
-}
-
-/**
- * Values of an exact length in the shapes these payloads take: `"a".repeat(301)` is refused by a URL
- * field whatever its ceiling, so it would pass this file with `.max()` deleted. Only a value the
- * mirror otherwise accepts shows the ceiling.
- */
-const FILLERS: { min: number; build: (length: number) => string }[] = [
-  { min: 1, build: (length) => "a".repeat(length) },
-  { min: 12, build: (length) => `https://${dottedHost(length - 11)}.de` },
-  { min: 13, build: (length) => `${"a".repeat(length - 12)}@beispiel.de` },
+  "FLPostBewerbungPayload",
+  "FLBewerbungSchulePayload",
+  "FLBewerbungAddressPayload",
+  "FLBewerbungTrikotPayload",
+  "FLBewerbungKaderPayload",
+  "FLBewerbungKontaktpersonPayload",
 ];
 
-/** Whether the mirror leaves this field unfaulted — the object around it is partial, so only its own path counts. */
-function fieldAccepts(component: string, field: string, value: unknown): boolean {
-  const result = MIRRORS[component]?.safeParse({ [field]: value });
+const document = readPublishedDocument() as PublishedDocument;
+// A character ceiling alone reaches a box's width; a count's ceiling is its number box's, read below.
+const widths = publishedCeilings(document, FORM_COMPONENTS).filter(({ keyword }) => keyword === "maxLength");
 
-  return result !== undefined && (result.success || result.error.issues.every((issue) => issue.path.join(".") !== field));
-}
-
-function cappedFields(): Capped[] {
-  const document = JSON.parse(readFileSync(DOCUMENT, "utf8")) as {
-    components: { schemas: Record<string, { properties?: Record<string, Record<string, unknown>> }> };
-  };
-  const found: Capped[] = [];
-
-  for (const component of Object.keys(MIRRORS)) {
-    const properties = document.components.schemas[component]?.properties ?? {};
-    for (const [field, spec] of Object.entries(properties)) {
-      // A nullable field publishes its bound inside `anyOf`, never beside the type: read only the outer
-      // level and `website_url`'s own ceiling is silently unswept.
-      const branches = [spec, ...((spec.anyOf as Record<string, unknown>[] | undefined) ?? [])];
-      const maxLength = branches.map((branch) => branch.maxLength).find((value) => typeof value === "number");
-      const maximum = branches.map((branch) => branch.maximum).find((value) => typeof value === "number");
-
-      // One past the ceiling and one at it, in the shape the field takes.
-      if (typeof maxLength === "number") {
-        const filler = FILLERS.find((candidate) => candidate.min <= maxLength && fieldAccepts(component, field, candidate.build(maxLength)));
-
-        found.push({
-          component,
-          field,
-          characters: maxLength,
-          at: filler?.build(maxLength) ?? null,
-          over: filler === undefined ? null : filler.build(maxLength + 1),
-        });
-      } else if (typeof maximum === "number") found.push({ component, field, characters: null, at: maximum, over: maximum + 1 });
-    }
-  }
-
-  return found;
-}
-
-const capped = cappedFields();
-
-describe("every ceiling the backend publishes is one the mirror refuses", () => {
-  it("finds the capped fields to judge", () => {
-    // Anti-vacuity: a renamed component or a document that stopped publishing bounds would otherwise
-    // leave every case below true of an empty list.
-    assert.ok(capped.length >= 10, `expected at least 10 capped fields, found ${String(capped.length)}`);
-  });
-
-  it("judges each of them with a value its own shape accepts", () => {
-    // Without this, a field whose shape no filler fits is still swept and still passes — refused at the
-    // ceiling and past it alike, for a reason that is not the ceiling.
-    assert.deepEqual(
-      capped.filter(({ at }) => at === null).map(({ component, field }) => `${component}.${field}`),
-      [],
-    );
-  });
-
-  for (const { component, field, at, over } of capped) {
-    it(`${component}.${field} is refused one past its ceiling`, () => {
-      // Parsed, never compared as a number: what matters is that the applicant is told at the keystroke,
-      // and only the schema actually refusing does that.
-      const result = MIRRORS[component]?.safeParse({ [field]: over });
-
-      assert.ok(result !== undefined && !result.success, `${component}.${field} accepted a value past its ceiling`);
-      assert.ok(
-        result.error.issues.some((issue) => issue.path.join(".") === field),
-        `${component}.${field} is over its ceiling and the refusal names another field`,
-      );
-    });
-
-    it(`${component}.${field} is accepted at its ceiling`, () => {
-      // The half that makes the case above about the CEILING: a field refused at its own limit is one
-      // the mirror bounds tighter than the backend publishes, and the applicant is stopped early.
-      assert.ok(fieldAccepts(component, field, at), `${component}.${field} is refused at the ceiling the backend publishes`);
-    });
-  }
+it("names only components the backend publishes", () => {
+  // A renamed component would otherwise drop its ceilings out of every case below without failing one.
+  assert.deepEqual(
+    FORM_COMPONENTS.filter((component) => !(component in document.components.schemas)),
+    [],
+  );
 });
-
-const FORM_DIR = path.join(import.meta.dirname, "components", "forms", "BewerbungForm");
-const readForm = (file: string) => readFileSync(path.join(FORM_DIR, file), "utf8");
 
 /*
  Every module below is reached AFTER the harness above has evaluated, because that is when the JSX
@@ -150,6 +45,7 @@ const readForm = (file: string) => readFileSync(path.join(FORM_DIR, file), "utf8
 */
 const { BewerbungForm } = await import("./components/forms/BewerbungForm/BewerbungForm.tsx");
 const { FormSchuleSection } = await import("./components/forms/BewerbungForm/FormSchuleSection.tsx");
+const { FormTeamSection } = await import("./components/forms/BewerbungForm/FormTeamSection.tsx");
 const { buildEmptyBewerbungSchule } = await import("./utils.ts");
 const { WEBSITE_URL_SCHEME } = await import("@/features/teams/constants.ts");
 
@@ -250,7 +146,7 @@ describe("where a published ceiling reaches the box the applicant types in", () 
   it("names each published ceiling by a field no other component publishes", () => {
     // A box is matched to its ceiling by the last segment of the path it writes, so two components
     // publishing one field name would each be judged against the other's boxes.
-    const names = capped.filter(({ characters }) => characters !== null).map(({ field }) => field);
+    const names = widths.map(({ field }) => field);
 
     assert.equal(new Set(names).size, names.length, `two published components cap a field among ${names.join(", ")}`);
   });
@@ -259,8 +155,8 @@ describe("where a published ceiling reaches the box the applicant types in", () 
     // The half a hand-kept register cannot carry: a ceiling nobody ever wired to a control arrives
     // here on the day the backend publishes it, under no row anybody wrote.
     assert.deepEqual(
-      capped
-        .filter(({ characters, field }) => characters !== null && !reachesABox(field))
+      widths
+        .filter(({ field }) => !reachesABox(field))
         .map(({ component, field }) => `${component}.${field}`)
         .sort(),
       [...WITHOUT_BOX].sort(),
@@ -276,8 +172,8 @@ describe("where a published ceiling reaches the box the applicant types in", () 
     assert.equal(box.scheme, WEBSITE_URL_SCHEME.length, "the group prints something other than the scheme in front of the box");
   });
 
-  for (const { component, field, characters } of capped) {
-    if (characters === null || WITHOUT_BOX.includes(`${component}.${field}`)) continue;
+  for (const { component, field, bound } of widths) {
+    if (WITHOUT_BOX.includes(`${component}.${field}`)) continue;
 
     it(`${component}.${field} caps every box that writes it, at the ceiling minus the group's prefix`, () => {
       const own = boxesFor(field);
@@ -287,37 +183,84 @@ describe("where a published ceiling reaches the box the applicant types in", () 
       // box is uncapped satisfies a presence check.
       for (const box of own) {
         assert.ok(box.cap !== null, `${box.path} carries no cap, so the applicant types past a ceiling only the submit refuses`);
-        assert.equal(
-          box.cap + box.scheme,
-          characters,
-          `${box.path} caps at ${String(box.cap)} where the backend publishes ${String(characters)}`,
-        );
+        assert.equal(box.cap + box.scheme, bound, `${box.path} caps at ${String(box.cap)} where the backend publishes ${String(bound)}`);
       }
     });
   }
 });
 
-/*
- Read as source because a render carries none of it: a `NumberField` emits neither `max` nor
- `aria-valuemax`, and a toast is built at the press (`.claude/rules/frontend.md`).
-*/
-describe("the claims no rendered markup carries", () => {
+/**
+ * Whether the stepper beside the box writing `name` still offers one more. react-aria closes the increment button at
+ * `maxValue`, the one place that bound reaches the markup: the box carries neither `max` nor `aria-valuemax`.
+ */
+function offersMore(html: string, name: string): boolean {
+  const box = html.indexOf(`name="${name}"`);
+  assert.ok(box >= 0, `no rendered box writes ${name}`);
+
+  const button = html.lastIndexOf("<button", html.lastIndexOf('data-slot="number-field-increment-button"', box));
+  const tag = html.slice(button, html.indexOf(">", button));
+
+  return !/\sdisabled=""/.test(tag);
+}
+
+const teamSection = (kader: { voraussichtliche_groesse: number | null; gute_spieler: number | null }): string =>
+  renderMarkup(FormTeamSection, {
+    trikot: { vorhandener_satz: "", wunschfarbe: null },
+    kader,
+    wunschgegner: "",
+    schulen: SCHOOLS,
+    vergebeneFarben: [],
+    onTrikotChange: () => undefined,
+    onKaderChange: () => undefined,
+    onWunschgegnerChange: () => undefined,
+    onFieldLeft: () => undefined,
+    onFarbePicked: () => undefined,
+  });
+
+const schoolSection = (stufengroesse: number): string =>
+  renderMarkup(FormSchuleSection, {
+    schulen: SCHOOLS,
+    auswahl: SCHULE_NICHT_IN_LISTE,
+    schule: buildEmptyBewerbungSchule(),
+    stufengroesse,
+    onAuswahlPicked: () => undefined,
+    onSchuleChange: () => undefined,
+    onStufengroesseChange: () => undefined,
+    onFieldLeft: () => undefined,
+    onSchulformPicked: () => undefined,
+    onKuerzelLeft: () => undefined,
+    kuerzelHinweis: null,
+    isSchulenLesbar: true,
+  });
+
+describe("where a count's ceiling reaches the stepper beside its box", () => {
   /* One box each: the Abi-Jahrgang is asked on the school's panel whichever arm of the picker the
      applicant is in, and the squad's own ceiling is asked on the team's. */
-  for (const [file, constant] of [
-    ["FormSchuleSection.tsx", "BEWERBUNG_STUFENGROESSE_MAX"],
-    ["FormTeamSection.tsx", "BEWERBUNG_KADER_GROESSE_MAX"],
-  ] as const) {
-    it(`${file} caps its number box with ${constant}`, () => {
-      const capped2 = readForm(file).match(new RegExp(`maxValue=\\{${constant}\\}`, "g")) ?? [];
+  it("stops the Abi-Jahrgang at BEWERBUNG_STUFENGROESSE_MAX", () => {
+    assert.equal(offersMore(schoolSection(BEWERBUNG_STUFENGROESSE_MAX - 1), "stufengroesse"), true, "the box stops short of the ceiling");
+    assert.equal(offersMore(schoolSection(BEWERBUNG_STUFENGROESSE_MAX), "stufengroesse"), false, "the box steps past the ceiling");
+  });
 
-      assert.equal(capped2.length, 1, `${file} caps ${String(capped2.length)} number boxes with ${constant}`);
-    });
-  }
+  it("stops the squad at BEWERBUNG_KADER_GROESSE_MAX", () => {
+    const squad = (size: number) => teamSection({ voraussichtliche_groesse: size, gute_spieler: 0 });
 
-  it("says the unchecked-Kürzel promise once, however the toast introduces it", () => {
-    // Both render together on a rate-limited blur, so one promise in two wordings reads as two promises.
-    assert.match(readForm("BewerbungForm.tsx"), /KUERZEL_RATE_LIMIT = `[^`]*\$\{KUERZEL_UNGEPRUEFT\}`/);
+    assert.equal(
+      offersMore(squad(BEWERBUNG_KADER_GROESSE_MAX - 1), "kader.voraussichtliche_groesse"),
+      true,
+      "the box stops short of the ceiling",
+    );
+    assert.equal(offersMore(squad(BEWERBUNG_KADER_GROESSE_MAX), "kader.voraussichtliche_groesse"), false, "the box steps past the ceiling");
+  });
+
+  /* The function is only the form's ceiling while the form calls it: a squad of twelve stops the strong box at
+     twelve, far under the league's own ceiling. */
+  it("stops the strong count at the squad typed beside it", () => {
+    assert.equal(offersMore(teamSection({ voraussichtliche_groesse: 12, gute_spieler: 11 }), "kader.gute_spieler"), true);
+    assert.equal(
+      offersMore(teamSection({ voraussichtliche_groesse: 12, gute_spieler: 12 }), "kader.gute_spieler"),
+      false,
+      "the strong box offers more players than the squad beside it holds",
+    );
   });
 });
 
@@ -373,11 +316,6 @@ describe("the rule a count is judged against as well as its ceiling", () => {
     assert.equal(strongPlayerCeiling(null), BEWERBUNG_KADER_GROESSE_MAX);
     assert.equal(kader(BEWERBUNG_KADER_GROESSE_MAX, strongPlayerCeiling(null)).success, true);
     assert.equal(kader(BEWERBUNG_KADER_GROESSE_MAX, strongPlayerCeiling(null) + 1).success, false);
-  });
-
-  it("binds that ceiling to the box the applicant types in", () => {
-    // The function is only the form's ceiling while the form calls it.
-    assert.match(readForm("FormTeamSection.tsx"), /maxValue=\{strongPlayerCeiling\(kader\.voraussichtliche_groesse\)\}/);
   });
 
   it("brings the strong count down with a lowered squad, to a pair the write path takes", () => {

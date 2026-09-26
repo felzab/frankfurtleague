@@ -72,8 +72,6 @@ export function withAsciiDomain(address: string): string | undefined {
 
   const ascii = asAsciiHost(host);
 
-  // A row stored before the address rule may hold a local part above ASCII, and only SMTPUTF8 carries
-  // one: nothing here can promise the receiving server speaks it, so it crosses untouched.
   return ascii === undefined ? undefined : `${address.slice(0, at)}@${ascii}`;
 }
 
@@ -125,7 +123,7 @@ function asciiLowerCase(value: string): string {
   return value.replace(/[A-Z]+/g, (run) => run.toLowerCase());
 }
 
-/** A domain above ASCII converted as the address rule converts it, so a row stored in Unicode before the rule joins its punycode spelling. */
+/** A domain above ASCII converted as the address rule converts it, so an address typed with a Unicode domain joins the punycode every payload stores. */
 function foldedDomain(domain: string): string {
   const converted = ASCII_HOST_REGEX.test(domain) || !EMAIL_HOST_CHARS_REGEX.test(domain) ? domain : (asAsciiHost(domain) ?? domain);
   return asciiLowerCase(converted);

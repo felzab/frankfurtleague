@@ -6,7 +6,6 @@ run against. Every case drives the real gate over a throwaway tree whose only to
 two-scope run costs a second rather than minutes.
 
 Invariants:
-  The fixture tree stays committed-clean: the scope check reads its own diff before a scope opens.
   A green run replays a tool's own output: `audit:prod`'s advisory is what puts it in both forms.
 """
 
@@ -23,11 +22,9 @@ from functools import cache
 from pathlib import Path
 from typing import Final
 
-from conftest import base_env, configure, copy_scripts, git, new_root, run_shell, write_shell
+import pytest
+from conftest import BASH, base_env, copy_scripts, new_root, run_shell, write_shell
 from test_gate_prerequisites import PAST_THE_GUARD
-
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
-BASH: Final = shutil.which("bash")
 
 # `--frontend` alone selects three scopes -- it implies `--format` and `--frontend-units` -- and
 # every tool those scopes run is `pnpm`, so one stub covers them and no daemon, virtualenv or
@@ -39,6 +36,10 @@ FLAGS: Final = "--frontend"
 STUB_PNPM: Final = """#!/usr/bin/env bash
 set -u
 printf 'worker=%s step=%s\\n' "${FL_GATE_WORKER:-}" "${FL_GATE_STEP:-}" > "${FL_STUB_LOG}/${1//:/-}-$$-${RANDOM}"
+if [[ -n "${FL_STUB_CRASH:-}" && "${1:-}" == "${FL_STUB_CRASH}" ]]; then
+  printf '%s\\n' "the stub crashed ${1}"
+  exit 3
+fi
 if [[ -n "${FL_STUB_FAIL:-}" && "${1:-}" == "${FL_STUB_FAIL}" ]]; then
   printf '%s\\n' "the stub failed ${1}"
   exit 1
@@ -78,18 +79,17 @@ WHAT_IT_WROTE: Final = "the stub failed build"
 # cell is right-aligned.
 DURATION: Final = re.compile(r" +(?:\d+\.\d+s|\d+m \d{2}s|\d+s)")
 
-# A line `scripts/gate/verify.sh` prints in its scope section, whatever the scopes turn out to be.
-SCOPE_CHECK: Final = "scope · does this run cover what the branch changed?"
-
 
 @dataclass(frozen=True)
 class Fixture:
-    """A committed copy of `scripts/`, with the stubs that stand in for its tools."""
+    """A copy of `scripts/`, with the stubs that stand in for its tools."""
 
     verify: Path
     stubs: Path
     started: Path
     below_floor: Path
+    # Where the gate's `mktemp` puts a pool's captures, so a case can read one a run kept.
+    scratch: Path
 
 
 @cache
@@ -99,11 +99,8 @@ def _fixture() -> Fixture:
     # `do_prettier` and every frontend body `cd` here before running their tool.
     (root / "fl_frontend").mkdir()
     # Empty: the gate's preflight refuses a frontend scope without it, and the stub reads nothing
-    # from it. Git tracks no empty directory, so the tree stays committed-clean.
+    # from it.
     (root / "fl_frontend" / "node_modules").mkdir()
-    configure(root, hooks=str(root / "hooks-none"))
-    git(root, "add", "-A")
-    git(root, "commit", "-m", "the gate, with nothing under it")
 
     stubs = new_root("fl-gate-stubs-")
     # The fixture has no virtualenv and no guaranteed `python3`: with no interpreter at the
@@ -115,11 +112,17 @@ def _fixture() -> Fixture:
     below_floor = stubs / "below-floor"
     below_floor.mkdir()
     os.chmod(write_shell(below_floor / "python3", STUB_BELOW_FLOOR), 0o755)
-    return Fixture(verify=root / "scripts" / "gate" / "verify.sh", stubs=stubs, started=stubs / "started", below_floor=below_floor)
+    scratch = stubs / "tmp"
+    scratch.mkdir()
+    return Fixture(
+        verify=root / "scripts" / "gate" / "verify.sh", stubs=stubs, started=stubs / "started", below_floor=below_floor, scratch=scratch
+    )
 
 
 @cache
-def _run(*flags: str, fails: str = "", ci: bool = False, below_floor: bool = False) -> tuple[subprocess.CompletedProcess[str], tuple[str, ...]]:
+def _run(
+    *flags: str, fails: str = "", crashes: str = "", ci: bool = False, below_floor: bool = False
+) -> tuple[subprocess.CompletedProcess[str], tuple[str, ...]]:
     """One gate run over the fixture, its streams beside one row per tool the run started.
 
     Cached on every argument: the cases below share their runs, and each costs a second.
@@ -140,9 +143,8 @@ def _run(*flags: str, fails: str = "", ci: bool = False, below_floor: bool = Fal
         environment["PATH"] = str(fixture.below_floor) + os.pathsep + environment["PATH"]
     environment["FL_STUB_LOG"] = str(fixture.started)
     environment["FL_STUB_FAIL"] = fails
-    # Keeps the tree committed-clean: the scope check reads its diff, and a `__pycache__` an import
-    # leaves under `scripts/` is a change asking for a scope this run does not name.
-    environment["PYTHONDONTWRITEBYTECODE"] = "1"
+    environment["FL_STUB_CRASH"] = crashes
+    environment["TMPDIR"] = fixture.scratch.as_posix()
     done = run_shell(BASH, fixture.verify, *flags, env=environment)
     # One file per invocation, never one appended log: the pooled form runs its tools concurrently,
     # and an interleaved append loses exactly the row that tells the two forms apart.
@@ -209,8 +211,7 @@ def test_the_pooled_run_replays_what_the_serial_run_printed_byte_for_byte() -> N
 def test_a_developer_shell_exporting_ci_runs_the_local_gate() -> None:
     """Only `GITHUB_ACTIONS` names a runner, and many developer shells export `CI`.
 
-    A gate keyed on `CI` drops the implied scopes, the scope check and the pool locally and still
-    ends green.
+    A gate keyed on `CI` drops the implied scopes and the pool locally and still ends green.
     """
     bare, bare_started = _run(FLAGS)
     exported, exported_started = _run(FLAGS, ci=True)
@@ -220,7 +221,6 @@ def test_a_developer_shell_exporting_ci_runs_the_local_gate() -> None:
     assert any(PAST_THE_GUARD in line for line in bare.stdout.splitlines()), (
         f"the bare run announced no scopes, so nothing here compares them:\n{bare.stdout}"
     )
-    assert SCOPE_CHECK in exported.stdout, f"exporting CI skipped the scope check:\n{exported.stdout}"
     assert any(row.startswith("worker=1") for row in bare_started), "the bare run started no pool to compare"
     assert any(row.startswith("worker=1") for row in exported_started), "exporting CI turned the scope pool off"
     for stream, one, two in (("stdout", bare.stdout, exported.stdout), ("stderr", bare.stderr, exported.stderr)):
@@ -258,3 +258,174 @@ def test_the_scopes_named_as_pooling_are_the_ones_that_start_steps() -> None:
     assert listed is not None, "verify.sh no longer names the scopes that pool in one condition"
     named = {name.strip().removeprefix("RUN_").lower().replace("_", "-") for name in listed[1].split("||")}
     assert named == set(STARTS_STEPS_RE.findall(gate)), (named, sorted(set(STARTS_STEPS_RE.findall(gate))))
+
+
+# What the one `annotate` checker says on a pass: its scanned population, which a captured run
+# replays because `quietly` prints nothing of a passing tool.
+POPULATION: Final = "scanned the stub's one document"
+
+# The backend virtualenv's interpreter, answering the documentation scope: its version at the
+# checkers' floor, the population for `check_docs.py`, and silence for every other checker.
+STUB_VENV_PYTHON: Final = """#!/usr/bin/env bash
+case "${{1:-}}" in
+  --version) printf '%s\\n' "Python {major}.{minor}.0" ;;
+  scripts/checks/check_docs.py) printf '%s\\n' "{population}" ;;
+esac
+exit 0
+"""
+
+# The virtualenv's currency check, which a fixture holding no lockfile would otherwise refuse.
+STUB_UV: Final = """#!/usr/bin/env bash
+exit 0
+"""
+
+
+def _venv_root(prefix: str, interpreter_text: str, **fields: str) -> tuple[Path, dict[str, str]]:
+    """A copy of `scripts/` whose virtualenv interpreter is a stub, with `uv`'s currency check stubbed too."""
+    root = new_root(prefix)
+    copy_scripts(root / "scripts")
+    # The POSIX spelling, which `scripts/lib/_lib.sh :: venv_python` also takes on Windows, where
+    # a shebang script cannot stand in for a `.exe`.
+    interpreter = root / "fl_backend" / ".venv" / "bin" / "python"
+    interpreter.parent.mkdir(parents=True)
+    version = sys.version_info
+    os.chmod(write_shell(interpreter, interpreter_text.format(major=version.major, minor=version.minor, **fields)), 0o755)
+    stubs = new_root(prefix + "stubs-")
+    os.chmod(write_shell(stubs / "uv", STUB_UV), 0o755)
+    environment = base_env()
+    environment["PATH"] = str(stubs) + os.pathsep + environment["PATH"]
+    return root, environment
+
+
+def test_a_passing_annotate_checker_prints_its_population_once_under_verbose() -> None:
+    """`quietly` streams the line under `--verbose`, and `run_checker`'s replay of it is guarded off there.
+
+    Drop that guard and the line prints twice, which no other case here reads.
+    """
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    root, environment = _venv_root("fl-gate-annotate-", STUB_VENV_PYTHON, population=POPULATION)
+    for flags, form in ((("--docs", "--verbose"), "streamed"), (("--docs", "--serial"), "captured")):
+        done = run_shell(BASH, root / "scripts" / "gate" / "verify.sh", *flags, env=environment)
+        assert done.returncode == 0, done.stdout + done.stderr
+        # The captured form is the control: a count of 1 there is the replay this guard keeps off
+        # the streamed form, so a stub that stopped printing fails here rather than passing both.
+        assert (done.stdout + done.stderr).count(POPULATION) == 1, f"the {form} form:\n{done.stdout}{done.stderr}"
+
+
+# The unit test runner's own subcommand: `do_unit_tests` runs `pnpm test` with the shard's patterns.
+UNIT_TESTS: Final = "test"
+
+
+# The preflight's two disjuncts a fixture scope isolates; `--frontend` implies `--format`, and the db
+# scope has its own case below. The stub's failure names no code, so only the exit code can say it.
+@pytest.mark.parametrize(("scope", "subcommand"), [("--format", "format:check"), ("--frontend-units", UNIT_TESTS)])
+def test_a_tree_pnpm_will_not_start_a_command_in_refuses_the_run(scope: str, subcommand: str) -> None:
+    """Exit 2: pnpm's dependency check stops every `exec` and `run` alike, so no step would have judged anything.
+
+    The step's own failure is the control: a runner refusing every failure passes nothing.
+    """
+    refused, _ = _run(scope, fails="exec")
+    output = refused.stdout + refused.stderr
+    assert refused.returncode == 2, output
+    assert "pnpm would not start a command in fl_frontend" in output and "cd fl_frontend && pnpm install" in output, output
+    assert "finding(s) in this run" not in output, output
+    control, _ = _run(scope, fails=subcommand)
+    assert control.returncode == 1, control.stdout + control.stderr
+
+
+# The db scope under stubs: Docker answering its version, the interpreter passing pytest, and pnpm
+# failing the preflight's `exec`.
+STUB_DOCKER: Final = """#!/usr/bin/env bash
+printf '%s\\n' "27.0.0"
+exit 0
+"""
+STUB_DB_PYTHON: Final = """#!/usr/bin/env bash
+case "${{1:-}}" in
+  --version) printf '%s\\n' "Python {major}.{minor}.0" ;;
+esac
+exit 0
+"""
+
+
+def test_a_tree_pnpm_will_not_start_a_command_in_refuses_the_db_run_once() -> None:
+    """Exit 2 before either suite, and no crash after it: the db scope is the preflight's third disjunct."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    root, environment = _venv_root("fl-gate-db-refusal-", STUB_DB_PYTHON)
+    (root / "fl_frontend" / "node_modules").mkdir(parents=True)
+    stubs = Path(environment["PATH"].split(os.pathsep)[0])
+    for name, text in (("docker", STUB_DOCKER), ("pnpm", STUB_PNPM)):
+        os.chmod(write_shell(stubs / name, text), 0o755)
+    log = stubs / "started"
+    log.mkdir()
+    environment["FL_STUB_LOG"] = str(log)
+    environment["FL_STUB_FAIL"] = "exec"
+    # The tier's claim under the fixture's own directory, never the machine's.
+    environment["TMPDIR"] = str(root)
+    done = run_shell(BASH, root / "scripts" / "gate" / "verify.sh", "--db", env=environment)
+    output = done.stdout + done.stderr
+    assert done.returncode == 2, output
+    assert "pnpm would not start a command in fl_frontend" in output, output
+    assert "Crashed" not in output, output
+
+
+KEPT: Final = re.compile(r"kept for reading, as this crash left it: (\S+)")
+# Read through bash, whose spelling of the path the gate prints: on Windows that is an MSYS path no
+# Python call resolves. The directory is reclaimed once read, as the gate would have done.
+READ_KEPT: Final = """#!/usr/bin/env bash
+cat -- "$1/manifest.tsv" && rm -rf -- "$1"
+"""
+
+
+def test_a_crashed_run_keeps_its_pool_captures_and_names_each_one() -> None:
+    """A crash's evidence is the pool's own record, so the exit that ends it must not delete it.
+
+    A run ending on findings is the control: every other ending still reclaims its directories.
+    """
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    reader = write_shell(_fixture().stubs / "read-kept.sh", READ_KEPT)
+    crashed, _ = _run(FLAGS, crashes="typecheck:only")
+    output = crashed.stdout + crashed.stderr
+    manifests = [run_shell(BASH, reader, found) for found in KEPT.findall(output)]
+    assert crashed.returncode == 3, output
+    assert manifests, output
+    for read in manifests:
+        assert read.returncode == 0, f"a directory was named and not kept:\n{read.stderr}\n{output}"
+    assert any("typecheck" in read.stdout for read in manifests), output
+    failed, _ = _run(FLAGS, fails="typecheck:only")
+    assert failed.returncode == 1, failed.stdout + failed.stderr
+    assert not KEPT.search(failed.stdout + failed.stderr), failed.stdout + failed.stderr
+
+
+CRASHED_ROW: Final = re.compile(r"^ +frontend +\S*crashed", re.MULTILINE)
+
+
+def test_a_scope_crashing_past_an_earlier_failure_still_names_what_it_kept() -> None:
+    """The run ends at the format scope's failure, and the frontend scope's crash is read after it.
+
+    Its worker kept its pool directory; unnamed in the parent's output, that directory outlives the
+    run with nobody told it exists.
+    """
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    reader = write_shell(_fixture().stubs / "read-kept.sh", READ_KEPT)
+    done, _ = _run(FLAGS, fails="format:check", crashes="typecheck:only")
+    output = done.stdout + done.stderr
+    manifests = [run_shell(BASH, reader, found) for found in KEPT.findall(output)]
+    assert done.returncode == 1, output
+    assert "the frontend scope crashed with status 3" in output, output
+    assert any(read.returncode == 0 and "typecheck" in read.stdout for read in manifests), output
+    # Its row says what it did, and costs no finding of its own: the format scope's is the one.
+    assert CRASHED_ROW.search(done.stdout), output
+    assert "closed with no verdict" not in output, output
+    assert "1 finding(s) in this run" in output, output
+
+
+def test_a_unit_crashed_behind_an_earlier_failure_in_its_scope_is_named_and_kept() -> None:
+    """tsc's finding ends the frontend scope at 1, and eslint's crash, verdicted after it, is read by nothing else."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    reader = write_shell(_fixture().stubs / "read-kept.sh", READ_KEPT)
+    done, _ = _run(FLAGS, fails="typecheck:only", crashes="lint")
+    output = done.stdout + done.stderr
+    manifests = [run_shell(BASH, reader, found) for found in KEPT.findall(output)]
+    assert done.returncode == 1, output
+    assert "the eslint unit crashed with status 3 behind the ending above" in output, output
+    assert any(read.returncode == 0 and "eslint" in read.stdout for read in manifests), output

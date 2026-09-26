@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { deleteSaisonSpielerAction, reactivateSaisonSpielerAction } from "@/features/spieler/actions";
 import { REACTIVATION_NEEDS_A_TEAM_IN_SAISON, REACTIVATION_NEEDS_ROOM_IN_SQUAD } from "@/features/spieler/constants";
@@ -11,7 +12,9 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 import type { RowReturn } from "@/features/spieler/types";
 import type { ActionResult } from "@/shared/types/types";
@@ -40,6 +43,7 @@ export function FormAustragenSection({
   rowInactiveSince,
   rowReturn,
   banners,
+  isDirty,
 }: {
   spielerId: string;
   saisonId: string;
@@ -48,9 +52,12 @@ export function FormAustragenSection({
   /** Judged on the row's STORED club rather than the draft's: the reactivate returns the row to the club it names. */
   rowReturn: RowReturn;
   banners: readonly SpielerBanner[];
+  /** The editor's unsaved typing, which either write re-keys the editor over. */
+  isDirty: boolean;
 }) {
   const styles = formPanel({ tone: "danger" });
   const [isPending, startWriting] = useTransition();
+  const router = useRouter();
 
   const isAusgetragen = rowInactiveSince !== null;
   const blockedReason = RETURN_REFUSAL[rowReturn];
@@ -65,8 +72,11 @@ export function FormAustragenSection({
   }, [row]);
 
   const run = (write: () => Promise<ActionResult>, savedHeading: string, failureHeading: string) => {
+    if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
+
     startWriting(async () => {
-      const res = await write();
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await write().catch(rejectedWrite(router));
       // A detail written here would be this panel's guess at what the write cost: the action sends
       // that sentence, and `docs/frontend/spec.md` §1.12 leaves a server's message alone.
       if (res.success) {
@@ -151,7 +161,7 @@ export function FormAustragenSection({
                   "Kadereintrag nicht ausgetragen",
                 )
               }
-              className="border-danger/40 bg-surface text-danger-strong data-hovered:bg-hover-danger fluid-sm flex h-10 w-fit items-center rounded-lg border px-4 font-bold shadow-sm transition-colors">
+              className="flex h-10 w-fit items-center rounded-lg border border-danger/40 bg-surface px-4 fluid-sm font-bold text-danger-strong shadow-sm transition-colors data-hovered:bg-hover-danger">
               {isPending ? "Trägt aus..." : `Aus Kader ${saisonId} austragen`}
             </Button>
           </>

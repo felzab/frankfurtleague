@@ -1,20 +1,27 @@
 "use client";
 
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 
-import { Xmark } from "@gravity-ui/icons";
+import Xmark from "@gravity-ui/icons/Xmark";
+import { parseDate, parseTime } from "@internationalized/date";
 
-import { Calendar, DateField, DatePicker, FieldError, TimeField } from "@heroui/react";
+import { Calendar } from "@heroui/react/calendar";
+import { DateField } from "@heroui/react/date-field";
+import { DatePicker } from "@heroui/react/date-picker";
+import { FieldError } from "@heroui/react/field-error";
+import { TimeField } from "@heroui/react/time-field";
 
 import { dismissControl } from "@/core/dismissControl";
 import {
-  DATE_PICKER_CALENDAR,
+  DATE_PICKER_CALENDAR_CLASSES,
   DATE_PICKER_PLACEMENT,
-  DATE_PICKER_POPOVER,
-  FIELD_ERROR,
-  FIELD_GROUP,
+  DATE_PICKER_POPOVER_CLASSES,
+  FIELD_ERROR_CLASSES,
+  FIELD_GROUP_CLASSES,
 } from "@/shared/components/ui/formFieldStyles";
+import { Hint } from "@/shared/components/ui/Hint";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
+import { useRequiredMark } from "@/shared/components/ui/RequiredMarks";
 
 import type { CalendarDate, Time } from "@internationalized/date";
 import type { ReactNode, RefObject } from "react";
@@ -23,7 +30,17 @@ import type { ReactNode, RefObject } from "react";
  * HeroUI styles literal segments with `text-muted`, a *background* token, leaving the separators at roughly 1.1:1
  * against the field surface.
  */
-const LITERAL_SEGMENT = "data-[type=literal]:text-foreground-muted";
+const LITERAL_SEGMENT_CLASSES = "data-[type=literal]:text-foreground-muted";
+
+/**
+ * One object per distinct value: react-aria's date field clears a server refusal on a blur wherever its value is
+ * another object than at the focus (`useDateField`'s `onBlurWithin`), and callers parse their draft on every render.
+ */
+function useSteady<T extends CalendarDate | Time>(value: T | null, parse: (text: string) => T): T | null {
+  const text = value?.toString() ?? "";
+
+  return useMemo(() => (text === "" ? null : parse(text)), [text, parse]);
+}
 
 /** A segmented field has no other way back to empty, react-aria clearing one segment per Backspace. */
 function ClearFieldButton({ label, onClear, groupRef }: { label: string; onClear: () => void; groupRef: RefObject<HTMLDivElement | null> }) {
@@ -64,10 +81,10 @@ export function AppDatePicker({
   value,
   onChange,
   onBlur,
-  isRequired = false,
+  isRequired,
   isDisabled,
   isReadOnly,
-  "aria-describedby": describedBy,
+  hint,
   minValue,
   maxValue,
   clearLabel,
@@ -80,10 +97,12 @@ export function AppDatePicker({
   value: CalendarDate | null;
   onChange: (next: CalendarDate | null) => void;
   onBlur?: () => void;
+  /** For a rule outside the field's own schema, which each site names. Else the form's schema decides. */
   isRequired?: boolean;
   isDisabled?: boolean;
   isReadOnly?: boolean;
-  "aria-describedby"?: string;
+  /** A standing sentence under the field, which the field names as its description. */
+  hint?: string;
   /**
    * Greys days out in the CALENDAR, never on the field, which judges them: a field bound reaches
    * `aria`'s realtime validation and marks a half-typed year (`.claude/rules/frontend.md`). The schema refuses an
@@ -94,16 +113,17 @@ export function AppDatePicker({
   clearLabel?: string;
 }) {
   const groupRef = useRef<HTMLDivElement>(null);
+  const derived = useRequiredMark(name, "");
+  const steady = useSteady(value, parseDate);
 
   return (
     <DatePicker
-      isRequired={isRequired}
+      isRequired={isRequired ?? derived}
       isDisabled={isDisabled}
       isReadOnly={isReadOnly}
-      value={value}
+      value={steady}
       onChange={onChange}
       onBlur={onBlur}
-      aria-describedby={describedBy}
       name={name}
       // Two-digit day and month: de-DE's own pattern writes `4.9.2016`, while every date the app prints
       // reads `04.09.2016` (`fl_frontend/src/shared/utils/format.ts :: formatSpielDatum`).
@@ -116,12 +136,12 @@ export function AppDatePicker({
         // the group's padding focus the group itself, where it would otherwise focus nothing.
         tabIndex={clearLabel === undefined ? undefined : -1}
         fullWidth
-        className={FIELD_GROUP}>
+        className={FIELD_GROUP_CLASSES}>
         <DateField.Input className="fluid-sm">
           {(segment) => (
             <DateField.Segment
               segment={segment}
-              className={LITERAL_SEGMENT}
+              className={LITERAL_SEGMENT_CLASSES}
             />
           )}
         </DateField.Input>
@@ -138,15 +158,21 @@ export function AppDatePicker({
           </DatePicker.Trigger>
         </DateField.Suffix>
       </DateField.Group>
-      <FieldError className={FIELD_ERROR} />
+      <FieldError className={FIELD_ERROR_CLASSES} />
+      {hint !== undefined && (
+        <Hint
+          mode="field"
+          text={hint}
+        />
+      )}
       <DatePicker.Popover
-        className={DATE_PICKER_POPOVER}
+        className={DATE_PICKER_POPOVER_CLASSES}
         placement={DATE_PICKER_PLACEMENT}>
         <Calendar
           aria-label={calendarLabel}
           minValue={minValue}
           maxValue={maxValue}
-          className={`${overlayPanel()} ${DATE_PICKER_CALENDAR}`}>
+          className={`${overlayPanel()} ${DATE_PICKER_CALENDAR_CLASSES}`}>
           <Calendar.Header className="bg-transparent">
             {/* A birthdate is decades from today and a season's dates about a year, so a month-by-month
                 walk to either would be dozens of presses. */}
@@ -188,13 +214,15 @@ export function AppTimeField({
   clearLabel?: string;
 }) {
   const groupRef = useRef<HTMLDivElement>(null);
+  const steady = useSteady(value, parseTime);
 
   return (
     <TimeField
       className="w-full"
       name={name}
+      isRequired={useRequiredMark(name, "")}
       hourCycle={24}
-      value={value}
+      value={steady}
       onChange={onChange}
       onBlur={onBlur}
       // A two-digit hour: de-DE's own pattern writes `9:00`, while every kick-off the app prints reads
@@ -204,12 +232,12 @@ export function AppTimeField({
       <TimeField.Group
         ref={groupRef}
         tabIndex={clearLabel === undefined ? undefined : -1}
-        className={FIELD_GROUP}>
-        <TimeField.Input className="fluid-sm w-full">
+        className={FIELD_GROUP_CLASSES}>
+        <TimeField.Input className="w-full fluid-sm">
           {(segment) => (
             <TimeField.Segment
               segment={segment}
-              className={LITERAL_SEGMENT}
+              className={LITERAL_SEGMENT_CLASSES}
             />
           )}
         </TimeField.Input>
@@ -221,7 +249,7 @@ export function AppTimeField({
           />
         )}
       </TimeField.Group>
-      <FieldError className={FIELD_ERROR} />
+      <FieldError className={FIELD_ERROR_CLASSES} />
     </TimeField>
   );
 }

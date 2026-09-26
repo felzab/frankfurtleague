@@ -11,6 +11,7 @@ from app.api.schiedsrichter.services import build_real_referees_filter, build_re
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, build_query, build_sort, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SchiedsrichterCollection
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -55,7 +56,12 @@ async def get_schiedsrichter(
     return FLSchiedsrichterListResponse(schiedsrichter=FLSchiedsrichterListAdapter.validate_python(schiedsrichter_raw))
 
 
-@router.get(by_id("schiedsrichter_id"), response_model=FLSchiedsrichterSingleResponse, summary="One Schiedsrichter")
+@router.get(
+    by_id("schiedsrichter_id"),
+    response_model=FLSchiedsrichterSingleResponse,
+    summary="One Schiedsrichter",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+)
 async def get_schiedsrichter_by_id(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,

@@ -3,8 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Form } from "@heroui/react";
-
 import { patchSaisonSpielerAction, patchSpielerAction } from "@/features/spieler/actions";
 import { rolleLabel } from "@/features/spieler/constants";
 import { FLPatchSaisonSpielerPayloadSchema, FLPatchSpielerPayloadSchema } from "@/features/spieler/schemas";
@@ -15,8 +13,8 @@ import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
 import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
 import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
+import { Form } from "@/shared/components/ui/Form";
 import { FormActionBar } from "@/shared/components/ui/FormActionBar";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -25,6 +23,7 @@ import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { fieldStatus } from "@/shared/utils/draftStatus";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSpielerBanners } from "./banners";
@@ -42,7 +41,7 @@ import type {
   FLSpielerRolle,
   FLSpielerStufe,
 } from "@/features/spieler/schemas";
-import type { FLSpielerDraftFields } from "@/features/spieler/spielerDraftStatus";
+import type { FLSpielerDraftFields, SpielerFieldPath } from "@/features/spieler/spielerDraftStatus";
 import type { SpielerPersonFields, SpielerSaisonMembership, SpielerTeamOption } from "@/features/spieler/types";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
@@ -77,7 +76,7 @@ export function AdminSpielerEditForm({
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSaving] = useTransition();
 
   const storedMembership = saison.membership;
 
@@ -96,9 +95,10 @@ export function AdminSpielerEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { spieler: FLPatchSpielerPayloadSchema, saisonSpieler: FLPatchSaisonSpielerPayloadSchema },
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
+    useDraftFieldErrors({
+      schemas: { spieler: FLPatchSpielerPayloadSchema, saisonSpieler: FLPatchSaisonSpielerPayloadSchema },
+    });
 
   // The ids ride in the request URI, so neither is a path an input renders or a refusal can name.
   const buildPersonPayload = () => ({ id: spieler.id, ...personDraft });
@@ -154,7 +154,7 @@ export function AdminSpielerEditForm({
   const validateTeamSelection = (paths: readonly string[], selected: { team_id: string }) =>
     validatePaths("saisonSpieler", { ...buildSaisonPayload(), ...selected }, paths);
 
-  const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
+  const isChanged = (path: SpielerFieldPath) => fieldStatus(status, path)?.isChanged ?? false;
 
   // Read off the DRAFT's team: moving the picker moves who already leads, and moves which squad the
   // save would be admitted to.
@@ -218,7 +218,7 @@ export function AdminSpielerEditForm({
   };
 
   const writeAfterBlock = () => {
-    startTransition(async () => {
+    startSaving(async () => {
       const collectedErrors: FieldErrors = {};
       // Built once, so what goes to each action is also what a later blur is graded against.
       const personPayload = buildPersonPayload();
@@ -254,80 +254,82 @@ export function AdminSpielerEditForm({
         }
       }
 
-      if (failures.length > 0) {
-        // One press, one failure: the half that saved leads each sentence, and one half of unknown
-        // outcome makes the whole press one, whatever the other half answered.
-        reportSubmitFailure(
-          {
-            success: false,
-            error: [...savedParts, ...failures.map((failure) => failure.error)].join(" "),
-            fieldErrors: collectedErrors,
-            unplacedError: [...savedParts, ...failures.map((failure) => failure.unplacedError ?? failure.error)].join(" "),
-            outcome: failures.some((failure) => failure.outcome === "unknown") ? "unknown" : undefined,
-          },
-          { spieler: personPayload, saisonSpieler: saisonPayload },
-          {
-            raise: (shown) => appToast.failure(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", shown),
-            // A mark speaks for its own half alone: a half that saved, or one failing with no map, is
-            // said nowhere else.
-            evenWhenShown: savedParts.length > 0 || failures.some((failure) => !hasFieldErrors(failure.fieldErrors)),
-          },
-        );
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startSaving(() => {
+        if (failures.length > 0) {
+          // One press, one failure: the half that saved leads each sentence, and one half of unknown
+          // outcome makes the whole press one, whatever the other half answered.
+          reportSubmitFailure(
+            {
+              success: false,
+              error: [...savedParts, ...failures.map((failure) => failure.error)].join(" "),
+              fieldErrors: collectedErrors,
+              unplacedError: [...savedParts, ...failures.map((failure) => failure.unplacedError ?? failure.error)].join(" "),
+              outcome: failures.some((failure) => failure.outcome === "unknown") ? "unknown" : undefined,
+            },
+            { spieler: personPayload, saisonSpieler: saisonPayload },
+            {
+              raise: (shown) => appToast.failure(savedParts.length > 0 ? "Nur teilweise gespeichert" : "Änderung nicht gespeichert", shown),
+              // A mark speaks for its own half alone: a half that saved, or one failing with no map, is
+              // said nowhere else.
+              evenWhenShown: savedParts.length > 0 || failures.some((failure) => !hasFieldErrors(failure.fieldErrors)),
+            },
+          );
+          return;
+        }
 
-      setSubmitFieldErrors({}, {});
-      setHasSaved(true);
+        setSubmitFieldErrors({}, {});
+        setHasSaved(true);
 
-      // `spieler` and `storedMembership` are this render's props, so they still carry the pre-save
-      // values. Built BEFORE leaving, because the toast outlives the page.
-      const undoPayloads: SpielerUndoPayloads = {
-        ...(personDirty
-          ? { person: { id: spieler.id, vorname: spieler.vorname, nachname: spieler.nachname, geburtsdatum: spieler.geburtsdatum } }
-          : {}),
-        ...(saisonDirty && storedMembership !== null
-          ? {
-              saison: {
-                spieler_id: spieler.id,
-                saison_id: saison.saisonId,
-                team_id: storedMembership.team_id,
-                nummer: storedMembership.nummer,
-                position: storedMembership.position,
-                stufe: storedMembership.stufe,
-                rolle: storedMembership.rolle,
-              },
-            }
-          : {}),
-      };
-      // A success rather than a warning: this save destroys nothing without another copy.
-      offerUndo({
-        endpoint: "/api/admin/spieler/undo",
-        body: undoPayloads,
-        message: consequenceNotes.join(" ") || undefined,
-        fallback: "Die Spielerdaten wurden aktualisiert.",
-        router,
+        // `spieler` and `storedMembership` are this render's props, so they still carry the pre-save
+        // values. Built BEFORE leaving, because the toast outlives the page.
+        const undoPayloads: SpielerUndoPayloads = {
+          ...(personDirty
+            ? { person: { id: spieler.id, vorname: spieler.vorname, nachname: spieler.nachname, geburtsdatum: spieler.geburtsdatum } }
+            : {}),
+          ...(saisonDirty && storedMembership !== null
+            ? {
+                saison: {
+                  spieler_id: spieler.id,
+                  saison_id: saison.saisonId,
+                  team_id: storedMembership.team_id,
+                  nummer: storedMembership.nummer,
+                  position: storedMembership.position,
+                  stufe: storedMembership.stufe,
+                  rolle: storedMembership.rolle,
+                },
+              }
+            : {}),
+        };
+        // A success rather than a warning: this save destroys nothing without another copy.
+        offerUndo({
+          endpoint: "/api/admin/spieler/undo",
+          body: undoPayloads,
+          message: consequenceNotes.join(" ") || undefined,
+          fallback: "Die Spielerdaten wurden aktualisiert.",
+          router,
+        });
+
+        // AFTER the undo payloads are built: leaving with typed values still in state lets a
+        // save-then-undo reopen on values the player does not hold.
+        resetDraftToStored();
+        leavePage();
       });
-
-      // AFTER the undo payloads are built: leaving with typed values still in state is what let a
-      // save-then-undo reopen on values the player no longer holds.
-      resetDraftToStored();
-      leavePage();
     });
   };
 
   return (
     <DraftStatusProvider status={status}>
       <Form
-        // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-        validationBehavior="aria"
-        ref={formRef}
-        validationErrors={fieldErrors}
+        wiring={formWiring}
         className="flex min-h-0 w-full flex-1 flex-col"
-        onSubmit={runOnSubmit(requestSave)}>
+        onSubmit={requestSave}>
         <EditFormLayout
           header={pageHeader}
           onLeave={requestLeave}
           isLeaving={isLeaving}
+          isDirty={isDirty}
           rail={
             <DraftRail
               banners={banners}
@@ -373,6 +375,7 @@ export function AdminSpielerEditForm({
               and the Kader panel above offers the entry instead. */}
           {storedMembership !== null && (
             <FormAustragenSection
+              isDirty={isDirty}
               spielerId={spieler.id}
               saisonId={saison.saisonId}
               rowInactiveSince={storedMembership.inactive_since}

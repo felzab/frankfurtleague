@@ -34,6 +34,20 @@ export class RolledBackError extends Error {
   }
 }
 
+/**
+ * A write the request's deadline refused before it was sent: nothing left, so it changed nothing, as
+ * `fl_frontend/src/core/mail.ts :: MailUnsentError` says of a message. `FE-NET-001`, a call the network
+ * never answered.
+ */
+export class ApiUnsentError extends Error {
+  readonly code = "FE-NET-001";
+  override name = "ApiUnsentError";
+
+  constructor(method: string) {
+    super(`The request's deadline had passed before this ${method} was sent.`);
+  }
+}
+
 export class APIBadStatusError extends Error {
   readonly code = "FE-API-001";
   traceId: string;
@@ -81,6 +95,30 @@ export class APIBadStatusError extends Error {
     this.method = method;
     this.readOnly = readOnly;
   }
+}
+
+/**
+ * The protocol's classes: a credential, a request the API cannot take, a route it does not serve. None is
+ * a rule refusing what the request asked for, and each class grows codes the backend adds to it.
+ */
+const PROTOCOL_CLASS = /^REQ-(AUTH|VAL|ROUTE)-/;
+
+/**
+ * Whether a code is one a slice's mapper words: a rule's, or the unique index's `DB-COMMON-002`. By the
+ * code's class alone, never its status: every other `DB-` code is the store answering, not a rule.
+ */
+export function isRefusalCode(code: string | undefined): boolean {
+  if (code === undefined) return false;
+
+  return code === "DB-COMMON-002" || (code.startsWith("REQ-") && !PROTOCOL_CLASS.test(code));
+}
+
+/**
+ * Whether the API answered that the record a read names does not exist. By the code, never the status:
+ * any other 404 is a route the framework did not serve (`REQ-ROUTE-001`) or the edge's own, a failure.
+ */
+export function isRecordMissing(error: unknown): boolean {
+  return error instanceof APIBadStatusError && error.statusCode === 404 && error.serverErrorCode === "DB-COMMON-001";
 }
 
 export class APIMalformedDataError extends Error {

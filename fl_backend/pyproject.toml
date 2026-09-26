@@ -60,13 +60,26 @@ dev = [
     # Lints the workflows for what actionlint leaves alone; a Rust binary shipped as a wheel, so it
     # comes through the lockfile like every other checker.
     "zizmor>=1.30.0",
+    # The documentation gate's Markdown reader (`scripts/checks/docs_gate/kernel.py`): CommonMark
+    # decides which blocks and spans a page shows as code, rather than patterns kept by hand.
+    # Run by the docs and scripts scopes: the `docs` and `scripts` jobs of
+    # `.github/workflows/verify.yml`.
+    "markdown-it-py>=4.2.0",
+    # Holds `dependencies` to what `app/` imports: an import reaching a package only through
+    # another's requirements, or a package there nothing imports, fails the backend scope. This group
+    # is outside the unused-package rule (DEP002), which deptry applies to `dependencies` alone.
+    "deptry>=0.25.1",
 ]
+
+[tool.deptry.per_rule_ignores]
+# Declared though never imported, each for the reason at its line in `dependencies`.
+DEP002 = ["tzdata", "uvicorn"]
 
 [tool.uv]
 # The uv the Dockerfile copies in, so one resolver builds the gate's venv and the image's;
 # setup-uv's `version-file` reads it too. Moves with the Dockerfile's `FROM ghcr.io/astral-sh/uv:`
 # line, and `scripts/gate/selfcheck.sh :: UV_PIN` refuses the pair when it does not.
-required-version = "==0.12.9"
+required-version = "==0.12.18"
 
 [tool.ruff]
 line-length = 144
@@ -94,8 +107,29 @@ select = [
     "D209",  # multi-line docstring closing quotes on their own line
     "D210",  # no surrounding whitespace in docstrings
     "D419",  # docstring is empty
+    # A `noqa` that suppresses nothing still reads as a reason the line needs one, and the reason
+    # written beside it is then untrue. `scripts/ruff.toml` extends this list, so both trees carry it.
+    "RUF100",  # unused noqa directive
+    "TID251",  # banned-api, the list below
 ]
 ignore = ["B008"]
+
+# A handler reading the environment's settings answers with those whatever the app was built with,
+# and the dependency walk in `tests/core/test_config.py` never sees a call inside a body.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# Each permitted import carries its own `noqa`, which RUF100 reports once nothing there needs it;
+# the preflight in `scripts/ops/deploy.sh` is a shell string ruff never reads.
+"app.core.config.get_config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+# Ruff matches the path an import spells rather than the function it binds, so the same function
+# imported from the module building the app would pass the entry above.
+"app.main.get_config".msg = "Read the request's settings through `get_app_config`; `app.main` holds no `get_config` for a caller."
+# A transport built beside the helper is a copy of it, and drifts from it. The one other permitted
+# construction serves apps carrying routes of their own, which the helper never exposes.
+"httpx2.ASGITransport".msg = "Serve the app in process through `tests/app_client.py :: app_client`; a transport of your own is a copy of it."
+# The module that transport is defined in, which the entry above never matches: ruff reads the path an
+# import spells, and an entry for a module bans every module under it.
+"httpx2._transports".msg = "Serve the app in process through `tests/app_client.py :: app_client`; a transport of your own is a copy of it."
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
@@ -130,11 +164,9 @@ empty_parameter_set_mark = "fail_at_collect"
 # type, so without this section a type error reaches only whoever has the file open in Pylance,
 # while `scripts/gate/verify.sh` goes green past it.
 
-# venvPath/venv are what make this meaningful in an EDITOR, which resolves a third-party import
-# from whatever interpreter it has and otherwise reports a phantom error for every one.
-
-# The gate needs neither, invoking pyright with this environment already
-# (`scripts/gate/verify.sh :: do_backend_pyright`); `scripts/pyrightconfig.json` names the same one.
+# venvPath/venv are what resolve a third-party import, in the gate as in an editor: pyright run by
+# this environment's own python (`scripts/gate/verify.sh :: do_backend_pyright`) still reads none of
+# it without them. `scripts/pyrightconfig.json` names the same one.
 venvPath = "."
 venv = ".venv"
 # Pinned rather than read from whichever interpreter pyright finds: CI's Linux run judged the tree

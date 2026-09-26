@@ -1,47 +1,26 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
-import path from "node:path";
 import { describe, it } from "node:test";
 
-import ts from "typescript";
-
 import { APIBadStatusError } from "@/core/errors";
-
-/** Every read in the module: the cache refusal covering the triage's two is one decision, not two. */
-const BEWERBUNGEN_QUERIES = path.join(import.meta.dirname, "queries.ts");
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 /** Stands in for `next/headers`, whose `headers()` needs a request context no test process has. */
-const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export const headers = async () => new Headers();")}`;
-
-/** What the doubled client was asked for. */
-type RecordedCall = { endpoint: string };
-
-const calls: RecordedCall[] = [];
-const RECORDER = "__flBewerbungReadCalls";
-(globalThis as unknown as Record<string, RecordedCall[]>)[RECORDER] = calls;
+const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
 /** What the doubled client throws, so a query's own catch arm is what a case exercises. */
-const THROWER = "__flBewerbungReadFailure";
+let failure: unknown;
 
-// Replaced at the module boundary rather than either query being reshaped to admit a seam: the real
-// client reaches a backend no test process runs, at a base URL no test run holds.
-const API_DOUBLE = `export const apiClient = async (endpoint) => {
-  globalThis.${RECORDER}.push({ endpoint });
-  const failure = globalThis.${THROWER};
-  if (failure) throw failure;
+const calls = doubleApiClient(() => {
+  if (failure !== undefined) throw failure;
   return {};
-};`;
+});
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "next/headers") return { url: HEADERS_DOUBLE_URL, shortCircuit: true };
     return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
   },
 });
 
@@ -54,45 +33,14 @@ const { getBewerbungById, getBewerbungen, getBewerbungFenster, getBewerbungKuerz
  */
 async function failing<T>(error: unknown, read: () => Promise<T>): Promise<T> {
   const before = calls.length;
-  (globalThis as unknown as Record<string, unknown>)[THROWER] = error;
+  failure = error;
 
   try {
     return await read();
   } finally {
-    (globalThis as unknown as Record<string, unknown>)[THROWER] = undefined;
+    failure = undefined;
     calls.length = before;
   }
-}
-
-/**
- * Every directive prologue in `file`, which is where a `"use cache"` would sit.
- *
- * Parsed rather than grepped: the module DISCUSSES `"use cache"` in a comment, and a text search
- * cannot tell that from the directive.
- */
-function directivesIn(file: string): string[] {
-  const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
-  const directives: string[] = [];
-
-  /* A prologue at the top of the FILE caches every export in it, which Next supports and which no
-     function node carries, so the module's own leading statements are read before any function's. */
-  for (const statement of source.statements) {
-    if (!ts.isExpressionStatement(statement) || !ts.isStringLiteral(statement.expression)) break;
-    directives.push(statement.expression.text);
-  }
-
-  source.forEachChild(function walk(node: ts.Node): void {
-    if ((ts.isFunctionDeclaration(node) || ts.isArrowFunction(node) || ts.isFunctionExpression(node)) && node.body && ts.isBlock(node.body)) {
-      for (const statement of node.body.statements) {
-        if (!ts.isExpressionStatement(statement) || !ts.isStringLiteral(statement.expression)) break;
-        directives.push(statement.expression.text);
-      }
-    }
-
-    node.forEachChild(walk);
-  });
-
-  return directives;
 }
 
 const ONE_ID = "0123456789abcdef01234567";
@@ -107,21 +55,6 @@ describe("the two admin-tier triage reads", () => {
       calls.map((call) => call.endpoint),
       ["/bewerbungen", `/bewerbungen/${ONE_ID}`],
     );
-  });
-
-  /* An application is three people's contact details and the record of which schools were turned
-     down. `"use cache"` keys on the arguments, not on the caller, so a cached read of it would be a
-     shared slot of authorized personal data. */
-  it('caches neither, because `"use cache"` keys on arguments and would make one admin read a shared slot', () => {
-    assert.deepEqual(directivesIn(BEWERBUNGEN_QUERIES), []);
-  });
-
-  /* The tag would be the second half of a cache scope this module must never open. */
-  it("tags nothing either, a cache tag meaning nothing outside a cache scope", () => {
-    const source = readFileSync(BEWERBUNGEN_QUERIES, "utf8");
-
-    assert.ok(!source.includes("cacheTag("), "the triage reads opened a cache scope");
-    assert.ok(!source.includes("cacheLife("), "the triage reads opened a cache scope");
   });
 });
 
@@ -163,6 +96,7 @@ describe("the four base-tier public reads", () => {
       message: "not found",
       url: "http://backend/api/v0/bewerbungen/fenster",
       statusCode: 404,
+      serverErrorCode: "DB-COMMON-001",
       endpoint: "/bewerbungen/fenster",
       method: "GET",
       readOnly: false,

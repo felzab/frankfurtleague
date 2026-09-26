@@ -2,17 +2,17 @@
 
 **Scope:** branching, commits, pull requests, the verification gate, and the GitHub settings that enforce them
 
-| Section                                                | Answers                                                                    |
-| ------------------------------------------------------ | -------------------------------------------------------------------------- |
-| [1.1 The pipeline](#11-the-pipeline)                   | What happens between an idea and production, and in which order            |
-| [1.2 Branching](#12-branching)                         | What a branch is named and how long it lives                               |
-| [1.3 Commits](#13-commits)                             | What a subject and a body must contain, and what refuses one               |
-| [1.4 Pull requests](#14-pull-requests)                 | How a change reaches `main`, and what only the body can carry              |
-| [1.5 The verification gate](#15-the-verification-gate) | Which scopes exist, what each proves, and when a partial run is not enough |
-| [1.6 Repository settings](#16-repository-settings)     | The unversioned GitHub configuration, and how to restore it                |
-| [2. Invariants](#2-invariants)                         | The properties that must hold                                              |
-| [3. Violation → remedy](#3-violation--remedy)          | A symptom, its cause, and what to do about it                              |
-| [4. Known-open](#4-known-open)                         | What is deliberately unfinished                                            |
+| Section                                                | Answers                                                                                        |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| [1.1 The pipeline](#11-the-pipeline)                   | What happens between an idea and production, and in which order                                |
+| [1.2 Branching](#12-branching)                         | What a branch is named and how long it lives                                                   |
+| [1.3 Commits](#13-commits)                             | What a subject and a body must contain, and what refuses one                                   |
+| [1.4 Pull requests](#14-pull-requests)                 | How a change reaches `main`, and what only the body can carry                                  |
+| [1.5 The verification gate](#15-the-verification-gate) | Which scopes exist, what each proves, and which run a pull request is called ready to merge on |
+| [1.6 Repository settings](#16-repository-settings)     | The unversioned GitHub configuration, and how to restore it                                    |
+| [2. Invariants](#2-invariants)                         | The properties that must hold                                                                  |
+| [3. Violation → remedy](#3-violation--remedy)          | A symptom, its cause, and what to do about it                                                  |
+| [4. Known-open](#4-known-open)                         | What is deliberately unfinished                                                                |
 
 ---
 
@@ -23,21 +23,22 @@
 ```mermaid
 graph LR
     b["branch off main"] --> c["commit"]
-    c --> v["./scripts/gate/verify.sh"]
-    v --> pr["pull request"]
-    pr --> m["merge to main"]
-    m --> p["./scripts/ops/publish.sh<br/>(dev machine)"]
+    c --> pr["pull request<br/>(CI on every push)"]
+    pr --> v["./scripts/gate/verify.sh"]
+    v --> m["merge to main"]
+    m --> p["publish.yml<br/>(CI, dispatched by hand)"]
     p --> d["./scripts/ops/deploy.sh<br/>(server)"]
 ```
 
-Two gaps in that chain are deliberate. **Images are built on the development machine, never on the
-server** — a server that builds is a server that can fail a build, at the worst moment, with the site
-down. **Merging does not deploy**: publishing and deploying are separate manual steps.
+Two gaps in that chain are deliberate. **Images are built by CI, never on the server** — a server
+that builds is a server that can fail a build, at the worst moment, with the site down — and only
+from a `main` commit whose own `verify` run passed. **Merging does not deploy**: publishing
+(`gh workflow run publish.yml --ref main`) and deploying are separate manual steps.
 
 **Order a data change against the deployed image, never against `main`.** `main` routinely describes
 a service that is not running, and `./scripts/ops/deploy.sh --status` is what names the live commit.
 
-Every step the diagram places on dev runs on Windows, in Git Bash.
+Every step the diagram places on a development machine runs on Windows, in Git Bash.
 
 ### 1.2 Branching
 
@@ -60,8 +61,8 @@ conflict. Each of those meets the ruleset's refusal at the push (I1).
 documentation conflicts on every shared page, and the cost compounds until it is paid.
 
 **A merge resolution needs a no-loss assertion, not care.** Enumerate every line each side added
-since the fork and prove none is absent from the result. Taking one side whole is how a heading, a
-clause and an edited line each disappeared while the result read correctly.
+since the fork and prove none is absent from the result. Taking one side whole drops a heading, a
+clause or an edited line while the result still reads correctly.
 
 **`--ff-only` on the way back down is the point.** Every change reaches `main` through GitHub, so
 local `main` is only ever strictly behind and a fast-forward is always possible; where it is not,
@@ -101,27 +102,27 @@ exclude the unhyphenated shape.
 **An entry that ends only partly done is rewritten rather than deleted**, and the commit doing that
 carries no trailer ([`../_roadmap/protocol.md`](../_roadmap/protocol.md) §3).
 
-The one other trailer is a closing paragraph that is sign-offs and nothing else, which is what
-Dependabot's generator always writes and the only trailer form the checker releases on an exact
-author identity (`scripts/checks/check_commits.py :: BOT_IDENTITIES`, and
-[`templates.md`](templates.md) for what else that identity releases there). Work is never signed as
-AI-generated, which overrides any tool default appending a `Co-Authored-By` line.
+Work is never signed as AI-generated, which overrides any tool default appending a
+`Co-Authored-By` line.
 
-**The trailer's two halves are checked in different places.** Its shape is checked wherever a
-message is, the `commit-msg` hook included. Whether the diff _asks_ for one is checked only where
-the commit exists — the gate's `--docs` scope and CI's `commits` job, both reading `base..HEAD`. The
-hook cannot ask: at `commit-msg` time the commit has no diff, and the staged one is measured against
-the commit being replaced under `git commit --amend` and during a `rebase -i` reword, so a hook
-reading it would refuse the very message that repairs a trailer.
+**The `commit-msg` hook is the only reader of a message.** Commits are never rewritten, so a
+message is correct before it is committed or stays wrong, and a finding against one already pushed
+is corrected in the pull request body. `git config core.hooksPath .githooks` installs the hook, with
+every other hook in that folder, and it runs `scripts/checks/check_commits.py`. The checker judges
+the whole message and, for the `Closes:` trailer, the staged diff
+(`scripts/checks/check_commits.py :: staged_departures`), which is the new commit's own diff for a
+plain commit, for `git commit -C <sha>` or `-F` after `git cherry-pick -n` — the landing flow, so a
+commit is judged in full when it becomes permanent — and for a commit after
+`git reset --soft HEAD~1`. It refuses on a failure, and prints each finding the list below marks
+_reported_ as a notice on a message it lets through, the one moment a notice can still be acted on.
 
-`scripts/checks/check_commits.py` reads the message three times over — as a `commit-msg` hook when
-you write it, in the `--docs` gate scope before you push, and in CI on every pull request — and
-reads the branch's own commits, never history, which predates the convention. **Only a refusal
-reaches the hook** (`scripts/checks/check_commits.py :: check_message_file`), so every finding the
-list below marks _reported_ passes the hook in silence and first appears at the gate, where the
-reword it asks for costs a rebase. `git config core.hooksPath .githooks` installs every hook in that
-folder, this one among them, and **a fresh clone has none until that is run** — until then the gate
-and CI are the only checks.
+**What the hook never sees:** a committing `git cherry-pick` without `-n` and a non-interactive
+`git rebase`, neither of which runs it; a commit made on GitHub, Dependabot's among them; a clone
+that never set `core.hooksPath`; and a commit made with `--no-verify`. **Under
+`git commit --amend` the staged diff is the amend's delta against the commit being replaced**, and
+nothing git hands the hook tells an amend apart from a plain commit, so an amend of a closing commit
+is refused as carrying a spurious trailer. The refusal names its own route, `git reset --soft
+HEAD~1` then `git commit -F`, which stages the whole change against the parent.
 
 [`templates.md`](templates.md) holds the form and what the checker refuses outright.
 Beyond that list:
@@ -135,15 +136,9 @@ Beyond that list:
   (`scripts/checks/check_commits.py :: GLUED_TRAILER_RE`). Glued to the prose above it the line is
   prose to git, so the paragraph is no trailer block at all and every arm reading that block — the
   three comparing the message to the diff included — sees an absent trailer rather than a broken
-  one. It is a shape, so the `commit-msg` hook runs it.
-- A `Closes:` line whose value is not a token — a serial id, a heading slug, a mis-cased trailer
-  name — is refused where it stands (`scripts/checks/check_commits.py :: CLOSES_RE`).
-- A body recording no verification is reported, not refused — and not reported at all for a commit
-  Dependabot wrote, whose generator records none and has no way to.
-- Merge and revert subjects are skipped — they are git's.
-- **The bot exemption drops three rules and no more**: the sign-off, the wrapped body, and the
-  missing-verification report. Everything else answers for Dependabot as for anyone — I4 included,
-  so a bot commit with no body is still refused.
+  one.
+- A body recording no verification is reported, not refused.
+- A message git is composing — a merge's, or a `git revert --no-commit`'s — is skipped: it is git's.
 
 ### 1.4 Pull requests
 
@@ -191,15 +186,10 @@ at anything under it from a body.
 ./scripts/gate/verify.sh
 ```
 
-A bare invocation runs everything; scope flags name surfaces and combine. The scope table, what each
-scope runs and what it needs, the `--serial` oracle that its ordering is measured against, the diff
-check that refuses an undersized scope and the CI job mapping are all in
+A bare invocation runs everything, and it is the run a pull request is called ready to merge on
+(`.claude/CLAUDE.md` §2); scope flags name surfaces and combine, for iterating. The scope table, what each scope runs and what it needs, the `--serial`
+oracle that its ordering is measured against and the CI job mapping are all in
 [`../ops/spec.md`](../ops/spec.md) §1.6, which owns `scripts/`.
-
-`.githooks/pre-push` prints, at the moment of a push, the scopes CI would run for it. It maps
-against the remote's default branch, a **stand-in** for the target the pull request will name, so a
-branch chained onto another topic branch is over-reported; it blocks nothing on any path, its own
-failure included. §1.3's `core.hooksPath` line installs it.
 
 > **Verify formatting with a gate run whose scope includes the formatter —
 > `./scripts/gate/verify.sh --format`, or any run that implies it, such as `--frontend` or
@@ -218,8 +208,6 @@ failure included. §1.3's `core.hooksPath` line installs it.
 > repository name, and is empty at the repository root: `github/codeql-action/init` reads
 > `init/action.yml`, while the bare `action.yml` at that repository's root describes a different
 > action and returns 200 all the same. Release _pages_ render dynamically and summarise unreliably.
-> The first CI run failed instantly on `astral-sh/setup-uv@v9`, a version that has never existed,
-> taken from a bad reading of a release page.
 
 ### 1.6 Repository settings
 
@@ -228,26 +216,26 @@ repository destroys them. Every row mirrors a live panel that moves without us, 
 current as the commit that last wrote it, which `git blame` names. The ruleset is a single branch
 ruleset targeting the default branch, enforcement **Active**.
 
-| Setting                               | Value                                                                                  | Panel                        |
-| ------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------- |
-| Allow merge commits                   | on                                                                                     | General → Pull Requests      |
-| Allow squash merging                  | **off**                                                                                | General → Pull Requests      |
-| Allow rebase merging                  | **off**                                                                                | General → Pull Requests      |
-| Automatically delete head branches    | on                                                                                     | General → Pull Requests      |
-| Restrict deletions                    | on                                                                                     | Rules → Rulesets             |
-| Block force pushes                    | on                                                                                     | Rules → Rulesets             |
-| Require a pull request before merging | on, required approvals **`0`**                                                         | Rules → Rulesets             |
-| Require status checks to pass         | on — **`verify`**, **`db`**, **`pr-body`**                                             | Rules → Rulesets             |
-| Require branches up to date to merge  | **off**                                                                                | Rules → Rulesets             |
-| Require linear history                | **off**                                                                                | Rules → Rulesets             |
-| Bypass list                           | **empty**                                                                              | Rules → Rulesets             |
-| Actions permissions                   | GitHub-authored, plus `pnpm/action-setup@*`, `pnpm/setup@*` and `astral-sh/setup-uv@*` | Actions → General            |
-| Require actions pinned to a SHA       | **off** — recommended on, see below                                                    | Actions → General            |
-| Fork pull request workflows           | require approval for all outside collaborators                                         | Actions → General            |
-| Default workflow permissions          | read-only; Actions may not create or approve pull requests                             | Actions → General            |
-| Secret scanning, push protection      | on                                                                                     | Security → Advanced Security |
-| Dependabot alerts, security updates   | on                                                                                     | Security → Advanced Security |
-| Code scanning                         | advanced setup; `.github/workflows/codeql.yml` is what enables it                      | Security → Advanced Security |
+| Setting                               | Value                                                                                                                                                                                                     | Panel                        |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| Allow merge commits                   | on                                                                                                                                                                                                        | General → Pull Requests      |
+| Allow squash merging                  | **off**                                                                                                                                                                                                   | General → Pull Requests      |
+| Allow rebase merging                  | **off**                                                                                                                                                                                                   | General → Pull Requests      |
+| Automatically delete head branches    | on                                                                                                                                                                                                        | General → Pull Requests      |
+| Restrict deletions                    | on                                                                                                                                                                                                        | Rules → Rulesets             |
+| Block force pushes                    | on                                                                                                                                                                                                        | Rules → Rulesets             |
+| Require a pull request before merging | on, required approvals **`0`**                                                                                                                                                                            | Rules → Rulesets             |
+| Require status checks to pass         | on — **`verify`**, **`db`**, **`pr-body`**                                                                                                                                                                | Rules → Rulesets             |
+| Require branches up to date to merge  | **off**                                                                                                                                                                                                   | Rules → Rulesets             |
+| Require linear history                | **off**                                                                                                                                                                                                   | Rules → Rulesets             |
+| Bypass list                           | **empty**                                                                                                                                                                                                 | Rules → Rulesets             |
+| Actions permissions                   | GitHub-authored, plus `pnpm/action-setup@*`, `pnpm/setup@*`, `astral-sh/setup-uv@*`, `docker/setup-buildx-action@*`, `docker/login-action@*`, `docker/metadata-action@*` and `docker/build-push-action@*` | Actions → General            |
+| Require actions pinned to a SHA       | **off** — recommended on, see below                                                                                                                                                                       | Actions → General            |
+| Fork pull request workflows           | require approval for all outside collaborators                                                                                                                                                            | Actions → General            |
+| Default workflow permissions          | read-only; Actions may not create or approve pull requests                                                                                                                                                | Actions → General            |
+| Secret scanning, push protection      | on                                                                                                                                                                                                        | Security → Advanced Security |
+| Dependabot alerts, security updates   | on                                                                                                                                                                                                        | Security → Advanced Security |
+| Code scanning                         | advanced setup; `.github/workflows/codeql.yml` is what enables it                                                                                                                                         | Security → Advanced Security |
 
 Locally, `git branch -d short-kebab-name` after the pull. The traps attached to those values:
 
@@ -302,9 +290,10 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
   a pull request proposes it, and its own **commit prefix**, so the messages keep
   [`templates.md`](templates.md)'s shape. The intervals, the cooldown and the prefixes are in that
   file; what is here is why they are the same everywhere.
-- **Every workflow triggers on `pull_request`, never `pull_request_target`**, so a fork's run
-  receives no secrets and no write token. Each declares its own `permissions:` block, and the
-  read-only default is what one that forgets inherits.
+- **Every workflow a pull request starts triggers on `pull_request`, never `pull_request_target`**,
+  so a fork's run receives no secrets and no write token; `publish.yml` is started by hand alone.
+  Each declares its own `permissions:` block, and the read-only default is what one that forgets
+  inherits.
 - **Secret scanning matches known provider token formats**, so it catches neither
   `INTERNAL_API_KEY_*` nor `AUTH_SECRET`. What protects those is `.env*` being gitignored and
   excluded from both Docker build contexts.
@@ -316,36 +305,32 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
 
 ## 2. Invariants
 
-| #   | Invariant                                                     | Enforced by                                           |
-| --- | ------------------------------------------------------------- | ----------------------------------------------------- |
-| I1  | `main` takes changes only through a pull request              | the ruleset                                           |
-| I2  | Merge commits are the only permitted merge method             | Settings → General, and linear history off            |
-| I3  | Every pull request a person opens is opened as a draft        | convention; a draft cannot be merged                  |
-| I4  | Every commit on a branch carries a body                       | `scripts/checks/check_commits.py`                     |
-| I5  | No commit is signed as AI-generated                           | `scripts/checks/check_commits.py :: BANNED`           |
-| I6  | The gate's scope is checked against the diff before it runs   | `scripts/checks/check_scope.py`                       |
-| I7  | Required status checks are added by hand in the ruleset panel | the ruleset                                           |
-| I8  | Every action is pinned to a full commit SHA                   | review of `.github/workflows/` and `.github/actions/` |
-| I9  | Every workflow triggers on `pull_request`                     | `.github/workflows/`                                  |
-| I10 | The ruleset's bypass list is empty                            | the ruleset                                           |
-| I11 | A commit retiring a roadmap entry names it, and only then     | `scripts/checks/check_commits.py :: check_message`    |
+| #   | Invariant                                                       | Enforced by                                           |
+| --- | --------------------------------------------------------------- | ----------------------------------------------------- |
+| I1  | `main` takes changes only through a pull request                | the ruleset                                           |
+| I2  | Merge commits are the only permitted merge method               | Settings → General, and linear history off            |
+| I3  | Every pull request a person opens is opened as a draft          | convention; a draft cannot be merged                  |
+| I4  | Every commit on a branch carries a body                         | `scripts/checks/check_commits.py`                     |
+| I5  | No commit is signed as AI-generated                             | `scripts/checks/check_commits.py :: BANNED`           |
+| I7  | Required status checks are added by hand in the ruleset panel   | the ruleset                                           |
+| I8  | Every action is pinned to a full commit SHA                     | review of `.github/workflows/` and `.github/actions/` |
+| I9  | Every workflow a pull request starts triggers on `pull_request` | `.github/workflows/`                                  |
+| I10 | The ruleset's bypass list is empty                              | the ruleset                                           |
+| I11 | A commit retiring a roadmap entry names it, and only then       | `scripts/checks/check_commits.py :: check_message`    |
 
 ## 3. Violation → remedy
 
-| Symptom                                                                                             | Cause                                                                                                                                                    | Remedy                                                                                                                          |
-| --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `remote rejected ... repository rule violations` on push                                            | The ruleset: `main` takes changes only through a pull request                                                                                            | Mark the commits on a branch, rewind local `main`, push the branch — the commands are under this table                          |
-| `git pull` refuses to fast-forward                                                                  | Local `main` has drifted                                                                                                                                 | Stop and look. `--ff-only` failing is the signal, not the problem                                                               |
-| A `git bisect` over `fl_frontend/` fails at a commit for a reason unrelated to what is being hunted | A test file imports the refusal register before the commit adding it; `git log --diff-filter=A --follow` on its path, run from `main`, names that commit | Return 125 from the bisect script there; its only frontend change outside comments is that test file, so the skip hides nothing |
-| The gate refuses a run naming too few scopes                                                        | The branch touches a packaging path                                                                                                                      | Run the full form, images included                                                                                              |
-| The gate reports surfaces it did not prove                                                          | A scoped run mid-work                                                                                                                                    | Expected. Report it rather than suppressing it                                                                                  |
-| A commit is refused by the `commit-msg` hook                                                        | No body, an unwrapped line, a malformed subject, a trailer the convention does not admit                                                                 | Rewrite the message to [`templates.md`](templates.md); `git commit -F` recovers a draft                                         |
-| The gate refuses a message the `commit-msg` hook passed                                             | A `Closes:` trailer missing, spurious, or naming an entry the diff kept — the arms the hook has no diff to run (§1.3)                                    | Read the finding: it names what the diff retired beside what the message claimed                                                |
-| The gate reports a subject or a scope the hook passed                                               | A report-severity finding is filtered out of the hook's own output and survives to the gate (§1.3)                                                       | Reword — a rebase once pushed. Read a subject's length and its scope before committing, not after                               |
-| A pull request check named `pr-body` fails                                                          | The body indexes commits instead of summarising                                                                                                          | Rewrite the body; `gh pr edit --body-file` updates it in place                                                                  |
-| A merge button is greyed out with every check green                                                 | The pull request is still a draft                                                                                                                        | Marking it ready is the review, and it is mine                                                                                  |
-| CI fails instantly on an action reference                                                           | The pin resolves to nothing — a version that never existed, or an annotated tag's own object instead of the commit under it                              | Resolve the tag to its commit and read `action.yml` at that SHA before writing the pin (§1.5)                                   |
-| A job dies at a `uses:` line before any of its steps run                                            | That action is not on the Actions allowlist                                                                                                              | Add it in Actions → General and re-run; §1.6 records the list                                                                   |
+| Symptom                                                  | Cause                                                                                                                       | Remedy                                                                                                 |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `remote rejected ... repository rule violations` on push | The ruleset: `main` takes changes only through a pull request                                                               | Mark the commits on a branch, rewind local `main`, push the branch — the commands are under this table |
+| `git pull` refuses to fast-forward                       | Local `main` has drifted                                                                                                    | Stop and look. `--ff-only` failing is the signal, not the problem                                      |
+| The gate reports surfaces it did not prove               | A scoped run mid-work                                                                                                       | Expected. Report it rather than suppressing it                                                         |
+| A commit is refused by the `commit-msg` hook             | No body, an unwrapped line, a malformed subject, a trailer the convention does not admit                                    | Rewrite the message to [`templates.md`](templates.md); `git commit -F` recovers a draft                |
+| An amend of a closing commit is refused                  | Under `git commit --amend` the hook reads the amend's delta, which retires nothing (§1.3)                                   | `git reset --soft HEAD~1`, then `git commit -F` with the same message                                  |
+| A pull request check named `pr-body` fails               | The body indexes commits instead of summarising                                                                             | Rewrite the body; `gh pr edit --body-file` updates it in place                                         |
+| A merge button is greyed out with every check green      | The pull request is still a draft                                                                                           | Marking it ready is the review, and it is mine                                                         |
+| CI fails instantly on an action reference                | The pin resolves to nothing — a version that never existed, or an annotated tag's own object instead of the commit under it | Resolve the tag to its commit and read `action.yml` at that SHA before writing the pin (§1.5)          |
+| A job dies at a `uses:` line before any of its steps run | That action is not on the Actions allowlist                                                                                 | Add it in Actions → General and re-run; §1.6 records the list                                          |
 
 **Recovering commits already made on local `main`:**
 
@@ -364,5 +349,4 @@ so neither the commits nor the working tree are at risk.
 | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Deployment is manual, and merging does not trigger it                  | Deliberate. The gap between merged and live is worth more than the automation on a site I own and operate alone        |
 | Repository settings are unversioned                                    | GitHub offers no export. §1.6 is the only record, and it is checked by re-reading, never by a gate                     |
-| The `--ops` scope alone omits the commit-message check                 | CI closes the gap with a `commits` job nothing filters by path, since a commit message has no path to filter on        |
 | Nothing checks that a commit's frontend imports resolve at that commit | Deliberate. One such commit is a skip (§3); a second reaching `main` is the argument for a per-commit resolution check |

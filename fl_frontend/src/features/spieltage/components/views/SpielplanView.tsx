@@ -1,11 +1,11 @@
 "use client";
 
-import { Tabs } from "@heroui/react";
+import { Tabs } from "@heroui/react/tabs";
 
 import { SpielCardsList } from "@/features/spiele/components/collections/SpielCardsList";
 import { SpielCardGrid } from "@/features/spiele/components/ui/SpielCardGrid";
-import { TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
-import { CARDS_CASCADE, PAGE_RISE } from "@/shared/components/ui/motion";
+import { TAB_INDICATOR_CLASSES, TAB_ITEM_CLASSES, TAB_TRACK_CLASSES } from "@/shared/components/ui/formFieldStyles";
+import { CARDS_CASCADE_CLASSES, PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 
 import { spieltagLabels } from "../../utils";
@@ -40,18 +40,18 @@ export function SpielplanView({
   return (
     // Height from the content, so the page does not jump between Spieltage of different sizes. The
     // arrival animation is here rather than per panel: this mounts once per visit.
-    <Tabs className={`${PAGE_RISE} relative flex w-full flex-1 flex-col items-center`}>
+    <Tabs className={`${PAGE_RISE_CLASSES} relative flex w-full flex-1 flex-col items-center`}>
       {/* `Tabs.ListContainer` sits inside the sticky bar holding only the track, which is what its
           chevron buttons position against. The fuller note is in `AdminSpieleActionRequiredView`. */}
-      <div className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8">
-        <div className="max-w-toolbar flex w-full flex-row items-center justify-center">
+      <div className="sticky top-0 z-20 flex w-full flex-col items-center bg-background px-4 py-4 sm:px-8 lg:py-8">
+        <div className="flex w-full max-w-toolbar flex-row items-center justify-center">
           {/* **No `overflow-x-auto` or `scrollbar-hide` here.** The chevrons show only while the
               `ScrollShadow` reports the strip can scroll, detected by letting the list grow — a
               self-scrolling list hides that and no chevron appears. */}
           <Tabs.ListContainer className="max-w-full min-w-0 bg-transparent [&>div]:max-w-full [&>div]:min-w-0 [&>div]:[--scroll-shadow-size:24px]!">
             {/* `min-w-fit` undoes the container's `min-w-full`, whose floor stretched the track
                 across the whole rail; `w-max` lets the list outgrow it. */}
-            <Tabs.List className={`${TAB_TRACK} flex w-max min-w-fit flex-row items-center gap-1 p-1.5 shadow-sm`}>
+            <Tabs.List className={`${TAB_TRACK_CLASSES} flex w-max min-w-fit flex-row items-center gap-1 p-1.5 shadow-sm`}>
               {spielplanData.spieltage.map((spieltagData) => {
                 return (
                   <Tabs.Tab
@@ -59,9 +59,9 @@ export function SpielplanView({
                     id={spieltagData.id}
                     /* `w-fit` undoes HeroUI's `w-full` on `.tabs__tab` — left at full width inside
                        a `min-w-full` list, six Spieltage share the rail as six equal slabs. */
-                    className={`${TAB_ITEM} flex h-11 w-fit items-center px-5 whitespace-nowrap md:px-6`}>
+                    className={`${TAB_ITEM_CLASSES} flex h-11 w-fit items-center px-5 whitespace-nowrap md:px-6`}>
                     {labels.get(spieltagData.id)?.label}
-                    <Tabs.Indicator className={TAB_INDICATOR} />
+                    <Tabs.Indicator className={TAB_INDICATOR_CLASSES} />
                   </Tabs.Tab>
                 );
               })}
@@ -82,7 +82,7 @@ export function SpielplanView({
               Spieltag's card sat, so a single fade reads as the content mutating in place. */}
           <SpielCardGrid
             role="list"
-            className={CARDS_CASCADE}>
+            className={CARDS_CASCADE_CLASSES}>
             <SpielCardsList
               spiele={[...spieltagData.spiele].sort((spiel1, spiel2) => spiel1.spiel_nr - spiel2.spiel_nr)}
               today={today}

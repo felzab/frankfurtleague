@@ -2,6 +2,8 @@ import json
 import math
 import re
 import string
+from bisect import bisect_right
+from collections.abc import Callable, Iterator
 from itertools import product
 from pathlib import Path
 from typing import Annotated, Any, Final, NamedTuple, get_args
@@ -12,7 +14,7 @@ from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
 
 from app.api.aktionen.schemas import HERKUNFT_JE_KIND
 from app.api.bewerbungen import schemas as bewerbungen_schemas
-from app.api.bewerbungen import services as bewerbungen_services
+from app.api.bewerbungen.services import BEWERBUNG_LAUFENDE_FASSUNG
 from app.api.saisons.schemas import TeamsPerGroup
 from app.api.spiele.schemas import MAX_QUALIFIERS
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
@@ -38,8 +40,14 @@ from app.shared.schemas.custom import (
 REPO_ROOT: Final = Path(__file__).resolve().parents[3]
 FRONTEND_SRC: Final = REPO_ROOT / "fl_frontend" / "src"
 
-# What a frontend comment writes when it says a number below it was retyped from this package.
-MIRROR_CLAIM: Final = "bounds.py"
+# What a frontend comment writes when it says a number below it was retyped from this package: the
+# file beside the verb, so prose may cite the file for any other reason.
+MIRROR_SOURCE: Final = "bounds.py"
+MIRROR_VERB: Final = re.compile(r"\b(?:[Mm]irror(?:ed|ing|s)?|[Rr]etyped|[Cc]opied)\b")
+
+
+def _claims_a_mirror(block: str) -> bool:
+    return MIRROR_SOURCE in block and MIRROR_VERB.search(block) is not None
 
 
 class Mirror(NamedTuple):
@@ -75,12 +83,12 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/teams/constants.ts", "KONTAKT_NAME_MAX_LENGTH", "KONTAKT_NAME_MAX_LENGTH"),
     Mirror("features/teams/constants.ts", "EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH", "EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH"),
     Mirror("features/spiele/constants.ts", "NOTIZ_MAX_LENGTH", "SPIEL_NOTIZ_MAX_LENGTH"),
+    Mirror("features/spiele/constants.ts", "PAARUNGEN_MAX", "LIST_LIMIT_DEFAULT"),
     Mirror("features/saisons/constants.ts", "SAISON_ID_LENGTH", "SAISON_ID_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_TOKEN_MAX_LENGTH", "BEWERBUNG_TOKEN_MAX_LENGTH"),
     Mirror("features/sperrliste/constants.ts", "SPERRLISTE_GRUND_MAX_LENGTH", "SPERRLISTE_GRUND_MAX_LENGTH"),
     Mirror("features/schiedsrichter/constants.ts", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE", "SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE"),
     Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE", "REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE"),
-    Mirror("features/registrierungen/constants.ts", "REGISTRIERUNG_ERINNERUNG_TAGE", "REGISTRIERUNG_ERINNERUNG_TAGE"),
     # These three mirror the published notice's sentences and never a payload schema: each confirmation
     # view states its floors off the answer it was served, and neither
     # `buildRegistrierungBestaetigungPayloadSchema` nor its referee twin carries a bound of its own.
@@ -95,16 +103,15 @@ MIRRORED_BOUNDS: Final = (
 # Every integer `bounds.py` declares that no frontend module retypes, with why none does. A bound in
 # neither register fails the direction below rather than reading as covered.
 UNMIRRORED_BOUNDS: Final[dict[str, str]] = {
-    "LIST_LIMIT_DEFAULT": "the page size a read applies for a caller that asks for none",
     "LIST_LIMIT_MAX": "the ceiling on what a caller may ask for; every frontend read sends the size it needs or none",
     "AKTION_RETENTION_SECONDS": (
         "the log index's own `expireAfterSeconds`; the privacy notice states it by hand in months, which no count of seconds is exactly"
     ),
+    "REGISTRIERUNG_ERINNERUNG_TAGE": "the day the sweep reminds a pupil, which no frontend page or mail states",
 }
 
 MIRRORED_MODULES: Final = tuple(dict.fromkeys(mirror.module for mirror in MIRRORED_BOUNDS))
 
-COMMENT_OPENERS: Final = ("/**", "*/", "*", "//")
 ANY_EXPORT: Final = re.compile(r"^export const (?P<name>[A-Z][A-Z0-9_]*)\b")
 
 
@@ -114,28 +121,91 @@ def _source(module: str) -> str:
     return (FRONTEND_SRC / module).read_text(encoding="utf-8")
 
 
-def _attributed(source: str, declaration: re.Pattern[str], claim: str) -> set[str]:
-    """Every name `declaration` matches whose own comment block names `claim`.
+def _comment_spans(source: str) -> Iterator[tuple[int, int]]:
+    """The offsets of every comment, a `/* */` taking every line it crosses whatever that line opens with."""
+
+    at = 0
+    while at < len(source):
+        opener = source[at : at + 2]
+        if opener in ("//", "/*"):
+            end = source.find("\n" if opener == "//" else "*/", at + 2)
+            to = len(source) if end == -1 else end if opener == "//" else end + 2
+            yield at, to
+            at = to
+            continue
+        # Skipped whole, as `fl_frontend/src/core/blankComments.ts :: blankComments` skips them, so a
+        # `//` inside a URL opens nothing.
+        quote = source[at]
+        if quote in "\"'`":
+            at += 1
+            # Ended at the line but for a template literal: a JSX apostrophe read as a quote swallows the
+            # rest of its own line and never a comment below it.
+            while at < len(source) and source[at] != quote and (quote == "`" or source[at] != "\n"):
+                at += 2 if source[at] == "\\" else 1
+        at += 1
+
+
+class Comment(NamedTuple):
+    text: str
+    # The line indexes whose declarations this comment governs.
+    governs: range
+
+
+def _comments(source: str) -> list[Comment]:
+    """Every comment unit, read by its offsets rather than by lines, beside the lines it governs."""
+
+    spans = list(_comment_spans(source))
+    code = list(source)
+    for start, end in spans:
+        for at in range(start, end):
+            if source[at] != "\n":
+                code[at] = " "
+    code_lines = "".join(code).split("\n")
+    starts = [0]
+    for line in code_lines[:-1]:
+        starts.append(starts[-1] + len(line) + 1)
+
+    def line_of(offset: int) -> int:
+        return bisect_right(starts, offset) - 1
+
+    blocks: list[tuple[str, int, int]] = []
+    inline: list[Comment] = []
+    for start, end in spans:
+        first, last = line_of(start), line_of(end - 1)
+        text = " ".join(part.strip() for part in source[start:end].split("\n"))
+        # Beside code on either end, a comment is one unit however many lines it crosses, governing
+        # the declarations it sits on and never those below.
+        if code_lines[first][: start - starts[first]].strip() or code_lines[last][end - starts[last] :].strip():
+            inline.append(Comment(text, range(first, last + 1)))
+        # A comment on lines of its own joins the block ending on the line above; a blank line parts them.
+        elif blocks and first <= blocks[-1][2] + 1:
+            blocks[-1] = (f"{blocks[-1][0]} {text}", blocks[-1][1], last)
+        else:
+            blocks.append((text, first, last))
+
+    # A block governs every declaration below it up to the next block, statements between them included.
+    ends = [first for _, first, _ in blocks[1:]] + [len(code_lines)]
+    return [Comment(text, range(last + 1, following)) for (text, _, last), following in zip(blocks, ends, strict=False)] + inline
+
+
+def _blocks(source: str) -> Iterator[tuple[str, str]]:
+    """Each line beside the comment text governing it: the block above it, and a comment it sits in."""
+
+    governing = [""] * len(source.split("\n"))
+    for comment in _comments(source):
+        for index in comment.governs:
+            governing[index] = f"{governing[index]} {comment.text}".strip()
+    yield from zip(source.split("\n"), governing, strict=True)
+
+
+def _attributed(source: str, declaration: re.Pattern[str], claims: Callable[[str], bool]) -> set[str]:
+    """Every name `declaration` matches whose own comment block `claims` accepts.
 
     One reader for the bounds and the patterns alike, so a claim the two directions read differently
     cannot be covered by one and passed over by the other.
     """
 
-    named: set[str] = set()
-    block = ""
-    was_comment = False
-    for line in source.splitlines():
-        stripped = line.strip()
-        is_comment = stripped.startswith(COMMENT_OPENERS)
-        if is_comment:
-            # Only a comment after code opens a new block: a claim governs every declaration below it
-            # up to the next comment, blank lines and statements between them included.
-            block = f"{block} {stripped}" if was_comment else stripped
-        was_comment = is_comment
-        found = declaration.match(line)
-        if found is not None and claim in block:
-            named.add(found["name"])
-    return named
+    return {found["name"] for line, block in _blocks(source) if (found := declaration.match(line)) is not None and claims(block)}
 
 
 def _claimed_mirrors(source: str) -> set[str]:
@@ -145,7 +215,7 @@ def _claimed_mirrors(source: str) -> set[str]:
     number comparison enforces.
     """
 
-    return _attributed(source, ANY_EXPORT, MIRROR_CLAIM)
+    return _attributed(source, ANY_EXPORT, _claims_a_mirror)
 
 
 def _declared_bounds() -> dict[str, int]:
@@ -154,15 +224,63 @@ def _declared_bounds() -> dict[str, int]:
     return {name: value for name, value in vars(bounds).items() if name.isupper() and isinstance(value, int)}
 
 
-def _modules_naming_the_source() -> set[str]:
-    """Every non-test frontend module whose prose names `bounds.py`, which is the claim this register has to cover."""
+ESLINT_CONFIG: Final = REPO_ROOT / "fl_frontend" / "eslint.config.mjs"
 
+# `fl_frontend/eslint.config.mjs :: specifierOf` throws on any other shape, so a `TEST_ONLY` group
+# writes a module or a directory and nothing else.
+SUITE_GLOB: Final = re.compile(r'"\*\*/(?P<name>[\w.-]+)(?P<directory>/\*\*)?"')
+
+
+class SuiteOnly(NamedTuple):
+    modules: frozenset[str]
+    directories: frozenset[str]
+
+
+def _suite_only() -> SuiteOnly:
+    """What `fl_frontend/eslint.config.mjs :: TEST_ONLY` keeps out of production, read rather than retyped."""
+
+    config = ESLINT_CONFIG.read_text(encoding="utf-8")
+    block = config[config.index("const TEST_ONLY = [") :]
+    block = block[: block.index("\n];")]
+    globs = list(SUITE_GLOB.finditer(block))
+    # Counted against every `**/` spelling, so a shape the reader cannot take fails rather than drops.
+    assert len(globs) == block.count('"**/'), f"{ESLINT_CONFIG.name}'s TEST_ONLY writes a glob this reader cannot take"
+    return SuiteOnly(
+        modules=frozenset(found["name"] for found in globs if found["directory"] is None and found["name"].endswith((".ts", ".tsx"))),
+        directories=frozenset(found["name"] for found in globs if found["directory"] is not None),
+    )
+
+
+def _production_modules() -> dict[str, str]:
+    """Every frontend module's text but the suite's own, by its path under `src/`.
+
+    A test double or the harness taken as production could carry the only mention a floor below counts.
+    """
+
+    suite = _suite_only()
     return {
-        path.relative_to(FRONTEND_SRC).as_posix()
+        path.relative_to(FRONTEND_SRC).as_posix(): path.read_text(encoding="utf-8")
         for path in FRONTEND_SRC.rglob("*.ts*")
         if not path.name.endswith((".test.ts", ".test.tsx"))
-        if MIRROR_CLAIM in path.read_text(encoding="utf-8")
+        and path.name not in suite.modules
+        and suite.directories.isdisjoint(path.relative_to(FRONTEND_SRC).parts[:-1])
     }
+
+
+def _modules_naming_the_source() -> set[str]:
+    """Every non-test frontend module any of whose comments claims a mirror, whether or not the claim governs a constant."""
+
+    return {module for module, source in _production_modules().items() if any(_claims_a_mirror(comment.text) for comment in _comments(source))}
+
+
+def test_every_module_the_lint_config_keeps_to_the_suite_is_one_the_walk_meets():
+    """A reader that took nothing off the config, or a stale name, would leave the suite's modules in the production walk."""
+
+    suite = _suite_only()
+    present = {path.name for path in FRONTEND_SRC.rglob("*.ts*")}
+
+    assert suite.modules, f"no module was read off {ESLINT_CONFIG.name}'s TEST_ONLY"
+    assert suite.modules <= present, f"{sorted(suite.modules - present)} are kept to the suite and exist nowhere under src/"
 
 
 @pytest.mark.parametrize("mirror", MIRRORED_BOUNDS, ids=lambda mirror: f"{mirror.python}->{mirror.typescript}")
@@ -197,9 +315,47 @@ def test_every_bound_this_package_declares_is_paired_or_named_unmirrored():
 
 
 def test_every_module_claiming_a_mirror_is_one_this_register_covers():
-    """The other direction: a fifth module retyping a bound would otherwise be compared by nothing and read as covered."""
+    """The other direction: a fifth module retyping a bound would otherwise be compared by nothing and read as covered.
+
+    Listed by any claim, so an unregistered module fails here even where no claim of it reaches a constant.
+    """
 
     assert _modules_naming_the_source() == set(MIRRORED_MODULES)
+
+
+def test_every_mirror_claim_governs_a_constant_the_register_reads():
+    """In a registered module, a claim reaching no `export const` is dropped by the attribution while its siblings pass.
+
+    A non-exported constant, a lower-case name and a declaration spread over lines are each that claim.
+    """
+
+    def stranded(source: str) -> list[str]:
+        lines = source.split("\n")
+        claims = (comment for comment in _comments(source) if _claims_a_mirror(comment.text))
+        return [claim.text for claim in claims if not any(ANY_EXPORT.match(lines[index]) for index in claim.governs)]
+
+    found = {module: texts for module, source in _production_modules().items() if (texts := stranded(source))}
+
+    assert not found, f"these claims reach no `export const`, so no case compares them: {found}"
+
+
+def test_every_mention_of_the_source_is_read_as_a_comment():
+    """Raw text against the scanner every case above reads through.
+
+    That scanner models no regular-expression literal and no `${}` in a template, and a comment either
+    swallows loses its claim everywhere but here.
+    """
+
+    def unread(source: str) -> list[int]:
+        spans = list(_comment_spans(source))
+        mentions = (found.start() for found in re.finditer(re.escape(MIRROR_SOURCE), source))
+        return [at for at in mentions if not any(start <= at < end for start, end in spans)]
+
+    naming = {module: source for module, source in _production_modules().items() if MIRROR_SOURCE in source}
+    found = {module: offsets for module, source in naming.items() if (offsets := unread(source))}
+
+    assert naming, f"no frontend module names {MIRROR_SOURCE}, so this case reads nothing"
+    assert not found, f"{MIRROR_SOURCE} is named outside every comment the scanner found, at these offsets: {found}"
 
 
 @pytest.mark.parametrize("module", MIRRORED_MODULES)
@@ -209,7 +365,7 @@ def test_every_constant_a_module_says_it_mirrors_is_declared_here(module: str):
     claimed = _claimed_mirrors(_source(module))
     declared = {mirror.typescript for mirror in MIRRORED_BOUNDS if mirror.module == module}
 
-    assert claimed, f"{module} names {MIRROR_CLAIM} and no claim was attributed to any constant in it"
+    assert claimed, f"{module} claims a mirror of {MIRROR_SOURCE} and no claim was attributed to any constant in it"
     assert claimed <= declared, f"{module} claims {sorted(claimed - declared)}, which this register does not pair with anything"
 
 
@@ -236,6 +392,28 @@ def test_every_mirrored_sentinel_agrees_on_the_value(module: str, name: str, dec
 
     assert found is not None, f"{module} no longer exports {name} as a bare lowercase-hex string"
     assert found[1] == declared, f"{name} disagrees with the backend's sentinel"
+
+
+# The record the public form reads the label it stamps on every seat from.
+RUNNING_LABEL: Final = ("core/einwilligung.ts", "LIGA_KENNTNISNAHME")
+
+
+def test_the_form_stamps_the_label_the_submission_admits():
+    """A label the form stamps and the endpoint does not hold refuses every application; the reverse admits a page older than the deploy.
+
+    Read through the record's own `textVersion`, so a record pointed at another constant is still compared.
+    """
+
+    module, record = RUNNING_LABEL
+    source = _source(module)
+    pointer = re.search(rf"^export const {record} = \{{\n  textVersion: (?P<name>[A-Z][A-Z0-9_]*),$", source, re.MULTILINE)
+
+    assert pointer is not None, f"{module} no longer spells {record}'s textVersion as one constant"
+
+    label = re.search(rf'^const {pointer["name"]} = "(?P<label>[^"]+)";$', source, re.MULTILINE)
+
+    assert label is not None, f"{module} no longer declares {pointer['name']} as one string"
+    assert label["label"] == BEWERBUNG_LAUFENDE_FASSUNG, f"{record} stamps a label `find_veraltete_fassung_refusal` refuses"
 
 
 class ModelBound(NamedTuple):
@@ -456,47 +634,6 @@ def _object_literal(module: str, name: str) -> dict[str, str]:
     assert closes is not None, f"{module} no longer closes {name} at the start of a line"
 
     return {row["key"]: row["value"] for row in OBJECT_ROW.finditer(source[opens.end() : closes.start()])}
-
-
-# The seat-to-floor assignment, which `MIRRORED_BOUNDS` cannot reach: that register pairs integers by
-# name, and what drifts here is which seat takes which of two correct numbers.
-SEAT_FLOORS: Final = ("features/bewerbungen/constants.ts", "SEAT_MIN_ALTER")
-
-INTEGER_ROW: Final = re.compile(r"^ +(?P<key>[a-z_]+): (?P<value>[A-Z][A-Z0-9_]*),$", re.MULTILINE)
-
-
-def _named_integer_literal(module: str, name: str) -> dict[str, int]:
-    """One frontend object literal whose values are named integers, resolved through that module's own exports."""
-
-    source = _source(module)
-    opens = re.search(rf"^export const {name}[^=]*= \{{$", source, re.MULTILINE)
-
-    assert opens is not None, f"{module} no longer opens {name} as an object literal on one line"
-
-    closes = OBJECT_CLOSE.search(source, opens.end())
-
-    assert closes is not None, f"{module} no longer closes {name} at the start of a line"
-
-    resolved: dict[str, int] = {}
-    for row in INTEGER_ROW.finditer(source[opens.end() : closes.start()]):
-        found = re.search(rf"^export const {row['value']} = (\d+);$", source, re.MULTILINE)
-
-        assert found is not None, f"{name}.{row['key']} names {row['value']}, which {module} does not export as a bare integer"
-        resolved[row["key"]] = int(found[1])
-
-    return resolved
-
-
-def test_every_seat_takes_the_floor_this_package_gives_it():
-    """A seat handed the other of two correct numbers offers a date the confirmation endpoint refuses, with every number test green."""
-
-    module, name = SEAT_FLOORS
-    offered = _named_integer_literal(module, name)
-
-    assert offered, f"{module} no longer spells {name} as one named integer per row, so this case compares nothing"
-    assert offered == dict(bewerbungen_services.SEAT_MIN_AGE_YEARS), (
-        f"{name} offers {sorted(offered.items())}, where this package judges {sorted(bewerbungen_services.SEAT_MIN_AGE_YEARS.items())}"
-    )
 
 
 def test_the_log_files_every_actor_kind_under_the_origin_this_package_files_it_under():
@@ -1215,13 +1352,11 @@ UNMIRRORED_PATTERNS: Final[dict[str, str]] = {
 def _claimed_pattern_mirrors() -> set[tuple[str, str]]:
     """Every frontend regular-expression constant whose own comment block names a module in this package."""
 
-    claimed: set[tuple[str, str]] = set()
-    for path in FRONTEND_SRC.rglob("*.ts*"):
-        if path.name.endswith((".test.ts", ".test.tsx")):
-            continue
-        module = path.relative_to(FRONTEND_SRC).as_posix()
-        claimed.update((module, name) for name in _attributed(path.read_text(encoding="utf-8"), REGEX_EXPORT, PATTERN_CLAIM))
-    return claimed
+    return {
+        (module, name)
+        for module, source in _production_modules().items()
+        for name in _attributed(source, REGEX_EXPORT, lambda block: PATTERN_CLAIM in block)
+    }
 
 
 def _declared_backend_patterns() -> set[str]:

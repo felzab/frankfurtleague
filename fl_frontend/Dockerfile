@@ -1,7 +1,8 @@
 # FRONTEND · the site image
 
-# The OS layer the build and the runtime share, so anything added here ships in the image.
-FROM node:26-alpine3.24 AS base
+# The OS layer the build and the runtime share, so anything added here ships in the image. Tag and
+# digest, which Dependabot moves together (`docs/ops/spec.md` §1.1).
+FROM node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS base
 
 # libc6-compat for Alpine's native C binaries (SWC while building, image optimization while
 # serving); tini for PID 1 signal routing -> a stop signal reaches node, which exits on it
@@ -14,7 +15,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # 57 MB of installer no CMD invokes, and CI/PNPM_HOME are build-time answers that have no business
 # in a production process environment.
 FROM base AS toolchain
-ARG PNPM_VERSION=11.25.0
+ARG PNPM_VERSION=11.27.1
 
 RUN npm install -g pnpm@${PNPM_VERSION}
 
@@ -48,7 +49,10 @@ ENV SKIP_ENV_VALIDATION=true
 # scope, and `new MongoClient(undefined)` throws.
 ENV MONGODB_URI=mongodb://localhost:27017/placeholder
 
-COPY . .
+# Everything but what `deps` installed from: pnpm's dependency check fails a patch written after the
+# install it validated, and a `deps` layer restored from the cache ran its install before this
+# context was checked out.
+COPY --exclude=patches --exclude=package.json --exclude=pnpm-lock.yaml --exclude=pnpm-workspace.yaml* . .
 
 # Emitted rather than kept by hand: a tracked copy of the schema's names would be a second artefact
 # to keep current, and this one cannot disagree with the schema the same image was built from.

@@ -1,5 +1,6 @@
 import { buildBewerbungBestaetigungEmail, buildBewerbungEingangOffenEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
+import { IDEMPOTENCY_KEY_HEADER } from "@/core/idempotencyKey";
 import { bestaetigungsLink } from "@/features/bewerbungen/bestaetigungLink";
 import { BEWERBUNG_SEATS } from "@/features/bewerbungen/constants";
 import { postBewerbung } from "@/features/bewerbungen/mutations";
@@ -16,7 +17,6 @@ import { BEWERBUNG_VERALTET, empfangsSitze, mapBewerbungSubmitRefusal } from "@/
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
-import { IDEMPOTENCY_KEY_HEADER } from "@/shared/utils/publicSubmit";
 import { buildRefusal } from "@/shared/utils/refusal";
 
 import type { BewerbungSeat } from "@/core/bewerbungEmail";
@@ -35,6 +35,9 @@ export async function POST(request: NextRequest) {
     routeName: "postBewerbung",
     run: async () => {
       const body: unknown = await request.json().catch(() => null);
+
+      // No label check here, unlike the three confirmation handlers: the backend judges the label after
+      // its replay lookup, and one here would refuse a retry whose first press is stored (`REQ-BEWERBUNG-016`).
       const parsed = FLPostBewerbungPayloadSchema.safeParse(body);
 
       if (!parsed.success) return { success: false as const, ...refusedDraftAnswer(parsed.error, BEWERBUNG_VERALTET) };

@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { SpielDetailsModal } from "@/features/spiele/components/modals/SpielDetailsModal";
 import { SpielCardUltraCompact } from "@/features/spiele/components/ui/SpielCardUltraCompact";
-import { BRACKET_SWEEP } from "@/shared/components/ui/motion";
+import { BRACKET_SWEEP_CLASSES } from "@/shared/components/ui/motion";
 import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 
 import { orderRoundsByWiring, spieltagLabels } from "../../utils";
@@ -14,7 +14,7 @@ import type { FLSpieltagWithSpiele } from "../../schemas";
 
 // A round's share of the scroller once the `gap-8` gutters are out, capped at 380px, so every round is on
 // screen wherever all of them fit at the floor. One literal per count: Tailwind emits only whole class names.
-const COLUMN_WIDTH_BY_ROUNDS: Readonly<Record<number, string>> = {
+const COLUMN_WIDTH_BY_ROUNDS_CLASSES: Readonly<Record<number, string>> = {
   1: "w-[clamp(min(85cqw,19.5rem),100cqw,380px)]",
   2: "w-[clamp(min(85cqw,19.5rem),calc((100cqw-2rem)/2),380px)]",
   3: "w-[clamp(min(85cqw,19.5rem),calc((100cqw-4rem)/3),380px)]",
@@ -23,7 +23,7 @@ const COLUMN_WIDTH_BY_ROUNDS: Readonly<Record<number, string>> = {
 
 // At 19.5rem a `SpielCardUltraCompact` holds „WO“ and a shoot-out beside its date at its largest type;
 // `85cqw` keeps the next round peeking in on a phone. „Verlierer von Spiel 29“ takes three lines at either.
-const COLUMN_FLOOR = "w-[min(85cqw,19.5rem)]";
+const COLUMN_FLOOR_CLASSES = "w-[min(85cqw,19.5rem)]";
 
 /**
  * **One modal instance for the whole bracket, driven by which Spiel is selected** — a modal per card
@@ -60,7 +60,7 @@ export function PlayoffsView({
   // From the served list, not from `rounds`: the label reads each matchday's own `position`, so the
   // column order the wiring imposes cannot renumber anything.
   const labels = spieltagLabels(playoffsSpieltage);
-  const columnWidth = COLUMN_WIDTH_BY_ROUNDS[rounds.length] ?? COLUMN_FLOOR;
+  const columnWidth = COLUMN_WIDTH_BY_ROUNDS_CLASSES[rounds.length] ?? COLUMN_FLOOR_CLASSES;
 
   return (
     // The sweep below is the whole arrival: a second fade over the same frames would compound with it.
@@ -73,12 +73,12 @@ export function PlayoffsView({
           nearest column. */}
       <div className="@container w-full overflow-x-auto px-4 md:px-8 pointer-coarse:snap-x pointer-coarse:snap-mandatory">
         {/* On the row and not the scroller: the sweep steps its direct children, which are the rounds. */}
-        <div className={`${BRACKET_SWEEP} mx-auto flex h-fit w-max flex-row items-stretch gap-8`}>
+        <div className={`${BRACKET_SWEEP_CLASSES} mx-auto flex h-fit w-max flex-row items-stretch gap-8`}>
           {rounds.map((playoffsSpieltag, roundIndex) => (
             <div
               key={playoffsSpieltag.id}
               className={`${columnWidth} flex shrink-0 snap-center flex-col items-center`}>
-              <h2 className="bg-surface border-border text-foreground fluid-sm my-4 w-fit rounded-xl border px-6 py-2 font-bold tracking-wide uppercase shadow-sm">
+              <h2 className="my-4 w-fit rounded-xl border border-border bg-surface px-6 py-2 fluid-sm font-bold tracking-wide text-foreground uppercase shadow-sm">
                 {labels.get(playoffsSpieltag.id)?.label}
               </h2>
 
@@ -95,19 +95,19 @@ export function PlayoffsView({
                       key={spielData.id}
                       className="relative flex w-full flex-1 flex-col justify-center py-3">
                       {/* The inbound line, joining this match to the round it was fed from. */}
-                      {!isFirstRound && <div className="bg-border absolute top-[calc(50%-1px)] -left-4 h-[2px] w-4" />}
+                      {!isFirstRound && <div className="absolute top-[calc(50%-1px)] -left-4 h-[2px] w-4 bg-border" />}
 
                       {!isLastRound && (
                         <>
                           {isTopNode && hasPartner && (
-                            <div className="border-border absolute top-[calc(50%-1px)] -right-4 h-[calc(50%+1px)] w-4 rounded-tr-xl border-t-2 border-r-2" />
+                            <div className="absolute top-[calc(50%-1px)] -right-4 h-[calc(50%+1px)] w-4 rounded-tr-xl border-t-2 border-r-2 border-border" />
                           )}
 
                           {isBottomNode && (
-                            <div className="border-border absolute -right-4 bottom-[calc(50%-1px)] h-[calc(50%+1px)] w-4 rounded-br-xl border-r-2 border-b-2" />
+                            <div className="absolute -right-4 bottom-[calc(50%-1px)] h-[calc(50%+1px)] w-4 rounded-br-xl border-r-2 border-b-2 border-border" />
                           )}
 
-                          {isTopNode && !hasPartner && <div className="bg-border absolute top-[calc(50%-1px)] -right-4 h-[2px] w-4" />}
+                          {isTopNode && !hasPartner && <div className="absolute top-[calc(50%-1px)] -right-4 h-[2px] w-4 bg-border" />}
                         </>
                       )}
 

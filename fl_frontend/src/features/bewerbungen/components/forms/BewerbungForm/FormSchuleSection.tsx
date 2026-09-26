@@ -2,19 +2,13 @@
 
 import { useId, useState } from "react";
 
-import {
-  Autocomplete,
-  FieldError,
-  Input,
-  Label,
-  ListBox,
-  NumberField,
-  SearchField,
-  Select,
-  Separator,
-  TextField,
-  useFilter,
-} from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { ListBox } from "@heroui/react/list-box";
+import { useFilter } from "@heroui/react/rac";
+import { SearchField } from "@heroui/react/search-field";
+import { Separator } from "@heroui/react/separator";
 
 import { dismissControl } from "@/core/dismissControl";
 import {
@@ -34,36 +28,39 @@ import {
   WEBSITE_URL_SCHEME,
 } from "@/features/teams/constants";
 import { AddressFields } from "@/shared/components/ui/AddressFields";
+import { Autocomplete } from "@/shared/components/ui/Autocomplete";
 import {
-  FIELD_COUNT_INPUT,
-  FIELD_ERROR,
-  FIELD_GROUP,
-  FIELD_INPUT,
-  FIELD_LABEL,
-  FIELD_PAIR,
-  FIELD_TRIGGER,
-  FORM_SECTION_HEADING,
+  FIELD_COUNT_INPUT_CLASSES,
+  FIELD_ERROR_CLASSES,
+  FIELD_GROUP_CLASSES,
+  FIELD_INPUT_CLASSES,
+  FIELD_LABEL_CLASSES,
+  FIELD_PAIR_CLASSES,
+  FIELD_TRIGGER_CLASSES,
+  FORM_SECTION_HEADING_CLASSES,
 } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { NumberField } from "@/shared/components/ui/NumberField";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
-import { enteredNumber } from "@/shared/utils/numberField";
+import { Select } from "@/shared/components/ui/Select";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import type { BewerbungSchuleDraft } from "@/features/bewerbungen/types";
 import type { FLSchulform } from "@/features/teams/schemas";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 /** The clubs' own row in the picker, `PickOrCreateAutocomplete`'s so the two lists read alike. */
-const SCHULE_ITEM = "fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2";
+const SCHULE_ITEM_CLASSES = "cursor-pointer rounded-lg px-3 py-2 fluid-xs data-hovered:bg-hover";
 
 /**
  * The sentinel's row: the SAME box as every other option, distinguished only by what cannot change
  * its shape. A border on one row reads as a half-border — a rule between two rows is a separator
  * element between them, never an edge on one.
  */
-const NICHT_IN_LISTE_ITEM = `${SCHULE_ITEM} text-brand font-semibold`;
+const NICHT_IN_LISTE_ITEM_CLASSES = `${SCHULE_ITEM_CLASSES} font-semibold text-brand`;
 
 /** The lead line under the picker, where the list has nothing to offer and the reason differs. */
 const LISTE_LEER = "Die Liga führt noch keine Schule. Wähle die Option oben und trage Deine selbst ein.";
@@ -136,9 +133,6 @@ export function FormSchuleSection({
   const listeHinweisId = useId();
   const kuerzelHinweisId = useId();
   const adressHinweisId = useId();
-  const stufenHinweisId = useId();
-  const teamNameHinweisId = useId();
-  const kuerzelErklaerungId = useId();
   const listeHinweis = !isSchulenLesbar ? LISTE_UNLESBAR : schulen.length === 0 ? LISTE_LEER : null;
 
   return (
@@ -162,11 +156,13 @@ export function FormSchuleSection({
         {/* OUTSIDE the new-school branch below: a school picking a club it already holds answers this
             too, and behind that branch the box would be unrendered for such a school, so the refusal
             naming it would mark nothing. */}
-        <div className={FIELD_PAIR}>
+        <div className={FIELD_PAIR_CLASSES}>
           <div className="flex w-full flex-col">
             {/* `name="team_id"`, because that is the path the payload and every server refusal spell the
                 picked club under — including the two that arrive as a whole-record rule. */}
             <Autocomplete
+              // Marked by hand: the pair rule refuses no club and no new school under this path, which
+              // the field's own nullable schema cannot state.
               isRequired
               name="team_id"
               aria-describedby={listeHinweis !== null ? listeHinweisId : undefined}
@@ -177,9 +173,9 @@ export function FormSchuleSection({
               isOpen={isOpen}
               onOpenChange={setIsOpen}
               onChange={(key: Key | null) => onAuswahlPicked(key === null ? null : key.toString())}>
-              <Label className={FIELD_LABEL}>Deine Schule</Label>
-              <Autocomplete.Trigger className={FIELD_TRIGGER}>
-                <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
+              <Label className={FIELD_LABEL_CLASSES}>Deine Schule</Label>
+              <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
+                <Autocomplete.Value className="min-w-0 truncate fluid-sm" />
                 {/* `ms-2` rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
                     truncated name ends against this button (`docs/frontend/spec.md` I61). `hover: "css"`
                     because HeroUI renders this as a plain `<button>`. */}
@@ -189,7 +185,7 @@ export function FormSchuleSection({
                 />
                 <Autocomplete.Indicator />
               </Autocomplete.Trigger>
-              <FieldError className={FIELD_ERROR} />
+              <FieldError className={FIELD_ERROR_CLASSES} />
 
               <Autocomplete.Popover className={overlayPanel()}>
                 <Autocomplete.Filter filter={filter}>
@@ -199,7 +195,7 @@ export function FormSchuleSection({
                     className="p-2">
                     {/* The panel's own fill, not a recessed one: the border alone says "field", and
                         `--border-control` clears 1.4.11's 3:1 on `--bg-surface` and not on `--bg-muted`. */}
-                    <SearchField.Group className="border-control bg-surface rounded-lg border px-2 py-1.5 transition-colors duration-(--motion-base)">
+                    <SearchField.Group className="rounded-lg border border-control bg-surface px-2 py-1.5 transition-colors duration-(--motion-base)">
                       <SearchField.SearchIcon />
                       <SearchField.Input
                         placeholder="Schule finden..."
@@ -217,7 +213,7 @@ export function FormSchuleSection({
                     <ListBox.Item
                       id={SCHULE_NICHT_IN_LISTE}
                       textValue={SCHULE_NICHT_IN_LISTE_LABEL}
-                      className={NICHT_IN_LISTE_ITEM}>
+                      className={NICHT_IN_LISTE_ITEM_CLASSES}>
                       {SCHULE_NICHT_IN_LISTE_LABEL}
                       {/* As every school row carries: without it, picking this option is the one
                           selection in the list that leaves no mark on the row it was made on. */}
@@ -234,7 +230,7 @@ export function FormSchuleSection({
                         key={eintrag.id}
                         id={eintrag.id}
                         textValue={eintrag.name}
-                        className={SCHULE_ITEM}>
+                        className={SCHULE_ITEM_CLASSES}>
                         {eintrag.name}
                         <ListBox.ItemIndicator />
                       </ListBox.Item>
@@ -249,150 +245,132 @@ export function FormSchuleSection({
             {listeHinweis !== null && (
               <p
                 id={listeHinweisId}
-                className="fluid-xxs text-foreground-muted mt-1 font-medium">
+                className="mt-1 fluid-xxs font-medium text-foreground-muted">
                 {listeHinweis}
               </p>
             )}
           </div>
 
-          {/* The hint rides in the same grid cell as its box, so it stays under that box rather than
-              under the picker beside it. */}
-          <div className="flex w-full flex-col gap-y-1">
-            {/* The payload's own two numbers and never a second judgement: `.claude/rules/cross-surface.md`,
-                never offer in the form what the write path refuses. */}
-            <NumberField
-              isRequired
-              name="stufengroesse"
-              aria-describedby={stufenHinweisId}
-              minValue={1}
-              maxValue={BEWERBUNG_STUFENGROESSE_MAX}
-              value={stufengroesse ?? NaN}
-              onChange={(next) => onStufengroesseChange(enteredNumber(next))}
-              onBlur={() => onFieldLeft(["stufengroesse"])}>
-              <Label className={FIELD_LABEL}>Größe der Stufe</Label>
-              <NumberField.Group className={FIELD_GROUP}>
-                <NumberField.DecrementButton />
-                <NumberField.Input className={FIELD_COUNT_INPUT} />
-                <NumberField.IncrementButton />
-              </NumberField.Group>
-              <FieldError className={FIELD_ERROR} />
-            </NumberField>
+          {/* The payload's own two numbers and never a second judgement: `.claude/rules/cross-surface.md`,
+              never offer in the form what the write path refuses. */}
+          <NumberField
+            name="stufengroesse"
+            minValue={1}
+            maxValue={BEWERBUNG_STUFENGROESSE_MAX}
+            value={stufengroesse}
+            onChange={(next) => onStufengroesseChange(next)}
+            onBlur={() => onFieldLeft(["stufengroesse"])}>
+            <Label className={FIELD_LABEL_CLASSES}>Größe der Stufe</Label>
+            <NumberField.Group className={FIELD_GROUP_CLASSES}>
+              <NumberField.DecrementButton />
+              <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
+              <NumberField.IncrementButton />
+            </NumberField.Group>
+            <FieldError className={FIELD_ERROR_CLASSES} />
             <Hint
-              mode="inline"
-              describes={stufenHinweisId}
+              mode="field"
               text="Alle Schülerinnen und Schüler Deines Abi-Jahrgangs, nicht nur die, die mitspielen."
             />
-          </div>
+          </NumberField>
         </div>
 
         {istNeueSchule(auswahl) && (
-          <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
-            <h3 className={FORM_SECTION_HEADING}>Neue Schule</h3>
+          <div className="flex w-full flex-col gap-y-4 border-t border-border/60 pt-4">
+            <h3 className={FORM_SECTION_HEADING_CLASSES}>Neue Schule</h3>
 
-            <div className={FIELD_PAIR}>
-              {/* At the box rather than in the panel's own hint: a school picking a club the league
-                  already holds never reaches this row, and a panel hint explaining it would answer a
-                  question that reader cannot see. */}
-              <div className="flex w-full flex-col gap-y-1">
-                <TextField
-                  isRequired
-                  name="schule.team_name"
-                  aria-describedby={teamNameHinweisId}
-                  value={schule.team_name}
-                  onChange={(next) => setSchuleFeld({ team_name: next })}
-                  onBlur={() => onFieldLeft(["schule.team_name"])}
-                  maxLength={TEAM_NAME_MAX_LENGTH}>
-                  <Label className={FIELD_LABEL}>Teamname</Label>
-                  <Input
-                    placeholder="z.B. Goethe-Gymnasium"
-                    className={FIELD_INPUT}
-                  />
-                  <FieldError className={FIELD_ERROR} />
-                </TextField>
+            <div className={FIELD_PAIR_CLASSES}>
+              <TextField
+                name="schule.team_name"
+                value={schule.team_name}
+                onChange={(next) => setSchuleFeld({ team_name: next })}
+                onBlur={() => onFieldLeft(["schule.team_name"])}
+                maxLength={TEAM_NAME_MAX_LENGTH}>
+                <Label className={FIELD_LABEL_CLASSES}>Teamname</Label>
+                <Input
+                  placeholder="z.B. Goethe-Gymnasium"
+                  className={FIELD_INPUT_CLASSES}
+                />
+                <FieldError className={FIELD_ERROR_CLASSES} />
+                {/* At the box rather than in the panel's own hint: a school picking a club the league
+                    already holds never reaches this row, and a panel hint explaining it would answer a
+                    question that reader cannot see. */}
                 <Hint
-                  mode="inline"
-                  describes={teamNameHinweisId}
+                  mode="field"
                   text="Die kurze Form, die in Tabelle und Spielplan steht."
                 />
-              </div>
+              </TextField>
 
               <TextField
-                isRequired
                 name="schule.full_name"
                 value={schule.full_name}
                 onChange={(next) => setSchuleFeld({ full_name: next })}
                 onBlur={() => onFieldLeft(["schule.full_name"])}
                 maxLength={TEAM_FULL_NAME_MAX_LENGTH}>
-                <Label className={FIELD_LABEL}>Vollständiger Schulname</Label>
+                <Label className={FIELD_LABEL_CLASSES}>Vollständiger Schulname</Label>
                 <Input
                   placeholder="z.B. Johann-Wolfgang-von-Goethe-Gymnasium"
-                  className={FIELD_INPUT}
+                  className={FIELD_INPUT_CLASSES}
                 />
-                <FieldError className={FIELD_ERROR} />
+                <FieldError className={FIELD_ERROR_CLASSES} />
               </TextField>
             </div>
 
-            <div className={FIELD_PAIR}>
+            <div className={FIELD_PAIR_CLASSES}>
               {/* Uppercased as it is typed, as the club editor does it: the code is unique across every
                   club, retired ones included, so a case variant must not look like a different value. */}
-              {/* Both ids while the check has something to say: the standing explanation and the
-                  verdict on this code are two different sentences, and naming one alone drops the
+              {/* The verdict's id while the check has something to say, beside the explanation the
+                  description slot names: two different sentences, and naming one alone drops the
                   other for a reader who cannot see either. */}
-              <div className="flex w-full flex-col gap-y-1">
-                <TextField
-                  isRequired
-                  name="schule.shorthand"
-                  aria-describedby={kuerzelHinweis === null ? kuerzelErklaerungId : `${kuerzelErklaerungId} ${kuerzelHinweisId}`}
-                  value={schule.shorthand}
-                  onChange={(next) => setSchuleFeld({ shorthand: next.toUpperCase() })}
-                  onBlur={() => {
-                    onFieldLeft(["schule.shorthand"]);
-                    onKuerzelLeft(schule.shorthand);
-                  }}>
-                  {/* A WISH, like the shirt colour beside it: the league hands the code out, and the one
-                      it hands out is another one where this is taken. */}
-                  <Label className={FIELD_LABEL}>Wunschkürzel</Label>
-                  <Input
-                    placeholder="z.B. GG"
-                    maxLength={KUERZEL_LAENGE}
-                    className={FIELD_INPUT}
-                  />
-                  <FieldError className={FIELD_ERROR} />
-                  {/* Under the box rather than beside it: the row is a two-up grid from `sm` up, and a
-                      line beside the field would push its neighbour out of the column. */}
-                  {kuerzelHinweis !== null && (
-                    <p
-                      id={kuerzelHinweisId}
-                      className="fluid-xxs text-foreground-muted font-medium">
-                      {kuerzelHinweis}
-                    </p>
-                  )}
-                </TextField>
+              <TextField
+                name="schule.shorthand"
+                aria-describedby={kuerzelHinweis === null ? undefined : kuerzelHinweisId}
+                value={schule.shorthand}
+                onChange={(next) => setSchuleFeld({ shorthand: next.toUpperCase() })}
+                onBlur={() => {
+                  onFieldLeft(["schule.shorthand"]);
+                  onKuerzelLeft(schule.shorthand);
+                }}>
+                {/* A WISH, like the shirt colour beside it: the league hands the code out, and the one
+                    it hands out is another one where this is taken. */}
+                <Label className={FIELD_LABEL_CLASSES}>Wunschkürzel</Label>
+                <Input
+                  placeholder="z.B. GG"
+                  maxLength={KUERZEL_LAENGE}
+                  className={FIELD_INPUT_CLASSES}
+                />
+                <FieldError className={FIELD_ERROR_CLASSES} />
+                {/* Under the box rather than beside it: the row is a two-up grid from `sm` up, and a
+                    line beside the field would push its neighbour out of the column. */}
+                {kuerzelHinweis !== null && (
+                  <p
+                    id={kuerzelHinweisId}
+                    className="fluid-xxs font-medium text-foreground-muted">
+                    {kuerzelHinweis}
+                  </p>
+                )}
                 <Hint
-                  mode="inline"
-                  describes={kuerzelErklaerungId}
+                  mode="field"
                   text="Zwei Buchstaben, mit denen Tabelle und Spielplan Dein Team abkürzen."
                 />
-              </div>
+              </TextField>
 
               {/* Judged on CHANGE rather than on blur, as every picked field is: a selection is complete
                   the moment it is made. */}
               <Select
-                isRequired
                 name="schule.schulform"
                 value={schule.schulform}
                 onChange={handleSchulformChange}
                 className="w-full">
-                <Label className={FIELD_LABEL}>Schulform</Label>
-                <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+                <Label className={FIELD_LABEL_CLASSES}>Schulform</Label>
+                <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
                   {/* From the prop, not `Select.Value` — the collection can lag a render behind and
                       would then show HeroUI's English placeholder. */}
                   <span className={schule.schulform ? "" : "text-foreground-muted"}>
                     {schule.schulform ? schulformLabel(schule.schulform) : "Bitte auswählen"}
                   </span>
-                  <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+                  <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
                 </Select.Trigger>
-                <FieldError className={FIELD_ERROR} />
+                <FieldError className={FIELD_ERROR_CLASSES} />
                 <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
                   <ListBox aria-label="Schulformen">
                     {SCHULFORM_OPTIONS.map((option) => (
@@ -419,20 +397,19 @@ export function FormSchuleSection({
               onFieldLeft={() => onFieldLeft(["schule.website_url"])}
             />
 
-            <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
-              <h3 className={FORM_SECTION_HEADING}>Adresse der Schule</h3>
+            <div className="flex w-full flex-col gap-y-4 border-t border-border/60 pt-4">
+              <h3 className={FORM_SECTION_HEADING_CLASSES}>Adresse der Schule</h3>
               {/* Not copy to trim: the address stays public, and the form says so where it is asked
                   for. The rule stands where the read serves it
                   (`fl_backend/app/api/teams/schemas.py :: _TeamWritable`). */}
               <p
                 id={adressHinweisId}
-                className="fluid-xxs text-foreground-muted leading-relaxed font-medium text-pretty">
+                className="fluid-xxs leading-relaxed font-medium text-pretty text-foreground-muted">
                 Die Adresse, die Du hier einträgst, steht nach der Aufnahme in die Liga öffentlich auf der Teamseite Deiner Schule.
               </p>
               {/* Neither `errors` nor `renderLabel`: the `<Form validationErrors>` above distributes by
                   field name, and this page holds no draft markers for a label to carry. */}
               <AddressFields
-                isStadtteilRequired
                 describedById={adressHinweisId}
                 value={schule.address}
                 namePrefix="schule.address"

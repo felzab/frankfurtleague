@@ -2,7 +2,7 @@ import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
-import { APIBadStatusError } from "@/core/errors";
+import { isRecordMissing } from "@/core/errors";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { FLSaisonsListResponseSchema, FLSaisonsSingleResponseSchema } from "./schemas";
@@ -32,17 +32,6 @@ export const getAdminSaisons = cache(async (): Promise<FLSaisonsListResponse> =>
   runWithIncomingTrace(() => apiClient<FLSaisonsListResponse>("/saisons/list/admin", FLSaisonsListResponseSchema, { authType: "admin" })),
 );
 
-export async function getCurrentSaison(): Promise<FLSaisonsSingleResponse> {
-  "use cache";
-
-  cacheTag("saisons");
-  cacheLife("days");
-
-  return apiClient<FLSaisonsSingleResponse>("/saisons/current", FLSaisonsSingleResponseSchema, {
-    cacheFill: { name: "getCurrentSaison", args: {} },
-  });
-}
-
 /**
  * `null` where no season is marked active: the backend answers that with a 404 rather than an
  * empty body (`fl_backend/app/api/saisons/crud.py :: pull_current_saison`). A stored absence
@@ -60,7 +49,7 @@ export async function getCurrentSaisonOrNull(): Promise<FLSaisonsSingleResponse 
     // Inside the cache scope: an error thrown out of one reaches the caller redacted to a digest,
     // so a catch at the call site cannot recognise it
     // (`fl_frontend/src/features/teams/queries.ts :: getTeam`).
-    if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
+    if (isRecordMissing(error)) return null;
     throw error;
   });
 }

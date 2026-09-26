@@ -3,12 +3,14 @@
 import { memo } from "react";
 import Link from "next/link";
 
-import { Globe, Magnifier, Pencil } from "@gravity-ui/icons";
+import Globe from "@gravity-ui/icons/Globe";
+import Magnifier from "@gravity-ui/icons/Magnifier";
+import Pencil from "@gravity-ui/icons/Pencil";
 
 import { PHASE_LABELS, SAISON_PHASE_OPTIONS } from "@/features/saisons/constants";
 import { describeSpieltageCount } from "@/features/saisons/utils";
 import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
-import { BRAND_TILE } from "@/shared/components/ui/brandTile";
+import { BRAND_TILE_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -96,7 +98,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
     const noun = progress.erwartet === 1 ? "Spieltag" : "Spieltagen";
 
     return (
-      <span className="fluid-xs text-warning-strong font-medium">
+      <span className="fluid-xs font-medium text-warning-strong">
         {progress.angelegt} von {progress.erwartet} {noun}
       </span>
     );
@@ -162,7 +164,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                 <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3">
                   <span
                     aria-hidden="true"
-                    className={`${BRAND_TILE} font-numeric fluid-sm font-extrabold tabular-nums`}>
+                    className={`${BRAND_TILE_CLASSES} font-numeric fluid-sm font-extrabold tabular-nums`}>
                     {spieltag.position}
                   </span>
 
@@ -170,7 +172,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                     {/* The position is decorative for a screen reader — the list order already carries it,
                         and reading "1" before every name is noise. The name is the row's accessible
                         identity, which is what the action labels name too. */}
-                    <span className="fluid-sm text-foreground truncate font-semibold">{spieltag.label}</span>
+                    <span className="truncate fluid-sm font-semibold text-foreground">{spieltag.label}</span>
                     {/* The undated matchday comes FIRST: its two nulls are equal, so the one-day
                         branch below would render its absence as a single placeholder date. A range
                         repeating one date twice reads as two facts. */}
@@ -186,7 +188,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
                   </div>
                 </div>
 
-                <div className="border-border/50 -mx-1 border-t pt-2 md:mx-0 md:shrink-0 md:border-t-0 md:pt-0">{renderActions(spieltag)}</div>
+                <div className="-mx-1 border-t border-border/50 pt-2 md:mx-0 md:shrink-0 md:border-t-0 md:pt-0">{renderActions(spieltag)}</div>
               </li>
             ))}
           </ul>
@@ -203,7 +205,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
       {saisonId !== null && (
         <Link
           href={`/dashboard/spielplan?saison_id=${encodeURIComponent(saisonId)}`}
-          className="border-border bg-surface text-foreground hover:bg-hover fluid-xs flex h-10 w-fit items-center gap-x-2 rounded-xl border px-4 font-bold shadow-sm transition-colors">
+          className="flex h-10 w-fit items-center gap-x-2 rounded-xl border border-border bg-surface px-4 fluid-xs font-bold text-foreground shadow-sm transition-colors hover:bg-hover">
           <Globe
             className="size-4"
             aria-hidden="true"

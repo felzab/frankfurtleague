@@ -2,23 +2,22 @@
 
 import { useEffect, useId, useLayoutEffect, useRef } from "react";
 
-import { CircleInfo } from "@gravity-ui/icons";
-
-import { Popover } from "@heroui/react";
+import { Description } from "@heroui/react/description";
+import { Popover } from "@heroui/react/popover";
 
 import { useHoverOpenOverlay } from "@/shared/hooks/useHoverOpenOverlay";
 
-import { HINT_SURFACE } from "./hintSurface";
-import { hintTrigger } from "./hintTrigger";
+import { HINT_SURFACE_CLASSES } from "./hintSurface";
+import { HintPanel, HintPopover } from "./InfoHint";
 import { overlayPanel } from "./overlayPanel";
 
 import type { ReactNode, RefObject } from "react";
 
-/**
- * The bold run is a field rather than markup inside `text`, so `hintCap.test.ts` can count what a
- * hint says. A `ReactNode` bullet is unmeasurable, and an uncounted hint grows without a bound.
- */
 type HintPoint = { term?: string; text: string };
+
+// The scale is spelled out and not `muted-hint`, which is `fluid-sm`: this paragraph sits under a control and
+// pairs with the same sentence on a mirrored panel, where two type steps apart read as two designs.
+const FIELD_HINT_CLASSES = "fluid-xxs leading-normal font-medium text-foreground-muted";
 
 /** A lead and four bullets, together about 350 characters. Longer is a document, not a popover. */
 type HintBody = {
@@ -37,16 +36,17 @@ type HintBody = {
 };
 
 type HintProps =
-  /** Rendered in the flow, so mounting one on a keystroke shifts the layout under somebody typing. */
-  | {
-      mode: "inline";
-      text: string;
-      /**
-       * The `id` this paragraph publishes, carried by the control it explains in `aria-describedby`.
-       * Required so no hint lands describing nothing, and `hintCap.test.ts` looks for the other end.
-       */
-      describes: string;
-    }
+  /**
+   * A child of the field it explains, as react-aria's description slot: the field names it in its own
+   * `aria-describedby`, which a hint placed anywhere else never reaches. In the flow, so mounting one
+   * on a keystroke shifts the layout.
+   */
+  | { mode: "field"; text: string }
+  /**
+   * Beside a control that cannot hold it, publishing the `id` that control carries in `aria-describedby`.
+   * Each site names why the control cannot.
+   */
+  | { mode: "inline"; text: string; describes: string }
   /**
    * For a hint that owns its own press. A control that owns one keeps `IconTooltip`, whose panel a
    * modal popover would steal the press of.
@@ -75,13 +75,20 @@ type HintProps =
  * Grade one in the editor's `banners.ts` instead.
  */
 export function Hint(props: HintProps) {
+  if (props.mode === "field")
+    return (
+      <Description
+        elementType="p"
+        className={FIELD_HINT_CLASSES}>
+        {props.text}
+      </Description>
+    );
+
   if (props.mode === "inline")
     return (
-      // The scale is spelled out and not `muted-hint`, which is `fluid-sm`: this paragraph sits under a control and
-      // pairs with the same sentence on a mirrored panel, where two type steps apart read as two designs.
       <p
         id={props.describes}
-        className="fluid-xxs text-foreground-muted leading-normal font-medium">
+        className={FIELD_HINT_CLASSES}>
         {props.text}
       </p>
     );
@@ -105,58 +112,29 @@ export function Hint(props: HintProps) {
   );
 }
 
-/**
- * **A popover rather than a tooltip because of touch**: react-aria's tooltip never opens on a tap, so
- * on a phone it is unreachable, and `useHoverOpenOverlay` adds the hover half back.
- */
+/** The capped body, in the popover `InfoHint` opens too. */
 function RevealHint({ label, body, trigger }: { label: string; body: HintBody; trigger?: ReactNode }) {
-  const { isOpen, isDialogOpen, isOpenedByHover, panelKey, onOpenChange, openFromHover, captureDialog } = useHoverOpenOverlay();
-
   return (
-    <Popover
-      isOpen={isDialogOpen}
-      onOpenChange={onOpenChange}>
-      <Popover.Trigger
-        aria-label={label}
-        className={hintTrigger({ kind: trigger ? "custom" : "glyph", isOpen })}
-        onPointerMove={openFromHover}>
-        {trigger ?? (
-          <CircleInfo
-            aria-hidden="true"
-            className="size-(--hint-icon-size)"
-          />
-        )}
-      </Popover.Trigger>
-
-      <Popover.Content
-        key={panelKey}
-        isOpen={isOpen}
-        onOpenChange={onOpenChange}
-        placement="top"
-        offset={8}
-        isNonModal={isOpenedByHover}>
-        <HintPanel
-          isOpenedByHover={isOpenedByHover}
-          panelRef={captureDialog}
-          className={`${overlayPanel()} fluid-xs text-foreground flex w-max max-w-88 flex-col gap-y-2 p-4 leading-normal font-medium outline-none`}>
-          <p>{body.lead}</p>
-          {body.points !== undefined && body.points.length > 0 && (
-            <ul className="flex flex-col gap-y-1">
-              {body.points.map((point) => (
-                <li key={point.text}>
-                  {point.term !== undefined && (
-                    <>
-                      <strong className="font-bold">{point.term}</strong>{" "}
-                    </>
-                  )}
-                  {point.text}
-                </li>
-              ))}
-            </ul>
-          )}
-        </HintPanel>
-      </Popover.Content>
-    </Popover>
+    <HintPopover
+      label={label}
+      trigger={trigger}
+      panelClassName={`${overlayPanel()} fluid-xs text-foreground flex w-max max-w-88 flex-col gap-y-2 p-4 leading-normal font-medium outline-none`}>
+      <p>{body.lead}</p>
+      {body.points !== undefined && body.points.length > 0 && (
+        <ul className="flex flex-col gap-y-1">
+          {body.points.map((point) => (
+            <li key={point.text}>
+              {point.term !== undefined && (
+                <>
+                  <strong className="font-bold">{point.term}</strong>{" "}
+                </>
+              )}
+              {point.text}
+            </li>
+          ))}
+        </ul>
+      )}
+    </HintPopover>
   );
 }
 
@@ -292,44 +270,10 @@ function RefusalOverlay({
         <HintPanel
           isOpenedByHover={isOpenedByHover}
           panelRef={captureDialog}
-          className={`${HINT_SURFACE} text-foreground leading-normal font-medium`}>
+          className={`${HINT_SURFACE_CLASSES} leading-normal font-medium text-foreground`}>
           {reason}
         </HintPanel>
       </Popover.Content>
     </Popover>
-  );
-}
-
-/**
- * **No dialog for a panel the pointer opened**: react-aria's `Dialog` takes focus on mount whatever opened it, so a
- * pointer crossing the trigger would take the field being typed in (`useHoverOpenOverlay.ts :: useHoverOpenOverlay`).
- */
-export function HintPanel({
-  isOpenedByHover,
-  panelRef,
-  className,
-  children,
-}: {
-  isOpenedByHover: boolean;
-  panelRef: (element: HTMLElement | null) => void;
-  className: string;
-  children: ReactNode;
-}) {
-  if (isOpenedByHover)
-    return (
-      <div
-        ref={panelRef}
-        className={className}>
-        {children}
-      </div>
-    );
-
-  // No `aria-label`: react-aria names the dialog by its trigger, which names the hint or the control a refusal covers.
-  return (
-    <Popover.Dialog
-      ref={panelRef}
-      className={className}>
-      {children}
-    </Popover.Dialog>
   );
 }

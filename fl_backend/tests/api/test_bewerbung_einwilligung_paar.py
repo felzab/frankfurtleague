@@ -12,8 +12,9 @@ from app.api.bewerbungen.einwilligung_router import post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
 from app.api.bewerbungen.services import BEWERBUNG_KONTAKT_ALTER, KONTAKT_SEATS, compose_bestaetigungen, hash_token
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import ADDRESS, kontaktperson_document
 from tests.worker import worker_database
 
 # Module level, as the execution suite marks its own: every test below reaches a real mongod.
@@ -36,39 +37,14 @@ AN_ADULTS_BIRTHDATE = "1984-05-09"
 # 17 years and 364 days against `TODAY`: the age the Trainer seat takes and the other two refuse.
 A_SEVENTEEN_YEAR_OLDS_BIRTHDATE = "2008-04-02"
 
-ADDRESS: Mapping[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
-
-
-def person(vorname: str) -> dict[str, Any]:
-    return {
-        "vorname": vorname,
-        "nachname": f"{vorname}-Mustermann",
-        "email": f"{vorname.lower()}@example.com",
-        "telefon": "+49 170 1234567",
-        "geburtsdatum": None,
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "administrativ",
-            "text_version": "v3",
-            "datum": "2026-03-20",
-            "bestaetigt_am": None,
-        },
-    }
-
 
 def paired_kontakte(**overrides: Any) -> dict[str, Any]:
     """The double-seated Trainer as the submission stores them: one person in two slots, which `FLBewerbungKontaktePayload` holds equal."""
 
     return {
-        "trainer": person("Wraxlington"),
-        "ansprechperson": person("Wraxlington"),
-        "stellvertretung": person("Bramblewick"),
+        "trainer": kontaktperson_document("Wraxlington"),
+        "ansprechperson": kontaktperson_document("Wraxlington"),
+        "stellvertretung": kontaktperson_document("Bramblewick"),
         "trainer_ist_zugleich": "ansprechperson",
         **overrides,
     }
@@ -189,12 +165,12 @@ class TestTheFloorIsThePersons:
     ):
         """The Trainer's link alone would take this date, and the press writes the seat that may not have it."""
 
-        held_by_the_trainer = {zweitsitz: person("Wraxlington"), "trainer_ist_zugleich": zweitsitz}
+        held_by_the_trainer = {zweitsitz: kontaktperson_document("Wraxlington"), "trainer_ist_zugleich": zweitsitz}
         other = "stellvertretung" if zweitsitz == "ansprechperson" else "ansprechperson"
-        paired = bewerbung_document(kontakte=paired_kontakte(**held_by_the_trainer, **{other: person("Bramblewick")}))
+        paired = bewerbung_document(kontakte=paired_kontakte(**held_by_the_trainer, **{other: kontaktperson_document("Bramblewick")}))
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as conflict:
+            with pytest.raises(WriteRefusalException) as conflict:
                 await answer(database, client, RAW["trainer"], geburtsdatum=A_SEVENTEEN_YEAR_OLDS_BIRTHDATE)
 
             return conflict.value.error_code, await stored(database), await log_rows(database)
@@ -213,7 +189,7 @@ class TestTheFloorIsThePersons:
 
             return response, await stored(database)
 
-        single = bewerbung_document(kontakte=paired_kontakte(trainer_ist_zugleich=None, ansprechperson=person("Quillhilde")))
+        single = bewerbung_document(kontakte=paired_kontakte(trainer_ist_zugleich=None, ansprechperson=kontaktperson_document("Quillhilde")))
         response, document = on_a_league(mongo_replica_set_url, body, documents=[single])
 
         assert response.ergebnis == "bestaetigt"

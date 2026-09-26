@@ -31,6 +31,7 @@ from app.api.spieltage.services import (
 from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import DBClient, SaisonsCollection, SpieleCollection, SpieltageCollection
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -43,7 +44,12 @@ router = APIRouter(
 
 # Two static segments, matching `GET /saisons/list/admin`. Declared before `{spieltag_id}/admin`,
 # whose only separation from this path is the `objectid` convertor (`docs/backend/spec.md :: I37`).
-@router.get("/list/admin", response_model=FLSpieltageListResponse, summary="Spieltage for the admin surfaces")
+@router.get(
+    "/list/admin",
+    response_model=FLSpieltageListResponse,
+    summary="Spieltage for the admin surfaces",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+)
 async def get_spieltage_for_admin(
     spieltage_collection: SpieltageCollection,
     saisons_collection: SaisonsCollection,
@@ -80,7 +86,12 @@ async def get_spieltage_for_admin(
 
 # A static suffix rather than a second `GET /{spieltag_id}`, as the Spiel editor's read has: the
 # public router owns that path at this same prefix, so whichever router registered first would answer both.
-@router.get(f"{by_id('spieltag_id')}/admin", response_model=FLSpieltageSingleResponse, summary="One Spieltag for the admin editor")
+@router.get(
+    f"{by_id('spieltag_id')}/admin",
+    response_model=FLSpieltageSingleResponse,
+    summary="One Spieltag for the admin editor",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+)
 async def get_spieltag_for_admin(
     spieltag_id: CustomRouteObjectId,
     spieltage_collection: SpieltageCollection,
@@ -154,7 +165,12 @@ async def _refuse_an_out_of_order_beginn(
     )
 
 
-@router.patch(by_id("spieltag_id"), response_model=FLSpieltagWriteResponse, summary="Re-date a Spieltag")
+@router.patch(
+    by_id("spieltag_id"),
+    response_model=FLSpieltagWriteResponse,
+    summary="Re-date a Spieltag",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+)
 async def patch_spieltag(
     spieltag_id: CustomRouteObjectId,
     spieltag_data: Annotated[FLPatchSpieltagPayload, Body()],

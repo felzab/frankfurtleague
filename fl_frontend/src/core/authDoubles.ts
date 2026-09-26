@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { registerHooks } from "node:module";
 
+import { doubleSendMail } from "./mailDouble.ts";
+
 export const ADMIN_EMAIL = "vorstand@example.org";
 
 /** What a request arriving at the served origin carries, matched to the config double's `AUTH_URL`. */
@@ -26,13 +28,10 @@ export function configDouble(overrides: Readonly<Record<string, unknown>> = {}):
   return `export const frontend_config = ${JSON.stringify(config)};`;
 }
 
-/* Replaced at the module boundary rather than the adapter being given a seam: the real module opens
-   a `MongoClient` at import, so loading it would reach for a server no test run holds. */
+/* Replaced here rather than the adapter being given a seam: the real client needs a `MONGODB_URI`
+   the config above omits, and with one a suite left on the real adapter would reach for a server
+   rather than fail at once. */
 const DB_DOUBLE = `export const client = { db: () => ({}) };`;
-
-// The sign-in path mails an allowlisted address on the way to a session, and a gateway no test run
-// holds would answer that send.
-const MAIL_DOUBLE = `export const sendMail = async () => ({ id: null });`;
 
 export const MEMORY_ADAPTER_URL = import.meta.resolve("better-auth/adapters/memory");
 
@@ -46,11 +45,8 @@ export const mongodbAdapter = () => memoryAdapter(globalThis.${store});`);
 
 const SERVER_ONLY_DOUBLE_URL = asDataUrl("export {};");
 
-/** A single-segment subpath such as `next/headers`, leaving a deep `next/dist/…` path to Node. */
-const NEXT_SUBPATH = /^next\/[\w-]+$/;
-
 type Doubles = {
-  /** Module sources by the `fl_frontend/src/core/<name>.ts` they replace, over the three defaults. */
+  /** Module sources by the `fl_frontend/src/core/<name>.ts` they replace, over the two defaults. */
   readonly core?: Readonly<Record<string, string>>;
   /** Module URLs by the bare specifier they replace. */
   readonly specifiers?: Readonly<Record<string, string>>;
@@ -61,8 +57,11 @@ type Doubles = {
  * with a dynamic import: a static one resolves before the hooks exist. Test-only, which
  * `no-restricted-imports` in `fl_frontend/eslint.config.mjs` holds it to.
  */
-export function registerAuthDoubles({ core = {}, specifiers = {} }: Doubles = {}): void {
-  const sources = Object.entries({ config: configDouble(), db: DB_DOUBLE, mail: MAIL_DOUBLE, ...core });
+export function registerAuthDoubles({ core = {}, specifiers = {} }: Doubles = {}): ReturnType<typeof doubleSendMail> {
+  // The mailer is always `doubleSendMail`'s, whose record this answers. A second one is refused rather
+  // than layered: two mailer hooks answer by registration order, and a suite would read whichever came last.
+  if ("mail" in core) throw new Error("The mailer is doubleSendMail's: read the record registerAuthDoubles answers.");
+  const sources = Object.entries({ config: configDouble(), db: DB_DOUBLE, ...core });
   const replaced = new Map(Object.entries(specifiers));
 
   registerHooks({
@@ -71,18 +70,72 @@ export function registerAuthDoubles({ core = {}, specifiers = {} }: Doubles = {}
       if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
       const url = replaced.get(specifier);
       if (url !== undefined) return { url: url, shortCircuit: true };
-      // `next` publishes no `exports` map, so Node's resolver has no subpath to consult and only a
-      // file path resolves. Both the library and the application import these bare.
-      if (NEXT_SUBPATH.test(specifier)) return nextResolve(`${specifier}.js`, context);
       return nextResolve(specifier, context);
     },
     load(url, context, nextLoad) {
-      // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
+      // Matched on the RESOLVED url's end, so this holds whichever order the alias hook and this one
+      // run in, and a query-suffixed url passes: both db-tier suites load the real `db.ts` that way.
       const double = sources.find(([name]) => url.endsWith(`/src/core/${name}.ts`));
       if (double !== undefined) return { format: "module", source: double[1], shortCircuit: true };
       return nextLoad(url, context);
     },
   });
+
+  return doubleSendMail();
+}
+
+/** How long a held write or read waits for the requests racing it, in both db-tier suites. */
+export const BARRIER_TIMEOUT_MS = 5000;
+
+/** Holds the first `expected` writes until all have arrived; every write after them passes. */
+export class Barrier {
+  private expected = 0;
+  private arrived = 0;
+  private waiters: (() => void)[] = [];
+  private fill: (filled: boolean) => void = () => undefined;
+
+  /**
+   * Whether every write `arm` expected arrived before any was released. A case asserts it before
+   * judging what the requests answered: one that skipped the held write ran no race.
+   */
+  filled: Promise<boolean> = Promise.resolve(false);
+
+  arm(expected: number): void {
+    this.expected = expected;
+    this.arrived = 0;
+    this.waiters = [];
+    this.filled = new Promise((resolve) => {
+      this.fill = resolve;
+    });
+  }
+
+  disarm(): void {
+    this.expected = 0;
+    for (const release of this.waiters) release();
+    this.waiters = [];
+    this.fill(false);
+  }
+
+  async arrive(): Promise<void> {
+    if (this.expected === 0 || this.arrived >= this.expected) return;
+    this.arrived += 1;
+    if (this.arrived === this.expected) {
+      this.fill(true);
+      this.disarm();
+      return;
+    }
+
+    // Bounded, so a request that never reaches a held write ends the hold rather than hanging the
+    // run. Taken now: the timer outlives this arming, and must not answer the next one's.
+    const fill = this.fill;
+    await new Promise<void>((resolve) => {
+      this.waiters.push(resolve);
+      setTimeout(() => {
+        fill(false);
+        resolve();
+      }, BARRIER_TIMEOUT_MS);
+    });
+  }
 }
 
 /** The `Cookie` header a browser would send back after this response. */

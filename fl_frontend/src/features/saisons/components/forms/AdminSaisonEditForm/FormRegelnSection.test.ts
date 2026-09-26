@@ -11,23 +11,33 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { withoutPythonComments } from "@/core/pythonComments.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { withoutPythonComments } from "@/shared/testing/refusalRegister.ts";
-import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
 
+import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus.ts";
 import type { FLSaisonRules } from "@/features/saisons/schemas.ts";
 
 doubleEveryAction();
 
 const { FormRegelnSection } = await import("./FormRegelnSection.tsx");
-const { AdminSaisonEditForm } = await import("./AdminSaisonEditForm.tsx");
+const { AdminSaisonEditView } = await import("@/features/saisons/components/views/AdminSaisonEditView.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 
 type RegelnProps = Parameters<typeof FormRegelnSection>[0];
 
-/** No descriptor for any path, which is the state the panel stands in until a save judges one. */
-const STATUS = deriveDraftStatus<null, string>({ descriptors: [], stored: null, draft: null, fieldErrors: {} });
+const STATUS = declaredStatus<SaisonFieldPath>([
+  "rules.win_points",
+  "rules.draw_points",
+  "rules.tiebreak_order",
+  "rules.forfeit_ergebnis",
+  "rules.number_of_groups",
+  "rules.teams_per_group",
+  "rules.qualifiers_per_group",
+  "rules.max_kadergroesse",
+  "rules.erlaubte_stufen",
+]);
 
 const RULES: FLSaisonRules = {
   win_points: 3,
@@ -120,8 +130,7 @@ describe("the rules panel's freezes", () => {
 // Seven levels, this file sitting at the editor's own folder.
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..", "..", "..", "..");
 
-/* Source text rather than an import: the write path's register is Python, and nothing on this side can load it.
-   `fl_frontend/src/shared/testing/refusalRegister.ts` reads `fl_backend/app/core/domain.py` the same way. */
+/* Source text rather than an import: the write path's register is Python, and nothing on this side can load it. */
 const SERVICES = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "saisons", "services.py"), "utf8");
 
 /**
@@ -260,7 +269,7 @@ describe("the season editor's one reading of the season, handed to its panels", 
   it("freezes the tiebreak where the swap closes, and states the window the undraw is closed by", () => {
     render(
       underNext(
-        h(AdminSaisonEditForm, {
+        h(AdminSaisonEditView, {
           saison: {
             id: "2026",
             status: "future",
@@ -285,7 +294,6 @@ describe("the season editor's one reading of the season, handed to its panels", 
           },
           hasDrawnSpiele: true,
           spieltagBound: { startMax: null, endMin: null },
-          pageHeader: { title: "Saison 2026" },
         }),
         { search: "saison_id=2026" },
       ),

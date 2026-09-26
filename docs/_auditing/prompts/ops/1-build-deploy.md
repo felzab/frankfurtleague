@@ -41,9 +41,9 @@ THE CHECKS, in priority order:
    a variable is absent — the startup gate should fail closed, so verify the chain
    healthcheck → `service_healthy` → nginx never starting. Then `depends_on` conditions, volumes and
    mounts (certs, configs — `deploy.sh` checks some of these; do the checks match the mounts?),
-   restart policies, port exposure. Diff the local and production compose files and verify every
-   divergence is intended and documented — both files carry header blocks stating their invariants,
-   so check those claims against what the file actually does.
+   restart policies, port exposure. The local file is an override merged over the production one, so
+   every key it writes is a divergence: verify each is intended and argued at its key, and check the
+   invariants both header blocks state against what the merge actually does.
 
 4. **SCRIPTS VS THEIR DOCUMENTATION.** For each script in `scripts/`: does it do what its header and
    `docs/ops/spec.md` claim? Failure modes: what happens on a dirty tree, a half-pulled image, a dead
@@ -57,8 +57,8 @@ THE CHECKS, in priority order:
    (rendered-output defects, anything behind auth) and hunt for new ones; a class that is a
    cross-surface seam — cache-tag wiring is one — is crosscut 1 check 8's row, not this table's.
    Verify CI
-   (`verify.yml`) runs the scopes its path mapping claims (scope jobs per touched surface on a pull
-   request, everything on main), that the tree-diff step still guards `fl_frontend/tsconfig.json`
+   (`verify.yml`) runs every scope on every event and fails its aggregate on a skipped one, that the
+   tree-diff step still guards `fl_frontend/tsconfig.json`
    against the rewrite `next typegen` and `next build` each make, and
    that every action reference in `.github/workflows/` and `.github/actions/` is pinned to a full
    commit SHA resolving to a real commit — the rule is `docs/_git/spec.md` §1.6 and the resolution
@@ -66,10 +66,13 @@ THE CHECKS, in priority order:
    can resolve. Run that procedure per pin rather than trusting the trailing version comment, which
    is prose beside the pin and can disagree with it.
 
-6. **PUBLISH AND ROLLBACK.** `publish.sh` builds both images before pushing either (verify — this is
+6. **PUBLISH AND ROLLBACK.** `publish.yml` moves neither `:latest` before both images are pushed (verify — this is
    the property that lets coupled frontend and backend changes ship in one pull request); tags carry
    the commit as an OCI label; rollback by `:sha-` tag works and the retention guidance is stated
-   somewhere real. What happens if publish dies between the two pushes?
+   somewhere real. What happens if the job dies between the two `:latest` moves? Drive
+   `docs/ops/spec.md :: I353`, the one guard between a failed `verify` and a published build: a
+   `verify` failure other than the budget step, and a commit other than `main`'s tip, each
+   refuse the publish.
 
 7. **DEPLOY BEHAVIOUR.** `deploy.sh`: recreates in place, waits for health, confirms live headers;
    what does a _failed_ deploy leave running? Is the previous version still serveable? Does the

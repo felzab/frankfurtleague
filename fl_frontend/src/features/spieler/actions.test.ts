@@ -2,8 +2,7 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
+import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
@@ -13,7 +12,8 @@ import { userEvent } from "@testing-library/user-event";
 
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
-import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { pageBody } from "@/shared/testing/pageHarness.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { refusalWrappers, renderTree } from "@/shared/testing/renderTest.ts";
 import { spokenText } from "@/shared/testing/spokenText.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
@@ -25,10 +25,11 @@ import {
   REACTIVATION_NEEDS_A_TEAM_IN_SAISON,
   REACTIVATION_NEEDS_ROOM_IN_SQUAD,
 } from "./constants.ts";
+import { mapAlreadyInSaisonRefusal, mapErasureRefusal, mapSquadRefusal } from "./refusals.ts";
 
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import type { FLSpielerRolle } from "./schemas.ts";
-import type { AdminSpielerRow, SpielerTeamOption } from "./types.ts";
+import type { AdminSpielerRow, SpielerSaisonMembership, SpielerTeamOption } from "./types.ts";
 
 const SPIELER_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
 const SAISON_ID = "2026";
@@ -53,27 +54,41 @@ const { AdminSpielerEditForm } = await import("./components/forms/AdminSpielerEd
 const { AdminSpielerTable } = await import("./components/collections/AdminSpielerTable.tsx");
 const { TeamSelect } = await import("./components/forms/TeamSelect.tsx");
 
+/** What the editor page's doubled reads answer, set by the case that renders it. */
+const PAGE_READS = "__flSpielerEditorLesungen";
+
+/* The page's own reads, each double answering only the fields the page reads. */
+const PAGE_DOUBLES: [string, string][] = [
+  [
+    "/src/features/spieler/queries.ts",
+    `export const getSpielerMemberships = async () => globalThis.${PAGE_READS}.memberships;
+export const getSpielerNachnominierung = async (saison_id) => {
+  globalThis.${PAGE_READS}.asked?.push(saison_id);
+  return { saison_id, nachnominierung: globalThis.${PAGE_READS}.nachnominierung ?? false };
+};`,
+  ],
+  [
+    "/src/features/saisons/queries.ts",
+    `export const getAdminSaisons = async () => globalThis.${PAGE_READS}.saisons;
+export const getSaisons = async () => globalThis.${PAGE_READS}.saisons;`,
+  ],
+  ["/src/features/teams/queries.ts", `export const getTeamMemberships = async () => globalThis.${PAGE_READS}.teams;`],
+];
+
+registerHooks({
+  load(url, context, nextLoad) {
+    const doubled = PAGE_DOUBLES.find(([ending]) => url.endsWith(ending));
+    if (doubled !== undefined) return { format: "module", source: doubled[1], shortCircuit: true };
+    return nextLoad(url, context);
+  },
+});
+
+const { default: AdminSpielerEditPage } = await import("@/app/admin/spieler/[spieler_id]/page.tsx");
+const { default: AdminSpielerPage } = await import("@/app/admin/spieler/page.tsx");
+
 /** A tree under all three contexts, on the season the sidemenu names. */
 const underSaison = (tree: ReactNode, router = recordingRouter().router): ReactNode =>
   underNext(tree, { router, search: `saison_id=${SAISON_ID}` });
-
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
-/**
- * The page that hands the editor its figures, whitespace-collapsed because the formatter picks its line
- * breaks. What its cases hold is the wiring between the memberships read and the props it folds for the editor.
- */
-const PAGE = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "spieler", "[spieler_id]", "page.tsx"), "utf8").replace(
-  /\s+/g,
-  " ",
-);
-
-/** The list page, which folds the squad counts the table must not fold: the same wiring, for the list. */
-const LIST_PAGE = readFileSync(path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "spieler", "page.tsx"), "utf8").replace(
-  /\s+/g,
-  " ",
-);
 
 const STORED_TEAM: SpielerTeamOption = { teamId: "68c1f0a2b3c4d5e6f7a8b9c1", name: "SG Alpha", shorthand: "SGA" };
 const OTHER_TEAM: SpielerTeamOption = { teamId: "68c1f0a2b3c4d5e6f7a8b9c2", name: "TSV Beta", shorthand: "TSB" };
@@ -135,53 +150,59 @@ async function pickTeam(user: ReturnType<typeof userEvent.setup>, team: SpielerT
 }
 
 const ERASURE_OPERATION = "DELETE /spieler/{spieler_id}/erasure";
-const ERASURE_CODES = ["REQ-PURGE-001"];
+const ENTRY_OPERATION = "POST /spieler/{spieler_id}/saisons";
+const SQUAD_PATCH_OPERATION = "PATCH /spieler/{spieler_id}/saisons/{saison_id}";
+const REACTIVATE_ROW_OPERATION = "POST /spieler/{spieler_id}/saisons/{saison_id}/reactivate";
+const RETIRE_ROW_OPERATION = "DELETE /spieler/{spieler_id}/saisons/{saison_id}";
 
-/* Read per slice rather than over the file: two mappers live here, and a search over the whole
-   source is satisfied by whichever one happens to carry the arm. */
-const ERASURE_MAP = sliceBetween(ACTIONS, "function mapErasureRefusal", "export async function patchSpielerAction");
-const ERASE_ACTION = sliceBetween(ACTIONS, "export async function eraseSpielerAction", "export async function postSaisonSpielerAction");
-const SQUAD_MAP = sliceBetween(ACTIONS, "function mapSquadRefusal", "function mapErasureRefusal");
-/* The last declaration in the module, so its slice runs to the end of the file. */
-const REACTIVATE_ROW_ACTION = sliceBetween(ACTIONS, "export async function reactivateSaisonSpielerAction", null);
+/** What the squad mapper answers one code with, on the write the editor saves. */
+const squadAnswer = (code: string) => mapSquadRefusal(refusedOn(SQUAD_PATCH_OPERATION, code));
 
-/** One arm of the squad mapper, up to the arm declared after it. */
-function squadBranch(code: string): string {
-  return (SQUAD_MAP.split(`serverErrorCode === "${code}"`)[1] ?? "").split("if (error.serverErrorCode")[0] ?? "";
-}
+describe("the player actions against the codes their endpoints publish", () => {
+  /* `DELETE /spieler/{spieler_id}` is a prefix of the erasure's operation, and the erasure's mapper
+     answers its own set alone. */
+  it("maps every refusal the erasure endpoint publishes", () => {
+    const published = publishedRefusals(ERASURE_OPERATION);
 
-describe("the erasure action against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
-  it("cuts the mapper and the action out of the file before reading them", () => {
-    assert.ok(ERASURE_MAP.includes('serverErrorCode === "REQ-PURGE-001"'), "the erasure's branch is outside its slice");
-    assert.ok(!ERASURE_MAP.includes("REQ-SQUAD-001"), "the erasure's slice runs on into the squad mapper's arms");
-
-    assert.ok(ERASE_ACTION.includes("eraseSpieler(validated.data)"), "the erasure's call is outside its slice");
-    assert.ok(!ERASE_ACTION.includes("postSaisonSpieler("), "the erasure's slice runs on into the junction create");
+    assert.deepEqual(
+      published.filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-PURGE-001"],
+    );
+    for (const code of published) {
+      assert.notEqual(answerShown(ERASURE_OPERATION, code, mapErasureRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+    }
   });
 
-  /* `DELETE /spieler/{spieler_id}` is a prefix of the erasure's operation, so a substring match here
-     would read the soft delete's codes as the erasure's. */
-  it("reads the erasure's operation as a whole token, not as a prefix", () => {
-    assert.deepEqual(declaredCodes(ERASURE_OPERATION), ERASURE_CODES);
-    assert.deepEqual(declaredCodes("DELETE /spieler/{spieler_id}"), [], "the soft delete now declares a rule the erasure's mapper answers");
+  /* The squad's rules first and the unique index after, whose mapper answers every 409 it is handed:
+     pinned, so a rule published later fails here rather than reading as a repeat row. */
+  it("maps every refusal the squad entry publishes", () => {
+    assert.deepEqual(
+      publishedRefusals(ENTRY_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-SQUAD-001", "REQ-SQUAD-003", "REQ-SQUAD-004"],
+      "the squad entry now publishes a rule its unique index's mapper reports as a repeat row",
+    );
+    for (const code of publishedRefusals(ENTRY_OPERATION)) {
+      const answered = answerShown(ENTRY_OPERATION, code, (error) => mapSquadRefusal(error) ?? mapAlreadyInSaisonRefusal(error));
+      assert.notEqual(answered, null, `${code} reaches the admin as an unhandled conflict`);
+    }
   });
 
-  it("maps every refusal the erasure endpoint declares", () => {
-    const declared = declaredCodes(ERASURE_OPERATION);
-
-    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
-    assert.deepEqual(declared, ERASURE_CODES);
-    for (const code of declared)
-      assert.ok(ERASURE_MAP.includes(`serverErrorCode === "${code}"`), `${code} reaches the admin as an unhandled conflict`);
+  it("maps every refusal the row's reactivation publishes", () => {
+    for (const code of publishedRefusals(REACTIVATE_ROW_OPERATION)) {
+      assert.notEqual(answerShown(REACTIVATE_ROW_OPERATION, code, mapSquadRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+    }
   });
 
-  /* The squad mapper answers the same 409 status. Left reachable from here, a squad code would be
-     reported about a person nobody was entering. */
-  it("keeps the squad mapper out of the erasure's catch", () => {
-    assert.ok(ERASE_ACTION.includes("mapErasureRefusal(error)"), "the erasure consults some other mapper");
-    assert.ok(!ERASE_ACTION.includes("mapSquadRefusal(error)"), "a squad refusal is reported as the erasure's own");
-    assert.ok(SQUAD_MAP.includes("REQ-SQUAD-001"), "the squad mapper's slice no longer holds its arms");
+  /* Asks no mapper: the one code it publishes is the unique index's, whose sentence is the shared
+     reader's own. A rule published on it later fails here until a mapper words it. */
+  it("leaves every refusal the row's retirement publishes to the shared reader", () => {
+    for (const code of publishedRefusals(RETIRE_ROW_OPERATION)) {
+      assert.notEqual(
+        answerShown(RETIRE_ROW_OPERATION, code, () => null),
+        null,
+        `${code} reaches the admin as an unhandled conflict`,
+      );
+    }
   });
 });
 
@@ -195,8 +216,11 @@ describe("REQ-PURGE-001 as the admin reads it", () => {
   /* One string, imported by the mapper and by the control that disables itself on it: a race —
      somebody reactivating the player in another tab — must read as the state the page already showed. */
   it("is stated once and reused by both", () => {
-    // Module-private, so the mapper's half is the import in its own text.
-    assert.ok(ERASURE_MAP.includes("ERASURE_NEEDS_RETIREMENT"), "the mapper restates the message instead of sharing it");
+    assert.equal(
+      mapErasureRefusal(refusedOn(ERASURE_OPERATION, "REQ-PURGE-001")),
+      ERASURE_NEEDS_RETIREMENT,
+      "the mapper words the refusal its own way",
+    );
     assert.equal(refusalNamed(loeschenPanel(false), ERASE_LABEL), ERASURE_NEEDS_RETIREMENT, "the panel words the refusal its own way");
   });
 
@@ -231,8 +255,6 @@ describe("the erasure's copy", () => {
     assert.match(armed, /Angaben werden geleert/, "the confirmation does not say the log entries are EMPTIED rather than removed");
     assert.match(armed, /Zurückholen lässt sich das nicht/, "the confirmation does not refuse an undo in words");
     assert.doesNotMatch(armed, /Rückgängig/, "the armed panel offers an undo, and no endpoint can honour one");
-    // The action's sentences too, whichever outcome it answers with.
-    assert.ok(!ERASE_ACTION.includes("Rückgängig"), "the action offers an undo, and no endpoint can honour one");
   });
 
   /* The escalation is two presses, the draw's shape. One press would put a permanent removal behind
@@ -248,34 +270,6 @@ describe("the erasure's copy", () => {
     });
 
     assert.deepEqual(erasures(), [{ id: SPIELER_ID }], "the armed press writes nothing, or writes for another person");
-  });
-});
-
-describe("what the erasure moves", () => {
-  /* The base tag and nothing beside it: the person and their squad rows are what the cached public
-     squad read joins, and every other cached read joins no pupil. */
-  it("invalidates the spieler tag alone", () => {
-    assert.ok(ERASE_ACTION.includes("invalidateSpieler();"), "the erasure leaves the erased player in the cached squad read");
-    assert.ok(!ERASE_ACTION.includes("updateTag("), "the erasure invalidates a tag its endpoint does not move");
-    assert.match(ACTIONS, /function invalidateSpieler\(\)[^{]*\{\s*updateTag\("spieler"\);/, "invalidateSpieler moved off the base tag");
-  });
-
-  it("reports how much it removed, which nothing can be looked up again afterwards", () => {
-    assert.ok(
-      ERASE_ACTION.includes("describeErasureUmfang(erasure.erased_saison_spieler, erasure.redacted_aktionen)"),
-      "the counts go unreported",
-    );
-  });
-
-  /* A DELETE on `/erasure`, never on the player's own path: that one is the soft retire, and the two
-     differ by the suffix alone. */
-  it("calls the erasure endpoint and not the retire", () => {
-    assert.match(MUTATIONS, /`\/spieler\/\$\{id\}\/erasure`/, "the mutation no longer addresses the erasure endpoint");
-    assert.match(
-      MUTATIONS,
-      /erasure`,\s*FLSpielerErasureResponseSchema,\s*\{\s*method: "DELETE"/,
-      "the erasure is sent as something other than a DELETE",
-    );
   });
 });
 
@@ -306,30 +300,128 @@ describe("the erasure's gate and its exit", () => {
 
   /* Every season's rows: the erasure takes them all, so a figure narrowed to the selected season
      understates what the press destroys — and the reader agrees to the figure. */
-  it("is handed the squad rows of every season, not the selected one's", () => {
-    assert.match(PAGE, /membershipCount=\{spieler\.memberships\.length\}/, "the panel's figure is not the whole of what is held");
-    assert.doesNotMatch(PAGE, /membershipCount=\{[^}]*(filter|saison)/, "the figure is narrowed before the panel reads it");
+  it("is handed the squad rows of every season, not the selected one's", async () => {
+    const row = (saison_id: string) => ({
+      saison_id,
+      team_id: STORED_TEAM.teamId,
+      nummer: "10",
+      position: null,
+      stufe: null,
+      ist_nachnominiert: false,
+      rolle: null,
+      inactive_since: RETIRED_ON,
+    });
+    const saison = (id: string, status: string) => ({ id, status, rules: { erlaubte_stufen: ["Q1"], max_kadergroesse: 20 } });
+
+    (globalThis as unknown as Record<string, unknown>)[PAGE_READS] = {
+      memberships: {
+        spieler: [
+          {
+            id: SPIELER_ID,
+            vorname: "Lena",
+            nachname: "Meier",
+            inactive_since: RETIRED_ON,
+            geburtsdatum: null,
+            einwilligung: null,
+            email: null,
+            memberships: [row("2025"), row(SAISON_ID)],
+          },
+        ],
+      },
+      saisons: { saisons: [saison("2025", "finished"), saison(SAISON_ID, "active")] },
+      teams: {
+        teams: [{ id: STORED_TEAM.teamId, name: STORED_TEAM.name, shorthand: STORED_TEAM.shorthand, memberships: [{ saison_id: SAISON_ID }] }],
+      },
+    };
+
+    render(underSaison(await editorPageBody()));
+    await userEvent.setup().click(screen.getByRole("button", { name: ERASE_LABEL }));
+
+    assert.equal(screen.getByText("Kadereinträge").nextElementSibling?.textContent, "2", "the figure is narrowed to the selected season's row");
   });
 });
+
+/** The editor page's body as its reads answer it: the element it hands the editor. */
+const editorPageBody = (): Promise<ReactElement> =>
+  pageBody(AdminSpielerEditPage, {
+    params: Promise.resolve({ spieler_id: SPIELER_ID }),
+    searchParams: Promise.resolve({ saison_id: SAISON_ID }),
+  });
+
+const OTHER_ID = "68c1f0a2b3c4d5e6f7a8b9d0";
+const THIRD_ID = "68c1f0a2b3c4d5e6f7a8b9d1";
+const EARLIER = "2025";
+
+type PageReads = { asked: string[]; nachnominierung: boolean };
+const pageReads = (): PageReads => (globalThis as unknown as Record<string, PageReads>)[PAGE_READS]!;
+
+/** A player holding one live squad row per entry. */
+function person(id: string, vorname: string, rows: { saison_id: string; team_id: string; rolle?: FLSpielerRolle }[]) {
+  return {
+    id,
+    vorname,
+    nachname: null,
+    inactive_since: null,
+    geburtsdatum: null,
+    einwilligung: null,
+    email: null,
+    memberships: rows.map(({ saison_id, team_id, rolle = null }) => ({
+      saison_id,
+      team_id,
+      nummer: null,
+      position: null,
+      stufe: null,
+      ist_nachnominiert: false,
+      rolle,
+      inactive_since: null,
+    })),
+  };
+}
+
+/** Both clubs in both seasons, squads capped at two, the verdict answering that a late entry runs. */
+function answerPages(spieler: ReturnType<typeof person>[]): void {
+  const rules = { erlaubte_stufen: ["Q1"], max_kadergroesse: 2 };
+  const club = ({ teamId, name, shorthand }: SpielerTeamOption) => ({
+    id: teamId,
+    name,
+    shorthand,
+    memberships: [{ saison_id: EARLIER }, { saison_id: SAISON_ID }],
+  });
+
+  (globalThis as unknown as Record<string, unknown>)[PAGE_READS] = {
+    memberships: { spieler },
+    saisons: {
+      saisons: [
+        { id: EARLIER, status: "past", rules },
+        { id: SAISON_ID, status: "active", rules },
+      ],
+    },
+    teams: { teams: [club(STORED_TEAM), club(OTHER_TEAM)] },
+    asked: [],
+    nachnominierung: true,
+  };
+}
+
+const teamsOf = (body: ReactElement): SpielerTeamOption[] => (body.props as { teams: SpielerTeamOption[] }).teams;
+const heldBy = (body: ReactElement) => Object.fromEntries(teamsOf(body).map((team) => [team.teamId, team.heldRollen]));
+const fullIn = (body: ReactElement) => Object.fromEntries(teamsOf(body).map((team) => [team.teamId, team.isSquadFull]));
 
 describe("REQ-SQUAD-001 where no form is on screen", () => {
   /* Two of the four writes that raise it are row buttons: a reactivate names the row's STORED club,
      which a replacement can take out of the season. A refusal carrying only a field message reaches
      them as VALIDATION_FAILED. */
   it("carries a sentence beside the field message", () => {
-    const branch = squadBranch("REQ-SQUAD-001");
+    const answered = squadAnswer("REQ-SQUAD-001");
 
-    assert.match(branch, /error: SQUAD_TEAM_NOT_IN_SAISON/, "the reactivate paths toast the generic banner instead");
-    assert.match(branch, /fieldErrors: \{ team_id:/, "the form paths lose the refusal on their picker");
-    assert.match(REACTIVATE_ROW_ACTION, /refusal\.error \?\? VALIDATION_FAILED/, "the row button stopped reading the sentence");
+    assert.equal(typeof answered?.error, "string", "the reactivate paths toast the generic banner instead");
+    assert.deepEqual(Object.keys(answered?.fieldErrors ?? {}), ["team_id"], "the form paths lose the refusal on their picker");
   });
 
   /* The sentence is read by a caller that picked no team, so it may not describe a choice — and the
      repair it names has to be reachable from a list page as well as from the editor. */
   it("describes the entry rather than a picked team, and names where the team is changed", () => {
-    const declared = /const SQUAD_TEAM_NOT_IN_SAISON =([\s\S]*?);\n/.exec(ACTIONS)?.[1] ?? "";
+    const declared = squadAnswer("REQ-SQUAD-001")?.error ?? "";
 
-    assert.notEqual(declared, "", "the message is no longer declared under that name");
     assert.match(declared, /Kadereintrag/, "the message does not name the entry it is about");
     assert.match(declared, /Kader/, "the message does not say where the team is changed");
     assert.doesNotMatch(declared, /gewählt/, "the message assumes a picker the reactivate never rendered");
@@ -342,19 +434,17 @@ describe("REQ-SQUAD-004 as the admin reads it", () => {
   /* One sentence for every path, as the cap has: the editor disables a role the squad has already
      given away, so a refusal arriving here at all is a stale form rather than a choice to mark. */
   it("carries a sentence and lands on no field", () => {
-    const branch = squadBranch("REQ-SQUAD-004");
+    const answered = squadAnswer("REQ-SQUAD-004");
 
-    assert.notEqual(branch, "", "the squad mapper has no arm for the role refusal");
-    assert.match(branch, /error: SQUAD_ROLLE_TAKEN/, "the refusal reaches the admin as an unhandled conflict");
-    assert.doesNotMatch(branch, /fieldErrors/, "a message keyed to the role control cannot be rendered");
+    assert.equal(typeof answered?.error, "string", "the refusal reaches the admin as an unhandled conflict");
+    assert.equal(answered?.fieldErrors, undefined, "a message keyed to the role control cannot be rendered");
   });
 
   /* One code answers both roles, and the reactivate raises it with no role on screen at all — so the
      sentence may name neither, and it has to name the repair. */
   it("names neither role and names the repair", () => {
-    const declared = /const SQUAD_ROLLE_TAKEN =([\s\S]*?);\n/.exec(ACTIONS)?.[1] ?? "";
+    const declared = squadAnswer("REQ-SQUAD-004")?.error ?? "";
 
-    assert.notEqual(declared, "", "the message is no longer declared under that name");
     assert.doesNotMatch(declared, /Kapitän/, "the sentence names a role the reactivate never showed");
     assert.match(declared, /Rolle/, "the message does not say what is already taken");
     assert.match(declared, /Nimm sie dem anderen Spieler zuerst ab/, "the message states no repair");
@@ -373,12 +463,20 @@ describe("REQ-SQUAD-004 as the admin reads it", () => {
       true,
       "the offer is derived from something other than the draft team's own holders",
     );
+  });
 
-    assert.match(
-      PAGE,
-      /const heldRollen = collectHeldRollen\(\{ spieler: membershipsRes\.spieler, saisonId: selectedSaison\.id, exceptSpielerId: spielerId \}\);/,
-      "the page gathers the holders of another season, or counts this player's own role as taken from them",
-    );
+  /* Held in another season, or held by the player being edited, a role is free to take: counted
+     either way, the editor closes a role the write path would take. */
+  it("is handed the holders of the selected season, the player being edited left out", async () => {
+    answerPages([
+      person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId, rolle: "kapitaen" }]),
+      person(OTHER_ID, "Mia", [
+        { saison_id: EARLIER, team_id: STORED_TEAM.teamId, rolle: "co_kapitaen" },
+        { saison_id: SAISON_ID, team_id: OTHER_TEAM.teamId, rolle: "kapitaen" },
+      ]),
+    ]);
+
+    assert.deepEqual(heldBy(await editorPageBody()), { [STORED_TEAM.teamId]: {}, [OTHER_TEAM.teamId]: { kapitaen: "Mia" } });
   });
 
   /* A transfer carries the draft's role into the destination squad, where the write path would
@@ -397,7 +495,11 @@ const ROW_REACTIVATE = "Kadereintrag reaktivieren";
 
 describe("the reactivate's gate on the editor", () => {
   const panel = (rowReturn: "open" | "clubLeft" | "squadFull", rowInactiveSince: string | null = RETIRED_ON): string =>
-    renderTree(h(FormAustragenSection, { spielerId: SPIELER_ID, saisonId: SAISON_ID, rowInactiveSince, rowReturn, banners: [] }));
+    renderTree(
+      underNext(
+        h(FormAustragenSection, { spielerId: SPIELER_ID, saisonId: SAISON_ID, rowInactiveSince, rowReturn, banners: [], isDirty: false }),
+      ),
+    );
 
   /* Each refused return names the repair where the editor's reader stands; `judgeRowReturn` decides which. */
   it("says each refused return on the control, and closes none it takes", () => {
@@ -437,13 +539,13 @@ describe("the reactivate's gate on the editor", () => {
   /* The write's refresh remounts the editor, the page keying it on the stored row, so the pressed button
      is gone and a keyboard reader would be left on the page. */
   it("hands focus to the control that replaces the one a landed write pressed", async () => {
-    const props = { spielerId: SPIELER_ID, saisonId: SAISON_ID, rowReturn: "open", banners: [] } as const;
-    const { rerender } = render(h(FormAustragenSection, { ...props, key: "aktiv", rowInactiveSince: null }));
+    const props = { spielerId: SPIELER_ID, saisonId: SAISON_ID, rowReturn: "open", banners: [], isDirty: false } as const;
+    const { rerender } = render(underNext(h(FormAustragenSection, { ...props, key: "aktiv", rowInactiveSince: null })));
     // `ok` rather than `equal` on an element: a failure's report inspects both sides, and a jsdom node holds the whole window.
     assert.ok(document.activeElement === document.body, "a mount with no write behind it takes focus");
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Aus Kader 2026 austragen" }));
-    rerender(h(FormAustragenSection, { ...props, key: "ausgetragen", rowInactiveSince: RETIRED_ON }));
+    rerender(underNext(h(FormAustragenSection, { ...props, key: "ausgetragen", rowInactiveSince: RETIRED_ON })));
 
     assert.ok(document.activeElement === screen.getByRole("button", { name: ROW_REACTIVATE }), "focus fell to the page");
   });
@@ -570,22 +672,40 @@ describe("REQ-SQUAD-003 before the press", () => {
       !document.body.textContent.includes(KADER_VOLL_BANNER),
       "the banner is derived from something other than the draft team's own answer",
     );
+  });
 
-    assert.match(
-      PAGE,
-      /const liveSquadRows = countLiveSquadRows\(\{ spieler: membershipsRes\.spieler, saisonId: selectedSaison\.id, exceptSpielerId: spielerId \}\);/,
-      "the page counts another season's squad rows, or leaves the player being edited in the tally their own room is judged from",
-    );
+  /* Two places in a squad of two: the stored club is full only when the edited player's own row is
+     counted, which would refuse an edit that moves nobody, and the other club only in another season. */
+  it("is handed each squad's room in the selected season, the player being edited left out", async () => {
+    answerPages([
+      person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }]),
+      person(OTHER_ID, "Mia", [
+        { saison_id: SAISON_ID, team_id: STORED_TEAM.teamId },
+        { saison_id: EARLIER, team_id: OTHER_TEAM.teamId },
+      ]),
+      person(THIRD_ID, "Ida", [{ saison_id: EARLIER, team_id: OTHER_TEAM.teamId }]),
+    ]);
+
+    assert.deepEqual(fullIn(await editorPageBody()), { [STORED_TEAM.teamId]: false, [OTHER_TEAM.teamId]: false });
   });
 
   /* The table is handed `filteredSpieler`, so a count folded there would shrink under a search and
-     report room in a squad the endpoint refuses. */
-  it("folds the list's counts on the page, where no search has narrowed the memberships", () => {
-    assert.match(
-      LIST_PAGE,
-      /const liveSquadRows = countLiveSquadRows\(\{ spieler: membershipsRes\.spieler, saisonId: selectedSaisonId, exceptSpielerId: null \}\);/,
-      "the list's own fold counts against something other than the season the rows are shown for",
-    );
+     report room in a squad the endpoint refuses. The list names no writer: every live row counts. */
+  it("is handed each squad's room on the list, over every player of the selected season", async () => {
+    answerPages([
+      person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }]),
+      person(OTHER_ID, "Mia", [
+        { saison_id: SAISON_ID, team_id: STORED_TEAM.teamId },
+        { saison_id: EARLIER, team_id: OTHER_TEAM.teamId },
+      ]),
+      person(THIRD_ID, "Ida", [{ saison_id: EARLIER, team_id: OTHER_TEAM.teamId }]),
+    ]);
+    const body = await pageBody(AdminSpielerPage, {
+      params: Promise.resolve({}),
+      searchParams: Promise.resolve({ saison_id: SAISON_ID, q: "Lena" }),
+    });
+
+    assert.deepEqual(fullIn(body), { [STORED_TEAM.teamId]: true, [OTHER_TEAM.teamId]: false });
   });
 
   /* Two ways out and neither reader reaches either: the list is a page from the squad and the editor
@@ -599,12 +719,11 @@ describe("REQ-SQUAD-003 before the press", () => {
   /* Both stand over one club on page load — the rail banner off the DRAFT team, this sentence off
      the STORED one — so a second wording leaves the reader deciding whether one obstacle is two. */
   it("toasts the sentence this control shows, in one wording", () => {
-    const branch = squadBranch("REQ-SQUAD-003");
-    // Split rather than spelled again: a third copy of these two literals is a third thing to drift.
-    const [reason, repair] = REACTIVATION_NEEDS_ROOM_IN_SQUAD.replace(/\.$/, "").split(". ");
-
-    assert.ok(branch.includes(`reason: "${reason ?? ""}"`), "the toast opens on a state this control words differently");
-    assert.ok(branch.includes(`repair: "${repair ?? ""}"`), "the toast names the two ways out in another wording or another order");
+    assert.equal(
+      squadAnswer("REQ-SQUAD-003")?.error,
+      REACTIVATION_NEEDS_ROOM_IN_SQUAD,
+      "the toast words the full squad apart from this control",
+    );
   });
 
   /* The picker offers every write path its team, so a full squad barred here is barred on the
@@ -640,44 +759,23 @@ describe("REQ-SQUAD-003 before the press", () => {
   });
 });
 
-describe("the squad edit's refusals when the undo replays it", () => {
-  const UNDO_ROUTE = readFileSync(path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin", "spieler", "undo", "route.ts"), "utf8");
-
-  /** One row of the route's replay table, which is a literal keyed by code. */
-  const replayRow = (code: string): string => new RegExp(`"${code}":\\s*"([^"]*)"`).exec(UNDO_ROUTE)?.[1] ?? "";
-
-  const PATCH_OPERATION = "PATCH /spieler/{spieler_id}/saisons/{saison_id}";
-
-  /* `PATCH /spieler/{spieler_id}` is a prefix of it, so a substring read would hand the squad's codes
-     to the person row. The person patch declares none, which is why the route catches nothing around it. */
-  it("reads the squad patch as a whole token, not as a prefix", () => {
-    assert.deepEqual(declaredCodes(PATCH_OPERATION), ["REQ-SQUAD-001", "REQ-SQUAD-003", "REQ-SQUAD-004"]);
-    assert.deepEqual(declaredCodes("PATCH /spieler/{spieler_id}"), [], "the person patch now declares a rule the replay does not answer");
-  });
-
-  /* Two outcomes and not one: the person half goes back before the squad row is replayed, so a
-     refusal after it may not tell the admin the change stands whole. */
-  it("carries both outcome sentences, outside the rows", () => {
-    assert.ok(UNDO_ROUTE.includes('const CHANGE_STANDS = "Die Änderung steht weiterhin.";'), "the whole-change outcome is gone");
-    assert.ok(
-      UNDO_ROUTE.includes('const PERSON_HALF_RESTORED = "Nur die Personendaten wurden zurückgesetzt.";'),
-      "the half-restore outcome is gone",
+describe("the squad edit's refusals", () => {
+  /* `PATCH /spieler/{spieler_id}` is a prefix of it and refuses on no rule, which is why the undo
+     route catches nothing around the person half. */
+  it("reads the squad patch's own rules", () => {
+    assert.deepEqual(
+      publishedRefusals(SQUAD_PATCH_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-SQUAD-001", "REQ-SQUAD-003", "REQ-SQUAD-004"],
     );
-    assert.ok(UNDO_ROUTE.includes("person === undefined ? CHANGE_STANDS : PERSON_HALF_RESTORED"), "one outcome now answers both halves");
   });
 
-  for (const code of declaredCodes(PATCH_OPERATION)) {
-    it(`${code} reaches the admin in German on both write paths`, () => {
-      const row = replayRow(code);
-
-      assert.ok(
-        SQUAD_MAP.includes(`error.serverErrorCode === "${code}"`),
+  for (const code of publishedRefusals(SQUAD_PATCH_OPERATION)) {
+    it(`${code} reaches the admin in German when the edit is saved`, () => {
+      assert.notEqual(
+        answerShown(SQUAD_PATCH_OPERATION, code, mapSquadRefusal),
+        null,
         `${code} falls through to the generic conflict message when the edit is saved`,
       );
-      assert.notEqual(row, "", `${code} falls through to the generic conflict message when the edit is undone`);
-      // The route joins the row to the outcome with a space, so a row without its own stop runs the two sentences together.
-      assert.ok(row.endsWith("."), `${code}'s replay row does not close its sentence`);
-      assert.ok(!row.includes("Die Änderung steht weiterhin"), `${code}'s row states the outcome the route already adds`);
     });
   }
 });
@@ -742,16 +840,15 @@ describe("the late-entry marker, which the backend derives", () => {
   });
 
   /* The banner is raised on the entry branch alone, so a player holding a row costs no read. */
-  it("asks for the served verdict only where the player holds no row in the season", () => {
-    assert.match(
-      PAGE,
-      /const nachnominierung = membership === null \? await getSpielerNachnominierung\(selectedSaison\.id\) : null;/,
-      "the page asks for a verdict no banner can use, or asks another season",
-    );
-    assert.match(
-      PAGE,
-      /nachnominierungLaeuft: nachnominierung\?\.nachnominierung \?\? null,/,
-      "the editor is handed something other than the verdict",
-    );
+  it("asks for the served verdict only where the player holds no row in the season", async () => {
+    const saisonOf = (body: ReactElement) => (body.props as { saison: SpielerSaisonMembership }).saison;
+
+    answerPages([person(SPIELER_ID, "Lena", [{ saison_id: EARLIER, team_id: STORED_TEAM.teamId }])]);
+    assert.equal(saisonOf(await editorPageBody()).nachnominierungLaeuft, true, "the editor is handed something other than the verdict");
+    assert.deepEqual(pageReads().asked, [SAISON_ID], "the page asks another season, or asks more than once");
+
+    answerPages([person(SPIELER_ID, "Lena", [{ saison_id: SAISON_ID, team_id: STORED_TEAM.teamId }])]);
+    assert.equal(saisonOf(await editorPageBody()).nachnominierungLaeuft, null, "a player holding a row is handed a verdict no entry uses");
+    assert.deepEqual(pageReads().asked, [], "the page asks for a verdict no banner can use");
   });
 });

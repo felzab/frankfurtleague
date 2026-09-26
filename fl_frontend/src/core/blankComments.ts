@@ -1,41 +1,28 @@
+import ts from "typescript";
+
 /**
  * Source text with every comment blanked, line breaks kept. A reader matching raw source finds an
  * attribute a JSDoc only names, and `openingTag` reads a `<` inside an opening tag's comment as a
  * lost brace count.
  */
-export function blankComments(source: string): string {
-  // Split by code unit rather than spread by code point: every offset below is `length`'s or
-  // `indexOf`'s, and an astral character puts the two a position apart from there on. The lone
-  // surrogates this leaves are rejoined by `join`.
+export function blankComments(source: string, fileName = "component.tsx"): string {
+  // Parsed rather than scanned: only the parser knows whether a `/` opens a regular expression or a
+  // `}` closes a template's `${}`, and a `//` in either is code. JSX unless `fileName` names a module.
+  const file = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, false);
+  // Offsets are UTF-16 code units, as `split("")` indexes them; `join` rejoins the lone surrogates.
   const out = source.split("");
-  const blank = (from: number, to: number): void => {
-    for (let at = from; at < to; at++) if (out[at] !== "\n") out[at] = " ";
+
+  // A comment is trivia, which sits between one token's end and the next token's start: those before
+  // the first line break TypeScript calls trailing, the rest leading.
+  const visit = (node: ts.Node): void => {
+    const children = node.getChildren(file);
+    if (children.length > 0) return children.forEach(visit);
+    const trivia = [...(ts.getTrailingCommentRanges(source, node.pos) ?? []), ...(ts.getLeadingCommentRanges(source, node.pos) ?? [])];
+    for (const { pos, end } of trivia) {
+      for (let at = pos; at < end; at++) if (out[at] !== "\n") out[at] = " ";
+    }
   };
-
-  for (let at = 0; at < source.length; at++) {
-    const here = source.slice(at, at + 2);
-
-    if (here === "//" || here === "/*") {
-      const ends = here === "//" ? source.indexOf("\n", at) : source.indexOf("*/", at + 2);
-      const to = ends === -1 ? source.length : here === "//" ? ends : ends + 2;
-      blank(at, to);
-      at = to - 1;
-      continue;
-    }
-
-    // Skipped whole rather than scanned: a `//` inside a URL or a class list would otherwise blank
-    // the rest of its line. Comments are consumed above first, so an apostrophe inside one is safe.
-    const quote = source[at];
-    if (quote === '"' || quote === "'" || quote === "`") {
-      for (at += 1; at < source.length; at++) {
-        if (source[at] === "\\") {
-          at += 1;
-          continue;
-        }
-        if (source[at] === quote) break;
-      }
-    }
-  }
+  visit(file);
 
   return out.join("");
 }

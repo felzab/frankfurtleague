@@ -3,9 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { CircleCheck, CircleXmark, Clock, PaperPlane, Pencil, PersonPlus } from "@gravity-ui/icons";
+import CircleCheck from "@gravity-ui/icons/CircleCheck";
+import CircleXmark from "@gravity-ui/icons/CircleXmark";
+import Clock from "@gravity-ui/icons/Clock";
+import PaperPlane from "@gravity-ui/icons/PaperPlane";
+import Pencil from "@gravity-ui/icons/Pencil";
+import PersonPlus from "@gravity-ui/icons/PersonPlus";
 
-import { Button, FieldError, Form, Input, Label, TextField } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
@@ -20,18 +28,21 @@ import {
 } from "@/features/bewerbungen/schemas";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { labelBadge } from "@/shared/components/ui/badges";
+import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_LABEL, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES, FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { Hint } from "@/shared/components/ui/Hint";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
-import { PANEL_REVEAL } from "@/shared/components/ui/motion";
+import { PANEL_REVEAL_CLASSES } from "@/shared/components/ui/motion";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { rejectedWrite, unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 import { Absatz } from "./BestaetigungHinweise";
 
@@ -45,7 +56,7 @@ import type { RaiseFailure } from "@/shared/hooks/useServerFieldErrors";
  * One height for every chip on this readout and for the control beside them, so a row carrying a
  * button does not stand taller than the rows that do not. `formButton`'s `xs` step is the other half.
  */
-const STRIP_CHIP = "h-7 shrink-0";
+const STRIP_CHIP_CLASSES = "h-7 shrink-0";
 
 /** Named rather than muted: a grey chip on a coloured row reads as disabled (my rule, 2026-09-04). */
 const ROLLEN_TINT: PillTone = "info";
@@ -91,7 +102,7 @@ const ERNEUT_OHNE_ANTWORT = "Prüfe die Verbindung und sende den Link noch einma
 const KORREKTUR_OHNE_ANTWORT =
   "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch die alte Adresse, korrigiere sie noch einmal.";
 
-/** A second reseat over a seat already filled is refused, so the refreshed row is what says whether one is owed. */
+/** Unlike a re-send, a second reseat over a seat already filled is refused, so the row, reloaded, decides. */
 const BESETZUNG_OHNE_ANTWORT = "Prüfe die Verbindung und lade die Seite neu. Steht in der Zeile noch niemand, besetze die Rolle noch einmal.";
 
 /** Which of the two editors one row has open. One at a time for the whole strip (`docs/frontend/spec.md :: I66`). */
@@ -106,6 +117,8 @@ export function BewerbungBestaetigungStrip({
   staende,
   frist,
   isOpen,
+  isDirty,
+  onGetipptChange,
 }: {
   bewerbungId: string;
   staende: readonly SitzBestaetigung[];
@@ -113,6 +126,10 @@ export function BewerbungBestaetigungStrip({
   frist: string | null;
   /** Whether the application is still `eingereicht` — the one state a re-sent link can be answered in. */
   isOpen: boolean;
+  /** Whether the decline holds a typed reason, which every write here re-keys the page over. */
+  isDirty: boolean;
+  /** Told whether the open box holds typing, which the page's other writes would re-key the strip over. */
+  onGetipptChange: (getippt: boolean) => void;
 }) {
   const router = useRouter();
   // Per seat rather than one flag: three buttons stand here, and one press must not hold the others.
@@ -123,6 +140,12 @@ export function BewerbungBestaetigungStrip({
    * opening a second row drops the first's draft — one address nobody has written yet.
    */
   const [editor, setEditor] = useState<{ rolle: KontaktRolle; art: Bearbeitung } | null>(null);
+  // Beside `editor` rather than inside it: the re-send guards on it, and the page is told of every change.
+  const [boxGetippt, setBoxGetippt] = useState(false);
+  const meldeBox = (getippt: boolean) => {
+    setBoxGetippt(getippt);
+    onGetipptChange(getippt);
+  };
 
   const panel = formPanel();
   const bestaetigt = staende.filter((sitz) => !istOffen(sitz)).length;
@@ -131,23 +154,21 @@ export function BewerbungBestaetigungStrip({
   const loeschung = loeschungsSatz({ staende, frist, eingereicht: isOpen, heute: getGermanTodayStr() });
 
   const sendeErneut = async (rolle: KontaktRolle) => {
+    if (!guardAgainstDraft(isDirty || boxGetippt, DRAFT_DISCARDED)) return;
+
     setSendendeRollen((vorher) => new Set(vorher).add(rolle));
 
     // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it leaves
     // „Sendet...“ standing for good and reports nothing.
-    const res = await einwilligungErneutSendenAction({ id: bewerbungId, rolle: rolle }).catch(() => null);
+    const res = await einwilligungErneutSendenAction({ id: bewerbungId, rolle: rolle }).catch(rejectedWrite(router, ERNEUT_OHNE_ANTWORT));
 
     // This seat alone, through the updater, so two writes settling never clear each other.
     setSendendeRollen((vorher) => new Set([...vorher].filter((sendend) => sendend !== rolle)));
 
-    // Before the toast either way: the failure arm reports a write that committed, so the readout
-    // beneath it is stale on exactly the press that says so. A rejected write may have committed too.
-    router.refresh();
-
-    // Thrown, no answer came back, so this control's repair names the connection; an answer, an
-    // unknown outcome among them, carries its own sentence.
-    if (res === null || !res.success) {
-      appToast.failure("Link nicht erneut gesendet", res ?? { error: ERNEUT_OHNE_ANTWORT, outcome: "unknown" });
+    // A rejection, which no answer came back from, carries this control's repair naming the connection; an
+    // answer, an unknown outcome among them, carries its own sentence.
+    if (!res.success) {
+      appToast.failure("Link nicht erneut gesendet", res);
       return;
     }
 
@@ -165,7 +186,8 @@ export function BewerbungBestaetigungStrip({
             title="Bestätigungen"
           />
           <span className="shrink-0">
-            <span className={`${labelBadge(bestaetigt === staende.length ? ZAEHLER_TINT.vollstaendig : ZAEHLER_TINT.offen)} ${STRIP_CHIP}`}>
+            <span
+              className={`${labelBadge(bestaetigt === staende.length ? ZAEHLER_TINT.vollstaendig : ZAEHLER_TINT.offen)} ${STRIP_CHIP_CLASSES}`}>
               {String(bestaetigt)} von {String(staende.length)} bestätigt
             </span>
           </span>
@@ -184,12 +206,16 @@ export function BewerbungBestaetigungStrip({
               istNeubesetzbar={isOpen && neubesetzbar.has(sitz.rolle)}
               sendet={sendendeRollen.has(sitz.rolle)}
               bearbeitet={editor?.rolle === sitz.rolle ? editor.art : null}
+              isDirty={isDirty}
+              onGetipptChange={meldeBox}
               onSendeErneut={() => void sendeErneut(sitz.rolle)}
               onOeffne={(art) => {
                 setEditor({ rolle: sitz.rolle, art: art });
+                meldeBox(false);
               }}
               onSchliessen={() => {
                 setEditor(null);
+                meldeBox(false);
               }}
             />
           ))}
@@ -215,6 +241,8 @@ function SitzZeile({
   istNeubesetzbar,
   sendet,
   bearbeitet,
+  isDirty,
+  onGetipptChange,
   onSendeErneut,
   onOeffne,
   onSchliessen,
@@ -228,6 +256,8 @@ function SitzZeile({
   istNeubesetzbar: boolean;
   sendet: boolean;
   bearbeitet: Bearbeitung | null;
+  isDirty: boolean;
+  onGetipptChange: (getippt: boolean) => void;
   onSendeErneut: () => void;
   onOeffne: (art: Bearbeitung) => void;
   onSchliessen: () => void;
@@ -254,17 +284,17 @@ function SitzZeile({
   return (
     <div className="flex w-full flex-col gap-y-2">
       <div className="flex w-full flex-row flex-wrap items-center gap-x-3 gap-y-1">
-        <span className={`${labelBadge(ROLLEN_TINT)} ${STRIP_CHIP}`}>{sitz.label}</span>
-        {sitz.zugleichTrainer && <span className={`${labelBadge("info")} ${STRIP_CHIP}`}>Zugleich Trainer</span>}
+        <span className={`${labelBadge(ROLLEN_TINT)} ${STRIP_CHIP_CLASSES}`}>{sitz.label}</span>
+        {sitz.zugleichTrainer && <span className={`${labelBadge("info")} ${STRIP_CHIP_CLASSES}`}>Zugleich Trainer</span>}
 
-        <span className="fluid-sm text-foreground min-w-0 font-medium">
+        <span className="min-w-0 fluid-sm font-medium text-foreground">
           {sitz.name === null ? <span className="text-foreground-muted italic">{sitz.nameSatz}</span> : sitz.nameSatz}
         </span>
 
         {/* The foreground grade rather than the queue's muted one: it is the value the pencil beside
             it edits and the thing the delivery chip is about. */}
         {sitz.name !== null && (
-          <span className="fluid-xs text-foreground max-w-full min-w-0 truncate font-medium">
+          <span className="max-w-full min-w-0 truncate fluid-xs font-medium text-foreground">
             {sitz.email ?? <span className="text-foreground-muted italic">{KEINE_EMAIL}</span>}
           </span>
         )}
@@ -290,7 +320,7 @@ function SitzZeile({
           </IconTooltip>
         )}
 
-        <span className={`${labelBadge(STAND_TINT[sitz.stand.art])} ${STRIP_CHIP} ml-auto gap-x-1`}>
+        <span className={`${labelBadge(STAND_TINT[sitz.stand.art])} ${STRIP_CHIP_CLASSES} ml-auto gap-x-1`}>
           <Glyph
             className="size-3.5"
             aria-hidden="true"
@@ -300,7 +330,7 @@ function SitzZeile({
 
         {/* Between the seat's own state and the re-send, so a refused delivery reads next to the link
             it refused rather than next to the person. */}
-        {zustellung !== null && <span className={`${labelBadge(zustellung.tone)} ${STRIP_CHIP}`}>{zustellung.label}</span>}
+        {zustellung !== null && <span className={`${labelBadge(zustellung.tone)} ${STRIP_CHIP_CLASSES}`}>{zustellung.label}</span>}
 
         {/* In the right-hand cluster where the re-send stands, never beside the name: what it offers
             is a fresh link for this seat, and the two are never offered at once. */}
@@ -352,6 +382,8 @@ function SitzZeile({
           rolle={sitz.rolle}
           gespeicherteAdresse={sitz.email}
           belegteAdressen={belegteAdressen}
+          isDirty={isDirty}
+          onGetipptChange={onGetipptChange}
           onFertig={onSchliessen}
         />
       )}
@@ -362,6 +394,8 @@ function SitzZeile({
           rolle={sitz.rolle}
           label={sitz.label}
           belegteAdressen={belegteAdressen}
+          isDirty={isDirty}
+          onGetipptChange={onGetipptChange}
           onFertig={onSchliessen}
         />
       )}
@@ -379,12 +413,18 @@ function AdresseKorrigieren({
   rolle,
   gespeicherteAdresse,
   belegteAdressen,
+  isDirty,
+  onGetipptChange,
   onFertig,
 }: {
   bewerbungId: string;
   rolle: KontaktRolle;
   gespeicherteAdresse: string | null;
   belegteAdressen: readonly string[];
+  /** Whether the decline holds a typed reason, which this write re-keys the page over. */
+  isDirty: boolean;
+  /** Told whether the box holds other than the stored address. */
+  onGetipptChange: (getippt: boolean) => void;
   onFertig: () => void;
 }) {
   const router = useRouter();
@@ -393,7 +433,7 @@ function AdresseKorrigieren({
   const [email, setEmail] = useState(gespeicherteAdresse ?? "");
   const [sendet, setSendet] = useState(false);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } = useDraftFieldErrors({
     schemas: { korrektur: FLBewerbungKontaktEmailPayloadSchema },
   });
 
@@ -421,18 +461,17 @@ function AdresseKorrigieren({
 
     setSendet(true);
     // Caught for the re-send's reason: awaited outside a transition, a rejection would leave „Sendet...“ standing.
-    const res = await kontaktEmailKorrigierenAction(payload).catch(() => null);
+    // And never reading the page again: that re-keys the strip over the box's typed entry (`docs/frontend/spec.md` §1.3).
+    const res = await kontaktEmailKorrigierenAction(payload).catch(() => ({ ...unansweredAction(), error: KORREKTUR_OHNE_ANTWORT }));
     setSendet(false);
 
     // One raise for every arm below, so the title has one site.
     const nichtKorrigiert: RaiseFailure = (shown) => appToast.failure("Adresse nicht korrigiert", shown);
 
     // Thrown or answered, a press nobody can tell landed. Left open: the draft is what a second press
-    // sends, and the refreshed row says whether one is owed.
-    if (res === null || (!res.success && res.outcome === "unknown")) {
-      router.refresh();
-      // Thrown, no answer came back, so this control's repair names the connection.
-      nichtKorrigiert(res ?? { success: false, error: KORREKTUR_OHNE_ANTWORT, outcome: "unknown" });
+    // sends, and the row, read again by the answer's refresh or a rejection's reload, says whether one is owed.
+    if (!res.success && res.outcome === "unknown") {
+      nichtKorrigiert(res);
       return;
     }
 
@@ -448,9 +487,6 @@ function AdresseKorrigieren({
       return;
     }
 
-    // Before the toast, as the re-send does it: the row beneath is stale on exactly the press that
-    // says the address moved.
-    router.refresh();
     onFertig();
 
     if (res.verschickt === false) {
@@ -466,35 +502,36 @@ function AdresseKorrigieren({
 
   return (
     <Form
-      ref={formRef}
-      validationBehavior="aria"
-      validationErrors={fieldErrors}
-      onSubmit={runOnSubmit(() => {
+      wiring={formWiring}
+      onSubmit={() => {
         // The pending button is not the whole guard: `Enter` in the field submits too, and a second
         // correction mid-flight is refused as already stored.
         if (sendet) return;
+        if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
 
         guardSubmit({ korrektur: payload }, () => void schreibe());
-      })}
-      className={`${PANEL_REVEAL} border-border bg-surface flex flex-col gap-4 rounded-xl border p-4 shadow-sm`}>
+      }}
+      className={`${PANEL_REVEAL_CLASSES} flex flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm`}>
       <TextField
-        isRequired
         type="email"
         name="email"
         value={email}
-        onChange={setEmail}
+        onChange={(next) => {
+          setEmail(next);
+          onGetipptChange(next.trim() !== (gespeicherteAdresse ?? ""));
+        }}
         onBlur={() => {
           validatePaths("korrektur", payload, ["email"]);
         }}
         className="w-full sm:max-w-md">
         {/* Not the form's „E-Mail“: the row above still shows the stored address, so the reader sees
             old over new, which is what a correction is. */}
-        <Label className={FIELD_LABEL}>Neue E-Mail-Adresse</Label>
+        <Label className={FIELD_LABEL_CLASSES}>Neue E-Mail-Adresse</Label>
         <Input
           placeholder="z.B. name@beispiel.de"
-          className={FIELD_INPUT}
+          className={FIELD_INPUT_CLASSES}
         />
-        <FieldError className={FIELD_ERROR} />
+        <FieldError className={FIELD_ERROR_CLASSES} />
       </TextField>
 
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center">
@@ -549,6 +586,8 @@ function SitzNeuBesetzen({
   rolle,
   label,
   belegteAdressen,
+  isDirty,
+  onGetipptChange,
   onFertig,
 }: {
   bewerbungId: string;
@@ -556,6 +595,10 @@ function SitzNeuBesetzen({
   /** The seat's own German, so the heading names the role the strip's chip beside it named. */
   label: string;
   belegteAdressen: readonly string[];
+  /** Whether the decline holds a typed reason, which this write re-keys the page over. */
+  isDirty: boolean;
+  /** Told whether any of the four boxes holds typing. */
+  onGetipptChange: (getippt: boolean) => void;
   onFertig: () => void;
 }) {
   const router = useRouter();
@@ -563,7 +606,7 @@ function SitzNeuBesetzen({
   const [person, setPerson] = useState(LEERE_PERSON);
   const [sendet, setSendet] = useState(false);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } = useDraftFieldErrors({
     schemas: { neubesetzung: FLBewerbungKontaktSitzPayloadSchema },
   });
 
@@ -580,6 +623,12 @@ function SitzNeuBesetzen({
 
   const unvollstaendig = Object.values(person).some((wert) => wert.trim() === "");
 
+  const aendere = (feld: keyof typeof LEERE_PERSON, wert: string) => {
+    const neu = { ...person, [feld]: wert };
+    setPerson(neu);
+    onGetipptChange(Object.values(neu).some((eingabe) => eingabe.trim() !== ""));
+  };
+
   const schreibe = async () => {
     // The submission's own rule, judged here so the administrator is told at the field rather than
     // by a round trip. The backend refuses it regardless.
@@ -590,18 +639,17 @@ function SitzNeuBesetzen({
 
     setSendet(true);
     // Caught for the re-send's reason: awaited outside a transition, a rejection would leave „Sendet...“ standing.
-    const res = await besetzeKontaktSitzAction(payload).catch(() => null);
+    // And never reading the page again: that re-keys the strip over the box's typed entry (`docs/frontend/spec.md` §1.3).
+    const res = await besetzeKontaktSitzAction(payload).catch(() => ({ ...unansweredAction(), error: BESETZUNG_OHNE_ANTWORT }));
     setSendet(false);
 
     // One raise for every arm below, so the title has one site.
     const nichtBesetzt: RaiseFailure = (shown) => appToast.failure("Rolle nicht neu besetzt", shown);
 
     // Thrown or answered, a press nobody can tell landed. Left open: the draft is what a second press
-    // sends, and the refreshed row says whether one is owed.
-    if (res === null || (!res.success && res.outcome === "unknown")) {
-      router.refresh();
-      // Thrown, no answer came back, so this control's repair names the connection.
-      nichtBesetzt(res ?? { success: false, error: BESETZUNG_OHNE_ANTWORT, outcome: "unknown" });
+    // sends, and the row, read again by the answer's refresh or a rejection's reload, says whether one is owed.
+    if (!res.success && res.outcome === "unknown") {
+      nichtBesetzt(res);
       return;
     }
 
@@ -617,9 +665,6 @@ function SitzNeuBesetzen({
       return;
     }
 
-    // Before the toast, as the correction does it: the row beneath is stale on exactly the press
-    // that says somebody now stands in the seat.
-    router.refresh();
     onFertig();
 
     if (res.verschickt === false) {
@@ -637,25 +682,24 @@ function SitzNeuBesetzen({
 
   return (
     <Form
-      ref={formRef}
-      validationBehavior="aria"
-      validationErrors={fieldErrors}
-      onSubmit={runOnSubmit(() => {
+      wiring={formWiring}
+      onSubmit={() => {
         // The pending button is not the whole guard: `Enter` in a field submits too, and a second
         // press mid-flight is refused as a seat already filled.
         if (sendet) return;
+        if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
 
         guardSubmit({ neubesetzung: payload }, () => void schreibe());
-      })}
-      className={`${PANEL_REVEAL} border-border bg-surface flex flex-col gap-4 rounded-xl border p-4 shadow-sm`}>
+      }}
+      className={`${PANEL_REVEAL_CLASSES} flex flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm`}>
       {/* The seat is named here and not on the button: the row above says „Niemand mehr in der
           Bewerbung“, so the box has to say which of the three seats it is filling. */}
       <p className="fluid-xs text-foreground-muted">Neue Person für die Rolle {label}</p>
 
       {/* The confirmation page's words, never the application form's: those address the submitter,
           and the person this writes will only ever read the page. */}
-      <div className="border-border flex flex-col gap-y-2 rounded-lg border p-3">
-        <p className="fluid-xs text-foreground font-bold">Diese Person bekommt den Bestätigungslink und wird dort gefragt:</p>
+      <div className="flex flex-col gap-y-2 rounded-lg border border-border p-3">
+        <p className="fluid-xs font-bold text-foreground">Diese Person bekommt den Bestätigungslink und wird dort gefragt:</p>
         {SEITENANFANG.map((schluessel) => (
           <p
             key={schluessel}
@@ -668,67 +712,63 @@ function SitzNeuBesetzen({
         ))}
       </div>
 
-      <div className={FIELD_PAIR}>
+      <div className={FIELD_PAIR_CLASSES}>
         <TextField
-          isRequired
           name="vorname"
           value={person.vorname}
-          onChange={(next) => setPerson({ ...person, vorname: next })}
+          onChange={(next) => aendere("vorname", next)}
           onBlur={() => {
             validatePaths("neubesetzung", payload, ["vorname"]);
           }}>
-          <Label className={FIELD_LABEL}>Vorname</Label>
-          <Input className={FIELD_INPUT} />
-          <FieldError className={FIELD_ERROR} />
+          <Label className={FIELD_LABEL_CLASSES}>Vorname</Label>
+          <Input className={FIELD_INPUT_CLASSES} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
 
         <TextField
-          isRequired
           name="nachname"
           value={person.nachname}
-          onChange={(next) => setPerson({ ...person, nachname: next })}
+          onChange={(next) => aendere("nachname", next)}
           onBlur={() => {
             validatePaths("neubesetzung", payload, ["nachname"]);
           }}>
-          <Label className={FIELD_LABEL}>Nachname</Label>
-          <Input className={FIELD_INPUT} />
-          <FieldError className={FIELD_ERROR} />
+          <Label className={FIELD_LABEL_CLASSES}>Nachname</Label>
+          <Input className={FIELD_INPUT_CLASSES} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
       </div>
 
-      <div className={FIELD_PAIR}>
+      <div className={FIELD_PAIR_CLASSES}>
         <TextField
-          isRequired
           type="email"
           name="email"
           value={person.email}
-          onChange={(next) => setPerson({ ...person, email: next })}
+          onChange={(next) => aendere("email", next)}
           onBlur={() => {
             validatePaths("neubesetzung", payload, ["email"]);
           }}>
-          <Label className={FIELD_LABEL}>E-Mail</Label>
+          <Label className={FIELD_LABEL_CLASSES}>E-Mail</Label>
           <Input
             placeholder="z.B. name@beispiel.de"
-            className={FIELD_INPUT}
+            className={FIELD_INPUT_CLASSES}
           />
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
 
         <TextField
-          isRequired
           type="tel"
           name="telefon"
           value={person.telefon}
-          onChange={(next) => setPerson({ ...person, telefon: next })}
+          onChange={(next) => aendere("telefon", next)}
           onBlur={() => {
             validatePaths("neubesetzung", payload, ["telefon"]);
           }}>
-          <Label className={FIELD_LABEL}>Telefon</Label>
+          <Label className={FIELD_LABEL_CLASSES}>Telefon</Label>
           <Input
             placeholder="z.B. 069 1234567"
-            className={FIELD_INPUT}
+            className={FIELD_INPUT_CLASSES}
           />
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </TextField>
       </div>
 

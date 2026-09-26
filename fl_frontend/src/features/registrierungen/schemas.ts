@@ -9,7 +9,7 @@ import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 // and the invite read answers the same three members the season's own read does.
 import { FLSaisonStatusSchema } from "@/features/saisons/schemas";
 import { FLPostSaisonSpielerPayloadSchema, FLSpielerPositionSchema, FLSpielerStufeSchema } from "@/features/spieler/schemas";
-import { EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH } from "@/features/teams/constants";
+import { EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH, KONTAKT_NAME_MAX_LENGTH, KONTAKT_NAME_ZU_LANG } from "@/features/teams/constants";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, KontaktEmailSchema, PersonNameSchema } from "@/shared/schemas";
 import { getGermanTodayStr } from "@/shared/utils/date";
 
@@ -70,8 +70,8 @@ export type FLEinladungAnsichtResponse = z.infer<typeof FLEinladungAnsichtRespon
  */
 export const FLPostRegistrierungPayloadSchema = z.object({
   token: registrierungToken,
-  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: "Dieser Vorname ist zu lang." }),
-  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: "Dieser Nachname ist zu lang." }),
+  vorname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
+  nachname: PersonNameSchema.max(KONTAKT_NAME_MAX_LENGTH, { error: KONTAKT_NAME_ZU_LANG }),
   email: KontaktEmailSchema,
   position: FLSpielerPositionSchema.nullable(),
   // The squad payload's own field, never a second regex: a pupil types the number an administrator

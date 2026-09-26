@@ -8,20 +8,15 @@ an arm reordered inside `scripts/lib/_lib.sh :: finish`.
 from __future__ import annotations
 
 import ast
-import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from conftest import base_env, run_shell, write_shell
+from conftest import BASH, base_env, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
-
-# Not a skip condition: every script under `scripts/` is bash, so a machine without one cannot run
-# the gate at all, and a contract silently skipped is what this file exists to stop.
-BASH: Final = shutil.which("bash")
 
 
 @dataclass(frozen=True)
@@ -88,7 +83,7 @@ ENDINGS: Final[tuple[Ending, ...]] = (
     ),
     # A mangled row is the gate's own handoff, so all three of `adopt_section`'s validations crash:
     # nothing in the tree under test could be edited to answer for one, which is what a 1 would say.
-    Ending("an adopted rank outside the label table", ("adopt_section scope 6 10 0 0",), 3, "is outside 0-5"),
+    Ending("an adopted rank outside the label table", ("adopt_section scope 7 10 0 0",), 3, "is outside 0-6"),
     Ending("an adopted count that is not a number", ("adopt_section scope 4 ten 0 0",), 3, "is not a count"),
     Ending("an adopted row while a section is still open", ("section demo", "adopt_section scope 2 10 0 0"), 3, "a section is still open"),
     # Rank 1 is the one verdict below `pass` that no ending owns: a run of nothing but skips has

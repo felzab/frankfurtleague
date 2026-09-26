@@ -2,7 +2,11 @@
 
 import { useState, useTransition } from "react";
 
-import { Button, FieldError, Input, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { ToggleButton } from "@heroui/react/toggle-button";
+import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
 import { postSaisonSpielerAction } from "@/features/spieler/actions";
@@ -13,16 +17,19 @@ import { POSITION_OPTIONS, ROLLE_OPTIONS } from "@/features/spieler/constants";
 import { nummerPayload } from "@/features/spieler/utils";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, FIELD_PAIR, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_PAIR_CLASSES, TOGGLE_GROUP_ALIGN_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { TextField } from "@/shared/components/ui/TextField";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { FLSpielerPosition, FLSpielerRolle, FLSpielerStufe } from "@/features/spieler/schemas";
+import type { SpielerFieldPath } from "@/features/spieler/spielerDraftStatus";
 import type { SpielerSaisonContext, SpielerTeamOption } from "@/features/spieler/types";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { SpielerBanner } from "./banners";
 
 /** Names the role chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
@@ -84,6 +91,7 @@ export function FormKaderSection({
 
   const handleEnterSaison = () => {
     startEntering(async () => {
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await postSaisonSpielerAction({
         spieler_id: spielerId,
         saison_id: saison.saisonId,
@@ -94,21 +102,25 @@ export function FormKaderSection({
         position,
         stufe,
         rolle: null,
+      }).catch(unansweredAction);
+
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startEntering(() => {
+        if (res.success) {
+          setEntryTeamError(null);
+          appToast.success("Spieler aufgenommen", { description: res.message });
+          return;
+        }
+
+        const teamError = res.fieldErrors?.team_id ?? null;
+        setEntryTeamError(teamError);
+        // Suppressed where the picker carries the message, so a refusal about the chosen team is not
+        // also said in a toast that names no field.
+        if (teamError === null) {
+          appToast.failure("Spieler nicht aufgenommen", res);
+        }
       });
-
-      if (res.success) {
-        setEntryTeamError(null);
-        appToast.success("Spieler aufgenommen", { description: res.message });
-        return;
-      }
-
-      const teamError = res.fieldErrors?.team_id ?? null;
-      setEntryTeamError(teamError);
-      // Suppressed where the picker carries the message, so a refusal about the chosen team is not
-      // also said in a toast that names no field.
-      if (teamError === null) {
-        appToast.failure("Spieler nicht aufgenommen", res);
-      }
     });
   };
 
@@ -133,11 +145,10 @@ export function FormKaderSection({
       <div className={panel.body()}>
         {isMember ? (
           <>
-            <div className={FIELD_PAIR}>
+            <div className={FIELD_PAIR_CLASSES}>
               <div className="flex w-full flex-col gap-y-1">
-                <FieldLabel path="team_id">Team</FieldLabel>
+                <FieldLabel<SpielerFieldPath> path="team_id">Team</FieldLabel>
                 <TeamSelect
-                  isRequired
                   value={teamId}
                   onChange={(next) => {
                     onTeamIdChange(next);
@@ -149,7 +160,7 @@ export function FormKaderSection({
               </div>
 
               <NummerField
-                label={<FieldLabel path="nummer">Nummer</FieldLabel>}
+                label={<FieldLabel<SpielerFieldPath> path="nummer">Nummer</FieldLabel>}
                 value={nummer}
                 onChange={onNummerChange}
                 onBlur={() => onValidateFields(["nummer"])}
@@ -168,7 +179,7 @@ export function FormKaderSection({
               {/* A `Label` and not a plain span: it names the enclosing `TextField`, which carries no
                   `aria-label`, so `useLabel` would warn without it. The id sits on the text alone, keeping
                   the changed-field marker out of the group's name. */}
-              <FieldLabel path="rolle">
+              <FieldLabel<SpielerFieldPath> path="rolle">
                 <span id={ROLLE_LABEL_ID}>Rolle</span>
               </FieldLabel>
               {/* Named from the heading rather than by a wrapper: react-aria already renders
@@ -184,7 +195,7 @@ export function FormKaderSection({
                   const [picked] = [...keys].map(String);
                   onRolleChange(picked === undefined ? null : (picked as FLSpielerRolle));
                 }}
-                className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
+                className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
                 {ROLLE_OPTIONS.map((option) => (
                   <ToggleButton
                     key={option.value}
@@ -194,14 +205,14 @@ export function FormKaderSection({
                     isDisabled={heldRollen[option.value] !== undefined && rolle !== option.value}
                     // The selected arm takes a hover of its own because the two plain arms tie at
                     // (0,2,0): without it the white label lands on grey, and source order decides.
-                    className="border-border bg-surface data-hovered:bg-hover fluid-sm data-selected:bg-brand-solid data-selected:text-brand-solid-foreground data-selected:data-hovered:bg-brand-solid-hover rounded-lg border px-3 py-2 font-medium transition-colors data-disabled:opacity-50">
+                    className="rounded-lg border border-border bg-surface px-3 py-2 fluid-sm font-medium transition-colors data-disabled:opacity-50 data-hovered:bg-hover data-selected:bg-brand-solid data-selected:text-brand-solid-foreground data-selected:data-hovered:bg-brand-solid-hover">
                     {option.label}
                   </ToggleButton>
                 ))}
               </ToggleButtonGroup>
 
               <Input className="hidden" />
-              <FieldError className={FIELD_ERROR} />
+              <FieldError className={FIELD_ERROR_CLASSES} />
 
               <InlineBanners
                 banners={banners}
@@ -209,9 +220,9 @@ export function FormKaderSection({
               />
             </TextField>
 
-            <div className={FIELD_PAIR}>
+            <div className={FIELD_PAIR_CLASSES}>
               <div className="flex w-full flex-col gap-y-1">
-                <FieldLabel path="position">Position</FieldLabel>
+                <FieldLabel<SpielerFieldPath> path="position">Position</FieldLabel>
                 <ClosedSetSelect
                   value={position}
                   onChange={onPositionChange}
@@ -224,7 +235,7 @@ export function FormKaderSection({
               </div>
 
               <div className="flex w-full flex-col gap-y-1">
-                <FieldLabel path="stufe">Stufe</FieldLabel>
+                <FieldLabel<SpielerFieldPath> path="stufe">Stufe</FieldLabel>
                 <ClosedSetSelect
                   value={stufe}
                   onChange={onStufeChange}

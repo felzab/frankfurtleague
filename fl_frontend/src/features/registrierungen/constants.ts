@@ -8,10 +8,6 @@ import { BEWERBUNG_MAX_ALTER } from "@/features/bewerbungen/constants";
  */
 export const REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE = 7;
 
-// A reminder does not move the deadline, so this is the day a second message goes out and never a
-// second clock. Mirrored from `fl_backend/app/shared/schemas/bounds.py`.
-export const REGISTRIERUNG_ERINNERUNG_TAGE = 3;
-
 // Retyped from `fl_backend/app/shared/schemas/bounds.py` for the published notice, which states the
 // floor with no answer to read it off. The form still takes the served `mindestalter` below: a page
 // judging a date against this copy would refuse where the endpoint accepts.

@@ -819,16 +819,17 @@ def test_one_namespace_keeps_its_declared_order_and_stops_at_its_own_failure():
         ran.append(label)
         raise RuntimeError(label)
 
+    after_the_failure = "aktionen second"
     declared: list[tuple[str, Any]] = [
         ("aktionen", partial(fail, "aktionen first")),
-        ("aktionen", partial(succeed, "aktionen second")),
+        ("aktionen", partial(succeed, after_the_failure)),
         ("bewerbungen", partial(succeed, "bewerbungen only")),
     ]
 
     with pytest.raises(RuntimeError, match="aktionen first"):
         asyncio.run(_apply_concurrently(declared))
 
-    assert "aktionen second" not in ran, "a namespace carried on past its own failure"
+    assert after_the_failure not in ran, "a namespace carried on past its own failure"
     assert "bewerbungen only" in ran, "an unrelated namespace was cancelled by someone else's failure"
 
 

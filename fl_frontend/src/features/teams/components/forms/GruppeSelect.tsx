@@ -1,14 +1,17 @@
 "use client";
 
-import { FieldError, Label, ListBox, Select } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Label } from "@heroui/react/label";
+import { ListBox } from "@heroui/react/list-box";
 
-import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
+import { Select } from "@/shared/components/ui/Select";
 
 import type { FLGruppenNames } from "@/features/teams/schemas";
 import type { GruppeOffer } from "@/features/teams/types";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 /**
  * Judged on CHANGE rather than on blur — a selection is complete the moment it is made.
@@ -20,29 +23,20 @@ export function GruppeSelect({
   value,
   onChange,
   offer,
-  name = "gruppe",
   error,
   withOwnLabel = true,
-  isRequired = false,
 }: {
   value: FLGruppenNames | null;
   onChange: (gruppe: FLGruppenNames) => void;
   /** The season's groups with occupancy, from `buildGruppeOffer` — the caller names the season. */
   offer: readonly GruppeOffer[];
-  /** The field's path in the enclosing payload, so `Form`'s `validationErrors` reach it by name. */
-  name?: string;
   /**
-   * A message this caller owns, shown over anything `Form`'s `validationErrors` hold for `name` — for
+   * A message this caller owns, shown over anything `Form`'s `validationErrors` hold for `gruppe` — for
    * a caller with no `<Form>`, and for the entry control whose write is not the form's.
    */
   error?: string;
   /** Off for the caller whose label is a marker-carrying `FieldLabel` rendered outside. */
   withOwnLabel?: boolean;
-  /**
-   * Refuse an empty pick, and let the browser say so, for the same reason
-   * `fl_frontend/src/features/spieler/components/forms/TeamSelect.tsx :: TeamSelect` takes one.
-   */
-  isRequired?: boolean;
 }) {
   const item = listboxRow();
 
@@ -53,8 +47,7 @@ export function GruppeSelect({
 
   return (
     <Select
-      isRequired={isRequired}
-      name={name}
+      name="gruppe"
       // Only without the visible `Label`: beside it the trigger is named twice, „Gruppe Gruppe“.
       aria-label={withOwnLabel ? undefined : "Gruppe"}
       // `null` and never `undefined` for no group: react-stately reads `undefined` as uncontrolled, so the first pick
@@ -63,14 +56,14 @@ export function GruppeSelect({
       onChange={handleChange}
       isInvalid={error ? true : undefined}
       className="w-full">
-      {withOwnLabel && <Label className={FIELD_LABEL}>Gruppe</Label>}
-      <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+      {withOwnLabel && <Label className={FIELD_LABEL_CLASSES}>Gruppe</Label>}
+      <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
         {/* From the prop, not `Select.Value` — the collection can lag a render behind and would then
             show HeroUI's English placeholder. */}
         <span className={value ? "" : "text-foreground-muted"}>{value ? `Gruppe ${value}` : "Gruppe wählen"}</span>
-        <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+        <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
       </Select.Trigger>
-      <FieldError className={FIELD_ERROR}>{error}</FieldError>
+      <FieldError className={FIELD_ERROR_CLASSES}>{error}</FieldError>
       <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
         <ListBox aria-label="Verfügbare Gruppen">
           {offer.map(({ gruppe, occupied, capacity }) => {

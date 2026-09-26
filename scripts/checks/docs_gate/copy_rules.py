@@ -52,9 +52,8 @@ SENTENCE_OPENER_RE: Final = re.compile(rf"(?:\A|[.!?:;•·|]|[„“\"'(»–�
 # token -- `text-dir`, `dir-rtl`.
 INFORMAL_RE: Final = re.compile(r"(?<![\w\-/.])(?:du|dein(?:e|em|en|er|es)?|dir|dich)(?![\w\-/])")
 
-# One German word per concept (§1.12): a club is a `Team` and a done thing is `schon`, whatever
-# grammar the sentence prefers.
-BANNED_TERMS: Final[dict[str, str]] = {"Mannschaft": "Team", "bereits": "schon"}
+# One German word per concept (§1.12): a club is a `Team`, whatever grammar the sentence prefers.
+BANNED_TERMS: Final[dict[str, str]] = {"Mannschaft": "Team"}
 
 # A lower-case entry is no noun, so German capitalises it at a sentence's start and `(?i:)` is what
 # reads that position. A capitalised entry stays exact: folded, it would match the lower-case

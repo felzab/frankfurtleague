@@ -7,23 +7,38 @@ import { useRef, useState, useTransition } from "react";
 export const DOUBLE_PRESS_MS = 500;
 
 /**
- * The confirm-then-write control: the first press arms, the second writes — unless it lands within
- * `DOUBLE_PRESS_MS` of the arming press — and a `guard` returning false does neither. Every
- * arming panel shares it (`fl_frontend/src/shared/components/ui/confirmPanel.test.ts`), so no two
- * drift apart.
+ * Handed whole to `ConfirmActionRow` and `ConfirmPressButton`, never as flags a panel spells: a literal
+ * `isPending` typechecks, and its control then never says the write is running.
  */
-export function useTwoPressConfirm(guard?: () => boolean): {
+export interface TwoPressConfirm {
   isConfirming: boolean;
   isPending: boolean;
   press: (write: () => Promise<void>) => void;
   cancel: () => void;
-} {
+}
+
+/**
+ * The confirm-then-write control: the first press arms, the second writes — unless it lands within
+ * `DOUBLE_PRESS_MS` of the arming press — and a `guard` returning false does neither. Every
+ * arming panel shares it, so no two drift apart.
+ */
+export function useTwoPressConfirm(guard?: () => boolean): TwoPressConfirm {
   const [isConfirming, setIsConfirming] = useState(false);
   const [isPending, startWriting] = useTransition();
   // A ref, not state: the timestamp decides inside the handler and renders nothing.
   const armedAt = useRef(0);
+  // Set in the handler that starts the write, so a press landing before the render that reports
+  // `isPending` is refused as surely as one landing after it.
+  const isWritingRef = useRef(false);
+  const isInFlight = () => isPending || isWritingRef.current;
 
+  // `write` runs inside this hook's transition, so an update it makes after its own `await` takes
+  // React's standalone `startTransition` at that site, or it commits before the press lets go.
   const press = (write: () => Promise<void>) => {
+    // Nothing while the write flies, whatever the panel hands its control: a press would send it
+    // twice. Ahead of the guard, whose refusal would disarm the alert over a write already sent.
+    if (isInFlight()) return;
+
     // Run on BOTH presses, not just the arming one: an editor's fields stay live between arming and
     // confirming, so a draft typed in that window would go with the revalidation the write ends on.
     if (guard !== undefined && !guard()) {
@@ -44,13 +59,28 @@ export function useTwoPressConfirm(guard?: () => boolean): {
     // alert stands and a press taken after reading it still confirms.
     if (Date.now() - armedAt.current < DOUBLE_PRESS_MS) return;
 
+    isWritingRef.current = true;
     startWriting(async () => {
-      await write();
-      // After the response and never before it: the open alert, the destructive fill and the closed
-      // cancel are what say a press is in flight, and clearing early drops all three at once.
-      setIsConfirming(false);
+      try {
+        await write();
+      } finally {
+        // Cleared under the transition's own `isPending`, which holds the press until the refresh lands.
+        isWritingRef.current = false;
+      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so a bare clear commits while the write's refresh still holds the press.
+      startWriting(() => {
+        // After the response and never before it: the open alert, the destructive fill and the closed
+        // cancel are what say a press is in flight, and clearing early drops all three at once.
+        setIsConfirming(false);
+      });
     });
   };
 
-  return { isConfirming, isPending, press, cancel: () => setIsConfirming(false) };
+  // Refused in flight for the reason `press` is: disarming would drop the alert over a write already sent.
+  const cancel = () => {
+    if (!isInFlight()) setIsConfirming(false);
+  };
+
+  return { isConfirming, isPending, press, cancel };
 }

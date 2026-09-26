@@ -1,0 +1,197 @@
+# GITHUB · builds both images from `main`'s tip and pushes them to ghcr.io, when I ask for it
+#
+# Dispatched by hand (`gh workflow run publish.yml --ref main`, or the Run workflow button), never by a
+# push: a merge publishes nothing, and deploying stays `scripts/ops/deploy.sh` on the server.
+#
+# Invariants:
+# - Only `main`'s tip is built, and only where its own push run of `verify` passed, a run failed by
+#   its wall-clock budget step alone counting as passed.
+# - Nothing is pushed before both loaded builds pass the images scope's three assertions, and no
+#   `:latest` tag names a pushed image whose layers or user differ from the one they examined
+#   (`docs/ops/spec.md :: I365`).
+# - Neither `:latest` tag moves until both packages hold the build under its `sha-` tag.
+name: publish
+
+on:
+  workflow_dispatch:
+
+# Nothing at workflow level: the one job spells its own grant.
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+# One publish at a time, a request waiting rather than cancelling one between its two `:latest`
+# moves. A newer request cancels a pending one (`queue` left at `single`), losing nothing: the
+# verdict refuses all but `main`'s tip.
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read # the checkout
+      actions: read # the verify-run lookup below
+      packages: write # the push to ghcr.io, which the package grants this repository's workflows
+    env:
+      # `scripts/lib/_lib.sh :: REPO_FRONTEND` and `:: REPO_BACKEND`, which `deploy.sh` pulls.
+      FRONTEND_IMAGE: ghcr.io/felzab/frankfurtleague-frontend
+      BACKEND_IMAGE: ghcr.io/felzab/frankfurtleague-backend
+      # The runner's own tags for the loaded builds the assertions run against; never pushed.
+      FRONTEND_CHECKED: publish-check:frontend
+      BACKEND_CHECKED: publish-check:backend
+    steps:
+      # A dispatch may name any branch or tag, and GITHUB_SHA is that ref's tip, so the ref is
+      # refused before anything reads it.
+      - name: Refuse any ref but main
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::publish builds main alone; this run was dispatched on ${GITHUB_REF}. Dispatch again with --ref main."
+            exit 1
+          fi
+
+      # The commit the verdict below judges, named rather than left to checkout's default for the
+      # triggering event: the build is only proven where it reads that same tree.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      # The verdict's floor (`scripts/lib/_lib.sh :: PYTHON_FLOOR`) is above the runner's default python.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version-file: fl_backend/.python-version
+
+      # Asked of the API rather than taken on trust: main's tip, and the runs `verify` made for this
+      # commit when it was pushed to main. `scripts/checks/check_publish_verdict.py` decides.
+      - name: Refuse anything but main's tip, and a commit whose verify run on main did not pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          payloads="${RUNNER_TEMP}/verify-runs"
+          mkdir -p "$payloads"
+          # Every request is made and none ends the step: what gh could not fetch is left absent or
+          # empty, and the verdict refuses it by name rather than on gh's exit code.
+
+          # The branch's ref, which no tag of the same name can answer for as `commits/main` could.
+          tip="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)" || tip=""
+          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/verify.yml/runs?head_sha=${GITHUB_SHA}&event=push&branch=main&per_page=100" \
+            > "${payloads}/runs.json" || rm -f "${payloads}/runs.json"
+          # The attempt the listing's conclusion describes, never whichever attempt is latest by the
+          # time its jobs are asked for.
+          jq -r '.workflow_runs[]? | "\(.id) \(.run_attempt)"' "${payloads}/runs.json" 2>/dev/null > "${payloads}/attempts" || true
+          while read -r id attempt; do
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/attempts/${attempt}/jobs?per_page=100" \
+              > "${payloads}/jobs-${id}-${attempt}.json" || rm -f "${payloads}/jobs-${id}-${attempt}.json"
+          done < "${payloads}/attempts"
+          python scripts/checks/check_publish_verdict.py --commit "$GITHUB_SHA" --tip "$tip" --payloads "$payloads"
+
+      # The builder build-push-action's README recommends over the runner's default `docker` driver.
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `sha-<commit>` alone, so the version label `deploy.sh` compares across the pair is the tag
+      # itself; `:latest` moves in the last step, once both packages hold the build.
+      - id: meta-frontend
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.FRONTEND_IMAGE }}
+          tags: type=sha
+          flavor: latest=false
+      - id: meta-backend
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.BACKEND_IMAGE }}
+          tags: type=sha
+          flavor: latest=false
+
+      # Docker's "Test before push" (https://docs.docker.com/build/ci/github-actions/test-before-push/):
+      # this builder answers each push build from the layers its load build left, so the two keep
+      # identical inputs or the push builds something else.
+
+      # No `cache-from`: every job on main can write the Actions cache, so a dependency compromised in
+      # any verify run could plant a layer that this job would then publish.
+      - name: Build the frontend and load it for the checks
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: fl_frontend
+          file: fl_frontend/Dockerfile
+          load: true
+          tags: ${{ env.FRONTEND_CHECKED }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+      - name: Build the backend and load it for the checks
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: fl_backend
+          file: fl_backend/Dockerfile
+          load: true
+          tags: ${{ env.BACKEND_CHECKED }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+
+      # The images scope's own assertions (`scripts/lib/_lib.sh`), asked of the build about to be
+      # pushed rather than of the images job's build of the same commit. Each prints what it found.
+      - name: Check both images before either is pushed
+        run: |
+          source scripts/lib/_lib.sh
+          image_has_instrumentation "$FRONTEND_CHECKED" || exit $?
+          image_runs_unprivileged "$FRONTEND_CHECKED" "$BACKEND_CHECKED" || exit $?
+          image_context_clean "$FRONTEND_CHECKED" "$BACKEND_CHECKED" || exit $?
+
+      - name: Build and push the frontend
+        id: build-frontend
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: fl_frontend
+          file: fl_frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+      - name: Build and push the backend
+        id: build-backend
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: fl_backend
+          file: fl_backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+
+      # The push is a second build, so a base tag that moved between the two would put layers nothing
+      # checked under this build's `sha-` tag. The assertions read the filesystem and the user alone,
+      # so those are what must match.
+      - name: Refuse a pushed image other than the one checked
+        env:
+          FRONTEND_DIGEST: ${{ steps.build-frontend.outputs.digest }}
+          BACKEND_DIGEST: ${{ steps.build-backend.outputs.digest }}
+        run: |
+          same_as_checked() { # $1 the loaded tag, $2 the pushed digest's reference
+            local checked pushed
+            checked="$(docker image inspect --format '{{range .RootFS.Layers}}{{println .}}{{end}}user={{.Config.User}}' "$1")"
+            pushed="$(docker buildx imagetools inspect --format '{{range .Image.RootFS.DiffIDs}}{{println .}}{{end}}user={{.Image.Config.User}}' "$2")"
+            if [ "$checked" != "$pushed" ]; then
+              echo "::error title=Publish::$2 is not the image checked as $1, so neither latest tag moves. Dispatch again."
+              printf 'checked:\n%s\npushed:\n%s\n' "$checked" "$pushed"
+              return 1
+            fi
+          }
+          same_as_checked "$FRONTEND_CHECKED" "${FRONTEND_IMAGE}@${FRONTEND_DIGEST}"
+          same_as_checked "$BACKEND_CHECKED" "${BACKEND_IMAGE}@${BACKEND_DIGEST}"
+
+      # Two manifest writes, so the registry names a mismatched pair for a moment at most. A failure
+      # between them is what `deploy.sh`'s label comparison refuses; dispatching again repairs it.
+      - name: Move both packages' latest tag to this build
+        env:
+          # The digest each push produced rather than its tags output, which a second tag in the
+          # metadata step would turn into a newline-joined list.
+          FRONTEND_DIGEST: ${{ steps.build-frontend.outputs.digest }}
+          BACKEND_DIGEST: ${{ steps.build-backend.outputs.digest }}
+        run: |
+          docker buildx imagetools create --tag "${FRONTEND_IMAGE}:latest" "${FRONTEND_IMAGE}@${FRONTEND_DIGEST}"
+          docker buildx imagetools create --tag "${BACKEND_IMAGE}:latest" "${BACKEND_IMAGE}@${BACKEND_DIGEST}"

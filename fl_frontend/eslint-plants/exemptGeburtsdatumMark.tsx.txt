@@ -1,0 +1,5 @@
+// Linted as src/features/bewerbungen/components/views/BestaetigungFormPanel.tsx.
+// The birth date's mark owed by the consenting answer's refinement, and every other ban still reaches it.
+declare const AppDatePicker: (props: object) => null;
+
+export const GEBURTSDATUM_MARK = <AppDatePicker isRequired name="geburtsdatum" className="flex gap-5" />; // expect: gap

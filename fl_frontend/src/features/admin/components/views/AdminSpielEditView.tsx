@@ -2,7 +2,7 @@
 
 import { AdminEditSpielDataForm } from "@/features/spiele/components/forms/AdminEditSpielDataForm/AdminEditSpielDataForm";
 import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 
 import { categorizeActionRequired } from "../../utils";
 import { useAdmin } from "../providers/AdminContextProvider";
@@ -33,7 +33,7 @@ export function AdminSpielEditView({ spielData, today }: { spielData: FLSpielAdm
   return (
     // No padding of its own: the form inside is the page's shell, scrolling its own header and panels
     // while the action bar stays pinned outside the scroll content.
-    <div className={`${PAGE_RISE} flex min-h-0 w-full flex-1 flex-col`}>
+    <div className={`${PAGE_RISE_CLASSES} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminEditSpielDataForm
         spielData={spielData}
         teams={teams}

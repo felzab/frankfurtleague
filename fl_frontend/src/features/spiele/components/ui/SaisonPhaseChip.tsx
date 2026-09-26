@@ -1,7 +1,7 @@
-import { Chip } from "@heroui/react";
+import { Chip } from "@heroui/react/chip";
 
 import { PHASE_LABELS } from "@/features/saisons/constants";
-import { PILL_RADIUS, PILL_TINT } from "@/shared/components/ui/badges";
+import { PILL_RADIUS_CLASSES, PILL_TINT_CLASSES } from "@/shared/components/ui/badges";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas";
 
@@ -135,8 +135,8 @@ export function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaisonPhase })
   return (
     <Chip
       size="sm"
-      className={`${PILL_RADIUS} border-none px-1.5 py-0.5 ${PILL_TINT[saisonPhase]}`}>
-      <div className="fluid-xxs flex items-center gap-1 font-extrabold tracking-wide uppercase">
+      className={`${PILL_RADIUS_CLASSES} border-none px-1.5 py-0.5 ${PILL_TINT_CLASSES[saisonPhase]}`}>
+      <div className="flex items-center gap-1 fluid-xxs font-extrabold tracking-wide uppercase">
         {PHASE_ICONS[saisonPhase]}
         {PHASE_LABELS[saisonPhase]}
       </div>

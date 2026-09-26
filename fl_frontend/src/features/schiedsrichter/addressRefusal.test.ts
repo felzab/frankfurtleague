@@ -8,11 +8,12 @@ import { createElement as h } from "react";
 
 import { render, screen } from "@testing-library/react";
 
+import { formWiring } from "@/shared/testing/formWiring.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { FELD_ABGELEHNT, toActionErrorResult } from "@/shared/utils/actionError.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { Form } = await import("@heroui/react");
+const { Form } = await import("@/shared/components/ui/Form.tsx");
 const { SchiedsrichterFormFields } = await import("./components/forms/SchiedsrichterFormFields.tsx");
 
 const ENTWURF = { name: "Anna Meier", schule: "", default_payment: 20, kontakt: { email: "anna@beispiel.test", telefon: "" } };
@@ -26,7 +27,7 @@ describe("an address only the API refuses", () => {
     render(
       h(
         Form,
-        { validationBehavior: "aria", validationErrors: result.fieldErrors },
+        { onSubmit: () => undefined, wiring: formWiring({ validationErrors: result.fieldErrors }) },
         h(SchiedsrichterFormFields, { draft: ENTWURF, onChange: () => undefined }),
       ),
     );

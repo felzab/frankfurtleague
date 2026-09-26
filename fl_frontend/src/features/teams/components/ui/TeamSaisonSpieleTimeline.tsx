@@ -61,7 +61,7 @@ export function TeamSaisonSpieleTimeline({
 
   return (
     <section className="flex size-full flex-col gap-y-6">
-      <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Saisonspiele</h2>
+      <h2 className="fluid-lg font-extrabold tracking-tight text-foreground">Saisonspiele</h2>
 
       {/* Without this the empty case renders the dashed rail with no items — a bare vertical line. */}
       {teamSpiele.length === 0 ? (
@@ -74,7 +74,7 @@ export function TeamSaisonSpieleTimeline({
         // Same list semantics as the card grids, so a screen-reader user gets a count and a position.
         <div
           role="list"
-          className="border-border relative ml-2 border-l-2 border-dashed">
+          className="relative ml-2 border-l-2 border-dashed border-border">
           {sortByDate({ arr: teamSpiele, key: "datum" }).map((spielData) => {
             const { ergebnisFor, imElfmeterschiessen } = computeEntscheidungFor({ spiel: spielData, teamId });
 
@@ -99,7 +99,7 @@ export function TeamSaisonSpieleTimeline({
                 {imElfmeterschiessen && (
                   <span
                     aria-hidden="true"
-                    className="bg-muted text-foreground-muted absolute top-[42px] left-[-15px] w-[28px] rounded-full text-center text-[10px] leading-4 font-bold whitespace-nowrap">
+                    className="absolute top-[42px] left-[-15px] w-[28px] rounded-full bg-muted text-center text-[10px] leading-4 font-bold whitespace-nowrap text-foreground-muted">
                     {IM_ELFMETERSCHIESSEN}
                   </span>
                 )}

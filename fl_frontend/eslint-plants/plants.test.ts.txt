@@ -1,0 +1,63 @@
+// Linted as src/features/zzplant/plants.test.ts.
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
+import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { NumberField as HeroNumberField } from "@heroui/react/number-field"; // expect: number-field
+import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect: marked-field
+import { Bars } from "@gravity-ui/icons"; // expect: vendor-root
+import { DateField } from "@heroui/react/date-field"; // expect: segmented-import
+import { HintPopover } from "@/shared/components/ui/InfoHint"; // expect: hint-internals
+import { Calendar as Days } from "@heroui/react/calendar"; // expect: date-alias
+
+declare const router: { back: () => void };
+
+export const ENDPOINT = "https://api.resend.com/emails"; // expect: resend
+export const STALE = "/bestaetigung?token=x"; // expect: stale-path
+// A test fixture may spell a class the product may not: the class bans reach production alone.
+export const FIXTURE = "hover:opacity-80 gap-5";
+export const ADMIN_FIXTURE = "/admin/teams";
+export const CONTEXT = AppRouterContext;
+export const FORM = HeroForm;
+export const NUMBER_FIELD = HeroNumberField;
+export const TEXT_FIELD_USED = HeroTextField;
+export const ICON = Bars;
+export const FIELD = DateField;
+export const POPOVER = HintPopover;
+export const DAYS = Days;
+export const ICONS_LOADED = await import("@gravity-ui/icons"); // expect: vendor-root-load
+export const FORM_LOADED = await import("@heroui/react/form"); // expect: heroui-form-load
+export const NUMBER_FIELD_LOADED = await import("@heroui/react/number-field"); // expect: number-field-load
+export const SELECT_LOADED = await import("@heroui/react/select"); // expect: marked-field-load
+export const ROUTER_LOADED = await import("next/dist/shared/lib/app-router-context.shared-runtime.js"); // expect: next-private-load
+export const PICKER_LOADED = await import("@heroui/react/date-picker"); // expect: segmented-load
+export const { Calendar: LoadedDays } = await import("@heroui/react/calendar"); // expect: calendar-load
+declare const createRequire: (from: string) => (specifier: string) => unknown;
+declare const requireHere: (specifier: string) => unknown;
+export const REQUIRED = createRequire(import.meta.url)("next/dist/shared/lib/hooks-client-context.shared-runtime.js"); // expect: next-private-load
+export const REQUIRED_TEMPLATE = createRequire(import.meta.url)(`@heroui/react/form`); // expect: heroui-form-load
+// A module double's source, and a specifier held for a later load, name the module in a string.
+export const DOUBLE = `export * from "next/dist/shared/lib/app-router-context.shared-runtime.js";`; // expect: next-private-string
+export const SPECIFIER = "next/dist/shared/lib/hooks-client-context.shared-runtime.js"; // expect: next-private-string
+export const HELD = requireHere(SPECIFIER);
+export const { HintPanel: LoadedPanel } = await import("@/shared/components/ui/InfoHint.tsx"); // expect: hint-internals-load
+export const LOADED_POPOVER = (await import(`@/shared/components/ui/InfoHint`)).HintPopover; // expect: hint-internals-load
+export const { InfoHint: LoadedHint } = await import("@/shared/components/ui/InfoHint.tsx");
+
+declare const assert: { equal: (a: unknown, b: unknown) => void };
+declare const screen: { queryByText: (text: string) => unknown; findByText: (text: string) => Promise<unknown> };
+declare const queryByText: (text: string) => unknown;
+declare const findByText: (text: string) => Promise<unknown>;
+assert.equal(screen.queryByText("Titel"), null); // expect: query-in-equality
+assert.equal(await screen.findByText("Titel"), null); // expect: query-in-equality
+assert.equal(queryByText("Titel"), null); // expect: query-in-equality
+assert.equal(await findByText("Titel"), null); // expect: query-in-equality
+assert.equal(null, screen.queryByText("Titel")); // expect: query-in-equality
+assert.equal(null, await screen.findByText("Titel")); // expect: query-in-equality
+assert.equal(null, queryByText("Titel")); // expect: query-in-equality
+assert.equal(null, await findByText("Titel")); // expect: query-in-equality
+// A test calls the plugin's deletion to hold it closed, so the passkey ban stays out of tests.
+export const HOLDS_IT_CLOSED = "deletePasskey";
+
+export function plantedBack(): void {
+  router.back(); // expect: history-back
+}
+export const RAC_LOADED = import(`@heroui/react/rac`); // expect: locale-load

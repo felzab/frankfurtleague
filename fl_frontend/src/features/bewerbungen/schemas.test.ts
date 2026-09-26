@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { toFieldErrors } from "@/shared/utils/validation";
 
 import {
@@ -30,6 +31,10 @@ import { bewerbungPayload, buildEmptyBewerbungDraft } from "./utils.ts";
 import type { BewerbungFormDraft, BewerbungKontaktpersonDraft, BewerbungSchuleDraft } from "./types.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
+
+/* Reached with `await import` and never a static import beside the harness: the JSX compile step is
+   registered as `renderTest` evaluates, and a static import resolves before that. */
+const { FormTeamSection } = await import("./components/forms/BewerbungForm/FormTeamSection.tsx");
 
 /** A whole person, so every case below fails for the one rule it names and no other. */
 const person = (vorname: string, overrides: Partial<BewerbungKontaktpersonDraft> = {}): BewerbungKontaktpersonDraft => ({
@@ -625,11 +630,22 @@ describe("the squad question asks for one level in both halves", () => {
      of membership rather than from level, so either half losing the qualifier puts the wrong reading
      back — and each half survives being reverted on its own. */
   it("names the same level in the label and in the refusal", () => {
-    const TEAM_SECTION = readFileSync(
-      path.join(SRC_DIR, "features", "bewerbungen", "components", "forms", "BewerbungForm", "FormTeamSection.tsx"),
-      "utf8",
-    );
-    const label = /<Label className=\{FIELD_LABEL\}>(Davon[^<]*)<\/Label>/.exec(TEAM_SECTION)?.[1] ?? "";
+    const section = renderMarkup(FormTeamSection, {
+      trikot: { vorhandener_satz: "", wunschfarbe: null },
+      kader: { voraussichtliche_groesse: 14, gute_spieler: null },
+      wunschgegner: "",
+      schulen: [],
+      vergebeneFarben: [],
+      onTrikotChange: () => undefined,
+      onKaderChange: () => undefined,
+      onWunschgegnerChange: () => undefined,
+      onFieldLeft: () => undefined,
+      onFarbePicked: () => undefined,
+    });
+    // The label of the field whose box writes the strong count, which stands before that box.
+    const box = section.indexOf('name="kader.gute_spieler"');
+    const opening = section.lastIndexOf('data-slot="label"', box);
+    const label = box < 0 || opening < 0 ? "" : textOf(section.slice(section.indexOf(">", opening) + 1, section.indexOf("</label>", opening)));
     const refusal =
       FLPostBewerbungPayloadSchema.safeParse(
         bewerbungPayload(validDraft({ kader: { voraussichtliche_groesse: 14, gute_spieler: null } })),
@@ -701,10 +717,10 @@ describe("the one field of a submitted application an administrator may move", (
     assert.equal(gleicheAdresse("erika@straße.de", "erika@strasse.de"), false);
   });
 
-  /* A row stored before the address rule holds its domain in Unicode, and the send compares it with
-     the punycode a correction stores now; how each spelling converts is the address table's. */
-  it("reads a mailbox stored with a Unicode domain as the one its punycode names", () => {
-    assert.equal(gleichesPostfach("anna@xn--mller-kva.de", "anna@müller.de"), true);
+  /* An address typed with its domain in Unicode is compared with the punycode every row stores; how
+     each spelling converts is the address table's. */
+  it("reads a mailbox typed with a Unicode domain as the one its stored punycode names", () => {
+    assert.equal(gleichesPostfach("anna@müller.de", "anna@xn--mller-kva.de"), true);
   });
 });
 
@@ -818,6 +834,25 @@ describe("the one-line rule the submission and the endpoint hold together", () =
     assert.deepEqual(
       [...new Set(SINGLE_LINE.flatMap(([, codes]) => [...codes]))].sort((first, second) => first - second),
       endpointRefuses(BACKEND_SINGLE_LINE),
+    );
+  });
+});
+
+describe("the consenting answer's birth date", () => {
+  /* The leaf takes `null`, an objection carrying none, so the date picker's required mark is set by
+     hand on the strength of this refusal alone. */
+  it("is refused missing, on the date's own path, in German", () => {
+    const parsed = FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({
+      token: "x".repeat(20),
+      antwort: "erteilt",
+      geburtsdatum: null,
+      whatsapp: false,
+      text_version: "2026-08",
+    });
+
+    assert.deepEqual(
+      parsed.error?.issues.map((issue) => [issue.path.join("."), issue.message]),
+      [["geburtsdatum", "Bitte gib Dein Geburtsdatum ein."]],
     );
   });
 });

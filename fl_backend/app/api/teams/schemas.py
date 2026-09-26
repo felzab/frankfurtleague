@@ -18,7 +18,6 @@ from pydantic import (
 from app.shared.schemas.addresses import FLAddress, FLAddressPayload
 from app.shared.schemas.bounds import (
     EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH,
-    KONTAKT_NAME_MAX_LENGTH,
     LIST_LIMIT_DEFAULT,
     LIST_LIMIT_MAX,
     SAISON_ID_LENGTH,
@@ -29,7 +28,6 @@ from app.shared.schemas.bounds import (
     TEAM_WEBSITE_URL_MAX_LENGTH,
 )
 from app.shared.schemas.custom import (
-    PERSON_NAME_PATTERN,
     PHONE_REGEX,
     CustomDateString,
     CustomNonEmptyString,
@@ -39,7 +37,7 @@ from app.shared.schemas.custom import (
     parse_empty_string_to_none,
     validate_external_url,
 )
-from app.shared.schemas.kontakt import CustomEmail
+from app.shared.schemas.kontakt import CustomEmail, CustomKontaktName
 from app.shared.schemas.responses import BaseAPIResponse
 
 # Spelled rather than derived: a `Literal`'s members must be literal expressions for a type checker
@@ -241,15 +239,10 @@ class FLKontaktKenntnisnahmePayload(_KontaktKenntnisnahmeWritable):
 class _KontaktpersonWritablePayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    # Tightened on the WRITE side alone, as a referee's name is (`docs/backend/spec.md :: I36`), and
-    # stripped there for the same reason. The ceiling is the application's, so both tiers refuse
-    # alike; the pattern bounds the alphabet and not the length.
-    vorname: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=KONTAKT_NAME_MAX_LENGTH, pattern=PERSON_NAME_PATTERN)
-    ]
-    nachname: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=KONTAKT_NAME_MAX_LENGTH, pattern=PERSON_NAME_PATTERN)
-    ]
+    # Tightened on the WRITE side alone (`docs/backend/spec.md :: I36`), in the type the public
+    # application and a referee's name take too, so the editor and the form refuse a name alike.
+    vorname: CustomKontaktName
+    nachname: CustomKontaktName
     email: CustomEmail
     # Here rather than beside the format: the pattern caps the length inside itself, which makes it
     # a ceiling.

@@ -57,16 +57,6 @@ describe("the schema the three internal API keys share", () => {
     assert.equal(INTERNAL_API_KEY.safeParse(pad("ü")).success, false);
   });
 
-  it("refuses a key of 64 code points carrying one astral character", () => {
-    // The case the length check alone already refuses HERE and accepts on the backend: this
-    // `length` counts the surrogate pair twice and Python's counts it once.
-    const astral = pad("\u{1F600}");
-
-    assert.equal([...astral].length, LENGTH);
-    assert.equal(astral.length, LENGTH + 1);
-    assert.equal(INTERNAL_API_KEY.safeParse(astral).success, false);
-  });
-
   it("refuses a key a space would let through a bearer header", () => {
     assert.equal(INTERNAL_API_KEY.safeParse(pad("a b")).success, false);
   });
@@ -137,7 +127,7 @@ const COMPLETE_ENV: Record<string, string> = {
 
 let probe = 0;
 
-/** The real module's own boot, with the gate the `test` script stands down put back up. */
+/** The real module's own boot, with the gate the `test:base` script stands down put back up. */
 async function bootWith(overrides: Record<string, string | undefined>): Promise<Record<string, unknown>> {
   const before = { ...process.env };
   Object.assign(process.env, COMPLETE_ENV);

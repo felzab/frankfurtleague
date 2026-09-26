@@ -47,9 +47,10 @@ from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.zustellung.router import angenommen_zustellung
 from app.api.zustellung.schemas import FLZustellungAngenommenPayload
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
+from tests import documents
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -98,29 +99,11 @@ BOOKING: Mapping[str, Any] = {"schiedsrichter_id": SCHIEDSRICHTER_OID, "name": N
 # slice's own suite: what is driven here is that the next mint takes it away.
 A_BOUNCE: Mapping[str, Any] = {"nachricht_id": "m-1", "stand": "unzustellbar", "grund": "NoEmail", "am": TODAY}
 
-SAISON_RULES: dict[str, Any] = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 4,
-    "teams_per_group": 4,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-}
-
 
 def saison_document() -> dict[str, Any]:
     """The RUNNING season. Every mint reads it, the ban list being judged against the season in progress."""
 
-    return {
-        "_id": SAISON_ID,
-        "start_date": "2026-01-01",
-        "end_date": "2026-06-30",
-        "status": "active",
-        "rules": dict(SAISON_RULES),
-    }
+    return documents.saison_document(SAISON_ID, "active")
 
 
 def referee_document(*, email: str | None = EMAIL, **overrides: Any) -> dict[str, Any]:
@@ -140,24 +123,16 @@ def referee_document(*, email: str | None = EMAIL, **overrides: Any) -> dict[str
 def fixture_document() -> dict[str, Any]:
     """One played fixture this referee officiated, seeded so a fan-out onto `spiele` has somewhere to land."""
 
-    return {
-        "_id": SPIEL_OID,
-        "spiel_nr": 1,
-        "saison_id": SAISON_ID,
-        "saison_phase": "gruppenphase",
-        "spieltag_id": SPIELTAG_OID,
-        "team1": None,
-        "team2": None,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": "2026-03-15",
-        "uhrzeit": "14:00:00",
-        "ort": None,
-        "schiedsrichter": dict(BOOKING),
-        "ergebnis": "2:1",
-        "elfmeterschiessen": None,
-        "sonderereignis": None,
-    }
+    return documents.spiel_document(
+        spiel_id=SPIEL_OID,
+        saison_id=SAISON_ID,
+        spiel_nr=1,
+        spieltag_id=SPIELTAG_OID,
+        datum="2026-03-15",
+        uhrzeit="14:00:00",
+        schiedsrichter=dict(BOOKING),
+        ergebnis="2:1",
+    )
 
 
 def payload_body(*, email: str | None = EMAIL) -> dict[str, Any]:
@@ -172,21 +147,13 @@ def on_a_league(url: str, body: Body, *, referees: list[dict[str, Any]] | None =
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # The season cache is PROCESS-WIDE and outlives a clean database, so a mint here would
-            # otherwise judge the ban list against a season a sibling left cached. Dropped on both
-            # sides: this case reads none of another's, and leaves none.
-            invalidate_saison_cache()
+            await database[Collection.SAISONS].insert_one(saison_document())
+            seeded = [referee_document()] if referees is None else referees
+            if seeded:
+                await database[Collection.SCHIEDSRICHTER].insert_many(seeded)
+                await database[Collection.SPIELE].insert_one(fixture_document())
 
-            try:
-                await database[Collection.SAISONS].insert_one(saison_document())
-                seeded = [referee_document()] if referees is None else referees
-                if seeded:
-                    await database[Collection.SCHIEDSRICHTER].insert_many(seeded)
-                    await database[Collection.SPIELE].insert_one(fixture_document())
-
-                return await body(database, client)
-            finally:
-                invalidate_saison_cache()
+            return await body(database, client)
 
     return on_the_seed_loop(_run())
 
@@ -316,7 +283,7 @@ class TestTheCreateIsTheInvitation:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client, email=BANNED_EMAIL)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await create(database, client, email=BANNED_EMAIL)
 
             return refused.value, await database[Collection.SCHIEDSRICHTER].count_documents({})
@@ -345,7 +312,7 @@ class TestTheCreateIsTheInvitation:
             # The ban's own write cached the season it counted from, which would answer the create.
             invalidate_saison_cache()
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await create(database, client, email=BANNED_EMAIL)
 
             return refused.value
@@ -399,7 +366,7 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
             first = await resend(database, client)
             await correct(database, client, email=CORRECTED_EMAIL)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await ansicht(database, first.bestaetigung.token)
 
             return refused.value
@@ -442,7 +409,7 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
             await database[Collection.SCHIEDSRICHTER].update_one({"_id": SCHIEDSRICHTER_OID}, {"$set": {"inactive_since": "2026-01-01"}})
             saved = await correct(database, client, email=CORRECTED_EMAIL)
 
-            with pytest.raises(DocumentConflictException) as old_link:
+            with pytest.raises(WriteRefusalException) as old_link:
                 await ansicht(database, first.bestaetigung.token)
 
             return saved, await stored(database), old_link.value
@@ -475,7 +442,7 @@ class TestACorrectedAddressReMintsAndRetiresTheOldLink:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client, email=BANNED_EMAIL)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await correct(database, client, email=BANNED_EMAIL)
 
             return refused.value, await stored(database), await stored_fixture(database)
@@ -521,7 +488,7 @@ class TestTheReSend:
             first = await resend(database, client)
             await resend(database, client)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await ansicht(database, first.bestaetigung.token)
 
             return refused.value
@@ -583,7 +550,7 @@ class TestTheReSend:
                 today=TODAY,
             )
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await resend(database, client)
 
             return refused.value, await stored(database)
@@ -600,7 +567,7 @@ class TestTheReSend:
             first = await resend(database, client)
             await confirm(database, client, first.bestaetigung.token)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await resend(database, client)
 
             return first, refused.value, await stored(database)
@@ -612,7 +579,7 @@ class TestTheReSend:
 
     def test_a_referee_with_no_address_is_refused_and_no_send_is_stamped(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await resend(database, client)
 
             return refused.value, await stored(database)
@@ -629,7 +596,7 @@ class TestTheReSend:
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await resend(database, client)
 
             return refused.value, await stored(database)
@@ -643,7 +610,7 @@ class TestTheReSend:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client, email=BANNED_EMAIL)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await resend(database, client)
 
             return refused.value, await stored(database)
@@ -742,7 +709,7 @@ class TestTheReactivation:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client, email=BANNED_EMAIL)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await reactivate(database, client)
 
             return refused.value, await stored(database)
@@ -780,7 +747,7 @@ class TestTheConfirmation:
             minted = await resend(database, client)
             await confirm(database, client, minted.bestaetigung.token)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await confirm(database, client, minted.bestaetigung.token, umfang="intern")
 
             return refused.value, await stored(database)
@@ -795,7 +762,7 @@ class TestTheConfirmation:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await confirm(database, client, minted.bestaetigung.token, today=AFTER_THE_DEADLINE)
 
             return refused.value, await stored(database)
@@ -817,7 +784,7 @@ class TestTheConfirmation:
             minted = await resend(database, client)
             await confirm(database, client, minted.bestaetigung.token)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await confirm(database, client, minted.bestaetigung.token, today=AFTER_THE_DEADLINE)
 
             return refused.value
@@ -828,7 +795,7 @@ class TestTheConfirmation:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await confirm(database, client, minted.bestaetigung.token, geburtsdatum=A_CHILDS_BIRTHDATE)
 
             return refused.value, await stored(database)
@@ -840,7 +807,7 @@ class TestTheConfirmation:
 
     def test_a_token_no_referee_holds_is_refused(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await confirm(database, client, "a-token-nobody-minted")
 
             return refused.value
@@ -861,7 +828,7 @@ class TestTheConfirmation:
                 germany_now=NOW,
             )
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await ansicht(database, minted.bestaetigung.token)
 
             return refused.value, await database[Collection.SCHIEDSRICHTER].count_documents({"_id": SCHIEDSRICHTER_OID})
@@ -925,7 +892,7 @@ class TestTheMediaAge:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await confirm(database, client, minted.bestaetigung.token, geburtsdatum=A_DAY_SHORT_OF_THE_MEDIA_AGE, medien=True)
 
             return refused.value, await stored(database)

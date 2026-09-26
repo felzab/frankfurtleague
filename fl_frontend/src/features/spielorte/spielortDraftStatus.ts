@@ -17,7 +17,7 @@ type FLSpielortFieldGroup = "Spielort" | "Adresse" | "Miete";
 export type FLSpielortDraftStatus = FLDraftStatus<FLSpielortFieldGroup>;
 
 /** `maps_link` has no row: the backend derives it and no payload carries it. */
-const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLSpielortDraftFields, FLSpielortFieldGroup>[] = [
+const FIELD_DESCRIPTORS = [
   { path: "name", label: "Name", group: "Spielort", read: (source) => emptyAsNull(source.name) },
   { path: "address.strasse", label: "Straße", group: "Adresse", read: (source) => emptyAsNull(source.address.strasse) },
   { path: "address.hausnummer", label: "Hausnummer", group: "Adresse", read: (source) => emptyAsNull(source.address.hausnummer) },
@@ -30,7 +30,9 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLSpielortDraftFields, FLSpi
     group: "Miete",
     read: (source) => (source.default_mietpreis === null ? null : formatEuro(source.default_mietpreis)),
   },
-];
+] as const satisfies readonly FLFieldDescriptor<FLSpielortDraftFields, FLSpielortFieldGroup>[];
+
+export type SpielortFieldPath = (typeof FIELD_DESCRIPTORS)[number]["path"];
 
 export function deriveSpielortDraftStatus({
   stored,

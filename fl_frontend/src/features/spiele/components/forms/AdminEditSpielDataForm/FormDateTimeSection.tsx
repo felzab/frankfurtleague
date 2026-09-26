@@ -1,10 +1,11 @@
 import { AppDatePicker, AppTimeField } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
+import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { CalendarDate, Time } from "@internationalized/date";
 
 /**
@@ -27,12 +28,12 @@ export function FormDateTimeSection({
 }) {
   return (
     <div
-      className={FIELD_PAIR}
+      className={FIELD_PAIR_CLASSES}
       onKeyDownCapture={suppressEnterSubmit}>
       <AppDatePicker
         name="datum"
         label={
-          <FieldLabel
+          <FieldLabel<SpielFieldPath>
             path="datum"
             extraMarker={<ExpectedMarker path="datum" />}>
             Spieldatum
@@ -48,7 +49,7 @@ export function FormDateTimeSection({
       <AppTimeField
         name="uhrzeit"
         label={
-          <FieldLabel
+          <FieldLabel<SpielFieldPath>
             path="uhrzeit"
             extraMarker={<ExpectedMarker path="uhrzeit" />}>
             Anpfiff

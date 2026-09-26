@@ -5,16 +5,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* `useSearchParams` reads a context no `next/navigation` export carries, so the list is mounted under
-   the one Next keeps it on, as `fl_frontend/src/app/notFound.test.ts` mounts its boundaries. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { render, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
-import { nextRouter } from "@/shared/testing/nextContexts.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import { publicTeamSaisonId } from "./utils.ts";
 
@@ -77,12 +73,8 @@ const row = (publicSaisonId: string | null): AdminTeamRow => ({
 /** The row's overflow menu, opened on the table while the selector names the planned season. */
 async function openMenu(team: AdminTeamRow): Promise<HTMLElement> {
   render(
-    h(AppRouterContext.Provider, {
-      value: nextRouter(),
-      children: h(SearchParamsContext.Provider, {
-        value: new URLSearchParams(`saison_id=${GEPLANT.id}`),
-        children: h(AdminTeamsTable, { filteredTeams: [team], emptiness: "none", setDeletingTeam: () => undefined }),
-      }),
+    underNext(h(AdminTeamsTable, { filteredTeams: [team], emptiness: "none", setDeletingTeam: () => undefined }), {
+      search: `saison_id=${GEPLANT.id}`,
     }),
   );
 

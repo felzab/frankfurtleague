@@ -2,14 +2,14 @@
 
 import { refresh, updateTag } from "next/cache";
 
-import { getAdminSession } from "@/core/auth";
 import { buildBewerbungAbsageEmail, buildBewerbungBestaetigungEmail, buildBewerbungZusageEmail } from "@/core/bewerbungEmail";
 import { frontend_config } from "@/core/config";
+import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { APIBadStatusError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
-import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -20,6 +20,7 @@ import { ERNEUT_OHNE_ADRESSE } from "./constants";
 import { ablehnenBewerbung, annehmenBewerbung, besetzenKontaktSitz, erneutSendenEinwilligung, korrigierenKontaktEmail } from "./mutations";
 import { collectBewerbungEmpfaenger, describeBewerbungMail, rollenText, sendBewerbungMail } from "./notifications";
 import { getBewerbungById } from "./queries";
+import { mapEinwilligungErneutRefusal, mapKontaktEmailRefusal, mapKontaktSitzRefusal, mapTriageRefusal } from "./refusals";
 import {
   FLAblehnenBewerbungPayloadSchema,
   FLAnnehmenBewerbungPayloadSchema,
@@ -27,12 +28,12 @@ import {
   FLBewerbungKontaktSitzPayloadSchema,
   FLEinwilligungErneutPayloadSchema,
 } from "./schemas";
-import { bewerbungTeamName, describeAufnahme } from "./utils";
+import { BEWERBUNG_VERALTET, bewerbungHerkunft, bewerbungTeamName, describeAufnahme, nenntLaufendeFassung } from "./utils";
 
 import type { BewerbungEmail } from "@/core/bewerbungEmail";
 import type { KontaktRolle } from "@/features/teams/constants";
 import type { ActionResult } from "@/shared/types/types";
-import type { FieldErrors } from "@/shared/utils/validation";
+import type { BewerbungHerkunft } from "./constants";
 import type { BewerbungBetreff } from "./notifications";
 import type {
   FLAblehnenBewerbungPayload,
@@ -42,102 +43,6 @@ import type {
   FLBewerbungKontaktSitzPayload,
   FLEinwilligungErneutPayload,
 } from "./schemas";
-
-/** Where a club is created and reactivated, named as the sidemenu entry reads. */
-const TEAMS_PAGE = "Teams";
-
-/**
- * A triage 409 as the message it should render, or `null` when the code is none of these.
- *
- * The `REQ-ENTER` codes are the season's own entry rules, which
- * `fl_backend/app/api/bewerbungen/admin_router.py` reuses rather than restates.
- */
-function mapTriageRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
-
-  switch (error.serverErrorCode) {
-    // One code for both endpoints: what is refused is deciding an application twice, and which press
-    // arrived second is nothing an administrator can act on differently.
-    case "REQ-BEWERBUNG-001":
-      return {
-        error: buildRefusal({
-          reason: "Über diese Bewerbung ist schon entschieden worden, und eine Entscheidung wird einmal getroffen",
-          repair: "Lade die Seite neu",
-        }),
-      };
-    case "REQ-BEWERBUNG-002":
-      return {
-        error: buildRefusal({
-          reason:
-            "Diese Bewerbung nennt weder genau einen bestehenden Verein noch genau eine neue Schule, und damit steht nicht fest, wer aufgenommen würde",
-          repair: { before: "Lehne sie ab und lege das Team", after: "selbst an" },
-          where: TEAMS_PAGE,
-        }),
-      };
-    // The application's own validator asserts no more than `docs/backend/spec.md :: I16`, while `teams`
-    // reads a club through a stricter model, so a school's details can make no club. Nothing edits them.
-    case "REQ-BEWERBUNG-003":
-      return {
-        error: buildRefusal({
-          // The fields are named as `BewerbungAngabenPanel` labels them, so the administrator reading this finds
-          // each one. Schulform is absent because the validator's enum keeps it out of this rule.
-          reason:
-            "Die Angaben dieser Schule ergeben kein gültiges Team: Team, vollständiger Name, Kürzel, Adresse oder Website passen nicht in die Form, die ein Team haben muss",
-          repair: { before: "Lehne die Bewerbung ab und lege das Team", after: "mit korrigierten Angaben selbst an" },
-          where: TEAMS_PAGE,
-        }),
-      };
-    // Reachable from a page that was open while a seat's state moved: the view closes the acceptance
-    // while a seat is outstanding, so the reload is what puts the current state in front of the
-    // administrator, seat by seat.
-    case "REQ-BEWERBUNG-013":
-      return {
-        error: buildRefusal({
-          reason: "Nicht jede Kontaktperson dieser Bewerbung hat ihren Eintrag bestätigt",
-          repair: "Lade die Seite neu",
-        }),
-      };
-    // `REQ-ENTER-001` to `-003` open with the sentence
-    // `fl_frontend/src/features/teams/actions.ts :: mapEntryRefusal` renders too, so only the repair
-    // below is this one's own; `fl_frontend/src/features/bewerbungen/actions.test.ts` holds the pairs equal.
-    case "REQ-ENTER-001":
-      return {
-        error: buildRefusal({
-          reason: "Diese Saison ist nicht mehr in Planung, und aufgenommen wird nur in eine geplante Saison",
-          repair: "Lehne die Bewerbung ab",
-        }),
-      };
-    // On the picker: the field at fault is the one the admin can move, and a message under the
-    // control that is itself the way out carries no repair sentence (`docs/frontend/spec.md` §1.12).
-    case "REQ-ENTER-002":
-      return { fieldErrors: { gruppe: "Diese Gruppe gibt es in dieser Saison nicht." } };
-    case "REQ-ENTER-003":
-      return { fieldErrors: { gruppe: "Diese Gruppe ist schon voll." } };
-    // A new school's club is created with the Kürzel the school typed, and a club's only unique key
-    // is that Kürzel, so this 409 IS the collision. The generic conflict names no way out, and
-    // nothing edits a school's details.
-    case "DB-COMMON-002":
-      return {
-        error: buildRefusal({
-          reason: "Das Kürzel dieser Schule hat schon ein anderes Team, vielleicht ein stillgelegtes",
-          repair: { before: "Ändere das Kürzel des anderen Teams", after: "und nimm die Bewerbung danach an" },
-          where: TEAMS_PAGE,
-        }),
-      };
-    // „Stillgelegt“ is what every admin surface calls `inactive_since`, the club editor included.
-    // „Verlassen“ is an `austritt`, another record on another page.
-    case "REQ-ENTER-005":
-      return {
-        error: buildRefusal({
-          reason: "Das Team dieser Bewerbung ist stillgelegt und kann in keine Saison aufgenommen werden",
-          repair: { before: "Reaktiviere es", after: "und nimm die Bewerbung danach an" },
-          where: TEAMS_PAGE,
-        }),
-      };
-    default:
-      return null;
-  }
-}
 
 /**
  * The club the message to the school is addressed to. `null` where the application names neither a
@@ -205,6 +110,18 @@ async function notifyBewerbung({
 }
 
 /**
+ * What the refused application enters, read off the stored application for a duplicate key alone,
+ * whose sentence it decides. `null` where that read fails, which leaves the key to the shared reader.
+ */
+async function kollisionsHerkunft(error: unknown, bewerbungId: string): Promise<BewerbungHerkunft | null> {
+  if (!(error instanceof APIBadStatusError) || error.serverErrorCode !== "DB-COMMON-002") return null;
+
+  const gelesen = await getBewerbungById(bewerbungId).catch(() => null);
+
+  return gelesen === null ? null : bewerbungHerkunft(gelesen.bewerbung);
+}
+
+/**
  * Accepts the application, and tells the people who applied.
  *
  * **IRREVERSIBLE**: `saison_teams` has no DELETE, so a club entered in error leaves only through an
@@ -213,11 +130,7 @@ async function notifyBewerbung({
 export async function annehmenBewerbungAction(
   rawPayload: FLAnnehmenBewerbungPayload,
 ): Promise<ActionResult<{ updated_document?: FLBewerbung; team_id?: string }>> {
-  return runAdminMutation("annehmenBewerbungAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("annehmenBewerbungAction", async () => {
     const validated = FLAnnehmenBewerbungPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -233,7 +146,7 @@ export async function annehmenBewerbungAction(
     try {
       annahmeOperation = await annehmenBewerbung(validated.data);
     } catch (error) {
-      const refusal = mapTriageRefusal(error);
+      const refusal = mapTriageRefusal(error, await kollisionsHerkunft(error, validated.data.id));
       if (refusal) return refusalResult(refusal);
       throw error;
     }
@@ -247,7 +160,6 @@ export async function annehmenBewerbungAction(
     // (`docs/frontend/spec.md` §1.4).
     updateTag("teams");
     updateTag(`teams:saison_id:${annahmeOperation.saison_id}`);
-    refresh();
 
     const zustellung = await notifyBewerbung({
       operation: "annehmenBewerbungAction",
@@ -294,11 +206,7 @@ export async function annehmenBewerbungAction(
 export async function ablehnenBewerbungAction(
   rawPayload: FLAblehnenBewerbungPayload,
 ): Promise<ActionResult<{ updated_document?: FLBewerbung }>> {
-  return runAdminMutation("ablehnenBewerbungAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("ablehnenBewerbungAction", async () => {
     const validated = FLAblehnenBewerbungPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -313,7 +221,7 @@ export async function ablehnenBewerbungAction(
     try {
       absageOperation = await ablehnenBewerbung(validated.data);
     } catch (error) {
-      const refusal = mapTriageRefusal(error);
+      const refusal = mapTriageRefusal(error, null);
       if (refusal) return refusalResult(refusal);
       throw error;
     }
@@ -323,9 +231,8 @@ export async function ablehnenBewerbungAction(
     }
 
     // No tag moves, unlike the acceptance: this moves the application's own `status` and
-    // `entscheidung`, and no cached read holds an application. The refresh is what brings the
-    // uncached triage reads back.
-    refresh();
+    // `entscheidung`, and no cached read holds an application. The spine's refresh is what brings
+    // the uncached triage reads back.
 
     const zustellung = await notifyBewerbung({
       operation: "ablehnenBewerbungAction",
@@ -350,44 +257,11 @@ export async function ablehnenBewerbungAction(
   });
 }
 
-/** A re-send 409 as the message it should render, or `null` when the code is none of these. */
-function mapEinwilligungErneutRefusal(error: unknown): string | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
-
-  switch (error.serverErrorCode) {
-    // The code the two decisions answer, given the re-send's own words: a link minted against a
-    // decided application would ask somebody to confirm a seat nothing is waiting for.
-    case "REQ-BEWERBUNG-001":
-      return buildRefusal({
-        reason: "Über diese Bewerbung ist schon entschieden worden, und ein neuer Link wäre nicht mehr zu beantworten",
-        repair: "Lade die Seite neu",
-      });
-    // Answered, declined, or a seat an application from before the workflow holds: one sentence for
-    // all three, because the control is offered from a page whose state has since moved.
-    case "REQ-BEWERBUNG-011":
-      return buildRefusal({
-        reason: "Für diese Rolle steht keine Bestätigung mehr aus",
-        repair: "Lade die Seite neu",
-      });
-    default:
-      return null;
-  }
-}
-
 /** The queue holds an application the retention sweep can have taken since the page was drawn. */
 const BEWERBUNG_WEG = buildRefusal({ reason: "Diese Bewerbung gibt es nicht mehr", repair: "Lade die Seite neu" });
 
 /** A seat with nobody in it shows no control at all, so a press reaching this came off a page whose state has moved. */
 const SITZ_LEER = buildRefusal({ reason: "Für diese Rolle steht niemand mehr in der Bewerbung", repair: "Lade die Seite neu" });
-
-/** Both administrative repairs answer `REQ-BEWERBUNG-001` with this: a decided application's contact block is what the decision was taken against. */
-const ANGABEN_STEHEN_FEST = buildRefusal({
-  reason: "Über diese Bewerbung ist schon entschieden worden, und ihre Angaben stehen damit fest",
-  repair: "Lade die Seite neu",
-});
-
-/** `REQ-BEWERBUNG-014` from either repair, worded as the submission words the same collision. */
-const ADRESSE_SCHON_VERGEBEN = "Diese E-Mail-Adresse ist schon bei einer anderen Person eingetragen.";
 
 /** A confirmation asks somebody to confirm for a named school, and `REQ-BEWERBUNG-002` refuses to accept this row anyway. */
 const KEIN_TEAM = buildRefusal({ reason: "Diese Bewerbung nennt kein Team", repair: "Lehne die Bewerbung ab" });
@@ -476,11 +350,7 @@ async function sendeBestaetigungErneut({
  * the league acts on either way.
  */
 export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungErneutPayload): Promise<ActionResult> {
-  return runAdminMutation("einwilligungErneutSendenAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("einwilligungErneutSendenAction", async () => {
     const validated = FLEinwilligungErneutPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -518,7 +388,6 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
 
     // No tag moves, as on the decline: this moves the application's own confirmation block
     // and its deadline, and no cached read holds an application — both triage reads are uncached.
-    refresh();
 
     const zustellung = await sendeBestaetigungErneut({
       bewerbungId: validated.data.id,
@@ -531,33 +400,16 @@ export async function einwilligungErneutSendenAction(rawPayload: FLEinwilligungE
       token: erneutOperation.token,
     });
 
-    return zustellung.verschickt ? { success: true, message: zustellung.message } : { success: false, error: zustellung.error };
+    if (!zustellung.verschickt) {
+      // The spine refreshes a success or an unknown outcome, a throw here among them, and a refused send
+      // leaves the mint standing too: the seat's old link is spent and its deadline moved.
+      refresh();
+
+      return { success: false, error: zustellung.error };
+    }
+
+    return { success: true, message: zustellung.message };
   });
-}
-
-/** A correction 409 as the message it should render, or `null` when the code is none of these. */
-function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
-
-  switch (error.serverErrorCode) {
-    case "REQ-BEWERBUNG-001":
-      return { error: ANGABEN_STEHEN_FEST };
-    // The pencil stands on a seat the page drew as outstanding, so the person answered under it: the
-    // correction is refused because their own answer named this address, not because a rule shut a box.
-    case "REQ-BEWERBUNG-011":
-      return {
-        error: buildRefusal({
-          reason: "Für diese Rolle hat die Person inzwischen selbst geantwortet, und danach wird ihre Adresse nicht mehr geändert",
-          repair: "Lade die Seite neu",
-        }),
-      };
-    // Under the field rather than over the panel: the box holding the refused address is the one
-    // thing to change, and the submission words the same collision the same way.
-    case "REQ-BEWERBUNG-014":
-      return { fieldErrors: { email: ADRESSE_SCHON_VERGEBEN } };
-    default:
-      return null;
-  }
 }
 
 /**
@@ -568,11 +420,7 @@ function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldErrors?:
 export async function kontaktEmailKorrigierenAction(
   rawPayload: FLBewerbungKontaktEmailPayload,
 ): Promise<ActionResult<{ verschickt?: boolean }>> {
-  return runAdminMutation("kontaktEmailKorrigierenAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("kontaktEmailKorrigierenAction", async () => {
     const validated = FLBewerbungKontaktEmailPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -609,7 +457,6 @@ export async function kontaktEmailKorrigierenAction(
 
     // No tag moves, as on the decline: this moves the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
-    refresh();
 
     let zustellung;
     try {
@@ -642,38 +489,15 @@ export async function kontaktEmailKorrigierenAction(
   });
 }
 
-/** A reseat 409 as the message it should render, or `null` when the code is none of these. */
-function mapKontaktSitzRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
-
-  switch (error.serverErrorCode) {
-    case "REQ-BEWERBUNG-001":
-      return { error: ANGABEN_STEHEN_FEST };
-    // The control stands on a seat the page drew as a Widerspruch, so the seat has moved under it —
-    // never that a rule shut a door: the one open seat is the one its own holder stepped out of.
-    case "REQ-BEWERBUNG-011":
-      return {
-        error: buildRefusal({
-          reason: "Neu besetzt wird nur eine Rolle, deren Person selbst widersprochen hat, und für diese Rolle gilt das nicht mehr",
-          repair: "Lade die Seite neu",
-        }),
-      };
-    case "REQ-BEWERBUNG-014":
-      return { fieldErrors: { email: ADRESSE_SCHON_VERGEBEN } };
-    default:
-      return null;
-  }
-}
-
 /**
  * **The seat stands filled whatever the message did**, as the correction's address does: a refused
  * send is a link to try again rather than a person who was never seated.
  */
 export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSitzPayload): Promise<ActionResult<{ verschickt?: boolean }>> {
-  return runAdminMutation("besetzeKontaktSitzAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
+  return runAdminMutation("besetzeKontaktSitzAction", async () => {
+    // Judged before the parse, as the confirmation handlers judge theirs: a page opened before a deploy
+    // moved the label would seat a person under words the build does not serve, and no key replays a reseat.
+    if (!nenntLaufendeFassung(rawPayload, LIGA_KENNTNISNAHME.textVersion)) return { success: false, error: BEWERBUNG_VERALTET };
 
     const validated = FLBewerbungKontaktSitzPayloadSchema.safeParse(rawPayload);
 
@@ -706,7 +530,6 @@ export async function besetzeKontaktSitzAction(rawPayload: FLBewerbungKontaktSit
 
     // No tag moves, for the correction's reason: this writes the application's own contact block and
     // its confirmation entry, and no cached read holds an application.
-    refresh();
 
     let zustellung;
     try {

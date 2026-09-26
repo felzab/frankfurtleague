@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
-import { useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
+import { joinedMessages, unshownPaths, useServerFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { toFieldErrors } from "@/shared/utils/validation";
 
@@ -11,13 +11,14 @@ import type { BlockingBanners, RailBanner } from "@/shared/components/ui/railBan
 import type { FailureAnnouncement } from "@/shared/hooks/useServerFieldErrors";
 import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "@/shared/utils/validation";
+import type { RefObject } from "react";
 import type { ZodType } from "zod";
 
 /**
  * `null` is "this one is fine now". `differs` records that the draft holds something other than what the last submit was
  * answering about, which is the only ground on which a browser verdict may speak over a server's refusal.
  */
-export type FieldVerdict = { message: string | null; differs: boolean };
+type FieldVerdict = { message: string | null; differs: boolean };
 
 /** Every path this form's browser-side validation has judged, keyed as the payload spells it. */
 export type FieldVerdicts = Record<string, FieldVerdict>;
@@ -277,7 +278,7 @@ export function useDraftFieldErrors<TSchema extends string>({
 
   /**
    * Whether send has been pressed. Missing-value messages wait for it, so tabbing an untouched form paints nothing.
-   * Listened for rather than threaded through each editor: `runOnSubmit` prevents the default, but the event fired.
+   * Listened for rather than threaded through each editor: the shared `Form` prevents the default, but the event fired.
    */
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
@@ -306,11 +307,11 @@ export function useDraftFieldErrors<TSchema extends string>({
    * blur-time judgement here — this map is what moves focus.
    */
   const setSubmitFieldErrors = useCallback(
-    (errors: FieldErrors, judged: Readonly<Partial<Record<TSchema, unknown>>>) => {
+    (errors: FieldErrors, judged: Readonly<Partial<Record<TSchema, unknown>>>, announcement?: { announced?: boolean }) => {
       submittedPayloads.current = { ...judged };
       setHasAttemptedSubmit(true);
       setVerdicts({});
-      setFieldErrors(errors);
+      setFieldErrors(errors, announcement);
     },
     // Stable, so a caller reading a server result from an effect can depend on it without re-running
     // that effect — and re-moving focus — on every render. It closes over setters and a ref alone.
@@ -376,15 +377,19 @@ export function useDraftFieldErrors<TSchema extends string>({
     const decision = submitDecision({ payloads, schemas });
 
     if (decision.blocked) {
-      setSubmitFieldErrors(decision.refusals, payloads);
       const marked = markedFieldCount(formRef.current, decision.refusals);
+      // The fallback told to stay silent: its title says a save was refused, and this press sent nothing.
+      setSubmitFieldErrors(decision.refusals, payloads, { announced: true });
 
       // Announced as well as marked. A `FieldError` is a plain span in no live region, so a blocked press
       // reaches a screen reader as a button that did nothing; every toast carries `role="alert"`.
 
-      // Nothing marked is the map `useServerFieldErrors` announces as unhandled, by the same name walk as this count:
-      // a second toast here would point at marks nobody can see.
-      if (marked > 0) appToast.danger(BLOCKED_SUBMIT_TITLE, { description: blockedSubmitDetail(marked) });
+      // One toast for the press: the paths no control shows ride in its description, in their own words, so the
+      // marks and what is said nowhere else reach the reader together.
+      const unshown = unshownPaths(formRef.current, decision.refusals);
+      const said = joinedMessages(unshown.map((path) => decision.refusals[path] ?? ""));
+      const parts = [marked > 0 ? blockedSubmitDetail(marked) : "", said].filter((part) => part !== "");
+      appToast.danger(BLOCKED_SUBMIT_TITLE, { description: parts.join(" ") });
       return;
     }
 
@@ -403,17 +408,30 @@ export function useDraftFieldErrors<TSchema extends string>({
     write();
   };
 
+  /**
+   * Never either store on its own, and deliberately not memoised: react-aria latches "this server error was cleared"
+   * per `FormValidationContext` identity, so a stable object hands that decision back to the library.
+   */
+  const fieldErrors = mergeFieldVerdicts(submitErrors, verdicts);
+
   return {
-    /**
-     * Never either store on its own, and deliberately not memoised: react-aria latches "this server error was cleared"
-     * per `FormValidationContext` identity, so a stable object hands that decision back to the library.
-     */
-    fieldErrors: mergeFieldVerdicts(submitErrors, verdicts),
+    fieldErrors,
     setSubmitFieldErrors,
     reportSubmitFailure,
     guardSubmit,
     validatePaths,
     useForgiveFixed,
     formRef,
+    formWiring: { ref: formRef, validationErrors: fieldErrors, schemas: Object.values<ZodType>(schemas) },
   };
 }
+
+/**
+ * What the shared `Form` takes whole from this hook, so a form names its schemas once and cannot pair itself with
+ * another form's ref or error map.
+ */
+export type DraftFormWiring = {
+  ref: RefObject<HTMLFormElement | null>;
+  validationErrors: FieldErrors;
+  schemas: readonly ZodType[];
+};

@@ -23,7 +23,7 @@ export function CardGrid({
   return (
     // A query container styles only its descendants, hence an element of its own. The page's cap sits
     // here rather than on the grid, so the thresholds read the width the columns really share.
-    <div className="max-w-page @container mx-auto w-full">
+    <div className="@container mx-auto w-full max-w-page">
       <div
         role={role}
         className={`grid w-full grid-cols-1 gap-4 sm:gap-6 ${columns} ${className}`}>

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { UNKNOWN_REFUSAL } from "@/shared/utils/refusal";
+
 import {
   applySeatPresence,
   applySharedSeat,
@@ -258,17 +260,17 @@ describe("renamedConfirmedSeatLabels", () => {
     assert.deepEqual(howStored({ email: "Erika@Beispiel.DE" }, { email: "erika@beispiel.de" }), []);
   });
 
-  /* A row stored before the address rule holds its domain in Unicode, where the address typed now is
-     stored as punycode: the server reads the two as one person and keeps the stamp. */
-  it("stays silent where a domain stored in Unicode meets its punycode", () => {
-    assert.deepEqual(howStored({ email: "anna@müller.de" }, { email: "anna@xn--mller-kva.de" }), []);
+  /* A domain typed in Unicode is stored as the punycode the row already holds: the server reads the
+     two as one person and keeps the stamp. */
+  it("stays silent where a domain typed in Unicode meets its stored punycode", () => {
+    assert.deepEqual(howStored({ email: "anna@xn--mller-kva.de" }, { email: "anna@müller.de" }), []);
   });
 
   /* „Weiß“ and „Weiss“ are two families, and „straße“ and „strasse“ two domains to sign-in: the save
      drops each stamp, so the banner has to name the seat. */
   it("names a seat where „ß“ against „ss“ is the whole difference", () => {
     assert.deepEqual(howStored({ nachname: "Weiß" }, { nachname: "WEISS" }), ["Trainer"]);
-    assert.deepEqual(howStored({ email: "erika@straße.de" }, { email: "erika@strasse.de" }), ["Trainer"]);
+    assert.deepEqual(howStored({ email: "erika@strasse.de" }, { email: "erika@straße.de" }), ["Trainer"]);
   });
 
   /* The three fields are compared apart: folded into one run, „Anna Maria Weiß“ reads the same however
@@ -302,12 +304,12 @@ describe("settledErasureAnsicht", () => {
 
   /* Outside a transition a rejection reaches no error boundary, so this arm is the only thing between a
      lost connection and a placeholder that never leaves. */
-  it("refuses with the connection named where the read never answered", () => {
+  it("refuses with the sentence every rejected admin read gets where the read never answered", () => {
     const readBack = settledErasureAnsicht(EMAIL, { status: "rejected", reason: new Error("Failed to fetch") });
 
     assert.equal(readBack.status, "refused", "a read that never answered leaves the panel waiting on it");
     assert.equal(readBack.email, EMAIL, "the refusal is carried under no address, so it stands under whichever seat is armed next");
-    assert.equal(readBack.status === "refused" ? readBack.reason : "", "Prüfe die Verbindung. Brich ab und starte das Löschen noch einmal.");
+    assert.equal(readBack.status === "refused" ? readBack.reason : "", UNKNOWN_REFUSAL);
   });
 
   it("holds the seats where the read answered them", () => {

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { SealCheck } from "@gravity-ui/icons";
+import SealCheck from "@gravity-ui/icons/SealCheck";
 
 import { annehmenBewerbungAction } from "@/features/bewerbungen/actions";
 import { GruppeSelect } from "@/features/teams/components/forms/GruppeSelect";
@@ -14,12 +14,14 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 import type { FLGruppenNames, FLTrikotFarbe } from "@/features/teams/schemas";
 import type { GruppeOffer } from "@/features/teams/types";
@@ -40,6 +42,7 @@ export function AdminBewerbungAnnehmenSection({
   saisonStatus,
   gruppeOffer,
   hindernis,
+  isDirty,
 }: {
   bewerbungId: string;
   /** The club this acceptance would enter, or `null` where the application names none. */
@@ -57,9 +60,12 @@ export function AdminBewerbungAnnehmenSection({
    * 2026-09-04).
    */
   hindernis: string | null;
+  /** Whether the decline holds a typed reason, which this write re-keys the page over. */
+  isDirty: boolean;
 }) {
+  const twoPress = useTwoPressConfirm(() => guardAgainstDraft(isDirty, DRAFT_DISCARDED));
   const router = useRouter();
-  const { isConfirming, isPending: isAccepting, press, cancel } = useTwoPressConfirm();
+  const { isConfirming, press, cancel } = twoPress;
 
   const [gruppe, setGruppe] = useState<FLGruppenNames | null>(null);
   const [trikotFarbe, setTrikotFarbe] = useState<FLTrikotFarbe | null>(null);
@@ -81,23 +87,25 @@ export function AdminBewerbungAnnehmenSection({
     if (chosen === null || hindernis !== null) return;
 
     press(async () => {
-      const res = await annehmenBewerbungAction({ id: bewerbungId, gruppe: chosen, trikot_farbe: trikotFarbe });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await annehmenBewerbungAction({ id: bewerbungId, gruppe: chosen, trikot_farbe: trikotFarbe }).catch(rejectedWrite(router));
 
-      if (!res.success) {
-        const fieldError = res.fieldErrors?.gruppe ?? null;
-        setGruppeError(fieldError);
+      // Wrapped again: the press runs this inside its transition, and React leaves an update after an
+      // `await` outside it.
+      startTransition(() => {
+        if (!res.success) {
+          const fieldError = res.fieldErrors?.gruppe ?? null;
+          setGruppeError(fieldError);
 
-        // Suppressed where the picker carries the message, so a refusal about the chosen group is
-        // not also said in a toast that names no field.
-        if (fieldError === null) appToast.failure("Bewerbung nicht angenommen", res);
-        return;
-      }
+          // Suppressed where the picker carries the message, so a refusal about the chosen group is
+          // not also said in a toast that names no field.
+          if (fieldError === null) appToast.failure("Bewerbung nicht angenommen", res);
+          return;
+        }
 
-      setGruppeError(null);
-      appToast.success("Bewerbung angenommen", { description: res.message });
-      // The application is decided now, so this page has to come back showing that: the two decision
-      // panels go and the Entscheidung block takes their place.
-      router.refresh();
+        setGruppeError(null);
+        appToast.success("Bewerbung angenommen", { description: res.message });
+      });
     });
   };
 
@@ -155,7 +163,7 @@ export function AdminBewerbungAnnehmenSection({
               </p>
             )}
 
-            <div className={FIELD_PAIR}>
+            <div className={FIELD_PAIR_CLASSES}>
               <GruppeSelect
                 value={gruppe}
                 onChange={(next) => {
@@ -181,7 +189,7 @@ export function AdminBewerbungAnnehmenSection({
             {isConfirming && gruppe !== null && teamName !== null && (
               <ConfirmReveal>
                 <div className="flex w-full flex-col gap-y-1">
-                  <h3 className={FORM_SECTION_HEADING}>{createsTeam ? "Was dabei angelegt wird" : "Was dabei eingetragen wird"}</h3>
+                  <h3 className={FORM_SECTION_HEADING_CLASSES}>{createsTeam ? "Was dabei angelegt wird" : "Was dabei eingetragen wird"}</h3>
                   <dl className="flex w-full flex-col gap-y-1">
                     <ConfirmReadoutRow
                       label={createsTeam ? "Neues Team" : "Team"}
@@ -201,14 +209,14 @@ export function AdminBewerbungAnnehmenSection({
                 {/* Only where the press creates the club: this is the moment the address the school
                     typed becomes public, and no other arm publishes anything (`docs/datenschutz.md` §4). */}
                 {createsTeam && (
-                  <p className="fluid-xxs text-foreground leading-normal font-medium">
+                  <p className="fluid-xxs leading-normal font-medium text-foreground">
                     Die Adresse der Schule steht danach öffentlich auf der Teamseite.
                   </p>
                 )}
 
                 {/* No undo is named on purpose: no endpoint takes an entry back, and the message to
                     the school goes out with the press. */}
-                <p className="fluid-xxs text-foreground leading-normal font-medium">
+                <p className="fluid-xxs leading-normal font-medium text-foreground">
                   Es gibt in der Verwaltung keinen Weg zurück. Aus der Saison kommt das Team danach nur noch über einen Austritt, der öffentlich
                   mit Begründung steht. Die Zusage geht sofort an die Kontaktpersonen raus.
                 </p>
@@ -216,15 +224,11 @@ export function AdminBewerbungAnnehmenSection({
             )}
 
             <div className="flex w-full flex-col gap-y-2">
-              <ConfirmActionRow
-                isConfirming={isConfirming}
-                isPending={isAccepting}
-                onCancel={cancel}>
+              <ConfirmActionRow confirm={twoPress}>
                 {/* On the control, never a sentence beside it that a pick would unmount
                     (`docs/frontend/spec.md` §1.14). */}
                 <ConfirmPressButton
-                  isConfirming={isConfirming}
-                  isPending={isAccepting}
+                  confirm={twoPress}
                   reason={grund}
                   resting="Bewerbung annehmen"
                   armed="Ja, Team verbindlich aufnehmen"

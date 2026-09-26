@@ -131,9 +131,11 @@ def test_only_the_declared_read_leniency_still_names_the_marker_s_old_spelling()
 
 def test_the_marker_is_out_of_saison_spieler_s_required_while_the_leniency_stands():
     """The site the sweep above cannot reach: an omission spells no old name, so a string reader passes over it."""
-    required = COLLECTION_VALIDATORS[Collection.SAISON_SPIELER]["$jsonSchema"]["required"]
+    schema = COLLECTION_VALIDATORS[Collection.SAISON_SPIELER]["$jsonSchema"]
+    required = schema["required"]
 
     assert "spieler_id" in required, "the required tuple was not found where this case reads it"
+    assert "ist_nachnominiert" in schema["properties"], "the marker is no longer spelled this way, so the absence below proves nothing"
     assert "ist_nachnominiert" not in required, (
         "requiring the marker refuses a retire or a reactivate on a row written under the old spelling; "
         "drop it here in the change that makes the marker required, with the rest of LENIENT"

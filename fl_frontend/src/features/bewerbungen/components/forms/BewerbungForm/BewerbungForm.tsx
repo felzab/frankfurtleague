@@ -2,31 +2,24 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 
-import { CircleCheck } from "@gravity-ui/icons";
+import CircleCheck from "@gravity-ui/icons/CircleCheck";
 
-import { Button, Form } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { ergebnisPanel } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE, BEWERBUNG_SEATS, KUERZEL_LAENGE } from "@/features/bewerbungen/constants";
 import { FLPostBewerbungPayloadSchema } from "@/features/bewerbungen/schemas";
-import {
-  bewerbungJudgedPaths,
-  bewerbungPayload,
-  buildEmptyBewerbungDraft,
-  KUERZEL_UNGEPRUEFT,
-  KUERZEL_VERGEBEN,
-  kuerzelHinweis,
-} from "@/features/bewerbungen/utils";
+import { bewerbungJudgedPaths, bewerbungPayload, KUERZEL_UNGEPRUEFT, KUERZEL_VERGEBEN, kuerzelHinweis } from "@/features/bewerbungen/utils";
+import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
-import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { appToast } from "@/shared/utils/appToast";
 import { EDGE_RATE_LIMIT_STATUS, postPublicForm } from "@/shared/utils/publicSubmit";
 
 import { FormEinwilligungSection, FormKontaktpersonenSection } from "./FormKontaktpersonenSection";
 import { FormSchuleSection } from "./FormSchuleSection";
 import { FormTeamSection } from "./FormTeamSection";
+import { useBewerbungDraft } from "./useBewerbungDraft";
 
 import type {
   BewerbungFormDraft,
@@ -94,37 +87,33 @@ export function BewerbungForm({
    */
   hinweisSlot?: ReactNode;
 }) {
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSending] = useTransition();
 
-  const [draft, setDraft] = useState<BewerbungFormDraft>(() => buildEmptyBewerbungDraft(saisonId));
+  const [isEingereicht, setIsEingereicht] = useState(false);
+  const [draft, applyDraft] = useBewerbungDraft(saisonId, isEingereicht);
   /** One per attempt rather than per press: kept until a box carries a refusal, so the next press replays it (`docs/frontend/spec.md :: I348`). */
   const [schluessel, setSchluessel] = useState(() => crypto.randomUUID());
-  const [isEingereicht, setIsEingereicht] = useState(false);
   /**
    * The wire has no spelling for „not answered“ — `trainer_ist_zugleich: null` is the answer „Eine
    * andere Person“ — so the picker's own state sits beside the draft, written by `pickTrainerWahl`
    * and by nothing else.
    */
   const [trainerWahl, setTrainerWahl] = useState<FLTrainerZugleich | null | undefined>(undefined);
-  /** Set on the first edit and never cleared: what it guards is the browser's own unload prompt. */
-  const [hasTyped, setHasTyped] = useState(false);
   /** The last blur-time answer about a Kürzel, kept WITH the value it judged (see `mergedErrors`). */
   const [kuerzelVerdikt, setKuerzelVerdikt] = useState<KuerzelVerdikt | null>(null);
   const [isKuerzelPending, setIsKuerzelPending] = useState(false);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { bewerbung: FLPostBewerbungPayloadSchema },
-    // This page's own word for the failure: „Änderung nicht gespeichert“ names a change nobody here
-    // made, and two titles for one failure read as two failures.
-    failureTitle: "Bewerbung nicht abgeschickt",
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } =
+    useDraftFieldErrors({
+      schemas: { bewerbung: FLPostBewerbungPayloadSchema },
+      // This page's own word for the failure: „Änderung nicht gespeichert“ names a change nobody here
+      // made, and two titles for one failure read as two failures.
+      failureTitle: "Bewerbung nicht abgeschickt",
+    });
 
   // Above the „eingegangen“ return, as every hook here is: the panel it renders holds no form, and a
   // hook called only on the way to it would run a different number of times per render.
   useForgiveFixed({ bewerbung: bewerbungPayload(draft) });
-
-  // A long form, entered once, by somebody who will not have it saved anywhere else.
-  useUnsavedChangesWarning(hasTyped && !isEingereicht);
 
   const mirroredSeat = draft.kontakte.trainer_ist_zugleich;
 
@@ -145,12 +134,6 @@ export function BewerbungForm({
     kuerzelVerdikt !== null && kuerzelVerdikt.vergeben && kuerzelVerdikt.shorthand === draft.schule.shorthand
       ? { ...fieldErrors, "schule.shorthand": KUERZEL_VERGEBEN }
       : fieldErrors;
-
-  /** Every write to the draft goes through here, so nothing can move it without arming the warning. */
-  const applyDraft = (next: BewerbungFormDraft | ((current: BewerbungFormDraft) => BewerbungFormDraft)) => {
-    setHasTyped(true);
-    setDraft(next);
-  };
 
   const setKontakte = (next: BewerbungKontakteDraft) => applyDraft((current) => ({ ...current, kontakte: next }));
 
@@ -245,7 +228,7 @@ export function BewerbungForm({
   const writeAfterBlock = () => {
     const payload = bewerbungPayload(draft);
 
-    startTransition(async () => {
+    startSending(async () => {
       const gesendet = await postPublicForm<BewerbungAntwort>("/api/bewerbung", payload, { idempotencyKey: schluessel });
 
       if (!gesendet.answered) {
@@ -260,32 +243,41 @@ export function BewerbungForm({
 
       const antwort = gesendet.body;
 
-      if (!antwort.success) {
-        // Titled as an unread answer is: the envelope's own sentence is an administrator's repair.
-        if (antwort.outcome === "unknown") {
-          appToast.danger("Unklar, ob es bei uns angekommen ist", { description: BEWERBUNG_UNKLAR });
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startSending(() => {
+        if (!antwort.success) {
+          // Titled as an unread answer is: the envelope's own sentence is an administrator's repair.
+          if (antwort.outcome === "unknown") {
+            appToast.danger("Unklar, ob es bei uns angekommen ist", { description: BEWERBUNG_UNKLAR });
+            return;
+          }
+
+          // Renewed only where a box carries the judgement: a sentence alone may be an answer that judged
+          // nothing, or the refusal saying the first details stand, and either keeps its replay
+          // (`docs/frontend/spec.md :: I348`).
+          if (antwort.fieldErrors !== undefined || antwort.unplacedError !== undefined) setSchluessel(crypto.randomUUID());
+
+          // The hook owns the press's one toast: none where a field shows the refusal.
+          reportSubmitFailure(
+            {
+              success: false,
+              error: antwort.error ?? NICHT_ABGESCHICKT,
+              fieldErrors: antwort.fieldErrors,
+              unplacedError: antwort.unplacedError,
+            },
+            { bewerbung: payload },
+            {
+              raise: (shown) =>
+                appToast.failure(antwort.schonAngekommen === true ? "Bewerbung schon angekommen" : "Bewerbung nicht abgeschickt", shown),
+            },
+          );
           return;
         }
 
-        // Renewed only where a box carries the judgement: a sentence alone may be an answer that judged
-        // nothing, or the refusal saying the first details stand, and either keeps its replay
-        // (`docs/frontend/spec.md :: I348`).
-        if (antwort.fieldErrors !== undefined || antwort.unplacedError !== undefined) setSchluessel(crypto.randomUUID());
-
-        // The hook owns the press's one toast: none where a field shows the refusal.
-        reportSubmitFailure(
-          { success: false, error: antwort.error ?? NICHT_ABGESCHICKT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
-          { bewerbung: payload },
-          {
-            raise: (shown) =>
-              appToast.failure(antwort.schonAngekommen === true ? "Bewerbung schon angekommen" : "Bewerbung nicht abgeschickt", shown),
-          },
-        );
-        return;
-      }
-
-      setSubmitFieldErrors({}, {});
-      setIsEingereicht(true);
+        setSubmitFieldErrors({}, {});
+        setIsEingereicht(true);
+      });
     });
   };
 
@@ -306,12 +298,12 @@ export function BewerbungForm({
           className={ergebnisPanel({ tone: "erfolg" })}>
           <CircleCheck
             aria-hidden="true"
-            className="text-success-strong size-10"
+            className="size-10 text-success-strong"
           />
-          <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Deine Bewerbung ist eingegangen</h2>
+          <h2 className="fluid-lg font-extrabold tracking-tight text-foreground">Deine Bewerbung ist eingegangen</h2>
           {/* No seat is named, each holding a link of its own: the reader is the one person who can
               chase the other two, which is why the panel asks rather than reassures. */}
-          <p className="muted-hint max-w-md">
+          <p className="max-w-md muted-hint">
             Jede Kontaktperson hat eine E-Mail mit einem eigenen Link zur Bestätigung bekommen. Vollständig ist Deine Bewerbung, sobald alle
             drei bestätigt haben; dann schauen wir sie uns an und melden uns bei allen drei Kontaktpersonen. Fehlt nach{" "}
             {String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen eine Bestätigung, löschen wir die Bewerbung mit allen Angaben und sagen Dir
@@ -333,15 +325,12 @@ export function BewerbungForm({
       {hinweisSlot}
 
       <Form
-        ref={formRef}
-        // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-        validationBehavior="aria"
+        wiring={{ ...formWiring, validationErrors: mergedErrors }}
         // A create form, so its required fields carry the asterisk every other create form marks them
         // with: nearly every box here is required, and a stranger fills this in once.
         data-required-marks="on"
-        validationErrors={mergedErrors}
         className="flex w-full flex-col gap-6"
-        onSubmit={runOnSubmit(handleSubmit)}>
+        onSubmit={handleSubmit}>
         <FormSchuleSection
           schulen={schulen}
           auswahl={draft.auswahl}

@@ -35,7 +35,7 @@ UNRULED: Final = CORPUS_DIR + "/never-written.md"
 COMMENT: Final = "planned under " + IGNORED_FOLDER + ", " + IGNORED_FILE + " and " + UNRULED
 COMMENT_HOME: Final = CORPUS_DIR + "/plan.md"
 
-HOOK: Final = ".githooks/pre-push"
+HOOK: Final = ".githooks/commit-msg"
 DEAD_PATH: Final = CORPUS_DIR + "/gone.md"
 # Titled: the opening block of a hook is a module header held to INC-2's shape, so a title-less one
 # would draw `module-header` beside the `path` finding the scan case counts.
@@ -250,7 +250,7 @@ def test_a_hook_block_that_was_already_over_the_bound_is_left_alone() -> None:
     assert answer["findings"] == [], "a block over the bound at the fork is the branch's to leave"
 
 
-def test_a_pre_push_hook_is_scanned_and_its_comment_read() -> None:
+def test_a_git_hook_is_scanned_and_its_comment_read() -> None:
     """A git hook has no suffix to match, so the roster names it; left off, its comments are outside the gate."""
     answer, _ = _run(SCAN_DRIVER)
     assert answer["scanned"] == [HOOK]

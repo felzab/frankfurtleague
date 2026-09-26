@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { WORDMARK } from "./displayType";
+import { WORDMARK_CLASSES } from "./displayType";
 import { FLLogo } from "./FLLogo";
 
 /**
@@ -33,11 +33,11 @@ export function BrandLink({
       onNavigate={onNavigate}
       // `-m-1.5` against `p-1.5` leaves the margin box where it was, so the fill is the only thing
       // the hover adds and no caller's row reflows around it.
-      className={`text-foreground hover:bg-hover -m-1.5 flex items-center rounded-md p-1.5 transition-colors ${hideName ? "justify-center" : "gap-2"} ${className}`}>
-      <FLLogo className="text-brand-solid dark:text-brand h-8 w-auto" />
+      className={`-m-1.5 flex items-center rounded-md p-1.5 text-foreground transition-colors hover:bg-hover ${hideName ? "justify-center" : "gap-2"} ${className}`}>
+      <FLLogo className="h-8 w-auto text-brand-solid dark:text-brand" />
 
       {/* The capitals are CSS, so a copy sweep finds the name as the league spells it. */}
-      {!hideName && <span className={`${WORDMARK} fluid-lg`}>Frankfurt League</span>}
+      {!hideName && <span className={`${WORDMARK_CLASSES} fluid-lg`}>Frankfurt League</span>}
     </Link>
   );
 }

@@ -8,7 +8,6 @@ found. The readers below hold no state and are shared whole -- a module spelling
 answers a question nothing else is held to, which is how two copies of one reader come to disagree.
 
 Invariants:
-  No module under `scripts/tests/` imports pytest: `scripts/pyrightconfig.json` declares no virtualenv, so it would not resolve.
   Every fixture tree is registered here and removed by `pytest_sessionfinish`, inside the run rather than after it.
 """
 
@@ -16,6 +15,7 @@ from __future__ import annotations
 
 import ast
 import contextlib
+import importlib
 import os
 import re
 import shutil
@@ -25,6 +25,7 @@ import sys
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
+from types import ModuleType
 from typing import Any, Final
 
 REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
@@ -35,6 +36,10 @@ IDENTITY: Final[tuple[tuple[str, str], ...]] = (
     ("user.email", "fixture@example.invalid"),
     ("commit.gpgsign", "false"),
 )
+
+# Not a skip condition: every script under `scripts/` is bash, so a machine without one cannot run
+# the gate at all, and a contract silently skipped is what the suites driving one exist to stop.
+BASH: Final = shutil.which("bash")
 
 _OWNED: list[Path] = []
 
@@ -114,13 +119,32 @@ def configure(root: Path, hooks: str) -> None:
 
 
 def withdraw(*names: str) -> None:
-    """Drop a module and every submodule of it from the cache, before an import and after it.
+    """Drop a module and its submodules from the cache.
 
-    Two fixtures import a copy of scripts/ under the same names, and `checker_kernel` holds
-    REPO_ROOT: whichever loads second is otherwise handed the first one's tree.
+    `scripts/tests/test_check_docs.py :: _load` imports a copy of scripts/ under the names
+    `import_scripts` gives this repository's modules, and `checker_kernel` holds REPO_ROOT: whichever
+    loads second is otherwise handed the first one's tree.
     """
     for cached in [name for name in sys.modules if any(name == root or name.startswith(root + ".") for root in names)]:
         del sys.modules[cached]
+
+
+def import_scripts(*names: str, directories: tuple[str, ...] = ("checks",)) -> list[ModuleType]:
+    """Each named module, imported out of this repository's scripts/ directories and withdrawn on both sides.
+
+    An entry point runs as a script, which seeds its own directory onto the path; `withdraw` says
+    why the cache is cleared.
+    """
+    added = [str(REPO_ROOT / "scripts" / directory) for directory in directories]
+    packages = {name.partition(".")[0] for name in names} | {"checker_kernel"}
+    sys.path[:0] = added
+    withdraw(*packages)
+    try:
+        return [importlib.import_module(name) for name in names]
+    finally:
+        for entry in added:
+            sys.path.remove(entry)
+        withdraw(*packages)
 
 
 def base_env() -> dict[str, str]:

@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { doubleSendMail } from "@/core/mailDouble.ts";
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real mailer a provider. */
 const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
@@ -11,25 +15,18 @@ const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: 
 /** The serving origin this run is configured with, which the link the mail carries has to be built on. */
 const ORIGIN = "http://localhost:3000";
 const CONFIG = `export const frontend_config = { AUTH_URL: "${ORIGIN}", APP_ENV: "test" };`;
-const API = `export const apiClient = async (endpoint, schema, options = {}) => {
-  globalThis.__flRegCalls.push({ endpoint, method: options.method, body: options.body, headers: new Headers(options.headers) });
-  return schema.parse(globalThis.__flRegAnswer(endpoint));
-};`;
-/* The fan-out rather than `core/mail.ts`: what this handler is judged on is how it READS the
-   outcome, and the three outcomes are what the real fan-out spends a provider to tell apart. */
-const NOTIFICATIONS = `export const sendZielMail = async (args) => {
-  globalThis.__flRegMails.push({ operation: args.operation, auftrag: args.auftrag, recipients: args.recipients, mail: args.buildMail(args.recipients[0]) });
-  return globalThis.__flRegOutcome();
-};`;
-
-type ApiCall = { endpoint: string; method?: string; body?: string; headers: Headers };
-type SentMail = { operation: string; auftrag: Record<string, unknown>; recipients: string[]; mail: { subject: string; text: string } };
-
-const recorders = globalThis as unknown as Record<string, unknown>;
-const calls: ApiCall[] = [];
-const mails: SentMail[] = [];
-recorders.__flRegCalls = calls;
-recorders.__flRegMails = mails;
+/** The row's write, apart from the delivery reports the real fan-out files after a send. */
+const WRITE = "/registrierungen";
+const calls = doubleApiClient(({ endpoint }, schema) => {
+  if (endpoint.startsWith("/zustellung/")) return schema.parse({ acknowledged: 1, angewendet: true });
+  const antwort = schreibAntwort();
+  if (antwort instanceof Error) throw antwort;
+  return schema.parse(antwort);
+});
+/* The provider rather than the fan-out: what this handler is judged on is how it READS the outcome,
+   and the real fan-out is what sorts the provider's answers into the three it reads. */
+const mail = doubleSendMail();
+const mails = mail.sent;
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 
@@ -37,7 +34,7 @@ const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(
 const PACKAGE_DOUBLES: Record<string, string> = {
   "server-only": "export {};",
   "next/server": NEXT_SERVER,
-  "next/headers": `export const headers = async () => new Headers();`,
+  "next/headers": NEXT_HEADERS_DOUBLE,
   "next/navigation": `export const unstable_rethrow = () => {};`,
 };
 
@@ -50,8 +47,6 @@ registerHooks({
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API, shortCircuit: true };
-    if (url.endsWith("/src/features/zustellung/notifications.ts")) return { format: "module", source: NOTIFICATIONS, shortCircuit: true };
     return nextLoad(url, context);
   },
 });
@@ -59,7 +54,7 @@ registerHooks({
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { MAIL_ABGEWIESEN, mapRegistrierungSubmitRefusal } = await import("@/features/registrierungen/utils.ts");
-const { REGISTRIERUNG_NEU_OEFFNEN } = await import("@/shared/utils/publicSubmit.ts");
+const { REGISTRIERUNG_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 
@@ -103,35 +98,29 @@ function aRequest(body: unknown, headers: Record<string, string> = {}) {
 }
 
 let schreibAntwort: () => unknown = () => GESCHRIEBEN;
-/** What the fan-out answers: accepted, refused by the provider, or withheld by this deployment. */
-let versand: () => unknown = () => ({ delivered: [ADRESSE], unreachable: [], withheld: [] });
-
-recorders.__flRegAnswer = () => {
-  const antwort = schreibAntwort();
-  if (antwort instanceof Error) throw antwort;
-  return antwort;
-};
-recorders.__flRegOutcome = () => versand();
 
 const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<string, unknown>> =>
   (await POST(request)) as unknown as Record<string, unknown>;
 
 beforeEach(() => {
   calls.length = 0;
-  mails.length = 0;
   schreibAntwort = () => GESCHRIEBEN;
-  versand = () => ({ delivered: [ADRESSE], unreachable: [], withheld: [] });
 });
 
 describe("the registration handler", () => {
   /* Outside production the send is withheld AFTER the message reaches the sink, so a row written
      after it would be lost with the throw and the person could be reached about nothing. */
   it("stores the row before it attempts the mail", async () => {
+    let writtenBeforeTheSend: string[] = [];
+    mail.answerWith(() => {
+      writtenBeforeTheSend = calls.map((call) => call.endpoint);
+      return "accepted";
+    });
+
     await bodyOf(aRequest(gueltigerKoerper));
 
-    assert.equal(calls.length, 1, "the write did not run exactly once");
     assert.equal(mails.length, 1, "the mail did not go out exactly once");
-    assert.equal(calls[0]?.endpoint, "/registrierungen");
+    assert.deepEqual(writtenBeforeTheSend, [WRITE], "the mail was attempted before the row was written, or the write ran twice");
   });
 
   it("mails nothing where the write was refused", async () => {
@@ -151,6 +140,17 @@ describe("the registration handler", () => {
 
     assert.deepEqual(answer.body, { success: false, ...mapRegistrierungSubmitRefusal(aRefusal(409, "REQ-REGISTRIERUNG-008")) });
     assert.ok((answer.body as { error?: string }).error, "the mapped refusal carries no sentence");
+  });
+
+  /* The unique index's refusal, which no mapper here words: the shared reader's sentence is written
+     for an administrator about an entry they can open, which a visitor has none of. */
+  it("tells the visitor their details are on file where the unique index refuses them", async () => {
+    schreibAntwort = () => aRefusal(409, "DB-COMMON-002");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, error: "Diese Angaben liegen uns bereits vor." });
+    assert.deepEqual(mails, []);
   });
 
   /* The same key over other details: the mark titles the press as the first one having arrived, and
@@ -180,7 +180,10 @@ describe("the registration handler", () => {
   it("tags the row and passes no idempotency key", async () => {
     await bodyOf(aRequest(gueltigerKoerper));
 
-    assert.deepEqual(mails[0]?.auftrag, { ziel: "registrierung", zielId: GESCHRIEBEN.registrierung_id, anlass: "eingang" });
+    assert.deepEqual(
+      [mails[0]?.tags, mails[0]?.idempotencyKey],
+      [{ ziel: "registrierung", ziel_id: GESCHRIEBEN.registrierung_id, anlass: "eingang" }, undefined],
+    );
   });
 
   /* The team the mail addresses the pupil by is the WRITE's answer: taken off the body, anyone
@@ -188,14 +191,14 @@ describe("the registration handler", () => {
   it("addresses the mail from the write's answer rather than the submitted body", async () => {
     await bodyOf(aRequest({ ...gueltigerKoerper, team: "Eine erfundene Schule" }));
 
-    assert.match(mails[0]?.mail.subject ?? "", /Lessing-Kolleg/);
-    assert.ok(!(mails[0]?.mail.text ?? "").includes("Eine erfundene Schule"));
+    assert.match(mails[0]?.subject ?? "", /Lessing-Kolleg/);
+    assert.ok(!(mails[0]?.text ?? "").includes("Eine erfundene Schule"));
   });
 
   it("carries the freshly minted link, and answers no token of its own", async () => {
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
-    assert.match(mails[0]?.mail.text ?? "", /token=frisch-gemuenzt/);
+    assert.match(mails[0]?.text ?? "", /token=frisch-gemuenzt/);
     assert.deepEqual(answer.body, { success: true });
   });
 
@@ -204,26 +207,31 @@ describe("the registration handler", () => {
   it("hands the builder the CONFIGURED origin, so the link opens the stack that mailed it", async () => {
     await bodyOf(aRequest(gueltigerKoerper));
 
-    assert.ok((mails[0]?.mail.text ?? "").includes(`${ORIGIN}/bestaetigung/spieler?token=`), "the link is spelled on some other origin");
+    assert.ok((mails[0]?.text ?? "").includes(`${ORIGIN}/bestaetigung/spieler?token=`), "the link is spelled on some other origin");
   });
 
   /* Ruled: a registration whose mail the provider refuses must not answer success. The submission
      refuses nothing on the strength of a pending row, so registering again is a route that works. */
   it("tells the pupil at once where no recipient was accepted", async () => {
-    versand = () => ({ delivered: [], unreachable: [ADRESSE], withheld: [] });
+    mail.answerWith(() => "refused");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
     const body = answer.body as { success: boolean; fieldErrors?: Record<string, string> };
 
     assert.equal(body.success, false);
     assert.equal(body.fieldErrors?.["email"], MAIL_ABGEWIESEN, "the refusal reaches no control, or words something else");
-    assert.equal(calls.length, 1, "the refused send took the write with it");
+    // The row stands, and the fan-out files the refusal against it.
+    assert.deepEqual(
+      calls.map((call) => call.endpoint),
+      [WRITE, "/zustellung/abgewiesen"],
+      "the refused send took the write with it",
+    );
   });
 
   /* A deployment that does not mail is not an address that refuses: read as one, every local
      submission would answer a refusal for a message the sink is holding. */
   it("answers a withheld send as a send", async () => {
-    versand = () => ({ delivered: [], unreachable: [ADRESSE], withheld: [ADRESSE] });
+    mail.answerWith(() => "withheld");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
@@ -238,7 +246,7 @@ describe("the registration handler", () => {
     await bodyOf(aRequest(gueltigerKoerper));
 
     assert.deepEqual(
-      calls.map((call) => call.headers.get("Idempotency-Key")),
+      calls.filter((call) => call.endpoint === WRITE).map((call) => call.headers.get("Idempotency-Key")),
       [KEY, null],
     );
   });

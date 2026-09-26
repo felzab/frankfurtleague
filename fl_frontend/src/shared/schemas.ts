@@ -84,6 +84,9 @@ const PERSON_NAME_REGEX = /^\p{L}[\p{L}\-' ]*$/u;
  */
 export const PersonNameSchema = z
   .string()
+  // First, as `fl_backend/app/shared/schemas/kontakt.py :: CustomKontaktName` strips before its ceiling and pattern:
+  // counted untrimmed, a space typed after a name at the ceiling refuses what the API takes.
+  .trim()
   .nonempty({ error: "Bitte gib einen Namen ein." })
   .regex(PERSON_NAME_REGEX, { error: "Ein Name darf nur Buchstaben, Leerzeichen, Bindestriche und Apostrophe enthalten." });
 
@@ -182,11 +185,11 @@ export const KontaktEmailSchema = addressSchema(
 );
 
 export const FLKontaktSchema = z.object({
-  // Judged on the payload alone, as `email` is: `PHONE_REGEX` now wants a final digit, so a read stating
-  // it refuses a stored number the old rule took -- and one such row fails the whole referee list's parse.
+  // Judged on the payload alone, as `email` is: a stored number `PHONE_REGEX` refuses, such as one ending
+  // in a space that the rule took before it was narrowed, would fail the whole referee list's parse.
   telefon: z.string().nullable(),
-  // Judged on the payload alone: a row stored before the address rule may hold a Unicode host or an
-  // umlaut local part, so a read stating the rule refuses a value the API stored.
+  // Judged on the payload alone: a referee row with no address of its own holds the `.invalid`
+  // placeholder (`isPlaceholderAddress`), which the rule refuses, so a read stating it fails the list.
   email: z.string().nullable(),
 });
 export type FLKontakt = z.infer<typeof FLKontaktSchema>;

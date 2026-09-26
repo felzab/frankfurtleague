@@ -1,9 +1,9 @@
 import { revalidateTag } from "next/cache";
 
-import { APIBadStatusError } from "@/core/errors";
 import { patchSpieltag } from "@/features/spieltage/mutations";
 import { FLPatchSpieltagPayloadSchema } from "@/features/spieltage/schemas";
-import { handleUndoRequest } from "@/shared/utils/undoRoute";
+import { KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
+import { handleUndoRequest, refusedReplay } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
 
@@ -13,10 +13,8 @@ const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-DATE-003": "Mindestens ein Spiel dieses Spieltags liegt außerhalb des ursprünglichen Zeitraums.",
   "REQ-DATE-008":
     "Der ursprüngliche Beginn dieses Spieltags passt nicht mehr in die Reihenfolge der Spieltage seiner Phase, die schon einen Zeitraum haben.",
+  "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
 };
-
-/** The second half of every refusal above: a cause alone leaves the admin unsure what the matchday now holds. */
-const CHANGE_STANDS = "Die Änderung steht weiterhin.";
 
 export async function POST(request: NextRequest) {
   return handleUndoRequest(request, {
@@ -27,15 +25,10 @@ export async function POST(request: NextRequest) {
       try {
         operation = await patchSpieltag(payload);
       } catch (error) {
-        const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
-        // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
-        const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
-        if (refusal === undefined) throw error;
-
-        return { refusal: `${refusal} ${CHANGE_STANDS}` };
+        return refusedReplay(error, REPLAY_REFUSALS);
       }
 
-      return operation.acknowledged ? {} : { refusal: "Die Rücknahme wurde abgebrochen. Prüfe den Spieltag." };
+      return operation.acknowledged ? {} : { unclear: "Die Rücknahme wurde abgebrochen. Prüfe den Spieltag." };
     },
     invalidate: () => {
       revalidateTag("spieltage", { expire: 0 });

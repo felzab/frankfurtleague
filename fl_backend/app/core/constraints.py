@@ -990,6 +990,10 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
         "one registration per submission key",
         partial_filter={"idempotenz_schluessel": {"$type": "string"}},
     ),
+    # Partial, because the league keeps every season it ever played: unfiltered, the second `past`
+    # row would be refused. Checked at each write rather than at the commit, so a rollover demotes
+    # before it promotes (`app/api/saisons/admin_router.py :: activate_saison`).
+    UniqueIndex(Collection.SAISONS, "uniq_saison_active", ("status",), "at most one season is active", partial_filter={"status": "active"}),
 )
 
 
@@ -1542,7 +1546,7 @@ def diagnose_failure(failure: OperationFailure) -> str:
 async def _run(check: bool) -> int:
     # Imported here, not at module scope: `app.core.config` refuses on import without a complete
     # environment, and the tests import this module with none.
-    from app.core.config import get_config
+    from app.core.config import get_config  # noqa: TID251
 
     client = AsyncMongoClient(
         host=get_config().mongodb_uri.get_secret_value(),

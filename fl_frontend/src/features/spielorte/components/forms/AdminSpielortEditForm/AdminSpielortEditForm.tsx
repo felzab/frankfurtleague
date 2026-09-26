@@ -3,8 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Form } from "@heroui/react";
-
 import { patchSpielortAction } from "@/features/spielorte/actions";
 import { FLPatchSpielortPayloadSchema } from "@/features/spielorte/schemas";
 import { deriveSpielortDraftStatus } from "@/features/spielorte/spielortDraftStatus";
@@ -13,14 +11,15 @@ import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
 import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
 import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
+import { Form } from "@/shared/components/ui/Form";
 import { FormActionBar } from "@/shared/components/ui/FormActionBar";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
+import { fieldStatus } from "@/shared/utils/draftStatus";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSpielortBanners } from "./banners";
@@ -29,7 +28,7 @@ import { FormMieteSection } from "./FormMieteSection";
 import { FormSpielortSection } from "./FormSpielortSection";
 
 import type { FLPatchSpielortPayload } from "@/features/spielorte/schemas";
-import type { FLSpielortDraftFields } from "@/features/spielorte/spielortDraftStatus";
+import type { FLSpielortDraftFields, SpielortFieldPath } from "@/features/spielorte/spielortDraftStatus";
 import type { EditPageHeaderContent } from "@/shared/components/ui/EditPageHeader";
 import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { FLAddress } from "@/shared/schemas";
@@ -51,7 +50,7 @@ export function AdminSpielortEditForm({
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSaving] = useTransition();
 
   const [name, setName] = useState(spielort.name);
   const [address, setAddress] = useState<FLAddress>(spielort.address);
@@ -60,9 +59,10 @@ export function AdminSpielortEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { spielort: FLPatchSpielortPayloadSchema },
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
+    useDraftFieldErrors({
+      schemas: { spielort: FLPatchSpielortPayloadSchema },
+    });
 
   // The wire carries `id` in the path, so no refusal can name it and no input renders it.
 
@@ -100,7 +100,7 @@ export function AdminSpielortEditForm({
   const validatePicked = (paths: readonly string[], picked: { default_mietpreis: number | null }) =>
     validatePaths("spielort", { ...buildPayload(), ...picked }, paths);
 
-  const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
+  const isChanged = (path: SpielortFieldPath) => fieldStatus(status, path)?.isChanged ?? false;
   const isAddressChanged = status.changed.some((field) => field.group === "Adresse");
 
   const banners = buildSpielortBanners({
@@ -132,7 +132,7 @@ export function AdminSpielortEditForm({
   };
 
   const writeAfterBlock = () => {
-    startTransition(async () => {
+    startSaving(async () => {
       // Read before the write: the props still hold the pre-save values, and the toast that replays
       // them outlives this component.
       const undoPayload: FLPatchSpielortPayload = {
@@ -147,42 +147,44 @@ export function AdminSpielortEditForm({
       const payload = buildPayload();
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
       const res = await patchSpielortAction(payload).catch(unansweredAction);
-      if (!res.success) {
-        reportSubmitFailure(res, { spielort: payload });
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startSaving(() => {
+        if (!res.success) {
+          reportSubmitFailure(res, { spielort: payload });
+          return;
+        }
 
-      setSubmitFieldErrors({}, {});
-      setHasSaved(true);
+        setSubmitFieldErrors({}, {});
+        setHasSaved(true);
 
-      offerUndo({
-        endpoint: "/api/admin/spielorte/undo",
-        body: undoPayload,
-        message: identityTouched ? "Jedes Spiel an diesem Ort zeigt jetzt den neuen Namen und die neue Karte." : undefined,
-        fallback: "Die Spielortdaten wurden aktualisiert.",
-        router,
+        offerUndo({
+          endpoint: "/api/admin/spielorte/undo",
+          body: undoPayload,
+          message: identityTouched ? "Jedes Spiel an diesem Ort zeigt jetzt den neuen Namen und die neue Karte." : undefined,
+          fallback: "Die Spielortdaten wurden aktualisiert.",
+          router,
+        });
+
+        // After the undo payload is built: leaving with typed values still in state lets a save-then-undo
+        // reopen on values the venue does not hold.
+        resetDraftToStored();
+        leavePage();
       });
-
-      // After the undo payload is built: leaving with typed values still in state let a save-then-undo
-      // reopen on values the venue no longer holds.
-      resetDraftToStored();
-      leavePage();
     });
   };
 
   return (
     <DraftStatusProvider status={status}>
       <Form
-        // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-        validationBehavior="aria"
-        ref={formRef}
-        validationErrors={fieldErrors}
+        wiring={formWiring}
         className="flex min-h-0 w-full flex-1 flex-col"
-        onSubmit={runOnSubmit(requestSave)}>
+        onSubmit={requestSave}>
         <EditFormLayout
           header={pageHeader}
           onLeave={requestLeave}
           isLeaving={isLeaving}
+          isDirty={isDirty}
           rail={
             <DraftRail
               banners={banners}

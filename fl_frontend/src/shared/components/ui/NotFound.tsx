@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { goBackOrPush } from "@/shared/hooks/useEditorExit";
 
-import { DISPLAY_HEADING } from "./displayType";
+import { DISPLAY_HEADING_CLASSES } from "./displayType";
 import { ctaButton } from "./formButtons";
 import { StatusPanel } from "./StatusPanel";
 
@@ -29,7 +29,7 @@ export function NotFound() {
       watermark={
         /* `motion-safe:` rather than the global shortening, for `fl_frontend/src/shared/components/ui/Error.tsx`'s reason. */
         <span
-          className={`${DISPLAY_HEADING} text-foreground/20 sm:text-foreground/5 text-[7rem] leading-none motion-safe:animate-pulse sm:text-[15rem] md:text-[25rem] lg:text-[35rem]`}>
+          className={`${DISPLAY_HEADING_CLASSES} text-[7rem] leading-none text-foreground/20 motion-safe:animate-pulse sm:text-[15rem] sm:text-foreground/5 md:text-[25rem] lg:text-[35rem]`}>
           404
         </span>
       }>

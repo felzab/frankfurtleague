@@ -6,7 +6,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -28,6 +28,8 @@ const { raised } = doubleToasts();
 
 const { EinladungLinkHolder } = await import("@/features/einladungen/components/EinladungLinkHolder.tsx");
 const { FormEinladungSection } = await import("./FormEinladungSection.tsx");
+/** The ruling's words for a mint of unknown outcome, whose token nothing can show again. */
+const MINT_UNKLAR = "Lade die Seite neu. Steht dort ein Link, ziehe ihn zurück und erstelle einen neuen.";
 
 const TEAM_ID = "a".repeat(24);
 const EINLADUNG_ID = "b".repeat(24);
@@ -94,9 +96,12 @@ describe("the team's invite panel", () => {
     await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
 
     assert.deepEqual(sent("postEinladungAction"), [{ team_id: TEAM_ID, saison_id: SAISON_ID }]);
+    // Found rather than got: the first mint's update commits when `startMinting`'s transition ends,
+    // after the click has resolved.
+    const feld = await screen.findByRole("textbox", { name: "Registrierungslink" });
     // The property and not the attribute: React writes a textarea's value as neither markup nor an
     // attribute, so an attribute read here would compare the empty string against the link forever.
-    assert.equal((screen.getByRole("textbox", { name: "Registrierungslink" }) as HTMLTextAreaElement).value, LINK);
+    assert.equal((feld as HTMLTextAreaElement).value, LINK);
     assert.ok(screen.getByRole("button", { name: "Link kopieren" }));
     assert.ok(screen.getByRole("button", { name: "Link per E-Mail senden" }));
     assert.ok(isInTheFlow("Der Link selbst wird nicht gespeichert"), "nothing says the value is gone when the page is left");
@@ -113,6 +118,7 @@ describe("the team's invite panel", () => {
 
     const { rerender } = render(held(`${TEAM_ID}:${SAISON_ID}`, "vor dem Speichern"));
     await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
+    await screen.findByRole("textbox", { name: "Registrierungslink" });
     assert.equal(wert(), LINK, "the mint never put the value on the page, so the two reads below prove nothing");
 
     // The key the editor wears is the stored state a save moves, so any other panel's save remounts
@@ -124,6 +130,42 @@ describe("the team's invite panel", () => {
     assert.equal(wert(), null, "one team's link stood on another team's page");
   });
 
+  /* The edge cutting the request rejects the action after the row may have been written, and a
+     rejection left to `startMinting`'s transition replaces the page with the error page. */
+  it("stays on the page over a rejected first mint, and names the way back to a link that may exist", async () => {
+    const user = userEvent.setup();
+    answerWith(() => Promise.reject(new Error("An unexpected response was received from the server.")));
+    render(panel());
+
+    await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
+    // Found rather than got: the press lets go once the rejection has been answered.
+    await screen.findByRole("button", { name: "Registrierungslink anlegen" });
+
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
+      [["danger", "Registrierungslink nicht angelegt", MINT_UNKLAR, "unknown"]],
+    );
+  });
+
+  /* A replacement mints too, and the token it may have minted is as gone with the cut answer. */
+  it("names the way back to a link after a cut replacement", async () => {
+    const user = userEvent.setup();
+    render(panel({ einladung: LIVE }));
+
+    await user.click(screen.getByRole("radio", { name: "Ersetzen" }));
+    await pressTwice(user, {
+      resting: "Neuen Link anlegen",
+      armed: "Ja, neuen Link anlegen",
+      whileArmed: () => answerWith(() => Promise.reject(new Error("An unexpected response was received from the server."))),
+    });
+    await waitFor(() => assert.equal(raised.length, 1));
+
+    assert.deepEqual(
+      raised.map((toast) => [toast.title, toast.description, toast.options?.outcome]),
+      [["Registrierungslink nicht angelegt", MINT_UNKLAR, "unknown"]],
+    );
+  });
+
   it("sends the mail press the row the mint named and the value it answered", async () => {
     const user = userEvent.setup();
     answerWith(mintAntwort);
@@ -131,7 +173,9 @@ describe("the team's invite panel", () => {
 
     await user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" }));
     answerWith(() => Promise.resolve({ success: true, message: "Der Link ist an 2 von 2 Adressen unterwegs." }));
-    await user.click(screen.getByRole("button", { name: "Link per E-Mail senden" }));
+    // Found rather than got, as the mint's own case finds its link: the press appears when
+    // `startMinting`'s transition ends, which no click's resolving waits for.
+    await user.click(await screen.findByRole("button", { name: "Link per E-Mail senden" }));
 
     assert.deepEqual(sent("mailEinladungAction"), [{ team_id: TEAM_ID, saison_id: SAISON_ID, einladung_id: EINLADUNG_ID, token: TOKEN }]);
     assert.equal(raised.at(-1)?.variant, "success");

@@ -5,7 +5,7 @@ import { auth, isAdminSession, SIGN_IN_LANDING } from "./core/auth";
 import type { NextRequest } from "next/server";
 
 /**
- * No per-request nonce CSP here: the one enforced policy lives in `nginx/prod.conf`. That is what lets
+ * No per-request nonce CSP here: the one enforced policy lives in `nginx/shared/security_headers.conf`. That is what lets
  * the matcher stay scoped to `/admin` — the session read is a Mongo round trip, never on a public load.
  */
 export async function proxy(req: NextRequest): Promise<NextResponse> {
@@ -41,5 +41,6 @@ function turnAway(req: NextRequest, destination: string): NextResponse {
 }
 
 export const config = {
+  // eslint-disable-next-line local/admin-link -- the authorization matcher, not a link
   matcher: ["/admin/:path*"],
 };

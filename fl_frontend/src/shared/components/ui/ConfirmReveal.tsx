@@ -1,4 +1,4 @@
-import { PANEL_REVEAL } from "./motion";
+import { PANEL_REVEAL_CLASSES } from "./motion";
 
 import type { ReactNode } from "react";
 
@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
  * (`fl_frontend/src/shared/components/ui/ConfirmDeleteModal.tsx`). The gap is not in it: the two
  * seat different content, and a rhythm shared here would set one of them wrong.
  */
-export const CONFIRM_DANGER_PANEL = "bg-danger/5 border-danger/20 rounded-xl border p-4 shadow-sm";
+export const CONFIRM_DANGER_PANEL_CLASSES = "rounded-xl border border-danger/20 bg-danger/5 p-4 shadow-sm";
 
 /**
  * A two-press control's armed state, escalated in place. **`role="alert"` is the mechanism**: without
@@ -18,7 +18,7 @@ export function ConfirmReveal({ children }: { children: ReactNode }) {
   return (
     <div
       role="alert"
-      className={`${PANEL_REVEAL} ${CONFIRM_DANGER_PANEL} flex flex-col gap-4`}>
+      className={`${PANEL_REVEAL_CLASSES} ${CONFIRM_DANGER_PANEL_CLASSES} flex flex-col gap-4`}>
       <strong className="fluid-xs text-danger-strong">Bist Du Dir sicher?</strong>
       {children}
     </div>

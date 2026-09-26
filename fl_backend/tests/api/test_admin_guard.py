@@ -1,6 +1,6 @@
 import re
 from collections import Counter
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -8,17 +8,17 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from app.api.spieler import schemas as spieler_schemas
-from app.core.security import verify_access_admin, verify_access_base, verify_access_system
+from app.core.security import MISSING_TOKEN, verify_access_admin, verify_access_base, verify_access_system
 from app.main import create_app
 from tests.config import build_test_config
+from tests.core.app_source import api_routes
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
 
 # Module level because pytest resolves parametrisation during collection, before a fixture could run.
 APP = create_app(build_test_config())
 
-# The code `app/core/security.py :: get_token` answers a request carrying no bearer token at all.
-MISSING_BEARER_TOKEN = "REQ-AUTH-001"
+MISSING_BEARER_TOKEN = MISSING_TOKEN
 
 HTTP_METHODS = frozenset({"get", "post", "patch", "delete", "put", "head", "options", "trace"})
 
@@ -45,22 +45,11 @@ def strip_convertors(path: str) -> str:
     return CONVERTOR_IN_PATH.sub(r"{\1}", path)
 
 
-def api_routes() -> Iterator[APIRoute]:
-    """Every `APIRoute` the app serves, reached through the `_IncludedRouter` wrappers holding them."""
-    for entry in APP.routes:
-        original_router = getattr(entry, "original_router", None)
-        candidates = original_router.routes if original_router is not None else [entry]
-
-        for route in candidates:
-            if isinstance(route, APIRoute):
-                yield route
-
-
 # `route.methods or ()` because Starlette types it optional: the fallback is unreachable, and
 # writing it is cheaper than asserting a framework's internals.
 MOUNTED_OPERATIONS = [
     ((strip_convertors(route.path), method.lower()), route)
-    for route in api_routes()
+    for route in api_routes(APP)
     for method in (route.methods or ())
     if method.lower() in HTTP_METHODS
 ]

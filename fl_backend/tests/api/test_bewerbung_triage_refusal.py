@@ -31,8 +31,9 @@ from app.api.bewerbungen.services import (
     seat_awaits_a_replacement,
 )
 from app.core.exception_handlers import base_api_exception_handler
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
 from app.core.logging import FL_LOGGER_NAME, JSONFormatter
+from tests.documents import ADDRESS, kontaktperson_document
 
 # Fixed rather than generated, so a failure names the same club every run.
 PICKED_OID = ObjectId("6890a1b2c3d4e5f607900001")
@@ -105,30 +106,11 @@ class TestWhatAcceptanceWouldEnter:
         assert both.message != neither.message
 
 
-def seat(vorname: str, *, bestaetigt_am: str | None) -> dict[str, Any]:
-    """One contact seat, confirmed or not: the refusal reads the stamp and nothing else about the person."""
-
-    return {
-        "vorname": vorname,
-        "nachname": "Brackenmoor",
-        "email": f"{vorname.lower()}@example.com",
-        "telefon": "+49 170 1234567",
-        "geburtsdatum": None if bestaetigt_am is None else "1984-05-09",
-        "einwilligung": {
-            "umfang": "kontaktdaten",
-            "erfasst_von": "administrativ",
-            "text_version": "v3",
-            "datum": "2026-03-20",
-            "bestaetigt_am": bestaetigt_am,
-        },
-    }
-
-
 def seats(**stamps: str | None) -> dict[str, Any]:
     return {
-        "trainer": seat("Quillhilde", bestaetigt_am=stamps.get("trainer")),
-        "ansprechperson": seat("Ansgar", bestaetigt_am=stamps.get("ansprechperson")),
-        "stellvertretung": seat("Stellan", bestaetigt_am=stamps.get("stellvertretung")),
+        "trainer": kontaktperson_document("Quillhilde", bestaetigt_am=stamps.get("trainer")),
+        "ansprechperson": kontaktperson_document("Ansgar", bestaetigt_am=stamps.get("ansprechperson")),
+        "stellvertretung": kontaktperson_document("Stellan", bestaetigt_am=stamps.get("stellvertretung")),
         "trainer_ist_zugleich": None,
     }
 
@@ -203,14 +185,14 @@ class TestCorrectingOneContactAddress:
     def test_a_domain_spelled_with_ss_where_another_seat_holds_sharp_s_is_another_mailbox(self):
         """„strasse“ and „straße“ are two domains to IDNA 2008 and to sign-in, so the correction is two people's addresses, not one."""
 
-        held = {**seats(), "stellvertretung": {**seat("Stellan", bestaetigt_am=None), "email": "stellan@straße.de"}}
+        held = {**seats(), "stellvertretung": {**kontaktperson_document("Stellan", bestaetigt_am=None), "email": "stellan@straße.de"}}
 
         assert find_kontakt_email_refusal(kontakte=held, seats=("ansprechperson",), email="stellan@strasse.de") is None
 
     def test_the_seats_this_correction_writes_do_not_collide_with_themselves(self):
         """One person on two seats moves to one new address, and comparing them against each other would refuse every such correction."""
 
-        mirrored = {**seats(), "trainer": seat("Ansgar", bestaetigt_am=None), "trainer_ist_zugleich": "ansprechperson"}
+        mirrored = {**seats(), "trainer": kontaktperson_document("Ansgar", bestaetigt_am=None), "trainer_ist_zugleich": "ansprechperson"}
 
         assert find_kontakt_email_refusal(kontakte=mirrored, seats=("trainer", "ansprechperson"), email="neu@example.com") is None
         assert find_kontakt_email_refusal(kontakte=mirrored, seats=("trainer", "ansprechperson"), email="ansgar@example.com") is None
@@ -426,15 +408,6 @@ class TestWhatSeatingAnotherPersonWrites:
         assert update["$set"]["bestaetigungsfrist"] == "2026-04-09"
 
 
-ADDRESS: Mapping[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
-
-
 def schule_block(**overrides: Any) -> dict[str, Any]:
     """One school's own details, as `bewerbungen` stores them. Valid, so a case below fails on the key it replaces."""
 
@@ -639,7 +612,7 @@ class TestTheRefusalWithholdsWhatTheSchoolSubmitted:
         assert refusal is not None
 
         with caplog.at_level(logging.WARNING, logger=FL_LOGGER_NAME):
-            asyncio.run(base_api_exception_handler(cast(Any, None), DocumentConflictException.from_refusal(refusal)))
+            asyncio.run(base_api_exception_handler(cast(Any, None), WriteRefusalException(refusal)))
 
         records = [record for record in caplog.records if getattr(record, "error_code", None) is not None]
         assert len(records) == 1, records

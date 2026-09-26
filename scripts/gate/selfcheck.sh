@@ -23,20 +23,13 @@ for arg in "$@"; do
   esac
 done
 
-RUNNABLE=(ops/local.sh gate/verify.sh ops/publish.sh ops/deploy.sh gate/scope_map.sh gate/selfcheck.sh)
-
-# The root keeps the name `.gitignore` documents, and each run owns a subdirectory inside it:
-# concurrent runs share a path, and one run's setup would delete another's tree from under it.
-SCOPE_FIXTURES="${REPO_ROOT}/.tmp-scope-fixtures"
-RUN_ID="$$"
+RUNNABLE=(ops/local.sh gate/verify.sh ops/deploy.sh gate/selfcheck.sh)
 
 # One EXIT trap for the whole run: bash keeps one, so a second `trap … EXIT` below would silently
 # replace it. INT and TERM stay `scripts/lib/_lib.sh`'s, which exits 130 and so fires this.
 SELFCHECK_TMP="$(mktemp -d)"
 cleanup() {
-  rm -rf "$SELFCHECK_TMP" "${SCOPE_FIXTURES:?}/${RUN_ID}"
-  # Only when this was the last run holding one — a concurrent run's subdirectory keeps it alive.
-  rmdir "$SCOPE_FIXTURES" 2>/dev/null || true
+  rm -rf "$SELFCHECK_TMP"
 }
 trap cleanup EXIT
 
@@ -115,6 +108,8 @@ par_add() { # $1 label · $2 item
   PAR_LABELS+=("$1"); PAR_ITEMS+=("$2")
 }
 
+# A change to how a probe runs owes a verdict set taken before it, diffed against the one after and
+# required to lose nothing: a probe that stopped firing looks exactly like one that passes.
 par_run() { # $1 unit function, called as `$1 <index> <item> <label>` once per queued item
   local fn="$1" total="${#PAR_ITEMS[@]}" width w i idx dir f verb msg p
   local -a pids=()
@@ -176,8 +171,12 @@ par_run() { # $1 unit function, called as `$1 <index> <item> <label>` once per q
 # annotated at the line instead, so a new unused-looking assignment justifies itself where written.
 
 # Pinned so new checks arrive by a named bump, never as drift. By hand (`.github/dependabot.yml`'s
-# invariant on shell strings); a bump replaces the digest below.
+# invariant on shell strings); a bump replaces both digests below.
 SHELLCHECK_VERSION="0.11.0"
+
+# The registry's digest for that version's image tag, which the Docker fallback runs
+# (`docs/ops/spec.md` §1.1).
+SHELLCHECK_IMAGE_DIGEST="sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d"
 
 # GitHub's digest for the release's `linux.x86_64.tar.xz`: CI unpacks it as root onto PATH, so an
 # asset replaced under an unmoved tag is caught rather than trusted.
@@ -203,7 +202,7 @@ run_shellcheck() {
   # No local binary: the pinned official image, which is how shellcheck is reachable on a Windows
   # box. MSYS_NO_PATHCONV stops Git Bash rewriting the container path into a Windows one.
   MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/mnt" -w /mnt \
-    "koalaman/shellcheck:v${SHELLCHECK_VERSION}" -e SC1091 "$@"
+    "koalaman/shellcheck:v${SHELLCHECK_VERSION}@${SHELLCHECK_IMAGE_DIGEST}" -e SC1091 "$@"
 }
 
 run_actionlint() {
@@ -212,8 +211,10 @@ run_actionlint() {
     return
   fi
   # 1.7.8 is the floor: earlier versions reject `using: node24`, which GitHub documents and
-  # supports. Nothing bumps this either, for the reason the shellcheck pin above records.
-  MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/repo" -w /repo rhysd/actionlint:1.7.12
+  # supports. Nothing bumps this either, for the reason the shellcheck pin above records, and its
+  # digest moves with its tag (`docs/ops/spec.md` §1.1).
+  MSYS_NO_PATHCONV=1 docker run --rm -v "$(mount_source):/repo" -w /repo \
+    rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667
 }
 
 # Each reads files this run never writes and is the slowest thing in its step, so each starts here
@@ -542,7 +543,7 @@ step "7. Machine-specific scripts declare a target platform"
 # Through the reader above, not a text search: `grep -q require_platform` is satisfied by the name
 # sitting in a comment. Run, or handed to a wrapper, both count; a mention in a comment or a string
 # does not. Wired is all this proves, not that it fires.
-for f in ops/local.sh ops/publish.sh ops/deploy.sh; do
+for f in ops/local.sh ops/deploy.sh; do
   guard="${SELFCHECK_TMP}/platform-sites.tsv"
   if ! awk "$CMD_WORDS" "scripts/$f" > "$guard" 2>/dev/null; then
     note_fail "$f: its call sites could not be read, so its platform guard was not checked"
@@ -561,10 +562,20 @@ step "8. Documented flags match accepted flags"
 # Compared by READING both, never by running the script: invoking each flag for real tears down
 # the local stack as a side effect of a documentation test.
 unit_flags() { # $1 index · $2 script name · $3 label
-  local doc code
-  # Header only, stopping at the first line of code: a fixed line range would reach the case
-  # statement and compare the code against itself.
-  doc="$(awk 'NR>1 { if ($0 !~ /^#/) exit; print }' "scripts/$2" | grep -oE -- '--[a-z-]+' | sort -u | tr '\n' ' ')"
+  local usage doc code
+  # The header's invocation lines, each up to the two spaces opening its description: prose may
+  # name another tool's flag, and a fixed line range would reach the case statement and compare the
+  # code against itself.
+  usage="$(awk 'NR>1 { if ($0 !~ /^#/) exit; print }' "scripts/$2" \
+    | sed -nE 's/^#[[:space:]]+(([A-Z_]+=[^[:space:]]+[[:space:]]+)*\.\/scripts\/[^[:space:]]+.*)$/\1/p' \
+    | sed -E 's/ {2,}.*$//')"
+  # Refused rather than compared: no line read documents no flag, which a script accepting none
+  # matches, so a header this reader stopped parsing would pass.
+  if [[ -z "$usage" ]]; then
+    printf 'fail\t%s: its header yields no invocation line, so no documented flag was compared\n' "$2"
+    return
+  fi
+  doc="$(grep -oE -- '--[a-z-]+' <<< "$usage" | sort -u | tr '\n' ' ')"
   code="$(grep -oE '^[[:space:]]+--[a-z|[:space:]-]+\)' "scripts/$2" | tr -d ' )' | tr '|' '\n' | grep -oE -- '--[a-z-]+' | sort -u | tr '\n' ' ')"
   if [[ "$doc" == "$code" ]]; then
     printf 'info\t%s\n' "$2"
@@ -577,8 +588,7 @@ par_run unit_flags
 
 step "9. Every scope verify.sh declares has a CI job, and every CI job names a scope"
 # A scope added to verify.sh with no job behind it never runs in CI, with every gate green: step 8
-# reads verify.sh against itself, and `check_scope.py :: SCOPES` guards the other direction alone.
-# Two listings, two routes, per PRE-4.
+# reads verify.sh against itself. Two listings, two routes, per PRE-4.
 
 # What verify.sh declares is its `add_scope` lines; what CI runs is every flag handed to
 # `verify.sh` in a workflow `run:` line — a job's key is a label, and naming one after a scope binds nothing.
@@ -666,106 +676,12 @@ case "$al_rc" in
   *) note_fail "actionlint reported findings:"; excerpt 40 < "$AL_OUT" ;;
 esac
 
-step "12. The gate's comment-only classifier"
-# A wrong answer is silent: classify a real code change as comments and the image build never runs
-# before the push. The fixtures pin each direction for every language the classifier parses.
-
-# They sit under the repo root and are passed as relative paths: MSYS rewrites an absolute POSIX
-# path such as mktemp's into a Windows one the interpreter cannot open (`scripts/README.md`).
-CLASSIFIER="$(any_python || true)"
-CLASSIFIER_AT_FLOOR=0
-# `any_python` answers whether an interpreter exists; whether it can host the checkers is the
-# separate question, and asking it before the classifier runs keeps a SyntaxError from being
-# reported as the classifier's own verdict.
-if [[ -n "$CLASSIFIER" ]] && python_at_floor "$CLASSIFIER"; then CLASSIFIER_AT_FLOOR=1; fi
-FIXTURES=".tmp-scope-fixtures/${RUN_ID}"
-if [[ -z "$CLASSIFIER" ]]; then
-  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-    note_fail "no python here, and this is CI, where the venv is installed for this check to run"
-  else
-    note_skip "no python found, so the classifier was not exercised"
-  fi
-elif (( ! CLASSIFIER_AT_FLOOR )); then
-  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-    note_fail "this python is below the checkers' floor, and this is CI, where the venv is installed to clear it"
-  else
-    note_skip "this python is below the checkers' floor, so the classifier was not exercised"
-  fi
-else
-  rm -rf "${FIXTURES:?}"; mkdir -p "$FIXTURES"
-
-  printf 'const marker = "a//b";\n// first\n'          > "$FIXTURES/comment.old.ts"
-  printf 'const marker = "a//b";\n// second\n'         > "$FIXTURES/comment.new.ts"
-  printf 'const marker = "a//b";\n'                    > "$FIXTURES/code.old.ts"
-  printf 'const marker = "a//c";\n'                    > "$FIXTURES/code.new.ts"
-  # JSX, because the script kind follows the extension and this misparses as plain TypeScript: the
-  # branch of `scripts/checks/ts_normalize.mjs :: normalize` that nothing else exercises.
-  printf 'const el = <div className="a">x</div>;\n// first\n'  > "$FIXTURES/comment.old.tsx"
-  printf 'const el = <div className="a">x</div>;\n// second\n' > "$FIXTURES/comment.new.tsx"
-  printf 'const el = <div className="a">x</div>;\n'            > "$FIXTURES/code.old.tsx"
-  printf 'const el = <div className="b">x</div>;\n'            > "$FIXTURES/code.new.tsx"
-  printf 'x = 1  # one\ndef f():\n    "doc"\n    return x\n'   > "$FIXTURES/comment.old.py"
-  printf 'x = 1  # two\ndef f():\n    "other doc"\n    return x\n' > "$FIXTURES/comment.new.py"
-  printf 'x = 1\n'                                     > "$FIXTURES/code.old.py"
-  printf 'x = 2\n'                                     > "$FIXTURES/code.new.py"
-  printf '# first\nname = "a"\n'                       > "$FIXTURES/comment.old.toml"
-  printf '# second\nname = "a"\n'                      > "$FIXTURES/comment.new.toml"
-  printf 'name = "a"\n'                                > "$FIXTURES/code.old.toml"
-  printf 'name = "b"\n'                                > "$FIXTURES/code.new.toml"
-  printf 'FROM node:26\n# first\n'                     > "$FIXTURES/dockerfile.old.Dockerfile"
-  printf 'FROM node:26\n# second\n'                    > "$FIXTURES/dockerfile.new.Dockerfile"
-
-  expect_verdict() { # $1 fixture name · $2 extension · $3 the verdict the classifier must give
-    par_add "${1}.${2}" "${1}:${2}:${3}"
-  }
-  unit_compare() { # $1 index · $2 name:ext:want · $3 label
-    local spec="$2" name ext want got
-    name="${spec%%:*}"; spec="${spec#*:}"
-    ext="${spec%%:*}"; want="${spec#*:}"
-    got="$("$CLASSIFIER" scripts/checks/check_scope.py --compare \
-      "${FIXTURES}/${name}.old.${ext}" "${FIXTURES}/${name}.new.${ext}" 2>&1 || true)"
-    if [[ "$got" == "$want" ]]; then
-      printf 'info\t%s — %s\n' "$3" "$want"
-    else
-      printf 'fail\t%s: the classifier said %s, expected %s\n' "$3" "'${got//$'\n'/ }'" "'$want'"
-    fi
-  }
-
-  # The TypeScript half is the only one needing a toolchain, and this scope stays runnable on a
-  # clone that has never run pnpm install.
-
-  # A probe that cannot answer is either a missing typescript or a broken normalizer, so locally
-  # the safe degradation is asserted instead. CI installs the frontend, so there silence fails.
-  if node scripts/checks/ts_normalize.mjs "$FIXTURES/comment.old.ts" "$FIXTURES/comment.old.ts" >/dev/null 2>&1; then
-    expect_verdict comment ts  comment-only
-    expect_verdict comment tsx comment-only
-  elif [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-    note_fail "ts_normalize.mjs could not answer, and this is CI, where the scripts job installs the frontend so that it can: either typescript is missing from that install or the normalizer itself is broken, and the two look identical from here."
-  else
-    info "typescript does not resolve here — asserting the safe degradation, not the real answer"
-    expect_verdict comment ts  code
-    expect_verdict comment tsx code
-  fi
-  expect_verdict code       ts         code
-  expect_verdict code       tsx        code
-  expect_verdict comment    py         comment-only
-  expect_verdict code       py         code
-  expect_verdict comment    toml       comment-only
-  expect_verdict code       toml       code
-  # Not a gap: a Dockerfile sits outside `scripts/checks/check_scope.py :: PARSEABLE`, so its `#`
-  # lines are never read at all.
-  expect_verdict dockerfile Dockerfile code
-  par_run unit_compare
-
-  rm -rf "${FIXTURES:?}"
-fi
-
-step "13. The hooks say what they exist to say"
+step "12. The hooks say what they exist to say"
 # Every hook here is silent on its failure path by design, so one that stopped answering looks
 # exactly like one with nothing to say, and only a driven case tells the two apart.
 if ! command -v node >/dev/null 2>&1; then
   if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
-    note_fail "node is absent, and this is CI, which installs it so these probes can run"
+    note_fail "node is absent, and this is CI, whose runner image ships it so these probes can run"
   else
     note_skip "the hook probes did not run, and neither did the registration read, which parses the settings through node — node is absent, and the standard's hook answers through it"
   fi
@@ -845,6 +761,9 @@ for (const [event, entry] of registered) {
   # owes the same slice, and one that answered the first alone would serve nobody after it.
   expect_emission "standard hook: repo .md write"      "$(probe_standard "$(standard_md_payload "${standard_root}/docs/README.md")")"
   expect_emission "standard hook: the same file again" "$(probe_standard "$(standard_md_payload "${standard_root}/docs/README.md")")"
+  # Spelled in neither case: the gate's prose register folds case, and a hook comparing the name
+  # exactly goes silent for every other spelling while the gate still reads the file.
+  expect_emission "standard hook: a NOTICE of any case" "$(probe_standard "$(standard_md_payload "${standard_root}/Notice")")"
   expect_silent "standard hook: comment-free source"   "$(probe_standard "$(standard_src_payload "${standard_root}/fl_frontend/src/probe.ts")")"
   expect_silent "standard hook: path outside the repo" "$(probe_standard "$(standard_md_payload "${standard_root}/../outside.md")")"
 
@@ -893,93 +812,7 @@ for (const [event, entry] of registered) {
   else note_fail "orphan server hook: without netstat it must say nothing and exit 0, got '${orphan_out}'"; fi
 fi
 
-step "14. The pre-push hook prints the CI scopes and blocks nothing"
-# The two properties `.githooks/pre-push`'s header states: exit 0 always, and a report line.
-PRE_PUSH="${REPO_ROOT}/.githooks/pre-push"
-prepush_out="${SELFCHECK_TMP}/pre-push.out"
-if [[ ! -f "$PRE_PUSH" ]]; then
-  note_fail "${PRE_PUSH#"${REPO_ROOT}/"} is not there, so the pre-push hook was not driven"
-else
-  # As git drives it: one ref line on stdin, remote and URL as arguments; the zero sha is a branch
-  # the remote lacks.
-  prepush_in="${SELFCHECK_TMP}/pre-push.in"
-  prepush_head="$(git rev-parse HEAD)"
-  prepush_refline() { # $1 the ref being pushed to — writes the line git feeds a hook
-    printf 'refs/heads/topic %s %s 0000000000000000000000000000000000000000\n' \
-      "$prepush_head" "$1" > "$prepush_in"
-  }
-  # Fed from a file, not a pipe: under pipefail a hook exiting before it reads would be graded by
-  # the writer's SIGPIPE rather than by its own status.
-  prepush_drive() { # $1 the ref · $2… the hook's own arguments — leaves the status in prepush_rc
-    prepush_refline "$1"; shift
-    prepush_rc=0
-    bash "$PRE_PUSH" "$@" <"$prepush_in" >"$prepush_out" 2>&1 || prepush_rc=$?
-  }
-
-  # The prefix, never the sentence: the wording is free to improve, and what it says is asserted
-  # below, where the answer is fixed.
-  prepush_drive refs/heads/topic origin https://example.invalid/repo.git
-  if (( prepush_rc != 0 )); then
-    note_fail "pre-push exited ${prepush_rc} on a plain push; it is advisory and must exit 0"
-  elif ! grep -q 'pre-push hook:' "$prepush_out"; then
-    note_fail "pre-push reported nothing on a plain push:"; excerpt 10 < "$prepush_out"
-  else
-    info "a plain push: exit 0 and a report line"
-  fi
-
-  # `--all` on the default branch: the one arm whose expected answer does not move with the tree.
-  prepush_default="$(git symbolic-ref -q refs/remotes/origin/HEAD 2>/dev/null || true)"
-  prepush_default="${prepush_default#refs/remotes/origin/}"
-  prepush_drive "refs/heads/${prepush_default:-main}" origin https://example.invalid/repo.git
-  prepush_all="${SELFCHECK_TMP}/pre-push-scopes.txt"
-  prepush_all_rc=0
-  ./scripts/gate/scope_map.sh --all > "${prepush_all}.raw" 2>&1 || prepush_all_rc=$?
-  awk -F= '/^[a-z]+=true$/ { print $1 }' "${prepush_all}.raw" > "$prepush_all" || true
-  # Every scope name, asked of scope_map.sh: `scripts` alone also matches a path in the failure
-  # line.
-  prepush_missing=""
-  while IFS= read -r prepush_scope || [[ -n "$prepush_scope" ]]; do
-    grep -qw -- "$prepush_scope" "$prepush_out" || prepush_missing+=" $prepush_scope"
-  done < "$prepush_all"
-  if (( prepush_all_rc != 0 )) || [[ ! -s "$prepush_all" ]]; then
-    note_fail "scope_map.sh --all named no scope (exit ${prepush_all_rc}), so the hook's answer for a push to ${prepush_default:-main} was not checked"
-  elif (( prepush_rc != 0 )); then
-    note_fail "pre-push exited ${prepush_rc} on a push to ${prepush_default:-main}; it is advisory and must exit 0"
-  elif [[ -n "$prepush_missing" ]]; then
-    note_fail "pre-push left scope(s) out of its answer for a push to ${prepush_default:-main} —${prepush_missing} — where --all names every one:"
-    excerpt 10 < "$prepush_out"
-  else
-    info "a push to ${prepush_default:-main}: exit 0, and every scope --all names"
-  fi
-
-  # No git on PATH: says so, exit 0. `$BASH` by absolute path, since the emptied PATH that hides git
-  # would hide a bare `bash` first.
-  prepush_rc=0
-  PATH=/nonexistent "$BASH" "$PRE_PUSH" origin x >"$prepush_out" 2>&1 </dev/null || prepush_rc=$?
-  if (( prepush_rc != 0 )) || ! grep -q 'no git on PATH' "$prepush_out"; then
-    note_fail "pre-push without git must say so and exit 0; got exit ${prepush_rc}:"; excerpt 10 < "$prepush_out"
-  else
-    info "no git on PATH: says so, exit 0"
-  fi
-
-  # Stderr closed, the arm the hook's trap exists for. No redirect to a file here, which would make
-  # stderr writable and hide it.
-  prepush_refline refs/heads/topic
-
-  # Both argument shapes, because only one of them writes scope_map.sh's answer.
-  for prepush_args in "origin https://example.invalid/repo.git" "nosuchremote x"; do
-    prepush_rc=0
-    # shellcheck disable=SC2086  # two arguments held in one string, split on purpose
-    bash "$PRE_PUSH" $prepush_args <"$prepush_in" 2>&- || prepush_rc=$?
-    if (( prepush_rc != 0 )); then
-      note_fail "pre-push exited ${prepush_rc} with stderr closed (${prepush_args%% *}); git aborts a push on that, and this hook may never"
-    else
-      info "stderr closed (${prepush_args%% *}): exit 0"
-    fi
-  done
-fi
-
-step "15. Every deliberate non-run reaches the gate"
+step "13. Every deliberate non-run reaches the gate"
 # Any message shape, not a quoted one alone, so `skip bareword` is caught too.
 
 # The sweep's own status is kept and the exclusions are one pattern: `grep … || true` reports a file
@@ -1012,7 +845,7 @@ else
   info "every deliberate non-run here is written to the ledger verify.sh replays (${sweep_lines} line(s) swept)"
 fi
 
-step "16. The container-log redaction"
+step "14. The container-log redaction"
 # Wrong in either direction and silent in both: a credential reaching the operator's terminal, or
 # the host redacted out of the log a failing deploy is read from. Each case below is a real
 # error-message shape, the bound being a regex nobody re-derives.
@@ -1088,11 +921,11 @@ redact_case 'mongodb://localhost:27017 and mail nobody@example.net' \
 
 info "${REDACTED_OK} redaction fixture(s) came back exactly as specified"
 
-step "17. The uv version is one number in two files"
+step "15. The uv version is one number in two files"
 # A bot moves one and not the other, and `uv sync` then refuses outright, so the backend image
 # stops building on every branch at once — including branches that touched neither file.
 UV_PIN="$(sed -n 's/^required-version = "==\([0-9][^"]*\)"/\1/p' fl_backend/pyproject.toml)"
-UV_TAG="$(sed -n 's|^FROM ghcr.io/astral-sh/uv:\([^ ]*\) .*|\1|p' fl_backend/Dockerfile)"
+UV_TAG="$(sed -n 's|^FROM ghcr.io/astral-sh/uv:\([^ @]*\)[@ ].*|\1|p' fl_backend/Dockerfile)"
 if [[ -z "$UV_PIN" || -z "$UV_TAG" ]]; then
   # Not a skip: a spelling this cannot read is the same silence the step exists to remove.
   note_fail "could not read the uv version from both files — pin '${UV_PIN:-none}', image tag '${UV_TAG:-none}'"

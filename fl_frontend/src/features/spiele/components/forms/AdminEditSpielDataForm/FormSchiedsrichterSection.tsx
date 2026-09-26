@@ -1,11 +1,11 @@
-import { FieldError, NumberField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
 
 import { AdminCreateSchiedsrichterForm } from "@/features/schiedsrichter/components/forms/AdminCreateSchiedsrichterForm";
 import { bookedSchiedsrichterName, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_COUNT_INPUT_CLASSES, FIELD_ERROR_CLASSES, FIELD_GROUP_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { FormModal } from "@/shared/components/ui/FormModal";
-import { enteredNumber } from "@/shared/utils/numberField";
+import { NumberField } from "@/shared/components/ui/NumberField";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 import { PickOrCreateAutocomplete } from "./PickOrCreateAutocomplete";
@@ -14,6 +14,7 @@ import { suppressEnterSubmit } from "./suppressEnterSubmit";
 
 import type { FLSchiedsrichter } from "@/features/schiedsrichter/schemas";
 import type { FLSchiedsrichterAngezeigt } from "@/features/schiedsrichter/types";
+import type { SpielFieldPath } from "@/features/spiele/draftStatus";
 import type { FLSpielSchiedsrichterFieldDraft } from "@/features/spiele/schemas";
 
 /** Who referees, and what they are paid. Same 2fr/1fr split as the venue, for the same reason. */
@@ -46,8 +47,8 @@ export function FormSchiedsrichterSection({
           {
             id: schiedsrichterPayload.schiedsrichter_id,
             name: bookedSchiedsrichterName(schiedsrichterPayload),
-            // The fixture's own agreed fee, never a default this list has no row to read one from:
-            // re-picking the held referee must not silently reprice the fixture.
+            // Fills the type alone, never a draft: react-stately drops a re-pick of the selected key, and
+            // this entry leaves the list once the pick moves, so no pick ever reads it.
             default_payment: schiedsrichterPayload.payment ?? 0,
             schule: null,
             kontakt: { email: null, telefon: null },
@@ -68,12 +69,9 @@ export function FormSchiedsrichterSection({
     );
   };
 
-  // An emptied field arrives as NaN and must stay empty: coerced to 0, a cleared Honorar submits
-  // as a referee working for free. The `?? NaN` below is the other half.
-  const handlePaymentChange = (newPayment: number) => {
+  // An emptied field stays empty: coerced to 0, a cleared Honorar submits as a referee working for free.
+  const handlePaymentChange = (entered: number | null) => {
     if (schiedsrichterPayload) {
-      const entered = enteredNumber(newPayment);
-
       onSchiedsrichterChange({
         ...schiedsrichterPayload,
         payment: entered === null ? null : Math.round(entered),
@@ -118,9 +116,9 @@ export function FormSchiedsrichterSection({
         // Frozen without a referee, the Mietpreis field's reason: `handlePaymentChange` no-ops on a
         // null payload.
         isReadOnly={!schiedsrichterPayload}
-        value={schiedsrichterPayload?.payment ?? NaN}
+        value={schiedsrichterPayload?.payment ?? null}
         onChange={handlePaymentChange}
-        // On blur, for the Mietpreis field's reason: the same box with the same NaN window.
+        // On blur, for the Mietpreis field's reason: the same box with the same empty window.
         onBlur={() => onValidateFields(["schiedsrichter.payment"])}
         onKeyDown={suppressEnterSubmit}
         formatOptions={{
@@ -128,25 +126,25 @@ export function FormSchiedsrichterSection({
           currencySign: "accounting",
           style: "currency",
         }}>
-        <FieldLabel
+        <FieldLabel<SpielFieldPath>
           path="schiedsrichter.payment"
           extraMarker={<ExpectedMarker path="schiedsrichter.payment" />}>
           Honorar
         </FieldLabel>
-        <NumberField.Group className={FIELD_GROUP}>
+        <NumberField.Group className={FIELD_GROUP_CLASSES}>
           <StepFiveButton
             direction="decrement"
             isDisabled={!schiedsrichterPayload}
             onStep={() => stepPayment(-5)}
           />
-          <NumberField.Input className={FIELD_COUNT_INPUT} />
+          <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
           <StepFiveButton
             direction="increment"
             isDisabled={!schiedsrichterPayload}
             onStep={() => stepPayment(5)}
           />
         </NumberField.Group>
-        <FieldError className={FIELD_ERROR} />
+        <FieldError className={FIELD_ERROR_CLASSES} />
       </NumberField>
     </div>
   );

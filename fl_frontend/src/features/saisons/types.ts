@@ -203,7 +203,7 @@ export type SaisonReplacementCandidate = {
   name: string;
   /** `REQ-ENTER-005`: the club left the league and enters no season until it is reactivated. */
   isStillgelegt: boolean;
-  /** `REQ-REPLACE-003`: it holds a row here already — which is also how one club on both ends reads. */
+  /** `REQ-REPLACE-003`: it holds a row here already, which also closes one club on both ends (`REQ-REPLACE-004`). */
   isInSaison: boolean;
 };
 

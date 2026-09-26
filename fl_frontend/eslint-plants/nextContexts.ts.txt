@@ -1,0 +1,18 @@
+// Linted as src/shared/testing/nextContexts.ts.
+// The home of Next's contexts may import them, and, being the harness, the suite's own modules.
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
+import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
+import { captureStdout } from "@/core/stdoutCapture";
+import { createRequire } from "node:module";
+// Every other import ban still reaches it.
+import { Button } from "@heroui/react"; // expect: vendor-root
+import { DateField } from "@heroui/react/date-field"; // expect: segmented-import
+import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { NumberField as HeroNumberField } from "@heroui/react/number-field"; // expect: number-field
+import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect: marked-field
+import { HintPanel } from "../components/ui/InfoHint"; // expect: hint-internals
+import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
+
+export const USED = [AppRouterContext, SearchParamsContext, captureStdout, createRequire, Button, DateField, HeroForm, HintPanel, TEAM_FACETS];
+export const NUMBER_FIELD_USED = HeroNumberField;
+export const TEXT_FIELD_USED = HeroTextField;

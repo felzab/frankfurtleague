@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { PaperPlane } from "@gravity-ui/icons";
+import PaperPlane from "@gravity-ui/icons/PaperPlane";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { einwilligungFassung } from "@/core/einwilligung";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
@@ -19,12 +19,14 @@ import {
 } from "@/features/schiedsrichter/constants";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSchiedsrichterBestaetigung } from "@/features/schiedsrichter/schemas";
@@ -49,8 +51,8 @@ const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.
 function Angabe({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-y-0.5">
-      <dt className="fluid-xxs text-foreground-muted font-bold">{label}</dt>
-      <dd className="fluid-sm text-foreground min-w-0 font-medium break-words">{children}</dd>
+      <dt className="fluid-xxs font-bold text-foreground-muted">{label}</dt>
+      <dd className="min-w-0 fluid-sm font-medium break-words text-foreground">{children}</dd>
     </div>
   );
 }
@@ -88,7 +90,7 @@ function LinkStand({ bestaetigung, istBestaetigt }: { bestaetigung: FLSchiedsric
   const istAbgelaufen = !istBestaetigt && bestaetigung.frist < getGermanTodayStr();
 
   return (
-    <dl className={FIELD_PAIR}>
+    <dl className={FIELD_PAIR_CLASSES}>
       <Angabe label="Link gesendet am">{formatSpielDatum(bestaetigung.verschickt_am)}</Angabe>
       <Angabe label="Gültig bis">
         {formatSpielDatum(bestaetigung.frist)}
@@ -115,7 +117,7 @@ function LinkStand({ bestaetigung, istBestaetigt }: { bestaetigung: FLSchiedsric
 /** The record the referee's own press wrote, read back as facts. */
 function EinwilligungStand({ einwilligung, geburtsdatum }: { einwilligung: FLEinwilligung; geburtsdatum: string | null }) {
   return (
-    <dl className={FIELD_PAIR}>
+    <dl className={FIELD_PAIR_CLASSES}>
       <Angabe label="Veröffentlichung">{SCHIEDSRICHTER_UMFANG_LABELS[einwilligung.umfang]}</Angabe>
       <Angabe label="Bestätigt am">
         {einwilligung.bestaetigt_am === null ? <KeinTag>Nicht bestätigt</KeinTag> : formatSpielDatum(einwilligung.bestaetigt_am)}
@@ -144,6 +146,7 @@ export function FormBestaetigungSection({
   bestaetigung,
   einwilligung,
   geburtsdatum,
+  isDirty,
 }: {
   schiedsrichterId: string;
   /** The STORED address, never the draft's: an unsaved box is not somewhere a message can go. */
@@ -152,6 +155,8 @@ export function FormBestaetigungSection({
   bestaetigung: FLSchiedsrichterBestaetigung | null;
   einwilligung: FLEinwilligung | null;
   geburtsdatum: string | null;
+  /** The editor's unsaved typing, which the mint re-keys the editor over. */
+  isDirty: boolean;
 }) {
   const router = useRouter();
   const [sendet, setSendet] = useState(false);
@@ -171,20 +176,18 @@ export function FormBestaetigungSection({
         : SCHIEDSRICHTER_EINLADEN_OHNE_ADRESSE;
 
   const sende = async () => {
+    if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
+
     setSendet(true);
     // Awaited outside a transition, so a rejected action reaches no error boundary: uncaught, it
     // leaves „Sendet...“ standing for good and reports nothing.
-    const res = await einladeSchiedsrichterAction({ id: schiedsrichterId }).catch(() => null);
+    const res = await einladeSchiedsrichterAction({ id: schiedsrichterId }).catch(rejectedWrite(router, OHNE_ANTWORT));
     setSendet(false);
 
-    // Before the toast either way: the failure arm reports a write that may have committed, so the
-    // readout beneath it is stale on exactly the press that says so.
-    router.refresh();
-
-    // Thrown, no answer came back, so this control's repair names the connection; an answer, an
-    // unknown outcome among them, carries its own sentence.
-    if (res === null || !res.success) {
-      appToast.failure("Bestätigungslink nicht gesendet", res ?? { error: OHNE_ANTWORT, outcome: "unknown" });
+    // A rejection, which no answer came back from, carries this control's repair naming the connection; an
+    // answer, an unknown outcome among them, carries its own sentence.
+    if (!res.success) {
+      appToast.failure("Bestätigungslink nicht gesendet", res);
       return;
     }
 

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  // One directory up, where knip does not look: without it the two Prettier plugins read as unused.
+  "prettier": {
+    "config": ["../.prettierrc.json"]
+  },
+  // Each entry is a reader knip cannot see. An export nothing reads is deleted or un-exported, never
+  // added here.
+  "ignoreIssues": {
+    // `fl_frontend/src/core/apiContract.test.ts` pairs each `*Schema` export, an alias among them,
+    // with a backend component, and `fl_backend/tests/shared/test_frontend_mirrors.py` finds
+    // `fl_frontend/src/features/sperrliste/schemas.ts :: ADRESSE_IM_GRUND_REGEX` by its `export const`.
+    // A schema's inferred type stays beside it, or the next caller writes it back.
+    "src/**/schemas.ts": ["exports", "types", "duplicates"],
+    // `fl_frontend/src/shared/utils/facets.test.ts` imports every slice's facets and checks each
+    // exported facet array; a URL parameter stays exported beside the rest of its family.
+    "src/features/*/facets.ts": ["exports"],
+    // `.claude/rules/cross-surface.md`'s **system** clause keeps `checkIsReady` and `getSystemInfo`.
+    "src/features/system/queries.ts": ["exports"]
+  }
+}

@@ -14,67 +14,84 @@ A planted violation never shares a line of THIS file with a hash or a triple quo
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
 from typing import Final
 
-from conftest import git, write
+from conftest import REPO_ROOT, git, write
 from test_check_docs import (
     BACKEND_SPEC,
-    BE_DERIVATION_ROW,
     BLOCKED_ENTRY,
     BLOCKED_FIELDS,
-    BLOCKED_ROW,
     COPY_SAMPLE,
     DOCS_ENTRY,
-    DROPPED_GATE_ROW,
-    EDGE_DERIVATION_ROW,
-    GATE_DERIVATION_ROW,
     HASH,
     INVARIANT_ROW,
     NEWLINE,
     NOTES,
     ORPHAN_ENTRY,
     PARAGRAPH_CELL,
-    QUALIFIED_BE_ROW,
     QUOTES,
     ROADMAP,
-    ROADMAP_TAIL,
+    ROADMAP_FIELD_HEADER,
     SAMPLE,
     SCRIPTS_COPY,
     SHORT_FORM,
     SLICE_DONE,
-    SLICE_ROW,
-    SLICE_STRAY,
-    SPIELER_PANEL,
+    SLICE_ENTRY,
     STANDARD,
     UNDECODABLE_BYTES,
-    UNHELD_FILE_ROW,
-    UNHELD_SUBTREE_ROW,
     UNTOKENIZABLE_MODULE,
     VOCAB_ENTRY,
     VOCAB_FIELDS,
-    VOCAB_ROW,
-    WIDENED_GATE_ROW,
     Reported,
     _about,
     _append,
     _assert_corpus_restored,
     _clear_caches,
     _gate,
-    _heading,
     _module,
     _output,
     _page,
     _read,
     _replace,
+    _reported,
     _reset,
     _run,
     _shape,
     _tick,
     _write_raw,
 )
+
+# A hook git runs by its event's name, and a module beside it that a hook hands work to.
+GIT_HOOK: Final = ".githooks/pre-commit"
+HOOK_MODULE: Final = ".githooks/probe-helper.mjs"
+# A shell script beside the hooks that a hook sources, spelled with the suffix the other scopes read.
+HOOK_SCRIPT: Final = ".githooks/probe-helper.sh"
+
+
+def test_a_hook_folder_s_module_is_read_in_its_own_language_and_a_hook_as_shell() -> None:
+    """Read as shell by its folder, a module's string naming a shell tool reads as a platform branch.
+
+    The suffixless hook and the `.sh` script carrying the token are the controls: a reader dropping
+    either spelling fails.
+    """
+    _reset()
+    root = _gate().root
+    write(root, GIT_HOOK, _page("#!/usr/bin/env bash", "uname -s"))
+    write(root, HOOK_SCRIPT, _page("#!/usr/bin/env bash", "uname -s"))
+    write(root, HOOK_MODULE, _page('const kernel = "uname";'))
+    try:
+        _, reported = _run()
+    finally:
+        _reset()
+    found = sorted(_about("platform-branch", reported))
+    assert found == [("fail", "platform-branch", GIT_HOOK), ("fail", "platform-branch", HOOK_SCRIPT)], _shape(reported)
+    _assert_corpus_restored()
+
 
 # --- the arms a check takes when its own input refuses ---------------------------------------------
 
@@ -101,65 +118,6 @@ def _roadmap_findings(plant: Callable[[], None]) -> Counter[Reported]:
         _reset()
 
 
-def test_an_entry_heading_no_index_row_defines_is_reported_once() -> None:
-    """An id in no index row is the pairing's finding, and nothing else on the page speaks about it."""
-    added = _page(
-        _heading(3, _tick(ORPHAN_ENTRY) + " · An entry no index row defines"),
-        "",
-        "It names `docs/notes.md`.",
-        "",
-        _heading(2, ROADMAP_TAIL),
-    ).rstrip("\n")
-    reported = _roadmap_findings(lambda: _replace(ROADMAP, _heading(2, ROADMAP_TAIL), added))
-    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "a heading no row defines went unreported: " + _shape(reported)
-    _assert_corpus_restored()
-
-
-def test_a_written_tag_naming_a_slice_the_entry_never_touches_fails_both_ways() -> None:
-    """The arm the slice axis exists for: a tag derived from the tree, against one somebody wrote."""
-    reported = _roadmap_findings(lambda: _replace(ROADMAP, SLICE_ROW, SLICE_ROW.replace("BE, spiele", "BE, teams")))
-    # Both directions, because either alone passes a row half-right: a derived tag left out reads
-    # as a narrower item, and a written one nothing derives reads as a wider one.
-    assert reported[("fail", "roadmap-shape", ROADMAP)] == 2, "a slice tag no path touches passed: " + _shape(reported)
-    _assert_corpus_restored()
-
-
-def test_a_slice_is_matched_as_a_whole_segment_rather_than_as_a_substring() -> None:
-    """`spiele` opens `spieler` and `spieltage`, so a substring test tags an entry with slices it never touches.
-
-    The entry names the `spieler` panel alone: read as a substring its path carries `spiele` too.
-    """
-
-    def plant() -> None:
-        _replace(ROADMAP, SLICE_DONE, "Done is `" + SPIELER_PANEL + "` rendering the squad it names.")
-        _replace(ROADMAP, SLICE_ROW, SLICE_ROW.replace("BE, spiele", "FE, spieler"))
-
-    reported = _roadmap_findings(plant)
-    assert reported[("fail", "roadmap-shape", ROADMAP)] == 0, "a whole-segment match reported anyway: " + _shape(reported)
-    _assert_corpus_restored()
-
-
-def test_a_segment_under_a_slice_root_that_names_no_slice_is_reported() -> None:
-    """Dropped instead, a mistyped slice would leave the entry judged against a narrower derivation and the row reading as correct (PRE-4)."""
-    # Three: the stray segment, the frontend tag the new path derives, and the two the old one no
-    # longer does. The stray is what this case turns on, and the other two follow from the swap.
-    reported = _roadmap_findings(lambda: _replace(ROADMAP, SLICE_DONE, "Done is `" + SLICE_STRAY + "` naming a segment no slice owns."))
-    assert reported[("fail", "roadmap-shape", ROADMAP)] == 3, "a stray slice segment passed: " + _shape(reported)
-    _assert_corpus_restored()
-
-
-def test_an_entry_naming_no_path_is_reported_rather_than_defaulted() -> None:
-    """No derived tag is an entry nobody can place, which is a subject nobody stated."""
-
-    def plant() -> None:
-        _replace(ROADMAP, SLICE_DONE, "Done is a read that answers.")
-        _replace(ROADMAP, SLICE_ROW, SLICE_ROW.replace("BE, spiele", "BE"))
-
-    reported = _roadmap_findings(plant)
-    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an entry naming nothing was defaulted: " + _shape(reported)
-    _assert_corpus_restored()
-
-
 def test_a_batch_naming_an_entry_this_file_holds_stays_silent() -> None:
     """The batching line resolves rather than judges: a token that names an entry is the whole test."""
     reported = _roadmap_findings(lambda: _replace(ROADMAP, SLICE_DONE, SLICE_DONE + "\n\nLands with: " + DOCS_ENTRY))
@@ -167,31 +125,73 @@ def test_a_batch_naming_an_entry_this_file_holds_stays_silent() -> None:
     _assert_corpus_restored()
 
 
+def test_an_entry_naming_no_path_is_reported() -> None:
+    """A reader finds an entry by the paths it names, so one naming none states no subject."""
+    reported = _roadmap_findings(lambda: _replace(ROADMAP, SLICE_DONE, "Done is a read that answers."))
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an entry naming no path passed: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_blocked_entry_whose_only_dependency_left_is_reported_once() -> None:
+    """The departed token is the finding; the `Blocked` arm reporting it too would give one defect two findings."""
+    reported = _roadmap_findings(
+        lambda: _replace(ROADMAP, BLOCKED_FIELDS, BLOCKED_FIELDS.replace("| Open | — |", "| Blocked | " + _tick(ORPHAN_ENTRY) + " |"))
+    )
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "a departed blocker was not reported exactly once: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_field_table_headed_out_of_order_is_reported_once() -> None:
+    """The column arm's finding alone: read by position, the status arm would take the em dash for a word outside the set."""
+    reordered = "| Depends on | Status |\n| --- | --- |"
+    reported = _roadmap_findings(
+        lambda: _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace(ROADMAP_FIELD_HEADER, reordered).replace("| Open | — |", "| — | Open |"))
+    )
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "a reordered header was not reported exactly once: " + _shape(reported)
+    _assert_corpus_restored()
+
+
+def test_a_field_row_wider_than_its_header_is_reported() -> None:
+    """Under the two right headings the header arm passes, and read by name the extra cell is dropped unread."""
+    reported = _roadmap_findings(lambda: _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open | — |", "| Open | — | ui |")))
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "a row wider than its header was not reported exactly once: " + _shape(reported)
+    _assert_corpus_restored()
+
+
 EMPTY_STATUS: Final = "|  |"
 
 
-def test_a_status_cell_left_empty_is_reported_in_the_listing_that_holds_it() -> None:
-    """An empty cell agrees with an empty cell, so a page emptied on both sides reads as one that agrees."""
+def _roadmap_output(plant: Callable[[], None]) -> tuple[Counter[Reported], str]:
+    """One roadmap plant's findings and what the run printed, restored whatever it raised."""
+    _reset()
+    try:
+        plant()
+        _, output = _output()
+        return _reported(output), output
+    finally:
+        _reset()
 
-    def emptied() -> None:
-        _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", EMPTY_STATUS))
-        _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open |", EMPTY_STATUS))
 
-    both = _roadmap_findings(emptied)
-    one = _roadmap_findings(lambda: _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", EMPTY_STATUS)))
-    assert both[("fail", "roadmap-shape", ROADMAP)] == 2, "two empty status cells agreed with each other: " + _shape(both)
-    assert one[("fail", "roadmap-shape", ROADMAP)] == 2, "one empty status cell drew the disagreement alone: " + _shape(one)
+def test_a_status_cell_left_empty_is_reported_as_no_status() -> None:
+    """An empty cell is no word, so it is named as missing rather than as a word outside the set."""
+    reported, output = _roadmap_output(lambda: _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open |", EMPTY_STATUS)))
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an empty status cell was not reported once: " + _shape(reported)
+    assert "entry " + VOCAB_ENTRY + " states no status" in output, output
+    _assert_corpus_restored()
+
+
+def test_a_batch_naming_its_own_entry_is_reported() -> None:
+    """A batch of one is no shared pass, and its token resolves, so the resolution arm alone would pass it."""
+    reported = _roadmap_findings(lambda: _replace(ROADMAP, SLICE_DONE, SLICE_DONE + "\n\nLands with: " + SLICE_ENTRY))
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "a batch naming its own entry passed: " + _shape(reported)
     _assert_corpus_restored()
 
 
 def test_a_blocked_entry_naming_itself_is_blocked_by_nothing() -> None:
-    """Its own token resolves against the index, so the arm reading the column finds an entry and passes."""
-
-    def itself() -> None:
-        _replace(ROADMAP, BLOCKED_ROW, BLOCKED_ROW.replace("| Open |", "| Blocked |"))
-        _replace(ROADMAP, BLOCKED_FIELDS, "| Docs | Blocked | XS | " + _tick(BLOCKED_ENTRY) + " |")
-
-    reported = _roadmap_findings(itself)
+    """Its own token resolves against the page, so the arm reading the column finds an entry and passes."""
+    reported = _roadmap_findings(
+        lambda: _replace(ROADMAP, BLOCKED_FIELDS, BLOCKED_FIELDS.replace("| Open | — |", "| Blocked | " + _tick(BLOCKED_ENTRY) + " |"))
+    )
     assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an entry blocked on itself passed: " + _shape(reported)
     _assert_corpus_restored()
 
@@ -204,34 +204,6 @@ def test_an_entry_naming_itself_in_its_dependency_column_is_reported_whatever_it
 
     reported = _roadmap_findings(itself)
     assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "an open entry depending on itself passed: " + _shape(reported)
-    _assert_corpus_restored()
-
-
-def test_the_tag_derivation_table_is_held_to_the_paths_the_gate_derives_tags_from() -> None:
-    """One fact in two places, with nothing pairing them: the page's row and the gate's own tuple.
-
-    Both directions: a prefix dropped from the row narrows what a reader thinks earns the tag, and
-    one added widens it.
-    """
-    dropped = _roadmap_findings(lambda: _replace(ROADMAP, GATE_DERIVATION_ROW, DROPPED_GATE_ROW))
-    widened = _roadmap_findings(lambda: _replace(ROADMAP, GATE_DERIVATION_ROW, WIDENED_GATE_ROW))
-    assert dropped[("fail", "roadmap-shape", ROADMAP)] == 1, "a prefix dropped from the row passed: " + _shape(dropped)
-    assert widened[("fail", "roadmap-shape", ROADMAP)] == 1, "a prefix no tag derives from passed: " + _shape(widened)
-    _assert_corpus_restored()
-
-
-def test_a_source_cell_naming_a_path_no_prefix_of_its_row_reaches_is_reported() -> None:
-    """A token carrying no repository prefix is read by neither direction above.
-
-    The third arm keeps that silence from reading as a ban on relative names: a folder under a
-    prefix the cell itself writes qualifies its reach.
-    """
-    subtree = _roadmap_findings(lambda: _replace(ROADMAP, EDGE_DERIVATION_ROW, UNHELD_SUBTREE_ROW))
-    filename = _roadmap_findings(lambda: _replace(ROADMAP, GATE_DERIVATION_ROW, UNHELD_FILE_ROW))
-    qualified = _roadmap_findings(lambda: _replace(ROADMAP, BE_DERIVATION_ROW, QUALIFIED_BE_ROW))
-    assert subtree[("fail", "roadmap-shape", ROADMAP)] == 1, "a subtree nothing holds passed: " + _shape(subtree)
-    assert filename[("fail", "roadmap-shape", ROADMAP)] == 1, "a filename no prefix of its row reaches passed: " + _shape(filename)
-    assert qualified[("fail", "roadmap-shape", ROADMAP)] == 0, "a folder under the row's own prefix was reported: " + _shape(qualified)
     _assert_corpus_restored()
 
 
@@ -519,6 +491,100 @@ def test_a_prose_sha_is_read_off_the_spans_the_page_draws() -> None:
         _reset()
     assert reported[("fail", "sha", NOTES)] == 1, _shape(reported)
     _assert_corpus_restored()
+
+
+def test_a_quote_opening_before_a_code_span_closes_past_it() -> None:
+    """CommonMark binds the span first, so the quote around it closes on the quote after it and the phrase is a mention.
+
+    The unquoted line is the second run, so a reader blanking the page fails it.
+    """
+    _reset()
+    try:
+        _append(NOTES, 'Quoted whole, "a `b"c` the owner d" names nobody.')
+        _, quoted = _run()
+        _reset()
+        _append(NOTES, "Unquoted, the owner is named.")
+        _, said = _run()
+    finally:
+        _reset()
+    assert quoted[("fail", "owner-voice", NOTES)] == 0, "a quote was closed inside a code span: " + _shape(quoted)
+    assert said[("fail", "owner-voice", NOTES)] == 1, "the page was read by nothing: " + _shape(said)
+    _assert_corpus_restored()
+
+
+def test_a_path_a_double_run_wraps_is_reported() -> None:
+    """A renderer joins the wrap and pairs the two double runs across it, so the span renders with a space inside the path."""
+    _reset()
+    _append(NOTES, "A path a double run wraps: ``docs/gloss", "ary.md`` renders with a space.")
+    try:
+        _, output = _output()
+    finally:
+        _reset()
+    assert output.count("wraps inside the path, which a code span renders with a space in it") == 1, output
+    _assert_corpus_restored()
+
+
+def test_a_span_s_offsets_index_the_line_it_sits_on_an_image_s_alt_text_included() -> None:
+    """The parser reads an image's alt text as a source of its own, so an offset counted there lands elsewhere on the line."""
+    kernel = _module("docs_gate.kernel")
+    line = "A [link `in` text](u), an ![alt `z`](i.png) and ``a`b`` last."
+    spans = kernel.located_code_spans(line)
+    assert [span.code for span in spans] == ["in", "z", "a`b"], spans
+    for span in spans:
+        assert line[span.code_start : span.code_end] == span.code, span
+        assert line[span.start] == line[span.end - 1] == "`", span
+
+
+def test_a_span_an_unclosed_label_scan_passes_is_text() -> None:
+    """markdown-it-py's parse, not CommonMark's, which reads code here.
+
+    A release pairing it fails this, and the comment at `_line_spans` goes with it. Each control
+    moves one part of the trigger, so the pin holds that shape and no wider one.
+    """
+    kernel = _module("docs_gate.kernel")
+
+    def codes(line: str) -> list[str]:
+        return [span.code for span in kernel.located_code_spans(line)]
+
+    assert codes("[`a :: b` `` x") == [], "the label scan's cache no longer leaves the span as text"
+    assert codes("`a :: b` `` x") == ["a :: b"], "no bracket, no scan"
+    assert codes("[`a :: b`] `` x") == ["a :: b"], "the label closes before the unclosed run"
+    assert codes("[`a :: b` `` x `c`") == ["a :: b", "c"], "a later run of the span's length"
+
+
+def _entry_point_with(breakage: str) -> subprocess.CompletedProcess[str]:
+    """The gate's entry point run as a script, after one statement has broken what it imports."""
+    entry = REPO_ROOT / "scripts" / "checks" / "check_docs.py"
+    # As a script is run: its own folder first on the path, which is where the package sits, and its
+    # path alone in `argv`, which is what a run that gets past the imports parses.
+    driver = (
+        f"import os, runpy, sys; {breakage}; sys.argv[:] = sys.argv[1:]; sys.path.insert(0, os.path.dirname(sys.argv[0]));"
+        " runpy.run_path(sys.argv[0], run_name='__main__')"
+    )
+    return subprocess.run([sys.executable, "-c", driver, str(entry)], capture_output=True, text=True, encoding="utf-8", check=False)
+
+
+def test_a_missing_markdown_parser_exits_as_a_broken_environment() -> None:
+    """The parser is imported before `run` can classify a failure, so unguarded its absence exits 1 and reads as findings."""
+    done = _entry_point_with("sys.modules['markdown_it'] = None")
+    assert done.returncode == 3, (done.returncode, done.stdout, done.stderr)
+    assert "cannot import markdown_it" in done.stderr, done.stderr
+    assert "uv sync" in done.stderr, done.stderr
+
+
+def test_any_failure_while_the_package_is_imported_exits_as_a_broken_environment() -> None:
+    """A name gone from an installed parser, and a module of the gate's own gone, which no install repairs.
+
+    Both raise before `run` can classify them; the second is a missing module too, so the remedy parts it.
+    """
+    # A name with no submodule of its own: `image` would import `rules_inline/image.py` in its place.
+    renamed = _entry_point_with("import markdown_it.rules_inline as rules; del rules.StateInline")
+    assert renamed.returncode == 3, (renamed.returncode, renamed.stdout, renamed.stderr)
+    assert "ImportError" in renamed.stderr, renamed.stderr
+    own = _entry_point_with("sys.modules['docs_gate.branch'] = None")
+    assert own.returncode == 3, (own.returncode, own.stdout, own.stderr)
+    assert "failed while it was imported" in own.stderr, own.stderr
+    assert "uv sync" not in own.stderr, own.stderr
 
 
 # A module the comment reader lexes: a regex literal's quotes and slashes are not a string or a comment.

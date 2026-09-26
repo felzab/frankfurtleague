@@ -78,24 +78,9 @@ function compiled(filename: string): string {
   return output;
 }
 
-/**
- * Narrow on purpose. `tsconfig-alias-hook.mjs` throws a plain `Error` naming every path an
- * unresolvable `@/…` was tried at, and a retry would replace that with the same failure spelled one
- * suffix longer.
- */
-function isMissingModule(error: unknown): boolean {
-  return error instanceof Error && (error as NodeJS.ErrnoException).code === "ERR_MODULE_NOT_FOUND";
-}
-
-/**
- * A bare `react` resolves through its own manifest, so retrying it as `react.js` reports a package
- * name nobody wrote in place of the uninstalled dependency or the typo that was really there.
- */
-function isPathLike(specifier: string): boolean {
-  if (specifier.startsWith(".") || specifier.startsWith("/")) return true;
-
-  return specifier.split("/").length > (specifier.startsWith("@") ? 2 : 1);
-}
+/** The faces `fl_frontend/src/app/layout.tsx` loads; one it adds fails to link here until it is named. */
+const INERT_FONTS = `data:text/javascript,${encodeURIComponent(`const face = () => ({ className: "", variable: "", style: { fontFamily: "" } });
+export { face as Anton, face as Inter, face as Raleway };`)}`;
 
 /*
  Registered as this module evaluates, which is why a component under test is reached with
@@ -110,15 +95,11 @@ registerHooks({
       return nextResolve(specifier, { ...context, conditions: [...context.conditions, "react-server"] });
     }
 
-    try {
-      return nextResolve(specifier, context);
-    } catch (error) {
-      // `next` publishes no `exports` map, and several ESM dependencies import `./x` bare. A bundler
-      // supplies the extension for both; Node supplies it for neither.
-      if (!isMissingModule(error) || !isPathLike(specifier) || path.extname(specifier) !== "") throw error;
+    // Next's font loader runs only inside its own build, so each face loads as an inert one, as a
+    // stylesheet does below: nothing a render here asserts is decided by a font.
+    if (specifier === "next/font/google") return { url: INERT_FONTS, shortCircuit: true };
 
-      return nextResolve(`${specifier}.js`, context);
-    }
+    return nextResolve(specifier, context);
   },
 
   load(url, context, nextLoad) {

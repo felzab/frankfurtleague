@@ -19,6 +19,10 @@
   // it. Naming its two `extraPaths` here makes the editor resolve what the gate resolves; a root
   // config would govern `fl_backend` too.
   "python.analysis.extraPaths": ["scripts/lib", "scripts/checks"],
+  // The editor layer of `fl_frontend/eslint.config.mjs :: VENDOR_ROOTS`: an auto-import offers each
+  // component's or icon's own subpath rather than the root the lint refuses. It applies after a
+  // window reload.
+  "typescript.preferences.autoImportSpecifierExcludeRegexes": ["^@heroui/react$", "^@gravity-ui/icons$"],
   "[typescript]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "[typescriptreact]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },
   "[javascript]": { "editor.formatOnSave": true, "editor.defaultFormatter": "esbenp.prettier-vscode" },

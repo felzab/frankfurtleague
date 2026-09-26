@@ -1,18 +1,18 @@
 import Link from "next/link";
 
-import { PencilToSquare } from "@gravity-ui/icons";
+import PencilToSquare from "@gravity-ui/icons/PencilToSquare";
 
-import { Table } from "@heroui/react";
+import { Table } from "@heroui/react/table";
 
 import { PHASE_TINTS } from "@/features/saisons/constants";
 import { adminSpielEditHref, deriveSlotHerkunft, formatQuelle, sideLabel } from "@/features/spiele/utils";
 import { spieltagLabels } from "@/features/spieltage/utils";
 import { labelBadge } from "@/shared/components/ui/badges";
-import { BRAND_ICON_BUTTON } from "@/shared/components/ui/brandTile";
+import { BRAND_ICON_BUTTON_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
-import { CARDS_CASCADE } from "@/shared/components/ui/motion";
+import { CARDS_CASCADE_CLASSES } from "@/shared/components/ui/motion";
 import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 import { PLACEHOLDER } from "@/shared/utils/format";
 
@@ -75,7 +75,7 @@ function SlotWiring({
   return (
     // One size for everything read as prose, the chip being an object rather than a step of the type
     // scale. `fluid-sm` sits here so an occupant and a still-empty slot cannot differ.
-    <div className="fluid-sm flex flex-col items-start gap-1 text-pretty">
+    <div className="flex flex-col items-start gap-1 fluid-sm text-pretty">
       {/* The chips tell the two seats apart on sight; this names them for a reader who has neither the
           colour nor the order. */}
       <span className="sr-only">{sideLabel(side)}</span>
@@ -89,7 +89,7 @@ function SlotWiring({
       {team === null ? (
         <span className="text-foreground-muted italic">{PLACEHOLDER.slot}</span>
       ) : (
-        <strong className="text-foreground max-w-full font-bold break-words">{team.name}</strong>
+        <strong className="max-w-full font-bold break-words text-foreground">{team.name}</strong>
       )}
     </div>
   );
@@ -123,7 +123,7 @@ export function AdminBracketWiringView({
   if (rounds.length === 0) {
     return (
       <div className="w-full px-3 py-4 sm:p-8">
-        <div className="max-w-page mx-auto flex w-full flex-col gap-6">
+        <div className="mx-auto flex w-full max-w-page flex-col gap-6">
           <SeasonEmptyState
             nothing="keine Finalrunden"
             hint="Sobald die Spieltage der KO-Runde angelegt sind, steht hier, woher jede Seite kommt."
@@ -136,18 +136,18 @@ export function AdminBracketWiringView({
 
   return (
     /* `AdminCrudShell`'s frame rather than the component, which would owe this page a create trigger.
-       No page rise beside `CARDS_CASCADE`: the leading panel's own step is identical, so it would
+       No page rise beside `CARDS_CASCADE_CLASSES`: the leading panel's own step is identical, so it would
        travel the distance twice. */
     <div className="w-full px-3 py-4 sm:p-8">
       <div
         role="list"
-        className={`${CARDS_CASCADE} max-w-page mx-auto flex w-full flex-col gap-6`}>
+        className={`${CARDS_CASCADE_CLASSES} mx-auto flex w-full max-w-page flex-col gap-6`}>
         {rounds.map((round) => (
           <div
             role="listitem"
             key={round.id}
             className={`${card()} flex w-full flex-col items-start gap-4 p-3 sm:p-6`}>
-            <h2 className="fluid-lg text-foreground w-full font-extrabold tracking-tight">{labels.get(round.id)?.label}</h2>
+            <h2 className="w-full fluid-lg font-extrabold tracking-tight text-foreground">{labels.get(round.id)?.label}</h2>
 
             {round.spiele.length === 0 ? (
               <EmptyState title="Für diese Runde sind noch keine Spiele angesetzt." />
@@ -161,7 +161,7 @@ export function AdminBracketWiringView({
                 <Table.Content
                   aria-label={`Herkunft der Paarungen: ${labels.get(round.id)?.label ?? ""}`}
                   className="table-fixed">
-                  <Table.Header className="fluid-xxs text-foreground-muted font-semibold uppercase">
+                  <Table.Header className="fluid-xxs font-semibold text-foreground-muted uppercase">
                     <Table.Column
                       isRowHeader
                       className="w-11 pt-1.5 pb-2 pl-3 whitespace-nowrap lg:w-16 lg:pl-4">
@@ -187,7 +187,7 @@ export function AdminBracketWiringView({
                       .map((spiel) => (
                         <Table.Row key={spiel.id}>
                           {/* `spiel_nr`, because that is the number a `spiel` source cites. */}
-                          <Table.Cell className="font-numeric fluid-sm py-4 pl-3 font-bold whitespace-nowrap tabular-nums lg:pl-4">
+                          <Table.Cell className="py-4 pl-3 font-numeric fluid-sm font-bold whitespace-nowrap tabular-nums lg:pl-4">
                             {spiel.spiel_nr}
                           </Table.Cell>
 
@@ -224,7 +224,7 @@ export function AdminBracketWiringView({
                                 <Link
                                   href={adminSpielEditHref(spiel.id, saisonId)}
                                   aria-label={`Spiel Nr. ${spiel.spiel_nr} bearbeiten`}
-                                  className={BRAND_ICON_BUTTON}>
+                                  className={BRAND_ICON_BUTTON_CLASSES}>
                                   <PencilToSquare
                                     aria-hidden="true"
                                     className="m-0 size-4.5"

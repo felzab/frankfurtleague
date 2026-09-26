@@ -19,7 +19,7 @@ paths:
 
 - **nginx** — Disable origin compression; precompress brotli at build time
 - **nginx** — Send `immutable` for a URL with no content hash
-- **ci** — Pin `type=gha`'s version; share one cache scope; re-add `actions/cache`
-- **gate** — Add a check to the gate without recording its measured cost; raise a job's budget without a measurement; make the budget advisory
+- **ci** — Pin `type=gha`'s version; share one cache scope; re-add `actions/cache` for an image
+- **gate** — Add a check to the gate without recording its measured cost; raise a job's budget without a measurement; make the budget advisory for a merge; let a `verify` run failed by the budget alone stop a publish (ruled 2026-09-24)
 - **helpers** — Copy a `scripts/tests/` helper `conftest.py` holds where an import would serve; leave a copy that must differ without citing the original at it
 - **miniatures** — Reimplement a gate function the test could lift

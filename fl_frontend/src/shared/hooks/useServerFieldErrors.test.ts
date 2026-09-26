@@ -220,20 +220,27 @@ describe("focusFirstRefusal", () => {
   });
 });
 
-const { needsUnhandledReport, hasFieldErrors } = await import("./useServerFieldErrors.ts");
+const { unshownPaths, hasFieldErrors } = await import("./useServerFieldErrors.ts");
 
-describe("when a refusal has to be announced instead of shown", () => {
-  it("announces the one case the toast exists for: nothing rendered the path", () => {
-    assert.equal(needsUnhandledReport({ gruppe: "Wähle eine Gruppe." }, false), true);
+describe("which refused paths have to be announced instead of shown", () => {
+  /* Every path beside a marked one too: a form that marks one refusal and drops another would otherwise
+     announce nothing about the second. */
+  it("names each path no control carries, however many others one does", () => {
+    const doc: Doc = { activeElement: null };
+    const form = new El("form", {}, doc).add(new El("input", { name: "vorname", type: "text" }, doc));
+
+    assert.deepEqual(unshownPaths(formOf(form), { vorname: "Bitte gib einen Vornamen ein.", gruppe: "Wähle eine Gruppe." }), ["gruppe"]);
   });
 
-  it("stays silent when a field did render it, which is every ordinary refusal", () => {
-    // Inverted, this fires "eine Angabe außerhalb dieses Formulars" on every field error the admin can see.
-    assert.equal(needsUnhandledReport({ gruppe: "Wähle eine Gruppe." }, true), false);
+  it("names none where every refused path has a control, which is every ordinary refusal", () => {
+    const doc: Doc = { activeElement: null };
+    const form = new El("form", {}, doc).add(new El("input", { name: "gruppe", type: "text" }, doc));
+
+    assert.deepEqual(unshownPaths(formOf(form), { gruppe: "Wähle eine Gruppe." }), []);
   });
 
-  it("says nothing at all when there is no refusal", () => {
-    assert.equal(needsUnhandledReport({}, false), false);
+  it("names every refused path where no form is mounted", () => {
+    assert.deepEqual(unshownPaths(null, { gruppe: "Wähle eine Gruppe." }), ["gruppe"]);
   });
 });
 
@@ -249,9 +256,38 @@ describe("hasFieldErrors", () => {
   });
 });
 
-const { UNHANDLED_FIELD_REFUSAL } = await import("./useServerFieldErrors.ts");
+const { unshownRefusal } = await import("./useServerFieldErrors.ts");
+const { UNHANDLED_FIELD_REFUSAL } = await import("../utils/refusal.ts");
 
 describe("what the fallback toast says", () => {
+  /* The path's own message is the one thing that tells the reader what to change: a bare retry meets the
+     same refusal again. */
+  it("says what the save cost, then each unshown path's own message in place of the retry", () => {
+    assert.equal(
+      unshownRefusal(["Bitte wähle eine Saison.", "Bitte gib einen Namen ein."]),
+      "Nichts wurde gespeichert, aber Deine Eingaben stehen unverändert im Formular. Bitte wähle eine Saison. Bitte gib einen Namen ein.",
+    );
+  });
+
+  it("says one reason once, however many paths it refused", () => {
+    assert.equal(
+      unshownRefusal(["Diese Angabe wurde so nicht übernommen.", "Diese Angabe wurde so nicht übernommen."]),
+      "Nichts wurde gespeichert, aber Deine Eingaben stehen unverändert im Formular. Diese Angabe wurde so nicht übernommen.",
+    );
+  });
+
+  it("closes a message that lacks a full stop, so the next never runs on from it", () => {
+    assert.equal(
+      unshownRefusal(["abgelehnt", "Bitte gib einen Namen ein."]),
+      "Nichts wurde gespeichert, aber Deine Eingaben stehen unverändert im Formular. abgelehnt. Bitte gib einen Namen ein.",
+    );
+  });
+
+  it("offers the retry only where no path brought a message", () => {
+    assert.equal(unshownRefusal([]), UNHANDLED_FIELD_REFUSAL);
+    assert.equal(unshownRefusal(["", "  "]), UNHANDLED_FIELD_REFUSAL);
+  });
+
   // Literal copy, pinned literally — but each clause below names the constraint it holds, so a rewrite that
   // breaks one fails with the reason rather than with a diff.
   it("says what the save cost, and that the work survived it", () => {

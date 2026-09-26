@@ -17,7 +17,7 @@ const forfeitAsNull = ({ sieger_tore, verlierer_tore }: { sieger_tore: number | 
   sieger_tore === null || verlierer_tore === null ? null : `${String(sieger_tore)}:${String(verlierer_tore)}`;
 
 /** Every field the season editor can change, in the order the change list reads them. */
-const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<SaisonDraftFields, FLSaisonFieldGroup>[] = [
+const FIELD_DESCRIPTORS = [
   { path: "start_date", label: "Beginn", group: "Zeitraum", read: (source) => emptyAsNull(source.start_date) },
   { path: "end_date", label: "Ende", group: "Zeitraum", read: (source) => emptyAsNull(source.end_date) },
   {
@@ -116,7 +116,9 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<SaisonDraftFields, FLSaisonF
     },
     errorPaths: ["registrierung", "registrierung.offen", "registrierung.von", "registrierung.bis"],
   },
-];
+] as const satisfies readonly FLFieldDescriptor<SaisonDraftFields, FLSaisonFieldGroup>[];
+
+export type SaisonFieldPath = (typeof FIELD_DESCRIPTORS)[number]["path"];
 
 export function deriveSaisonDraftStatus({
   stored,

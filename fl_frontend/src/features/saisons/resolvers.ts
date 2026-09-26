@@ -7,13 +7,15 @@ import { getAdminSaisons, getSaisons } from "./queries";
 import { searchWithoutSaisonId } from "./utils";
 
 import type { NextPageProps } from "@/shared/types/types";
-import type { FLSaisonStatus } from "./schemas";
+import type { FLSaison, FLSaisonStatus } from "./schemas";
 
-const saisonIdSchema = z.string().trim().length(SAISON_ID_LENGTH).optional().catch(undefined);
+// Untrimmed: `SaisonSelector` matches the raw parameter, so a padded id it cannot find is malformed
+// here too, and stripped rather than shown on the page alone.
+const saisonIdSchema = z.string().length(SAISON_ID_LENGTH).optional().catch(undefined);
 
 /**
  * The season named in the URL, or `undefined` so the backend applies its default — one round-trip
- * rather than the two a `getCurrentSaison()` prefetch costs. **An admin page must pass `"admin"`.**
+ * rather than the two a `getCurrentSaisonOrNull()` prefetch costs. **An admin page must pass `"admin"`.**
  */
 export async function resolveSaisonId(
   searchParamsPromise: NextPageProps["searchParams"],
@@ -38,10 +40,7 @@ export async function resolveSaisonId(
   redirect(searchWithoutSaisonId(searchParams));
 }
 
-/**
- * An absent id is the running season and fetches nothing. An admin page reads the public list too: a finished season
- * stands in it, and a planned one is unfinished either way.
- */
+/** An absent id is the running season and fetches nothing. */
 export async function resolveIsFinishedSaison(resolvedSaisonId: string | undefined): Promise<boolean> {
   if (resolvedSaisonId === undefined) return false;
 
@@ -50,14 +49,33 @@ export async function resolveIsFinishedSaison(resolvedSaisonId: string | undefin
 }
 
 /**
- * Which season a page addresses: the one asked for, else the running one. It returns rather than
- * redirecting or raising, so the page's own `notFound()` stays where a reader of the page meets it.
+ * An admin page's season and the admin header's default (`SaisonMetadataDisplay`), so the two never
+ * differ. It returns rather than redirecting, so each page's own answer to `undefined` stays where a
+ * reader of that page meets it.
  */
 export function selectSaison<T extends { id: string; status: FLSaisonStatus }>(
   saisons: readonly T[],
   requestedSaisonId: string | undefined,
 ): T | undefined {
-  return saisons.find((saison) => (requestedSaisonId === undefined ? saison.status === "active" : saison.id === requestedSaisonId));
+  if (requestedSaisonId !== undefined) return saisons.find((saison) => saison.id === requestedSaisonId);
+
+  return saisons.find((saison) => saison.status === "active") ?? saisons[0];
+}
+
+/** Every admin page's season (`docs/frontend/spec.md :: I359`); `undefined` only for a league holding none. */
+export async function resolveAdminSaison(searchParamsPromise: NextPageProps["searchParams"]): Promise<FLSaison | undefined> {
+  const requestedSaisonId = await resolveSaisonId(searchParamsPromise, "admin");
+  // The list even where the URL names no season: the running season alone leaves a league before its
+  // first activation with nothing to show.
+  const { saisons } = await getAdminSaisons();
+
+  return selectSaison(saisons, requestedSaisonId);
+}
+
+/** For a page whose reads name a season: a league holding none is sent to the page that creates one (`docs/frontend/spec.md :: I363`). */
+export async function requireAdminSaison(searchParamsPromise: NextPageProps["searchParams"]): Promise<FLSaison> {
+  // eslint-disable-next-line local/admin-link -- an empty league has no season to carry
+  return (await resolveAdminSaison(searchParamsPromise)) ?? redirect("/admin/saisons");
 }
 
 /**

@@ -1,0 +1,4 @@
+// Linted as src/features/saisons/components/ui/laufendDot.ts.
+// The module spells the running season's dot, and every other ban still reaches it.
+export const DOT = "bg-brand size-2 animate-ping rounded-full";
+export const GAP = "flex gap-5"; // expect: gap

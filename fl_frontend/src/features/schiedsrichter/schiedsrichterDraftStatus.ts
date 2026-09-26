@@ -20,7 +20,7 @@ type FLSchiedsrichterFieldGroup = "Person" | "Kontakt" | "Honorar";
 export type FLSchiedsrichterDraftStatus = FLDraftStatus<FLSchiedsrichterFieldGroup>;
 
 /** `default_payment` formats to euros, so a change row reads as money rather than as a bare number. */
-const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLSchiedsrichterDraftFields, FLSchiedsrichterFieldGroup>[] = [
+const FIELD_DESCRIPTORS = [
   { path: "name", label: "Name", group: "Person", read: (source) => emptyAsNull(source.name) },
   { path: "schule", label: "Schule / Verein", group: "Person", read: (source) => emptyAsNull(source.schule) },
   { path: "kontakt.email", label: "E-Mail", group: "Kontakt", read: (source) => emptyAsNull(source.kontakt.email) },
@@ -31,7 +31,9 @@ const FIELD_DESCRIPTORS: readonly FLFieldDescriptor<FLSchiedsrichterDraftFields,
     group: "Honorar",
     read: (source) => (source.default_payment === null ? null : formatEuro(source.default_payment)),
   },
-];
+] as const satisfies readonly FLFieldDescriptor<FLSchiedsrichterDraftFields, FLSchiedsrichterFieldGroup>[];
+
+export type SchiedsrichterFieldPath = (typeof FIELD_DESCRIPTORS)[number]["path"];
 
 export function deriveSchiedsrichterDraftStatus({
   stored,

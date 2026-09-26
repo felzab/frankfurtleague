@@ -11,7 +11,7 @@ import { mapEinwilligungRefusal, nenntLaufendeFassung } from "@/features/bewerbu
 import { refusedDraftAnswer } from "@/shared/utils/actionError";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { handlePublicRequest } from "@/shared/utils/publicRoute";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type { FLBewerbungEinwilligungAntwortResponse } from "@/features/bewerbungen/schemas";
 import type { LinkZustand } from "@/features/bewerbungen/types";

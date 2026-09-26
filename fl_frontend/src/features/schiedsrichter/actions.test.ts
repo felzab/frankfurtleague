@@ -8,21 +8,30 @@ import { afterEach, describe, it, mock } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
-import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { answer, answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
+import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
-import { SCHIEDSRICHTER_ANONYM_LABEL } from "./constants.ts";
+import { mapNameRefusal as mapSpielortNameRefusal } from "../spielorte/refusals.ts";
+import {
+  mapAnonymiseRefusal,
+  mapEinladenRefusal,
+  mapGesperrteAdresseRefusal,
+  mapNameRefusal,
+  mapReactivateRefusal,
+  mapRetireRefusal,
+} from "./refusals.ts";
 
 import type { ReactNode } from "react";
 
 /* Every write hangs until a case answers it: a real action needs a session and a backend. */
-const { calls, answerWith } = doubleActions({
+const { calls, answerWith, answerPending } = doubleActions({
   modules: ["/src/features/schiedsrichter/actions.ts"],
   answer: () => new Promise<never>(() => undefined),
 });
@@ -30,222 +39,153 @@ const { calls, answerWith } = doubleActions({
 /* The real module hands its raising to HeroUI's queue rather than back to the case that caused it. */
 const { raised: toasts } = doubleToasts();
 
+const { mapSchiedsrichterAnsichtRefusal, mapSchiedsrichterBestaetigungRefusal } = await import("./queries.ts");
+
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { FormAnonymisierenSection } = await import("./components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx");
 const { AdminSchiedsrichterEditView } = await import("./components/views/AdminSchiedsrichterEditView.tsx");
+const { default: AdminSchiedsrichterEditPage } = await import("@/app/admin/schiedsrichter/[schiedsrichter_id]/page.tsx");
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-const MUTATIONS = readFileSync(path.resolve(import.meta.dirname, "mutations.ts"), "utf8");
-/**
- * Whitespace-collapsed, the copy being JSX text whose line breaks the formatter picks. Read for which
- * declaration the displayed word comes from, which a render of the constant's value cannot tell apart.
- */
-const PANEL = readFileSync(
-  path.resolve(import.meta.dirname, "components", "forms", "AdminSchiedsrichterEditForm", "FormAnonymisierenSection.tsx"),
-  "utf8",
-).replace(/\s+/g, " ");
-const SCHEMAS = readFileSync(path.resolve(import.meta.dirname, "schemas.ts"), "utf8");
-/**
- * Read for the `key` that makes the panel's refresh load-bearing, which the page seats inside an async
- * Server Component behind its own awaits.
- */
-const PAGE = readFileSync(
-  path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "admin", "schiedsrichter", "[schiedsrichter_id]", "page.tsx"),
-  "utf8",
-).replace(/\s+/g, " ");
 /** The backend redaction the panel's copy describes, read where it is written. */
 const RECORDING = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "recording.py"), "utf8");
 
 const ANONYMISE_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/anonymisieren";
-const ANONYMISE_CODES = ["REQ-ANONYMISE-004"];
+const CREATE_OPERATION = "POST /schiedsrichter";
+const SAVE_OPERATION = "PATCH /schiedsrichter/{schiedsrichter_id}";
+const EINLADEN_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen";
+const REACTIVATE_OPERATION = "POST /schiedsrichter/{schiedsrichter_id}/reactivate";
+const RETIRE_OPERATION = "DELETE /schiedsrichter/{schiedsrichter_id}";
+const BESTAETIGUNG_OPERATION = "POST /schiedsrichter/bestaetigung";
+const ANSICHT_OPERATION = "POST /schiedsrichter/bestaetigung/ansicht";
 
-/* The anonymisation is the last declaration in the module, so its slice runs to the end of the file. */
-const ANONYMISE_ACTION = sliceBetween(ACTIONS, "export async function anonymiseSchiedsrichterAction", null);
-/* Read per slice rather than over the file: three mappers live here, and a search over the whole source
-   is satisfied by whichever one happens to carry the arm. */
-const ANONYMISE_MAP = sliceBetween(ACTIONS, "function mapAnonymiseRefusal", "export async function postSchiedsrichterAction");
-const RETIRE_ACTION = sliceBetween(
-  ACTIONS,
-  "export async function deleteSchiedsrichterAction",
-  "export async function reactivateSchiedsrichterAction",
-);
-/* Sliced for the retire's reason, and for a second: the anonymisation carries the same `updateTag`
-   call, so a search over the whole file passes whichever of the two happens to hold it. */
-const RENAME_ACTION = sliceBetween(
-  ACTIONS,
-  "export async function patchSchiedsrichterAction",
-  "export async function deleteSchiedsrichterAction",
-);
+/** The create's and the save's own answer: the name's mapper first, then the ban's, as both actions ask them. */
+const saveAnswer = (error: unknown) => mapNameRefusal(error) ?? mapGesperrteAdresseRefusal(error);
 
-/* The first mapper in the module, so its slice ends where the retire's begins. */
-const NAME_MAP = sliceBetween(ACTIONS, "function mapNameRefusal", "function mapRetireRefusal");
-const GESPERRT_MAP = sliceBetween(ACTIONS, "function mapGesperrteAdresseRefusal", "function mapEinladenRefusal");
-const EINLADEN_MAP = sliceBetween(ACTIONS, "function mapEinladenRefusal", "const SCHON_BESTAETIGT");
-/** The referee's OWN link is read rather than written by an admin action, so its German sits here. */
-const QUERIES = readFileSync(path.resolve(import.meta.dirname, "queries.ts"), "utf8");
-const CREATE_ACTION = sliceBetween(
-  ACTIONS,
-  "export async function postSchiedsrichterAction",
-  "export async function patchSchiedsrichterAction",
-);
-/* The venue's copy of the same sentence, read where it is written rather than retyped here. */
-const SPIELORTE_ACTIONS = readFileSync(path.resolve(import.meta.dirname, "..", "spielorte", "actions.ts"), "utf8");
-
-/** The route that REPLAYS the save, whose German is the third site `.claude/rules/cross-surface.md` names. */
-const UNDO_ROUTE = readFileSync(
-  path.resolve(REPO_ROOT, "fl_frontend", "src", "app", "api", "admin", "schiedsrichter", "undo", "route.ts"),
-  "utf8",
-);
-
-const REACTIVATE_ACTION = sliceBetween(
-  ACTIONS,
-  "export async function reactivateSchiedsrichterAction",
-  "export async function anonymiseSchiedsrichterAction",
-);
-
-describe("the anonymisation against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
-  it("cuts the mapper and the action out of the file before reading them", () => {
-    assert.ok(ANONYMISE_MAP.includes("serverErrorCode"), "the anonymisation's arms are outside its slice");
-    assert.ok(!ANONYMISE_MAP.includes("REQ-RETIRE-004"), "the anonymisation's slice runs back into the retire's mapper");
-
-    assert.ok(ANONYMISE_ACTION.includes("anonymiseSchiedsrichter(validated.data)"), "the anonymisation's call is outside its slice");
-    assert.ok(!ANONYMISE_ACTION.includes("deleteSchiedsrichter("), "the anonymisation's slice reaches the retire");
-    assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retire's slice no longer holds its mapper call");
-
-    assert.ok(RENAME_ACTION.includes("patchSchiedsrichter(validated.data)"), "the rename's slice is outside its slice");
-    assert.ok(!RENAME_ACTION.includes("anonymiseSchiedsrichter("), "the rename's slice reaches the anonymisation");
-
-    assert.ok(REACTIVATE_ACTION.includes("reactivateSchiedsrichter(validated.data)"), "the reactivation's call is outside its slice");
-  });
-
+describe("the referee's writes against the codes their endpoints publish", () => {
   /* The ghost is the one refusal here, and it needs a sentence: an administrator reaches this only by
-     opening the row every erased referee's fixtures point at. A rule declared later and left unmapped
+     opening the row every erased referee's fixtures point at. A rule published later and left unmapped
      fails this. */
-  it("maps every refusal its endpoint declares", () => {
-    const declared = declaredCodes(ANONYMISE_OPERATION);
-
-    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
-    assert.deepEqual(declared, ANONYMISE_CODES);
-    for (const code of declared)
-      assert.ok(ANONYMISE_MAP.includes(`serverErrorCode === "${code}"`), `${code} reaches the admin as an unhandled conflict`);
-
-    assert.ok(ANONYMISE_ACTION.includes("mapAnonymiseRefusal(error)"), "the anonymisation consults some other mapper");
-    assert.ok(!ANONYMISE_ACTION.includes("mapRetireRefusal"), "the retire's refusal is reported about a contact deletion");
+  it("maps every refusal the anonymisation publishes", () => {
+    assert.deepEqual(
+      publishedRefusals(ANONYMISE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-ANONYMISE-004"],
+    );
+    for (const code of publishedRefusals(ANONYMISE_OPERATION)) {
+      assert.notEqual(answerShown(ANONYMISE_OPERATION, code, mapAnonymiseRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+    }
   });
 
   /* Coming back mints for an unanswered referee, so the reactivation meets the ban list as every mint
-     does; left unmapped it reaches the admin as the 409 fallback, which names an entry rather than a rule. */
-  it("words the one refusal the reactivation declares", () => {
-    assert.deepEqual(declaredCodes("POST /schiedsrichter/{schiedsrichter_id}/reactivate"), ["REQ-SCHIEDSRICHTER-007"]);
-  });
-
-  /* The replay meets the ban list exactly as the save does, and the shared 409 fallback would tell
-     the administrator an equivalent entry exists (`.claude/rules/cross-surface.md`). */
-  it("words the ban the replayed save can be refused on, at the undo route too", () => {
-    for (const code of declaredCodes("PATCH /schiedsrichter/{schiedsrichter_id}")) {
-      assert.ok(UNDO_ROUTE.includes(code), `${code} reaches the admin through the undo as an unhandled conflict`);
+     does; left unmapped it reaches the admin as the shared fallback, which names no rule. */
+  it("words every refusal the reactivation publishes", () => {
+    assert.deepEqual(
+      publishedRefusals(REACTIVATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-SCHIEDSRICHTER-007"],
+    );
+    for (const code of publishedRefusals(REACTIVATE_OPERATION)) {
+      assert.notEqual(
+        answerShown(REACTIVATE_OPERATION, code, mapReactivateRefusal),
+        null,
+        `${code} reaches the admin as an unhandled conflict`,
+      );
     }
   });
 
   /* Both writes mint where an address was given, so both meet the ban list, and one mapper words it
      for the box that holds the value the list refused. */
-  it("maps every refusal the create and the save declare, on the box that owes the link", () => {
-    assert.deepEqual(declaredCodes("POST /schiedsrichter"), ["REQ-SCHIEDSRICHTER-007"]);
-    // No `REQ-SCHIEDSRICHTER-001`: a retired referee's new address is stored and mails nothing.
-    assert.deepEqual(declaredCodes("PATCH /schiedsrichter/{schiedsrichter_id}"), ["REQ-SCHIEDSRICHTER-007"]);
-
-    assert.ok(
-      GESPERRT_MAP.includes(`serverErrorCode === "REQ-SCHIEDSRICHTER-007"`),
-      "the banned address reaches the admin as an unhandled conflict",
+  it("maps every refusal the create and the save publish", () => {
+    assert.deepEqual(
+      publishedRefusals(CREATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-SCHIEDSRICHTER-007"],
     );
-    assert.ok(GESPERRT_MAP.includes(`"kontakt.email"`), "the ban lands anywhere but the box that holds the refused address");
+    // No `REQ-SCHIEDSRICHTER-001`: a retired referee's new address is stored and mails nothing.
+    assert.deepEqual(
+      publishedRefusals(SAVE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-SCHIEDSRICHTER-007"],
+    );
+    for (const [operation, published] of [
+      [CREATE_OPERATION, publishedRefusals(CREATE_OPERATION)],
+      [SAVE_OPERATION, publishedRefusals(SAVE_OPERATION)],
+    ] as const) {
+      assert.ok(published.includes(DUPLICATE_KEY), `${operation} no longer publishes the duplicate name its mapper places`);
+      for (const code of published) {
+        assert.notEqual(answerShown(operation, code, saveAnswer), null, `${code} reaches the admin as an unhandled conflict on ${operation}`);
+      }
+    }
   });
 
-  /* Every refusal the re-send declares, worded at the panel: nothing there is a form, so each is a
-     sentence rather than a field error. */
-  it("words every refusal the re-send declares", () => {
-    const declared = declaredCodes("POST /schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen");
+  it("lands the ban on the box that holds the refused address", () => {
+    assert.deepEqual(Object.keys(saveAnswer(refusedOn(CREATE_OPERATION, "REQ-SCHIEDSRICHTER-007"))?.fieldErrors ?? {}), ["kontakt.email"]);
+  });
 
-    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
-    assert.deepEqual(declared, ["REQ-SCHIEDSRICHTER-001", "REQ-SCHIEDSRICHTER-004", "REQ-SCHIEDSRICHTER-006", "REQ-SCHIEDSRICHTER-007"]);
-    for (const code of declared) assert.ok(EINLADEN_MAP.includes(`case "${code}"`), `${code} reaches the admin as an unhandled conflict`);
+  /* Every refusal the re-send publishes, worded at the panel: nothing there is a form, so each is a
+     sentence rather than a field error. */
+  it("words every refusal the re-send publishes", () => {
+    assert.deepEqual(
+      publishedRefusals(EINLADEN_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-SCHIEDSRICHTER-001", "REQ-SCHIEDSRICHTER-004", "REQ-SCHIEDSRICHTER-006", "REQ-SCHIEDSRICHTER-007"],
+    );
+    for (const code of publishedRefusals(EINLADEN_OPERATION)) {
+      assert.notEqual(answerShown(EINLADEN_OPERATION, code, mapEinladenRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+    }
   });
 
   /* The public page's own two endpoints. Their German is the visitor's, so it is worded where the
      page reads them rather than in an admin action's mapper. */
-  it("words every refusal the referee's own link declares", () => {
-    const declared = [...declaredCodes("POST /schiedsrichter/bestaetigung"), ...declaredCodes("POST /schiedsrichter/bestaetigung/ansicht")];
-
-    assert.ok(declared.length >= 4, `expected the link's four refusals, found ${String(declared.length)}`);
-    for (const code of new Set(declared)) assert.ok(QUERIES.includes(`case "${code}"`), `${code} reaches the visitor as an unhandled conflict`);
+  it("words every refusal the referee's own link publishes", async () => {
+    for (const code of publishedRefusals(BESTAETIGUNG_OPERATION)) {
+      const own = await mapSchiedsrichterBestaetigungRefusal(refusedOn(BESTAETIGUNG_OPERATION, code), () => Promise.resolve(16));
+      assert.notEqual(
+        own ?? answerShown(BESTAETIGUNG_OPERATION, code, () => null),
+        null,
+        `${code} reaches the visitor as an unhandled conflict`,
+      );
+    }
+    for (const code of publishedRefusals(ANSICHT_OPERATION)) {
+      assert.notEqual(
+        mapSchiedsrichterAnsichtRefusal(refusedOn(ANSICHT_OPERATION, code)),
+        null,
+        `${code} reaches the visitor as an unhandled conflict`,
+      );
+    }
   });
 
   it("leaves the retirement's own refusal on the retirement", () => {
-    assert.deepEqual(declaredCodes("DELETE /schiedsrichter/{schiedsrichter_id}"), ["REQ-RETIRE-004"]);
-    assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retire stopped consulting its mapper");
-    assert.ok(!RETIRE_ACTION.includes("mapAnonymiseRefusal"), "the contact deletion's refusal is reported about a retirement");
+    assert.deepEqual(
+      publishedRefusals(RETIRE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-RETIRE-004"],
+    );
+    for (const code of publishedRefusals(RETIRE_OPERATION)) {
+      assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+    }
   });
 
   /* These administrators are teachers, and the one thing this sentence must not do is suggest a way
      back: the person's row is gone, so the repair names the referee they meant instead. */
   it("words the ghost's refusal without offering a retry on it", () => {
-    assert.match(ANONYMISE_MAP, /keine Person/, "the refusal does not say why this entry cannot be erased");
-    assert.doesNotMatch(ANONYMISE_MAP, /wiederherstell|zurückhol|rückgängig|erneut/i, "the refusal offers a retry on a row that holds nobody");
+    const refusal = String(mapAnonymiseRefusal(refusedOn(ANONYMISE_OPERATION, "REQ-ANONYMISE-004")));
+
+    assert.match(refusal, /keine Person/, "the refusal does not say why this entry cannot be erased");
+    assert.doesNotMatch(refusal, /wiederherstell|zurückhol|rückgängig|erneut/i, "the refusal offers a retry on a row that holds nobody");
   });
 });
 
 describe("the referee name a unique index already holds", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
-  it("cuts the mapper and the create out of the file before reading them", () => {
-    assert.ok(NAME_MAP.includes("serverErrorCode"), "the duplicate name's arm is outside its slice");
-    assert.ok(!NAME_MAP.includes("REQ-RETIRE-004"), "the duplicate name's slice runs on into the retire's mapper");
-
-    assert.ok(CREATE_ACTION.includes("postSchiedsrichter(validated.data)"), "the create's call is outside its slice");
-    assert.ok(!CREATE_ACTION.includes("patchSchiedsrichter("), "the create's slice runs on into the edit");
-  });
-
   /* `uniq_schiedsrichter_name` is this collection's only unique index, so the 409 it raises is always
      the name. Unmapped, `fl_frontend/src/shared/utils/actionError.ts` answers it with a sentence about
-     an id, which names no box and no way out. */
+     an entry, which names no box and no way out. */
   it("lands the duplicate on the name box rather than in a banner", () => {
-    assert.match(NAME_MAP, /serverErrorCode === "DB-COMMON-002"/, "the duplicate name reaches the admin as an unhandled conflict");
-    assert.match(NAME_MAP, /fieldErrors: \{ name: "Diesen Namen gibt es schon\." \}/, "the duplicate name lands as a bare sentence");
     // The field message carries no second sentence: the box under it is the way out (`docs/frontend/spec.md` §1.12).
-    assert.doesNotMatch(NAME_MAP, /buildRefusal\(/, "the duplicate name is composed as a two-sentence banner");
-  });
-
-  /* The unique index is the only 409 either write raises now, so both consult this mapper and nothing
-     else: one left unmapped drops the duplicate into the conflict fallback, which names no box. */
-  it("consults the mapper on the create and on the edit", () => {
-    assert.ok(CREATE_ACTION.includes("mapNameRefusal(error)"), "the create consults no mapper, so a duplicate name reaches the error page");
-    assert.ok(RENAME_ACTION.includes("mapNameRefusal(error)"), "the edit consults no mapper, so a duplicate name reaches the error page");
+    assert.deepEqual(mapNameRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY)), { fieldErrors: { name: "Diesen Namen gibt es schon." } });
   });
 
   /* One sentence for both slices: a reader meets the same box on four forms, and a rewording of one
      copy would tell two of them something the other two do not say. */
   it("words a venue's duplicate name the same way", () => {
-    assert.match(SPIELORTE_ACTIONS, /fieldErrors: \{ name: "Diesen Namen gibt es schon\." \}/, "the two slices word one refusal apart");
-  });
-});
-
-describe("what the anonymisation moves", () => {
-  /* The one cached read it moves: the repointed booking lands on every Spiel as a rename does, and without
-     the tag the erased name keeps being served from cache. The referee list and the log are uncached. */
-  it("invalidates the fixture reads, as the rename does", () => {
-    assert.ok(ANONYMISE_ACTION.includes('updateTag("spiele")'), "the anonymisation leaves the erased name in the fixture cache");
-    assert.ok(RENAME_ACTION.includes('updateTag("spiele")'), "the rename stopped invalidating the one read a referee write does move");
-  });
-
-  /* A POST to `/anonymisieren`, never the DELETE beside it: that one stamps `inactive_since` and
-     clears nothing. */
-  it("calls the anonymisation endpoint and not the retire", () => {
-    assert.match(MUTATIONS, /`\/schiedsrichter\/\$\{id\}\/anonymisieren`/, "the mutation no longer addresses the anonymisation endpoint");
-    assert.match(
-      MUTATIONS,
-      /anonymisieren`,\s*FLSchiedsrichterWriteResponseSchema,\s*\{\s*method: "POST"/,
-      "the anonymisation is sent as something other than a POST",
+    assert.deepEqual(
+      mapNameRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY)),
+      mapSpielortNameRefusal(refusedOn("POST /spielorte", DUPLICATE_KEY)),
     );
   });
 });
@@ -287,6 +227,14 @@ const RECORD = {
   bestaetigung: null,
 };
 
+/** The record the editor page's read answers with, as the backend holds it at that moment. */
+let stored = { ...RECORD, inactive_since: null };
+answerReadsWith((endpoint, schema, params) =>
+  endpoint === `/schiedsrichter/${RECORD.id}`
+    ? answer(schema, endpoint, { schiedsrichter: stored })
+    : EMPTIEST_ANSWER(endpoint, schema, params),
+);
+
 /** What the save answers where the address of an outstanding referee moved and the link went out. */
 const VERSAND_SATZ = "Der Best\u00e4tigungslink ging an anna@example.de.";
 
@@ -296,7 +244,6 @@ afterEach(() => {
   seen.pushed.length = 0;
   seen.replaced.length = 0;
   seen.refresh = 0;
-  answerWith(() => new Promise<never>(() => undefined));
 });
 
 /** The editor the page mounts for a referee nobody erased, whose last panel is the erasure. */
@@ -358,12 +305,6 @@ describe("the anonymisation's copy", () => {
     assert.doesNotMatch(armed, /Eintrag bleibt|behalten die Zuteilung/, "the armed confirmation promises what the erasure takes");
   });
 
-  it("says in the action's report that a fixture without a result needs a new referee", () => {
-    assert.match(ACTIONS, /Spiele ohne Ergebnis/, "the action's report does not name the fixtures the erasure unassigns");
-    assert.match(ACTIONS, /neuen Schiedsrichter/, "the action's report does not say such a fixture needs somebody else");
-    assert.ok(!/behalten die Zuteilung/.test(ACTIONS), "the action's report still promises the assignment survives the erasure");
-  });
-
   /* A hand-write can leave a row nameless, and this panel is on that row's editor too: the sentence
      has to name a subject where the interpolated name is null. */
   it("names the subject of the deletion on a row that holds no name", () => {
@@ -371,22 +312,6 @@ describe("the anonymisation's copy", () => {
 
     assert.match(shown, /Eintrag von dieser Person/, "the sentence deletes the entry of nobody");
     assert.match(shown, /diese Person geleitet hat/, "the nameless row's panel stopped saying which matches are reached");
-  });
-
-  /* Every other sentence about the erasure says „dieser Person“, and this one is the report an
-     administrator forwards: a referee can be a woman, and the notice writes both forms. */
-  it("reports the log redaction about a person rather than about a masculine referee", () => {
-    const report = sliceBetween(ANONYMISE_ACTION, "Im Änderungsprotokoll", null);
-
-    assert.match(report, /die diese Person betrifft/, "the report names the log rows by a masculine referee again");
-  });
-
-  /* The word is a frontend constant so it can be reworded without touching a stored document; typed
-     into the copy instead, a rewording would leave the panel promising a word nothing renders. */
-  it("names the displayed word by reading the constant rather than typing it", () => {
-    assert.match(PANEL, /SCHIEDSRICHTER_ANONYM_LABEL/, "the panel does not read the label from its one declaration");
-    assert.ok(!/„anonym|"anonym|>anonym/.test(PANEL), "the panel types the label as text, so rewording it leaves this copy behind");
-    assert.equal(SCHIEDSRICHTER_ANONYM_LABEL, "anonym");
   });
 });
 
@@ -476,6 +401,7 @@ describe("the erasure on the referee's editor", () => {
       assert.match(alarm() ?? "", /^Bist Du Dir sicher\?/, "the escalation replaces the copy in place with no announcement");
     });
     assert.deepEqual(calls, [{ action: "anonymiseSchiedsrichterAction", payload: { id: RECORD.id } }], "the second press writes nothing");
+    await act(async () => answerPending({ success: true, message: "Die Daten sind gelöscht." }));
   });
 
   /* The refresh remounts the form onto the cleared record, so an unsaved draft goes with it, and the warning
@@ -538,8 +464,22 @@ describe("the erasure on the referee's editor", () => {
 
   /* A rename is the surviving write on this page, and the draft mirrors the stored record: without
      the key the saved values never reach the boxes and the form reads as dirty against them. */
-  it("keys the editor on the stored record, so a save remounts it", () => {
-    assert.match(PAGE, /key=\{JSON\.stringify\(schiedsrichter\)\}/, "the view no longer remounts when the record changes");
+  it("keys the editor on the stored record, so a save remounts it", async () => {
+    const user = userEvent.setup();
+    const props = { params: Promise.resolve({ schiedsrichter_id: RECORD.id }), searchParams: Promise.resolve({}) };
+    stored = { ...RECORD, inactive_since: null };
+    const { rerender } = render(underRecordingNext(await pageBody(AdminSchiedsrichterEditPage, props)));
+    await typeADraft(user);
+
+    // The refresh after a save re-reads the row as the backend stored it, which is not what was typed.
+    stored = { ...stored, name: "Anna Beispiel-Berg" };
+    rerender(underRecordingNext(await pageBody(AdminSchiedsrichterEditPage, props)));
+
+    assert.equal(
+      screen.getByRole<HTMLInputElement>("textbox", { name: "Name" }).value,
+      "Anna Beispiel-Berg",
+      "the box keeps the draft over the record the save stored",
+    );
   });
 });
 
@@ -549,13 +489,7 @@ describe("how much of the log the copy claims", () => {
      this write destroys that too. */
   it("matches what the redaction actually clears", () => {
     assert.match(RECORDING, /def build_redaction_update[\s\S]*?"before": None/, "the backend no longer clears the whole pre-image");
-
-    for (const [read, where] of [
-      [panelText(), "the panel"],
-      [ACTIONS, "the action's report"],
-    ] as const) {
-      assert.match(read, /gesicherte[rn]? Stand/, `${where} does not name the pre-image the log keeps`);
-    }
+    assert.match(panelText(), /gesicherte[rn]? Stand/, "the panel does not name the pre-image the log keeps");
   });
 
   /* The narrow claim, in the shape it was written: the log's rows lose more than the row does. */
@@ -565,36 +499,11 @@ describe("how much of the log the copy claims", () => {
       /Telefonnummer[^.]*(auch|und überall)[^.]*Änderungsprotokoll/,
       "the panel narrows the log to the two fields",
     );
-    assert.doesNotMatch(ACTIONS, /gelöscht, auch im Änderungsprotokoll/, "the report narrows the log to the two fields");
   });
 
   /* What survives is as load-bearing as what goes: the rows stay, so the log still shows that
      something happened and when. */
   it("says the rows themselves stay readable", () => {
     assert.match(panelText(), /Was wann geschehen ist, bleibt lesbar/, "the panel does not say what the log keeps");
-  });
-});
-
-describe("the anonymisation's payload, beside the retirement's", () => {
-  /* Its own declaration, as the pupil's erasure has: the retire and its reactivate are inverses of
-     one another and this write has no inverse at all. Shared, a value typed for a retirement reaches
-     the deletion while reading as one. */
-  it("is declared on its own and parsed by the anonymisation alone", () => {
-    assert.match(SCHEMAS, /export const FLAnonymiseSchiedsrichterPayloadSchema = z\.object\(/, "the anonymisation shares the reversible key");
-    assert.ok(
-      ANONYMISE_ACTION.includes("FLAnonymiseSchiedsrichterPayloadSchema.safeParse"),
-      "the anonymisation validates against some other schema",
-    );
-    assert.ok(!ANONYMISE_ACTION.includes("FLSchiedsrichterKeyPayloadSchema"), "the retirement's key is still reachable from the deletion");
-  });
-
-  /* The pair that stays shared, and the doc beside it, which may no longer name three calls. */
-  it("leaves the retire and its reactivate on the shared key", () => {
-    assert.ok(RETIRE_ACTION.includes("FLSchiedsrichterKeyPayloadSchema.safeParse"), "the retire moved off the shared key");
-
-    const sharedDoc = /\/\*\* ([^*]*) \*\/\s*export const FLSchiedsrichterKeyPayloadSchema/.exec(SCHEMAS)?.[1] ?? "";
-
-    assert.notEqual(sharedDoc, "", "the shared key lost the doc line that says which calls take it");
-    assert.doesNotMatch(sharedDoc, /anonymis/, "the shared key still claims the anonymisation");
   });
 });

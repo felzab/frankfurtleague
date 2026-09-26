@@ -11,13 +11,9 @@ Invariants:
 
 from __future__ import annotations
 
-import shutil
 from typing import Final
 
-from conftest import base_env, copy_scripts, new_root, run_shell
-
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
-BASH: Final = shutil.which("bash")
+from conftest import BASH, base_env, copy_scripts, new_root, run_shell
 
 # One of the four scopes the guard stands above proves it, being one condition over all four; not
 # `--db`, whose Docker guard would refuse ahead of it.
@@ -34,8 +30,8 @@ PAST_THE_GUARD: Final = "this run covers"
 def test_a_run_with_no_backend_virtualenv_refuses_and_reaches_no_scope() -> None:
     """Exit 2 rather than 1: `.claude/CLAUDE.md` §7 **exit codes** -- no change to the tree creates a virtualenv."""
     assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
-    # Nothing committed under it: the guard stands above the scope check, the one step that reads a
-    # repository, so a fixture holding commits would be proving a line this case never reaches.
+    # Nothing committed under it: the guard stands above every scope, so nothing this case reaches
+    # reads a repository.
     root = new_root("fl-gate-prerequisite-")
     copy_scripts(root / "scripts")
     done = run_shell(BASH, root / "scripts" / "gate" / "verify.sh", SCOPE, env=base_env())

@@ -6,7 +6,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from httpx2 import ASGITransport, AsyncClient
 from pymongo import AsyncMongoClient, MongoClient, ReturnDocument, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 
@@ -18,11 +17,11 @@ from app.api.registrierungen.sweep_router import REMINDERS_PER_PASS, sweep_regis
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
-from app.core.dependencies import get_germany_now
 from app.core.recording import SYSTEM_ACTOR_EMAIL
-from app.main import create_app
-from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, TEST_BASE_URL, build_test_config
+from tests.app_client import app_client
+from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
+from tests.documents import rules_document, saison_document, team_document
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -48,26 +47,6 @@ TEAM_OID = ObjectId("6890a1b2c3d4e5f607970011")
 EINLADUNG_OID = ObjectId("6890a1b2c3d4e5f607970021")
 
 TEAM_NAME = "Adler"
-
-ADDRESS: Mapping[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
-
-RULES: Mapping[str, Any] = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 2,
-    "teams_per_group": 2,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-}
 
 
 def einwilligung(*, bestaetigt_am: str = MAILED_ON_THE_MARK) -> dict[str, Any]:
@@ -136,7 +115,7 @@ def the_corpus() -> list[dict[str, Any]]:
 
 
 def season(saison_id: str, status: str) -> dict[str, Any]:
-    return {"_id": saison_id, "start_date": f"{saison_id}-01-01", "end_date": f"{saison_id}-06-30", "status": status, "rules": RULES}
+    return saison_document(saison_id, status, rules=rules_document(number_of_groups=2, teams_per_group=2))
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -148,19 +127,7 @@ def on_a_league(url: str, body: Body, *, status: str = "active") -> Any:
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await database[Collection.SAISONS].insert_many([season(SAISON_ID, status), season(OTHER_SAISON_ID, "past")])
-            await database[Collection.TEAMS].insert_one(
-                {
-                    "_id": TEAM_OID,
-                    "name": TEAM_NAME,
-                    "shorthand": "AD",
-                    "description": "",
-                    "full_name": f"{TEAM_NAME}-Schule",
-                    "website_url": None,
-                    "schulform": "gymnasium_g9",
-                    "address": dict(ADDRESS),
-                    "inactive_since": None,
-                }
-            )
+            await database[Collection.TEAMS].insert_one(team_document(TEAM_OID, TEAM_NAME, "AD", website_url=None, schulform="gymnasium_g9"))
             await database[Collection.REGISTRIERUNGEN].insert_many(the_corpus())
             # One recorded write per row, so every one has a log image holding its person.
             for document in the_corpus():
@@ -626,17 +593,9 @@ def through_the_app(url: str, path: str, *, auth: Mapping[str, str]) -> tuple[in
         database[Collection.REGISTRIERUNGEN].insert_one(registrierung(EXPIRED_OID, bestaetigung=bestaetigung(EXPIRED_OID, frist=YESTERDAY)))
 
         async def _called() -> int:
-            app = create_app(build_test_config())
-            app.state.db_client = AsyncMongoClient(host=url, serverSelectionTimeoutMS=30_000)
-            app.dependency_overrides[get_germany_now] = lambda: NOW
-
-            try:
-                transport = ASGITransport(app=app, raise_app_exceptions=False)
-                async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                    response = await http.post(f"/api/v{API_VERSION}{path}", json=None, headers=dict(auth))
-                    return response.status_code
-            finally:
-                await app.state.db_client.close()
+            async with app_client(url, now=NOW) as http:
+                response = await http.post(f"/api/v{API_VERSION}{path}", json=None, headers=dict(auth))
+                return response.status_code
 
         status = asyncio.run(_called())
 

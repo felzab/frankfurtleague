@@ -1,3 +1,4 @@
+import ast
 import json
 from typing import Annotated
 
@@ -6,6 +7,7 @@ from bson import ObjectId
 from pydantic import BaseModel, StringConstraints, ValidationError
 
 from app.shared.schemas.custom import PHONE_REGEX, CustomDateString, CustomExternalUrl, CustomObjectId, CustomTimeString, parse_object_id
+from tests.core.app_source import APP_ROOT, BACKEND_ROOT, parsed
 
 
 class _Date(BaseModel):
@@ -107,6 +109,9 @@ def test_accepts_http_and_https_urls(value):
         "https://1.2.3.4",
         "http://192.168.1.10/status",
         "https://example.com.",
+        # A newline the strip cannot see: decoded before `DOMAIN_REGEX`, Python's `$` would match
+        # ahead of it where zod's refuses.
+        "https://example.com%0A",
         # `new URL` throws on an invalid port; `urlsplit`'s `.port` is lazy, so it has to be touched
         # for the two ends to agree.
         "https://example.com:notaport/",
@@ -283,3 +288,18 @@ def test_keeps_both_edges_of_the_length_window(value, accepted):
     else:
         with pytest.raises(ValidationError):
             _Phone.model_validate({"value": value})
+
+
+def test_parse_object_id_is_the_one_site_building_an_object_id_from_a_value():
+    """bson raises `InvalidId` from nowhere else, and no handler maps it: one raised past `parse_object_id` is a 500, a server bug."""
+
+    built = [
+        f"{path.relative_to(BACKEND_ROOT).as_posix()} :: {function.name}"
+        for path in sorted(APP_ROOT.rglob("*.py"))
+        for function in ast.walk(parsed(path))
+        if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
+        for call in ast.walk(function)
+        if isinstance(call, ast.Call) and isinstance(call.func, ast.Name) and call.func.id == ObjectId.__name__ and call.args
+    ]
+
+    assert built == ["app/shared/schemas/custom.py :: parse_object_id"]

@@ -27,18 +27,10 @@ from app.core import crud, dependencies
 from app.core.exceptions import DocumentNotFoundException
 from app.main import SYSTEM_ROUTERS, WRITE_ROUTERS
 from tests.core.app_source import APP_ROOT, parsed
+from tests.documents import rules_document
 
-RULES = {
-    "win_points": 3,
-    "draw_points": 1,
-    "number_of_groups": 4,
-    "teams_per_group": 4,
-    "qualifiers_per_group": 2,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "E2"],
-}
+# The three a case below reads back or reshapes, passed rather than defaulted.
+RULES = rules_document(win_points=3, number_of_groups=4, teams_per_group=4, erlaubte_stufen=["E1", "E2"])
 
 SAISON_DOC: dict[str, Any] = {"_id": "2026", "status": "active", "rules": dict(RULES)}
 
@@ -84,14 +76,6 @@ class SuspendingCollection(CountingCollection):
 
 def as_collection(stub: CountingCollection) -> AsyncCollection:
     return cast(AsyncCollection, stub)
-
-
-@pytest.fixture(autouse=True)
-def empty_cache():
-    """Module state must not leak between tests."""
-    invalidate_saison_cache()
-    yield
-    invalidate_saison_cache()
 
 
 class TestTheCacheContract:
@@ -147,7 +131,6 @@ class TestTheCacheContract:
 
     def test_a_store_carrying_the_current_generation_lands(self):
         """The control: a guard that refused everything would pass the case above and cost every reader its round trip."""
-        invalidate_saison_cache()
 
         store_cached_saison("2026", dict(SAISON_DOC), generation=saison_cache_generation())
 
@@ -222,7 +205,16 @@ class TestTheResolversUseIt:
 
         async def _run() -> Any:
             reader = asyncio.create_task(pull_saison_id_and_rules(saisons_collection=as_collection(stub), saison_id="2026"))
-            await stub.answered.wait()
+            # Raced against the reader, never awaited alone: a reader answered from the cache never
+            # queries, and a bare wait on the announcement then hangs the tier instead of failing it.
+            announced = asyncio.create_task(stub.answered.wait())
+            await asyncio.wait({reader, announced}, return_when=asyncio.FIRST_COMPLETED)
+            if not stub.answered.is_set():
+                announced.cancel()
+                # A reader that raised before its query is no cache answer: its own error is the failure.
+                if (error := reader.exception()) is not None:
+                    raise error
+                pytest.fail("the reader returned without querying the collection, so a cached entry answered it")
 
             # The write path, running in the window the reader is parked in.
             stub.document = dict(REDRAWN_SAISON_DOC)

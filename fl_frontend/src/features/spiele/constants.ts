@@ -8,6 +8,12 @@ import type { FLSonderereignis } from "./schemas";
 export const NOTIZ_MAX_LENGTH = 4096;
 
 /**
+ * The most fixtures one undo replays, mirroring the backend's `LIST_LIMIT_DEFAULT`
+ * (`fl_backend/app/shared/schemas/bounds.py`), the season read's ceiling.
+ */
+export const PAARUNGEN_MAX = 1024;
+
+/**
  * The one German spelling of each Sonderereignis. **A label table and never a predicate**: what a
  * member means differs per consumer, and each of those sets is written at its own call site.
  */

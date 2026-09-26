@@ -2,26 +2,16 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
 import { ADMIN_EMAIL, asDataUrl, cookieHeader, MEMORY_ADAPTER_URL, ORIGIN, registerAuthDoubles, seedLink } from "@/core/authDoubles.ts";
+import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 const STORE = "__flPasskeyStore";
 const REQUEST_HEADERS = "__flPasskeyRequestHeaders";
-const SENT = "__flPasskeySentMail";
-const REFRESHED = "__flPasskeyRefreshed";
 const PASS_THROUGH = "__flPasskeyPassThrough";
 
 /** Allowlisted by nothing, so every guard below has an arm that is refused for the address alone. */
 const PERSON_EMAIL = "spielerin@example.org";
 
-const MAIL_DOUBLE = `export const sendMail = async (message) => {
-  globalThis.${SENT}.push(message);
-  return { id: null };
-};`;
-
 const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};`;
-
-/* `refresh()` throws outside a request Next itself is rendering, and what a case here asks of it is
-   that the action reached it at all. */
-const CACHE_DOUBLE = `export const refresh = () => { globalThis.${REFRESHED}.push(1); };`;
 
 const LOGGING_DOUBLE = `export const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };`;
 
@@ -34,11 +24,11 @@ export const mongodbAdapter = () => (options) => {
   return served;
 };`;
 
-registerAuthDoubles({
-  core: { mail: MAIL_DOUBLE, logging: LOGGING_DOUBLE },
+const mail = registerAuthDoubles({
+  core: { logging: LOGGING_DOUBLE },
   specifiers: {
     "next/headers": asDataUrl(HEADERS_DOUBLE),
-    "next/cache": asDataUrl(CACHE_DOUBLE),
+    "next/cache": asDataUrl(NEXT_CACHE_DOUBLE),
     "@better-auth/mongo-adapter": asDataUrl(ADAPTER_DOUBLE),
   },
 });
@@ -54,13 +44,10 @@ type Store = {
 };
 
 const store: Store = { user: [], session: [], account: [], verification: [], passkey: [] };
-const sent: { to: string; subject: string; text: string; html: string }[] = [];
-const refreshed: number[] = [];
+const sent = mail.sent;
 
 const globals = globalThis as unknown as Record<string, unknown>;
 globals[STORE] = store;
-globals[SENT] = sent;
-globals[REFRESHED] = refreshed;
 
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so none of the doubles would be in place yet.
@@ -74,8 +61,7 @@ beforeEach(() => {
   globals[PASS_THROUGH] = false;
   store.passkey.length = 0;
   store.session.length = 0;
-  sent.length = 0;
-  refreshed.length = 0;
+  cacheCalls.length = 0;
 });
 
 /** Mints a session the way a followed link does, and hands back its cookie and its stored row. */
@@ -254,7 +240,7 @@ describe("what a removal costs, and what it refuses", () => {
       store.passkey.map((entry) => entry.id),
       ["ein-passkey-zwei"],
     );
-    assert.equal(refreshed.length, 1, "the administrator's page was left standing");
+    assert.deepEqual(cacheCalls, [{ name: "refresh", args: [] }], "the administrator's page was left standing");
     assert.equal(sent.at(-1)?.to, ADMIN_EMAIL);
     // The event and the time, and nothing off the row: a name the caller chose would otherwise
     // reach the mailbox as though this league had written it.
@@ -262,6 +248,24 @@ describe("what a removal costs, and what it refuses", () => {
     for (const secret of [String(held.id), String(held.credentialID), row.token]) {
       assert.ok(!written.includes(secret), "the notice carries material from the row it reports");
     }
+  });
+
+  /* The sign-in store is written past the API client, and a notice withheld before it leaves records no
+     write either: the removal's own record is all that refreshes the page. */
+  it("refreshes the page after a removal whose notice never left", async () => {
+    const { cookie, row } = await steppedUpAdmin();
+    const held = seedPasskey(row.userId, "eins");
+    seedPasskey(row.userId, "zwei");
+    arriveAs(cookie);
+    mail.answerWith(() => "withheld");
+
+    assert.equal((await removePasskeyAction(String(held.id))).success, true);
+    assert.deepEqual(
+      sent.map(({ to }) => to),
+      [ADMIN_EMAIL],
+      "the notice never reached the mailer to be withheld",
+    );
+    assert.deepEqual(cacheCalls, [{ name: "refresh", args: [] }], "the administrator's page was left standing");
   });
 
   /* A removal ends the administrator's other sessions at the same moment: a device signed in with

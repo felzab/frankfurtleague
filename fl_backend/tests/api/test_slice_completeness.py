@@ -21,6 +21,7 @@ from app.api.spiele.services import (
     judge_spieltag_occupancy,
 )
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from tests.documents import rules_document
 from tests.payloads import spiel_patch_body
 
 MATCH_ID = "6890a1b2c3d4e5f60720{:04d}"
@@ -85,19 +86,7 @@ class TestARefusalNeverPermitsWhatItCannotSee:
             find_booking_refusal(UNREAD_SPIEL_ID, payload, season, ResolvedReferences(teams={}), RULES)
 
 
-RULES = FLSaisonRules.model_validate(
-    {
-        "win_points": 3,
-        "draw_points": 1,
-        "number_of_groups": 4,
-        "teams_per_group": 4,
-        "qualifiers_per_group": 2,
-        "tiebreak_order": "tordifferenz",
-        "max_kadergroesse": 50,
-        "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-        "erlaubte_stufen": ["E1", "E2"],
-    }
-)
+RULES = FLSaisonRules.model_validate(rules_document(max_kadergroesse=50, erlaubte_stufen=["E1", "E2"]))
 
 
 class _SeasonCollection:
@@ -129,7 +118,6 @@ def run_advance(collection: _SeasonCollection) -> tuple[list[FLSpielAdvancement]
         advance_bracket_winners(
             spiele_collection=cast(AsyncCollection, collection),
             teams_collection=cast(AsyncCollection, collection),
-            schiedsrichter_collection=cast(AsyncCollection, collection),
             saison_id=SAISON_ID,
             rules=RULES,
             session=cast(AsyncClientSession, object()),

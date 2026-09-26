@@ -110,7 +110,7 @@ describe("spielplanBlockedReason", () => {
     }
   });
 
-  /* `REQ-RULES-001` reaches the draw on its `stored=None` path, where it reduces to a qualifier
+  /* `REQ-RULES-014` reaches the draw on its `stored=None` path, where it reduces to a qualifier
      product no bracket has a shape for. It closes the control rather than warning beside a live
      press, which would offer what the write path refuses. */
   it("closes the draw where the rules reach no knockout round, and names the repair", () => {
@@ -124,7 +124,7 @@ describe("spielplanBlockedReason", () => {
     assert.match(spielplanBlock({ ...DRAWN, hasKoRunden: false, erfassteSpieleCount: 1 }) ?? "", /schon etwas eingetragen/);
   });
 
-  /* `REQ-DATE-005` mirrored as a date subtraction against the served schedule's own sum: the season
+  /* `REQ-DATE-009` mirrored as a date subtraction against the served schedule's own sum: the season
      read carries the span and the schedule together, so no scheduling rule is recomputed here. */
   it("closes the draw where the span cannot hold the schedule, and names the repair", () => {
     const reason = spielplanBlock({ startDate: "2026-05-01", endDate: "2026-05-07", vorschauSpieltage: 8 });

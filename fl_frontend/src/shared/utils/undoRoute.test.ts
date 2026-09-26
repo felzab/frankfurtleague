@@ -1,12 +1,10 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import z from "zod";
 
-import { filesUnder } from "@/core/treeWalk.ts";
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 import type { UndoReport } from "./undoRoute.ts";
 
@@ -15,7 +13,9 @@ import type { UndoReport } from "./undoRoute.ts";
 const PACKAGE_DOUBLES: Record<string, string> = {
   "next/server": `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`,
   "next/navigation": `export const unstable_rethrow = () => {};`,
-  "next/headers": `export const headers = async () => new Headers();`,
+  "next/headers": NEXT_HEADERS_DOUBLE,
+  // Throws as Next does outside a server action, so a route that reached it fails here.
+  "next/cache": `export const refresh = () => { throw new Error("refresh() outside a server action"); };`,
 };
 /**
  * The session each case sets on the bus below; unset, an administrator is signed in. The landing
@@ -55,24 +55,15 @@ registerHooks({
   },
 });
 
-const { handleUndoRequest } = await import("./undoRoute.ts");
+const { handleUndoRequest, replayRefusal } = await import("./undoRoute.ts");
+const { APIBadStatusError } = await import("@/core/errors.ts");
+const { recordWriteSent } = await import("@/core/requestScope.ts");
 const { ADMIN_FORBIDDEN } = await import("./adminMutation.ts");
 
-const ADMIN_API = path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin");
-
-/** Every undo route, walked rather than listed, so one added is swept with the rest. */
-const UNDO_ROUTES = filesUnder(ADMIN_API, (name) => name === "route.ts", 8).filter((file) => path.basename(path.dirname(file)) === "undo");
-
-/**
- * The slices whose replay commits in parts, each named by the sentence it answers when it stops. A
- * replay the backend commits whole words no such sentence and takes no row.
- */
-const PART_WAY: Record<string, RegExp> = {
-  spieler: /Nur die Personendaten wurden zurückgesetzt/,
-  teams: /Nur die Stammdaten wurden zurückgesetzt/,
-};
-
 const PAYLOAD = { id: "68c1f0a2b3c4d5e6f7a8b9c0" };
+
+/** The ruling's words for an undo nobody can tell landed. */
+const RUECKNAHME_UNKLAR = "Ob die Änderung zurückgenommen wurde, ist unklar. Lade die Seite neu und prüfe sie.";
 
 type Undone = { answer: { success: boolean; error?: string }; status: number; invalidated: unknown[]; bodiesRead: number };
 
@@ -101,19 +92,6 @@ async function undo(restore: () => Promise<UndoReport>, origin: string | null = 
 }
 
 describe("what the undo spine clears when a replay stops part-way", () => {
-  /* First: the cases below stop a restore part-way, which is worth holding only while a real replay
-     can, and an empty walk would hold that of no route at all. */
-  it("walks the replays that can leave rows behind", () => {
-    assert.ok(UNDO_ROUTES.length >= 8, `the walk found ${String(UNDO_ROUTES.length)} undo routes`);
-
-    for (const [slice, sentence] of Object.entries(PART_WAY)) {
-      const route = UNDO_ROUTES.find((file) => file.includes(path.join(slice, "undo")));
-
-      assert.ok(route, `no undo route was walked for ${slice}`);
-      assert.match(readFileSync(route, "utf8"), sentence, `${slice}: nothing reports a restore that stopped part-way`);
-    }
-  });
-
   /* The defect: an invalidation reached only past the refusal's own return never runs for those
      outcomes, so a cached fixture serves the pre-undo state for a day and a cached club for a week. */
   it("clears the caches before it reports a refusal", async () => {
@@ -133,20 +111,25 @@ describe("what the undo spine clears when a replay stops part-way", () => {
   });
 });
 
-describe("what the undo spine answers when its replay throws", () => {
+describe("what the undo spine answers when nobody can tell whether its replay landed", () => {
   /* A replay is a write, and one throwing after it wrote leaves the row restored: answered as a
-     failure, the admin undoes it a second time. */
-  it("answers a throw of the replay's own code as of unknown outcome", async () => {
+     failure, the admin undoes it a second time. The shared reader's sentence speaks of a save. */
+  it("answers a throw of the replay's own code as of unknown outcome, in words about the undo", async () => {
     const { answer, status } = await undo(async () => {
+      recordWriteSent();
       throw new RangeError("Invalid time value");
     });
 
     assert.equal(status, 200);
-    assert.deepEqual(answer, {
-      success: false,
-      error: "Ob die Änderung gespeichert wurde, ist unklar. Lade die Seite neu und prüfe, ob sie da ist.",
-      outcome: "unknown",
-    });
+    assert.deepEqual(answer, { success: false, error: RUECKNAHME_UNKLAR, outcome: "unknown" });
+  });
+
+  /* An unacknowledged write may still have landed too, and the slice's own sentence says what to check. */
+  it("answers an unacknowledged replay as of unknown outcome, in the slice's own sentence", async () => {
+    const { answer, invalidated } = await undo(async () => ({ unclear: "Die Rücknahme wurde abgebrochen. Prüfe den Eintrag." }));
+
+    assert.deepEqual(answer, { success: false, error: "Die Rücknahme wurde abgebrochen. Prüfe den Eintrag.", outcome: "unknown" });
+    assert.deepEqual(invalidated, [PAYLOAD], "a write that may have landed leaves the caches serving what it replaced");
   });
 });
 
@@ -250,7 +233,46 @@ describe("what stands in for a session on the undo spine", () => {
 
     assert.equal(status, 200, "the spine answers a status no caller reads past");
     assert.equal(answer.success, false, "a cross-site request is reported as answered");
-    // The admin's own half: the undo did not happen and the change stands.
-    assert.match(answer.error ?? "", /^Die Änderung steht weiterhin\./, "the refusal stopped saying the change still stands");
+    // The reason, the way back, and then what became of the change, as every undo sentence closes.
+    assert.equal(
+      answer.error,
+      "Diese Anfrage kam nicht von dieser Seite. Lade die Seite neu und nimm sie dann erneut zurück. Die Änderung steht weiterhin.",
+    );
+  });
+});
+
+/** A replayed endpoint's refusal, answered as `apiClient` raises it. */
+const refused = (statusCode: number, serverErrorCode: string) =>
+  new APIBadStatusError({
+    message: "refused",
+    url: "http://backend:8000/api/v0/x",
+    endpoint: "/x",
+    method: "PATCH",
+    readOnly: false,
+    traceId: "ab".repeat(16),
+    statusCode,
+    serverErrorCode,
+  });
+
+describe("the sentence a replay's refusal is worded with", () => {
+  const TABLE = { "REQ-TEST-001": "Die Rücknahme wurde nicht ausgeführt." };
+
+  /* Codes are unique across the API, so a rule moved to another status keeps its row. */
+  it("answers the table's sentence for a refusal carrying one of its codes, at whatever status", () => {
+    for (const status of [409, 422, 404, 410, 403]) {
+      assert.equal(replayRefusal(refused(status, "REQ-TEST-001"), TABLE), TABLE["REQ-TEST-001"], String(status));
+    }
+  });
+
+  // `undefined` is the route's cue to rethrow, so each of these reaches the spine as a failure.
+  it("answers nothing for an unmapped code, a server error, or anything but a refusal", () => {
+    assert.equal(replayRefusal(refused(409, "REQ-TEST-002"), TABLE), undefined, "an unmapped code was worded");
+    // The replay may have landed behind a 5xx, which a refusal's "Die Änderung steht weiterhin." would deny.
+    assert.equal(replayRefusal(refused(500, "REQ-TEST-001"), TABLE), undefined, "a server error was worded as a refusal");
+    assert.equal(replayRefusal(new Error("network"), TABLE), undefined, "a thrown error that is no refusal was worded");
+  });
+
+  it("reads the table with `hasOwn`, so a code named for a prototype key is not a refusal", () => {
+    assert.equal(replayRefusal(refused(409, "toString"), TABLE), undefined);
   });
 });

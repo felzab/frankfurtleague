@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { ArrowRight } from "@gravity-ui/icons";
+import ArrowRight from "@gravity-ui/icons/ArrowRight";
 
 import { describeAngesetzteSpiele, describeKaderAustragung, describeKaderAustragungDanach } from "@/features/saisons/utils";
 import { replaceSaisonTeamAction } from "@/features/teams/actions";
@@ -12,12 +12,13 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import { describePlatz, describeUebernommeneSpiele } from "./replacementOffer";
@@ -43,14 +44,15 @@ export function FormTeamErsatzSection({
   /** `REQ-REPLACE-001`: a finished season's fixtures record who played, so the panel explains instead of offering. */
   isFinishedSaison: boolean;
 }) {
-  const router = useRouter();
   const [outgoingId, setOutgoingId] = useState<string | null>(null);
   const [incomingId, setIncomingId] = useState<string | null>(null);
 
   const outgoing = ersatz.rows.find((row) => row.teamId === outgoingId) ?? null;
   const incoming = ersatz.candidates.find((candidate) => candidate.id === incomingId) ?? null;
 
-  const { isConfirming, isPending: isReplacing, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const router = useRouter();
+  const { isConfirming, isPending: isReplacing, press, cancel } = twoPress;
 
   // `REQ-REPLACE-002` in the form: a fixture carrying a record would be credited to the arriving
   // club, so the row it stands on cannot be handed over.
@@ -62,7 +64,7 @@ export function FormTeamErsatzSection({
   }));
 
   // The outgoing club holds a row here too, so the first arm is also what keeps one club off both
-  // ends of the same wechsel — the second picture behind `REQ-REPLACE-003`.
+  // ends of the same wechsel, which the backend refuses as `REQ-REPLACE-004`.
   const incomingOptions: RefusableOption[] = ersatz.candidates.map((candidate) => ({
     id: candidate.id,
     name: candidate.name,
@@ -81,7 +83,10 @@ export function FormTeamErsatzSection({
     if (outgoing === null || incoming === null) return;
 
     press(async () => {
-      const res = await replaceSaisonTeamAction({ team_id: outgoing.teamId, saison_id: saisonId, incoming_team_id: incoming.id });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await replaceSaisonTeamAction({ team_id: outgoing.teamId, saison_id: saisonId, incoming_team_id: incoming.id }).catch(
+        rejectedWrite(router),
+      );
 
       if (!res.success) {
         appToast.failure("Team nicht ersetzt", res);
@@ -89,11 +94,12 @@ export function FormTeamErsatzSection({
       }
 
       appToast.success("Team ersetzt", { description: res.message });
-      setOutgoingId(null);
-      setIncomingId(null);
-      // The action's invalidation reaches the caches; this re-renders the page the admin stands on,
-      // whose pickers now have to show the season this write produced.
-      router.refresh();
+      // Wrapped again: the press runs this inside its transition, and React leaves an update after an
+      // `await` outside it.
+      startTransition(() => {
+        setOutgoingId(null);
+        setIncomingId(null);
+      });
     });
   };
 
@@ -168,7 +174,7 @@ export function FormTeamErsatzSection({
               {/* `aria-hidden`, because it restates the two triggers and the callout below them. */}
               <div
                 aria-hidden="true"
-                className="bg-muted text-foreground-muted flex h-10 shrink-0 items-center justify-center justify-self-center rounded-full px-3">
+                className="flex h-10 shrink-0 items-center justify-center justify-self-center rounded-full bg-muted px-3 text-foreground-muted">
                 {/* Downwards between two stacked pickers, rightwards once the grid puts them side by side. */}
                 <ArrowRight
                   aria-hidden="true"
@@ -211,7 +217,7 @@ export function FormTeamErsatzSection({
             {isConfirming && outgoing !== null && incoming !== null && (
               <ConfirmReveal>
                 <div className="flex w-full flex-col gap-y-1">
-                  <h3 className={FORM_SECTION_HEADING}>Was {incoming.name} übernimmt</h3>
+                  <h3 className={FORM_SECTION_HEADING_CLASSES}>Was {incoming.name} übernimmt</h3>
                   <dl className="flex w-full flex-col gap-y-1">
                     <ConfirmReadoutRow
                       label="Platz in der Saison"
@@ -228,22 +234,18 @@ export function FormTeamErsatzSection({
                   </dl>
                 </div>
 
-                <p className="fluid-xxs text-foreground leading-normal font-medium">
+                <p className="fluid-xxs leading-normal font-medium text-foreground">
                   Der Wechsel gilt sofort und ist auf jeder Tabelle und jedem Spielplan dieser Saison zu sehen. Es gibt in der Verwaltung keinen
                   Weg zurück. {describeKaderAustragungDanach(outgoing.name)}
                 </p>
               </ConfirmReveal>
             )}
 
-            <ConfirmActionRow
-              isConfirming={isConfirming}
-              isPending={isReplacing}
-              onCancel={cancel}>
+            <ConfirmActionRow confirm={twoPress}>
               {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
                   §1.14). */}
               <ConfirmPressButton
-                isConfirming={isConfirming}
-                isPending={isReplacing}
+                confirm={twoPress}
                 reason={isMissingAPick ? missingPickHint : null}
                 resting={restingLabel}
                 armed="Ja, Team ersetzen"

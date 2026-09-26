@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { useDraftStatus } from "@/shared/components/ui/DraftStatusContext";
 import { formButton } from "@/shared/components/ui/formButtons";
@@ -29,8 +29,8 @@ export function FormActionBar({
   return (
     // Static, never sticky: a sticky bar sits inside the scroll content, where page-end padding,
     // overscroll bounce and the mobile URL bar each moved it.
-    <div className="border-border bg-background w-full border-t px-4 py-3 sm:px-8">
-      <div className="max-w-page mx-auto flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
+    <div className="w-full border-t border-border bg-background px-4 py-3 sm:px-8">
+      <div className="mx-auto flex w-full max-w-page min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
         {/* At the leading edge, where the eye enters the row. */}
         <p
           role="status"

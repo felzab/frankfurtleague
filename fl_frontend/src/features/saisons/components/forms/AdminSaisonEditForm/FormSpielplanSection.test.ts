@@ -4,9 +4,9 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { beforeEach, describe, it, mock } from "node:test";
 
-import { createElement as h } from "react";
+import { createElement as h, useState } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { GRUPPEN_OFF_RULES } from "@/features/saisons/constants.ts";
@@ -23,10 +23,14 @@ import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
+import { startingRedraw } from "./spielplanShape.ts";
+
+import type { ReactNode } from "react";
+
 /** A write nobody has answered yet, which is how each action answers unless a case says otherwise. */
 const running = (): Promise<never> => new Promise(() => undefined);
 
-const { calls, answerWith } = doubleActions({ modules: ["/src/features/saisons/actions.ts"], answer: running });
+const { calls, answerWith, answerPending } = doubleActions({ modules: ["/src/features/saisons/actions.ts"], answer: running });
 
 /** The payloads one action was sent, in the order the panel sent them. */
 const sent = (action: string): unknown[] => calls.filter((call) => call.action === action).map((call) => call.payload);
@@ -35,7 +39,8 @@ const { raised } = doubleToasts();
 
 const { FormSpielplanSection } = await import("./FormSpielplanSection.tsx");
 
-type SpielplanProps = Parameters<typeof FormSpielplanSection>[0];
+/** The panel's props but its pick and boxes, which `Held` keeps as the season's view does. */
+type SpielplanProps = Omit<Parameters<typeof FormSpielplanSection>[0], "redraw" | "onRedrawChange">;
 
 /** A planned season before its first draw: two full groups of four, a bracket, and a span holding its five matchdays. */
 const UNDRAWN: SpielplanProps = {
@@ -79,7 +84,14 @@ const DRAWN: SpielplanProps = {
 /** The shape the redraw case picks: four groups of four, which the four full groups fit. */
 const MOVED_SHAPE = { number_of_groups: 4, teams_per_group: 4, qualifiers_per_group: 2 };
 
-const panel = (props: SpielplanProps) => underNext(h(FormSpielplanSection, props));
+/** The panel under state of its own for the pick and the boxes, which the season's view holds on the page. */
+function Held(props: SpielplanProps): ReactNode {
+  const [redraw, setRedraw] = useState(() => startingRedraw(props.rules));
+
+  return h(FormSpielplanSection, { ...props, redraw: redraw, onRedrawChange: setRedraw });
+}
+
+const panel = (props: SpielplanProps) => underNext(h(Held, props));
 
 beforeEach(() => {
   calls.length = 0;
@@ -114,6 +126,7 @@ describe("the Spielplan panel's first draw", () => {
     });
 
     assert.deepEqual(sent("generateSpielplanAction"), [{ id: "2026-27", replace: false, shape: undefined }]);
+    await act(async () => answerPending({ success: true, message: "" }));
   });
 
   /* An open press answers `REQ-SPIELPLAN-004`, which the page has every number for. */
@@ -180,6 +193,7 @@ describe("the Spielplan panel on a drawn planned season", () => {
     });
 
     assert.deepEqual(sent("generateSpielplanAction"), [{ id: "2026-27", replace: true, shape: MOVED_SHAPE }]);
+    await act(async () => answerPending({ success: true, message: "" }));
   });
 
   /* The draw judges occupancy ahead of the bracket where the rules patch judges the other way round, so
@@ -243,6 +257,7 @@ describe("the Spielplan panel on a drawn planned season", () => {
     assert.deepEqual(sent("generateSpielplanAction"), [
       { id: "2026-27", replace: true, shape: { number_of_groups: 2, teams_per_group: 4, qualifiers_per_group: 1 } },
     ]);
+    await act(async () => answerPending({ success: true, message: "" }));
   });
 
   it("sends the undraw once picked, after reading out what it deletes, and disarms when the pick moves", async () => {
@@ -265,6 +280,7 @@ describe("the Spielplan panel on a drawn planned season", () => {
 
     await pressTwice(user, { resting: "Spielplan zurücknehmen", armed: "Ja, Spielplan zurücknehmen" });
     assert.deepEqual(sent("undrawSpielplanAction"), [{ id: "2026-27" }]);
+    await act(async () => answerPending({ success: true, message: "", undraw: { spieltage: 0, spiele: 0, watermark_cleared: false } }));
   });
 
   /* A second DELETE during the first would report a season that held nothing. A write in flight ends by
@@ -289,6 +305,7 @@ describe("the Spielplan panel on a drawn planned season", () => {
       mock.timers.reset();
     }
     assert.equal(sent("undrawSpielplanAction").length, 1, "a press during the request sends the write again");
+    await act(async () => answerPending({ success: true, message: "", undraw: { spieltage: 0, spiele: 0, watermark_cleared: false } }));
   });
 
   /* „zurückgenommen“ over a season that held nothing claims work nobody did; the watermark alone is work. */

@@ -1,9 +1,6 @@
-import { CircleInfo, TriangleExclamation } from "@gravity-ui/icons";
+import CircleInfo from "@gravity-ui/icons/CircleInfo";
+import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 import { tv } from "tailwind-variants";
-
-import { CloseButton } from "@heroui/react";
-
-import { dismissControl } from "@/core/dismissControl";
 
 import type { ReactNode } from "react";
 
@@ -12,7 +9,7 @@ const callout = tv({
     root: "flex w-full flex-row items-start gap-x-3 rounded-xl border p-3",
     icon: "mt-0.5 size-5 shrink-0",
     title: "fluid-xs font-bold",
-    body: "fluid-xxs text-foreground leading-normal font-medium",
+    body: "fluid-xxs leading-normal font-medium text-foreground",
   },
   variants: {
     severity: {
@@ -39,7 +36,6 @@ export function Callout({
   severity = "warning",
   title,
   isAnnounced = false,
-  onDismiss,
   children,
 }: {
   severity?: "info" | "warning" | "danger";
@@ -49,11 +45,6 @@ export function Callout({
    * reader announce it as an event. On only where the callout appears *because* of an action.
    */
   isAnnounced?: boolean;
-  /**
-   * Dismissible, and only for a callout the admin can afford to lose: hiding a warning about what a save destroys makes
-   * the page quieter by making it less true.
-   */
-  onDismiss?: () => void;
   /** Absent where the title carries the whole consequence: an empty paragraph would still take its gap. */
   children?: ReactNode;
 }) {
@@ -75,12 +66,6 @@ export function Callout({
         <strong className={styles.title()}>{title}</strong>
         {children !== undefined && <p className={styles.body()}>{children}</p>}
       </div>
-      {onDismiss && (
-        <CloseButton
-          {...dismissControl({ label: `${title} ausblenden`, className: "-mt-0.5" })}
-          onPress={onDismiss}
-        />
-      )}
     </div>
   );
 }

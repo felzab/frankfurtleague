@@ -1,86 +1,166 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
-import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
+import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
+import { mapNameRefusal, mapRetireRefusal } from "./refusals.ts";
+
+import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
+
+/* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
+doubleActionRequest();
+const { answerWith, calls } = doubleApiAnswers();
+const { deleteSpielortAction, patchSpielortAction, postSpielortAction, reactivateSpielortAction } = await import("./actions.ts");
 
 const RETIRE_OPERATION = "DELETE /spielorte/{spielort_id}";
-const RETIRE_CODES = ["REQ-RETIRE-003"];
+const CREATE_OPERATION = "POST /spielorte";
+const EDIT_OPERATION = "PATCH /spielorte/{spielort_id}";
+const REACTIVATE_OPERATION = "POST /spielorte/{spielort_id}/reactivate";
 
-/* Read per slice rather than over the file: four writes live here, and a search over the whole
-   source is satisfied by whichever one happens to carry the arm. */
-const RETIRE_MAP = sliceBetween(ACTIONS, "function mapRetireRefusal", "export async function postSpielortAction");
-const RETIRE_ACTION = sliceBetween(ACTIONS, "export async function deleteSpielortAction", "export async function reactivateSpielortAction");
-/* The first mapper in the module, so its slice ends where the retirement's begins. */
-const NAME_MAP = sliceBetween(ACTIONS, "function mapNameRefusal", "function mapRetireRefusal");
-const CREATE_ACTION = sliceBetween(ACTIONS, "export async function postSpielortAction", "export async function patchSpielortAction");
-const EDIT_ACTION = sliceBetween(ACTIONS, "export async function patchSpielortAction", "export async function deleteSpielortAction");
+const SPIELORT_ID = "6890a1b2c3d4e5f607182934";
 
-describe("the venue retirement against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
-  it("cuts the mapper and the action out of the file before reading them", () => {
-    assert.ok(RETIRE_MAP.includes("serverErrorCode"), "the retirement's arm is outside its slice");
-    assert.ok(!RETIRE_MAP.includes("postSpielort("), "the retirement's slice runs on into the create");
+/** A venue both write schemas take as it stands, so each write reaches the doubled request rather than the parse. */
+const VENUE = {
+  name: "Sportpark Nord",
+  default_mietpreis: 40,
+  address: { strasse: "Am Sportpark", hausnummer: "1", plz: "60435", stadtteil: "Nordend", stadt: "Frankfurt am Main" },
+};
 
-    assert.ok(RETIRE_ACTION.includes("deleteSpielort(validated.data)"), "the retirement's call is outside its slice");
-    assert.ok(!RETIRE_ACTION.includes("reactivateSpielort("), "the retirement's slice reaches the reactivate");
+/** Each write's answer as the backend sends it where the write landed. */
+function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
+  if (endpoint === "/spielorte") return { acknowledged: 1, created_id: SPIELORT_ID };
+  const stored = { id: SPIELORT_ID, ...VENUE, maps_link: "https://maps.example/sportpark-nord", inactive_since: null };
+  return method === "PATCH"
+    ? { acknowledged: 1, updated_document: stored, fanned_out_to_spiele: 0 }
+    : { acknowledged: 1, updated_document: stored };
+}
+
+describe("the venue's writes", () => {
+  it("reach each published path and method, the id in the path and the fields alone in the body", async () => {
+    answerWith((call) => Promise.resolve(landed(call)));
+
+    await postSpielortAction(VENUE);
+    await patchSpielortAction({ id: SPIELORT_ID, ...VENUE });
+    await deleteSpielortAction({ id: SPIELORT_ID });
+    await reactivateSpielortAction({ id: SPIELORT_ID });
+
+    assert.deepEqual(requestsOf(calls), [
+      { endpoint: "/spielorte", method: "POST", body: VENUE },
+      { endpoint: `/spielorte/${SPIELORT_ID}`, method: "PATCH", body: VENUE },
+      { endpoint: `/spielorte/${SPIELORT_ID}`, method: "DELETE", body: undefined },
+      { endpoint: `/spielorte/${SPIELORT_ID}/reactivate`, method: "POST", body: undefined },
+    ]);
   });
+});
 
-  /* A code the mapper misses is rethrown, and `fl_frontend/src/shared/utils/actionError.ts` answers
-     a 409 with the sentence about an entry that already exists — false for a refusal about fixtures
-     still waiting for a result. */
-  it("maps every refusal the retirement declares", () => {
-    const declared = declaredCodes(RETIRE_OPERATION);
-
-    // Asserted before the loop: a register that stopped naming the operation runs it zero times, green.
-    assert.deepEqual(declared, RETIRE_CODES);
-    for (const code of declared)
-      assert.ok(RETIRE_MAP.includes(`serverErrorCode === "${code}"`), `${code} reaches the admin as an unhandled conflict`);
-
-    assert.ok(RETIRE_ACTION.includes("mapRetireRefusal(error)"), "the retirement consults no mapper");
+describe("the venue retirement against the codes its endpoint publishes", () => {
+  /* A missed code reaches the shared reader's sentence about an existing entry, false for fixtures
+     awaiting a result. Restated, so a code the endpoint retires fails here rather than leaving a dead arm. */
+  it("answers every refusal the retirement publishes", async () => {
+    assert.deepEqual(
+      publishedRefusals(RETIRE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-RETIRE-003"],
+    );
+    for (const code of publishedRefusals(RETIRE_OPERATION)) {
+      assert.notEqual(answerShown(RETIRE_OPERATION, code, mapRetireRefusal), null, `${code} reaches the admin as an unhandled conflict`);
+    }
+    await assertEachAnswered({
+      operation: RETIRE_OPERATION,
+      refuseWith: answerWith,
+      act: () => deleteSpielortAction({ id: SPIELORT_ID }),
+      mapped: mapRetireRefusal,
+    });
   });
 
   /* A dialog's refusal is two sentences, the way out second, and a hand-spelled pair drifts from that
      register the first time either sentence is edited. */
   it("words the refusal through the shared refusal shape", () => {
-    assert.match(RETIRE_MAP, /buildRefusal\(\{/, "the retirement's refusal is spelled by hand");
+    assert.match(String(mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003"))), /^[^.]+\. [^.]+\.$/);
   });
 
-  /* The other three writes answer the register with nothing, so a rule declared against one of them
-     reaches the admin as that same wrong sentence — the duplicate name below is no register entry. */
-  it("leaves the venue's other three writes with no declared rule to map", () => {
-    for (const operation of ["POST /spielorte", "PATCH /spielorte/{spielort_id}", "POST /spielorte/{spielort_id}/reactivate"])
-      assert.deepEqual(declaredCodes(operation), [], `${operation} declares a refusal no mapper answers`);
+  it("leaves a conflict it does not know to the shared reader, and words its own code at any status", () => {
+    assert.equal(mapRetireRefusal(refusedOn(RETIRE_OPERATION, DUPLICATE_KEY)), null);
+    // Codes are unique across the API, so a rule moved to another status keeps its answer.
+    assert.equal(
+      mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003", 422)),
+      mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003")),
+    );
+    assert.equal(mapRetireRefusal(refusedOn(RETIRE_OPERATION, "REQ-RETIRE-003", 500)), null, "a server error was worded as a refusal");
+  });
+
+  /* Asks no mapper: the one code it publishes is the unique index's, whose sentence is the shared
+     reader's own. A rule published on it later fails here until a mapper words it. */
+  it("leaves every refusal the reactivation publishes to the shared reader", async () => {
+    assert.deepEqual(
+      publishedRefusals(REACTIVATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      [],
+      "the reactivation now publishes a rule no mapper words",
+    );
+    for (const code of publishedRefusals(REACTIVATE_OPERATION)) {
+      assert.notEqual(
+        answerShown(REACTIVATE_OPERATION, code, () => null),
+        null,
+        `${code} reaches the admin as an unhandled conflict`,
+      );
+    }
+    await assertEachAnswered({
+      operation: REACTIVATE_OPERATION,
+      refuseWith: answerWith,
+      act: () => reactivateSpielortAction({ id: SPIELORT_ID }),
+      mapped: () => null,
+    });
   });
 });
 
 describe("the venue name a unique index already holds", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
-  it("cuts the mapper and both write paths out of the file before reading them", () => {
-    assert.ok(NAME_MAP.includes("serverErrorCode"), "the duplicate name's arm is outside its slice");
-    assert.ok(!NAME_MAP.includes("REQ-RETIRE-003"), "the duplicate name's slice runs on into the retirement's mapper");
-
-    assert.ok(CREATE_ACTION.includes("postSpielort(validated.data)"), "the create's call is outside its slice");
-    assert.ok(!CREATE_ACTION.includes("patchSpielort("), "the create's slice runs on into the edit");
-    assert.ok(EDIT_ACTION.includes("patchSpielort(validated.data)"), "the edit's call is outside its slice");
-    assert.ok(!EDIT_ACTION.includes("deleteSpielort("), "the edit's slice reaches the retirement");
-  });
-
   /* `uniq_spielort_name` is this collection's only unique index, so the 409 it raises is always the
      name. Unmapped, `fl_frontend/src/shared/utils/actionError.ts` answers it with a sentence about an
-     id, which names no box and no way out. */
-  it("lands the duplicate on the name box rather than in a banner", () => {
-    assert.match(NAME_MAP, /serverErrorCode === "DB-COMMON-002"/, "the duplicate name reaches the admin as an unhandled conflict");
-    assert.match(NAME_MAP, /fieldErrors: \{ name: "Diesen Namen gibt es schon\." \}/, "the duplicate name lands as a bare sentence");
-    // The field message carries no second sentence: the box under it is the way out (`docs/frontend/spec.md` §1.12).
-    assert.doesNotMatch(NAME_MAP, /buildRefusal\(/, "the duplicate name is composed as a two-sentence banner");
+     entry, which names no box and no way out. */
+  it("maps every refusal the create and the edit publish, the duplicate on the name box", () => {
+    for (const [operation, published] of [
+      [CREATE_OPERATION, publishedRefusals(CREATE_OPERATION)],
+      [EDIT_OPERATION, publishedRefusals(EDIT_OPERATION)],
+    ] as const) {
+      assert.deepEqual(
+        published.filter((code) => code !== DUPLICATE_KEY),
+        [],
+        `${operation} now publishes a rule its mapper leaves to the shared reader`,
+      );
+      assert.ok(published.includes(DUPLICATE_KEY), `${operation} no longer publishes the duplicate name its mapper places`);
+      for (const code of published) {
+        assert.notEqual(
+          answerShown(operation, code, mapNameRefusal),
+          null,
+          `${code} reaches the admin as an unhandled conflict on ${operation}`,
+        );
+      }
+      // The field message carries no second sentence: the box under it is the way out (`docs/frontend/spec.md` §1.12).
+      assert.deepEqual(mapNameRefusal(refusedOn(operation, DUPLICATE_KEY)), { fieldErrors: { name: "Diesen Namen gibt es schon." } });
+    }
   });
 
-  it("consults the mapper on the create and on the edit, the two writes that send a name", () => {
-    assert.ok(CREATE_ACTION.includes("mapNameRefusal(error)"), "the create consults no mapper, so a duplicate name reaches the error page");
-    assert.ok(EDIT_ACTION.includes("mapNameRefusal(error)"), "the edit consults no mapper, so a duplicate name reaches the error page");
+  it("reads the code and not the status", () => {
+    assert.deepEqual(
+      mapNameRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY, 422)),
+      mapNameRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY)),
+    );
+    assert.equal(mapNameRefusal(refusedOn(CREATE_OPERATION, "DB-COMMON-001", 404)), null);
+  });
+
+  it("answers the create's and the edit's refusals on the name box, the two writes that send a name", async () => {
+    await assertEachAnswered({
+      operation: CREATE_OPERATION,
+      refuseWith: answerWith,
+      act: () => postSpielortAction(VENUE),
+      mapped: mapNameRefusal,
+    });
+    await assertEachAnswered({
+      operation: EDIT_OPERATION,
+      refuseWith: answerWith,
+      act: () => patchSpielortAction({ id: SPIELORT_ID, ...VENUE }),
+      mapped: mapNameRefusal,
+    });
   });
 });

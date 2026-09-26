@@ -33,11 +33,13 @@ from app.api.bewerbungen.services import (
     find_picked_club_refusal,
     find_shorthand_refusal,
     find_submission_subject_refusal,
+    find_veraltete_fassung_refusal,
     find_window_refusal,
     mint_token,
     payload_fingerabdruck,
     recorded_window,
     saison_nimmt_bewerbungen_an,
+    season_has_ended,
 )
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
@@ -49,6 +51,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.security import bind_public_actor, verify_access_base
 
@@ -77,9 +80,9 @@ WIEDERHOLUNG_PROJECTION = [
     *(f"bestaetigungen.{seat}.token_hash" for seat in KONTAKT_SEATS),
 ]
 
-# What a season read takes on this tier: the window, and the status judging it, never served.
-# `docs/backend/spec.md :: I47` withholds a `future` season, as one taking applications is;
-# `:: I111` carves the window and its existence out.
+# What a season read takes on this tier: the window, and the status judging it, served only as
+# whether it ended. `docs/backend/spec.md :: I47` withholds a `future` season, as one taking
+# applications is; `:: I111` carves this much out.
 WINDOW_PROJECTION = ["bewerbung", "status"]
 
 
@@ -96,8 +99,8 @@ async def _pull_window(*, saisons_collection: AsyncCollection, saison_id: str) -
     # would 500 where this promises a miss.
     window = recorded_window(bewerbung=saison_raw.get("bewerbung"))
 
-    # The status travels beside the window and is never served: a `past` season takes no
-    # application whatever its window says (`app/api/bewerbungen/services.py :: saison_nimmt_bewerbungen_an`).
+    # The status travels beside the window and is served only as whether it is `past`: that season
+    # takes no application whatever its window says (`app/api/bewerbungen/services.py :: saison_nimmt_bewerbungen_an`).
     return window, saison_raw["status"]
 
 
@@ -110,19 +113,25 @@ def _fenster(*, saison_id: str, saison_status: Any, bewerbung: Any, today: str) 
         von=str(bewerbung["von"]),
         bis=str(bewerbung["bis"]),
         laeuft=saison_nimmt_bewerbungen_an(saison_status=saison_status, bewerbung=bewerbung, today=today),
+        saison_beendet=season_has_ended(saison_status=saison_status),
     )
 
 
 # NOT an ordering constraint: this and `/fenster/{saison_id}` are different segment counts, so
 # neither matches the other's path in any order. What keeps these literals out of the admin id route
 # is its `objectid` convertor (`app/core/routing.py`).
-@router.get("/fenster", response_model=FLBewerbungFensterResponse, summary="The Saison currently accepting applications")
+@router.get(
+    "/fenster",
+    response_model=FLBewerbungFensterResponse,
+    summary="The Saison currently accepting applications",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+)
 async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str = Depends(get_german_date_str)) -> FLBewerbungFensterResponse:
     """
     Return the season taking applications today -- its window open and the season not ended; 404 when none is.
 
-    What is served is the window alone, never the season: `docs/backend/spec.md :: I47` withholds a
-    `future` one from this tier (`READ-BEWERBUNG-001`).
+    What is served is the window and whether its season has ended, never the season: `docs/backend/spec.md :: I47`
+    withholds a `future` one from this tier (`READ-BEWERBUNG-001`).
     """
 
     # Compared in the query rather than after it, so a closed season is never read. ISO dates order
@@ -149,6 +158,7 @@ async def get_offenes_fenster(saisons_collection: SaisonsCollection, today: str 
     "/fenster/{saison_id}",
     response_model=FLBewerbungFensterResponse | FLBewerbungKeinFensterResponse,
     summary="One Saison's application window",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_fenster(
     saison_id: str, saisons_collection: SaisonsCollection, today: str = Depends(get_german_date_str)
@@ -206,7 +216,10 @@ async def get_kuerzel(shorthand: str, teams_collection: TeamsCollection) -> FLBe
 
 
 @router.get(
-    "/trikotfarben/{saison_id}", response_model=FLBewerbungTrikotFarbenResponse, summary="The kit colours a Saison has already assigned"
+    "/trikotfarben/{saison_id}",
+    response_model=FLBewerbungTrikotFarbenResponse,
+    summary="The kit colours a Saison has already assigned",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
 )
 async def get_trikotfarben(
     saison_id: str,
@@ -279,7 +292,13 @@ async def _answer_as_the_first(
     )
 
 
-@router.post("", response_model=FLPostBewerbungResponse, summary="Submit a Bewerbung")
+@router.post(
+    "",
+    response_model=FLPostBewerbungResponse,
+    status_code=201,
+    summary="Submit a Bewerbung",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+)
 async def post_bewerbung(
     bewerbung_data: Annotated[FLPostBewerbungPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
@@ -304,6 +323,9 @@ async def post_bewerbung(
     An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
     application it holds and stores none: fresh links where no message to any seat is known to have
     reached its inbox, none otherwise. The same key over other details is refused (`REQ-BEWERBUNG-015`).
+
+    A seat naming a consent wording other than the one the form now shows is refused (`REQ-BEWERBUNG-016`),
+    and only once the key has been looked up: a stored key is answered whatever wording it names.
     """
 
     schluessel = None if idempotency_key is None else str(idempotency_key)
@@ -322,6 +344,10 @@ async def post_bewerbung(
             return await _answer_as_the_first(
                 bewerbungen_collection=bewerbungen_collection, stored=stored, fingerabdruck=fingerabdruck, today=today, session=session
             )
+
+        # After the lookup and never ahead of it: a retry across a deploy that moved the label resends
+        # the first press's words, and refusing it here would have its reload store a second application.
+        refuse(find_veraltete_fassung_refusal(kontakte=bewerbung_data.kontakte.model_dump(mode="json")))
 
         # The season first, so a submission arriving after the deadline is refused before anything about
         # the applicant is looked up. The window is read under the same projection the public GET uses.

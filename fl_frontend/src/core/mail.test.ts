@@ -6,8 +6,6 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 import { inspect } from "node:util";
 
-import { filesUnder } from "./treeWalk.ts";
-
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
@@ -51,19 +49,14 @@ type RecordedLine = { message: string; error?: unknown; meta?: Record<string, un
 const logs: RecordedLine[] = [];
 (globalThis as unknown as Record<string, RecordedLine[]>)[LOG_RECORDER] = logs;
 
-const { sendMail, MailRecipientError, MailWithheldError } = await import("./mail.ts");
+const { sendMail, MailRecipientError, MailUnsentError, MailWithheldError } = await import("./mail.ts");
 const { APINetworkError, MailSendError } = await import("./errors.ts");
+const { REQUEST_DEADLINE_MS, requestOutcomeUnknown, requestWriteSent, runWithRequestScope } = await import("./requestScope.ts");
 
 const switches = globalThis as unknown as Record<string, string | undefined>;
 
-const SRC_ROOT = path.resolve(import.meta.dirname, "..");
 const MAIL_MODULE = path.join(import.meta.dirname, "mail.ts");
 const PROVIDER_ENDPOINT = "https://api.resend.com/emails";
-
-/* The sweep below matches a pattern rather than containing a substring: a URL used as a containment
-   needle reads as a hostname check to static analysis, which is a real defect in a URL guard and
-   noise in a source scan. */
-const PROVIDER_ENDPOINT_PATTERN = /https:\/\/api\.resend\.com\/emails/;
 
 /** The module's own timeout and retry pause, restated so a change to either has to be made here too. */
 const MAIL_TIMEOUT_MS = 15000;
@@ -213,6 +206,18 @@ describe("the mail transport", () => {
     respond = async () => jsonResponse({ id: "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794" }, 200);
 
     assert.deepEqual(await sendMail(MESSAGE), { id: "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794" });
+  });
+
+  /* A message is a write nothing takes back, and the admin spine refreshes the page off this record. */
+  it("records the accepted message as a write its request sent", async () => {
+    respond = async () => jsonResponse({ id: "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794" }, 200);
+
+    const wrote = await runWithRequestScope({ traceId: "a".repeat(32), spanId: "b".repeat(16) }, async () => {
+      await sendMail(MESSAGE);
+      return requestWriteSent();
+    });
+
+    assert.equal(wrote, true, "an answered send left the request without a write");
   });
 
   /* The message HAS gone. Throwing here would report a decision the league has already sent out as
@@ -542,6 +547,105 @@ describe("a refusal the mail transport tries again", () => {
     assert.equal(sends.length, 1);
   });
 
+  /* Under a key the provider answers a repeat with the message it already accepted, and sends nothing
+     again (https://resend.com/docs/dashboard/emails/idempotency-keys, read 2026-09-25): the one case
+     a broken connection is safe to try again. */
+  it("sends again after a connection failure under an idempotency key, answering the id it then gave", async () => {
+    let broke = false;
+    respond = async () => {
+      if (!broke) {
+        broke = true;
+        throw new TypeError("fetch failed");
+      }
+      return jsonResponse({ id: "01HZ" }, 200);
+    };
+
+    assert.deepEqual(await sendMail({ ...MESSAGE, idempotencyKey: "einladung_einladung_e_versand" }), { id: "01HZ" });
+    assert.equal(sends.length, 2);
+    assert.deepEqual(
+      sends.map((send) => new Headers(send.init.headers).get("Idempotency-Key")),
+      ["einladung_einladung_e_versand", "einladung_einladung_e_versand"],
+      "the repeat went out under another key, or none",
+    );
+    assert.deepEqual(
+      logs.map((line) => line.message),
+      ["mail.send_retried"],
+    );
+  });
+
+  /* The broken first attempt may have been accepted, and the refusals after it say nothing about that
+     one: thrown as the refusal, the fan-out files the address unreachable and records it refused. */
+  it("ends a keyed send whose first attempt broke off as that network failure, whatever answered after it", async () => {
+    let at = 0;
+    respond = async () => {
+      at += 1;
+      if (at === 1) throw new TypeError("fetch failed");
+      return jsonResponse({ name: "application_error" }, 503);
+    };
+
+    const error = await sendMail({ ...MESSAGE, idempotencyKey: "einladung_einladung_e_versand" }).then(
+      () => assert.fail("the refused retries resolved"),
+      (thrown: Error) => thrown,
+    );
+
+    assert.equal(sends.length, 3);
+    assert.ok(error instanceof APINetworkError, `the send ended as ${error.name}, not as the broken attempt`);
+    assertHidesRecipient(error, "the broken-off send");
+  });
+
+  /* The other place the loop gives up: a budget spent during the pause after a refusal must still
+     end a send that once broke off as that network failure. */
+  it("ends a keyed send as its broken attempt when the budget runs out in a later pause", async () => {
+    mock.timers.enable({ apis: ["setTimeout"] });
+    const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+    try {
+      let at = 0;
+      respond = async () => {
+        at += 1;
+        if (at === 1) throw new TypeError("fetch failed");
+        return jsonResponse({ name: "application_error" }, 503);
+      };
+      // Handled at creation, as the budget case below explains.
+      const pending = sendMail({ ...MESSAGE, idempotencyKey: "einladung_einladung_e_versand" }).then(
+        () => assert.fail("the refused retry resolved"),
+        (thrown: Error) => thrown,
+      );
+
+      await settle();
+      mock.timers.tick(MAIL_RETRY_DELAY_MS);
+      await settle();
+      mock.timers.tick(MAIL_TIMEOUT_MS);
+      await settle();
+
+      const error = await pending;
+      assert.equal(sends.length, 2, "a third attempt was drawn after the budget was spent");
+      assert.ok(error instanceof APINetworkError, `the send ended as ${error.name}, not as the broken attempt`);
+    } finally {
+      mock.timers.reset();
+    }
+  });
+
+  /* Each broken attempt is the same unknown, so the send ends on one line for the last of them. */
+  it("ends a keyed send that broke off every time on one line and the last failure", async () => {
+    const failures: TypeError[] = [];
+    respond = async () => {
+      const failure = new TypeError(`fetch failed ${String(failures.length + 1)}`);
+      failures.push(failure);
+      throw failure;
+    };
+
+    const error = await sendMail({ ...MESSAGE, idempotencyKey: "einladung_einladung_e_versand" }).then(
+      () => assert.fail("the broken send resolved"),
+      (thrown: Error) => thrown,
+    );
+
+    assert.equal(sends.length, 3);
+    assert.ok(error instanceof APINetworkError, `the send ended as ${error.name}`);
+    assert.equal((error.cause as { originalError?: unknown }).originalError, failures[2], "the send ended on an earlier failure than the last");
+    assert.equal(logs.filter((line) => line.message === "mail.send_failed").length, 1, "the broken send left more than one failure line");
+  });
+
   it("gives up after three attempts and logs the refusal once", async () => {
     answersInTurn([429, 500, 503]);
 
@@ -588,6 +692,13 @@ describe("a refusal the mail transport tries again", () => {
 
 describe("what the mail transport reports when a send fails", () => {
   beforeEach(resetTransport);
+
+  /* Asserted at the tick rather than left to the await after it: on a mocked clock nothing else ends
+     a stalled body, so a timer that never aborts would hang the run instead of failing the case. */
+  function tickPastTheBudget(): void {
+    mock.timers.tick(MAIL_TIMEOUT_MS);
+    assert.equal((sends[0]!.init.signal as AbortSignal).aborted, true, "the budget ran out and nothing aborted the stalled body");
+  }
 
   it("says nothing at all when the provider accepts the message", async () => {
     await sentRequest();
@@ -684,7 +795,7 @@ describe("what the mail transport reports when a send fails", () => {
 
       const pending = sendMail(MESSAGE);
       await new Promise((resolve) => setImmediate(resolve));
-      mock.timers.tick(MAIL_TIMEOUT_MS);
+      tickPastTheBudget();
 
       const error = await pending.then(
         () => assert.fail("the stalled body resolved"),
@@ -717,7 +828,7 @@ describe("what the mail transport reports when a send fails", () => {
 
       const pending = sendMail(MESSAGE);
       await new Promise((resolve) => setImmediate(resolve));
-      mock.timers.tick(MAIL_TIMEOUT_MS);
+      tickPastTheBudget();
 
       const error = await pending.then(
         () => assert.fail("the stalled acceptance resolved as a message sent"),
@@ -747,17 +858,76 @@ describe("what the mail transport reports when a send fails", () => {
   it("guards the module as server-only, the key it reads being a credential", () => {
     assert.match(readFileSync(MAIL_MODULE, "utf8"), /^import "server-only";/);
   });
+});
 
-  it("is the only place in the frontend that names the provider's endpoint", () => {
-    assert.match(PROVIDER_ENDPOINT, PROVIDER_ENDPOINT_PATTERN, "the sweep's pattern and the asserted endpoint disagree");
+describe("a send inside a request whose deadline runs out", () => {
+  const SCOPE = { traceId: "a".repeat(32), spanId: "b".repeat(16) };
 
-    // Fixtures are IN, and the expected answer below names this file: a test reaching the live
-    // provider is the failure this sweep exists to catch, so excluding them would hide it.
-    const naming = filesUnder(SRC_ROOT, (name) => name.endsWith(".ts") || name.endsWith(".tsx"), 400)
-      .filter((file) => PROVIDER_ENDPOINT_PATTERN.test(readFileSync(file, "utf8")))
-      .map((file) => path.relative(SRC_ROOT, file).split(path.sep).join("/"))
-      .sort();
+  /** `performance.now()`'s reading, which the mocked timers leave alone and `advance` moves beside them. */
+  let clock = 0;
+  const advance = (ms: number) => {
+    clock += ms;
+    mock.timers.tick(ms);
+  };
 
-    assert.deepEqual(naming, ["core/mail.test.ts", "core/mail.ts"]);
+  beforeEach(() => {
+    resetTransport();
+    clock = 0;
+    mock.method(performance, "now", () => clock);
+    mock.timers.enable({ apis: ["setTimeout"] });
+  });
+
+  afterEach(() => {
+    mock.timers.reset();
+    mock.restoreAll();
+  });
+
+  /* Asserted at the tick, as the send's own timeout is above: nothing else ends a send that never
+     answers, so a transport ignoring the deadline fails here instead of hanging. */
+  it("aborts a send begun late at what is left of the deadline, not at its own bound", async () => {
+    const [thrown, cut, wrote] = await runWithRequestScope(SCOPE, async () => {
+      advance(REQUEST_DEADLINE_MS - 5000);
+      respond = () => new Promise<Response>(() => {});
+      const pending = sendMail(MESSAGE).then(
+        () => assert.fail("the aborted send resolved"),
+        (error: unknown) => error,
+      );
+      const signal = sends[0]?.init.signal ?? assert.fail("the send drew no request");
+
+      advance(4999);
+      assert.equal(signal.aborted, false, "the send was aborted before the deadline");
+      advance(1);
+      assert.equal(signal.aborted, true, "the deadline passed and the send ran on to its own bound");
+
+      return [await pending, requestOutcomeUnknown(), requestWriteSent()];
+    });
+
+    assert.ok(thrown instanceof APINetworkError, "the cut send was not thrown as a network error");
+    assert.equal(thrown.isTimeout, true);
+    assert.equal(cut, true, "the request does not know its deadline cut a send");
+    assert.equal(wrote, true, "a message that went out unanswered was not recorded as a write");
+  });
+
+  /* Not a network error, which a fan-out reads as a message that may have gone: nothing left. */
+  it("draws no request once nothing is left, and logs the send as timed out", async () => {
+    const [thrown, wrote] = await runWithRequestScope(SCOPE, async () => {
+      advance(REQUEST_DEADLINE_MS);
+
+      const error = await sendMail(MESSAGE).then(
+        () => assert.fail("the send past the deadline resolved"),
+        (failure: unknown) => failure,
+      );
+
+      return [error, requestWriteSent()] as const;
+    });
+
+    assert.equal(sends.length, 0, "a request was drawn after the deadline had passed");
+    assert.equal(wrote, false, "a message the deadline refused unsent was recorded as a write");
+    assert.ok(thrown instanceof MailUnsentError, "the send refused before it left was thrown as one that may have gone");
+    assert.deepEqual(
+      logs.map((line) => [line.message, line.meta?.["is_timeout"]]),
+      [["mail.send_failed", true]],
+    );
+    assertHidesRecipient(thrown, "the refused send");
   });
 });

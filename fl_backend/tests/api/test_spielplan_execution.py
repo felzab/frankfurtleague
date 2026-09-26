@@ -7,10 +7,10 @@ import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
-from pymongo.errors import OperationFailure
+from pymongo.errors import DuplicateKeyError, OperationFailure
 
 from app.api.saisons.admin_router import generate_spielplan, patch_saison
-from app.api.saisons.cache import invalidate_saison_cache, read_cached_saison, saison_cache_generation, store_cached_saison
+from app.api.saisons.cache import read_cached_saison, saison_cache_generation, store_cached_saison
 from app.api.saisons.schedule import group_matchdays, total_group_matches
 from app.api.saisons.schemas import (
     FLGenerateSpielplanPayload,
@@ -22,8 +22,9 @@ from app.api.saisons.schemas import (
 )
 from app.api.saisons.services import (
     RULES_BRACKET_IMPOSSIBLE,
+    RULES_BRACKET_IMPOSSIBLE_AS_STORED,
     RULES_SHAPE_AFTER_DRAW,
-    SAISON_SPAN_BELOW_SCHEDULE,
+    SAISON_SPAN_BELOW_SCHEDULE_AS_STORED,
     SPIELPLAN_ALREADY_DRAWN,
     SPIELPLAN_GRUPPEN_OFF_RULES,
     SPIELPLAN_MATCHDAYS_HELD,
@@ -35,18 +36,18 @@ from app.api.spieltage.schemas import FLSpieltag
 from app.api.spieltage.services import with_expected_matches
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
+from app.core.exception_handlers import refused_index_of
+from app.core.exceptions import WriteRefusalException
 from app.core.logging import trace_id_var
+from tests import documents
 from tests.bracket_reference import BRACKET_SEEDING
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_spielplan_write_test")
 
-# Named rather than caught broadly: another failure must not read as the rollback this suite proves.
-DOCUMENT_VALIDATION_FAILED = 121
 
 SAISON_ID = "2026"
 
@@ -82,19 +83,7 @@ UNDATED_SPIEL_FIELDS: tuple[str, ...] = ("datum", "uhrzeit", "ort", "schiedsrich
 
 
 def rules_document(*, groups: int = GROUPS, teams: int = TEAMS_PER_GROUP, qualifiers: int = QUALIFIERS) -> dict[str, Any]:
-    """3/1 and a 3:0 forfeit are the ordinary competition, so no rule this file is not about refuses the draw first."""
-
-    return {
-        "win_points": 3,
-        "draw_points": 1,
-        "qualifiers_per_group": qualifiers,
-        "number_of_groups": groups,
-        "teams_per_group": teams,
-        "tiebreak_order": "tordifferenz",
-        "max_kadergroesse": 18,
-        "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-        "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-    }
+    return documents.rules_document(qualifiers_per_group=qualifiers, number_of_groups=groups, teams_per_group=teams)
 
 
 def saison_document(
@@ -105,18 +94,9 @@ def saison_document(
     start_date: str = "2026-01-01",
     end_date: str = "2026-06-30",
 ) -> dict[str, Any]:
-    """Every key spelled out: the shipped `saisons` validator is attached before this is inserted.
+    """The default span is half a year, so `REQ-DATE-005` is what no case not about it can be refused on."""
 
-    The default span is half a year, so `REQ-DATE-005` is what no case not about it can be refused on.
-    """
-
-    return {
-        "_id": saison_id,
-        "start_date": start_date,
-        "end_date": end_date,
-        "status": status,
-        "rules": rules or rules_document(),
-    }
+    return documents.saison_document(saison_id, status, start_date=start_date, end_date=end_date, rules=rules or rules_document())
 
 
 def entry_rows(
@@ -140,15 +120,14 @@ def entry_rows(
             continue
 
         rows.append(
-            {
-                "_id": ObjectId(f"6890a1b2c3d4e5f6074{index + offset:05d}"),
-                "saison_id": saison_id,
-                "team_id": ObjectId(f"6890a1b2c3d4e5f6075{index + offset:05d}"),
-                "gruppe": gruppe,
-                "austritt": None,
-                "name": f"{gruppe}{seat + 1}-Schule",
-                "shorthand": f"{gruppe}{seat + 1}",
-            }
+            documents.saison_team_document(
+                saison_id,
+                ObjectId(f"6890a1b2c3d4e5f6075{index + offset:05d}"),
+                f"{gruppe}{seat + 1}-Schule",
+                f"{gruppe}{seat + 1}",
+                _id=ObjectId(f"6890a1b2c3d4e5f6074{index + offset:05d}"),
+                gruppe=gruppe,
+            )
         )
 
     return rows
@@ -168,26 +147,9 @@ def a_stored_matchday() -> dict[str, Any]:
 
 
 def a_stored_fixture() -> dict[str, Any]:
-    """Every key spelled out, the `spiele` validator being attached: an unoccupied group fixture, the least this season could already hold."""
+    """An unoccupied group fixture, the least this season could already hold."""
 
-    return {
-        "_id": STORED_SPIEL_OID,
-        "team1": None,
-        "team2": None,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": None,
-        "uhrzeit": None,
-        "ort": None,
-        "schiedsrichter": None,
-        "ergebnis": None,
-        "elfmeterschiessen": None,
-        "spieltag_id": STORED_SPIELTAG_OID,
-        "spiel_nr": 1,
-        "sonderereignis": None,
-        "saison_phase": "gruppenphase",
-        "saison_id": SAISON_ID,
-    }
+    return documents.spiel_document(spiel_id=STORED_SPIEL_OID, saison_id=SAISON_ID, spiel_nr=1, spieltag_id=STORED_SPIELTAG_OID)
 
 
 @dataclass(frozen=True)
@@ -217,8 +179,6 @@ def on_a_seeded_saison(url: str, body: Body, *, seed: Seed | None = None, mutate
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
-            # Process-global and keyed by season id, so an entry another module left would answer for this one.
-            invalidate_saison_cache()
             # `on_the_seed_loop` runs this in a task of its own, which copies the context, so nothing set here reaches another test.
             trace_id_var.set(TRACE_ID)
 
@@ -661,10 +621,10 @@ class TestEachRefusalIsReachedThroughTheRoute:
                 Seed(saison=saison_document(rules=rules_document(groups=2)), entered=entry_rows(groups=4)),
                 id="clubs in a group the season does not offer",
             ),
-            # `find_rules_refusal`, the OTHER call, and the groups match the rules so nothing above
-            # answers first: six qualifiers are no power of two, so this season has no bracket at all.
+            # `find_rules_refusal`, the OTHER call, the groups matching the rules so nothing above answers
+            # first: six qualifiers make no bracket, and with no shape stated the draw twin answers.
             pytest.param(
-                RULES_BRACKET_IMPOSSIBLE,
+                RULES_BRACKET_IMPOSSIBLE_AS_STORED,
                 Seed(saison=saison_document(rules=rules_document(groups=2, qualifiers=3)), entered=entry_rows(groups=2)),
                 id="rules whose product is no bracket",
             ),
@@ -672,7 +632,7 @@ class TestEachRefusalIsReachedThroughTheRoute:
     )
     def test_a_season_that_cannot_be_drawn_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, code: str, seed: Seed):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> RefusedDraw:
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_draw(database, client)
 
             spieltage, spiele = await counts_now(database)
@@ -772,6 +732,30 @@ class TestAFailedDrawLeavesNothingBehind:
         assert aborted.cached is None
 
 
+# Planted beside the shipped indexes: two matchdays of one phase share this key, so the draw's own
+# batch collides with itself, which no seed can make the shipped indexes do.
+PLANTED_INDEX = "planted_one_matchday_per_phase"
+
+
+class TestADrawAUniqueIndexRefusesIsTheDuplicateKey:
+    def test_the_draw_raises_the_refusal_one_insert_would_and_leaves_nothing(self, mongo_replica_set_url: str):
+        """Against a real batch report inside the draw's transaction, which is where the report's shape is the server's rather than a copy."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPIELTAGE].create_index([("saison_id", 1), ("saison_phase", 1)], unique=True, name=PLANTED_INDEX)
+
+            with pytest.raises(DuplicateKeyError) as refused:
+                await call_draw(database, client)
+
+            return refused_index_of(refused.value), await counts_now(database), await database[Collection.AKTIONEN].count_documents({})
+
+        index, counts, log = on_a_seeded_saison(mongo_replica_set_url, body, mutates_schema=True)
+
+        assert index == PLANTED_INDEX
+        assert counts == (0, 0)
+        assert log == 0
+
+
 class TestTheActionLogRecordsOneRowPerCollection:
     """The shape chosen over a row per document: a drawn season is one action, and sixty rows would bury it."""
 
@@ -798,7 +782,7 @@ class TestASecondDrawIsRefusedByTheWatermarkItLeft:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             first = await call_draw(database, client)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_draw(database, client)
 
             return first, refused.value, await counts_now(database)
@@ -832,7 +816,7 @@ class TestTheSeasonCacheIsDroppedHoweverTheDrawEnds:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             store_cached_saison(SAISON_ID, saison_document(), generation=saison_cache_generation())
 
-            with pytest.raises(DocumentConflictException):
+            with pytest.raises(WriteRefusalException):
                 await call_draw(database, client)
 
             return read_cached_saison(SAISON_ID)
@@ -1129,7 +1113,7 @@ class TestTheReplaceWindowIsReachedThroughTheRoute:
             await database[Collection.SAISONS].update_one({"_id": SAISON_ID}, {"$set": {"status": "active"}})
             standing = await document_ids(database)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
 
             return drawn, standing, refused.value, await document_ids(database), await watermark_now(database)
@@ -1149,7 +1133,7 @@ class TestTheReplaceWindowIsReachedThroughTheRoute:
             await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": record})
             standing = await document_ids(database)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_draw(database, client, replace=True, today=REDRAWN_TODAY)
 
             return refused.value, standing, await document_ids(database)
@@ -1174,7 +1158,7 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await call_draw(database, client)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_patch_rules(database, teams_per_group=WIDER_PER_GROUP)
 
             return refused.value, await stored_rules(database)
@@ -1193,7 +1177,7 @@ class TestTheDrawIsTheOnlyThingThatMovesTheShape:
             await call_draw(database, client)
             await database[Collection.SPIELE].update_one({"spiel_nr": 1}, {"$set": record})
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_patch_rules(database, teams_per_group=WIDER_PER_GROUP)
 
             return refused.value, await stored_rules(database)
@@ -1405,7 +1389,7 @@ class TestAShapeTheSeasonCannotBeDrawnFromIsRefused:
             await call_draw(database, client)
             standing = await document_ids(database)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_draw(database, client, replace=True, today=REDRAWN_TODAY, shape=shape)
 
             return RefusedReshape(
@@ -1452,7 +1436,7 @@ def the_tight_shape(*, qualifiers: int) -> FLSpielplanShape:
 
 
 class TestASeasonIsNeverDrawnMoreMatchdaysThanItHasDays:
-    """`REQ-DATE-005` WIRED over the draw's own three, which decide how many matchdays a season takes.
+    """`REQ-DATE-009`, the draw's twin of `REQ-DATE-005`, WIRED over the draw's own three, which decide how many matchdays a season takes.
 
     `POST /saisons` measured the span against the rules the season was created with, and the draw
     replaces three of them.
@@ -1462,14 +1446,15 @@ class TestASeasonIsNeverDrawnMoreMatchdaysThanItHasDays:
         """Drop the span call and this fails: six matchdays land in a four-day season, and no two may share a day."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_draw(database, client, shape=the_tight_shape(qualifiers=WIDENED_QUALIFIERS))
 
             return refused.value, await stored_rules(database), await counts_now(database), await watermark_now(database)
 
         refused, rules, counts, watermark = on_a_seeded_saison(mongo_replica_set_url, body, seed=a_tight_seed())
 
-        assert refused.error_code == SAISON_SPAN_BELOW_SCHEDULE
+        # The draw twin: the span weighed is the stored one, which a season patch can widen.
+        assert refused.error_code == SAISON_SPAN_BELOW_SCHEDULE_AS_STORED
         assert counts == (0, 0), "a refused draw wrote a schedule the season has no room for"
         # Read back rather than inferred from the refusal: the shape stored beside no fixtures would
         # come back `REQ-DATE-005` on the next patch of any rule at all.

@@ -1,6 +1,6 @@
 "use client";
 
-import { TrashBin } from "@gravity-ui/icons";
+import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
@@ -36,28 +36,25 @@ export function PasskeyEintragRow({
   reason: string | null;
   onRemove: (id: string) => Promise<void>;
 }) {
-  const { isConfirming, isPending, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const { isConfirming, press } = twoPress;
 
   return (
-    <li className="border-border flex flex-col gap-3 border-b py-4 last:border-b-0">
+    <li className="flex flex-col gap-3 border-b border-border py-4 last:border-b-0">
       <div className="flex min-w-0 flex-col gap-1">
-        <span className="fluid-sm text-foreground font-bold break-words">{eintrag.label ?? UNBEKANNT}</span>
+        <span className="fluid-sm font-bold break-words text-foreground">{eintrag.label ?? UNBEKANNT}</span>
         <span className="muted-hint">{STAMP.format(new Date(eintrag.createdAt))}</span>
       </div>
 
       {isConfirming && (
         <ConfirmReveal>
-          <p className="fluid-sm text-foreground text-pretty">{FOLGE}</p>
+          <p className="fluid-sm text-pretty text-foreground">{FOLGE}</p>
         </ConfirmReveal>
       )}
 
-      <ConfirmActionRow
-        isConfirming={isConfirming}
-        isPending={isPending}
-        onCancel={cancel}>
+      <ConfirmActionRow confirm={twoPress}>
         <ConfirmPressButton
-          isConfirming={isConfirming}
-          isPending={isPending}
+          confirm={twoPress}
           reason={reason}
           resting="Löschen"
           armed="Ja, Passkey löschen"

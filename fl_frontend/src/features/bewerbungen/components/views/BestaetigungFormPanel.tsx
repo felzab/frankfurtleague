@@ -1,11 +1,12 @@
 "use client";
 
-import { useId, useMemo, useState, useTransition } from "react";
+import { startTransition, useId, useMemo, useState, useTransition } from "react";
 
-import { CircleCheck } from "@gravity-ui/icons";
+import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import { parseDate } from "@internationalized/date";
 
-import { Button, Form, Label, Switch } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Label } from "@heroui/react/label";
 
 import { BESTAETIGUNG_KENNTNISNAHME } from "@/core/einwilligung";
 import { buildEinwilligungAntwortPayloadSchema } from "@/features/bewerbungen/schemas";
@@ -15,11 +16,11 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
+import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_LABEL_CLASSES, FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
-import { Hint } from "@/shared/components/ui/Hint";
+import { Switch } from "@/shared/components/ui/Switch";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { appToast } from "@/shared/utils/appToast";
@@ -31,6 +32,7 @@ import { BestaetigungAbschnitt } from "./BestaetigungPanels";
 
 import type { FLBewerbungEinwilligungAntwortPayload } from "@/features/bewerbungen/schemas";
 import type { LinkZustand } from "@/features/bewerbungen/types";
+import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { CalendarDate } from "@internationalized/date";
 
@@ -95,14 +97,12 @@ function BestaetigungAngaben({
   onEntwurf,
   onGeburtsdatumVerlassen,
   isDisabled,
-  hinweisId,
   mindestalter,
 }: {
   entwurf: Entwurf;
   onEntwurf: (entwurf: Entwurf) => void;
   onGeburtsdatumVerlassen: () => void;
   isDisabled: boolean;
-  hinweisId: string;
   mindestalter: number;
 }) {
   const panel = formPanel();
@@ -111,38 +111,33 @@ function BestaetigungAngaben({
   return (
     <>
       <section className="flex flex-col gap-y-3">
-        <h3 className={FORM_SECTION_HEADING}>Deine Angaben</h3>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Deine Angaben</h3>
 
         {/* The form's own field grid, so one box on a wide page stands in a column rather than
             stretching the segments across it. */}
-        <div className={FIELD_PAIR}>
-          <div className="flex flex-col gap-y-2">
-            <AppDatePicker
-              isRequired
-              isDisabled={isDisabled}
-              name="geburtsdatum"
-              label={<Label className={FIELD_LABEL}>Dein Geburtsdatum</Label>}
-              calendarLabel="Geburtsdatum auswählen"
-              value={toCalendarDate(entwurf.geburtsdatum)}
-              onChange={(next) => onEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
-              onBlur={onGeburtsdatumVerlassen}
-              aria-describedby={hinweisId}
-              minValue={parseDate(frueheste)}
-              maxValue={parseDate(spaeteste)}
-            />
-            {/* One wording in both states: a hint that rewrote itself on arming would move every
-                control under it, which is the shift this section exists to avoid. */}
-            <Hint
-              mode="inline"
-              describes={hinweisId}
-              text={geburtsdatumHinweis(mindestalter)}
-            />
-          </div>
+        <div className={FIELD_PAIR_CLASSES}>
+          <AppDatePicker
+            // Marked by hand: the consenting answer's refinement refuses a missing date, which the
+            // field's own nullable schema cannot state, an objection carrying none.
+            isRequired
+            isDisabled={isDisabled}
+            name="geburtsdatum"
+            label={<Label className={FIELD_LABEL_CLASSES}>Dein Geburtsdatum</Label>}
+            calendarLabel="Geburtsdatum auswählen"
+            value={toCalendarDate(entwurf.geburtsdatum)}
+            onChange={(next) => onEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
+            onBlur={onGeburtsdatumVerlassen}
+            // One wording in both states: a hint that rewrote itself on arming would move every
+            // control under it, which is the shift this section exists to avoid.
+            hint={geburtsdatumHinweis(mindestalter)}
+            minValue={parseDate(frueheste)}
+            maxValue={parseDate(spaeteste)}
+          />
         </div>
       </section>
 
       <section className="flex flex-col gap-y-3">
-        <h3 className={FORM_SECTION_HEADING}>Freiwillig</h3>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Freiwillig</h3>
         {/* Off on first paint and switched by nothing but a press: a pre-ticked consent records nothing. */}
         <Switch
           className="flex w-full flex-col gap-y-1"
@@ -168,31 +163,27 @@ function BestaetigungAngaben({
  * objection stood in, so no new control lands under a finger already on the first.
  */
 function BestaetigungEntscheidung({
-  isConfirming,
+  widerspruch,
   isPending,
-  isDeclining,
   beschreibtId,
   onWiderspruch,
-  onCancel,
 }: {
-  isConfirming: boolean;
-  /** The confirmation's own flight, which the objection's `isDeclining` is graded apart from. */
+  /** The objection's two presses, which the confirmation's own flight is graded apart from. */
+  widerspruch: TwoPressConfirm;
+  /** The confirmation's own flight. */
   isPending: boolean;
-  isDeclining: boolean;
   beschreibtId: string;
   onWiderspruch: () => void;
-  onCancel: () => void;
 }) {
+  const { isConfirming } = widerspruch;
+
   return (
     <div className="flex w-full flex-col gap-y-3">
-      <ConfirmActionRow
-        isConfirming={isConfirming}
-        isPending={isDeclining}
-        onCancel={onCancel}>
+      <ConfirmActionRow confirm={widerspruch}>
         {/* The fill grades the press on offer: the armed objection wears `destructive`, the confirmation the submit fill. */}
         <ConfirmPressButton
-          isConfirming={isConfirming}
-          isPending={isPending || isDeclining}
+          confirm={widerspruch}
+          submitting={isPending}
           // Nothing closes this press: both answers are legal from the moment the page opens.
           reason={null}
           resting="Eintrag bestätigen"
@@ -224,7 +215,7 @@ function BestaetigungEntscheidung({
           down the page between the two presses it takes to send. */}
       {isConfirming && (
         <ConfirmReveal>
-          <p className="fluid-xxs text-foreground leading-normal font-medium">
+          <p className="fluid-xxs leading-normal font-medium text-foreground">
             Ohne Deine Bestätigung kann die Bewerbung nicht vollständig werden. Deine Angaben oben brauchen wir für einen Widerspruch nicht.
           </p>
           <WiderspruchFolge />
@@ -257,11 +248,11 @@ export function BestaetigungFormPanel({
   mindestalter: number;
   onAbschluss: (abschluss: BestaetigungAbschluss) => void;
 }) {
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSending] = useTransition();
   const [entwurf, setEntwurf] = useState<Entwurf>({ geburtsdatum: "", whatsapp: false });
-  const { isConfirming, isPending: isDeclining, press, cancel } = useTwoPressConfirm();
+  const widerspruch = useTwoPressConfirm();
+  const { isConfirming, press } = widerspruch;
 
-  const geburtsdatumHinweisId = useId();
   const klickPunkteId = useId();
 
   // Built from the floor the link answered, never the module's own: the endpoint judges this
@@ -270,12 +261,13 @@ export function BestaetigungFormPanel({
 
   // The payload the write is judged by, judging the draft too: a second schema here would be the
   // page refusing at numbers the endpoint does not, on the day the two disagree.
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { einwilligung: antwortSchema },
-    // This page's own word for the failure: the admin editors' „Änderung nicht gespeichert“ names a
-    // change nobody here made, and two titles for one failure read as two failures.
-    failureTitle: "Antwort nicht gespeichert",
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } =
+    useDraftFieldErrors({
+      schemas: { einwilligung: antwortSchema },
+      // This page's own word for the failure: the admin editors' „Änderung nicht gespeichert“ names a
+      // change nobody here made, and two titles for one failure read as two failures.
+      failureTitle: "Antwort nicht gespeichert",
+    });
 
   useForgiveFixed({ einwilligung: antwortPayload(token, entwurf, isConfirming) });
 
@@ -299,35 +291,39 @@ export function BestaetigungFormPanel({
 
     const antwort = gesendet.body;
 
-    if (!antwort.success) {
-      // Titled as an unread answer is, the answer having perhaps landed: the envelope's own sentence
-      // is an administrator's repair, and a reload of this page has lost its token.
-      if (antwort.outcome === "unknown") {
-        appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
+    // Wrapped again: both callers run this inside a transition, and React leaves an update after an
+    // `await` outside it.
+    startTransition(() => {
+      if (!antwort.success) {
+        // Titled as an unread answer is, the answer having perhaps landed: the envelope's own sentence
+        // is an administrator's repair, and a reload of this page has lost its token.
+        if (antwort.outcome === "unknown") {
+          appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
+          return;
+        }
+
+        // The link died between the open and the press: the answer is the panel, never a toast.
+        if (antwort.zustand !== undefined) {
+          onAbschluss({ zustand: antwort.zustand });
+          return;
+        }
+
+        // The hook owns the press's one toast: none where a field shows the refusal.
+        reportSubmitFailure(
+          { success: false, error: antwort.error ?? NICHT_GESPEICHERT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
+          { einwilligung: payload },
+          { raise: (shown) => appToast.failure("Antwort nicht gespeichert", shown) },
+        );
         return;
       }
 
-      // The link died between the open and the press: the answer is the panel, never a toast.
-      if (antwort.zustand !== undefined) {
-        onAbschluss({ zustand: antwort.zustand });
-        return;
-      }
-
-      // The hook owns the press's one toast: none where a field shows the refusal.
-      reportSubmitFailure(
-        { success: false, error: antwort.error ?? NICHT_GESPEICHERT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
-        { einwilligung: payload },
-        { raise: (shown) => appToast.failure("Antwort nicht gespeichert", shown) },
+      setSubmitFieldErrors({}, {});
+      onAbschluss(
+        antwort.ergebnis === "bestaetigt"
+          ? { zustand: "erfolg", geburtsdatum: antwort.geburtsdatum, whatsapp: antwort.whatsapp }
+          : { zustand: "widersprochen-neu" },
       );
-      return;
-    }
-
-    setSubmitFieldErrors({}, {});
-    onAbschluss(
-      antwort.ergebnis === "bestaetigt"
-        ? { zustand: "erfolg", geburtsdatum: antwort.geburtsdatum, whatsapp: antwort.whatsapp }
-        : { zustand: "widersprochen-neu" },
-    );
+    });
   };
 
   /* Both presses of the objection hand the shared control the same write: the arming one drops it,
@@ -344,7 +340,7 @@ export function BestaetigungFormPanel({
 
     const payload = antwortPayload(token, entwurf, false);
     guardSubmit({ einwilligung: payload }, () => {
-      startTransition(async () => {
+      startSending(async () => {
         await sende(payload);
       });
     });
@@ -352,13 +348,10 @@ export function BestaetigungFormPanel({
 
   return (
     <Form
-      ref={formRef}
-      // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-      validationBehavior="aria"
+      wiring={formWiring}
       data-required-marks="on"
-      validationErrors={fieldErrors}
       className="flex w-full flex-col gap-6"
-      onSubmit={runOnSubmit(handleSubmit)}>
+      onSubmit={handleSubmit}>
       <BestaetigungHinweise
         schule={schule}
         saison={saison}
@@ -381,7 +374,6 @@ export function BestaetigungFormPanel({
           onEntwurf={setEntwurf}
           onGeburtsdatumVerlassen={() => validatePaths("einwilligung", antwortPayload(token, entwurf, false), ["geburtsdatum"])}
           isDisabled={isConfirming}
-          hinweisId={geburtsdatumHinweisId}
           mindestalter={mindestalter}
         />
 
@@ -397,12 +389,10 @@ export function BestaetigungFormPanel({
         )}
 
         <BestaetigungEntscheidung
-          isConfirming={isConfirming}
+          widerspruch={widerspruch}
           isPending={isPending}
-          isDeclining={isDeclining}
           beschreibtId={klickPunkteId}
           onWiderspruch={() => press(sendeWiderspruch)}
-          onCancel={cancel}
         />
       </BestaetigungAbschnitt>
     </Form>

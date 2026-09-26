@@ -1,30 +1,32 @@
 "use client";
 
-import { PencilToLine } from "@gravity-ui/icons";
+import PencilToLine from "@gravity-ui/icons/PencilToLine";
 
-import { Label } from "@heroui/react";
+import { Label } from "@heroui/react/label";
 
 import { useFieldStatus } from "@/shared/components/ui/DraftStatusContext";
-import { FIELD_LABEL, FIELD_MARKER } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_LABEL_CLASSES, FIELD_MARKER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { InfoHint } from "@/shared/components/ui/InfoHint";
 
+import type { FieldPath } from "@/shared/components/ui/DraftStatusContext";
 import type { ReactNode } from "react";
 
 /**
  * The Geändert marker is a hover hint, and **it is where the previous value lives**: as a line under
  * the label it arrived on the first keystroke, shifting the layout while somebody typed.
  */
-export function FieldLabel({
+export function FieldLabel<P extends string = never>({
   path,
   children,
   extraMarker,
 }: {
-  path: string;
+  /** Named as `<FieldLabel<EditorPath> path=…>`, `useFieldStatus`'s `FieldPath` rule. */
+  path: FieldPath<P>;
   children: ReactNode;
   /** A marker only one editor has — the match editor's Fehlt/Offen disc, which needs a status the shared one does not carry. */
   extraMarker?: ReactNode;
 }) {
-  const status = useFieldStatus(path);
+  const status = useFieldStatus<P>(path);
 
   return (
     <div
@@ -36,7 +38,7 @@ export function FieldLabel({
           a shift, and a mis-alignment between two fields sharing a grid row. Reserving the marker's
           height keeps every label row constant. */}
       <div className="flex min-h-5 flex-row flex-wrap items-center gap-x-2 gap-y-1">
-        <Label className={FIELD_LABEL}>{children}</Label>
+        <Label className={FIELD_LABEL_CLASSES}>{children}</Label>
 
         {extraMarker}
 
@@ -44,7 +46,7 @@ export function FieldLabel({
           <InfoHint
             label="Geändert"
             trigger={
-              <span className={`${FIELD_MARKER} bg-brand/15 text-brand`}>
+              <span className={`${FIELD_MARKER_CLASSES} bg-brand/15 text-brand`}>
                 <PencilToLine
                   aria-hidden="true"
                   className="size-3"

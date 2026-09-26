@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 
 import { parseDate } from "@internationalized/date";
 
-import { Form } from "@heroui/react";
-
 import { patchSaisonAction } from "@/features/saisons/actions";
 import { PLACING_RULES_FIELDS, RESCORING_RULES_FIELDS } from "@/features/saisons/constants";
 import { deriveSaisonDraftStatus } from "@/features/saisons/saisonDraftStatus";
@@ -17,15 +15,16 @@ import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
 import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
 import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
+import { Form } from "@/shared/components/ui/Form";
 import { FormActionBar } from "@/shared/components/ui/FormActionBar";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useSaveShortcut } from "@/shared/hooks/useSaveShortcut";
 import { useUnsavedChangesWarning } from "@/shared/hooks/useUnsavedChangesWarning";
 import { unansweredAction } from "@/shared/utils/actionError";
-import { guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { fieldStatus } from "@/shared/utils/draftStatus";
 import { offerUndo } from "@/shared/utils/undoDispatch";
 
 import { buildSaisonBanners } from "./banners";
@@ -39,7 +38,9 @@ import { FormRolloverSection } from "./FormRolloverSection";
 import { FormSpielplanSection } from "./FormSpielplanSection";
 import { FormTeamErsatzSection } from "./FormTeamErsatzSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
+import { movedShapeCount, startingRedraw } from "./spielplanShape";
 
+import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus";
 import type { FLPatchSaisonPayload, FLSaisonBewerbung, FLSaisonRegistrierung, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
 import type {
   FLSaisonRulesDraft,
@@ -56,6 +57,7 @@ import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { CalendarDate } from "@internationalized/date";
 import type { UndrawControlInput } from "./blockedReasons";
 import type { SpielplanWindowState } from "./FormRegelnSection";
+import type { RedrawDraft, SpielplanPanelSeason } from "./spielplanShape";
 
 /**
  * **One save bar over ONE endpoint**: `PATCH /saisons/{saison_id}` replaces the dates and all of
@@ -71,6 +73,10 @@ export function AdminSaisonEditForm({
   hasDrawnSpiele,
   spieltagBound,
   pageHeader,
+  redraw,
+  onRedrawChange,
+  isSaveExitAsked,
+  onSaveExitAskedChange,
 }: {
   saison: { id: string; status: FLSaisonStatus } & Omit<SaisonDraftFields, "rules"> & { rules: FLSaisonRules };
   rollover: SaisonRolloverContext;
@@ -85,10 +91,18 @@ export function AdminSaisonEditForm({
   /** The span the dated matchdays already occupy, which the date pickers may not shrink past. */
   spieltagBound: SaisonSpieltagBound;
   pageHeader: EditPageHeaderContent;
+  /**
+   * The Spielplan panel's typing and the save's pending exit, both held above the key a save re-keys this editor
+   * by, so the refresh the save ends on keeps them (`docs/frontend/spec.md` §1.3).
+   */
+  redraw: RedrawDraft;
+  onRedrawChange: (next: RedrawDraft) => void;
+  isSaveExitAsked: boolean;
+  onSaveExitAskedChange: (asked: boolean) => void;
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSaving] = useTransition();
 
   // `CalendarDate` in state, strings on the wire — `parseDate` takes exactly the `YYYY-MM-DD` the API
   // sends. A picker cleared to null is held as null, and the schema is what reports it.
@@ -105,9 +119,10 @@ export function AdminSaisonEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { saison: FLPatchSaisonPayloadSchema },
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
+    useDraftFieldErrors({
+      schemas: { saison: FLPatchSaisonPayloadSchema },
+    });
 
   type SaisonPatchDraft = Omit<FLPatchSaisonPayload, "rules"> & { rules: FLSaisonRulesDraft };
 
@@ -138,7 +153,28 @@ export function AdminSaisonEditForm({
   };
 
   const status = deriveSaisonDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
-  const isDirty = status.isDirty && !hasSaved;
+  // What the save writes, apart from the redraw's typing: the draw is refused over this alone, being made from the other.
+  const isDraftDirty = status.isDirty && !hasSaved;
+
+  /**
+   * ONE count for both panels, off `ersatz.rows` rather than a prop: those rows ARE the junction the
+   * endpoints count, and a second copy in the Flight payload could close different rows on each panel.
+   */
+  const gruppenOccupancy = buildGruppenOccupancy(ersatz.rows);
+
+  // The STORED season throughout: the panel is decided from what the draw would read, never from the draft.
+  const spielplanSeason: SpielplanPanelSeason = {
+    saisonStatus: saison.status,
+    rules: saison.rules,
+    startDate: saison.start_date,
+    endDate: saison.end_date,
+    gruppenOccupancy,
+    hasDrawnSpiele,
+    ...spielplan,
+  };
+  const shapeChangeCount = movedShapeCount(spielplanSeason, redraw);
+  // A moved redraw shape is unsaved typing like the draft's: every way off the page asks before dropping it.
+  const isDirty = isDraftDirty || shapeChangeCount > 0;
 
   // The latch's job ends the moment the revalidated season arrives and the two agree; left latched,
   // every later edit on a restored tree read as not-dirty.
@@ -178,9 +214,9 @@ export function AdminSaisonEditForm({
     }
   };
 
-  const isChanged = (path: string) => status.byPath.get(path)?.isChanged ?? false;
+  const isChanged = (path: SaisonFieldPath) => fieldStatus(status, path)?.isChanged ?? false;
   // Named by the rules field the mirror holds, so a field moved between its lists needs no second edit here.
-  const isRuleChanged = (field: string) => isChanged(`rules.${field}`);
+  const isRuleChanged = (field: (typeof RESCORING_RULES_FIELDS | typeof PLACING_RULES_FIELDS)[number]) => isChanged(`rules.${field}`);
   const isEndBeforeStart = startDate !== null && endDate !== null && endDate.compare(startDate) < 0;
 
   const banners = buildSaisonBanners({
@@ -209,12 +245,6 @@ export function AdminSaisonEditForm({
   const spielplanWindow: SpielplanWindowState =
     spielplanUndrawBlockedReason(undrawInput) === null ? "open" : saison.status === "future" ? "recorded" : "closed";
 
-  /**
-   * ONE count for both panels, off `ersatz.rows` rather than a prop: those rows ARE the junction the
-   * endpoints count, and a second copy in the Flight payload could close different rows on each panel.
-   */
-  const gruppenOccupancy = buildGruppenOccupancy(ersatz.rows);
-
   const resetDraftToStored = () => {
     setStartDate(parseDate(saison.start_date));
     setEndDate(parseDate(saison.end_date));
@@ -228,10 +258,17 @@ export function AdminSaisonEditForm({
   const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
     fallbackHref: saisonHref("/admin/saisons"),
     isDirty,
-    resetDraftToStored,
+    // The redraw too: it is left, like the draft, on a tree the router keeps.
+    resetDraftToStored: () => {
+      resetDraftToStored();
+      onRedrawChange(startingRedraw(saison.rules));
+    },
   });
 
-  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
+  const isDiscardOpen = isConfirmingDiscard || isSaveExitAsked;
+
+  // The draft alone: a moved redraw shape leaves the save nothing to write.
+  useSaveShortcut(formRef, !isPending && !isDiscardOpen && confirmingBanners === null && isDraftDirty);
 
   const requestSave = () => {
     // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block
@@ -240,7 +277,7 @@ export function AdminSaisonEditForm({
   };
 
   const writeAfterBlock = () => {
-    startTransition(async () => {
+    startSaving(async () => {
       // Built BEFORE the write, from this render's props: they still carry what was stored, and the
       // toast that offers the undo outlives this page.
       const undoPayload: FLPatchSaisonPayload = {
@@ -256,56 +293,61 @@ export function AdminSaisonEditForm({
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
       const res = await patchSaisonAction(payload).catch(unansweredAction);
 
-      if (!res.success) {
-        reportSubmitFailure(res, { saison: payload });
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startSaving(() => {
+        if (!res.success) {
+          reportSubmitFailure(res, { saison: payload });
+          return;
+        }
 
-      setSubmitFieldErrors({}, {});
-      setHasSaved(true);
+        setSubmitFieldErrors({}, {});
+        setHasSaved(true);
 
-      // A warning, never a success, wherever the table moved: it is scored and ordered from `rules`
-      // on read, so the move goes unnoticed.
-      const pointsMoved = undoPayload.rules.win_points !== rules.win_points || undoPayload.rules.draw_points !== rules.draw_points;
-      const tiebreakMoved = undoPayload.rules.tiebreak_order !== rules.tiebreak_order;
+        // A warning, never a success, wherever the table moved: it is scored and ordered from `rules`
+        // on read, so the move goes unnoticed.
+        const pointsMoved = undoPayload.rules.win_points !== rules.win_points || undoPayload.rules.draw_points !== rules.draw_points;
+        const tiebreakMoved = undoPayload.rules.tiebreak_order !== rules.tiebreak_order;
 
-      offerUndo({
-        endpoint: "/api/admin/saisons/undo",
-        body: undoPayload,
-        // The points first where both moved: a rescore subsumes a re-sort, and one toast holds one
-        // sentence.
-        message: pointsMoved
-          ? "Die Punkte gelten ab sofort für jedes Spiel dieser Saison, auch für die längst gespielten."
-          : tiebreakMoved
-            ? "Punktgleiche Teams stehen ab sofort in einer anderen Reihenfolge, auch in längst gespielten Gruppen."
-            : undefined,
-        // Passed on the quiet branch too, where it all but restates the title: `offerUndo`'s
-        // `fallback` carries why the register asks for a sentence there anyway.
-        fallback: "Die Saisondaten wurden aktualisiert.",
-        warn: pointsMoved || tiebreakMoved,
-        router,
+        offerUndo({
+          endpoint: "/api/admin/saisons/undo",
+          body: undoPayload,
+          // The points first where both moved: a rescore subsumes a re-sort, and one toast holds one
+          // sentence.
+          message: pointsMoved
+            ? "Die Punkte gelten ab sofort für jedes Spiel dieser Saison, auch für die längst gespielten."
+            : tiebreakMoved
+              ? "Punktgleiche Teams stehen ab sofort in einer anderen Reihenfolge, auch in längst gespielten Gruppen."
+              : undefined,
+          // Passed on the quiet branch too, where it all but restates the title: `offerUndo`'s
+          // `fallback` carries why the register asks for a sentence there anyway.
+          fallback: "Die Saisondaten wurden aktualisiert.",
+          warn: pointsMoved || tiebreakMoved,
+          router,
+        });
+
+        // AFTER the undo payload is built: typed values left in state let a save-then-undo reopen on
+        // values the season does not hold.
+        resetDraftToStored();
+        // Asked rather than left over a moved redraw shape, and held above this editor's key: the refresh this
+        // save ends on remounts the editor, which would close a dialog of its own.
+        if (shapeChangeCount > 0) onSaveExitAskedChange(true);
+        else leavePage();
       });
-
-      // AFTER the undo payload is built: typed values left in state let a save-then-undo reopen on
-      // values the season no longer holds.
-      resetDraftToStored();
-      leavePage();
     });
   };
 
   return (
     <DraftStatusProvider status={status}>
       <Form
-        // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-        validationBehavior="aria"
-        ref={formRef}
-        validationErrors={fieldErrors}
+        wiring={formWiring}
         className="flex min-h-0 w-full flex-1 flex-col"
-        onSubmit={runOnSubmit(requestSave)}>
+        onSubmit={requestSave}>
         <EditFormLayout
           header={pageHeader}
           onLeave={requestLeave}
           isLeaving={isLeaving}
+          isDirty={isDirty}
           rail={
             <DraftRail
               banners={banners}
@@ -388,7 +430,7 @@ export function AdminSaisonEditForm({
             // The STORED rules, never the draft: the draw reads what is saved, and `schedule` beside it was
             // derived from exactly these, so a typed value leaves the preview contradicting itself.
             rules={saison.rules}
-            // The STORED span for the same reason: `REQ-DATE-005`'s mirror judges the season the
+            // The STORED span for the same reason: `REQ-DATE-009`'s mirror judges the season the
             // press would draw, and typed dates are refused before arming (`onBeforeWrite`).
             startDate={saison.start_date}
             endDate={saison.end_date}
@@ -397,7 +439,11 @@ export function AdminSaisonEditForm({
             hasDrawnSpiele={hasDrawnSpiele}
             // One sentence for both writes: the draw runs on the saved rules and the rücknahme reopens
             // them, so neither may run over a draft, and both end on the refresh that would drop it.
-            onBeforeWrite={() => guardAgainstDraft(isDirty, "Der Spielplan entsteht aus den gespeicherten Regeln, nicht aus den getippten.")}
+            onBeforeWrite={() =>
+              guardAgainstDraft(isDraftDirty, "Der Spielplan entsteht aus den gespeicherten Regeln, nicht aus den getippten.")
+            }
+            redraw={redraw}
+            onRedrawChange={onRedrawChange}
           />
 
           {/* Last on the page, the position the club editor's Austritt panel holds: the one
@@ -408,7 +454,7 @@ export function AdminSaisonEditForm({
             saisonStatus={saison.status}
             rollover={rollover}
             hasDrawnSpiele={hasDrawnSpiele}
-            onBeforeActivate={() => guardAgainstDraft(isDirty, "Die Umstellung verwirft die nicht gespeicherten Änderungen.")}
+            onBeforeActivate={() => guardAgainstDraft(isDirty, DRAFT_DISCARDED)}
             banners={banners}
           />
         </EditFormLayout>
@@ -422,10 +468,16 @@ export function AdminSaisonEditForm({
 
       {!hasLeftViaDiscard && (
         <ConfirmDiscardModal
-          isOpen={isConfirmingDiscard}
-          onClose={closeDiscard}
-          onDiscard={discardAndLeave}
-          changeCount={status.changed.length}
+          isOpen={isDiscardOpen}
+          onClose={() => {
+            closeDiscard();
+            onSaveExitAskedChange(false);
+          }}
+          onDiscard={() => {
+            onSaveExitAskedChange(false);
+            discardAndLeave();
+          }}
+          changeCount={(isDraftDirty ? status.changed.length : 0) + shapeChangeCount}
         />
       )}
 

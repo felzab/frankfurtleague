@@ -2,15 +2,19 @@
 
 import { parseDate } from "@internationalized/date";
 
-import { FieldError, Input, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
 
+import { KONTAKT_NAME_MAX_LENGTH } from "@/features/teams/constants";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { TextField } from "@/shared/components/ui/TextField";
 
+import type { SpielerFieldPath } from "@/features/spieler/spielerDraftStatus";
 import type { SpielerPersonFields } from "@/features/spieler/types";
 
 /**
@@ -43,19 +47,19 @@ export function FormPersonSection({
       </div>
 
       <div className={panel.body()}>
-        <div className={FIELD_PAIR}>
+        <div className={FIELD_PAIR_CLASSES}>
           <TextField
-            isRequired
             name="vorname"
             value={draft.vorname}
             onChange={(next) => onChange({ ...draft, vorname: next })}
-            onBlur={() => onFieldLeft(["vorname"])}>
-            <FieldLabel path="vorname">Vorname</FieldLabel>
+            onBlur={() => onFieldLeft(["vorname"])}
+            maxLength={KONTAKT_NAME_MAX_LENGTH}>
+            <FieldLabel<SpielerFieldPath> path="vorname">Vorname</FieldLabel>
             <Input
               placeholder="z.B. Lena"
-              className={FIELD_INPUT}
+              className={FIELD_INPUT_CLASSES}
             />
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
 
           <TextField
@@ -63,23 +67,24 @@ export function FormPersonSection({
             value={draft.nachname ?? ""}
             // Emptied means absent, not an empty surname — the boundary where `""` becomes `null`.
             onChange={(next) => onChange({ ...draft, nachname: next.trim() === "" ? null : next })}
-            onBlur={() => onFieldLeft(["nachname"])}>
-            <FieldLabel path="nachname">Nachname</FieldLabel>
+            onBlur={() => onFieldLeft(["nachname"])}
+            maxLength={KONTAKT_NAME_MAX_LENGTH}>
+            <FieldLabel<SpielerFieldPath> path="nachname">Nachname</FieldLabel>
             <Input
               placeholder="z.B. Meier"
-              className={FIELD_INPUT}
+              className={FIELD_INPUT_CLASSES}
             />
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
         </div>
 
-        <div className={FIELD_PAIR}>
+        <div className={FIELD_PAIR_CLASSES}>
           {/* Its own row: a third column in the name pair above would read the birthdate as part of a name. */}
           {/* No span: the calendar greys out what is offered, and this editor judges no age
               (`fl_backend/app/core/domain.py :: UNENFORCED`). */}
           <AppDatePicker
             name="geburtsdatum"
-            label={<FieldLabel path="geburtsdatum">Geburtsdatum</FieldLabel>}
+            label={<FieldLabel<SpielerFieldPath> path="geburtsdatum">Geburtsdatum</FieldLabel>}
             calendarLabel="Geburtsdatum auswählen"
             value={draft.geburtsdatum === null ? null : parseDate(draft.geburtsdatum)}
             // A cleared picker is `null`, which is what the payload stores: no date was given.

@@ -28,6 +28,7 @@ from app.api.teams.admin_router import patch_saison_team, post_saison_team
 from app.api.teams.schemas import FLPatchSaisonTeamPayload, FLPostSaisonTeamPayload
 from app.api.teams.services import ENTRY_GRUPPE_FULL
 from app.core.collections import Collection
+from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, outcome_of
 from tests.worker import worker_database
@@ -59,85 +60,34 @@ def oid(tail: int) -> ObjectId:
 def saison_document() -> dict[str, Any]:
     """`future`, which is the one status `REQ-ENTER-001` admits an entry under."""
 
-    return {
-        "_id": SAISON,
-        "start_date": "2026-01-01",
-        "end_date": "2026-06-30",
-        "status": "future",
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 4,
-            "teams_per_group": TEAMS_PER_GROUP,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": MAX_KADERGROESSE,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-        },
-    }
+    return documents.saison_document(
+        SAISON, "future", rules=documents.rules_document(teams_per_group=TEAMS_PER_GROUP, max_kadergroesse=MAX_KADERGROESSE)
+    )
 
 
 def team_document(index: int) -> dict[str, Any]:
-    return {
-        "_id": oid(index),
-        "name": f"Schule {index}",
+    return documents.team_document(
+        oid(index),
+        f"Schule {index}",
         # Two characters, which is what `FLSaisonTeamResponse` holds a shorthand to.
-        "shorthand": f"{index:02d}",
-        "description": "",
-        "full_name": f"Schule {index} Gesamtschule",
-        "website_url": "https://example.de",
-        "address": {
-            "strasse": "Hanauer Landstraße",
-            "hausnummer": "12a",
-            "plz": "60314",
-            "stadtteil": "Ostend",
-            "stadt": "Frankfurt am Main",
-        },
-        "inactive_since": None,
-    }
+        f"{index:02d}",
+        full_name=f"Schule {index} Gesamtschule",
+        website_url="https://example.de",
+    )
 
 
 def junction_document(index: int, gruppe: str) -> dict[str, Any]:
-    return {
-        "_id": oid(1000 + index),
-        "saison_id": SAISON,
-        "team_id": oid(index),
-        "gruppe": gruppe,
-        "austritt": None,
-        "name": f"Schule {index}",
-        "shorthand": f"{index:02d}",
-    }
+    return documents.saison_team_document(SAISON, oid(index), f"Schule {index}", f"{index:02d}", _id=oid(1000 + index), gruppe=gruppe)
 
 
 def spieler_document(index: int) -> dict[str, Any]:
-    return {
-        "_id": oid(2000 + index),
-        "vorname": f"Vorname{index}",
-        "nachname": f"Nachname{index}",
-        "einwilligung": {
-            "umfang": "kader_oeffentlich",
-            "erteilt_von": "erziehungsberechtigt",
-            "datum": "2026-01-15",
-            "bestaetigt_am": "2026-01-20",
-        },
-        "inactive_since": None,
-    }
+    return documents.spieler_document(oid(2000 + index), f"Vorname{index}", f"Nachname{index}")
 
 
 def squad_document(index: int, team_index: int, *, inactive_since: str | None = None) -> dict[str, Any]:
-    return {
-        "_id": oid(3000 + index),
-        "spieler_id": oid(2000 + index),
-        "saison_id": SAISON,
-        "team_id": oid(team_index),
-        "ist_nachnominiert": False,
-        "rolle": None,
-        "stufe": "Q2",
-        "position": "Angriff",
-        "nummer": str(index),
-        "inactive_since": inactive_since,
-    }
+    return documents.saison_spieler_document(
+        oid(2000 + index), SAISON, oid(team_index), _id=oid(3000 + index), nummer=str(index), inactive_since=inactive_since
+    )
 
 
 def spieltag_document(position: int, beginn: str) -> dict[str, Any]:

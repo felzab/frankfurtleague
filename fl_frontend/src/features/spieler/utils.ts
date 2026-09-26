@@ -82,8 +82,8 @@ export function judgeRowReturn(teamId: string, saisonTeams: readonly SpielerTeam
 }
 
 /**
- * A typed squad number as every squad write sends it, the create dialog's and the editor's alike: space
- * around it is no format an administrator should fight, and an emptied box is a number nobody wears.
+ * A typed squad number as every write sends it, the squad editor's and the registration's alike: space
+ * around it is no format anybody should fight, and an emptied box is a number nobody wears.
  */
 export function nummerPayload(typed: string | null): string | null {
   const trimmed = (typed ?? "").trim();

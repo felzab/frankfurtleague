@@ -1,20 +1,25 @@
 "use client";
 
-import { Fragment, useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
-import Link from "next/link";
+import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 
-import { CircleCheck } from "@gravity-ui/icons";
+import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import { parseDate } from "@internationalized/date";
 
-import { Button, FieldError, Form, Input, Label, Switch, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { ToggleButton } from "@heroui/react/toggle-button";
+import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { SCHIEDSRICHTER_EINWILLIGUNG } from "@/core/einwilligung";
 import {
-  ABSATZ,
+  ABSATZ_CLASSES,
   BestaetigungAbschnitt,
   BestaetigungErgebnis,
   FrageStellen,
+  Gefuellt,
   GespeicherteAngaben,
   Wert,
   ZurLiga,
@@ -28,26 +33,32 @@ import {
 import { buildSchiedsrichterBestaetigungPayloadSchema } from "@/features/schiedsrichter/schemas";
 import { Callout } from "@/shared/components/ui/Callout";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
-import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
+import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
+import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_ERROR_CLASSES,
+  FIELD_LABEL_CLASSES,
+  FIELD_PAIR_CLASSES,
+  FORM_SECTION_HEADING_CLASSES,
+  TOGGLE_GROUP_ALIGN_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
-import { Hint } from "@/shared/components/ui/Hint";
-import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
-import { textLink } from "@/shared/components/ui/textLink";
+import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
+import { Switch } from "@/shared/components/ui/Switch";
+import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 
+import type { Slots } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import type { FLSchiedsrichterBestaetigungPayload, FLSchiedsrichterUmfang } from "@/features/schiedsrichter/schemas";
 import type { SchiedsrichterAnsichtGeoeffnet, SchiedsrichterLinkZustand } from "@/features/schiedsrichter/types";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { CalendarDate } from "@internationalized/date";
-import type { ReactNode } from "react";
 
 /**
  * What the page opens on. The token rides only with a link a press can still spend: every other
@@ -71,78 +82,44 @@ const TITEL: Record<Stand["zustand"], string> = {
 };
 
 /** The contact confirmation's own column, so the league's two consent pages are one page wide. */
-const SEITE = "max-w-meta flex w-full flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
+const SEITE_CLASSES = "flex w-full max-w-meta flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
 
-const LISTE = `${ABSATZ} flex list-disc flex-col gap-y-1 pl-5`;
-const ABSCHNITT = "flex flex-col gap-y-2";
+const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
+const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
 
 const NICHT_GESPEICHERT = "Deine Antwort wurde nicht gespeichert. Versuche es erneut.";
 
 /** This page's own word for the failure: „Änderung nicht gespeichert“ names a change nobody here made. */
 const ANTWORT_NICHT_GESPEICHERT = "Antwort nicht gespeichert";
 
-/** The `{datenschutz}` slot's value, so the stored sentence and the rendered one read the same. */
-const DATENSCHUTZ_TEXT = "Datenschutzerklärung";
-const DATENSCHUTZ_SLOT = "datenschutz";
-
-/** The slots a record fills from the person who opened the link; emphasis is presentation and is decided here. */
+/**
+ * The slots a record fills from the person who opened the link
+ * (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: Gefuellt`).
+ */
 const EIGENE_SLOTS = new Set(["vorname"]);
-
-/** Split on the slots themselves, so the capture group keeps each one as a piece of its own. */
-const SLOT_TEILER = /(\{\w+\})/;
-
-type Slots = Readonly<Record<string, string>>;
 
 /** The words every reader's copy fills alike; the rest come off the record the page was opened with. */
 const KONSTANTEN = { kontakt: KONTAKT_EMAIL, loeschung: "Konto löschen" } as const;
-
-/** One piece of a split sentence: a slot in whatever its kind earns, or the words as they stand. */
-function stueckInhalt(stueck: string, werte: Slots): ReactNode {
-  const name = /^\{(\w+)\}$/.exec(stueck)?.[1];
-
-  if (name === undefined) return stueck;
-  // Ahead of the record, which holds no value for it: this slot's words are the link's own.
-  if (name === DATENSCHUTZ_SLOT) {
-    return (
-      <Link
-        href="/datenschutz"
-        prefetch={false}
-        className={textLink()}>
-        {DATENSCHUTZ_TEXT}
-      </Link>
-    );
-  }
-
-  const wert = werte[name];
-
-  // A slot no record filled stands as written, which is `fuelleFassung`'s rule at the string end.
-  if (wert === undefined) return stueck;
-
-  return EIGENE_SLOTS.has(name) ? <Wert>{wert}</Wert> : wert;
-}
 
 // Read off the stamped version rather than off the paragraph object beside it: the words this page
 // renders and the label its press stores are then one source, which a rewording cannot part.
 type Schluessel = keyof typeof SCHIEDSRICHTER_EINWILLIGUNG.absaetzeNachSchluessel;
 
-/**
- * A stamped sentence with its slots filled here rather than by `fuelleFassung`, which answers a
- * string: a string cannot carry the mark a reader's own name has to wear, nor the privacy link.
- */
+/** A stamped sentence, filled as `:: Gefuellt` fills one. */
 function Absatz({ schluessel, werte }: { schluessel: Schluessel; werte: Slots }) {
   return (
-    <>
-      {SCHIEDSRICHTER_EINWILLIGUNG.absaetzeNachSchluessel[schluessel].split(SLOT_TEILER).map((stueck, index) => (
-        <Fragment key={`${String(index)}-${stueck}`}>{stueckInhalt(stueck, werte)}</Fragment>
-      ))}
-    </>
+    <Gefuellt
+      text={SCHIEDSRICHTER_EINWILLIGUNG.absaetzeNachSchluessel[schluessel]}
+      werte={werte}
+      eigene={EIGENE_SLOTS}
+    />
   );
 }
 
 /** A stamped paragraph in the page's body grade, which every standing sentence here takes. */
 function StandAbsatz({ schluessel, werte }: { schluessel: Schluessel; werte: Slots }) {
   return (
-    <p className={ABSATZ}>
+    <p className={ABSATZ_CLASSES}>
       <Absatz
         schluessel={schluessel}
         werte={werte}
@@ -158,16 +135,16 @@ function StandAbsatz({ schluessel, werte }: { schluessel: Schluessel; werte: Slo
 function SchiedsrichterHinweise({ werte }: { werte: Slots }) {
   return (
     <BestaetigungAbschnitt titel="Was das bedeutet">
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Worum es geht</h3>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Worum es geht</h3>
         <StandAbsatz
           schluessel="worum"
           werte={werte}
         />
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Was gespeichert ist und wozu</h3>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Was gespeichert ist und wozu</h3>
         <StandAbsatz
           schluessel="gespeichert"
           werte={werte}
@@ -182,24 +159,24 @@ function SchiedsrichterHinweise({ werte }: { werte: Slots }) {
         />
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Was nicht veröffentlicht wird</h3>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Was nicht veröffentlicht wird</h3>
         <StandAbsatz
           schluessel="wer"
           werte={werte}
         />
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Wie lange Dein Eintrag bleibt</h3>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Wie lange Dein Eintrag bleibt</h3>
         <StandAbsatz
           schluessel="frist"
           werte={werte}
         />
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Wenn Du etwas zurücknehmen willst</h3>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Wenn Du etwas zurücknehmen willst</h3>
         <StandAbsatz
           schluessel="widerruf"
           werte={werte}
@@ -222,8 +199,8 @@ function KlickBestaetigung({ id, werte }: { id: string; werte: Slots }) {
     <div
       id={id}
       className="flex flex-col gap-y-3">
-      <h3 className={FORM_SECTION_HEADING}>Was Du mit dem Klick bestätigst</h3>
-      <ul className={LISTE}>
+      <h3 className={FORM_SECTION_HEADING_CLASSES}>Was Du mit dem Klick bestätigst</h3>
+      <ul className={LISTE_CLASSES}>
         {(["klickIdentitaet", "klickEintrag", "klickAlter", "klickEinwilligung", "klickHinweise"] as const).map((schluessel) => (
           <li key={schluessel}>
             <Absatz
@@ -289,11 +266,10 @@ function SchiedsrichterFormPanel({
   medienMindestalter: number;
   onAbschluss: (stand: Stand) => void;
 }) {
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSending] = useTransition();
   const [entwurf, setEntwurf] = useState<Entwurf>(LEERER_ENTWURF);
 
   const panel = formPanel();
-  const geburtsdatumHinweisId = useId();
   const klickPunkteId = useId();
 
   const werte = { ...KONSTANTEN, minAlter: String(mindestalter), medienMinAlter: String(medienMindestalter), vorname: vorname };
@@ -302,10 +278,11 @@ function SchiedsrichterFormPanel({
   // would let the press through at a number the endpoint refuses.
   const antwortSchema = useMemo(() => buildSchiedsrichterBestaetigungPayloadSchema(mindestalter), [mindestalter]);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { bestaetigung: antwortSchema },
-    failureTitle: ANTWORT_NICHT_GESPEICHERT,
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } =
+    useDraftFieldErrors({
+      schemas: { bestaetigung: antwortSchema },
+      failureTitle: ANTWORT_NICHT_GESPEICHERT,
+    });
 
   const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), mindestalter);
 
@@ -334,37 +311,41 @@ function SchiedsrichterFormPanel({
 
     const antwort = gesendet.body;
 
-    if (!antwort.success) {
-      // Titled as an unread answer is, the confirmation having perhaps landed: the envelope's own
-      // sentence is an administrator's repair, and a reload of this page has lost its token.
-      if (antwort.outcome === "unknown") {
-        appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
+    // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+    // so bare it commits before the pending state lifts.
+    startSending(() => {
+      if (!antwort.success) {
+        // Titled as an unread answer is, the confirmation having perhaps landed: the envelope's own
+        // sentence is an administrator's repair, and a reload of this page has lost its token.
+        if (antwort.outcome === "unknown") {
+          appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
+          return;
+        }
+
+        // The link died between the open and the press: the answer is the panel, never a toast.
+        if (antwort.zustand !== undefined) {
+          onAbschluss({ zustand: antwort.zustand });
+          return;
+        }
+
+        // The hook owns the press's one toast: none where a field shows the refusal.
+        reportSubmitFailure(
+          { success: false, error: antwort.error ?? NICHT_GESPEICHERT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
+          { bestaetigung: payload },
+          { raise: (shown) => appToast.failure(ANTWORT_NICHT_GESPEICHERT, shown) },
+        );
         return;
       }
 
-      // The link died between the open and the press: the answer is the panel, never a toast.
-      if (antwort.zustand !== undefined) {
-        onAbschluss({ zustand: antwort.zustand });
-        return;
-      }
-
-      // The hook owns the press's one toast: none where a field shows the refusal.
-      reportSubmitFailure(
-        { success: false, error: antwort.error ?? NICHT_GESPEICHERT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
-        { bestaetigung: payload },
-        { raise: (shown) => appToast.failure(ANTWORT_NICHT_GESPEICHERT, shown) },
-      );
-      return;
-    }
-
-    setSubmitFieldErrors({}, {});
-    onAbschluss({ zustand: "erfolg", vorname: vorname, geburtsdatum: payload.geburtsdatum, umfang: antwort.umfang, medien: antwort.medien });
+      setSubmitFieldErrors({}, {});
+      onAbschluss({ zustand: "erfolg", vorname: vorname, geburtsdatum: payload.geburtsdatum, umfang: antwort.umfang, medien: antwort.medien });
+    });
   };
 
   const handleSubmit = () => {
     const payload = antwortPayload(token, entwurf, medienAngeboten);
     guardSubmit({ bestaetigung: payload }, () => {
-      startTransition(async () => {
+      startSending(async () => {
         await sende(payload);
       });
     });
@@ -372,53 +353,41 @@ function SchiedsrichterFormPanel({
 
   return (
     <Form
-      ref={formRef}
-      // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-      validationBehavior="aria"
+      wiring={formWiring}
       data-required-marks="on"
-      validationErrors={fieldErrors}
       className="flex w-full flex-col gap-6"
-      onSubmit={runOnSubmit(handleSubmit)}>
+      onSubmit={handleSubmit}>
       <SchiedsrichterHinweise werte={werte} />
 
       <BestaetigungAbschnitt titel="Deine Antwort">
         <section className="flex flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Dein Geburtsdatum</h3>
+          <h3 className={FORM_SECTION_HEADING_CLASSES}>Dein Geburtsdatum</h3>
           {/* The form's own field grid, so one box on a wide page stands in a column rather than
               stretching the segments across it. */}
-          <div className={FIELD_PAIR}>
-            <div className="flex flex-col gap-y-2">
-              <AppDatePicker
-                isRequired
-                name="geburtsdatum"
-                label={<Label className={FIELD_LABEL}>Dein Geburtsdatum</Label>}
-                calendarLabel="Geburtsdatum auswählen"
-                value={toCalendarDate(entwurf.geburtsdatum)}
-                onChange={(next) => setEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
-                onBlur={() => validatePaths("bestaetigung", antwortPayload(token, entwurf, medienAngeboten), ["geburtsdatum"])}
-                aria-describedby={geburtsdatumHinweisId}
-                minValue={parseDate(frueheste)}
-                maxValue={parseDate(spaeteste)}
-              />
-              <Hint
-                mode="inline"
-                describes={geburtsdatumHinweisId}
-                text={`Spiele leiten kann nur, wer mindestens ${String(mindestalter)} Jahre alt ist. Das Datum wird mit Deinem Eintrag gespeichert.`}
-              />
-            </div>
+          <div className={FIELD_PAIR_CLASSES}>
+            <AppDatePicker
+              name="geburtsdatum"
+              label={<Label className={FIELD_LABEL_CLASSES}>Dein Geburtsdatum</Label>}
+              calendarLabel="Geburtsdatum auswählen"
+              value={toCalendarDate(entwurf.geburtsdatum)}
+              onChange={(next) => setEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
+              onBlur={() => validatePaths("bestaetigung", antwortPayload(token, entwurf, medienAngeboten), ["geburtsdatum"])}
+              hint={`Spiele leiten kann nur, wer mindestens ${String(mindestalter)} Jahre alt ist. Das Datum wird mit Deinem Eintrag gespeichert.`}
+              minValue={parseDate(frueheste)}
+              maxValue={parseDate(spaeteste)}
+            />
           </div>
         </section>
 
         <section className="flex flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Auf der Website</h3>
+          <h3 className={FORM_SECTION_HEADING_CLASSES}>Auf der Website</h3>
           {/* Two chips and no default, as the pupil's page and the application form ask a required
               choice: a control resting on an answer records one this person did not give. */}
           <TextField
-            isRequired
             name="umfang"
             value={entwurf.umfang ?? ""}
             className="w-full">
-            <Label className={FIELD_LABEL}>{SCHIEDSRICHTER_UMFANG_FRAGE}</Label>
+            <Label className={FIELD_LABEL_CLASSES}>{SCHIEDSRICHTER_UMFANG_FRAGE}</Label>
             <ToggleButtonGroup
               aria-label={SCHIEDSRICHTER_UMFANG_FRAGE}
               size="sm"
@@ -433,12 +402,12 @@ function SchiedsrichterFormPanel({
                 const option = SCHIEDSRICHTER_UMFANG_OPTIONS.find((candidate) => candidate.value === picked);
                 if (option !== undefined) setEntwurf({ ...entwurf, umfang: option.value });
               }}
-              className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
+              className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
               {SCHIEDSRICHTER_UMFANG_OPTIONS.map((option) => (
                 <ToggleButton
                   key={option.value}
                   id={option.value}
-                  className={OPTION_CHIP}>
+                  className={OPTION_CHIP_CLASSES}>
                   {option.label}
                 </ToggleButton>
               ))}
@@ -447,7 +416,7 @@ function SchiedsrichterFormPanel({
             {/* The field's own value carries the pick, so the refusal lands here rather than beside a
                 group that renders no message of its own. */}
             <Input className="hidden" />
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
           <StandAbsatz
             schluessel="veroeffentlichung"
@@ -456,7 +425,7 @@ function SchiedsrichterFormPanel({
         </section>
 
         <section className="flex flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Freiwillig</h3>
+          <h3 className={FORM_SECTION_HEADING_CLASSES}>Freiwillig</h3>
           {/* The paragraph below stands for every age and the switch alone goes: the record's label then
               reproduces the screen whichever of the two its person was shown. */}
           {medienAngeboten && (
@@ -536,9 +505,9 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
   }, [hatGeantwortet]);
 
   return (
-    <section className={SEITE}>
+    <section className={SEITE_CLASSES}>
       <header className="flex w-full flex-col gap-3">
-        <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>{TITEL[stand.zustand]}</h1>
+        <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>{TITEL[stand.zustand]}</h1>
       </header>
 
       {stand.zustand === "gueltig" && (
@@ -558,7 +527,7 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Danke, <Wert>{stand.vorname}</Wert>. Dein Eintrag als Schiedsrichterin oder Schiedsrichter ist bestätigt.
           </p>
           {/* What the press stored and nothing the reader already knows: the three answers they just
@@ -570,11 +539,11 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
               { label: "Fotos, Videos und Interviews", wert: stand.medien ? "erlaubt" : "nicht erlaubt" },
             ]}
           />
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Du musst nichts weiter tun. Sobald die Verwaltung Dich zu einem Spiel einteilt, erreichen wir Dich unter der Adresse, an die dieser
             Link ging.
           </p>
-          <p className={ABSATZ}>Fragen, Änderungen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
+          <p className={ABSATZ_CLASSES}>Fragen, Änderungen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
           <ZurLiga />
         </BestaetigungErgebnis>
       )}
@@ -585,8 +554,8 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
-          <p className={ABSATZ}>Dieser Eintrag ist schon bestätigt. Du musst nichts weiter tun.</p>
-          <p className={ABSATZ}>Fragen, Änderungen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
+          <p className={ABSATZ_CLASSES}>Dieser Eintrag ist schon bestätigt. Du musst nichts weiter tun.</p>
+          <p className={ABSATZ_CLASSES}>Fragen, Änderungen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
           <ZurLiga />
         </BestaetigungErgebnis>
       )}
@@ -597,11 +566,11 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Dieser Link ist ungültig oder abgelaufen. Ein Link gilt {String(SCHIEDSRICHTER_BESTAETIGUNG_FRIST_TAGE)} Tage, und ein neuer ersetzt
             jeden früheren.
           </p>
-          <p className={ABSATZ}>Dein Eintrag bleibt bestehen. Die Verwaltung schickt Dir auf Wunsch einen neuen Link.</p>
+          <p className={ABSATZ_CLASSES}>Dein Eintrag bleibt bestehen. Die Verwaltung schickt Dir auf Wunsch einen neuen Link.</p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}
@@ -612,7 +581,9 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">
-          <p className={ABSATZ}>Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.</p>
+          <p className={ABSATZ_CLASSES}>
+            Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.
+          </p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}

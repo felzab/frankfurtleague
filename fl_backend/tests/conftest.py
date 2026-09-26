@@ -1,6 +1,8 @@
 import copy
+import io
 import logging
 import re
+import sys
 import time
 from collections.abc import Callable, Iterator
 from concurrent.futures import ThreadPoolExecutor
@@ -9,14 +11,19 @@ from typing import Any
 
 import pytest
 from pydantic import BaseModel, ValidationError
-from pymongo import MongoClient
+from pymongo import MongoClient, monitoring
 from pymongo.database import Database
 
+from tests.documents import EINWILLIGUNG, rules_document
+from tests.tier import TIER_GUARD, UNMARKED_USE
 from tests.worker import guard_every_database, release_every_database, worker_database
 
 # testcontainers' reaper teardown logs after pytest closes its capture stream, printing a traceback on
 # a passing run. Not `raiseExceptions = False`: that would hide real handler failures too.
 logging.getLogger("urllib3").setLevel(logging.INFO)
+
+# pytest's own, so `tests/core/test_tier.py` can run a session through the guard's registration.
+pytest_plugins = ("pytester",)
 
 
 # Fixed rather than generated: a failing test points at the same value every run.
@@ -192,14 +199,7 @@ def schiedsrichter(kontakt: PayloadFactory) -> PayloadFactory:
 
 @pytest.fixture
 def einwilligung() -> PayloadFactory:
-    return _factory(
-        {
-            "umfang": "kader_oeffentlich",
-            "erteilt_von": "erziehungsberechtigt",
-            "datum": "2026-01-15",
-            "bestaetigt_am": "2026-01-20",
-        }
-    )
+    return _factory(dict(EINWILLIGUNG))
 
 
 @pytest.fixture
@@ -238,12 +238,7 @@ def spieler() -> PayloadFactory:
             "team_id": TEAM_ID,
             "inactive_since": None,
             # Collected rather than carried over, so the default corpus is the case the rule is for.
-            "einwilligung": {
-                "umfang": "kader_oeffentlich",
-                "erteilt_von": "erziehungsberechtigt",
-                "datum": "2026-01-15",
-                "bestaetigt_am": "2026-01-20",
-            },
+            "einwilligung": {**EINWILLIGUNG, "erteilt_von": "erziehungsberechtigt"},
         }
     )
 
@@ -272,17 +267,9 @@ def saison() -> PayloadFactory:
             "start_date": "2026-01-01",
             "end_date": "2026-06-30",
             "status": "active",
-            "rules": {
-                "win_points": 3,
-                "draw_points": 1,
-                "qualifiers_per_group": 2,
-                "number_of_groups": 4,
-                "teams_per_group": 4,
-                "tiebreak_order": "tordifferenz",
-                "max_kadergroesse": 18,
-                "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-                "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-            },
+            # The points the model suites read back, and the shape the schedule below follows from, passed
+            # rather than left to the builder's default.
+            "rules": rules_document(win_points=3, number_of_groups=4, teams_per_group=4, qualifiers_per_group=2),
             # Derived and on no document; spelled out rather than computed, so a `schedule_for` change shows here.
             "schedule": [
                 {"phase": "gruppenphase", "matchdays": 3, "matches_per_matchday": 8},
@@ -293,6 +280,10 @@ def saison() -> PayloadFactory:
         }
     )
 
+
+# Both containers' image, by tag and digest (`docs/ops/spec.md` §1.1): the local stack's server, with
+# its full version, which `scripts/tests/test_image_pins.py` holds to that form.
+MONGO_IMAGE = "mongo:8.3.11@sha256:5d7043a4ffe02b9ed1b6e0bab057546981af5ca0a79107e9c461e49bc44c0a7b"
 
 # A majority write's acknowledgement waits on the oplog entry reaching the journal, and this
 # container's data is discarded at session end, so the disk buys nothing the tier needs.
@@ -335,7 +326,7 @@ def _standalone_mongod() -> Iterator[str]:
     # a DeprecationWarning.
     from testcontainers.community.mongodb import MongoDbContainer
 
-    with MongoDbContainer("mongo:8").with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS) as container:
+    with MongoDbContainer(MONGO_IMAGE).with_tmpfs_mount(TMPFS_DATA_PATH, TMPFS_DATA_OPTIONS) as container:
         yield str(container.get_connection_url())
 
 
@@ -347,7 +338,7 @@ def _replica_set_mongod() -> Iterator[str]:
     from testcontainers.core.wait_strategies import LogMessageWaitStrategy
 
     container = (
-        DockerContainer("mongo:8")
+        DockerContainer(MONGO_IMAGE)
         # No `--auth`: with `--replSet` mongod demands a bind-mounted keyFile whose permissions it checks,
         # fragile on a Windows host. The other container keeps its credentials for the limited-user tests.
         .with_command(f"--replSet rs0 --bind_ip_all --oplogSize {REPLICA_SET_OPLOG_MB}")
@@ -448,7 +439,14 @@ def _default_tier_markexpr(config: pytest.Config) -> str | None:
 
 
 def pytest_configure(config: pytest.Config) -> None:
+    # Windows gives a piped stream the ANSI code page, which writes a refusal's `§` as a byte no UTF-8
+    # reader decodes. Set here rather than as `PYTHONUTF8`, which every launcher would have to export.
+    for stream in (sys.stdout, sys.stderr):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(encoding="utf-8")
     guard_every_database()
+    monitoring.register(UNMARKED_USE)
+    config.pluginmanager.register(TIER_GUARD, "fl-db-tier-guard")
 
 
 # `optionalhook`, because xdist SPECS this hook. Where an environment is behind `uv.lock` the plugin

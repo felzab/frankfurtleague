@@ -12,6 +12,7 @@ from app.api.saisons.services import base_tier_status_term, with_schedule
 from app.core.config import API_VERSION
 from app.core.crud import build_query, build_sort, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SaisonsCollection
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.security import verify_access_base
 
 router = APIRouter(
@@ -44,7 +45,7 @@ async def get_saisons(saisons_collection: SaisonsCollection, filters: FLSaisonsF
     return FLSaisonsListResponse(saisons=saisons)
 
 
-@router.get("/current", response_model=FLSaisonsSingleResponse, summary="The active Saison")
+@router.get("/current", response_model=FLSaisonsSingleResponse, summary="The active Saison", responses={404: DOCUMENT_NOT_FOUND_RESPONSE})
 async def get_current_saison(
     saisons_collection: SaisonsCollection,
 ) -> FLSaisonsSingleResponse:
@@ -59,7 +60,7 @@ async def get_current_saison(
 
 # Declared after `/current`: routes match in declaration order, and the `objectid` convertor cannot
 # help here, a season id being a four-character string (`docs/backend/spec.md :: I37`).
-@router.get("/{saison_id}", response_model=FLSaisonsSingleResponse, summary="One Saison")
+@router.get("/{saison_id}", response_model=FLSaisonsSingleResponse, summary="One Saison", responses={404: DOCUMENT_NOT_FOUND_RESPONSE})
 async def get_saison(saison_id: str, saisons_collection: SaisonsCollection) -> FLSaisonsSingleResponse:
     """Return one season by its id; 404 when none carries it, rather than an empty list.
 

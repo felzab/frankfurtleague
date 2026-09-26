@@ -1,8 +1,8 @@
 "use client";
 
-import { Card } from "@heroui/react";
+import { Card } from "@heroui/react/card";
 
-import { PILL_TINT } from "@/shared/components/ui/badges";
+import { PILL_TINT_CLASSES } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 
 import { ergebnisTone, formatSpielDisplay } from "../../utils";
@@ -51,14 +51,14 @@ export function SpielCardUltraCompact({
         />
 
         <div className="flex h-full w-fit flex-col items-start">
-          <span className="fluid-sm text-foreground font-bold">{spielDatum}</span>
+          <span className="fluid-sm font-bold text-foreground">{spielDatum}</span>
           <span className="muted-meta">{spielUhrzeit}</span>
         </div>
 
         {/* `min-w-0` is what lets the names below wrap: as a flex item this pill defaults to
             `min-width: auto`, so under `w-fit` its `1fr` tracks resolve to the full content and it
             overflows the bracket column. */}
-        <div className="bg-background border-border ml-auto grid w-fit min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 rounded-xl border px-3 py-1.5 shadow-sm">
+        <div className="ml-auto grid w-fit min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-x-2 rounded-xl border border-border bg-background px-3 py-1.5 shadow-sm">
           {/* `TeamPopoverMenu` renders `display:contents`, so z-index applies from outside it. */}
           <span className={`${slotLift(spielData.team1 !== null)} justify-end`}>
             <SpielTeamSlot
@@ -66,7 +66,7 @@ export function SpielCardUltraCompact({
               quelle={spielData.team1_quelle}
               saisonId={spielData.saison_id}
               text={spielData.team1?.shorthand ?? ""}
-              className="fluid-sm text-right font-bold"
+              className="text-right fluid-sm font-bold"
             />
           </span>
 
@@ -75,7 +75,7 @@ export function SpielCardUltraCompact({
           <SpielScore
             ergebnis={spielErgebnis}
             elfmeterschiessen={spielElfmeterschiessen}
-            className={`fluid-xs flex flex-col items-center rounded-md px-1.5 py-0.5 text-center font-extrabold ${PILL_TINT[ergebnisTone(spielData)]}`}
+            className={`flex flex-col items-center rounded-md px-1.5 py-0.5 text-center fluid-xs font-extrabold ${PILL_TINT_CLASSES[ergebnisTone(spielData)]}`}
           />
 
           <span className={`${slotLift(spielData.team2 !== null)} justify-start`}>
@@ -84,7 +84,7 @@ export function SpielCardUltraCompact({
               quelle={spielData.team2_quelle}
               saisonId={spielData.saison_id}
               text={spielData.team2?.shorthand ?? ""}
-              className="fluid-sm text-left font-bold"
+              className="text-left fluid-sm font-bold"
             />
           </span>
         </div>

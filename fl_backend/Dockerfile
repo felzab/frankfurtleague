@@ -1,12 +1,12 @@
 # BACKEND · the API image
 
 # A named stage rather than a bare `COPY --from=<image>`: Dependabot's docker ecosystem scans FROM
-# lines alone, so this is what puts the installer's version under the same review as every other
-# base image here.
-FROM ghcr.io/astral-sh/uv:0.12.9 AS uv
+# lines alone, so this puts the installer's tag and digest (`docs/ops/spec.md` §1.1) under the same
+# review as every other base image here.
+FROM ghcr.io/astral-sh/uv:0.12.18@sha256:3adc3706091ce7c2fe595e669628caedd6d951551b92b258b7e7dbe06d9440bc AS uv
 
 # The OS layer the build and the runtime share, so anything added here ships in the image.
-FROM python:3.14-slim AS base
+FROM python:3.14.7-slim@sha256:caaf356f40667c496d405780745b9ac25771c189a51dfcc42430d531ea09f8a2 AS base
 
 # tini for PID 1 signal routing -> the container shuts down gracefully.
 RUN apt-get update && \
@@ -33,11 +33,13 @@ ENV UV_LINK_MODE=copy
 # Manifests before the source, so a source-only change does not invalidate the dependency layer.
 COPY pyproject.toml uv.lock ./
 
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-install-project --no-dev
+# `--locked`, as uv's Docker guide gives it and CI syncs: a lockfile stale against pyproject.toml
+# fails the build, where `--frozen` would ship whatever the stale file names.
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-install-project --no-dev
 
 COPY . .
 
-RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --locked --no-dev
 
 FROM base AS runner
 

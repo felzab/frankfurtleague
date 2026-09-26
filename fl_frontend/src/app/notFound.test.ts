@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -9,34 +8,19 @@ import { createElement as h } from "react";
 
 import { filesUnder } from "@/core/treeWalk.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
+import { answerReadsWith, backendNotFound, callPage, EMPTIEST_ANSWER } from "@/shared/testing/pageHarness.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
-import { openGraphFor } from "@/shared/utils/metadata.ts";
 import { NOT_FOUND_METADATA } from "@/shared/utils/notFoundMetadata.ts";
 
+import type { PageProps } from "@/shared/testing/pageHarness.ts";
 import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata, ResolvedMetadata } from "next";
 
-/* Every read a page's metadata makes answers nothing, which is the miss the crawler cases drive. The
-   views are doubled whole: no case renders a page's body. `connection()` is request-only. */
-const DOUBLES: [string, string][] = [
-  ["/next/server.js", "export const connection = async () => undefined;"],
-  [
-    "/src/features/bewerbungen/queries.ts",
-    "export const getBewerbungFenster = async () => null, getBewerbungSchulen = async () => [], getBewerbungTrikotfarben = async () => [];",
-  ],
-  ["/src/features/teams/queries.ts", "export const getTeam = async () => null;"],
-  ["/src/features/spiele/queries.ts", "export const getSpiele = async () => ({ spiele: [] });"],
-  ["/src/features/spieler/queries.ts", "export const getSpieler = async () => ({ spieler: [] });"],
-  ["/src/features/saisons/queries.ts", "export const getSaisons = async () => ({ saisons: [] }), getAdminSaisons = getSaisons;"],
-];
-
-const VIEW = /\/src\/features\/[a-z]+\/components\/views\/(\w+)\.tsx$/;
+/* The views and forms are doubled whole: no case renders a page's body. */
+const VIEW = /\/src\/features\/[a-z]+\/components\/(?:views|forms)\/(\w+)\.tsx$/;
 
 registerHooks({
   load(url, context, nextLoad) {
-    const doubled = DOUBLES.find(([ending]) => url.endsWith(ending));
-    if (doubled !== undefined) return { format: "module", source: doubled[1], shortCircuit: true };
-
     const view = VIEW.exec(url);
     if (view !== null) return { format: "module", source: `export const ${view[1]!} = () => null;`, shortCircuit: true };
 
@@ -47,8 +31,8 @@ registerHooks({
 /* Reached with `await import` and never a static import beside the harness
    (`docs/frontend/spec.md` §1.9). */
 const { StatusPanel } = await import("@/shared/components/ui/StatusPanel.tsx");
-/* Behind the harness too: Next's resolver requires `server-only` as it evaluates, which only the
-   harness's resolve hook answers with the empty build. */
+/* Behind the harness too: Next's resolver requires `server-only` as it evaluates, which only
+   `renderTest.ts`'s resolve hook answers with the package's empty build. */
 const { accumulateMetadata } = await import("next/dist/lib/metadata/resolve-metadata.js");
 
 const APP_DIR = import.meta.dirname;
@@ -239,17 +223,8 @@ describe("what every 404 is built from", () => {
   });
 });
 
-/**
- * Every field a layout sets that a 404 may not keep. Spelled here rather than read off a layout: the
- * root one's `next/font/google` import does not load under this runner, and the claim holds over any.
- */
-const LAYOUT_METADATA: Metadata = {
-  metadataBase: new URL("https://frankfurtleague.de"),
-  description: "Der Spielplan der laufenden Saison.",
-  alternates: { canonical: "/dashboard" },
-  openGraph: openGraphFor("/dashboard"),
-  twitter: { card: "summary_large_image" },
-};
+/** Every field the root layout sets, each of which a 404 under it may not keep. */
+const { metadata: LAYOUT_METADATA } = await import("./layout.tsx");
 
 /** What a crawler reads for `page` under that layout, merged by Next's own installed resolver. */
 const resolvedUnderALayout = (page: Metadata): Promise<ResolvedMetadata> =>
@@ -263,24 +238,52 @@ const resolvedUnderALayout = (page: Metadata): Promise<ResolvedMetadata> =>
     { trailingSlash: false, isStaticMetadataRouteFile: false },
   );
 
-/**
- * Every page raising `notFound()` that sets metadata of its own, which is what its 404 is served with. Read off
- * every page rather than listed, so a page added later answers to the same rule.
- */
-const RAISING = PAGES.filter((file) => readFileSync(file, "utf8").includes("notFound()"));
-const STATIC_ANSWERS = [
-  path.join(APP_DIR, "not-found.tsx"),
-  ...RAISING.filter((file) => readFileSync(file, "utf8").includes("export const metadata")),
-];
-const GENERATED_ANSWERS = RAISING.filter((file) => readFileSync(file, "utf8").includes("export async function generateMetadata"));
-
 type GenerateMetadata = (props: NextPageProps<{ saison_id: string; team_id: string }>) => Promise<Metadata>;
+
+type PageModule = { default: (props: PageProps) => unknown; metadata?: Metadata; generateMetadata?: GenerateMetadata };
 
 /** Every id segment a page reads, well-formed and held by no read, or malformed. */
 const MISSES = {
   "an id no read holds": { saison_id: "2099", team_id: "6780e194677bfbfb5ea8396c" },
   "a malformed id": { saison_id: "20266", team_id: "kein-team" },
 };
+
+const MISSED = new Set(Object.values(MISSES).flatMap((params) => Object.values(params)));
+
+// A read naming the id the address names finds nothing, as the backend answers a miss; every other
+// read finds the emptiest body its schema takes.
+answerReadsWith((endpoint, schema, params) => {
+  if (![...endpoint.split("/"), ...Object.values(params)].some((part) => MISSED.has(String(part))))
+    return EMPTIEST_ANSWER(endpoint, schema, params);
+
+  throw backendNotFound(endpoint);
+});
+
+const raisesNotFound = async (Page: PageModule["default"]): Promise<boolean> => {
+  for (const params of Object.values(MISSES)) {
+    const { thrown } = await callPage(Page, { params: Promise.resolve(params), searchParams: Promise.resolve({}) });
+    if (thrown.some((error) => (error as { digest?: unknown } | null)?.digest === "NEXT_HTTP_ERROR_FALLBACK;404")) return true;
+  }
+
+  return false;
+};
+
+/**
+ * Every page answering a miss with a 404 that sets metadata of its own, which is what its 404 is
+ * served with: each page loaded and called, so a page added later answers to the same rule.
+ */
+const RAISING: { file: string; loaded: PageModule }[] = [];
+for (const file of PAGES) {
+  const loaded = (await import(pathToFileURL(file).href)) as PageModule;
+  if ((loaded.metadata !== undefined || loaded.generateMetadata !== undefined) && (await raisesNotFound(loaded.default)))
+    RAISING.push({ file, loaded });
+}
+
+const STATIC_ANSWERS = [
+  path.join(APP_DIR, "not-found.tsx"),
+  ...RAISING.filter(({ loaded }) => loaded.metadata !== undefined).map(({ file }) => file),
+];
+const GENERATED_ANSWERS = RAISING.filter(({ loaded }) => loaded.generateMetadata !== undefined).map(({ file }) => file);
 
 describe("what every 404 tells a crawler", () => {
   /* First: an answer nothing reads would pass the cases below over an empty list. */

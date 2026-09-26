@@ -1,0 +1,19 @@
+// Linted as src/app/robots.ts.
+import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
+// What a crawler reads stands on the published origin.
+import { SITE_URL } from "@/core/brand";
+// Every other import ban still reaches it.
+import { Button } from "@heroui/react"; // expect: vendor-root
+import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js"; // expect: next-private
+import { DateField } from "@heroui/react/date-field"; // expect: segmented-import
+import { Form as HeroForm } from "@heroui/react/form"; // expect: heroui-form
+import { NumberField as HeroNumberField } from "@heroui/react/number-field"; // expect: number-field
+import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect: marked-field
+import { HintPanel } from "@/shared/components/ui/InfoHint"; // expect: hint-internals
+import { captureStdout } from "@/core/stdoutCapture"; // expect: test-only
+import { createRequire } from "node:module"; // expect: node-module
+
+export const USED = [SITE_URL, Button, AppRouterContext, DateField, HeroForm, HintPanel, captureStdout, createRequire];
+export const NUMBER_FIELD_USED = HeroNumberField;
+export const LOCALE_USED = PinnedLocale;
+export const TEXT_FIELD_USED = HeroTextField;

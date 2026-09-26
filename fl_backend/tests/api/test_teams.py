@@ -190,7 +190,7 @@ class TestFLTeamRecord:
         assert str(parsed.id) == "6890a1b2c3d4e5f607182930"
         assert parsed.inactive_since is None
 
-    def test_accepts_a_document_carrying_none_of_the_season_scoped_fields(self, team, address):
+    def test_accepts_a_document_carrying_none_of_the_season_scoped_fields(self, team):
         """The case the write path produces: the same document validated against `FLTeam` fails on all three fields."""
         stored = {key: value for key, value in team().items() if key not in {"gruppe", "austritt", "statistik"}}
 

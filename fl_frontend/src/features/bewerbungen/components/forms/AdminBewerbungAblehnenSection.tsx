@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { startTransition, useState } from "react";
 
-import { Ban } from "@gravity-ui/icons";
+import Ban from "@gravity-ui/icons/Ban";
 
-import { FieldError, Label, TextArea, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Label } from "@heroui/react/label";
+import { TextArea } from "@heroui/react/textarea";
 
 import { ablehnenBewerbungAction } from "@/features/bewerbungen/actions";
 import { BEWERBUNG_GRUND_MAX_LENGTH } from "@/features/bewerbungen/constants";
@@ -14,12 +15,20 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { FIELD_ERROR, FIELD_LABEL, FIELD_TEXTAREA, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_ERROR_CLASSES,
+  FIELD_LABEL_CLASSES,
+  FIELD_TEXTAREA_CLASSES,
+  FORM_SECTION_HEADING_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { TextField } from "@/shared/components/ui/TextField";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 /**
  * The cap and its wording are the write's own (`docs/frontend/spec.md :: I18`), asked of the field that
@@ -40,14 +49,20 @@ export function AdminBewerbungAblehnenSection({
   bewerbungId,
   teamName,
   saisonId,
+  onGetipptChange,
+  isDirty,
 }: {
   bewerbungId: string;
   /** The club this decline is about, or `null` where the application names none — the readout says so. */
   teamName: string | null;
   saisonId: string;
+  /** Told whether a reason stands typed, which the acceptance's write would re-key the page over. */
+  onGetipptChange: (getippt: boolean) => void;
+  /** Whether a box in the confirmation strip holds typing, which this write re-keys the page over. */
+  isDirty: boolean;
 }) {
-  const router = useRouter();
-  const { isConfirming, isPending: isDeclining, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm(() => guardAgainstDraft(isDirty, DRAFT_DISCARDED));
+  const { isConfirming, press, cancel } = twoPress;
 
   const [grund, setGrund] = useState("");
   /** The refusal the API answered with, which lands on this field. Cleared on the next keystroke. */
@@ -72,21 +87,23 @@ export function AdminBewerbungAblehnenSection({
 
   const handleDecline = () => {
     press(async () => {
-      const res = await ablehnenBewerbungAction({ id: bewerbungId, grund: grund });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await ablehnenBewerbungAction({ id: bewerbungId, grund: grund }).catch(unansweredAction);
 
-      if (!res.success) {
-        const fieldError = res.fieldErrors?.grund ?? null;
-        setGrundError(fieldError);
+      // Wrapped again: the press runs this inside its transition, and React leaves an update after an
+      // `await` outside it.
+      startTransition(() => {
+        if (!res.success) {
+          const fieldError = res.fieldErrors?.grund ?? null;
+          setGrundError(fieldError);
 
-        if (fieldError === null) appToast.failure("Bewerbung nicht abgelehnt", res);
-        return;
-      }
+          if (fieldError === null) appToast.failure("Bewerbung nicht abgelehnt", res);
+          return;
+        }
 
-      setGrundError(null);
-      appToast.success("Bewerbung abgelehnt", { description: res.message });
-      // The application is decided now, so this page has to come back showing that: the two decision
-      // panels go and the Entscheidung block takes their place.
-      router.refresh();
+        setGrundError(null);
+        appToast.success("Bewerbung abgelehnt", { description: res.message });
+      });
     });
   };
 
@@ -120,29 +137,30 @@ export function AdminBewerbungAblehnenSection({
             setGrundError(null);
             if (next.trim() === "" || zuLangSatz(next) === null) setLaengeError(null);
             setGrund(next);
+            onGetipptChange(next.trim() !== "");
             cancel();
           }}
           onBlur={() => setLaengeError(zuLang)}
           isInvalid={error !== null ? true : undefined}>
-          <Label className={FIELD_LABEL}>Grund für die Absage</Label>
+          <Label className={FIELD_LABEL_CLASSES}>Grund für die Absage</Label>
           <TextArea
             fullWidth
             placeholder="z.B. Für die Saison 2027 sind alle Plätze vergeben."
-            className={`${FIELD_TEXTAREA} min-h-24`}
+            className={`${FIELD_TEXTAREA_CLASSES} min-h-24`}
           />
-          <FieldError className={FIELD_ERROR}>{error}</FieldError>
+          <FieldError className={FIELD_ERROR_CLASSES}>{error}</FieldError>
         </TextField>
 
         {/* The count, not a progress bar: what a writer needs near the cap is the number of
             characters left, and the field is refused above it rather than truncated. */}
-        <p className="fluid-xxs text-foreground-muted font-medium">
+        <p className="fluid-xxs font-medium text-foreground-muted">
           {String(trimmedGrund.length)} von {String(BEWERBUNG_GRUND_MAX_LENGTH)} Zeichen
         </p>
 
         {isConfirming && !isEmpty && (
           <ConfirmReveal>
             <div className="flex w-full flex-col gap-y-1">
-              <h3 className={FORM_SECTION_HEADING}>Was dabei abgeschlossen wird</h3>
+              <h3 className={FORM_SECTION_HEADING_CLASSES}>Was dabei abgeschlossen wird</h3>
               <dl className="flex w-full flex-col gap-y-1">
                 <ConfirmReadoutRow
                   label="Team"
@@ -157,25 +175,21 @@ export function AdminBewerbungAblehnenSection({
 
             {/* The reason stands unabridged: it is the one thing the message exists to hand over, and
                 a shortened preview would let a sentence go out that nobody read whole. */}
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
+            <p className="fluid-xxs leading-normal font-medium text-foreground">
               Diese Begründung geht so an die Kontaktpersonen: „{trimmedGrund}“
             </p>
 
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
+            <p className="fluid-xxs leading-normal font-medium text-foreground">
               Es gibt in der Verwaltung keinen Weg zurück. Über eine Bewerbung wird einmal entschieden, und die Absage geht sofort raus.
             </p>
           </ConfirmReveal>
         )}
 
-        <ConfirmActionRow
-          isConfirming={isConfirming}
-          isPending={isDeclining}
-          onCancel={cancel}>
+        <ConfirmActionRow confirm={twoPress}>
           {/* On the control, never a sentence beside it that the first keystroke would unmount under the
               admin typing (`docs/frontend/spec.md` §1.14). */}
           <ConfirmPressButton
-            isConfirming={isConfirming}
-            isPending={isDeclining}
+            confirm={twoPress}
             reason={closedReason}
             resting="Bewerbung ablehnen"
             armed="Ja, Absage verbindlich verschicken"

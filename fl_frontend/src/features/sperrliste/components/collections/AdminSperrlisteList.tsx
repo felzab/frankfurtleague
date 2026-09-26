@@ -2,11 +2,11 @@
 
 import { memo } from "react";
 
-import { Ban } from "@gravity-ui/icons";
+import Ban from "@gravity-ui/icons/Ban";
 
 import { SPERRE_BIS_LABEL, sperreBisWert, SPERRLISTE_CRUD_COPY } from "@/features/sperrliste/constants";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
-import { IDENTITY_HEAD, IDENTITY_LINE, IDENTITY_ROW, IDENTITY_STACK } from "@/shared/components/ui/adminTable";
+import { IDENTITY_HEAD_CLASSES, IDENTITY_LINE_CLASSES, IDENTITY_ROW_CLASSES, IDENTITY_STACK_CLASSES } from "@/shared/components/ui/adminTable";
 import { card } from "@/shared/components/ui/card";
 import { formatSpielDatum } from "@/shared/utils/format";
 
@@ -24,7 +24,7 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
 };
 
 /** The eyebrow naming the fact at the fact, so no heading over the list can disagree with it. */
-const FACT_LABEL = "fluid-xxs text-foreground-muted font-extrabold tracking-widest uppercase";
+const FACT_LABEL_CLASSES = "fluid-xxs font-extrabold tracking-widest text-foreground-muted uppercase";
 
 /**
  * **A card per ban at every width, never a table** (`docs/frontend/spec.md :: I237`). Memoised per
@@ -41,18 +41,18 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
   /* The day leads, being the one short token that tells two rows apart: the address is a keyed hash
      and the reason is a sentence. */
   const renderIdentity = (eintrag: FLSperrlisteEintrag) => (
-    <div className={IDENTITY_ROW}>
+    <div className={IDENTITY_ROW_CLASSES}>
       <Ban
         aria-hidden="true"
-        className="text-foreground-muted size-4.5 shrink-0"
+        className="size-4.5 shrink-0 text-foreground-muted"
       />
-      <div className={IDENTITY_STACK}>
-        <div className={IDENTITY_HEAD}>
-          {/* `IDENTITY_NAME`'s box carries `truncate`, and a clipped year is a different date, so the
+      <div className={IDENTITY_STACK_CLASSES}>
+        <div className={IDENTITY_HEAD_CLASSES}>
+          {/* `IDENTITY_NAME_CLASSES`'s box carries `truncate`, and a clipped year is a different date, so the
               day wears the grade `AdminBewerbungenList` gives one instead. */}
-          <span className="font-numeric fluid-sm text-foreground font-semibold tabular-nums">{formatSpielDatum(eintrag.erstellt_am)}</span>
+          <span className="font-numeric fluid-sm font-semibold text-foreground tabular-nums">{formatSpielDatum(eintrag.erstellt_am)}</span>
         </div>
-        <span className={IDENTITY_LINE}>{eintrag.erstellt_von}</span>
+        <span className={IDENTITY_LINE_CLASSES}>{eintrag.erstellt_von}</span>
       </div>
     </div>
   );
@@ -73,19 +73,19 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
 
           {/* One track and not the neighbours' four: a reason is a sentence an administrator typed,
               and a column of a card's width clips it wherever it renders. */}
-          <div className="border-border/50 flex w-full flex-col gap-1 border-t pt-3">
-            <span className={FACT_LABEL}>Grund</span>
-            <p className="fluid-sm text-foreground font-medium">{eintrag.grund}</p>
+          <div className="flex w-full flex-col gap-1 border-t border-border/50 pt-3">
+            <span className={FACT_LABEL_CLASSES}>Grund</span>
+            <p className="fluid-sm font-medium text-foreground">{eintrag.grund}</p>
           </div>
 
           {/* Its own track under the reason rather than a line inside it: the bound is the one fact
               on the card an administrator compares against the running season. */}
-          <div className="border-border/50 flex w-full flex-col gap-1 border-t pt-3">
-            <span className={FACT_LABEL}>{SPERRE_BIS_LABEL}</span>
-            <p className="fluid-sm text-foreground font-medium">{sperreBisWert(eintrag.gesperrt_bis_saison_id)}</p>
+          <div className="flex w-full flex-col gap-1 border-t border-border/50 pt-3">
+            <span className={FACT_LABEL_CLASSES}>{SPERRE_BIS_LABEL}</span>
+            <p className="fluid-sm font-medium text-foreground">{sperreBisWert(eintrag.gesperrt_bis_saison_id)}</p>
           </div>
 
-          <div className="border-border/50 -mx-1 border-t pt-2">
+          <div className="-mx-1 border-t border-border/50 pt-2">
             <AdminSperreAufhebenPanel
               sperreId={eintrag.id}
               gesperrtAm={formatSpielDatum(eintrag.erstellt_am)}

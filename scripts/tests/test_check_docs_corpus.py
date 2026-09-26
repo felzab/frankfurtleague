@@ -16,22 +16,23 @@ A planted violation never shares a line of THIS file with a hash or a triple quo
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Callable
 
+import pytest
 from conftest import git, write
 from test_check_docs import (
     ADDED_STATUS_RULE,
     APP_GLOBALS,
     BLOCKED_FIELDS,
-    BLOCKED_ROW,
     DOCS_ENTRY,
     ERROR_CODES,
+    FRONTEND_RAISE,
     FRONTEND_ROW,
     GITATTRIBUTES,
     GLOSSARY,
     HASH,
     HELPER_LEAD_IN,
     IGNORED_MODULE,
-    MALFORMED_ENTRY,
     NEWLINE,
     NOTES,
     OPS_SPEC,
@@ -41,17 +42,20 @@ from test_check_docs import (
     PROTOCOL,
     QUOTES,
     ROADMAP,
+    SAMPLE,
     SKIPPED_MODULE,
+    SLICE_ENTRY,
     STANDARD,
     STATUS_COLUMN_ROW,
+    TSX_SAMPLE,
     UNDECODABLE,
     UNDECODABLE_BYTES,
     UNSTAGED_BLOCK,
     UNSTAGED_MODULE,
     VOCAB_FIELDS,
-    VOCAB_ROW,
     _append,
     _assert_corpus_restored,
+    _code_row,
     _gate,
     _heading,
     _module,
@@ -60,6 +64,7 @@ from test_check_docs import (
     _page,
     _read,
     _replace,
+    _reported,
     _reset,
     _run,
     _shape,
@@ -197,14 +202,14 @@ def test_a_protocol_page_that_cannot_be_decoded_is_reported_rather_than_emptying
         _, output = _output()
     finally:
         _reset()
-    assert "unreadable, so the status vocabulary was derived from nothing" in output, output
+    assert "untracked or unreadable, so the status vocabulary was derived from nothing" in output, output
     _assert_corpus_restored()
 
 
 def test_a_status_table_outside_section_four_widens_no_vocabulary() -> None:
     """A second `Status`-headed table on the page is not the derivation, and a reader re-arming on any header would take it.
 
-    Its word is planted as a status in both listings, so a reader taking it reports nothing.
+    Its word is planted as an entry's status, so a reader taking it reports nothing.
     """
     _reset()
     _append(
@@ -216,13 +221,12 @@ def test_a_status_table_outside_section_four_widens_no_vocabulary() -> None:
         "| --- | --- | --- |",
         "| 1 | A row a reader scoped to section four never reads | **Parked** |",
     )
-    _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", "| Parked |"))
     _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open |", "| Parked |"))
     try:
         _, reported = _run()
     finally:
         _reset()
-    assert reported[("fail", "roadmap-shape", ROADMAP)] == 2, "a table outside section four widened the vocabulary: " + _shape(reported)
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 1, "a table outside section four widened the vocabulary: " + _shape(reported)
     _assert_corpus_restored()
 
 
@@ -234,7 +238,6 @@ def test_a_rule_added_to_the_status_table_widens_the_vocabulary() -> None:
     """
     _reset()
     _replace(PROTOCOL, OTHERWISE_RULE, ADDED_STATUS_RULE + "\n" + OTHERWISE_RULE.replace("| 4 |", "| 5 |"))
-    _replace(ROADMAP, VOCAB_ROW, VOCAB_ROW.replace("| Open |", "| Parked |"))
     _replace(ROADMAP, VOCAB_FIELDS, VOCAB_FIELDS.replace("| Open |", "| Parked |"))
     try:
         _, reported = _run()
@@ -244,23 +247,23 @@ def test_a_rule_added_to_the_status_table_widens_the_vocabulary() -> None:
     _assert_corpus_restored()
 
 
-def test_a_blocked_entry_naming_two_dependencies_is_held_to_either_of_them() -> None:
-    """A `Depends on` cell naming two entries is read token by token, one of them filed being enough.
+def test_a_blocked_entry_naming_two_dependencies_is_read_token_by_token() -> None:
+    """A `Depends on` cell naming two entries is read token by token, each held to the page.
 
-    Read as one token it names no entry, and a true claim about another entry draws a finding.
+    Read as one token it names no entry, and a true claim about two other entries draws a finding.
     """
     _reset()
-    both = "| Docs | Blocked | XS | " + _tick(ORPHAN_ENTRY) + ", " + _tick(DOCS_ENTRY) + " |"
-    _replace(ROADMAP, BLOCKED_ROW, BLOCKED_ROW.replace("| Open |", "| Blocked |"))
+    both = BLOCKED_FIELDS.replace("| Open | — |", "| Blocked | " + _tick(DOCS_ENTRY) + ", " + _tick(SLICE_ENTRY) + " |")
     _replace(ROADMAP, BLOCKED_FIELDS, both)
     try:
         _, reported = _run()
-        _replace(ROADMAP, both, both.replace(_tick(DOCS_ENTRY), _tick(MALFORMED_ENTRY)))
-        _, unfiled = _run()
+        _replace(ROADMAP, both, both.replace(_tick(DOCS_ENTRY), _tick(ORPHAN_ENTRY)))
+        _, departed = _run()
     finally:
         _reset()
-    assert reported[("fail", "roadmap-shape", ROADMAP)] == 0, "a dependency filed beside an unfiled one was refused: " + _shape(reported)
-    assert unfiled[("fail", "roadmap-shape", ROADMAP)] == 1, "two unfiled dependencies passed: " + _shape(unfiled)
+    assert reported[("fail", "roadmap-shape", ROADMAP)] == 0, "two filed dependencies were refused: " + _shape(reported)
+    # One: the departed token, and never the `Blocked` arm as well while the other still blocks.
+    assert departed[("fail", "roadmap-shape", ROADMAP)] == 1, "a departed dependency beside a filed one passed: " + _shape(departed)
     _assert_corpus_restored()
 
 
@@ -314,6 +317,45 @@ def test_a_row_under_an_area_no_pattern_spelled_is_held_to_the_trees() -> None:
     _assert_corpus_restored()
 
 
+def _comment_out_the_frontend_raise() -> None:
+    _replace(TSX_SAMPLE, FRONTEND_RAISE, "  // " + FRONTEND_RAISE.strip())
+
+
+def _row_a_backend_comment_alone_spells() -> None:
+    # A fresh code: the sample's own is spelled again by the reason the rule register carries.
+    _replace(ERROR_CODES, FRONTEND_ROW, FRONTEND_ROW + "\n" + _code_row("REQ-SAMPLE-009", "A code only a comment names"))
+    _append(SAMPLE, HASH + ' RETIRED = "REQ-SAMPLE-009"')
+
+
+@pytest.mark.parametrize(
+    ("plant", "said"),
+    [
+        pytest.param(
+            _comment_out_the_frontend_raise,
+            "`FE-SAMPLE-001` has a row and is spelled in no code under `fl_frontend/src/**/*.ts*`",
+            id="slash-comment",
+        ),
+        pytest.param(
+            _row_a_backend_comment_alone_spells,
+            "`REQ-SAMPLE-009` has a row and is spelled in no code under `fl_backend/app/**/*.py`",
+            id="hash-comment",
+        ),
+    ],
+)
+def test_a_code_only_a_comment_spells_leaves_its_row_unanswered(plant: Callable[[], None], said: str) -> None:
+    """Each tree's comment reader, so a code a comment keeps naming keeps no row alive."""
+    _reset()
+    plant()
+    try:
+        _, output = _output()
+        reported = _reported(output)
+    finally:
+        _reset()
+    assert reported[("fail", "error-codes", ERROR_CODES)] == 1, _shape(reported)
+    assert said in output, output
+    _assert_corpus_restored()
+
+
 def test_an_untracked_register_page_is_the_check_s_own_finding() -> None:
     """The page on disk and outside the index satisfies `inputs` and yields no row, so the comparison ran over nothing."""
     _reset()
@@ -363,7 +405,7 @@ def test_only_a_gitattributes_declaration_exempts_a_file_from_the_byte_check() -
 def test_a_file_the_branch_has_not_staged_is_read_like_a_tracked_one() -> None:
     """The corpus is the working tree, so a file written and not yet added is inside every check.
 
-    The gate runs before the push (CLAUDE.md §2), so an index-only read would pass clean over a
+    Iterating runs the gate over work not yet added, so an index-only read would pass clean over a
     branch's unstaged files.
     """
     _reset()

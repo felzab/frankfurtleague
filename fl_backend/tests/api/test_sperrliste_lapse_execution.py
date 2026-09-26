@@ -16,16 +16,16 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import activate_saison
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.admin_router import get_sperrliste, post_sperrliste_eintrag
 from app.api.sperrliste.crud import address_is_gesperrt
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import SPERRLISTE_KEINE_SAISON, SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
+from tests import documents
 from tests.config import build_test_config
-from tests.database import a_clean_database, on_the_seed_loop
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -57,33 +57,10 @@ SPIELTAG_ID = ObjectId("6890a1b2c3d4e5f6072500a1")
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
-@pytest.fixture(autouse=True)
-def _uncached_saisons() -> None:
-    """Process-global and keyed by season id alone, so an active season another module left would answer here."""
-
-    invalidate_saison_cache()
-
-
 def saison_document(saison_id: str, status: str) -> dict[str, Any]:
     """The span and the rules are what the shipped validator requires of any season; `status` is what this suite varies."""
 
-    return {
-        "_id": saison_id,
-        "start_date": f"{saison_id}-01-01",
-        "end_date": f"{saison_id}-06-30",
-        "status": status,
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 2,
-            "teams_per_group": 4,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1"],
-        },
-    }
+    return documents.saison_document(saison_id, status, rules=documents.rules_document(number_of_groups=2, erlaubte_stufen=["E1"]))
 
 
 async def a_drawn_target(database: AsyncDatabase, saison_id: str) -> None:
@@ -94,28 +71,14 @@ async def a_drawn_target(database: AsyncDatabase, saison_id: str) -> None:
     """
 
     await database[Collection.SAISONS].insert_one(saison_document(saison_id, "future"))
-    # Every key spelled out because the shipped validator requires all sixteen, and each null below
-    # sits on a field its own sub-schema declares nullable.
     await database[Collection.SPIELE].insert_one(
-        {
-            "_id": ObjectId(),
-            "spiel_nr": 1,
-            "saison_id": saison_id,
-            "saison_phase": "gruppenphase",
-            "spieltag_id": SPIELTAG_ID,
-            "team1": {"team_id": TEAM_ID, "name": "Alpha", "shorthand": "AL", "tore": None},
-            "team2": None,
-            "team1_quelle": None,
-            "team2_quelle": None,
-            "datum": None,
-            "uhrzeit": None,
-            "ort": None,
-            "schiedsrichter": None,
-            "ergebnis": None,
-            "elfmeterschiessen": None,
-            "sonderereignis": None,
-            "notiz": None,
-        }
+        documents.spiel_document(
+            spiel_id=ObjectId(),
+            saison_id=saison_id,
+            spiel_nr=1,
+            spieltag_id=SPIELTAG_ID,
+            team1={"team_id": TEAM_ID, "name": "Alpha", "shorthand": "AL", "tore": None},
+        )
     )
 
 
@@ -205,7 +168,7 @@ class TestWhatTheWriteRecords:
 
 class TestTheSeasonTheBanIsCountedFrom:
     def test_the_running_season_answers_while_one_is_active(self, mongo_replica_set_url: str):
-        """The ordinary state, and the control under the next two: a helper answering the newest season at all times passes each of them."""
+        """The ordinary state, and the control under the two cases answering nothing: a helper always answering `None` passes both."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str | None:
             return await pull_massgebliche_saison_id(saisons_collection=database[Collection.SAISONS])
@@ -214,10 +177,10 @@ class TestTheSeasonTheBanIsCountedFrom:
 
         assert on_a_league(mongo_replica_set_url, seasons, body) == ENTERED_UNDER
 
-    def test_the_last_season_that_ran_answers_between_two_seasons(self, mongo_replica_set_url: str):
-        """A status set by hand: no route leaves the league here.
+    def test_a_league_holding_only_ended_seasons_answers_nothing(self, mongo_replica_set_url: str):
+        """A status set by hand, the rollover promoting in the transaction that demotes (`docs/backend/spec.md :: I18`).
 
-        The rollover promotes in the transaction that demotes (`docs/backend/spec.md :: I18`).
+        The newest ended season sorts first, so a helper guessing it answers `ENTERED_UNDER` here.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str | None:
@@ -225,7 +188,7 @@ class TestTheSeasonTheBanIsCountedFrom:
 
         seasons = [saison_document("2025", "past"), saison_document(ENTERED_UNDER, "past"), saison_document("2027", "future")]
 
-        assert on_a_league(mongo_replica_set_url, seasons, body) == ENTERED_UNDER
+        assert on_a_league(mongo_replica_set_url, seasons, body) is None
 
     def test_a_league_holding_only_a_future_season_answers_nothing(self, mongo_replica_set_url: str):
         """A planned season has been played under by nobody, so counting five from it would bar a person five seasons early."""
@@ -255,14 +218,14 @@ class TestTheSeasonTheBanIsCountedFrom:
 
         assert on_a_league(mongo_replica_set_url, seasons, body) == (ENTERED_UNDER, "2027")
 
-    def test_the_last_season_that_ran_is_read_through_the_session_too(self, mongo_replica_set_url: str):
-        """A season the transaction wrote is seen through its session alone, so the fallback answers it only when handed that session."""
+    def test_the_running_season_is_read_through_the_session(self, mongo_replica_set_url: str):
+        """A season the transaction wrote is seen through its session alone, so the helper answers it only when handed that session."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str | None]:
             saisons = database[Collection.SAISONS]
 
             async def write_then_read(session: AsyncClientSession) -> tuple[str | None, str | None]:
-                await saisons.insert_one(saison_document("2028", "past"), session=session)
+                await saisons.insert_one(saison_document("2028", "active"), session=session)
 
                 return (
                     await pull_massgebliche_saison_id(saisons_collection=saisons, session=session),
@@ -274,22 +237,29 @@ class TestTheSeasonTheBanIsCountedFrom:
 
         seasons = [saison_document(ENTERED_UNDER, "past"), saison_document("2027", "future")]
 
-        assert on_a_league(mongo_replica_set_url, seasons, body) == ("2028", ENTERED_UNDER)
+        assert on_a_league(mongo_replica_set_url, seasons, body) == ("2028", None)
 
 
-class TestALeagueThatHasNotRunASeasonYet:
-    def test_the_ban_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str):
+class TestALeagueWithNoSeasonRunning:
+    @pytest.mark.parametrize(
+        "seasons",
+        [
+            pytest.param([saison_document("2027", "future")], id="before its first activation"),
+            pytest.param([saison_document(ENTERED_UNDER, "past")], id="holding only an ended season"),
+        ],
+    )
+    def test_the_ban_is_refused_and_nothing_is_written(self, mongo_replica_set_url: str, seasons: list[dict[str, Any]]):
         """Driven through the endpoint, so the refusal is shown to stand before the insert rather than beside it."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            with pytest.raises(DocumentConflictException) as raised:
+            with pytest.raises(WriteRefusalException) as raised:
                 await ban(database, client)
 
             assert raised.value.error_code == SPERRLISTE_KEINE_SAISON
 
             return await database[Collection.SPERRLISTE].count_documents({})
 
-        assert on_a_league(mongo_replica_set_url, [saison_document("2027", "future")], body) == 0
+        assert on_a_league(mongo_replica_set_url, seasons, body) == 0
 
     def test_the_check_answers_not_barred_rather_than_refusing(self, mongo_replica_set_url: str):
         """A public submission must not be turned away for the league's own state, and the refusal above is what leaves the list empty."""
@@ -341,9 +311,7 @@ class TestTheBoundaryTheCheckReads:
 
         code, stored = on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body)
 
-        # 121 is `DocumentValidationFailure`, so the schema refused it rather than an unrelated
-        # write error.
-        assert code == 121
+        assert code == DOCUMENT_VALIDATION_FAILED
         assert stored == 2
 
 
@@ -353,11 +321,9 @@ class TestTheSweepAtAnActivation:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[str]:
             await ban(database, client)
-            await database[Collection.SAISONS].update_one({"_id": ENTERED_UNDER}, {"$set": {"status": "past"}})
-            invalidate_saison_cache()
             await a_drawn_target(database, FIRST_CLEAR)
-            # Entered with 2026 set `past` by hand and nothing active, so this one is counted from
-            # 2026 as well and lapses five seasons after the row above.
+            # Counted from the running season like the row above, then moved to the season the
+            # activation reaches, which covers it.
             await ban(database, client, email=OTHER)
             await database[Collection.SPERRLISTE].update_one(
                 {"adresse_hash": adresse_hash(OTHER, schluessel=CONFIG.sperrliste_schluessel)},
@@ -418,7 +384,7 @@ class TestTheSweepAtAnActivation:
         assert recorded.get("before") is None
         assert GRUND not in repr(recorded)
         # The address the ban was taken from survives nowhere, the filter's own values included.
-        assert "zorbanax" not in repr(recorded).lower()
+        assert BANNED.split("@")[0].lower() not in repr(recorded).lower()
 
     def test_an_activation_removing_nothing_still_activates(self, mongo_replica_set_url: str):
         """The floor under every case above: a sweep sharing the rollover's transaction may still never move its answer."""

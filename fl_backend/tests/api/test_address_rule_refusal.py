@@ -7,18 +7,18 @@ from typing import Annotated, Any
 
 import pymongo
 import pytest
-from httpx2 import ASGITransport, AsyncClient, Response
+from httpx2 import Response
 from pydantic import BaseModel, EmailStr, TypeAdapter, ValidationError
 from pydantic.warnings import UnsupportedFieldAttributeWarning
-from pymongo import AsyncMongoClient
 
 import app
 from app.api.kontakte.schemas import FLKontaktErasurePayload
 from app.core.config import API_VERSION
+from app.core.exception_handlers import DATABASE_FAILED, PAYLOAD_REFUSED, UNKNOWN_OUTCOME
 from app.core.security import ACTOR_HEADER
-from app.main import create_app
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
-from tests.config import ADMIN_AUTH, BASE_AUTH, TEST_BASE_URL, build_test_config
+from tests.app_client import app_client
+from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI
 
 # Built from code points rather than spelled: each renders like the ASCII character beside it, and a
 # reader fixing the "typo" would leave every case below comparing ASCII with ASCII.
@@ -29,8 +29,8 @@ HALF_WIDTH_VOICED_MARK = chr(0xFF9E)
 
 UMLAUT_LOCAL_PART = "jürgen@schule.de"
 
-# Every address here is one `EmailStr` accepts, so a row an older rule stored can hold it, and its
-# local part is not ASCII (`docs/backend/spec.md :: I332`).
+# Every address here is one `EmailStr` accepts, so each refusal below is the address rule's own rather
+# than the library's, and its local part is not ASCII (`docs/backend/spec.md :: I332`).
 BEYOND_ASCII = [
     pytest.param(UMLAUT_LOCAL_PART, id="an umlaut"),
     pytest.param(f"{chr(0xFF41)}nna@schule.de", id="a full-width letter"),
@@ -46,18 +46,10 @@ BEYOND_ASCII = [
 UNICODE_DOMAIN = f"anna@m{chr(0xFC)}ller.de"
 UNICODE_DOMAIN_STORED = "anna@xn--mller-kva.de"
 
-# Not the configured URI: a developer plausibly runs a real `mongod` on 27017, and a database that
-# answers gives the control something other than the failure it asserts.
-UNANSWERED_URI = "mongodb://localhost:1"
-
-# Positive, because pymongo reads a zero deadline as none at all; a millisecond, so it is spent
-# before the route's first driver call, which a live deadline can hold for a selection's half-second look.
-REQUEST_DEADLINE_S = 0.001
-
 # The control's answer: a well-formed request that got past validation and reached the database. The
 # refusal's is `REQ-VAL-001`, and a keying crash answers `SRV-FAIL-001`. Either database code, since
 # which one a cut write answers is `app/core/exception_handlers.py :: db_exception_handler`'s question.
-UNREACHED_DATABASE = {"DB-FAIL-001", "DB-FAIL-002"}
+UNREACHED_DATABASE = {DATABASE_FAILED, UNKNOWN_OUTCOME}
 
 ADMIN_HEADERS = {**ADMIN_AUTH, ACTOR_HEADER: "admin@frankfurtleague.de"}
 
@@ -89,22 +81,13 @@ def answered(route: str, email: str) -> Response:
 
 
 def requested(method: str, path: str, headers: Mapping[str, str], **sent: Any) -> Response:
-    """One request per client, the request and the close on ONE loop (`tests/api/test_malformed_ids.py :: answered`)."""
-
     async def _answered() -> Response:
-        served = create_app(build_test_config())
-        served.state.db_client = AsyncMongoClient(host=UNANSWERED_URI)
-
-        try:
-            transport = ASGITransport(app=served, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                # The app's request deadline would hold each control against this unanswered server,
-                # and nested inside this one it cannot extend it. A refused body touches no driver
-                # call, so no deadline turns a 422 into the control's answer.
-                with pymongo.timeout(REQUEST_DEADLINE_S):
-                    return await http.request(method, f"/api/v{API_VERSION}{path}", headers=headers, **sent)
-        finally:
-            await served.state.db_client.close()
+        async with app_client(UNANSWERED_URI) as http:
+            # The app's request deadline would hold each control against this unanswered server,
+            # and nested inside this one it cannot extend it. A refused body touches no driver
+            # call, so no deadline turns a 422 into the control's answer.
+            with pymongo.timeout(UNANSWERED_DEADLINE_S):
+                return await http.request(method, f"/api/v{API_VERSION}{path}", headers=headers, **sent)
 
     return asyncio.run(_answered())
 
@@ -117,7 +100,7 @@ class TestEveryKeyingRouteRefusesALocalPartBeyondAscii:
 
     @pytest.mark.parametrize("email", BEYOND_ASCII)
     def test_the_address_passes_emailstr(self, email: str):
-        """The premise of every case here: an address no rule ever stored is no row that could need the refusal."""
+        """The premise of every case here: an address `EmailStr` refused would be refused with no address rule at all."""
 
         TypeAdapter(EmailStr).validate_python(email)
 
@@ -127,7 +110,7 @@ class TestEveryKeyingRouteRefusesALocalPartBeyondAscii:
 
         response = answered(route, UMLAUT_LOCAL_PART)
 
-        assert (response.status_code, response.json()["error_code"]) == (422, "REQ-VAL-001")
+        assert (response.status_code, response.json()["error_code"]) == (422, PAYLOAD_REFUSED)
 
     @pytest.mark.parametrize("route", list(ROUTES))
     def test_an_address_above_ascii_in_its_domain_alone_reaches_the_database(self, route: str):
@@ -211,10 +194,13 @@ class TestEveryAddressPayloadHoldsTheSameRule:
     def test_the_refusal_quotes_nothing_of_the_address(self):
         """The message reaches the log line `REQ-VAL-001` writes, and an erasure reaches no log sink."""
 
+        local_part = "zorbanax"
         with pytest.raises(ValidationError) as raised:
-            ADDRESS_FIELDS["app.api.sperrliste.schemas.FLPostSperrlistePayload.email"].validate_python(f"zorbanax{FULL_WIDTH_AT}x@schule.de")
+            ADDRESS_FIELDS["app.api.sperrliste.schemas.FLPostSperrlistePayload.email"].validate_python(
+                f"{local_part}{FULL_WIDTH_AT}x@schule.de"
+            )
 
-        assert "zorbanax" not in raised.value.errors()[0]["msg"]
+        assert local_part not in raised.value.errors()[0]["msg"]
 
 
 class TestTheErasureLooksUpWhatAnyRuleStored:
@@ -262,7 +248,7 @@ class TestAStringNoDatabaseStoresIsRefusedAtTheBox:
     def test_a_lone_surrogate_is_refused(self, route: str):
         response = posted_raw(route, "a\\ud800@schule.de")
 
-        assert (response.status_code, response.json()["error_code"]) == (422, "REQ-VAL-001")
+        assert (response.status_code, response.json()["error_code"]) == (422, PAYLOAD_REFUSED)
 
     @pytest.mark.parametrize("route", list(FREE_STRING_ROUTES))
     def test_the_same_body_spelled_plainly_reaches_the_database(self, route: str):

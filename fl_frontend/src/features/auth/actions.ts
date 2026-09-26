@@ -27,7 +27,7 @@ const neutralResult = (submittedEmail: string): FormState => ({
 });
 
 /**
- * Public by necessity. `nginx/prod.conf :: location = /signin` bounds that PATH rather than this
+ * Public by necessity. `nginx/shared/site.conf :: location = /signin` bounds that PATH rather than this
  * action: a server action resolves from a process-wide module map, so the same POST to any other
  * page reaches this and is metered by nothing.
  */

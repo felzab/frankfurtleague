@@ -13,6 +13,7 @@ from app.api.spieler.schemas import FLSpielerStufe
 from app.api.teams.schemas import FLTeam, FLTeamsFilterParams, FLTeamStatistikScope
 from app.api.teams.services import ZERO_STATISTIK, build_statistik_by_team, build_team_pipeline
 from app.core.collections import Collection
+from tests import documents
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_standings_test")
@@ -51,37 +52,13 @@ SPIELTAG_ID = ObjectId("6890a1b2c3d4e5f6072300a1")
 def team_document(team_id: ObjectId) -> dict[str, Any]:
     name = NAMES[team_id]
 
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": name[:2].upper(),
-        "description": "",
-        "full_name": f"{name}-Schule",
-        "website_url": f"https://{name.lower()}.example.de",
-        "address": {
-            "strasse": "Hanauer Landstraße",
-            "hausnummer": "12a",
-            "plz": "60314",
-            "stadtteil": "Ostend",
-            "stadt": "Frankfurt am Main",
-        },
-        "inactive_since": None,
-    }
+    return documents.team_document(team_id, name, name[:2].upper())
 
 
 def junction(team_id: ObjectId) -> dict[str, Any]:
-    """A dict rather than a model: `saison_teams` has no model of the row."""
-
     name = NAMES[team_id]
 
-    return {
-        "saison_id": SAISON_ID,
-        "team_id": team_id,
-        "gruppe": "A",
-        "austritt": None,
-        "name": name,
-        "shorthand": name[:2].upper(),
-    }
+    return documents.saison_team_document(SAISON_ID, team_id, name, name[:2].upper())
 
 
 def side(team_id: ObjectId, tore: int | None) -> dict[str, Any]:
@@ -102,25 +79,19 @@ def spiel_document(
 ) -> dict[str, Any]:
     """Goals and `ergebnis` are supplied separately -- production derives one from the other -- which is what builds the hand-edited shape."""
 
-    return {
-        "_id": ObjectId(f"6890a1b2c3d4e5f60723{nr:04d}"),
-        "spiel_nr": nr,
-        "saison_id": saison_id,
-        "saison_phase": saison_phase,
-        "spieltag_id": SPIELTAG_ID,
-        "team1": None if team1 is None else side(team1, tore1),
-        "team2": None if team2 is None else side(team2, tore2),
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": "2026-03-15",
-        "uhrzeit": "18:00:00",
-        "ort": None,
-        "schiedsrichter": None,
-        "ergebnis": ergebnis,
-        "elfmeterschiessen": None,
-        "sonderereignis": sonderereignis,
-        "notiz": None,
-    }
+    return documents.spiel_document(
+        spiel_id=ObjectId(f"6890a1b2c3d4e5f60723{nr:04d}"),
+        saison_id=saison_id,
+        spiel_nr=nr,
+        spieltag_id=SPIELTAG_ID,
+        saison_phase=saison_phase,
+        team1=None if team1 is None else side(team1, tore1),
+        team2=None if team2 is None else side(team2, tore2),
+        datum="2026-03-15",
+        uhrzeit="18:00:00",
+        ergebnis=ergebnis,
+        sonderereignis=sonderereignis,
+    )
 
 
 def spiel_documents() -> list[dict[str, Any]]:

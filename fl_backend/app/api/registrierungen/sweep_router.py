@@ -36,6 +36,7 @@ from app.core.dependencies import (
     get_german_date_str,
     get_germany_now,
 )
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import drain, refuse_a_stalled_page
@@ -77,8 +78,8 @@ async def _team_names(
 async def _redact(*, aktionen_collection: AktionenCollection, ids: Sequence[Any], stamp: str, session: AsyncClientSession) -> int:
     """Every log row naming the erased registrations, emptied and stamped (`docs/backend/spec.md :: I42`).
 
-    Its own rather than an import of `app/api/bewerbungen/sweep_router.py :: _redact`, which names
-    that flow's collection.
+    A twin of `app/api/bewerbungen/sweep_router.py :: _redact` with the collection fixed: two slices
+    of two instances each fall short of `.claude/CLAUDE.md` §3's three.
     """
 
     if not ids:
@@ -94,7 +95,12 @@ async def _redact(*, aktionen_collection: AktionenCollection, ids: Sequence[Any]
     return redacted.modified_count
 
 
-@router.post("/{saison_id}", response_model=FLRegistrierungSweepResponse, summary="Run one season's registration retention clocks")
+@router.post(
+    "/{saison_id}",
+    response_model=FLRegistrierungSweepResponse,
+    summary="Run one season's registration retention clocks",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+)
 async def sweep_registrierungen(
     saison_id: str,
     registrierungen_collection: RegistrierungenCollection,

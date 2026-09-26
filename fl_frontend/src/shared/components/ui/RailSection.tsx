@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 
-import { ChevronDown } from "@gravity-ui/icons";
+import ChevronDown from "@gravity-ui/icons/ChevronDown";
 
 import { card } from "@/shared/components/ui/card";
 
@@ -60,11 +60,11 @@ export function RailSection({
           aria-controls={contentId}
           aria-labelledby={headingId}
           onClick={toggle}
-          className="hover:bg-hover absolute inset-0 cursor-pointer rounded-2xl transition-colors"
+          className="absolute inset-0 cursor-pointer rounded-2xl transition-colors hover:bg-hover"
         />
 
         {/* The h2 passes clicks through to the overlay button; the hint alone takes its own. */}
-        <h2 className="fluid-base text-foreground pointer-events-none relative font-extrabold tracking-tight">
+        <h2 className="pointer-events-none relative fluid-base font-extrabold tracking-tight text-foreground">
           {/* The id sits on the title text alone, so the fold button's name never swallows the hint trigger's. */}
           <span id={headingId}>{title}</span>
           {info && <span className="pointer-events-auto relative z-10">{info}</span>}
@@ -74,7 +74,7 @@ export function RailSection({
             pointing the way the section is folded, and only the travel there is movement. */}
         <ChevronDown
           aria-hidden="true"
-          className={`text-foreground-muted pointer-events-none relative size-4 shrink-0 transition-transform duration-(--motion-base) motion-reduce:transition-none ${badge ? "" : "ml-auto"} ${isOpen ? "rotate-180" : ""}`}
+          className={`pointer-events-none relative size-4 shrink-0 text-foreground-muted transition-transform duration-(--motion-base) motion-reduce:transition-none ${badge ? "" : "ml-auto"} ${isOpen ? "rotate-180" : ""}`}
         />
       </div>
 

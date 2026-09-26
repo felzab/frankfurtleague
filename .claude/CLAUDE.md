@@ -40,21 +40,27 @@ break one: refuse, name the rule, do not partially comply.
 ## 2. Branch before you edit — the first action of any task that writes
 
 **Work on a branch, never on `main`: if a task could end in an edit, cut its branch before anything
-else**, in the primary checkout — the repository's main working tree, never a git worktree.
+else**, in the primary checkout — the repository's main working tree, never a git worktree. That
+branch is the session's; an agent the session dispatches to write or to plant works on the branch
+the harness cuts for its worktree, and the coordinator lands what it commits.
 
 ```bash
 git checkout main && git pull --ff-only origin main && git checkout -b short-kebab-name
 ```
 
 This trigger, the exit-code rule under the gate and the signature ban bind every agent whatever its
-brief. A dispatched agent's brief may keep the branching, committing, pushing, pull-request and gate
-steps as its coordinator's, and route a finding (§3) or a stale claim (§8) to the coordinator;
+brief; a dispatched agent that writes or plants meets the trigger on its worktree's branch. A
+dispatched agent's brief may keep the branching, committing, pushing, pull-request and gate steps
+as its coordinator's, and route a finding (§3) or a stale claim (§8) to the coordinator;
 everything else binds the agent as written.
 
 - Name the branch for the change, kebab-case, with no `feature/`, `fix/` or `chore/` prefix. Edits
   found on `main` go across with `git checkout -b <name>`; say plainly that it happened.
 - Every change reaches `main` through a pull request. Open it yourself, always as a draft:
-  `gh pr create --draft`. Marking it ready and merging it are the owner's, by any route.
+  `gh pr create --draft`. **Only marking it ready and merging it are the owner's**, by any route.
+  Once the owner merges, sync the primary checkout from a clean tree —
+  `git checkout main && git pull --ff-only origin main` — and delete the merged branch:
+  `git branch -d <name>`, and `git push origin --delete <name>` where GitHub has not already.
 - Never run `git reset --hard`, and never discard uncommitted work you did not write — for example
   `git stash`, `git clean`, `git checkout -f` or `git switch -f`, or `git checkout -- <path>` or
   `git restore` over another session's edits. Undo your own commit with `git reset --soft HEAD~1`.
@@ -69,13 +75,14 @@ a pushed commit body stands, and the pull request body carries the correction. *
 when the branch is pushed, the draft pull request's link is in the response, and every check
 `gh pr checks <n> --watch` lists, `pr-body` among them, has concluded, each conclusion named in the
 same response** — not when the local gate or `verify` alone is green. A run that has not concluded
-is reported as pending, with its link. The `git checkout main && git pull` after a merge is the
-owner's.
+is reported as pending, with its link.
 
 ### The gate
 
-Before pushing, run `python scripts/checks/check_scope.py --ran ""`, then `./scripts/gate/verify.sh`
-at every scope it names; never choose the scope by hand.
+**Before calling a pull request ready to merge, run `./scripts/gate/verify.sh` with no flags**, which
+runs every scope, over the tree its last push carries, and fix every finding until it exits 0; a
+run naming its scopes is for iterating. A push before then needs no gate run: the pull request's
+CI runs on every push.
 [`docs/ops/spec.md`](../docs/ops/spec.md) §1.6 holds what each scope runs and needs.
 
 - **Let the command finish, and read the exit code from the command whose code it is**, never
@@ -124,15 +131,21 @@ library's API, and before writing a line that depends on one, grep that library'
 ahead of the prose docs and long before recall. An API claim made without checking an available one
 is unverified: say so in the same answer.
 
-| Package         | Index                                                            | Full text                                                                  |
-| --------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| **HeroUI**      | [react/llms.txt](https://heroui.com/react/llms.txt)              | [react/llms-full.txt](https://heroui.com/react/llms-full.txt)              |
-| **Next.js**     | [docs/llms.txt](https://nextjs.org/docs/llms.txt)                | [docs/llms-full.txt](https://nextjs.org/docs/llms-full.txt)                |
-| **Pydantic**    | [llms.txt](https://pydantic.dev/docs/validation/latest/llms.txt) | [llms-full.txt](https://pydantic.dev/docs/validation/latest/llms-full.txt) |
-| **Zod**         | [llms.txt](https://zod.dev/llms.txt)                             | [llms-full.txt](https://zod.dev/llms-full.txt)                             |
-| **React**       | [llms.txt](https://react.dev/llms.txt)                           | — (index only)                                                             |
-| **Resend**      | [docs/llms.txt](https://resend.com/docs/llms.txt)                | — (index only)                                                             |
-| **Better Auth** | [docs/llms.txt](https://better-auth.com/docs/llms.txt)           | — (index only)                                                             |
+| Package                 | Index                                                                               | Full text                                                                  |
+| ----------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| **HeroUI**              | [react/llms.txt](https://heroui.com/react/llms.txt)                                 | [react/llms-full.txt](https://heroui.com/react/llms-full.txt)              |
+| **Next.js**             | [docs/llms.txt](https://nextjs.org/docs/llms.txt)                                   | [docs/llms-full.txt](https://nextjs.org/docs/llms-full.txt)                |
+| **Pydantic**            | [llms.txt](https://pydantic.dev/docs/validation/latest/llms.txt)                    | [llms-full.txt](https://pydantic.dev/docs/validation/latest/llms-full.txt) |
+| **Zod**                 | [llms.txt](https://zod.dev/llms.txt)                                                | [llms-full.txt](https://zod.dev/llms-full.txt)                             |
+| **React**               | [llms.txt](https://react.dev/llms.txt)                                              | — (index only)                                                             |
+| **Resend**              | [docs/llms.txt](https://resend.com/docs/llms.txt)                                   | — (index only)                                                             |
+| **Better Auth**         | [docs/llms.txt](https://better-auth.com/docs/llms.txt)                              | — (index only)                                                             |
+| **MongoDB Node driver** | [node/current/llms.txt](https://www.mongodb.com/docs/drivers/node/current/llms.txt) | — (index only)                                                             |
+| **Docker**              | [llms.txt](https://docs.docker.com/llms.txt)                                        | [llms-full.txt](https://docs.docker.com/llms-full.txt)                     |
+| **GitHub**              | [llms.txt](https://docs.github.com/llms.txt)                                        | — (index only)                                                             |
+| **Prettier**            | [llms.txt](https://prettier.io/llms.txt)                                            | [llms-full.txt](https://prettier.io/llms-full.txt)                         |
+| **Ruff**                | [ruff/llms.txt](https://docs.astral.sh/ruff/llms.txt)                               | — (index only)                                                             |
+| **uv**                  | [uv/llms.txt](https://docs.astral.sh/uv/llms.txt)                                   | — (index only)                                                             |
 
 - A reference is authoritative only while it is official and current — the project's own domain,
   with the installed version in it as a documented release. Where either fails, use the prose docs
@@ -178,6 +191,9 @@ Each fails silently. The rest load from `.claude/rules/` with the surface that c
 - **Never let a Windows text-mode stream write a file, a scratch file included**:
   `Path.write_text()`, `open(path, "w")` and a redirect of a program's stdout each turn every `\n`
   into `\r\n`. Write bytes, or pass `newline=""`.
+- **Never hand a native program an argument opening with `/` from Git Bash without
+  `MSYS_NO_PATHCONV=1`**: MSYS rewrites it as a Windows path, so `git grep -F '/src/core/api.ts'`
+  answers a confident zero with no error. A regex or a URL path is the same argument.
 
 ## 7. Ratified decisions — never "fix" one
 
@@ -212,8 +228,8 @@ only in a session started after it.
 
 - **tests** — Move db-marked tests out of the gate
 - **pull requests** — Index a branch's commits in a pull request body
-- **ci** — Let the comment classifier shrink a CI job; suppress the images refusal
-- **format** — Let the gate write a formatted file; merge a partly-staged file's halves
+- **ci** — Run a CI job, on any event, on fewer than every scope
+- **format** — Let the gate write a formatted file; commit a partly-staged file's unstaged half or write its working copy; stash, hide or reset the working tree to format a commit
 - **exit codes** — Collapse a refusal into a failure; move one half of the exit contract alone
 - **docs gate** — Delete a shim re-export as unused; repoint a citation off it; name a package `check_docs`
 - **probes** — Add a probe no failure needs alone; leave a guard thinly probed because its refusals resist enumeration, not because they protect less

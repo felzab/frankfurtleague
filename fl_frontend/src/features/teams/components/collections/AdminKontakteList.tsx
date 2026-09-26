@@ -3,14 +3,14 @@
 import { memo } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { Pencil } from "@gravity-ui/icons";
+import Pencil from "@gravity-ui/icons/Pencil";
 
 import { KONTAKTE_CRUD_COPY } from "@/features/teams/constants";
 import { KONTAKTE_BESETZUNG_OPTIONS, kontakteBesetzung } from "@/features/teams/facets";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
-import { IDENTITY_HEAD, IDENTITY_NAME, IDENTITY_ROW } from "@/shared/components/ui/adminTable";
+import { IDENTITY_HEAD_CLASSES, IDENTITY_NAME_CLASSES, IDENTITY_ROW_CLASSES } from "@/shared/components/ui/adminTable";
 import { labelBadge } from "@/shared/components/ui/badges";
-import { SHORTHAND_CHIP } from "@/shared/components/ui/brandTile";
+import { SHORTHAND_CHIP_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { RowActionCopy, RowActionLink, RowActions } from "@/shared/components/ui/RowActions";
 import { appToast } from "@/shared/utils/appToast";
@@ -79,7 +79,7 @@ export const AdminKontakteList = memo(function AdminKontakteList({
   const renderSeat = (seat: AdminKontaktSeat) => (
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex flex-row flex-wrap items-center gap-2">
-        <span className="fluid-xxs text-foreground-muted font-extrabold tracking-widest uppercase">{seat.label}</span>
+        <span className="fluid-xxs font-extrabold tracking-widest text-foreground-muted uppercase">{seat.label}</span>
         {/* On the seat the claim POINTS AT: beside `Trainer` the badge would name that seat back at it. */}
         {seat.istTrainerZugleich && <span className={labelBadge("info")}>Zugleich Trainer</span>}
       </div>
@@ -88,9 +88,9 @@ export const AdminKontakteList = memo(function AdminKontakteList({
         <span className="fluid-sm text-foreground-muted">{EMPTY_SEAT}</span>
       ) : (
         <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="fluid-sm text-foreground truncate font-semibold">{`${seat.person.vorname} ${seat.person.nachname}`}</span>
-          <span className="fluid-xs text-foreground-muted truncate">{seat.person.email}</span>
-          <span className="font-numeric fluid-xs text-foreground-muted truncate tabular-nums">{seat.person.telefon}</span>
+          <span className="truncate fluid-sm font-semibold text-foreground">{`${seat.person.vorname} ${seat.person.nachname}`}</span>
+          <span className="truncate fluid-xs text-foreground-muted">{seat.person.email}</span>
+          <span className="truncate font-numeric fluid-xs text-foreground-muted tabular-nums">{seat.person.telefon}</span>
         </div>
       )}
     </div>
@@ -103,12 +103,12 @@ export const AdminKontakteList = memo(function AdminKontakteList({
   };
 
   const renderIdentity = (row: AdminKontakteRow) => (
-    <div className={IDENTITY_ROW}>
-      <span className={`${SHORTHAND_CHIP} w-10`}>{row.teamShorthand}</span>
-      {/* No `IDENTITY_STACK` around it: one child stacks against nothing, and the head carries the
+    <div className={IDENTITY_ROW_CLASSES}>
+      <span className={`${SHORTHAND_CHIP_CLASSES} w-10`}>{row.teamShorthand}</span>
+      {/* No `IDENTITY_STACK_CLASSES` around it: one child stacks against nothing, and the head carries the
           `min-w-0` the club name needs beside the chip. */}
-      <div className={IDENTITY_HEAD}>
-        <span className={IDENTITY_NAME}>{row.teamName}</span>
+      <div className={IDENTITY_HEAD_CLASSES}>
+        <span className={IDENTITY_NAME_CLASSES}>{row.teamName}</span>
         {renderBesetzung(row)}
       </div>
     </div>
@@ -159,13 +159,13 @@ export const AdminKontakteList = memo(function AdminKontakteList({
 
           {/* Three equal columns from `md`, so one seat sits under itself down the page and a reader
               still scans a single role the way a column let them. */}
-          <div className="border-border/50 grid grid-cols-1 gap-3 border-t pt-3 md:grid-cols-3 md:gap-x-4">
+          <div className="grid grid-cols-1 gap-3 border-t border-border/50 pt-3 md:grid-cols-3 md:gap-x-4">
             {row.seats.map((seat) => (
               <div key={seat.rolle}>{renderSeat(seat)}</div>
             ))}
           </div>
 
-          <div className="border-border/50 -mx-1 border-t pt-2 md:hidden">{renderActions(row)}</div>
+          <div className="-mx-1 border-t border-border/50 pt-2 md:hidden">{renderActions(row)}</div>
         </li>
       ))}
     </ul>

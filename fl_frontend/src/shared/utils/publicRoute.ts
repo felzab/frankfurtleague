@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors";
+import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } from "@/core/errors";
 import { logger } from "@/core/logging";
 
-import { toActionErrorResult } from "./actionError";
+import { isRuleRefusal, refusedFailure, unansweredAction } from "./actionError";
+import { UNHANDLED_FIELD_REFUSAL } from "./refusal";
 import { runWithIncomingTrace } from "./traceScope";
+import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
 
 import type { FormState } from "@/shared/types/types";
 import type { NextRequest } from "next/server";
@@ -15,6 +17,12 @@ import type { NextRequest } from "next/server";
  * answers its own sentence and these words reach no reader.
  */
 const FREMDE_HERKUNFT = "Diese Anfrage kam nicht von dieser Seite. Lade die Seite neu und versuche es noch einmal.";
+
+/**
+ * What a member of the public is told for a unique index's refusal, which no route maps: the shared
+ * reader's sentence is the administrator's, about an entry they can open, and a public form has none.
+ */
+export const SCHON_VORLIEGEND = "Diese Angaben liegen uns bereits vor.";
 
 /**
  * The spine every UNAUTHENTICATED route handler shares. **Nothing here authorizes anything**: the
@@ -41,20 +49,36 @@ export async function handlePublicRequest<T extends { success: boolean }>(
   }
 
   const result = await runWithIncomingTrace(async (): Promise<T | NonNullable<FormState>> => {
+    let answer: T | NonNullable<FormState>;
     try {
-      return await run();
+      answer = await run();
     } catch (error) {
       const typed = error instanceof APIBadStatusError || error instanceof APINetworkError || error instanceof APIMalformedDataError;
       logger.error(`Public route failed: ${routeName}`, error, {
-        error_code: typed ? error.code : "FE-ACT-001",
+        error_code: typed || error instanceof ApiUnsentError ? error.code : "FE-ACT-001",
         server_error_code: error instanceof APIBadStatusError ? error.serverErrorCode : undefined,
         status: error instanceof APIBadStatusError || error instanceof APIMalformedDataError ? error.statusCode : undefined,
       });
 
-      // The request this route answers, for a throw carrying none of its own: code after a POST's
-      // write can throw with the row already stored.
-      return toActionErrorResult(error, { method: request.method, readOnly: false });
+      if (isRuleRefusal(error)) {
+        // Any other code is a rule no mapper here words. Never the shared reader's reload: it discards the
+        // entries a visitor typed, which the sentence answered promises are intact.
+        return error.serverErrorCode === "DB-COMMON-002"
+          ? { success: false, error: SCHON_VORLIEGEND }
+          : refusedFailure(error, UNHANDLED_FIELD_REFUSAL);
+      }
+
+      // Judged by what this request sent, never by the route's own method: a POST that sent nothing changed nothing.
+      answer = answerThrow(error);
     }
+
+    if (writeOutcomeUnknown()) {
+      logger.error(`Public route of unknown outcome: ${routeName}`, undefined, { error_code: "FE-NET-001" });
+
+      return unansweredAction();
+    }
+
+    return answer;
   });
 
   // Always 200: the body carries the outcome, and every other status is `postPublicForm`'s to report

@@ -17,17 +17,19 @@ from app.core.config import (
     BackendConfig,
     EnvironmentValidationError,
     get_app_config,
-    get_config,
+    get_config,  # noqa: TID251
 )
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.db import NO_SERVER, REJECTED, UNREACHABLE, DatabaseUnreachableError, _refusal_for, lifespan
-from app.main import KEY_TIERS, api_routes, create_app
+from app.main import KEY_TIERS, create_app
 from tests.config import ConfigReadingNoDotenvFile
+from tests.core.app_source import api_routes
 from tests.worker import worker_database
 
 # TEST-NET-1 (RFC 5737) on a port no mongod this repository starts is served on, so the ping fails
 # for the one reason these cases are about wherever they run.
-UNROUTABLE_URI = "mongodb://192.0.2.1:27018"
+UNROUTABLE_HOST = "192.0.2.1"
+UNROUTABLE_URI = f"mongodb://{UNROUTABLE_HOST}:27018"
 
 
 def a_key_the_boot_accepts(prefix: str) -> str:
@@ -276,7 +278,8 @@ class TestTheBanListKey:
 class TestTheNamesOnlyErrorPath:
     def test_the_refusal_names_the_variables_and_carries_no_rejected_value(self, monkeypatch, tmp_path):
         """The incident's class: a value that reaches the container log is the whole exposure, and a name is all an operator needs."""
-        an_environment(monkeypatch, tmp_path, API_CORS_ALLOWED_ORIGINS="frankfurtleague.de", DB_BASE_NAME="frankfurt league")
+        origins, database = "frankfurtleague.de", "frankfurt league"
+        an_environment(monkeypatch, tmp_path, API_CORS_ALLOWED_ORIGINS=origins, DB_BASE_NAME=database)
 
         with pytest.raises(EnvironmentValidationError) as raised:
             get_config()
@@ -284,8 +287,8 @@ class TestTheNamesOnlyErrorPath:
         message = str(raised.value)
         assert "API_CORS_ALLOWED_ORIGINS" in message
         assert "DB_BASE_NAME" in message
-        assert "frankfurtleague.de" not in message
-        assert "frankfurt league" not in message
+        assert origins not in message
+        assert database not in message
 
     def test_the_pydantic_error_is_suppressed_rather_than_chained(self, monkeypatch, tmp_path):
         """`raise ... from None` is what keeps `input_value=` out of the traceback uvicorn prints, and nothing else in the path does."""
@@ -335,7 +338,6 @@ class TestANameTheClassDoesNotDeclare:
             get_config()
 
         assert str(raised.value) == "Invalid environment variables: LOG_FORMAT_"
-        assert "console-but-misspelled" not in str(raised.value)
 
     def test_a_misspelling_carrying_no_value_is_dropped_before_the_gate_sees_it(self, monkeypatch, tmp_path):
         """The gap the runbook's remedy is written around.
@@ -375,7 +377,7 @@ class TestTheStartupPing:
                 boot()
 
         assert str(raised.value) == UNREACHABLE.sentence
-        assert "192.0.2.1" not in caplog.text
+        assert UNROUTABLE_HOST not in caplog.text
         assert "MONGODB_URI" in caplog.text
 
     def test_the_boot_opens_the_settings_the_application_was_built_with(self, monkeypatch, tmp_path, caplog):

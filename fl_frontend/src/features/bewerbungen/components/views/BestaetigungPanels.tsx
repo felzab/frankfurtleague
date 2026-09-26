@@ -1,13 +1,16 @@
+import { Fragment } from "react";
 import Link from "next/link";
 
-import { CircleCheck, TriangleExclamation } from "@gravity-ui/icons";
+import CircleCheck from "@gravity-ui/icons/CircleCheck";
+import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 import { tv } from "tailwind-variants";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { NAME_WRAP } from "@/shared/components/ui/nameWrap";
+import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { textLink } from "@/shared/components/ui/textLink";
 
 import type { ReactNode, RefObject } from "react";
 
@@ -15,7 +18,7 @@ import type { ReactNode, RefObject } from "react";
  * The one body step, stamped text and the page's own sentences alike: these are legal words a
  * reader has to get through, so they take the paragraph grade rather than a caption's meta grade.
  */
-export const ABSATZ = "fluid-sm text-foreground max-w-2xl leading-relaxed font-medium text-pretty";
+export const ABSATZ_CLASSES = "max-w-2xl fluid-sm leading-relaxed font-medium text-pretty text-foreground";
 
 /**
  * The one emphasis a reader's own value wears here: a second spelling is how the name in one
@@ -23,7 +26,58 @@ export const ABSATZ = "fluid-sm text-foreground max-w-2xl leading-relaxed font-m
  * the mail's end of the same rule.
  */
 export function Wert({ children }: { children: ReactNode }) {
-  return <strong className="text-foreground font-bold">{children}</strong>;
+  return <strong className="font-bold text-foreground">{children}</strong>;
+}
+
+/** The `{datenschutz}` slot's value, so the stored sentence and the rendered one read the same. */
+const DATENSCHUTZ_TEXT = "Datenschutzerklärung";
+const DATENSCHUTZ_SLOT = "datenschutz";
+
+/** Split on the slots themselves, so the capture group keeps each one as a piece of its own. */
+const SLOT_TEILER = /(\{\w+\})/;
+
+export type Slots = Readonly<Record<string, string>>;
+
+/** One piece of a split sentence: a slot in whatever its kind earns, or the words as they stand. */
+function stueckInhalt(stueck: string, werte: Slots, eigene: ReadonlySet<string>): ReactNode {
+  const name = /^\{(\w+)\}$/.exec(stueck)?.[1];
+
+  if (name === undefined) return stueck;
+  // Ahead of the record, which holds no value for it: this slot's words are the link's own.
+  if (name === DATENSCHUTZ_SLOT) {
+    return (
+      <Link
+        href="/datenschutz"
+        prefetch={false}
+        className={textLink()}>
+        {DATENSCHUTZ_TEXT}
+      </Link>
+    );
+  }
+
+  const wert = werte[name];
+
+  // A slot no record filled stands as written, which is `fl_frontend/src/core/einwilligung.ts ::
+  // fuelleFassung`'s rule at the string end.
+  if (wert === undefined) return stueck;
+
+  // Emphasis is presentation, so each page decides it here rather than in the stored sentence,
+  // whose words and digest do not move for it.
+  return eigene.has(name) ? <Wert>{wert}</Wert> : wert;
+}
+
+/**
+ * A stamped sentence with its slots filled here rather than by `fuelleFassung`, which answers a
+ * string: a string cannot carry the mark a reader's own name has to wear, nor the privacy link.
+ */
+export function Gefuellt({ text, werte, eigene }: { text: string; werte: Slots; eigene: ReadonlySet<string> }) {
+  return (
+    <>
+      {text.split(SLOT_TEILER).map((stueck, index) => (
+        <Fragment key={`${String(index)}-${stueck}`}>{stueckInhalt(stueck, werte, eigene)}</Fragment>
+      ))}
+    </>
+  );
 }
 
 /**
@@ -52,8 +106,8 @@ export function BestaetigungAbschnitt({ titel, children }: { titel: string; chil
  * (`fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx :: Angabe`),
  * spelled once so the banner and the receipt cannot drift into two type scales.
  */
-const ANGABE_LABEL = "fluid-xxs text-foreground-muted font-bold";
-const ANGABE_WERT = "fluid-sm";
+const ANGABE_LABEL_CLASSES = "fluid-xxs font-bold text-foreground-muted";
+const ANGABE_WERT_CLASSES = "fluid-sm";
 
 type Fakt = {
   label: string;
@@ -66,12 +120,12 @@ const fakt = tv({
   slots: {
     // `min-w-0` on every cell, or one long word would push the row past the panel's edge.
     zelle: "flex min-w-0 flex-col gap-y-0.5",
-    wert: ANGABE_WERT,
+    wert: ANGABE_WERT_CLASSES,
   },
   variants: {
     unbegrenzt: {
       // A line of its own on a phone; from `sm` it grows into the width the other facts leave.
-      true: { zelle: "basis-full sm:flex-1", wert: NAME_WRAP },
+      true: { zelle: "basis-full sm:flex-1", wert: NAME_WRAP_CLASSES },
       false: { zelle: "flex-initial" },
     },
   },
@@ -87,7 +141,7 @@ export function FaktenBanner({ zeilen }: { zeilen: readonly Fakt[] }) {
   // Wrapping below `sm` alone: from there every fact fits one row, and a stack would spend the first
   // screen on them.
   return (
-    <dl className="bg-surface border-border flex w-full flex-row flex-wrap items-start gap-x-4 gap-y-2 rounded-lg border px-4 py-3 text-left sm:flex-nowrap sm:gap-x-6">
+    <dl className="flex w-full flex-row flex-wrap items-start gap-x-4 gap-y-2 rounded-lg border border-border bg-surface px-4 py-3 text-left sm:flex-nowrap sm:gap-x-6">
       {zeilen.map(({ label, wert, unbegrenzt = false }) => {
         const { zelle, wert: wertKlasse } = fakt({ unbegrenzt: unbegrenzt });
 
@@ -95,7 +149,7 @@ export function FaktenBanner({ zeilen }: { zeilen: readonly Fakt[] }) {
           <div
             key={label}
             className={zelle()}>
-            <dt className={ANGABE_LABEL}>{label}</dt>
+            <dt className={ANGABE_LABEL_CLASSES}>{label}</dt>
             <dd className={wertKlasse()}>
               <Wert>{wert}</Wert>
             </dd>
@@ -117,8 +171,8 @@ export function GespeicherteAngaben({ zeilen }: { zeilen: readonly { label: stri
         <div
           key={label}
           className="flex flex-col gap-y-0.5">
-          <dt className={ANGABE_LABEL}>{label}</dt>
-          <dd className={ANGABE_WERT}>
+          <dt className={ANGABE_LABEL_CLASSES}>{label}</dt>
+          <dd className={ANGABE_WERT_CLASSES}>
             <Wert>{wert}</Wert>
           </dd>
         </div>
@@ -144,7 +198,7 @@ export const ergebnisPanel = tv({
 });
 
 const GLYPHE = { erfolg: CircleCheck, hinweis: TriangleExclamation } as const;
-const GLYPHE_FARBE = { erfolg: "text-success-strong size-10", hinweis: "text-warning-strong size-10" } as const;
+const GLYPHE_FARBE_CLASSES = { erfolg: "size-10 text-success-strong", hinweis: "size-10 text-warning-strong" } as const;
 
 /**
  * Every state but the form is this panel: one box, one glyph, one tone, so a done thing and a dead
@@ -170,7 +224,7 @@ export function BestaetigungErgebnis({
       className={ergebnisPanel({ tone })}>
       <Icon
         aria-hidden="true"
-        className={GLYPHE_FARBE[tone]}
+        className={GLYPHE_FARBE_CLASSES[tone]}
       />
       {children}
     </section>
@@ -178,7 +232,7 @@ export function BestaetigungErgebnis({
 }
 
 /** The action a result panel offers, in the width the panel gives it rather than the page's. */
-export function Aktion({ children }: { children: ReactNode }) {
+function Aktion({ children }: { children: ReactNode }) {
   return <div className="flex w-full max-w-xs flex-col">{children}</div>;
 }
 

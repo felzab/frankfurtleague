@@ -5,16 +5,26 @@ import { after, beforeEach, describe, it } from "node:test";
 import { MongoDBContainer } from "@testcontainers/mongodb";
 import { MongoServerError } from "mongodb";
 
-import { ADMIN_EMAIL, asDataUrl, cookieHeader, lastMailedToken, ORIGIN, registerAuthDoubles } from "@/core/authDoubles.ts";
+import {
+  ADMIN_EMAIL,
+  asDataUrl,
+  Barrier,
+  BARRIER_TIMEOUT_MS,
+  configDouble,
+  cookieHeader,
+  lastMailedToken,
+  ORIGIN,
+  registerAuthDoubles,
+} from "@/core/authDoubles.ts";
+import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 // A replica set, which the module starts by default: the property under test is a transaction's.
-const mongod = await new MongoDBContainer("mongo:8").start();
+const mongod = await new MongoDBContainer("mongo:8.3.11").start();
 
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
 const MONGO_URL = `${mongod.getConnectionString()}/?directConnection=true`;
 
 const REQUEST_HEADERS = "__flPasskeyDbRequestHeaders";
-const SENT = "__flPasskeyDbSentMail";
 const LOGGED = "__flPasskeyDbLogged";
 const BARRIER = "__flPasskeyDbBarrier";
 const SIGNING_OUT = "__flPasskeyDbSigningOut";
@@ -22,11 +32,14 @@ const REAL_CLIENT = "__flPasskeyDbRealClient";
 const COMMITTED = "__flPasskeyDbCommitted";
 const GATE = "__flPasskeyDbGate";
 
+// A second URL for the production module, which the load hook's match on a path's end lets past the
+// double: the client under test is the one `fl_frontend/src/core/db.ts` builds, Stable API included.
+const PRODUCTION_DB = `${import.meta.resolve("@/core/db.ts")}?production`;
+
 /* The real client, held where a removal makes its first write after its judgement: the passkey row
    where nothing claims the account, the account's own row where something does. The session
    `deleteMany` runs `signingOut` first, inside the removal's transaction. */
-const DB_DOUBLE = `import mongodb from ${JSON.stringify(import.meta.resolve("mongodb"))};
-const real = new mongodb.MongoClient(${JSON.stringify(MONGO_URL)});
+const DB_DOUBLE = `import { client as real } from ${JSON.stringify(PRODUCTION_DB)};
 globalThis.${REAL_CLIENT} = real;
 const bound = (target, value) => (typeof value === "function" ? value.bind(target) : value);
 const HELD = { passkey: "deleteOne", user: "findOneAndUpdate" };
@@ -58,11 +71,7 @@ export const client = new Proxy(real, { get(target, prop) {
   return bound(target, Reflect.get(target, prop, target));
 }});`;
 
-const MAIL_DOUBLE = `export const sendMail = async (message) => { globalThis.${SENT}.push(message); return { id: null }; };`;
 const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};`;
-
-// `refresh()` throws outside a request Next itself is rendering.
-const CACHE_DOUBLE = `export const refresh = () => {};`;
 
 const LOGGING_DOUBLE = `export const logger = {
   debug: () => {},
@@ -71,47 +80,10 @@ const LOGGING_DOUBLE = `export const logger = {
   error: () => {},
 };`;
 
-registerAuthDoubles({
-  core: { db: DB_DOUBLE, mail: MAIL_DOUBLE, logging: LOGGING_DOUBLE },
-  specifiers: { "next/headers": asDataUrl(HEADERS_DOUBLE), "next/cache": asDataUrl(CACHE_DOUBLE) },
+const { sent } = registerAuthDoubles({
+  core: { config: configDouble({ MONGODB_URI: MONGO_URL }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
+  specifiers: { "next/headers": asDataUrl(HEADERS_DOUBLE), "next/cache": asDataUrl(NEXT_CACHE_DOUBLE) },
 });
-
-const BARRIER_TIMEOUT_MS = 5000;
-
-/** Holds the first `expected` writes until all have arrived; every write after them passes. */
-class Barrier {
-  private expected = 0;
-  private arrived = 0;
-  private waiters: (() => void)[] = [];
-
-  arm(expected: number): void {
-    this.expected = expected;
-    this.arrived = 0;
-    this.waiters = [];
-  }
-
-  disarm(): void {
-    this.expected = 0;
-    for (const release of this.waiters) release();
-    this.waiters = [];
-  }
-
-  async arrive(): Promise<void> {
-    if (this.expected === 0 || this.arrived >= this.expected) return;
-    this.arrived += 1;
-    if (this.arrived === this.expected) {
-      this.disarm();
-      return;
-    }
-
-    // Bounded, so a request that never reaches a held write fails its own assertion rather than
-    // hanging the run.
-    await new Promise<void>((resolve) => {
-      this.waiters.push(resolve);
-      setTimeout(resolve, BARRIER_TIMEOUT_MS);
-    });
-  }
-}
 
 /**
  * Holds the first removal whose transaction reads the passkey rows, where its snapshot is taken, until
@@ -146,11 +118,9 @@ class Gate {
 /** The gate no case holds: every read passes. */
 const OPEN_GATE = { arrive: async () => undefined };
 
-const sent: { to: string; text: string }[] = [];
 const warnings: string[] = [];
 const barrier = new Barrier();
 const globals = globalThis as unknown as Record<string, unknown>;
-globals[SENT] = sent;
 globals[LOGGED] = warnings;
 globals[BARRIER] = barrier;
 globals[GATE] = OPEN_GATE;
@@ -187,7 +157,6 @@ after(async () => {
 
 beforeEach(async () => {
   barrier.disarm();
-  sent.length = 0;
   warnings.length = 0;
   signingOut = async () => undefined;
   committed = async () => undefined;
@@ -248,6 +217,7 @@ async function removeAtOnce(cookie: string, ids: readonly string[]) {
   barrier.arm(ids.length);
   const answers = await Promise.all(ids.map((id) => removePasskeyAction(id)));
   barrier.disarm();
+  assert.ok(await barrier.filled, "the removals were not all held at `passkey.deleteOne` or `user.findOneAndUpdate`, so no race was run");
   return {
     successes: answers.map((answer) => answer.success).sort(),
     refusals: answers.flatMap((answer) => (answer.success ? [] : [answer.error])),

@@ -1,4 +1,5 @@
 from collections.abc import Mapping, Sequence
+from http import HTTPStatus
 from typing import Any, Final
 
 from app.api.bewerbungen.services import days_after
@@ -125,6 +126,7 @@ def find_ghost_erasure_refusal(*, schiedsrichter_id: Any) -> WriteRefusal | None
 
     return WriteRefusal(
         error_code=GHOST_ERASED,
+        status=HTTPStatus.CONFLICT,
         message=(
             "this row stands behind nobody: it is what the fixtures of every already-erased referee name, so it holds "
             "no personal data to delete and deleting it would leave those fixtures naming a referee that is gone"
@@ -146,6 +148,7 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRe
 
     return WriteRefusal(
         error_code=REFEREE_STILL_ASSIGNED,
+        status=HTTPStatus.CONFLICT,
         message=(
             f"{len(upcoming_spiel_nrs)} unplayed fixture(s) are assigned to them (spiel_nr {named}{rest}); "
             "reassign or cancel those fixtures first"
@@ -156,7 +159,7 @@ def find_referee_retire_refusal(*, upcoming_spiel_nrs: Sequence[int]) -> WriteRe
 # --- The CONFIRMATION LINK. Every predicate below reads a missing `bestaetigung` block as "nothing
 # was ever mailed": a referee entered before this flow is neither refused nor swept.
 
-# What every code below refuses is `docs/logging/error-codes.md`.
+# What every code below refuses is `fl_backend/app/core/domain.py :: RULES`.
 SCHIEDSRICHTER_RETIRED = "REQ-SCHIEDSRICHTER-001"
 SCHIEDSRICHTER_TOKEN_UNKNOWN = "REQ-SCHIEDSRICHTER-002"
 SCHIEDSRICHTER_TOKEN_EXPIRED = "REQ-SCHIEDSRICHTER-003"
@@ -293,6 +296,7 @@ def find_unknown_token_refusal(*, found: bool) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_TOKEN_UNKNOWN,
+        status=HTTPStatus.NOT_FOUND,
         message="this link opens no referee's entry; it may have been replaced by a newer one, or the entry is gone",
     )
 
@@ -305,6 +309,7 @@ def find_expired_token_refusal(*, frist: Any, today: str) -> WriteRefusal | None
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_TOKEN_EXPIRED,
+        status=HTTPStatus.GONE,
         message="this link has expired; the administration can send a fresh one",
     )
 
@@ -317,6 +322,7 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_ALREADY_CONFIRMED,
+        status=HTTPStatus.CONFLICT,
         message="this entry has already been confirmed; an answer is given once",
     )
 
@@ -329,12 +335,16 @@ def find_alter_refusal(*, geburtsdatum: str, today: str) -> WriteRefusal | None:
     if age < SCHIEDSRICHTER_MIN_AGE_YEARS:
         return WriteRefusal(
             error_code=SCHIEDSRICHTER_ALTER,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("geburtsdatum",),),
             message=f"this consent is given from {SCHIEDSRICHTER_MIN_AGE_YEARS} years of age, and the date entered does not reach it",
         )
 
     if age > BEWERBUNG_KONTAKT_MAX_AGE_YEARS:
         return WriteRefusal(
             error_code=SCHIEDSRICHTER_ALTER,
+            status=HTTPStatus.UNPROCESSABLE_CONTENT,
+            fields=(("geburtsdatum",),),
             message=f"a date giving an age over {BEWERBUNG_KONTAKT_MAX_AGE_YEARS} years is a mistyped century rather than a birthdate",
         )
 
@@ -353,6 +363,8 @@ def find_medien_refusal(*, geburtsdatum: str, medien: bool, today: str) -> Write
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_MEDIEN_ALTER,
+        status=HTTPStatus.UNPROCESSABLE_CONTENT,
+        fields=(("medien",),),
         message=f"a consent to publishing photographs, video and interviews is taken from {MEDIEN_MIN_AGE_YEARS} years of age only",
     )
 
@@ -369,6 +381,7 @@ def find_retired_refusal(*, inactive_since: Any) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_RETIRED,
+        status=HTTPStatus.CONFLICT,
         message="this referee is retired and takes no new fixtures, so there is nothing left to collect a consent for; reactivate them first",
     )
 
@@ -392,6 +405,7 @@ def find_missing_address_refusal(*, email: Any) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_KEINE_ADRESSE,
+        status=HTTPStatus.CONFLICT,
         message="this referee has no usable email address, so no confirmation link can be sent; enter one first",
     )
 
@@ -404,29 +418,9 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
 
     return WriteRefusal(
         error_code=SCHIEDSRICHTER_ADRESSE_GESPERRT,
+        status=HTTPStatus.CONFLICT,
         message="this email address is on the ban list, so no confirmation link may be sent to it; lift the entry first",
     )
-
-
-def find_korrektur_mint(*, stored: Mapping[str, Any], payload_email: str, token_hash: str, today: str) -> dict[str, Any] | None:
-    """The `$set` fragment a corrected address owes, or `None`.
-
-    An UNCONFIRMED referee's old link went to a mailbox nobody reads, and leaving it live is a
-    credential in the wrong inbox.
-    """
-
-    # A CONFIRMED referee keeps their link, the record being already given; the administrator tells
-    # them the address moved (`docs/ops/runbooks.md` §5).
-    if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)):
-        return None
-
-    # One inbox rather than one string: a row stored before the address rule holds its domain in
-    # Unicode, which the payload now stores in punycode, so a raw compare re-mails an address nobody moved.
-    stored_email = (stored.get("kontakt") or {}).get("email")
-    if stored_email is not None and mailbox_key(payload_email) == mailbox_key(str(stored_email)):
-        return None
-
-    return compose_mint_update(token_hash=token_hash, today=today)
 
 
 def compose_korrektur_update(
@@ -438,15 +432,23 @@ def compose_korrektur_update(
     mailbox replaced; the reactivation is what asks them.
     """
 
-    minted = find_korrektur_mint(stored=stored, payload_email=payload_email, token_hash=token_hash, today=today)
+    # A CONFIRMED referee keeps their link, the record being already given; the administrator tells
+    # them the address moved (`docs/ops/runbooks.md` §5).
+    if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)):
+        return {"$set": dict(payload)}, False
 
-    if minted is None:
+    # One inbox rather than one string: a domain has no case (RFC 5321 §2.4), so a raw compare re-mails
+    # an address nobody moved wherever the stored row and the payload spell its domain differently.
+    stored_email = (stored.get("kontakt") or {}).get("email")
+    if stored_email is not None and mailbox_key(payload_email) == mailbox_key(str(stored_email)):
         return {"$set": dict(payload)}, False
 
     if stored.get("inactive_since") is not None:
         return {"$set": dict(payload), "$unset": {BESTAETIGUNG_FELD: ""}}, False
 
-    return {"$set": {**payload, **minted}}, True
+    # An UNCONFIRMED referee's old link went to a mailbox nobody reads, and leaving it live is a
+    # credential in the wrong inbox.
+    return {"$set": {**payload, **compose_mint_update(token_hash=token_hash, today=today)}}, True
 
 
 def owes_reactivation_mint(*, stored: Mapping[str, Any]) -> bool:

@@ -1,0 +1,8 @@
+// Linted as src/shared/utils/undoDispatch.ts.
+// An undo of unknown outcome keeps the undo's own title, and every other ban still reaches it, shared's own included.
+declare const appToast: { danger: (title: string, options?: { description?: string }) => string };
+declare const result: { error: string };
+
+export const UNCLEAR = () => appToast.danger("Rücknahme unklar", { description: result.error });
+export const GAP = "flex gap-5"; // expect: gap
+export const SLICE = import("@/features/teams/facets"); // expect: layer-shared-load

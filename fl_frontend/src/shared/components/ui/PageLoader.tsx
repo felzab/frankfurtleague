@@ -9,13 +9,13 @@ export function PageLoader() {
       <div className="relative flex items-center justify-center">
         {/* `motion-reduce:hidden` rather than a dropped animation: the keyframe declares only its end frames, so
             an unanimated halo rests as a full-size disc over the spinner. The spinner keeps turning. */}
-        <div className="bg-brand/20 absolute size-16 animate-ping rounded-full motion-reduce:hidden" />
+        <div className="absolute size-16 animate-ping rounded-full bg-brand/20 motion-reduce:hidden" />
 
-        <div className="border-border border-t-brand size-12 animate-spin rounded-full border-4" />
+        <div className="size-12 animate-spin rounded-full border-4 border-border border-t-brand" />
       </div>
 
       <div className="flex flex-col gap-y-1">
-        <p className="fluid-base text-foreground font-extrabold tracking-wide uppercase">Laden...</p>
+        <p className="fluid-base font-extrabold tracking-wide text-foreground uppercase">Laden...</p>
         <p className="muted-meta">Daten werden vorbereitet</p>
       </div>
     </div>

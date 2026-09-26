@@ -30,6 +30,8 @@ export type FLFieldStatus<TGroup extends string> = {
 export type FLDraftStatus<TGroup extends string> = {
   fields: readonly FLFieldStatus<TGroup>[];
   byPath: ReadonlyMap<string, FLFieldStatus<TGroup>>;
+  /** Every path the editor's descriptor table carries, whether or not its descriptor applies to this draft. */
+  declared: ReadonlySet<string>;
   changed: readonly FLFieldStatus<TGroup>[];
   invalid: readonly FLFieldStatus<TGroup>[];
   isDirty: boolean;
@@ -87,8 +89,19 @@ export function deriveDraftStatus<TSource, TGroup extends string>({
   return {
     fields,
     byPath: new Map(fields.map((field) => [field.path, field])),
+    declared: new Set(descriptors.map((descriptor) => descriptor.path)),
     changed,
     invalid: fields.filter((field) => field.error !== null),
     isDirty: changed.length > 0,
   };
+}
+
+/**
+ * One field's row, `undefined` where its descriptor does not apply to this draft. A path the table does not
+ * declare throws: a lookup answering `undefined` for it reads as a field left unchanged, and drops its marker.
+ */
+export function fieldStatus<TGroup extends string>(status: FLDraftStatus<TGroup>, path: string): FLFieldStatus<TGroup> | undefined {
+  if (!status.declared.has(path)) throw new Error(`${path} is no path this editor's descriptor table declares`);
+
+  return status.byPath.get(path);
 }

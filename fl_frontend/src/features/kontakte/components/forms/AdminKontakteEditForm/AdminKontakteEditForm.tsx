@@ -3,8 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Form } from "@heroui/react";
-
 import { patchSaisonTeamKontakteAction } from "@/features/kontakte/actions";
 import { deriveKontakteDraftStatus } from "@/features/kontakte/kontakteDraftStatus";
 import { FLPatchSaisonTeamKontaktePayloadSchema } from "@/features/kontakte/schemas";
@@ -22,8 +20,8 @@ import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
 import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
 import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
+import { Form } from "@/shared/components/ui/Form";
 import { FormActionBar } from "@/shared/components/ui/FormActionBar";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -70,7 +68,7 @@ export function AdminKontakteEditForm({
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSaving] = useTransition();
 
   const storedMembership = saison.membership;
   // Read ONCE, so the seed, the change list's stored half and the undo body cannot disagree about
@@ -88,9 +86,10 @@ export function AdminKontakteEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    schemas: { kontakte: FLPatchSaisonTeamKontaktePayloadSchema },
-  });
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef, formWiring } =
+    useDraftFieldErrors({
+      schemas: { kontakte: FLPatchSaisonTeamKontaktePayloadSchema },
+    });
 
   // Both ids ride in the request path, so neither is a field an input renders or a refusal can name.
   const buildPayload = (): FLPatchSaisonTeamKontaktePayload => ({
@@ -159,7 +158,7 @@ export function AdminKontakteEditForm({
   };
 
   const writeAfterBlock = () => {
-    startTransition(async () => {
+    startSaving(async () => {
       // Read before the write: `saison` is this render's prop and still holds the pre-save block, and
       // the toast that replays it outlives this component.
       const wiederherstellbar = { team_id: teamId, saison_id: saison.saisonId, kontakte: toKontaktePayload(storedKontakte) };
@@ -168,54 +167,56 @@ export function AdminKontakteEditForm({
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
       const res = await patchSaisonTeamKontakteAction(payload).catch(unansweredAction);
 
-      if (!res.success) {
-        reportSubmitFailure(res, { kontakte: payload });
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startSaving(() => {
+        if (!res.success) {
+          reportSubmitFailure(res, { kontakte: payload });
+          return;
+        }
 
-      setSubmitFieldErrors({}, {});
-      setHasSaved(true);
+        setSubmitFieldErrors({}, {});
+        setHasSaved(true);
 
-      // The write's own answer, never `kontakteStand`: this save has moved the row past the block the
-      // page read, so the replay carrying that token would be refused (`REQ-KONTAKT-001`).
-      const nachStand = res.saison_team?.kontakte_stand;
-      // The same value seen as the endpoint's own payload, so what the toast replays is held to the
-      // shape the undo route parses.
-      const undoPayload: FLPatchSaisonTeamKontaktePayload = { ...wiederherstellbar, kontakte_stand: nachStand ?? "" };
-      // Judged here and not left to the undo route: backend I36 (`docs/backend/spec.md`) admits a
-      // malformed address on read, that row is no legal write, and the shared spine can only
-      // answer such a body with a reload nothing would change.
-      const unrestorable = nachStand === undefined ? OHNE_NACHSTAND : describeUnrestorableKontakte(undoPayload);
+        // The write's own answer, never `kontakteStand`: this save has moved the row past the block the
+        // page read, so the replay carrying that token would be refused (`REQ-KONTAKT-001`).
+        const nachStand = res.saison_team?.kontakte_stand;
+        // The same value seen as the endpoint's own payload, so what the toast replays is held to the
+        // shape the undo route parses.
+        const undoPayload: FLPatchSaisonTeamKontaktePayload = { ...wiederherstellbar, kontakte_stand: nachStand ?? "" };
+        // Judged here and not left to the undo route: backend I36 (`docs/backend/spec.md`) admits a
+        // malformed address on read, that row is no legal write, and the shared spine can only
+        // answer such a body with a reload nothing would change.
+        const unrestorable = nachStand === undefined ? OHNE_NACHSTAND : describeUnrestorableKontakte(undoPayload);
 
-      offerUndo({
-        endpoint: "/api/admin/kontakte/undo",
-        body: undoPayload,
-        message: res.message,
-        fallback: "Die Kontakte wurden aktualisiert.",
-        unrestorable,
-        router,
+        offerUndo({
+          endpoint: "/api/admin/kontakte/undo",
+          body: undoPayload,
+          message: res.message,
+          fallback: "Die Kontakte wurden aktualisiert.",
+          unrestorable,
+          router,
+        });
+
+        // AFTER the undo payload is built: leaving with typed values still in state lets a
+        // save-then-undo reopen the editor on values the season does not hold.
+        resetDraftToStored();
+        leavePage();
       });
-
-      // AFTER the undo payload is built: leaving with typed values still in state is what let a
-      // save-then-undo reopen the editor on values the season no longer holds.
-      resetDraftToStored();
-      leavePage();
     });
   };
 
   return (
     <DraftStatusProvider status={status}>
       <Form
-        // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-        validationBehavior="aria"
-        ref={formRef}
-        validationErrors={fieldErrors}
+        wiring={formWiring}
         className="flex min-h-0 w-full flex-1 flex-col"
-        onSubmit={runOnSubmit(requestSave)}>
+        onSubmit={requestSave}>
         <EditFormLayout
           header={pageHeader}
           onLeave={requestLeave}
           isLeaving={isLeaving}
+          isDirty={isDirty}
           rail={
             <DraftRail
               banners={banners}

@@ -2,22 +2,15 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
+
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
 const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
 const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
-const API = `export const apiClient = async (endpoint, schema, options = {}) => {
-  globalThis.__flPupilCalls.push({ endpoint, method: options.method, body: options.body });
-  // Parsed by the mirror the real client parses with, so an answer this file composes cannot drift
-  // from the shape the route is written against.
-  return schema.parse(globalThis.__flPupilAnswer(endpoint));
-};`;
 
-type ApiCall = { endpoint: string; method?: string; body?: string };
-
-const recorders = globalThis as unknown as Record<string, unknown>;
-const calls: ApiCall[] = [];
-recorders.__flPupilCalls = calls;
+const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint));
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 
@@ -25,7 +18,7 @@ const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(
 const PACKAGE_DOUBLES: Record<string, string> = {
   "server-only": "export {};",
   "next/server": NEXT_SERVER,
-  "next/headers": `export const headers = async () => new Headers();`,
+  "next/headers": NEXT_HEADERS_DOUBLE,
   "next/navigation": `export const unstable_rethrow = () => {};`,
 };
 
@@ -37,7 +30,6 @@ registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
-    if (url.endsWith("/src/core/api.ts")) return { format: "module", source: API, shortCircuit: true };
     return nextLoad(url, context);
   },
 });
@@ -45,7 +37,7 @@ registerHooks({
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { SPIELER_EINWILLIGUNG } = await import("@/core/einwilligung.ts");
-const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/publicSubmit.ts");
+const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 
 const TOKEN = "abc123";
 
@@ -102,7 +94,7 @@ function aRequest(body: unknown, headers: Record<string, string> = {}) {
 let schreibAntwort: () => unknown = () => GESCHRIEBEN;
 let ansichtAntwort: () => unknown = () => ANSICHT;
 
-recorders.__flPupilAnswer = (endpoint: string) => {
+function antwortFuer(endpoint: string): unknown {
   if (endpoint === "/registrierungen/bestaetigung/ansicht") {
     const gelesen = ansichtAntwort();
     if (gelesen instanceof Error) throw gelesen;
@@ -111,7 +103,7 @@ recorders.__flPupilAnswer = (endpoint: string) => {
   const antwort = schreibAntwort();
   if (antwort instanceof Error) throw antwort;
   return antwort;
-};
+}
 
 const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<string, unknown>> =>
   (await POST(request)) as unknown as Record<string, unknown>;
@@ -120,7 +112,6 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
 const ansichten = () => calls.filter((call) => call.endpoint === "/registrierungen/bestaetigung/ansicht").length;
 
 beforeEach(() => {
-  calls.length = 0;
   schreibAntwort = () => GESCHRIEBEN;
   ansichtAntwort = () => ANSICHT;
 });

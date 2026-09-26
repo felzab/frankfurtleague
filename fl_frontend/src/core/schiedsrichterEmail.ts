@@ -23,7 +23,7 @@ export const SCHIEDSRICHTER_BESTAETIGUNG_PATH = "/bestaetigung/schiedsrichter";
 
 /**
  * The one place the referee's confirmation link is spelled. `token` is the parameter name because
- * `nginx/prod.conf :: $credential_free_uri` matches that name; a second spelling reaches the access
+ * `nginx/shared/http.conf :: $credential_free_uri` matches that name; a second spelling reaches the access
  * line and the referer unredacted.
  */
 export function schiedsrichterBestaetigungsLink(origin: string, token: string): string {
@@ -104,7 +104,8 @@ function renderHtml(vorname: string, url: string, frist: string, origin: string)
       /* The link runs past the card's width, so this one paragraph breaks inside a word. Marked as a
          link as well: an address a reader has to select and paste is not a route. */
       paragraph(link(url, url), "0 0 16px", `${ASIDE_TEXT}word-break:break-all;`),
-      paragraph(escapeHtml(ignorierSatz(KONTAKT_EMAIL)), "0", ASIDE_TEXT),
+      // The address as a marked link here too: the escape route is one a reader has to select and paste otherwise.
+      paragraph(ignorierSatz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0", ASIDE_TEXT),
     ],
     aktionen: aktionen(url),
     fuss: `${EMPFAENGER_SATZ} ${ANTWORT_SATZ_HTML}`,

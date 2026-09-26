@@ -2,13 +2,18 @@
 
 import Link from "next/link";
 
-import { ArrowRotateLeft, Copy, Ellipsis, TrashBin } from "@gravity-ui/icons";
+import ArrowRotateLeft from "@gravity-ui/icons/ArrowRotateLeft";
+import Copy from "@gravity-ui/icons/Copy";
+import Ellipsis from "@gravity-ui/icons/Ellipsis";
+import TrashBin from "@gravity-ui/icons/TrashBin";
 
-import { Button, Dropdown, Label } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { Dropdown } from "@heroui/react/dropdown";
+import { Label } from "@heroui/react/label";
 
 import { Hint } from "./Hint";
 import { IconTooltip } from "./IconTooltip";
-import { ROW_ACTION_SIZE } from "./rowActionSize";
+import { ROW_ACTION_SIZE_CLASSES } from "./rowActionSize";
 
 import type { ReactNode } from "react";
 
@@ -16,34 +21,21 @@ import type { ReactNode } from "react";
  * The shape every row action shares, so a link's hit area and a button's cannot drift; only the hover arm splits. The
  * tooltip is wired as `aria-describedby`, which never names the control, so every action takes an `ariaLabel` too.
  */
-const ACTION_SHAPE = `text-foreground-muted flex ${ROW_ACTION_SIZE} shrink-0 items-center justify-center rounded-xl transition-colors`;
+const ACTION_SHAPE_CLASSES = `flex text-foreground-muted ${ROW_ACTION_SIZE_CLASSES} shrink-0 items-center justify-center rounded-xl transition-colors`;
 
-const ACTION_LINK_CLASS = `${ACTION_SHAPE} hover:bg-hover hover:text-brand`;
+const ACTION_LINK_CLASSES = `${ACTION_SHAPE_CLASSES} hover:bg-hover hover:text-brand`;
 
-const ACTION_BUTTON_CLASS = `${ACTION_SHAPE} data-hovered:bg-hover data-hovered:text-brand`;
+const ACTION_BUTTON_CLASSES = `${ACTION_SHAPE_CLASSES} data-hovered:bg-hover data-hovered:text-brand`;
 
-const DANGER_CLASS = `${ACTION_SHAPE} data-hovered:bg-hover-danger data-hovered:text-danger-strong`;
+const DANGER_CLASSES = `${ACTION_SHAPE_CLASSES} data-hovered:bg-hover-danger data-hovered:text-danger-strong`;
 
-export function RowActionLink({
-  href,
-  label,
-  ariaLabel,
-  external,
-  children,
-}: {
-  href: string;
-  label: string;
-  ariaLabel: string;
-  external?: boolean;
-  children: ReactNode;
-}) {
+export function RowActionLink({ href, label, ariaLabel, children }: { href: string; label: string; ariaLabel: string; children: ReactNode }) {
   return (
     <IconTooltip label={label}>
       <Link
         href={href}
         aria-label={ariaLabel}
-        {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-        className={ACTION_LINK_CLASS}>
+        className={ACTION_LINK_CLASSES}>
         {children}
       </Link>
     </IconTooltip>
@@ -57,7 +49,7 @@ export function RowActionCopy({ label, ariaLabel, onPress }: { label: string; ar
         isIconOnly
         aria-label={ariaLabel}
         variant="ghost"
-        className={ACTION_BUTTON_CLASS}
+        className={ACTION_BUTTON_CLASSES}
         onPress={onPress}>
         <Copy
           className="size-4.5"
@@ -96,7 +88,7 @@ export function RowActionRestore({
       // `isPending` and never `isDisabled`: a disabled button leaves the tab order, dropping the keyboard's focus to the
       // page mid-press, where react-aria's pending state keeps it and ignores the press.
       isPending={isPending}
-      className={ACTION_BUTTON_CLASS}
+      className={ACTION_BUTTON_CLASSES}
       onPress={onPress}>
       <ArrowRotateLeft
         className="size-4.5"
@@ -136,7 +128,7 @@ export function RowActionDelete({
       aria-label={ariaLabel}
       variant="ghost"
       isDisabled={disabledReason != null}
-      className={DANGER_CLASS}
+      className={DANGER_CLASSES}
       onPress={onPress}>
       <TrashBin
         className="size-4.5"
@@ -180,7 +172,7 @@ export function RowActionMenu({ ariaLabel, children }: { ariaLabel: string; chil
       <IconTooltip label="Weitere Aktionen">
         <Dropdown.Trigger
           aria-label={ariaLabel}
-          className={ACTION_BUTTON_CLASS}>
+          className={ACTION_BUTTON_CLASSES}>
           <Ellipsis
             className="size-4.5"
             aria-hidden="true"
@@ -222,8 +214,8 @@ export function RowActionMenuItem({
       textValue={label}
       href={href}
       {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-      className="data-hovered:bg-hover flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
-      <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">{label}</Label>
+      className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
+      <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">{label}</Label>
       {children}
     </Dropdown.Item>
   );

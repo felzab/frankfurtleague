@@ -6,9 +6,10 @@ helper raises `DocumentNotFoundException` on a miss and never returns `None`, an
 helper returns the empty result and never raises for absence.
 
 Every write here also appends to the action log (`app/core/recording.py`), which is what makes the
-log complete by construction: no WRITE reaches the driver outside this module. Reads are a different
-matter -- several routers call `aggregate`, `count_documents`, `distinct`, `find` and `find_one`
-directly -- and a write shaped like one of those would escape the log.
+log complete by construction: a WRITE reaches the driver in this module alone, the log's own row
+aside, which `app/core/recording.py :: record_write` inserts. Reads are a different matter --
+several routers call `aggregate`, `count_documents`, `distinct`, `find` and `find_one` directly --
+and a write shaped like one of those would escape the log.
 """
 
 import re
@@ -19,10 +20,10 @@ from pydantic import BaseModel
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
-from pymongo.errors import BulkWriteError
+from pymongo.errors import BulkWriteError, DuplicateKeyError
 from pymongo.results import DeleteResult, InsertManyResult, InsertOneResult, UpdateResult
 
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException, WriteRefusal
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException, WriteRefusal, WriteRefusalException
 from app.core.recording import record_write
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -169,12 +170,16 @@ async def post_many_to_db(
     try:
         result = await collection.insert_many(documents=documents, session=session)
     except BulkWriteError as failure:
-        # `insert_many` is ORDERED and not atomic: a duplicate key partway through leaves everything
-        # before it written, unlogged unless recorded here. Not under a session, where the abort takes
-        # them back and a second write would mask this error with its own.
+        # `insert_many` is ORDERED and not atomic: a refused document leaves every one before it
+        # written, unlogged unless recorded here. Not inside a transaction, whose abort takes them back
+        # and where a second write would mask this error with its own.
         landed = int((failure.details or {}).get("nInserted", 0))
-        if session is None and landed:
-            await record_write(collection=collection, operation="insert_many", modified_count=landed)
+        stands = landed > 0 and not (session is not None and session.in_transaction)
+        if stands:
+            await record_write(collection=collection, operation="insert_many", modified_count=landed, session=session)
+
+        if not stands and (refusal := _duplicate_key_of(failure)) is not None:
+            raise refusal from failure
         raise
 
     # Neither an id nor a `before`: the call named no single document, and a create replaced nothing.
@@ -182,6 +187,29 @@ async def post_many_to_db(
     await record_write(collection=collection, operation="insert_many", modified_count=len(result.inserted_ids), session=session)
 
     return result
+
+
+# The server's code for a unique index's refusal: the driver exports no name for it and compares the number itself.
+DUPLICATE_KEY_ERROR = 11000
+
+
+def _duplicate_key_of(failure: BulkWriteError) -> DuplicateKeyError | None:
+    """So a batch answers 409 `DB-COMMON-002` as one insert does, asked only where nothing the batch wrote stands.
+
+    A refusal says nothing was written. A write-concern error beside the refusals keeps the batch's own
+    failure, which says more.
+    """
+
+    report = failure.details or {}
+    errors = report.get("writeErrors") or []
+    if not errors or report.get("writeConcernErrors") or any(error.get("code") != DUPLICATE_KEY_ERROR for error in errors):
+        return None
+
+    # Built as the driver builds a single write's, so the handler finds the index name in `errmsg`
+    # where it looks for one.
+    first = errors[0]
+
+    return DuplicateKeyError(first.get("errmsg", ""), DUPLICATE_KEY_ERROR, first)
 
 
 async def delete_many_from_db(
@@ -319,7 +347,7 @@ def literal_pattern(value: str) -> str:
     return re.escape(value).replace("\x00", r"\x00")
 
 
-# Section 3, what a write does beyond the driver call: a refusal becomes the 409 it means, and a
+# Section 3, what a write does beyond the driver call: a refusal becomes the status its check chose, and a
 # retirement is a date on `inactive_since` rather than a state of its own (`docs/backend/spec.md :: I12`).
 
 
@@ -331,7 +359,7 @@ def refuse(refusal: WriteRefusal | None) -> None:
     """
 
     if refusal is not None:
-        raise DocumentConflictException.from_refusal(refusal)
+        raise WriteRefusalException(refusal)
 
 
 async def set_inactive_since(

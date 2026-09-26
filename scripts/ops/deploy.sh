@@ -2,10 +2,10 @@
 #
 # SCRIPTS · put a published version live, or report what is live.
 #
-# It only pulls what `scripts/ops/publish.sh` already built: a server that builds is a server that can
-# fail a build with the site down and nothing to fall back to. What is live is read by image ID
-# during preflight, so a failed deploy has a rollback target the pull cannot have moved -- and a
-# build that never becomes healthy is put back to it without waiting for anybody.
+# It only pulls what `.github/workflows/publish.yml` already built: a server that builds
+# is a server that can fail a build with the site down and nothing to fall back to. What is live is
+# read by image ID during preflight, so a failed deploy has a rollback target the pull cannot have
+# moved -- and a build that never becomes healthy is put back to it without waiting for anybody.
 #
 #   ./scripts/ops/deploy.sh                    deploy the current :latest tag of both packages
 #   ./scripts/ops/deploy.sh sha-1a2b3c4        deploy, or ROLL BACK to, one published build
@@ -25,9 +25,8 @@ PROBE_URL="https://frankfurtleague.de/api/v0/system/is_live"
 # has stopped what was running by then — so preflight asks, rather than the deploy.
 ENGINE_MIN=25
 
-# One shape, for what the operator types and for a label read off a running image. The fingerprint
-# is optional so an older image's label still names a rollback target.
-PIN_RE='^sha-[0-9a-f]{7,40}(-dirty(-[0-9a-f]{7})?)?$'
+# One shape, for what the operator types and for a label read off a running image.
+PIN_RE='^sha-[0-9a-f]{7,40}$'
 
 # The host directory the log copies land in, named once; `docs/ops/runbooks.md` §7 is what bounds
 # their age, and it bounds the DIRECTORY rather than a name — so a suffix below cannot escape it.
@@ -35,6 +34,21 @@ LOG_DIR="/var/log/frankfurtleague"
 # One stamp for the whole run, so the rollback's copies sit beside the ones taken before it. It
 # carries the time of day: two deploys on one day would otherwise overwrite each other's.
 LOG_STAMP="$(date +%Y-%m-%dT%H%M%S)"
+
+# Each checkout directory the edge loads, beside where `docker-compose.yml :: nginx` mounts it; the
+# two lists move together (`scripts/checks/check_compose_model.py :: edge_mounts`). Every file in
+# them must be one nginx loads: any other, a README included, fails every deploy as absent.
+EDGE_CONFIG_DIRS=("nginx/prod:/etc/nginx/conf.d" "nginx/shared:/etc/nginx/shared")
+# Where `docker-compose.yml :: nginx` starts its Control API, the one address that answers whether a
+# reload applied (https://docs.nginx.com/nginx/admin-guide/basic-functionality/runtime-control/);
+# the two spellings move together (`scripts/checks/check_compose_model.py :: control_socket`).
+EDGE_CONTROL_SOCKET="/run/nginx-control/control.sock"
+# How many times, 0.2 s apart, a freshly started nginx is given to open that socket.
+EDGE_START_POLLS=50
+# Every production service `.github/workflows/publish.yml` does not build, held to
+# `scripts/checks/check_compose_model.py :: PRODUCTION_SERVICES` by
+# `scripts/tests/test_deploy_edge_config.py`: one missing here is fetched only after the recreate.
+EDGE_IMAGE_SERVICES=(nginx cloudflared)
 
 PIN=""; STATUS_ONLY=0
 # shellcheck disable=SC2034  # the --verbose arm assigns VERBOSE for _lib.sh's `quietly`
@@ -71,8 +85,8 @@ require_platform linux
 require_docker
 require_file "$COMPOSE"
 
-# `revision` is the commit alone, so a rollback built from it names a tag that was never pushed when
-# the previous deploy was dirty; `version` carries the whole qualifier.
+# `version`, never `revision`: the version label is the tag the build was pushed under, and the
+# revision is the full commit, which no tag spells.
 published_tag() {
   local value=""
   # Returns 1 where the inspect itself failed, so a caller can tell "this image carries no such
@@ -112,6 +126,23 @@ environment file that line is a value. Ask it yourself, where the answer is not 
   docker compose -f ${COMPOSE} config --quiet"
   fi
   ok "compose parses ${COMPOSE} and the two environment files it names"
+}
+
+# Before either application image moves: the `up` that reloads nginx would otherwise fetch a missing
+# edge image after the pair was replaced, and a fetch failing there leaves nginx proxying to the
+# containers it replaced.
+fetch_edge_images() {
+  local rc=0
+  # `missing`, the policy `up` applies, so a tag this host holds is not refreshed under a running
+  # edge. Never `--include-deps`: it would refresh the application's `:latest` over a pin.
+  quietly docker compose -f "$COMPOSE" pull --policy missing "${EDGE_IMAGE_SERVICES[@]}" || rc=$?
+  if (( rc )); then
+    refuse "compose could not fetch the images ${EDGE_IMAGE_SERVICES[*]} run (exit ${rc}), so this deploy
+stopped here rather than at the reload, after the application containers were replaced.
+No application image has been pulled, NOTHING has been recreated, and the site is untouched.
+Compose's own output is above."
+  fi
+  ok "this host holds the images ${EDGE_IMAGE_SERVICES[*]} run"
 }
 
 # `get_config`, never `BackendConfig()`: pydantic renders `input_value=` on its own ValidationError,
@@ -204,6 +235,113 @@ answer is above."
   fi
 }
 
+# nginx's Control API, by the image's own curl. Every call is bounded, as every `curl` here is: the
+# reload runs with the replaced containers' addresses answering 502 until it lands.
+edge_control() {
+  docker compose -f "$COMPOSE" exec -T nginx curl -sS --max-time 30 --unix-socket "$EDGE_CONTROL_SOCKET" "$@"
+}
+
+# One `<sha256> <path>` line per file in `GET /1/control/config`'s dump: what the master holds in
+# memory, not what its mounts show. Read as bytes, so no locale decodes a non-ASCII line into
+# another sum.
+EDGE_LOADED_SUMS='
+import hashlib
+import json
+import sys
+
+for entry in json.loads(sys.stdin.buffer.read()):
+    print(hashlib.sha256(entry["content"].encode()).hexdigest(), entry["name"])
+'
+
+# The lines a refused reload's `{"logs": [...]}` carries, as nginx wrote them.
+EDGE_RELOAD_LOGS='
+import json
+import sys
+
+for line in json.loads(sys.stdin.buffer.read())["logs"]:
+    print(line.rstrip("\n"))
+'
+
+# Stdin decoded by the program `$1`, in the backend image's interpreter: the one JSON reader this host
+# is sure to hold, having pulled that image. `--pull never`, because `--status` changes nothing, and
+# `--network none`, because it reads nothing but stdin.
+decode_json() {
+  docker run -i --rm --pull never --network none "$IMAGE_BACKEND" python -c "$1" 2>/dev/null
+}
+
+# 0 once the Control API answers, polling a freshly started nginx that has not yet opened its socket;
+# 1 where it never does in time, which the read after it reports.
+edge_control_opened() {
+  for _ in $(seq 1 "$EDGE_START_POLLS"); do
+    if edge_control --fail http://localhost/1/control/config >/dev/null 2>&1; then return 0; fi
+    sleep 0.2
+  done
+  return 1
+}
+
+# What nginx LOADED against this checkout (`docs/ops/spec.md :: I355`): its mounts show what a pull
+# wrote whether or not anything reloaded it since. 1 where the two differ, 2 where either went unread.
+edge_reads_checkout() {
+  local pair host_dir edge_dir file sum path dump="" listed="" rc=0
+  local -A want=() got=()
+  local -a differ=()
+  for pair in "${EDGE_CONFIG_DIRS[@]}"; do
+    host_dir="${pair%%:*}"
+    edge_dir="${pair#*:}"
+    for file in "$host_dir"/*; do
+      [[ -f "$file" ]] || continue
+      rc=0
+      sum="$(sha256sum -- "$file")" || rc=$?
+      if (( rc )); then
+        warn "${file} could not be read here (exit ${rc}), so nothing says whether nginx is running this
+checkout's configuration."
+        return 2
+      fi
+      want["${edge_dir}/${file##*/}"]="${sum%% *}"
+    done
+  done
+  rc=0
+  # Stdout alone: it is the document parsed below, and compose warns on stderr.
+  dump="$(edge_control --fail http://localhost/1/control/config 2>/dev/null)" || rc=$?
+  if (( rc )); then
+    warn "the running nginx could not be asked for the configuration it holds (exit ${rc}), so nothing
+here says whether it is running this checkout's.
+Ask it directly:  docker compose -f ${COMPOSE} exec -T nginx curl -s --unix-socket ${EDGE_CONTROL_SOCKET} http://localhost/1/control/config"
+    return 2
+  fi
+  rc=0
+  listed="$(printf '%s' "$dump" | decode_json "$EDGE_LOADED_SUMS")" || rc=$?
+  if (( rc )); then
+    warn "nginx answered with its configuration, and ${IMAGE_BACKEND} could not read it back (exit ${rc}),
+so nothing here says whether nginx is running this checkout's."
+    return 2
+  fi
+  while IFS=' ' read -r sum path; do
+    # The image's own `nginx.conf` and `mime.types` sit outside every mount, and are not compared.
+    for pair in "${EDGE_CONFIG_DIRS[@]}"; do
+      if [[ "$path" == "${pair#*:}/"* ]]; then got["$path"]="$sum"; fi
+    done
+  done <<< "$listed"
+  for path in "${!want[@]}"; do
+    if [[ -z "${got[$path]:-}" ]]; then differ+=("${path}  absent from the running nginx")
+    elif [[ "${got[$path]}" != "${want[$path]}" ]]; then differ+=("${path}  differs from this checkout's")
+    fi
+  done
+  for path in "${!got[@]}"; do
+    [[ -n "${want[$path]:-}" ]] || differ+=("${path}  in the running nginx and not in this checkout")
+  done
+  if (( ${#differ[@]} )); then
+    fail "nginx holds a configuration that is not this checkout's. One not reloaded since a pull holds
+what it last loaded, and one created while its configuration was mounted as a file keeps that file
+whatever a pull put in its place. What differs, by the path nginx read:"
+    printf '%s\n' "${differ[@]}" | sort | detail
+    detail "Recreate it, which loads the checkout as it stands:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
+    return 1
+  fi
+  ok "nginx holds this checkout's ${#want[@]} configuration files in memory, byte for byte"
+  return 0
+}
+
 # Answers 2 wherever the edge's state could not be ESTABLISHED -- compose declining to answer, or to
 # act -- which a caller has to be able to tell from a definite "the edge is not serving this build".
 serve_through_nginx() {
@@ -244,41 +382,52 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
   # resolved the new addresses as it started and has nothing to re-read.
   if [[ "$before" != "$after" ]]; then
     ok "started, so it resolved the containers this deploy created as it loaded"
-    return 0
+    # The `up` returns before nginx opens its socket; an answer never arriving is the read's to report.
+    edge_control_opened || true
+    edge_reads_checkout
+    return
   fi
   # nginx resolves `frontend` and `backend` once, as it loads its configuration: the proxy_pass names
-  # in `nginx/prod.conf` are plain, so a container recreated at a new address is invisible to a proxy
+  # in `nginx/shared/site.conf` are plain, so a container recreated at a new address is invisible to a proxy
   # that kept running, and only a reload re-resolves them.
-  local test_out="" test_rc=0
-  # A reload with an unparseable file leaves the master serving the configuration it already had and
-  # says so in nginx's log alone, so the signal on its own would prove nothing.
-  test_out="$(docker compose -f "$COMPOSE" exec -T nginx nginx -t 2>&1)" || test_rc=$?
-  # Replayed rather than streamed, so `--verbose` still shows what the tool said (`docs/ops/spec.md`
-  # §1.7); the verdict below needs the bytes, which `quietly` discards under exactly that flag.
-  if [[ -n "$test_out" ]] && { (( test_rc )) || verbose; }; then printf '%s\n' "$test_out" | detail; fi
-  if (( test_rc )); then
-    # The verdict is nginx's own sentence, never the status: `exec` answers 1 for a config nginx
-    # rejected and for an exec that never reached it alike.
-    if [[ "$test_out" == *"test failed"* ]]; then
-      fail "nginx rejects the configuration it has mounted, so it was NOT reloaded and is still
-proxying to the addresses of the containers this deploy replaced. Its own output is above."
-      detail "Fix nginx/prod.conf, then:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
-      return 1
-    fi
-    warn "nginx could not be asked to test its configuration (exit ${test_rc}), and nothing above is
-nginx's own verdict on it, so this says nothing about nginx/prod.conf. It was NOT reloaded either
-way, so it may still be proxying to the addresses of the containers this deploy replaced."
-    detail "Ask it yourself:  docker compose -f ${COMPOSE} exec -T nginx nginx -t"
+
+  # The Control API rather than `nginx -s reload`, which answers 0 once the signal is sent: this answers
+  # 200 once the configuration applied, and 422 with nginx's own lines where the master rolled it back.
+  local reply="" reload_rc=0 status="" body=""
+  reply="$(edge_control -X PATCH -w '\n%{http_code}' http://localhost/1/control/config 2>/dev/null)" || reload_rc=$?
+  status="${reply##*$'\n'}"
+  body="${reply%$'\n'*}"
+  if (( reload_rc )); then
+    warn "nginx's Control API could not be asked to reload it (exit ${reload_rc}), so nothing here says
+whether it applied the configuration, and it may still be proxying to the addresses of the
+containers this deploy replaced.
+Recreate it, which loads the checkout and resolves the new containers:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
     return 2
   fi
-  if ! quietly docker compose -f "$COMPOSE" exec -T nginx nginx -s reload; then
-    fail "nginx could not be reloaded, so it is still proxying to the addresses of the containers this
-deploy replaced and every request through it answers 502."
-    detail "Recreate it by hand:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
-    return 1
-  fi
-  ok "reloaded, so it is proxying to the containers this deploy created"
-  return 0
+  case "$status" in
+    200)
+      # An applied reload's lines are warnings, replayed under `--verbose` as every command's own
+      # output is (`docs/ops/spec.md` §1.7).
+      if verbose && [[ -n "$body" ]]; then printf '%s\n' "$body" | detail; fi
+      ok "reloaded, so it is proxying to the containers this deploy created"
+      edge_reads_checkout
+      ;;
+    422)
+      # The reply undecoded where it cannot be decoded: nginx's reason is worth more escaped than lost.
+      printf '%s' "$body" | decode_json "$EDGE_RELOAD_LOGS" | detail || printf '%s\n' "$body" | detail
+      fail "nginx refused to apply the configuration it has mounted and kept serving the one it had, so it
+is still proxying to the addresses of the containers this deploy replaced. Its own lines are above."
+      detail "Fix nginx/prod/ or nginx/shared/ as they say, then recreate it:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
+      return 1
+      ;;
+    *)
+      warn "nginx's Control API answered the reload with '${status}', which is neither applied nor
+refused, so nothing here says which it did. Its reply:
+${body}
+Ask it directly:  docker compose -f ${COMPOSE} exec -T nginx curl -s --unix-socket ${EDGE_CONTROL_SOCKET} http://localhost/1/control/config"
+      return 2
+      ;;
+  esac
 }
 
 # How many streams the last call wrote, because the callers' sentence about NONE of them differs:
@@ -401,7 +550,7 @@ Ask it directly:  docker compose -f ${COMPOSE} ps"
            "  ./scripts/ops/deploy.sh ${PREV_PIN}"
   else
     detail "The registry's :latest still names the build that just failed, so DO NOT re-run this" \
-           "script bare. Publish a good build, or deploy one by tag:" \
+           "script bare. Publish a good build (gh workflow run publish.yml --ref main), or deploy one by tag:" \
            "  ./scripts/ops/deploy.sh <tag>       (./scripts/ops/deploy.sh --status lists them)"
   fi
   return 0
@@ -451,7 +600,7 @@ Bring the published pair back up:  ./scripts/ops/deploy.sh"
       UNANSWERED=1
       tag_cell="could not be read"
     else
-      tag_cell="${tag:-unlabelled (not built by publish.sh)}"
+      tag_cell="${tag:-unlabelled (not built by publish.yml)}"
     fi
     case "$svc" in frontend) RUNNING_FE="$tag" ;; backend) RUNNING_BE="$tag" ;; esac
     state="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid")" || state="unreadable"
@@ -488,6 +637,24 @@ Ask from somewhere else before acting."
     fail "the edge answered ${PROBE_URL} with ${status_code}, not 200, so whatever is running above is
 not what a visitor is being served."
     detail "Reload the edge:  docker compose -f ${COMPOSE} up -d --force-recreate nginx"
+  fi
+
+  # The edge's other half: a probe answered 200 by a configuration no pull reached reads as current.
+  step "The edge's configuration, against this checkout"
+  NGINX_RC=0
+  nginx_cid="$(service_cid nginx)" || NGINX_RC=$?
+  if (( NGINX_RC )); then
+    warn "nginx: compose could not answer (exit ${NGINX_RC}), which is not the same as not running.
+Ask it directly:  docker compose -f ${COMPOSE} ps"
+    UNANSWERED=1
+  elif [[ -z "$nginx_cid" ]]; then
+    # A finding for the application rows' reason: an edge that is not running serves nobody.
+    fail "nginx: not running, so nothing on this host is serving the site.
+Bring it back up:  docker compose -f ${COMPOSE} up -d nginx"
+  else
+    EDGE_CONFIG_RC=0
+    edge_reads_checkout || EDGE_CONFIG_RC=$?
+    if (( EDGE_CONFIG_RC == 2 )); then UNANSWERED=1; fi
   fi
 
   step "Published builds available to roll back to"
@@ -534,7 +701,13 @@ section "preflight"
 step "Files and directories the stack mounts, before anything is stopped or pulled"
 require_file "fl_frontend/.env" "The frontend cannot start without it. Restore it from your password manager."
 require_file "fl_backend/.env"  "The backend cannot start without it."
-require_file "nginx/prod.conf"  "nginx mounts this read-only; if it is missing, Docker creates a DIRECTORY at that path and nginx fails with 'not a directory'."
+# Each file and never its directory alone: Docker mounts a missing directory empty, where nginx
+# loads no server of this site's or refuses the include, the edge serving its previous
+# configuration until it restarts.
+require_file "nginx/prod/prod.conf" "nginx loads it from the nginx/prod mount; without it nginx serves none of this site."
+require_file "nginx/shared/http.conf" "nginx/prod/prod.conf includes it from the nginx/shared mount; without it nginx refuses the whole configuration."
+require_file "nginx/shared/site.conf" "nginx/prod/prod.conf includes it from the nginx/shared mount; without it nginx refuses the whole configuration."
+require_file "nginx/shared/security_headers.conf" "nginx/shared/site.conf includes it; without it nginx refuses the whole configuration."
 require_file "secrets/tunnel_token" "The connector reads it with --token-file and registers no tunnel without it, which leaves the site with no route in at all."
 require_dir  "certs"            "nginx mounts this read-only for the TLS certificate and key."
 ok "all present"
@@ -660,7 +833,90 @@ if (( RECORDED )); then ok "recorded before anything is pulled or recreated"; fi
 
 # --- pull -------------------------------------------------------------------------------------------
 
+# What each `:latest` named before a bare run's pull, read by `image ls`: `inspect` answers an absent
+# image and a dead daemon alike. A pinned run leaves them empty, its tags moving only once the pair
+# is accepted.
+LATEST_BEFORE_FE=""
+LATEST_BEFORE_BE=""
+LATEST_BEFORE_RC=0
+
+# A pair this run refuses leaves the host's tags as it found them: an `up` reaching the application
+# recreates it from whatever `:latest` names, a refused pair included.
+put_latest_back() {
+  local rc=0
+  if (( LATEST_BEFORE_RC )); then
+    warn "what the :latest tags named before this run could not be read (exit ${LATEST_BEFORE_RC}), so
+they cannot be put back, and this host's pair may be the refused one until a deploy pulls both again:
+  ./scripts/ops/deploy.sh --status"
+    return 0
+  fi
+  [[ -z "$LATEST_BEFORE_FE" ]] || quietly docker tag "$LATEST_BEFORE_FE" "$IMAGE_FRONTEND" || rc=1
+  [[ -z "$LATEST_BEFORE_BE" ]] || quietly docker tag "$LATEST_BEFORE_BE" "$IMAGE_BACKEND"  || rc=1
+  if (( rc )); then
+    warn "the :latest tags could not both be put back, so this host's pair may be the refused one until
+a deploy pulls both again:  ./scripts/ops/deploy.sh --status"
+  elif [[ -n "$LATEST_BEFORE_FE$LATEST_BEFORE_BE" ]]; then
+    info "the :latest tags were put back to the images they named before this run"
+  fi
+}
+
+# A publish that moved one tag and failed on the other leaves a pair no tag names. Three answers
+# rather than two, because a label nobody could read is not an absent one.
+compare_pulled_pair() { # $1 the frontend image as pulled, $2 the backend's
+  local fe="" be="" fe_rc=0 be_rc=0
+  fe="$(published_tag "$1")" || fe_rc=1
+  be="$(published_tag "$2")" || be_rc=1
+  if (( fe_rc || be_rc )); then
+    put_latest_back
+    refuse "the pulled images' build labels could not be read, so nothing says whether these two
+packages are the same build. NOTHING has been recreated. Pin the build explicitly instead:
+  ./scripts/ops/deploy.sh <tag>       (published builds: https://github.com/felzab?tab=packages)"
+  elif [[ -z "$fe" || -z "$be" ]]; then
+    # Refused for `:latest` alone: every image `.github/workflows/publish.yml :: meta-frontend` and
+    # `:: meta-backend` label carries it, so an unlabelled one is a pair nothing proves matched. A pin
+    # names the pair itself, which keeps an unlabelled build reachable for a rollback.
+    if [[ -z "$PIN" ]]; then
+      put_latest_back
+      refuse "one of the pulled :latest images carries no published-tag label, so nothing says these two
+packages are the same build. NOTHING has been recreated. Publish a build, which labels both:
+  gh workflow run publish.yml --ref main
+or pin one:  ./scripts/ops/deploy.sh <tag>       (published builds: https://github.com/felzab?tab=packages)"
+    fi
+    info "one of the images carries no published-tag label; both were pulled as ${PIN}, which names the pair"
+  elif [[ "$fe" != "$be" && -n "$PIN" ]]; then
+    # Each label names the tag its image was pushed under, so one of these was pushed under a tag
+    # that is not its own, and no deploy of this pin runs the build it names.
+    die "The two images tagged ${PIN} carry different build labels: frontend ${fe}, backend ${be}.
+NOTHING has been recreated, and neither :latest tag has moved. Deploy a build both packages
+carry under its own label:  ./scripts/ops/deploy.sh <tag>  (https://github.com/felzab?tab=packages)"
+  elif [[ "$fe" != "$be" ]]; then
+    put_latest_back
+    die "The two :latest tags are different builds: frontend ${fe}, backend ${be}.
+A publish that moved one and failed on the other leaves exactly this pair, and nothing downstream
+sees it: each service is healthy against its own half. NOTHING has been recreated.
+Deploy the build both packages have:  ./scripts/ops/deploy.sh ${be}"
+  fi
+}
+
+pull_latest_pair() {
+  LATEST_BEFORE_FE="$(docker image ls --quiet --no-trunc "$IMAGE_FRONTEND" 2>/dev/null)" || LATEST_BEFORE_RC=$?
+  LATEST_BEFORE_BE="$(docker image ls --quiet --no-trunc "$IMAGE_BACKEND" 2>/dev/null)" || LATEST_BEFORE_RC=$?
+  docker pull "$IMAGE_FRONTEND" || die "pull failed for ${IMAGE_FRONTEND}
+The packages are public, so this server needs no login. An authentication or
+'not found' error almost always means the package was left PRIVATE after a
+first push — check https://github.com/felzab?tab=packages"
+  if ! docker pull "$IMAGE_BACKEND"; then
+    # A new frontend beside an old backend is a pair no build names.
+    put_latest_back
+    die "pull failed for ${IMAGE_BACKEND} — nothing has been recreated, and the site is untouched."
+  fi
+  ok "both packages pulled"
+}
+
 section "pull"
+
+step "The edge's images, before anything the application runs moves"
+fetch_edge_images
 
 if [[ -n "$PIN" ]]; then
   step "Pinning to ${PIN}"
@@ -674,60 +930,21 @@ List what exists locally: docker image ls '${REPO_FRONTEND}'
 Published builds are at https://github.com/felzab?tab=packages"
   docker pull "${REPO_BACKEND}:${PIN}"  || refuse "could not pull ${REPO_BACKEND}:${PIN} — docker's
 own reason is above. The frontend's :latest has NOT moved yet, so this host is untouched."
-  # Only now, with both pulls behind us, do the moving tags compose reads by name move.
+  compare_pulled_pair "${REPO_FRONTEND}:${PIN}" "${REPO_BACKEND}:${PIN}"
+  # Only now, with both pulls behind us and the pair accepted, do the moving tags compose reads by
+  # name move.
   quietly docker tag "${REPO_FRONTEND}:${PIN}" "$IMAGE_FRONTEND" || die "could not point ${IMAGE_FRONTEND} at ${PIN}."
   quietly docker tag "${REPO_BACKEND}:${PIN}"  "$IMAGE_BACKEND"  || die "could not point ${IMAGE_BACKEND} at ${PIN}.
 The frontend tag has already moved, so this host's pair is mismatched: re-run this command."
   ok "both :latest tags now point at ${PIN} locally"
 else
   step "Pulling the current published images"
-  # What :latest names before the pull moves it, so a failed second pull leaves no new frontend
-  # beside an old backend. `image ls`, not `inspect`, which reads an absent image and a dead daemon
-  # alike where only the second may skip the restore.
-  BEFORE_RC=0
-  before_fe="$(docker image ls --quiet --no-trunc "$IMAGE_FRONTEND" 2>/dev/null)" || BEFORE_RC=$?
-  docker pull "$IMAGE_FRONTEND" || die "pull failed for ${IMAGE_FRONTEND}
-The packages are public, so this server needs no login. An authentication or
-'not found' error almost always means the package was left PRIVATE after a
-first push — check https://github.com/felzab?tab=packages"
-  if ! docker pull "$IMAGE_BACKEND"; then
-    if (( BEFORE_RC )); then
-      warn "what ${IMAGE_FRONTEND} named before this run could not be read (exit ${BEFORE_RC}), so the
-frontend tag cannot be put back. This host's pair may be mismatched until a deploy pulls both again:
-  ./scripts/ops/deploy.sh --status"
-    elif [[ -n "$before_fe" ]]; then
-      if quietly docker tag "$before_fe" "$IMAGE_FRONTEND"; then
-        info "the frontend tag was put back to the image it named before this run"
-      else
-        warn "could not put the frontend tag back — this host's pair stays mismatched until the next deploy"
-      fi
-    fi
-    die "pull failed for ${IMAGE_BACKEND} — nothing has been recreated, and the site is untouched."
-  fi
-  ok "both packages pulled"
+  pull_latest_pair
+  compare_pulled_pair "$IMAGE_FRONTEND" "$IMAGE_BACKEND"
 fi
 
 info "frontend commit: $(image_revision_display "$IMAGE_FRONTEND")"
 info "backend  commit: $(image_revision_display "$IMAGE_BACKEND")"
-
-# A publish that moved one tag and failed on the other leaves a pair no tag names. Three answers
-# rather than two, because a label nobody could read is not an absent one.
-FE_RC=0; BE_RC=0
-FE_BUILD="$(published_tag "$IMAGE_FRONTEND")" || FE_RC=1
-BE_BUILD="$(published_tag "$IMAGE_BACKEND")"  || BE_RC=1
-if (( FE_RC || BE_RC )); then
-  refuse "the pulled images' build labels could not be read, so nothing says whether these two
-packages are the same build. NOTHING has been recreated. Pin the build explicitly instead:
-  ./scripts/ops/deploy.sh <tag>       (./scripts/ops/deploy.sh --status lists them)"
-elif [[ -z "$FE_BUILD" || -z "$BE_BUILD" ]]; then
-  warn "one of the pulled images carries no published-tag label, so this deploy is NOT verified as a
-matched pair. An image not built by publish.sh is the usual cause."
-elif [[ "$FE_BUILD" != "$BE_BUILD" ]]; then
-  die "The two :latest tags are different builds: frontend ${FE_BUILD}, backend ${BE_BUILD}.
-A publish that moved one and failed on the other leaves exactly this pair, and nothing downstream
-sees it: each service is healthy against its own half. NOTHING has been recreated.
-Deploy the build both packages have:  ./scripts/ops/deploy.sh ${BE_BUILD}"
-fi
 
 # What `:latest` resolves to now the pull is behind us. A rollback to the images ALREADY running is a
 # second full outage ending where this run started, so it is read here rather than reasoned about.
@@ -821,7 +1038,8 @@ the new version is healthy — and the containers WERE recreated, so the site's 
 nginx has NOT been reloaded, so it is still resolving the containers this deploy replaced and every
 request through it answers 502 whether the new build is healthy or not.
 No rollback runs on that: it would be undoing a build nothing here has judged.
-Reload the edge first:  docker compose -f ${COMPOSE} exec -T nginx nginx -s reload
+Reload the edge first, which answers 200 once applied:
+  docker compose -f ${COMPOSE} exec -T nginx curl -s -X PATCH --unix-socket ${EDGE_CONTROL_SOCKET} http://localhost/1/control/config
 Then ask what is running:  docker compose -f ${COMPOSE} ps
 And if the new build turns out to be the problem:  ./scripts/ops/deploy.sh ${PREV_PIN:-<a published tag>}"
   fi
@@ -833,9 +1051,9 @@ if (( HEALTHY )); then
   section "checks"
   SITE_VERIFIED=1
 
-  # First, and the two checks below are what prove it landed: `nginx -s reload` returns 0 when the
-  # signal is sent, not when the master has applied anything. Both of those read the site through
-  # this edge.
+  # First, because the two checks below read the site through this edge: this step establishes that
+  # nginx applied a configuration and that it is this checkout's, and those two that the site
+  # answers through it.
   step "nginx"
   EDGE_RC=0
   serve_through_nginx || EDGE_RC=$?
@@ -873,7 +1091,7 @@ This host's own DNS, egress and TLS trust sit between the two. Ask from somewher
     SITE_VERIFIED=0
     fail "the edge replied over HTTPS carrying neither Content-Security-Policy nor
 Strict-Transport-Security, so every visitor is being served without them."
-    detail "Check nginx/prod.conf and the certificates in certs/."
+    detail "Check nginx/shared/security_headers.conf, nginx/prod/prod.conf and the certificates in certs/."
   fi
 
   # The container healthcheck calls this from inside, so it stays green while the edge answers a

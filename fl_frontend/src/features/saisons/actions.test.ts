@@ -3,207 +3,405 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { withoutPythonComments } from "@/core/pythonComments.ts";
+import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
+import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
-import { GRUPPEN_OFF_RULES } from "./constants.ts";
+import { GRUPPEN_OFF_RULES, RECORDED_FACTS_NONE, SPIELTAGE_UNDATED } from "./constants.ts";
+import { mapActivateRefusal, mapRulesRefusal, mapSaisonIdRefusal, mapSpielplanRefusal, mapSwapRefusal, mapUndrawRefusal } from "./refusals.ts";
 
-const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
-/**
- * Read rather than called: what is asserted is which site carries a behaviour — which mapper's arm
- * answers a code, which action clears which tags — and a call reports the outcome, never the site.
- */
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-// A unique index refusing a write is a global handler rather than a `Rule(`, so `domain.py` does not carry its code.
-const HANDLERS = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "core", "exception_handlers.py"), "utf8");
+import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
+import type { FLSaisonRules } from "./schemas.ts";
+
+/* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
+doubleActionRequest();
+const { answerWith, calls } = doubleApiAnswers();
+const { activateSaisonAction, generateSpielplanAction, patchSaisonAction, postSaisonAction, swapGruppenAction, undrawSpielplanAction } =
+  await import("./actions.ts");
 
 const CREATE_OPERATION = "POST /saisons";
-const CREATE_CODES = ["REQ-DATE-005", "REQ-RULES-001", "REQ-RULES-007", "REQ-RULES-008", "REQ-RULES-010", "REQ-RULES-013"];
+const EDIT_OPERATION = "PATCH /saisons/{saison_id}";
+const ACTIVATE_OPERATION = "POST /saisons/{saison_id}/activate";
+const DRAW_OPERATION = "POST /saisons/{saison_id}/spielplan";
+const UNDRAW_OPERATION = "DELETE /saisons/{saison_id}/spielplan";
+const SWAP_OPERATION = "POST /saisons/{saison_id}/gruppen/swap";
 
-/* Several rules codes are answered TWICE in this file, once per mapper, so a search over the whole
-   source is satisfied by whichever function happens to carry the arm. Every assertion below reads
-   the one slice it is about. */
-const RULES_MAP = sliceBetween(ACTIONS, "function mapRulesRefusal", "function invalidateSaisonAndTable");
-const SPIELPLAN_MAP = sliceBetween(ACTIONS, "function mapSpielplanRefusal", "export async function postSaisonAction");
-const CREATE_ACTION = sliceBetween(ACTIONS, "export async function postSaisonAction", "export async function patchSaisonAction");
-const ACTIVATE_ACTION = sliceBetween(ACTIONS, "export async function activateSaisonAction", "export async function swapGruppenAction");
+const SAISON_ID = "2026";
 
-/* Hoisted out of both mappers, so neither arm's own source carries the sentence any more and the
-   assertions about it read the one declaration instead. */
-const SPAN_MESSAGE = sliceBetween(ACTIONS, "const SPAN_BELOW_SCHEDULE", "const rulesFaultMessage");
+const RULES: FLSaisonRules = {
+  win_points: 3,
+  draw_points: 1,
+  qualifiers_per_group: 2,
+  number_of_groups: 2,
+  teams_per_group: 4,
+  max_kadergroesse: 18,
+  tiebreak_order: "tordifferenz",
+  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
+  erlaubte_stufen: ["E1", "Q1"],
+};
 
-/** The last declaration in the file, so its slice runs to the end and the guard below pins that. */
-const UNDRAW_ACTION = sliceBetween(ACTIONS, "export async function undrawSpielplanAction", null);
+/** A season both schemas take as it stands, so each write reaches the doubled request rather than the parse. */
+const SAISON = { id: SAISON_ID, start_date: "2026-03-01", end_date: "2026-07-01", rules: RULES, bewerbung: null, registrierung: null };
 
-/** The body of one `case "<code>":` arm of a switch, up to the arm that follows it. */
-function armOf(slice: string, code: string): string {
-  const rest = slice.split(`case "${code}":`)[1] ?? "";
-  return rest.split(/\n {4}(?:\/\/|case |default:)/)[0] ?? "";
+/** The draw's answer on a first draw (`false`) or a replace carrying its own numbers (`true`). */
+const drawAnswer = (code: string, carriedShape: boolean): string => mapSpielplanRefusal(refusedOn(DRAW_OPERATION, code), carriedShape) ?? "";
+
+/** The editor's banner for one code, where it words one rather than seating it under a field. */
+const editBanner = (code: string): string => mapRulesRefusal(refusedOn(EDIT_OPERATION, code))?.error ?? "";
+
+const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
+
+/* Source text rather than an import: the write path's register is Python, and nothing on this side can load it. */
+const SERVICES = readFileSync(path.resolve(REPO_ROOT, "fl_backend", "app", "api", "saisons", "services.py"), "utf8");
+
+/**
+ * `REQ-RULES-011`'s frozen set, read off the write path that composes it. A wrapped value runs to the
+ * paren the formatter closes alone on a line.
+ */
+const SHAPE_RULES_FIELDS = [
+  ...withoutPythonComments(/^SHAPE_RULES_FIELDS(?::[^=\n]*)? = (\(\n[\s\S]*?\n\)|.*)$/m.exec(SERVICES)?.[1] ?? "").matchAll(/"([^"]*)"/g),
+].map((literal) => literal[1] ?? "");
+
+/* One German noun phrase per frozen field. The refusal states the freeze in one sentence, so a
+   further shape field would go unnamed in it while nothing here failed but the first case below. */
+const GERMAN_OF: Record<string, string> = {
+  number_of_groups: "Gruppen",
+  teams_per_group: "Teams pro Gruppe",
+  qualifiers_per_group: "Qualifikanten",
+};
+
+/**
+ * Whether one phrase stands in a text as a whole word. German compounds a term into a longer word
+ * meaning something else, so „Gruppenphase“ satisfies a substring search for the group COUNT.
+ */
+const names = (german: string, text: string): boolean => new RegExp(`(?<!\\p{L})${german}(?!\\p{L})`, "u").test(text);
+
+const TEAM1_ID = "68c1f0a2b3c4d5e6f7a8b9c0";
+const TEAM2_ID = "68c1f0a2b3c4d5e6f7a8b9c1";
+
+/** Each write's answer as the backend sends it where the write landed. */
+function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
+  const stored = { ...SAISON, status: "future", schedule: [], spielplan: null };
+  if (endpoint === "/saisons") return { acknowledged: 1, created_id: SAISON_ID };
+  if (endpoint.endsWith("/activate")) return { acknowledged: 1, updated_document: stored, deactivated: 1 };
+  if (endpoint.endsWith("/gruppen/swap")) {
+    return {
+      acknowledged: 1,
+      saison_id: SAISON_ID,
+      team1_id: TEAM1_ID,
+      team1_gruppe: "B",
+      team2_id: TEAM2_ID,
+      team2_gruppe: "A",
+      rewritten_spiele: 0,
+    };
+  }
+  if (endpoint.endsWith("/spielplan")) {
+    const counts = { acknowledged: 1, saison_id: SAISON_ID, spieltage: 3, spiele: 12 };
+    return method === "DELETE"
+      ? { ...counts, watermark_cleared: true }
+      : { ...counts, generiert_am: "2026-03-01", removed_spieltage: 3, removed_spiele: 12 };
+  }
+  return { acknowledged: 1, updated_document: stored };
 }
 
-/** The body of one `serverErrorCode === "<code>"` branch, up to the branch or the rethrow after it. */
-function activateBranch(code: string): string {
-  const rest = ACTIVATE_ACTION.split(`error.serverErrorCode === "${code}"`)[1] ?? "";
-  // The rethrow closes the catch, so the LAST branch has a terminator too and cannot run to the end
-  // of the slice, where a word dropped from its message would be met by the next function's prose.
-  return rest.split(/if \(error\.serverErrorCode|throw error;/)[0] ?? "";
-}
+describe("the season's writes", () => {
+  it("reach each published path and method, the id in the path and the fields alone in the body", async () => {
+    answerWith((call) => Promise.resolve(landed(call)));
 
-describe("the saison actions against the backend's refusal register", () => {
-  /* First, so a boundary that stopped matching fails here (`fl_frontend/src/shared/testing/refusalRegister.ts :: sliceBetween`). */
-  it("cuts each mapper out of the file before reading it", () => {
-    assert.ok(RULES_MAP.includes('case "REQ-DATE-005":'), "the editor's switch is outside its slice");
-    // The arm rather than the code: the draw's mapper opens on `case "REQ-SPIELPLAN-001":`, so an
-    // overrun still fails here, while a rules arm citing a draw refusal in prose passes.
-    assert.ok(!RULES_MAP.includes('case "REQ-SPIELPLAN'), "the editor's slice runs on into the draw's arms");
+    await postSaisonAction(SAISON);
+    await patchSaisonAction(SAISON);
+    await activateSaisonAction({ id: SAISON_ID });
+    await generateSpielplanAction({ id: SAISON_ID, replace: true });
+    await undrawSpielplanAction({ id: SAISON_ID });
+    await swapGruppenAction({ saison_id: SAISON_ID, team1_id: TEAM1_ID, team2_id: TEAM2_ID });
 
-    assert.ok(SPIELPLAN_MAP.includes('case "REQ-SPIELPLAN-001":'), "the draw's switch is outside its slice");
-    assert.ok(!SPIELPLAN_MAP.includes('"rules.qualifiers_per_group"'), "the draw's slice reaches the rules editor's arms");
-
-    assert.ok(ACTIVATE_ACTION.includes('error.serverErrorCode === "REQ-ACTIVATE-001"'), "the rollover's branches are outside its slice");
-    assert.ok(!ACTIVATE_ACTION.includes('error.serverErrorCode === "REQ-SWAP-001"'), "the rollover's slice reaches the swap's branches");
-
-    assert.ok(CREATE_ACTION.includes("SAISON_ID_TAKEN"), "the create's own fallback is outside its slice");
-    assert.ok(!CREATE_ACTION.includes("patchSaison("), "the create's slice runs on into the edit");
-
-    assert.ok(SPAN_MESSAGE.includes("Der Zeitraum dieser Saison ist zu kurz"), "the shared span sentence is outside its slice");
-    assert.ok(!SPAN_MESSAGE.includes("case "), "the span sentence's slice runs on into a mapper");
-
-    assert.ok(UNDRAW_ACTION.includes("undrawSpielplan("), "the undraw's slice does not reach its own request");
-    // It runs to the end of the file, so a function appended after it would widen the slice in silence.
-    assert.equal(UNDRAW_ACTION.match(/export async function/g)?.length, 1, "the undraw's slice reaches another action");
+    const { id, ...fields } = SAISON;
+    assert.deepEqual(requestsOf(calls), [
+      { endpoint: "/saisons", method: "POST", body: SAISON },
+      { endpoint: `/saisons/${id}`, method: "PATCH", body: fields },
+      { endpoint: `/saisons/${id}/activate`, method: "POST", body: undefined },
+      { endpoint: `/saisons/${id}/spielplan`, method: "POST", body: { replace: true } },
+      { endpoint: `/saisons/${id}/spielplan`, method: "DELETE", body: undefined },
+      { endpoint: `/saisons/${id}/gruppen/swap`, method: "POST", body: { team1_id: TEAM1_ID, team2_id: TEAM2_ID } },
+    ]);
   });
+});
 
-  it("maps every refusal the create endpoint declares", () => {
-    /* `POST /saisons` is a prefix of the activate and the draw operations, so a substring read
-       answers here with codes the create cannot raise. */
-    const declared = declaredCodes(CREATE_OPERATION);
-
-    /* The whole list before the loop: a register that stopped naming the operation runs the loop
-       zero times and green. */
-    assert.deepEqual(declared, CREATE_CODES);
-    for (const code of declared)
-      assert.ok(RULES_MAP.includes(`case "${code}":`), `${code} reaches the admin as the message about a taken Saison-ID`);
-  });
-
-  /* `DB-COMMON-002` is the unique index refusing a duplicate `_id`. It names no rule, so the mapper
-     cannot answer it and the create's own 409 fallback does -- an arm added to the mapper would
-     swallow that. */
-  it("leaves a duplicate season id to the create's own fallback", () => {
-    assert.ok(HANDLERS.includes('HTTP_409_CONFLICT, "DB-COMMON-002"'), "a duplicate season id no longer arrives as a 409");
-    assert.ok(!RULES_MAP.includes("DB-COMMON-002"), "the mapper claims the duplicate id and the fallback never runs");
-
-    const mapperAt = CREATE_ACTION.indexOf("mapRulesRefusal(error)");
-    const fallbackAt = CREATE_ACTION.indexOf("statusCode === 409");
-
-    // Read in this order, so a mapped rules code is never reported as a taken id either.
-    assert.ok(mapperAt !== -1 && mapperAt < fallbackAt, "the create answers a taken id before it consults the mapper");
-    assert.ok(
-      CREATE_ACTION.includes("error: SAISON_ID_TAKEN, fieldErrors: { id: SAISON_ID_TAKEN }"),
-      "the taken-id message no longer reaches the id field the admin has to change",
+describe("the saison actions against the codes their endpoints publish", () => {
+  /* The create answers its own set alone, though `POST /saisons` prefixes two other operations. The
+     rules come first: a rule reported as a taken id names a field that cannot repair it. */
+  it("answers every refusal the create publishes, the rules before the taken id", async () => {
+    assert.deepEqual(
+      publishedRefusals(CREATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-DATE-005", "REQ-RULES-001", "REQ-RULES-007", "REQ-RULES-008", "REQ-RULES-010", "REQ-RULES-013"],
     );
-    assert.match(ACTIONS, /SAISON_ID_TAKEN = "Diese Saison-ID ist schon vergeben/);
+    await assertEachAnswered({
+      operation: CREATE_OPERATION,
+      refuseWith: answerWith,
+      act: () => postSaisonAction(SAISON),
+      mapped: (refusal) => mapRulesRefusal(refusal) ?? mapSaisonIdRefusal(refusal),
+    });
+  });
+
+  /* `DB-COMMON-002` is the unique index refusing a duplicate `_id`, which names no rule: the rules
+     mapper leaves it to the create's own fallback on the id box, and an arm added there would swallow it. */
+  it("leaves a duplicate season id to the create's own fallback", () => {
+    assert.equal(
+      mapRulesRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY)),
+      null,
+      "the mapper claims the duplicate id and the fallback never runs",
+    );
+
+    const taken = mapSaisonIdRefusal(refusedOn(CREATE_OPERATION, DUPLICATE_KEY));
+    assert.match(taken?.error ?? "", /Diese Saison-ID ist schon vergeben/);
+    assert.deepEqual(taken?.fieldErrors, { id: taken?.error }, "the taken-id message no longer reaches the id field the admin has to change");
   });
 
   /* The same mapper serves the edit, so a code missing from it is rethrown as the generic conflict
      message rather than reaching the panel that still holds the wrong value. */
-  it("maps every refusal the edit endpoint declares", () => {
-    const declared = declaredCodes("PATCH /saisons/{saison_id}");
-
-    // Asserted outright so a parse that found nothing fails here rather than passing vacuously.
-    assert.deepEqual(declared, [
-      "REQ-DATE-004",
-      "REQ-DATE-005",
-      "REQ-RULES-001",
-      "REQ-RULES-002",
-      "REQ-RULES-003",
-      "REQ-RULES-004",
-      "REQ-RULES-005",
-      "REQ-RULES-006",
-      "REQ-RULES-007",
-      "REQ-RULES-008",
-      "REQ-RULES-009",
-      "REQ-RULES-010",
-      "REQ-RULES-011",
-      "REQ-RULES-012",
-      "REQ-RULES-013",
-    ]);
-    for (const code of declared) assert.ok(RULES_MAP.includes(`case "${code}":`), `${code} reaches the admin as a generic conflict`);
+  it("answers every refusal the edit publishes", async () => {
+    assert.deepEqual(
+      publishedRefusals(EDIT_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      [
+        "REQ-DATE-004",
+        "REQ-DATE-005",
+        "REQ-RULES-001",
+        "REQ-RULES-002",
+        "REQ-RULES-003",
+        "REQ-RULES-004",
+        "REQ-RULES-005",
+        "REQ-RULES-006",
+        "REQ-RULES-007",
+        "REQ-RULES-008",
+        "REQ-RULES-009",
+        "REQ-RULES-010",
+        "REQ-RULES-011",
+        "REQ-RULES-012",
+        "REQ-RULES-013",
+      ],
+    );
+    for (const code of publishedRefusals(EDIT_OPERATION)) {
+      assert.notEqual(answerShown(EDIT_OPERATION, code, mapRulesRefusal), null, `${code} reaches the admin as a generic conflict`);
+    }
+    await assertEachAnswered({
+      operation: EDIT_OPERATION,
+      refuseWith: answerWith,
+      act: () => patchSaisonAction(SAISON),
+      mapped: mapRulesRefusal,
+    });
   });
 
-  it("maps every refusal the rollover endpoint declares", () => {
-    const declared = declaredCodes("POST /saisons/{saison_id}/activate");
-
-    assert.deepEqual(declared, ["REQ-ACTIVATE-001", "REQ-ACTIVATE-002", "REQ-ACTIVATE-003", "REQ-ACTIVATE-004"]);
-    for (const code of declared)
-      assert.ok(ACTIVATE_ACTION.includes(`error.serverErrorCode === "${code}"`), `${code} reaches the admin as a generic failure`);
+  it("answers every refusal the rollover publishes", async () => {
+    assert.deepEqual(
+      publishedRefusals(ACTIVATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-ACTIVATE-001", "REQ-ACTIVATE-002", "REQ-ACTIVATE-003", "REQ-ACTIVATE-004"],
+    );
+    for (const code of publishedRefusals(ACTIVATE_OPERATION)) {
+      assert.notEqual(answerShown(ACTIVATE_OPERATION, code, mapActivateRefusal), null, `${code} reaches the admin as a generic failure`);
+    }
+    await assertEachAnswered({
+      operation: ACTIVATE_OPERATION,
+      refuseWith: answerWith,
+      act: () => activateSaisonAction({ id: SAISON_ID }),
+      mapped: mapActivateRefusal,
+    });
   });
 
-  it("maps every refusal the draw endpoint declares, the shared rules faults included", () => {
-    const declared = declaredCodes("POST /saisons/{saison_id}/spielplan");
-
-    assert.deepEqual(declared, [
-      // The draw is a second writer of `rules`, so a shape it stores can imply more matchdays than
-      // the season has days. It measures the span for that, exactly as the create and the edit do.
-      "REQ-DATE-005",
-      "REQ-RULES-001",
-      "REQ-RULES-007",
-      "REQ-RULES-008",
-      "REQ-RULES-010",
-      "REQ-RULES-013",
-      "REQ-SPIELPLAN-001",
-      "REQ-SPIELPLAN-002",
-      "REQ-SPIELPLAN-003",
-      "REQ-SPIELPLAN-004",
-      "REQ-SPIELPLAN-005",
-    ]);
-    for (const code of declared) assert.ok(SPIELPLAN_MAP.includes(`case "${code}":`), `${code} reaches the admin as a generic failure`);
+  it("answers every refusal the group swap publishes", async () => {
+    for (const code of publishedRefusals(SWAP_OPERATION)) {
+      assert.notEqual(answerShown(SWAP_OPERATION, code, mapSwapRefusal), null, `${code} reaches the admin as a generic failure`);
+    }
+    await assertEachAnswered({
+      operation: SWAP_OPERATION,
+      refuseWith: answerWith,
+      act: () => swapGruppenAction({ saison_id: SAISON_ID, team1_id: "68c1f0a2b3c4d5e6f7a8b9c0", team2_id: "68c1f0a2b3c4d5e6f7a8b9c1" }),
+      mapped: mapSwapRefusal,
+    });
   });
 
-  /* One code, and none of the draw's: the two share a path and a summary word, so a register read
+  /* One club named on both sides has a code of its own, which only a stale picker sends: it is worded
+     as a pair standing in one group is, with the same reload. */
+  it("words one club named on both sides as the pair gone stale", () => {
+    assert.equal(mapSwapRefusal(refusedOn(SWAP_OPERATION, "REQ-SWAP-007")), mapSwapRefusal(refusedOn(SWAP_OPERATION, "REQ-SWAP-001")));
+    assert.notEqual(mapSwapRefusal(refusedOn(SWAP_OPERATION, "REQ-SWAP-007")), null);
+  });
+
+  it("answers every refusal the draw publishes, the shared rules faults included", async () => {
+    assert.deepEqual(
+      publishedRefusals(DRAW_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      [
+        // The draw is a second writer of `rules`, so a shape it stores can imply more matchdays than
+        // the season has days. It measures the span for that, as the create and the edit do.
+        "REQ-DATE-009",
+        // A shape this request carried; the three below from `-014` are the same rules over the
+        // stored numbers, and each code's answer names its own panel.
+        "REQ-RULES-001",
+        "REQ-RULES-007",
+        "REQ-RULES-013",
+        "REQ-RULES-014",
+        "REQ-RULES-015",
+        "REQ-RULES-016",
+        "REQ-RULES-017",
+        "REQ-RULES-018",
+        "REQ-SPIELPLAN-001",
+        "REQ-SPIELPLAN-002",
+        "REQ-SPIELPLAN-003",
+        "REQ-SPIELPLAN-004",
+        "REQ-SPIELPLAN-005",
+      ],
+    );
+    for (const code of publishedRefusals(DRAW_OPERATION)) {
+      for (const carriedShape of [false, true]) {
+        const answered = answerShown(DRAW_OPERATION, code, (error) => mapSpielplanRefusal(error, carriedShape));
+        assert.notEqual(answered, null, `${code} reaches the admin as a generic failure`);
+      }
+    }
+  });
+
+  /* Which panel the answer sends the admin to follows the request: a first draw carries no numbers,
+     a replace carries its own, and the action reads that off what it sent. */
+  it("answers the draw's refusals for the panel the request took its numbers from", async () => {
+    const { number_of_groups, teams_per_group, qualifiers_per_group } = RULES;
+
+    for (const [payload, carriedShape] of [
+      [{ id: SAISON_ID }, false],
+      [{ id: SAISON_ID, replace: true, shape: { number_of_groups, teams_per_group, qualifiers_per_group } }, true],
+    ] as const) {
+      await assertEachAnswered({
+        operation: DRAW_OPERATION,
+        refuseWith: answerWith,
+        act: () => generateSpielplanAction(payload),
+        mapped: (refusal) => mapSpielplanRefusal(refusal, carriedShape),
+      });
+    }
+  });
+
+  /* One code, and none of the draw's: the two share a path and a summary word, so a document read
      that leaked either way would leave a real refusal answered by the generic failure message. */
-  it("maps every refusal the undraw endpoint declares", () => {
-    const declared = declaredCodes("DELETE /saisons/{saison_id}/spielplan");
-
-    assert.deepEqual(declared, ["REQ-SPIELPLAN-006"]);
-    for (const code of declared)
-      assert.ok(UNDRAW_ACTION.includes(`error.serverErrorCode === "${code}"`), `${code} reaches the admin as a generic failure`);
+  it("answers every refusal the undraw publishes", async () => {
+    assert.deepEqual(
+      publishedRefusals(UNDRAW_OPERATION).filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-SPIELPLAN-006"],
+    );
+    for (const code of publishedRefusals(UNDRAW_OPERATION)) {
+      assert.notEqual(answerShown(UNDRAW_OPERATION, code, mapUndrawRefusal), null, `${code} reaches the admin as a generic failure`);
+    }
+    await assertEachAnswered({
+      operation: UNDRAW_OPERATION,
+      refuseWith: answerWith,
+      act: () => undrawSpielplanAction({ id: SAISON_ID }),
+      mapped: mapUndrawRefusal,
+    });
   });
 });
 
 describe("the undraw action", () => {
   /* The removal takes away exactly what the draw wrote, so anything the draw's write invalidated
      answers differently after this too. A narrower set leaves a cached season holding fixtures. */
-  it("clears the draw's own tag set", () => {
-    assert.match(UNDRAW_ACTION, /invalidateSpielplan\(validated\.data\.id\)/);
+  it("clears the draw's own tag set", async () => {
+    /** Every invalidation the last press made, in its order. */
+    const cleared = (): typeof cacheCalls => cacheCalls.splice(0);
+
+    answerWith(() =>
+      Promise.resolve({
+        acknowledged: 1,
+        saison_id: SAISON_ID,
+        spieltage: 3,
+        spiele: 12,
+        generiert_am: "2026-03-01",
+        removed_spieltage: 0,
+        removed_spiele: 0,
+      }),
+    );
+    assert.equal((await generateSpielplanAction({ id: SAISON_ID })).success, true, "the draw never landed, so its tags are judged on nothing");
+    // Spelled out rather than taken from the draw, so a set both presses lose, the refresh among it, fails.
+    const DRAWN = [
+      { name: "updateTag", args: ["saisons"] },
+      { name: "updateTag", args: ["spieltage"] },
+      { name: "updateTag", args: ["spiele"] },
+      { name: "updateTag", args: [`spiele:saison_id:${SAISON_ID}`] },
+      { name: "updateTag", args: ["teams"] },
+      { name: "updateTag", args: [`teams:saison_id:${SAISON_ID}`] },
+      { name: "refresh", args: [] },
+    ];
+    assert.deepEqual(cleared(), DRAWN, "the draw clears a set other than the reads it moves");
+
+    answerWith(() => Promise.resolve({ acknowledged: 1, saison_id: SAISON_ID, spieltage: 3, spiele: 12, watermark_cleared: true }));
+    assert.equal((await undrawSpielplanAction({ id: SAISON_ID })).success, true, "the undraw never landed, so its tags are judged on nothing");
+
+    assert.deepEqual(cleared(), DRAWN, "the undraw clears a set other than the draw's");
+    assert.deepEqual(requestsOf(calls), [
+      { endpoint: `/saisons/${SAISON_ID}/spielplan`, method: "POST", body: {} },
+      { endpoint: `/saisons/${SAISON_ID}/spielplan`, method: "DELETE", body: undefined },
+    ]);
   });
 
   /* One sentence over the counts would report a watermark-only season as nothing done: it answers
      with two zeroes and `watermark_cleared`. */
-  it("reports the three outcomes a 200 can carry apart", () => {
-    assert.match(UNDRAW_ACTION, /undrawOperation\.spieltage > 0 \|\| undrawOperation\.spiele > 0/);
-    assert.match(UNDRAW_ACTION, /undrawOperation\.watermark_cleared/);
-    assert.match(UNDRAW_ACTION, /hatte keinen Spielplan mehr/);
+  it("reports the three outcomes a 200 can carry apart", async () => {
+    const undrawn = async (spieltage: number, spiele: number, watermark_cleared: boolean) => {
+      answerWith(() => Promise.resolve({ acknowledged: 1, saison_id: SAISON_ID, spieltage, spiele, watermark_cleared }));
+      const result = await undrawSpielplanAction({ id: SAISON_ID });
+      assert.equal(result.success, true, result.success ? "" : result.error);
+      return result.success ? (result.message ?? "") : "";
+    };
+
+    const messages = [await undrawn(3, 12, true), await undrawn(0, 0, true), await undrawn(0, 0, false)];
+
+    assert.equal(new Set(messages).size, 3, "two of the outcomes read alike");
+    assert.match(messages[0] ?? "", /Gelöscht wurden/);
+    assert.match(messages[1] ?? "", /hielt weder Spieltage noch Spiele/);
+    assert.match(messages[2] ?? "", /hatte keinen Spielplan mehr/);
   });
 
   /* This press is the half of `REQ-RULES-011`'s repair loop that reopens the three shape rules, so
      the message reporting it says where they and the clubs are changed before the redraw. */
-  it("names where the reopened numbers and the clubs are changed", () => {
-    assert.match(UNDRAW_ACTION, /Abschnitt Regeln/);
-    assert.match(UNDRAW_ACTION, /Teamseite/);
+  it("names where the reopened numbers and the clubs are changed", async () => {
+    answerWith(() => Promise.resolve({ acknowledged: 1, saison_id: SAISON_ID, spieltage: 3, spiele: 12, watermark_cleared: true }));
+
+    const result = await undrawSpielplanAction({ id: SAISON_ID });
+
+    assert.match(result.success ? (result.message ?? "") : result.error, /im Abschnitt Regeln ändern, die Teams über die Teamseite/);
   });
 
   /* The panel closes the control for both halves of `REQ-SPIELPLAN-006`, so the code can only arrive
      on a page that went stale. The reloaded panel names any way out, so a repair spelled here too
      could describe a state the season has already left. */
   it("tells a stale page to reload rather than naming a repair", () => {
-    const branch = UNDRAW_ACTION.split('error.serverErrorCode === "REQ-SPIELPLAN-006"')[1] ?? "";
-    const message = branch.split("throw error;")[0] ?? "";
+    const message = mapUndrawRefusal(refusedOn(UNDRAW_OPERATION, "REQ-SPIELPLAN-006")) ?? "";
 
     assert.match(message, /geplante Saison/);
     assert.match(message, /Lade die Seite neu/);
     // The shared sentence rather than a copy: `fl_frontend/src/features/saisons/utils.test.ts` pins the
     // categories against their backend mirror, and a second spelling here could name a different set.
-    assert.match(message, /\$\{RECORDED_FACTS_NONE\}/);
+    assert.ok(message.includes(RECORDED_FACTS_NONE), "the refusal spells the recorded facts itself");
+  });
+});
+
+describe("the German the shape freeze renders", () => {
+  /* The authority is `SHAPE_RULES_FIELDS` and not the table above, so a fourth shape field fails here
+     rather than leaving the case below looping over a set the write path has grown past. */
+  it("names a phrase for exactly the fields the refusal freezes", () => {
+    assert.ok(SHAPE_RULES_FIELDS.length > 0, "no shape field was read off the write path, so the cases below compare nothing");
+    assert.deepEqual(Object.keys(GERMAN_OF).sort(), [...SHAPE_RULES_FIELDS].sort());
+    assert.equal(new Set(Object.values(GERMAN_OF)).size, Object.keys(GERMAN_OF).length, "two fields share one phrase");
+  });
+
+  it("reads a phrase inside a longer German word as naming no field", () => {
+    assert.ok(names("Gruppen", "Für Gruppen und Teams pro Gruppe"));
+    assert.ok(!names("Gruppen", "Die Gruppenphase ist gesperrt"));
+    assert.ok(!names("Qualifikant", "Die Qualifikanten pro Gruppe"));
+  });
+
+  /* A sentence naming some of the frozen fields reads as complete and is not: the admin reloads to a
+     panel holding a field the sentence never said was closed. */
+  it("names every field the refusal freezes", () => {
+    const message = editBanner("REQ-RULES-011");
+
+    for (const [field, german] of Object.entries(GERMAN_OF)) {
+      assert.ok(names(german, message), `REQ-RULES-011 freezes ${field} and its message never names ${german}`);
+    }
   });
 });
 
@@ -211,34 +409,42 @@ describe("the German each widened refusal renders", () => {
   /* `REQ-DATE-005` refuses the season's SPAN against the matchdays its rules imply. The fallback an
      unmapped code falls through to blames the season id, which is neither the fault nor a repair. */
   it("names the span and its repairs for the schedule refusal, never the season id", () => {
-    assert.match(SPAN_MESSAGE, /Zeitraum/);
-    assert.match(SPAN_MESSAGE, /Enddatum/);
-    assert.match(SPAN_MESSAGE, /Startdatum/);
-    assert.doesNotMatch(SPAN_MESSAGE, /Saison-ID/);
+    const message = editBanner("REQ-DATE-005");
+
+    assert.match(message, /Zeitraum/);
+    assert.match(message, /Enddatum/);
+    assert.match(message, /Startdatum/);
+    assert.doesNotMatch(message, /Saison-ID/);
   });
 
-  /* Several endpoints refuse on this code, so a sentence written twice could tell two admins two
-     different things about one rule. Each arm adds its own tail and shares the opening. */
-  it("opens the schedule refusal from one declaration on both paths", () => {
-    for (const [name, arm] of [
-      ["the editor", armOf(RULES_MAP, "REQ-DATE-005")],
-      ["the draw", armOf(SPIELPLAN_MAP, "REQ-DATE-005")],
-    ] as const) {
-      assert.match(arm, /SPAN_BELOW_SCHEDULE/, `${name} spells the span sentence itself instead of sharing it`);
+  /* The editor's `REQ-DATE-005` and the draw's `REQ-DATE-009` are one rule, so a sentence written
+     twice could tell two admins two different things about it. Each path adds its own tail and shares
+     the opening. */
+  it("opens the schedule refusal with one sentence on both paths", () => {
+    const opening = (message: string): string => message.split(". ")[0] ?? "";
+    const editor = editBanner("REQ-DATE-005");
+
+    assert.notEqual(opening(editor), "", "the editor words no opening for the schedule refusal");
+    for (const carriedShape of [false, true]) {
+      assert.equal(
+        opening(drawAnswer("REQ-DATE-009", carriedShape)),
+        opening(editor),
+        "the draw opens the schedule refusal apart from the editor",
+      );
     }
   });
 
   /* A bare `error`, like the two freezes: several fields could repair it and none of them is at
      fault, so a `fieldErrors` key would seat the sentence under a value that is not the problem. */
   it("seats the schedule refusal under no field", () => {
-    assert.doesNotMatch(armOf(RULES_MAP, "REQ-DATE-005"), /fieldErrors/);
+    assert.equal(mapRulesRefusal(refusedOn(EDIT_OPERATION, "REQ-DATE-005"))?.fieldErrors, undefined);
   });
 
   /* Neither rules field repairs this in every state: `REQ-RULES-005` freezes `qualifiers_per_group`
      on a past season, and `fl_backend/app/api/saisons/schedule.py :: group_matchdays` is flat from an
      even `teams_per_group` down to the odd one. */
   it("offers no rules field as a repair for the schedule refusal", () => {
-    for (const text of [SPAN_MESSAGE, armOf(RULES_MAP, "REQ-DATE-005")]) {
+    for (const text of [editBanner("REQ-DATE-005"), drawAnswer("REQ-DATE-009", false), drawAnswer("REQ-DATE-009", true)]) {
       assert.doesNotMatch(text, /Qualifikanten/);
       assert.doesNotMatch(text, /Teams pro Gruppe/);
     }
@@ -247,21 +453,52 @@ describe("the German each widened refusal renders", () => {
   /* The draw carries its own three numbers on a replace and none on a first draw, so the panel the
      second repair names moves with the request. Hardcode either and half the admins are misdirected. */
   it("sends the draw's schedule refusal to the panel that holds the numbers it was judged on", () => {
-    const arm = armOf(SPIELPLAN_MAP, "REQ-DATE-005");
+    assert.match(drawAnswer("REQ-DATE-009", true), /Abschnitt Spielplan/);
+    assert.match(drawAnswer("REQ-DATE-009", false), /Abschnitt Regeln/);
+    // Neither tail sends the admin to change a number: the dates are the repair that works whatever
+    // the numbers are.
+    for (const carriedShape of [false, true]) assert.doesNotMatch(drawAnswer("REQ-DATE-009", carriedShape), /Ändere die Zahlen/);
+  });
 
-    assert.match(arm, /carriedShape \? "Spielplan" : "Regeln"/);
-    // Not through `shapeFault`: both of its tails say to change a number, and the dates are the
-    // repair that works whatever the numbers are.
-    assert.doesNotMatch(arm, /shapeFault\(/);
+  /* The backend answers a carried shape and the stored rules under different codes, so the code alone
+     names the panel holding the numbers it judged, whatever the action read off its request. */
+  it("sends each shape fault to the panel holding the numbers its code judged", () => {
+    for (const [carried, stored] of [
+      ["REQ-RULES-001", "REQ-RULES-014"],
+      ["REQ-RULES-007", "REQ-RULES-015"],
+      ["REQ-RULES-013", "REQ-RULES-018"],
+    ] as const) {
+      for (const carriedShape of [false, true]) {
+        assert.match(drawAnswer(carried, carriedShape), /Abschnitt Spielplan/, `${carried} sends the admin away from the numbers it judged`);
+        assert.match(drawAnswer(stored, carriedShape), /Abschnitt Regeln/, `${stored} sends the admin away from the numbers it judged`);
+      }
+    }
+  });
+
+  /* A draw never carries the points or the forfeit, so its twins of the editor's two faults state the
+     editor's own rule and send the admin to the panel holding it. */
+  it("states the editor's points and forfeit rules on the draw, repaired in the rules panel", () => {
+    for (const [edit, draw, field] of [
+      ["REQ-RULES-008", "REQ-RULES-016", "rules.draw_points"],
+      ["REQ-RULES-010", "REQ-RULES-017", "rules.forfeit_ergebnis.sieger_tore"],
+    ] as const) {
+      const rule = mapRulesRefusal(refusedOn(EDIT_OPERATION, edit))?.fieldErrors?.[field] ?? "";
+
+      assert.notEqual(rule, "", `the editor seats no rule for ${edit}, so ${draw} is compared with nothing`);
+      for (const carriedShape of [false, true]) {
+        assert.ok(drawAnswer(draw, carriedShape).startsWith(rule), `${draw} words its rule apart from ${edit}`);
+        assert.match(drawAnswer(draw, carriedShape), /Abschnitt Regeln/);
+      }
+    }
   });
 
   /* `REQ-SPIELPLAN-003` refuses `past` alone, so the message may not send the admin looking for a
      season that is still merely geplant. */
   it("names a finished season for the draw's status refusal, never a planned one", () => {
-    const arm = armOf(SPIELPLAN_MAP, "REQ-SPIELPLAN-003");
+    const message = drawAnswer("REQ-SPIELPLAN-003", false);
 
-    assert.match(arm, /abgeschlossen/);
-    assert.doesNotMatch(arm, /geplant/);
+    assert.match(message, /abgeschlossen/);
+    assert.doesNotMatch(message, /geplant/);
   });
 
   /* `REQ-SPIELPLAN-004` refuses a group off its size in EITHER direction, and a club standing in a
@@ -271,48 +508,19 @@ describe("the German each widened refusal renders", () => {
     assert.match(GRUPPEN_OFF_RULES, /nicht anbietet/);
   });
 
-  /* The wiring between two modules, which no call reaches: the mapper is module-private. Spelled in
-     the arm again and the closed press, which reads the declaration, says something the refusal does not. */
+  /* Spelled a second time and the closed press, which reads the declaration, says something the
+     refusal does not. */
   it("answers the draw's group refusal with the declaration the closed press reads", () => {
-    assert.match(armOf(SPIELPLAN_MAP, "REQ-SPIELPLAN-004"), /^\s*return GRUPPEN_OFF_RULES;\s*$/);
+    for (const carriedShape of [false, true]) assert.equal(drawAnswer("REQ-SPIELPLAN-004", carriedShape), GRUPPEN_OFF_RULES);
   });
 
   /* `REQ-ACTIVATE-003` is the one activation refusal with a remedy the admin can act on here. */
   it("names the draw as the remedy for a rollover onto an undrawn season", () => {
-    assert.match(activateBranch("REQ-ACTIVATE-003"), /Spielplan/);
+    assert.match(mapActivateRefusal(refusedOn(ACTIVATE_OPERATION, "REQ-ACTIVATE-003")) ?? "", /Spielplan/);
   });
 
-  /* No call reaches this: an action outside a request raises Next's request-scope error, the
-     standing excuse `fl_backend/tests/api/test_rules_refusal_mirror.py` records. The pre-flight's
-     own case compares the same declaration by calling. */
+  /* The pre-flight's own case compares the same declaration by calling. */
   it("answers the undated-matchday refusal with the declaration the closed press reads", () => {
-    assert.match(activateBranch("REQ-ACTIVATE-004"), /error: SPIELTAGE_UNDATED }/);
-    // The sentence itself, at neither site: a copy of its words here would pass the match above.
-    assert.ok(!ACTIVATE_ACTION.includes("jeder Spieltag ein Datum"), "the ruled sentence is retyped in the action");
+    assert.equal(mapActivateRefusal(refusedOn(ACTIVATE_OPERATION, "REQ-ACTIVATE-004")), SPIELTAGE_UNDATED);
   });
-});
-
-describe("the season edit's refusals when the undo replays it", () => {
-  const UNDO_ROUTE = readFileSync(path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin", "saisons", "undo", "route.ts"), "utf8");
-
-  /** One row of the route's replay table, which is a literal keyed by code. */
-  const replayRow = (code: string): string => new RegExp(`"${code}":\\s*"([^"]*)"`).exec(UNDO_ROUTE)?.[1] ?? "";
-
-  it("adds the outcome sentence once, outside the rows", () => {
-    assert.ok(
-      UNDO_ROUTE.includes('const CHANGE_STANDS = "Die Änderung steht weiterhin.";'),
-      "the replay no longer tells the admin what became of the change",
-    );
-  });
-
-  for (const code of declaredCodes("PATCH /saisons/{saison_id}")) {
-    it(`${code} reaches the admin in German when the edit is undone`, () => {
-      const row = replayRow(code);
-
-      assert.notEqual(row, "", `${code} falls through to the generic conflict message when the edit is undone`);
-      // The route joins the row to the outcome with a space, so a row without its own stop runs the two sentences together.
-      assert.ok(row.endsWith("."), `${code}'s replay row does not close its sentence`);
-      assert.ok(!row.includes("Die Änderung steht weiterhin"), `${code}'s row states the outcome the route already adds`);
-    });
-  }
 });

@@ -49,7 +49,7 @@ export function readAktionenLogSubjekt(params: Readonly<Record<string, string | 
 /**
  * The log as one route's query string selects it. Here rather than at the page: a facet carries a `read`
  * function, which a Server Component may not import
- * (`fl_frontend/src/shared/utils/facets.test.ts :: who may hold a facet`).
+ * (`fl_frontend/eslint.config.mjs :: SCOPED_BANS`).
  */
 export async function getAktionenLog(params: Readonly<Record<string, string | string[] | undefined>>): Promise<FLAktionenListResponse> {
   const { dokumentId, vorgangId } = readAktionenLogSubjekt(params);

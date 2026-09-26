@@ -4,7 +4,7 @@ export const ANMELDE_BESTAETIGEN_PATH = "/signin/bestaetigen";
 
 /**
  * The one place the sign-in link is spelled. `token` is the parameter name because
- * `nginx/prod.conf :: $credential_free_uri` redacts that name; a second spelling reaches the access
+ * `nginx/shared/http.conf :: $credential_free_uri` redacts that name; a second spelling reaches the access
  * line and the referer unredacted.
  */
 export function buildAnmeldeLink(token: string): string {

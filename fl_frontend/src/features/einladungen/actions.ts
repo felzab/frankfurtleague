@@ -2,13 +2,11 @@
 
 import { refresh } from "next/cache";
 
-import { getAdminSession } from "@/core/auth";
 import { frontend_config } from "@/core/config";
 import { buildEinladungEmail } from "@/core/einladungEmail";
-import { APIBadStatusError } from "@/core/errors";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { sendZielMail } from "@/features/zustellung/notifications";
-import { ADMIN_FORBIDDEN, refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
+import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -18,41 +16,15 @@ import { bestaetigteEmpfaenger } from "./empfaenger";
 import { adressenSatz, versandSatz, ZURUECKGEHALTEN } from "./meldungen";
 import { deleteEinladung, postEinladung, postEinladungVersand } from "./mutations";
 import { getEinladung, getEinladungVersandVorschau } from "./queries";
+import { mapEinladungRefusal } from "./refusals";
 import { FLEinladungKeyPayloadSchema, FLEinladungMailPayloadSchema, FLEinladungVersandPayloadSchema } from "./schemas";
 
 import type { ActionResult, QueryResult } from "@/shared/types/types";
-import type { FieldErrors } from "@/shared/utils/validation";
 import type { FLEinladungKeyPayload, FLEinladungMailPayload, FLEinladungVersandPayload, FLEinladungVersandVorschauZeile } from "./schemas";
 import type { EinladungVersandErgebnis } from "./types";
 
-/**
- * **The mint, the revoke, the preview and the season-wide send share this mapper**: the rules are
- * the season's and the junction's, and which press met one is nothing an administrator acts on
- * differently.
- */
-function mapEinladungRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
-  if (!(error instanceof APIBadStatusError) || error.statusCode !== 409) return null;
-
-  switch (error.serverErrorCode) {
-    case "REQ-EINLADUNG-001":
-      return {
-        error: buildRefusal({
-          reason: "Dieses Team steht nicht in dieser Saison",
-          repair: "Nimm es zuerst in die Saison auf",
-          where: "Saison",
-        }),
-      };
-    case "REQ-EINLADUNG-002":
-      return {
-        error: buildRefusal({
-          reason: "Diese Saison ist abgeschlossen, und für eine abgeschlossene Saison gibt es keine Registrierungslinks mehr",
-          repair: "Wähle eine laufende oder geplante Saison",
-        }),
-      };
-    default:
-      return null;
-  }
-}
+/** Scopes the bulk send's key to the row each team's link was minted on, which no second press reuses. */
+const VERSAND_IDEMPOTENZ_TAG = "versand";
 
 /**
  * Mints the team's link for the season, closing any live one in the same transaction. **The raw link
@@ -62,11 +34,7 @@ function mapEinladungRefusal(error: unknown): { error?: string; fieldErrors?: Fi
 export async function postEinladungAction(
   rawPayload: FLEinladungKeyPayload,
 ): Promise<ActionResult<{ einladung_id: string; token: string; link: string }>> {
-  return runAdminMutation("postEinladungAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("postEinladungAction", async () => {
     const validated = FLEinladungKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -81,8 +49,6 @@ export async function postEinladungAction(
       if (refusal !== null) return refusalResult(refusal);
       throw error;
     }
-
-    refresh();
 
     return {
       success: true,
@@ -101,11 +67,7 @@ export async function postEinladungAction(
  * mint**: the link is shown for copying first, and this is what puts it in an inbox.
  */
 export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): Promise<ActionResult> {
-  return runAdminMutation("mailEinladungAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("mailEinladungAction", async () => {
     const validated = FLEinladungMailPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -187,14 +149,14 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
         }),
     });
 
-    // BELOW the send, alone among this slice's actions: the delivery record is the only thing this
-    // press writes, so a refresh above it would show the panel the state before the send.
-    refresh();
-
     // A withheld send is this deployment rather than the mailbox, as `app/api/registrierung/route.ts`
     // reads it: outside production every address is withheld, and a refusal here would offer a
     // retry that cannot succeed.
     if (outcome.delivered.length === 0 && outcome.withheld.length === 0) {
+      // The spine refreshes a success or an unknown outcome, and a refused address is written to the
+      // delivery record this panel shows, which is the only thing this press writes.
+      refresh();
+
       return {
         success: false,
         error: buildRefusal({ reason: "Die E-Mail konnte nicht gesendet werden", repair: "Versuche es erneut" }),
@@ -210,26 +172,14 @@ export async function mailEinladungAction(rawPayload: FLEinladungMailPayload): P
 
 /** Closes the team's live link. Nothing reverses it: the next link is a fresh mint with a fresh value. */
 export async function deleteEinladungAction(rawPayload: FLEinladungKeyPayload): Promise<ActionResult> {
-  return runAdminMutation("deleteEinladungAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("deleteEinladungAction", async () => {
     const validated = FLEinladungKeyPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    try {
-      await deleteEinladung(validated.data);
-    } catch (error) {
-      const refusal = mapEinladungRefusal(error);
-      if (refusal !== null) return refusalResult(refusal);
-      throw error;
-    }
-
-    refresh();
+    await deleteEinladung(validated.data);
 
     return { success: true, message: "Der Link öffnet ab sofort nichts mehr." };
   });
@@ -243,27 +193,16 @@ export async function deleteEinladungAction(rawPayload: FLEinladungKeyPayload): 
 export async function previewEinladungVersandAction(
   rawPayload: FLEinladungVersandPayload,
 ): Promise<QueryResult<{ zeilen: readonly FLEinladungVersandVorschauZeile[] }>> {
-  return runAdminMutation("previewEinladungVersandAction", { readOnly: true }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("previewEinladungVersandAction", async () => {
     const validated = FLEinladungVersandPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
       return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
     }
 
-    let vorschau;
-    try {
-      // `?? false` for the endpoint's own default: the payload mirrors a request that may omit the
-      // key, and this read has to name a value either way to describe the press it precedes.
-      vorschau = await getEinladungVersandVorschau(validated.data.id, validated.data.erneut ?? false);
-    } catch (error) {
-      const refusal = mapEinladungRefusal(error);
-      if (refusal !== null) return refusalResult(refusal);
-      throw error;
-    }
+    // `?? false` for the endpoint's own default: the payload mirrors a request that may omit the
+    // key, and this read has to name a value either way to describe the press it precedes.
+    const vorschau = await getEinladungVersandVorschau(validated.data.id, validated.data.erneut ?? false);
 
     return { success: true, zeilen: vorschau.zeilen };
   });
@@ -277,11 +216,7 @@ export async function previewEinladungVersandAction(
 export async function postEinladungVersandAction(
   rawPayload: FLEinladungVersandPayload,
 ): Promise<ActionResult<{ zeilen: readonly EinladungVersandErgebnis[] }>> {
-  return runAdminMutation("postEinladungVersandAction", { readOnly: false }, async () => {
-    if (!(await getAdminSession())) {
-      return { success: false, error: ADMIN_FORBIDDEN };
-    }
-
+  return runAdminMutation("postEinladungVersandAction", async () => {
     const validated = FLEinladungVersandPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {
@@ -296,8 +231,6 @@ export async function postEinladungVersandAction(
       if (refusal !== null) return refusalResult(refusal);
       throw error;
     }
-
-    refresh();
 
     const origin = new URL(frontend_config.AUTH_URL).origin;
     const zeilen: EinladungVersandErgebnis[] = [];
@@ -326,10 +259,10 @@ export async function postEinladungVersandAction(
 
       const outcome = await sendZielMail({
         operation: "postEinladungVersandAction",
-        // No idempotency key: this press MINTS for every team it answers a link value for, so a
-        // second press carries a different link in the same envelope
+        // Its own tag, not the single press's day: that press may mail this row today under the club's
+        // name where this carries the season's, and a key reused over another body is refused
         // (`fl_frontend/src/features/zustellung/notifications.ts :: zielIdempotenzSchluessel`).
-        auftrag: { ziel: "einladung", zielId: einladung_id, anlass: "einladung" },
+        auftrag: { ziel: "einladung", zielId: einladung_id, anlass: "einladung", idempotenzTag: VERSAND_IDEMPOTENZ_TAG },
         // The addresses inside one team stay concurrent: three at most, and `sendZielMail` settles
         // them, so one refused mailbox cannot cost its siblings their message.
         recipients: zeile.empfaenger.map((seat) => seat.email),

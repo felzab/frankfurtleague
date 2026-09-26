@@ -2,10 +2,10 @@ import { revalidateTag } from "next/cache";
 
 import { z } from "zod";
 
-import { APIBadStatusError } from "@/core/errors";
 import { patchSaisonSpieler, patchSpieler } from "@/features/spieler/mutations";
 import { FLPatchSaisonSpielerPayloadSchema, FLPatchSpielerPayloadSchema } from "@/features/spieler/schemas";
-import { handleUndoRequest } from "@/shared/utils/undoRoute";
+import { KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
+import { handleUndoRequest, refusedReplay } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
 
@@ -26,12 +26,10 @@ const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-SQUAD-001": "Das ursprüngliche Team dieses Kadereintrags nimmt nicht mehr an dieser Saison teil.",
   "REQ-SQUAD-003": "Der Kader des ursprünglichen Teams ist für diese Saison inzwischen voll.",
   "REQ-SQUAD-004": "Die ursprüngliche Rolle ist in diesem Team inzwischen an einen anderen Spieler vergeben.",
+  "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
 };
 
-/** The second half of every refusal above: a cause alone leaves the admin unsure what the squad now holds. */
-const CHANGE_STANDS = "Die Änderung steht weiterhin.";
-
-/** What replaces it where the person half went back first, which makes the sentence above untrue. */
+/** What closes a refusal where the person half went back first, which the change standing would deny. */
 const PERSON_HALF_RESTORED = "Nur die Personendaten wurden zurückgesetzt.";
 
 export async function POST(request: NextRequest) {
@@ -43,7 +41,7 @@ export async function POST(request: NextRequest) {
         // No replay catch: the register declares no refusal against the season-independent person row.
         const operation = await patchSpieler(person);
         if (!operation.acknowledged) {
-          return { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die Spielerdaten." };
+          return { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Spielerdaten." };
         }
       }
 
@@ -52,18 +50,13 @@ export async function POST(request: NextRequest) {
         try {
           operation = await patchSaisonSpieler(saison);
         } catch (error) {
-          const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
-          // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
-          const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
-          if (refusal === undefined) throw error;
-
-          return { refusal: `${refusal} ${person === undefined ? CHANGE_STANDS : PERSON_HALF_RESTORED}` };
+          return person === undefined ? refusedReplay(error, REPLAY_REFUSALS) : refusedReplay(error, REPLAY_REFUSALS, PERSON_HALF_RESTORED);
         }
 
         if (!operation.acknowledged) {
           // The first half may already be restored; reported rather than papered over.
           return {
-            refusal:
+            unclear:
               person === undefined
                 ? "Die Rücknahme wurde abgebrochen. Prüfe den Kadereintrag."
                 : `${PERSON_HALF_RESTORED} Prüfe den Kadereintrag.`,

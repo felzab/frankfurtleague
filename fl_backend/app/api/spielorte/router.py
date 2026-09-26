@@ -10,6 +10,7 @@ from app.api.spielorte.schemas import (
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, build_query, build_sort, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import SpielorteCollection
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
 from app.core.security import verify_access_admin
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -50,7 +51,9 @@ async def get_spielorte(
     return FLSpielorteListResponse(spielorte=spielorte)
 
 
-@router.get(by_id("spielort_id"), response_model=FLSpielorteSingleResponse, summary="One Spielort")
+@router.get(
+    by_id("spielort_id"), response_model=FLSpielorteSingleResponse, summary="One Spielort", responses={404: DOCUMENT_NOT_FOUND_RESPONSE}
+)
 async def get_spielort(spielort_id: CustomRouteObjectId, spielorte_collection: SpielorteCollection) -> FLSpielorteSingleResponse:
     """Admin-tier as the list is, and for the same two rules (`READ-MONEY-001`, `READ-ADDRESS-001`).
 

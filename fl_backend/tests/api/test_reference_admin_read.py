@@ -5,14 +5,15 @@ from typing import Any
 import pymongo
 import pytest
 from bson import ObjectId
-from httpx2 import ASGITransport, AsyncClient, Response
-from pymongo import AsyncMongoClient, MongoClient
+from httpx2 import Response
+from pymongo import MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.security import ACTOR_HEADER
-from app.main import create_app
-from tests.config import ADMIN_AUTH, BASE_AUTH, TEST_BASE_URL, build_test_config
+from app.core.exception_handlers import DATABASE_FAILED
+from app.core.security import ACTOR_HEADER, WRONG_ADMIN_KEY
+from tests.app_client import app_client
+from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
 from tests.database import a_clean_database_sync
 from tests.worker import worker_database
 
@@ -22,20 +23,10 @@ from .conftest import config_for, unwritten
 ACTOR = "admin@example.com"
 
 # Which guard refused, and so which tier the route belongs to: no key satisfies both.
-ADMIN_GUARD_REFUSED = "REQ-AUTH-004"
+ADMIN_GUARD_REFUSED = WRONG_ADMIN_KEY
 
 # Named rather than compared with `!=`: a control asserting only "not 401" passes on any failure.
-UNREACHED_DATABASE = "DB-FAIL-001"
-
-# Not the configured URI: a developer plausibly runs a real `mongod` on 27017, and a database that
-# answers gives each control something other than the failure it asserts.
-UNANSWERED_URI = "mongodb://localhost:1"
-
-# Positive, because pymongo reads a zero deadline as none at all. Inside a request the app's deadline
-# replaces `serverSelectionTimeoutMS`, so only a deadline set here keeps an unanswered request short.
-UNANSWERED_DEADLINE_S = 0.001
-
-CONTAINER_SELECTION_MS = 10_000
+UNREACHED_DATABASE = DATABASE_FAILED
 
 # The database `build_test_config` names -- the one an app built from that config resolves its
 # collections from, and the home of the corpus every reading case here shares.
@@ -143,40 +134,20 @@ def answered(
     *,
     database_name: str = CORPUS_DATABASE,
 ) -> Response:
-    """One request per client, request and close on ONE loop, no lifespan (`tests/api/test_malformed_ids.py :: answered`)."""
-
     async def _answered() -> Response:
-        app = create_app(config_for(database_name))
-        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
-
-        try:
-            transport = ASGITransport(app=app, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
-                    return await http.get(path, headers=dict(headers))
-        finally:
-            await app.state.db_client.close()
+        async with app_client(uri, config=config_for(database_name)) as http:
+            with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
+                return await http.get(path, headers=dict(headers))
 
     return asyncio.run(_answered())
 
 
 def created(uri: str, payload: Mapping[str, Any], *, database_name: str) -> Response:
-    """POST one venue, on its own client and loop for `answered`'s reason.
-
-    `X-FL-Actor` rides along because the WRITE router binds an actor and refuses a write carrying
-    none (`docs/backend/spec.md :: I41`).
-    """
+    """`X-FL-Actor` rides along because the WRITE router binds an actor and refuses a write carrying none (`docs/backend/spec.md :: I41`)."""
 
     async def _created() -> Response:
-        app = create_app(config_for(database_name))
-        app.state.db_client = AsyncMongoClient(host=uri, serverSelectionTimeoutMS=CONTAINER_SELECTION_MS)
-
-        try:
-            transport = ASGITransport(app=app, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                return await http.post(SPIELORTE, json=dict(payload), headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR})
-        finally:
-            await app.state.db_client.close()
+        async with app_client(uri, config=config_for(database_name)) as http:
+            return await http.post(SPIELORTE, json=dict(payload), headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR})
 
     return asyncio.run(_created())
 

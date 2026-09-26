@@ -44,7 +44,7 @@ model holds; read this for the shape those tables are stating.
   (`sperrliste`) and one recorded write (`aktionen`).
 
 A school's kind survives the year and its Trainer does not, which is what puts those two on different
-documents. A club's league table is on neither, being computed from the matches.
+documents.
 
 ### What is held true together
 
@@ -83,8 +83,6 @@ brought up to date.
 ---
 
 ## The life of a season
-
-Each stage below narrows what the one before it left open.
 
 - **Created** — always `future`. Nothing an admin submits sets `status`, and the activation below is the only
   code path in the system that writes it.
@@ -250,7 +248,9 @@ entry, because a stale form and a direct request each reach it, and on a public 
 anyone's.
 
 Every refusal reaches a client as a **code** rather than as a message, the English text beside it going only
-to the log; [`logging/error-codes.md`](logging/error-codes.md) lists every code with the status it answers.
+to the log; `fl_backend/openapi.json` publishes each rule an operation refuses on at the status it
+answers, and [`logging/error-codes.md`](logging/error-codes.md) lists every other code with the status
+it answers.
 
 **The table above is about validity — may this value exist? Read visibility is a different question: may
 this caller see a value that legitimately does?** Neither the validators nor the refusal functions can settle
@@ -298,14 +298,11 @@ than reading as the evidence it is not. A bare name is resolved weakly on purpos
 source tree spells outside the declaration itself, so one still written anywhere else in either tree passes
 whatever it names there.
 
-**Most of what a model change owes is caught at the gate**, `test_domain.py` resolving what the declaration
-names and holding the claims it makes rather than merely the addresses. Three obligations are not, because no
-check can see a row nobody wrote:
+**Most of what a model change owes is caught at the gate**: the documentation gate imports the declaration and
+resolves every address it names — each anchor a reason argues from, each entry's surface and each rule's route
+(`scripts/checks/docs_gate/reasons.py :: check_unenforced_reasons`) — and `test_domain.py` holds the claims it
+makes rather than the addresses. Two obligations are not caught, because no check can see a row nobody wrote:
 
-- **A refusal code the API has not answered with before** owes a row in
-  [`logging/error-codes.md`](logging/error-codes.md) and a German message where its feature maps refusals.
-  Unmapped, it falls through to what `fl_frontend/src/shared/utils/actionError.ts :: toActionErrorResult`
-  answers a bare 409 with, telling an admin the entry conflicts with one that already exists.
 - **A new cross-collection reference** owes a `REFERENCES` row stating the constraint on the creating
   direction beside the two triggered actions. Every check walks OUTWARD from a declared row; none walks
   inward from a validator, so an id field nobody declared is invisible.
@@ -313,8 +310,9 @@ check can see a row nobody wrote:
   `inactive_since`, which every collection whose validator declares it must account for; where the
   editability is a judgement, nothing can do the same.
 
-**No module under `app/` may import `domain.py`**, and `test_domain.py` enforces it: the moment production
-code reads these tables they stop being a declaration and become an engine a write can forget to consult.
+**No write path under `app/` may import `domain.py`**: `app/main.py :: declared_refusals` alone reads it, to
+publish each operation's refusals, and `test_domain.py` holds that importer set exact. The moment a write
+reads these tables they stop being a declaration and become an engine a write can forget to consult.
 
 ---
 
@@ -322,4 +320,4 @@ code reads these tables they stop being a declaration and become an engine a wri
 
 - **[`backend/spec.md`](backend/spec.md)** — the endpoint inventory and the backend's own invariants
 - **[`glossary.md`](glossary.md)** — the German vocabulary, which is not optional
-- **[`logging/error-codes.md`](logging/error-codes.md)** — every error code either service emits, and the response body and log line that carry it
+- **[`logging/error-codes.md`](logging/error-codes.md)** — every error code either service emits outside the domain rules, and the response body and log line that carry it

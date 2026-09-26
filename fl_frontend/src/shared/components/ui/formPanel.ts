@@ -6,16 +6,16 @@ import { tv } from "tailwind-variants";
  */
 export const formPanel = tv({
   slots: {
-    root: "bg-surface border-border flex w-full flex-col rounded-2xl border shadow-sm",
-    header: "border-border flex flex-col gap-y-0.5 rounded-t-2xl border-b p-4 sm:p-5",
+    root: "flex w-full flex-col rounded-2xl border border-border bg-surface shadow-sm",
+    header: "flex flex-col gap-y-0.5 rounded-t-2xl border-b border-border p-4 sm:p-5",
     /** Carries the panel's `InfoHint` inline, so the explanation lives on the title rather than as a standing sentence. */
-    heading: "fluid-base text-foreground font-extrabold tracking-tight",
+    heading: "fluid-base font-extrabold tracking-tight text-foreground",
     body: "flex w-full flex-col gap-y-6 p-4 sm:p-5",
     /**
      * A `Switch.Content` row and its `Switch.Control` track, tinted from the tone rather than at the
      * call site: a colour retyped per switch is one that drifts from the panel around it.
      */
-    switchContent: "fluid-sm flex h-fit w-fit flex-row items-center gap-x-3 font-bold",
+    switchContent: "flex h-fit w-fit flex-row items-center gap-x-3 fluid-sm font-bold",
     switchControl: "",
   },
   variants: {

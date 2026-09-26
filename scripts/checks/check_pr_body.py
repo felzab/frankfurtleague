@@ -16,13 +16,13 @@ from typing import Final
 # `scripts/lib/` is a sibling of this directory, and a script's sys.path opens with this one.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
-from checker_kernel import EXIT_OK, Finding, report_findings, run  # noqa: E402 -- the insert above is what resolves it
+from checker_kernel import EXIT_OK, Finding, report_findings, run
 
 SUMMARY_TARGET: Final = 200  # reported: past a generous reading of "one or two paragraphs"
 SUMMARY_MAX: Final = 500  # failed: past any reading of it
 
-# The login GitHub reports as the pull request's author, matched whole. The commit half of the same
-# exemption is `check_commits.py :: BOT_IDENTITIES` (COR-2).
+# The login GitHub reports as the pull request's author, matched whole. A bot's commits are made on
+# GitHub, where no commit-msg hook runs, so no commit half of the exemption exists.
 BOT_AUTHORS: Final[frozenset[str]] = frozenset({"dependabot[bot]"})
 
 # Verbatim fragments of the form in `docs/_git/templates.md :: Pull requests`: their presence means
@@ -32,7 +32,7 @@ TEMPLATE_FRAGMENTS: Final[tuple[str, ...]] = (
     "One orientation sentence, for a multi-commit PR only",
     "What the branch achieves as a whole, at a level the individual commits do not",
     "Anything where a person chose between real options, with the reasoning",
-    "The `./scripts/gate/verify.sh` invocation — its scopes and its exit code",
+    "has run over its last push: that run's exit code goes here",
 )
 
 # Named alternation, not a general "bolded phrase" rule: that reads a paragraph opening

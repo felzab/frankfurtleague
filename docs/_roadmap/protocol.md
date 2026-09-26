@@ -8,33 +8,29 @@ it — always, without exception**, because the tracker is the channel they can 
 
 ## 1. The shape of the page
 
-**One index table at the top — token, the claim, tags, status — then a flat run of entries, every one
-identical in shape.** Nothing is ranked or grouped under a heading, and an entry's position says only
-where its token sorts: both listings are one ascending run of the token strings, so a reader who has
-reached the end of one has read the whole page. The tag column is the category, and a heading over a
-group would be a second one to keep true as entries arrive and leave
-(`scripts/checks/docs_gate/checks.py :: _check_flat_run`, `:: _check_token_order`).
-
-**The index row's claim is the entry heading's, word for word**
-(`scripts/checks/docs_gate/checks.py :: _check_claim_agreement`). Nothing mechanical separates a row
-that shortens its heading from one that has drifted, so a row free to shorten is a second claim
-nobody can hold to the first.
+**A flat run of entries, every one identical in shape: a heading carrying the token and the claim,
+then one table of its status and what it depends on.** Nothing is ranked or grouped under a heading,
+and an entry's position says only where its token sorts: the run ascends in token order
+(`scripts/checks/docs_gate/checks.py :: _check_token_order`), so a reader who has reached the end of
+it has read the whole page. No index restates the entries — the headings are the index, and
+`grep "^### " docs/_roadmap/items.md` prints it — and a heading over a group would be a category
+nothing keeps true as entries arrive and leave.
 
 ### What the page deliberately does not carry
 
-- **No free-form feature or epic label.** The slice tag answers that question derivably, and a
-  hand-written label grows a vocabulary nobody maintains and nothing can check.
-- **No relatedness link between entries.** Two entries touching one feature already share tags and a
-  reader finds them by filtering; a second mechanism for a fact the tags already carry is a second
-  home, which COR-2 refuses.
+- **No tag or label.** An entry names at least one path it touches
+  (`scripts/checks/docs_gate/checks.py :: _check_subjects`), and a reader after one surface or one
+  slice searches for the paths; a hand-written label grows a vocabulary nobody maintains.
+- **No relatedness link between entries.** Two entries touching one feature name the same paths, and
+  a reader finds them by searching; a second mechanism for that fact is a second home, which COR-2
+  refuses.
 - **No check on whether a `Lands with:` line is still worth acting on.** Its tokens are validated for
-  resolving to an entry and no further
-  (`scripts/checks/docs_gate/checks.py :: _check_batches`).
+  resolving to an entry and no further (`scripts/checks/docs_gate/checks.py :: _check_batches`).
 
-## 2. The id and the tags
+## 2. The id
 
-**Both are fixed by [`items.md`](items.md#what-every-entry-carries)** — the token's alphabet and
-generation, the three tag axes and what each is derived from, and the `Lands with:` line.
+**It is fixed by [`items.md`](items.md#what-every-entry-carries)** — the token's alphabet and
+generation, and the `Lands with:` line.
 
 One distinction belongs with the status values below rather than with the form: **a `Lands with:`
 line is an execution note and never a dependency.** It says the work is cheaper taken together, where
@@ -50,7 +46,8 @@ the record afterwards, so the body is where the argument goes: every decision re
 be read, what concluded the item, and where each finding outside it was rehomed.
 
 The same commit fixes every entry the closure moved — a `Depends on` naming the token that left, and
-each `Lands with:` line naming it, which §1 deletes rather than edits.
+each `Lands with:` line naming it, which
+[`items.md`](items.md#what-every-entry-carries) deletes rather than edits.
 
 **An item that ends only partly done is rewritten rather than deleted**, and its commit carries no
 trailer: the entry stays, describing what is left and what was decided.
@@ -58,8 +55,8 @@ trailer: the entry stays, describing what is left and what was decided.
 ## 4. Re-derive every status, not just the one you touched
 
 `Blocked` is a claim about _another_ entry, so an item that leaves — or a decision that lands —
-changes rows nobody edited. **A closing commit walks the entire table and re-derives every row's
-`Status`**, not only the rows the session worked on. The set is closed and the first match wins:
+changes entries nobody edited. **A closing commit walks every entry and re-derives its `Status`**,
+not only the entries the session worked on. The set is closed and the first match wins:
 
 | #   | When                                                                                                                                                                          | Status       |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
@@ -71,11 +68,11 @@ changes rows nobody edited. **A closing commit walks the entire table and re-der
 
 **`Decided` is not done**: the entry has become an instruction rather than a question, and the work
 remains. **`Skipped` is not declined**: the work is still wanted, so the entry stays and nothing
-re-opens it until I say so (ruled 2026-09-06). A status that contradicts the `Depends on`
-beside it is the failure this rule exists to catch, so read the two columns together. **Both
-listings carry the same word, that word is one the table above derives, and a `Blocked` names an
-entry the page still holds** (`scripts/checks/docs_gate/checks.py :: _check_status_agreement`),
-which reads that set out of the table rather than repeating it.
+re-opens it until I say so (ruled 2026-09-06). A status that contradicts the `Depends on` beside it
+is the failure this rule exists to catch, so read the two columns together. **The status is a word
+the table above derives, a `Depends on` names only other entries the page still holds, and a
+`Blocked` names at least one** (`scripts/checks/docs_gate/checks.py :: _check_status`), which reads
+that set out of the table rather than repeating it.
 
 **Rule 4's three homes are the whole set.** An argument recorded anywhere else — a page holding it
 until it reaches its own destination, a commit body, a report — leaves the entry at rule 5, because

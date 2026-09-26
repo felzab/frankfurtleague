@@ -1,0 +1,61 @@
+// Linted as src/features/zzplant/morePlants.tsx.
+"use client";
+
+import { TimeField } from "@heroui/react/time-field"; // expect: segmented-import
+import { DateRangePicker as Range } from "@heroui/react/date-range-picker"; // expect: segmented-import expect: date-alias
+
+declare const redirect: (to: string) => never;
+declare const size: string;
+
+export const ICON_BUTTON = "bg-brand-solid size-9 rounded-xl"; // expect: BRAND_ICON_BUTTON
+export const CHIP = "font-extrabold w-14 bg-brand-solid rounded-md"; // expect: SHORTHAND_CHIP
+export const META_COPY = "text-foreground-muted fluid-xs font-medium"; // expect: muted-meta
+export const FACE_ONLY = "font-numeric fluid-xs"; // expect: numeric-pair
+export const ARBITRARY_ALPHA = "group-hover:text-brand/[0.4]"; // expect: hover-alpha
+export const SCREEN = "vh-screen"; // expect: vh
+export const SCREEN_HEIGHT = "flex h-screen"; // expect: vh
+export const SCREEN_FLOOR = "md:min-h-screen"; // expect: vh
+export const SCREEN_CEILING = `max-h-screen ${size}`; // expect: vh
+export const LARGE_HEIGHT = "h-lvh"; // expect: vh
+export const LARGE_FLOOR = "min-h-lvh"; // expect: vh
+export const LARGE_SIZE = "size-lvh"; // expect: vh
+export const LARGE_ARBITRARY = "min-h-[100lvh]"; // expect: vh
+export const ARBITRARY_GAP = "gap-[3px]"; // expect: gap
+export const DOT_ACROSS_A_HOLE = `bg-brand ${size} animate-ping`; // expect: dot
+export const OFFSET = "underline underline-offset-4"; // expect: link-decoration
+export const PICKERS = [TimeField, Range];
+
+declare const history: { back: () => void };
+declare const nav: { back: () => void };
+
+export function plantedBacks(): void {
+  const { back } = nav; // expect: history-back
+  back();
+  history.back(); // expect: history-back
+}
+
+export function plantedRedirect(): never {
+  return redirect("spiele"); // expect: relative-nav
+}
+
+declare const appRouter: { push: (to: string) => void };
+declare const shell: { router: { replace: (to: string) => void } };
+declare const response: { redirect: (to: string) => void };
+declare const permanentRedirect: (to: string) => never;
+
+export function plantedNavigations(): void {
+  appRouter.push("teams"); // expect: relative-nav
+  shell.router.replace(`teams/${String(appRouter)}`); // expect: relative-nav
+  response.redirect("teams"); // expect: relative-nav
+  permanentRedirect("teams"); // expect: relative-nav
+}
+
+// A target keeps the text its leftmost operand opens on through each wrapper.
+export function plantedWrappedTargets(): void {
+  appRouter.push("teams/" + String(appRouter)); // expect: relative-nav
+  appRouter.push(`teams/${String(appRouter)}` + "/kader" + String(appRouter)); // expect: relative-nav
+  appRouter.push("teams" as string); // expect: relative-nav
+  appRouter.push(("teams/" + String(appRouter)) satisfies string); // expect: relative-nav
+  appRouter.push(("teams" as string | null)!); // expect: relative-nav
+  appRouter.push("teams/".concat(String(appRouter))); // expect: relative-nav
+}

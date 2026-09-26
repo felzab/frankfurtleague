@@ -12,7 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 import { ZURUECKGEHALTEN } from "@/features/einladungen/meldungen.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
-import { underNext } from "@/shared/testing/nextContexts.ts";
+import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
 import type { FLEinladungVersandVorschauZeile } from "@/features/einladungen/schemas.ts";
@@ -28,6 +28,8 @@ const sent = (action: string): unknown[] => calls.filter((call) => call.action =
 const { raised } = doubleToasts();
 
 const { FormEinladungVersandSection } = await import("./FormEinladungVersandSection.tsx");
+const { UNKNOWN_REFUSAL } = await import("@/shared/utils/refusal.ts");
+const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 
 /** Four characters, the width every schema in the tree holds a season id to. */
 const SAISON_ID = "2627";
@@ -80,6 +82,9 @@ const panel = (isFinishedSaison = false) =>
 
 const RESTING = "Links an alle Teams senden";
 const ARMED = "Ja, Links an alle Teams senden";
+const RUNNING = "Sendet...";
+const CANCEL = "Abbrechen";
+const LISTE = "Wer den Link bekommt";
 
 /** The value the armed readout states beside `label`, read off the description list the readout renders as. */
 function readout(label: string): string | null {
@@ -128,6 +133,54 @@ describe("the season's bulk invite send", () => {
     assert.deepEqual(sent("postEinladungVersandAction"), [{ id: SAISON_ID, erneut: false }]);
   });
 
+  /* A preview the edge cut wrote nothing, so it is the failed read it is: uncaught in the preview's
+     transition, it replaces the page with the error page. */
+  it("answers a rejected preview as a failed read, and leaves the press at rest", async () => {
+    const user = userEvent.setup();
+    answerWith(() => Promise.reject(new Error("An unexpected response was received from the server.")));
+    render(panel());
+
+    await user.click(screen.getByRole("button", { name: RESTING }));
+    await waitFor(() => assert.equal(raised.length, 1));
+
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
+      [["danger", "Vorschau nicht geladen", UNKNOWN_REFUSAL, undefined]],
+    );
+    assert.equal(sent("postEinladungVersandAction").length, 0, "a failed preview wrote");
+    await screen.findByRole("button", { name: RESTING });
+  });
+
+  /* A send of unknown outcome may have mailed the links the list names, so a second press armed over
+     that list would re-mint them under a readout of what was true before the write. */
+  it("drops the list after a send of unknown outcome, so the next press reads it again", async () => {
+    const user = userEvent.setup();
+    const { router, seen } = recordingRouter();
+    answerWith(vorschauAntwort(VORSCHAU));
+    render(underNext(h(FormEinladungVersandSection, { saisonId: SAISON_ID, isFinishedSaison: false }), { router }));
+
+    // Rejected, so the panel reads the page again itself: no answer brought the action's refresh.
+    await pressTwice(user, {
+      resting: RESTING,
+      armed: ARMED,
+      whileArmed: () => answerWith(() => Promise.reject(new TypeError("Failed to fetch"))),
+    });
+    await screen.findByRole("button", { name: RESTING });
+
+    const { error, outcome } = unansweredAction();
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description, toast.options?.outcome]),
+      [["danger", "Registrierungslinks nicht gesendet", error, outcome]],
+    );
+    assert.ok(screen.queryByText(LISTE) === null, "the list read before the write still stands");
+    assert.equal(seen.refresh, 1, "the page was not read again");
+
+    answerWith(vorschauAntwort(VORSCHAU));
+    await user.click(screen.getByRole("button", { name: RESTING }));
+    await armedStep();
+    assert.equal(sent("previewEinladungVersandAction").length, 2, "the next press armed over the list read before the write");
+  });
+
   /* The read holds the press until its list lands, and the list arms it: a render showing the press
      armed while still held drops the press a reader aims at it, and nothing is sent. */
   it("never shows the press armed while the read still holds it", async () => {
@@ -152,6 +205,39 @@ describe("the season's bulk invite send", () => {
 
     assert.ok(armedWhileHeld.length > 0, "no render showed the armed press, so nothing here was observed");
     assert.equal(armedWhileHeld.includes(true), false, "a render showed the press armed while the read still held it");
+  });
+
+  /* The armed control and the list it sends to say what is in flight
+     (`fl_frontend/src/shared/hooks/useTwoPressConfirm.ts :: useTwoPressConfirm`), so neither may drop
+     while the write still holds the press: bare, the alert counts zero teams over a running send. */
+  it("keeps the armed send and its list until the write lets go of the press", async () => {
+    const user = userEvent.setup();
+    answerWith(vorschauAntwort(VORSCHAU));
+    render(panel());
+
+    // Every render the panel commits, as in the case above: the dropped state lasts until the transition ends.
+    const droppedWhileSending: boolean[] = [];
+    const observer = new MutationObserver(() => {
+      const buttons = [...document.querySelectorAll("button")];
+      if (buttons.some((button) => button.textContent.includes(RUNNING))) {
+        const armed = buttons.some((button) => button.textContent.includes(CANCEL));
+        droppedWhileSending.push(!armed || screen.queryByRole("heading", { name: LISTE }) === null);
+      }
+    });
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+    try {
+      await pressTwice(user, {
+        resting: RESTING,
+        armed: ARMED,
+        whileArmed: () => answerWith(() => Promise.resolve({ success: true, zeilen: [], message: "Keine Links gesendet." })),
+      });
+      await waitFor(() => assert.equal(screen.getByRole("button", { name: RESTING }).getAttribute("data-pending"), null));
+    } finally {
+      observer.disconnect();
+    }
+
+    assert.ok(droppedWhileSending.length > 0, "no render showed the send running, so nothing here was observed");
+    assert.equal(droppedWhileSending.includes(true), false, "a render dropped the armed send or its list while the write still held it");
   });
 
   /* The four are ordinary states of a season being set up, so each is named as itself: one sentence

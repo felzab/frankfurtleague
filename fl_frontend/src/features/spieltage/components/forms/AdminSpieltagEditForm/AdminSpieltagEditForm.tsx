@@ -3,8 +3,6 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { Form } from "@heroui/react";
-
 import { patchSpieltagAction } from "@/features/spieltage/actions";
 import { buildPatchSpieltagPayloadSchema } from "@/features/spieltage/schemas";
 import { deriveSpieltagDraftStatus } from "@/features/spieltage/spieltagDraftStatus";
@@ -13,8 +11,8 @@ import { ConfirmSaveModal } from "@/shared/components/ui/ConfirmSaveModal";
 import { DraftRail } from "@/shared/components/ui/DraftRail";
 import { DraftStatusProvider } from "@/shared/components/ui/DraftStatusContext";
 import { EditFormLayout } from "@/shared/components/ui/EditFormLayout";
+import { Form } from "@/shared/components/ui/Form";
 import { FormActionBar } from "@/shared/components/ui/FormActionBar";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useEditorExit } from "@/shared/hooks/useEditorExit";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
@@ -50,7 +48,7 @@ export function AdminSpieltagEditForm({
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSaving] = useTransition();
 
   // An undated matchday enters as the empty string, which is the same state a cleared picker leaves
   // behind — so one branch below covers both, and the schema refuses the save either way.
@@ -64,9 +62,11 @@ export function AdminSpieltagEditForm({
   const [hasSaved, setHasSaved] = useState(false);
   const [confirmingBanners, setConfirmingBanners] = useState<BlockingBanners | null>(null);
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    // The span rule is the edited season's, so the schema is built per instance rather than imported.
-    schemas: { spieltag: buildPatchSpieltagPayloadSchema(saisonSpan) },
+  // The span rule is the edited season's, so the schema is built per instance rather than imported.
+  const spieltagSchema = buildPatchSpieltagPayloadSchema(saisonSpan);
+
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, formRef, formWiring } = useDraftFieldErrors({
+    schemas: { spieltag: spieltagSchema },
   });
 
   // `id` is the loaded record's own and the wire carries it in the path, so no refusal can name it.
@@ -83,10 +83,6 @@ export function AdminSpieltagEditForm({
   if (hasSaved && !status.isDirty) setHasSaved(false);
 
   useUnsavedChangesWarning(isDirty);
-
-  // Every date is picked rather than typed, so every control is judged on change — and the cross-field
-  // span rule reports on `ende`, so both paths refresh together or its message never clears.
-  useForgiveFixed({ spieltag: buildPayload() });
 
   const validatePicked = (paths: readonly string[], picked: Partial<FLSpieltagDraftFields>) =>
     validatePaths("spieltag", { ...buildPayload(), ...picked }, paths);
@@ -122,7 +118,7 @@ export function AdminSpieltagEditForm({
   };
 
   const writeAfterBlock = () => {
-    startTransition(async () => {
+    startSaving(async () => {
       // Read before the write: the props still hold the pre-save values, and the toast that replays
       // them outlives this component. The payload carries both dates or neither of them, so no replay
       // can ask the endpoint to take the dates away again.
@@ -132,47 +128,49 @@ export function AdminSpieltagEditForm({
       const payload = buildPayload();
       // A rejected action may still have saved, and uncaught here it takes the editor down with it.
       const res = await patchSpieltagAction(payload).catch(unansweredAction);
-      if (!res.success) {
-        reportSubmitFailure(res, { spieltag: payload });
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startSaving(() => {
+        if (!res.success) {
+          reportSubmitFailure(res, { spieltag: payload });
+          return;
+        }
 
-      setSubmitFieldErrors({}, {});
-      setHasSaved(true);
+        setSubmitFieldErrors({}, {});
+        setHasSaved(true);
 
-      if (undoPayload === null) {
-        appToast.success("Änderung gespeichert", { description: "Der Spieltag hat jetzt einen Zeitraum." });
-      } else {
-        // The replay can be refused: it is an ordinary `PATCH`, so a span narrowed meanwhile comes
-        // back as `REQ-DATE-003` rather than a restore.
-        offerUndo({
-          endpoint: "/api/admin/spieltage/undo",
-          body: undoPayload,
-          fallback: "Der Spieltag wurde aktualisiert.",
-          router,
-        });
-      }
+        if (undoPayload === null) {
+          appToast.success("Änderung gespeichert", { description: "Der Spieltag hat jetzt einen Zeitraum." });
+        } else {
+          // The replay can be refused: it is an ordinary `PATCH`, so a span narrowed meanwhile comes
+          // back as `REQ-DATE-003` rather than a restore.
+          offerUndo({
+            endpoint: "/api/admin/spieltage/undo",
+            body: undoPayload,
+            fallback: "Der Spieltag wurde aktualisiert.",
+            router,
+          });
+        }
 
-      // AFTER the undo payload is built, which reads the props rather than these atoms: typed values
-      // left in state let a save-then-undo reopen on values the matchday no longer holds.
-      resetDraftToStored();
-      leavePage();
+        // AFTER the undo payload is built, which reads the props rather than these atoms: typed values
+        // left in state let a save-then-undo reopen on values the matchday does not hold.
+        resetDraftToStored();
+        leavePage();
+      });
     });
   };
 
   return (
     <DraftStatusProvider status={status}>
       <Form
-        // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-        validationBehavior="aria"
-        ref={formRef}
-        validationErrors={fieldErrors}
+        wiring={formWiring}
         className="flex min-h-0 w-full flex-1 flex-col"
-        onSubmit={runOnSubmit(requestSave)}>
+        onSubmit={requestSave}>
         <EditFormLayout
           header={pageHeader}
           onLeave={requestLeave}
           isLeaving={isLeaving}
+          isDirty={isDirty}
           rail={
             <DraftRail
               banners={banners}

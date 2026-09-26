@@ -1,83 +1,117 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
-import { declaredCodes, sliceBetween } from "@/shared/testing/refusalRegister.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
+import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
-const ACTIONS = readFileSync(path.resolve(import.meta.dirname, "actions.ts"), "utf8");
-const APP_DIR = path.resolve(import.meta.dirname, "..", "..", "app");
+import { mapEinladungRefusal } from "./refusals.ts";
+
+import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
+
+const KEY = { team_id: "6890a1b2c3d4e5f607182932", saison_id: "2026" };
+const EINLADUNG_ID = "b".repeat(24);
+
+/** Each write's answer as the backend sends it where the write landed: the season-wide send mailing nobody. */
+function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
+  if (endpoint.endsWith("/versand")) return { acknowledged: 1, saison_id: KEY.saison_id, zeilen: [] };
+  if (method === "DELETE") return { acknowledged: 1, ...KEY, einladung_id: EINLADUNG_ID };
+  return { acknowledged: 1, ...KEY, einladung_id: EINLADUNG_ID, token: "t", erstellt_am: "2026-09-01", erstellt_von: "vorstand@example.org" };
+}
+
+/* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
+doubleActionRequest();
+const { answerWith, calls } = doubleApiAnswers((call) => Promise.resolve(landed(call)));
+const { deleteEinladungAction, postEinladungAction, postEinladungVersandAction } = await import("./actions.ts");
 
 const MINT_OPERATION = "POST /teams/{team_id}/saisons/{saison_id}/einladung";
 const VERSAND_OPERATION = "POST /saisons/{saison_id}/einladungen/versand";
 const REVOKE_OPERATION = "DELETE /teams/{team_id}/saisons/{saison_id}/einladung";
-const VORSCHAU_OPERATION = "GET /saisons/{saison_id}/einladungen/versand/vorschau";
-/** S9's flow raises it; this slice calls neither endpoint it is declared against. */
+/** S9's flow raises it; this slice calls neither endpoint it is published on. */
 const REGISTRIERUNG_OPERATION = "POST /registrierungen";
 
-const MAPPER = sliceBetween(ACTIONS, "function mapEinladungRefusal", "export async function postEinladungAction");
+describe("the invite's writes", () => {
+  it("address the mint and the revoke by both ids in the path, and the send by its season", async () => {
+    await postEinladungAction(KEY);
+    await deleteEinladungAction(KEY);
+    await postEinladungVersandAction({ id: KEY.saison_id, erneut: true });
 
-/** Every code the panel's mapper words in German, read off the mapper's own arms. */
-const mappedCodes = [...MAPPER.matchAll(/case "([A-Z-]+\d+)":/g)].map(([, code]) => code ?? "");
+    const einladung = `/teams/${KEY.team_id}/saisons/${KEY.saison_id}/einladung`;
+    assert.deepEqual(requestsOf(calls), [
+      { endpoint: einladung, method: "POST", body: undefined },
+      { endpoint: einladung, method: "DELETE", body: undefined },
+      { endpoint: `/saisons/${KEY.saison_id}/einladungen/versand`, method: "POST", body: { erneut: true } },
+    ]);
+  });
+});
 
-describe("the invite's refusals against the backend's register", () => {
-  /* Before every comparison below: a case looping over an empty declared list maps nothing and stays
-     green. An empty list here is the harness failing rather than the source. */
-  it("finds rules declared against both of this slice's endpoints", () => {
-    assert.ok(declaredCodes(MINT_OPERATION).length > 0, `no rule is declared against ${MINT_OPERATION}`);
-    assert.ok(declaredCodes(VERSAND_OPERATION).length > 0, `no rule is declared against ${VERSAND_OPERATION}`);
-    assert.ok(mappedCodes.length > 0, "no refusal code could be read out of the mapper at all");
+describe("the invite's refusals against the codes its endpoints publish", () => {
+  it("answers every code the mint publishes through the mapper", async () => {
+    const published = publishedRefusals(MINT_OPERATION);
+
+    assert.deepEqual(
+      published.filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-EINLADUNG-001", "REQ-EINLADUNG-002"],
+    );
+    for (const code of published) {
+      assert.notEqual(
+        answerShown(MINT_OPERATION, code, mapEinladungRefusal),
+        null,
+        `${code} is published on the mint and reaches the admin unmapped`,
+      );
+    }
+    await assertEachAnswered({
+      operation: MINT_OPERATION,
+      refuseWith: answerWith,
+      act: () => postEinladungAction(KEY),
+      mapped: mapEinladungRefusal,
+    });
   });
 
-  it("maps every code the mint declares", () => {
-    const declared = declaredCodes(MINT_OPERATION);
+  it("answers every code the season-wide send publishes through the mapper", async () => {
+    const published = publishedRefusals(VERSAND_OPERATION);
 
-    assert.deepEqual(declared, ["REQ-EINLADUNG-001", "REQ-EINLADUNG-002"]);
-    for (const code of declared) {
-      assert.ok(mappedCodes.includes(code), `${code} is declared against the mint and reaches the admin unmapped`);
+    assert.deepEqual(
+      published.filter((code) => code !== DUPLICATE_KEY),
+      ["REQ-EINLADUNG-002"],
+    );
+    for (const code of published) {
+      assert.notEqual(
+        answerShown(VERSAND_OPERATION, code, mapEinladungRefusal),
+        null,
+        `${code} is published on the send and reaches the admin unmapped`,
+      );
     }
+    await assertEachAnswered({
+      operation: VERSAND_OPERATION,
+      refuseWith: answerWith,
+      act: () => postEinladungVersandAction({ id: KEY.saison_id, erneut: false }),
+      mapped: mapEinladungRefusal,
+    });
   });
 
-  it("maps every code the season-wide send declares", () => {
-    const declared = declaredCodes(VERSAND_OPERATION);
-
-    assert.deepEqual(declared, ["REQ-EINLADUNG-002"]);
-    for (const code of declared) {
-      assert.ok(mappedCodes.includes(code), `${code} is declared against the send and reaches the admin unmapped`);
-    }
-  });
-
-  /* One mapper serves four call sites across four operations, and a rule declared against either of
-     these two would reach the administrator through the 409 fallback in
-     `fl_frontend/src/shared/utils/actionError.ts`, which tells them an equivalent entry exists. */
-  it("leaves the revoke and the preview with no declared rule to map", () => {
-    for (const operation of [REVOKE_OPERATION, VORSCHAU_OPERATION]) {
-      assert.deepEqual(declaredCodes(operation), [], `${operation} declares a refusal no mapper answers`);
-    }
+  /* The revoke publishes the unique index's code alone, which this slice leaves to the shared reader,
+     so the revoke asks no mapper at all. */
+  it("answers every code the revoke publishes in the shared reader's words", async () => {
+    await assertEachAnswered({
+      operation: REVOKE_OPERATION,
+      refuseWith: answerWith,
+      act: () => deleteEinladungAction(KEY),
+      mapped: () => null,
+    });
   });
 
   /* Mapped here it would be German nobody can reach: the code is raised on the registration
      endpoints, and a stranger opening a dead link meets S9's page rather than an admin's toast. */
   it("leaves the link-opens-nothing refusal to the flow that raises it", () => {
-    assert.ok(declaredCodes(REGISTRIERUNG_OPERATION).includes("REQ-EINLADUNG-003"), "the register moved the code off the registration write");
-    assert.equal(mappedCodes.includes("REQ-EINLADUNG-003"), false, "this slice words a refusal none of its own calls can answer");
-  });
-
-  /* The undo lane words a replayed endpoint's refusals a second time in its own `REPLAY_REFUSALS`
-     (`.claude/rules/cross-surface.md`). Nothing replays these two, so this slice owes none — and
-     this case is what fails the day something does. */
-  it("is replayed by no undo route, so its German lives at one site", () => {
-    const routes = filesUnder(APP_DIR, (name) => name === "route.ts", 12).filter((file) => !isTestFile(file));
-
-    assert.ok(routes.length > 0, "the walk found no route handlers at all, so this case compares nothing");
-    for (const file of routes) {
-      const source = readFileSync(file, "utf8");
-      assert.equal(
-        source.includes("REQ-EINLADUNG"),
-        false,
-        `${path.basename(path.dirname(file))} replays an invite endpoint and words its refusals`,
-      );
-    }
+    assert.ok(
+      publishedRefusals(REGISTRIERUNG_OPERATION).includes("REQ-EINLADUNG-003"),
+      "the document moved the code off the registration write",
+    );
+    assert.equal(
+      mapEinladungRefusal(refusedOn(REGISTRIERUNG_OPERATION, "REQ-EINLADUNG-003")),
+      null,
+      "this slice words a refusal none of its own calls can answer",
+    );
   });
 });

@@ -1,12 +1,16 @@
 "use client";
 
-import { FieldError, Label, ListBox, Select, Separator } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Label } from "@heroui/react/label";
+import { ListBox } from "@heroui/react/list-box";
+import { Separator } from "@heroui/react/separator";
 
-import { FIELD_ERROR, FIELD_LABEL, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
+import { Select } from "@/shared/components/ui/Select";
 
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 
 /**
  * Judged on CHANGE rather than on blur — a selection is complete the moment it is made.
@@ -21,7 +25,6 @@ export function ClosedSetSelect<TValue extends string>({
   name,
   label,
   placeholder,
-  error,
   withOwnLabel = true,
 }: {
   value: TValue | null;
@@ -31,8 +34,6 @@ export function ClosedSetSelect<TValue extends string>({
   name: string;
   label: string;
   placeholder: string;
-  /** The message for a caller without a `<Form>` context — the same split as `GruppeSelect`. */
-  error?: string;
   /** Off for the caller whose label is a marker-carrying `FieldLabel` rendered outside. */
   withOwnLabel?: boolean;
 }) {
@@ -54,16 +55,15 @@ export function ClosedSetSelect<TValue extends string>({
       aria-label={withOwnLabel ? undefined : label}
       value={value ?? NONE}
       onChange={handleChange}
-      isInvalid={error ? true : undefined}
       className="w-full">
-      {withOwnLabel && <Label className={FIELD_LABEL}>{label}</Label>}
-      <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+      {withOwnLabel && <Label className={FIELD_LABEL_CLASSES}>{label}</Label>}
+      <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
         {/* From the prop, not `Select.Value` — the collection can lag a render behind and would then
             show HeroUI's English placeholder. */}
         <span className={value ? "" : "text-foreground-muted"}>{value ?? placeholder}</span>
-        <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+        <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
       </Select.Trigger>
-      <FieldError className={FIELD_ERROR}>{error}</FieldError>
+      <FieldError className={FIELD_ERROR_CLASSES} />
       <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
         <ListBox aria-label={label}>
           <ListBox.Item

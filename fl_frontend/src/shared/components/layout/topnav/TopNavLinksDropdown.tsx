@@ -1,8 +1,8 @@
 "use client";
 
-import { Bars } from "@gravity-ui/icons";
+import Bars from "@gravity-ui/icons/Bars";
 
-import { Dropdown } from "@heroui/react";
+import { Dropdown } from "@heroui/react/dropdown";
 
 /**
  * Only the Dropdown machinery is client-side: the menu's contents are inert markup arriving as `children` from a Server
@@ -15,7 +15,7 @@ export function TopNavLinksDropdown({ children }: { children: React.ReactNode })
           the inner `<svg>` names a graphic, and a nested `<Button>` is a button in a button. */}
       <Dropdown.Trigger
         aria-label="Navigationsmenü öffnen"
-        className="text-foreground data-hovered:bg-hover rounded-md p-1 transition-colors">
+        className="rounded-md p-1 text-foreground transition-colors data-hovered:bg-hover">
         <Bars
           className="size-7"
           aria-hidden="true"

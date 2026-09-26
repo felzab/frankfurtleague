@@ -1,28 +1,26 @@
 # Open items
 
 **Purpose:** everything open on the product, the toolchain, the gate and the documentation corpus —
-each entry carrying the analysis its decision needs. How an entry is authored, tagged and closed is
+each entry carrying the analysis its decision needs. How an entry is authored and closed is
 [`protocol.md`](protocol.md)'s.
 
 | Section                                               | Answers                                                  |
 | ----------------------------------------------------- | -------------------------------------------------------- |
 | [What every entry carries](#what-every-entry-carries) | Which fields an entry states, and what each one may hold |
-| [The items at a glance](#the-items-at-a-glance)       | Every item, its tags and its status                      |
 | [The items](#the-items)                               | Each entry in full                                       |
 
 ## What every entry carries
 
-An entry is a ``### `<token>` · <the claim>`` heading, then one table of the three fields below, then
+An entry is a ``### `<token>` · <the claim>`` heading, then one table of the two fields below, then
 the analysis, and it says what is wrong, why it matters and what done looks like. Analysis stays
 only where it changes the approach — a rejected alternative written as a present constraint, or a
 trap the implementer would otherwise walk into. Everything else goes to the body of the commit that
 files the entry, which `git log -S` reaches.
 
-| Field          | Holds                                                                                                                                                                                         |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Tags**       | Every axis below that the paths the entry names fall under. Derived from the entry's own text, never chosen: a tag disagreeing with what is written is the failure this field exists to catch |
-| **Status**     | One value from the closed set [`protocol.md`](protocol.md) derives                                                                                                                            |
-| **Depends on** | The token of an entry here that blocks this one, or an em dash                                                                                                                                |
+| Field          | Holds                                                              |
+| -------------- | ------------------------------------------------------------------ |
+| **Status**     | One value from the closed set [`protocol.md`](protocol.md) derives |
+| **Depends on** | The token of an entry here that blocks this one, or an em dash     |
 
 **A token is eight characters from `abcdefghjkmnpqrstuvwxyz23456789`, hyphenated after the fourth** —
 no `i`, `l`, `o`, `0` or `1`, because a token is read aloud and typed into a commit trailer.
@@ -30,79 +28,26 @@ It is generated at random when the entry is filed rather than allocated from a s
 collision with one `git grep`, and carries no order and no meaning. It is never reused, and a
 closing commit's trailer names it.
 
-**Tags come from three axes, and an entry carries every tag its own text earns.**
-
-| Axis        | Vocabulary                                                                      | Derived from a path or symbol under                                                |
-| ----------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| **Surface** | `FE`                                                                            | `fl_frontend/`                                                                     |
-|             | `BE`                                                                            | `fl_backend/` whole, `tests/` included                                             |
-|             | `DB`                                                                            | a collection name, an index, `fl_backend/app/core/crud.py`                         |
-|             | `Ops`                                                                           | `scripts/`, `nginx/`, `.githooks/`, `.claude/hooks/`, a compose file, a Dockerfile |
-|             | `Docs`                                                                          | `docs/`, `.claude/`                                                                |
-| **Concern** | `gate`                                                                          | `scripts/gate/`, `scripts/checks/`, `.githooks/`, `.claude/hooks/`                 |
-|             | `ci`                                                                            | `.github/` whole, not its `workflows/` and `actions/` alone                        |
-|             | `tests`                                                                         | `scripts/tests/`, `fl_backend/tests/`, a `*.test.ts`                               |
-|             | `edge`                                                                          | `nginx/`, Cloudflare, a compose service definition                                 |
-|             | `versions`                                                                      | a manifest, a lockfile, a pin, a digest                                            |
-| **Slice**   | the directory names under `fl_frontend/src/features/` and `fl_backend/app/api/` | a whole path segment matching one of them, anywhere in the path                    |
-
-**`BE` reaches the whole package rather than its `app/`**, because a backend test otherwise carries
-`tests` and no surface at all, which hides a backend failure from a reader filtering on `BE`. `Docs` covers `docs/` and `.claude/` under one tag, and no second tag splits them: both trees are
-documentation to the reader filtering on it. A hook under `.claude/hooks/` earns `Ops` and `gate`
-beside it, being a script the gate probes rather than a page. `DB` and `versions` are the two a path
-need not produce — a collection name and a manifest are named in prose — so either may stand where
-no path derives it, and neither may be missing where one does.
-
-**A slice matches a whole path segment and never a substring**, because German compounds a term into
-a longer word meaning something else: `spiele` sits inside `spieler`, and both are live slices with
-large trees, so a substring match tags every `spieler` path as the most-used slice in the repository.
-The segment matches anywhere in a path rather than under the two roots alone, so
-`fl_frontend/src/app/admin/aktionen/` earns `aktionen` from the route tree as well as from the
-feature package. The set is whatever `scripts/checks/docs_gate/checks.py :: slice_names` walks off the
-two roots, so a package under either one is a slice whether or not the other holds its twin. **An entry
-naming no path carries no tag**, and that is a finding
-rather than a default: an entry nobody can place is one whose subject is not stated.
-
 **A status is derived, never chosen**, by the first matching row of
 [`protocol.md`](protocol.md) — which is also where each value's meaning is fixed. A closure
-re-derives every entry's, not only its own, because `Blocked` is a claim about another row.
+re-derives every entry's, not only its own, because `Blocked` is a claim about another entry.
 
 **An entry may carry one `Lands with:` line** naming the tokens it shares a pass with. It is deleted
 when any member of that batch lands, so it is either current or gone. Relatedness by subject is
-never written there: the tags already answer it.
+never written there: the paths two entries name already answer it.
 
 Some entries are seeded into an audit pass under `docs/_auditing/prompts/` as one of its starting
 checks. Some are issue-shaped feature work parked here at my direction, so that one place holds what
 is outstanding; everything else belongs here only while the reasoning, rather than the work, is the
 deliverable.
 
-## The items at a glance
-
-| Token       | Item                                                                                                                                       | Tags                                                                                                      | Status   |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- | -------- |
-| `32bs-nhzd` | Every write is recorded, and nothing restores one past the editor's fifteen seconds                                                        | FE, BE, DB, Docs, spiele                                                                                  | Skipped  |
-| `3s6w-kndn` | A local gate run's wall clock is three sections trading the tail, and the scripts suite's split has not been read against the run's spread | Ops, Docs, gate, ci, tests                                                                                | Open     |
-| `4ad2-vz8k` | The test client reaches anyio through a deprecated alias, and no line in this repository declares either package                           | BE, ci, tests, versions                                                                                   | Standing |
-| `645h-nj9q` | The linter runs a version past its end of life, and the documentation for it describes another                                             | FE, Docs, versions                                                                                        | Standing |
-| `6m3r-xpcu` | Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite                   | FE, Docs, versions                                                                                        | Open     |
-| `8wd7-ff49` | The consent field has a schema and a ruled writer, and no flow that writes it                                                              | BE, DB, Docs, tests, registrierungen                                                                      | Blocked  |
-| `dgdv-27yw` | No rule engine reads this repository's sources, and four spellings its own readers refuse wait on a parser nobody has declared             | FE, BE, Ops, gate, ci, tests, versions, saisons, spieltage                                                | Open     |
-| `f3ar-m4qf` | Setting up a season is a hand-run sequence, and only an admin can enter a squad                                                            | FE, BE, DB, Docs, bewerbungen, einladungen, kontakte, registrierungen, saisons, spieler, spieltage, teams | Open     |
-| `f8sh-mbgg` | The site's whole design is redone in one pass, and the frontend's deduplication and cleanup ride in it                                     | FE, Ops, Docs, tests, admin, bewerbungen, dashboard, passkeys, registrierungen, schiedsrichter, spiele    | Open     |
-| `k4wq-8mvr` | Every failure carries a closed class beside its code, and the register's kinds are held by a check                                         | FE, BE, Ops, Docs, gate, tests                                                                            | Open     |
-| `pb66-krbw` | A fixture carries one date, and a play window cannot be expressed                                                                          | FE, BE, spiele                                                                                            | Skipped  |
-| `pw5c-zps5` | A referee's consent record is collected, and the notice still publishes their name on another basis                                        | FE, BE, meta, schiedsrichter                                                                              | Open     |
-| `qstz-dwrj` | Only the match editor tells an admin which empty field somebody is waiting on                                                              | FE, BE, Docs, admin, spiele                                                                               | Skipped  |
-| `qw6j-scru` | Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship                               | FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams                                     | Open     |
-| `v9tn-3hce` | The log answers what broke and hardly what happened                                                                                        | FE, BE, Docs                                                                                              | Open     |
-
 ## The items
 
 ### `32bs-nhzd` · Every write is recorded, and nothing restores one past the editor's fifteen seconds
 
-| Tags                     | Status  | Depends on |
-| ------------------------ | ------- | ---------- |
-| FE, BE, DB, Docs, spiele | Skipped | —          |
+| Status  | Depends on |
+| ------- | ---------- |
+| Skipped | —          |
 
 **The recording exists and the restore over it does not.** Every write funnels through
 `fl_backend/app/core/crud.py` and is recorded with the actor, the request, the collection, the
@@ -141,95 +86,31 @@ work inside it.
 
 **How far the log page can reach past its one read is not this entry's.**
 
-### `3s6w-kndn` · A local gate run's wall clock is three sections trading the tail, and the scripts suite's split has not been read against the run's spread
+### `4ad2-vz8k` · The test client reaches anyio through a deprecated alias, and no line in this repository declares anyio
 
-| Tags                       | Status | Depends on |
-| -------------------------- | ------ | ---------- |
-| Ops, Docs, gate, ci, tests | Open   | —          |
-
-**The profile re-taken on 2026-09-22, two full-form runs on the idle 16-core machine:** the runs took
-224.4 and 206.3 seconds, and three sections close last and trade the tail —
-`frontend` at 221 and 197, `scripts` at 204 and 202, `format` at 183 and 168 — beside `backend` at 101
-and 88, `images` at 83 and 55, `db` at 81 and 61, `ops` at 54 and 43 and `docs` at 37 and 38. On one
-loaded run, every scope's worker started within 70 milliseconds of the others and a tool was at work
-five to six seconds after its worker, so no scope starts late and the wall is contention.
-
-**Lever 1, the distributed database tier, is taken and measured.** On the idle machine, each width a
-pair of runs within a fifth of a second of each other, the tier took 30.1 seconds at two workers,
-24.0 at three, 21.0 at four, 18.5 at six and 19.2/19.4 at eight, against 48 to 49 at one worker over five
-runs of which no pair converged, so the distribution took thirty seconds off the tier and the cap
-and floor `scripts/gate/verify.sh :: GATE_WIDTH_DB_PYTEST` and `:: GATE_WIDTH_DB_PYTEST_FLOOR`
-carry sit on those readings. Whether the shared server becomes the
-new tail past eight, and whether `WriteConflict` appears at a wider width, is unmeasured and
-belongs inside the width question.
-
-**Lever 2, the documentation gate's net split into modules a worker each can draw, is taken, and
-its effect on the suite is read on the idle machine; on a whole run's spread it is not.** The gate's
-fixture costs 1.34 seconds a build (`scripts/tests/test_check_docs.py :: _load`, memoised in
-`:: _STATE`), so the build was never the cost; `.github/gate-wall-clock.tsv`'s `scripts` paragraph
-carries what was, and the measurement taken under load, whose raw walls overlap. On the idle machine
-on 2026-09-23 the suite at eight workers took 93.0 and 89.7 seconds before the split (729 cases, on `main`) and 67.0 and 67.2
-seconds after it (773 cases). The tail is now `scripts/tests/test_gate_forms.py`, which xdist's
-`loadfile` order dispatches last.
-
-**Lever 3, distributing the default tier, is rejected against this profile.** The section running
-it closes inside the scripts section, and a tier with no database and no container spends a real
-fraction of itself in interpreter startup, which a worker pays again per process.
-`.claude/CLAUDE.md` §7's `tests` clause closes the other obvious answer to any tail: no db-marked
-test leaves the gate.
-
-**Two scopes writing one `__pycache__` is not a coupling, and a chain must not be added on that
-reasoning.** `docs` and `scripts` have shared two of those directories unconstrained since the pool
-was written: CPython writes a bytecode file to a temporary name and renames it, nothing in this
-repository reads pytest's `nodeids`, and `lastfailed` is written only when its value changes and
-steers only `--lf`, which the gate never passes. The argument in full is in the commit
-`git log --all --grep lastfailed` returns, and it is worth reading before any scope here is made to
-wait on another.
-
-**What a change to any of this owes.** `scripts/lib/_lib.sh :: finish` owns the four-code exit
-contract's classifier, its ladder is `:: _RANK_LABELS` and its codes are declared in
-`scripts/lib/checker_kernel.py` and driven by `scripts/tests/test_exit_contract.py`, so anything
-reaching that file re-opens the contract's measured rank, finding and exit combinations; anything
-reaching how the self-check's probes execute owes a before-baseline, a verdict-set diff and a
-required zero, **because a probe that has stopped firing looks exactly like a probe that passes**. A
-db-tier change owes the harder version of the same: those verdicts are what a branch rests on, and a
-worker that silently cleared a neighbour's seeds fails somewhere else entirely.
-
-**Done when** the split's effect has been read on the idle machine in interleaved pairs of the whole
-suite at eight workers, every figure carrying its spread and its run count, and the worst run after it
-beats the best before it — the split then stands as taken — or it does not, and the split is
-rejected against that reading.
-
-### `4ad2-vz8k` · The test client reaches anyio through a deprecated alias, and no line in this repository declares either package
-
-| Tags                    | Status   | Depends on |
-| ----------------------- | -------- | ---------- |
-| BE, ci, tests, versions | Standing | —          |
+| Status   | Depends on |
+| -------- | ---------- |
+| Standing | —          |
 
 **Importing starlette's test client emits one `DeprecationWarning` naming `anyio.abc.BlockingPortal`,
 and the import is what emits it rather than any test.** That module binds its portal-factory type at
 module level from the alias, and the installed anyio serves the name through a deprecation hook that
 warns and redirects to `anyio.from_thread.BlockingPortal`. `from __future__ import annotations` at the
 top of the starlette module does not defer the access — it defers annotations, and this is a plain
-assignment — which is the reading most likely to talk somebody out of checking. Verified 2026-09-07 by
-importing the module in this backend's virtualenv with warnings recorded: one warning, raised from
-that assignment. Both packages move without us.
+assignment — which is the reading most likely to talk somebody out of checking. Verified 2026-09-07:
+one warning, raised from that assignment. Both packages move without us.
 
-**What the removal of that alias costs is four collection errors.**
-`fl_backend/tests/api/test_actor_binding.py`, `fl_backend/tests/api/test_admin_guard.py`,
-`fl_backend/tests/api/test_bewerbungen_read.py` and `fl_backend/tests/api/test_error_responses.py`
-each import `TestClient` from `fastapi.testclient`, which is the same starlette module. The failure
-would land where a module is collected rather than in an assertion anybody can read as a product
-defect — the default backend tier turning red at once, naming a package this repository never asked
-for.
+**What the removal of that alias costs is a collection error in every module under
+`fl_backend/tests/` that imports `TestClient` from `fastapi.testclient`**, the same starlette
+module. The failure would land where a module is collected rather than in an assertion anybody can
+read as a product defect — the default backend tier turning red at once, naming a package this
+repository never asked for.
 
-**Neither package is named where a version bump would be noticed.** `fl_backend/pyproject.toml`
-declares starlette by a floor rather than a pin, and anyio not at all: it arrives as a transitive
-dependency in `fl_backend/uv.lock`. `.github/dependabot.yml` puts the `uv` ecosystem on `/fl_backend`
-monthly, minor and patch grouped and a major on its own, and only one of the two halves is a
-dependency it can name. The starlette release that stops touching the alias would be proposed by
-name; the anyio release that removes it is proposed by nothing, and reaches the tree inside another
-bump's lockfile resolution.
+**Only starlette is declared, and by a floor rather than a pin.** `fl_backend/pyproject.toml` names
+no anyio, which arrives as a transitive dependency in `fl_backend/uv.lock`, so the `uv` ecosystem in
+`.github/dependabot.yml` can propose only starlette by name. The starlette release that stops
+touching the alias would be proposed by name; the anyio release that removes it is proposed by
+nothing, and reaches the tree inside another bump's lockfile resolution.
 
 **The line at fault is starlette's, which is why this stands rather than being planned.** Nothing here
 can move the access, and filtering the warning would put a suppression in front of the one signal
@@ -250,9 +131,9 @@ deduplication.
 
 ### `645h-nj9q` · The linter runs a version past its end of life, and the documentation for it describes another
 
-| Tags               | Status   | Depends on |
-| ------------------ | -------- | ---------- |
-| FE, Docs, versions | Standing | —          |
+| Status   | Depends on |
+| -------- | ---------- |
+| Standing | —          |
 
 **eslint 9.x reached end of life on 2026-08-06, and `fl_frontend/package.json` declares `^9.39.5`** —
 a caret range spanning a line that will publish nothing further, so `pnpm update` cannot move it and
@@ -277,13 +158,11 @@ half of a v9-to-v10 migration, is already in use. **Forcing the install past the
 is not the move**: a linter defect fails in the direction of passing, and an unsupported combination
 makes that one direction likelier.
 
-**The consequence to act on until the move lands is the sharper one for anyone reading.**
-`eslint.org/docs/latest` serves v10, and `.claude/CLAUDE.md` §4 holds a reference authoritative only
-while it is official **and** current with the installed version in it as a documented release — which
-the current documentation is not for 9.39.5. So the repository's own reflex, reading the project's
-own docs, answers about a major version this repository does not run, with nothing in the reading to
-mark the gap. **An eslint API claim here has to come from a version-pinned page or from the installed
-package under `fl_frontend/node_modules`, and has to say which.**
+**`eslint.org/docs/latest` serves v10**, so for 9.39.5 it fails `.claude/CLAUDE.md` §4's test of a
+reference — official **and** current, with the installed version in it as a documented release —
+and nothing in the reading marks the gap. **An eslint API claim here has to come from a
+version-pinned page or from the installed package under `fl_frontend/node_modules`, and has to say
+which.**
 
 **Trigger to revisit:** an `eslint-plugin-jsx-a11y` release whose peer range admits eslint 10, under
 an `eslint-config-next` whose bundled `eslint-plugin-import` and `eslint-plugin-react` admit it too.
@@ -294,11 +173,45 @@ carry a changed rule default under it, which [`docs/frontend/spec.md`](../fronte
 it lands. The move also re-answers the cache key and threading decision
 [`docs/ops/spec.md`](../ops/spec.md) §1.6 records.
 
+### `6aqh-cw5k` · Moving to pnpm 12 silences the frontend's security alerts until GitHub's graph reads the lockfile's second document
+
+| Status   | Depends on |
+| -------- | ---------- |
+| Standing | —          |
+
+**pnpm 12 writes `fl_frontend/pnpm-lock.yaml` as two YAML documents, and GitHub's dependency graph
+reads only the first.** With `packageManager` in `fl_frontend/package.json` naming a pnpm 12 release,
+pnpm records that pin in a leading document (`packageManagerDependencies`) and writes the ordinary
+lockfile after it. The graph Dependabot's alerts are raised from parses the leading document alone,
+so it holds pnpm's own packages and none of the frontend's: no alert opens for `fl_frontend`, alerts
+already open close as fixed, and no security update is proposed. That is the route
+`.github/dependabot.yml` names for security updates and
+[`docs/_git/spec.md`](../_git/spec.md#16-repository-settings) switches on; the gate's
+`pnpm audit:prod` only warns. The fault is GitHub's, dependabot-core issue 15904
+(https://github.com/dependabot/dependabot-core/issues/15904), open when read on 2026-09-24.
+Dependabot's version-update grapher already reads the last document, which changes nothing here: the
+alerts come from the graph, a separate parser.
+
+**pnpm stays on its 11 line until that issue is fixed**, as I ruled on 2026-09-24 — the pin in
+`fl_frontend/package.json` and `fl_frontend/Dockerfile`'s `PNPM_VERSION`.
+
+**Done when** the move to pnpm 12 has landed and `gh api repos/felzab/frankfurtleague/dependency-graph/sbom`
+counts the frontend's packages whole after it, the count matching one taken before the move rather
+than the pin's handful.
+
+**The move commits the leading document pnpm writes, or every fresh checkout rewrites the lockfile.**
+The first pnpm call finding the pin's record missing writes it, `pnpm --version` included, and the
+gate's scopes starting at once race to rename the file. The document is additive: nothing in the
+ordinary lockfile is re-resolved.
+
+**`pmOnFail: ignore` in `fl_frontend/pnpm-workspace.yaml` keeps the lockfile one document, and is
+refused**: pnpm then stops switching to the pinned release, so a local run is pinned by nothing.
+
 ### `6m3r-xpcu` · Every replacement for the component library is either a restyle of the foundation it already stands on or a full rewrite
 
-| Tags               | Status | Depends on |
-| ------------------ | ------ | ---------- |
-| FE, Docs, versions | Open   | —          |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
 **The criteria are mine, and they are five.** Free, open source preferred. Performant, with CSS load
 time and JavaScript bundle size above everything else. Easy to work with, with no odd behaviours. At
@@ -373,9 +286,9 @@ question that could move Mantine's rank.
 
 ### `8wd7-ff49` · The consent field has a schema and a ruled writer, and no flow that writes it
 
-| Tags                                 | Status  | Depends on  |
-| ------------------------------------ | ------- | ----------- |
-| BE, DB, Docs, tests, registrierungen | Blocked | `f3ar-m4qf` |
+| Status  | Depends on  |
+| ------- | ----------- |
+| Blocked | `f3ar-m4qf` |
 
 **The flow it waits on is an admission, which is not built.** The `Depends on` beside it names
 `f3ar-m4qf`, whose part "Admitting a confirmed registration into its squad" is the writer this entry
@@ -413,11 +326,11 @@ the enum has lost `erziehungsberechtigt` once the reset removed every row carryi
 birthdate is required on the person from then on, `fl_backend/app/core/domain.py :: UNENFORCED`
 carrying the state that ends there. The notice's referee publication row is `pw5c-zps5`'s.
 
-### `dgdv-27yw` · No rule engine reads this repository's sources, and four spellings its own readers refuse wait on a parser nobody has declared
+### `dgdv-27yw` · No rule engine reads this repository's sources, and two spellings its own readers refuse wait on a parse across the language boundary
 
-| Tags                                                       | Status | Depends on |
-| ---------------------------------------------------------- | ------ | ---------- |
-| FE, BE, Ops, gate, ci, tests, versions, saisons, spieltage | Open   | —          |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
 **Every class of hand-written source reader has been measured against the rule engines, and none
 carries it** (decided 2026-09-23). The three named sweeps were expressed in each candidate or shown to
@@ -428,35 +341,26 @@ application's runtime objects and across modules, which an engine states neither
 sweep compares a runtime value with a source value, so an engine reaches only its extraction half; and
 the prose rules that resolve against the tree are the gate's own whichever engine parses the page.
 
-**Four spellings are still read wrong, and each fails loud rather than passing a defect:**
+**Two spellings are still read wrong, and each fails loud rather than passing a defect:**
 
-- **An indented code block read as prose.** `owner-voice` reports a phrase inside one. A correct test
-  knows the list item around the block, which is block parsing; `markdown-it-py` is installed in the
-  dev environment through another package and declared by nothing, so the repair is declaring it in
-  `fl_backend/pyproject.toml`'s `dev` group and moving the kernel's Markdown readers onto its tokens.
 - **The backend's domain pattern spelled over two lines, or as a plain string with its escape
   doubled.** The value is unchanged, and `fl_frontend/src/shared/schemas.test.ts`, which reads it,
   refuses both spellings.
-- **A refusal's sentence moved into a named constant inside its switch arm.**
-  `fl_backend/tests/api/test_rules_refusal_mirror.py` cuts the arm at the next `case "` and refuses
-  what it finds there.
 
-The cost of each is a false red somebody rewrites around. The last two need a parse across the
-language boundary — Python's `ast` spawned from the frontend's unit tests, a new precondition on its
-test run, or ast-grep on each side, which is a new dependency on each — so none is built until I rule
-on it.
+The cost of each is a false red somebody rewrites around. Both need a parse across the language
+boundary — Python's `ast` spawned from the frontend's unit tests, a new precondition on its test run,
+or ast-grep on each side, which is a new dependency on each — so none is built until I rule on it.
 
 **Five sweep readers lean on where the formatter breaks lines rather than on a parse**, so each is
 correct only for source `ruff format` wrote, and a formatter setting that moves a break is a change to
 them: `fl_frontend/src/features/saisons/recordedFactMirror.test.ts`,
 `fl_frontend/src/features/saisons/components/forms/AdminSaisonEditForm/FormRegelnSection.test.ts`,
-`fl_frontend/src/features/spieltage/actions.test.ts`,
-`fl_frontend/src/shared/components/ui/tabIndicator.test.ts` and
-`fl_frontend/src/shared/testing/refusalRegister.ts`.
+`fl_frontend/src/features/saisons/actions.test.ts`, `fl_frontend/src/features/spieltage/actions.test.ts` and
+`fl_frontend/src/shared/components/ui/tabIndicator.test.ts`.
 
 **Done when** each class's verdict is recorded at COR-14's rung — the header of
 `fl_backend/tests/core/app_source.py`, the readers in `scripts/checks/docs_gate/kernel.py`, and
-`fl_frontend/src/shared/testing/refusalRegister.ts` for the cross-language reads — and each of the four
+`fl_frontend/src/shared/schemas.test.ts` for the cross-language reads — and each of the two
 spellings is either read correctly, its parser arriving as a pin in `fl_frontend/package.json` or
 `fl_backend/pyproject.toml` that states which gate scope and which job in
 `.github/workflows/verify.yml` runs it, or accepted as a loud false red by my ruling, the acceptance
@@ -464,11 +368,103 @@ written at the reader's line. Every property asserted today is still asserted an
 afterwards, and an answer resting on practice outside this repository cites a public repository a
 reader can open.
 
+### `eq3t-4e3f` · Which wording a person agreed to is defined only in the frontend, and the record of it is overwritten rather than kept
+
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
+
+**My question of 2026-09-24, in my words:** "What would be the absolute mature best practice approach
+that a major company would implement for this WHOLE system of keeping track to which version somebody
+agreed?" This entry is that design, sized for this site. The one race that could not wait, an
+application retried across a deploy that moved its label, is already held by the application's own
+check (`fl_backend/app/api/bewerbungen/services.py :: find_veraltete_fassung_refusal`).
+
+**The registry of wordings and the running label of each page live in the frontend.** Every label's
+words are in `fl_frontend/src/core/einwilligung.ts :: LIGA_KENNTNISNAHMEN`, the label each of the four
+pages stamps is read off it (`:: LIGA_KENNTNISNAHME`, `:: BESTAETIGUNG_KENNTNISNAHME`,
+`:: SPIELER_EINWILLIGUNG`, `:: SCHIEDSRICHTER_EINWILLIGUNG`), and the words are pinned only by a
+frontend test (`fl_frontend/src/core/einwilligung.test.ts :: FASSUNG_DIGESTS`). The backend, which
+stores the record, holds a copy of the application form's running label alone
+(`fl_backend/app/api/bewerbungen/services.py :: BEWERBUNG_LAUFENDE_FASSUNG`, held equal by
+`fl_backend/tests/shared/test_frontend_mirrors.py`) and accepts any non-empty `text_version` on every
+other write (the confirmation payloads beside
+`fl_backend/app/api/bewerbungen/schemas.py :: FLBewerbungEinwilligungPayload`). So
+`docs/frontend/spec.md :: I148` is held for those writes by route handlers and server actions ahead of
+the backend call (`fl_frontend/src/features/bewerbungen/utils.ts :: nenntLaufendeFassung`,
+`fl_frontend/src/features/kontakte/actions.ts :: nenntZugelasseneFassungen`). The system of record
+cannot say which labels exist, which one a page runs, or what words a stored label names.
+
+**The record is one embedded block, rewritten in place.** A contact seat's confirmation replaces the
+applicant's label and provenance with its own
+(`fl_backend/app/api/bewerbungen/services.py :: compose_confirmation_update`), so once a seat
+confirms, the application-form label the applicant ticked for that person is in the database
+nowhere. A seat an admin gives to a different person keeps its stored label: the provenance is
+composed again for the new person (`fl_backend/app/api/teams/services.py :: compose_kontakte_herkunft`)
+but the label is not, so the new person's record names the wording the previous one was given.
+`datum` and `bestaetigt_am` hold a day rather than a time. The action log keeps the replaced
+image (`fl_backend/app/core/recording.py`) until its retention or an erasure takes it. No route
+changes a consent yet; the withdrawal control is ruled to come with the account tiers
+([`docs/datenschutz.md` §11](../datenschutz.md#11-open-and-owed-a-decision)), and an overwrite would
+then lose whether and when a consent was withdrawn.
+
+**Why it matters.** Art. 7 (1) DSGVO puts the proof of a consent on the controller, and the EDPB's
+Guidelines 05/2020 (paragraph 108) name "a copy of the information that was presented to the data
+subject at that time"; the DSK's Kurzpapier Nr. 20 asks that the wording itself be documented. A
+contact seat's record rests on Art. 6 (1) (f) rather than consent, and Art. 5 (2) asks the same
+demonstrability of what that person was told. Today the proof of a label's words is frontend source
+and its history, reached only through a build or a checkout.
+
+**The design is what the regulators' guidance and the established consent systems share, and no
+more:**
+
+- **The backend holds the registry.** Each version is immutable, identified by its label, tied to the
+  page it belongs to and to its effective date, its words pinned by a backend test; the running
+  version of each page is backend state. The frontend renders the words the backend serves and posts
+  the label back. Words stay in code rather than a collection: a pull request reviews them and a test
+  pins them, while a collection would need seeding, which here is a one-off migration.
+- **The backend judges every label it stores.** A label must name a version of that write's page,
+  and a new acceptance must name the running one, judged after any replay's key lookup as the
+  application's is (`fl_backend/app/api/bewerbungen/public_router.py :: post_bewerbung`). The
+  frontend's pre-checks go, and I148 moves to the backend's sheet.
+- **An acceptance records its time**, in UTC, beside the day the record already carries.
+- **Acceptances are appended rather than overwritten** — given, confirmed, declined, withdrawn — the
+  embedded block becoming the current state they add up to, and an applicant's acknowledgement for a
+  seat surviving that seat's own confirmation. Built with the withdrawal control, never before it.
+
+**Refused as more than this site needs:** a content hash inside every record, the registry's digest
+test already pinning the words a label names; the requester's IP address and user agent, which the
+DSK holds proves nothing alone and the EDPB (paragraph 106) warns against collecting beyond need; a
+receipt sent to the person, the Kantara and ISO/IEC TS 27560 receipt; a hosted consent-management
+product; major and minor versions, since any change of words is a new label here.
+
+**Traps:**
+
+- A page places its sections by key (`fl_frontend/src/core/einwilligung.ts :: SPIELER_EINWILLIGUNG`'s
+  `absaetzeNachSchluessel`) while a label freezes them by position, and a reader's own facts fill
+  `{slots}` (`:: fuelleFassung`). What the backend serves carries both, or the keyed words stay in a
+  second place.
+- The administrative contact edit admits a seat's own stored label beside the running one
+  (`fl_frontend/src/features/kontakte/actions.ts :: nenntZugelasseneFassungen`); the backend's check
+  keeps that admission.
+- A new refusal code meets the previous frontend for the moment between the two containers'
+  recreation and falls to the shared fallback there.
+- How long an erased person's acceptance events may stand is EDPB paragraph 107's question (legal
+  claims), for `scfh-f6gw`'s brief; where a returning pupil's renewed consent lands is `8wd7-ff49`'s
+  ruling, and an appended history is one of its answers.
+
+**No data migration.** Every stored label is one the registry already holds, so existing records stay
+their own evidence; nothing is backfilled into a history.
+
+**Done when** the backend is the one place a label's words and each page's running label are defined;
+every write stamping a label is judged there, after the replay; the frontend holds no label check;
+a record carries its time; and a withdrawal is appended rather than overwriting what it withdraws.
+
 ### `f3ar-m4qf` · Setting up a season is a hand-run sequence, and only an admin can enter a squad
 
-| Tags                                                                                                      | Status | Depends on |
-| --------------------------------------------------------------------------------------------------------- | ------ | ---------- |
-| FE, BE, DB, Docs, bewerbungen, einladungen, kontakte, registrierungen, saisons, spieler, spieltage, teams | Open   | —          |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
 **My item, 2026-08-13.** The Saison create form becomes a guided workflow that takes an admin through
 a whole new season — its dates, which clubs play it, which clubs are new, and the rules it runs
@@ -636,9 +632,9 @@ on it, which is a heavy consequence for a step in a flow designed to be fast.
 
 ### `f8sh-mbgg` · The site's whole design is redone in one pass, and the frontend's deduplication and cleanup ride in it
 
-| Tags                                                                                                   | Status | Depends on |
-| ------------------------------------------------------------------------------------------------------ | ------ | ---------- |
-| FE, Ops, Docs, tests, admin, bewerbungen, dashboard, passkeys, registrierungen, schiedsrichter, spiele | Open   | —          |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
 **My item, 2026-09-23.** A later session redoes the design and the UI and UX of the whole site, to
 make it more professional and better, and takes the frontend's deduplication, the deletion of
@@ -659,15 +655,15 @@ change.** jscpd over the frontend's production sources, run on this tree on 2026
   shared empty row and empty card — about 27 duplicated lines each.
 
 **Sweeps read each of those pages as source, and they move in the same change as the shell.**
-`fl_frontend/src/features/admin/saveConfirmation.test.ts` finds the editors by the text
+`fl_frontend/src/features/admin/editorWiring.test.ts` finds the editors by the text
 `<ConfirmSaveModal` in their files, and `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
-finds the tables by the shared emptiness beside a react-aria table and reads each one's column
-arithmetic. Each holds a roster to what it finds, so a shell moved into one shared component turns
+finds the tables by the shared emptiness beside a react-aria table and renders each one to read its
+column arithmetic. Each holds a roster to what it finds, so a shell moved into one shared component turns
 it red; the repair re-aims it at the shared component and keeps asserting what it asserted per page,
 because a case is cut only where a surviving one still fails for the same regression
 (`.claude/CLAUDE.md` §3).
 
-**Three smaller duplications sit on pages the redesign reaches, each shaped and none built:**
+**Two smaller duplications sit on pages the redesign reaches, each shaped and none built:**
 
 - **The confirmation pages' scope picker and answer handling.** The pupil's page and the referee's,
   `fl_frontend/src/features/registrierungen/components/views/SpielerBestaetigungView.tsx` and
@@ -683,21 +679,13 @@ because a case is cut only where a surviving one still fails for the same regres
 - **The error boundaries' retry.** `fl_frontend/src/shared/components/ui/Error.tsx` and
   `fl_frontend/src/features/dashboard/components/ui/DashboardErrorBoundary.tsx` wire the same
   refresh-then-reset retry, and the argument for it is written at `Error.tsx` alone. The shape is
-  one hook; `fl_frontend/src/shared/hooks/errorBoundaryReports.test.ts` finds each boundary by the
-  text `useReportClientCrash(` in its file, so that sweep follows the call into the hook in the same
-  change.
+  one hook.
 
-**Two test doubles are copied, and this pass takes them as the frontend's cleanup rather than a
-page's:**
+**A test double is copied, and this pass takes it as the frontend's cleanup rather than a page's:**
 
 - **`aRequest`**, spelled in each route test under `fl_frontend/src/app/api/` that declares one, in
   three variants — throwing on an absent body, not throwing, and taking headers alone. One helper,
   with the throwing and the non-throwing variants kept apart until each caller is read.
-- **`Barrier`**, identical in `fl_frontend/src/core/auth.db.test.ts` and
-  `fl_frontend/src/features/passkeys/actions.db.test.ts`. **It cannot move to
-  `fl_frontend/src/shared/testing/`**: `fl_frontend/eslint.config.mjs :: LAYER_BOUNDARY` keeps every
-  file under `core/`, a test included, from importing `shared`, so the one copy sits where both may
-  import it, and the db tier proves the move.
 
 **What the redesign reopens from what that sweep kept, and what it does not:**
 
@@ -719,10 +707,9 @@ page's:**
   consumed everywhere, beats a value that looks better on one page, and a real exception is ratified
   in prose where the next sweep finds it. The grammar the redesign replaces is
   [`docs/frontend/spec.md`](../frontend/spec.md) §1.16 to §1.21, over the tokens in
-  `fl_frontend/src/app/globals.css`, and the sweeps holding it —
-  `fl_frontend/src/shared/components/ui/gapLadder.test.ts` and
-  `fl_frontend/src/shared/components/ui/hoverToken.test.ts` among them — change with their rule
-  rather than being deleted. **No page leads its neighbours**: a page on the new grammar beside
+  `fl_frontend/src/app/globals.css`, and the checks holding it — the gap ban and the two hover bans
+  in `fl_frontend/eslint.config.mjs :: SOURCE_BANS` among them — change with their rule rather than
+  being deleted. **No page leads its neighbours**: a page on the new grammar beside
   pages on the old reads as a defect, so a new rule reaches every page it governs in the change that
   introduces it.
 - **Every string a visitor reads or navigates by is mine.** A heading, a label, a button or a
@@ -760,11 +747,76 @@ site over the local stack.
 been seen in a browser. The spans of every pair, the knip run and the whole of what the sweep kept
 are in the body of the commit that filed this entry.
 
+### `gzn4-secx` · A page is tested through a hand-built copy of React's server renderer, where Next recommends end-to-end tests
+
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
+
+**My ruling, 2026-09-25:** "Keep until E2E" — the page harness and the tests calling it stay until
+end-to-end tests replace them.
+
+**The harness is the suite's most exposed code to an upgrade.**
+`fl_frontend/src/shared/testing/pageHarness.ts` walks a page's tree as React's server renderer
+would, by hand: it tells a client module by a regular expression over its source, doubles
+`next/server` and the API client, and builds every read's answer out of Zod's internal schema
+definitions. A React, Next or Zod release can move any of the three underneath it. Next's testing
+guide, read 2026-09-25 for the release installed here and moving without us: "we recommend using
+**End-to-End Testing** over **Unit Testing** for `async` components"
+(https://nextjs.org/docs/app/guides/testing).
+
+**What the harness guards today**, each of which an end-to-end case asserts before the unit case
+guarding it goes:
+
+- every admin page reads the season the header shows, awaits `connection()` before its first read,
+  throws nothing but a redirect or a not-found, and sends the admin to the season list where the
+  league holds none (`fl_frontend/src/app/admin/omittedSaison.test.ts`)
+- a list route's loading fallback draws the search row and trigger box its page draws
+  (`fl_frontend/src/features/admin/crudLoadingTriggers.test.ts`,
+  `fl_frontend/src/shared/components/ui/AdminCrudView.test.ts`)
+- every 404 answers the one not-found metadata — on the root boundary, on each catch-all, and
+  wherever a page's generated metadata misses (`fl_frontend/src/app/notFound.test.ts`)
+- a season-scoped public page's canonical names the season its address names, and the bare path
+  for the running one (`fl_frontend/src/app/dashboard/seasonCanonical.test.ts`)
+- which reads a page makes and in what order against `connection()`, a public page's noindex
+  metadata, and its 404 for a season nobody knows
+  (`fl_frontend/src/features/bewerbungen/routes.test.ts`,
+  `fl_frontend/src/features/schiedsrichter/routes.test.ts`)
+
+**Every other file calling it mixes page cases with view cases**, and
+`git grep -l pageHarness -- fl_frontend` selects them. A case about what the page does — a malformed
+id answered with a 404 before any read, the rows a page hands its view — moves to the end-to-end
+run; a case about the view renders that view with the props the page would hand it, and needs no
+harness at all. `fl_frontend/src/shared/testing/pageHarness.test.ts` tests the walk itself and goes
+with it.
+
+**Four things the adopting change meets first:**
+
+- **No CI job serves the application.** The ops scope parses the compose files and runs nginx alone
+  (`nginx/edge_test.sh`), and the images job builds both images and runs neither, so the end-to-end
+  job builds, serves and seeds its own stack, and lands with its measured cost in
+  `.github/gate-wall-clock.tsv`.
+- **Its data is its own.** `./scripts/ops/local.sh --seed` restores a copy of production, which a CI
+  runner never holds.
+- **The admin pages sit behind the mailed sign-in link**, and `.claude/CLAUDE.md` §3 refuses a
+  testing-only way past it in production code.
+- **The `connection()` order's symptom is a failed image build**, the builder reaching no backend
+  (`docs/frontend/spec.md :: I6`), and never anything a browser shows. Which run replaces the walk's
+  is settled before that case goes.
+
+**The cost is a dependency and a CI job**, adopted under `.claude/CLAUDE.md` §4's comparison rule,
+whose record is the adopting commit's body: Next's guide sets up both Cypress and Playwright for
+end-to-end testing, and the option needing no dependency is the harness this entry retires.
+
+**Done when** Playwright runs the pages above against the local stack in CI, every behaviour listed
+asserted there, and the harness and every page case calling it are deleted —
+`git grep -l pageHarness -- fl_frontend` printing nothing.
+
 ### `k4wq-8mvr` · Every failure carries a closed class beside its code, and the register's kinds are held by a check
 
-| Tags                           | Status | Depends on |
-| ------------------------------ | ------ | ---------- |
-| FE, BE, Ops, Docs, gate, tests | Open   | —          |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
 **A code today fuses two facts, what went wrong and what kind of thing that is, and only the first
 is machine-readable.** `docs/logging/error-codes.md` fixes the grammar `<AREA>-<SUBJECT>-<NNN>`,
@@ -774,8 +826,8 @@ What no consumer can read is the class: whether a caller's precondition failed, 
 invalid, the caller was unauthenticated, nothing was found, the service was unavailable or the
 server broke. The frontend therefore words every backend code by hand at three sites per refusal
 (`.claude/rules/cross-surface.md`'s trap), and a code either site forgets falls through to
-`fl_frontend/src/shared/utils/actionError.ts`'s 409 fallback, which tells the admin an equivalent
-entry already exists whatever happened. Mature registers carry both: Google's API error model pairs
+`fl_frontend/src/shared/utils/actionError.ts`'s shared fallback, which names no reason and sends the
+admin to a retry the same rule refuses again. Mature registers carry both: Google's API error model pairs
 a canonical status from a closed list with an open `reason`, Stripe pairs a `type` from five with
 an open `code`, and RFC 9457 carries `status` beside a `type` that resolves to documentation.
 
@@ -790,7 +842,7 @@ landed first.
 body and on every failure line, declared once per surface and compared by the logging suites the
 way L2's key order is; the register carries a kind column the docs gate enforces (a response row
 owes a status, a log-only row a severity and the operator's action); the frontend's refusal
-registers fall back by class rather than to one 409 message, the hand-written sentences staying
+registers fall back by class rather than to one fallback message, the hand-written sentences staying
 for the codes that deserve one; and `docs/logging/spec.md` L2 records the envelope's new key,
 which is an order change on both surfaces and lands in one commit with both suites.
 
@@ -799,11 +851,32 @@ and `fl_frontend/src/core/logFormat.test.ts`, and `.claude/rules/cross-surface.m
 clause keeps the two packages from sharing a declaration, so the class enumeration is spelled once
 per surface with a comparator, the shape `scripts/checks/check_log_quoting_class.py` already takes.
 
+### `kcbz-wwup` · The season-wide invitation send mails one team after another, so a slow provider can leave a season half-invited
+
+| Status   | Depends on |
+| -------- | ---------- |
+| Standing | —          |
+
+**The one send that mails every team does it in series**
+(`fl_frontend/src/features/einladungen/actions.ts :: postEinladungVersandAction`), under the request
+deadline (`fl_frontend/src/core/requestScope.ts :: REQUEST_DEADLINE_MS`). A provider slow enough to
+spend that deadline cuts the rest, and the admin is told the outcome is unclear; pressing again mints
+and mails a fresh link for every team without a delivery record, so a team whose cut message did
+arrive gets a second one, and the first link stops opening.
+
+**The trigger:** a season-wide send that ends unclear. **Done when** the send goes out through Resend's
+batch endpoint, one call for the season, each message keeping its own delivery record and a refused
+mailbox costing only itself (I69).
+
+**The trap:** the batch endpoint's documented mode fails the whole call when one message is invalid;
+the per-message mode that keeps I69 appears in Resend's official Node SDK but not in its documentation,
+so its response shape is checked once against the live API before anything rests on it.
+
 ### `pb66-krbw` · A fixture carries one date, and a play window cannot be expressed
 
-| Tags           | Status  | Depends on |
-| -------------- | ------- | ---------- |
-| FE, BE, spiele | Skipped | —          |
+| Status  | Depends on |
+| ------- | ---------- |
+| Skipped | —          |
 
 **A fixture's `datum` is a single day, so a match scheduled across a window cannot be recorded as
 one** (my item, 2026-08-02). Implementing ranges is heavy in my scoping: it would change the match
@@ -825,9 +898,9 @@ arithmetic has to preserve. Working it re-derives both definitions under ranges.
 
 ### `pw5c-zps5` · A referee's consent record is collected, and the notice still publishes their name on another basis
 
-| Tags                         | Status | Depends on |
-| ---------------------------- | ------ | ---------- |
-| FE, BE, meta, schiedsrichter | Open   | —          |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
 **A referee's own consent record is stored, and the published notice still rests their name on a
 different basis.** `fl_backend/app/api/schiedsrichter/schemas.py :: FLSchiedsrichter` carries
@@ -852,9 +925,9 @@ notice's publication row rests on that consent rather than on legitimate interes
 
 ### `qstz-dwrj` · Only the match editor tells an admin which empty field somebody is waiting on
 
-| Tags                        | Status  | Depends on |
-| --------------------------- | ------- | ---------- |
-| FE, BE, Docs, admin, spiele | Skipped | —          |
+| Status  | Depends on |
+| ------- | ---------- |
+| Skipped | —          |
 
 **The Fehlt and Offen markers exist on the match editor alone, and putting them on the other entity editors is
 a domain question before it is a UI one.**
@@ -885,17 +958,22 @@ entity — and which of those it is decides whether this is a page change or a c
 already says what it needs through its required fields and the rail's Hinweise. What it waits on is
 a product ruling per entity, and that cost does not grow while it waits.
 
-### `qw6j-scru` · Two colour swatches and one library attribute are what a fix has to reach before `style-src 'self'` can ship
+### `qw6j-scru` · `style-src 'self'` waits on two swatches, a library attribute and a library stylesheet, and its Report-Only rollout narrows `script-src-attr` and `img-src` beside it
 
-| Tags                                                                  | Status | Depends on |
-| --------------------------------------------------------------------- | ------ | ---------- |
-| FE, Ops, Docs, gate, edge, admin, auth, bewerbungen, spieltage, teams | Open   | —          |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
-**`nginx/prod.conf` and `nginx/local.conf` both send `style-src 'self' 'unsafe-inline'`, and my
-ruling of 2026-09-07 is `style-src 'self'` with nothing put in its place** — no nonce, no
-`style-src-attr`, and no component-library switch. Each file declares the whole policy three times,
-because `add_header` in a location replaces the inherited set
-([`docs/ops/spec.md`](../ops/spec.md) §1.4).
+**`nginx/shared/security_headers.conf` sends `style-src 'self' 'unsafe-inline'` from both edges,
+and my ruling of 2026-09-07 is `style-src 'self'` with nothing put in its place** — no nonce, no
+`style-src-attr`, and no component-library switch. The policy is written there once and included
+wherever a block sets a header of its own, because `add_header` in a location replaces the
+inherited set ([`docs/ops/spec.md`](../ops/spec.md) §1.4).
+
+**My ruling of 2026-09-25 on `script-src`, "Keep it, narrow it":** the one enforced policy keeps
+`'unsafe-inline'` there, for the reason and until the trigger
+[`docs/ops/spec.md`](../ops/spec.md) §1.4 records, and the rollout this entry carries narrows the
+policy around it — `script-src-attr 'none'`, and `img-src` cut to what is used.
 
 **The population that directive governs is narrower than the application.** CSP judges a `style`
 attribute in served HTML and a `<style>` element; a property written on an element's `style` object
@@ -906,14 +984,14 @@ same prop through the CSSOM on the client, so
 `fl_frontend/src/core/providers/AppToaster.tsx`'s timer duration, and every overlay position
 react-aria resolves are outside the policy once hydration has run.
 
-**Inside it are two attributes this repository writes and one the library writes.** Both swatches
-render `style={{ backgroundColor: trikotFarbeHex(…) }}` —
+**Inside it are two attributes this repository writes, one the library writes, and one stylesheet
+the library injects.** Both swatches render `style={{ backgroundColor: trikotFarbeHex(…) }}` —
 `fl_frontend/src/features/bewerbungen/components/views/BewerbungAngabenPanel.tsx` for the wish and
 `fl_frontend/src/features/teams/components/forms/TrikotFarbeSelect.tsx` for the assignment — and
 `fl_frontend/src/features/teams/constants.ts :: TRIKOT_FARBE_OPTIONS` closes the colour set with its
 hex, so a class per colour or a data attribute the stylesheet keys on carries the fill with no
-attribute at all. The library's is `--scroll-shadow-size`, which
-`@heroui/react`'s `ScrollShadow` sets through a style prop.
+attribute at all. The library's attribute is `--scroll-shadow-size`, which `@heroui/react`'s
+`ScrollShadow` sets through a style prop.
 
 **`ScrollShadow` is reached two ways, and the second is why the prerender's count understates the
 work.** `fl_frontend/src/shared/components/ui/FilterLeiste.tsx` renders it directly, and HeroUI's
@@ -927,6 +1005,18 @@ that streams one of those five components server-renders the attribute too, and 
 directive does not keep a component off the server render. So this is a restyle of one component
 rather than of one page, and the count to trust is the source's rather than the build's.
 
+**react-aria's `usePress` stylesheet is not a residue: refusing it is the touch regression of
+2026-08-31.** `usePress` prepends `<style id="react-aria-pressable-style">`, giving every element
+carrying `data-react-aria-pressable` `touch-action: pan-x pan-y pinch-zoom`, and stamps a nonce on
+it only where the document offers one (the installed `react-aria`'s
+`dist/private/interactions/usePress.mjs`, read 2026-09-25 and moving without us). Under
+`style-src 'self'` the element stays in the DOM with no sheet, nothing renders differently and
+nothing goes red, while on a touch device every pressable falls back to `touch-action: auto` —
+nineteen elements on the home page, measured on the local stack 2026-08-31. A hash of the rule is
+invalidated by the library's next release and `style-src-attr` cannot reach an element, so neither
+repairs it; how the rule reaches every pressable once the element is refused is what the fix answers
+before `style-src 'self'` is served at all.
+
 **Two residues stay, and each is accepted rather than covered.** Next's own `_global-error` carries
 both an attribute and a `<style>` element, and renders unstyled under the strict policy — on a page
 that is already the failure of everything above it. react-aria's `usePreventScroll` prepends a
@@ -934,58 +1024,119 @@ that is already the failure of everything above it. react-aria's `usePreventScro
 refuses while the `touchmove` guard beside it still runs; `style-src-elem` and `style-src-attr` are
 the directives that would speak to that element alone, and neither is in the ruling.
 
+**`script-src-attr 'none'` refuses the payload an injection keeps.** An `innerHTML` write runs no
+`<script>` it inserts but does run an `onerror=` attribute (MDN's `innerHTML` page, read 2026-09-25,
+moving without us), and on a page holding a token that handler is what would read it. The
+directive refuses every inline event handler and leaves inline `<script>` elements, Next's
+hydration scripts among them, to `script-src`. React attaches its handlers as listeners and renders
+none as an attribute; what the week of reports watches for is markup Cloudflare injects, which no
+file here shows.
+
+**`img-src 'self' data: https:` is the policy's widest exfiltration channel, and nothing here uses
+two of its three sources.** A source search on 2026-09-25 finds no `<img>` and no `next/image` in
+`fl_frontend/src`, HeroUI's `Avatar` rendering its fallback alone, and no `data:` image in this
+repository's stylesheets or HeroUI's; an image request is how an injected payload carries a token
+off a page. The Report-Only header therefore carries `img-src 'self'`, and the reports say whether
+anything the search cannot see needs `data:` back.
+
 **A component-library switch was studied for this and declined.** Every candidate positions its
 overlays by writing to an element's `style` object — Floating UI under Base UI, Radix and Mantine,
 Zag's positioner under Ark and Chakra, react-aria's own `useOverlayPosition` under HeroUI — so the
 route CSP does not govern is the route all of them take, while what a strict policy refuses is two
 attributes written here and one library attribute a restyle removes anyway. A switch moves none of
-the three, and one candidate moves the policy backwards. `6m3r-xpcu` holds the switch on its own
+the three attributes, and one candidate moves the policy backwards. `6m3r-xpcu` holds the switch on its own
 criteria, and the one CSP fact it carries is Mantine's, stated there. (Read 2026-09-07 from MDN,
 from react-dom's `setValueForStyle` and from each project's own documentation; all of that moves
 without us.)
 
-**Done when** the swatches and the `ScrollShadow` attribute are gone;
-`Content-Security-Policy-Report-Only: style-src 'self'` has been served from `nginx/prod.conf`
-beside the enforcing header for a week, its `report-to` naming an ingest route of this application
-that writes each violation report as one line under the envelope, and the reports read; and the
-enforcing policy has then been switched with `scripts/checks/check_csp_identity.py` green.
+**Done when** the swatches and the `ScrollShadow` attribute are gone and the `usePress` rule reaches
+every pressable element with the injected element refused; a `Content-Security-Policy-Report-Only`
+header carrying `style-src 'self'`, `script-src-attr 'none'` and `img-src 'self'` has been served
+from `nginx/shared/security_headers.conf` beside the enforcing header, its `report-to` and its
+`report-uri` both naming an ingest route of this application that writes each violation report as
+one line under the envelope; and each directive has moved into the enforcing policy after its own
+week of reports, read, with the edge's header check green on every location.
 
 **The Report-Only phase is the rollout a tightened policy gets everywhere, and my ruling of
 2026-09-07 clears its two obstacles here.**
 [`.claude/rules/cross-surface.md`](../../.claude/rules/cross-surface.md)'s `csp` clause forbids a
 second _enforcing_ policy, so a Report-Only header may stand beside the one that enforces; and
-`scripts/checks/check_csp_identity.py` reads `Content-Security-Policy-Report-Only` as a declaration
-of the header it watches, its `:: DECLARING_RE` matching up to the hyphen while `:: POLICY_RE`
-cannot take a quoted policy out of that line, so the check learns to hold the enforcing copies to
-each other and to accept one Report-Only header per file, reporting its policy beside them.
-`:: blocks` is the second site it has to learn, and the sharper one: it counts every line
-`:: DECLARING_RE` matches toward a block's `policies`, and `:: dropped` fails a block that sets a
-header while that count is zero — so a block restating the Report-Only header alone would pass as
-having put a policy back while serving none. The ingest route takes the shape of
+`nginx/edge_test.sh` reads its `:: SECURITY_HEADERS` off `nginx/shared/security_headers.conf`,
+name and value, so the Report-Only header is written into that file in the commit that serves it,
+or no location is held to sending it. The ingest route takes the shape of
 `fl_frontend/src/app/api/client-error/route.ts`: public and unauthenticated, since a browser posts a
 report with no session, and metered at the edge by an exact-match location of its own, which
-`scripts/checks/check_public_routes.py` fails until that location exists.
+`scripts/checks/check_public_routes.py` fails until that location exists. **`report-uri` stands
+beside `report-to`** because Firefox reads `report-to` only from release 149 (MDN's
+browser-compat-data, read 2026-09-25, moving without us), and `fl_frontend/package.json`'s
+`browserslist` reaches further back than that.
 
 **What the change makes untrue.** [`docs/ops/spec.md`](../ops/spec.md) §1.4 states that several
 components set a runtime-computed inline `style` attribute, and offers the `style-src-attr` pair as
-the narrowing with `_global-error` as its whole cost. The same section states that
-`scripts/checks/check_csp_identity.py` holds each file's three declarations to each other and fails
-any further block that sets a header without restating the policy — an accounting the Report-Only
-phase changes at both ends, since the file then carries a fourth declaring line that restates
-neither header. The policy row, that paragraph and that sentence move in the same commit (CUR-2),
-the code being the higher source (PRE-1).
+the narrowing with `_global-error` as its whole cost. The same section states that the policy is
+written once, which the Report-Only phase makes two policies in one file, and names what the rest of
+the policy blocks, which each directive reaching enforcement widens. The policy row, those
+paragraphs and that sentence move in the same commit (CUR-2), the code being the higher source
+(PRE-1).
 
 **Not verified.** No Report-Only header has been served and no page opened in a browser, so nothing
-here establishes that an SSR'd attribute the parser refused stays unapplied after hydration, or that
-every overlay still positions under the strict policy; both are read off the react-dom and react-aria
-sources. The five `ScrollShadow` call sites are a source search rather than a measurement of what
-each page actually streams.
+here establishes that an SSR'd attribute the parser refused stays unapplied after hydration, that
+every overlay still positions under the strict policy, or that nothing sets an inline handler or
+loads a `data:` image at runtime; the first two are read off the react-dom and react-aria sources,
+the `usePress` element off the installed module. The five `ScrollShadow` call sites and the image
+consumers are a source search rather than a measurement of what each page actually streams.
+
+### `scfh-f6gw` · Every privacy decision the sign-up programme took is reviewed once, and a German brief puts the open questions to a Datenschutzexperte
+
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
+
+**My item, 2026-09-24**, in my words: "a quick roadmap entry to go over all datenschutz related
+decisions again and compile a nice and comprehensive brief for a datenschutzexperte in german. But
+that should run after this whole programme is done so it stays a roadmap entry". The programme is
+the one building the pupil sign-up and the admin panels, and this runs after its last session and
+never inside it: a decision a later session of it takes would otherwise be missing from the review.
+
+**One review of every privacy decision, then one brief.** The review reads each ruling
+[`docs/datenschutz.md`](../datenschutz.md) records against the tree as it then stands, and against
+the published notice, `fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`, so the
+brief quotes what ships rather than what a ruling once said. The brief is written in German for a
+Datenschutzexperte, and for each open question it states what ships today and what each possible
+answer would change on the site, in the notice and in the stored data.
+
+**The questions are every entry
+[`docs/datenschutz.md` §11](../datenschutz.md#11-open-and-owed-a-decision) lists as open when the
+review runs, and those my checklist of 2026-09-24 named**, which the brief covers whether or not §11
+still carries them:
+
+- a pupil's own consent at sixteen and seventeen, with no guardian asked;
+- the media consent narrowed to images in which the person can be identified;
+- a referee's record, which carries no end date;
+- the basis of a referee's fee, and whether the word „Honorar“ fits it;
+- Cloudflare's challenge on `/bewerbung/*`, set without consent, against § 25 TDDDG;
+- the refusals the code takes alone, against Art. 22;
+- how the refusal of an address that is not plain ASCII is classified;
+- Art. 14 (5) (b) for the referees standing today;
+- joint control over the Instagram account, and which Meta company provides Instagram in the EU;
+- the board's full names in the Impressum, under § 18 MStV and § 5 DDG;
+- the ban list's key, which cannot be rotated without losing every ban it keys;
+- the date WhatsApp Ireland's privacy policy was last read for
+  [section 7](../datenschutz.md#7-processors-and-third-parties);
+- whether pupils whose records were erased are owed a message saying so;
+- MongoDB's support access to the hosted database, and which Google company provides Gmail in the
+  EEA;
+- the pending appeal in Latombe (C-703/25 P) and what it would mean for the transfers section 7
+  names.
+
+**Done when** the brief exists and each of its questions carries the Datenschutzexperte's answer or
+a ruling of mine.
 
 ### `v9tn-3hce` · The log answers what broke and hardly what happened
 
-| Tags         | Status | Depends on |
-| ------------ | ------ | ---------- |
-| FE, BE, Docs | Open   | —          |
+| Status | Depends on |
+| ------ | ---------- |
+| Open   | —          |
 
 **The plumbing is complete and the coverage is of failures alone.** One envelope with an asserted
 field set on three surfaces, a trace id minted at the edge and re-spanned at every hop, an access

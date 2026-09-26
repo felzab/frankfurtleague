@@ -1,11 +1,16 @@
+from http import HTTPStatus
+
 import pytest
+from bson import ObjectId
 
 from app.api.spiele.schemas import SONDEREREIGNIS_PRODUCING_A_RECORD, SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.api.teams.services import (
     CLUB_RETIRED,
     REPLACE_INCOMING_ALREADY_ENTERED,
+    REPLACE_ONE_CLUB_ON_BOTH_ENDS,
     REPLACE_OUTGOING_HAS_A_RECORD,
     REPLACE_SAISON_FINISHED,
+    find_replacement_pair_refusal,
     find_replacement_refusal,
     has_taken_place,
 )
@@ -66,6 +71,26 @@ class TestTheOutgoingClubMustHavePlayedNothing:
 
         assert refusal is not None
         assert "3" in refusal.message
+
+
+OUTGOING = ObjectId("6890a1b2c3d4e5f60fff0001")
+
+
+class TestOneClubOnBothEnds:
+    def test_another_club_passes(self):
+        assert find_replacement_pair_refusal(team_id=OUTGOING, incoming_team_id=ObjectId("6890a1b2c3d4e5f60fff0002")) is None
+
+    def test_a_club_replacing_itself_is_refused_as_the_payload(self):
+        """A 422 naming the field, no season letting a club take over its own row."""
+
+        refusal = find_replacement_pair_refusal(team_id=OUTGOING, incoming_team_id=ObjectId(str(OUTGOING)))
+
+        assert refusal is not None
+        assert (refusal.error_code, refusal.status, refusal.fields) == (
+            REPLACE_ONE_CLUB_ON_BOTH_ENDS,
+            HTTPStatus.UNPROCESSABLE_CONTENT,
+            (("incoming_team_id",),),
+        )
 
 
 class TestTheIncomingClubMustBeNewToTheSeason:

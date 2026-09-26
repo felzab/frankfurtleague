@@ -16,8 +16,9 @@ from app.api.spieler.admin_router import (
 )
 from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload
 from app.api.spieler.services import SQUAD_FULL, SQUAD_ROLLE_TAKEN, SQUAD_TEAM_NOT_IN_SAISON
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
-from tests.database import a_clean_database, on_the_seed_loop
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.documents import rules_document, saison_document, saison_spieler_document, saison_team_document, spieler_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -43,20 +44,6 @@ TODAY = "2026-04-01"
 # so a value chosen for how old it makes somebody would pin a refusal nothing runs.
 GEBURTSDATUM = "2008-05-17"
 
-# MongoDB's own code for a document its `$jsonSchema` refused.
-DOCUMENT_VALIDATION_FAILED = 121
-
-RULES = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 4,
-    "teams_per_group": 4,
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": MAX_KADERGROESSE,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-}
 
 Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
@@ -71,13 +58,13 @@ def person_row(*, spieler_number: int, geburtsdatum: str | None = None) -> dict[
     Seeded rather than written: no endpoint creates a person, and no writer composes a guardian's word.
     """
 
-    return {
-        "_id": spieler_id_for(spieler_number),
-        "vorname": "Max",
-        "nachname": "Mustermann",
+    return spieler_document(
+        spieler_id_for(spieler_number),
+        "Max",
+        "Mustermann",
         # The guardian's word a stored row carries, which nobody gave: the two cases below watch a
         # later write leave it alone.
-        "einwilligung": {
+        einwilligung={
             "umfang": "kader_oeffentlich",
             "erteilt_von": "erziehungsberechtigt",
             "datum": TODAY,
@@ -85,23 +72,12 @@ def person_row(*, spieler_number: int, geburtsdatum: str | None = None) -> dict[
             "medien": False,
             "text_version": None,
         },
-        "inactive_since": None,
-        "geburtsdatum": geburtsdatum,
-    }
+        geburtsdatum=geburtsdatum,
+    )
 
 
 def squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | None = None, rolle: str | None = None) -> dict[str, Any]:
-    return {
-        "spieler_id": spieler_id,
-        "saison_id": SAISON_ID,
-        "team_id": team_id,
-        "ist_nachnominiert": False,
-        "rolle": rolle,
-        "stufe": "Q2",
-        "position": "Angriff",
-        "nummer": None,
-        "inactive_since": inactive_since,
-    }
+    return saison_spieler_document(spieler_id, SAISON_ID, team_id, rolle=rolle, inactive_since=inactive_since)
 
 
 def legacy_squad_row(*, spieler_id: ObjectId, team_id: ObjectId, inactive_since: str | None = None) -> dict[str, Any]:
@@ -129,21 +105,13 @@ def on_a_database(url: str, body: Body, *, constrained: bool = True) -> Any:
     async def _run() -> Any:
         database_name = DATABASE_NAME if constrained else UNCONSTRAINED_DATABASE_NAME
         async with a_clean_database(url, database_name, constraints=constrained) as (_, database):
-            await database.saisons.insert_one(
-                {
-                    "_id": SAISON_ID,
-                    "start_date": "2026-01-01",
-                    "end_date": "2026-06-30",
-                    "status": "active",
-                    "rules": dict(RULES),
-                }
-            )
+            await database.saisons.insert_one(saison_document(SAISON_ID, "active", rules=rules_document(max_kadergroesse=MAX_KADERGROESSE)))
             # Both clubs entered, so `REQ-SQUAD-001` passes and every refusal below is the cap. The
             # season's own name and shorthand are required on the row and read by nothing here.
             await database.saison_teams.insert_many(
                 [
-                    {"saison_id": SAISON_ID, "team_id": HOME_TEAM_OID, "gruppe": "A", "austritt": None, "name": "Adler", "shorthand": "AD"},
-                    {"saison_id": SAISON_ID, "team_id": AWAY_TEAM_OID, "gruppe": "B", "austritt": None, "name": "Bieber", "shorthand": "BI"},
+                    saison_team_document(SAISON_ID, HOME_TEAM_OID, "Adler", "AD"),
+                    saison_team_document(SAISON_ID, AWAY_TEAM_OID, "Bieber", "BI", gruppe="B"),
                 ]
             )
             return await body(database)
@@ -274,10 +242,10 @@ class TestTheSquadCapOnEveryWritePath:
     """`REQ-SQUAD-003` on all three: the cap belongs to the DESTINATION squad, never to the verb that fills it."""
 
     def test_entering_a_full_squad_is_refused(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> WriteRefusalException:
             await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE)
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await enter(database, spieler_id_for(90), HOME_TEAM_OID)
 
             return excinfo.value
@@ -310,11 +278,11 @@ class TestTheSquadCapOnEveryWritePath:
     def test_transferring_into_a_full_squad_is_refused(self, mongo_replica_set_url: str):
         """The DESTINATION is judged: the player's own place is in the team they are leaving."""
 
-        async def body(database: AsyncDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> WriteRefusalException:
             await fill(database, AWAY_TEAM_OID, MAX_KADERGROESSE)
             await enter(database, spieler_id_for(90), HOME_TEAM_OID)
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await move(database, spieler_id_for(90), AWAY_TEAM_OID)
 
             return excinfo.value
@@ -348,13 +316,13 @@ class TestTheSquadCapOnEveryWritePath:
     def test_reactivating_into_a_squad_that_has_since_filled_up_is_refused(self, mongo_replica_set_url: str):
         """The gap a create cannot cover: the retired row keeps the unique key, so reviving it is the only way back in."""
 
-        async def body(database: AsyncDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> WriteRefusalException:
             await database.saison_spieler.insert_one(
                 squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
             )
             await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE)
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await revive(database, spieler_id_for(90))
 
             return excinfo.value
@@ -384,10 +352,10 @@ class TestTheOneRolePerSquadOnEveryWritePath:
     """`REQ-SQUAD-004` on all three, for the reason the cap is on all three: the role belongs to the DESTINATION squad."""
 
     def test_entering_a_squad_whose_role_is_taken_is_refused(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> WriteRefusalException:
             await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, rolle="kapitaen"))
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await enter(database, spieler_id_for(90), HOME_TEAM_OID, rolle="kapitaen")
 
             return excinfo.value
@@ -426,11 +394,11 @@ class TestTheOneRolePerSquadOnEveryWritePath:
     def test_transferring_a_role_into_a_squad_that_holds_it_is_refused(self, mongo_replica_set_url: str):
         """The DESTINATION is judged, as the cap judges it: the armband travels with the player."""
 
-        async def body(database: AsyncDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> WriteRefusalException:
             await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(80), team_id=AWAY_TEAM_OID, rolle="kapitaen"))
             await enter(database, spieler_id_for(90), HOME_TEAM_OID, rolle="kapitaen")
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await move(database, spieler_id_for(90), AWAY_TEAM_OID, rolle="kapitaen")
 
             return excinfo.value
@@ -461,13 +429,13 @@ class TestTheOneRolePerSquadOnEveryWritePath:
     def test_reactivating_into_a_squad_that_has_since_given_the_role_away_is_refused(self, mongo_replica_set_url: str):
         """The path a rule can forget: no payload carries the role here, so the STORED row is what has to be judged."""
 
-        async def body(database: AsyncDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> WriteRefusalException:
             await database.saison_spieler.insert_one(
                 squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, rolle="kapitaen", inactive_since="2026-03-01")
             )
             await database.saison_spieler.insert_one(squad_row(spieler_id=spieler_id_for(80), team_id=HOME_TEAM_OID, rolle="kapitaen"))
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await revive(database, spieler_id_for(90))
 
             return excinfo.value
@@ -499,7 +467,7 @@ class TestReactivatingIntoASeasonTheClubHasLeft:
             )
             await hand_the_junction_row_over(database, HOME_TEAM_OID)
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await revive(database, spieler_id_for(90))
 
             return excinfo.value, await database.saison_spieler.find_one({"spieler_id": spieler_id_for(90)})
@@ -526,14 +494,14 @@ class TestReactivatingIntoASeasonTheClubHasLeft:
     def test_the_club_is_asked_before_the_cap(self, mongo_replica_set_url: str):
         """Both refusals hold, the live rows seeded by hand: kills the two swapped, sending an admin to free a place in a squad with no club."""
 
-        async def body(database: AsyncDatabase) -> DocumentConflictException:
+        async def body(database: AsyncDatabase) -> WriteRefusalException:
             await database.saison_spieler.insert_one(
                 squad_row(spieler_id=spieler_id_for(90), team_id=HOME_TEAM_OID, inactive_since="2026-03-01")
             )
             await fill(database, HOME_TEAM_OID, MAX_KADERGROESSE)
             await hand_the_junction_row_over(database, HOME_TEAM_OID)
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await revive(database, spieler_id_for(90))
 
             return excinfo.value

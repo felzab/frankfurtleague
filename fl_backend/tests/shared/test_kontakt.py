@@ -154,7 +154,7 @@ class TestTheReadShapeJudgesNeitherMember:
         assert parsed.telefon == ""
         assert parsed.email == ""
 
-    def test_both_members_are_still_required_keys(self, kontakt):
+    def test_both_members_are_still_required_keys(self):
         """The narrowing is the rule and never the key: a row missing one is the 500 this pair exists to avoid."""
         with pytest.raises(ValidationError):
             FLKontakt.model_validate({"telefon": None})

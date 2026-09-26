@@ -2,9 +2,9 @@
 
 import { reactivateTeamAction } from "@/features/teams/actions";
 import { AdminTeamEditForm } from "@/features/teams/components/forms/AdminTeamEditForm/AdminTeamEditForm";
-import { BRAND_TILE } from "@/shared/components/ui/brandTile";
-import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { BRAND_TILE_CLASSES } from "@/shared/components/ui/brandTile";
+import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
+import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 /**
  * Every exit routes through the form's discard guard. The header states identity and nothing live;
@@ -42,7 +42,7 @@ export function AdminTeamEditView({
   const isRetired = team.inactive_since !== null;
 
   return (
-    <div className={`${PAGE_RISE} flex min-h-0 w-full flex-1 flex-col`}>
+    <div className={`${PAGE_RISE_CLASSES} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminTeamEditForm
         team={team}
         saison={saison}
@@ -58,7 +58,7 @@ export function AdminTeamEditView({
             <RetiredBadge since={team.inactive_since} />
           ) : (
             // The TeamCard's own square, so the Kürzel wears one colour everywhere.
-            <span className={`${DISPLAY_HEADING} ${BRAND_TILE}`}>{team.shorthand}</span>
+            <span className={`${DISPLAY_HEADING_CLASSES} ${BRAND_TILE_CLASSES}`}>{team.shorthand}</span>
           ),
           reactivate: isRetired ? { isPending: isReactivating, onPress: () => reactivate({ id: team.id }) } : undefined,
         }}

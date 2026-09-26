@@ -3,19 +3,21 @@
 import { useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { Description, ListBox, Select } from "@heroui/react";
+import { Description } from "@heroui/react/description";
+import { ListBox } from "@heroui/react/list-box";
 
-import { SELECT_POPOVER } from "@/shared/components/ui/overlayPanel";
+import { SELECT_POPOVER_CLASSES } from "@/shared/components/ui/overlayPanel";
 import { listboxRow } from "@/shared/components/ui/refusableOption";
 import { SaisonSlotSkeleton } from "@/shared/components/ui/SaisonSlotSkeleton";
+import { Select } from "@/shared/components/ui/Select";
 import { useMounted } from "@/shared/hooks/useMounted";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 import { formatSpielDatum } from "@/shared/utils/format";
 
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { SaisonSelectorOption } from "../../types";
 
-export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSelectorOption[]; currentSaison: SaisonSelectorOption | null }) {
+export function SaisonSelector({ saisons, defaultSaison }: { saisons: SaisonSelectorOption[]; defaultSaison: SaisonSelectorOption | null }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -28,12 +30,12 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSele
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
 
   // Validated against the list, never taken raw from the user-editable `?saison_id=`: an unknown id
-  // shows nothing selected while the range below falls back to the current season.
+  // shows nothing selected while the range below falls back to the default season.
   const requestedSaisonId = searchParams.get("saison_id");
   const activeSaisonData =
     saisons.find((saison) => saison.id === requestedSaisonId) ??
-    currentSaison ??
-    // The last resort, for the window between seasons where the backend has no current one.
+    defaultSaison ??
+    // The last resort, for the public tier between seasons, where the backend has no current one.
     saisons[0];
   const activeSaisonId = activeSaisonData?.id;
 
@@ -47,9 +49,9 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSele
     const selectedId = key.toString();
     const params = new URLSearchParams(searchParams.toString());
 
-    // The current season is the backend's default, so it is the ABSENCE of the parameter rather than
-    // a value. Keeps the common URL clean and shareable.
-    if (selectedId !== currentSaison?.id) {
+    // The default season is what an address naming none resolves to, so it is the ABSENCE of the
+    // parameter rather than a value. Keeps the common URL clean and shareable.
+    if (selectedId !== defaultSaison?.id) {
       params.set("saison_id", selectedId);
     } else {
       params.delete("saison_id");
@@ -92,21 +94,21 @@ export function SaisonSelector({ saisons, currentSaison }: { saisons: SaisonSele
           // No `aria-expanded:border-brand` here, and `border-control` at rest like every other field:
           // `globals.css`'s field-focus block already paints every field-shaped control, and a second
           // copy at one call site is how they diverge.
-          className={`border-control bg-surface/50 aria-expanded:bg-surface flex h-auto min-h-14 w-full flex-row items-center justify-between rounded-xl border px-4 py-2.5 shadow-xs transition-[background-color,border-color,opacity] duration-(--motion-base) ${
+          className={`flex h-auto min-h-14 w-full flex-row items-center justify-between rounded-xl border border-control bg-surface/50 px-4 py-2.5 shadow-xs transition-[background-color,border-color,opacity] duration-(--motion-base) aria-expanded:bg-surface ${
             isSwitching ? "opacity-60" : ""
           }`}>
           <div className="flex flex-col items-start gap-0.5 text-left">
             {/* Rendered from `activeSaisonId`, NOT from `Select.Value`, which resolves its label
                 out of the react-aria collection and shows HeroUI's English placeholder on a render
                 where the collection has not committed. */}
-            <span className="fluid-lg text-foreground font-extrabold tracking-tight">{`Saison ${activeSaisonId}`}</span>
-            <Description className="fluid-xxs text-foreground-muted font-bold tracking-wider uppercase">{timespan}</Description>
+            <span className="fluid-lg font-extrabold tracking-tight text-foreground">{`Saison ${activeSaisonId}`}</span>
+            <Description className="fluid-xxs font-bold tracking-wider text-foreground-muted uppercase">{timespan}</Description>
           </div>
 
-          <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+          <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
         </Select.Trigger>
 
-        <Select.Popover className={SELECT_POPOVER}>
+        <Select.Popover className={SELECT_POPOVER_CLASSES}>
           <ListBox aria-label="Verfügbare Saisons">
             {saisons.map((saison) => (
               <ListBox.Item

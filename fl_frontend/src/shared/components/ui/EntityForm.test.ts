@@ -6,11 +6,12 @@ import { describe, it, mock } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { z } from "zod";
 
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 
@@ -20,7 +21,10 @@ import type { ActionResult } from "@/shared/types/types.ts";
 const { raised } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { FieldError, Input, Label, TextField } = await import("@heroui/react");
+const { FieldError } = await import("@heroui/react/field-error");
+const { Input } = await import("@heroui/react/input");
+const { Label } = await import("@heroui/react/label");
+const { TextField } = await import("@/shared/components/ui/TextField.tsx");
 const { EntityForm } = await import("./EntityForm.tsx");
 
 type Draft = { name: string };
@@ -28,22 +32,24 @@ type Draft = { name: string };
 /** A caller whose payload step trims: the padded value as typed is one the schema below refuses. */
 function renderTrimmingCaller(onSubmit: (payload: Draft) => Promise<ActionResult>) {
   render(
-    h(EntityForm<Draft, Draft>, {
-      initialDraft: { name: "" },
-      renderFields: (draft, setDraft) =>
-        h(
-          TextField,
-          { isRequired: true, name: "name", value: draft.name, onChange: (next: string) => setDraft({ name: next }) },
-          h(Label, null, "Name"),
-          h(Input),
-          h(FieldError),
-        ),
-      schema: z.object({ name: z.string().regex(/^\S+$/, { error: "Ohne Leerzeichen." }) }),
-      toPayload: (draft) => ({ name: draft.name.trim() }),
-      onSubmit,
-      successMessage: "Angelegt",
-      onClose: () => undefined,
-    }),
+    underNext(
+      h(EntityForm<Draft, Draft>, {
+        initialDraft: { name: "" },
+        renderFields: (draft, setDraft) =>
+          h(
+            TextField,
+            { name: "name", value: draft.name, onChange: (next: string) => setDraft({ name: next }) },
+            h(Label, null, "Name"),
+            h(Input),
+            h(FieldError),
+          ),
+        schema: z.object({ name: z.string().regex(/^\S+$/, { error: "Ohne Leerzeichen." }) }),
+        toPayload: (draft) => ({ name: draft.name.trim() }),
+        onSubmit,
+        successMessage: "Angelegt",
+        onClose: () => undefined,
+      }),
+    ),
   );
 }
 
@@ -69,7 +75,8 @@ describe("the create form", () => {
      unmount the form under a transition whose toast then reaches nobody. */
   it("holds its save and its way back while the write runs", async () => {
     const user = userEvent.setup();
-    renderTrimmingCaller(() => new Promise<ActionResult>(() => {}));
+    let answer = (_result: ActionResult): void => undefined;
+    renderTrimmingCaller(() => new Promise<ActionResult>((resolve) => (answer = resolve)));
 
     await user.type(screen.getByRole("textbox", { name: "Name" }), "Lena");
     await user.click(screen.getByRole("button", { name: "Speichern" }));
@@ -79,6 +86,10 @@ describe("the create form", () => {
       assert.equal(button.getAttribute("data-pending"), "true", `„${name}“ still takes a press while the write runs`);
       assert.equal(button.disabled, false, `„${name}“ is closed as though something refused it`);
     }
+
+    // Answered before the case ends: React holds every later transition in this file behind an action left running.
+    answer({ success: true, message: "Angelegt" });
+    await screen.findByRole("button", { name: "Speichern" });
   });
 
   /* Only a page older than the running API sends a body no box can take: the dialog says the reload once,
@@ -90,6 +101,9 @@ describe("the create form", () => {
 
     await user.type(screen.getByRole("textbox", { name: "Name" }), "Lena");
     await user.click(screen.getByRole("button", { name: "Speichern" }));
+    // Raised from an effect after the save's release commits, so the button coming back is no sign it was
+    // raised: the toasts are read once one has been.
+    await waitFor(() => assert.ok(raised.length > 0, "the refusal was announced nowhere"));
 
     assert.deepEqual(
       raised.filter((toast) => toast.variant === "danger").map((toast) => [toast.title, toast.description]),

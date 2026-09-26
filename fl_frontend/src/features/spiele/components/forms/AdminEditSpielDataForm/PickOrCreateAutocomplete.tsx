@@ -2,19 +2,24 @@
 
 import { useState } from "react";
 
-import { Plus } from "@gravity-ui/icons";
+import Plus from "@gravity-ui/icons/Plus";
 
-import { Autocomplete, Button, ListBox, SearchField, useFilter } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { ListBox } from "@heroui/react/list-box";
+import { useFilter } from "@heroui/react/rac";
+import { SearchField } from "@heroui/react/search-field";
 
 import { dismissControl } from "@/core/dismissControl";
+import { Autocomplete } from "@/shared/components/ui/Autocomplete";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_TRIGGER_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
 
 import { ExpectedMarker } from "./ExpectedMarker";
 
-import type { Key } from "@heroui/react";
+import type { SpielFieldPath } from "@/features/spiele/draftStatus";
+import type { Key } from "@heroui/react/rac";
 import type { ReactNode } from "react";
 
 /**
@@ -35,7 +40,7 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
 }: {
   label: string;
   /** The dotted payload path: also its `name`, its error key and its anchor. */
-  fieldPath: string;
+  fieldPath: SpielFieldPath;
   placeholder: string;
   items: TItem[];
   selectedId: string | null;
@@ -83,6 +88,9 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
     <div className="flex w-full flex-col">
       <Autocomplete
         name={fieldPath}
+        // Emptied, the pick drops its whole section, which the payload takes as `null`; only a picked
+        // entry needs this id.
+        isRequired={false}
         className="w-full"
         placeholder={placeholder}
         selectionMode="single"
@@ -90,13 +98,13 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
         isOpen={isOpen}
         onOpenChange={setIsOpen}
         onChange={(key: Key | null) => onSelect(key ? (options.find((item) => item.id === key) ?? null) : null)}>
-        <FieldLabel
+        <FieldLabel<SpielFieldPath>
           path={fieldPath}
           extraMarker={<ExpectedMarker path={fieldPath} />}>
           {label}
         </FieldLabel>
-        <Autocomplete.Trigger className={FIELD_TRIGGER}>
-          <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
+        <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
+          <Autocomplete.Value className="min-w-0 truncate fluid-sm" />
           {/* `ms-2` rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
               truncated name ends against this button (`docs/frontend/spec.md` I61). `hover: "css"`
               because HeroUI renders this as a plain `<button>`. */}
@@ -117,7 +125,7 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
               className="p-2">
               {/* The panel's own fill, not a recessed one: the border alone says "field", and
                   `--border-control` clears 1.4.11's 3:1 on `--bg-surface` and not on `--bg-muted`. */}
-              <SearchField.Group className="border-control bg-surface rounded-lg border px-2 py-1.5 transition-colors duration-(--motion-base)">
+              <SearchField.Group className="rounded-lg border border-control bg-surface px-2 py-1.5 transition-colors duration-(--motion-base)">
                 <SearchField.SearchIcon />
                 <SearchField.Input
                   placeholder={`${label} finden...`}
@@ -150,7 +158,7 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
                   key={item.id}
                   id={item.id}
                   textValue={item.name}
-                  className="fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2">
+                  className="cursor-pointer rounded-lg px-3 py-2 fluid-xs data-hovered:bg-hover">
                   {item.name}
                   <ListBox.ItemIndicator />
                 </ListBox.Item>
@@ -159,11 +167,11 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
           </Autocomplete.Filter>
 
           {hasMatches && (
-            <div className="bg-muted border-border border-t p-2">
+            <div className="border-t border-border bg-muted p-2">
               <Button
                 type="button"
                 variant="secondary"
-                className="text-brand w-full justify-start font-bold"
+                className="w-full justify-start font-bold text-brand"
                 onPress={openCreateModal}>
                 <Plus
                   aria-hidden="true"

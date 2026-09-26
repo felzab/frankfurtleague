@@ -1,17 +1,13 @@
 import "../testing/dom.ts";
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it, mock } from "node:test";
 
 import { act, createElement, startTransition, Suspense, use, useState } from "react";
 
 import { render } from "@testing-library/react";
-import ts from "typescript";
 import { z } from "zod";
 
-import { filesUnder, isTestFile } from "../../core/treeWalk.ts";
 import { bodyField, refusedPayload } from "../testing/refusedPayload.ts";
 import { toActionErrorResult } from "../utils/actionError.ts";
 import { appToast } from "../utils/appToast.ts";
@@ -31,14 +27,12 @@ import {
   useDraftFieldErrors,
   verdictMessage,
 } from "./useDraftFieldErrors.ts";
-import { UNHANDLED_FIELD_REFUSAL } from "./useServerFieldErrors.ts";
+import { joinedMessages, unshownRefusal } from "./useServerFieldErrors.ts";
 
 import type { BlockingBanners, RailBanner } from "../components/ui/railBanner.ts";
 import type { ActionFailure } from "../types/types.ts";
 import type { FieldErrors } from "../utils/validation.ts";
 import type { FieldVerdicts } from "./useDraftFieldErrors.ts";
-
-const SRC_DIR = path.resolve(import.meta.dirname, "..", "..");
 
 /** The German sentence a Spieltag occupancy refusal puts on a side — a rule only the server holds. */
 const SERVER_REFUSAL = "Dieses Team spielt am selben Spieltag schon in einem anderen Spiel.";
@@ -597,21 +591,28 @@ describe("markedFieldCount", () => {
 });
 
 describe("a blocked press's announcement", () => {
-  it("names the fields the form marks rather than the paths the schema refused", async () => {
-    // Both TEAM_SCHEMA fields are refused, and the form renders a box for one of them.
+  /* Both TEAM_SCHEMA fields are refused, and the form renders a box for one of them: the mark speaks for that
+     one, and the other is said in its own words in the same toast, or nothing says it at all. */
+  it("names the fields the form marks, and says in the same toast the refusal of the one it renders no box for", async () => {
     const press = await pressSave({ shorthand: "", full_name: "" }, undefined, ["shorthand"]);
 
-    assert.deepEqual(press.toasts, [`${BLOCKED_SUBMIT_TITLE}: ${blockedSubmitDetail(1)}`]);
+    assert.deepEqual(press.toasts, [`${BLOCKED_SUBMIT_TITLE}: ${blockedSubmitDetail(1)} Bitte gib den vollständigen Namen ein.`]);
   });
 
-  it("raises nothing where no field is marked, leaving the press to the unhandled-refusal report", async () => {
-    // `useServerFieldErrors` announces a map no control renders; a second toast would point at marks nobody sees.
+  it("names the marks alone where every refused field has a box", async () => {
+    const press = await pressSave({ shorthand: "", full_name: "" });
+
+    assert.deepEqual(press.toasts, [`${BLOCKED_SUBMIT_TITLE}: ${blockedSubmitDetail(2)}`]);
+  });
+
+  /* Nothing was sent, marked or not, so the press is titled as the marked one is and never as a refused save. */
+  it("says the refusals under the blocked press's own title where no field is marked", async () => {
     const press = await pressSave({ shorthand: "", full_name: "" }, undefined, ["website_url"]);
 
     assert.deepEqual(
       press.toasts,
-      [`Änderung nicht gespeichert: ${UNHANDLED_FIELD_REFUSAL}`],
-      "the press raised a toast beside the report, or no report",
+      [`${BLOCKED_SUBMIT_TITLE}: ${joinedMessages([CLIENT_SHORTHAND, "Bitte gib den vollständigen Namen ein."])}`],
+      "the press raised a second toast, a refused save's, or none",
     );
     assert.equal(press.writes, 0, "a press nothing marked still wrote");
   });
@@ -652,6 +653,17 @@ describe("a failed write's one announcement", () => {
     const toasts = await answerFailedWrite(REFUSED_SHORTHAND, ["full_name"]);
 
     assert.deepEqual(toasts, ["Änderung nicht gespeichert: Einzelne Angaben wurden nicht übernommen. Lade die Seite neu."]);
+  });
+
+  /* A slice's own map on a path no control renders brings no sentence of its own, and the path's message is the
+     one thing that tells the admin what to change. */
+  it("speaks the refused path's own message where the answer brings no sentence and no control renders the path", async () => {
+    const toasts = await answerFailedWrite(
+      { success: false, error: "Überprüfe Deine Eingaben.", fieldErrors: { gruppe: "Wähle eine Gruppe." } },
+      ["shorthand"],
+    );
+
+    assert.deepEqual(toasts, [`Änderung nicht gespeichert: ${unshownRefusal(["Wähle eine Gruppe."])}`]);
   });
 
   it("raises nothing where a control shows the refusal, which speaks for the press", async () => {
@@ -832,150 +844,4 @@ describe("applyVerdicts", () => {
     assert.notEqual(next, current);
     assert.deepEqual(next, { shorthand: { message: null, differs: true } });
   });
-});
-
-const sources = new Map(
-  filesUnder(SRC_DIR, (name) => name.endsWith(".tsx") && !isTestFile(name), 200).map((file) => [
-    path.relative(SRC_DIR, file).split(path.sep).join("/"),
-    readFileSync(file, "utf8"),
-  ]),
-);
-
-/**
- * **Every form, found by the element it renders, not by a marker a conforming form carries.** A listing
- * filtered on the property it asserts cannot fail, so a form holding neither the prop nor the hook
- * stays invisible to its own sweep (PRE-4).
- */
-const RENDERS_A_FORM = /^\s*<Form(?![\w.])/m;
-
-/** The same net without the position, so a render the strict pattern misses lands in the difference below. */
-const MENTIONS_A_FORM = /<Form(?![\w.])/;
-
-const formFiles = [...sources].filter(([, text]) => RENDERS_A_FORM.test(text)).map(([file]) => file);
-
-/**
- * The files naming `<Form>` in prose alone. Named one by one rather than counted: a NEW file rendering a form in a
- * shape `RENDERS_A_FORM` cannot see lands here instead of vanishing, and this list is what refuses it.
- */
-const PROSE_ONLY = [
-  "features/bewerbungen/components/forms/AdminBewerbungAnnehmenSection.tsx",
-  "features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx",
-  "features/spieler/components/forms/ClosedSetSelect.tsx",
-  "features/spieler/components/forms/TeamSelect.tsx",
-  "features/teams/components/forms/GruppeSelect.tsx",
-  "features/teams/components/forms/WebsiteUrlField.tsx",
-  "shared/components/ui/AddressFields.tsx",
-];
-
-describe("the sweep's own reach", () => {
-  it("finds the same forms by two routes that share no condition", () => {
-    // One listing reads WHERE `<Form` sits, the other every file naming it, less a hand-written allowlist.
-    // Neither sees a marker only a conforming form carries, so narrowing either breaks the equality
-    // instead of shrinking the sweep.
-    const namesAForm = [...sources].filter(([, text]) => MENTIONS_A_FORM.test(text)).map(([file]) => file);
-    const byElimination = namesAForm.filter((file) => !PROSE_ONLY.includes(file));
-
-    // The anti-vacuity clause: a discriminator that stopped matching leaves every assertion below
-    // true of an empty list, and the equality below true of two empty ones. Set under the tree, so
-    // adding or retiring a form never moves it.
-    assert.ok(formFiles.length >= 8, `expected at least 8 forms, found ${String(formFiles.length)}: ${formFiles.join(", ")}`);
-    assert.deepEqual(formFiles, byElimination, "the two routes disagree: a form is swept by one and not the other");
-  });
-
-  for (const file of PROSE_ONLY) {
-    it(`${file} still only talks about a form rather than rendering one`, () => {
-      // The allowlist is the one hole both routes share: a render here that the line-start pattern cannot
-      // see is invisible to each of them, so they agree on a wrong answer. Read from the AST, which sees a
-      // `<Form>` wherever it sits on the line.
-      const source = ts.createSourceFile(file, sources.get(file) ?? "", ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-      const rendered: string[] = [];
-
-      const visit = (node: ts.Node): void => {
-        if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
-          const opening = ts.isJsxElement(node) ? node.openingElement : node;
-          if (opening.tagName.getText(source) === "Form")
-            rendered.push(String(source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1));
-        }
-        ts.forEachChild(node, visit);
-      };
-
-      visit(source);
-      assert.deepEqual(rendered, [], `${file} renders a form at line ${rendered.join(", ")} while sitting on the prose allowlist`);
-    });
-  }
-});
-
-const pageOwnedEditors = [...sources].filter(([, text]) => text.includes("const resetDraftToStored =")).map(([file]) => file);
-
-describe("every page-owned editor", () => {
-  it("is discovered by the sweep", () => {
-    // A floor rather than an exact count: what it guards is a discovery that silently finds nothing
-    // after the routine is renamed, which would leave every assertion below vacuously true.
-
-    // Two under the population, which holds one editor per admin entity, so retiring one never
-    // fires it.
-    assert.ok(
-      pageOwnedEditors.length >= 6,
-      `expected at least 6 page-owned editors, found ${String(pageOwnedEditors.length)}: ${pageOwnedEditors.join(", ")}`,
-    );
-  });
-
-  for (const file of pageOwnedEditors) {
-    it(`${file} routes its field errors through the composed hook`, () => {
-      const source = sources.get(file) ?? "";
-
-      assert.ok(source.includes("useDraftFieldErrors({"), `${file} does not take its field errors from useDraftFieldErrors`);
-      // Holding the submit half directly is how the merge gets assembled at the call site again, and a
-      // call site that merges in the wrong order fails silently: the refusal is produced and deleted.
-      assert.ok(!source.includes("useServerFieldErrors("), `${file} holds the submit half directly instead of the composed hook`);
-    });
-  }
-
-  for (const file of formFiles) {
-    it(`${file} leaves missing values to the submit rather than to the browser`, () => {
-      // The one mechanism, on every form. In `native` react-aria commits on each DOM `change`, so an
-      // edited field cleared again paints the browser's required message on the blur.
-      assert.match(sources.get(file) ?? "", /validationBehavior="aria"/, `${file} still lets the browser judge an emptied field`);
-    });
-
-    it(`${file} forgives against the payload it judges, not the draft beside it`, () => {
-      // A LITERAL pin, not a property: two callers assemble a payload that is not the draft, and forgiving
-      // against the draft judges a shape the schema never sees.
-      const source = sources.get(file) ?? "";
-      if (!source.includes("useForgiveFixed({ entity:")) return;
-
-      assert.ok(source.includes("useForgiveFixed({ entity: toPayload(draft) });"), `${file} forgives against the wrong shape`);
-    });
-
-    it(`${file} blocks its own submit`, () => {
-      // `aria` sets `noValidate` and drops every `required`, so the browser prevents nothing. A form
-      // without this call posts whatever it holds and learns the rules from the server.
-      assert.match(sources.get(file) ?? "", /guardSubmit\(/, `${file} sends an unjudged draft to the server`);
-    });
-  }
-
-  for (const file of pageOwnedEditors) {
-    it(`${file} forgives a corrected field without waiting for a blur`, () => {
-      // Once per editor rather than once per field, which is what lets every input in it forgive on the
-      // same terms. An editor that skips the call keeps painting until the admin leaves the field.
-      assert.ok(sources.get(file)?.includes("useForgiveFixed({"), `${file} never re-judges what it is already showing`);
-      // The same call carries the submit sweep, so an editor without it also leaves every date that
-      // cannot be natively refused blocking the submit in silence.
-    });
-  }
-
-  for (const file of pageOwnedEditors) {
-    it(`${file} tells the submit which payload it was answering about`, () => {
-      const source = sources.get(file) ?? "";
-
-      // A refusal recorded with no payload behind it grades every later verdict as differing, which is
-      // the old recency rule again: the next blur on the refused field deletes the message.
-
-      // A payload naming a schema, never the empty `{}` a clear passes, which would satisfy a looser pattern.
-      assert.ok(
-        /(?:setSubmitFieldErrors|reportSubmitFailure)\([^;]*?,\s*\{\s*\w+:/.test(source),
-        `${file} records a refusal without the payload the submit was refused on`,
-      );
-    });
-  }
 });

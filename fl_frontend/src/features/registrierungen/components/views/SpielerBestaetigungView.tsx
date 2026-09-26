@@ -1,20 +1,25 @@
 "use client";
 
-import { Fragment, useEffect, useId, useRef, useState, useTransition } from "react";
-import Link from "next/link";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 
-import { CircleCheck } from "@gravity-ui/icons";
+import CircleCheck from "@gravity-ui/icons/CircleCheck";
 import { parseDate } from "@internationalized/date";
 
-import { Button, FieldError, Form, Input, Label, Switch, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { ToggleButton } from "@heroui/react/toggle-button";
+import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import {
-  ABSATZ,
+  ABSATZ_CLASSES,
   BestaetigungAbschnitt,
   BestaetigungErgebnis,
   FaktenBanner,
   FrageStellen,
+  Gefuellt,
   GespeicherteAngaben,
   Wert,
   ZurLiga,
@@ -23,14 +28,20 @@ import { geburtsdatumSpanne } from "@/features/bewerbungen/utils";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { Callout } from "@/shared/components/ui/Callout";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
-import { DISPLAY_HEADING } from "@/shared/components/ui/displayType";
+import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
+import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
+import {
+  FIELD_ERROR_CLASSES,
+  FIELD_LABEL_CLASSES,
+  FIELD_PAIR_CLASSES,
+  FORM_SECTION_HEADING_CLASSES,
+  TOGGLE_GROUP_ALIGN_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
-import { Hint } from "@/shared/components/ui/Hint";
-import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
-import { textLink } from "@/shared/components/ui/textLink";
+import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
+import { Switch } from "@/shared/components/ui/Switch";
+import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
@@ -40,10 +51,10 @@ import { ANTWORT_UNKLAR, postPublicForm } from "@/shared/utils/publicSubmit";
 import { EINWILLIGUNG_UMFANG_OPTIONS } from "../../constants";
 import { buildRegistrierungBestaetigungPayloadSchema } from "../../schemas";
 
+import type { Slots } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { CalendarDate } from "@internationalized/date";
-import type { ReactNode } from "react";
 import type { FLEinwilligungUmfang } from "../../schemas";
 import type {
   SpielerAbsatzSchluessel,
@@ -67,23 +78,16 @@ const TITEL: Record<Stand["zustand"], string> = {
 };
 
 /** The application page's own column, so both ends of every public workflow are one page wide. */
-const SEITE = "max-w-meta flex w-full flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
+const SEITE_CLASSES = "flex w-full max-w-meta flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
 
-const LISTE = `${ABSATZ} flex list-disc flex-col gap-y-1 pl-5`;
-const ABSCHNITT = "flex flex-col gap-y-2";
+const LISTE_CLASSES = `${ABSATZ_CLASSES} flex list-disc flex-col gap-y-1 pl-5`;
+const ABSCHNITT_CLASSES = "flex flex-col gap-y-2";
 
 const NICHT_GESPEICHERT = "Deine Antwort wurde nicht gespeichert. Versuche es erneut.";
 
-/** The `{datenschutz}` slot's value, so the stored sentence and the rendered one read the same. */
-const DATENSCHUTZ_TEXT = "Datenschutzerklärung";
-const DATENSCHUTZ_SLOT = "datenschutz";
-
-/** Split on the slots themselves, so the capture group keeps each one as a piece of its own. */
-const SLOT_TEILER = /(\{\w+\})/;
-
 /**
- * The slots a record fills from the person who opened the link. **Emphasis is presentation**, so it
- * is decided here rather than in the stored sentence, whose words and digest do not move for it.
+ * The slots a record fills from the person who opened the link
+ * (`fl_frontend/src/features/bewerbungen/components/views/BestaetigungPanels.tsx :: Gefuellt`).
  */
 const EIGENE_SLOTS = new Set(["vorname", "team", "schule", "saison"]);
 
@@ -97,50 +101,6 @@ const umfangOptionen = (fassung: SpielerFassung): readonly { value: FLEinwilligu
   EINWILLIGUNG_UMFANG_OPTIONS.map((value) => ({ value: value, label: fassung.bedienelemente[value] }));
 
 const UMFANG_FRAGE = "Was darf von Deinem Namen auf der Website stehen?";
-
-type Slots = Readonly<Record<string, string>>;
-
-function DatenschutzLink() {
-  return (
-    <Link
-      href="/datenschutz"
-      prefetch={false}
-      className={textLink()}>
-      {DATENSCHUTZ_TEXT}
-    </Link>
-  );
-}
-
-/** One piece of a split sentence: a slot in whatever its kind earns, or the words as they stand. */
-function stueckInhalt(stueck: string, werte: Slots): ReactNode {
-  const name = /^\{(\w+)\}$/.exec(stueck)?.[1];
-
-  if (name === undefined) return stueck;
-  // Ahead of the record, which holds no value for it: this slot's words are the page's own link.
-  if (name === DATENSCHUTZ_SLOT) return <DatenschutzLink />;
-
-  const wert = werte[name];
-
-  // A slot no record filled stands as written, which is `fl_frontend/src/core/einwilligung.ts ::
-  // fuelleFassung`'s rule at the string end.
-  if (wert === undefined) return stueck;
-
-  return EIGENE_SLOTS.has(name) ? <Wert>{wert}</Wert> : wert;
-}
-
-/**
- * A stamped sentence with its slots filled here rather than by `fuelleFassung`, which answers a
- * string: a string cannot carry the mark a reader's own name has to wear, nor the privacy link.
- */
-function Gefuellt({ text, werte }: { text: string; werte: Slots }) {
-  return (
-    <>
-      {text.split(SLOT_TEILER).map((stueck, index) => (
-        <Fragment key={`${String(index)}-${stueck}`}>{stueckInhalt(stueck, werte)}</Fragment>
-      ))}
-    </>
-  );
-}
 
 /** The empty string is a date nobody has entered yet, which the picker shows as empty rather than refuses. */
 function toCalendarDate(stored: string): CalendarDate | null {
@@ -156,37 +116,38 @@ function SpielerHinweise({ absaetze, werte }: { absaetze: SpielerFassung["absaet
     <Gefuellt
       text={absaetze[schluessel]}
       werte={werte}
+      eigene={EIGENE_SLOTS}
     />
   );
 
   return (
     <BestaetigungAbschnitt titel="Was das bedeutet">
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Worum es geht</h3>
-        <p className={ABSATZ}>{absatz("worum")}</p>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Worum es geht</h3>
+        <p className={ABSATZ_CLASSES}>{absatz("worum")}</p>
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Was gespeichert ist und wozu</h3>
-        <p className={ABSATZ}>{absatz("gespeichert")}</p>
-        <p className={ABSATZ}>{absatz("geburtsdatum")}</p>
-        <p className={ABSATZ}>{absatz("rechtsgrundlage")}</p>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Was gespeichert ist und wozu</h3>
+        <p className={ABSATZ_CLASSES}>{absatz("gespeichert")}</p>
+        <p className={ABSATZ_CLASSES}>{absatz("geburtsdatum")}</p>
+        <p className={ABSATZ_CLASSES}>{absatz("rechtsgrundlage")}</p>
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Wer was sieht</h3>
-        <p className={ABSATZ}>{absatz("wer")}</p>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Wer was sieht</h3>
+        <p className={ABSATZ_CLASSES}>{absatz("wer")}</p>
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Wie lange wir Deine Angaben behalten</h3>
-        <p className={ABSATZ}>{absatz("frist")}</p>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Wie lange wir Deine Angaben behalten</h3>
+        <p className={ABSATZ_CLASSES}>{absatz("frist")}</p>
       </section>
 
-      <section className={ABSCHNITT}>
-        <h3 className={FORM_SECTION_HEADING}>Deine Rechte</h3>
-        <p className={ABSATZ}>{absatz("widerruf")}</p>
-        <p className={ABSATZ}>{absatz("art21")}</p>
+      <section className={ABSCHNITT_CLASSES}>
+        <h3 className={FORM_SECTION_HEADING_CLASSES}>Deine Rechte</h3>
+        <p className={ABSATZ_CLASSES}>{absatz("widerruf")}</p>
+        <p className={ABSATZ_CLASSES}>{absatz("art21")}</p>
       </section>
     </BestaetigungAbschnitt>
   );
@@ -201,13 +162,14 @@ function KlickBestaetigung({ id, absaetze, werte }: { id: string; absaetze: Spie
     <div
       id={id}
       className="flex flex-col gap-y-3">
-      <h3 className={FORM_SECTION_HEADING}>Was Du mit dem Klick bestätigst</h3>
-      <ul className={LISTE}>
+      <h3 className={FORM_SECTION_HEADING_CLASSES}>Was Du mit dem Klick bestätigst</h3>
+      <ul className={LISTE_CLASSES}>
         {(["klickIdentitaet", "klickAlter", "klickEinwilligung", "klickHinweise"] as const).map((schluessel) => (
           <li key={schluessel}>
             <Gefuellt
               text={absaetze[schluessel]}
               werte={werte}
+              eigene={EIGENE_SLOTS}
             />
           </li>
         ))}
@@ -249,10 +211,10 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
   const ansicht = stand.zustand === "gueltig" || stand.zustand === "erfolg" ? stand.ansicht : null;
 
   return (
-    <section className={SEITE}>
+    <section className={SEITE_CLASSES}>
       <header className="flex w-full flex-col gap-3">
         {ansicht !== null && <SaisonChip isLaufend={false}>Saison {ansicht.saison_id}</SaisonChip>}
-        <h1 className={`${DISPLAY_HEADING} fluid-3xl`}>{TITEL[stand.zustand]}</h1>
+        <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-3xl`}>{TITEL[stand.zustand]}</h1>
 
         {stand.zustand === "gueltig" && (
           <FaktenBanner
@@ -285,7 +247,7 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Danke, <Wert>{stand.ansicht.vorname}</Wert>. Deine Registrierung für <Wert>{stand.ansicht.team}</Wert> ist bestätigt.
           </p>
           <GespeicherteAngaben
@@ -295,10 +257,10 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
               { label: "Fotos und Videos", wert: stand.gespeichert.medien ? "erlaubt" : "nicht erlaubt" },
             ]}
           />
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             Dein Team entscheidet jetzt über die Aufnahme in den Kader. Du musst nichts weiter tun und bekommst Bescheid.
           </p>
-          <p className={ABSATZ}>Fragen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
+          <p className={ABSATZ_CLASSES}>Fragen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
           <ZurLiga />
         </BestaetigungErgebnis>
       )}
@@ -309,8 +271,8 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="erfolg">
-          <p className={ABSATZ}>Diese Registrierung ist schon bestätigt. Du musst nichts weiter tun.</p>
-          <p className={ABSATZ}>Fragen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
+          <p className={ABSATZ_CLASSES}>Diese Registrierung ist schon bestätigt. Du musst nichts weiter tun.</p>
+          <p className={ABSATZ_CLASSES}>Fragen und Löschung jederzeit per E-Mail an {KONTAKT_EMAIL}.</p>
           <ZurLiga />
         </BestaetigungErgebnis>
       )}
@@ -321,8 +283,8 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">
-          <p className={ABSATZ}>Dieser Link ist ungültig oder abgelaufen, und die Registrierung dazu haben wir gelöscht.</p>
-          <p className={ABSATZ}>Du kannst Dich über den Link Deines Teams einfach noch einmal registrieren.</p>
+          <p className={ABSATZ_CLASSES}>Dieser Link ist ungültig oder abgelaufen, und die Registrierung dazu haben wir gelöscht.</p>
+          <p className={ABSATZ_CLASSES}>Du kannst Dich über den Link Deines Teams einfach noch einmal registrieren.</p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}
@@ -331,7 +293,9 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
         <BestaetigungErgebnis
           panelRef={ergebnisRef}
           tone="hinweis">
-          <p className={ABSATZ}>Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.</p>
+          <p className={ABSATZ_CLASSES}>
+            Wir können diesen Link gerade nicht prüfen. Lade die Seite in ein paar Minuten neu, oder schreib uns.
+          </p>
           <FrageStellen />
         </BestaetigungErgebnis>
       )}
@@ -358,7 +322,7 @@ function SpielerBestaetigungForm({
   fassung: SpielerFassung;
   onAbschluss: (abschluss: Abschluss) => void;
 }) {
-  const [isPending, startTransition] = useTransition();
+  const [isPending, startSending] = useTransition();
   // The stored answers for a returning pupil and nothing preselected for a new one: a media switch
   // that opened on and a scope already picked are consents nobody gave.
   const [entwurf, setEntwurf] = useState<{ geburtsdatum: string; umfang: FLEinwilligungUmfang | null; medien: boolean }>({
@@ -367,16 +331,18 @@ function SpielerBestaetigungForm({
     medien: ansicht.medien ?? false,
   });
 
-  const geburtsdatumHinweisId = useId();
   const klickPunkteId = useId();
   const panel = formPanel();
 
-  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formRef } = useDraftFieldErrors({
-    // Built from the floor the link answered, never the module's own: the endpoint judges this
-    // person, so a schema on a constant would let the press through at the wrong number.
-    schemas: { bestaetigung: buildRegistrierungBestaetigungPayloadSchema(ansicht.mindestalter) },
-    failureTitle: "Antwort nicht gespeichert",
-  });
+  // Built from the floor the link answered, never the module's own: the endpoint judges this
+  // person, so a schema on a constant would let the press through at the wrong number.
+  const bestaetigungSchema = buildRegistrierungBestaetigungPayloadSchema(ansicht.mindestalter);
+
+  const { fieldErrors, setSubmitFieldErrors, reportSubmitFailure, guardSubmit, validatePaths, useForgiveFixed, formWiring } =
+    useDraftFieldErrors({
+      schemas: { bestaetigung: bestaetigungSchema },
+      failureTitle: "Antwort nicht gespeichert",
+    });
 
   const { frueheste, spaeteste } = geburtsdatumSpanne(getGermanTodayStr(), ansicht.mindestalter);
 
@@ -419,7 +385,7 @@ function SpielerBestaetigungForm({
   const sende = () => {
     const body = payload();
 
-    startTransition(async () => {
+    startSending(async () => {
       const gesendet = await postPublicForm<Antwort>("/api/bestaetigung/spieler", body);
 
       if (!gesendet.answered) {
@@ -431,48 +397,54 @@ function SpielerBestaetigungForm({
 
       const antwort = gesendet.body;
 
-      if (!antwort.success) {
-        // Titled as an unread answer is, the confirmation having perhaps landed: the envelope's own
-        // sentence is an administrator's repair, and a reload of this page has lost its token.
-        if (antwort.outcome === "unknown") {
-          appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startSending(() => {
+        if (!antwort.success) {
+          // Titled as an unread answer is, the confirmation having perhaps landed: the envelope's own
+          // sentence is an administrator's repair, and a reload of this page has lost its token.
+          if (antwort.outcome === "unknown") {
+            appToast.danger("Unklar, ob es bei uns angekommen ist", { description: ANTWORT_UNKLAR });
+            return;
+          }
+
+          // The link died between the open and the press: the answer is the panel, never a toast.
+          if (antwort.zustand !== undefined) {
+            onAbschluss({ zustand: antwort.zustand });
+            return;
+          }
+
+          // The hook owns the press's one toast: none where a field shows the refusal.
+          reportSubmitFailure(
+            {
+              success: false,
+              error: antwort.error ?? NICHT_GESPEICHERT,
+              fieldErrors: antwort.fieldErrors,
+              unplacedError: antwort.unplacedError,
+            },
+            { bestaetigung: body },
+            { raise: (shown) => appToast.failure("Antwort nicht gespeichert", shown) },
+          );
           return;
         }
 
-        // The link died between the open and the press: the answer is the panel, never a toast.
-        if (antwort.zustand !== undefined) {
-          onAbschluss({ zustand: antwort.zustand });
-          return;
-        }
-
-        // The hook owns the press's one toast: none where a field shows the refusal.
-        reportSubmitFailure(
-          { success: false, error: antwort.error ?? NICHT_GESPEICHERT, fieldErrors: antwort.fieldErrors, unplacedError: antwort.unplacedError },
-          { bestaetigung: body },
-          { raise: (shown) => appToast.failure("Antwort nicht gespeichert", shown) },
-        );
-        return;
-      }
-
-      setSubmitFieldErrors({}, {});
-      onAbschluss({
-        zustand: "erfolg",
-        gespeichert: { geburtsdatum: antwort.geburtsdatum, umfang: antwort.umfang, medien: antwort.medien },
+        setSubmitFieldErrors({}, {});
+        onAbschluss({
+          zustand: "erfolg",
+          gespeichert: { geburtsdatum: antwort.geburtsdatum, umfang: antwort.umfang, medien: antwort.medien },
+        });
       });
     });
   };
 
   return (
     <Form
-      ref={formRef}
-      // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-      validationBehavior="aria"
+      wiring={formWiring}
       data-required-marks="on"
-      validationErrors={fieldErrors}
       className="flex w-full flex-col gap-6"
-      onSubmit={runOnSubmit(() => {
+      onSubmit={() => {
         guardSubmit({ bestaetigung: payload() }, sende);
-      })}>
+      }}>
       <SpielerHinweise
         absaetze={fassung.absaetze}
         werte={werte}
@@ -480,29 +452,21 @@ function SpielerBestaetigungForm({
 
       <BestaetigungAbschnitt titel="Deine Antwort">
         <section className="flex flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Dein Geburtsdatum</h3>
+          <h3 className={FORM_SECTION_HEADING_CLASSES}>Dein Geburtsdatum</h3>
 
           {ansicht.geburtsdatum === null ? (
-            <div className={FIELD_PAIR}>
-              <div className="flex flex-col gap-y-2">
-                <AppDatePicker
-                  isRequired
-                  name="geburtsdatum"
-                  label={<Label className={FIELD_LABEL}>Dein Geburtsdatum</Label>}
-                  calendarLabel="Geburtsdatum auswählen"
-                  value={toCalendarDate(entwurf.geburtsdatum)}
-                  onChange={(next) => setEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
-                  onBlur={() => validatePaths("bestaetigung", payload(), ["geburtsdatum"])}
-                  aria-describedby={geburtsdatumHinweisId}
-                  minValue={parseDate(frueheste)}
-                  maxValue={parseDate(spaeteste)}
-                />
-                <Hint
-                  mode="inline"
-                  describes={geburtsdatumHinweisId}
-                  text={`Daran prüfen wir, ob Du mindestens ${String(ansicht.mindestalter)} Jahre alt bist. Das Datum wird mit Deiner Registrierung gespeichert.`}
-                />
-              </div>
+            <div className={FIELD_PAIR_CLASSES}>
+              <AppDatePicker
+                name="geburtsdatum"
+                label={<Label className={FIELD_LABEL_CLASSES}>Dein Geburtsdatum</Label>}
+                calendarLabel="Geburtsdatum auswählen"
+                value={toCalendarDate(entwurf.geburtsdatum)}
+                onChange={(next) => setEntwurf({ ...entwurf, geburtsdatum: next?.toString() ?? "" })}
+                onBlur={() => validatePaths("bestaetigung", payload(), ["geburtsdatum"])}
+                hint={`Daran prüfen wir, ob Du mindestens ${String(ansicht.mindestalter)} Jahre alt bist. Das Datum wird mit Deiner Registrierung gespeichert.`}
+                minValue={parseDate(frueheste)}
+                maxValue={parseDate(spaeteste)}
+              />
             </div>
           ) : (
             // Shown rather than asked: the league already holds this person's date, and asking again
@@ -512,17 +476,16 @@ function SpielerBestaetigungForm({
         </section>
 
         <section className="flex flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Auf der Website</h3>
+          <h3 className={FORM_SECTION_HEADING_CLASSES}>Auf der Website</h3>
           {/* `ToggleButtonGroup` takes no `name`, so this proxy field is what names it: it is the
               control a refusal on the path reaches, and the hidden `Input` is what puts the name in
               `form.elements`. */}
           <TextField
-            isRequired
             name="umfang"
             value={entwurf.umfang ?? ""}
             onChange={() => undefined}
             className="flex w-full flex-col gap-y-1">
-            <Label className={FIELD_LABEL}>{UMFANG_FRAGE}</Label>
+            <Label className={FIELD_LABEL_CLASSES}>{UMFANG_FRAGE}</Label>
             <ToggleButtonGroup
               aria-label={UMFANG_FRAGE}
               size="sm"
@@ -537,30 +500,31 @@ function SpielerBestaetigungForm({
                 const option = umfangOptionen(fassung).find((candidate) => candidate.value === picked);
                 if (option !== undefined) setEntwurf({ ...entwurf, umfang: option.value });
               }}
-              className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
+              className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
               {umfangOptionen(fassung).map((option) => (
                 <ToggleButton
                   key={option.value}
                   id={option.value}
-                  className={OPTION_CHIP}>
+                  className={OPTION_CHIP_CLASSES}>
                   {option.label}
                 </ToggleButton>
               ))}
             </ToggleButtonGroup>
 
             <Input className="hidden" />
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             <Gefuellt
               text={fassung.absaetze.veroeffentlichung}
               werte={werte}
+              eigene={EIGENE_SLOTS}
             />
           </p>
         </section>
 
         <section className="flex flex-col gap-y-3">
-          <h3 className={FORM_SECTION_HEADING}>Freiwillig</h3>
+          <h3 className={FORM_SECTION_HEADING_CLASSES}>Freiwillig</h3>
           {/* The paragraph below stands for every age and the switch alone goes: the record's label
               then reproduces the screen whichever of the two its person was shown. */}
           {medienAngeboten && (
@@ -577,10 +541,11 @@ function SpielerBestaetigungForm({
               </Switch.Content>
             </Switch>
           )}
-          <p className={ABSATZ}>
+          <p className={ABSATZ_CLASSES}>
             <Gefuellt
               text={fassung.absaetze.medien}
               werte={werte}
+              eigene={EIGENE_SLOTS}
             />
           </p>
         </section>

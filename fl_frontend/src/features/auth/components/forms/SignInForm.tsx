@@ -3,13 +3,18 @@
 import { startTransition, useActionState, useEffect, useState } from "react";
 import { catchError } from "next/error";
 
-import { Button, FieldError, Form, Input, Label, Tabs, TextField } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { Tabs } from "@heroui/react/tabs";
 
 import { SignInPayloadSchema } from "@/features/auth/schemas";
+import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR, TAB_INDICATOR, TAB_ITEM, TAB_TRACK } from "@/shared/components/ui/formFieldStyles";
-import { runOnSubmit } from "@/shared/components/ui/formSubmit";
+import { FIELD_ERROR_CLASSES, TAB_INDICATOR_CLASSES, TAB_ITEM_CLASSES, TAB_TRACK_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { SignInCard } from "@/shared/components/ui/SignInCard";
+import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
@@ -55,7 +60,7 @@ export function SignInForm() {
 function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (value: string) => void }) {
   const [state, formAction, isPending] = useActionState(handleSignIn, undefined);
 
-  const { fieldErrors, setSubmitFieldErrors, guardSubmit, useForgiveFixed, formRef } = useDraftFieldErrors({
+  const { setSubmitFieldErrors, guardSubmit, useForgiveFixed, formWiring } = useDraftFieldErrors({
     schemas: { signIn: SignInPayloadSchema },
   });
 
@@ -107,9 +112,9 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
         role="status"
         className="flex flex-col items-center gap-y-3 py-6 text-center">
         <span className="text-4xl">📬</span>
-        <p className="fluid-lg text-foreground font-extrabold tracking-tight">Prüfe Dein Postfach</p>
+        <p className="fluid-lg font-extrabold tracking-tight text-foreground">Prüfe Dein Postfach</p>
 
-        {state?.submittedEmail && <p className="fluid-sm text-foreground font-bold break-all">{state.submittedEmail}</p>}
+        {state?.submittedEmail && <p className="fluid-sm font-bold break-all text-foreground">{state.submittedEmail}</p>}
 
         <p className="muted-hint text-pretty">{state.message}</p>
         {/* The action does not navigate, so without this the only way back is a page reload. */}
@@ -128,38 +133,34 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
     <Tabs
       defaultSelectedKey="Admin"
       className="w-full">
-      <Tabs.ListContainer className={`${TAB_TRACK} mb-6 p-1`}>
+      <Tabs.ListContainer className={`${TAB_TRACK_CLASSES} mb-6 p-1`}>
         <Tabs.List
           aria-label="Rolle auswählen"
           className="flex w-full gap-1">
           <Tabs.Tab
             id="Admin"
-            className={`${TAB_ITEM} flex-1 py-2.5 text-center`}>
+            className={`${TAB_ITEM_CLASSES} flex-1 py-2.5 text-center`}>
             Admin
-            <Tabs.Indicator className={TAB_INDICATOR} />
+            <Tabs.Indicator className={TAB_INDICATOR_CLASSES} />
           </Tabs.Tab>
           <Tabs.Tab
             id="Spieler"
-            className={`${TAB_ITEM} flex-1 py-2.5 text-center`}>
+            className={`${TAB_ITEM_CLASSES} flex-1 py-2.5 text-center`}>
             Spieler
-            <Tabs.Indicator className={TAB_INDICATOR} />
+            <Tabs.Indicator className={TAB_INDICATOR_CLASSES} />
           </Tabs.Tab>
         </Tabs.List>
       </Tabs.ListContainer>
 
       <Tabs.Panel id="Admin">
         <Form
-          // `aria`, never `native`: missing belongs to the submit, not a blur (`docs/frontend/spec.md :: I40`, `:: I71`).
-          validationBehavior="aria"
-          ref={formRef}
-          validationErrors={fieldErrors}
-          onSubmit={runOnSubmit(handleFormSubmit)}
+          wiring={formWiring}
+          onSubmit={handleFormSubmit}
           className="flex flex-col gap-y-4">
           {/* No `aria-label` here: it outranks the visible `<Label>`, so the accessible name
             stopped matching the words a voice-control user reads. `TextField` associates it. */}
           <TextField
             className="flex w-full flex-col gap-y-2"
-            isRequired
             name="email"
             type="email"
             value={email}
@@ -167,15 +168,15 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
             // Read-only rather than disabled while the link sends: a disabled field drops the focus of
             // the visitor who pressed `Enter` in it to the page.
             isReadOnly={isPending}>
-            <Label className="fluid-xs text-foreground font-bold tracking-wider uppercase">E-Mail-Adresse</Label>
+            <Label className="fluid-xs font-bold tracking-wider text-foreground uppercase">E-Mail-Adresse</Label>
             {/* No `required`: `aria` drops react-aria's own, and a hand-written one would put the
                 browser's bubble back on the very blur this mode exists to keep quiet. */}
             <Input
-              className="border-control bg-surface text-foreground placeholder:text-foreground-muted fluid-xs sm:fluid-sm w-full rounded-xl border px-4 py-3 transition-colors duration-(--motion-base) outline-none"
+              className="w-full rounded-xl border border-control bg-surface px-4 py-3 fluid-xs text-foreground transition-colors duration-(--motion-base) outline-none placeholder:text-foreground-muted sm:fluid-sm"
               placeholder="z.B. name@beispiel.de"
               type="email"
             />
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
 
           <Button
@@ -192,21 +193,21 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
         {/* A `div`, not a `Form`: nothing here can be submitted, and a form that cannot submit is one
             more surface the submit-block sweep has to carve an exception for. */}
         <div className="flex flex-col gap-y-4">
-          {/* Not `isRequired`: the mark's opt-out (`fl_frontend/src/app/globals.css :: data-required-marks`)
-              reaches a field inside a `form` alone, so here it draws a red star on a field nothing submits. */}
+          {/* Under no schema, so unmarked: the mark's opt-out (`fl_frontend/src/app/globals.css :: data-required-marks`)
+              reaches a field inside a `form` alone, so a mark here draws a red star on a field nothing submits. */}
           <TextField
             className="flex w-full flex-col gap-y-2"
             name="email"
             type="email">
-            <Label className="fluid-xs text-foreground-muted font-bold tracking-wider uppercase">E-Mail-Adresse</Label>
+            <Label className="fluid-xs font-bold tracking-wider text-foreground-muted uppercase">E-Mail-Adresse</Label>
             {/* Left under the decoration grade rather than taking `border-control`: WCAG 1.4.11 exempts
                 an inactive component, and a box that reads as reachable offers a sign-in nothing serves. */}
             <Input
-              className="border-border/60 bg-surface/50 text-foreground-muted placeholder:text-foreground-muted fluid-xs sm:fluid-sm w-full cursor-not-allowed rounded-xl border px-4 py-3 outline-none"
+              className="w-full cursor-not-allowed rounded-xl border border-border/60 bg-surface/50 px-4 py-3 fluid-xs text-foreground-muted outline-none placeholder:text-foreground-muted sm:fluid-sm"
               placeholder="Noch nicht verfügbar"
               disabled
             />
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
 
           <Button

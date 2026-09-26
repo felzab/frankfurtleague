@@ -2,14 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries either context — the form reads the router and `useSaisonHref` the query
-   — and this view mounts both arms under them. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
-import { nextRouter } from "@/shared/testing/nextContexts.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 doubleEveryAction();
@@ -31,17 +27,12 @@ const RECORD = {
 
 const view = (props: { name: string | null; inactiveSince: string | null }): string =>
   renderTree(
-    h(
-      AppRouterContext.Provider,
-      { value: nextRouter() },
-      h(
-        SearchParamsContext.Provider,
-        { value: new URLSearchParams("saison_id=2526") },
-        h(AdminSchiedsrichterEditView, {
-          schiedsrichter: { ...RECORD, name: props.name },
-          inactiveSince: props.inactiveSince,
-        }),
-      ),
+    underNext(
+      h(AdminSchiedsrichterEditView, {
+        schiedsrichter: { ...RECORD, name: props.name },
+        inactiveSince: props.inactiveSince,
+      }),
+      { search: "saison_id=2526" },
     ),
   );
 

@@ -17,6 +17,7 @@
   "embeddedLanguageFormatting": "auto",
   "plugins": ["@ianvs/prettier-plugin-sort-imports", "prettier-plugin-tailwindcss"],
   "tailwindFunctions": ["tv"],
+  "tailwindStylesheet": "./fl_frontend/src/app/globals.css",
   "importOrder": [
     "^(node:(.*)$)",
     "",

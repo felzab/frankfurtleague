@@ -45,7 +45,7 @@ class TestTheLastSeasonABanCovers:
             compose_gesperrt_bis_saison_id(massgebliche_saison_id=unusable)
 
 
-class TestALeagueThatHasRunNoSeason:
+class TestALeagueWithNoSeasonRunning:
     def test_a_ban_is_refused_where_there_is_no_season_to_count_from(self):
         """`REQ-SPERRLISTE-002`. Without it the write would need a row bounded by nothing, which is the shape the lapse exists to end."""
 
@@ -54,7 +54,7 @@ class TestALeagueThatHasRunNoSeason:
         assert refusal is not None
         assert refusal.error_code == SPERRLISTE_KEINE_SAISON
 
-    def test_a_league_holding_a_season_that_ran_is_not_refused(self):
+    def test_a_league_with_a_season_running_is_not_refused(self):
         """The control: a refusal answering every state would bar the endpoint outright and still pass the case above."""
 
         assert find_keine_saison_refusal(massgebliche_saison_id=str(FIRST_SAISON_YEAR)) is None

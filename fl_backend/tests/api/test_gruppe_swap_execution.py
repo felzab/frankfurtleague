@@ -19,16 +19,15 @@ from app.api.teams.services import (
     SWAP_SPIELTAG_CLASH,
 )
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
-from tests.database import a_clean_database, on_the_seed_loop
+from app.core.exceptions import WriteRefusalException
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.documents import saison_document, saison_team_document, spiel_document, team_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_swap_test")
 
-# Named rather than caught broadly: another failure must not read as the rollback this suite proves.
-DOCUMENT_VALIDATION_FAILED = 121
 
 SAISON_ID = "2026"
 # Fixed rather than generated, so a failure names the same club every run.
@@ -47,32 +46,13 @@ NAMES = {
     BETA_RIVAL: ("Beta-Rival", "BR"),
 }
 
-ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
-
-# Read by nothing here: the swap asks a season for its status alone, and the block is required.
-RULES = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 2,
-    "teams_per_group": 2,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "Q1"],
-}
-
 
 def junction(team_id: ObjectId, gruppe: str) -> dict[str, Any]:
-    """A dict rather than a model: `saison_teams` has no model of the row.
-
-    The season's own name and shorthand are required on it and read by nothing here -- the rewrite
-    composes a side's copies from `teams`.
-    """
+    """The season's own name and shorthand are read by nothing here: the rewrite composes a side's copies from `teams`."""
 
     name, shorthand = NAMES[team_id]
 
-    return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": gruppe, "austritt": None, "name": name, "shorthand": shorthand}
+    return saison_team_document(SAISON_ID, team_id, name, shorthand, gruppe=gruppe)
 
 
 # Only `datum` decides `REQ-SWAP-006`; the type and the reason are what a surface reports.
@@ -86,23 +66,11 @@ async def record_an_austritt(database: AsyncDatabase, team_id: ObjectId) -> None
 
 
 def club(team_id: ObjectId) -> dict[str, Any]:
-    """`name` and `shorthand` are what the rewrite projects, from `teams` and never from the season's junction row.
-
-    The rest of the document is the shipped validator's, and no case here reads it.
-    """
+    """`name` and `shorthand` are what the rewrite projects, from `teams` and never from the season's junction row."""
 
     name, shorthand = NAMES[team_id]
 
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"{name}-Schule",
-        "website_url": "https://example.com",
-        "address": dict(ADDRESS),
-        "inactive_since": None,
-    }
+    return team_document(team_id, name, shorthand)
 
 
 def side(team_id: ObjectId, tore: int | None = None) -> dict[str, Any]:
@@ -132,25 +100,17 @@ def gruppen_fixture(
     spieltag_id: ObjectId = SPIELTAG,
     datum: str | None = None,
 ) -> dict[str, Any]:
-    return {
-        "_id": ObjectId(),
-        "saison_id": SAISON_ID,
-        "saison_phase": "gruppenphase",
-        "spiel_nr": spiel_nr,
-        "spieltag_id": spieltag_id,
-        # Null rather than absent, which is what a drawn fixture stores until somebody schedules it.
-        "datum": datum,
-        "uhrzeit": None,
-        "team1": side(home, tore[0]),
-        "team2": side(away, tore[1]),
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "ort": None,
-        "schiedsrichter": None,
-        "ergebnis": ergebnis,
-        "elfmeterschiessen": None,
-        "sonderereignis": sonderereignis,
-    }
+    return spiel_document(
+        spiel_id=ObjectId(),
+        saison_id=SAISON_ID,
+        spiel_nr=spiel_nr,
+        spieltag_id=spieltag_id,
+        datum=datum,
+        team1=side(home, tore[0]),
+        team2=side(away, tore[1]),
+        ergebnis=ergebnis,
+        sonderereignis=sonderereignis,
+    )
 
 
 def knockout_fixture(
@@ -162,24 +122,15 @@ def knockout_fixture(
 ) -> dict[str, Any]:
     """Its own matchday by default, which `_spieltag_clashes` finds no group fixture on: the clash cases name `SPIELTAG` themselves."""
 
-    return {
-        "_id": ObjectId(),
-        "saison_id": SAISON_ID,
-        "saison_phase": "viertelfinale",
-        "spiel_nr": spiel_nr,
-        "spieltag_id": spieltag_id,
-        "datum": None,
-        "uhrzeit": None,
-        "team1": None,
-        "team2": None,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "ort": None,
-        "schiedsrichter": None,
-        "ergebnis": ergebnis,
-        "elfmeterschiessen": None,
-        "sonderereignis": sonderereignis,
-    }
+    return spiel_document(
+        spiel_id=ObjectId(),
+        saison_id=SAISON_ID,
+        spiel_nr=spiel_nr,
+        spieltag_id=spieltag_id,
+        saison_phase="viertelfinale",
+        ergebnis=ergebnis,
+        sonderereignis=sonderereignis,
+    )
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -197,10 +148,8 @@ def on_a_seeded_season(
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, mutates_schema=mutates_schema) as (client, database):
-            await database[Collection.SAISONS].insert_one(
-                # The span and the rules are the shipped validator's; the swap reads the status alone.
-                {"_id": SAISON_ID, "start_date": "2026-01-01", "end_date": "2026-06-30", "status": saison_status, "rules": dict(RULES)}
-            )
+            # The swap reads the status alone.
+            await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, saison_status))
             await database[Collection.SAISON_TEAMS].insert_many(
                 [junction(ALPHA, "A"), junction(ALPHA_RIVAL, "A"), junction(BETA, "B"), junction(BETA_RIVAL, "B")]
             )
@@ -429,7 +378,7 @@ class TestTheRefusalsReadTheRealDocuments:
         """The unit test hands the rule a `None`; this proves the handler produces one from its filter and projection."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_swap(database, client, ALPHA, OUTSIDER)
             return refusal.value.error_code, await gruppen_now(database)
 
@@ -442,7 +391,7 @@ class TestTheRefusalsReadTheRealDocuments:
         """Nothing has been played, so the season being over is the only thing refusing this."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code, await sides_now(database)
 
@@ -455,7 +404,7 @@ class TestTheRefusalsReadTheRealDocuments:
         """Two fixtures seeded and one taken place: a filter matching every knockout document would still refuse."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code, refusal.value.error_detail["message"], await gruppen_now(database)
 
@@ -474,7 +423,7 @@ class TestTheRefusalsReadTheRealDocuments:
         """An abandonment and a no-show each happened, so the bracket already stands on these groups even with no `ergebnis`."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code
 
@@ -520,7 +469,7 @@ class TestTheRefusalsReadTheRealDocuments:
         """The damage: Alpha would carry group A's points into group B's table, because the statistics never read a group."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code, await sides_now(database)
 
@@ -538,7 +487,7 @@ class TestTheRefusalsReadTheRealDocuments:
         """A no-show is a forfeit and an abandonment is a match that happened; either is a round-robin entry Alpha would carry away."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code
 
@@ -570,7 +519,7 @@ class TestTheRefusalsReadTheRealDocuments:
         """Reachable because `apply_payload_to_spiel` strips goals only where a side is absent; the rewrite would leave them for Beta."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code, await spiele_now(database)
 
@@ -591,7 +540,7 @@ class TestTheRefusalsReadTheRealDocuments:
         scored_knockout = {**knockout_fixture(ergebnis=None), "spiel_nr": 9, "team1": side(ALPHA_RIVAL, 2), "team2": side(BETA_RIVAL)}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code
 
@@ -605,7 +554,7 @@ class TestTheRefusalsReadTheRealDocuments:
         decided_knockout = {**knockout_fixture(ergebnis=None), "spiel_nr": 9, "elfmeterschiessen": {"team1": 5, "team2": 4}}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code
 
@@ -619,7 +568,7 @@ class TestTheRefusalsReadTheRealDocuments:
         decided = {**gruppen_fixture(1, ALPHA, ALPHA_RIVAL), "elfmeterschiessen": {"team1": 5, "team2": 4}}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code
 
@@ -633,7 +582,7 @@ class TestTheRefusalsReadTheRealDocuments:
         manual_pick = {**knockout_fixture(ergebnis=None, spieltag_id=SPIELTAG), "spiel_nr": 9, "team1": side(ALPHA), "team2": None}
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code, await gruppen_now(database), await sides_now(database)
 
@@ -720,7 +669,7 @@ class TestTheRefusalsReadTheRealDocuments:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await record_an_austritt(database, ALPHA)
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_swap(database, client, ALPHA, BETA)
             return refusal.value.error_code, await gruppen_now(database), await sides_now(database)
 

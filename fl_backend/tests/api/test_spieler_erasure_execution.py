@@ -20,16 +20,15 @@ from app.api.spieler.admin_router import (
 from app.api.spieler.schemas import FLPatchSaisonSpielerPayload, FLPatchSpielerPayload, FLPostSaisonSpielerPayload
 from app.api.spieler.services import ERASURE_NOT_RETIRED
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
-from tests.database import a_clean_database, on_the_seed_loop
+from app.core.exceptions import WriteRefusalException
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
+from tests.documents import saison_document, saison_team_document, spieler_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_spieler_erasure_test")
 
-# Named rather than caught broadly: another failure must not read as the rollback this suite proves.
-DOCUMENT_VALIDATION_FAILED = 121
 
 SAISON_ID = "2026"
 # A second season, so one person holds a LIVE squad row and a RETIRED one at once: a redaction
@@ -53,18 +52,6 @@ NOW = datetime(2026, 4, 1, 12, 30, tzinfo=ZoneInfo("Europe/Berlin"))
 # Written out rather than computed from `log_stamp`, which would agree with any conversion of `NOW`, including none.
 REDACTED_AT = "2026-04-01T10:30:00+00:00"
 
-RULES = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 4,
-    "teams_per_group": 4,
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-}
-
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
 
 
@@ -77,17 +64,12 @@ def on_a_league(url: str, body: Body, *, mutates_schema: bool = False) -> Any:
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True, mutates_schema=mutates_schema) as (client, database):
             # Each season spans its own calendar year, so the two seeded spans do not overlap.
-            await database[Collection.SAISONS].insert_many(
-                [
-                    {"_id": year, "start_date": f"{year}-01-01", "end_date": f"{year}-06-30", "status": status, "rules": dict(RULES)}
-                    for year, status in ((SAISON_ID, "active"), (FORMER_SAISON_ID, "past"))
-                ]
-            )
+            await database[Collection.SAISONS].insert_many([saison_document(SAISON_ID, "active"), saison_document(FORMER_SAISON_ID, "past")])
             # Both clubs in both seasons, so either pupil can be put in a squad in either one. The
             # season's own copy of each identity is required and never read: this suite is about people.
             await database[Collection.SAISON_TEAMS].insert_many(
                 [
-                    {"saison_id": saison_id, "team_id": team_id, "gruppe": gruppe, "austritt": None, "name": name, "shorthand": short}
+                    saison_team_document(saison_id, team_id, name, short, gruppe=gruppe)
                     for saison_id in (SAISON_ID, FORMER_SAISON_ID)
                     for team_id, gruppe, name, short in ((HOME_TEAM_OID, "A", "Heim-Schule", "HS"), (AWAY_TEAM_OID, "B", "Gast-Schule", "GS"))
                 ]
@@ -105,12 +87,12 @@ def person_row(vorname: str) -> dict[str, Any]:
     that will is another programme's.
     """
 
-    return {
-        "_id": ObjectId(),
-        "vorname": vorname,
+    return spieler_document(
+        ObjectId(),
+        vorname,
         # Surname derived from the given name, so one sweep of a whole database still tells two apart.
-        "nachname": f"{vorname}-Mustermann",
-        "einwilligung": {
+        f"{vorname}-Mustermann",
+        einwilligung={
             "umfang": "kader_oeffentlich",
             "erteilt_von": "erziehungsberechtigt",
             "datum": TODAY,
@@ -118,9 +100,8 @@ def person_row(vorname: str) -> dict[str, Any]:
             "medien": False,
             "text_version": None,
         },
-        "geburtsdatum": None,
-        "inactive_since": None,
-    }
+        geburtsdatum=None,
+    )
 
 
 async def a_pupil_with_a_history(database: AsyncDatabase, *, vorname: str, team_id: ObjectId, retired: bool) -> ObjectId:
@@ -453,10 +434,10 @@ class TestTheErasureIsRefusedUntilTheyAreRetired:
     def test_a_pupil_still_in_the_league_is_refused(self, mongo_replica_set_url: str):
         """Catches dropping the precondition, which would put an unrecoverable write one click from the squad list."""
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> DocumentConflictException:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> WriteRefusalException:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=False)
 
-            with pytest.raises(DocumentConflictException) as excinfo:
+            with pytest.raises(WriteRefusalException) as excinfo:
                 await call_erasure(database, client, spieler_id)
 
             return excinfo.value
@@ -469,7 +450,7 @@ class TestTheErasureIsRefusedUntilTheyAreRetired:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spieler_id = await a_pupil_with_a_history(database, vorname="Max", team_id=HOME_TEAM_OID, retired=False)
 
-            with pytest.raises(DocumentConflictException):
+            with pytest.raises(WriteRefusalException):
                 await call_erasure(database, client, spieler_id)
 
             return (

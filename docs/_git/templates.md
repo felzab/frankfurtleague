@@ -66,16 +66,11 @@ vocabulary on its own.
 (`:: BANNED`), every trailer name but `Closes` in a closing paragraph it reads as trailers
 (`:: TRAILER_EVIDENCE_RE`), a line that paragraph carries twice, every `Closes:` value that is
 not a token (`:: CLOSES_RE`), a trailer line with no blank line over it wherever below the subject
-it sits (`:: GLUED_TRAILER_RE`), and a line past the hard maximum (`:: LINE_MAX`) — a subject over it
-unless git wrote the message (`:: GENERATED_SUBJECT`), a body line unless it is one unbroken token or
+it sits (`:: GLUED_TRAILER_RE`), and a line past the hard maximum (`:: LINE_MAX`) — a subject over it,
+and a body line unless it is one unbroken token or
 carries a long URL, which wrapping would break (`:: UNWRAPPABLE`). A hyphenless name earns that reading on its value: one unbroken token ending in
 no sentence punctuation, so `Verified: green` is read as a trailer and refused while a closing
 `Verified: the gate returned exit 0.` is prose.
-
-A commit Dependabot wrote — matched on an exact author identity
-(`scripts/checks/check_commits.py :: BOT_IDENTITIES`), never a substring — is released from the sign-off
-refusal and from the wrapped-body rule, which its own generator gives it no way to satisfy, and
-from no other refusal here.
 
 ---
 
@@ -93,9 +88,11 @@ says most of it.>
 **Reviewer's first look.** <Optional: the one thing in the branch that deserves attention before
 the rest.>
 
-**Verified.** <The `./scripts/gate/verify.sh` invocation — its scopes and its exit code — and the parts
-worth naming, with numbers. Plus any manual check and its result. Say plainly what could not be
-verified, and why. This is the one heading never dropped.>
+**Verified.** <What was run and what it returned, the parts worth naming with numbers, plus any
+manual check and its result. Written when the pull request opens, then completed once the bare
+`./scripts/gate/verify.sh` has run over its last push: that run's exit code goes here, and the body
+is replaced with `gh pr edit <n> --body-file <path>`, which the `pr-body` check reads again. Say
+plainly what could not be verified, and why. This is the one heading never dropped.>
 
 **Decisions taken.** <Anything where a person chose between real options, with the reasoning.
 Divergences resolved during the work belong here too.>

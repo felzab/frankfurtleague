@@ -4,14 +4,15 @@ from typing import Any
 
 import pytest
 from bson import ObjectId
-from httpx2 import ASGITransport, AsyncClient, Response
-from pymongo import AsyncMongoClient, MongoClient
+from httpx2 import Response
+from pymongo import MongoClient
 
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.exceptions import DUPLICATE_KEY
 from app.core.security import ACTOR_HEADER
-from app.main import create_app
-from tests.config import ADMIN_AUTH, TEST_BASE_URL
+from tests.app_client import app_client
+from tests.config import ADMIN_AUTH
 from tests.database import a_clean_database_sync
 from tests.worker import worker_database
 
@@ -27,10 +28,6 @@ SPIELORTE = f"/api/v{API_VERSION}/spielorte"
 
 # The write router binds an actor and refuses a write carrying none (`docs/backend/spec.md :: I41`).
 ACTOR = "spielorte.admin@example.com"
-
-# What `app/core/exception_handlers.py` answers a refused unique index with, and what the venue
-# slice's mapper lands on the name box.
-DUPLICATE_KEY = "DB-COMMON-002"
 
 # Fixed rather than generated, so a failure names the same row every run.
 STANDING_OID = ObjectId("6890a1b2c3d4e5f607450001")
@@ -77,20 +74,12 @@ def served(url: str, path: str, body: Mapping[str, Any], *, method: str = "POST"
     """One venue write as a REAL request, exception handlers included.
 
     Called directly instead, the write raises the driver's own error and says nothing about what an
-    administrator is answered. One client and one loop per request
-    (`tests/api/test_reference_admin_read.py :: answered`).
+    administrator is answered.
     """
 
     async def _served() -> Response:
-        app = create_app(config_for(DATABASE_NAME))
-        app.state.db_client = AsyncMongoClient(url)
-
-        try:
-            transport = ASGITransport(app=app, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                return await http.request(method, path, json=dict(body), headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR})
-        finally:
-            await app.state.db_client.close()
+        async with app_client(url, config=config_for(DATABASE_NAME)) as http:
+            return await http.request(method, path, json=dict(body), headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR})
 
     return asyncio.run(_served())
 

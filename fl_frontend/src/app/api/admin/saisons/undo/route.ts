@@ -1,9 +1,9 @@
 import { revalidateTag } from "next/cache";
 
-import { APIBadStatusError } from "@/core/errors";
 import { patchSaison } from "@/features/saisons/mutations";
 import { FLPatchSaisonPayloadSchema } from "@/features/saisons/schemas";
-import { handleUndoRequest } from "@/shared/utils/undoRoute";
+import { KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError";
+import { handleUndoRequest, refusedReplay } from "@/shared/utils/undoRoute";
 
 import type { NextRequest } from "next/server";
 
@@ -27,10 +27,8 @@ const REPLAY_REFUSALS: Record<string, string> = {
   "REQ-RULES-012": "Die KO-Runde dieser Saison hat inzwischen begonnen, deshalb ist der Tiebreak festgeschrieben.",
   "REQ-RULES-013":
     "Aus den ursprünglichen Zahlen für Gruppen und Teams pro Gruppe entstehen mehr Spiele, als eine Saison auf einmal fassen kann.",
+  "DB-COMMON-002": KONFLIKT_MIT_BESTEHENDEM,
 };
-
-/** The second half of every refusal above: a cause alone leaves the admin unsure what the season now holds. */
-const CHANGE_STANDS = "Die Änderung steht weiterhin.";
 
 export async function POST(request: NextRequest) {
   return handleUndoRequest(request, {
@@ -41,15 +39,10 @@ export async function POST(request: NextRequest) {
       try {
         operation = await patchSaison(payload);
       } catch (error) {
-        const code = error instanceof APIBadStatusError && error.statusCode === 409 ? error.serverErrorCode : undefined;
-        // The code is an unvalidated wire string, and an unguarded lookup reaches `Object.prototype`: `toString` selects a function.
-        const refusal = code == null || !Object.hasOwn(REPLAY_REFUSALS, code) ? undefined : REPLAY_REFUSALS[code];
-        if (refusal === undefined) throw error;
-
-        return { refusal: `${refusal} ${CHANGE_STANDS}` };
+        return refusedReplay(error, REPLAY_REFUSALS);
       }
 
-      return operation.acknowledged ? {} : { refusal: "Die Rücknahme wurde abgebrochen. Prüfe die Saisondaten." };
+      return operation.acknowledged ? {} : { unclear: "Die Rücknahme wurde abgebrochen. Prüfe die Saisondaten." };
     },
     invalidate: () => {
       revalidateTag("saisons", { expire: 0 });

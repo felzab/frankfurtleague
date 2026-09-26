@@ -1,11 +1,34 @@
+import "@/shared/testing/dom.ts";
+
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import ts from "typescript";
+import { createElement as h } from "react";
 
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
+import { renderTree } from "@/shared/testing/renderTest.ts";
+
+import { CELL_EDGE_CLASSES, CELL_INNER_CLASSES, COLUMN_EDGE_CLASSES, COLUMN_INNER_CLASSES, TABLE_HEADING_CLASSES } from "./adminTable.ts";
+
+import type { ComponentProps, ReactNode } from "react";
+
+doubleEveryAction();
+
+/* Reached with `await import` and never a static import beside the harness: the JSX compile step is
+   registered as `renderTest` evaluates, and a static import resolves before that. */
+const { AdminAktionenTable } = await import("@/features/aktionen/components/collections/AdminAktionenTable.tsx");
+const { AdminSaisonsTable } = await import("@/features/saisons/components/collections/AdminSaisonsTable.tsx");
+const { AdminSchiedsrichterTable } = await import("@/features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx");
+const { AdminSpielerTable } = await import("@/features/spieler/components/collections/AdminSpielerTable.tsx");
+const { AdminSpielorteTable } = await import("@/features/spielorte/components/collections/AdminSpielorteTable.tsx");
+const { AdminTeamsTable } = await import("@/features/teams/components/collections/AdminTeamsTable.tsx");
+
+/* Each row typed off the table that renders it: `shared` imports nothing from `features` by name. */
+type Row<TProps, TKey extends keyof TProps> = NonNullable<TProps[TKey]> extends readonly (infer TRow)[] ? TRow : never;
 
 const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 const FEATURES = path.join(SRC, "features");
@@ -17,23 +40,155 @@ const FEATURES = path.join(SRC, "features");
  */
 const ACTIONS_WIDTH: Record<number, string> = { 1: "w-32", 2: "w-36", 3: "w-48", 4: "w-60", 5: "w-72", 6: "w-84" };
 
+const STILLGELEGT_AM = "2026-09-09";
+const TEAM_ID = "6890a1b2c3d4e5f607910001";
+
+const RULES: Row<ComponentProps<typeof AdminSaisonsTable>, "filteredSaisons">["rules"] = {
+  win_points: 3,
+  draw_points: 1,
+  qualifiers_per_group: 2,
+  number_of_groups: 2,
+  teams_per_group: 4,
+  max_kadergroesse: 18,
+  tiebreak_order: "tordifferenz",
+  forfeit_ergebnis: { sieger_tore: 3, verlierer_tore: 0 },
+  erlaubte_stufen: ["E1", "Q1"],
+};
+
+/** A log entry naming its document, so the row holds its link beside the copy. */
+const AKTION: Row<ComponentProps<typeof AdminAktionenTable>, "filteredAktionen"> = {
+  id: "68c1f0a2b3c4d5e6f7a8b9c0",
+  at: "2026-08-20T14:23:05+00:00",
+  actor: { kind: "admin_session", email: "eine.person@beispiel.de" },
+  trace_id: "8f14e45fceea167a",
+  request: { method: "PATCH", path: "/api/v1/teams/68c1f0a2b3c4d5e6f7a8b9c0" },
+  collection: "teams",
+  operation: "patch_one",
+  document_id: "68c1f0a2b3c4d5e6f7a8b9c0",
+  db_filter: null,
+  modified_count: null,
+  redacted_at: null,
+  stand_gesichert: true,
+};
+
+const SAISON: Row<ComponentProps<typeof AdminSaisonsTable>, "filteredSaisons"> = {
+  id: "2026",
+  start_date: "2026-08-01",
+  end_date: "2027-06-30",
+  status: "active",
+  rules: RULES,
+};
+
+/** A referee with a contact, so the row holds its copy beside the two links and the retirement. */
+const REFEREE: Row<ComponentProps<typeof AdminSchiedsrichterTable>, "filteredSchiedsrichter"> = {
+  id: "r1",
+  name: "Ben Vogt",
+  schule: "Carl-Schurz-Schule",
+  default_payment: 20,
+  kontakt: { telefon: "069 1234567", email: "kontakt@example.com" },
+  inactive_since: null,
+  geburtsdatum: null,
+  einwilligung: null,
+  bestaetigung: null,
+};
+
+/** Retired twice over, so the row holds both restores beside its link. */
+const PERSON: Row<ComponentProps<typeof AdminSpielerTable>, "filteredSpieler"> = {
+  id: "s1",
+  vorname: "Lena",
+  nachname: "Meier",
+  fullName: "Lena Meier",
+  inactive_since: STILLGELEGT_AM,
+  selected: {
+    team_id: TEAM_ID,
+    nummer: "7",
+    position: "Angriff",
+    stufe: "Q2",
+    ist_nachnominiert: false,
+    rolle: null,
+    inactive_since: STILLGELEGT_AM,
+    teamName: "Carl-Schurz-Schule",
+    teamShorthand: "CSS",
+  },
+};
+
+const ORT: Row<ComponentProps<typeof AdminSpielorteTable>, "filteredSpielorte"> = {
+  id: "o1",
+  name: "Halle West",
+  address: { strasse: "Feldweg", hausnummer: "3", plz: "60437", stadtteil: "", stadt: "Frankfurt am Main" },
+  maps_link: "Halle West, Feldweg 3, 60437 Frankfurt am Main",
+  default_mietpreis: 40,
+  inactive_since: null,
+};
+
+const CLUB: Row<ComponentProps<typeof AdminTeamsTable>, "filteredTeams"> = {
+  id: "t1",
+  name: "Lessing",
+  full_name: "Lessing Gymnasium",
+  shorthand: "LE",
+  inactive_since: null,
+  selected: { gruppe: "A", austritt: null },
+  isRetireable: true,
+  publicSaisonId: null,
+};
+
+const nothing = (): undefined => undefined;
+
+type Table = {
+  /** The table over one row in the state that holds the most controls a row of it can. */
+  render: () => ReactNode;
+  /** How many controls that row holds, which is what the Aktionen column is sized for. */
+  controls: number;
+  /** The width owed to each undeclared column, declared here and never measured: see the case below. */
+  freeText: number;
+};
+
 /**
  * Every admin CRUD list whose empty message sits inside a react-aria table; the markup was
- * byte-identical in all of them, which let it drift out of one unnoticed. `alternates` never show
- * together; `freeText` is owed PER undeclared column, not per table.
+ * byte-identical in all of them, which let it drift out of one unnoticed. `freeText` is owed PER
+ * undeclared column, not per table.
  */
-const TABLES = [
+const TABLES: Record<string, Table> = {
   // Two undeclared columns, the one row here that is two blocks of like weight, so `freeText` is
   // owed twice.
-  { file: "features/aktionen/components/collections/AdminAktionenTable.tsx", controls: 2, alternates: 0, freeText: 240 },
-  { file: "features/saisons/components/collections/AdminSaisonsTable.tsx", controls: 2, alternates: 0, freeText: 224 },
-  { file: "features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx", controls: 4, alternates: 1, freeText: 240 },
-  { file: "features/spieler/components/collections/AdminSpielerTable.tsx", controls: 3, alternates: 1, freeText: 240 },
-  { file: "features/spielorte/components/collections/AdminSpielorteTable.tsx", controls: 4, alternates: 1, freeText: 240 },
-  { file: "features/teams/components/collections/AdminTeamsTable.tsx", controls: 3, alternates: 1, freeText: 336 },
-];
-
-const read = (file: string): string => readFileSync(path.join(SRC, file), "utf8");
+  "features/aktionen/components/collections/AdminAktionenTable.tsx": {
+    render: () => h(AdminAktionenTable, { filteredAktionen: [AKTION], emptiness: "none" }),
+    controls: 2,
+    freeText: 240,
+  },
+  "features/saisons/components/collections/AdminSaisonsTable.tsx": {
+    render: () => h(AdminSaisonsTable, { filteredSaisons: [SAISON], emptiness: "none" }),
+    controls: 2,
+    freeText: 224,
+  },
+  "features/schiedsrichter/components/collections/AdminSchiedsrichterTable.tsx": {
+    render: () => h(AdminSchiedsrichterTable, { filteredSchiedsrichter: [REFEREE], emptiness: "none", setDeletingSchiedsrichter: nothing }),
+    controls: 4,
+    freeText: 240,
+  },
+  "features/spieler/components/collections/AdminSpielerTable.tsx": {
+    render: () =>
+      h(AdminSpielerTable, {
+        filteredSpieler: [PERSON],
+        emptiness: "none",
+        saisonTeams: [{ teamId: TEAM_ID, name: "Carl-Schurz-Schule", shorthand: "CSS" }],
+        selectedSaisonId: "2026",
+        setDeletingSpieler: nothing,
+      }),
+    controls: 3,
+    freeText: 240,
+  },
+  "features/spielorte/components/collections/AdminSpielorteTable.tsx": {
+    render: () => h(AdminSpielorteTable, { filteredSpielorte: [ORT], emptiness: "none", setDeletingOrt: nothing }),
+    controls: 4,
+    freeText: 240,
+  },
+  "features/teams/components/collections/AdminTeamsTable.tsx": {
+    render: () => h(AdminTeamsTable, { filteredTeams: [CLUB], emptiness: "none", setDeletingTeam: nothing }),
+    controls: 3,
+    freeText: 336,
+  },
+};
 
 /** Every shipped `.tsx` under `src/features`, so a table added in a slice this roster has never heard of is still found. */
 const tsxUnder = (dir: string): string[] =>
@@ -113,85 +268,6 @@ const STEP =
   CARD_BORDER -
   SCROLLBAR;
 
-type Element = { tag: string; classes: readonly string[]; interpolated: readonly string[]; start: number; end: number };
-
-/** The class attribute of one element, however it is spelled, or `undefined` where the element declares none. */
-function classAttribute(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile): ts.Node | undefined {
-  const found = opening.attributes.properties.find(
-    (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
-  );
-
-  return found !== undefined && ts.isJsxAttribute(found) ? found.initializer : undefined;
-}
-
-/** The names a class attribute interpolates: a shared inset arrives as one of these and never as a token `classesOf` can read. */
-function interpolatedNames(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile): string[] {
-  const declared = classAttribute(opening, source);
-  if (declared === undefined || !ts.isJsxExpression(declared) || declared.expression === undefined) return [];
-
-  const expression = declared.expression;
-  if (ts.isIdentifier(expression)) return [expression.text];
-  if (!ts.isTemplateExpression(expression)) return [];
-
-  return expression.templateSpans.flatMap((span) => (ts.isIdentifier(span.expression) ? [span.expression.text] : []));
-}
-
-/** A template's own text counts, so a width written beside an interpolation is still declared. */
-function classesOf(opening: ts.JsxOpeningLikeElement, source: ts.SourceFile): string[] {
-  const declared = classAttribute(opening, source);
-  let written: string | null = null;
-
-  if (declared !== undefined && ts.isStringLiteral(declared)) written = declared.text;
-  else if (declared !== undefined && ts.isJsxExpression(declared) && declared.expression !== undefined) {
-    const expression = declared.expression;
-    if (ts.isStringLiteral(expression) || ts.isNoSubstitutionTemplateLiteral(expression)) written = expression.text;
-    else if (ts.isTemplateExpression(expression))
-      written = [expression.head.text, ...expression.templateSpans.map((span) => span.literal.text)].join(" ");
-  }
-
-  return written === null ? [] : written.split(/\s+/).filter((token) => token !== "");
-}
-
-/* Parsed rather than matched as text: the Prettier plugin owns the order inside a class attribute, and
-   a guard reading one as a string is the brittleness that already bit this file once. */
-function elementsIn(text: string, name: string): Element[] {
-  const source = ts.createSourceFile(name, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const found: Element[] = [];
-
-  const visit = (node: ts.Node): void => {
-    if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
-      const opening = ts.isJsxElement(node) ? node.openingElement : node;
-      found.push({
-        tag: opening.tagName.getText(source),
-        classes: classesOf(opening, source),
-        interpolated: interpolatedNames(opening, source),
-        start: node.getStart(source),
-        end: node.getEnd(),
-      });
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(source);
-
-  return found;
-}
-
-const elementsOf = (file: string): Element[] => elementsIn(read(file), file);
-
-/**
- * The one `Table.Content`, the columns fixed layout allocates over, and the cells under them: a
- * column and its cells are two ways to write the same disappearance, and the grid feels both.
- */
-function tableOf(file: string): { content: Element | null; columns: Element[]; cells: Element[] } {
-  const elements = elementsOf(file);
-  const contents = elements.filter((element) => element.tag === "Table.Content");
-  const content = contents.length === 1 ? contents[0]! : null;
-  const inside = (tag: string): Element[] =>
-    content === null ? [] : elements.filter((element) => element.tag === tag && element.start >= content.start && element.end <= content.end);
-
-  return { content, columns: inside("Table.Column"), cells: inside("Table.Cell") };
-}
-
 /** A utility's own name, every variant prefix stripped, so `max-lg:hidden` and `@2xl:min-w-40` both reach the test below. */
 const utilityOf = (token: string): string => token.slice(token.lastIndexOf(":") + 1);
 
@@ -205,19 +281,6 @@ function widthConditional(token: string): boolean {
   return utility === "hidden" || (utility !== token && /^(?:min-|max-)?w-/.test(utility));
 }
 
-const widthToken = (element: Element): string | undefined => element.classes.find((token) => /^w-/.test(token));
-
-const TABLE_BOX = new Set(["Table", "Table.ScrollContainer", "Table.Content"]);
-
-/** The shared inset each element kind takes, `fl_frontend/src/shared/components/ui/adminTable.ts`'s pair for a column and its cell's. */
-const INSETS: Record<string, readonly string[]> = {
-  "Table.Column": ["COLUMN_EDGE", "COLUMN_INNER"],
-  "Table.Cell": ["CELL_EDGE", "CELL_INNER"],
-};
-
-/** Every inset utility Tailwind spells, the logical sides among them: one written as a token is one the shared pair did not give. */
-const PADDING = /^-?p[trblsexy]?-/;
-
 /** `w-full` and `max-w-full` are the box taking what it is given; `min-w-*` is the floor above. */
 function selfCapped(token: string): boolean {
   const utility = utilityOf(token);
@@ -225,44 +288,59 @@ function selfCapped(token: string): boolean {
   return /^(?:max-)?w-/.test(utility) && utility !== "w-full" && utility !== "max-w-full";
 }
 
+const classesOf = (element: Element): string[] => [...element.classList];
+
+/** Every inset utility Tailwind spells, a logical side and one behind a variant among them. */
+const insetsOf = (tokens: readonly string[]): string[] => tokens.filter((token) => /^-?p[trblsexy]?-/.test(utilityOf(token))).sort();
+
+const tokensOf = (classes: string): string[] => classes.split(/\s+/).filter((token) => token !== "");
+
+/** The insets a column may wear, heading included, and those a cell may: `adminTable.ts`'s pair, edge and inner. */
+const COLUMN_INSETS = [COLUMN_EDGE_CLASSES, COLUMN_INNER_CLASSES].map((inset) => insetsOf(tokensOf(`${TABLE_HEADING_CLASSES} ${inset}`)));
+const CELL_INSETS = [CELL_EDGE_CLASSES, CELL_INNER_CLASSES].map((inset) => insetsOf(tokensOf(inset)));
+
+const widthToken = (element: Element): string | undefined => classesOf(element).find((token) => /^w-/.test(token));
+
+/** The desktop layout of one table, rendered over its row: the phone's card list beside it is not a table. */
+function rendered(file: string): { wrapper: Element; table: Element; columns: Element[]; cells: Element[] } {
+  const box = document.createElement("div");
+  box.innerHTML = renderTree(underNext((TABLES[file] ?? assert.fail(`${file} has no render here`)).render(), { search: "saison_id=2026" }));
+
+  const table = box.querySelector('[data-slot="table-content"]') ?? assert.fail(`${file}: renders no table content`);
+
+  return {
+    wrapper: box.querySelector(".md\\:block") ?? assert.fail(`${file}: renders no desktop wrapper`),
+    table,
+    columns: [...table.querySelectorAll('[data-slot="table-column"]')],
+    cells: [...table.querySelectorAll('[data-slot="table-cell"]')],
+  };
+}
+
 describe("the six admin CRUD tables", () => {
-  /* Read off the tree rather than off the roster's own length, which only a hand edit two lines above
-     it could ever move: the drift worth catching is a ninth table added in some other slice. */
+  /* The population of the renders below, read off the tree rather than off this file's own list: the
+     drift worth catching is a table added in some other slice, which no case here would render. */
   it("are every collection in the tree that pairs the shared emptiness with a react-aria table", () => {
     const found = tsxUnder(FEATURES).filter((file) => {
-      const source = read(file);
+      const source = readFileSync(path.join(SRC, file), "utf8");
       return source.includes("CrudEmptiness") && source.includes("<Table.Content");
     });
 
-    assert.deepEqual(found.sort(), TABLES.map(({ file }) => file).sort());
-  });
-
-  /* One row tall is a height the empty `<td>` has to build itself, and a list spelling its own box
-     builds a different one — which is how the tall centred panel survived in five copies. */
-  it("draw the shared empty row and the shared empty card rather than spelling their own", () => {
-    for (const { file } of TABLES) {
-      const source = read(file);
-
-      assert.match(source, /renderEmptyState=\{\(\) => <AdminCrudEmptyRow /, `${file}: spells its own empty row`);
-      assert.match(source, /<AdminCrudEmptyCard /, `${file}: spells its own empty card below md`);
-      assert.doesNotMatch(source, /const emptyState =/, `${file}: keeps a local empty state beside the shared one`);
-    }
+    assert.deepEqual(found.sort(), Object.keys(TABLES).sort());
   });
 
   /* React-aria writes the empty state as ONE `<td colSpan>`, which sizes no column: under auto
      layout the columns collapse the moment the rows go. A declared width is then an allocation. */
   it("lay their columns out fixed, over a minimum the declared ones cannot exhaust", () => {
-    for (const { file, freeText } of TABLES) {
-      const { content, columns, cells } = tableOf(file);
+    for (const [file, { freeText }] of Object.entries(TABLES)) {
+      const { table, columns, cells } = rendered(file);
 
-      assert.ok(content !== null, `${file}: expected exactly one Table.Content`);
-      assert.ok(content.classes.includes("table-fixed"), `${file}: leaves its columns to auto layout`);
-      assert.ok(columns.length > 0, `${file}: declares no columns the guard can read`);
-      /* The row template writes one cell per column. Read here so the cell sweep below cannot go
-         quiet on a renamed tag, which would leave it passing over an empty population. */
-      assert.equal(cells.length, columns.length, `${file}: declares ${String(columns.length)} columns and ${String(cells.length)} cells`);
+      assert.ok(classesOf(table).includes("table-fixed"), `${file}: leaves its columns to auto layout`);
+      assert.ok(columns.length > 0, `${file}: renders no columns the guard can read`);
+      /* One row, so one cell per column. Read here so the cell sweep below cannot go quiet on a
+         renamed slot, which would leave it passing over an empty population. */
+      assert.equal(cells.length, columns.length, `${file}: renders ${String(columns.length)} columns and ${String(cells.length)} cells`);
 
-      const floors = content.classes.filter((token) => token.startsWith("min-w-"));
+      const floors = classesOf(table).filter((token) => token.startsWith("min-w-"));
       assert.equal(floors.length, 1, `${file}: names ${String(floors.length)} floors for its free-text columns`);
 
       const declared = columns.map(widthToken).filter((token) => token !== undefined);
@@ -288,7 +366,7 @@ describe("the six admin CRUD tables", () => {
       assert.equal(
         widthPx(floors[0]!),
         owed,
-        `${file}: ${floors[0]!} is not the ${String(owed)}px its ${String(declared.length)} declared columns plus ${String(columns.length - declared.length)} free-text one(s) come to`,
+        `${file}: ${floors[0]!} is not the ${String(owed)}px its ${String(declared.length)} declared columns plus ${String(free)} free-text one(s) come to`,
       );
 
       // The floor the columns asked for, against the width a viewport can give: over the step the
@@ -303,32 +381,8 @@ describe("the six admin CRUD tables", () => {
          focused key to a `display:none` cell: one dead keypress per hidden column per row, and an
          `aria-colcount` over columns nothing can reach. */
       for (const element of [...columns, ...cells]) {
-        const banned = element.classes.filter(widthConditional);
-        assert.deepEqual(banned, [], `${file}: a ${element.tag} carrying ${banned.join(" ")} exists at one width and not another`);
-      }
-    }
-  });
-
-  /* Each declared width above was measured against the inset its column carries, and the arithmetic
-     reads no inset at all (`fl_frontend/src/shared/components/ui/adminTable.ts :: COLUMN_INNER`). */
-  it("take every column inset from the shared pair rather than spelling one", () => {
-    for (const { file } of TABLES) {
-      const { columns, cells } = tableOf(file);
-
-      for (const element of [...columns, ...cells]) {
-        const taken = element.interpolated.filter((name) => INSETS[element.tag]?.includes(name) === true);
-        assert.equal(
-          taken.length,
-          1,
-          `${file}: a ${element.tag} takes ${taken.length === 0 ? "no inset from adminTable.ts" : `${String(taken.length)} of its insets — ${taken.join(", ")}`}`,
-        );
-
-        const spelled = element.classes.filter((token) => PADDING.test(utilityOf(token)));
-        assert.deepEqual(
-          spelled,
-          [],
-          `${file}: a ${element.tag} spells ${spelled.join(" ")} of its own, which no floor above was measured with`,
-        );
+        const banned = classesOf(element).filter(widthConditional);
+        assert.deepEqual(banned, [], `${file}: a ${element.tagName} carrying ${banned.join(" ")} exists at one width and not another`);
       }
     }
   });
@@ -337,20 +391,44 @@ describe("the six admin CRUD tables", () => {
      surplus to the one undeclared column. A table capping itself stops growing under a toolbar that
      does not. */
   it("take the shell's column whole, so the surplus above the floor reaches the undeclared column", () => {
-    for (const { file } of TABLES) {
+    for (const file of Object.keys(TABLES)) {
+      const { wrapper, table } = rendered(file);
       // The desktop wrapper too: a cap there stops the table as surely as one on the table itself.
-      const boxes = elementsOf(file).filter((element) => TABLE_BOX.has(element.tag) || element.classes.includes("md:block"));
-      const tags = new Set(boxes.map((box) => box.tag));
-
-      for (const tag of TABLE_BOX) assert.ok(tags.has(tag), `${file}: names no ${tag} for this sweep to read`);
+      const boxes = [
+        wrapper,
+        wrapper.querySelector('[data-slot="table"]') ?? assert.fail(`${file}: renders no table`),
+        wrapper.querySelector('[data-slot="table-scroll-container"]') ?? assert.fail(`${file}: renders no scroll container`),
+        table,
+      ];
 
       for (const box of boxes) {
-        const capping = box.classes.filter(selfCapped);
+        const capping = classesOf(box).filter(selfCapped);
         assert.deepEqual(
           capping,
           [],
-          `${file}: its ${box.tag} carries ${capping.join(" ")} and stops short of the column the bar above it fills`,
+          `${file}: its ${String(box.getAttribute("data-slot") ?? "wrapper")} carries ${capping.join(" ")} and stops short of the column the bar above it fills`,
         );
+      }
+    }
+  });
+
+  /* Every floor and column width above was measured with `adminTable.ts`'s insets, and the arithmetic
+     reads none: a column or cell padded otherwise overflows what its width promised at the narrowest step. */
+  it("pad every column and cell with the inset pair the widths were measured with", () => {
+    for (const file of Object.keys(TABLES)) {
+      const { columns, cells } = rendered(file);
+
+      for (const [kind, elements, pair] of [
+        ["column", columns, COLUMN_INSETS],
+        ["cell", cells, CELL_INSETS],
+      ] as const) {
+        for (const element of elements) {
+          const worn = insetsOf(classesOf(element));
+          assert.ok(
+            pair.some((inset) => inset.join(" ") === worn.join(" ")),
+            `${file}: a ${kind} is padded ${worn.join(" ") || "not at all"}, which neither inset in adminTable.ts spells`,
+          );
+        }
       }
     }
   });
@@ -358,13 +436,19 @@ describe("the six admin CRUD tables", () => {
   /* A control added to a row that already fills its column wraps the widest row onto a second line,
      and nothing else reports it: fixed layout will not widen the column to take the new control. */
   it("size the Aktionen column from the controls a row can hold", () => {
-    for (const { file, controls, alternates } of TABLES) {
-      const declared = read(file).match(/<RowAction(?:Link|Copy|Restore|Delete|Menu)\b/g)?.length ?? 0;
-      assert.equal(declared, controls + alternates, `${file}: holds a control the roster here does not count`);
+    for (const [file, { controls }] of Object.entries(TABLES)) {
+      const { columns, cells } = rendered(file);
 
       // The only column ended right, which is what makes it the Aktionen one.
-      const ended = tableOf(file).columns.filter((column) => column.classes.includes("text-right"));
+      const ended = columns.filter((column) => classesOf(column).includes("text-right"));
       assert.equal(ended.length, 1, `${file}: expected one right-ended column, found ${String(ended.length)}`);
+
+      const held = cells[columns.indexOf(ended[0]!)]?.querySelectorAll("a, button").length ?? 0;
+      assert.equal(
+        held,
+        controls,
+        `${file}: its fullest row holds ${String(held)} controls, not the ${String(controls)} its column is sized for`,
+      );
       assert.equal(
         widthToken(ended[0]!),
         ACTIONS_WIDTH[controls],
@@ -374,8 +458,8 @@ describe("the six admin CRUD tables", () => {
   });
 });
 
-/* No table hides a column today, so a sweep over the tree alone cannot tell this reader from one
-   that matches nothing. A variant spelling is caught here or nowhere. */
+/* No table hides a column today, so a sweep over the rendered tables alone cannot tell this reader
+   from one that matches nothing. A variant spelling is caught here or nowhere. */
 describe("the reader behind the hidden-column sweep", () => {
   it("takes a disappearance behind any variant prefix, and leaves an unconditional width alone", () => {
     for (const token of [
@@ -396,43 +480,8 @@ describe("the reader behind the hidden-column sweep", () => {
   });
 });
 
-/* No table spells an inset of its own today, so the sweep over the tree cannot tell this reader from
-   one that matches nothing. A logical side, and one behind a variant, are caught here or nowhere. */
-describe("the reader behind the hand-spelled inset sweep", () => {
-  it("takes every side an inset can be written on, and leaves the utilities that set none", () => {
-    for (const token of ["p-4", "px-6", "py-4", "pt-2", "pb-1", "pl-4", "pr-4", "ps-3", "pe-3", "sm:px-6", "@2xl:py-2", "-p-1"])
-      assert.ok(PADDING.test(utilityOf(token)), `${token}: read as setting no inset`);
-
-    for (const token of ["pointer-events-none", "place-items-center", "peer", "w-24", "min-w-156", "text-right", "font-bold", "border-b"])
-      assert.ok(!PADDING.test(utilityOf(token)), `${token}: read as an inset`);
-  });
-
-  /* A column interpolates its inset inside a template and a cell passes the constant bare, so a
-     reader handling one shape reports the other as taking no inset and fails a compliant table. */
-  it("reads a shared inset out of either attribute shape, and a hand-spelled one out of neither", () => {
-    const [column, shared, spelling] = elementsIn(
-      "const T = () => (<Table.Content>" +
-        "<Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER} w-24 px-6`}>Gruppe</Table.Column>" +
-        "<Table.Cell className={CELL_EDGE}>x</Table.Cell>" +
-        '<Table.Cell className="px-6 py-4">y</Table.Cell>' +
-        "</Table.Content>);",
-      "sample.tsx",
-    ).filter((element) => element.tag !== "Table.Content");
-
-    assert.deepEqual(column?.interpolated, ["TABLE_HEADING", "COLUMN_INNER"]);
-    assert.deepEqual(shared?.interpolated, ["CELL_EDGE"]);
-    assert.deepEqual(spelling?.interpolated, []);
-
-    const insets = (element: Element | undefined) => (element?.classes ?? []).filter((token) => PADDING.test(utilityOf(token)));
-
-    assert.deepEqual(insets(column), ["px-6"], "an inset written beside the interpolation is missed");
-    assert.deepEqual(insets(shared), [], "the constant's own inset is read as a hand-spelled one");
-    assert.deepEqual(insets(spelling), ["px-6", "py-4"]);
-  });
-});
-
-/* No admin table caps itself today, so the sweep over the tree cannot tell this reader from one that
-   matches nothing. A cap written behind a variant is caught here or nowhere. */
+/* No admin table caps itself today, so the sweep over the rendered tables cannot tell this reader
+   from one that matches nothing. A cap written behind a variant is caught here or nowhere. */
 describe("the reader behind the self-cap sweep", () => {
   it("takes a width that stops a box short, and leaves the two that take the column whole", () => {
     for (const token of ["max-w-page", "max-w-4xl", "max-w-[1400px]", "w-96", "lg:max-w-page", "@2xl:w-80"])

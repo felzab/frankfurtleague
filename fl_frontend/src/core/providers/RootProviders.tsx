@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { ThemeProvider } from "next-themes";
 
-import { I18nProvider, RouterProvider } from "@heroui/react";
+import { I18nProvider, RouterProvider } from "@heroui/react/rac";
 
 import { AppToaster } from "./AppToaster";
 

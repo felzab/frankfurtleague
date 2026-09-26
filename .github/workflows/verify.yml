@@ -1,12 +1,11 @@
 name: verify
 
-# The gate that `scripts/gate/verify.sh` is, run as parallel jobs mapped to the surfaces a change
-# touches.
+# The gate that `scripts/gate/verify.sh` is, every scope on every event, one parallel job per scope.
 
 on:
   pull_request:
-  # A push to main runs every scope unconditionally, which is what backstops the path mapping: a
-  # scope the mapping failed to select on the pull request still runs here.
+  # A pull request's run tests the merge ref, so the commit that lands is tested again here, and
+  # this run is the one the publish reads (`scripts/checks/check_publish_verdict.py`).
   push:
     branches: [main]
 
@@ -34,48 +33,88 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  # The path-to-scope mapping lives in scripts/gate/scope_map.sh — one copy, covered by selfcheck and
-  # shellcheck — and this job only feeds its stdout to $GITHUB_OUTPUT. It errs conservative: an
-  # unrecognised path turns every scope on.
-  changes:
+  scripts:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      scripts: ${{ steps.map.outputs.scripts }}
-      docs: ${{ steps.map.outputs.docs }}
-      backend: ${{ steps.map.outputs.backend }}
-      db: ${{ steps.map.outputs.db }}
-      frontend: ${{ steps.map.outputs.frontend }}
-      ops: ${{ steps.map.outputs.ops }}
-      images: ${{ steps.map.outputs.images }}
-      format: ${{ steps.map.outputs.format }}
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The token is not needed after checkout. Leaving it in .git/config would expose it to
           # every later step, including anything a dependency's install script decides to run.
           persist-credentials: false
-          # Full history: the mapping diffs against the merge base with the target branch.
-          fetch-depth: 0
+          # The sha check's test walks recent commits for one whose short form carries a digit and
+          # a letter; at depth 1 there is only the merge commit, and its form is that by chance.
+          fetch-depth: 20
+      # The venv carries the repository's own ruff, pyright and pytest for the python under scripts/,
+      # and the markdown-it-py the documentation gate reads with. The dev group alone: no checker
+      # and no case imports the application.
+      - uses: ./.github/actions/backend-toolchain
+        with:
+          application: false
+      - name: Install the shellcheck the gate pins
+        # The runner image ships its own shellcheck, and selfcheck.sh prefers a binary on PATH over
+        # the image it pins -- so without this CI lints the branch against a different rule set from
+        # a development machine, and says so only as an advisory that leaves the run green.
+        run: |
+          # Read out of selfcheck.sh rather than repeated here: a second copy is a pair nothing
+          # compares, and that file carries the note about bumping both by hand.
+          version="$(sed -n 's/^SHELLCHECK_VERSION="\([0-9.]*\)"$/\1/p' scripts/gate/selfcheck.sh)"
+          digest="$(sed -n 's/^SHELLCHECK_LINUX_X86_64_SHA256="\([0-9a-f]*\)"$/\1/p' scripts/gate/selfcheck.sh)"
+          if [ -z "$version" ] || [ -z "$digest" ]; then
+            echo "::error::no SHELLCHECK_VERSION or SHELLCHECK_LINUX_X86_64_SHA256 in scripts/gate/selfcheck.sh -- a pin moved or its spelling changed."
+            exit 1
+          fi
+          tarball="${RUNNER_TEMP}/shellcheck-v${version}.linux.x86_64.tar.xz"
+          # Fetched to a file rather than piped into tar, so a truncated stream is a digest mismatch
+          # rather than a partial write nothing hashed.
+          curl -fsSL -o "$tarball" "https://github.com/koalaman/shellcheck/releases/download/v${version}/shellcheck-v${version}.linux.x86_64.tar.xz"
+          # Checked before anything is unpacked: a release asset can be replaced without its tag
+          # moving, and this lands as root in a directory on PATH beside a checkout.
+          if ! printf '%s  %s\n' "$digest" "$tarball" | sha256sum -c -; then
+            echo "::error::the shellcheck tarball does not match the digest in scripts/gate/selfcheck.sh -- nothing was installed."
+            exit 1
+          fi
+          sudo tar -xJf "$tarball" --strip-components=1 -C /usr/local/bin "shellcheck-v${version}/shellcheck"
+          shellcheck --version
+      # The self-check's hook probes need a `node` and no package, so they take the runner image's own
+      # rather than the pinned install the frontend jobs make.
+      - name: Run the scripts scope
+        run: ./scripts/gate/verify.sh --scripts
 
-      - name: Map changed paths to scopes
-        id: map
-        # Values reach the script through env, never by interpolating `${{ }}` into `run:`; the
-        # reason is written out in .github/workflows/pr-body.yml.
+  docs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # Full history: the documentation gate diffs the branch against the merge base for its
+          # branch-scoped checks, and the budget and line-delta steps below read the same range,
+          # none of which a shallow clone can do.
+          fetch-depth: 0
+      # The application too: this scope runs fl_backend/tests/openapi_document.py, which imports it.
+      - uses: ./.github/actions/backend-toolchain
+        with:
+          application: true
+          # The uv cache's one writer, on every event: of the jobs installing the application, this
+          # one runs furthest under its budget in `.github/gate-wall-clock.tsv`, and the save is
+          # setup-uv's post step, inside the span that budget holds.
+          save-cache: true
+      - name: Run the docs scope
+        run: ./scripts/gate/verify.sh --docs
+      - name: Hold a moved gate budget to its measurement
+        # A budget or a reference raised in .github/gate-wall-clock.tsv carries a new measurement
+        # stamp, or the pull request is refused. Here for the full history the comparison reads; a
+        # push to main has no base.
+        if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
-          EVENT: ${{ github.event_name }}
-        run: |
-          if [ "$EVENT" = "pull_request" ]; then
-            ./scripts/gate/scope_map.sh "origin/${BASE_REF}" >> "$GITHUB_OUTPUT"
-          else
-            ./scripts/gate/scope_map.sh --all >> "$GITHUB_OUTPUT"
-          fi
-
+        # The virtualenv the toolchain step made: the runner's own python is below the checkers' floor.
+        run: fl_backend/.venv/bin/python scripts/checks/check_gate_budget.py --base "origin/${BASE_REF}"
       - name: Report the branch's line delta
         # The re-bloat glance: a per-bucket line delta in the run summary, so growth is visible on
         # the pull request adding it. Advisory by construction — no threshold, no verdict, and
-        # continue-on-error keeps a failure away from this job's outputs.
+        # continue-on-error keeps a failure away from this job's conclusion.
         if: github.event_name == 'pull_request'
         continue-on-error: true
         env:
@@ -109,144 +148,9 @@ jobs:
             }
           ' >> "$GITHUB_STEP_SUMMARY"
 
-  # Commit messages are checked in a job of their own, not in the docs job and not in `changes`:
-  # they are the one thing with no path, so a frontend-only pull request would skip the docs scope
-  # and merge unchecked -- while nothing waits on this job, so its full-history checkout sits off
-  # the critical path every scope job's `needs: changes` puts a step on.
-  commits:
-    # A push to main has no branch to measure, so the whole job is skipped rather than installing a
-    # toolchain for a step that would not run.
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          # Full history: the check reads this branch's commits against the merge base.
-          fetch-depth: 0
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        # The commit check runs on the interpreter fl_backend pins, never on whichever Python the
-        # runner image happens to ship: one floor for every caller, so a check cannot pass here and
-        # fail on a development machine over a language version.
-
-        # An interpreter and no virtualenv: both checks import the standard library alone, and the
-        # toolcache holds the pin, so this is a lookup rather than the install setup-uv and a sync
-        # would be.
-        with:
-          python-version-file: fl_backend/.python-version
-      - name: Check the branch's commit messages
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: python scripts/checks/check_commits.py --base "origin/${BASE_REF}"
-      - name: Hold a moved gate budget to its measurement
-        # A budget or a reference raised in .github/gate-wall-clock.tsv carries a new measurement
-        # stamp, or the pull request is refused here. This job, because it already has the
-        # interpreter and the full history the base comparison reads.
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: python scripts/checks/check_gate_budget.py --base "origin/${BASE_REF}"
-
-  scripts:
-    needs: changes
-    if: needs.changes.outputs.scripts == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          # The sha check's test walks recent commits for one whose short form carries a digit and
-          # a letter; at depth 1 there is only the merge commit, and its form is that by chance.
-          fetch-depth: 20
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-        with:
-          enable-cache: true
-          # setup-uv reads `[tool.uv] required-version` from the repository root alone, and the pin
-          # lives in fl_backend's manifest. Without this line CI's uv is that day's latest, and
-          # every `uv sync` below refuses the moment the two differ.
-          version-file: fl_backend/pyproject.toml
-      - name: Create the backend virtualenv
-        # The scripts scope lints the python under scripts/ with the repository's own ruff, which lives
-        # in this venv. verify.sh resolves .venv/bin/python (Linux) itself.
-
-        # `--locked` at every `uv sync` in this workflow: a bare sync REWRITES uv.lock in the working
-        # tree, so a branch with a stale committed lockfile passes every later check against the
-        # rewritten file. `--locked` refuses it; `--frozen` would accept it.
-
-        # `--only-group dev` where no step imports the application: the checkers under scripts/ are
-        # standard library, and scripts/tests imports the same set, which is why
-        # scripts/pyrightconfig.json names no venv. The project and its graph stay uninstalled.
-        working-directory: fl_backend
-        run: uv sync --locked --only-group dev
-      - name: Install the shellcheck the gate pins
-        # The runner image ships its own shellcheck, and selfcheck.sh prefers a binary on PATH over
-        # the image it pins -- so without this CI lints the branch against a different rule set from
-        # a development machine, and says so only as an advisory that leaves the run green.
-        run: |
-          # Read out of selfcheck.sh rather than repeated here: a second copy is a pair nothing
-          # compares, and that file carries the note about bumping both by hand.
-          version="$(sed -n 's/^SHELLCHECK_VERSION="\([0-9.]*\)"$/\1/p' scripts/gate/selfcheck.sh)"
-          digest="$(sed -n 's/^SHELLCHECK_LINUX_X86_64_SHA256="\([0-9a-f]*\)"$/\1/p' scripts/gate/selfcheck.sh)"
-          if [ -z "$version" ] || [ -z "$digest" ]; then
-            echo "::error::no SHELLCHECK_VERSION or SHELLCHECK_LINUX_X86_64_SHA256 in scripts/gate/selfcheck.sh -- a pin moved or its spelling changed."
-            exit 1
-          fi
-          tarball="${RUNNER_TEMP}/shellcheck-v${version}.linux.x86_64.tar.xz"
-          # Fetched to a file rather than piped into tar, so a truncated stream is a digest mismatch
-          # rather than a partial write nothing hashed.
-          curl -fsSL -o "$tarball" "https://github.com/koalaman/shellcheck/releases/download/v${version}/shellcheck-v${version}.linux.x86_64.tar.xz"
-          # Checked before anything is unpacked: a release asset can be replaced without its tag
-          # moving, and this lands as root in a directory on PATH beside a checkout.
-          if ! printf '%s  %s\n' "$digest" "$tarball" | sha256sum -c -; then
-            echo "::error::the shellcheck tarball does not match the digest in scripts/gate/selfcheck.sh -- nothing was installed."
-            exit 1
-          fi
-          sudo tar -xJf "$tarball" --strip-components=1 -C /usr/local/bin "shellcheck-v${version}/shellcheck"
-          shellcheck --version
-      # Only typescript is wanted here, and a pnpm install is the only way to get it at the pinned
-      # version. Without it the comment classifier's TypeScript half — the delicate one, and why it
-      # parses rather than matching a regex — is exercised nowhere.
-      - uses: ./.github/actions/frontend-toolchain
-      - name: Run the scripts scope
-        run: ./scripts/gate/verify.sh --scripts
-
-  docs:
-    needs: changes
-    if: needs.changes.outputs.docs == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          # Full history: the documentation gate diffs the branch against the merge base for its
-          # branch-scoped checks, which a shallow clone cannot do.
-          fetch-depth: 0
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-        with:
-          enable-cache: true
-          # The pin's file, for the reason written at `scripts`.
-          version-file: fl_backend/pyproject.toml
-      - name: Create the backend virtualenv
-        # verify.sh resolves .venv/bin/python (Linux) or .venv/Scripts/python.exe (Windows) itself.
-        # `--dev`, not the dev group alone: this scope runs fl_backend/tests/openapi_document.py,
-        # which imports the application.
-        working-directory: fl_backend
-        run: uv sync --locked --dev
-      # The scope check classifies a changed .ts file through `scripts/checks/check_scope.py`, whose
-      # TypeScript half needs `scripts/checks/ts_normalize.mjs`. Without the installed tree the answer
-      # degrades to "code", and the run is asked for scopes it does not owe.
-      - uses: ./.github/actions/frontend-toolchain
-      - name: Run the docs scope
-        run: ./scripts/gate/verify.sh --docs
-
-  # Prettier in check mode over the whole repository, wherever a changed path is one it governs:
-  # with `GITHUB_ACTIONS` set, `--frontend` leaves prettier to this job (`scripts/gate/verify.sh`),
+  # Prettier in check mode over the whole repository: with `GITHUB_ACTIONS` set, `--frontend` leaves prettier to this job (`scripts/gate/verify.sh`),
   # which runs beside the frontend job rather than on its path.
   format:
-    needs: changes
-    if: needs.changes.outputs.format == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -256,28 +160,38 @@ jobs:
       # prettier and its plugins are dependencies of fl_frontend, so the check needs that install
       # even though what it reads is mostly outside it.
       - uses: ./.github/actions/frontend-toolchain
+      # Restored after the toolchain, so its install never meets the restored directory.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          # Prettier's default `--cache-location` (https://prettier.io/docs/cli), which
+          # `fl_frontend/package.json :: "format:check"` leaves in place.
+          path: fl_frontend/node_modules/.cache/prettier
+          # Prettier keys a verdict on its own version, Node's and the options, never on a plugin's
+          # code, so the lockfile is in the key and the prefix alike: no runner reads a verdict
+          # another lockfile's plugins wrote (`docs/ops/spec.md` §1.6).
+
+          # `.prettierrc.json :: "tailwindStylesheet"` is a path, keyed by its name alone, so every
+          # stylesheet under `fl_frontend/src` joins the key and the prefix: the one it names imports a
+          # season scheme, and either can move a class's sort order.
+          key: prettier-${{ runner.os }}-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ hashFiles('fl_frontend/src/**/*.css') }}-${{ github.sha }}
+          # The newest verdicts under this lockfile and these stylesheets; the commit in the key makes
+          # each new tree save its own, where a key without it would freeze the first run's.
+          restore-keys: |
+            prettier-${{ runner.os }}-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ hashFiles('fl_frontend/src/**/*.css') }}-
       - name: Run the format scope
         run: ./scripts/gate/verify.sh --format
 
   backend:
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      # The application too: pyright and the suite import `app`.
+      - uses: ./.github/actions/backend-toolchain
         with:
-          enable-cache: true
-          # The pin's file, for the reason written at `scripts`.
-          version-file: fl_backend/pyproject.toml
-      - name: Create the backend virtualenv
-        # `--dev`, not the dev group alone: pyright and the suite import `app`, so the project and
-        # its dependency graph are installed.
-        working-directory: fl_backend
-        run: uv sync --locked --dev
+          application: true
       - name: Run the backend scope
         run: ./scripts/gate/verify.sh --backend
 
@@ -287,24 +201,16 @@ jobs:
 
   # The marker belongs to the suite, not to this pipeline.
   db:
-    needs: changes
-    if: needs.changes.outputs.db == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      # The application too: the db tier's tests import `app`.
+      - uses: ./.github/actions/backend-toolchain
         with:
-          enable-cache: true
-          # The pin's file, for the reason written at `scripts`.
-          version-file: fl_backend/pyproject.toml
-      - name: Create the backend virtualenv
-        # `--dev`, not the dev group alone: the db tier's tests import `app`, so the project and its
-        # dependency graph are installed.
-        working-directory: fl_backend
-        run: uv sync --locked --dev
+          application: true
       - name: Pull the mongod image the db tier starts
         # INSTRUMENTATION, not a saving: the pull is inside the job span either way. As its own step
         # the download is attributed in the log rather than hidden in pytest's span -- a slow tier
@@ -320,12 +226,26 @@ jobs:
         # One process, no pipe: `sed | head` exits 141 under `pipefail` when the reader closes
         # first, which is a bare 141 with nothing printed, the guard below never having run.
 
-        # The conftest's one tag is every tier's: `fl_frontend/src/core/mongoImage.test.ts` holds
-        # the frontend's db-tier files to it.
+        # Every container the conftest starts takes its image from one module-level `MONGO_IMAGE`.
+        # Python's parser reads it, so no comment or string passes for the binding, and nothing
+        # prints unless exactly one binding is found.
         run: |
-          image="$(awk -F'"' '/Container\("mongo:/ { print $2; exit }' fl_backend/tests/conftest.py)"
+          image="$(python3 -c '
+          import ast, sys
+          tree = ast.parse(open(sys.argv[1], encoding="utf-8").read())
+          tags = [
+              node.value.value
+              for node in tree.body
+              if isinstance(node, ast.Assign)
+              and [getattr(target, "id", None) for target in node.targets] == ["MONGO_IMAGE"]
+              and isinstance(node.value, ast.Constant)
+              and str(node.value.value).startswith("mongo:")
+          ]
+          if len(tags) == 1:
+              print(*tags)
+          ' fl_backend/tests/conftest.py)"
           if [ -z "$image" ]; then
-            echo "::error::no mongo image tag found in fl_backend/tests/conftest.py -- the spelling this step reads has moved."
+            echo "::error::no single MONGO_IMAGE binding found in fl_backend/tests/conftest.py -- the binding this step reads has moved or split."
             exit 1
           fi
           docker pull "$image"
@@ -335,18 +255,6 @@ jobs:
       - name: Run the db scope
         run: ./scripts/gate/verify.sh --db
 
-  # Off `needs: changes`, alone among the scope jobs: the longest job is the run's binder, and
-  # waiting on a whole job for one boolean cost it that job's span plus a queue. Its first step runs
-  # scripts/gate/scope_map.sh itself and gates every later step.
-
-  # A job that maps its scope off and ends green has the semantics `skipped` already has in the
-  # aggregate below, decided by the same mapping -- which stays one copy, in one script.
-
-  # §7's "let the comment classifier shrink a CI job" does not bind this: the mapping is
-  # scope_map.sh's PATH mapping, the one `changes` already shrinks every other job by, and not
-  # scripts/checks/check_scope.py's comment classifier.
-
-  # The `changes` job still emits `frontend`, because the unit-test shard jobs below key on it.
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -363,25 +271,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # Full history: scope_map.sh diffs against the merge base with the target branch and
-          # refuses without one. The extra fetch is a real subtraction from what skipping `changes`
-          # saves -- the pack is small, not free.
-          fetch-depth: 0
-      - name: Map changed paths to scopes
-        id: map
-        # The two arms are the `changes` job's, verbatim: a pull request diffs against its base, a
-        # push to main turns every scope on. Values reach the script through env, never `${{ }}`
-        # in `run:`; the reason is written out in .github/workflows/pr-body.yml.
-        env:
-          BASE_REF: ${{ github.base_ref }}
-          EVENT: ${{ github.event_name }}
-        run: |
-          if [ "$EVENT" = "pull_request" ]; then
-            ./scripts/gate/scope_map.sh "origin/${BASE_REF}" >> "$GITHUB_OUTPUT"
-          else
-            ./scripts/gate/scope_map.sh --all >> "$GITHUB_OUTPUT"
-          fi
-      - if: steps.map.outputs.frontend == 'true'
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         # NOT unused, and this is the job where that is hardest to see: no step here runs python,
         # yet `scripts/gate/gate_pool.py` -- which starts this scope's checks together -- needs one at
         # the checkers' floor, above this image's own.
@@ -390,18 +280,21 @@ jobs:
         # probe zeroes `scripts/gate/verify.sh :: STEP_JOBS`, and the scope silently costs the sum of
         # its checks rather than the longest.
 
-        # An interpreter and no virtualenv, for the reason written at `commits`; here the lookup is
+        # An interpreter and no virtualenv, for the reason written at `verify`; here the lookup is
         # on the run's critical path.
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version-file: fl_backend/.python-version
       # The scope builds the application, so the installed tree is the job.
-      - if: steps.map.outputs.frontend == 'true'
-        uses: ./.github/actions/frontend-toolchain
+      - uses: ./.github/actions/frontend-toolchain
+        # The pnpm store's one writer, on every event, so a pull request's first run warms its later
+        # ones. That entry is scoped to its merge ref and never restored on main, whose scope the
+        # trusted-trigger advice guards
+        # (https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache).
+        with:
+          save-store: true
       # The source trees are in the key, not the lockfile alone: a key coarser than what the cache
       # depends on hits exactly every run, and actions/cache does not write on an exact hit.
-      - if: steps.map.outputs.frontend == 'true'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: fl_frontend/.next/cache
           key: nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ hashFiles('fl_frontend/src/**', 'fl_frontend/next.config.ts') }}
@@ -411,10 +304,8 @@ jobs:
           restore-keys: |
             nextjs-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-
       - name: Run the frontend scope
-        if: steps.map.outputs.frontend == 'true'
         run: ./scripts/gate/verify.sh --frontend
       - name: Fail if the frontend scope rewrote tsconfig.json
-        if: steps.map.outputs.frontend == 'true'
         # `next typegen` and `next build` both write fl_frontend/tsconfig.json for any compilerOptions
         # key that is absent -- one presence check, Next's `writeConfigurationDefaults`, documented at
         # that file's `allowJs` line -- then carry on.
@@ -437,8 +328,6 @@ jobs:
   # Four, not three: three shards finish level with the frontend job, so the run would wait on the
   # slower of two near-equal spans; four finish well before it.
   frontend-units:
-    needs: changes
-    if: needs.changes.outputs.frontend == 'true'
     # Spelled out because GitHub documents no default name for a matrix instance, and the budget
     # check finds each instance's row in .github/gate-wall-clock.tsv by exactly this name.
     name: frontend-units (${{ matrix.shard }})
@@ -466,40 +355,30 @@ jobs:
           VERIFY_TEST_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
         run: ./scripts/gate/verify.sh --frontend-units
 
-  # The compose files and nginx's prod.conf have no compiler and no test suite; this scope is the
-  # only thing standing between a typo in either and a failed deploy.
+  # The compose files and the nginx configuration have no compiler; this scope parses and serves
+  # them, and is the only thing standing between a typo in either and a failed deploy.
   ops:
-    needs: changes
-    if: needs.changes.outputs.ops == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
-        with:
-          enable-cache: true
-          # The pin's file, for the reason written at `scripts`.
-          version-file: fl_backend/pyproject.toml
-      - name: Create the backend virtualenv
-        # `any_python` falls back to the runner's python3, which is under the checkers' floor on
-        # this image, and the ops scope degrades "could not run" to a skip — so without this venv
-        # the job is green having never compared the compose files.
+      # `any_python` falls back to the runner's python3, which is under the checkers' floor on
+      # this image, and the ops scope degrades "could not run" to a skip — so without this venv
+      # the job is green having never compared the compose files.
 
-        # The dev group alone, as at `scripts`: zizmor is the only thing here past the standard
-        # library, and it is a dev dependency.
-        working-directory: fl_backend
-        run: uv sync --locked --only-group dev
+      # The dev group alone: zizmor is the only thing here past the standard library, and it is a
+      # dev dependency.
+      - uses: ./.github/actions/backend-toolchain
+        with:
+          application: false
       - name: Run the ops scope
         run: ./scripts/gate/verify.sh --ops
 
   # Both image builds plus the instrumentation.js presence check — the failures no other scope can
   # see, because the frontend scope builds on the runner and never inside the image.
-  # `scripts/gate/scope_map.sh` lists the packaging inputs that select it.
   images:
-    needs: changes
-    if: needs.changes.outputs.images == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -511,7 +390,7 @@ jobs:
         # the checkers' floor -- above this image's own. Without it the scope costs their sum rather
         # than the longer of the two, against the timeout above.
 
-        # An interpreter and no virtualenv, for the reason written at `commits`: each Dockerfile
+        # An interpreter and no virtualenv, for the reason written at `verify`: each Dockerfile
         # installs its own tree inside the build.
         with:
           python-version-file: fl_backend/.python-version
@@ -529,9 +408,10 @@ jobs:
         run: ./scripts/gate/verify.sh --images
 
   # THE REQUIRED STATUS CHECK. The ruleset on main requires a check named `verify`; this job is it.
-  # It runs on every event, so path filtering can never leave the required check hanging.
+  # `always()`: the verdict is the steps below, never GitHub's reading of a job skipped over a
+  # failed need.
   verify:
-    needs: [changes, commits, scripts, docs, format, backend, db, frontend, frontend-units, ops, images]
+    needs: [scripts, docs, format, backend, db, frontend, frontend-units, ops, images]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -542,9 +422,8 @@ jobs:
       actions: read
       contents: read
     steps:
-      # First, so it prints whether or not the verdict below refuses. A green `verify` says nothing
-      # about which scopes ran, and a mapping that turned every scope off looks identical to a
-      # change that genuinely touched nothing.
+      # First, so it prints whether or not the verdict below refuses: a red `verify` names no job,
+      # and this is where each one's result is read.
       - name: Report each scope's result
         # This job IS the required status check, so nothing diagnostic in it may decide a merge. The
         # verdict is the step below and only that step; a report that cannot format its own output
@@ -562,7 +441,7 @@ jobs:
         # saying so and stopping.
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # The token is not needed after checkout, for the reason the changes job gives above.
+          # The token is not needed after checkout, for the reason the scripts job gives above.
           persist-credentials: false
           sparse-checkout: |
             .github/gate-wall-clock.tsv
@@ -571,210 +450,70 @@ jobs:
             fl_backend/.python-version
           sparse-checkout-cone-mode: false
 
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        # The checkers' floor (`scripts/lib/_lib.sh :: PYTHON_FLOOR`) is above the runner's default
+        # python. The pin meets it: the scripts, docs, backend and db scopes refuse a pin below it.
+
+        # Not a `uv sync`: the report and the budget import the standard library alone, and an
+        # install would sit on the required check's critical path for nothing. The toolcache holds
+        # the pin, so this is a lookup.
+        with:
+          python-version-file: fl_backend/.python-version
+
       - name: Report the gate's wall clock
         # The re-bloat glance for time: per-job medians over the last window of main runs against a
         # reference table held in the tree. Advisory by construction — nothing here decides an
         # outcome, and continue-on-error keeps it away from the verdict this job is.
         continue-on-error: true
-        # Main pushes only, because they alone run every scope: a pull request's jobs are
-        # path-filtered, so no window cut from them compares like for like.
+        # Main pushes only: the window it prints is main's own runs, which says nothing a pull
+        # request changed, and each request it makes sits on the required check's path.
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           window=12
-          reference=.github/gate-wall-clock.tsv
-          state="${RUNNER_TEMP}/wall-clock-state"
-          # An annotation as well as a summary block. This step cannot fail — it sits inside the
-          # required check and decides nothing — so to anyone reading the checks list rather than
-          # the summary, a run that could compare nothing looks exactly like a clean one. That is
-          # not a rare state: a window is short until twelve main runs are on record, and runs age
-          # out of the API on their own.
-          no_comparison() {
-            echo "::warning title=Gate wall clock::${1}"
-            {
-              printf '### Gate wall clock — no comparison\n\n'
-              printf '%s\n\n' "$1"
-              printf 'Nothing in this run says whether the gate has got slower.\n'
-            } >> "$GITHUB_STEP_SUMMARY"
-          }
-          if [ ! -s "$reference" ]; then
-            no_comparison "The reference table $reference was not read, so there is nothing to compare against."
-            exit 0
-          fi
+          fetched="${RUNNER_TEMP}/wall-clock"
+          mkdir -p "$fetched"
           # `completed`, not `success`: a run that failed still carries jobs that succeeded, and
           # discarding the whole run throws their timings away. It excludes the run doing the
           # reporting, which is still in flight.
-          if ! runs="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/verify.yml/runs?branch=main&event=push&status=completed&per_page=${window}" --jq '.workflow_runs[].id')"; then
-            no_comparison "The list of completed main runs could not be read, so no window was assembled and no floor was tested."
-            exit 0
-          fi
-          count="$(printf '%s\n' "$runs" | awk 'NF' | wc -l)"
-          if [ "$count" -lt "$window" ]; then
-            no_comparison "$count completed main runs are on record and $window are needed for a window, so no median was computed and no floor was tested."
-            exit 0
-          fi
-          # Every request is made even after one fails, so the warning names each run whose jobs
-          # could not be read; any such run ends the report before awk, as medians over the rest
-          # would print as a whole window's.
-          jobs="${RUNNER_TEMP}/wall-clock-jobs.tsv"
-          : > "$jobs"
-          failed=""
-          for id in $runs; do
-            # First step's start to last step's end, rather than the job's own timestamps, which
-            # carry the wait for a runner — pool queueing is noise about GitHub, not about the gate.
-            # `verify` is this report and `changes` is a checkout plus a path mapping: neither is
-            # the gate's work, and one rule has to cover both.
-            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs?per_page=100" --jq '
-              .jobs[]
-              | select(.name != "verify" and .name != "changes")
-              | if .conclusion == "skipped"
-                then ["skipped", .name, 0]
-                elif .conclusion == "success"
-                   and ([.steps[]? | select(.started_at != null)] | length) > 0
-                   and ([.steps[]? | select(.completed_at != null)] | length) > 0
-                then ["ok", .name,
-                      (([.steps[] | select(.completed_at != null) | .completed_at | fromdateiso8601] | max)
-                       - ([.steps[] | select(.started_at != null) | .started_at | fromdateiso8601] | min))]
-                else ["dropped", .name, 0]
-                end
-              | @tsv' >> "$jobs" || failed="${failed:+$failed, }$id"
+          listing="repos/${GITHUB_REPOSITORY}/actions/workflows/verify.yml/runs?branch=main&event=push&status=completed&per_page=${window}"
+
+          # Every request is made and none ends the step: a payload gh could not fetch is left
+          # absent, and the checker names each one rather than reporting a window short of it.
+          gh api "$listing" > "${fetched}/runs.json" || rm -f "${fetched}/runs.json"
+          for id in $(jq -r '.workflow_runs[]?.id' "${fetched}/runs.json" 2>/dev/null || true); do
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${id}/jobs?per_page=100" > "${fetched}/jobs-${id}.json" || rm -f "${fetched}/jobs-${id}.json"
           done
-          if [ -n "$failed" ]; then
-            no_comparison "The jobs of main run(s) $failed could not be read, so no window was assembled and no floor was tested."
-            exit 0
-          fi
-          awk -F'\t' -v w="$window" -v ref="$reference" -v state="$state" '
-            BEGIN { whole = 1 }
-            # The reference table first, one row per job: name, seconds, floor percent.
-            FNR == NR {
-              if ($0 ~ /^#/ || NF < 3) next
-              # A `-` in the seconds column is a job budgeted with no reference cut from main runs,
-              # the table saying why for each such job -- not a reference of zero.
-              if ($2 !~ /^[0-9]+$/) next
-              base[$1] = $2 + 0
-              limit[$1] = $3 + 0
-              if ($1 != "total") names[++nn] = $1
-              next
-            }
-            # A job whose scope the mapping turned off, which never started and so failed at
-            # nothing: counted apart, or a job skipped on every main push reads as a run that broke.
-            $1 == "skipped" { skipped++; next }
-            $1 == "dropped" { dropped++; next }
-            $1 == "ok" {
-              k = $2
-              # Reported rather than measured: a job added to the gate with no row here would
-              # otherwise be counted into nothing and vanish from the report silently.
-              if (!(k in base)) {
-                if (!(k in extra)) { extra[k] = 1; unref = unref (unref == "" ? "" : ", ") k }
-                next
-              }
-              c = ++n[k]
-              # Insertion into the group in order, so the median needs no external sort at all.
-              while (c > 1 && v[k, c - 1] > $3) { v[k, c] = v[k, c - 1]; c-- }
-              v[k, c] = $3
-            }
-            # Median, not mean: the images job swings more than tenfold between a warm layer cache
-            # and a cold one, and one cold run would carry a mean nobody could read past.
-            function med(k,   c) {
-              c = n[k]
-              if (c == 0) return -1
-              if (c % 2) return int(v[k, (c + 1) / 2] + 0.5)
-              return int((v[k, c / 2] + v[k, c / 2 + 1]) / 2 + 0.5)
-            }
-            END {
-              for (i = 1; i <= nn; i++) {
-                j = names[i]
-                m = med(j)
-                if (m < 0) { gone = gone (gone == "" ? "" : ", ") j; whole = 0; continue }
-                total += m
-                # A reference of zero has no percentage to give, and dividing by it would take the
-                # whole redirect group down under set -e, leaving a header and no rows. Named in
-                # the trailer rather than dropped, a zero here being a hand edit somebody left half
-                # done.
-                if (base[j] <= 0) {
-                  unref = unref (unref == "" ? "" : ", ") j
-                  continue
-                }
-                d = (m - base[j]) * 100 / base[j]
-                a = (d < 0) ? -d : d
-                # The quiet state: under its own floor a job says nothing at all, so a row in this
-                # table is always a figure somebody has to account for.
-                if (a <= limit[j]) continue
-                line = sprintf("| `%s` | %ds | %ds | %+ds (%+.1f%%) | %d%% |", j, m, base[j], m - base[j], d, limit[j])
-                k = ++loud
-                while (k > 1 && rank[k - 1] < m) { rank[k] = rank[k - 1]; row[k] = row[k - 1]; k-- }
-                rank[k] = m
-                row[k] = line
-              }
-              # Only where every referenced job was observed: a window missing one leaves a sum
-              # that is short rather than one that is faster.
-              if (whole && ("total" in base) && base["total"] > 0) {
-                d = (total - base["total"]) * 100 / base["total"]
-                a = (d < 0) ? -d : d
-                if (a > limit["total"]) {
-                  loud++
-                  row[loud] = sprintf("| **the whole gate** | **%ds** | **%ds** | **%+ds (%+.1f%%)** | **%d%%** |", total, base["total"], total - base["total"], d, limit["total"])
-                }
-              }
-              if (loud == 0 && whole) {
-                printf "**Gate wall clock:** every job median over the last %d main runs sits inside its own floor.\n", w
-              } else if (loud == 0) {
-                # Not the clean sentence: a job with no run in this window was compared against
-                # nothing, and "every job median sits inside its own floor" would cover it over.
-                printf "**Gate wall clock:** nothing that could be measured has moved past its own floor, and a job named below was not measured at all, so this is not a clean comparison.\n"
-              } else {
-                print "### Gate wall clock"
-                print ""
-                printf "Medians over the last %d main runs that have moved past their own floor:\n", w
-                print ""
-                print "| Job | median | reference | delta | floor |"
-                print "| --- | ---: | ---: | ---: | ---: |"
-                for (i = 1; i <= loud; i++) print row[i]
-              }
-              printf "\nThe reference is `%s`, a fixed table updated by hand and never recomputed from the recent past, which is what would let a slowdown become the new normal one window at a time. Each floor is the p95 movement of that median when a %d-run window is resampled from the reference population, so a delta under it is a reshuffle and not a change. A figure spans a job from its first step to its last, leaving the wait for a runner out.\n", ref, w
-              printf "\n%d job run(s) in this window did not succeed and are outside the sample, so a scope slow enough to fail or to reach its timeout is invisible here.\n", dropped
-              if (skipped) printf "\n%d job run(s) never started, their scope turned off by the path mapping rather than by anything they did.\n", skipped
-              if (gone != "") printf "\nNo successful run in this window: %s.\n", gone
-              if (unref != "") printf "\nMeasured with no reference to compare against: %s.\n", unref
-              # Which of the three states this report reached, for the annotation below: the
-              # summary is where they are told apart in full, and a file is how that verdict
-              # leaves an awk whose stdout is the summary itself.
-              verdict = loud ? "regressed" : (whole ? "clean" : "partial")
-              print verdict > state
-            }
-          ' "$reference" - < "$jobs" >> "$GITHUB_STEP_SUMMARY"
-          # Outside the summary for `no_comparison`'s reason, and with its polarity: a clean report
-          # is the only one of the three that annotates nothing, so silence on the checks list
-          # means the comparison ran and found nothing rather than that it never ran.
-          case "$(cat "$state" 2>/dev/null || true)" in
-            regressed) echo "::warning title=Gate wall clock::A job median has moved past its own floor. The run summary holds the table." ;;
-            partial)   echo "::warning title=Gate wall clock::A job in the reference has no successful run in this window, so this is not a clean comparison. The run summary names it." ;;
-          esac
+          python scripts/checks/check_gate_budget.py --window "$fetched" --runs "$window" --summary "$GITHUB_STEP_SUMMARY"
 
       - name: Fail if any scope job failed or was cancelled
-        # A skipped job is a pass here: path filtering skipped it on purpose. Pure expressions, no
-        # shell parsing of the needs context.
+        # A skip is the next step's to judge. Pure expressions, no shell parsing of the needs context.
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: |
           echo "::error::A scope job failed -- its own log has the findings."
           exit 1
 
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        # The checkers' floor (`scripts/lib/_lib.sh :: PYTHON_FLOOR`) is above the runner's default
-        # python. The pin meets it: the scripts, docs, backend and db scopes refuse a pin below it.
+      # Every event runs every scope (`.claude/CLAUDE.md` §7, **ci**), so a skip is a condition
+      # someone added, which the step above passes. Every job this one needs is named.
+      - name: Fail if a scope job was skipped
+        if: >-
+          needs.scripts.result == 'skipped' || needs.docs.result == 'skipped' || needs.format.result == 'skipped'
+          || needs.backend.result == 'skipped' || needs.db.result == 'skipped' || needs.frontend.result == 'skipped'
+          || needs.frontend-units.result == 'skipped' || needs.ops.result == 'skipped'
+          || needs.images.result == 'skipped'
+        run: |
+          echo "::error::A scope job was skipped, and every event runs them all -- the scope results above name it."
+          exit 1
 
-        # Not a `uv sync`: the check imports the standard library alone, and an install would sit on
-        # the required check's critical path for nothing. The toolcache holds the pin, so this is a
-        # lookup.
-        with:
-          python-version-file: fl_backend/.python-version
+      # `scripts/checks/check_publish_verdict.py :: BUDGET_STEP` finds this step by its exact name and
+      # publishes over a run it alone failed; its tests hold the two names, and this `if:`, together.
       - name: Hold every job to its wall-clock budget
         # THE BUDGET. Not advisory: a job over its row in .github/gate-wall-clock.tsv fails the
         # required check, naming the job and both figures, and so does a job that ran with no row
-        # (`docs/ops/spec.md :: I17`). After the scope verdict and under its `success()`, so a
-        # failed gate is reported as the failure it is and a job's length is judged only where the
-        # job passed.
+        # (`docs/ops/spec.md :: I17`). Run whatever the scope jobs concluded, so an overrun never
+        # hides behind a failed scope; a failed job's length is not judged.
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

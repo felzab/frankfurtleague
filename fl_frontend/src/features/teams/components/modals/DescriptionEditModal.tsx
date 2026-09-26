@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { Button, TextArea, TextField } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { TextArea } from "@heroui/react/textarea";
 
 import { DESCRIPTION_MAX_LENGTH } from "@/features/teams/constants";
-import { formButton, MODAL_FOOTER_ROW } from "@/shared/components/ui/formButtons";
-import { FIELD_TEXTAREA } from "@/shared/components/ui/formFieldStyles";
+import { formButton, MODAL_FOOTER_ROW_CLASSES } from "@/shared/components/ui/formButtons";
+import { FIELD_TEXTAREA_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { FormModal } from "@/shared/components/ui/FormModal";
+import { TextField } from "@/shared/components/ui/TextField";
 
 /**
  * Edits a LOCAL copy and hands it back on Übernehmen — it writes nothing, so the page's save bar
@@ -62,13 +64,13 @@ export function DescriptionEditModal({
               ref={textAreaRef}
               fullWidth
               placeholder="z.B. Schulteam aus dem Nordend, seit 2019 in der Liga"
-              className={`${FIELD_TEXTAREA} min-h-40 resize-none overflow-hidden`}
+              className={`${FIELD_TEXTAREA_CLASSES} min-h-40 resize-none overflow-hidden`}
             />
           </TextField>
           <div className="flex w-full flex-row items-baseline justify-between gap-x-3">
-            <p className="fluid-xxs text-foreground-muted font-medium">Erscheint auf der öffentlichen Teamseite.</p>
+            <p className="fluid-xxs font-medium text-foreground-muted">Erscheint auf der öffentlichen Teamseite.</p>
             <p
-              className={`fluid-xxs shrink-0 font-bold ${draft.length >= DESCRIPTION_MAX_LENGTH ? "text-danger-strong" : "text-foreground-muted"}`}>
+              className={`shrink-0 fluid-xxs font-bold ${draft.length >= DESCRIPTION_MAX_LENGTH ? "text-danger-strong" : "text-foreground-muted"}`}>
               {draft.length} / {DESCRIPTION_MAX_LENGTH}
             </p>
           </div>
@@ -77,7 +79,7 @@ export function DescriptionEditModal({
         {/* `EntityForm`'s footer band, from the same constant, so every modal draws one boundary
             between what you fill in and what you press — and the action first, as in every dialog
             footer (`docs/frontend/spec.md` §1.19). */}
-        <div className={MODAL_FOOTER_ROW}>
+        <div className={MODAL_FOOTER_ROW_CLASSES}>
           <Button
             type="button"
             variant="primary"

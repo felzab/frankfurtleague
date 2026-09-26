@@ -1,16 +1,24 @@
 "use client";
 
-import { FieldError, ListBox, NumberField, Select } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { ListBox } from "@heroui/react/list-box";
 
 import { TIEBREAK_LADDER_TAIL, TIEBREAK_ORDER_OPTIONS, tiebreakLabel, tiebreakLadder } from "@/features/saisons/constants";
-import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP, FIELD_MARKER, FIELD_TRIGGER } from "@/shared/components/ui/formFieldStyles";
-import { overlayPanel, SELECT_POPOVER } from "@/shared/components/ui/overlayPanel";
+import {
+  FIELD_COUNT_INPUT_CLASSES,
+  FIELD_ERROR_CLASSES,
+  FIELD_GROUP_CLASSES,
+  FIELD_MARKER_CLASSES,
+  FIELD_TRIGGER_CLASSES,
+} from "@/shared/components/ui/formFieldStyles";
+import { NumberField } from "@/shared/components/ui/NumberField";
+import { overlayPanel, SELECT_POPOVER_CLASSES } from "@/shared/components/ui/overlayPanel";
 import { listboxRow, pickIfOffered } from "@/shared/components/ui/refusableOption";
-import { enteredNumber } from "@/shared/utils/numberField";
+import { Select } from "@/shared/components/ui/Select";
 
 import type { FLSaisonTiebreakOrder } from "@/features/saisons/schemas";
 import type { RefusableOption } from "@/shared/components/ui/refusableOption";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { ReactNode } from "react";
 
 /**
@@ -44,23 +52,22 @@ export function SaisonRuleNumberField({
 }) {
   return (
     <NumberField
-      isRequired
       name={name}
       minValue={minValue}
       maxValue={maxValue}
-      value={value ?? Number.NaN}
+      value={value}
       // Its dimming is `globals.css`'s, keyed on `[data-readonly="true"]`, so every frozen number
       // field in the product dims by the same amount — an `opacity-*` added here would double it.
       isReadOnly={isReadOnly}
-      onChange={(next) => onChange(enteredNumber(next))}
+      onChange={(next) => onChange(next)}
       onBlur={onBlur}>
       {label}
-      <NumberField.Group className={FIELD_GROUP}>
+      <NumberField.Group className={FIELD_GROUP_CLASSES}>
         <NumberField.DecrementButton />
-        <NumberField.Input className={FIELD_COUNT_INPUT} />
+        <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
         <NumberField.IncrementButton />
       </NumberField.Group>
-      <FieldError className={FIELD_ERROR} />
+      <FieldError className={FIELD_ERROR_CLASSES} />
     </NumberField>
   );
 }
@@ -99,7 +106,6 @@ export function SaisonCountSelect({
 
   return (
     <Select
-      isRequired
       name={name}
       isDisabled={isDisabled}
       value={String(value)}
@@ -111,16 +117,16 @@ export function SaisonCountSelect({
       }}
       className="w-full">
       {label}
-      <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+      <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
         {/* From the prop, not `Select.Value` — the collection can lag a render behind and would then
             show HeroUI's English placeholder. Same reasoning as `SaisonTiebreakSelect`'s trigger. */}
         <span>{String(value)}</span>
-        <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+        <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
       </Select.Trigger>
       {/* Not `RefusableSelect`, which carries neither a `name` nor this: a shape refusal names a
           payload path, and the box holding it is where the message has to land. */}
-      <FieldError className={FIELD_ERROR} />
-      {/* `RefusableSelect`'s popover rather than `SELECT_POPOVER`, which pins the list to the trigger:
+      <FieldError className={FIELD_ERROR_CLASSES} />
+      {/* `RefusableSelect`'s popover rather than `SELECT_POPOVER_CLASSES`, which pins the list to the trigger:
           in a third-width cell a note beside a one-character number would have nowhere to stand. */}
       <Select.Popover className={`${overlayPanel()} mt-2 max-h-72 overflow-y-auto p-1.5`}>
         <ListBox aria-label={ariaLabel}>
@@ -170,7 +176,6 @@ export function SaisonTiebreakSelect({
 
   return (
     <Select
-      isRequired
       name={name}
       isDisabled={isDisabled}
       value={value}
@@ -180,13 +185,13 @@ export function SaisonTiebreakSelect({
       }}
       className="w-full">
       {label}
-      <Select.Trigger className={`${FIELD_TRIGGER} w-full justify-between`}>
+      <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
         {/* From the prop, not `Select.Value` — the collection can lag a render behind and would then
             show HeroUI's English placeholder. Same reasoning as `ClosedSetSelect`'s trigger. */}
         <span>{tiebreakLabel(value)}</span>
-        <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+        <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
       </Select.Trigger>
-      <FieldError className={FIELD_ERROR} />
+      <FieldError className={FIELD_ERROR_CLASSES} />
       {/* Standing under the closed picker rather than in a hint: which figure leads is the whole of
           what this field decides, and the trigger shows only the criterion's name. */}
       <ol className="flex w-full flex-col gap-y-1">
@@ -197,17 +202,17 @@ export function SaisonTiebreakSelect({
           <li
             key={rung.label}
             className="flex w-full flex-row items-start gap-x-2">
-            <span className={`${FIELD_MARKER} bg-muted text-foreground-muted fluid-xxs font-extrabold`}>{index + 1}</span>
+            <span className={`${FIELD_MARKER_CLASSES} bg-muted fluid-xxs font-extrabold text-foreground-muted`}>{index + 1}</span>
             <span className="flex flex-col gap-y-0.5 pt-0.5">
-              <span className="fluid-xxs text-foreground font-bold">{rung.label}</span>
-              {rung.caveat !== null && <span className="fluid-xxs text-foreground-muted font-medium">{rung.caveat}</span>}
+              <span className="fluid-xxs font-bold text-foreground">{rung.label}</span>
+              {rung.caveat !== null && <span className="fluid-xxs font-medium text-foreground-muted">{rung.caveat}</span>}
             </span>
           </li>
         ))}
       </ol>
       {/* Outside the list: the chain ENDS, and a fourth numbered rung would read as a fourth criterion. */}
-      <p className="fluid-xxs text-foreground-muted font-medium">{TIEBREAK_LADDER_TAIL}</p>
-      <Select.Popover className={SELECT_POPOVER}>
+      <p className="fluid-xxs font-medium text-foreground-muted">{TIEBREAK_LADDER_TAIL}</p>
+      <Select.Popover className={SELECT_POPOVER_CLASSES}>
         <ListBox aria-label="Tiebreak auswählen">
           {TIEBREAK_ORDER_OPTIONS.map((option) => (
             // No description beside the label: the two names say exactly what differs between them,

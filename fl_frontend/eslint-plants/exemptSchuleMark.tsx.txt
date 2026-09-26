@@ -1,0 +1,5 @@
+// Linted as src/features/bewerbungen/components/forms/BewerbungForm/FormSchuleSection.tsx.
+// The school picker's mark owed by the pair rule, and every other ban still reaches it.
+declare const Autocomplete: (props: object) => null;
+
+export const SCHULE_MARK = <Autocomplete isRequired name="team_id" className="flex gap-5" />; // expect: gap

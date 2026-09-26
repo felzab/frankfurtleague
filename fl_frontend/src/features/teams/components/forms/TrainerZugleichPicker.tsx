@@ -1,13 +1,18 @@
 "use client";
 
-import { FieldError, Input, Label, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { Label } from "@heroui/react/label";
+import { ToggleButton } from "@heroui/react/toggle-button";
+import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { TRAINER_ZUGLEICH_FRAGE, TRAINER_ZUGLEICH_OPTIONS } from "@/features/teams/constants";
-import { FIELD_ERROR, FIELD_LABEL, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
-import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
+import { FIELD_ERROR_CLASSES, FIELD_LABEL_CLASSES, TOGGLE_GROUP_ALIGN_CLASSES } from "@/shared/components/ui/formFieldStyles";
+import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import type { FLTrainerZugleich } from "@/features/teams/schemas";
-import type { Key } from "@heroui/react";
+import type { Key } from "@heroui/react/rac";
 import type { ReactNode } from "react";
 
 /**
@@ -35,7 +40,7 @@ export function TrainerZugleichPicker({
       className="flex w-full flex-col gap-y-1">
       {/* A `Label` and not a plain span: it names the enclosing `TextField`, which carries no
           `aria-label`, so `useLabel` would warn without it. */}
-      {labelSlot ?? <Label className={FIELD_LABEL}>{TRAINER_ZUGLEICH_FRAGE}</Label>}
+      {labelSlot ?? <Label className={FIELD_LABEL_CLASSES}>{TRAINER_ZUGLEICH_FRAGE}</Label>}
       <ToggleButtonGroup
         // The question itself and never the label's id: the admin's `labelSlot` carries a
         // changed-field marker beside the text, which is no part of what this group is called.
@@ -52,19 +57,19 @@ export function TrainerZugleichPicker({
           const option = TRAINER_ZUGLEICH_OPTIONS.find((candidate) => candidate.key === picked);
           if (option !== undefined) onPick(option.value);
         }}
-        className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
+        className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
         {TRAINER_ZUGLEICH_OPTIONS.map((option) => (
           <ToggleButton
             key={option.key}
             id={option.key}
-            className={OPTION_CHIP}>
+            className={OPTION_CHIP_CLASSES}>
             {option.label}
           </ToggleButton>
         ))}
       </ToggleButtonGroup>
 
       <Input className="hidden" />
-      <FieldError className={FIELD_ERROR} />
+      <FieldError className={FIELD_ERROR_CLASSES} />
     </TextField>
   );
 }

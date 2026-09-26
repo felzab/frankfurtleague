@@ -17,20 +17,13 @@ from app.api.bewerbungen.services import dubletten_schluessel_of
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.documents import ADDRESS
 from tests.worker import worker_database
 
 SAISON_ID = "2026"
 
 # 20 fixed characters and a four-digit tail, so every id below is a well-formed ObjectId.
 BEWERBUNG_ID = "6890a1b2c3d4e5f60793{:04d}"
-
-ADDRESS = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
 
 KONTAKTPERSON = {
     "vorname": "Anke",

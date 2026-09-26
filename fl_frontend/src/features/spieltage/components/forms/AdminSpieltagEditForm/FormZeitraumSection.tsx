@@ -4,12 +4,13 @@ import { parseDate } from "@internationalized/date";
 
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 
+import type { SpieltagFieldPath } from "@/features/spieltage/spieltagDraftStatus";
 import type { SpieltagBanner } from "./banners";
 
 /**
@@ -75,39 +76,36 @@ export function FormZeitraumSection({
           spot="zeitraum"
         />
 
-        <div className={FIELD_PAIR}>
+        <div className={FIELD_PAIR_CLASSES}>
           {isSingleDay ? (
             // The Datum label sits on the `beginn` path because `REQ-DATE-002` is the only refusal
             // this save can put on a field, and one picker leaves one place for it to land.
             <AppDatePicker
-              isRequired
               name="beginn"
               minValue={spanStart}
               maxValue={spanEnd}
               calendarLabel="Datum auswählen"
-              label={<FieldLabel path="beginn">Datum</FieldLabel>}
+              label={<FieldLabel<SpieltagFieldPath> path="beginn">Datum</FieldLabel>}
               value={asCalendarDate(beginn)}
               onChange={(next) => onBeginnChange(next?.toString() ?? "")}
             />
           ) : (
             <>
               <AppDatePicker
-                isRequired
                 name="beginn"
                 minValue={spanStart}
                 maxValue={spanEnd}
                 calendarLabel="Beginn auswählen"
-                label={<FieldLabel path="beginn">Beginn</FieldLabel>}
+                label={<FieldLabel<SpieltagFieldPath> path="beginn">Beginn</FieldLabel>}
                 value={asCalendarDate(beginn)}
                 onChange={(next) => onBeginnChange(next?.toString() ?? "")}
               />
               <AppDatePicker
-                isRequired
                 name="ende"
                 minValue={spanStart}
                 maxValue={spanEnd}
                 calendarLabel="Ende auswählen"
-                label={<FieldLabel path="ende">Ende</FieldLabel>}
+                label={<FieldLabel<SpieltagFieldPath> path="ende">Ende</FieldLabel>}
                 value={asCalendarDate(ende)}
                 onChange={(next) => onEndeChange(next?.toString() ?? "")}
               />

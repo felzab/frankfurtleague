@@ -2,24 +2,27 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { Button, ListBox, Popover, SearchField } from "@heroui/react";
+import { Button } from "@heroui/react/button";
+import { ListBox } from "@heroui/react/list-box";
+import { Popover } from "@heroui/react/popover";
+import { SearchField } from "@heroui/react/search-field";
 
 import { dismissControl } from "@/core/dismissControl";
 import { countFacetOptions, isFacetOptionReachable, offeredOptions } from "@/shared/utils/facets";
 
 import { countBadge } from "./badges";
 import { overlayPanel } from "./overlayPanel";
-import { PICKED_OPTION } from "./pickedOption";
+import { PICKED_OPTION_CLASSES } from "./pickedOption";
 
 import type { Facet, FacetCounts, FacetOption, FacetSelection } from "@/shared/utils/facets";
-import type { Selection } from "@heroui/react";
+import type { Selection } from "@heroui/react/rac";
 import type { CSSProperties, RefObject } from "react";
 
-/** The type-to-filter threshold and the row count `CELL_CAP` is derived from: a field appears exactly where the list stops fitting. */
+/** The type-to-filter threshold and the row count `CELL_CAP_CLASSES` is derived from: a field appears exactly where the list stops fitting. */
 const VISIBLE_OPTIONS = 5;
 
 /** `40k + 46` for `k` = `VISIBLE_OPTIONS`: rows of 36px on 4px gaps, plus header, gap and padding. The `rem` form scales with the type. */
-const CELL_CAP = "max-h-[15.375rem]";
+const CELL_CAP_CLASSES = "max-h-[15.375rem]";
 
 /**
  * The trigger row's width; put the ref on the control's outermost row. Measured rather than expressed in CSS: the
@@ -83,34 +86,34 @@ function FacetCell<TItem>({
 
   return (
     <div
-      className={`border-border/70 ${CELL_CAP} flex w-max max-w-[min(100%,max(26rem,calc((100%_-_0.75rem)/2)))] min-w-44 grow flex-col gap-y-1 rounded-xl border p-1.5`}>
+      className={`border-border/70 ${CELL_CAP_CLASSES} flex w-max max-w-[min(100%,max(26rem,calc((100%_-_0.75rem)/2)))] min-w-44 grow flex-col gap-y-1 rounded-xl border p-1.5`}>
       {/* Fixed height and `shrink-0`: the reset appears only once something is picked and is taller than the label,
           so an intrinsic header grew on the first selection and the popover jumped while in use. */}
       <div className="flex h-6 shrink-0 flex-row items-center justify-between gap-x-2 px-1.5">
-        <span className="fluid-xxs text-foreground-muted font-bold tracking-widest uppercase">{facet.label}</span>
+        <span className="fluid-xxs font-bold tracking-widest text-foreground-muted uppercase">{facet.label}</span>
         {picked.length > 0 && (
           <Button
             variant="ghost"
             aria-label={`${facet.label} zurücksetzen`}
             onPress={onClear}
-            className="fluid-xxs text-foreground-muted data-hovered:text-foreground h-full shrink-0 cursor-pointer leading-none font-bold transition-colors duration-(--motion-fast)">
+            className="h-full shrink-0 cursor-pointer fluid-xxs leading-none font-bold text-foreground-muted transition-colors duration-(--motion-fast) data-hovered:text-foreground">
             Zurücksetzen
           </Button>
         )}
       </div>
 
       {isWide && (
-        // `h-8` rather than `FIELD_HEIGHT`: chrome in a capped cell, where a 40px input spends an eighth of the budget on itself.
+        // `h-8` rather than `FIELD_HEIGHT_CLASSES`: chrome in a capped cell, where a 40px input spends an eighth of the budget on itself.
         <SearchField
           aria-label={`${facet.label} durchsuchen`}
           value={query}
           onChange={setQuery}
           className="shrink-0 px-1.5">
-          <SearchField.Group className="bg-surface border-control flex h-8 w-full items-center gap-2 rounded-lg border px-2 transition-colors duration-(--motion-fast)">
-            <SearchField.SearchIcon className="text-foreground-muted size-3.5 shrink-0" />
+          <SearchField.Group className="flex h-8 w-full items-center gap-2 rounded-lg border border-control bg-surface px-2 transition-colors duration-(--motion-fast)">
+            <SearchField.SearchIcon className="size-3.5 shrink-0 text-foreground-muted" />
             <SearchField.Input
               placeholder={firstOption === undefined ? "" : `z.B. ${firstOption.label}`}
-              className="fluid-xs w-full min-w-0 bg-transparent outline-none"
+              className="w-full min-w-0 bg-transparent fluid-xs outline-none"
             />
             {/* Named for the facet: every cell is open at once, so a bare label would repeat across each wide one. */}
             <SearchField.ClearButton {...dismissControl({ label: `${facet.label}-Suche zurücksetzen` })} />
@@ -121,11 +124,11 @@ function FacetCell<TItem>({
       <ListBox
         aria-label={facet.label}
         selectionMode="multiple"
-        // `min-h-0` lets the list absorb `CELL_CAP`: a flex item's automatic minimum is its content, so
+        // `min-h-0` lets the list absorb `CELL_CAP_CLASSES`: a flex item's automatic minimum is its content, so
         // without it the list refuses to shrink and the cell overflows.
         className="scrollbar-line min-h-0 overflow-x-hidden overflow-y-auto"
         selectedKeys={picked}
-        renderEmptyState={() => <p className="fluid-xs text-foreground-muted px-3 py-2 font-bold italic">Keine Optionen</p>}
+        renderEmptyState={() => <p className="px-3 py-2 fluid-xs font-bold text-foreground-muted italic">Keine Optionen</p>}
         // `"all"` is only reachable by passing `selectedKeys="all"`, which this never does — hence a map, not a cast.
         onSelectionChange={(keys: Selection) => {
           onSelect(keys === "all" ? [] : [...keys].map(String));
@@ -145,7 +148,7 @@ function FacetCell<TItem>({
               // `bg-hover` is the token `globals.css`'s keyboard indicator paints, and the two must stay one
               // colour. A selected row overrides the hover ink below at two variants, because brand ink on
               // that fill measures 3.31:1.
-              className={`${PICKED_OPTION} fluid-sm data-hovered:bg-hover data-hovered:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg py-1.5 ps-3 pe-8 font-bold transition-colors duration-(--motion-fast) ${
+              className={`${PICKED_OPTION_CLASSES} flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg py-1.5 ps-3 pe-8 fluid-sm font-bold transition-colors duration-(--motion-fast) data-hovered:bg-hover data-hovered:text-brand ${
                 count === 0 ? "text-foreground-muted" : "text-foreground"
               }`}>
               <span className="min-w-0 truncate">{option.label}</span>

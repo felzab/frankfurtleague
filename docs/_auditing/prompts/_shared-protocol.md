@@ -1,20 +1,6 @@
 # Shared audit-pass protocol
 
-How to run **one pass session**. Every pass prompt binds this file and supplies only the lens.
-[`../programme.md`](../programme.md) covers everything above a single session.
-
-| Section                                                   | Answers                                                  |
-| --------------------------------------------------------- | -------------------------------------------------------- |
-| [Start sequence](#start-sequence)                         | What to read and write before check 1                    |
-| [Ground rules](#ground-rules)                             | What a pass may and may not do, and where it writes      |
-| [Report structure](#report-structure-in-this-order)       | The report's required shape, and the severity rubric     |
-| [Required tables](#required-tables)                       | The shapes a prompt can ask for by name                  |
-| [Method](#method)                                         | Traversal, evidence, blast radius, deliberate decisions  |
-| [Ask, don't guess](#ask-dont-guess)                       | What goes to a human rather than into an assumption      |
-| [The verdict](#the-verdict-is-the-ledgers-input-contract) | The labelled lists the ledger is built from              |
-| [Budget honesty](#budget-honesty-and-incremental-writing) | Writing the report as it is produced, and declaring cuts |
-| [Resume protocol](#resume-protocol)                       | Continuing a pass whose session died                     |
-| [Handoff](#handoff)                                       | What is printed at the end, and the lessons harvest      |
+How to run **one pass session**.
 
 ## Start sequence
 
@@ -41,9 +27,9 @@ Run these before check 1, in order.
 ## Ground rules
 
 - **Report only.** Zero fixes, zero source files changed.
-- **Write the report to the path the pass prompt names**, under `docs/audit/programme/`, overwriting
-  any existing file unless resuming. **Never commit or stage anything under that tree** — it is
-  gitignored so that unfixed findings never publish.
+- **Write the report to the path the pass prompt names**, under `docs/audit/programme/`. **Never
+  commit or stage anything under that tree** — it is gitignored so that unfixed findings never
+  publish.
 - **Derive every count you state** by counting at run time; never copy one from this file, a prompt,
   an earlier report, or memory. Where a claim covers N instances, enumerate the population.
 - **Build it and measure.** A claim about a regex, an exit code, a guard's verdict or a library's
@@ -176,8 +162,7 @@ own labelled list, pointing at the numbered sections rather than restating them:
 
 Complete checks at full depth in the priority order the pass prompt gives. Where you cannot finish
 all of them, state plainly in the header which you cut and why. **Never silently thin coverage across
-all checks to make them fit** — six checks done properly with four declared incomplete beats ten done
-shallowly.
+all checks to make them fit.**
 
 **Write incrementally.** Append each check's section as that check completes and update its
 coverage-ledger row at the same moment; before any long or risky operation, the file on disk should

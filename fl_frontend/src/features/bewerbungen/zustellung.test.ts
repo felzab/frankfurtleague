@@ -48,8 +48,6 @@ const TRACE_DOUBLE = `export const runWithIncomingTrace = async (fn) => fn();`;
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    // Node resolves the package's subpath only with its extension; Next's own bundler needs none.
-    if (specifier === "next/server") return nextResolve("next/server.js", context);
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
@@ -83,10 +81,9 @@ const {
   ZUSTELLUNG_CHIP,
   ZUSTELLUNG_QUEUE_LABEL,
   ZUSTELLUNG_QUEUE_TINT,
-  zustellungIdempotenzSchluessel,
   zustellungTags,
 } = await import("./zustellung.ts");
-const { APIBadStatusError, APINetworkError } = await import("@/core/errors.ts");
+const { APIBadStatusError, APINetworkError, ApiUnsentError } = await import("@/core/errors.ts");
 const { POST } = await import("@/app/api/mail/zustellung/route.ts");
 const { NextRequest } = await import("next/server");
 const { Webhook } = await import("svix");
@@ -349,16 +346,6 @@ describe("the tags one message rides out with", () => {
   it("routes an event back by application and seat rather than by the message alone", () => {
     assert.deepEqual(zustellungTags(delivery), { bewerbung_id: BEWERBUNG_ID, rollen: "ansprechperson-trainer", anlass: "erinnerung" });
   });
-
-  /* The key collapses a repeat inside the provider's 24-hour window, so it has to be the same string
-     for two sends of one day and a different one the next. */
-  it("mints one idempotency key per message per day", () => {
-    const today2 = zustellungIdempotenzSchluessel(delivery, "2026-09-08");
-
-    assert.equal(zustellungIdempotenzSchluessel(delivery, "2026-09-08"), today2);
-    assert.notEqual(zustellungIdempotenzSchluessel(delivery, "2026-09-09"), today2);
-    assert.ok(today2.length <= 256, "the provider refuses a key over 256 characters");
-  });
 });
 
 describe("an application holding a seat no message reaches", () => {
@@ -558,6 +545,19 @@ describe("POST /api/mail/zustellung", () => {
     assert.deepEqual(calls, []);
   });
 
+  /* The signature is over the bytes the provider sent: parsed first and re-serialised, a body written
+     with other whitespace verifies as a forgery, and a forged one is parsed before it is refused. */
+  it("verifies the bytes it was sent, and parses none it has not verified", async () => {
+    const spaced = await answerTo(signed(JSON.stringify(eventFor("email.delivered"), null, 2)));
+    const request = signed(JSON.stringify(eventFor("email.delivered")));
+    const unreadable = await answerTo(
+      new NextRequest("http://localhost/api/mail/zustellung", { method: "POST", headers: request.headers, body: "{ kein json" }),
+    );
+
+    assert.equal(spaced.status, 200, "a genuine event written with other whitespace is refused as a forgery");
+    assert.equal(unreadable.status, 400, "an unverified body is parsed before it is refused");
+  });
+
   it("answers 400 for a signature that is not this secret's", async () => {
     const foreignId = new Webhook(`whsec_${randomBytes(24).toString("base64")}`).sign(
       "msg_2xyzABC",
@@ -617,6 +617,7 @@ describe("POST /api/mail/zustellung", () => {
         message: "API returned a bad status.",
         url: "http://backend:8000",
         statusCode: 404,
+        serverErrorCode: "DB-COMMON-001",
         endpoint: "/bewerbungen/zustellung",
         method: "POST",
         readOnly: false,
@@ -627,6 +628,38 @@ describe("POST /api/mail/zustellung", () => {
     const { status } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
 
     assert.equal(status, 200);
+  });
+
+  /* Only the event's own answer settles it: a route the API does not serve mid-deploy, a credential or a
+     body it does not take would each lose the event, where the provider's retry lands later. */
+  it("settles an event only on the record's own answer, and has every other 4xx sent again", async () => {
+    const answered = (statusCode: number, serverErrorCode: string | undefined) => async () => {
+      recorders.__flZustellungAnswer = () => {
+        throw new APIBadStatusError({
+          message: "API returned a bad status.",
+          url: "http://backend:8000",
+          statusCode,
+          serverErrorCode,
+          endpoint: "/bewerbungen/zustellung",
+          method: "POST",
+          readOnly: false,
+          traceId: "t".repeat(32),
+        });
+      };
+
+      return (await answerTo(signed(JSON.stringify(eventFor("email.delivered"))))).status;
+    };
+
+    assert.equal(await answered(409, "DB-COMMON-002")(), 200, "an event the store already holds was sent back");
+    for (const [statusCode, code] of [
+      [404, "REQ-ROUTE-001"],
+      [405, "REQ-ROUTE-002"],
+      [404, undefined],
+      [401, "REQ-AUTH-003"],
+      [422, "REQ-VAL-001"],
+    ] as const) {
+      assert.equal(await answered(statusCode, code)(), 503, `${String(code)} at ${String(statusCode)} settled the event`);
+    }
   });
 
   /* The one case a retry repairs. A 200 here tells the provider the event is settled and the state
@@ -641,6 +674,18 @@ describe("POST /api/mail/zustellung", () => {
         traceId: "t".repeat(32),
         isTimeout: false,
       });
+    };
+
+    const { status, body } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
+
+    assert.equal(status, 503);
+    assert.deepEqual(body, { error: "backend" });
+  });
+
+  /* Kept from the backend by the request's deadline rather than by the network, and as unwritten. */
+  it("answers 503 where the deadline refused the write before it was sent", async () => {
+    recorders.__flZustellungAnswer = () => {
+      throw new ApiUnsentError("POST");
     };
 
     const { status, body } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));

@@ -1,24 +1,36 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
-/* The subject is a wiring between two modules: which query each route file calls. The list is
-   narrowed and the by-id read is not, so a route on the wrong one answers not-found for a row that
-   exists. */
-const ROUTE_DIR = path.resolve(import.meta.dirname, "..", "..", "app", "admin", "schiedsrichter");
-const DETAIL_PAGE = readFileSync(path.join(ROUTE_DIR, "[schiedsrichter_id]", "page.tsx"), "utf8");
-const LIST_PAGE = readFileSync(path.join(ROUTE_DIR, "page.tsx"), "utf8");
+import { callPage, clearSteps, OBJECT_ID, readsOf, steps } from "@/shared/testing/pageHarness.ts";
+
+const { default: AdminSchiedsrichterEditPage } = await import("@/app/admin/schiedsrichter/[schiedsrichter_id]/page.tsx");
+const { default: AdminSchiedsrichterPage } = await import("@/app/admin/schiedsrichter/page.tsx");
+
+/** Every read one page makes, each answered with the emptiest body its schema takes. */
+async function readsOfPage<P>(Page: (props: P) => unknown, props: P): Promise<ReturnType<typeof readsOf>> {
+  clearSteps();
+  const { thrown } = await callPage(Page, props);
+
+  assert.deepEqual(thrown, [], "the page threw before its reads were all made");
+  return readsOf(steps);
+}
 
 describe("what each referee route asks the endpoint for", () => {
-  it("reads the record page by id, the list being narrowed", () => {
+  it("reads the record page by id, the list being narrowed", async () => {
     // The list drops the ghost and every row a filter excludes, so a detail page served from it would
     // answer not-found for a referee whose editor this route is the only way into.
-    assert.match(DETAIL_PAGE, /getSchiedsrichterById\(schiedsrichterId\)/);
-    assert.doesNotMatch(DETAIL_PAGE, /getSchiedsrichter\(/);
+    assert.deepEqual(
+      (
+        await readsOfPage(AdminSchiedsrichterEditPage, {
+          params: Promise.resolve({ schiedsrichter_id: OBJECT_ID }),
+          searchParams: Promise.resolve({}),
+        })
+      ).map(({ endpoint }) => endpoint),
+      [`/schiedsrichter/${OBJECT_ID}`],
+    );
   });
 
-  it("asks the list page's own read for the retired, whose row here is the only link into their editor", () => {
-    assert.match(LIST_PAGE, /getSchiedsrichter\(\{\s*include_inactive:\s*true\s*\}\)/);
+  it("asks the list page's own read for the retired, whose row here is the only link into their editor", async () => {
+    assert.deepEqual(await readsOfPage(AdminSchiedsrichterPage, {}), [{ endpoint: "/schiedsrichter", params: { include_inactive: true } }]);
   });
 });

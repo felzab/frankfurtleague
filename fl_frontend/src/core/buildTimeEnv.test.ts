@@ -9,8 +9,21 @@ import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
-/** The names the builder stage itself sets; a name added here is a claim about the Dockerfile (`docs/frontend/spec.md :: I84`). */
-const PROVIDED_WHILE_BUILDING = new Set(["MONGODB_URI", "NODE_ENV", "NEXT_RUNTIME", "NEXT_TELEMETRY_DISABLED"]);
+/**
+ * The names the builder stage itself sets, its `node` base image's `NODE_VERSION` among them; a name added
+ * here is a claim about the Dockerfile and that image (`docs/frontend/spec.md :: I84`).
+ */
+const PROVIDED_WHILE_BUILDING = new Set([
+  "CI",
+  "MONGODB_URI",
+  "NEXT_RUNTIME",
+  "NEXT_TELEMETRY_DISABLED",
+  "NODE_ENV",
+  "NODE_VERSION",
+  "PATH",
+  "PNPM_HOME",
+  "SKIP_ENV_VALIDATION",
+]);
 
 /** The validated source (`fl_frontend/src/core/config.ts :: frontend_config`): every read off it is a value, and the call building it is no subject. */
 const VALIDATED_CONFIG = "frontend_config";
@@ -84,7 +97,7 @@ function moduleScopeConsumers(fileName: string, source: string): Finding[] {
       return resolvesToEnv(inner.left) || resolvesToEnv(inner.right);
     }
     // A fallback still carries the value; what excuses the site is `isGuarded`, so that the two are
-    // separable and an empty-string fallback into a URL parse is still reported.
+    // separable and a fallback bound to a name, then parsed as a URL through that name, is still reported.
     if (isFallback(inner)) return resolvesToEnv(inner.left);
     if (ts.isPropertyAccessExpression(inner)) {
       const member = memberOf(inner);

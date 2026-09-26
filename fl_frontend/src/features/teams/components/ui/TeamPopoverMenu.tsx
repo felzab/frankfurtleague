@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 
-import { CircleInfo, Persons } from "@gravity-ui/icons";
+import CircleInfo from "@gravity-ui/icons/CircleInfo";
+import Persons from "@gravity-ui/icons/Persons";
 
-import { Badge, Popover, Separator } from "@heroui/react";
+import { Badge } from "@heroui/react/badge";
+import { Popover } from "@heroui/react/popover";
+import { Separator } from "@heroui/react/separator";
 
 import { austrittKuerzel, austrittZustand } from "@/features/teams/constants";
 import { overlayPanel } from "@/shared/components/ui/overlayPanel";
@@ -81,7 +84,7 @@ export function TeamPopoverMenu({
         {/* The property list is spelled out because `transition-colors` replaces HeroUI's own rather
             than extending it, dropping the `box-shadow` the focus ring rides.
             `fl_frontend/src/app/globals.css :: .date-picker__trigger` is the same spelling. */}
-        <Popover.Trigger className="hover:text-brand relative inline-flex max-w-full min-w-0 cursor-pointer items-center rounded text-left transition-[color,background-color,box-shadow] duration-(--motion-fast)">
+        <Popover.Trigger className="relative inline-flex max-w-full min-w-0 cursor-pointer items-center rounded text-left transition-[color,background-color,box-shadow] duration-(--motion-fast) hover:text-brand">
           <Badge.Anchor className="max-w-full min-w-0 shrink">{children}</Badge.Anchor>
         </Popover.Trigger>
 
@@ -93,7 +96,7 @@ export function TeamPopoverMenu({
           <Popover.Dialog className={`${overlayPanel()} w-max max-w-[280px] p-4 outline-none`}>
             <Popover.Arrow className="fill-surface" />
 
-            <Popover.Heading className="fluid-base flex w-full flex-row items-center justify-between font-bold">
+            <Popover.Heading className="flex w-full flex-row items-center justify-between fluid-base font-bold">
               {/* Wrapped and never clipped: this panel is where a name a card cuts short reads whole,
                   on touch as with a pointer. */}
               <span className="min-w-0 pr-2 text-balance wrap-break-word">{teamName}</span>
@@ -103,7 +106,7 @@ export function TeamPopoverMenu({
               {teamAustritt !== null && (
                 <span
                   aria-label={austrittZustand(teamAustritt)}
-                  className="bg-danger/15 text-danger-strong fluid-xxs rounded-md px-2 py-0.5 font-extrabold uppercase">
+                  className="rounded-md bg-danger/15 px-2 py-0.5 fluid-xxs font-extrabold text-danger-strong uppercase">
                   {austrittKuerzel(teamAustritt)}
                 </span>
               )}
@@ -111,17 +114,17 @@ export function TeamPopoverMenu({
 
             <Separator
               orientation="horizontal"
-              className="bg-border my-3 h-[1px] w-full"
+              className="my-3 h-[1px] w-full bg-border"
             />
 
             {/* `onNavigate`, not `onClick`: it fires only where the press really navigates, so a
                 modifier-click opening a new tab leaves this panel and the caller's dialog standing. */}
-            <div className="fluid-sm flex size-full flex-col gap-y-1">
+            <div className="flex size-full flex-col gap-y-1 fluid-sm">
               <Link
                 prefetch={false}
                 href={withSaisonId(`/dashboard/teams/${teamId}`, saisonId)}
                 onNavigate={closeOnNavigate}
-                className="hover:bg-hover text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2 rounded-lg px-2.5 py-2 font-semibold transition-colors">
+                className="flex w-full flex-row items-center gap-x-2 rounded-lg px-2.5 py-2 font-semibold text-foreground-muted transition-colors hover:bg-hover hover:text-foreground">
                 {/* The row's own colour, never the brand: the top-nav menu and the rail keep the brand for the
                     active entry, so a brand glyph on a row nobody is on reads as the current page. */}
                 <CircleInfo
@@ -135,7 +138,7 @@ export function TeamPopoverMenu({
                 prefetch={false}
                 href={withSaisonId(`/dashboard/spieler/${teamId}`, saisonId)}
                 onNavigate={closeOnNavigate}
-                className="hover:bg-hover text-foreground-muted hover:text-foreground flex w-full flex-row items-center gap-x-2 rounded-lg px-2.5 py-2 font-semibold transition-colors">
+                className="flex w-full flex-row items-center gap-x-2 rounded-lg px-2.5 py-2 font-semibold text-foreground-muted transition-colors hover:bg-hover hover:text-foreground">
                 <Persons
                   aria-hidden="true"
                   className="size-4.5 shrink-0"

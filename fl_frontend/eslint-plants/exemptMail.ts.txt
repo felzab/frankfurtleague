@@ -1,0 +1,5 @@
+// Linted as src/core/mail.ts.
+// The module names the provider's endpoint, and every other ban still reaches it, core's own included.
+export const ENDPOINT = "https://api.resend.com/emails";
+export const GAP = "flex gap-5"; // expect: gap
+export const SLICE = import("@/features/teams/facets"); // expect: layer-core-load

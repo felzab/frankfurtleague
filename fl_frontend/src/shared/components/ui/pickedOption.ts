@@ -3,5 +3,5 @@
  * the bar's read-order rows cannot mark a current row two ways. Never a tint here
  * (`docs/frontend/spec.md :: I162`).
  */
-export const PICKED_OPTION =
+export const PICKED_OPTION_CLASSES =
   "data-[selected=true]:bg-picked data-[selected=true]:text-foreground data-[selected=true]:data-hovered:bg-picked-hover data-[selected=true]:data-hovered:text-foreground";

@@ -1,7 +1,7 @@
 import { apiClient } from "@/core/api";
-import { APIBadStatusError } from "@/core/errors";
-import { refusedPayloadAnswer } from "@/shared/utils/actionError";
-import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/publicSubmit";
+import { isRecordMissing } from "@/core/errors";
+import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { alterAusserhalb } from "./constants";
@@ -41,7 +41,7 @@ export async function getSchiedsrichterById(schiedsrichterId: string): Promise<F
     apiClient<FLSchiedsrichterSingleResponse>(`/schiedsrichter/${schiedsrichterId}`, FLSchiedsrichterSingleResponseSchema, {
       authType: "admin",
     }).catch((error: unknown) => {
-      if (error instanceof APIBadStatusError && error.statusCode === 404) return null;
+      if (isRecordMissing(error)) return null;
       throw error;
     }),
   );
@@ -54,11 +54,13 @@ export async function getSchiedsrichterById(schiedsrichterId: string): Promise<F
  * offering a reload that cannot succeed.
  */
 export function mapSchiedsrichterAnsichtRefusal(error: unknown): "ungueltig" | null {
-  if (!(error instanceof APIBadStatusError)) return null;
+  if (!isRefusal(error)) return null;
 
-  // Every 409 alike, as the 422 is: a confirmed or lapsed link answers its own state in a 200, so a
-  // refusal is a token nothing could place, and a code nobody planned reads the same way.
-  return error.statusCode === 422 || error.statusCode === 409 ? "ungueltig" : null;
+  if (error.serverErrorCode === "REQ-VAL-001") return "ungueltig";
+
+  // Every rule's refusal alike, as the refused payload is: a confirmed or lapsed link answers its own
+  // state in a 200, so a refusal is a token nothing could place, and a code nobody planned reads the same way.
+  return isRuleRefusal(error) ? "ungueltig" : null;
 }
 
 export type SchiedsrichterBestaetigungRefusal = {
@@ -78,19 +80,20 @@ export async function mapSchiedsrichterBestaetigungRefusal(
   error: unknown,
   mindestalter: () => Promise<number | null>,
 ): Promise<SchiedsrichterBestaetigungRefusal | null> {
-  if (!(error instanceof APIBadStatusError)) return null;
-
-  // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
-  // mail's link replaces.
-  if (error.statusCode === 422) return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
-
-  if (error.statusCode !== 409) return null;
+  if (!isRefusal(error)) return null;
 
   switch (error.serverErrorCode) {
+    // The body shape is mirrored, so a refusal no box can take is of a drifted client, which the
+    // mail's link replaces.
+    case "REQ-VAL-002":
+    case "REQ-VAL-001":
+      return refusedPayloadAnswer(error, ANTWORT_NEU_OEFFNEN);
     // The page offers no media switch below the served age, so only a page older than that rule
-    // sends this answer, and its repair is the 422's.
+    // sends this answer, and its repair is the refused payload's.
     case "REQ-SCHIEDSRICHTER-008":
       return { error: ANTWORT_NEU_OEFFNEN };
+    // With the record missing, the referee the link names is gone, which is a link nothing places.
+    case "DB-COMMON-001":
     case "REQ-SCHIEDSRICHTER-002":
       return { zustand: "ungueltig" };
     case "REQ-SCHIEDSRICHTER-003":

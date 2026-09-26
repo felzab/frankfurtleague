@@ -2,7 +2,7 @@
 
 import { SaisonPhaseChip } from "@/features/spiele/components/ui/SaisonPhaseChip";
 import { AdminSpieltagEditForm } from "@/features/spieltage/components/forms/AdminSpieltagEditForm/AdminSpieltagEditForm";
-import { PAGE_RISE } from "@/shared/components/ui/motion";
+import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 
 import type { AdminSpieltagEditRow } from "@/features/spieltage/types";
 
@@ -15,7 +15,7 @@ export function AdminSpieltagEditView({
   saisonSpan?: { start: string; end: string };
 }) {
   return (
-    <div className={`${PAGE_RISE} flex min-h-0 w-full flex-1 flex-col`}>
+    <div className={`${PAGE_RISE_CLASSES} flex min-h-0 w-full flex-1 flex-col`}>
       <AdminSpieltagEditForm
         spieltag={spieltag}
         saisonSpan={saisonSpan}

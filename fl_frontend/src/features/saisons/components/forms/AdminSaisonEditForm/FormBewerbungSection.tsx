@@ -2,15 +2,17 @@
 
 import { parseDate } from "@internationalized/date";
 
-import { Label, Switch } from "@heroui/react";
+import { Label } from "@heroui/react/label";
 
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_LABEL, FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_LABEL_CLASSES, FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { Switch } from "@/shared/components/ui/Switch";
 
+import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus";
 import type { FLSaisonBewerbung } from "@/features/saisons/schemas";
 
 /**
@@ -86,34 +88,32 @@ export function FormBewerbungSection({
               {/* One label over the pair, mirroring its one row in the change list: a window is one
                   decision about when, so neither end is a decision on its own. `FieldLabel` renders
                   the row's anchor id, so exactly one of the two ends may carry it. */}
-              <FieldLabel path="bewerbung">
+              <FieldLabel<SaisonFieldPath> path="bewerbung">
                 {/* The heading recipe on the text rather than on the `Label`, as the forfeit pair
                     does it: it governs the pair below rather than either field beside it. */}
                 <span
                   id={FRIST_LABEL_ID}
-                  className={FORM_SECTION_HEADING}>
+                  className={FORM_SECTION_HEADING_CLASSES}>
                   Bewerbungsfrist
                 </span>
               </FieldLabel>
               <div
                 role="group"
                 aria-labelledby={FRIST_LABEL_ID}
-                className={FIELD_PAIR}>
+                className={FIELD_PAIR_CLASSES}>
                 <AppDatePicker
-                  isRequired
                   name="bewerbung.von"
                   calendarLabel="Beginn der Bewerbungsfrist auswählen"
-                  label={<Label className={FIELD_LABEL}>Beginn</Label>}
+                  label={<Label className={FIELD_LABEL_CLASSES}>Beginn</Label>}
                   value={von}
                   onChange={(next) => onBewerbungChange({ ...bewerbung, von: next?.toString() ?? "" })}
                   onBlur={() => onFieldLeft(["bewerbung.von"])}
                   maxValue={bis ?? undefined}
                 />
                 <AppDatePicker
-                  isRequired
                   name="bewerbung.bis"
                   calendarLabel="Ende der Bewerbungsfrist auswählen"
-                  label={<Label className={FIELD_LABEL}>Ende</Label>}
+                  label={<Label className={FIELD_LABEL_CLASSES}>Ende</Label>}
                   value={bis}
                   onChange={(next) => onBewerbungChange({ ...bewerbung, bis: next?.toString() ?? "" })}
                   onBlur={() => onFieldLeft(["bewerbung.bis"])}

@@ -41,6 +41,7 @@ export function recordingRouter(overrides: Partial<AppRouterInstance> = {}): { r
 
   return {
     router: nextRouter({
+      // eslint-disable-next-line no-restricted-properties -- the router double counts the history back it stands in for
       back: () => void (seen.back += 1),
       refresh: () => void (seen.refresh += 1),
       push: (href: string) => void seen.pushed.push(href),

@@ -1,0 +1,37 @@
+// Linted as src/features/zzplant/adminLinks.tsx.
+import Link from "next/link";
+
+import { ShellNotFound } from "@/shared/components/ui/ShellNotFound";
+import { withSaisonId } from "@/shared/utils/saisonHref";
+
+declare const base: string;
+declare const saisonHref: (route: string) => string;
+declare const saisonId: string;
+
+type Landing = "/admin" | "/";
+
+export const WRAPPED = withSaisonId("/admin/teams", saisonId);
+export const BY_THE_HOOK = saisonHref("/admin/spiele");
+export const NAMES_THE_PARAMETER = "/admin/teams?saison_id=2627";
+export const HAND_BUILT = `${base}/admin/spiele`; // expect: admin-link
+export const TEMPLATED = `/admin/teams/${saisonId}`; // expect: admin-link
+export const SINGLE_QUOTED = '/admin/spielorte'; // expect: admin-link
+export const SECOND_ARGUMENT = withSaisonId(saisonId as never, "/admin/x" as never); // expect: admin-link
+export const LANDING: Landing = "/";
+export const WRAPPED_TEMPLATE = withSaisonId(`/admin/teams/${saisonId}`, saisonId);
+export const TEMPLATE_NAMES_THE_PARAMETER = `/admin/teams?saison_id=${saisonId}`;
+export const AFTER_THE_FRAGMENT = "/admin/teams#liste?saison_id=2627"; // expect: admin-link
+export const TEMPLATE_SECOND_ARGUMENT = withSaisonId(saisonId as never, `/admin/${saisonId}` as never); // expect: admin-link
+// An excuse names this ban alone, so every other ban still reaches its line.
+// eslint-disable-next-line local/admin-link -- a plant excusing its admin link
+export const EXCUSED = ["/admin/teams", "flex gap-5"]; // expect: gap
+
+export function AdminLinks() {
+  return (
+    <div>
+      <Link href="/admin/teams">Teams</Link>{/* expect: admin-link */}
+      <ShellNotFound href="/admin/teams" />
+      <ShellNotFound href={`/admin/${saisonId}`} />
+    </div>
+  );
+}

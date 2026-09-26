@@ -6,7 +6,7 @@ import { CustomDateStringSchema, CustomObjectIdStringSchema, CustomTimeStringSch
 
 import { SAISON_ID_LENGTH } from "../saisons/constants";
 import { FLSaisonPhaseSchema } from "../saisons/schemas";
-import { NOTIZ_MAX_LENGTH } from "./constants";
+import { NOTIZ_MAX_LENGTH, PAARUNGEN_MAX } from "./constants";
 
 export const FLSpielStatusSchema = z.enum(["ausstehend", "vergangen", "heute", "abgesagt", "unbekannt"], { error: "FLSpielStatus is invalid" });
 export type FLSpielStatus = z.infer<typeof FLSpielStatusSchema>;
@@ -16,10 +16,12 @@ export type FLSpielStatus = z.infer<typeof FLSpielStatusSchema>;
  * `fl_backend/app/api/spiele/schemas.py :: FLSonderereignis`. Distinct in kind from `FLSpielStatus`,
  * which is derived, total and about time.
  */
+const SONDEREREIGNIS_UNGEWAEHLT = "Bitte wähle ein Sonderereignis.";
+
 export const FLSonderereignisSchema = z.enum(["ausgefallen", "nichtantreten_team1", "nichtantreten_team2", "abgebrochen", "annulliert"], {
   // German, unlike `FLSpielStatusSchema`'s beside it: this one is bound to a picker in the match
   // editor, so its message is a sentence an administrator reads rather than a parse failure's note.
-  error: "Bitte wähle ein Sonderereignis.",
+  error: SONDEREREIGNIS_UNGEWAEHLT,
 });
 export type FLSonderereignis = z.infer<typeof FLSonderereignisSchema>;
 
@@ -162,7 +164,7 @@ export type FLSpielQuelle = z.infer<typeof FLSpielQuelleSchema>;
  */
 export const FLSpielElfmeterschiessenSchema = z
   .object({
-    // On the TYPE check: an emptied NumberField arrives as `NaN`, failing `z.int()` first.
+    // On the TYPE check: an emptied box arrives as `null`, failing `z.int()` first.
     team1: z.int({ error: "Bitte gib die Treffer von Team 1 ein." }).nonnegative({ error: "Die Treffer dürfen nicht negativ sein." }),
     team2: z.int({ error: "Bitte gib die Treffer von Team 2 ein." }).nonnegative({ error: "Die Treffer dürfen nicht negativ sein." }),
   })
@@ -326,6 +328,19 @@ export type FLPatchSpielDataPayloadDraft = Omit<FLPatchSpielDataPayload, "ort" |
   schiedsrichter: FLSpielSchiedsrichterFieldDraft | null;
   elfmeterschiessen: FLSpielElfmeterschiessenDraft | null;
 };
+
+/**
+ * The payload as the editor judges it. A FACTORY because the switch asserting an event is editor state the payload
+ * has no field for, and the write path takes `null` as no event: unrefused, an unpicked event saves as none.
+ */
+export function buildPatchSpielDataPayloadSchema({ hasSonderereignis }: { hasSonderereignis: boolean }) {
+  if (!hasSonderereignis) return FLPatchSpielDataPayloadSchema;
+
+  return FLPatchSpielDataPayloadSchema.refine((spiel) => spiel.sonderereignis !== null, {
+    error: SONDEREREIGNIS_UNGEWAEHLT,
+    path: ["sonderereignis"],
+  });
+}
 
 /**
  * `tie_unresolved` empties the slot and needs a person; every other reason leaves it alone, naming
@@ -564,7 +579,7 @@ export type FLPatchSpielPaarungPayload = z.infer<typeof FLPatchSpielPaarungPaylo
 export const FLPatchSpielePaarungenPayloadSchema = z.object({
   // Never empty: the report this replays leads with the fixture the save named, so an empty list is
   // a body no save produced and a replay over it would answer as a restore having written nothing.
-  paarungen: z.array(FLPatchSpielPaarungPayloadSchema).min(1),
+  paarungen: z.array(FLPatchSpielPaarungPayloadSchema).min(1).max(PAARUNGEN_MAX),
 });
 
 export type FLPatchSpielePaarungenPayload = z.infer<typeof FLPatchSpielePaarungenPayloadSchema>;

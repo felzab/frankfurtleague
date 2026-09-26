@@ -412,7 +412,6 @@ def _stored_side(side: FLSpielTeamField | None) -> Mapping[str, Any] | None:
 async def advance_bracket_winners(
     spiele_collection: AsyncCollection,
     teams_collection: AsyncCollection,
-    schiedsrichter_collection: AsyncCollection,
     saison_id: str,
     rules: FLSaisonRules,
     session: AsyncClientSession,

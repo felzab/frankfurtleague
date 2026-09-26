@@ -1,13 +1,15 @@
 "use client";
 
-import { FieldError, NumberField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
 
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_COUNT_INPUT, FIELD_ERROR, FIELD_GROUP } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_COUNT_INPUT_CLASSES, FIELD_ERROR_CLASSES, FIELD_GROUP_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { NumberField } from "@/shared/components/ui/NumberField";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
-import { enteredNumber } from "@/shared/utils/numberField";
+
+import type { SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 
 /**
  * A default and never a stored copy: what a match pays is its own `payment`, and the backend's
@@ -41,27 +43,25 @@ export function FormHonorarSection({
 
       <div className={panel.body()}>
         <NumberField
-          isRequired
           minValue={0}
           step={5}
           name="default_payment"
-          value={defaultPayment ?? Number.NaN}
-          onChange={(next) => {
+          value={defaultPayment}
+          onChange={(value) => {
             // An emptied box is "no standard fee entered", never 0 €: the schema's type check is what
             // then asks for one, in its own German, at the submit.
-            const value = enteredNumber(next);
             onChange(value);
             onFieldChanged(["default_payment"], { default_payment: value });
           }}
           formatOptions={{ style: "currency", currency: "EUR" }}
           className="w-full sm:max-w-xs">
-          <FieldLabel path="default_payment">Standard-Honorar</FieldLabel>
-          <NumberField.Group className={FIELD_GROUP}>
+          <FieldLabel<SchiedsrichterFieldPath> path="default_payment">Standard-Honorar</FieldLabel>
+          <NumberField.Group className={FIELD_GROUP_CLASSES}>
             <NumberField.DecrementButton />
-            <NumberField.Input className={FIELD_COUNT_INPUT} />
+            <NumberField.Input className={FIELD_COUNT_INPUT_CLASSES} />
             <NumberField.IncrementButton />
           </NumberField.Group>
-          <FieldError className={FIELD_ERROR} />
+          <FieldError className={FIELD_ERROR_CLASSES} />
         </NumberField>
       </div>
     </section>

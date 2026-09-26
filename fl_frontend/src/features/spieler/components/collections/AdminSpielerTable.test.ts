@@ -2,15 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
-/* No public export carries either context — `Link` reads the first and `useSearchParams` the second
-   — and the table renders under both. A Next release that moves either module fails this file at
-   import. */
-import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
 import { labelBadge } from "@/shared/components/ui/badges.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
-import { nextRouter } from "@/shared/testing/nextContexts.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import { SPIELER_CRUD_COPY } from "../../constants.ts";
@@ -73,20 +68,15 @@ const NACHNOMINIERT: AdminSpielerRow = {
 
 const table = (rows: AdminSpielerRow[], emptiness: CrudEmptiness = "none"): string =>
   renderTree(
-    h(
-      AppRouterContext.Provider,
-      { value: nextRouter() },
-      h(
-        SearchParamsContext.Provider,
-        { value: new URLSearchParams("saison_id=2026") },
-        h(AdminSpielerTable, {
-          filteredSpieler: rows,
-          emptiness: emptiness,
-          saisonTeams: [TEAM],
-          selectedSaisonId: "2026",
-          setDeletingSpieler: () => undefined,
-        }),
-      ),
+    underNext(
+      h(AdminSpielerTable, {
+        filteredSpieler: rows,
+        emptiness: emptiness,
+        saisonTeams: [TEAM],
+        selectedSaisonId: "2026",
+        setDeletingSpieler: () => undefined,
+      }),
+      { search: "saison_id=2026" },
     ),
   );
 

@@ -12,6 +12,7 @@ from app.api.spieler.services import build_spieler_pipeline, public_person
 from app.core.config import API_VERSION
 from app.core.crud import GERMAN_COLLATION, aggregate_many_from_db, pull_one_from_db
 from app.core.dependencies import SaisonsCollection, SpielerCollection
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
 from app.core.security import verify_access_base
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -22,7 +23,7 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=FLSpielerListResponse, summary="List Spieler")
+@router.get("", response_model=FLSpielerListResponse, summary="List Spieler", responses={404: DOCUMENT_NOT_FOUND_RESPONSE})
 async def get_spieler(
     spieler_collection: SpielerCollection,
     saisons_collection: SaisonsCollection,
@@ -62,7 +63,7 @@ async def get_spieler(
     return FLSpielerListResponse(spieler=spieler)
 
 
-@router.get(by_id("spieler_id"), response_model=FLSpielerSingleResponse, summary="One Spieler")
+@router.get(by_id("spieler_id"), response_model=FLSpielerSingleResponse, summary="One Spieler", responses={404: DOCUMENT_NOT_FOUND_RESPONSE})
 async def get_spieler_by_id(spieler_id: CustomRouteObjectId, spieler_collection: SpielerCollection) -> FLSpielerSingleResponse:
     """
     Return one player -- an id, a forename and an INITIAL, which is all this surface needs.

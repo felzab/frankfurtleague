@@ -1,10 +1,11 @@
 "use client";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { confirmButton } from "./formButtons";
 import { Hint } from "./Hint";
 
+import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import type { ReactNode } from "react";
 
 /**
@@ -13,8 +14,9 @@ import type { ReactNode } from "react";
  * drifts from that one clause at a time.
  */
 export function ConfirmPressButton({
-  isConfirming,
-  isPending,
+  confirm,
+  submitting = false,
+  held = false,
   reason,
   resting,
   armed,
@@ -23,11 +25,13 @@ export function ConfirmPressButton({
   onPress,
   type = "button",
   describedBy,
-  held = false,
 }: {
-  isConfirming: boolean;
-  /** The panel's own write in flight, which HOLDS the control rather than closing it (§1.14). */
-  isPending: boolean;
+  confirm: TwoPressConfirm;
+  /**
+   * A one-press write this control starts at rest, the form's own submit, which runs outside the hook
+   * and so is never in its `isPending`. Shown as `running`, as the hook's write is.
+   */
+  submitting?: boolean;
   /**
    * Held for something that is NOT the write — an arming read the press waits on. Pending-marked as a
    * write is, and the label untouched: `running` names a write nobody has started.
@@ -47,8 +51,11 @@ export function ConfirmPressButton({
   /** A hint the resting control is described by, dropped once armed: the armed label says it. */
   describedBy?: string;
 }) {
+  const { isConfirming } = confirm;
   const label = isConfirming ? armed : resting;
-  const waiting = isPending || held;
+  const writing = confirm.isPending || submitting;
+  // A write in flight HOLDS the control rather than closing it (§1.14).
+  const waiting = writing || held;
 
   return (
     <Hint
@@ -64,7 +71,7 @@ export function ConfirmPressButton({
         aria-describedby={isConfirming ? undefined : describedBy}
         className={confirmButton(isConfirming)}>
         {!isConfirming && icon}
-        {isPending ? running : label}
+        {writing ? running : label}
       </Button>
     </Hint>
   );

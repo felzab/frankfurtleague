@@ -1,27 +1,30 @@
 "use client";
 
-import { FieldError, Input, Switch, TextField, ToggleButton, ToggleButtonGroup } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
+import { ToggleButton } from "@heroui/react/toggle-button";
+import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { AUSTRITT_OPTIONS } from "@/features/teams/constants";
 import { AppDatePicker } from "@/shared/components/ui/DateTimeFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_ERROR, FIELD_INPUT, TOGGLE_GROUP_ALIGN } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, TOGGLE_GROUP_ALIGN_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
-import { OPTION_CHIP } from "@/shared/components/ui/optionChip";
+import { OPTION_CHIP_CLASSES } from "@/shared/components/ui/optionChip";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { Switch } from "@/shared/components/ui/Switch";
+import { TextField } from "@/shared/components/ui/TextField";
 
 import type { FLAustrittType } from "@/features/teams/schemas";
-import type { Key } from "@heroui/react";
+import type { TeamFieldPath } from "@/features/teams/teamDraftStatus";
+import type { Key } from "@heroui/react/rac";
 import type { CalendarDate } from "@internationalized/date";
 import type { TeamBanner } from "./banners";
 
 /** Names the exit-type chips for a screen reader, `ToggleButtonGroup` carrying its own role and no label element. */
 const ART_LABEL_ID = "austritt-art";
-
-/** The id the durability sentence publishes, carried by the reason's own field in `aria-describedby`. */
-const GRUND_HINT_ID = "austritt-grund-hinweis";
 
 /**
  * `austritt` is required with no default: lifting one sends an explicit `null`, not a quiet
@@ -94,7 +97,7 @@ export function FormAustrittSection({
               {/* A `Label` and not a plain span: it names the enclosing `TextField`, which carries no
                   `aria-label`, so `useLabel` would warn without it. The id sits on the text alone, keeping
                   the changed-field marker out of the group's name. */}
-              <FieldLabel path="austritt">
+              <FieldLabel<TeamFieldPath> path="austritt">
                 <span id={ART_LABEL_ID}>Art</span>
               </FieldLabel>
               {/* Named from the heading rather than by a wrapper: react-aria already renders
@@ -113,37 +116,34 @@ export function FormAustrittSection({
                   const [picked] = [...keys].map(String);
                   if (picked !== undefined) onArtChange(picked as FLAustrittType);
                 }}
-                className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN}`}>
+                className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
                 {AUSTRITT_OPTIONS.map((option) => (
                   <ToggleButton
                     key={option.value}
                     id={option.value}
-                    className={OPTION_CHIP}>
+                    className={OPTION_CHIP_CLASSES}>
                     {option.label}
                   </ToggleButton>
                 ))}
               </ToggleButtonGroup>
 
               <Input className="hidden" />
-              <FieldError className={FIELD_ERROR} />
+              <FieldError className={FIELD_ERROR_CLASSES} />
             </TextField>
 
             <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <TextField
-                isRequired
                 name="austritt.grund"
-                aria-describedby={GRUND_HINT_ID}
                 value={grund}
                 onChange={onGrundChange}
                 onBlur={() => onValidateFields(["austritt.grund"])}>
-                <FieldLabel path="austritt">Grund</FieldLabel>
-                <Input className={FIELD_INPUT} />
-                <FieldError className={FIELD_ERROR} />
+                <FieldLabel<TeamFieldPath> path="austritt">Grund</FieldLabel>
+                <Input className={FIELD_INPUT_CLASSES} />
+                <FieldError className={FIELD_ERROR_CLASSES} />
                 {/* Under the field rather than in the panel's hint, which opens on a press, or the
                     banner, which only a changed reason raises: this rule stands whatever is typed. */}
                 <Hint
-                  mode="inline"
-                  describes={GRUND_HINT_ID}
+                  mode="field"
                   text="Ein Name hier bleibt öffentlich stehen, auch wenn die Person später vergessen werden möchte."
                 />
               </TextField>
@@ -151,9 +151,8 @@ export function FormAustrittSection({
               {/* ARIA only: react-aria marks no control inside a date picker, so the browser cannot
                   refuse it empty. `missingVerdicts` supplies the German instead, on submit. */}
               <AppDatePicker
-                isRequired
                 name="austritt.datum"
-                label={<FieldLabel path="austritt">Wirksam ab</FieldLabel>}
+                label={<FieldLabel<TeamFieldPath> path="austritt">Wirksam ab</FieldLabel>}
                 calendarLabel="Wirksamkeitsdatum auswählen"
                 value={datum}
                 onChange={onDatumChange}

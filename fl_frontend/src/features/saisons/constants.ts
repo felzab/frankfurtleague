@@ -155,12 +155,12 @@ export const SPIELTAGE_UNDATED = "Die Saison kann erst aktiviert werden, wenn je
  * about, hand-copied and split by reach: one moves every total, the other moves none and only the
  * order under them.
  */
-export const RESCORING_RULES_FIELDS: readonly string[] = ["win_points", "draw_points"];
-export const PLACING_RULES_FIELDS: readonly string[] = ["tiebreak_order"];
+export const RESCORING_RULES_FIELDS = ["win_points", "draw_points"] as const;
+export const PLACING_RULES_FIELDS = ["tiebreak_order"] as const;
 
 /**
  * The rest of that tuple, and warned about nowhere: `REQ-RULES-011` shuts this field the moment the
  * season holds fixtures, so nothing has been played when it moves. Declared for the sweep, which
  * partitions the tuple across the three lists.
  */
-export const PREDRAW_RULES_FIELDS: readonly string[] = ["qualifiers_per_group"];
+export const PREDRAW_RULES_FIELDS = ["qualifiers_per_group"] as const;

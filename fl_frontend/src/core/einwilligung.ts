@@ -245,7 +245,7 @@ const SCHIEDSRICHTERSEITE_ABSAETZE_2026_09 = [
  * in nouns: a pupil's record is an Einwilligung, so „Eine Einwilligung ist das nicht“ has no
  * counterpart here.
  */
-export const SPIELER_ABSAETZE = {
+const SPIELER_ABSAETZE = {
   worum:
     "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser " +
     "Seite bestätigst Du diese Registrierung und entscheidest, was wir mit Deinen Angaben tun dürfen. Erst danach kann Dein Team " +
@@ -272,9 +272,8 @@ export const SPIELER_ABSAETZE = {
     "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga " +
     "von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich " +
     "das nicht, und wir veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine Interviews mit Dir. " +
-    "Diese Erlaubnis ist " +
-    "freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du jederzeit in Deinem " +
-    "Zugang zurücknehmen.",
+    "Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du " +
+    "jederzeit in Deinem Zugang zurücknehmen.",
   rechtsgrundlage:
     "Rechtsgrundlage für die Veröffentlichung Deines Vornamens und des Anfangsbuchstabens Deines Nachnamens und für Fotos, Videos " +
     "und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir zur Durchführung des " +
@@ -337,9 +336,8 @@ export const SCHIEDSRICHTER_ABSAETZE = {
     "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga " +
     "von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich " +
     "das nicht, und wir veröffentlichen keine Fotos oder Videos, auf denen Du zu erkennen bist, und keine Interviews mit Dir. " +
-    "Diese Erlaubnis ist " +
-    "freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du jederzeit in Deinem " +
-    "Zugang zurücknehmen.",
+    "Diese Erlaubnis ist freiwillig und zunächst ausgeschaltet; ohne sie entsteht Dir kein Nachteil, und auch sie kannst Du " +
+    "jederzeit in Deinem Zugang zurücknehmen.",
   rechtsgrundlage:
     "Rechtsgrundlage für die Veröffentlichung Deines Namens im Spielplan und für Fotos, Videos " +
     "und Interviews ist Deine Einwilligung (Art. 6 Abs. 1 lit. a und Art. 7 DSGVO). Was wir brauchen, um Dich " +

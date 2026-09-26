@@ -59,7 +59,7 @@ from app.api.spiele.services import (
     find_state_refusal,
     judge_spieltag_occupancy,
 )
-from app.core.exceptions import DocumentConflictException, WriteRefusal
+from app.core.exceptions import WriteRefusal, WriteRefusalException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from tests.payloads import spiel_patch_body
 
@@ -1013,7 +1013,7 @@ class TestEligibility:
         missing: dict[str, str | None] = {team_id: None for team_id in (ADLER, BIEBER, DORNBUSCH)}
         assert eligibility_for(season, 30, missing, team1=team(CRONBERG, "Cronberg"), datum="2020-01-01") == ELIGIBILITY_NO_MEMBERSHIP
 
-    def test_the_two_refusals_are_distinct(self, season):
+    def test_the_two_refusals_are_distinct(self):
         """Different advice, so different codes."""
         assert ELIGIBILITY_DISQUALIFIED != ELIGIBILITY_NO_MEMBERSHIP
 
@@ -1565,13 +1565,11 @@ class TestTheResolutionNeverFieldsAClubTwice:
     def test_the_save_refuses_a_resolution_that_would_field_a_club_twice(self, a_decided_gruppe_seating_its_winner_twice, gruppe_a):
         """Driven through the write path, because a refusal computed and discarded reads the same at the call site as one raised."""
 
-        with pytest.raises(DocumentConflictException) as refused:
+        with pytest.raises(WriteRefusalException) as refused:
             asyncio.run(
                 advance_bracket_winners(
                     spiele_collection=cast(AsyncCollection, _SeasonCollection(a_decided_gruppe_seating_its_winner_twice)),
                     teams_collection=cast(AsyncCollection, _TeamPipelineCollection(gruppe_a)),
-                    # Never read: the refusal lands before the resolution judges a booking.
-                    schiedsrichter_collection=cast(AsyncCollection, object()),
                     saison_id=SAISON_ID,
                     rules=RULES,
                     session=cast(AsyncClientSession, object()),
@@ -1585,7 +1583,7 @@ class TestTheResolutionNeverFieldsAClubTwice:
 
         season = FLSpielListAdapter.validate_python(a_decided_gruppe_seating_its_winner_twice)
 
-        with pytest.raises(DocumentConflictException) as refused:
+        with pytest.raises(WriteRefusalException) as refused:
             asyncio.run(
                 preview_bracket_after_patch(
                     teams_collection=cast(AsyncCollection, _TeamPipelineCollection(gruppe_a)),

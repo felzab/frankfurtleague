@@ -6,7 +6,6 @@ from bson import ObjectId
 from pydantic import BaseModel
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.crud import advance_bracket_winners
 from app.api.teams.admin_router import get_teams_for_admin
@@ -15,6 +14,7 @@ from app.api.teams.schemas import FLGruppenTeam, FLTeam, FLTeamsFilterParams, FL
 from app.api.teams.services import build_team_pipeline
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.openapi_document import build_document
 from tests.worker import worker_database
@@ -66,44 +66,15 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 def saison_document(saison_id: str = SAISON, status: str = "active") -> dict[str, Any]:
-    """Complete, rules included: the grouped read derives every figure in the table from them."""
+    """The grouped read derives every figure in the table from these rules, and the finale is seeded from the placings they rank."""
 
-    return {
-        "_id": saison_id,
-        "start_date": f"{saison_id}-01-01",
-        "end_date": f"{saison_id}-06-30",
-        "status": status,
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 4,
-            "teams_per_group": 4,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-        },
-    }
+    rules = documents.rules_document(win_points=3, draw_points=1, qualifiers_per_group=2, tiebreak_order="tordifferenz")
+
+    return documents.saison_document(saison_id, status, rules=rules)
 
 
 def team_document(key: str, shorthand: str, *, inactive_since: str | None) -> dict[str, Any]:
-    return {
-        "_id": TEAM_OIDS[key],
-        "name": key,
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"{key}-Gymnasium",
-        "website_url": f"https://{key.lower()}.example.de",
-        "address": {
-            "strasse": "Hanauer Landstraße",
-            "hausnummer": "12a",
-            "plz": "60314",
-            "stadtteil": "Ostend",
-            "stadt": "Frankfurt am Main",
-        },
-        "inactive_since": inactive_since,
-    }
+    return documents.team_document(TEAM_OIDS[key], key, shorthand, full_name=f"{key}-Gymnasium", inactive_since=inactive_since)
 
 
 def kontaktperson(nachname: str) -> dict[str, Any]:
@@ -118,25 +89,22 @@ def kontaktperson(nachname: str) -> dict[str, Any]:
 
 
 def junction_row(key: str, shorthand: str, saison_id: str = SAISON) -> dict[str, Any]:
-    """A dict rather than a model: `saison_teams` has no model of the row."""
-
-    return {
-        "saison_id": saison_id,
-        "team_id": TEAM_OIDS[key],
-        "gruppe": "A",
-        "austritt": None,
-        "name": key,
-        "shorthand": shorthand,
-        "trikot_farbe": "dunkelblau",
+    return documents.saison_team_document(
+        saison_id,
+        TEAM_OIDS[key],
+        key,
+        shorthand,
+        gruppe="A",
+        trikot_farbe="dunkelblau",
         # What every case below is about. Stored on both clubs, so no read can pass by holding the
         # one team that happens to carry none.
-        "kontakte": {
+        kontakte={
             "trainer": kontaktperson("Trainerin"),
             "ansprechperson": kontaktperson("Ansprechpartnerin"),
             "stellvertretung": kontaktperson("Vertretung"),
             "trainer_ist_zugleich": None,
         },
-    }
+    )
 
 
 # Module-scoped: every case below reads this corpus and none writes it, which `unwritten` keeps
@@ -174,9 +142,6 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
 
 def on_a_league(url: str, body: Body) -> Any:
     async def _run() -> Any:
-        # Process-global and keyed by season id, so an entry another test left would answer here.
-        invalidate_saison_cache()
-
         return await body(shared_client(url)[DATABASE_NAME])
 
     return on_the_seed_loop(_run())
@@ -345,23 +310,14 @@ def side(key: str, tore: int) -> dict[str, Any]:
 
 def fixture(spiel_id: ObjectId, nr: int, saison_id: str, **overrides: Any) -> dict[str, Any]:
     return {
-        "_id": spiel_id,
-        "spiel_nr": nr,
-        "saison_id": saison_id,
-        "saison_phase": "gruppenphase",
-        "spieltag_id": GRUPPENPHASE_SPIELTAG,
-        "team1": None,
-        "team2": None,
-        "team1_quelle": None,
-        "team2_quelle": None,
-        "datum": f"{saison_id}-03-15",
-        "uhrzeit": "14:00:00",
-        "ort": None,
-        "schiedsrichter": None,
-        "ergebnis": None,
-        "elfmeterschiessen": None,
-        "sonderereignis": None,
-        "notiz": None,
+        **documents.spiel_document(
+            spiel_id=spiel_id,
+            saison_id=saison_id,
+            spiel_nr=nr,
+            spieltag_id=GRUPPENPHASE_SPIELTAG,
+            datum=f"{saison_id}-03-15",
+            uhrzeit="14:00:00",
+        ),
         **overrides,
     }
 
@@ -424,7 +380,6 @@ class TestTheBracketPlacesTheClubsTheTableRanks:
                         return await advance_bracket_winners(
                             spiele_collection=database[Collection.SPIELE],
                             teams_collection=database[Collection.TEAMS],
-                            schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                             saison_id=saison_id,
                             rules=rules,
                             session=transaction,

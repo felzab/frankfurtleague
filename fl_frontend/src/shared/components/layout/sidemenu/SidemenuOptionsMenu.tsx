@@ -2,16 +2,20 @@
 
 import { useState } from "react";
 
-import { ArrowRightFromSquare, Ellipsis, Key } from "@gravity-ui/icons";
+import ArrowRightFromSquare from "@gravity-ui/icons/ArrowRightFromSquare";
+import Ellipsis from "@gravity-ui/icons/Ellipsis";
+import Key from "@gravity-ui/icons/Key";
 
-import { Dropdown, Label, Separator } from "@heroui/react";
+import { Dropdown } from "@heroui/react/dropdown";
+import { Label } from "@heroui/react/label";
+import { Separator } from "@heroui/react/separator";
 
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 import { useSignOut } from "@/shared/hooks/useSignOut";
 
 import { IconTooltip } from "../../ui/IconTooltip";
 import { ThemeSwitch } from "../../ui/ThemeSwitch";
-import { RAIL_SQUARE_HEROUI_RING } from "./railGutter";
+import { RAIL_SQUARE_HEROUI_RING_CLASSES } from "./railGutter";
 
 import type { FormState } from "@/shared/types/types";
 
@@ -44,8 +48,8 @@ export function SidemenuOptionsMenu({
             `scale-100` would not work: v4's standalone `scale` composes with `transform` rather than replacing it. */}
         <Dropdown.Trigger
           aria-label="Weitere Optionen"
-          className={`text-foreground-muted data-hovered:bg-hover data-hovered:text-foreground flex h-9 shrink-0 items-center rounded-md transition-colors data-[pressed=true]:transform-none ${
-            isDesktopCollapsed ? `w-9 justify-center p-0 ${RAIL_SQUARE_HEROUI_RING}` : "w-full justify-start gap-2 px-3"
+          className={`flex h-9 shrink-0 items-center rounded-md text-foreground-muted transition-colors data-hovered:bg-hover data-hovered:text-foreground data-[pressed=true]:transform-none ${
+            isDesktopCollapsed ? `w-9 justify-center p-0 ${RAIL_SQUARE_HEROUI_RING_CLASSES}` : "w-full justify-start gap-2 px-3"
           }`}>
           <Ellipsis
             aria-hidden="true"
@@ -72,7 +76,7 @@ export function SidemenuOptionsMenu({
               textValue="Modus"
               shouldCloseOnSelect={false}
               className="flex w-full cursor-default items-center justify-between bg-transparent! px-2 py-1.5">
-              <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Modus</Label>
+              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">Modus</Label>
               <ThemeSwitch compact />
             </Dropdown.Item>
           </Dropdown.Section>
@@ -89,10 +93,10 @@ export function SidemenuOptionsMenu({
                     textValue="Passkeys verwalten"
                     onAction={onManagePasskeys}
                     className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
-                    <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Passkeys verwalten</Label>
+                    <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">Passkeys verwalten</Label>
                     <Key
                       aria-hidden="true"
-                      className="text-foreground-muted size-4 shrink-0"
+                      className="size-4 shrink-0 text-foreground-muted"
                     />
                   </Dropdown.Item>
                 )}
@@ -114,7 +118,7 @@ export function SidemenuOptionsMenu({
  * later must not still be one press away from ending the session.
  */
 function SignOutItem({ onSignOut, isMenuOpen }: { onSignOut: () => Promise<FormState>; isMenuOpen: boolean }) {
-  const { isConfirming, isSigningOut, press, disarm } = useSignOut(onSignOut);
+  const { confirm, press, disarm } = useSignOut(onSignOut);
   const [wasOpen, setWasOpen] = useState(isMenuOpen);
 
   // Adjusted during render rather than through `onOpenChange`, which would miss one direction:
@@ -127,25 +131,25 @@ function SignOutItem({ onSignOut, isMenuOpen }: { onSignOut: () => Promise<FormS
   return (
     <Dropdown.Item
       id="sign-out"
-      textValue={isConfirming ? "Abmelden?" : "Abmelden"}
+      textValue={confirm.isConfirming ? "Abmelden?" : "Abmelden"}
       data-signout-control="true"
-      isDisabled={isSigningOut}
+      isDisabled={confirm.isPending}
       /* Without this the first press dismisses the menu and the second never happens. */
       shouldCloseOnSelect={false}
       onAction={press}
       /* One red at rest and one when armed, with no hover step to compete with the state that matters. The `!`
          is what beats an unlayered muted fill in `globals.css`. */
       className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors ${
-        isConfirming ? "bg-danger/15!" : "bg-danger/10!"
+        confirm.isConfirming ? "bg-danger/15!" : "bg-danger/10!"
       }`}>
       {/* Armed, the row is its question alone. The tint and the label both shift, so the state never rests on colour. */}
-      <Label className={`fluid-sm text-danger-strong min-w-0 flex-1 font-semibold ${isConfirming ? "text-center" : ""}`}>
-        {isSigningOut ? "Meldet ab..." : isConfirming ? "Abmelden?" : "Abmelden"}
+      <Label className={`min-w-0 flex-1 fluid-sm font-semibold text-danger-strong ${confirm.isConfirming ? "text-center" : ""}`}>
+        {confirm.isPending ? "Meldet ab..." : confirm.isConfirming ? "Abmelden?" : "Abmelden"}
       </Label>
-      {!isConfirming && (
+      {!confirm.isConfirming && (
         <ArrowRightFromSquare
           aria-hidden="true"
-          className="text-danger-strong size-4 shrink-0"
+          className="size-4 shrink-0 text-danger-strong"
         />
       )}
     </Dropdown.Item>

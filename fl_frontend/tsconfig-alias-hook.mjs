@@ -1,5 +1,5 @@
 /**
- * Teaches `node --test` the two specifier forms tsconfig resolves and Node does not.
+ * Teaches `node --test` the specifier forms tsconfig and a bundler resolve and Node does not.
  *
  * Node's ESM resolver reads neither `tsconfig` paths nor extensionless specifiers, so without this a
  * module under test that imports `@/shared/utils/format` dies with ERR_MODULE_NOT_FOUND — even though
@@ -11,10 +11,10 @@
  * The second is why `features/spiele/schemas.ts` and `features/spieltage/schemas.ts` were untestable —
  * each imports `"../saisons/schemas"`, which is ordinary application style everywhere else in the tree.
  *
- * Wired into the `test` script via `--import`. It affects nothing else: `next build`, `tsc` and ESLint
+ * Wired into the `test:base` script via `--import`. It affects nothing else: `next build`, `tsc` and ESLint
  * never load it.
  *
- * NOT named `test-alias-loader.mjs`, which is what it was called first: `node --test` discovers
+ * NOT named `test-alias-loader.mjs`: `node --test` discovers
  * `test-*` as a test file, so it was collected, executed a second time, and inflated the test count
  * by one. Keep the name clear of `test-*`, `*.test.*`, `*-test.*` and `*_test.*`.
  *
@@ -25,7 +25,7 @@
  * correct as written. This exists only so *application* modules can use the alias everywhere.
  */
 import { statSync } from "node:fs";
-import { registerHooks } from "node:module";
+import { createRequire, registerHooks } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -70,8 +70,21 @@ function isApplicationModule(parentURL) {
   return parentURL?.startsWith("file:") === true && !parentURL.includes("/node_modules/");
 }
 
+// Found once, here: a `require.resolve` inside the hook below would re-enter it.
+const NEXT_DIR = path.dirname(createRequire(import.meta.url).resolve("next/package.json"));
+
+/**
+ * `next` publishes no `exports` map, so Node's ESM resolver takes `next/server` only as the file a
+ * bundler finds, `next/server.js`. A library imports these bare too, so its parent is not asked.
+ */
+function isNextEntry(specifier) {
+  return /^next\/[\w-]+$/.test(specifier) && isFile(path.join(NEXT_DIR, `${specifier.slice("next/".length)}.js`));
+}
+
 registerHooks({
   resolve(specifier, context, nextResolve) {
+    if (isNextEntry(specifier)) return nextResolve(`${specifier}.js`, context);
+
     if (isExtensionlessRelative(specifier) && isApplicationModule(context.parentURL)) {
       const base = path.resolve(path.dirname(fileURLToPath(context.parentURL)), specifier);
       // Fall THROUGH rather than throw when nothing matches: an extensionless relative specifier that

@@ -16,13 +16,15 @@ reaches a reader cached was cached by the frontend or by the edge ([`../ops/spec
 `app/api/<slice>/` is the repeating unit — usually one entity, and `kontakte` a concern crossing
 every collection that holds a contact block. **A slice carries only the files it needs, its routers
 included**, because a router declares one tier ([`spec.md`](spec.md) I7): a slice with nothing public
-to offer declares no `router.py`, and `bewerbungen`, whose application form reads and writes at a
-tier neither its `router.py` nor its `admin_router.py` carries, declares a third, `public_router.py`.
+to offer declares no `router.py`, and one also reached at a tier its `router.py` and
+`admin_router.py` do not carry declares another router for it, as `bewerbungen`'s
+`public_router.py` does.
 
 ## Authorization
 
 Three key tiers — `base` behind the public pages, `admin` for every other write and every read the
-base tier may not make, `system` for health and diagnostics ([`spec.md`](spec.md) §1.1). Guards sit
+base tier may not make, `system` for health, diagnostics and the frontend process's own calls — the
+retention sweeps, the delivery events and the subject lookup ([`spec.md`](spec.md) §1.1). Guards sit
 on the `APIRouter` rather than on an endpoint
 ([`spec.md`](spec.md) I7), so an endpoint reaches the wrong authorization only by being written in
 the wrong file. **What the file name does not settle is the tier**: a read router declares its own,
@@ -48,8 +50,7 @@ database user's `collMod` requirement is [`spec.md`](spec.md) §4.
 helpers are keyword-only and take a session, which is what lets a read inside a transaction see that
 transaction's own writes. The query and sort builders behind a list read are pure, so no resource
 translates a filter term or a tie-break chain its own way. A handler reaches for the driver directly
-only to iterate a cursor, to sort a single-document read, to count without reading the documents, or
-where absence is a meaningful answer rather than a 404; the miss contract every helper keeps is
+only for the reasons [`spec.md`](spec.md) I132 closes; the miss contract every helper keeps is
 [`spec.md`](spec.md) I2.
 
 ## Time
@@ -61,7 +62,8 @@ and is why the format is not negotiable.
 ## Errors
 
 Every failure the application raises carries an `error_code`, so a log line names a specific failure
-rather than a status class ([`docs/logging/error-codes.md`](../logging/error-codes.md)).
+rather than a status class: a domain rule's is `fl_backend/app/core/domain.py :: RULES`'s, and every
+other code is [`docs/logging/error-codes.md`](../logging/error-codes.md)'s.
 
 ## Read next
 

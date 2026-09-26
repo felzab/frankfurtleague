@@ -8,8 +8,7 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
-from app.api.saisons.cache import invalidate_saison_cache
-from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel_data, patch_spiele_paarungen
+from app.api.spiele.admin_router import get_spiele_action_required, patch_spiel_data
 from app.api.spiele.crud import apply_release_to_spiel
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_NO_SHOW,
@@ -18,8 +17,6 @@ from app.api.spiele.schemas import (
     FLBracketFaultClash,
     FLPatchSpielDataPayload,
     FLPatchSpielDataResponse,
-    FLPatchSpielePaarungenPayload,
-    FLPatchSpielePaarungenResponse,
     FLSpiel,
     FLSpielElfmeterschiessen,
     FLSpielListAdapter,
@@ -33,9 +30,10 @@ from app.api.spiele.services import (
     judge_spieltag_occupancy,
 )
 from app.core.collections import Collection
-from app.core.exceptions import DocumentConflictException
+from app.core.exceptions import WriteRefusalException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
-from tests.database import a_clean_database, on_the_seed_loop
+from tests import documents
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
 
@@ -43,12 +41,8 @@ pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_spiele_write_test")
 
-# Named rather than caught broadly: another failure must not read as the rollback this suite proves.
-DOCUMENT_VALIDATION_FAILED = 121
 
 SAISON_ID = "2026"
-
-ADDRESS = {"strasse": "Hanauer Landstraße", "hausnummer": "12a", "plz": "60314", "stadtteil": "Ostend", "stadt": "Frankfurt am Main"}
 
 # The reference's OWN figure, which no fixture here agrees: a booking carries the rent it was made
 # at, so a leak of either default would show up as this number on a fixture.
@@ -104,58 +98,23 @@ def team_document(team_id: ObjectId) -> dict[str, Any]:
 
     name, shorthand = NAMES[team_id]
 
-    return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"{name}-Schule",
-        "website_url": f"https://{name.lower()}.example.de",
-        "address": {
-            "strasse": "Hanauer Landstraße",
-            "hausnummer": "12a",
-            "plz": "60314",
-            "stadtteil": "Ostend",
-            "stadt": "Frankfurt am Main",
-        },
-        # Present rather than omitted: the pipeline's base filter matches a missing field against
-        # `None`, so the row would pass it and then fail validation.
-        "inactive_since": None,
-    }
+    return documents.team_document(team_id, name, shorthand)
 
 
 def junction(team_id: ObjectId) -> dict[str, Any]:
-    """A dict rather than a model: `saison_teams` has no model of the row.
-
-    The name and the shorthand are the season's own, and a saved side is composed from them rather
-    than from anything the payload carries.
-    """
+    """The name and the shorthand are the season's own: a saved side is composed from them, never from the payload."""
 
     name, shorthand = NAMES[team_id]
 
-    return {"saison_id": SAISON_ID, "team_id": team_id, "gruppe": "A", "austritt": None, "name": name, "shorthand": shorthand}
+    return documents.saison_team_document(SAISON_ID, team_id, name, shorthand, gruppe="A")
 
 
 def saison_document() -> dict[str, Any]:
-    """`rules` is all this path reads a season for; the span and the status are what the shipped validator requires of any season."""
+    """`rules` is all this path reads a season for: the points and the tiebreak decide the placings `bracket_season` resolves."""
 
-    return {
-        "_id": SAISON_ID,
-        "start_date": "2026-01-01",
-        "end_date": "2026-06-30",
-        "status": "active",
-        "rules": {
-            "win_points": 3,
-            "draw_points": 1,
-            "qualifiers_per_group": 2,
-            "number_of_groups": 4,
-            "teams_per_group": 4,
-            "tiebreak_order": "tordifferenz",
-            "max_kadergroesse": 18,
-            "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-            "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-        },
-    }
+    rules = documents.rules_document(win_points=3, draw_points=1, qualifiers_per_group=2, tiebreak_order="tordifferenz")
+
+    return documents.saison_document(SAISON_ID, "active", rules=rules)
 
 
 def spieltag_documents() -> list[dict[str, Any]]:
@@ -185,31 +144,24 @@ def spiel_document(
     elfmeterschiessen: dict[str, int] | None = None,
     team1_quelle: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Every key spelled out: `FLSpiel` defaults `notiz` alone, so an omitted one fails inside the handler."""
-
     saison_phase, datum, _ = SPIELTAGE[spieltag_id]
 
-    return {
-        "_id": spiel_id,
-        "spiel_nr": spiel_nr,
-        "saison_id": SAISON_ID,
-        "saison_phase": saison_phase,
-        "spieltag_id": spieltag_id,
-        "team1": team1,
-        "team2": team2,
-        "team1_quelle": team1_quelle,
-        "team2_quelle": None,
-        "datum": datum,
-        "uhrzeit": "18:00:00",
-        # Null on both, so a payload built from this document claims neither, and the double-booking
-        # read is never the thing a failure here is about.
-        "ort": None,
-        "schiedsrichter": None,
-        "ergebnis": ergebnis,
-        "elfmeterschiessen": elfmeterschiessen,
-        "sonderereignis": None,
-        "notiz": None,
-    }
+    # `ort` and `schiedsrichter` stay null, so a payload built from this document claims neither, and
+    # the double-booking read is never the thing a failure here is about.
+    return documents.spiel_document(
+        spiel_id=spiel_id,
+        saison_id=SAISON_ID,
+        spiel_nr=spiel_nr,
+        spieltag_id=spieltag_id,
+        saison_phase=saison_phase,
+        team1=team1,
+        team2=team2,
+        team1_quelle=team1_quelle,
+        datum=datum,
+        uhrzeit="18:00:00",
+        ergebnis=ergebnis,
+        elfmeterschiessen=elfmeterschiessen,
+    )
 
 
 def bracket_season() -> list[dict[str, Any]]:
@@ -383,7 +335,7 @@ def venue_documents() -> list[dict[str, Any]]:
         {
             "_id": spielort_id,
             "name": name,
-            "address": dict(ADDRESS),
+            "address": dict(documents.ADDRESS),
             "maps_link": f"{name}, Frankfurt",
             "default_mietpreis": DEFAULT_MIETPREIS,
             "inactive_since": inactive_since,
@@ -443,9 +395,6 @@ def on_a_seeded_season(url: str, body: Body, *, spiele: list[dict[str, Any]], mu
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, mutates_schema=mutates_schema) as (client, database):
-            # Process-global and keyed by season id, so an entry another module left would answer for this one.
-            invalidate_saison_cache()
-
             await database[Collection.SAISONS].insert_one(saison_document())
             # Always, not per scenario: a `gruppe` slot seeds from the table these rows are ranked in.
             await database[Collection.TEAMS].insert_many([team_document(team_id) for team_id in NAMES])
@@ -526,7 +475,7 @@ class TestTheBookingReadAsksWhoUsedTheGround:
 
             try:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
-            except DocumentConflictException as conflict:
+            except WriteRefusalException as conflict:
                 return conflict.error_code
 
             return None
@@ -553,7 +502,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, GRUPPE_FILLING, ort={"spielort_id": chosen, "mietpreis": 80})
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
             return refused.value.error_code, await spiele_now(database)
@@ -571,7 +520,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
             assigned = {"schiedsrichter_id": SCHIEDSRICHTER_RETIRED, "payment": 20}
             spiel_data = await payload_for(database, GRUPPE_FILLING, schiedsrichter=assigned)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
             return refused.value.error_code
@@ -592,7 +541,7 @@ class TestTheBookingRefusalIsReachedThroughTheRoute:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, GRUPPE_FILLING, sonderereignis=None)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data, dry_run=dry_run)
 
             return refused.value.error_code, await spiele_now(database)
@@ -671,7 +620,7 @@ class TestTheStateRefusalIsReachedThroughTheRoute:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             spiel_data = await payload_for(database, VIERTELFINALE, sonderereignis="ausgefallen", team1=side(ALPHA, 3), team2=side(BETA, 1))
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_patch(database, client, VIERTELFINALE, spiel_data)
 
             return refused.value, await spiele_now(database)
@@ -716,7 +665,7 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
             await database[Collection.SAISON_TEAMS].update_one({"team_id": GAMMA}, {"$set": {"austritt": GAMMA_AUSTRITT}})
             spiel_data = await payload_for(database, GRUPPE_FILLING, datum=datum)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
             return refused.value, await spiele_now(database)
@@ -736,7 +685,7 @@ class TestTheEligibilityRefusalIsReachedThroughTheRoute:
             )
             spiel_data = await payload_for(database, GRUPPE_FILLING, datum=GAMMA_DEPARTED_FROM)
 
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await call_patch(database, client, GRUPPE_FILLING, spiel_data)
 
             return refused.value
@@ -1194,22 +1143,6 @@ class TestAFixtureTheResolutionReopensKeepsARetiredBooking:
 
         assert (spiele[HALBFINALE_NR]["ergebnis"], spiele[HALBFINALE_NR]["ort"]) == ("2:0", booking(SPIELORT_RETIRED))
         assert booking_faults(faults) == []
-
-
-async def replay(database: AsyncDatabase, client: AsyncMongoClient, paarungen: list[dict[str, Any]]) -> FLPatchSpielePaarungenResponse:
-    """`PATCH /spiele/paarungen` over `paarungen` as the wire carries them."""
-
-    return await patch_spiele_paarungen(
-        payload=FLPatchSpielePaarungenPayload.model_validate({"paarungen": paarungen}),
-        db=client,
-        spiele_collection=database[Collection.SPIELE],
-        teams_collection=database[Collection.TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        saison_teams_collection=database[Collection.SAISON_TEAMS],
-        spieltage_collection=database[Collection.SPIELTAGE],
-        spielorte_collection=database[Collection.SPIELORTE],
-        schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-    )
 
 
 def a_lifted_no_show_beside_a_later_booking() -> list[dict[str, Any]]:

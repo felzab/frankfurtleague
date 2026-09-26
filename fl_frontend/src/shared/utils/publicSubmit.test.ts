@@ -1,33 +1,37 @@
+import "@/shared/testing/dom.ts";
+import "@/shared/testing/renderTest.ts";
+
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { afterEach, describe, it } from "node:test";
 
-import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
+import { act, createElement as h } from "react";
+
+import { parseDate } from "@internationalized/date";
+import { render, screen } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
+
+import { SCHIEDSRICHTER_EINWILLIGUNG, SPIELER_EINWILLIGUNG } from "@/core/einwilligung.ts";
+import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { pressTwice } from "@/shared/testing/twoPress.ts";
+import { getGermanTodayStr } from "@/shared/utils/date.ts";
 
 import { EDGE_RATE_LIMIT_STATUS, postPublicForm } from "./publicSubmit.ts";
 
-const FEATURES = path.resolve(import.meta.dirname, "..", "..", "features");
+import type { ReactNode } from "react";
 
-const read = (...parts: string[]): string => readFileSync(path.resolve(FEATURES, ...parts), "utf8");
+/* The real module hands its raising to HeroUI's queue rather than back to the form that raised. */
+const { raised } = doubleToasts();
 
-/** Every component under a feature slice that reaches the shared helper, found rather than listed. */
-const REACHING_THE_HELPER = filesUnder(FEATURES, (name) => /\.tsx$/.test(name) && !isTestFile(name), 40)
-  .filter((file) => file.includes(`${path.sep}components${path.sep}`) && readFileSync(file, "utf8").includes("postPublicForm"))
-  .map((file) => path.relative(FEATURES, file).split(path.sep).join("/"));
-
-/** Every public form a visitor can submit, each named as this file reports it. */
-const FORMULAR_PFADE: Record<string, string> = {
-  "the application form": "bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx",
-  "the confirmation panel": "bewerbungen/components/views/BestaetigungFormPanel.tsx",
-  "the referee's confirmation page": "schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",
-  "the registration form": "registrierungen/components/views/RegistrierungFormPanel.tsx",
-  "the pupil's confirmation page": "registrierungen/components/views/SpielerBestaetigungView.tsx",
-};
-
-const FORMULARE: Record<string, string> = Object.fromEntries(
-  Object.entries(FORMULAR_PFADE).map(([name, relativ]) => [name, read(...relativ.split("/"))]),
-);
+/* Reached with `await import` and never a static import beside the harness: the JSX compile step is
+   registered as `renderTest` evaluates, and a static import resolves before that. */
+const { BewerbungForm } = await import("@/features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx");
+const { BestaetigungFormPanel } = await import("@/features/bewerbungen/components/views/BestaetigungFormPanel.tsx");
+const { SchiedsrichterBestaetigungView } = await import("@/features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx");
+const { RegistrierungFormPanel } = await import("@/features/registrierungen/components/views/RegistrierungFormPanel.tsx");
+const { SpielerBestaetigungView } = await import("@/features/registrierungen/components/views/SpielerBestaetigungView.tsx");
+const { BEWERBUNG_SEATS } = await import("@/features/bewerbungen/constants.ts");
+const { SCHIEDSRICHTER_UMFANG_OPTIONS } = await import("@/features/schiedsrichter/constants.ts");
+const { TRIKOT_FARBE_OPTIONS } = await import("@/features/teams/constants.ts");
 
 // The three sentences a visitor can be shown, spelled here rather than imported: what this file
 // holds is the wording, and a test reading the module's own constant would agree with any rewording.
@@ -176,67 +180,189 @@ describe("what a public form is told when the application did answer", () => {
   });
 });
 
+/** A date as a picker's segments take it typed, day then month then year: `years` whole years before the German today. */
+const typedBirthdate = (years: number): string => {
+  const [jahr, monat, tag] = parseDate(getGermanTodayStr()).subtract({ years }).toString().split("-");
+
+  return `${tag ?? ""}${monat ?? ""}${jahr ?? ""}`;
+};
+
+type User = ReturnType<typeof userEvent.setup>;
+
+const control = (name: string): HTMLElement =>
+  document.querySelector<HTMLElement>(`[name="${name}"]`) ?? assert.fail(`the form renders no control named ${name}`);
+
+async function typeInto(user: User, box: HTMLElement, value: string): Promise<void> {
+  await user.clear(box);
+  await user.paste(value);
+}
+
+type PublicForm = {
+  /** The route the form's write is addressed to. */
+  route: string;
+  render: () => ReactNode;
+  /** Everything the form asks for, answered as a visitor answers it, and the press that sends it. */
+  submit: (user: User) => Promise<void>;
+};
+
+const SCHOOL_ID = "68d0f2a4c1e2b3a4d5e6f708";
+
+/** Every public form a visitor can submit, each named as this file reports it. */
+const FORMS: Record<string, PublicForm> = {
+  "the application form": {
+    route: "/api/bewerbung",
+    render: () =>
+      h(BewerbungForm, { saisonId: "2026", schulen: [{ id: SCHOOL_ID, name: "Lessing-Kolleg" }], isSchulenLesbar: true, vergebeneFarben: [] }),
+    submit: async (user) => {
+      await user.selectOptions(control("team_id"), SCHOOL_ID);
+      await typeInto(user, screen.getByRole("textbox", { name: "Größe der Stufe" }), "90");
+      for (const [index, { value }] of BEWERBUNG_SEATS.entries()) {
+        const person = {
+          vorname: ["Anna", "Bernd", "Clara"][index] ?? "Dora",
+          nachname: "Muster",
+          email: `person${String(index)}@schule.example`,
+          telefon: `069 ${String(index + 1).repeat(7)}`,
+        };
+        for (const field of ["vorname", "nachname", "email", "telefon"] as const) {
+          await typeInto(user, control(`kontakte.${value}.${field}`), person[field]);
+        }
+      }
+      await user.click(screen.getByRole("switch").closest("label") ?? assert.fail("the switch renders no label to press"));
+      await user.selectOptions(control("trikot.wunschfarbe"), TRIKOT_FARBE_OPTIONS[0]!.value);
+      await typeInto(user, screen.getByRole("textbox", { name: "Voraussichtliche Kadergröße" }), "14");
+      await typeInto(user, screen.getByRole("textbox", { name: "Davon im Verein aktiv (mind. Verbandsliga)" }), "3");
+      await user.click(screen.getByRole("button", { name: "Bewerbung abschicken" }));
+    },
+  },
+  // The objection, which the panel sends with no field filled in.
+  "the confirmation panel": {
+    route: "/api/bestaetigung/kontakt",
+    render: () =>
+      h(BestaetigungFormPanel, {
+        token: "kein-echtes-token",
+        vorname: "Mira",
+        schule: "Lessing-Kolleg",
+        saison: "2026",
+        rolle: "Ansprechperson",
+        mindestalter: 18,
+        onAbschluss: () => undefined,
+      }),
+    submit: (user) => pressTwice(user, { resting: "Ich möchte nicht eingetragen sein", armed: /Widerspruch/ }),
+  },
+  "the referee's confirmation page": {
+    route: "/api/bestaetigung/schiedsrichter",
+    render: () =>
+      h(SchiedsrichterBestaetigungView, {
+        start: {
+          zustand: "gueltig",
+          token: "kein-echtes-token",
+          ansicht: {
+            acknowledged: 1,
+            zustand: "gueltig",
+            vorname: "Anna",
+            text_version: SCHIEDSRICHTER_EINWILLIGUNG.textVersion,
+            mindestalter: 16,
+            medien_mindestalter: 18,
+            frist: "2026-10-05",
+          },
+        },
+      }),
+    submit: async (user) => {
+      await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
+      await user.keyboard(typedBirthdate(40));
+      await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
+      await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+    },
+  },
+  "the registration form": {
+    route: "/api/registrierung",
+    render: () =>
+      h(RegistrierungFormPanel, {
+        token: "kein-echtes-token",
+        ansicht: {
+          acknowledged: 1,
+          team: "Lessing-Kolleg",
+          schule: "Lessing-Kolleg Oberstufengymnasium",
+          saison_id: "2026",
+          saison_status: "future",
+          laeuft: true,
+          erlaubte_stufen: ["Q1", "Q2"],
+          kader_frei: true,
+          team_eingetragen: true,
+          nachnominierung: false,
+        },
+        onLinkTot: () => undefined,
+      }),
+    submit: async (user) => {
+      await user.type(screen.getByRole("textbox", { name: /Vorname/ }), "Mira");
+      await user.type(screen.getByRole("textbox", { name: /Nachname/ }), "Kern");
+      await user.type(screen.getByRole("textbox", { name: /E-Mail/ }), "mira.kern@beispiel.test");
+      await user.click(screen.getByRole("button", { name: /Registrierung abschicken/ }));
+    },
+  },
+  "the pupil's confirmation page": {
+    route: "/api/bestaetigung/spieler",
+    render: () =>
+      h(SpielerBestaetigungView, {
+        start: {
+          zustand: "gueltig",
+          token: "kein-echtes-token",
+          ansicht: {
+            acknowledged: 1,
+            zustand: "gueltig",
+            team: "Lessing-Kolleg",
+            schule: "Lessing-Kolleg Oberstufengymnasium",
+            saison_id: "2026",
+            vorname: "Mira",
+            text_version: SPIELER_EINWILLIGUNG.textVersion,
+            mindestalter: 16,
+            medien_mindestalter: 18,
+            geburtsdatum: null,
+            umfang: null,
+            medien: null,
+          },
+        },
+        fassung: {
+          textVersion: SPIELER_EINWILLIGUNG.textVersion,
+          absaetze: SPIELER_EINWILLIGUNG.absaetzeNachSchluessel,
+          schalter: SPIELER_EINWILLIGUNG.schalter,
+          bedienelemente: SPIELER_EINWILLIGUNG.bedienelemente,
+        },
+      }),
+    submit: async (user) => {
+      await user.click(screen.getByRole("radio", { name: SPIELER_EINWILLIGUNG.bedienelemente.intern }));
+      const [tag] = screen.getAllByRole("spinbutton");
+      await user.click(tag ?? assert.fail("the page renders no date to type"));
+      await user.keyboard(typedBirthdate(17));
+      await user.click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
+    },
+  },
+};
+
 describe("where each public form's write is transported", () => {
-  /* The population is CLOSED against the tree: a sixth form reaching the helper joins the two cases
-     below by existing, rather than by somebody remembering to name it here. */
-  it("names every component that reaches the shared helper, and none that does not", () => {
-    assert.deepEqual([...REACHING_THE_HELPER].sort(), Object.values(FORMULAR_PFADE).sort());
-  });
+  /* Only `postPublicForm` reads the edge's rate limit, answered in nginx's own HTML, as a refusal
+     that ruled the write out: a form writing on its own tells the visitor something else. */
+  for (const [name, form] of Object.entries(FORMS)) {
+    it(`${name} posts once to its own route, and passes on the shared helper's reading of the edge's refusal`, async () => {
+      const posted: string[] = [];
+      transportiert((url, init) => {
+        if (init.method !== "POST") return Promise.resolve(new Response(JSON.stringify({ success: true }), { status: 200, headers: ENVELOPE }));
 
-  /* Which transport a submit reaches is a call rather than an attribute, so it stands in no markup a
-     render could be read for. A form spelling a write of its own regrows the copy this helper
-     removed. */
-  it("rides the shared helper to its own route, spelling no write of its own", () => {
-    for (const [name, source] of Object.entries(FORMULARE)) {
-      assert.ok(source.length > 0, `${name} is empty, so this case proves nothing about it`);
-      // `[\w/]+` rather than one segment: a confirmation's route is `/api/bestaetigung/<type>`, and a
-      // single-segment pattern reads a form that moved under a segment as one that stopped riding.
+        posted.push(url);
+        return Promise.resolve(new Response("<html>429</html>", { status: EDGE_RATE_LIMIT_STATUS, headers: { "content-type": "text/html" } }));
+      });
+      raised.length = 0;
 
-      // The argument is read as any identifier: what this case grades is the call, and a page naming
-      // its body something else was being reported as one that spells a write of its own.
-      assert.match(
-        source,
-        /postPublicForm<\w+>\("\/api\/[\w/]+", \w+(?:, \{ idempotencyKey: \w+ \})?\)/,
-        `${name}: the write no longer rides the shared helper`,
-      );
-      assert.ok(!source.includes('method: "POST"'), `${name}: the form spells a write of its own beside the shared one`);
-    }
-  });
+      render(form.render());
+      await form.submit(userEvent.setup());
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
 
-  /* The Kürzel check is the one `fetch` left, and it is a READ: it refuses nothing, so a failure
-     costs the applicant a courtesy rather than the submit, which judges the code again anyway. */
-  it("leaves the availability check outside, the confirmation panel fetching nothing at all", () => {
-    const [formular, panel] = [FORMULARE["the application form"] ?? "", FORMULARE["the confirmation panel"] ?? ""];
-
-    assert.equal((formular.match(/\bfetch\(/g) ?? []).length, 1, "the application form spells a number of fetches other than the check's");
-    assert.match(formular, /fetch\(`\/api\/bewerbung\/kuerzel\?/, "the one fetch left is not the availability check");
-    assert.ok(!panel.includes("fetch("), "the confirmation panel spells a fetch of its own");
-  });
-});
-
-describe("the title a form raises where the write may already have landed", () => {
-  /* Which title an arm raises is a call rather than an attribute, so it stands in no markup a render
-     could be read for — the reason the two cases above read these files. */
-  // The `wroteNothing` arm is admitted as an identifier as well: a page raising that title at more
-  // than one site names it once, and only the SHARED arm below is this case's subject.
-  const geteilterTitel = (source: string): string | undefined =>
-    /appToast\.danger\(gesendet\.wroteNothing \? (?:"[^"]+"|\w+) : "([^"]+)"/.exec(source)?.[1];
-
-  /* One title over both sentences above: a word of either in it says that branch's fact twice and
-     makes the title read as the other branch's cause. Five letters skips shared function words. */
-  it("shares no word with either sentence it can be shown over", () => {
-    const woerter = (satz: string): string[] => (satz.match(/\p{L}{5,}/gu) ?? []).map((wort) => wort.toLowerCase());
-    const beschrieben = new Set([...woerter(KEINE_VERBINDUNG), ...woerter(KEINE_ANTWORT_VON_UNS)]);
-    assert.ok(beschrieben.size > 0, "neither description carries a word long enough for this case to find in a title");
-
-    for (const [name, source] of Object.entries(FORMULARE)) {
-      const titel = geteilterTitel(source);
-      assert.ok(titel !== undefined, `${name}: the arm that cannot rule the write out raises no title this case can read`);
+      assert.deepEqual(posted, [form.route], `${name} posted somewhere other than once to its own route`);
       assert.deepEqual(
-        woerter(titel).filter((wort) => beschrieben.has(wort)),
-        [],
-        `${name}: the title repeats a word of the sentence under it`,
+        raised.filter((toast) => toast.variant === "danger").map((toast) => toast.description),
+        [ZU_VIELE_VERSUCHE],
+        `${name} told the visitor something other than the shared helper's sentence for the edge's rate limit`,
       );
-    }
-  });
+    });
+  }
 });

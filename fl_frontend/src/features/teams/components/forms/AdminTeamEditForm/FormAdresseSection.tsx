@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRightFromSquare } from "@gravity-ui/icons";
+import ArrowUpRightFromSquare from "@gravity-ui/icons/ArrowUpRightFromSquare";
 
 import { AddressFields } from "@/shared/components/ui/AddressFields";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
@@ -10,6 +10,7 @@ import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { buildMapsSearchUrl, formatAddressFull } from "@/shared/utils/format";
 
+import type { TeamFieldPath } from "@/features/teams/teamDraftStatus";
 import type { FLAddress } from "@/shared/schemas";
 
 /**
@@ -35,7 +36,7 @@ export function FormAdresseSection({
         : { "aria-disabled": true })}
       aria-label="Eingegebene Adresse auf Google Maps öffnen"
       className={`flex size-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
-        isSearchable ? "text-foreground-muted hover:bg-hover hover:text-brand cursor-pointer" : "text-foreground-muted/40 cursor-not-allowed"
+        isSearchable ? "cursor-pointer text-foreground-muted hover:bg-hover hover:text-brand" : "cursor-not-allowed text-foreground-muted/40"
       }`}>
       {/* The website field's glyph, so "opens elsewhere" has one icon on this page. */}
       <ArrowUpRightFromSquare
@@ -78,7 +79,7 @@ export function FormAdresseSection({
           value={address}
           onChange={onChange}
           onFieldLeft={onFieldLeft}
-          renderLabel={(path, text) => <FieldLabel path={path}>{text}</FieldLabel>}
+          renderLabel={(field, text) => <FieldLabel<TeamFieldPath> path={`address.${field}`}>{text}</FieldLabel>}
         />
       </div>
     </section>

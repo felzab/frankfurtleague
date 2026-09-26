@@ -8,16 +8,19 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
-from httpx2 import ASGITransport, AsyncClient, Response
-from pymongo import AsyncMongoClient, MongoClient
+from httpx2 import Response
+from pymongo import MongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
+from app.api.bewerbungen import services
 from app.api.bewerbungen.public_router import post_bewerbung
 from app.api.bewerbungen.router import get_bewerbung_by_id
 from app.api.bewerbungen.schemas import FLBewerbung, FLPostBewerbungPayload
 from app.api.bewerbungen.services import (
+    BEWERBUNG_FASSUNG_VERALTET,
     BEWERBUNG_FENSTER_GESCHLOSSEN,
+    BEWERBUNG_LAUFENDE_FASSUNG,
     BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED,
     BEWERBUNG_PICKED_CLUB_UNUSABLE,
     BEWERBUNG_SCHLUESSEL_ABWEICHEND,
@@ -31,14 +34,16 @@ from app.api.bewerbungen.services import (
 from app.api.kontakte.services import build_clearing_update
 from app.core.collections import Collection
 from app.core.config import API_VERSION
-from app.core.dependencies import get_germany_now
-from app.core.exceptions import DocumentConflictException, DocumentNotFoundException
+from app.core.exception_handlers import PAYLOAD_REFUSED
+from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.recording import PUBLIC_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
-from app.main import create_app
 from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE
-from tests.config import BASE_AUTH, TEST_BASE_URL, build_test_config
-from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
+from tests.app_client import app_client
+from tests.config import BASE_AUTH, build_test_config
+from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, a_clean_database_sync, on_the_seed_loop
+from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
+from tests.holds import HoldsAfterItsLookup
 from tests.worker import worker_database
 
 # Module level, as `tests/api/test_bewerbung_triage_execution.py` marks its suite: every test below
@@ -68,26 +73,6 @@ NEW_SCHOOL_SHORTHAND = "ZX"
 
 OPEN_WINDOW: Mapping[str, Any] = {"offen": True, "von": "2026-03-01", "bis": "2026-04-30"}
 
-RULES: Mapping[str, Any] = {
-    "win_points": 3,
-    "draw_points": 1,
-    "qualifiers_per_group": 2,
-    "number_of_groups": 2,
-    "teams_per_group": 2,
-    "tiebreak_order": "tordifferenz",
-    "max_kadergroesse": 18,
-    "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-    "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-}
-
-ADDRESS: Mapping[str, Any] = {
-    "strasse": "Hanauer Landstraße",
-    "hausnummer": "12a",
-    "plz": "60314",
-    "stadtteil": "Ostend",
-    "stadt": "Frankfurt am Main",
-}
-
 
 def person(vorname: str, *, telefon: str, email: str | None = None) -> dict[str, Any]:
     """One contact person as the PUBLIC form submits them: a consent of two fields, no stored scope or date, and no birthdate."""
@@ -97,7 +82,7 @@ def person(vorname: str, *, telefon: str, email: str | None = None) -> dict[str,
         "nachname": f"{vorname}-Mustermann",
         "email": email or f"{vorname.lower()}@example.com",
         "telefon": telefon,
-        "einwilligung": {"text_version": "v3", "erteilt": True},
+        "einwilligung": {"text_version": BEWERBUNG_LAUFENDE_FASSUNG, "erteilt": True},
     }
 
 
@@ -110,18 +95,21 @@ KONTAKTE: Mapping[str, Any] = {
 }
 
 
-def club_document(team_id: ObjectId, name: str, shorthand: str, *, inactive_since: str | None = None) -> dict[str, Any]:
+# A label the registry still resolves, as a page loaded under the build before the running one stamps it.
+EARLIER_FASSUNG = "2026-09-bestaetigung-4"
+
+
+def kontakte_labelled(text_version: str) -> dict[str, Any]:
+    """`KONTAKTE` with every seat naming `text_version`."""
+
     return {
-        "_id": team_id,
-        "name": name,
-        "shorthand": shorthand,
-        "description": "",
-        "full_name": f"{name}-Schule",
-        "website_url": f"https://{name.lower()}.example.de",
-        "schulform": "gymnasium_g9",
-        "address": dict(ADDRESS),
-        "inactive_since": inactive_since,
+        seat: {**value, "einwilligung": {**value["einwilligung"], "text_version": text_version}} if isinstance(value, dict) else value
+        for seat, value in KONTAKTE.items()
     }
+
+
+def club_document(team_id: ObjectId, name: str, shorthand: str, *, inactive_since: str | None = None) -> dict[str, Any]:
+    return team_document(team_id, name, shorthand, schulform="gymnasium_g9", inactive_since=inactive_since)
 
 
 def schule_block(**overrides: Any) -> dict[str, Any]:
@@ -159,14 +147,12 @@ def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW, saison_st
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (_, database):
-            saison: dict[str, Any] = {
-                "_id": SAISON_ID,
-                "start_date": "2026-01-01",
-                "end_date": "2026-06-30",
-                "status": saison_status,
-                "rules": dict(RULES),
-                "bewerbung": None if bewerbung is None else dict(bewerbung),
-            }
+            saison = saison_document(
+                SAISON_ID,
+                saison_status,
+                rules=rules_document(number_of_groups=2, teams_per_group=2),
+                bewerbung=None if bewerbung is None else dict(bewerbung),
+            )
             await database[Collection.SAISONS].insert_one(saison)
             await database[Collection.TEAMS].insert_many(
                 [
@@ -175,16 +161,7 @@ def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW, saison_st
                     club_document(ENTERED_OID, ENTERED_NAME, ENTERED_SHORTHAND),
                 ]
             )
-            await database[Collection.SAISON_TEAMS].insert_one(
-                {
-                    "saison_id": SAISON_ID,
-                    "team_id": ENTERED_OID,
-                    "gruppe": "A",
-                    "austritt": None,
-                    "name": ENTERED_NAME,
-                    "shorthand": ENTERED_SHORTHAND,
-                }
-            )
+            await database[Collection.SAISON_TEAMS].insert_one(saison_team_document(SAISON_ID, ENTERED_OID, ENTERED_NAME, ENTERED_SHORTHAND))
 
             return await body(database)
 
@@ -265,7 +242,7 @@ class TestWhatASubmissionStores:
             assert stored["kontakte"][seat]["einwilligung"] == {
                 "umfang": "kontaktdaten",
                 "erfasst_von": "administrativ",
-                "text_version": "v3",
+                "text_version": BEWERBUNG_LAUFENDE_FASSUNG,
                 "datum": TODAY,
                 "bestaetigt_am": None,
             }
@@ -400,43 +377,8 @@ class TestWhatTheLogRecords:
 
         rendered = on_a_league(mongo_replica_set_url, body)
 
-        for submitted in ("Wraxlington", "quillhilde@example.com", "+49 170 1111111", "1980-05-04"):
+        for submitted in (KONTAKTE["trainer"]["vorname"], KONTAKTE["ansprechperson"]["email"], KONTAKTE["trainer"]["telefon"]):
             assert submitted not in rendered
-
-
-class _HoldsAfterItsLookup:
-    """A second press held between its real key lookup and its insert until the first press has committed.
-
-    Records each lookup's filter and each insert's failure: what the endpoint asked for, and how the
-    server ordered the two.
-    """
-
-    def __init__(self, collection: Any, committed: asyncio.Event) -> None:
-        self._collection = collection
-        self._committed = committed
-        self.lookups = 0
-        self.lookup_filters: list[Any] = []
-        self.insert_failures: list[str] = []
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
-
-    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        found = await self._collection.find_one(*args, **kwargs)
-        query = kwargs.get("filter", args[0] if args else {})
-        if "idempotenz_schluessel" in query:
-            self.lookups += 1
-            self.lookup_filters.append(query)
-            await self._committed.wait()
-
-        return found
-
-    async def insert_one(self, *args: Any, **kwargs: Any) -> Any:
-        try:
-            return await self._collection.insert_one(*args, **kwargs)
-        except Exception as failure:
-            self.insert_failures.append(f"{type(failure).__name__}:{getattr(failure, 'code', None)}")
-            raise
 
 
 # What each state writes over a fresh application: every one means a link may already be in an inbox.
@@ -533,10 +475,25 @@ class TestTheSubmissionKey:
 
         assert first == second
 
+    def test_a_replay_is_answered_whatever_wording_its_first_press_named(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch):
+        """Looked up before the wording is judged: a deploy between the presses moved the label, and the retry resends the first one's."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            with monkeypatch.context() as earlier_build:
+                earlier_build.setattr(services, "BEWERBUNG_LAUFENDE_FASSUNG", EARLIER_FASSUNG)
+                first = await submit(database, schluessel=SCHLUESSEL, kontakte=kontakte_labelled(EARLIER_FASSUNG))
+            second = await submit(database, schluessel=SCHLUESSEL, kontakte=kontakte_labelled(EARLIER_FASSUNG))
+
+            return first.created_id, second.created_id, await database[Collection.BEWERBUNGEN].count_documents({})
+
+        first, second, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert (second, stored) == (first, 1)
+
     def test_the_same_key_over_other_details_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase) -> Any:
             await submit(database, schluessel=SCHLUESSEL)
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await submit(database, schluessel=SCHLUESSEL, stufengroesse=91)
 
             return refused.value.error_code, await database[Collection.BEWERBUNGEN].count_documents({})
@@ -595,7 +552,7 @@ class TestTheSubmissionKey:
             await submit(database, schluessel=SCHLUESSEL)
             await database[Collection.BEWERBUNGEN].update_one({}, dict(emptying))
             stored = await database[Collection.BEWERBUNGEN].find_one({})
-            with pytest.raises(DocumentConflictException) as refused:
+            with pytest.raises(WriteRefusalException) as refused:
                 await submit(database, schluessel=SCHLUESSEL)
 
             return stored, refused.value.error_code
@@ -627,12 +584,15 @@ class TestTheSubmissionKey:
 
         async def body(database: AsyncDatabase) -> Any:
             committed = asyncio.Event()
-            held = _HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
+            held = HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
             second = asyncio.create_task(submit(database, schluessel=SCHLUESSEL, bewerbungen=held))
-            while held.lookups == 0:
-                await asyncio.sleep(0.01)
+            await held.until_held(second)
 
-            first = await submit(database, schluessel=SCHLUESSEL)
+            try:
+                first = await submit(database, schluessel=SCHLUESSEL)
+            except BaseException:
+                await held.abandon(second)
+                raise
             committed.set()
             answered = await second
 
@@ -657,7 +617,7 @@ class TestTheSubmissionKey:
             # Set before the press, so the wrapper records the lookup and holds nothing back.
             committed = asyncio.Event()
             committed.set()
-            held = _HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
+            held = HoldsAfterItsLookup(database[Collection.BEWERBUNGEN], committed)
             await submit(database, schluessel=SCHLUESSEL, bewerbungen=held)
 
             return held.lookup_filters
@@ -675,11 +635,11 @@ class TestTheSubmissionKey:
         assert (len(ids), stored) == (1, 1)
 
 
-def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future", **overrides: Any) -> DocumentConflictException:
+def refused(url: str, *, bewerbung: Any = OPEN_WINDOW, saison_status: str = "future", **overrides: Any) -> WriteRefusalException:
     """One submission expected to be refused, with the exception it raised."""
 
-    async def body(database: AsyncDatabase) -> DocumentConflictException:
-        with pytest.raises(DocumentConflictException) as failure:
+    async def body(database: AsyncDatabase) -> WriteRefusalException:
+        with pytest.raises(WriteRefusalException) as failure:
             await submit(database, **overrides)
 
         # Nothing was written: a refusal that stored the row anyway would be a 409 the applicant
@@ -746,6 +706,11 @@ class TestTheRefusalsTheWritePathAnswers:
     def test_a_club_already_playing_the_season_refuses(self, mongo_replica_set_url: str):
         assert refused(mongo_replica_set_url, team_id=str(ENTERED_OID)).error_code == BEWERBUNG_PICKED_CLUB_ALREADY_ENTERED
 
+    def test_a_first_press_naming_an_earlier_wording_refuses(self, mongo_replica_set_url: str):
+        """The replay case's control: the same body under a key nothing stores is judged, and stores nothing."""
+
+        assert refused(mongo_replica_set_url, kontakte=kontakte_labelled(EARLIER_FASSUNG)).error_code == BEWERBUNG_FASSUNG_VERALTET
+
     def test_a_new_school_proposing_a_taken_kuerzel_refuses(self, mongo_replica_set_url: str):
         """Asked of a NEW school alone; `uniq_shorthand` is what would otherwise fail at acceptance."""
 
@@ -795,32 +760,17 @@ def through_the_app(url: str, body: Mapping[str, Any], *, headers: Mapping[str, 
     try:
         database = a_clean_database_sync(client, url, database_name)
         database[Collection.SAISONS].insert_one(
-            {
-                "_id": SAISON_ID,
-                "start_date": "2026-01-01",
-                "end_date": "2026-06-30",
-                "status": "future",
-                "rules": dict(RULES),
-                "bewerbung": dict(OPEN_WINDOW),
-            }
+            saison_document(SAISON_ID, "future", rules=rules_document(number_of_groups=2, teams_per_group=2), bewerbung=dict(OPEN_WINDOW))
         )
         database[Collection.TEAMS].insert_one(club_document(EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND))
 
         async def _submitted() -> Response:
-            app = create_app(build_test_config())
-            app.state.db_client = AsyncMongoClient(host=url, serverSelectionTimeoutMS=30_000)
-            app.dependency_overrides[get_germany_now] = lambda: NOW
-
-            try:
-                transport = ASGITransport(app=app, raise_app_exceptions=False)
-                async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                    sent = dict(BASE_AUTH if headers is None else headers)
-                    # A fresh key unless the case names one, an empty one standing for none sent.
-                    if schluessel != "":
-                        sent["Idempotency-Key"] = schluessel or str(uuid4())
-                    return await http.post(f"/api/v{API_VERSION}/bewerbungen", json=dict(body), headers=sent)
-            finally:
-                await app.state.db_client.close()
+            async with app_client(url, now=NOW) as http:
+                sent = dict(BASE_AUTH if headers is None else headers)
+                # A fresh key unless the case names one, an empty one standing for none sent.
+                if schluessel != "":
+                    sent["Idempotency-Key"] = schluessel or str(uuid4())
+                return await http.post(f"/api/v{API_VERSION}/bewerbungen", json=dict(body), headers=sent)
 
         response = asyncio.run(_submitted())
 
@@ -844,7 +794,7 @@ class TestASubmissionMadeOverTheWire:
 
         submitted = through_the_app(mongo_replica_set_url, payload())
 
-        assert submitted.response.status_code == 200
+        assert submitted.response.status_code == 201
         assert submitted.response.json()["eingereicht_am"] == TODAY
         assert submitted.stored == 1
 
@@ -877,21 +827,22 @@ class TestASubmissionMadeOverTheWire:
         `aktionen.actor`, which is the record an erasure is audited against.
         """
 
-        forged = {**BASE_AUTH, ACTOR_HEADER: "attacker@example.com"}
+        forged_actor = "attacker@example.com"
+        forged = {**BASE_AUTH, ACTOR_HEADER: forged_actor}
         submitted = through_the_app(mongo_replica_set_url, payload(), headers=forged)
 
-        assert submitted.response.status_code == 200
+        assert submitted.response.status_code == 201
         assert len(submitted.log_rows) == 1
         assert submitted.log_rows[0]["actor"] == {"kind": "public", "email": PUBLIC_ACTOR_EMAIL}
-        assert "attacker@example.com" not in str(submitted.log_rows[0])
+        assert forged_actor not in str(submitted.log_rows[0])
 
-    def test_a_body_breaking_a_shape_rule_is_a_422_rather_than_a_409(self, mongo_replica_set_url: str):
+    def test_a_body_breaking_a_shape_rule_is_refused_as_a_payload(self, mongo_replica_set_url: str):
         """The distinctness rule is about the BODY, not a judgement against the database, so it reaches no refusal code."""
 
         shared = dict(KONTAKTE["ansprechperson"], telefon=KONTAKTE["trainer"]["telefon"])
         submitted = through_the_app(mongo_replica_set_url, payload(kontakte={**KONTAKTE, "ansprechperson": shared}))
 
-        assert submitted.response.status_code == 422
+        assert (submitted.response.status_code, submitted.response.json()["error_code"]) == (422, PAYLOAD_REFUSED)
         assert submitted.stored == 0
 
     @pytest.mark.parametrize(
@@ -915,7 +866,7 @@ class TestASubmissionMadeOverTheWire:
 
         submitted = through_the_app(mongo_replica_set_url, payload(), schluessel="")
 
-        assert submitted.response.status_code == 200
+        assert submitted.response.status_code == 201
         assert submitted.stored == 1
         assert submitted.keyed == 0
 
@@ -930,7 +881,6 @@ class TestASubmissionMadeOverTheWire:
 
 # The validator refuses what the models refuse: `gute_spieler` is non-nullable on every side, not
 # the payload alone, so the stored shape is `bsonType: "int"` and no null.
-DOCUMENT_VALIDATION_FAILED = 121
 
 
 def _parsed_kontakte() -> dict[str, Any]:

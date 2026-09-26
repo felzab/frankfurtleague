@@ -1,0 +1,74 @@
+// Linted as src/features/zzplant/transitions.tsx.
+"use client";
+
+declare const startTransition: (callback: () => void | Promise<void>) => void;
+declare const startSaving: (callback: () => void | Promise<void>) => void;
+declare const setWert: (wert: number) => void;
+declare const setFehler: (fehler: boolean) => void;
+declare const lies: () => Promise<number>;
+declare const pruefe: () => Promise<boolean>;
+declare const appToast: { success: (title: string) => string };
+declare const router: { push: (to: string) => void; refresh: () => void };
+
+// Each arm once: a later statement of the block that awaited, the update's own argument, a handler
+// after an awaiting try, and a branch after a test holding an `await` or being one.
+export function afterTheAwait() {
+  startSaving(async () => {
+    const wert = await lies();
+    if (wert > 0) {
+      setWert(wert); // expect: transition-rewrap
+    }
+  });
+  startTransition(async () => {
+    setWert(await lies()); // expect: transition-rewrap
+  });
+  startSaving(async () => {
+    try {
+      await lies();
+    } catch {
+      setFehler(true); // expect: transition-rewrap
+    } finally {
+      setWert(0); // expect: transition-rewrap
+    }
+  });
+  startSaving(async () => {
+    if (!(await pruefe())) {
+      setFehler(true); // expect: transition-rewrap
+    }
+  });
+  startSaving(async () => {
+    if (await pruefe()) {
+      setFehler(true); // expect: transition-rewrap
+    }
+  });
+}
+
+// None reported: an update before the first `await`, a try and a test awaiting nothing, the update
+// wrapped again, an external store and a router that starts its own transition, and an `await`
+// outside any transition.
+export function wrappedOrUnreached() {
+  startSaving(async () => {
+    setFehler(false);
+    try {
+      setWert(1);
+    } catch {
+      setFehler(true);
+    }
+    if (Math.random() > 0.5) {
+      setWert(2);
+    }
+    const wert = await lies();
+    startSaving(() => {
+      setWert(wert);
+    });
+    appToast.success("Gespeichert");
+    router.push("/");
+    router.refresh();
+  });
+  startTransition(() => {
+    setWert(1);
+  });
+  void (async () => {
+    setWert(await lies());
+  })();
+}

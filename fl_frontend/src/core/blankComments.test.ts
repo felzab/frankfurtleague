@@ -27,6 +27,23 @@ describe("the source a sweep reads", () => {
     );
   });
 
+  /* What a scan without the parser misreads: whether a `/` opens a pattern, whether text between
+     tags is JSX, and whether a `}` closes a template's hole or a block turn on the grammar around them. */
+  it("reads a comment marker inside a pattern, JSX text or a template past its nested hole as code", () => {
+    assert.match(blankComments('const schraegen = /[//]+/g; role="alert"'), /role="alert"/, "a pattern's `//` ate the code after it");
+    assert.match(blankComments('<p>a // b</p>; role="alert"'), /role="alert"/, "a `//` in JSX text ate the code after it");
+    assert.match(
+      blankComments('const pfad = `${a ? `${b}` : "c"}//d`; role="alert"'),
+      /role="alert"/,
+      "a `//` after a template's nested hole ate the code after it",
+    );
+    assert.equal(
+      blankComments("const n = a / b; // teilt\nrole", "module.ts"),
+      "const n = a / b;         \nrole",
+      "a division read as a pattern",
+    );
+  });
+
   /* Asserted against the whole blanked string rather than by matching the code beside it: a span
      that slipped by one still hides every word the comment carries, so a `doesNotMatch` passes over
      the shift. */

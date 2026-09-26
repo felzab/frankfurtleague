@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-import { TrashBin } from "@gravity-ui/icons";
+import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { eraseSpielerAction } from "@/features/spieler/actions";
 import { ERASURE_NEEDS_RETIREMENT } from "@/features/spieler/constants";
@@ -11,12 +11,13 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 /**
@@ -41,14 +42,16 @@ export function FormLoeschenSection({
   const saisonHref = useSaisonHref();
   // No draft guard, unlike the anonymisation's: that one leaves a form standing whose next save would
   // write the cleared values back. Here the press removes the subject the draft describes.
-  const { isConfirming, isPending: isErasing, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const { isConfirming, press } = twoPress;
 
   const blockedReason = isRetired ? null : ERASURE_NEEDS_RETIREMENT;
   const panel = formPanel({ tone: blockedReason === null ? "danger" : "neutral" });
 
   const handleErase = () => {
     press(async () => {
-      const res = await eraseSpielerAction({ id: spielerId });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await eraseSpielerAction({ id: spielerId }).catch(rejectedWrite(router));
 
       if (!res.success) {
         appToast.failure("Spieler nicht gelöscht", res);
@@ -98,7 +101,7 @@ export function FormLoeschenSection({
         {isConfirming && (
           <ConfirmReveal>
             <div className="flex w-full flex-col gap-y-1">
-              <h3 className={FORM_SECTION_HEADING}>Was dabei gelöscht wird</h3>
+              <h3 className={FORM_SECTION_HEADING_CLASSES}>Was dabei gelöscht wird</h3>
               <dl className="flex w-full flex-col gap-y-1">
                 <ConfirmReadoutRow
                   label="Person"
@@ -117,22 +120,18 @@ export function FormLoeschenSection({
 
             {/* No restore is named, because none exists: the log keeps no image of an erased person,
                 an image being a fresh copy of what the erasure destroyed. */}
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
+            <p className="fluid-xxs leading-normal font-medium text-foreground">
               {fullName} verschwindet damit aus der Verwaltung und von jeder öffentlichen Seite, mitsamt allen Kadereinträgen und allen Angaben
               im Änderungsprotokoll. Zurückholen lässt sich das nicht.
             </p>
           </ConfirmReveal>
         )}
 
-        <ConfirmActionRow
-          isConfirming={isConfirming}
-          isPending={isErasing}
-          onCancel={cancel}>
+        <ConfirmActionRow confirm={twoPress}>
           {/* The reason is said on the control as well as in the body above it, the treatment the
               rollover established. */}
           <ConfirmPressButton
-            isConfirming={isConfirming}
-            isPending={isErasing}
+            confirm={twoPress}
             reason={blockedReason}
             resting="Spieler endgültig löschen"
             armed="Ja, Spieler endgültig löschen"

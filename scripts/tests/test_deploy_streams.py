@@ -19,11 +19,10 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 from pathlib import Path
 from typing import Final
 
-from conftest import base_env, lift_function, new_root, run_shell, write_shell
+from conftest import BASH, base_env, lift_function, new_root, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 REPO_ROOT: Final = SCRIPTS.parent
@@ -32,8 +31,6 @@ DEPLOY: Final = SCRIPTS / "ops" / "deploy.sh"
 RUNBOOKS: Final = REPO_ROOT / "docs" / "ops" / "runbooks.md"
 BACKEND_DOCKERFILE: Final = REPO_ROOT / "fl_backend" / "Dockerfile"
 
-# Not a skip condition, for `scripts/tests/test_exit_contract.py :: BASH`'s reason.
-BASH: Final = shutil.which("bash")
 
 STAMP: Final = "2026-09-07T101500"
 

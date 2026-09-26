@@ -115,6 +115,17 @@ describe("what every message of the registration flow carries", () => {
     assert.doesNotMatch(boshaft.html, /<img src=x/, "a typed team name reaches the card as markup");
     assert.match(boshaft.html, /&lt;img src=x/, "the escaped form is not in the card either, so this case compares nothing");
   });
+
+  /* For the reader who registered for nothing, the league's address is the way to have the entry gone at once. */
+  it("hands the escape route's address as a link in both messages that carry the link", () => {
+    for (const [name, mail] of [
+      ["the confirmation link", MESSAGES.bestaetigung],
+      ["the reminder", MESSAGES.erinnerung],
+    ] as const) {
+      assert.match(mail.html, /schreib uns an <a href="mailto:[^"]+"[^>]*>[^<]+<\/a>\.<\/p>/, `${name}'s escape route is an address to copy`);
+      assert.match(mail.text, /Soll sie sofort weg, schreib uns an [^\s<]+@[^\s<]+\./, `${name}'s text part names no address`);
+    }
+  });
 });
 
 describe("what the confirmation link's own message says", () => {

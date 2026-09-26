@@ -19,7 +19,7 @@ and not the hook, so the rules below bind an edit that was never prompted with t
 `.mdx`, a `.jsx` and a `.bash` file are prompted with rules the gate reads neither their prose nor
 their comments against. It names
 this file and `docs/_standard/worked-examples.md` — these rules applied to real passages, each shown before and
-after — to be read in full; every agent brief names both, and the examples cite these rules rather
+after — to be read in full; `.claude/CLAUDE.md` §8 names both too, and the examples cite these rules rather
 than restating them (COR-2). The mechanical defence is `scripts/checks/check_docs.py`,
 run by `./scripts/gate/verify.sh` in its docs scope; its checks are registered at
 `scripts/checks/docs_gate/kernel.py :: CHECKS`, and the finding a check prints says what its failure
@@ -144,12 +144,9 @@ These bind every written artifact. A comment is documentation and carries every 
   reach, because
   something other than a reader consumes it at a fixed location — a path a platform serves, a form a
   tool quotes verbatim. Convenience is never the reason, and neither is the copy being short.
-  **The check exempts nothing**, and grants that survival to nobody: it reads a page's paragraphs,
-  and a copy consumed by something other than a reader is fenced, in source, or shorter than the
-  floor `scripts/checks/docs_gate/checks.py :: ECHO_WORD_FLOOR` sets — below which two files stating
-  one sentence is the language rather than a copy — so an exemption keyed on the consumption would
-  be a branch nothing can take.
-  _Enforced by_ gate check `echo` over a page's paragraphs alone, exempting nothing; the surviving
+  _Enforced by_ gate check `echo` over a page's paragraphs alone, none shorter than the floor
+  `scripts/checks/docs_gate/checks.py :: ECHO_WORD_FLOOR` sets, exempting nothing, since a copy
+  consumed by something other than a reader is fenced, in source or under that floor; the surviving
   duplicate and every comment run are `/docs:audit`'s,
   which can tell a restated argument from the restated claim the bold clause above requires, where a
   mechanical match reports both alike.
@@ -161,7 +158,7 @@ These bind every written artifact. A comment is documentation and carries every 
   subject is a passage on each side of a cut. _Enforced by_ gate check `history` for a fixed phrase
   list over a branch's added lines, **which implements no exemption**: it spares
   `docs/_standard/worked-examples.md` only as far as that page's narration stays inside a fence, which
-  `scripts/checks/docs_gate/kernel.py :: strip_fences` blanks, so an exempt sentence written as
+  `scripts/checks/docs_gate/kernel.py :: strip_code_blocks` blanks, so an exempt sentence written as
   prose there fails a branch that is obeying this rule; both banned shapes past those phrases, and
   the exemptions, are `/docs:audit`'s.
 - **COR-4:** **the test is derivability, never a list of banned words**: a value this repository
@@ -191,14 +188,10 @@ These bind every written artifact. A comment is documentation and carries every 
   line number, in any form — nothing tells a correct one from a stale one — except a finding in a
   gitignored audit report, read once against the tree it came from. _Enforced by_ gate checks
   `citation`, `path`, `anchor`, `link`, `rule-id` and `line-citation`; gate check
-  `section-reference`, for a `§<number>` naming a section the page beside it does not define — the
-  page a link or a backticked path names, and otherwise the one the reference is written on;
-  gate check `wrapped-path`,
-  for a backticked path a line wrap parts, which renders with a space inside it, whether or not the
-  join still names a file; gate check `sha`, which fails
-  a backticked run of seven or eight hex characters carrying both a digit and a letter whether or not
-  this clone resolves it, resolution being exactly what a rewritten history takes away — a run of hex
-  alone is a value and stays review's; `/docs:audit`.
+  `section-reference`, for a `§<number>` naming no section of the page it points into; gate check
+  `wrapped-path`, for a backticked path a line wrap parts; gate check `sha`, for a backticked short
+  SHA whether or not this clone resolves it, a run of hex lacking a digit or a letter being a value
+  and review's; `/docs:audit`.
 - **COR-7:** purpose in the first lines; a reference long enough that a reader arrives with a
   question rather than at the top carries a table of its sections against the question each answers.
   **What triggers the table is how the page is read, never how long it is**, so a page read from its
@@ -301,9 +294,8 @@ every file this Scope names.
   _Enforced by_ gate check `module-header`, over every file
   `scripts/checks/docs_gate/checks.py :: _header_scoped` admits that
   `scripts/checks/docs_gate/kernel.py :: is_prose` leaves, for the word bound, the title line, the
-  banned vocabulary and a header below the file's opening; gate check `header-see`, which resolves
-  every file a `See:` entry names; the three-sentence bound and which files carry a header at all
-  are review judgment.
+  banned vocabulary and a header below the file's opening; the three-sentence bound, whether a
+  `See:` entry still names a file, and which files carry a header at all are review judgment.
 - **INC-4:** a docstring is required in exactly two places — every FastAPI endpoint, published as the
   operation description in `/openapi.json` and written for a reader of the API; and anywhere with a
   why worth recording. There is no every-exported-symbol rule, because a coverage rule manufactures
@@ -373,16 +365,9 @@ every file this Scope names.
   the doc comment, whose own attachment survives that. _Enforced by_ gate check `comment-length`,
   which fails a block past that same bound over every block a branch added a line to, and which
   exempts a docstring only where the published document carries it AND a route decorator sits above
-  it. **The two are one population, not two**: that document is generated from these same
-  docstrings, so PRE-4's independence is not what this pair buys — what it buys is that a docstring
-  the API does not publish keeps this bound, the decorator alone never deciding. A block the branch
-  found already over the bound keeps that standing while the branch does not lengthen it, matched to
-  its earlier self — at whatever path the fork's tree filed it under — by the lines the two versions
-  share rather than by its first line, so improving an over-bound block's opening sentence costs
-  nothing and adding to one fails; the blocks in one file matching it spend **one standing per copy
-  that arrived there, and never more than the fork filed in the file it forked from**, so splitting
-  or copying a block inside that file buys no second ceiling, while a match in another file inherits
-  one standing and spends none of it; a block over the bound that no branch has touched is
+  it. A block the branch found already over the bound keeps that standing while the branch does not
+  lengthen it, matched to its earlier self as `scripts/checks/docs_gate/branch.py :: _fork_ancestor`
+  and `:: _fork_ceiling` state; a block over the bound that no branch has touched is
   `/docs:audit`'s (CUR-6).
 
 ## Corpus
@@ -470,9 +455,7 @@ README and every template.
 - **OUT-7:** diagrams are mermaid, so they render in-repo; C4 levels 1–3, mirroring the C4 model's
   own levels, which move without us; never a code diagram; no square brackets inside a quoted node
   label. They live in overviews, plus a spec sheet where a data flow is hard in prose. _Enforced by_
-  gate check `diagram`, for a fence naming a diagram language that is not mermaid and for a square
-  bracket inside a quoted node label; the C4 levels, where a diagram lives and whether it is a code
-  diagram are review judgment.
+  unenforced — review judgment.
 - **OUT-8:** a surface is one of the three parts of the system a reader goes to as a whole — frontend
   (`fl_frontend/`), backend (`fl_backend/`), and ops (the compose files, `nginx/`, `scripts/`, the
   Dockerfiles). Ops owns the scripts and what they guarantee; `docs/_git/` owns the pipeline that

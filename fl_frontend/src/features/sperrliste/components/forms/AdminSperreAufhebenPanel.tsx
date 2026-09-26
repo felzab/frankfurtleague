@@ -1,6 +1,8 @@
 "use client";
 
-import { TrashBin } from "@gravity-ui/icons";
+import { useRouter } from "next/navigation";
+
+import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { deleteSperreAction } from "@/features/sperrliste/actions";
 import { SPERRE_AUFHEBEN_CONSEQUENCE } from "@/features/sperrliste/constants";
@@ -8,6 +10,7 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 /**
@@ -16,11 +19,14 @@ import { appToast } from "@/shared/utils/appToast";
  * („stilllegen“) that no ban is, this delete keeping nothing (`docs/frontend/spec.md :: I37`).
  */
 export function AdminSperreAufhebenPanel({ sperreId, gesperrtAm }: { sperreId: string; gesperrtAm: string }) {
-  const { isConfirming, isPending, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const router = useRouter();
+  const { isConfirming, press } = twoPress;
 
   const handleAufheben = () => {
     press(async () => {
-      const res = await deleteSperreAction({ id: sperreId });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await deleteSperreAction({ id: sperreId }).catch(rejectedWrite(router));
 
       if (!res.success) {
         appToast.failure("Sperre nicht aufgehoben", res);
@@ -35,20 +41,16 @@ export function AdminSperreAufhebenPanel({ sperreId, gesperrtAm }: { sperreId: s
     <div className="flex w-full flex-col gap-3">
       {isConfirming && (
         <ConfirmReveal>
-          <p className="fluid-xxs text-foreground leading-normal font-medium">{SPERRE_AUFHEBEN_CONSEQUENCE}</p>
+          <p className="fluid-xxs leading-normal font-medium text-foreground">{SPERRE_AUFHEBEN_CONSEQUENCE}</p>
         </ConfirmReveal>
       )}
 
-      <ConfirmActionRow
-        isConfirming={isConfirming}
-        isPending={isPending}
-        onCancel={cancel}>
+      <ConfirmActionRow confirm={twoPress}>
         {/* The day and never the reason: the reason runs to 500 characters an administrator typed,
             the card prints it directly above this control, and a name quoting it reads it out
             twice — once at rest and once armed. */}
         <ConfirmPressButton
-          isConfirming={isConfirming}
-          isPending={isPending}
+          confirm={twoPress}
           reason={null}
           resting={`Sperre vom ${gesperrtAm} aufheben`}
           armed={`Ja, Sperre vom ${gesperrtAm} endgültig aufheben`}

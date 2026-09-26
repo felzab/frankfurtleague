@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import { beforeEach, describe, it } from "node:test";
+import { describe, it } from "node:test";
 
-import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 
 /**
  * `next/headers` resolves only inside a Next build. Answering no traceparent leaves each read
  * minting its own, which is the branch a request without one already takes.
  */
-const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export const headers = async () => new Headers();")}`;
+const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -17,20 +18,18 @@ registerHooks({
   },
 });
 
-/** The first argument of every `apiClient` call, which for this module is the path it asks for. */
-const { calls, answerWith } = doubleActions({ modules: ["/src/core/api.ts"], answer: () => Promise.resolve({ acknowledged: 1, zeilen: [] }) });
-
-const paths = (): string[] => calls.filter((call) => call.action === "apiClient").map((call) => String(call.payload));
+const { calls } = doubleApiAnswers(({ endpoint }) =>
+  Promise.resolve(
+    endpoint.includes("/vorschau")
+      ? { acknowledged: 1, saison_id: SAISON_ID, zeilen: [] }
+      : { acknowledged: 1, saison_id: SAISON_ID, team_id: TEAM_ID, einladung: null, laeuft: true },
+  ),
+);
 
 const { getEinladung, getEinladungVersandVorschau } = await import("./queries.ts");
 
 const TEAM_ID = "a".repeat(24);
 const SAISON_ID = "2627";
-
-beforeEach(() => {
-  calls.length = 0;
-  answerWith(() => Promise.resolve({ acknowledged: 1, zeilen: [] }));
-});
 
 describe("the invite slice's reads", () => {
   /* The preview describes the press it is shown before: read WITHOUT the re-send choice it answers
@@ -40,15 +39,16 @@ describe("the invite slice's reads", () => {
     await getEinladungVersandVorschau(SAISON_ID, false);
     await getEinladungVersandVorschau(SAISON_ID, true);
 
-    assert.deepEqual(paths(), [
-      `/saisons/${SAISON_ID}/einladungen/versand/vorschau?erneut=false`,
-      `/saisons/${SAISON_ID}/einladungen/versand/vorschau?erneut=true`,
+    const vorschau = `/saisons/${SAISON_ID}/einladungen/versand/vorschau`;
+    assert.deepEqual(requestsOf(calls), [
+      { endpoint: `${vorschau}?erneut=false`, method: undefined, body: undefined },
+      { endpoint: `${vorschau}?erneut=true`, method: undefined, body: undefined },
     ]);
   });
 
   it("addresses one team's invite by both ids in the path", async () => {
     await getEinladung(TEAM_ID, SAISON_ID);
 
-    assert.deepEqual(paths(), [`/teams/${TEAM_ID}/saisons/${SAISON_ID}/einladung`]);
+    assert.deepEqual(requestsOf(calls), [{ endpoint: `/teams/${TEAM_ID}/saisons/${SAISON_ID}/einladung`, method: undefined, body: undefined }]);
   });
 });

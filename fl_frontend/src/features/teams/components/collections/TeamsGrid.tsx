@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { CardGrid } from "@/shared/components/ui/CardGrid";
-import { CARDS_CASCADE } from "@/shared/components/ui/motion";
+import { CARDS_CASCADE_CLASSES } from "@/shared/components/ui/motion";
 import { SeasonEmptyState } from "@/shared/components/ui/SeasonEmptyState";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
@@ -11,7 +11,7 @@ import type { FLTeam } from "../../schemas";
 
 // Each step is n columns of 14.25rem plus the gaps between them: 14.25rem is the narrowest `TeamCard`, at
 // a quarter-rem step, still holding its three chips on one line with a three-digit goal count.
-const COLUMNS = "@min-[30rem]:grid-cols-2 @min-[45.75rem]:grid-cols-3";
+const COLUMNS_CLASSES = "@min-[30rem]:grid-cols-2 @min-[45.75rem]:grid-cols-3";
 
 export function TeamsGrid({
   teams,
@@ -42,9 +42,9 @@ export function TeamsGrid({
   return (
     // The cascade is keyed off `role="listitem"`, not the card type, so every grid arrives alike.
     <CardGrid
-      columns={COLUMNS}
+      columns={COLUMNS_CLASSES}
       role="list"
-      className={CARDS_CASCADE}>
+      className={CARDS_CASCADE_CLASSES}>
       {teams.map((teamData) => (
         // On the wrapper, never on the <Link>: an explicit role replaces the implicit `link` one,
         // dropping the card out of a screen reader's list of links.

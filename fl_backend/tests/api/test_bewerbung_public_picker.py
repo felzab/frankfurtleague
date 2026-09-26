@@ -13,23 +13,24 @@ from collections.abc import Iterator
 
 import pytest
 
-from app.api.saisons.cache import invalidate_saison_cache
+from app.core.security import MISSING_TOKEN
 
-from .test_bewerbung_public_read import CLUBS, OPEN_SAISON, PREFIX, answered, seed_the_public_corpus
+from .test_bewerbung_public_read import (
+    ADDRESS,
+    CLUBS,
+    DESCRIPTION,
+    OPEN_SAISON,
+    PREFIX,
+    RETIRED_CLUB,
+    SCHULFORM,
+    answered,
+    seed_the_public_corpus,
+    website_host,
+)
 
 # What `READ-BEWERBUNG-001` withholds, spelled as a DOCUMENT spells them: the assertions search
 # decoded bodies by key.
 WITHHELD_KEYS = frozenset({"shorthand", "address", "website_url", "full_name", "schulform", "description", "inactive_since", "statistik"})
-
-# The code a request carrying no bearer token at all answers (`app/core/security.py :: get_token`).
-MISSING_BEARER_TOKEN = "REQ-AUTH-001"
-
-
-@pytest.fixture(autouse=True)
-def _uncached_saisons() -> None:
-    """Process-global and keyed by season id alone, so an entry another test -- or another database -- left would answer here."""
-
-    invalidate_saison_cache()
 
 
 # Module-scoped for the read module's `seeded_url`'s reason.
@@ -61,13 +62,13 @@ class TestTheClubList:
 
         rendered = answered(seeded_url, f"{PREFIX}/schulen").text
 
-        for withheld in ("Hanauer", "60314", "zetteltal.example.de", "gymnasium_g9", "lange Tradition"):
+        for withheld in (ADDRESS["strasse"], ADDRESS["plz"], website_host(CLUBS[0][0]), SCHULFORM, DESCRIPTION):
             assert withheld not in rendered
 
     def test_a_retired_club_is_not_offered(self, seeded_url: str):
         """The picker offers what a school may apply AS, and `find_picked_club_refusal` refuses the same set at the write."""
 
-        assert "Verlassen" not in answered(seeded_url, f"{PREFIX}/schulen").text
+        assert RETIRED_CLUB[0] not in answered(seeded_url, f"{PREFIX}/schulen").text
 
     def test_the_list_is_sorted_by_name(self, seeded_url: str):
         """Seeded out of order, so this proves the sort rather than the insertion order."""
@@ -97,10 +98,11 @@ class TestTheKuerzelCheck:
     def test_the_answer_names_no_club(self, seeded_url: str):
         """A shape distinguishing a retired holder from a live one would publish which schools have left."""
 
-        body = answered(seeded_url, f"{PREFIX}/kuerzel/VE").json()
+        name, shorthand, _ = RETIRED_CLUB
+        body = answered(seeded_url, f"{PREFIX}/kuerzel/{shorthand}").json()
 
         assert set(body) == {"acknowledged", "shorthand", "vergeben"}
-        assert "Verlassen" not in answered(seeded_url, f"{PREFIX}/kuerzel/VE").text
+        assert name not in answered(seeded_url, f"{PREFIX}/kuerzel/{shorthand}").text
 
 
 # Every public route, bound once: a route added to one list alone would keep its reachability test
@@ -131,7 +133,7 @@ class TestTheTierTheseReadsAreServedAt:
         response = answered(seeded_url, path, headers={})
 
         assert response.status_code == 401
-        assert response.json()["error_code"] == MISSING_BEARER_TOKEN
+        assert response.json()["error_code"] == MISSING_TOKEN
 
     def test_the_admin_list_at_this_prefix_still_refuses_the_base_key(self, seeded_url: str):
         """The control: a base-tier router joining an admin prefix must not have widened the two routers already there."""

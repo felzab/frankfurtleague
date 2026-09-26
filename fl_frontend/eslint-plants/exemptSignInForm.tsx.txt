@@ -1,0 +1,7 @@
+// Linted as src/features/auth/components/forms/SignInForm.tsx.
+// The sign-in link's failure is Better Auth's, titled here, and every other ban still reaches it.
+declare const appToast: { danger: (title: string, options?: { description?: string }) => string };
+declare const state: { error: string };
+
+export const SENT = () => appToast.danger("Anmeldelink nicht gesendet", { description: state.error });
+export const GAP = "flex gap-5"; // expect: gap

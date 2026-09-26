@@ -2,24 +2,27 @@
 
 import { memo } from "react";
 
-import { Globe, Magnifier, MapPin, Pencil } from "@gravity-ui/icons";
+import Globe from "@gravity-ui/icons/Globe";
+import Magnifier from "@gravity-ui/icons/Magnifier";
+import MapPin from "@gravity-ui/icons/MapPin";
+import Pencil from "@gravity-ui/icons/Pencil";
 
-import { Table } from "@heroui/react";
+import { Table } from "@heroui/react/table";
 
 import { reactivateSpielortAction } from "@/features/spielorte/actions";
 import { SPIELORTE_CRUD_COPY } from "@/features/spielorte/constants";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
-  CELL_EDGE,
-  CELL_INNER,
-  COLUMN_EDGE,
-  COLUMN_INNER,
-  IDENTITY_HEAD,
-  IDENTITY_LINE,
-  IDENTITY_ROW,
-  IDENTITY_STACK,
+  CELL_EDGE_CLASSES,
+  CELL_INNER_CLASSES,
+  COLUMN_EDGE_CLASSES,
+  COLUMN_INNER_CLASSES,
+  IDENTITY_HEAD_CLASSES,
+  IDENTITY_LINE_CLASSES,
+  IDENTITY_ROW_CLASSES,
+  IDENTITY_STACK_CLASSES,
   identityName,
-  TABLE_HEADING,
+  TABLE_HEADING_CLASSES,
 } from "@/shared/components/ui/adminTable";
 import { card } from "@/shared/components/ui/card";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
@@ -74,7 +77,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   };
 
   const renderMietpreis = (ort: FLSpielort) => (
-    <span className="bg-muted text-foreground font-numeric fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide tabular-nums">
+    <span className="inline-flex items-center rounded-md bg-muted px-3 py-1.5 font-numeric fluid-xs font-bold tracking-wide text-foreground tabular-nums">
       {formatEuro(ort.default_mietpreis)}
     </span>
   );
@@ -89,20 +92,20 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
    * the table renders at.
    */
   const renderIdentity = (ort: FLSpielort) => (
-    <div className={IDENTITY_ROW}>
+    <div className={IDENTITY_ROW_CLASSES}>
       <MapPin
         aria-hidden="true"
-        className="text-foreground-muted size-4.5 shrink-0"
+        className="size-4.5 shrink-0 text-foreground-muted"
       />
-      <div className={IDENTITY_STACK}>
-        <div className={IDENTITY_HEAD}>
+      <div className={IDENTITY_STACK_CLASSES}>
+        <div className={IDENTITY_HEAD_CLASSES}>
           <span className={identityName(ort.inactive_since !== null)}>{ort.name}</span>
           {renderRetiredBadge(ort)}
         </div>
-        <span className={IDENTITY_LINE}>
+        <span className={IDENTITY_LINE_CLASSES}>
           {ort.address.strasse} {ort.address.hausnummer}
         </span>
-        <span className={IDENTITY_LINE}>
+        <span className={IDENTITY_LINE_CLASSES}>
           {ort.address.plz} {ort.address.stadt}
           {ort.address.stadtteil && ` (${ort.address.stadtteil})`}
         </span>
@@ -150,7 +153,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
           external>
           <Globe
             aria-hidden="true"
-            className="text-foreground-muted size-4"
+            className="size-4 text-foreground-muted"
           />
         </RowActionMenuItem>
         {/* `ort` as `buildSpielFacets` declares it, carrying the id its options are keyed by. A `q=`
@@ -161,7 +164,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
           label="Spiele anzeigen">
           <Magnifier
             aria-hidden="true"
-            className="text-foreground-muted size-4"
+            className="size-4 text-foreground-muted"
           />
         </RowActionMenuItem>
       </RowActionMenu>
@@ -181,7 +184,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
               <div className="min-w-0 flex-1">{renderIdentity(ort)}</div>
               <span className="shrink-0">{renderMietpreis(ort)}</span>
             </div>
-            <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(ort)}</div>
+            <div className="-mx-1 border-t border-border/50 pt-2">{renderActions(ort)}</div>
           </div>
         ))}
       </div>
@@ -203,15 +206,15 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
                     is the only one here holding free text. */}
                 <Table.Column
                   isRowHeader
-                  className={`${TABLE_HEADING} ${COLUMN_EDGE}`}>
+                  className={`${TABLE_HEADING_CLASSES} ${COLUMN_EDGE_CLASSES}`}>
                   Name
                 </Table.Column>
                 {/* Sized to the euro chip rather than to the heading over it: a chip holds one line,
                     so a column under its width draws it across the cell beside it. */}
-                <Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER} w-36`}>Mietpreis</Table.Column>
+                <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_INNER_CLASSES} w-36`}>Mietpreis</Table.Column>
                 {/* Four controls — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
                 holds the arithmetic, and it is the count a new action changes. */}
-                <Table.Column className={`${TABLE_HEADING} ${COLUMN_EDGE} w-60 text-right`}>Aktionen</Table.Column>
+                <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_EDGE_CLASSES} w-60 text-right`}>Aktionen</Table.Column>
               </Table.Header>
 
               {/* `items` plus a render function, never mapped children — see the memo note above. */}
@@ -221,12 +224,12 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
                 {(ort: FLSpielort) => (
                   <Table.Row
                     id={ort.id}
-                    className="border-border/50 border-b last:border-b-0">
-                    <Table.Cell className={CELL_EDGE}>{renderIdentity(ort)}</Table.Cell>
+                    className="border-b border-border/50 last:border-b-0">
+                    <Table.Cell className={CELL_EDGE_CLASSES}>{renderIdentity(ort)}</Table.Cell>
 
-                    <Table.Cell className={CELL_INNER}>{renderMietpreis(ort)}</Table.Cell>
+                    <Table.Cell className={CELL_INNER_CLASSES}>{renderMietpreis(ort)}</Table.Cell>
 
-                    <Table.Cell className={CELL_EDGE}>{renderActions(ort)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE_CLASSES}>{renderActions(ort)}</Table.Cell>
                   </Table.Row>
                 )}
               </Table.Body>

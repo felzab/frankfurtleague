@@ -52,6 +52,7 @@ from app.core.dependencies import (
     TeamsCollection,
     get_german_date_str,
 )
+from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin
@@ -73,6 +74,7 @@ def _entscheidung(*, today: str, von: str, grund: str | None) -> dict[str, Any]:
     f"{by_id('bewerbung_id')}/annehmen",
     response_model=FLAnnehmenBewerbungResponse,
     summary="Accept a Bewerbung and enter the school into the season",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def annehmen_bewerbung(
     bewerbung_id: CustomRouteObjectId,
@@ -224,7 +226,12 @@ async def annehmen_bewerbung(
     return accepted
 
 
-@router.post(f"{by_id('bewerbung_id')}/ablehnen", response_model=FLAblehnenBewerbungResponse, summary="Decline a Bewerbung")
+@router.post(
+    f"{by_id('bewerbung_id')}/ablehnen",
+    response_model=FLAblehnenBewerbungResponse,
+    summary="Decline a Bewerbung",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+)
 async def ablehnen_bewerbung(
     bewerbung_id: CustomRouteObjectId,
     ablehnung_data: Annotated[FLAblehnenBewerbungPayload, Body()],
@@ -268,6 +275,7 @@ async def ablehnen_bewerbung(
     f"{by_id('bewerbung_id')}/einwilligung/{{seat}}/erneut",
     response_model=FLBewerbungEinwilligungErneutResponse,
     summary="Re-send one seat's confirmation link",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def erneut_einwilligung(
     bewerbung_id: CustomRouteObjectId,
@@ -280,11 +288,9 @@ async def erneut_einwilligung(
 
     Where one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.
     The answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.
-    The application's confirmation deadline restarts from today and the seat's reminder is owed again. Refused on an
-    application already decided (`REQ-BEWERBUNG-001`) and on any seat the link would open that is already confirmed
-    or declined, or one an application stored before the confirmation flow holds — the mirrored seat included
-    (`REQ-BEWERBUNG-011`). A decision, an answer or an erasure landing while the request runs is refused the same way.
-    A path naming no seat is a 404.
+    The application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat
+    is judged with the pressed one, a seat stored before the confirmation flow is refused as an answered one is, and a
+    decision, an answer or an erasure landing while the request runs is refused too. A path naming no seat is a 404.
     """
 
     db_filter = {"_id": bewerbung_id}
@@ -348,6 +354,7 @@ async def erneut_einwilligung(
     f"{by_id('bewerbung_id')}/kontakte/{{seat}}/email",
     response_model=FLBewerbungKontaktEmailResponse,
     summary="Correct one contact person's email address and re-send their link",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def korrigiere_kontakt_email(
     bewerbung_id: CustomRouteObjectId,
@@ -426,6 +433,7 @@ async def korrigiere_kontakt_email(
     f"{by_id('bewerbung_id')}/kontakte/{{seat}}",
     response_model=FLBewerbungKontaktSitzResponse,
     summary="Seat another person where a contact person stepped out",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def besetze_kontakt_sitz(
     bewerbung_id: CustomRouteObjectId,

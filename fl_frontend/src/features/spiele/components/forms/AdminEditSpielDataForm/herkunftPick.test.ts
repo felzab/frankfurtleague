@@ -1,28 +1,30 @@
 import "@/shared/testing/dom.ts";
 
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
 import { fireEvent, render } from "@testing-library/react";
 
-import { FLSpielSchema } from "@/features/spiele/schemas.ts";
+import { FLSpielAdminSchema, FLSpielSchema } from "@/features/spiele/schemas.ts";
+import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
-import { deriveDraftStatus } from "@/shared/utils/draftStatus.ts";
 
 import type { FLSaisonPhase } from "@/features/saisons/schemas.ts";
+import type { SpielFieldPath } from "@/features/spiele/draftStatus.ts";
 import type { FLSpiel, FLSpielQuelle } from "@/features/spiele/schemas.ts";
 import type { SpielBanner } from "./banners.ts";
 
+// The editor asks its dry run from an effect, which a server render never runs: nothing here is answered.
+doubleActions({ modules: ["/src/features/spiele/actions.ts"], answer: () => new Promise<never>(() => undefined) });
+
 const { FormTeamPicker } = await import("./FormTeamPicker.tsx");
+const { AdminEditSpielDataForm } = await import("./AdminEditSpielDataForm.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 const { SpielExpectedProvider } = await import("./SpielExpectedContext.tsx");
-
-/** The rule's other half: the picker drops the row, and the editor feeds the banner saying why. */
-const EDITOR = readFileSync(path.resolve(import.meta.dirname, "AdminEditSpielDataForm.tsx"), "utf8");
 
 const SAISON = "2026";
 
@@ -78,8 +80,7 @@ const HERKUNFT_BANNER: SpielBanner = {
   inline: "team1-herkunft",
 };
 
-/** No descriptor for any of these paths, which is the state the picker stands in until a save judges one. */
-const STATUS = deriveDraftStatus<null, string>({ descriptors: [], stored: null, draft: null, fieldErrors: {} });
+const STATUS = declaredStatus<SpielFieldPath>(["team1.team_id", "team1_quelle", "team2.team_id", "team2_quelle"]);
 
 type PickerProps = Parameters<typeof FormTeamPicker>[0];
 
@@ -258,8 +259,61 @@ describe("the Herkunft picker's group placing", () => {
   });
 
   /* One derivation behind both, or the picker closes a control the banner beneath it denies is
-     closed at all. Two files agreeing, which is what neither one's markup can show. */
-  it("feeds that banner the derivation the picker closes on", () => {
-    assert.match(EDITOR, /seedsFromTheGroups: isFirstKnockoutRound\(saisonSpiele, spielData\)/);
+     closed at all. The editor raises the banner; the same fixture in the two seasons answers it both ways. */
+  it("raises that banner from the editor exactly where the picker closes the placing", () => {
+    const WIRED = spiel(3, "halbfinale", GRUPPE_PLATZ);
+    const BANNER = "Ein Platz in einer Gruppe ist als Herkunft von Team 1 nur in der ersten KO-Runde wählbar";
+    const editor = (saisonSpiele: FLSpiel[]): string =>
+      renderTree(
+        underNext(
+          h(AdminEditSpielDataForm, {
+            spielData: FLSpielAdminSchema.parse(WIRED),
+            teams: [],
+            spielorte: [],
+            schiedsrichter: [],
+            saisonSpiele: saisonSpiele.map((one) => (one.id === WIRED.id ? WIRED : one)),
+            numberOfGroups: 2,
+            isFinishedSaison: false,
+            today: "2026-09-14",
+            categorize: () => new Set<never>(),
+            pageHeader: { title: "Spiel 3" },
+          }),
+          { search: "saison_id=2026" },
+        ),
+      );
+
+    assert.ok(editor(BRACKET_OF_16).includes(BANNER), "a group placing past the bracket's first round raises no banner saying why");
+    assert.ok(!editor(BRACKET_OF_4).includes(BANNER), "the round the bracket opens on is told a group placing is closed there");
+  });
+});
+
+describe("the editor's section pickers", () => {
+  /* Each names a section the payload takes as `null`, so an emptied pick is an answer, while the id
+     under it is one the schema refuses empty: the mark comes from the site, not from that leaf. */
+  it("stay unmarked, an emptied pick dropping its whole section", () => {
+    const GRUPPENSPIEL = spiel(1, "gruppenphase");
+    const host = document.createElement("div");
+    host.innerHTML = renderTree(
+      underNext(
+        h(AdminEditSpielDataForm, {
+          spielData: FLSpielAdminSchema.parse(GRUPPENSPIEL),
+          teams: [],
+          spielorte: [],
+          schiedsrichter: [],
+          saisonSpiele: [GRUPPENSPIEL],
+          numberOfGroups: 2,
+          isFinishedSaison: false,
+          today: "2026-09-14",
+          categorize: () => new Set<never>(),
+          pageHeader: { title: "Spiel 1" },
+        }),
+        { search: "saison_id=2026" },
+      ),
+    );
+
+    for (const name of ["team1.team_id", "team2.team_id", "ort.spielort_id", "schiedsrichter.schiedsrichter_id"]) {
+      const control = host.querySelector(`[name="${name}"]`) ?? assert.fail(`the editor renders no ${name} picker`);
+      assert.equal(control.closest('[data-required="true"]'), null, `the ${name} picker is marked required`);
+    }
   });
 });

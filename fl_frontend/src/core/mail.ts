@@ -7,7 +7,7 @@ import { frontend_config } from "./config";
 import { withAsciiDomain } from "./emailAddress";
 import { APINetworkError, MailSendError } from "./errors";
 import { logger } from "./logging";
-import { getRequestTraceId } from "./requestScope";
+import { boundCall, getRequestTraceId, recordWriteSent } from "./requestScope";
 import { mintTraceId } from "./trace";
 
 const MAIL_ENDPOINT = "https://api.resend.com/emails";
@@ -83,6 +83,18 @@ export class MailRecipientError extends Error {
     super("The recipient's domain cannot be written in ASCII.");
 
     this.name = "MailRecipientError";
+  }
+}
+
+/**
+ * Raised where the request's deadline was spent before the send left. Not an `APINetworkError`, which
+ * a fan-out reads as a message that may have gone: nothing reached the provider.
+ */
+export class MailUnsentError extends Error {
+  constructor() {
+    super("The request's deadline had passed before the message was sent.");
+
+    this.name = "MailUnsentError";
   }
 }
 
@@ -217,21 +229,17 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
     throw new MailWithheldError();
   }
 
-  // At the send as well as at entry: a row stored before the address rule can still carry its domain
-  // in Unicode (`docs/backend/spec.md :: I333`).
+  // At the send as well as at entry, so no caller has to have converted: every recipient leaves with
+  // its domain in the punycode form a payload stores (`docs/backend/spec.md :: I332`).
   const recipient = withAsciiDomain(to);
 
   // Above the timer below, which a throw from here would leave running for the whole budget.
   if (recipient === undefined) throw new MailRecipientError();
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), MAIL_TIMEOUT_MS);
+  const bound = boundCall(MAIL_TIMEOUT_MS);
 
-  // Logged where the detail exists: a caller on the sign-in path records the error's NAME alone, so
-  // a status and the provider's code reach no stream otherwise. The recipient never travels on
-  // either line (`docs/logging/spec.md :: L9`).
-  const failNetwork = (error: unknown) => {
-    const failure = new APINetworkError({
+  const failNetwork = (error: unknown) =>
+    new APINetworkError({
       message: "Mail request failed.",
       isTimeout: error instanceof Error && error.name === "AbortError",
       url: MAIL_ENDPOINT,
@@ -241,13 +249,15 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
       originalError: error,
     });
 
+  // Logged where the detail exists: a caller on the sign-in path records the error's NAME alone, so
+  // a status and the provider's code reach no stream otherwise. The recipient never travels on
+  // either line (`docs/logging/spec.md :: L9`).
+  const logNetwork = (failure: APINetworkError) => {
     logger.error("mail.send_failed", undefined, {
       error_code: failure.code,
       is_timeout: failure.isTimeout,
       trace_id: traceId,
     });
-
-    return failure;
   };
 
   const headers: Record<string, string> = {
@@ -269,8 +279,11 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
 
   const attempt = async (): Promise<MailAccepted> => {
     let res: Response;
+    // A message is a write nothing takes back, and one whose answer never comes may still have gone. No
+    // attempt starts on a spent deadline: the checks before the first and after each pause refuse it.
+    recordWriteSent();
     try {
-      res = await fetch(MAIL_ENDPOINT, { method: "POST", headers: headers, body: body, signal: controller.signal });
+      res = await fetch(MAIL_ENDPOINT, { method: "POST", headers: headers, body: body, signal: bound.signal });
     } catch (error) {
       throw failNetwork(error);
     }
@@ -319,38 +332,61 @@ export async function sendMail({ to, subject, html, text, tags, idempotencyKey }
   };
 
   try {
+    // Refused unsent once the request's deadline is spent (`docs/frontend/spec.md :: I366`).
+    if (bound.signal.aborted) {
+      // `FE-NET-001`, the code a send that never reached the provider logs under.
+      logger.error("mail.send_failed", undefined, { error_code: "FE-NET-001", is_timeout: true, trace_id: traceId });
+      throw new MailUnsentError();
+    }
+
+    /** The line a failure nobody will retry leaves, the provider's refusal or the broken request. */
+    const logGivenUp = (error: unknown) => {
+      if (error instanceof MailSendError) logRefusal(error);
+      else if (error instanceof APINetworkError) logNetwork(error);
+    };
+
+    // The first attempt that broke off, which the provider may have accepted: a refusal answering a
+    // later attempt says nothing about it, so the send ends as that network failure, of unknown outcome.
+    let brokeOff: APINetworkError | undefined;
+    const giveUp = (error: unknown): never => {
+      logGivenUp(error);
+      // A last attempt that broke off is already the network failure to end on, and its line is written.
+      if (brokeOff === undefined || error instanceof APINetworkError) throw error;
+
+      logNetwork(brokeOff);
+      throw brokeOff;
+    };
+
     for (let attemptNumber = 1; ; attemptNumber++) {
       try {
         return await attempt();
       } catch (error) {
-        // A network failure and a timeout are never retried: the provider may have accepted the
-        // request before the connection broke, and a second send without an idempotency key is a
-        // second message to a real person.
-        if (!(error instanceof MailSendError)) throw error;
+        if (error instanceof APINetworkError) brokeOff ??= error;
 
-        if (!error.isTransient || attemptNumber >= MAIL_ATTEMPTS) {
-          logRefusal(error);
-          throw error;
-        }
+        // A network failure is tried again only under an idempotency key, which the provider
+        // documents as collapsing the repeat of a message it accepted before the connection broke:
+        // without one, that repeat is a second message to a real person.
+        const repeatable =
+          error instanceof MailSendError ? error.isTransient : error instanceof APINetworkError && idempotencyKey !== undefined;
+
+        // An aborted budget ends it too: the timeout that cut the attempt leaves nothing to retry in.
+        if (!repeatable || attemptNumber >= MAIL_ATTEMPTS || bound.signal.aborted) giveUp(error);
 
         logger.warn("mail.send_retried", {
-          error_code: error.code,
-          status_code: error.statusCode,
-          provider_error_name: error.providerErrorName,
+          error_code: error instanceof MailSendError || error instanceof APINetworkError ? error.code : undefined,
+          status_code: error instanceof MailSendError ? error.statusCode : undefined,
+          provider_error_name: error instanceof MailSendError ? error.providerErrorName : undefined,
           trace_id: traceId,
         });
 
-        await pause(MAIL_RETRY_DELAY_MS, controller.signal);
+        await pause(MAIL_RETRY_DELAY_MS, bound.signal);
 
         // The budget ran out mid-wait. Attempting anyway would draw a request the aborted signal
         // kills, reporting the provider's own refusal as this application's timeout.
-        if (controller.signal.aborted) {
-          logRefusal(error);
-          throw error;
-        }
+        if (bound.signal.aborted) giveUp(error);
       }
     }
   } finally {
-    clearTimeout(timeoutId);
+    bound.clear();
   }
 }

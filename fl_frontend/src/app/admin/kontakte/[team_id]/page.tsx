@@ -4,8 +4,7 @@ import { connection } from "next/server";
 
 import { AdminKontakteEditView } from "@/features/kontakte/components/views/AdminKontakteEditView";
 import { resolveTeamSaisonMembership } from "@/features/kontakte/utils";
-import { getAdminSaisons } from "@/features/saisons/queries";
-import { resolveSaisonId, selectSaison } from "@/features/saisons/resolvers";
+import { resolveAdminSaison } from "@/features/saisons/resolvers";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { resolveTeamId } from "@/features/teams/resolvers";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
@@ -37,10 +36,8 @@ async function AdminKontakteEditContent({
 }) {
   await connection();
   const teamId = await resolveTeamId(params);
-  const requestedSaisonId = await resolveSaisonId(searchParams, "admin");
 
-  const [membershipsRes, saisonsRes] = await Promise.all([getTeamMemberships(), getAdminSaisons()]);
-  const selectedSaison = selectSaison(saisonsRes.saisons, requestedSaisonId);
+  const [membershipsRes, selectedSaison] = await Promise.all([getTeamMemberships(), resolveAdminSaison(searchParams)]);
   if (!selectedSaison) {
     notFound();
   }

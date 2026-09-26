@@ -7,7 +7,7 @@ import {
   EINWILLIGUNG_UMFANG_LABELS,
   EINWILLIGUNG_VEROEFFENTLICHUNG_HINWEIS,
 } from "@/features/spieler/constants";
-import { FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
@@ -20,8 +20,8 @@ import type { ReactNode } from "react";
 function Angabe({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-y-0.5">
-      <dt className="fluid-xxs text-foreground-muted font-bold">{label}</dt>
-      <dd className="fluid-sm text-foreground min-w-0 font-medium break-words">{children}</dd>
+      <dt className="fluid-xxs font-bold text-foreground-muted">{label}</dt>
+      <dd className="min-w-0 fluid-sm font-medium break-words text-foreground">{children}</dd>
     </div>
   );
 }
@@ -85,7 +85,7 @@ export function FormEinwilligungSection({ einwilligung }: { einwilligung: FLEinw
           <>
             <p className="muted-hint">Diese Angaben lassen sich nicht bearbeiten.</p>
 
-            <dl className={FIELD_PAIR}>
+            <dl className={FIELD_PAIR_CLASSES}>
               <Angabe label="Umfang">{EINWILLIGUNG_UMFANG_LABELS[einwilligung.umfang]}</Angabe>
               <Angabe label="Herkunft">{EINWILLIGUNG_HERKUNFT_LABELS[einwilligung.erteilt_von]}</Angabe>
               {/* Never `fl_frontend/src/shared/utils/format.ts :: PLACEHOLDER`'s „Termin offen“: it promises a

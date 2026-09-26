@@ -1,18 +1,21 @@
 import asyncio
 import inspect
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
 import pytest
 from bson import ObjectId
 from pydantic import BaseModel
 from pymongo import ReturnDocument
+from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
+from pymongo.errors import BulkWriteError, DuplicateKeyError
 from pymongo.helpers_shared import _index_document
 
 from app.core.collections import Collection
-from app.core.crud import build_query, build_sort, literal_pattern, patch_one_in_db, pull_one_from_db
+from app.core.crud import DUPLICATE_KEY_ERROR, build_query, build_sort, literal_pattern, patch_one_in_db, post_many_to_db, pull_one_from_db
+from app.core.exception_handlers import refused_index_of
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.shared.schemas.custom import CustomObjectId
 
@@ -123,11 +126,14 @@ REPLACED: Mapping[str, Any] = {"_id": ObjectId(TEAM_OID), "name": "Lessing-Gymna
 class _RecordingCollection:
     """The log the write helpers append to, so a crud test can see what was recorded."""
 
-    def __init__(self, rows: list[Mapping[str, Any]]) -> None:
+    def __init__(self, rows: list[Mapping[str, Any]], sessions: list[Any] | None = None) -> None:
         self.rows = rows
+        # The session each row was written under, which decides whether an abort takes the row back.
+        self.sessions: list[Any] = [] if sessions is None else sessions
 
     async def insert_one(self, row: Mapping[str, Any], session: Any = None) -> None:
         self.rows.append(row)
+        self.sessions.append(session)
 
 
 class _OneDocumentCollection:
@@ -226,3 +232,113 @@ class TestPullOneFromDb:
         assert excinfo.value.status_code == 404
         assert excinfo.value.error_code == DOCUMENT_NOT_FOUND
         assert excinfo.value.filter == FILTER
+
+
+def refused_batch(error: Mapping[str, Any], *, landed: int = 0, write_concern: Sequence[Mapping[str, Any]] = ()) -> BulkWriteError:
+    """The server's report of a batch refused after `landed` of its documents were written."""
+
+    return BulkWriteError(
+        {
+            "writeErrors": [error],
+            "writeConcernErrors": list(write_concern),
+            "nInserted": landed,
+            "nUpserted": 0,
+            "nMatched": 0,
+            "nModified": 0,
+            "nRemoved": 0,
+            "upserted": [],
+        }
+    )
+
+
+REFUSED_INDEX = "uniq_shorthand"
+DUPLICATE_ERROR: Mapping[str, Any] = {
+    "index": 2,
+    "code": DUPLICATE_KEY_ERROR,
+    "errmsg": f'E11000 duplicate key error collection: fl_test.teams index: {REFUSED_INDEX} dup key: {{ shorthand: "C2" }}',
+    "keyPattern": {"shorthand": 1},
+    "keyValue": {"shorthand": "C2"},
+    "op": {"name": "Club 2", "shorthand": "C2"},
+}
+
+
+class _Session:
+    """A stand-in for a session handle, which answers the one attribute the helper reads off it."""
+
+    def __init__(self, *, in_transaction: bool) -> None:
+        self.in_transaction = in_transaction
+
+
+TRANSACTION = cast(AsyncClientSession, _Session(in_transaction=True))
+# A session holding no transaction, whose writes stand as a sessionless call's do.
+BARE_SESSION = cast(AsyncClientSession, _Session(in_transaction=False))
+VALIDATION_ERROR: Mapping[str, Any] = {"index": 2, "code": 121, "errmsg": "Document failed validation", "op": {"name": "Club 2"}}
+WRITE_CONCERN_ERROR: Mapping[str, Any] = {"code": 64, "errmsg": "waiting for replication timed out", "errInfo": {"wtimeout": True}}
+
+
+class _RefusedBatchCollection:
+    """Refuses every batch with `failure`, and keeps the log rows a write appends."""
+
+    def __init__(self, failure: BulkWriteError) -> None:
+        self.failure = failure
+        self.recorded: list[Mapping[str, Any]] = []
+        self.recorded_under: list[Any] = []
+        self.name = Collection.TEAMS
+        self.database = {Collection.AKTIONEN: _RecordingCollection(self.recorded, self.recorded_under)}
+
+    async def insert_many(self, *, documents: Any, session: Any) -> None:
+        raise self.failure
+
+
+def batch_raised(failure: BulkWriteError, *, session: AsyncClientSession | None = None) -> tuple[BaseException, _RefusedBatchCollection]:
+    stub = _RefusedBatchCollection(failure)
+
+    with pytest.raises((BulkWriteError, DuplicateKeyError)) as raised:
+        asyncio.run(post_many_to_db(collection=cast(AsyncCollection, stub), documents=[{"name": "Club 0"}], session=session))
+
+    return raised.value, stub
+
+
+class TestPostManyToDb:
+    @pytest.mark.parametrize(
+        ("landed", "session"),
+        [
+            pytest.param(0, None, id="nothing written"),
+            pytest.param(2, TRANSACTION, id="rows written inside a transaction, which its abort takes back"),
+        ],
+    )
+    def test_a_batch_a_unique_index_refused_raises_what_one_insert_would(self, landed: int, session: AsyncClientSession | None):
+        """`DuplicateKeyError`, which the handler answers 409 `DB-COMMON-002`, still naming the index it logs."""
+
+        failure = refused_batch(DUPLICATE_ERROR, landed=landed)
+        raised, _ = batch_raised(failure, session=session)
+
+        assert isinstance(raised, DuplicateKeyError)
+        assert refused_index_of(raised) == REFUSED_INDEX
+        assert raised.__cause__ is failure
+
+    @pytest.mark.parametrize(
+        "failure",
+        [
+            pytest.param(refused_batch(VALIDATION_ERROR), id="a validator's refusal"),
+            pytest.param(refused_batch(DUPLICATE_ERROR, write_concern=[WRITE_CONCERN_ERROR]), id="a duplicate beside a write-concern error"),
+        ],
+    )
+    def test_any_other_failure_stays_the_batchs_own(self, failure: BulkWriteError):
+        raised, _ = batch_raised(failure)
+
+        assert raised is failure
+
+    @pytest.mark.parametrize(
+        "session", [pytest.param(None, id="no session"), pytest.param(BARE_SESSION, id="a session holding no transaction")]
+    )
+    def test_rows_that_stand_keep_the_batchs_own_failure_and_their_row(self, session: AsyncClientSession | None):
+        """Outside a transaction nothing takes the first two back: a 409 would say nothing was written while they stand."""
+
+        failure = refused_batch(DUPLICATE_ERROR, landed=2)
+        raised, stub = batch_raised(failure, session=session)
+
+        assert raised is failure
+        assert [(row["operation"], row["modified_count"]) for row in stub.recorded] == [("insert_many", 2)]
+        # Under the batch's own session, as every other log row a write files is.
+        assert stub.recorded_under == [session]

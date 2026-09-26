@@ -2,17 +2,18 @@
 
 import Link from "next/link";
 
-import { CircleExclamation, PencilToSquare } from "@gravity-ui/icons";
+import CircleExclamation from "@gravity-ui/icons/CircleExclamation";
+import PencilToSquare from "@gravity-ui/icons/PencilToSquare";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
-import { BRAND_ICON_BUTTON } from "@/shared/components/ui/brandTile";
+import { BRAND_ICON_BUTTON_CLASSES } from "@/shared/components/ui/brandTile";
 import { card } from "@/shared/components/ui/card";
 import { IconTooltip } from "@/shared/components/ui/IconTooltip";
 
 import { computeSpielStatus, ergebnisTone, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "./SaisonPhaseChip";
-import { ERGEBNIS_INK, SpielScore } from "./SpielScore";
+import { ERGEBNIS_INK_CLASSES, SpielScore } from "./SpielScore";
 import { SpielStatusChip } from "./SpielStatusChip";
 import { SpielTeamSlot } from "./SpielTeamSlot";
 
@@ -63,7 +64,7 @@ export function SpielCard({
         {/* `shrink-0`: beside the `w-full` actions the column shrinks to its longest word, and „Termin
             offen“ splits into two lines the skeleton reserves one for. */}
         <div className="flex shrink-0 flex-col">
-          <span className="fluid-sm text-foreground font-bold">{spielDatum}</span>
+          <span className="fluid-sm font-bold text-foreground">{spielDatum}</span>
           <span className="muted-meta">{spielUhrzeit}</span>
         </div>
 
@@ -78,7 +79,7 @@ export function SpielCard({
                 aria-label={`Spiel Nr. ${spielData.spiel_nr} bearbeiten`}
                 /* The brand fill rather than `bg-muted`, and the only difference from the info button
                    beside it: same box, same radius, same position, so no layout moves. */
-                className={BRAND_ICON_BUTTON}>
+                className={BRAND_ICON_BUTTON_CLASSES}>
                 <PencilToSquare
                   aria-hidden="true"
                   className="m-0 size-4.5"
@@ -96,7 +97,7 @@ export function SpielCard({
               /* `flex` over HeroUI's `inline-flex`: a line box round an inline child leaves the
                  trigger's height to the font's metrics rather than to this control. And
                  `bg-hover-muted`, since this rests on `bg-muted` rather than on the page. */
-              className="bg-muted text-foreground data-hovered:bg-hover-muted flex size-9 rounded-xl p-0 transition-colors duration-(--motion-base)">
+              className="flex size-9 rounded-xl bg-muted p-0 text-foreground transition-colors duration-(--motion-base) data-hovered:bg-hover-muted">
               <CircleExclamation
                 aria-hidden="true"
                 className="m-0 size-4.5"
@@ -107,14 +108,14 @@ export function SpielCard({
       </div>
 
       {/* Equal 1fr tracks keep the score centred regardless of name lengths. */}
-      <div className="bg-muted grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center rounded-xl p-2">
+      <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center rounded-xl bg-muted p-2">
         <span className="flex min-w-0 justify-end">
           <SpielTeamSlot
             team={spielData.team1}
             quelle={spielData.team1_quelle}
             saisonId={spielData.saison_id}
             text={spielData.team1?.name || "Team 1"}
-            className="fluid-xs lg:fluid-sm text-right font-bold"
+            className="text-right fluid-xs font-bold lg:fluid-sm"
           />
         </span>
 
@@ -122,7 +123,7 @@ export function SpielCard({
         <SpielScore
           ergebnis={spielErgebnis}
           elfmeterschiessen={spielElfmeterschiessen}
-          className={`fluid-base flex w-fit flex-col items-center px-3 text-center font-extrabold lg:px-4 ${ERGEBNIS_INK[ergebnisTone(spielData)]}`}
+          className={`flex w-fit flex-col items-center px-3 text-center fluid-base font-extrabold lg:px-4 ${ERGEBNIS_INK_CLASSES[ergebnisTone(spielData)]}`}
         />
 
         <span className="flex min-w-0 justify-start">
@@ -131,7 +132,7 @@ export function SpielCard({
             quelle={spielData.team2_quelle}
             saisonId={spielData.saison_id}
             text={spielData.team2?.name || "Team 2"}
-            className="fluid-xs lg:fluid-sm text-left font-bold"
+            className="text-left fluid-xs font-bold lg:fluid-sm"
           />
         </span>
       </div>

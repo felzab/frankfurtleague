@@ -2,7 +2,7 @@
 
 import { tv } from "tailwind-variants";
 
-import { Modal } from "@heroui/react";
+import { Modal } from "@heroui/react/modal";
 
 import { dismissControl } from "@/core/dismissControl";
 
@@ -14,10 +14,10 @@ import type { ReactNode } from "react";
  */
 const modalShell = tv({
   slots: {
-    dialog: "bg-background border-border text-foreground flex w-full flex-col rounded-2xl border px-0 py-4 shadow-2xl outline-none",
+    dialog: "flex w-full flex-col rounded-2xl border border-border bg-background px-0 py-4 text-foreground shadow-2xl outline-none",
     header: "shrink-0 px-4 pb-4",
-    heading: "fluid-lg text-foreground font-extrabold tracking-tight",
-    body: "scrollbar-hide text-foreground mx-0 px-4",
+    heading: "fluid-lg font-extrabold tracking-tight text-foreground",
+    body: "mx-0 scrollbar-hide px-4 text-foreground",
   },
   variants: {
     size: {

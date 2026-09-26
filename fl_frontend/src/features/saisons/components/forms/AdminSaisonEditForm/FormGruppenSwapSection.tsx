@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { ArrowRightArrowLeft } from "@gravity-ui/icons";
+import ArrowRightArrowLeft from "@gravity-ui/icons/ArrowRightArrowLeft";
 
 import { swapGruppenAction } from "@/features/saisons/actions";
 import { findSwapPartnerRefusal } from "@/features/saisons/utils";
@@ -16,6 +16,7 @@ import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
@@ -41,7 +42,7 @@ function SwapConnective({ first, second }: { first: SaisonSwapTeam | null; secon
   return (
     <div
       aria-hidden="true"
-      className="bg-muted text-foreground-muted fluid-xs flex h-10 shrink-0 items-center justify-center gap-x-2 justify-self-center rounded-full px-3 font-bold">
+      className="flex h-10 shrink-0 items-center justify-center gap-x-2 justify-self-center rounded-full bg-muted px-3 fluid-xs font-bold text-foreground-muted">
       {/* Vertical between two stacked pickers, horizontal once the grid puts them side by side. */}
       <ArrowRightArrowLeft
         aria-hidden="true"
@@ -72,7 +73,8 @@ export function FormGruppenSwapSection({
 }) {
   const router = useRouter();
   const panel = formPanel();
-  const { isConfirming, isPending: isSwapping, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm();
+  const { isConfirming, isPending: isSwapping, press, cancel } = twoPress;
   const [first, setFirst] = useState<SaisonSwapTeam | null>(null);
   const [second, setSecond] = useState<SaisonSwapTeam | null>(null);
 
@@ -141,19 +143,30 @@ export function FormGruppenSwapSection({
     if (first === null || second === null) return;
 
     press(async () => {
-      const res = await swapGruppenAction({ saison_id: saisonId, team1_id: first.id, team2_id: second.id });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await swapGruppenAction({ saison_id: saisonId, team1_id: first.id, team2_id: second.id }).catch(rejectedWrite(router));
 
       if (!res.success) {
-        appToast.failure("Gruppen nicht getauscht", res);
+        // Wrapped again, as below: the press runs this inside its transition.
+        startTransition(() => {
+          // The swap is its own inverse, so the same pair pressed again after a swap of unknown outcome
+          // would swap back one that landed.
+          if (res.outcome === "unknown") {
+            setFirst(null);
+            setSecond(null);
+          }
+          appToast.failure("Gruppen nicht getauscht", res);
+        });
         return;
       }
 
       appToast.success("Gruppen getauscht", { description: res.message });
-      setFirst(null);
-      setSecond(null);
-      // The action's invalidation reaches the caches; this re-renders the page the admin stands on,
-      // whose pickers now have to show the groups the swap produced.
-      router.refresh();
+      // Wrapped again: the press runs this inside its transition, and React leaves an update after an
+      // `await` outside it.
+      startTransition(() => {
+        setFirst(null);
+        setSecond(null);
+      });
     });
   };
 
@@ -252,21 +265,17 @@ export function FormGruppenSwapSection({
 
             {isConfirming && first !== null && second !== null && (
               <ConfirmReveal>
-                <p className="fluid-xxs text-foreground leading-normal font-medium">
+                <p className="fluid-xxs leading-normal font-medium text-foreground">
                   Rückgängig machst Du den Tausch, indem Du dieselben beiden Teams noch einmal tauschst.
                 </p>
               </ConfirmReveal>
             )}
 
-            <ConfirmActionRow
-              isConfirming={isConfirming}
-              isPending={isSwapping}
-              onCancel={cancel}>
+            <ConfirmActionRow confirm={twoPress}>
               {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
                   §1.14). */}
               <ConfirmPressButton
-                isConfirming={isConfirming}
-                isPending={isSwapping}
+                confirm={twoPress}
                 reason={isMissingAPick ? missingPickHint : null}
                 resting={restingLabel}
                 armed="Ja, Gruppen tauschen"

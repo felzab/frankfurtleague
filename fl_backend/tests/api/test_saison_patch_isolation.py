@@ -8,7 +8,6 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.saisons.admin_router import activate_saison, generate_spielplan, patch_saison
-from app.api.saisons.cache import invalidate_saison_cache
 from app.api.saisons.schemas import (
     FLActivateSaisonResponse,
     FLGenerateSpielplanPayload,
@@ -29,7 +28,8 @@ from app.api.spieler.admin_router import post_saison_spieler
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentConflictException, DocumentNotFoundException
+from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException, WriteRefusalException
+from tests import documents
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -62,41 +62,32 @@ SEEDED_SQUAD = 3
 # The other order the season could rank a group by. NOT a shape field, so `REQ-RULES-011` passes it
 # on a drawn season and `REQ-RULES-012` is the only rule left to refuse it.
 REORDERED_TIEBREAK = "direkter_vergleich"
+STORED_TIEBREAK = "tordifferenz"
+
+# Above `SEEDED_SQUAD`, so the narrowing patch is a real narrowing.
+STORED_KADER = 18
 
 # The one squad the seed and the rival both write, the first seeded club's.
 SQUAD_TEAM_ID = ObjectId(f"6890a1b2c3d4e5f6079{0:05d}")
 
 
 def rules_document(**overrides: Any) -> dict[str, Any]:
-    """Every key spelled out, so a key added to the model fails here rather than taking a default nobody picked."""
-
-    return {
-        "win_points": 3,
-        "draw_points": 1,
-        "qualifiers_per_group": QUALIFIERS,
-        "number_of_groups": GROUPS,
-        "teams_per_group": TEAMS_PER_GROUP,
-        "tiebreak_order": "tordifferenz",
-        "max_kadergroesse": 18,
-        "forfeit_ergebnis": {"sieger_tore": 3, "verlierer_tore": 0},
-        "erlaubte_stufen": ["E1", "Q1", "Q2", "Q3", "Q4"],
-        **overrides,
-    }
+    return documents.rules_document(
+        **{
+            "qualifiers_per_group": QUALIFIERS,
+            "number_of_groups": GROUPS,
+            "teams_per_group": TEAMS_PER_GROUP,
+            "max_kadergroesse": STORED_KADER,
+            "tiebreak_order": STORED_TIEBREAK,
+            **overrides,
+        }
+    )
 
 
 def saison_document(saison_id: str = SAISON_ID, status: str = "future") -> dict[str, Any]:
-    """`future` and undrawn by default: the state in which the shape rules are still open to a patch.
+    """`future` and undrawn by default: the state in which the shape rules are still open to a patch."""
 
-    Each season spans its own year's first half, which covers the schedule these rules imply.
-    """
-
-    return {
-        "_id": saison_id,
-        "start_date": f"{saison_id}-01-01",
-        "end_date": f"{saison_id}-06-30",
-        "status": status,
-        "rules": rules_document(),
-    }
+    return documents.saison_document(saison_id, status, rules=rules_document())
 
 
 # The patch resubmits the seeded season's own dates, so no case here is a date edit.
@@ -108,37 +99,32 @@ def entry_rows(saison_id: str = SAISON_ID) -> list[dict[str, Any]]:
     """Every offered group filled to `teams_per_group`, which is what `REQ-SPIELPLAN-004` asks of a season about to be drawn."""
 
     return [
-        {
-            "_id": ObjectId(f"6890a1b2c3d4e5f60{ENTRY_BLOCK[saison_id]}8{index:05d}"),
-            "saison_id": saison_id,
+        documents.saison_team_document(
+            saison_id,
             # The same clubs in every seeded season: a `team_id` names a club, and a club plays year
             # after year. Only the junction row is the season's own.
-            "team_id": ObjectId(f"6890a1b2c3d4e5f6079{index:05d}"),
-            "gruppe": gruppe,
-            "austritt": None,
-            "name": f"{gruppe}{seat + 1}-Schule",
-            "shorthand": f"{gruppe}{seat + 1}",
-        }
+            ObjectId(f"6890a1b2c3d4e5f6079{index:05d}"),
+            f"{gruppe}{seat + 1}-Schule",
+            f"{gruppe}{seat + 1}",
+            _id=ObjectId(f"6890a1b2c3d4e5f60{ENTRY_BLOCK[saison_id]}8{index:05d}"),
+            gruppe=gruppe,
+        )
         for index, (seat, gruppe) in enumerate(product(range(TEAMS_PER_GROUP), offered_gruppen(GROUPS)))
     ]
 
 
 def squad_rows(count: int) -> list[dict[str, Any]]:
-    """One club's live squad at `count`, every validator-required key stated."""
+    """One club's live squad at `count`."""
 
     return [
-        {
-            "_id": ObjectId(f"6890a1b2c3d4e5f6076{index:05d}"),
-            "spieler_id": ObjectId(f"6890a1b2c3d4e5f6075{index:05d}"),
-            "saison_id": SAISON_ID,
-            "team_id": SQUAD_TEAM_ID,
-            "ist_nachnominiert": False,
-            "stufe": None,
-            "position": None,
-            "nummer": None,
-            "rolle": None,
-            "inactive_since": None,
-        }
+        documents.saison_spieler_document(
+            ObjectId(f"6890a1b2c3d4e5f6075{index:05d}"),
+            SAISON_ID,
+            SQUAD_TEAM_ID,
+            _id=ObjectId(f"6890a1b2c3d4e5f6076{index:05d}"),
+            stufe=None,
+            position=None,
+        )
         for index in range(count)
     ]
 
@@ -196,9 +182,6 @@ def on_a_seeded_saison(url: str, body: Body, *, saisons: Sequence[dict[str, Any]
         # The SHIPPED validators and unique indexes, and every collection -- including the one the
         # action log appends to inside each transaction below.
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
-            # Process-global and keyed by season id, so an entry another module left would answer for this one.
-            invalidate_saison_cache()
-
             seeded = list(saisons) or [saison_document()]
             await database[Collection.SAISONS].insert_many(seeded)
             for season in seeded:
@@ -368,7 +351,7 @@ class TestAPlayerAddedMidPatchIsJudgedAgain:
 
             seasons = SeasonsRunningOneHook(database[Collection.SAISONS], before_the_write=add_between)
 
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, max_kadergroesse=SEEDED_SQUAD)
 
             return refusal.value, seasons.season_reads, await season_now(database), await live_squad_now(database)
@@ -383,7 +366,7 @@ class TestAPlayerAddedMidPatchIsJudgedAgain:
         # refuses before any write.
         assert season_reads == 2, "a third read means the retry itself conflicted"
 
-        assert stored["rules"]["max_kadergroesse"] == 18, "the narrowing landed on top of the rival's insert"
+        assert stored["rules"]["max_kadergroesse"] == STORED_KADER, "the narrowing landed on top of the rival's insert"
         assert squad == SEEDED_SQUAD + 1, "the rival's insert was lost, so the refusal above had nothing to refuse"
 
     def test_the_same_narrowing_commits_when_no_player_is_added(self, mongo_replica_set_url: str):
@@ -418,7 +401,7 @@ class TestADrawLandingMidPatchIsJudgedAgain:
 
             seasons = SeasonsRunningOneHook(database[Collection.SAISONS], before_the_write=draw_between)
 
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, teams_per_group=WIDER_PER_GROUP)
 
             return refusal.value, drawn[0], seasons.season_reads, await season_now(database), await counts_now(database)
@@ -465,7 +448,7 @@ class TestAKnockoutResultLandingMidPatchIsJudgedAgain:
 
             seasons = SeasonsRunningOneHook(database[Collection.SAISONS], before_the_write=abandon_between)
 
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, tiebreak_order=REORDERED_TIEBREAK)
 
             return refusal.value, seasons.season_reads, await season_now(database), await abandoned_knockouts_now(database)
@@ -522,7 +505,7 @@ class TestARolloverLandingMidPatchIsJudgedAgain:
 
             seasons = SeasonsRunningOneHook(database[Collection.SAISONS], after_the_first_read=roll_over_between)
 
-            with pytest.raises(DocumentConflictException) as refusal:
+            with pytest.raises(WriteRefusalException) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, tiebreak_order=REORDERED_TIEBREAK)
 
             return refusal.value, promoted[0], seasons.season_reads, await season_now(database), await statuses_now(database)

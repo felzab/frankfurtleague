@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { startTransition, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { ArrowRightArrowLeft, LockFill } from "@gravity-ui/icons";
+import ArrowRightArrowLeft from "@gravity-ui/icons/ArrowRightArrowLeft";
+import LockFill from "@gravity-ui/icons/LockFill";
 
-import { Button } from "@heroui/react";
+import { Button } from "@heroui/react/button";
 
 import { swapGruppenAction } from "@/features/saisons/actions";
 import { SaisonBadge } from "@/features/saisons/components/ui/SaisonBadge";
@@ -19,18 +20,21 @@ import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_PAIR, FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_PAIR_CLASSES, FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { InlineBanners } from "@/shared/components/ui/InlineBanners";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { RefusableSelect } from "@/shared/components/ui/RefusableSelect";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
 
 import type { SaisonGruppenSwapContext, SaisonSwapTeam } from "@/features/saisons/types";
 import type { SwapPartnerRefusal } from "@/features/saisons/utils";
 import type { FLGruppenNames, FLTrikotFarbe } from "@/features/teams/schemas";
+import type { TeamFieldPath } from "@/features/teams/teamDraftStatus";
 import type { GruppeOffer, TeamGruppeLock, TeamSaisonContext } from "@/features/teams/types";
 import type { RefusableOption } from "@/shared/components/ui/RefusableSelect";
 import type { TeamBanner } from "./banners";
@@ -56,15 +60,18 @@ function GruppenTauschControl({
   saisonStatus,
   swap,
   self,
+  isDirty,
 }: {
   saisonId: string;
   saisonStatus: TeamSaisonContext["saisonStatus"];
   swap: SaisonGruppenSwapContext;
   /** This page's club, as it stands in this season — the side the admin does not choose. */
   self: SaisonSwapTeam;
+  isDirty: boolean;
 }) {
   const router = useRouter();
-  const { isConfirming, isPending: isSwapping, press, cancel } = useTwoPressConfirm();
+  const twoPress = useTwoPressConfirm(() => guardAgainstDraft(isDirty, DRAFT_DISCARDED));
+  const { isConfirming, isPending: isSwapping, press, cancel } = twoPress;
   const [partner, setPartner] = useState<SaisonSwapTeam | null>(null);
 
   // Graded by the SHARED `findSwapPartnerRefusal`, so a club this picker accepts is one the endpoint
@@ -93,26 +100,34 @@ function GruppenTauschControl({
     if (partner === null) return;
 
     press(async () => {
-      const res = await swapGruppenAction({ saison_id: saisonId, team1_id: self.id, team2_id: partner.id });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await swapGruppenAction({ saison_id: saisonId, team1_id: self.id, team2_id: partner.id }).catch(rejectedWrite(router));
 
       if (!res.success) {
-        appToast.failure("Gruppen nicht getauscht", res);
+        // Wrapped again, as below: the press runs this inside its transition.
+        startTransition(() => {
+          // The swap is its own inverse, so the same partner pressed again after a swap of unknown outcome
+          // would swap back one that landed.
+          if (res.outcome === "unknown") setPartner(null);
+          appToast.failure("Gruppen nicht getauscht", res);
+        });
         return;
       }
 
       appToast.success("Gruppen getauscht", { description: res.message });
-      setPartner(null);
-      // Re-renders the page the admin is still standing on, whose locked group row has to show the
-      // group the swap produced.
-      router.refresh();
+      // Wrapped again: the press runs this inside its transition, and React leaves an update after an
+      // `await` outside it.
+      startTransition(() => {
+        setPartner(null);
+      });
     });
   };
 
   return (
-    <div className="border-border flex w-full flex-col gap-y-3 border-t pt-5">
+    <div className="flex w-full flex-col gap-y-3 border-t border-border pt-5">
       {/* A sub-group, not a panel of its own: it edits the row above it, and a second bordered box
           for one picker would read as a second subject. */}
-      <h3 className={FORM_SECTION_HEADING}>Gruppe tauschen</h3>
+      <h3 className={FORM_SECTION_HEADING_CLASSES}>Gruppe tauschen</h3>
 
       {/* The whole-control closures, in the endpoint's own order. Each refuses every pair alike, so
           none of them is a row. Each title states the rule that shut it rather than the state that
@@ -157,7 +172,7 @@ function GruppenTauschControl({
 
             {/* Why an expected club is missing, answered where the picker raises it. A greyed row
             carries its own reason, so nothing here restates the refusal labels. */}
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
+            <p className="fluid-xxs leading-normal font-medium text-foreground">
               Teams, die nicht in dieser Saison stehen, erscheinen hier nicht.
             </p>
           </div>
@@ -173,22 +188,18 @@ function GruppenTauschControl({
 
           {isConfirming && partner !== null && (
             <ConfirmReveal>
-              <p className="fluid-xxs text-foreground leading-normal font-medium">
+              <p className="fluid-xxs leading-normal font-medium text-foreground">
                 Der Tausch gilt unabhängig vom Speichern-Knopf unten. Rückgängig machst Du ihn, indem Du dieselben beiden Teams noch einmal
                 tauschst.
               </p>
             </ConfirmReveal>
           )}
 
-          <ConfirmActionRow
-            isConfirming={isConfirming}
-            isPending={isSwapping}
-            onCancel={cancel}>
+          <ConfirmActionRow confirm={twoPress}>
             {/* On the control, never a sentence beside it that a pick would unmount (`docs/frontend/spec.md`
                 §1.14). */}
             <ConfirmPressButton
-              isConfirming={isConfirming}
-              isPending={isSwapping}
+              confirm={twoPress}
               reason={partner === null ? "Wähle zuerst ein Team." : null}
               resting="Gruppen tauschen"
               armed="Ja, Gruppen tauschen"
@@ -227,6 +238,7 @@ export function FormSaisonSection({
   swap,
   teamId,
   banners,
+  isDirty,
 }: {
   saison: TeamSaisonContext;
   gruppeLock: TeamGruppeLock;
@@ -249,9 +261,12 @@ export function FormSaisonSection({
   /** The selected season's swap state, from `buildGruppenSwapContext`. */
   swap: SaisonGruppenSwapContext;
   teamId: string;
+  /** The editor's unsaved typing, which the entry and the swap re-key the editor over. */
+  isDirty: boolean;
 }) {
   const panel = formPanel();
   const [isEntering, startEntering] = useTransition();
+  const router = useRouter();
 
   /**
    * Held here, not in the editor's `useDraftFieldErrors`: its refusal in that map would reach the
@@ -266,22 +281,29 @@ export function FormSaisonSection({
   // Fires its own action rather than joining the save bar: it is an event, and it creates the
   // junction row the rest of this panel edits.
   const handleEnterSaison = () => {
+    if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
+
     startEntering(async () => {
-      const res = await postSaisonTeamAction({ team_id: teamId, saison_id: saison.saisonId, gruppe });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await postSaisonTeamAction({ team_id: teamId, saison_id: saison.saisonId, gruppe }).catch(rejectedWrite(router));
 
-      if (res.success) {
-        setEntryGruppeError(null);
-        appToast.success("Team aufgenommen", { description: res.message });
-        return;
-      }
+      // Wrapped again: React leaves an update after an `await` outside the transition that awaited,
+      // so bare it commits before the pending state lifts.
+      startEntering(() => {
+        if (res.success) {
+          setEntryGruppeError(null);
+          appToast.success("Team aufgenommen", { description: res.message });
+          return;
+        }
 
-      const gruppeError = res.fieldErrors?.gruppe ?? null;
-      setEntryGruppeError(gruppeError);
-      // Suppressed where the picker carries the message, so a refusal about the chosen group is not
-      // also said in a toast that names no field.
-      if (gruppeError === null) {
-        appToast.failure("Team nicht aufgenommen", res);
-      }
+        const gruppeError = res.fieldErrors?.gruppe ?? null;
+        setEntryGruppeError(gruppeError);
+        // Suppressed where the picker carries the message, so a refusal about the chosen group is not
+        // also said in a toast that names no field.
+        if (gruppeError === null) {
+          appToast.failure("Team nicht aufgenommen", res);
+        }
+      });
     });
   };
 
@@ -309,22 +331,21 @@ export function FormSaisonSection({
           <>
             {gruppeLock.locked ? (
               <div className="flex w-full flex-col gap-y-1">
-                <FieldLabel path="gruppe">Gruppe</FieldLabel>
-                <div className="border-border bg-muted/40 text-foreground fluid-sm flex h-10 w-full items-center gap-x-2 rounded-lg border px-3 font-bold sm:max-w-60">
+                <FieldLabel<TeamFieldPath> path="gruppe">Gruppe</FieldLabel>
+                <div className="flex h-10 w-full items-center gap-x-2 rounded-lg border border-border bg-muted/40 px-3 fluid-sm font-bold text-foreground sm:max-w-60">
                   <LockFill
                     aria-hidden="true"
-                    className="text-foreground-muted size-3.5 shrink-0"
+                    className="size-3.5 shrink-0 text-foreground-muted"
                   />
                   {gruppe ? `Gruppe ${gruppe}` : "Keine Gruppe"}
                 </div>
               </div>
             ) : (
               <>
-                <div className={FIELD_PAIR}>
+                <div className={FIELD_PAIR_CLASSES}>
                   <div className="flex w-full flex-col gap-y-1">
-                    <FieldLabel path="gruppe">Gruppe</FieldLabel>
+                    <FieldLabel<TeamFieldPath> path="gruppe">Gruppe</FieldLabel>
                     <GruppeSelect
-                      isRequired
                       value={gruppe}
                       onChange={(next) => {
                         onGruppeChange(next);
@@ -343,9 +364,9 @@ export function FormSaisonSection({
               </>
             )}
 
-            <div className={FIELD_PAIR}>
+            <div className={FIELD_PAIR_CLASSES}>
               <div className="flex w-full flex-col gap-y-1">
-                <FieldLabel path="trikot_farbe">Trikotfarbe</FieldLabel>
+                <FieldLabel<TeamFieldPath> path="trikot_farbe">Trikotfarbe</FieldLabel>
                 <TrikotFarbeSelect
                   value={trikotFarbe}
                   onChange={(next) => {
@@ -365,6 +386,7 @@ export function FormSaisonSection({
                 saisonStatus={saison.saisonStatus}
                 swap={swap}
                 self={self}
+                isDirty={isDirty}
               />
             )}
           </>

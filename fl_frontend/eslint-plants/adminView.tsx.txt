@@ -1,0 +1,49 @@
+// Linted as src/features/zzplant/components/views/AdminPlantView.tsx.
+// Every way a view file could take its facets from a prop, whatever its component is named or bound as.
+import { useMemo } from "react";
+
+import { AdminCrudView } from "@/shared/components/ui/AdminCrudView";
+
+declare const memo: <T>(component: T) => T;
+declare const buildFacets: () => unknown[];
+declare const FACETS: unknown[];
+
+export const PlantArrow = ({ facets }: { facets: unknown }) => String(facets); // expect: view-facets
+export const PlantMemo = memo(function Plant({ facets: taken }: { facets: unknown }) { // expect: view-facets
+  return String(taken);
+});
+export function PlantWhole(props: { facets: unknown; rows: { id: string }[] }) {
+  const { facets } = props; // expect: view-facets
+  return String(props.facets) + String(props["facets"]) + String(facets); // expect: view-facets expect: view-facets
+}
+export function PlantSpread(props: { items: { id: string }[] }) {
+  return (
+    <AdminCrudView
+      {...props} /* expect: view-facets */
+      searchKeys={["id"]}
+      renderTable={() => null}
+    />
+  );
+}
+
+// Built in the view, or taken from the slice's own module: the one shape the ban leaves.
+export function AdminPlantView({ items }: { items: { id: string }[] }) {
+  const facets = useMemo(() => buildFacets(), []);
+  return (
+    <>
+      <AdminCrudView
+        items={items}
+        searchKeys={["id"]}
+        facets={facets}
+        renderTable={() => null}
+      />
+      <AdminCrudView
+        items={items}
+        searchKeys={["id"]}
+        facets={FACETS}
+        renderTable={() => null}
+      />
+    </>
+  );
+}
+export const GAP = "flex gap-5"; // expect: gap

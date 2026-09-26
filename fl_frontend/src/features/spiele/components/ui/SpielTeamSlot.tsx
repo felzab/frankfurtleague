@@ -4,7 +4,7 @@ import { TeamPopoverMenu } from "@/features/teams/components/ui/TeamPopoverMenu"
 import { PLACEHOLDER } from "@/shared/utils/format";
 
 import { formatQuelle } from "../../utils";
-import { SLOT_LABEL_WRAP, TEAM_NAME_TRACK, TEAM_NAME_WRAP } from "./teamName";
+import { SLOT_LABEL_WRAP_CLASSES, TEAM_NAME_TRACK_CLASSES, TEAM_NAME_WRAP_CLASSES } from "./teamName";
 
 import type { FLSpielQuelle, FLSpielTeamFieldJoined } from "../../schemas";
 
@@ -36,20 +36,22 @@ export function SpielTeamSlot({
   // name, whose alignment the popover trigger's `text-left` would otherwise decide.
   if (team === null) {
     return (
-      <span className={`${className} ${TEAM_NAME_TRACK}`}>
-        <span className={`${className} ${SLOT_LABEL_WRAP} text-foreground-muted italic`}>{formatQuelle(quelle) ?? PLACEHOLDER.slot}</span>
+      <span className={`${className} ${TEAM_NAME_TRACK_CLASSES}`}>
+        <span className={`${className} ${SLOT_LABEL_WRAP_CLASSES} text-foreground-muted italic`}>
+          {formatQuelle(quelle) ?? PLACEHOLDER.slot}
+        </span>
       </span>
     );
   }
 
   return (
-    <span className={`${className} ${TEAM_NAME_TRACK}`}>
+    <span className={`${className} ${TEAM_NAME_TRACK_CLASSES}`}>
       <TeamPopoverMenu
         teamName={team.name}
         teamId={team.team_id}
         teamAustritt={team.austritt_type}
         saisonId={saisonId}>
-        <strong className={`${className} ${TEAM_NAME_WRAP} hover:text-brand transition-colors duration-(--motion-base)`}>{text}</strong>
+        <strong className={`${className} ${TEAM_NAME_WRAP_CLASSES} transition-colors duration-(--motion-base) hover:text-brand`}>{text}</strong>
       </TeamPopoverMenu>
     </span>
   );

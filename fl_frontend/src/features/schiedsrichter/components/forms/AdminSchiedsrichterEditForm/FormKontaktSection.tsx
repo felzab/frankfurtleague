@@ -1,13 +1,16 @@
 "use client";
 
-import { FieldError, Input, TextField } from "@heroui/react";
+import { FieldError } from "@heroui/react/field-error";
+import { Input } from "@heroui/react/input";
 
 import { FieldLabel } from "@/shared/components/ui/FieldLabel";
-import { FIELD_ERROR, FIELD_INPUT, FIELD_PAIR } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { TextField } from "@/shared/components/ui/TextField";
 
+import type { SchiedsrichterFieldPath } from "@/features/schiedsrichter/schiedsrichterDraftStatus";
 import type { FLKontakt } from "@/shared/schemas";
 
 /**
@@ -50,20 +53,19 @@ export function FormKontaktSection({
       </div>
 
       <div className={panel.body()}>
-        <div className={FIELD_PAIR}>
+        <div className={FIELD_PAIR_CLASSES}>
           <TextField
-            isRequired
             type="email"
             name="kontakt.email"
             value={kontakt.email ?? ""}
             onChange={(next) => onChange({ ...kontakt, email: emptyAsNull(next) })}
             onBlur={() => onFieldLeft(["kontakt.email"])}>
-            <FieldLabel path="kontakt.email">E-Mail</FieldLabel>
+            <FieldLabel<SchiedsrichterFieldPath> path="kontakt.email">E-Mail</FieldLabel>
             <Input
               placeholder="z.B. ref@beispiel.de"
-              className={FIELD_INPUT}
+              className={FIELD_INPUT_CLASSES}
             />
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
 
           <TextField
@@ -72,12 +74,12 @@ export function FormKontaktSection({
             value={kontakt.telefon ?? ""}
             onChange={(next) => onChange({ ...kontakt, telefon: emptyAsNull(next) })}
             onBlur={() => onFieldLeft(["kontakt.telefon"])}>
-            <FieldLabel path="kontakt.telefon">Telefon</FieldLabel>
+            <FieldLabel<SchiedsrichterFieldPath> path="kontakt.telefon">Telefon</FieldLabel>
             <Input
               placeholder="z.B. 0151 12345678"
-              className={FIELD_INPUT}
+              className={FIELD_INPUT_CLASSES}
             />
-            <FieldError className={FIELD_ERROR} />
+            <FieldError className={FIELD_ERROR_CLASSES} />
           </TextField>
         </div>
       </div>

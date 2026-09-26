@@ -6,7 +6,7 @@ import { createElement as h } from "react";
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants.ts";
 import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
+import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import {
   ALREADY_IN_SAISON,
@@ -38,13 +38,16 @@ const acrossContexts = (element: Parameters<typeof renderTree>[0]): string => re
 describe("the squad-row panel a player is taken out of a season on", () => {
   const shown = (): string =>
     read(
-      renderMarkup(FormAustragenSection, {
-        spielerId: "68c1f0a2b3c4d5e6f7a8b9c0",
-        saisonId: "2026",
-        rowInactiveSince: null,
-        rowReturn: "open",
-        banners: [],
-      }),
+      acrossContexts(
+        h(FormAustragenSection, {
+          spielerId: "68c1f0a2b3c4d5e6f7a8b9c0",
+          saisonId: "2026",
+          rowInactiveSince: null,
+          rowReturn: "open",
+          banners: [],
+          isDirty: false,
+        }),
+      ),
     );
 
   /* The row and the person are two subjects here, and the surviving `sein` belongs to the row: it is

@@ -13,7 +13,7 @@ import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung.ts";
 import { SCHIEDSRICHTER_KORREKTUR_HINWEIS } from "@/features/schiedsrichter/constants.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
-import { nextRouter, underNext } from "@/shared/testing/nextContexts.ts";
+import { nextRouter, recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { FLSchiedsrichterBestaetigung } from "@/features/schiedsrichter/schemas.ts";
@@ -58,6 +58,7 @@ const PROPS: Props = {
   bestaetigung: null,
   einwilligung: null,
   geburtsdatum: null,
+  isDirty: false,
 };
 
 const panel = (overrides: Partial<Props> = {}) => underNext(h(FormBestaetigungSection, { ...PROPS, ...overrides }), { router: nextRouter() });
@@ -247,4 +248,28 @@ describe("the control that sends the link", () => {
       );
     });
   }
+
+  /* A send that answered comes back with the action's own refresh where a write landed, so the panel
+     reads the page again only where nobody can tell whether one did. */
+  it("reads the page again only after a send nobody can tell landed", async () => {
+    const answers: Record<string, () => Promise<unknown>> = {
+      sent: () => Promise.resolve({ success: true, message: "gesendet" }),
+      refused: () => Promise.resolve({ success: false, error: "Diese Person ist stillgelegt" }),
+      thrown: unclear.thrown?.answer ?? assert.fail("no thrown arm"),
+      answered: unclear.answered?.answer ?? assert.fail("no answered arm"),
+    };
+    const refreshes: Record<string, number> = {};
+
+    for (const [arm, answer] of Object.entries(answers)) {
+      const { router, seen } = recordingRouter();
+      answerWith(answer);
+      const { unmount } = render(underNext(h(FormBestaetigungSection, { ...PROPS, bestaetigung: BLOCK }), { router }));
+
+      await userEvent.setup().click(screen.getByRole("button", { name: "Link erneut senden" }));
+      refreshes[arm] = seen.refresh;
+      unmount();
+    }
+
+    assert.deepEqual(refreshes, { sent: 0, refused: 0, thrown: 1, answered: 0 });
+  });
 });

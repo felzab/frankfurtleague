@@ -2,26 +2,28 @@
 
 import { memo } from "react";
 
-import { Magnifier, Pencil, Person } from "@gravity-ui/icons";
+import Magnifier from "@gravity-ui/icons/Magnifier";
+import Pencil from "@gravity-ui/icons/Pencil";
+import Person from "@gravity-ui/icons/Person";
 
-import { Table } from "@heroui/react";
+import { Table } from "@heroui/react/table";
 
 import { reactivateSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { SCHIEDSRICHTER_CRUD_COPY, SCHIEDSRICHTER_OHNE_NAMEN_LABEL } from "@/features/schiedsrichter/constants";
 import { AdminCrudEmptyCard, AdminCrudEmptyRow } from "@/shared/components/ui/AdminCrudEmpty";
 import {
-  CELL_EDGE,
-  CELL_INNER,
-  COLUMN_EDGE,
-  COLUMN_INNER,
-  IDENTITY_HEAD,
-  IDENTITY_LINE,
-  IDENTITY_NAME_BOX,
-  IDENTITY_PAIR,
-  IDENTITY_ROW,
-  IDENTITY_STACK,
+  CELL_EDGE_CLASSES,
+  CELL_INNER_CLASSES,
+  COLUMN_EDGE_CLASSES,
+  COLUMN_INNER_CLASSES,
+  IDENTITY_HEAD_CLASSES,
+  IDENTITY_LINE_CLASSES,
+  IDENTITY_NAME_BOX_CLASSES,
+  IDENTITY_PAIR_CLASSES,
+  IDENTITY_ROW_CLASSES,
+  IDENTITY_STACK_CLASSES,
   identityName,
-  TABLE_HEADING,
+  TABLE_HEADING_CLASSES,
 } from "@/shared/components/ui/adminTable";
 import { card } from "@/shared/components/ui/card";
 import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
@@ -73,13 +75,13 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
      ghost, which `GET /schiedsrichter` excludes by id, so no erased person reaches this cell. */
   const renderName = (schiedsrichter: FLSchiedsrichter) =>
     schiedsrichter.name === null ? (
-      <span className={`${IDENTITY_NAME_BOX} text-foreground-muted italic`}>{SCHIEDSRICHTER_OHNE_NAMEN_LABEL}</span>
+      <span className={`${IDENTITY_NAME_BOX_CLASSES} text-foreground-muted italic`}>{SCHIEDSRICHTER_OHNE_NAMEN_LABEL}</span>
     ) : (
       <span className={identityName(schiedsrichter.inactive_since !== null)}>{schiedsrichter.name}</span>
     );
 
   const renderHonorar = (schiedsrichter: FLSchiedsrichter) => (
-    <span className="bg-muted text-foreground font-numeric fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide tabular-nums">
+    <span className="inline-flex items-center rounded-md bg-muted px-3 py-1.5 font-numeric fluid-xs font-bold tracking-wide text-foreground tabular-nums">
       {formatEuro(schiedsrichter.default_payment)}
     </span>
   );
@@ -90,25 +92,25 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
    * somebody.
    */
   const renderIdentity = (schiedsrichter: FLSchiedsrichter) => (
-    <div className={IDENTITY_ROW}>
+    <div className={IDENTITY_ROW_CLASSES}>
       <Person
         aria-hidden="true"
-        className="text-foreground-muted size-4.5 shrink-0"
+        className="size-4.5 shrink-0 text-foreground-muted"
       />
-      <div className={IDENTITY_STACK}>
-        <div className={IDENTITY_HEAD}>
+      <div className={IDENTITY_STACK_CLASSES}>
+        <div className={IDENTITY_HEAD_CLASSES}>
           {renderName(schiedsrichter)}
           {/* Beside the identity rather than in a column: retirement is the only state a referee has,
               so a column would be empty on every live row. */}
           {schiedsrichter.inactive_since !== null && <RetiredBadge since={schiedsrichter.inactive_since} />}
         </div>
-        <span className={IDENTITY_LINE}>{schiedsrichter.schule || <span className="italic">Keine Schule</span>}</span>
-        <span className={IDENTITY_PAIR}>
+        <span className={IDENTITY_LINE_CLASSES}>{schiedsrichter.schule || <span className="italic">Keine Schule</span>}</span>
+        <span className={IDENTITY_PAIR_CLASSES}>
           {/* The placeholder a row without an address holds is shown as the gap it is, not as an address. */}
-          <span className={IDENTITY_LINE}>
+          <span className={IDENTITY_LINE_CLASSES}>
             {hatAdresse(schiedsrichter.kontakt.email) ? schiedsrichter.kontakt.email : <span className="italic">Keine E-Mail</span>}
           </span>
-          <span className={`${IDENTITY_LINE} font-numeric tabular-nums`}>
+          <span className={`${IDENTITY_LINE_CLASSES} font-numeric tabular-nums`}>
             {schiedsrichter.kontakt.telefon || <span className="italic">Keine Telefonnummer</span>}
           </span>
         </span>
@@ -196,7 +198,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
               <div className="min-w-0 flex-1">{renderIdentity(schiedsrichter)}</div>
               <span className="shrink-0">{renderHonorar(schiedsrichter)}</span>
             </div>
-            <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(schiedsrichter)}</div>
+            <div className="-mx-1 border-t border-border/50 pt-2">{renderActions(schiedsrichter)}</div>
           </div>
         ))}
       </div>
@@ -218,15 +220,15 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
                     is the only one here holding free text. */}
                 <Table.Column
                   isRowHeader
-                  className={`${TABLE_HEADING} ${COLUMN_EDGE}`}>
+                  className={`${TABLE_HEADING_CLASSES} ${COLUMN_EDGE_CLASSES}`}>
                   Name
                 </Table.Column>
                 {/* Sized to the euro chip rather than to the heading over it: a chip holds one line,
                     so a column under its width draws it across the cell beside it. */}
-                <Table.Column className={`${TABLE_HEADING} ${COLUMN_INNER} w-36`}>Honorar</Table.Column>
+                <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_INNER_CLASSES} w-36`}>Honorar</Table.Column>
                 {/* Four controls at most — `fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`
                 holds the arithmetic, and it is the count a new action changes. */}
-                <Table.Column className={`${TABLE_HEADING} ${COLUMN_EDGE} w-60 text-right`}>Aktionen</Table.Column>
+                <Table.Column className={`${TABLE_HEADING_CLASSES} ${COLUMN_EDGE_CLASSES} w-60 text-right`}>Aktionen</Table.Column>
               </Table.Header>
 
               {/* `items` plus a render function, never mapped children — see the memo note above. */}
@@ -236,12 +238,12 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
                 {(schiedsrichter: FLSchiedsrichter) => (
                   <Table.Row
                     id={schiedsrichter.id}
-                    className="border-border/50 border-b last:border-b-0">
-                    <Table.Cell className={CELL_EDGE}>{renderIdentity(schiedsrichter)}</Table.Cell>
+                    className="border-b border-border/50 last:border-b-0">
+                    <Table.Cell className={CELL_EDGE_CLASSES}>{renderIdentity(schiedsrichter)}</Table.Cell>
 
-                    <Table.Cell className={CELL_INNER}>{renderHonorar(schiedsrichter)}</Table.Cell>
+                    <Table.Cell className={CELL_INNER_CLASSES}>{renderHonorar(schiedsrichter)}</Table.Cell>
 
-                    <Table.Cell className={CELL_EDGE}>{renderActions(schiedsrichter)}</Table.Cell>
+                    <Table.Cell className={CELL_EDGE_CLASSES}>{renderActions(schiedsrichter)}</Table.Cell>
                   </Table.Row>
                 )}
               </Table.Body>

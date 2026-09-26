@@ -2,7 +2,8 @@
 
 import { memo } from "react";
 
-import { ArrowRightFromSquare, GraduationCap } from "@gravity-ui/icons";
+import ArrowRightFromSquare from "@gravity-ui/icons/ArrowRightFromSquare";
+import GraduationCap from "@gravity-ui/icons/GraduationCap";
 
 import { bestaetigungsStand, endstand, istOffen } from "@/features/bewerbungen/bestaetigungStand";
 import {
@@ -17,12 +18,12 @@ import { hatUnerreichbarenSitz, ZUSTELLUNG_QUEUE_LABEL, ZUSTELLUNG_QUEUE_TINT } 
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
 import {
-  IDENTITY_HEAD,
-  IDENTITY_LINE,
-  IDENTITY_NAME,
-  IDENTITY_NAME_BOX,
-  IDENTITY_ROW,
-  IDENTITY_STACK,
+  IDENTITY_HEAD_CLASSES,
+  IDENTITY_LINE_CLASSES,
+  IDENTITY_NAME_BOX_CLASSES,
+  IDENTITY_NAME_CLASSES,
+  IDENTITY_ROW_CLASSES,
+  IDENTITY_STACK_CLASSES,
 } from "@/shared/components/ui/adminTable";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
@@ -50,7 +51,7 @@ const NO_TEAM = "Kein Team benannt";
 const NO_BESTAETIGUNGEN = "Keine Bestätigungen angefragt";
 
 /** The eyebrow over each fact, one cell of the card's grid. */
-const FACT_LABEL = "fluid-xxs text-foreground-muted font-extrabold tracking-widest uppercase";
+const FACT_LABEL_CLASSES = "fluid-xxs font-extrabold tracking-widest text-foreground-muted uppercase";
 
 const KONTAKT_LABEL = Object.fromEntries(KONTAKT_ROLLEN.map(({ value, label }) => [value, label])) as Record<KontaktRolle, string>;
 
@@ -89,9 +90,9 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
 
   const renderName = (bewerbung: AdminBewerbungRow) =>
     bewerbung.teamName === null ? (
-      <span className={`${IDENTITY_NAME_BOX} text-foreground-muted italic`}>{NO_TEAM}</span>
+      <span className={`${IDENTITY_NAME_BOX_CLASSES} text-foreground-muted italic`}>{NO_TEAM}</span>
     ) : (
-      <span className={IDENTITY_NAME}>{bewerbung.teamName}</span>
+      <span className={IDENTITY_NAME_CLASSES}>{bewerbung.teamName}</span>
     );
 
   const renderStatus = (bewerbung: AdminBewerbungRow) => (
@@ -127,7 +128,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
   /** The eyebrow names the fact at the fact, so no heading over the list can disagree with the block under it. */
   const renderFact = (label: string, wert: ReactNode) => (
     <div className="flex min-w-0 flex-col gap-1">
-      <span className={FACT_LABEL}>{label}</span>
+      <span className={FACT_LABEL_CLASSES}>{label}</span>
       {wert}
     </div>
   );
@@ -167,21 +168,21 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
   const renderKontakt = (bewerbung: AdminBewerbungRow) => {
     const { rolle, person } = kontaktangabe(bewerbung);
 
-    // The box and its ink at the call site, never `IDENTITY_LINE` under an override: two ink
+    // The box and its ink at the call site, never `IDENTITY_LINE_CLASSES` under an override: two ink
     // utilities in one string are decided by the stylesheet's order, there being no `twMerge` in
     // the path.
     return renderFact(
       KONTAKT_LABEL[rolle],
       <div className="flex min-w-0 flex-col gap-0.5">
         {person === null ? (
-          <span className={`${IDENTITY_NAME_BOX} text-foreground-muted italic`}>Keine Kontaktperson</span>
+          <span className={`${IDENTITY_NAME_BOX_CLASSES} text-foreground-muted italic`}>Keine Kontaktperson</span>
         ) : (
-          <span className={IDENTITY_NAME}>{`${person.vorname} ${person.nachname}`}</span>
+          <span className={IDENTITY_NAME_CLASSES}>{`${person.vorname} ${person.nachname}`}</span>
         )}
         {person === null || person.email === "" ? (
-          <span className={`${IDENTITY_LINE} italic`}>Keine E-Mail</span>
+          <span className={`${IDENTITY_LINE_CLASSES} italic`}>Keine E-Mail</span>
         ) : (
-          <span className={IDENTITY_LINE}>{person.email}</span>
+          <span className={IDENTITY_LINE_CLASSES}>{person.email}</span>
         )}
       </div>,
     );
@@ -189,13 +190,13 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
 
   /** The status pill leads because a row's standing reads before its kind, and a row cannot know which facet is on. */
   const renderIdentity = (bewerbung: AdminBewerbungRow) => (
-    <div className={IDENTITY_ROW}>
+    <div className={IDENTITY_ROW_CLASSES}>
       <GraduationCap
         aria-hidden="true"
-        className="text-foreground-muted size-4.5 shrink-0"
+        className="size-4.5 shrink-0 text-foreground-muted"
       />
-      <div className={IDENTITY_STACK}>
-        <div className={IDENTITY_HEAD}>
+      <div className={IDENTITY_STACK_CLASSES}>
+        <div className={IDENTITY_HEAD_CLASSES}>
           {renderName(bewerbung)}
           {renderStatus(bewerbung)}
           {renderHerkunft(bewerbung)}
@@ -207,7 +208,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
             Saison <span className="font-numeric tabular-nums">{bewerbung.saison_id}</span>
           </span>
         </div>
-        {bewerbung.schule !== null && <span className={IDENTITY_LINE}>{bewerbung.schule.full_name}</span>}
+        {bewerbung.schule !== null && <span className={IDENTITY_LINE_CLASSES}>{bewerbung.schule.full_name}</span>}
       </div>
     </div>
   );
@@ -248,13 +249,13 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
 
           {/* Four tracks and the contact over two of them: the two graded facts read at a glance and
               the address does not, so an even split would clip the one fact nobody can guess. */}
-          <div className="border-border/50 grid grid-cols-1 gap-3 border-t pt-3 md:grid-cols-4 md:gap-x-4">
+          <div className="grid grid-cols-1 gap-3 border-t border-border/50 pt-3 md:grid-cols-4 md:gap-x-4">
             {renderFact("Eingereicht", renderEingereicht(bewerbung))}
             {renderFact("Bestätigungen", <div className="flex flex-row flex-wrap items-center gap-2">{renderBestaetigung(bewerbung)}</div>)}
             <div className="md:col-span-2">{renderKontakt(bewerbung)}</div>
           </div>
 
-          <div className="border-border/50 -mx-1 border-t pt-2 md:hidden">{renderActions(bewerbung)}</div>
+          <div className="-mx-1 border-t border-border/50 pt-2 md:hidden">{renderActions(bewerbung)}</div>
         </li>
       ))}
     </ul>

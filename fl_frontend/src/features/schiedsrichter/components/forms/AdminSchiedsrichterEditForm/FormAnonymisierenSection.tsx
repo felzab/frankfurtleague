@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-import { TrashBin } from "@gravity-ui/icons";
+import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { anonymiseSchiedsrichterAction } from "@/features/schiedsrichter/actions";
 import { SCHIEDSRICHTER_ANONYM_LABEL } from "@/features/schiedsrichter/constants";
@@ -10,12 +10,13 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
-import { FORM_SECTION_HEADING } from "@/shared/components/ui/formFieldStyles";
+import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
+import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { FLKontakt } from "@/shared/schemas";
@@ -53,13 +54,15 @@ export function FormAnonymisierenSection({
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
-  const { isConfirming, isPending: isAnonymising, press, cancel } = useTwoPressConfirm(onBeforeAnonymise);
+  const twoPress = useTwoPressConfirm(onBeforeAnonymise);
+  const { isConfirming, press } = twoPress;
 
   const panel = formPanel({ tone: "danger" });
 
   const handleAnonymise = () => {
     press(async () => {
-      const res = await anonymiseSchiedsrichterAction({ id: schiedsrichterId });
+      // A rejected action may still have saved, and uncaught here it takes the page down with it.
+      const res = await anonymiseSchiedsrichterAction({ id: schiedsrichterId }).catch(rejectedWrite(router));
 
       if (!res.success) {
         appToast.failure("Schiedsrichterdaten nicht gelöscht", res);
@@ -105,7 +108,7 @@ export function FormAnonymisierenSection({
         {isConfirming && (
           <ConfirmReveal>
             <div className="flex w-full flex-col gap-y-1">
-              <h3 className={FORM_SECTION_HEADING}>Was dabei gelöscht wird</h3>
+              <h3 className={FORM_SECTION_HEADING_CLASSES}>Was dabei gelöscht wird</h3>
               <dl className="flex w-full flex-col gap-y-1">
                 {/* The row says what a reader is shown afterwards as well as what goes: the fixtures
                     outlive the person, and the word standing on them is what somebody will meet. */}
@@ -138,28 +141,24 @@ export function FormAnonymisierenSection({
 
             {/* No restore is named on purpose: nothing in the system holds the old values once the row
                 and the log have both gone. What goes is the readout directly above. */}
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
+            <p className="fluid-xxs leading-normal font-medium text-foreground">
               Zurückholen lässt sich das nicht. Der Eintrag verschwindet ganz; die Spiele dieser Person bleiben bestehen und zeigen „
               {SCHIEDSRICHTER_ANONYM_LABEL}“.
             </p>
 
             {/* The one consequence the readout above cannot show: a match still to be played comes out of
                 the press booked on a row nobody can officiate under. */}
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
+            <p className="fluid-xxs leading-normal font-medium text-foreground">
               Spiele ohne Ergebnis brauchen danach einen neuen Schiedsrichter.
             </p>
           </ConfirmReveal>
         )}
 
-        <ConfirmActionRow
-          isConfirming={isConfirming}
-          isPending={isAnonymising}
-          onCancel={cancel}>
+        <ConfirmActionRow confirm={twoPress}>
           {/* The object stays in the label: on a danger panel under a trash icon, a bare „Ja, endgültig
               löschen“ would read as the referee going, where what goes is their data. */}
           <ConfirmPressButton
-            isConfirming={isConfirming}
-            isPending={isAnonymising}
+            confirm={twoPress}
             reason={null}
             resting="Daten löschen"
             armed="Ja, Daten endgültig löschen"

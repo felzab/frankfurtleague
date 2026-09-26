@@ -9,8 +9,9 @@
 #   the connector included, so anything nginx does not route does not exist for the internet. A
 #   `ports:` entry anywhere removes that silently (`docs/ops/spec.md :: I1`).
 # - One package per service; the two images are never merged into one (`.claude/CLAUDE.md` §7, images).
-# - Keep this file and docker-compose.local.yml in step. A difference here is a difference the
-#   local stack will not have caught.
+# - The base of the local stack too: `./scripts/ops/local.sh` merges docker-compose.local.yml over
+#   this file, so a setting here reaches both stacks and a difference exists only where that file
+#   writes one. No database service, here or ever (`docs/ops/spec.md :: I174`).
 #
 # See:
 # - docs/ops/spec.md -- the service table and invariants
@@ -25,7 +26,7 @@ x-logging: &default-logging
 services:
   frontend:
     env_file: ./fl_frontend/.env
-    # A moving tag, on each package's image below: `publish.sh` re-points it at every publish, so
+    # A moving tag, on each package's image below: `publish.yml` re-points it at every publish, so
     # `deploy.sh` with no argument means the newest published image. A rollback pins the immutable
     # `:sha-<commit>` instead. Both packages are public, so neither pull needs credentials.
     image: ghcr.io/felzab/frankfurtleague-frontend:latest
@@ -99,21 +100,31 @@ services:
           memory: "128M"
 
   nginx:
-    # Pinned to the minor so this proxy and the local one are the same nginx. An unpinned `alpine`
-    # tag is whatever each host happened to pull first -- and nothing here pulls nginx again, so the
-    # component that terminates TLS and owns the security headers drifts per host, silently. Bump
-    # this and docker-compose.local.yml together.
-    image: nginx:1.31-alpine
+    # Tag and digest (`docs/ops/spec.md` §1.1). The local stack, `nginx/edge_test.sh` and
+    # `scripts/gate/verify.sh`'s `nginx -t` read this line.
+    image: nginx:1.31.6-alpine@sha256:d10753d9289b8e3f884386351f73554ce72b631378949deddd75e83ee296c427
     restart: unless-stopped
-    # The two config mounts must exist before `up`: if one is missing, Docker creates a DIRECTORY at
-    # that path and nginx fails with "not a directory", which `deploy.sh` checks for rather than
-    # letting it surface as a mystery.
+    # nginx's Control API, through which `deploy.sh` reloads and reads back the loaded configuration
+    # (https://nginx.org/en/docs/switches.html, `-l`, from 1.31.5). A socket, never a port: a port
+    # answers on every interface of this network, reloads included.
+    command: ["nginx", "-g", "daemon off;", "-l", "unix:/run/nginx-control/control.sock"]
+    # A tmpfs: a socket a killed master leaves on disk makes the next start refuse to bind and
+    # exit. Mode 700, so no user but root reaches the socket, whatever mode nginx gives it.
+    tmpfs:
+      - /run/nginx-control:mode=700
+    # The config mounts must exist before `up`: Docker mounts a missing directory empty, and nginx
+    # then serves none of this stack's edge or refuses its includes. `deploy.sh` checks each file.
 
     # The access and error logs are host-side so they outlive this container and `logrotate` can
     # bound their age (`docs/ops/runbooks.md` §7). Host and container paths are spelled alike, so
-    # the stanza and `nginx/prod.conf` name one string.
+    # the stanza and `nginx/prod/prod.conf` name one string.
     volumes:
-      - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
+      # Directories, never a file: a file mount holds the inode it was created with, and a pull
+      # replaces a changed file with a new one, so the reload `deploy.sh` sends would re-read the
+      # old file (`docs/ops/spec.md :: I355`).
+      - ./nginx/prod:/etc/nginx/conf.d:ro
+      # What both edges share, which prod.conf includes by this container path.
+      - ./nginx/shared:/etc/nginx/shared:ro
       - ./certs:/etc/nginx/certs:ro
       - /var/log/frankfurtleague/nginx:/var/log/frankfurtleague/nginx
     networks:
@@ -141,10 +152,10 @@ services:
   # No resource limit, unlike the three above: this process forwards bytes for every request on the
   # site, and a CPU cap nobody has measured throttles the whole of it rather than capping a leak.
   cloudflared:
-    # Pinned, against the vendor's own `:latest --pull always` example, for the nginx service's
-    # reason above: the component holding the site's one route in would otherwise drift per host,
+    # Pinned by tag and digest (`docs/ops/spec.md` §1.1), against the vendor's own `:latest --pull
+    # always` example: the component holding the site's one route in would otherwise drift per host,
     # silently.
-    image: cloudflare/cloudflared:2026.8.3
+    image: cloudflare/cloudflared:2026.9.1@sha256:b269e8abd07a5bf6f3f4be65d5050b2174eca89c56a0241a8ff32a16aec454e4
     restart: unless-stopped
     # `--no-autoupdate` because the pin above is the version policy: a connector that replaces its
     # own binary is the unpinned tag again, arrived at from inside the container.
@@ -176,11 +187,11 @@ secrets:
     file: ./secrets/tunnel_token
 
 # A single user-defined bridge. Containers resolve each other by service name -- `http://backend:8000`
-# and `http://frontend:3000` in nginx/prod.conf are these names, not hosts.
+# and `http://frontend:3000` in nginx/prod/prod.conf are these names, not hosts.
 networks:
   frankfurtleague-net:
     driver: bridge
-    # Declared rather than left to the daemon: `nginx/prod.conf :: set_real_ip_from` trusts the
+    # Declared rather than left to the daemon: `nginx/prod/prod.conf :: set_real_ip_from` trusts the
     # connector by address, and a bridge subnet the daemon picks differs per host, silently
     # returning every request to the fail-open path.
     ipam:

@@ -37,26 +37,40 @@ Resume this session. Do not continue any work until you have finished this proto
 
 3. THE FLEET. List every subagent that is actually running. Assume none is alive and none is
    dead -- killing a parent does not kill its children. For each agent the register records:
-     - finished, and its verdict banked here    -> that banked verdict is the only copy of its
-       report there is, the harness having each agent return findings as text rather than write a
-       file. Mark it done. Where an agent finished and nothing was banked, its findings are gone
-       and only its edits on disk survive: judge those, and re-dispatch what you cannot establish
-       from them;
+     - finished, and its verdict banked here    -> mark it done. Where an agent finished and
+       nothing was banked, its report is still its transcript's last note, which `handover.py`
+       reads back ("Step 3's address" below): bank it from there, and judge its edits on disk
+       against it. Where the transcript is gone too, only those edits survive: judge them, and
+       re-dispatch what you cannot establish from them;
      - running                                  -> leave it, note what it owns;
      - paused, killed, or unaccounted for       -> try to RESUME it first, addressed by the id the
        Agent tool returned, which the register records beside the name, since a resumed agent keeps
        its whole context and re-reads nothing. Treat the resume as a new dispatch: check that its
        files are still free before it continues, and treat nothing it claims as done until the
        acceptance evidence is on disk.
-       Where this harness has no send tool at all, or the resume fails, re-brief
-       it from its last provable state: the files it owns as they stand committed, plus the
-       checklist items whose acceptance evidence exists. An item with no evidence is not done.
+       Where this harness has no send tool at all, or the resume fails, brief a successor
+       from its saved brief, its `<NAME>-messages.md` (`SKILL.md` §3 item 7) and a digest of its
+       transcript, and from its last provable state: the files it owns as they stand committed,
+       plus the checklist items whose acceptance evidence exists. An item with no evidence is not
+       done. Two of your tools, in the programme's `tools` directory, build the rest:
+       `handover.py` digests the predecessor's transcript, and `all_instructions.py` rebuilds
+       every instruction the session sent it, which catches a message the messages file missed.
+       Run each one's proof command, in its own header, before trusting its output. The fresh
+       dispatch forks from your `HEAD`, which holds none of the dead agent's work, so first: land
+       only its commits whose acceptance evidence exists, judged as its report would have been;
+       judge every edit it left uncommitted as intended work or an unrestored plant, and save the
+       work --
+       `git -C <path> diff`, its untracked files and any stash entry "On <branch>" -- to the
+       scratch path and name it in the successor's brief; and keep its worktree row open until the
+       fresh work lands, nothing there being yours to discard.
 
-4. PARTIAL WORK. For every uncommitted change in the tree, name the agent that owns the file. Use
-   `git status --porcelain`, not `git diff --name-only`: a file an agent created and never staged
-   is invisible to the second, and a test module left untracked that way passed its suite by being
-   absent from it. A changed or untracked file no agent owns is the first thing to investigate --
-   it is either a lost agent or a conflict incident. Do not commit anything you cannot attribute.
+4. PARTIAL WORK. Run `git worktree list` and match every entry to the register's worktree table.
+   For each, `git log --format='%h %s' $(git merge-base HEAD <branch>)..<branch>`, the landing's
+   range, names the commits it holds and `git -C <path> status --porcelain`, not
+   `git diff --name-only`, the work it has not committed: a
+   file an agent created and never staged is invisible to the second. A worktree no row names is a
+   lost agent; your own checkout holding any change is a conflict incident. Land nothing you cannot
+   attribute.
 
 5. INSTRUCTIONS. Re-read every standing instruction and confirm each is still being followed --
    the repository's own rules file, the ratified decisions, the owner's own `~/.claude/CLAUDE.md`,
@@ -68,14 +82,10 @@ Resume this session. Do not continue any work until you have finished this proto
    restore command still correct. A gap is where a configuration change made to let a fleet run
    overnight gets committed by the session that inherits it.
 
-6. VERIFY, DO NOT TRUST. Re-establish the last verification result from the register's `Last gate
-   run`, and confirm the commit it names is still the tip. Run the gate yourself only once step 3
-   lists no running agent: while one is live the gate is a wave-boundary instrument, a run over a
-   moving tree exits non-zero on somebody else's half-written file, and that red is evidence about
-   nothing -- least of all a reason to restore the file it names, which is step 4's question and
-   its owner's answer. Once the tree is still, run it at the scope the branch demands and report
-   the real exit code, taken from the command and never through a pipe. A previous report of a
-   clean run is not evidence of a clean tree now.
+6. VERIFY, DO NOT TRUST. Read the register's `Last gate run` and check that the commit it names is
+   still the tip. Run the gate only where the next action is the ending's (`SKILL.md` §7 step 2):
+   it judges the finished branch, and a resume mid-session has none. A previous report of a clean
+   run is not evidence of a clean tree now.
 
 7. RESUME POINT. State the single next action and why it is next, and write it into the register in
    the same edit as the action itself, not after it. Then continue, at the same parallelism the
@@ -92,16 +102,18 @@ evidence is on disk and still valid. Re-run what you cannot prove; read what you
 
 **Establish whether this harness can resume an agent at all by attempting one send, before any plan
 rests on a resume** — never from a tool description, which has named a send tool the session did not
-have ([agent-brief-template.md](agent-brief-template.md) section 13).
+have (`.claude/agents/implementer.md` section 13).
 
 - **With a send tool**, that tool resumes an agent from its transcript, **addressed by the id the
   Agent tool returned rather than by the name in its brief, a send by name having failed**, which
   is why the register carries the id beside it. An agent stopped by a quota limit has come back
   that way with its context intact and nothing on disk, and the attempt costs one message where a
   re-brief costs the whole context.
-- **Without one, every continuation is a fresh dispatch carrying a corrected brief**, and the only
-  material it can be built from is what the register banked plus what is on disk: an unbanked
-  verdict is unreachable however live the transcript looks. A follow-up then costs a whole brief
+- **Without one, every continuation is a fresh dispatch carrying a corrected brief**, built from
+  what the register banked plus what is on disk. **A finished agent's transcript file is on disk,
+  and its final report is in it**: `handover.py`, run on a finished driving re-auditor, returned
+  both of that agent's reports whole among its last notes. The register stays the copy you trust,
+  since the transcript is the harness's to keep or clear. A follow-up then costs a whole brief
   rather than one message, which is a schedule figure rather than a detail.
 
 What a resumed agent cannot supply is evidence: an agent that "was nearly done" has, by definition,

@@ -4,25 +4,36 @@ import { after, beforeEach, describe, it } from "node:test";
 
 import { MongoDBContainer } from "@testcontainers/mongodb";
 
-import { ADMIN_EMAIL, cookieHeader, lastMailedToken, ORIGIN, registerAuthDoubles } from "./authDoubles.ts";
+import {
+  ADMIN_EMAIL,
+  Barrier,
+  BARRIER_TIMEOUT_MS,
+  configDouble,
+  cookieHeader,
+  lastMailedToken,
+  ORIGIN,
+  registerAuthDoubles,
+} from "./authDoubles.ts";
 
 // A replica set, which the module starts by default: why this file needs one is
 // `docs/frontend/spec.md` §1.9's.
-const mongod = await new MongoDBContainer("mongo:8").start();
+const mongod = await new MongoDBContainer("mongo:8.3.11").start();
 
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
 const MONGO_URL = `${mongod.getConnectionString()}/?directConnection=true`;
 
-const SENT = "__flAuthDbSentMail";
 const BARRIER = "__flAuthDbBarrier";
 const LOGGED = "__flAuthDbLogged";
 const CONSUMING = "__flAuthDbConsuming";
 const REAL_CLIENT = "__flAuthDbRealClient";
 
+// A second URL for the production module, which the load hook's match on a path's end lets past the
+// double: the client under test is the one `fl_frontend/src/core/db.ts` builds, Stable API included.
+const PRODUCTION_DB = `${import.meta.resolve("./db.ts")}?production`;
+
 /* The real client, held where a request makes its first write after its judgement: the passkey row
    where nothing claims the account, the account's own row where something does. */
-const DB_DOUBLE = `import mongodb from ${JSON.stringify(import.meta.resolve("mongodb"))};
-const real = new mongodb.MongoClient(${JSON.stringify(MONGO_URL)});
+const DB_DOUBLE = `import { client as real } from ${JSON.stringify(PRODUCTION_DB)};
 globalThis.${REAL_CLIENT} = real;
 const bound = (target, value) => (typeof value === "function" ? value.bind(target) : value);
 const HELD = { passkey: "insertOne", user: "findOneAndUpdate" };
@@ -40,7 +51,6 @@ export const client = new Proxy(real, { get(target, prop) {
   return bound(target, Reflect.get(target, prop, target));
 }});`;
 
-const MAIL_DOUBLE = `export const sendMail = async (message) => { globalThis.${SENT}.push(message); return { id: null }; };`;
 const LOGGING_DOUBLE = `export const logger = {
   debug: () => {},
   info: () => {},
@@ -48,44 +58,9 @@ const LOGGING_DOUBLE = `export const logger = {
   error: () => {},
 };`;
 
-registerAuthDoubles({ core: { db: DB_DOUBLE, mail: MAIL_DOUBLE, logging: LOGGING_DOUBLE } });
-
-/** Holds the first `expected` writes until all have arrived; every write after them passes. */
-class Barrier {
-  private expected = 0;
-  private arrived = 0;
-  private waiters: (() => void)[] = [];
-
-  arm(expected: number): void {
-    this.expected = expected;
-    this.arrived = 0;
-    this.waiters = [];
-  }
-
-  disarm(): void {
-    this.expected = 0;
-    for (const release of this.waiters) release();
-    this.waiters = [];
-  }
-
-  async arrive(): Promise<void> {
-    if (this.expected === 0 || this.arrived >= this.expected) return;
-    this.arrived += 1;
-    if (this.arrived === this.expected) {
-      this.disarm();
-      return;
-    }
-
-    // Bounded, so a request that never reaches a held write fails its own assertion rather than
-    // hanging the run.
-    await new Promise<void>((resolve) => {
-      this.waiters.push(resolve);
-      setTimeout(resolve, BARRIER_TIMEOUT_MS);
-    });
-  }
-}
-
-const BARRIER_TIMEOUT_MS = 5000;
+const { sent } = registerAuthDoubles({
+  core: { config: configDouble({ MONGODB_URI: MONGO_URL }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
+});
 
 /**
  * Holds the one write that arrives first until `release`, and passes every later one: the order in
@@ -120,11 +95,9 @@ class Gate {
   }
 }
 
-const sent: { to: string; subject: string; text: string }[] = [];
 const warnings: string[] = [];
 const barrier = new Barrier();
 const globals = globalThis as unknown as Record<string, unknown>;
-globals[SENT] = sent;
 globals[LOGGED] = warnings;
 globals[BARRIER] = barrier;
 
@@ -158,7 +131,6 @@ after(async () => {
 
 beforeEach(async () => {
   barrier.disarm();
-  sent.length = 0;
   warnings.length = 0;
   consuming = async () => undefined;
   await authDb().dropDatabase();
@@ -275,6 +247,7 @@ async function atOnce(
   barrier.arm(pairs.length);
   const responses = await Promise.all(pairs.map(([offered, rawId]) => verify(offered, rawId)));
   barrier.disarm();
+  assert.ok(await barrier.filled, "the enrolments were not all held at `passkey.insertOne` or `user.findOneAndUpdate`, so no race was run");
 
   const refused = responses.filter((response) => response.status !== 200);
   const codes = await Promise.all(refused.map(async (response) => ((await response.json()) as { code?: unknown }).code));

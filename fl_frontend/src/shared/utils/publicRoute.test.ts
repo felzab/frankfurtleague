@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import { describe, it } from "node:test";
+import { describe, it, mock } from "node:test";
 
 /* Replaced at the module boundary, as `fl_frontend/src/shared/utils/undoRoute.test.ts` replaces them:
    a response is the framework's, and the spine between it and the handler is what is driven. */
@@ -24,7 +24,15 @@ registerHooks({
   },
 });
 
-const { handlePublicRequest } = await import("./publicRoute.ts");
+const { handlePublicRequest, SCHON_VORLIEGEND } = await import("./publicRoute.ts");
+const { FELD_ABGELEHNT, toActionErrorResult } = await import("./actionError.ts");
+const { UNHANDLED_FIELD_REFUSAL } = await import("./refusal.ts");
+const { VALIDATION_FAILED } = await import("./validation.ts");
+const { APIBadStatusError } = await import("@/core/errors.ts");
+const { bodyField } = await import("@/shared/testing/refusedPayload.ts");
+const { ApiUnsentError } = await import("@/core/errors.ts");
+const { boundCall, markOutcomeUnknown, recordWriteSent, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
+const { DUPLICATE_KEY, refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 
 /** Every value a browser sends in `Sec-Fetch-Site`, and the browser too old to send any. */
 const ORIGINS: readonly (string | null)[] = ["same-origin", "same-site", "cross-site", "none", null];
@@ -92,27 +100,150 @@ describe("what stands in for a session on the public spine", () => {
   });
 });
 
+describe("a refusal the route itself leaves unmapped", () => {
+  const answering = async (refusal: Error) =>
+    (
+      (await handlePublicRequest(request("same-origin", { body: 0 }), {
+        routeName: "publicRouteTest",
+        run: async () => {
+          throw refusal;
+        },
+      })) as unknown as { body: unknown }
+    ).body;
+  const refusedWith = (serverErrorCode: string, statusCode = 409) => answering(refusedOn("POST /registrierungen", serverErrorCode, statusCode));
+
+  /* The shared reader's sentence for it is an administrator's, about an entry they can open; a visitor
+     on a public form has none, and reads that their details are already on file. */
+  it("answers the unique index's refusal in the visitor's own words", async () => {
+    assert.deepEqual(await refusedWith(DUPLICATE_KEY), { success: false, error: SCHON_VORLIEGEND });
+    assert.notEqual(SCHON_VORLIEGEND, toActionErrorResult(refusedOn("POST /registrierungen", DUPLICATE_KEY)).error);
+  });
+
+  /* The shared reader answers any other conflict with a reload, which discards what a visitor typed; the
+     form's own fallback promises those entries are intact and asks for nothing that loses them. */
+  it("answers every other conflict with the form's fallback, never the shared reader's reload", async () => {
+    assert.deepEqual(await refusedWith("REQ-UNCLAIMED-000"), { success: false, error: UNHANDLED_FIELD_REFUSAL });
+    assert.doesNotMatch(UNHANDLED_FIELD_REFUSAL, /lade die seite/i);
+  });
+
+  /* Codes are unique across the API, so a rule answering another status is still a rule's refusal,
+     and the shared reader's answer to that status would be the reload again. */
+  it("answers a rule's refusal alike at whatever status its rule answers with", async () => {
+    for (const status of [422, 404, 410, 403]) {
+      assert.deepEqual(await refusedWith("REQ-UNCLAIMED-000", status), { success: false, error: UNHANDLED_FIELD_REFUSAL }, String(status));
+    }
+  });
+
+  it("marks the box a rule's refusal names, and says the form's fallback for the rest", async () => {
+    const refusal = new APIBadStatusError({
+      ...refusedOn("POST /registrierungen", "REQ-UNCLAIMED-000", 422),
+      message: "refused",
+      refusedFields: [bodyField(["geburtsdatum"], "REQ-UNCLAIMED-000")],
+    });
+
+    assert.deepEqual(await answering(refusal), {
+      success: false,
+      error: VALIDATION_FAILED,
+      fieldErrors: { geburtsdatum: FELD_ABGELEHNT },
+      unplacedError: UNHANDLED_FIELD_REFUSAL,
+    });
+  });
+
+  it("leaves a vanished record, a refused credential and a server error to the shared reader", async () => {
+    for (const [code, status] of [
+      ["DB-COMMON-001", 404],
+      ["REQ-AUTH-002", 401],
+      ["REQ-UNCLAIMED-000", 500],
+    ] as const) {
+      const refusal = refusedOn("POST /registrierungen", code, status);
+      assert.deepEqual(await answering(refusal), toActionErrorResult(refusal, { method: "POST", readOnly: false }), code);
+    }
+  });
+});
+
+/** What the spine answers for a route whose body runs `body` on a POST. */
+const answeredFor = async (body: () => Promise<never>) =>
+  (
+    (await handlePublicRequest(request("same-origin", { body: 0 }), { routeName: "publicRouteTest", run: body })) as unknown as {
+      body: { success: boolean; error?: string; outcome?: string };
+    }
+  ).body;
+
 describe("a throw of the route's own code", () => {
-  const thrownBy = async (method: string) =>
+  /* The application route formats a date and composes its mails after the write, so a throw there
+     leaves the row standing: answered as a failure, the applicant sends it again. */
+  it("answers a throw after a sent write as of unknown outcome, the write perhaps standing", async () => {
+    const body = await answeredFor(async () => {
+      recordWriteSent();
+      throw new RangeError("Invalid time value");
+    });
+
+    assert.equal(body.outcome, "unknown");
+  });
+
+  /* Judged by what the request sent, never by the route's own method: nothing left, so nothing stands. */
+  it("answers a throw before any write, on a POST, as the failure it is", async () => {
+    const body = await answeredFor(async () => {
+      throw new RangeError("Invalid time value");
+    });
+
+    assert.equal(body.outcome, undefined);
+    assert.equal(body.error, "Lade die Seite neu und versuche es erneut.");
+  });
+});
+
+describe("a public write the request's deadline refused before it left", () => {
+  const PLAIN = { outcome: undefined, error: "Lade die Seite neu und versuche es erneut." };
+  const plainOf = (body: { error?: string; outcome?: string }) => ({ outcome: body.outcome, error: body.error });
+
+  it("answers a first write refused unsent as the failure it is", async () => {
+    const body = await answeredFor(async () => {
+      throw new ApiUnsentError("POST");
+    });
+
+    assert.deepEqual(plainOf(body), PLAIN);
+  });
+
+  /* The spent deadline marks the request cut, which after a sent write would leave it unclear. */
+  it("answers it so with the deadline spent, no write having left before it", async () => {
+    let clock = 0;
+    mock.method(performance, "now", () => clock);
+    try {
+      const body = await answeredFor(async () => {
+        clock += REQUEST_DEADLINE_MS + 1;
+        boundCall(1000);
+        throw new ApiUnsentError("POST");
+      });
+
+      assert.deepEqual(plainOf(body), PLAIN);
+    } finally {
+      mock.restoreAll();
+    }
+  });
+});
+
+describe("a public route whose request left a call's outcome unknown", () => {
+  /** A route settling such a call among its own answers, as a mail fan-out settles a broken send. */
+  const settledBy = async (method: string) =>
     (
       (await handlePublicRequest(request("same-origin", { body: 0 }, method), {
         routeName: "publicRouteTest",
         run: async () => {
-          throw new RangeError("Invalid time value");
+          // A write sent on the POST alone: a GET sends none.
+          if (method === "POST") recordWriteSent();
+          markOutcomeUnknown();
+          return { success: true, message: "Deine Bewerbung ist eingegangen." };
         },
-      })) as unknown as { body: { success: boolean; error?: string; outcome?: string } }
+      })) as unknown as { body: { success: boolean; message?: string; outcome?: string } }
     ).body;
 
-  /* The application route formats a date and composes its mails after the write, so a throw there
-     leaves the row standing: answered as a failure, the applicant sends it again. */
-  it("answers a POST as of unknown outcome, the write perhaps standing", async () => {
-    assert.equal((await thrownBy("POST")).outcome, "unknown");
+  /* The application route stores its row and then mails: a confirmation that may have gone, answered
+     as a clean success or a clean failure, tells the visitor something nobody knows. */
+  it("answers a POST as of unknown outcome, whatever the route answered itself", async () => {
+    assert.equal((await settledBy("POST")).outcome, "unknown");
   });
 
-  it("answers a GET, which wrote nothing, as the failure it is", async () => {
-    const body = await thrownBy("GET");
-
-    assert.equal(body.outcome, undefined);
-    assert.equal(body.error, "Lade die Seite neu und versuche es erneut.");
+  it("answers a GET, which wrote nothing, with what it answered itself", async () => {
+    assert.deepEqual(await settledBy("GET"), { success: true, message: "Deine Bewerbung ist eingegangen." });
   });
 });

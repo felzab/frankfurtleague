@@ -16,6 +16,9 @@ OTHER_KEY = SecretStr("key-two".ljust(64, "0"))
 
 ADDRESS = "Anna.Mueller@Müllerschule.de"
 
+# A fragment of a refused value, sought on its own so no part of the value survives into a message.
+SECRET = "Zorbanax"
+
 # The same address as a person could type it. The decomposed umlaut looks equal and is a different
 # string, so it is built from its code point; the trailing space is what a paste out of a mail client
 # carries.
@@ -49,9 +52,8 @@ class TestTheStoredFormOfAnAddress:
 
         stored = adresse_hash(ADDRESS, schluessel=KEY)
 
-        assert "@" not in stored
-        assert "mllerschule" not in stored.lower()
-        # Hex, and the digest's full width: a truncated one is a collision surface nothing reports.
+        # Hex alone, so no text of the address survives, and the digest's full width: a truncated one is
+        # a collision surface nothing reports.
         assert len(stored) == 64
         assert set(stored) <= set("0123456789abcdef")
 
@@ -135,9 +137,9 @@ class TestOneCanonicalFormWhateverTheRoute:
         """The library's own message carries the rejected value, and this slice keeps addresses out of every traceback."""
 
         with pytest.raises(ValueError) as raised:
-            adresse_hash("Zorbanax-Geheim@", schluessel=KEY)
+            adresse_hash(f"{SECRET}-Geheim@", schluessel=KEY)
 
-        assert "zorbanax" not in str(raised.value).lower()
+        assert SECRET.lower() not in str(raised.value).lower()
         assert raised.value.__cause__ is None
 
 
@@ -179,7 +181,7 @@ class TestWhatTheCheckAnswers:
     def test_a_banned_address_is_refused_under_the_published_code(self):
         """The LITERAL: comparing the code to the constant that produced it would hold after a rename the frontend never heard of.
 
-        `docs/logging/error-codes.md` and each slice's own mapper both key on this string.
+        `fl_backend/app/core/domain.py :: RULES` and each slice's own mapper both key on this string.
         """
 
         refusal = find_sperrliste_refusal(gesperrt=True)

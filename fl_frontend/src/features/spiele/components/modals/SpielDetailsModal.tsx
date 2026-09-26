@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 
-import { CircleInfo } from "@gravity-ui/icons";
+import CircleInfo from "@gravity-ui/icons/CircleInfo";
 
-import { Modal, Separator } from "@heroui/react";
+import { Modal } from "@heroui/react/modal";
+import { Separator } from "@heroui/react/separator";
 
 import { dismissControl } from "@/core/dismissControl";
 import { spielSchiedsrichterAnzeige } from "@/features/schiedsrichter/constants";
@@ -14,9 +15,9 @@ import { buildMapsSearchUrl, formatUhrzeit, PLACEHOLDER } from "@/shared/utils/f
 
 import { canStillBePlayed, computeSpielStatus, ergebnisTone, formatQuelle, formatSpielDisplay } from "../../utils";
 import { SaisonPhaseChip } from "../ui/SaisonPhaseChip";
-import { ERGEBNIS_INK, SpielScore } from "../ui/SpielScore";
+import { ERGEBNIS_INK_CLASSES, SpielScore } from "../ui/SpielScore";
 import { SpielStatusChip } from "../ui/SpielStatusChip";
-import { SLOT_LABEL_WRAP, TEAM_NAME_WRAP } from "../ui/teamName";
+import { SLOT_LABEL_WRAP_CLASSES, TEAM_NAME_WRAP_CLASSES } from "../ui/teamName";
 
 import type { FLSpiel, FLSpielQuelle, FLSpielTeamFieldJoined } from "../../schemas";
 
@@ -37,7 +38,9 @@ function TeamNameLine({
 }) {
   if (team === null) {
     return (
-      <span className={`fluid-xl text-foreground-muted ${SLOT_LABEL_WRAP} font-bold italic`}>{formatQuelle(quelle) ?? PLACEHOLDER.slot}</span>
+      <span className={`fluid-xl text-foreground-muted ${SLOT_LABEL_WRAP_CLASSES} font-bold italic`}>
+        {formatQuelle(quelle) ?? PLACEHOLDER.slot}
+      </span>
     );
   }
 
@@ -49,7 +52,7 @@ function TeamNameLine({
       saisonId={saisonId}
       placement="top"
       onNavigate={onNavigate}>
-      <strong className={`fluid-xl hover:text-brand ${TEAM_NAME_WRAP} font-bold transition-colors duration-(--motion-base)`}>
+      <strong className={`fluid-xl hover:text-brand ${TEAM_NAME_WRAP_CLASSES} font-bold transition-colors duration-(--motion-base)`}>
         {team.name}
       </strong>
     </TeamPopoverMenu>
@@ -109,7 +112,7 @@ export function SpielDetailsModal({
         {/* No `aria-label`: it outranked the heading, so opening a match announced
             "Spieldetails-Dialog" and never said which match. `Modal.Heading` below names
             the dialog "Spiel Nr. 42", which is the one thing it exists to convey. */}
-        <Modal.Dialog className="border-border bg-surface rounded-2xl border p-6 shadow-sm">
+        <Modal.Dialog className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
           {spielData && (
             <>
               {/* The one modal a non-admin sees, so it carries a visible dismissal: Escape and an
@@ -118,8 +121,8 @@ export function SpielDetailsModal({
 
               <Modal.Header className="gap-y-2 pb-4">
                 <div className="flex w-full flex-row items-center justify-start gap-x-2">
-                  <Modal.Heading className="fluid-lg! text-foreground font-extrabold">{`Spiel Nr. ${spielData.spiel_nr}`}</Modal.Heading>
-                  <Modal.Icon className="text-foreground-muted size-5 lg:size-6">
+                  <Modal.Heading className="fluid-lg! font-extrabold text-foreground">{`Spiel Nr. ${spielData.spiel_nr}`}</Modal.Heading>
+                  <Modal.Icon className="size-5 text-foreground-muted lg:size-6">
                     <CircleInfo
                       aria-hidden="true"
                       className="size-full"
@@ -135,7 +138,7 @@ export function SpielDetailsModal({
                 </div>
               </Modal.Header>
               <Modal.Body className="text-foreground">
-                <div className="bg-background border-border flex h-fit flex-col items-center justify-center rounded-xl border py-4 shadow-inner">
+                <div className="flex h-fit flex-col items-center justify-center rounded-xl border border-border bg-background py-4 shadow-inner">
                   {/* `onClose` on the way out: the App Router keeps this page in a hidden Activity
                       tree, so a dialog left open over a navigation is open again on the way back. */}
                   <TeamNameLine
@@ -150,7 +153,7 @@ export function SpielDetailsModal({
                   <SpielScore
                     ergebnis={spielErgebnis}
                     elfmeterschiessen={spielElfmeterschiessen}
-                    className={`fluid-lg my-1 flex flex-col items-center text-center font-extrabold ${ERGEBNIS_INK[ergebnisTone(spielData)]}`}
+                    className={`my-1 flex flex-col items-center text-center fluid-lg font-extrabold ${ERGEBNIS_INK_CLASSES[ergebnisTone(spielData)]}`}
                   />
                   {/* Spoken, so the two names read as a pairing rather than as two names around punctuation. */}
                   <span className="sr-only">gegen</span>
@@ -163,19 +166,19 @@ export function SpielDetailsModal({
                   />
                 </div>
 
-                <Separator className="bg-border my-4 h-[2px]" />
+                <Separator className="my-4 h-[2px] bg-border" />
 
-                <div className="fluid-sm grid grid-cols-2 gap-4 whitespace-normal">
+                <div className="grid grid-cols-2 gap-4 fluid-sm whitespace-normal">
                   <div>
-                    <h4 className="text-foreground-muted font-semibold">Datum</h4>
-                    <p className="text-foreground font-bold">{spielDatum}</p>
+                    <h4 className="font-semibold text-foreground-muted">Datum</h4>
+                    <p className="font-bold text-foreground">{spielDatum}</p>
                   </div>
                   <div>
-                    <h4 className="text-foreground-muted font-semibold">Uhrzeit</h4>
-                    <p className="text-foreground font-bold">{spielUhrzeit}</p>
+                    <h4 className="font-semibold text-foreground-muted">Uhrzeit</h4>
+                    <p className="font-bold text-foreground">{spielUhrzeit}</p>
                   </div>
                   <div>
-                    <h4 className="text-foreground-muted font-semibold">Ort</h4>
+                    <h4 className="font-semibold text-foreground-muted">Ort</h4>
                     {spielData.ort ? (
                       <Link
                         href={mapUrl}
@@ -185,12 +188,12 @@ export function SpielDetailsModal({
                         {spielData.ort.name}
                       </Link>
                     ) : (
-                      <p className="text-foreground font-bold">{PLACEHOLDER.entity}</p>
+                      <p className="font-bold text-foreground">{PLACEHOLDER.entity}</p>
                     )}
                   </div>
                   <div>
-                    <h4 className="text-foreground-muted font-semibold">Schiedsrichter</h4>
-                    <p className="text-foreground font-bold">{spielSchiedsrichterAnzeige(spielData.schiedsrichter)}</p>
+                    <h4 className="font-semibold text-foreground-muted">Schiedsrichter</h4>
+                    <p className="font-bold text-foreground">{spielSchiedsrichterAnzeige(spielData.schiedsrichter)}</p>
                   </div>
                 </div>
 
@@ -199,13 +202,13 @@ export function SpielDetailsModal({
                     would advertise a field blank on almost every match. */}
                 {spielData.notiz !== null && spielData.notiz.trim() !== "" && (
                   <>
-                    <Separator className="bg-border my-4 h-[2px]" />
+                    <Separator className="my-4 h-[2px] bg-border" />
                     {/* The teams panel's treatment, which is this dialog's idiom for a block that
                         is not the metadata list. `pre-line`, not `pre-wrap`: it keeps the admin's
                         line breaks and collapses the indentation a pasted note carries. */}
-                    <div className="bg-background border-border fluid-sm rounded-xl border p-4 shadow-inner">
-                      <h4 className="text-foreground-muted font-semibold">Notiz</h4>
-                      <p className="text-foreground mt-1 font-medium whitespace-pre-line">{spielData.notiz}</p>
+                    <div className="rounded-xl border border-border bg-background p-4 fluid-sm shadow-inner">
+                      <h4 className="font-semibold text-foreground-muted">Notiz</h4>
+                      <p className="mt-1 font-medium whitespace-pre-line text-foreground">{spielData.notiz}</p>
                     </div>
                   </>
                 )}

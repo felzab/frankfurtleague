@@ -17,6 +17,7 @@ export type SpielBannerId =
   | "spiel.abandoned-decided"
   | "spiel.sonderereignis-standing"
   | "spiel.void-preview"
+  | "spiel.void-preview-ungeprueft"
   | "spiel.release-preview";
 
 type SpielBannerSpot =
@@ -117,6 +118,7 @@ export function buildSpielBanners({
   dropsShootOut,
   voidedSpielNummern,
   releasedSpielNummern,
+  voidPreviewFailed,
   refusalCode,
 }: {
   isKnockout: boolean;
@@ -144,6 +146,8 @@ export function buildSpielBanners({
   /** Fixtures the dry run says this save takes a stored result from, never ones that merely could. */
   voidedSpielNummern: readonly number[];
   releasedSpielNummern: readonly number[];
+  /** The dry run failed, timed out or was cut, so it named no fixture either way. */
+  voidPreviewFailed: boolean;
   /**
    * The refusal the last save came back with, `null` once the draft moves off the inputs that were
    * judged — the caller's staleness rule, so a corrected draft never carries the old remedies.
@@ -305,6 +309,18 @@ export function buildSpielBanners({
         voidedSpielNummern.length === 1
           ? `Speichern löscht das Ergebnis in Spiel ${nummern}`
           : `Speichern löscht die Ergebnisse in den Spielen ${nummern}`,
+      inline: null,
+    });
+  }
+
+  // Said rather than left out: a rail naming no fixture reads as a save that voids none, which a dry
+  // run that never answered did not say. Info, so the save it cannot judge stays possible.
+  if (voidPreviewFailed) {
+    banners.push({
+      id: "spiel.void-preview-ungeprueft",
+      severity: "info",
+      raisedBy: "change",
+      title: "Ob Spiele dadurch entfallen, konnte nicht geprüft werden",
       inline: null,
     });
   }
