@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
-import { getSignInDestination } from "@/core/auth";
+import { isUserAdmin } from "@/core/allowlist";
 import { funktionenOf } from "@/core/funktionen";
 import { FunktionenView } from "@/features/funktionen/components/views/FunktionenView";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
@@ -15,7 +15,7 @@ export default async function PersoenlichStartPage() {
   // An allowlisted address past the administrator's window or short of the passkey owes the admin
   // subtree's step, not a person's landing (`docs/frontend/spec.md :: I386`).
   // eslint-disable-next-line local/admin-link -- the proxy turns it away before any season is read
-  if (!subject.admin && (await getSignInDestination()) !== "/bereich") redirect("/bereich/admin");
+  if (!subject.admin && isUserAdmin(subject.email)) redirect("/bereich/admin");
 
   const { funktionen, unbestaetigt } = funktionenOf(subject);
   const ziele = zieleOf(funktionen);

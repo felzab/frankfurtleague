@@ -20,8 +20,12 @@ import type { ReactNode } from "react";
 
 const { setSession, setSubject, subjectReads } = doubleActionRequest();
 // The sign-in store as a person's session answers it: no administrator's verdict, and the person's
-// landing. A case naming an administrator, or one whose verdict lapsed, says so itself.
+// landing. A case naming an administrator says so itself.
 beforeEach(() => setSession(null, "/bereich"));
+
+/** The one address the allowlist holds here, which the environment would otherwise name. */
+const ALLOWLISTED = "vorstand@example.org";
+const ALLOWLIST_DOUBLE = exportingModule({ isUserAdmin: (email?: string | null) => email === ALLOWLISTED });
 // The shells hand a sign-out action to the bar, whose real module reaches `next/server` past the harness.
 doubleEveryAction();
 
@@ -33,6 +37,11 @@ registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "next/error") return { url: `data:text/javascript,${encodeURIComponent(NEXT_ERROR_INTEROP)}`, shortCircuit: true };
     return nextResolve(specifier, context);
+  },
+  load(url, context, nextLoad) {
+    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
+    if (url.endsWith("/src/core/allowlist.ts")) return { format: "module", source: ALLOWLIST_DOUBLE, shortCircuit: true };
+    return nextLoad(url, context);
   },
 });
 
@@ -148,12 +157,12 @@ describe("where the landing takes a person", () => {
   /* The allowlist is what makes an address an administrator's, so one whose verdict lapsed, past its
      window or short of the passkey, owes the admin subtree's step rather than a person's landing. */
   it("sends an allowlisted address whose administrator verdict lapsed to the admin subtree", async () => {
-    setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }));
+    setSubject({ ...person({ spieler: [{ spieler_id: TEAM_A }] }), email: ALLOWLISTED });
+    assert.deepEqual(await redirectsOf(PersoenlichStartPage), ["/bereich/admin"]);
 
-    for (const destination of ["/signin/passkey", "/signin"]) {
-      setSession(null, destination);
-      assert.deepEqual(await redirectsOf(PersoenlichStartPage), ["/bereich/admin"], `a session the sign-in store sends to ${destination}`);
-    }
+    // The control: the same records on an address the allowlist does not hold are a person's.
+    setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }));
+    assert.deepEqual(await redirectsOf(PersoenlichStartPage), ["/bereich/spieler"]);
   });
 
   /* One address however many Funktionen lead there: a Trainer who is also the Ansprechperson, and two
