@@ -13,7 +13,7 @@ import type { Metadata } from "next";
 /** `noindex` as `/signin` spells it, which `fl_frontend/src/app/sitemap.test.ts` matches by path. */
 export const metadata: Metadata = {
   title: "Passkey",
-  description: "Passkey für die Verwaltung der Frankfurt League.",
+  description: "Passkey für Deine Anmeldung bei der Frankfurt League.",
   robots: { index: false, follow: false },
   openGraph: openGraphFor("/signin/passkey"),
   alternates: { canonical: "/signin/passkey" },
