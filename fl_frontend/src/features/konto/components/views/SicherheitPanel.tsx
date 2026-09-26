@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import Plus from "@gravity-ui/icons/Plus";
@@ -10,26 +10,28 @@ import { Button } from "@heroui/react/button";
 import { authClient } from "@/core/authClient";
 import { ENROLMENT_CONFLICT } from "@/core/passkeyRefusal";
 import { STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
-import { removePasskeyAction, renamePasskeyAction } from "@/features/passkeys/actions";
+import { readPasskeyStandAction, removePasskeyAction, renamePasskeyAction } from "@/features/passkeys/actions";
 import { LETZTER_PASSKEY, PasskeyKarteView } from "@/features/passkeys/components/ui/PasskeyKarteView";
 import { Callout } from "@/shared/components/ui/Callout";
 import { formButton } from "@/shared/components/ui/formButtons";
+import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
-import { IDENTITY_CONFIRMATION_TITLE, IdentityConfirmation } from "@/shared/components/ui/IdentityConfirmation";
+import { IDENTITY_CONFIRMATION_TITLE, IdentityConfirmation, StepUpRefusal } from "@/shared/components/ui/IdentityConfirmation";
 import { ModalShell } from "@/shared/components/ui/ModalShell";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
+import { STEP_UP_LABEL, usePasskeyStepUp } from "@/shared/hooks/usePasskeyStepUp";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 
-import { endAndereAnmeldungenAction, endAnmeldungAction } from "../../actions";
+import { endAndereAnmeldungenAction, endAnmeldungAction, pruefeInhaberAction } from "../../actions";
 import { AndereAbmelden } from "../ui/AndereAbmelden";
 import { AnmeldungZeile } from "../ui/AnmeldungZeile";
 
 import type { ActionFailure } from "@/shared/types/types";
 import type { Sicherheit } from "../../types";
 
-/** Why the page asks before a change, said on the panel that asks. */
+/** Why the page asks before a change, said on the panel that asks and under the control that asks. */
 const STEP_UP_HINT = "Für Änderungen an Passkeys und Anmeldungen fragen wir kurz nach.";
 
 /** The cap's own sentence, which names the way forward rather than the number it refuses at. */
@@ -49,8 +51,14 @@ const SIGN_IN = "/signin";
 /** A change the page runs, which answers whether it still needs a confirmation the page did not get. */
 type Aenderung = () => Promise<"erledigt" | "stepUp">;
 
+/** Why an enrolment did not happen; `stale` where the server wants a confirmation first. */
+type EnrolmentHeld = Pick<ActionFailure, "error" | "outcome"> & { readonly stale?: true };
+
+/** The spine's refusal for want of a recent sign-in; its type lives server-side, beside the session it judges. */
+type StepUpRefusalAnswer = ActionFailure & { readonly stepUp: true };
+
 /** An action's refusal for want of a recent sign-in, which the page answers by asking rather than by a toast. */
-const wantsStepUp = (result: { success: boolean }): boolean => !result.success && Reflect.get(result, "stepUp") === true;
+const wantsStepUp = (result: { success: boolean }): result is StepUpRefusalAnswer => !result.success && Reflect.get(result, "stepUp") === true;
 
 /**
  * The „Sicherheit“ section: the passkeys, the sign-ins, and the one confirmation every change on it
@@ -66,21 +74,38 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
   const [wartend, setWartend] = useState<Aenderung | null>(null);
   const [istBeschaeftigt, setIstBeschaeftigt] = useState(false);
 
+  // The add control reads its label off the window, so the window's end redraws it without a press.
+  useEffect(() => {
+    if (freshUntil === null) return;
+    const lapse = setTimeout(() => setFreshUntil(null), Math.max(0, freshUntil - Date.now()));
+    return () => clearTimeout(lapse);
+  }, [freshUntil]);
+
   const isFresh = (): boolean => freshUntil !== null && Date.now() < freshUntil;
+
+  const istInhaber = async (): Promise<boolean> => {
+    const answer = await pruefeInhaberAction(sicherheit.inhaberId);
+    return answer.success && answer.gleich;
+  };
+
+  const confirmed = (): void => {
+    setFreshUntil(Date.now() + STEP_UP_WINDOW_MS);
+    // The confirmation minted a new session and ended this page's: what the page drew off the old one,
+    // „Dieses Gerät“ among it, is read again.
+    router.refresh();
+  };
 
   /** Runs `change` now if the page's session counts as confirmed, and after the panel's confirmation otherwise. */
   const withStepUp = async (change: Aenderung): Promise<void> => {
     if (isFresh() && (await change()) === "erledigt") return;
+    setFreshUntil(null);
     setWartend(() => change);
   };
 
   const steppedUp = (): void => {
     const change = wartend;
     setWartend(null);
-    setFreshUntil(Date.now() + STEP_UP_WINDOW_MS);
-    // The confirmation minted a new session and ended this page's: what the page drew off the old one,
-    // „Dieses Gerät“ among it, is read again.
-    router.refresh();
+    confirmed();
     if (change !== null) void change();
   };
 
@@ -101,22 +126,19 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
       return "erledigt";
     });
 
-  const benenne = async (id: string, name: string): Promise<boolean> => {
-    let gelandet = false;
-    await withStepUp(async () => {
+  const benenne = (id: string, name: string, gelandet: () => void): Promise<void> =>
+    withStepUp(async () => {
       const result = await renamePasskeyAction(id, name).catch(unansweredAction);
       if (wantsStepUp(result)) return "stepUp";
 
       if (result.success) {
-        gelandet = true;
+        gelandet();
         appToast.success("Passkey umbenannt");
       } else {
         appToast.failure("Passkey nicht umbenannt", result);
       }
       return "erledigt";
     });
-    return gelandet;
-  };
 
   const beende = (id: string): Promise<void> =>
     withStepUp(async () => {
@@ -138,48 +160,67 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
       return "erledigt";
     });
 
-  // Pressed again after a confirmation rather than run by it: the browser opens a second passkey
-  // prompt only on a fresh press, and the confirmation's own prompt spent the one that opened it.
-  const fuegeHinzu = async (): Promise<void> => {
-    if (!isFresh()) {
-      setWartend(() => async () => "erledigt" as const);
-      return;
-    }
-    await (async () => {
-      setIstBeschaeftigt(true);
-      const held = await enrolmentHeld();
-      setIstBeschaeftigt(false);
-      // The enrolment writes past every server action, so nothing refreshed the page for it.
-      startTransition(() => router.refresh());
+  const hinzufuegenStepUp = usePasskeyStepUp(istInhaber);
 
-      if (held === null) {
-        appToast.success("Passkey hinzugefügt", { description: "Du kannst Dich jetzt auch damit anmelden." });
-      } else {
-        appToast.failure("Passkey nicht hinzugefügt", held);
-      }
-    })();
+  const stepUpForEnrolment = async (): Promise<void> => {
+    if (await hinzufuegenStepUp.stepUp()) confirmed();
   };
 
-  const hinzufuegen = (
-    <Hint
-      mode="refusal"
-      reason={sicherheit.kannHinzufuegen ? null : ZU_VIELE}
-      label="Passkey hinzufügen">
-      <Button
-        type="button"
-        variant="primary"
-        isPending={istBeschaeftigt}
-        isDisabled={!sicherheit.kannHinzufuegen}
-        onPress={() => void fuegeHinzu()}
-        className={formButton({ intent: "submit" })}>
-        <Plus
-          aria-hidden="true"
-          className="size-4.5 shrink-0"
-        />
-        {istBeschaeftigt ? "Fügt hinzu..." : passkeys.length === 0 ? "Passkey einrichten" : "Passkey hinzufügen"}
-      </Button>
-    </Hint>
-  );
+  const fuegeHinzu = async (): Promise<void> => {
+    if (!isFresh()) {
+      setFreshUntil(null);
+      return;
+    }
+    setIstBeschaeftigt(true);
+    const held = await enrolmentHeld();
+    setIstBeschaeftigt(false);
+    // The enrolment writes past every server action, so nothing refreshed the page for it.
+    startTransition(() => router.refresh());
+
+    if (held === null) {
+      appToast.success("Passkey hinzugefügt", { description: "Du kannst Dich jetzt auch damit anmelden." });
+      return;
+    }
+    if (held.stale === true) setFreshUntil(null);
+    appToast.failure("Passkey nicht hinzugefügt", held);
+  };
+
+  // One control, confirm first and then add, as a sudo prompt returns to its action: the browser opens
+  // its own passkey prompt only on a fresh press, and the confirmation's prompt spent the first one.
+  const hinzufuegen =
+    sicherheit.kannHinzufuegen && freshUntil === null ? (
+      <div className="flex flex-col gap-2">
+        <Button
+          type="button"
+          variant="primary"
+          isPending={hinzufuegenStepUp.isPending}
+          onPress={() => void stepUpForEnrolment()}
+          className={formButton({ intent: "submit" })}>
+          {hinzufuegenStepUp.isPending ? "Bestätigt..." : STEP_UP_LABEL}
+        </Button>
+        <p className="muted-hint text-pretty">{STEP_UP_HINT}</p>
+        {hinzufuegenStepUp.refused && <StepUpRefusal />}
+      </div>
+    ) : (
+      <Hint
+        mode="refusal"
+        reason={sicherheit.kannHinzufuegen ? null : ZU_VIELE}
+        label="Passkey hinzufügen">
+        <Button
+          type="button"
+          variant="primary"
+          isPending={istBeschaeftigt}
+          isDisabled={!sicherheit.kannHinzufuegen}
+          onPress={() => void fuegeHinzu()}
+          className={formButton({ intent: "submit" })}>
+          <Plus
+            aria-hidden="true"
+            className="size-4.5 shrink-0"
+          />
+          {istBeschaeftigt ? "Fügt hinzu..." : passkeys.length === 0 ? "Passkey einrichten" : "Passkey hinzufügen"}
+        </Button>
+      </Hint>
+    );
 
   return (
     <section className={panel.root()}>
@@ -191,16 +232,13 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
       </div>
 
       <div className={panel.body()}>
-        {/* A person with no passkey is told what one saves them; an administrator with one, what a second guards. */}
+        {/* A person with no passkey is offered one; an administrator with one, told what a second guards. */}
         {!verwaltung && passkeys.length === 0 && (
           <div className="flex flex-col gap-3">
             <Callout
               severity="info"
-              title="Melde Dich ohne Code an">
-              Was ist ein Passkey? Ein digitaler Schlüssel, den Dein Gerät sicher speichert. Wo wird er gespeichert? In Deinem Passwortmanager,
-              zum Beispiel im iCloud-Schlüsselbund oder im Google Passwortmanager, damit Du Dich auch auf Deinen anderen Geräten anmelden
-              kannst.
-            </Callout>
+              title="Melde Dich ohne Code an"
+            />
             {hinzufuegen}
           </div>
         )}
@@ -214,7 +252,7 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
 
         {passkeys.length > 0 && (
           <div className="flex flex-col gap-4">
-            <h3 className="fluid-sm font-extrabold tracking-tight text-foreground">Passkeys</h3>
+            <h3 className={FORM_SECTION_HEADING_CLASSES}>Passkeys</h3>
             <ul className="flex flex-col gap-4">
               {passkeys.map((karte) => (
                 <PasskeyKarteView
@@ -233,7 +271,7 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
         )}
 
         <div className="flex flex-col gap-4">
-          <h3 className="fluid-sm font-extrabold tracking-tight text-foreground">Anmeldungen</h3>
+          <h3 className={FORM_SECTION_HEADING_CLASSES}>Anmeldungen</h3>
           <ul className="flex flex-col">
             {anmeldungen.map((anmeldung) => (
               <AnmeldungZeile
@@ -257,6 +295,7 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
           hinweis={STEP_UP_HINT}
           // The code half arrives with the code sign-in; until then a person confirms by passkey too.
           codeHalf={null}
+          istInhaber={istInhaber}
           onConfirmed={steppedUp}
         />
       </ModalShell>
@@ -265,7 +304,7 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
 }
 
 /** Why the enrolment did not happen, as far as a reader can act on it, or `null` where it did. */
-async function enrolmentHeld(): Promise<Pick<ActionFailure, "error" | "outcome"> | null> {
+async function enrolmentHeld(): Promise<EnrolmentHeld | null> {
   try {
     const { error } = await authClient.passkey.addPasskey();
     if (error === null) return null;
@@ -274,8 +313,7 @@ async function enrolmentHeld(): Promise<Pick<ActionFailure, "error" | "outcome">
     // no `code`, and its body has one.
     if (Reflect.get(error, "code") === ENROLMENT_CONFLICT) return { error: `${GLEICHZEITIG} ${VERSUCHE_ES_ERNEUT}` };
 
-    // The guard's own refusal, which an enrolment another device finished first earns too, the cap among its causes.
-    if (error.status === 404) return { error: ZU_VIELE };
+    if (error.status === 404) return enrolmentRefused();
 
     // A verification that never came back arrives as a 500 and an edge's answer as its own 5xx, and
     // either may follow a stored passkey (`docs/frontend/spec.md :: I326`); the browser's refusals are 400s.
@@ -287,4 +325,16 @@ async function enrolmentHeld(): Promise<Pick<ActionFailure, "error" | "outcome">
     // later failure on `error` (`@better-auth/passkey` 1.7.5, read 2026-09-24).
     return { error: VERSUCHE_ES_ERNEUT };
   }
+}
+
+/**
+ * The enrolment guard answers the cap, a stale sign-in and an authenticator already held alike 404, so
+ * the page asks again which it was (`docs/frontend/spec.md :: I453`); the third is the one left.
+ */
+async function enrolmentRefused(): Promise<EnrolmentHeld> {
+  const stand = await readPasskeyStandAction().catch(unansweredAction);
+
+  if (wantsStepUp(stand)) return { error: stand.error, stale: true };
+  if (!stand.success) return { error: stand.error };
+  return { error: stand.kannHinzufuegen ? VERSUCHE_ES_ERNEUT : ZU_VIELE };
 }

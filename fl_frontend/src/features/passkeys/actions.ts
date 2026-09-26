@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 
 import { isAPIError } from "better-auth/api";
 
-import { auth, notifyPasskeyRemoved, removePasskey } from "@/core/auth";
+import { auth, notifyPasskeyRemoved, PASSKEY_LIMIT, removePasskey } from "@/core/auth";
 import { recordWriteSent } from "@/core/requestScope";
 import { runKontoMutation } from "@/shared/utils/kontoMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
@@ -12,7 +12,7 @@ import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { PasskeyNamePayloadSchema } from "./schemas";
 
-import type { ActionResult } from "@/shared/types/types";
+import type { ActionResult, QueryResult } from "@/shared/types/types";
 
 /* `disabledPaths` closes the plugin's management endpoints to HTTP alone, so these actions, each
    calling in process, are the whole of the surface (`docs/frontend/spec.md :: I198`). */
@@ -77,5 +77,18 @@ export async function renamePasskeyAction(id: string, name: string): Promise<Act
     }
 
     return { success: true, message: "Passkey umbenannt" };
+  });
+}
+
+/**
+ * What the page reads after an enrolment the server refused 404, which answers the cap, a stale sign-in
+ * and a duplicate authenticator alike: the spine's step-up refusal names the second, the count the
+ * first (`docs/frontend/spec.md :: I453`).
+ */
+export async function readPasskeyStandAction(): Promise<QueryResult<{ kannHinzufuegen: boolean }>> {
+  return runKontoMutation("readPasskeyStandAction", async () => {
+    const held = await auth.api.listPasskeys({ headers: await headers() });
+
+    return { success: true, kannHinzufuegen: held.length < PASSKEY_LIMIT };
   });
 }
