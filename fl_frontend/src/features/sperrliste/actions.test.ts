@@ -94,6 +94,7 @@ const CREATE_OPERATION = "POST /sperrliste";
 
 const { deleteSperreAction, postSperreAction } = await import("./actions.ts");
 const { SPERRE_ERFOLG } = await import("./constants.ts");
+const { boundCall, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 
 const BARRED = "zorbanax@beispielschule.de";
 const GRUND = "Falsches Geburtsdatum angegeben";
@@ -174,6 +175,29 @@ describe("the message the barred person is sent", () => {
 
     // The ban was acknowledged: the general unclear-save sentence sends the administrator to check a row that stands.
     assert.equal(result.success, true, "the acknowledged ban answered as unsaved or of unknown outcome");
+    assert.equal("message" in result ? result.message : undefined, "Die Sperre steht. Ob die Benachrichtigung angekommen ist, ist unklar.");
+    assert.deepEqual(events, ["post", "mail", "refresh"], "the ban's page was left standing");
+  });
+
+  /* The ban is written before its notice, so the request's deadline cutting the notice leaves only the notice in
+     doubt, whatever the spine answers of a cut elsewhere (`docs/frontend/spec.md :: I372`). */
+  it("answers a notice the request's deadline cut as a saved ban with an unclear notice", async (t) => {
+    // The request's clock, which its deadline was set on as the press began.
+    let clock = 0;
+    t.mock.method(performance, "now", () => clock);
+    mail.answerWith(async (): Promise<MailOutcome> => {
+      events.push("mail");
+      // The send bounded as the mailer bounds it, with a millisecond of the deadline left: the deadline cuts it.
+      clock = REQUEST_DEADLINE_MS - 1;
+      const bound = boundCall(REQUEST_DEADLINE_MS);
+      await new Promise((resolve) => bound.signal.addEventListener("abort", resolve, { once: true }));
+      bound.clear();
+      return "lost";
+    });
+
+    const result = await anAddressIsBanned();
+
+    assert.equal(result.success, true, `the acknowledged ban answered ${JSON.stringify(result)}`);
     assert.equal("message" in result ? result.message : undefined, "Die Sperre steht. Ob die Benachrichtigung angekommen ist, ist unklar.");
     assert.deepEqual(events, ["post", "mail", "refresh"], "the ban's page was left standing");
   });

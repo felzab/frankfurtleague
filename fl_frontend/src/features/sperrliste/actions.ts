@@ -4,6 +4,7 @@ import { frontend_config } from "@/core/config";
 import { APINetworkError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { sendMail } from "@/core/mail";
+import { runAnsweringOwnCut } from "@/core/requestScope";
 import { buildSperreEmail } from "@/core/sperrlisteEmail";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
@@ -34,7 +35,9 @@ async function benachrichtigen(email: string, grund: string, gesperrtBisSaisonId
   });
 
   try {
-    await sendMail({ to: email, subject: subject, html: html, text: text });
+    // Unwrapped, a deadline cut here answers the whole press as of unknown outcome, sending the administrator to
+    // check a ban written before this send (`docs/frontend/spec.md :: I372`).
+    await runAnsweringOwnCut(() => sendMail({ to: email, subject: subject, html: html, text: text }));
 
     return SPERRE_ERFOLG;
   } catch (failed) {

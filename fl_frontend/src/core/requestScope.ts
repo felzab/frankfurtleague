@@ -79,6 +79,23 @@ export function markOutcomeUnknown(): void {
   if (store !== undefined) store.outcomeUnknown = true;
 }
 
+/**
+ * Runs a call whose doubt its caller words in its own answer, so a deadline cut inside it never marks the request
+ * (`docs/frontend/spec.md :: I366`). A write it sends still counts as sent. A no-op outside a scope.
+ */
+export async function runAnsweringOwnCut<T>(fn: () => Promise<T>): Promise<T> {
+  const store = storage.getStore();
+  if (store === undefined) return fn();
+
+  // A scope of its own rather than the flag reset afterwards, which would also clear a cut of a call running beside it.
+  const own: RequestScope = { ...store, outcomeUnknown: false };
+  try {
+    return await storage.run(own, fn);
+  } finally {
+    if (own.writeSent) store.writeSent = true;
+  }
+}
+
 /** Whether the deadline cut a call of this request, or a settled call may have landed. `false` outside a scope. */
 export function requestOutcomeUnknown(): boolean {
   return storage.getStore()?.outcomeUnknown === true;

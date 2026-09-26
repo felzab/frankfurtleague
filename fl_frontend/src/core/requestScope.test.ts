@@ -9,8 +9,11 @@ import {
   getRequestActor,
   getRequestSpanId,
   getRequestTraceId,
+  recordWriteSent,
   REQUEST_DEADLINE_MS,
   requestOutcomeUnknown,
+  requestWriteSent,
+  runAnsweringOwnCut,
   runWithRequestScope,
   setRequestActor,
 } from "./requestScope.ts";
@@ -217,6 +220,50 @@ describe("the one deadline a request runs under", () => {
 
     assert.equal(aborted, true);
     assert.equal(cut, false, "a call's own timeout was taken for the request's deadline");
+  });
+
+  /* A ban's notice is sent after its ban's write was acknowledged, and the create's answer says the notice is
+     unclear: marked on the request, the spine would call the ban unclear too. */
+  it("keeps a cut its caller answers off the request, and still counts the write it sent", async () => {
+    const [aborted, cut, wrote] = await runWithRequestScope(scope(), async () => {
+      advance(REQUEST_DEADLINE_MS - 5000);
+      const aborted = await runAnsweringOwnCut(() => {
+        const { signal } = boundCall(OWN_BOUND_MS);
+        recordWriteSent();
+        advance(5000);
+
+        return Promise.resolve(signal.aborted);
+      });
+
+      return [aborted, requestOutcomeUnknown(), requestWriteSent()];
+    });
+
+    assert.equal(aborted, true, "the deadline never cut the answered call, so nothing below is judged");
+    assert.equal(cut, false, "a cut the caller answers itself marked the whole request");
+    assert.equal(wrote, true, "a write sent inside the answered call went uncounted");
+  });
+
+  it("leaves standing a cut of a call running beside one its caller answers", async () => {
+    const cut = await runWithRequestScope(scope(), async () => {
+      advance(REQUEST_DEADLINE_MS - 5000);
+      let release = (): void => undefined;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      // Still running when the deadline passes, as a send in flight is.
+      const answered = runAnsweringOwnCut(async () => {
+        boundCall(OWN_BOUND_MS);
+        await held;
+      });
+      boundCall(OWN_BOUND_MS);
+      advance(5000);
+      release();
+      await answered;
+
+      return requestOutcomeUnknown();
+    });
+
+    assert.equal(cut, true, "the answered call's end cleared a cut it never made");
   });
 
   it("stops the timer once the call clears it", async () => {
