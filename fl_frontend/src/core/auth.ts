@@ -682,7 +682,7 @@ export const getAdminSession = cache(async (): Promise<ServedSession | null> => 
 });
 
 /** Where `/signin/weiter` sends the session it was handed. */
-export type SignInDestination = "/bereich/admin" | "/signin/passkey" | "/" | "/signin";
+export type SignInDestination = "/bereich/admin" | "/signin/passkey" | "/bereich" | "/signin";
 
 export async function getSignInDestination(): Promise<SignInDestination> {
   const served = await auth.api.getSession({ headers: await headers() });
@@ -700,7 +700,7 @@ export async function getSignInDestination(): Promise<SignInDestination> {
     return isAdminWithinWindow(served) ? "/signin/passkey" : "/signin";
   }
 
-  return isWithinPersonLifetime(served.session) ? "/" : "/signin";
+  return isWithinPersonLifetime(served.session) ? "/bereich" : "/signin";
 }
 
 /** Which half of `/signin/passkey` the caller is standing in front of, and whose address it is. */

@@ -457,7 +457,7 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
     arriveAs(cookie);
 
     assert.ok(await getSubjectSession());
-    assert.equal(await getSignInDestination(), "/");
+    assert.equal(await getSignInDestination(), "/bereich");
   });
 });
 

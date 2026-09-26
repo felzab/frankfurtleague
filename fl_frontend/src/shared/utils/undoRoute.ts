@@ -115,7 +115,7 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
     // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: only a person's live
     // session is 403, and an administrator past a lifetime or short of the factor is 401, which sends them
     // somewhere they can get back in.
-    const status = (await getSignInDestination()) === "/" ? 403 : 401;
+    const status = (await getSignInDestination()) === "/bereich" ? 403 : 401;
     return NextResponse.json({ success: false, error: ADMIN_FORBIDDEN }, { status });
   }
 

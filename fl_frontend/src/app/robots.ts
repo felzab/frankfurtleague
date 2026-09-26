@@ -31,7 +31,10 @@ export default function robots(): MetadataRoute.Robots {
 
         // The disallow is what turns a crawler back BEFORE that fetch; a page's noindex is read only
         // after one.
-        disallow: ["/api/", "/bereich/", "/bestaetigung", "/signin/bestaetigen", "/registrierung"],
+
+        // `/bereich` without its slash: a person lands on the segment's own address, which
+        // `/bereich/` does not reach.
+        disallow: ["/api/", "/bereich", "/bestaetigung", "/signin/bestaetigen", "/registrierung"],
       },
       ...aiBots.map((bot) => ({
         userAgent: bot,

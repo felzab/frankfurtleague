@@ -69,7 +69,7 @@ function staticRoutes(dir: string, segments: readonly string[] = []): { route: s
 const FOUND = staticRoutes(APP_DIR);
 
 const PUBLIC_ROUTES = FOUND.map((page) => page.route)
-  .filter((route) => !route.startsWith("/bereich/") && !WITHHELD.includes(route))
+  .filter((route) => route !== "/bereich" && !route.startsWith("/bereich/") && !WITHHELD.includes(route))
   .sort();
 
 const LISTED = sitemap()

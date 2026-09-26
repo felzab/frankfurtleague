@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { blankComments } from "@/core/blankComments.ts";
 
+import type { SubjectSession } from "@/core/subject.ts";
 import type { ActionFailure } from "@/shared/types/types.ts";
 
 /** One write a component sent: the action's exported name, and the payload it was handed. */
@@ -203,24 +204,25 @@ const SILENT_LOGGER = "const inert = () => undefined; export const logger = { de
 /** What the doubled sign-in store's `getAdminSession` answers: an administrator, nobody signed in, or a store that threw this. */
 type AdminSessionDouble = { user: { email: string } } | null | Error;
 
-/** What one request's doubled sign-in store answers, until `setSession` names another for the rest of that case. */
-type SignInAnswers = { session: AdminSessionDouble; destination: string };
+/** What the doubled `getSubjectSession` answers: a person's records, no person signed in, or a lookup that threw this. */
+type SubjectDouble = SubjectSession | null | Error;
+
+/** What one request's doubled sign-in store answers, until `setSession` or `setSubject` names another for the rest of that case. */
+type SignInAnswers = { session: AdminSessionDouble; destination: string; subject: SubjectDouble; subjectReads: number };
 
 /** Where the real store sends a caller the session leaves out, when a case names no other. */
 const destinationOf = (session: AdminSessionDouble): string =>
   // eslint-disable-next-line local/admin-link -- the sign-in store's own landing, which carries no season
   session === null ? "/signin" : "/bereich/admin";
 
+const answering = (answer: unknown): Promise<unknown> => (answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer));
+
 /**
- * The sign-in store answering the session and the sign-in destination `doubleActionRequest` holds,
- * the real one opening the database driver as it loads. Every other export throws where called, its
- * name read off the real module so an import links.
+ * `url`'s module with `doubled` standing in for the exports it names, the real one opening the
+ * database driver as it loads. Every other export throws where called, its name read off the real
+ * module so an import links.
  */
-function signInStore(url: string, answers: SignInAnswers): string {
-  const doubled = new Map<string, () => Promise<unknown>>([
-    ["getAdminSession", () => (answers.session instanceof Error ? Promise.reject(answers.session) : Promise.resolve(answers.session))],
-    ["getSignInDestination", () => Promise.resolve(answers.destination)],
-  ]);
+function sessionModule(url: string, what: string, doubled: ReadonlyMap<string, () => Promise<unknown>>): string {
   const names = [...readFileSync(fileURLToPath(url), "utf8").matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)].map(
     ([, name = ""]) => name,
   );
@@ -231,12 +233,42 @@ function signInStore(url: string, answers: SignInAnswers): string {
         name,
         doubled.get(name) ??
           ((): never => {
-            throw new Error(`the sign-in store's ${name} is not doubled`);
+            throw new Error(`${what}'s ${name} is not doubled`);
           }),
       ]),
     ),
   );
 }
+
+/** The sign-in store answering the session and the sign-in destination `doubleActionRequest` holds. */
+const signInStore = (url: string, answers: SignInAnswers): string =>
+  sessionModule(
+    url,
+    "the sign-in store",
+    new Map([
+      ["getAdminSession", () => answering(answers.session)],
+      ["getSignInDestination", () => Promise.resolve(answers.destination)],
+    ]),
+  );
+
+/**
+ * The subject lookup answering what `doubleActionRequest` holds, counting every read: the real one
+ * calls the sign-in store this file replaces, and reads the doubled `auth` it cannot build.
+ */
+const subjectLookup = (url: string, answers: SignInAnswers): string =>
+  sessionModule(
+    url,
+    "the subject lookup",
+    new Map([
+      [
+        "getSubjectSession",
+        () => {
+          answers.subjectReads += 1;
+          return answering(answers.subject);
+        },
+      ],
+    ]),
+  );
 
 /**
  * The request a server action runs in, so a case calls the REAL action, its `mutations.ts` doubled
@@ -244,21 +276,32 @@ function signInStore(url: string, answers: SignInAnswers): string {
  */
 export function doubleActionRequest({
   session = { user: { email: "vorstand@example.org" } },
+  subject = null,
 }: {
   /** Who the request is signed in as, until `setSession` names another for the rest of that case; `null` for nobody. */
   session?: AdminSessionDouble;
-} = {}): { setSession: (next: AdminSessionDouble, destination?: string) => void } {
-  const answers: SignInAnswers = { session, destination: destinationOf(session) };
+  /** What the subject lookup answers, until `setSubject` names another for the rest of that case; `null` for no person. */
+  subject?: SubjectDouble;
+} = {}): {
+  setSession: (next: AdminSessionDouble, destination?: string) => void;
+  setSubject: (next: SubjectDouble) => void;
+  /** How often `getSubjectSession` was called since the case began. */
+  subjectReads: () => number;
+} {
+  const answers: SignInAnswers = { session, destination: destinationOf(session), subject, subjectReads: 0 };
   // The destination goes with the session, so a case cannot leave one standing that another case's session contradicts.
   const setSession = (next: AdminSessionDouble, destination = destinationOf(next)): void => {
     answers.session = next;
     answers.destination = destination;
   };
+  const setSubject = (next: SubjectDouble): void => void (answers.subject = next);
   // Before every case: one reading `cacheCalls` would otherwise also read every earlier case's
   // invalidations, and one after a case that signed out would run its write with no session.
   beforeEach(() => {
     cacheCalls.length = 0;
     setSession(session);
+    setSubject(subject);
+    answers.subjectReads = 0;
   });
   registerHooks({
     resolve(specifier, context, nextResolve) {
@@ -268,12 +311,13 @@ export function doubleActionRequest({
     load(url, context, nextLoad) {
       // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
       if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: signInStore(url, answers), shortCircuit: true };
+      if (url.endsWith("/src/core/subject.ts")) return { format: "module", source: subjectLookup(url, answers), shortCircuit: true };
       if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: SILENT_LOGGER, shortCircuit: true };
       return nextLoad(url, context);
     },
   });
 
-  return { setSession };
+  return { setSession, setSubject, subjectReads: () => answers.subjectReads };
 }
 
 /** One announcement a component raised: the severity it chose, and the words it handed the reader. */

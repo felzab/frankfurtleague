@@ -220,7 +220,7 @@ describe("the undo route, driven", () => {
   /* The two are not one refusal: the dispatch sends a 401 to sign in and a 403 to the public root,
      so a person's live session answered 401 would loop them through a sign-in they already hold. */
   it("answers a session that is live but not an administrator's 403", async () => {
-    setSession(null, "/");
+    setSession(null, "/bereich");
 
     const answered = await post(aReplayOf(SPIEL_ID));
 

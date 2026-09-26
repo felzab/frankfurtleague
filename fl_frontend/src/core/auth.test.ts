@@ -420,7 +420,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     ageRow(person.row, { created: 49 * HOUR_MS });
     arriveAs(person.cookie);
 
-    assert.equal(await getSignInDestination(), "/");
+    assert.equal(await getSignInDestination(), "/bereich");
   });
 
   /* The case that fails first if the absolute cap is dropped as redundant: no `expiresIn` supplies
@@ -460,7 +460,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     ageRow(row, { created: 29 * DAY_MS, idle: 29 * DAY_MS });
     arriveAs(cookie);
 
-    assert.equal(await getSignInDestination(), "/");
+    assert.equal(await getSignInDestination(), "/bereich");
   });
 
   it("serves an administrator's session forty-seven hours old, for the same reason", async () => {
@@ -536,7 +536,7 @@ describe("the second factor, judged at the same guard", () => {
     arriveAs(cookie);
 
     assert.equal(await getPasskeyStep(), null);
-    assert.equal(await getSignInDestination(), "/");
+    assert.equal(await getSignInDestination(), "/bereich");
   });
 
   it("asks nothing of a visitor carrying no session", async () => {

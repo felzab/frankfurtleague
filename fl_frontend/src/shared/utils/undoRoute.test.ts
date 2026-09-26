@@ -34,7 +34,7 @@ export const getAdminSession = async () => (through() ? session() : null);
 export const getSignInDestination = async () => {
   const served = session();
   if (served === null) return "/signin";
-  if (served.user.email !== ALLOWLISTED) return "/";
+  if (served.user.email !== ALLOWLISTED) return "/bereich";
   return through() ? "/bereich/admin" : "/signin";
 };`;
 const bus = globalThis as unknown as Record<string, unknown>;
