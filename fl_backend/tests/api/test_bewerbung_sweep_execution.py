@@ -24,6 +24,7 @@ from app.api.bewerbungen.services import (
     BEWERBUNG_TOKEN_UNKNOWN,
     KONTAKT_SEATS,
     SWEEP_PAGE,
+    build_erinnerung_filter,
     compose_bestaetigungen,
     compose_confirmation_update,
     hash_token,
@@ -197,7 +198,7 @@ def on_a_league(url: str, body: Body, *, next_status: str | None = "future", sta
     return on_the_seed_loop(_run())
 
 
-async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str = SAISON_ID) -> Any:
+async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str = SAISON_ID, today: str = TODAY) -> Any:
     return await sweep_saison(
         saison_id=saison_id,
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
@@ -208,7 +209,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
         sperrliste_collection=database[Collection.SPERRLISTE],
         db=client,
         config=CONFIG,
-        today=TODAY,
+        today=today,
         germany_now=NOW,
     )
 
@@ -707,27 +708,57 @@ class TestABarredMailboxIsNotChased:
             await database[Collection.SPERRLISTE].insert_one(ban_document("bramblewick@example.com"))
             with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
                 response = await sweep(database, client)
+            # Out of today's read, and not merely judged not due once read: a page of withheld seats
+            # left in it would fill every pass's share.
+            still_read = await database[Collection.BEWERBUNGEN].find_one(
+                {"_id": REMIND_OID, **build_erinnerung_filter(saison_id=SAISON_ID, today=TODAY)}
+            )
             second = await sweep(database, client)
 
             reminded = [
                 (entry.email, [seat.rollen for seat in entry.seats]) for entry in response.erinnerungen if entry.bewerbung_id == REMIND_OID
             ]
-            return reminded, second.erinnerungen, await stored(database, REMIND_OID)
+            return reminded, second.erinnerungen, await stored(database, REMIND_OID), still_read
 
-        reminded, second, document = on_a_league(mongo_replica_set_url, body)
+        reminded, second, document, still_read = on_a_league(mongo_replica_set_url, body)
+
+        assert still_read is None
 
         # The control beside the refusal: the unbarred mailbox on the same application is chased.
         assert reminded == [("wraxlington@example.com", [["trainer", "ansprechperson"]])]
         assert document is not None
         stellvertretung = document["bestaetigungen"]["stellvertretung"]
-        # Stamped, so it leaves the read, and never handed a fresh hash nobody is sent.
-        assert stellvertretung["erinnert_am"] == TODAY
+        # Recorded as withheld, so it leaves today's read, and never handed a fresh hash nobody is
+        # sent. Never `erinnert_am`: nothing reached the person, which the admin view says.
+        assert (stellvertretung["erinnert_am"], stellvertretung["erinnerung_gesperrt_am"]) == (None, TODAY)
         assert stellvertretung["token_hash"] == first_hashes(str(REMIND_OID))["stellvertretung"]
         assert second == []
 
         withheld = [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()]
         assert withheld == [f"Reminder withheld from a barred address: application {REMIND_OID}, seats stellvertretung"]
         assert not any("bramblewick" in record.getMessage() for record in caplog.records)
+
+    def test_a_later_day_asks_the_ban_again_and_a_lifted_one_lets_the_reminder_go(self, mongo_replica_set_url: str):
+        """Withheld once more while the ban stands, and chased on the first pass after it is lifted."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPERRLISTE].insert_one(ban_document("bramblewick@example.com"))
+            await sweep(database, client)
+            still_barred = await sweep(database, client, today=TOMORROW)
+            await database[Collection.SPERRLISTE].delete_many({})
+            lifted = await sweep(database, client, today="2026-04-03")
+
+            def seats(response: Any) -> list[list[str]]:
+                return [seat.rollen for entry in response.erinnerungen if entry.bewerbung_id == REMIND_OID for seat in entry.seats]
+
+            return seats(still_barred), seats(lifted), await stored(database, REMIND_OID)
+
+        still_barred, lifted, document = on_a_league(mongo_replica_set_url, body)
+
+        assert still_barred == []
+        assert lifted == [["stellvertretung"]]
+        assert document is not None
+        assert document["bestaetigungen"]["stellvertretung"]["erinnert_am"] == "2026-04-03"
 
 
 # The Stellvertretung's stamp, the one seat nobody mirrors, each state the clocks' queries must read

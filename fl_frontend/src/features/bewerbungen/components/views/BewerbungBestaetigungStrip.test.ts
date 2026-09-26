@@ -63,7 +63,7 @@ const person = (vorname: string, email: string, bestaetigtAm: string | null = nu
   },
 });
 
-const OFFEN = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
+const OFFEN = { verschickt_am: "2026-09-01", erinnert_am: null, erinnerung_gesperrt_am: null, abgelehnt_am: null, zustellung: null };
 
 /** What a Widerspruch leaves: the entry carrying the day, beside a slot the decline nulled. */
 const WIDERSPRUCH = { ...OFFEN, abgelehnt_am: "2026-09-03" };

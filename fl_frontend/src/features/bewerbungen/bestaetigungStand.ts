@@ -19,7 +19,7 @@ type Stand =
   // Never answered, on an application already decided: its link opens nothing
   // (`fl_backend/app/api/bewerbungen/services.py :: link_is_over`), so nothing is outstanding.
   | { art: "unbeantwortet" }
-  | { art: "ausstehend"; verschicktAm: string; erinnertAm: string | null };
+  | { art: "ausstehend"; verschicktAm: string; erinnertAm: string | null; erinnerungGesperrtAm: string | null };
 
 export type SitzBestaetigung = {
   rolle: KontaktRolle;
@@ -76,7 +76,12 @@ export function bestaetigungsStand(bewerbung: BewerbungSitze & Pick<FLBewerbung,
               // strip still offers.
               status !== "eingereicht"
               ? { art: "unbeantwortet" }
-              : { art: "ausstehend", verschicktAm: verlauf.verschickt_am, erinnertAm: verlauf.erinnert_am };
+              : {
+                  art: "ausstehend",
+                  verschicktAm: verlauf.verschickt_am,
+                  erinnertAm: verlauf.erinnert_am,
+                  erinnerungGesperrtAm: verlauf.erinnerung_gesperrt_am,
+                };
 
     const name = person === null ? null : `${person.vorname} ${person.nachname}`;
 
@@ -128,7 +133,10 @@ function leerSatz(stand: Stand): string {
   return stand.art === "geloescht" ? "Auf eigenen Wunsch gelöscht" : "Niemand mehr in der Bewerbung";
 }
 
-/** One seat's state as a sentence. A reminded seat names the reminder: that is the day the person last heard from the league. */
+/**
+ * One seat's state as a sentence. A reminded seat names the reminder: that is the day the person last
+ * heard from the league. A reminder a ban withheld is no such day, so it names the ban instead.
+ */
 function standSatz(stand: Stand): string {
   if (stand.art === "bestaetigt") return `Bestätigt am ${formatSpielDatum(stand.am)}`;
   // The queue's badge word in its participle: „Abgelehnt“ is the APPLICATION's own status, and one
@@ -139,6 +147,7 @@ function standSatz(stand: Stand): string {
   if (stand.art === "geloescht" || stand.art === "unbeantwortet") return "Keine Bestätigung mehr möglich";
 
   if (stand.erinnertAm !== null) return `Ausstehend, erinnert am ${formatSpielDatum(stand.erinnertAm)}`;
+  if (stand.erinnerungGesperrtAm !== null) return "Ausstehend, nicht erinnert: Adresse gesperrt";
 
   return `Ausstehend, Link gesendet am ${formatSpielDatum(stand.verschicktAm)}`;
 }

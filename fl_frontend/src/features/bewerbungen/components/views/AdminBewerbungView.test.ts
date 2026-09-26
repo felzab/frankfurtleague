@@ -51,7 +51,7 @@ const person = (vorname: string, bestaetigtAm: string | null): NonNullable<FLBew
   },
 });
 
-const SITZ = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
+const SITZ = { verschickt_am: "2026-09-01", erinnert_am: null, erinnerung_gesperrt_am: null, abgelehnt_am: null, zustellung: null };
 
 /**
  * An open application for an existing club whose three seats have all confirmed, so nothing closes

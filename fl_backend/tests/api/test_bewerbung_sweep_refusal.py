@@ -174,6 +174,15 @@ class TestTheReminderMark:
 
         assert not seat_reminder_is_due(kontakte=kontakte_block, bestaetigungen=bookkeeping, seat="trainer", today=TODAY), why
 
+    def test_a_seat_withheld_for_a_ban_today_is_not_owed_again_until_a_later_day(self):
+        """The ban is asked once a day: withheld today leaves the read, and a later day asks again."""
+
+        block = bestaetigungen(trainer={**bestaetigungen()["trainer"], "erinnerung_gesperrt_am": TODAY})
+        yesterday = bestaetigungen(trainer={**bestaetigungen()["trainer"], "erinnerung_gesperrt_am": YESTERDAY})
+
+        assert not seat_reminder_is_due(kontakte=kontakte(), bestaetigungen=block, seat="trainer", today=TODAY)
+        assert seat_reminder_is_due(kontakte=kontakte(), bestaetigungen=yesterday, seat="trainer", today=TODAY)
+
     def test_a_seat_stamped_empty_is_still_reminded(self):
         """`is_confirmed` reads `""` as no confirmation (`docs/backend/spec.md :: I387`), so the seat is still owed its one chase."""
 
@@ -277,6 +286,13 @@ class TestWhatAReminderWrites:
                 "bestaetigungen.trainer.erinnert_am": TODAY,
             }
         }
+
+    def test_a_withheld_seat_is_recorded_apart_from_a_reminder(self):
+        """Nothing reached the person, so `erinnert_am` stays empty and the seat takes no fresh hash."""
+
+        update = compose_erinnerung_update(hashes={}, withheld=["trainer"], bestaetigungen=bestaetigungen(), today=TODAY)
+
+        assert update == {"$set": {"bestaetigungen.trainer.erinnerung_gesperrt_am": TODAY}}
 
     def test_two_seats_take_two_fresh_hashes(self):
         update = compose_erinnerung_update(

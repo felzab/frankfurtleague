@@ -137,6 +137,9 @@ class FLBewerbungBestaetigung(BaseModel):
     # The day the link was last mailed; a re-send moves it.
     verschickt_am: CustomDateString
     erinnert_am: CustomOptionalDateString
+    # The day a sweep last withheld the seat's reminder, its address being on the ban list. Its own
+    # field rather than `erinnert_am`: nothing reached the person, and a later day asks the ban again.
+    erinnerung_gesperrt_am: CustomOptionalDateString = None
     # Beside the slot rather than inside it: a decline EMPTIES the person's slot, and a marker in
     # there would go with it.
     abgelehnt_am: CustomOptionalDateString

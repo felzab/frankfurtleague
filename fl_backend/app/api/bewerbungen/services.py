@@ -1135,6 +1135,10 @@ def seat_reminder_is_due(*, kontakte: Any, bestaetigungen: Any, seat: str, today
     if entry.get("erinnert_am") is not None or not isinstance(entry.get("verschickt_am"), str):
         return False
 
+    # Withheld today for a ban, and asked again on a later day, so a seat unbanned since is chased.
+    if entry.get("erinnerung_gesperrt_am") == today:
+        return False
+
     # A seat gets ONE chase, and spending it on an address the provider has already refused spends
     # it on nobody; a correction is what makes the seat due again, by writing a fresh entry.
     if seat_is_unreachable(bestaetigungen=bestaetigungen, seat=seat):
@@ -1208,10 +1212,10 @@ def compose_erinnerung_update(*, hashes: Mapping[str, str], withheld: Sequence[s
         written[f"bestaetigungen.{seat}.token_hash"] = token_hash
         written[f"bestaetigungen.{seat}.token_hash_zuvor"] = entry.get("token_hash")
         written[f"bestaetigungen.{seat}.erinnert_am"] = today
-    # A `withheld` seat, its address on the ban list, takes the stamp and no link: left due, a page of
-    # them would fill every pass's share and `refuse_a_stalled_page` would stop the pass.
+    # A `withheld` seat, its address on the ban list, takes no link and no `erinnert_am`: it leaves
+    # today's reminder read, or a page of them would fill every pass's share, and a later day asks again.
     for seat in withheld:
-        written[f"bestaetigungen.{seat}.erinnert_am"] = today
+        written[f"bestaetigungen.{seat}.erinnerung_gesperrt_am"] = today
 
     return {"$set": written}
 
@@ -1274,6 +1278,7 @@ def _seat_reminder_term(*, seat: str, today: str) -> Mapping[str, Any]:
     return {
         f"bestaetigungen.{seat}.verschickt_am": {"$lte": days_after(day=today, days=-BEWERBUNG_ERINNERUNG_TAGE)},
         f"bestaetigungen.{seat}.erinnert_am": None,
+        f"bestaetigungen.{seat}.erinnerung_gesperrt_am": {"$ne": today},
         f"bestaetigungen.{seat}.abgelehnt_am": None,
         f"bestaetigungen.{seat}.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
         f"kontakte.{seat}.einwilligung.bestaetigt_am": UNCONFIRMED_STAMP,

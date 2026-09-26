@@ -41,8 +41,14 @@ function person(vorname: string, bestaetigtAm: string | null): Person {
 /** A club the application names, so a case about seats is not answered by the club rule ahead of them. */
 const TEAM = "Lessing-Kolleg";
 
-const OFFEN: FLBewerbungBestaetigung = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
-const ABGELEHNT: FLBewerbungBestaetigung = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: "2026-09-04", zustellung: null };
+const OFFEN: FLBewerbungBestaetigung = {
+  verschickt_am: "2026-09-01",
+  erinnert_am: null,
+  erinnerung_gesperrt_am: null,
+  abgelehnt_am: null,
+  zustellung: null,
+};
+const ABGELEHNT: FLBewerbungBestaetigung = { ...OFFEN, abgelehnt_am: "2026-09-04" };
 
 /** What the last message to a seat reached, as the provider's events leave it. */
 const zugestellt = (stand: FLBewerbungZustellstand): FLBewerbungBestaetigung => ({
@@ -418,6 +424,25 @@ describe("the two seats one person holds", () => {
 
   it("are one seat where no claim was made", () => {
     assert.deepEqual(gepaarteSitze(seatsOf(), "trainer"), ["trainer"]);
+  });
+});
+
+describe("a seat whose reminder a ban withheld", () => {
+  /* The sweep records the withholding apart from `erinnert_am`: nothing reached the person, and a
+     date there would tell the administrator the league had chased them. */
+  it("says the address is barred rather than naming a reminder", () => {
+    const withheld = { ...OFFEN, erinnerung_gesperrt_am: "2026-09-04" };
+    const seats = seatsOf({ bestaetigungen: { ansprechperson: withheld, stellvertretung: OFFEN, trainer: OFFEN } });
+
+    assert.equal(seatOf(standsOf2(seats), "ansprechperson").satz, "Ausstehend, nicht erinnert: Adresse gesperrt");
+  });
+
+  /* Lifted since, the seat is chased on a later day, and that reminder is then the day it heard. */
+  it("names the reminder once one has gone out after all", () => {
+    const chased = { ...OFFEN, erinnerung_gesperrt_am: "2026-09-04", erinnert_am: "2026-09-06" };
+    const seats = seatsOf({ bestaetigungen: { ansprechperson: chased, stellvertretung: OFFEN, trainer: OFFEN } });
+
+    assert.match(seatOf(standsOf2(seats), "ansprechperson").satz, /^Ausstehend, erinnert am /);
   });
 });
 

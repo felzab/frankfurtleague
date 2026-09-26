@@ -251,6 +251,9 @@ _BEWERBUNG_BESTAETIGUNG = _object(
         "token_hash_zuvor": {"bsonType": _STRING_OR_NULL},
         "verschickt_am": {"bsonType": "string"},
         "erinnert_am": {"bsonType": _STRING_OR_NULL},
+        # Out of `required` for `token_hash_zuvor`'s reason: only a sweep withholding a reminder
+        # writes it.
+        "erinnerung_gesperrt_am": {"bsonType": _STRING_OR_NULL},
         "abgelehnt_am": {"bsonType": _STRING_OR_NULL},
         # Out of `required` for `token_hash_zuvor`'s reason: the first mint knows nothing yet about
         # the message its link goes out in, and a re-send writes a fresh entry carrying none.
