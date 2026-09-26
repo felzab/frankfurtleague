@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import { funktionenOf } from "@/core/funktionen";
 import { FunktionenGuard } from "@/features/funktionen/components/providers/FunktionenGuard";
+import { PersonAreaBoundary } from "@/features/funktionen/components/providers/PersonAreaBoundary";
 import { PersonShell } from "@/features/funktionen/components/ui/PersonShell";
 import { personStructureFor } from "@/features/funktionen/constants";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
@@ -15,11 +16,14 @@ import { PageLoader } from "@/shared/components/ui/PageLoader";
  */
 export default function PersoenlichLayout({ children }: { children: React.ReactNode }) {
   return (
-    <Suspense fallback={<PageLoader />}>
-      <FunktionenGuard>
-        <PersonChrome>{children}</PersonChrome>
-      </FunktionenGuard>
-    </Suspense>
+    // Around the whole of it: the area's `error.tsx` sits inside this layout and catches none of it.
+    <PersonAreaBoundary>
+      <Suspense fallback={<PageLoader />}>
+        <FunktionenGuard>
+          <PersonChrome>{children}</PersonChrome>
+        </FunktionenGuard>
+      </Suspense>
+    </PersonAreaBoundary>
   );
 }
 

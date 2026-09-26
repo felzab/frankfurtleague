@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import { funktionenOf } from "@/core/funktionen";
 import { FunktionenGuard } from "@/features/funktionen/components/providers/FunktionenGuard";
+import { TeamAreaBoundary } from "@/features/funktionen/components/providers/TeamAreaBoundary";
 import { TeamForbiddenPanel } from "@/features/funktionen/components/ui/TeamForbiddenPanel";
 import { TeamShell } from "@/features/funktionen/components/ui/TeamShell";
 import { teamStructureFor } from "@/features/funktionen/constants";
@@ -18,11 +19,14 @@ type TeamParams = Promise<{ team_id: string; saison_id: string }>;
  */
 export default function TeamLayout({ children, params }: { children: React.ReactNode; params: TeamParams }) {
   return (
-    <Suspense fallback={<PageLoader />}>
-      <FunktionenGuard>
-        <TeamChrome params={params}>{children}</TeamChrome>
-      </FunktionenGuard>
-    </Suspense>
+    // Around the whole of it: the area's `error.tsx` sits inside this layout and catches none of it.
+    <TeamAreaBoundary>
+      <Suspense fallback={<PageLoader />}>
+        <FunktionenGuard>
+          <TeamChrome params={params}>{children}</TeamChrome>
+        </FunktionenGuard>
+      </Suspense>
+    </TeamAreaBoundary>
   );
 }
 

@@ -1,19 +1,32 @@
 import assert from "node:assert/strict";
+import { createRequire, registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, doubleEveryAction, exportingModule } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { callPage, redirectTarget, renderPage } from "@/shared/testing/pageHarness.ts";
 import { textOf } from "@/shared/testing/renderTest.ts";
 
 import type { FLSubjektSitz } from "@/core/schemas.ts";
 import type { SubjectSession } from "@/core/subject.ts";
+import type * as NextError from "next/error";
 
 const { setSubject } = doubleActionRequest();
 // The shell hands a sign-out action to the bar, whose real module reaches `next/server` past the harness.
 doubleEveryAction();
+
+/* `next/error` is CommonJS whose exports Node's static reader cannot see, so an area boundary's ESM
+   import of `catchError` fails at link. The shim hands on the real function rather than a stand-in. */
+const NEXT_ERROR_INTEROP = exportingModule({ catchError: (createRequire(import.meta.filename)("next/error") as typeof NextError).catchError });
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === "next/error") return { url: `data:text/javascript,${encodeURIComponent(NEXT_ERROR_INTEROP)}`, shortCircuit: true };
+    return nextResolve(specifier, context);
+  },
+});
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step and the doubles as it evaluates (`docs/frontend/spec.md` §1.9). */
