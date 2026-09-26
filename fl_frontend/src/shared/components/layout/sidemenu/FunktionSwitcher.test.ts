@@ -16,6 +16,7 @@ import type { FunktionOrt } from "./FunktionSwitcher.tsx";
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { FunktionSwitcher } = await import("./FunktionSwitcher.tsx");
 const { SidemenuStateProvider } = await import("./SidemenuState.tsx");
+const { NAME_WRAP_CLASSES } = await import("../../ui/nameWrap.ts");
 
 const GOETHE: FunktionOrt = { href: "/bereich/team/t1/2526", titel: "Goethe-Gymnasium", detail: "Saison 2526 · Trainer" };
 const SPIELER: FunktionOrt = { href: "/bereich/spieler", titel: "Spieler", detail: "Dein Kadereintrag" };
@@ -80,6 +81,28 @@ describe("what the switcher's trigger names", () => {
     switcherAt("/bereich/spielerin");
 
     assert.ok(screen.getByRole("button", { name: "Dein Bereich, Funktion wechseln" }));
+  });
+
+  /* Two clubs sharing a long name's opening words are told apart only by the rest, which a truncated
+     line hides on a phone: the name wraps, as the landing's cards and the forbidden panel wrap it. */
+  it("wraps a club's name on the trigger and in the list rather than cutting it", async () => {
+    const lang: FunktionOrt = { ...GOETHE, titel: "Städtisches Gymnasium Nord mit bilingualem Zweig" };
+    switcherAt(GOETHE.href, { orte: [lang, SPIELER] });
+    const trigger = screen.getByRole("button", { name: `${lang.titel}, Funktion wechseln` });
+    const [item] = await openMenu(`${lang.titel}, Funktion wechseln`);
+
+    for (const [where, holder] of [
+      ["trigger", trigger],
+      ["list", item!],
+    ] as const) {
+      const name = within(holder).getByText(lang.titel);
+      assert.ok(
+        NAME_WRAP_CLASSES.split(" ").every((token) => name.classList.contains(token)),
+        `the ${where} does not wrap the name`,
+      );
+      assert.ok(!name.classList.contains("truncate"), `the ${where} cuts the name off`);
+    }
+    assert.ok(!trigger.classList.contains("h-9"), "the trigger fixes a height a wrapped name runs out of");
   });
 
   /* Collapsed, the square holds a glyph alone, so its name is the action rather than a title nobody sees. */

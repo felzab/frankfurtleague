@@ -12,6 +12,7 @@ import { Separator } from "@heroui/react/separator";
 import { useNavigationClosedOverlay } from "@/shared/hooks/useNavigationClosedOverlay";
 
 import { IconTooltip } from "../../ui/IconTooltip";
+import { NAME_WRAP_CLASSES } from "../../ui/nameWrap";
 import { RAIL_SQUARE_HEROUI_RING_CLASSES } from "./railGutter";
 import { useSidemenuState } from "./SidemenuState";
 
@@ -60,11 +61,14 @@ export function FunktionSwitcher({
         label="Funktion wechseln"
         placement="right"
         isEnabled={isDesktopCollapsed}>
-        {/* The options row's own shape, so the rail's two menus read as one kind of control. */}
+        {/* The options row's own shape, so the rail's two menus read as one kind of control; expanded, its height
+            is a floor, as a club's name wraps rather than hiding the words that tell two clubs apart. */}
         <Dropdown.Trigger
           aria-label={isDesktopCollapsed ? "Funktion wechseln" : `${titel}, Funktion wechseln`}
-          className={`flex h-9 shrink-0 items-center rounded-md text-foreground transition-colors data-hovered:bg-hover data-[pressed=true]:transform-none ${
-            isDesktopCollapsed ? `w-9 justify-center p-0 ${RAIL_SQUARE_HEROUI_RING_CLASSES}` : "w-full justify-start gap-2 px-3"
+          className={`flex shrink-0 items-center rounded-md text-foreground transition-colors data-hovered:bg-hover data-[pressed=true]:transform-none ${
+            isDesktopCollapsed
+              ? `h-9 w-9 justify-center p-0 ${RAIL_SQUARE_HEROUI_RING_CLASSES}`
+              : "min-h-9 w-full justify-start gap-2 px-3 py-1.5"
           }`}>
           {isDesktopCollapsed ? (
             <ArrowRightArrowLeft
@@ -73,7 +77,7 @@ export function FunktionSwitcher({
             />
           ) : (
             <>
-              <span className="min-w-0 flex-1 truncate text-start fluid-sm font-semibold">{titel}</span>
+              <span className={`min-w-0 flex-1 text-start fluid-sm font-semibold ${NAME_WRAP_CLASSES}`}>{titel}</span>
               <ChevronsExpandVertical
                 aria-hidden="true"
                 className="size-4.5 shrink-0 text-foreground-muted"
@@ -104,8 +108,8 @@ export function FunktionSwitcher({
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5">
                 <Dropdown.ItemIndicator />
                 <span className="flex min-w-0 flex-col">
-                  <span className="truncate fluid-sm font-semibold text-foreground">{ort.titel}</span>
-                  <span className="truncate muted-hint">{ort.detail}</span>
+                  <span className={`fluid-sm font-semibold text-foreground ${NAME_WRAP_CLASSES}`}>{ort.titel}</span>
+                  <span className="muted-hint">{ort.detail}</span>
                 </span>
               </Dropdown.Item>
             ))}
