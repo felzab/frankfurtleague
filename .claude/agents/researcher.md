@@ -51,6 +51,11 @@ writes: a fetched page, a captured output. Agents sharing one directory overwrit
 - One purpose per shell command. A deny rule matching any one command of a compound line refuses the
   whole line. Where the worktree isolation guard runs, it refuses a line holding a git command beside
   a `$(…)` substitution or a loop handing it a computed value: run each git command as a plain line.
+- A command whose file operand is a variable guards the empty case and reads no stdin
+  (`< /dev/null`): with the variable empty, `grep` reads stdin instead, and one such shell waited
+  72 minutes with nothing to show it had not finished.
+- Never poll a ref or a file in a sleep loop: the coordinator messages you when what you wait on
+  lands.
 
 10 TELL ME. A guard refusal is a rule arriving: comply with it and report it. Reaching the same end
 through a different tool or an interpreter is a violation however good the reason, and so is

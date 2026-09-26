@@ -20,8 +20,9 @@ a quota stop costs exactly what this file does not hold.
 
 The rule that makes it sound: every agent's condensed verdict is copied into this file as it
 lands, and its status is closed in the same edit. A report exists only as the agent's final
-message -- the harness has every subagent return findings as text rather than write a file -- so
-nothing outlives the turn except what I put here.
+message -- the harness has every subagent return findings as text rather than write a file -- and
+past the turn only here and in the agent's transcript, which the harness keeps or clears as it
+chooses; this file is the copy I trust.
 
 Repository state at the start of this fleet: <branch, tip subject, tree clean or not, what is
 being written to the repository while the fleet runs>.
@@ -187,7 +188,8 @@ The name is the one it was dispatched under: its scratch subdirectory is named f
 calls it `<your agent name>`. **The address a resume or a follow-up is sent to is the id the Agent
 tool returned, never the name** -- a send by name has failed. Record both at dispatch; a resume has
 nothing to aim at otherwise, and where this harness has no send tool at all (`resume-prompt.md`)
-the banked verdict is the whole of what a follow-up brief can be built from.
+a follow-up brief is built from the banked verdict, the agent's saved brief and its
+`<NAME>-messages.md` (`SKILL.md` §3 item 7).
 
 Cycle is one of: implement, audit, fix, re-audit, fix, done.
 

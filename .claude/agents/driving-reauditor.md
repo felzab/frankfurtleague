@@ -63,6 +63,10 @@ agent, say so and stop.
   line. The worktree isolation guard refuses a line it cannot show keeps git inside your worktree --
   a `$(…)` substitution beside a git command, a loop handing a computed value to a command: run each
   git command as a plain line of its own.
+- A command whose file operand is a variable guards the empty case and reads no stdin
+  (`< /dev/null`): with the variable empty, `grep` read stdin and waited 72 minutes unseen.
+- Never poll a ref or a file in a sleep loop: the coordinator messages you when what you wait on
+  lands.
 - Hooks run from the coordinator's checkout: `.claude/hooks/` always, and `.githooks/` while the
   shared `core.hooksPath` is an absolute path into it. A plant in either is driven by invoking your
   worktree's copy directly.

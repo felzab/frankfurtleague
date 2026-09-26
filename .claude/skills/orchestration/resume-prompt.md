@@ -37,11 +37,11 @@ Resume this session. Do not continue any work until you have finished this proto
 
 3. THE FLEET. List every subagent that is actually running. Assume none is alive and none is
    dead -- killing a parent does not kill its children. For each agent the register records:
-     - finished, and its verdict banked here    -> that banked verdict is the only copy of its
-       report there is, the harness having each agent return findings as text rather than write a
-       file. Mark it done. Where an agent finished and nothing was banked, its findings are gone
-       and only its edits on disk survive: judge those, and re-dispatch what you cannot establish
-       from them;
+     - finished, and its verdict banked here    -> mark it done. Where an agent finished and
+       nothing was banked, its report is still its transcript's last note, which `handover.py`
+       reads back ("Step 3's address" below): bank it from there, and judge its edits on disk
+       against it. Where the transcript is gone too, only those edits survive: judge them, and
+       re-dispatch what you cannot establish from them;
      - running                                  -> leave it, note what it owns;
      - paused, killed, or unaccounted for       -> try to RESUME it first, addressed by the id the
        Agent tool returned, which the register records beside the name, since a resumed agent keeps
@@ -109,9 +109,11 @@ have (`.claude/agents/implementer.md` section 13).
   is why the register carries the id beside it. An agent stopped by a quota limit has come back
   that way with its context intact and nothing on disk, and the attempt costs one message where a
   re-brief costs the whole context.
-- **Without one, every continuation is a fresh dispatch carrying a corrected brief**, and the only
-  material it can be built from is what the register banked plus what is on disk: an unbanked
-  verdict is unreachable however live the transcript looks. A follow-up then costs a whole brief
+- **Without one, every continuation is a fresh dispatch carrying a corrected brief**, built from
+  what the register banked plus what is on disk. **A finished agent's transcript file is on disk,
+  and its final report is in it**: `handover.py`, run on a finished driving re-auditor, returned
+  both of that agent's reports whole among its last notes. The register stays the copy you trust,
+  since the transcript is the harness's to keep or clear. A follow-up then costs a whole brief
   rather than one message, which is a schedule figure rather than a detail.
 
 What a resumed agent cannot supply is evidence: an agent that "was nearly done" has, by definition,
