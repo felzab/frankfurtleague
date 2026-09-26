@@ -4,15 +4,19 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/core/cacheScope.ts";
+import { doubleActionRequest, NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
-import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
 
 /** The two membership modules under test, whose `react` imports the server build must answer. */
 const FEATURE_URLS = ["teams", "spieler"].map((feature) => `${pathToFileURL(path.join(import.meta.dirname, "..", feature)).href}/`);
 
 /** Stands in for `next/headers`, whose `headers()` needs a request context no test process has. */
 const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
+
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent
+// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+doubleActionRequest();
 
 // Replaced at the module boundary rather than the reads being reshaped to admit a seam: the real
 // client reaches a backend no test process runs, at a base URL no test run holds.
@@ -41,7 +45,7 @@ describe("the admin membership lists across a render pass", () => {
   /* First, so a scope that failed to take fails here rather than under every count below. */
   itOpensAScopeThatMemoizes();
 
-  it("is fetched once when both `/admin/teams` boundaries read the club list", async () => {
+  it("is fetched once when both `/bereich/admin/teams` boundaries read the club list", async () => {
     beginRenderPass();
     const before = countOf(TEAMS_ENDPOINT);
 
@@ -52,7 +56,7 @@ describe("the admin membership lists across a render pass", () => {
     assert.equal(countOf(TEAMS_ENDPOINT) - before, 1, "the admin club list went to the backend twice in one render pass");
   });
 
-  it("is fetched once per list when both `/admin/spieler` boundaries read the pair", async () => {
+  it("is fetched once per list when both `/bereich/admin/spieler` boundaries read the pair", async () => {
     beginRenderPass();
     const beforeTeams = countOf(TEAMS_ENDPOINT);
     const beforeSpieler = countOf(SPIELER_ENDPOINT);

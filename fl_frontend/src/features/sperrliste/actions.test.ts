@@ -37,7 +37,7 @@ const CONFIG_DOUBLE = `export const frontend_config = { AUTH_URL: "http://localh
 
 /* The real actions, their mutations and the mailer's callers, called: the request they run in, the
    backend client and the mailer are the doubles. */
-doubleActionRequest();
+const request = doubleActionRequest();
 
 // Registered after the request's doubles, so its `next/cache` answers before theirs.
 registerHooks({
@@ -227,6 +227,62 @@ describe("the message the barred person is sent", () => {
       toasts.map(({ variant, title, description }) => [variant, title, description]),
       [["success", SPERRE_ERFOLG, undefined]],
       "the form raises a title the action never answers, so a clean save shows it twice",
+    );
+  });
+});
+
+describe("the barred address's live sign-ins", () => {
+  /* The refusal of every next sign-in reaches no session already open, so the ban ends those itself,
+     and before the notice that says so. */
+  it("signs the address that was typed out after the write is acknowledged, and before it is told", async () => {
+    let signedOutWhenMailed: readonly string[] = [];
+    mail.answerWith(() => {
+      events.push("mail");
+      signedOutWhenMailed = request.signedOut();
+      return "accepted";
+    });
+
+    const result = await anAddressIsBanned();
+
+    assert.equal("message" in result ? result.message : undefined, SPERRE_ERFOLG);
+    assert.deepEqual(request.signedOut(), [BARRED]);
+    assert.deepEqual(signedOutWhenMailed, [BARRED], "the notice left before the sign-out it reports");
+  });
+
+  it("signs nobody out where the write was refused or not acknowledged", async () => {
+    answerWith(() => Promise.resolve(banned(0)));
+    await anAddressIsBanned();
+
+    answerWith(() => Promise.reject(refusedOn(CREATE_OPERATION, "REQ-SPERRLISTE-001", 409)));
+    await anAddressIsBanned().catch(() => undefined);
+
+    assert.deepEqual(request.signedOut(), []);
+  });
+
+  /* The ban is written and the address survives nowhere to retry with, so a failure is reported and
+     the notice still goes: the administrator told nothing would assume the sessions ended. */
+  it("leaves the ban standing and says so where the sessions could not be ended", async () => {
+    request.failSignOut(new Error("the store answered nothing"));
+
+    const result = await anAddressIsBanned();
+
+    assert.equal(result.success, true);
+    assert.equal(
+      "message" in result ? result.message : undefined,
+      "Die Sperre steht. Laufende Anmeldungen der Adresse konnten nicht beendet werden.",
+    );
+    assert.deepEqual(events, ["post", "mail", "refresh"], "a failed sign-out stopped the notice or the refresh");
+  });
+
+  it("names both failures where the notice failed as well", async () => {
+    request.failSignOut(new Error("the store answered nothing"));
+    sendWith("refused");
+
+    const result = await anAddressIsBanned();
+
+    assert.equal(
+      "message" in result ? result.message : undefined,
+      "Die Sperre steht. Laufende Anmeldungen der Adresse konnten nicht beendet werden. Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.",
     );
   });
 });

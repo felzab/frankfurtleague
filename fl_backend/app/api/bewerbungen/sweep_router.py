@@ -44,8 +44,11 @@ from app.api.bewerbungen.services import (
     vorname_of,
 )
 from app.api.saisons.cache import dropping_the_saison_cache
+from app.api.saisons.crud import pull_massgebliche_saison_id
+from app.api.sperrliste.crud import gesperrte_hashes
+from app.api.sperrliste.services import adresse_hash
 from app.core.collections import Collection
-from app.core.config import API_VERSION
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import erase_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     AktionenCollection,
@@ -53,11 +56,13 @@ from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
     SaisonTeamsCollection,
+    SperrlisteCollection,
     TeamsCollection,
     get_german_date_str,
     get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
+from app.core.logging import fl_logger
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import drain, refuse_a_stalled_page
@@ -160,7 +165,9 @@ async def sweep_saison(
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
     aktionen_collection: AktionenCollection,
+    sperrliste_collection: SperrlisteCollection,
     db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungSweepResponse:
@@ -169,7 +176,8 @@ async def sweep_saison(
 
     The reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one
     person one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the
-    mail provider refused is not chased at all, its one reminder buying nothing. The fourteen-day clock only
+    mail provider refused is not chased at all, its one reminder buying nothing. A seat whose address the ban list holds is
+    stamped and sent nothing, the pass logging the application and its seats. The fourteen-day clock only
     LISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the
     delivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose
     Ansprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to
@@ -203,6 +211,9 @@ async def sweep_saison(
     next_saison_status = naechste_raw.get("status") if naechste_raw is not None else None
 
     stamp = log_stamp(germany_now)
+    # Outside the reminder's transaction, whose callback may run again, as the correction reads it
+    # (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
+    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection)
 
     async def stamp_the_run(session: AsyncClientSession) -> None:
         """One fan-out over every season today has not reached, inside the pass's LAST transaction, so a stamped day is a committed call."""
@@ -253,8 +264,11 @@ async def sweep_saison(
 
         return len(rows), result.deleted_count, redacted
 
-    async def remind(session: AsyncClientSession) -> list[FLBewerbungSweepErinnerung]:
-        """Stamp, mint, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges."""
+    async def remind(session: AsyncClientSession) -> tuple[list[FLBewerbungSweepErinnerung], list[tuple[Any, list[str]]]]:
+        """Stamp, mint, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges.
+
+        Also answers every application and its seats whose reminder a ban withheld, for the log line.
+        """
 
         rows = await pull_many_from_db(
             collection=bewerbungen_collection,
@@ -272,12 +286,29 @@ async def sweep_saison(
         refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
         club_names = await _club_names(teams_collection=teams_collection, rows=[row for row, _ in taken], session=session)
 
+        per_row = [
+            (
+                row,
+                [
+                    (email, reminder_link_groups(kontakte=row.get("kontakte"), bestaetigungen=row.get("bestaetigungen"), seats=held))
+                    for email, held in group_seats_by_mailbox(kontakte=row.get("kontakte"), seats=seats)
+                ],
+            )
+            for row, seats in taken
+        ]
+        hashed = {email: adresse_hash(email, schluessel=config.sperrliste_schluessel) for _, per_mailbox in per_row for email, _ in per_mailbox}
+        gesperrt = await gesperrte_hashes(
+            sperrliste_collection=sperrliste_collection,
+            adresse_hashes=hashed.values(),
+            massgebliche_saison_id=massgebliche_saison_id,
+            session=session,
+        )
+
         erinnerungen: list[FLBewerbungSweepErinnerung] = []
-        for row, seats in taken:
-            per_mailbox = [
-                (email, reminder_link_groups(kontakte=row.get("kontakte"), bestaetigungen=row.get("bestaetigungen"), seats=held))
-                for email, held in group_seats_by_mailbox(kontakte=row.get("kontakte"), seats=seats)
-            ]
+        withheld: list[tuple[Any, list[str]]] = []
+        for row, all_mailboxes in per_row:
+            per_mailbox = [(email, gruppen) for email, gruppen in all_mailboxes if hashed[email] not in gesperrt]
+            gesperrte_sitze = [seat for email, gruppen in all_mailboxes if hashed[email] in gesperrt for gruppe in gruppen for seat in gruppe]
             gruppen_alle = [gruppe for _, gruppen in per_mailbox for gruppe in gruppen]
             # Minted per LINK rather than per seat: a token for a seat riding another's link is a
             # credential nobody is sent, live on the wire and in the document until the deadline.
@@ -290,12 +321,15 @@ async def sweep_saison(
                 db_filter={"_id": row["_id"]},
                 update=compose_erinnerung_update(
                     hashes={seat: minted[gruppe[0]][1] for gruppe in gruppen_alle for seat in gruppe},
+                    withheld=gesperrte_sitze,
                     bestaetigungen=row.get("bestaetigungen"),
                     today=today,
                 ),
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
+            if gesperrte_sitze:
+                withheld.append((row["_id"], gesperrte_sitze))
             for email, gruppen in per_mailbox:
                 erinnerungen.append(
                     FLBewerbungSweepErinnerung(
@@ -317,7 +351,7 @@ async def sweep_saison(
 
         await stamp_the_run(session)
 
-        return erinnerungen
+        return erinnerungen, withheld
 
     async def erase_declined(session: AsyncClientSession) -> tuple[int, int, int]:
         """The one-month clock: erase, then redact the rows that still hold the people. Read in-session, so a retry re-judges."""
@@ -461,7 +495,12 @@ async def sweep_saison(
     # The run's day is a season write, which the cache serves.
     with dropping_the_saison_cache():
         async with db.start_session() as session:
-            erinnerungen = await session.with_transaction(remind)
+            erinnerungen, withheld = await session.with_transaction(remind)
+
+    # After the commit, so a retried transaction writes no second line. The id and the seats only: the
+    # address is what the ban protects.
+    for bewerbung_id, rollen in withheld:
+        fl_logger.info(f"Reminder withheld from a barred address: application {bewerbung_id}, seats {', '.join(rollen)}")
 
     return FLBewerbungSweepResponse(
         saison_id=saison_id,

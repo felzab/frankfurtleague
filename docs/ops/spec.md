@@ -407,9 +407,10 @@ database and no empty read is cached for the days the reference reads hold a val
 
 **The copy is the application database and not the sign-in store beside it** — the backend's
 credential is scoped to one database (the two-users split in [`overview.md`](overview.md)), so the
-local stack starts with an empty `auth` and a sign-in builds it; the allowlist deciding who may
-sign in is an environment value rather than a stored row. **A sign-in alone does not reach `/admin`
-there**: the link stamps its session `link` where the admin guard wants `passkey`
+local stack starts with an empty `auth` and a sign-in builds it; the allowlist deciding which
+administrator may sign in is an environment value rather than a stored row, and anybody else is
+offered a sign-in only where the local backend holds records for their address (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). **A sign-in alone does not reach
+`/bereich/admin` there**: the link stamps its session `link` where the admin guard wants `passkey`
 (`fl_frontend/src/core/auth.ts :: isAdminSession`), so `/signin/passkey` offers an enrolment first —
 bound to this machine's own authenticator and to `localhost`, the relying party the local `AUTH_URL`
 gives. Every machine, and every `--fresh`, enrols again. A second passkey is added from the
@@ -841,10 +842,12 @@ the last cache a passing run left, the cost of keeping a cache write out of ever
 
 **The aggregate `verify` job writes a wall-clock report** into its run summary on every push to
 main: per-job medians over the completed main runs already on record, against
-[`.github/gate-wall-clock.tsv`](../../.github/gate-wall-clock.tsv), which holds one reference figure
-and one floor per job. The report reads main pushes, the population every row with a reference
-is cut from; a row cut from pull-request runs carries `-` there and is held by its budget alone. `scripts/checks/check_gate_budget.py` under `--window`
-writes it, and how a median is taken is at `:: _median`.
+[`.github/gate-wall-clock.tsv`](../../.github/gate-wall-clock.tsv), which pairs a reference figure
+with a floor for each job its stamped main runs can cut a floor for. A row whose population is too
+short carries `-` in both columns, is held by its budget alone, and is named in the report as
+measured rather than compared: a reference with no floor beside it is a median nothing can judge.
+`scripts/checks/check_gate_budget.py` under `--window` writes it, and how a median is taken is at
+`:: _median`.
 
 **The reference is carried forward, never recomputed from the recent past.** A report comparing a
 window against the window before it ratchets: each window silently becomes the next one's normal, so
@@ -883,9 +886,9 @@ being the layer cache's before it is the tree's — the table's header records t
 stamped runs show and declines to say which of them ran warm, and the Dockerfile change most worth
 catching is the one that empties that cache —
 so the median report is its only
-guard. `format` runs on every event, but its row is measured from pull-request runs and carries
-`-` where the report, cut from main runs, would read a reference, until main runs of `format` exist
-to cut its row from.
+guard. `format`'s budget is the cold job's — a runner starts without prettier's cache wherever the
+lockfile or a stylesheet moves — so it is cut from the widest cold run on record rather than from
+the stamped main runs alone, most of which restored the cache.
 **Raising a budget or a reference costs a measurement.** In a pull request's `docs` job,
 `scripts/checks/check_gate_budget.py` under `--base` holds the file against the pull request's base and refuses a
 figure that rose on an unchanged stamp, a stamp dated after today or before the one it replaces, or a
@@ -1171,7 +1174,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | The frontend's `API_VERSION` is deployed rather than committed    | Open — `fl_frontend/src/core/config.ts :: frontend_config` reads a per-environment value no commit carries, so a stale one sends every fetch to `location /` (I13)                                 |
 | A rollback moves nothing in the registry                          | Accepted — `scripts/ops/deploy.sh :: roll_back` re-tags this host's local `:latest` and reaches no registry, so a re-deploy pulls the failed build back ([`runbooks.md`](runbooks.md) §1)          |
 | Registry tag pruning is manual                                    | Accepted — a botched delete destroys rollback history. The retention procedure is in §1.5                                                                                                          |
-| Revoking admin access needs a restart                             | Accepted — the allowlist is validated at boot; after it, the admin verdict is re-derived per request and the session authorizes nothing                                                            |
+| Revoking admin access needs a restart                             | Accepted — each process validates its allowlist copy at boot and re-derives the verdict per request, so revoking restarts both and the session authorizes nothing                                  |
 | Nothing announces that a season rollover is due                   | Accepted — nothing in the running application watches the season clock; the trigger to revisit is a rollover actually missed, which serves last season silently                                    |
 | `nginx` drops no capabilities                                     | Open — every other service carries `cap_drop: ALL` and `no-new-privileges:true` and `nginx` carries neither, and the asymmetry is undecided                                                        |
 | Certificate renewal is outside this repository                    | Accepted — they are mounted from `./certs`, and nothing here issues or rotates them                                                                                                                |

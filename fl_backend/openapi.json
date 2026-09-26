@@ -382,6 +382,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -644,6 +647,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -792,6 +798,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -847,6 +856,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1092,6 +1104,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -1322,6 +1337,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -1374,6 +1392,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1526,6 +1547,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1680,6 +1704,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -1763,8 +1790,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1817,6 +1850,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -1866,8 +1902,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1935,6 +1977,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -1990,6 +2035,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2093,8 +2141,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2147,6 +2201,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -2196,8 +2253,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2265,6 +2328,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -2320,6 +2386,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2428,8 +2497,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2439,7 +2514,7 @@
       },
       "post": {
         "summary": "Submit a Bewerbung",
-        "description": "Store one school's application to play one season as submitted, and mint one confirmation link per contact person.\n\nEverything the league decides -- `status`, `eingereicht_am`, `entscheidung` and each consent's\nscope, source and date -- is written here and never taken off the payload. The three raw tokens are answered\nfor the caller to mail and stored only as hashes; the response is the one place outside the recipients' inboxes\nthey ever exist.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds and stores none: fresh links where no message to any seat is known to have\nreached its inbox, none otherwise. The same key over other details is refused (`REQ-BEWERBUNG-015`).\n\nA seat naming a consent wording other than the one the form now shows is refused (`REQ-BEWERBUNG-016`),\nand only once the key has been looked up: a stored key is answered whatever wording it names.",
+        "description": "Store one school's application to play one season as submitted, and mint one confirmation link per contact person.\n\nEverything the league decides -- `status`, `eingereicht_am`, `entscheidung` and each consent's\nscope, source and date -- is written here and never taken off the payload. The three raw tokens are answered\nfor the caller to mail and stored only as hashes; the response is the one place outside the recipients' inboxes\nthey ever exist.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\napplication it holds and stores none: fresh links where no message to any seat is known to have\nreached its inbox, none otherwise. The same key over other details is refused (`REQ-BEWERBUNG-015`).\n\nAn address the ban list holds, on any seat, is refused (`REQ-BEWERBUNG-018`) on a first press and on a\nreplay alike, before any link is minted.\n\nA seat naming a consent wording other than the one the form now shows is refused (`REQ-BEWERBUNG-016`),\nand only once the key has been looked up: a stored key is answered whatever wording it names.",
         "operationId": "post_bewerbung_api_v0_bewerbungen_post",
         "security": [
           {
@@ -2504,6 +2579,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-BEWERBUNG-018"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -2553,8 +2631,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2683,8 +2767,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2694,7 +2784,7 @@
       },
       "post": {
         "summary": "Register through a team's link",
-        "description": "Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The raw confirmation\ntoken is answered for the caller to mail and stored only as a hash; this response is the one\nplace outside the recipient's inbox it ever exists.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds and stores none: a fresh link where no message is known to have reached the\ninbox and nothing is confirmed, none otherwise. The same key over other details is refused\n(`REQ-REGISTRIERUNG-011`).",
+        "description": "Store one pupil's registration for the team and season the link belongs to, and mint the confirmation link.\n\nEverything the league decides -- the team, the season, `status`, `eingereicht_am` and the\ndeadline -- is taken off the invite and the clock and never off the payload. The raw confirmation\ntoken is answered for the caller to mail and stored only as a hash; this response is the one\nplace outside the recipient's inbox it ever exists.\n\nAn `Idempotency-Key` header makes a second press safe. A key already stored answers with the\nregistration it holds and stores none: a fresh link where no message is known to have reached the\ninbox and nothing is confirmed, none otherwise. The same key over other details is refused\n(`REQ-REGISTRIERUNG-011`), and so is a key whose address has been banned since\n(`REQ-REGISTRIERUNG-009`), before any link is minted.",
         "operationId": "post_registrierung_api_v0_registrierungen_post",
         "security": [
           {
@@ -2925,8 +3015,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2983,8 +3079,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3035,8 +3137,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3089,6 +3197,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -3120,8 +3231,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3345,8 +3462,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3405,6 +3528,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3473,6 +3599,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3551,6 +3680,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -3627,6 +3759,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3705,6 +3840,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -3772,6 +3910,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -3837,6 +3978,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -3893,8 +4037,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4019,8 +4169,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4071,8 +4227,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4100,8 +4262,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4156,8 +4324,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4214,6 +4388,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -4268,6 +4445,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "409": {
             "$ref": "#/components/responses/409.REQ-PURGE-001"
@@ -4339,6 +4519,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4417,6 +4600,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -4481,6 +4667,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4548,6 +4737,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4647,8 +4839,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4706,6 +4904,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4774,6 +4975,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -4840,6 +5044,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -4894,6 +5101,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4953,8 +5163,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5023,6 +5239,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -5080,6 +5299,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5139,6 +5361,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -5197,6 +5422,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -5254,6 +5482,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5376,8 +5607,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5428,8 +5665,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5499,6 +5742,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -5567,6 +5813,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -5577,7 +5826,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut": {
       "post": {
         "summary": "Re-send one seat's confirmation link",
-        "description": "Mint a fresh link for one seat and answer it raw, for the caller to mail; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.\nThe application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat stored before the confirmation flow is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A path naming no seat is a 404.",
+        "description": "Mint a fresh link for one seat and answer it raw, for the caller to mail; the old link then opens nothing.\n\nWhere one person holds two seats both entries are replaced, so the old links die on both and the one new link answers both.\nThe answer names the address and the seats as the write found them, so a correction landing mid-request is where the link goes.\nThe application's confirmation deadline restarts from today and the seat's reminder is owed again. The mirrored seat\nis judged with the pressed one, a seat stored before the confirmation flow is refused as an answered one is, and a\ndecision, an answer or an erasure landing while the request runs is refused too. A seat whose address the ban list\nholds is refused `REQ-BEWERBUNG-019`. A path naming no seat is a 404.",
         "operationId": "erneut_einwilligung_api_v0_bewerbungen__bewerbung_id__einwilligung__seat__erneut_post",
         "security": [
           {
@@ -5620,7 +5869,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-019"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -5634,6 +5883,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -5644,7 +5896,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email": {
       "post": {
         "summary": "Correct one contact person's email address and re-send their link",
-        "description": "Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.\n\nThe only repair there is for a link the mail provider will not carry: everything else the school typed stays the\nrecord the decision is taken against. Where one person holds two seats both are corrected, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day\ndeletion because its notice could not arrive is a deletion candidate again once the corrected link is answered\nfor or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this\nwrite would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm\n— the mirrored seat included (`REQ-BEWERBUNG-011`) — and on an address another contact person on this\napplication already holds (`REQ-BEWERBUNG-014`). A path naming no seat is a 404.",
+        "description": "Write a corrected address onto one seat and mint the fresh link to mail there; the old link then opens nothing.\n\nThe only repair there is for a link the mail provider will not carry: everything else the school typed stays the\nrecord the decision is taken against. Where one person holds two seats both are corrected, and the confirmation\ndeadline restarts from today exactly as a re-send restarts it.\n\nThe seat's delivery state goes with the entry it sat in, so an application held back from the fourteen-day\ndeletion because its notice could not arrive is a deletion candidate again once the corrected link is answered\nfor or its deadline passes. Refused on an application already decided (`REQ-BEWERBUNG-001`), on any seat this\nwrite would reach that is already confirmed, already answered with a Widerspruch, or holding nothing to confirm\n— the mirrored seat included (`REQ-BEWERBUNG-011`) — and on an address another contact person on this\napplication already holds (`REQ-BEWERBUNG-014`), or that the ban list holds (`REQ-BEWERBUNG-019`). A path naming\nno seat is a 404.",
         "operationId": "korrigiere_kontakt_email_api_v0_bewerbungen__bewerbung_id__kontakte__seat__email_post",
         "security": [
           {
@@ -5697,7 +5949,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -5711,6 +5963,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -5721,7 +5976,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}": {
       "post": {
         "summary": "Seat another person where a contact person stepped out",
-        "description": "Write another person into a seat its own holder stepped out of, and mint the fresh link to mail them.\n\nIt runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.\nThe record written is administrative and confirms nothing: the new person's own link is what asks them, and an\nacceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled\nfrom one press and one link answers both, and both must be empty for either to be written.\n\nThe link the seat's last holder was sent stops opening anything, and the application's confirmation deadline\nrestarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens\nnothing, seating them for a confirmation they cannot give.\n\nRefused on an application already decided (`REQ-BEWERBUNG-001`); on any seat this write would reach that nobody\nstepped out of — confirmed, still waiting, erased at its person's request, or held by an application stored\nbefore the confirmation flow, the claimed mirror included (`REQ-BEWERBUNG-011`); and on an address another\ncontact person on this application already holds (`REQ-BEWERBUNG-014`). A path naming no seat is a 404.",
+        "description": "Write another person into a seat its own holder stepped out of, and mint the fresh link to mail them.\n\nIt runs on an EMPTY seat alone, and the one thing that empties a seat this way is that person's own Widerspruch.\nThe record written is administrative and confirms nothing: the new person's own link is what asks them, and an\nacceptance waits on that answer as it waits on the other two. Where one person holds two seats both are filled\nfrom one press and one link answers both, and both must be empty for either to be written.\n\nThe link the seat's last holder was sent stops opening anything, and the application's confirmation deadline\nrestarts from today EVEN WHERE IT HAD PASSED: left where it was, it would hand the new person a link that opens\nnothing, seating them for a confirmation they cannot give.\n\nRefused on an application already decided (`REQ-BEWERBUNG-001`); on any seat this write would reach that nobody\nstepped out of — confirmed, still waiting, erased at its person's request, or held by an application stored\nbefore the confirmation flow, the claimed mirror included (`REQ-BEWERBUNG-011`); and on an address another\ncontact person on this application already holds (`REQ-BEWERBUNG-014`), or that the ban list holds\n(`REQ-BEWERBUNG-019`). A path naming no seat is a 404.",
         "operationId": "besetze_kontakt_sitz_api_v0_bewerbungen__bewerbung_id__kontakte__seat__post",
         "security": [
           {
@@ -5774,7 +6029,7 @@
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -5787,6 +6042,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5832,6 +6090,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5890,6 +6151,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -5921,8 +6185,14 @@
           "default": {
             "$ref": "#/components/responses/default"
           },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5937,7 +6207,7 @@
       },
       "post": {
         "summary": "Ban an email address",
-        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`), and while no season is\nrunning, there being nothing to count the ban's five seasons from\n(`REQ-SPERRLISTE-002`). The ban covers the fifth season after the one running now — the last one\nit covers is answered as `gesperrt_bis_saison_id` — and it survives that person's erasure.",
+        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is\nrunning, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and\nwhere the address is an administrator's (`REQ-SPERRLISTE-003`). The ban covers the fifth season\nafter the one running now — the last one it covers is answered as `gesperrt_bis_saison_id` — and\nit survives that person's erasure.",
         "operationId": "post_sperrliste_eintrag_api_v0_sperrliste_post",
         "requestBody": {
           "content": {
@@ -5961,7 +6231,7 @@
             }
           },
           "409": {
-            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SPERRLISTE-001.REQ-SPERRLISTE-002"
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-SPERRLISTE-001.REQ-SPERRLISTE-002.REQ-SPERRLISTE-003"
           },
           "422": {
             "$ref": "#/components/responses/422.REQ-VAL-001"
@@ -5974,6 +6244,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -6034,6 +6307,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -6701,7 +6977,7 @@
     "/api/v0/bewerbungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's retention clocks",
-        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n\nOne call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline\nfirst; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transaction, so no later step\nof the same call can answer an error in their place.\n\n404 where no season has the id. Idempotent per day once every share has been taken: a run after that finds nothing\nleft to do.\n\nA season whose id is not a four-digit year fails the whole pass rather than running the four clocks that do not need a\nsuccessor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly\nwould leave both stopped for ever with nothing anywhere saying so.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
+        "description": "Run the six retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nThe reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one\nperson one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the\nmail provider refused is not chased at all, its one reminder buying nothing. A seat whose address the ban list holds is\nstamped and sent nothing, the pass logging the application and its seats. The fourteen-day clock only\nLISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the\ndelivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose\nAnsprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to\ncorrect the address, because erasing it would destroy a school's application with nobody told. That hold ends with the\nseason: once the season applied for is `past`, every application still awaiting a decision is erased here, whatever its\nseats answered and whether or not its notice could be delivered, because no decision can be taken for a season that is\nover. That clock runs before the two above it, so an application it takes is neither chased nor listed for a notice. The\ndeclined, accepted and contact-block clocks erase and redact in this call. Every removal names this season alone.\n\nOne call reminds, lists and clears contact blocks for a bounded share of what is due, the first two earliest deadline\nfirst; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transaction, so no later step\nof the same call can answer an error in their place.\n\n404 where no season has the id. Idempotent per day once every share has been taken: a run after that finds nothing\nleft to do.\n\nA season whose id is not a four-digit year fails the whole pass rather than running the four clocks that do not need a\nsuccessor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly\nwould leave both stopped for ever with nothing anywhere saying so.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it. So a day's first call records the day and the rest of that day's calls record nothing.",
         "operationId": "sweep_saison_api_v0_bewerbungen_sweep__saison_id__post",
         "security": [
           {
@@ -6998,7 +7274,7 @@
     "/api/v0/registrierungen/sweep/{saison_id}": {
       "post": {
         "summary": "Run one season's registration retention clocks",
-        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nA declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over. The confirmed ones\namong them are listed in `benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is\ntold neither before nor after, its address never having been confirmed. A call whose erasure names somebody to tell answers once\nthat erasure has committed, so the rest of the season's registrations wait for the next call; the two clocks below do not run\nfor a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age, earliest deadline first: a fresh link is minted and\n`erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and the link already\nin that inbox stays valid beside the fresh one. One call reminds a bounded share of the registrations due; the rest stay due and\nthe calls after it remind them. A registration whose last message the mail provider refused is not chased at all. Every removal\nnames this season alone, is made inside a transaction and takes its log rows with it.\n\nWhatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transaction, so no later step of the same\ncall can answer an error in their place.\n\n404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that finds\nnothing left to do.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record\nnothing.",
+        "description": "Run the four registration retention clocks over one season, as of today in Europe/Berlin, and answer what the caller must mail.\n\nA declined registration is erased a month after the decision. Once the season is `past`, every registration still awaiting a\ndecision is erased whatever the pupil answered, because no admission can be taken for a season that is over. The confirmed ones\namong them are listed in `benachrichtigt` and told AFTERWARDS -- one message saying it happened -- while an unconfirmed one is\ntold neither before nor after, its address never having been confirmed. A call whose erasure names somebody to tell answers once\nthat erasure has committed, so the rest of the season's registrations wait for the next call; the two clocks below do not run\nfor a `past` season, whose own end takes every row they read.\n\nOtherwise an unconfirmed registration strictly past its deadline is erased with no notice at all, the confirmation mail having\nnamed that day. Then one reminder per registration at its reminder age, earliest deadline first: a fresh link is minted and\n`erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and the link already\nin that inbox stays valid beside the fresh one. One call reminds a bounded share of the registrations due; the rest stay due and\nthe calls after it remind them. A registration whose last message the mail provider refused is not chased at all, and one whose\naddress the ban list holds is stamped and sent nothing, the pass logging its id. Every removal\nnames this season alone, is made inside a transaction and takes its log rows with it.\n\nWhatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transaction, so no later step of the same\ncall can answer an error in their place.\n\n404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that finds\nnothing left to do.\n\nOne thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`\nanswers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record\nnothing.",
         "operationId": "sweep_registrierungen_api_v0_registrierungen_sweep__saison_id__post",
         "security": [
           {
@@ -7220,7 +7496,7 @@
     "/api/v0/identitaet/subjekt": {
       "post": {
         "summary": "Say which league records one mailbox holds",
-        "description": "Answer which contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /kontakte/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival\nand compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain\nasked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de`\nare two domains here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.\n\nA contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode --\nso both are read in two steps: the database narrows to the rows holding the identifier whatever the case of its letters, and the\nfold decides on each candidate's own stored value.\n\nNeither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by\nevery writer that touches either.\n\nEach list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.\nAn address the league holds nothing for is answered with three empty lists rather than a 404.",
+        "description": "Answer which confirmed contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /kontakte/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival\nand compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain\nasked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de`\nare two domains here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.\n\nA contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode --\nso both are read in two steps: the database narrows to the rows holding the identifier whatever the case of its letters, and the\nfold decides on each candidate's own stored value.\n\nNeither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by\nevery writer that touches either.\n\nA record is answered only once its own person has confirmed it -- a seat's `einwilligung.bestaetigt_am`, judged per seat, and the\nsame stamp on a pupil's and a referee's consent record, an empty stamp confirming nothing -- and only while its row is live: a\nretired pupil or referee is answered nothing, and so is the placeholder every erased referee's fixtures name. A seat on a season\nits team withdrew from, by disqualification or withdrawal alike, is answered nothing either; its seats on other seasons stand.\nA seat on a `past` season is still answered, carrying its `saison_status`: which seasons grant a panel is each caller's to decide.\n\n`unbestaetigt` is true exactly where the mailbox holds records that could grant a panel -- a live pupil or referee row, or a seat\non an `active` or `future` season -- and none of them is confirmed, so an unconfirmed person is told apart from one the league\nholds nothing for. A seat on a `past` season counts toward neither answer: confirming it would open nothing.\n\n`gesperrt` says whether the address is on the ban list, judged as a sign-up is: the address in any spelling that folds to the same\nmailbox, and a ban only while the running season is within its bound. It narrows none of the records beside it.\n\nEach list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.\nAn address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.",
         "operationId": "get_subjekt_api_v0_identitaet_subjekt_post",
         "requestBody": {
           "content": {
@@ -7489,7 +7765,24 @@
             "title": "At"
           },
           "actor": {
-            "$ref": "#/components/schemas/FLAktor"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLAktorMitAdresse"
+              },
+              {
+                "$ref": "#/components/schemas/FLAktorPerson"
+              }
+            ],
+            "title": "Actor",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "admin_session": "#/components/schemas/FLAktorMitAdresse",
+                "person_session": "#/components/schemas/FLAktorPerson",
+                "public": "#/components/schemas/FLAktorMitAdresse",
+                "system": "#/components/schemas/FLAktorMitAdresse"
+              }
+            }
           },
           "trace_id": {
             "type": "string",
@@ -7602,7 +7895,24 @@
             "title": "At"
           },
           "actor": {
-            "$ref": "#/components/schemas/FLAktor"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLAktorMitAdresse"
+              },
+              {
+                "$ref": "#/components/schemas/FLAktorPerson"
+              }
+            ],
+            "title": "Actor",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "admin_session": "#/components/schemas/FLAktorMitAdresse",
+                "person_session": "#/components/schemas/FLAktorPerson",
+                "public": "#/components/schemas/FLAktorMitAdresse",
+                "system": "#/components/schemas/FLAktorMitAdresse"
+              }
+            }
           },
           "trace_id": {
             "type": "string",
@@ -7817,7 +8127,7 @@
         ],
         "title": "FLAktionenListResponse"
       },
-      "FLAktor": {
+      "FLAktorMitAdresse": {
         "properties": {
           "kind": {
             "type": "string",
@@ -7838,8 +8148,38 @@
           "kind",
           "email"
         ],
-        "title": "FLAktor",
-        "description": "Who a write was attributed to. Mirrors `app/core/recording.py :: Actor`."
+        "title": "FLAktorMitAdresse",
+        "description": "An actor the row names by `email`: an administrator's address, or a sentinel. Mirrors `app/core/recording.py :: Actor`."
+      },
+      "FLAktorPerson": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "person_session",
+            "title": "Kind"
+          },
+          "pseudonym": {
+            "type": "string",
+            "title": "Pseudonym"
+          },
+          "funktion": {
+            "type": "string",
+            "enum": [
+              "kontakt",
+              "spieler",
+              "schiedsrichter"
+            ],
+            "title": "Funktion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "pseudonym",
+          "funktion"
+        ],
+        "title": "FLAktorPerson",
+        "description": "A signed-in person, named by a pseudonym and the Funktion the write was authorised under.\n\nMirrors `app/core/recording.py :: PersonActor`, and carries no address."
       },
       "FLAnnehmenBewerbungPayload": {
         "properties": {
@@ -17655,16 +17995,26 @@
             },
             "type": "array",
             "title": "Schiedsrichter"
+          },
+          "unbestaetigt": {
+            "type": "boolean",
+            "title": "Unbestaetigt"
+          },
+          "gesperrt": {
+            "type": "boolean",
+            "title": "Gesperrt"
           }
         },
         "type": "object",
         "required": [
           "sitze",
           "spieler",
-          "schiedsrichter"
+          "schiedsrichter",
+          "unbestaetigt",
+          "gesperrt"
         ],
         "title": "FLSubjektResponse",
-        "description": "Which league records one mailbox matches, as three lists rather than three optional records.\n\nA list under each because one inbox holds seats at two clubs and two pupils share an address\n(`docs/datenschutz.md :: \"Colleagues sharing a school inbox\"`)."
+        "description": "Which confirmed, live records one mailbox matches, and whether the address is on the ban list.\n\nThe ban narrows none of the records: whether a barred person signs in is the sign-in gate's to decide."
       },
       "FLSubjektSchiedsrichter": {
         "properties": {
@@ -18826,6 +19176,52 @@
           }
         }
       },
+      "403.REQ-AUTH-006": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-AUTH-006"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "403.REQ-BEWERBUNG-018": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-BEWERBUNG-018"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "403.REQ-REGISTRIERUNG-009": {
         "description": "Forbidden",
         "content": {
@@ -19144,32 +19540,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011": {
-        "description": "Conflict",
-        "content": {
-          "application/json": {
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/components/schemas/FLFailureBody"
-                },
-                {
-                  "properties": {
-                    "error_code": {
-                      "enum": [
-                        "DB-COMMON-002",
-                        "REQ-BEWERBUNG-001",
-                        "REQ-BEWERBUNG-011"
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          }
-        }
-      },
-      "409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014": {
+      "409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-014.REQ-BEWERBUNG-019": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -19185,7 +19556,34 @@
                         "DB-COMMON-002",
                         "REQ-BEWERBUNG-001",
                         "REQ-BEWERBUNG-011",
-                        "REQ-BEWERBUNG-014"
+                        "REQ-BEWERBUNG-014",
+                        "REQ-BEWERBUNG-019"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.DB-COMMON-002.REQ-BEWERBUNG-001.REQ-BEWERBUNG-011.REQ-BEWERBUNG-019": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-BEWERBUNG-001",
+                        "REQ-BEWERBUNG-011",
+                        "REQ-BEWERBUNG-019"
                       ]
                     }
                   }
@@ -19700,7 +20098,7 @@
           }
         }
       },
-      "409.DB-COMMON-002.REQ-SPERRLISTE-001.REQ-SPERRLISTE-002": {
+      "409.DB-COMMON-002.REQ-SPERRLISTE-001.REQ-SPERRLISTE-002.REQ-SPERRLISTE-003": {
         "description": "Conflict",
         "content": {
           "application/json": {
@@ -19715,7 +20113,8 @@
                       "enum": [
                         "DB-COMMON-002",
                         "REQ-SPERRLISTE-001",
-                        "REQ-SPERRLISTE-002"
+                        "REQ-SPERRLISTE-002",
+                        "REQ-SPERRLISTE-003"
                       ]
                     }
                   }

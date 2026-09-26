@@ -83,8 +83,8 @@ registerHooks({
   },
 });
 
-const { default: AdminSpielerEditPage } = await import("@/app/admin/spieler/[spieler_id]/page.tsx");
-const { default: AdminSpielerPage } = await import("@/app/admin/spieler/page.tsx");
+const { default: AdminSpielerEditPage } = await import("@/app/bereich/admin/spieler/[spieler_id]/page.tsx");
+const { default: AdminSpielerPage } = await import("@/app/bereich/admin/spieler/page.tsx");
 
 /** A tree under all three contexts, on the season the sidemenu names. */
 const underSaison = (tree: ReactNode, router = recordingRouter().router): ReactNode =>
@@ -294,7 +294,7 @@ describe("the erasure's gate and its exit", () => {
 
     await pressTwice(user, { resting: ERASE_LABEL, armed: `Ja, ${ERASE_LABEL}` });
 
-    assert.deepEqual(seen.replaced, [withSaisonId("/admin/spieler", SAISON_ID)], "the erasure does not leave the page it just emptied");
+    assert.deepEqual(seen.replaced, [withSaisonId("/bereich/admin/spieler", SAISON_ID)], "the erasure does not leave the page it just emptied");
     assert.deepEqual(seen.pushed, [], "Back is left pointing at a page that now answers not-found");
   });
 

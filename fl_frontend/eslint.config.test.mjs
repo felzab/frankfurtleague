@@ -35,6 +35,7 @@ const BANS = [
   ["auth-request", /auth\.api/],
   ["resend", /provider's endpoint/],
   ["stale-path", /moved off \/bestaetigung/],
+  ["stale-admin", /moved off \/admin/],
   ["relative-nav", /relative one resolves/],
   ["history-back", /bare history back/],
   ["view-facets", /builds its facets itself/],
@@ -94,7 +95,8 @@ const plants = readdirSync(PLANTS)
   .sort()
   .map((name) => {
     const text = readFileSync(path.join(PLANTS, name), "utf8");
-    return { name, text, lintedAs: /^\/\/ Linted as (src\/\S+)\.\n/.exec(text)?.[1] };
+    // `next.config.ts` beside `src/`: the one file outside it a ban reaches.
+    return { name, text, lintedAs: /^\/\/ Linted as (src\/\S+|next\.config\.ts)\.\n/.exec(text)?.[1] };
   });
 
 const marksOf = (text) =>

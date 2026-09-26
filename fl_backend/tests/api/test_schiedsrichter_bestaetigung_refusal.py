@@ -201,8 +201,10 @@ class TestWhatAReopenedLinkShows:
             (confirmed(), LIVE_BLOCK, "bestaetigt"),
             # A stamp outranks the deadline: a person who answered on the last valid day is shown that they did.
             (confirmed(), {**LIVE_BLOCK, "frist": YESTERDAY}, "bestaetigt"),
+            # A stamp of `""` is no answer: the page offers the link again rather than thanking nobody.
+            (confirmed(bestaetigt_am=""), LIVE_BLOCK, "gueltig"),
         ],
-        ids=["live", "over", "answered", "answered-then-over"],
+        ids=["live", "over", "answered", "answered-then-over", "empty-stamp"],
     )
     def test_each_state_reads_as_the_page_expects(self, einwilligung: Any, bestaetigung: Any, zustand: str):
         assert zustand_of(einwilligung=einwilligung, bestaetigung=bestaetigung, today=TODAY) == zustand
@@ -289,8 +291,8 @@ class TestALinkWhoseDeadlineHasPassed:
 class TestAnEntryAlreadyConfirmed:
     @pytest.mark.parametrize(
         "einwilligung",
-        [None, {"umfang": "intern", "bestaetigt_am": None}, "not-a-record"],
-        ids=["absent", "unstamped", "unreadable"],
+        [None, {"umfang": "intern", "bestaetigt_am": None}, "not-a-record", confirmed(bestaetigt_am="")],
+        ids=["absent", "unstamped", "unreadable", "empty-stamp"],
     )
     def test_an_entry_nobody_has_answered_takes_one(self, einwilligung: Any):
         assert find_already_confirmed_refusal(einwilligung=einwilligung) is None
@@ -443,8 +445,9 @@ class TestTheReactivationAsks:
             ({"kontakt": {"email": "anna@example.de"}, EINWILLIGUNG_FELD: confirmed(), "inactive_since": "2026-01-01"}, False),
             ({"kontakt": {"email": None}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}, False),
             ({"kontakt": {"email": "adresse-fehlt@frankfurtleague.invalid"}, EINWILLIGUNG_FELD: None, "inactive_since": "2026-01-01"}, False),
+            ({"kontakt": {"email": "anna@example.de"}, EINWILLIGUNG_FELD: confirmed(bestaetigt_am=""), "inactive_since": "2026-01-01"}, True),
         ],
-        ids=["retired-unanswered", "not-retired", "answered", "no-address", "placeholder"],
+        ids=["retired-unanswered", "not-retired", "answered", "no-address", "placeholder", "empty-stamp"],
     )
     def test_it_is_owed_exactly_where_a_retired_unanswered_row_holds_a_usable_address(self, stored: Mapping[str, Any], owed: bool):
         assert owes_reactivation_mint(stored=stored) is owed
@@ -507,8 +510,9 @@ class TestACorrectedAddressReMints:
             ({"kontakt": {"email": "Old@example.com"}, EINWILLIGUNG_FELD: None}, "old@example.com"),
             ({"kontakt": {"email": None}, EINWILLIGUNG_FELD: None}, "first@example.com"),
             ({"kontakt": {"email": "adresse-fehlt@frankfurtleague.invalid"}, EINWILLIGUNG_FELD: None}, "first@example.com"),
+            ({"kontakt": {"email": "old@example.com"}, EINWILLIGUNG_FELD: confirmed(bestaetigt_am="")}, "new@example.com"),
         ],
-        ids=["address-moved", "address-moved-in-the-local-part-s-case-alone", "address-entered", "placeholder-replaced"],
+        ids=["address-moved", "address-moved-in-the-local-part-s-case-alone", "address-entered", "placeholder-replaced", "empty-stamp"],
     )
     def test_an_unconfirmed_referee_whose_address_moves_gets_a_fresh_block(self, stored: Mapping[str, Any], payload_email: str):
         assert korrektur(stored, payload_email) == (

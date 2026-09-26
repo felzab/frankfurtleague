@@ -120,7 +120,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     return (
       <RowActions>
         <RowActionLink
-          href={withSaisonId(`/admin/spieler/${spieler.id}`, selectedFromUrl)}
+          href={withSaisonId(`/bereich/admin/spieler/${spieler.id}`, selectedFromUrl)}
           label="Bearbeiten"
           ariaLabel={`Spieler ${spieler.fullName} bearbeiten`}>
           <Pencil
@@ -195,7 +195,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
 
     return (
       <Link
-        href={withSaisonId(`/admin/teams?q=${encodeURIComponent(row.teamName)}&${TEAMS_ANY_SAISON_QUERY}`, selectedFromUrl)}
+        href={withSaisonId(`/bereich/admin/teams?q=${encodeURIComponent(row.teamName)}&${TEAMS_ANY_SAISON_QUERY}`, selectedFromUrl)}
         className={`${textLink({ tone: "muted" })} max-w-full min-w-0 truncate fluid-xs`}>
         {row.teamName}
       </Link>

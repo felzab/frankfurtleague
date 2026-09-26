@@ -47,13 +47,16 @@ describe("the message a banned address is sent", () => {
     }
   });
 
-  /* Nothing in the sign-in path asks the ban list, and „anmelden“ is this branch's verb for the
-     sign-in everywhere else. What a ban refuses is a registration and a referee's entry. */
-  it("names the two acts a ban actually refuses, and not the sign-in", () => {
+  /* Every act the ban refuses, the sign-in among them, and the sign-ins it ends: a reader told less
+     would try the rest and meet a refusal the one message they get never named. */
+  it("names every act a ban refuses, and that live sign-ins end while the account is kept", () => {
     for (const { name, body } of BEIDE) {
+      assert.ok(body.includes("weder anmelden"), `${name} does not say a sign-in is refused`);
       assert.ok(body.includes("registrieren"), `${name} does not say a registration is refused`);
+      assert.ok(body.includes("Kontaktperson in einer Bewerbung"), `${name} does not say an application's contact seat is refused`);
       assert.ok(body.includes("Schiedsrichter"), `${name} does not say a referee entry is refused`);
-      assert.ok(!/nicht mehr anmelden/.test(body), `${name} tells the reader the sign-in is barred, which it is not`);
+      assert.ok(body.includes("Anmeldungen mit dieser Adresse werden beendet"), `${name} does not say live sign-ins end`);
+      assert.ok(body.includes("Dein Zugang bleibt erhalten"), `${name} does not say the account is kept`);
     }
   });
 

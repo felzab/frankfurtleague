@@ -27,6 +27,11 @@ export const VIEWPORT_UNITS = "w-screen h-dvh min-h-svh max-h-dvh size-svh min-h
 export const HOVER_TOKEN = "hover:bg-hover data-hovered:text-brand";
 export const NEUTRAL_OUTSIDE_A_PILL = "bg-muted text-foreground-muted";
 export const CONFIRMATION = "/bestaetigung/kontakt/token";
+// The route handlers stay under /api/admin, a backend read ends in /admin, and a word only begins with it.
+export const UNDO_HANDLER = "/api/admin/teams/undo";
+export const BACKEND_READ = `/spiele/${tint}/admin`;
+export const MOVED_PANEL = "/bereich/admin/teams?saison_id=2627";
+export const WORD = "/administration";
 // An unknown word in a constant not named as a class list, and a tone handed to a recipe, are no class list.
 export const PROSE = "zz-unknown-prose";
 const TONE = "info";

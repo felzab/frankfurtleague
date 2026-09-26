@@ -1,0 +1,223 @@
+import assert from "node:assert/strict";
+import { createRequire, registerHooks } from "node:module";
+import path from "node:path";
+import { describe, it } from "node:test";
+import { pathToFileURL } from "node:url";
+
+import { createElement as h } from "react";
+
+import { filesUnder } from "@/core/treeWalk.ts";
+import { doubleActionRequest, doubleEveryAction, exportingModule } from "@/shared/testing/actionDoubles.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
+import { callPage, clearSteps, readsOf, redirectTarget, renderPage, steps } from "@/shared/testing/pageHarness.ts";
+import { textOf } from "@/shared/testing/renderTest.ts";
+
+import type { FLSubjektSitz } from "@/core/schemas.ts";
+import type { SubjectSession } from "@/core/subject.ts";
+import type * as NextError from "next/error";
+import type { ReactNode } from "react";
+
+const { setSubject } = doubleActionRequest();
+// The shell hands a sign-out action to the bar, whose real module reaches `next/server` past the harness.
+doubleEveryAction();
+
+/* `next/error` is CommonJS whose exports Node's static reader cannot see, so an area boundary's ESM
+   import of `catchError` fails at link. The shim hands on the real function rather than a stand-in. */
+const NEXT_ERROR_INTEROP = exportingModule({ catchError: (createRequire(import.meta.filename)("next/error") as typeof NextError).catchError });
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === "next/error") return { url: `data:text/javascript,${encodeURIComponent(NEXT_ERROR_INTEROP)}`, shortCircuit: true };
+    return nextResolve(specifier, context);
+  },
+});
+
+/* Reached with `await import` and never a static import beside the harness, which registers the JSX
+   compile step and the doubles as it evaluates (`docs/frontend/spec.md` §1.9). */
+const { default: TeamLayout } = await import("@/app/bereich/team/[team_id]/[saison_id]/layout.tsx");
+const { default: TeamStartPage } = await import("@/app/bereich/team/[team_id]/[saison_id]/page.tsx");
+
+const TEAM_A = "6890a1b2c3d4e5f607250011";
+const TEAM_B = "6890a1b2c3d4e5f607250012";
+
+const TEAM_DIR = path.resolve(import.meta.dirname, "..", "..", "app", "bereich", "team", "[team_id]", "[saison_id]");
+
+/** Every page under the team area, read off the tree; the catch-all answers not-found for everyone. */
+const TEAM_PAGES = filesUnder(TEAM_DIR, (name) => name === "page.tsx", 1).filter(
+  (file) => !/^\[\.\.\..+\]$/.test(path.basename(path.dirname(file))),
+);
+
+/** Team A's address this season, which the person below holds nothing on. */
+const HELD_BY_NOBODY = { params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526" }), searchParams: Promise.resolve({}) };
+
+const sitz = (fields: Partial<FLSubjektSitz> = {}): FLSubjektSitz => ({
+  saison_id: "2526",
+  team_id: TEAM_A,
+  rolle: "ansprechperson",
+  team_name: "Goethe-Gymnasium",
+  saison_status: "active",
+  ...fields,
+});
+
+/** A person holding what `records` names and nothing else. */
+const person = (records: Partial<SubjectSession["subjekt"]> = {}): SubjectSession => ({
+  email: "pia@example.org",
+  admin: false,
+  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, ...records },
+});
+
+/** The landing as the team area mounts it at one address: under its layout, whose guard runs first. */
+const landingAt = (teamId: string, saisonId: string) => {
+  const params = Promise.resolve({ team_id: teamId, saison_id: saisonId });
+
+  return () => h(TeamLayout, { params: params, children: h(TeamStartPage, { params: params, searchParams: Promise.resolve({}) }) });
+};
+
+/**
+ * What a browser holds once the landing's stream at that address has run, arrived at with a season in
+ * its query as a link from the admin's or the dashboard's shell carries one.
+ */
+async function rendered(teamId: string, saisonId: string): Promise<{ markup: string; text: string }> {
+  const markup = await renderPage(
+    underNext(h(landingAt(teamId, saisonId)), { pathname: `/bereich/team/${teamId}/${saisonId}`, search: `saison_id=${saisonId}` }),
+  );
+
+  return { markup: markup, text: textOf(markup, " ").replace(/\s+/g, " ") };
+}
+
+/** The page's one heading, which the shell's top bar carries. */
+const heading = (markup: string): string => textOf(/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(markup)?.[1] ?? "", " ").trim();
+
+/** Every link the markup offers, as its href and its visible text. */
+const linksIn = (markup: string): { href: string; text: string }[] =>
+  [...markup.matchAll(/<a\b[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g)].map(([, href, inner]) => ({
+    href: href!,
+    text: textOf(inner!, " ").replace(/\s+/g, " ").trim(),
+  }));
+
+const FORBIDDEN_BADGE = "Tribüne";
+
+describe("the guard over a team's area", () => {
+  /* The layout's own turn-away, over a child that redirects nothing: under a page, the page's own
+     redirect would pass this case with the layout's gone. */
+  it("sends a request with no person's session to sign in", async () => {
+    setSubject(null);
+    const layoutAlone = () =>
+      h(TeamLayout, { params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526" }), children: h("p", null, "Seite") });
+    const { thrown } = await callPage(layoutAlone, { params: Promise.resolve({}), searchParams: Promise.resolve({}) });
+
+    assert.deepEqual(
+      thrown.flatMap((error) => redirectTarget(error) ?? []),
+      ["/signin"],
+    );
+  });
+});
+
+describe("what a seat holder meets at their team's address", () => {
+  /* The shell is the person's own navigation, and the landing names what they are there: the team as
+     it played that season, and every role they hold on it, each in its long form. */
+  it("renders the landing inside the team shell, naming the team and the person's roles", async () => {
+    setSubject(person({ sitze: [sitz({ rolle: "trainer" }), sitz({ rolle: "ansprechperson" })] }));
+    const { markup, text } = await rendered(TEAM_A, "2526");
+
+    assert.ok(markup.includes("data-app-shell"), "the landing renders outside the team shell");
+    assert.equal(heading(markup), "Übersicht");
+    assert.match(markup, /<h2[^>]*>Goethe-Gymnasium<\/h2>/, "the landing's heading does not name the team");
+    assert.ok(text.includes("Du bist hier als Ansprechperson und Trainerin oder Trainer eingetragen."), text);
+    assert.ok(!markup.includes(FORBIDDEN_BADGE), "a seat holder is shown the forbidden panel");
+  });
+
+  /* The season is the address's own segment, so the chip names it and no link repeats it as a query. */
+  it("names the address's season in the shell and carries it on no link as a query", async () => {
+    setSubject(person({ sitze: [sitz()] }));
+    const { markup, text } = await rendered(TEAM_A, "2526");
+
+    assert.ok(text.includes("Saison 2526"), "the shell names no season");
+    assert.deepEqual(
+      linksIn(markup).filter((link) => link.href.includes("?")),
+      [],
+      "these links carry a query the team area never reads",
+    );
+    assert.ok(
+      linksIn(markup).some((link) => link.href === `/bereich/team/${TEAM_A}/2526` && link.text === "Übersicht"),
+      "the shell lists no landing entry at the address itself",
+    );
+  });
+});
+
+describe("what a person meets at an address they hold no seat on", () => {
+  /* The page alone, as Next runs it whatever the layout renders in its stead: the seat check is the
+     page's own, before any read, or the page's data reaches the payload beside the forbidden panel. */
+  it("renders nothing from the page itself, which checks the seat on its own", async () => {
+    const page = (teamId: string) =>
+      h(TeamStartPage, { params: Promise.resolve({ team_id: teamId, saison_id: "2526" }), searchParams: Promise.resolve({}) });
+    setSubject(person({ sitze: [sitz()] }));
+
+    // The control: at the held address the same page renders the team, so the empty answer is the check's.
+    assert.ok((await renderPage(underNext(page(TEAM_A)))).includes("Goethe-Gymnasium"), "the page renders nothing even where a seat stands");
+    assert.equal(await renderPage(underNext(page(TEAM_B))), "", "the page renders for an address the person holds no seat on");
+  });
+
+  /* Every team page, a page added tomorrow included: one that reads before it checks the seat puts that
+     read's data in the payload beside the forbidden panel. */
+  it("renders nothing and reads nothing from any team page at an address held by nobody there", async () => {
+    setSubject(person({ sitze: [sitz({ team_id: TEAM_B, team_name: "Lessing-Gymnasium" })] }));
+
+    for (const file of TEAM_PAGES) {
+      const { default: Page } = (await import(pathToFileURL(file).href)) as { default: (props: typeof HELD_BY_NOBODY) => ReactNode };
+      clearSteps();
+      const markup = await renderPage(underNext(h(Page, HELD_BY_NOBODY)));
+
+      assert.equal(markup, "", `${path.relative(TEAM_DIR, file)} renders at an address the person holds no seat on`);
+      assert.deepEqual(readsOf(steps), [], `${path.relative(TEAM_DIR, file)} reads before it checks the seat`);
+    }
+  });
+
+  /* Inside the shell, so the person meets their own navigation, and naming nothing of the address: no
+     entry, no season, no role, nothing about who holds a seat there or whether the team exists. */
+  it("renders the forbidden panel inside the shell for another team, linking to the team the person holds", async () => {
+    setSubject(person({ sitze: [sitz()] }));
+    // A season the person holds nothing in either, so a mention of it can only be the address's.
+    const { markup, text } = await rendered(TEAM_B, "2627");
+
+    assert.ok(markup.includes("data-app-shell"), "the forbidden panel renders outside the team shell");
+    assert.ok(markup.includes(FORBIDDEN_BADGE), "the forbidden panel is not what renders");
+    assert.ok(text.includes("Hier bist Du nicht eingetragen."), text);
+    assert.ok(!text.includes("Du bist hier als"), "the landing renders behind the forbidden panel");
+    assert.ok(!markup.includes(TEAM_B), "the answer names the address's team");
+    assert.ok(!markup.includes("2627"), "the answer names the address's season");
+    assert.deepEqual(
+      linksIn(markup).filter((link) => link.href.startsWith("/bereich")),
+      [{ href: `/bereich/team/${TEAM_A}/2526`, text: "Goethe-Gymnasium, Saison 2526" }],
+    );
+  });
+
+  /* A seat on a `past` season grants no panel, so its own team's address answers as held by nobody. */
+  it("renders the forbidden panel for a seat on a past season", async () => {
+    setSubject(person({ sitze: [sitz({ saison_id: "2425", saison_status: "past" })] }));
+    const { markup } = await rendered(TEAM_A, "2425");
+
+    assert.ok(markup.includes(FORBIDDEN_BADGE), "a past season's address renders its panel");
+    assert.deepEqual(
+      linksIn(markup).filter((link) => link.href.startsWith("/bereich")),
+      [{ href: "/bereich", text: "Zu Deinem Bereich" }],
+    );
+  });
+
+  /* One way out per team and season: a Trainer who is also the Ansprechperson holds one panel there. */
+  it("offers one way out per address the person holds a seat at", async () => {
+    setSubject(
+      person({
+        sitze: [sitz({ rolle: "trainer" }), sitz({ rolle: "ansprechperson" }), sitz({ saison_id: "2627", saison_status: "future" })],
+      }),
+    );
+    const { markup } = await rendered(TEAM_B, "2526");
+
+    assert.deepEqual(
+      linksIn(markup)
+        .filter((link) => link.href.startsWith("/bereich"))
+        .map((link) => link.href),
+      [`/bereich/team/${TEAM_A}/2526`, `/bereich/team/${TEAM_A}/2627`],
+    );
+  });
+});

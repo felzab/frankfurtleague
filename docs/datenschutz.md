@@ -61,7 +61,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   **No such flow exists for organisers or
   administrators:** an organiser is listed on their own word to me
   ([section 4](#4-what-is-published-and-on-what-basis)), and an administrator is an entry on the
-  allowlist `fl_frontend/src/core/auth.ts :: isUserAdmin` reads.
+  allowlist `fl_frontend/src/core/allowlist.ts :: isUserAdmin` reads.
 - **The minimum age is 16 for every role, and 18 for the two seats that sign for the school.**
   A registration below 16 is refused as `REQ-REGISTRIERUNG-007`, judged against the birthdate the
   pupil enters on their own confirmation page and before anything is written
@@ -155,7 +155,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
     (`REQ-REGISTRIERUNG-007`), a referee (`REQ-SCHIEDSRICHTER-005`) and a contact person
     (`REQ-BEWERBUNG-012`), so a mistyped date costs nothing and the same link takes the right one
     while it runs;
-  - an address the ban list holds, for a registration (`REQ-REGISTRIERUNG-009`).
+  - an address the ban list holds, for a registration (`REQ-REGISTRIERUNG-009`), for any of an application's
+    three contact persons (`REQ-BEWERBUNG-018`) and for a sign-in
+    by any route, refused as its session would be created
+    (`fl_frontend/src/core/auth.ts :: refuseUnadmitted`); the notice's „eine E-Mail-Adresse, die
+    gesperrt ist“ names no route, so it covers all three, and the ban's own mail tells the person the
+    sign-in is barred.
 
   What the review can change is bounded by the rule each refusal applies: a person reads the case
   and answers, a mistyped date is corrected through the same link, an administrator can lift a ban
@@ -172,7 +177,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   - the ban refusing a referee's link (`REQ-SCHIEDSRICHTER-007`), which falls on an administrator's
     write rather than on anything the person enters: the administrator sees the refusal and can lift
     the ban, and the ban's own mail already tells the barred person they cannot be entered as a
-    referee (`fl_frontend/src/core/sperrlisteEmail.ts :: EINLEITUNG`).
+    referee (`fl_frontend/src/core/sperrlisteEmail.ts :: EINLEITUNG`);
+  - the ban refusing an administrator's correction, reseat or re-send of an application's contact
+    seat (`REQ-BEWERBUNG-019`), which falls on that administrator's write in the same way.
 
   **One refusal a person's own entry meets is not named**: every box that stores an address refuses
   one whose part before the @ is not plain ASCII
@@ -319,15 +326,18 @@ Every ruling below is the sign-up flow as it stands for the next season.
   exists to say who did what; the asymmetry is deliberate and is stated at the invariant once it
   leaves here (`docs/backend/spec.md :: I42` is the redaction it sits beside, and `:: I48` what a
   removal records).
-- **An administrator's erasure includes the sign-in store.** The `auth` database holding
-  administrators' addresses, sessions, sign-in tokens and passkeys is inside the erasure, and it is
-  reached by hand: `fl_frontend/src/core/auth.ts` is where that store is configured, and
+- **The erasure of anybody who has signed in includes the sign-in store.** The `auth` database
+  holds the address, sessions and sign-in tokens of everyone who has followed a sign-in link — an
+  administrator, and a person the send gate offered one (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`) — and the
+  passkeys of anyone who set one up. It is inside the erasure, and it is reached by hand:
+  `fl_frontend/src/core/auth.ts` is where that store is configured, and
   [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
-  is what names it as the place an administrator's own data sits. Its collections are `user`,
+  is what names it as the place a signed-in person's own data sits. Its collections are `user`,
   `session`, `account`, `verification` and `passkey`. The last holds a credential's public key, its
   identifier and the counters the browser reports, and never a secret the person holds, the private
-  key staying on their own device; a `session` row holds the administrator it belongs to, its own
-  expiry and which factor made it, and neither the address nor the browser the sign-in came from. A `user` row's `updatedAt` records when that administrator's account, or any of their passkeys, last
+  key staying on their own device; a `session` row holds the account it belongs to, its own
+  expiry, which factor made it and, where a passkey did, that passkey's credential identifier, and
+  neither the address nor the browser the sign-in came from. A `user` row's `updatedAt` records when that account, or any of its passkeys, last
   changed, a removal included (`fl_frontend/src/core/auth.ts :: claimAccount`). **A session and a sign-in token each carry an expiry set at that
   configuration, and the expiry bounds the credential rather than the row**: the library drops a
   session row when its holder presents the stale cookie and leaves it standing where nobody comes
@@ -335,22 +345,23 @@ Every ruling below is the sign-up flow as it stands for the next season.
   nobody follows is deleted by nothing. Neither collection is swept by the application; the
   retention index each needs is a console step
   ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-two-expiry-indexes)).
-- **The sign-in store holds more than administrators.** The sign-in send is public and the library
-  writes its `verification` row before the allowlist is consulted, so the address of anyone who
-  submits the form is held there — an allowlisted administrator's and a stranger's alike — until
-  that retention index removes it
+- **The sign-in store holds more than the people it signs in.** The sign-in send is public and the
+  library writes its `verification` row before the send gate is consulted, so the address of anyone
+  who submits the form is held there — a person the gate admits and a stranger alike — until that
+  retention index removes it
   ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-two-expiry-indexes)). Nothing else is
-  recorded of such a person: no `user` row is written until a link is followed
-  (`fl_frontend/src/core/auth.ts`).
-- **No log row names a person as the one who wrote it today, and a person's own write is to be
+  recorded of such a person: no `user` row is written until a link is followed, and a link is mailed
+  only to an administrator or to an address the league holds records for (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`).
+- **No log row names a person as the one who wrote it today, and a person's own write is
   recorded under a pseudonym rather than their address.** `fl_frontend/src/core/subject.ts :: getSubjectSession`
   already folds the address of whoever opens a panel into the request's actor, and
   `fl_frontend/src/core/api.ts` sends that actor to the backend on admin-tier calls alone, so no
-  `aktionen` row's actor is a person. As the actor is recorded now, the first write a person makes
-  for themselves would file their address in `actor.email`, which the redaction above does not
-  reach — that exception was taken for administrators and for the reason administrators give. The
-  pseudonym is stable, a keyed hash of the folded address as the ban list takes one, and nothing
-  records it yet: it is built before the first person-tier write ships. Ruled 2026-09-21.
+  `aktionen` row's actor is a person. An address in `actor.email` would sit outside the redaction
+  above, an exception taken for administrators and for the reason administrators give, so a
+  person's actor carries none: the binder a person's router declares
+  (`fl_backend/app/core/security.py :: person_actor_binder`) records a stable pseudonym, a keyed hash
+  of the folded address as the ban list takes one, and the Funktion the write was authorised under.
+  No router declares it yet. Ruled 2026-09-21.
 - **Backups outlive an erasure by the snapshot window, and the person is told so.** The hosting
   keeps snapshots for about eight days, taken daily — a figure mirrored from the provider's own
   console, which moves without us, as it stood on 2026-09-01. An erased person is gone from the live
@@ -374,7 +385,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   may lift it earlier. **Either removal keeps a copy in the action log** — the hash, the key label,
   the reason, the administrator and the season it ran to, and no barred address — for the twelve
   months every stamped log row is kept (`docs/backend/spec.md :: I48`, `:: I119`), so a removed ban
-  is readable at `/admin/aktionen` for that period and enforced by nothing from the moment it goes.
+  is readable at `/bereich/admin/aktionen` for that period and enforced by nothing from the moment it goes.
 - **A retired row is never removed because of its age.** A player who left a squad, a referee who
   stopped, a club that left and a past season all keep their rows; a person's row goes only by an
   erasure or by one of the two one-off removals [section 3](#3-the-current-pupil-records-are-reset-once)
@@ -483,7 +494,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   ban exists for — somebody too young for the league stays barred until they are too old for it. The
   message sent at the ban names that season, the reason, what is kept and how to object
   (`fl_frontend/src/core/sperrlisteEmail.ts`); the address it is sent to is used for that one send
-  and stored nowhere, so no second message can ever be sent about the row. Ruled 2026-09-21.
+  and for ending the address's live sign-ins, and stored nowhere, so no second message can ever be
+  sent about the row. Ruled 2026-09-21.
 - **No open tracking and no click tracking is subscribed, and none is read.** The mail provider
   reports what became of a message's DELIVERY and nothing about what its recipient did with it: the
   six delivery events are subscribed and `email.opened` and `email.clicked` are not

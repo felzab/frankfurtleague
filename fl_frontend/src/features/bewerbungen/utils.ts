@@ -180,6 +180,15 @@ export function mapBewerbungSubmitRefusal(
           repair: `Soll sich daran etwas ändern, schreib uns an ${KONTAKT_EMAIL}`,
         }),
       };
+    // A banner naming no seat, as a 403 carries no field, and neutral as the registration's is: a
+    // stranger learns nothing about a list, and the person it concerns already knows why.
+    case "REQ-BEWERBUNG-018":
+      return {
+        error: buildRefusal({
+          reason: "Mit einer der angegebenen E-Mail-Adressen ist keine Bewerbung möglich",
+          repair: `Wenn Du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}`,
+        }),
+      };
     // With the record missing, the season this page names is one the running API does not hold: only a
     // page from before a data reset, or a crafted body, sends it, and the reload fetches the window open now.
     case "DB-COMMON-001":

@@ -22,6 +22,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [12. Deleting this season's player records and resetting the action log](#12-deleting-this-seasons-player-records-and-resetting-the-action-log) | Its two halves, the referee drop, and what is lost with them   |
 | [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                                      | Who is re-erased, and what the restore took the record of      |
 | [14. The `auth` database's two expiry indexes](#14-the-auth-databases-two-expiry-indexes)                                                       | Which collections grow without one, and what creates it        |
+| [15. When a sign-in link does not arrive](#15-when-a-sign-in-link-does-not-arrive)                                                              | What the person cannot tell apart, and the line that can       |
 
 ---
 
@@ -133,13 +134,13 @@ docker run --rm --network <compose-network> \
   <backend-image> python -m app.core.constraints --check
 ```
 
-**Eight variables are required and the environment file is what supplies them.** `BackendConfig`
-declares eight fields with no default, so a run reaching none of them exits 1 on a validation error
-naming all eight; the settings class reads its file from the image's own working directory
+**Nine variables are required and the environment file is what supplies them.** `BackendConfig`
+declares nine fields with no default, so a run reaching none of them exits 1 on a validation error
+naming all nine; the settings class reads its file from the image's own working directory
 (`fl_backend/app/core/config.py :: model_config`), which is what the second mount lands it at.
-**Mounted rather than retyped, because the URI carries the cluster's credential**: passing the eight
+**Mounted rather than retyped, because the URI carries the cluster's credential**: passing the nine
 as `-e` values instead puts that one in the shell's history and in the process list, and sends the
-operator looking up six values `--check` never reads — the run touches `MONGODB_URI` and
+operator looking up seven values `--check` never reads — the run touches `MONGODB_URI` and
 `DB_BASE_NAME` and nothing else the settings class requires. It is the same mount
 `scripts/ops/deploy.sh :: read_env_names` makes of the same file for the same image (§1).
 
@@ -320,15 +321,20 @@ a perfectly good name, and a row missing its name can name a club that exists.
 
 ## 3. Granting or revoking admin access
 
-Editing `ALLOWED_ADMIN_EMAILS` and restarting is the whole procedure; why a restart is needed and how `role`
-is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that are easy to get wrong:
+Editing `ALLOWED_ADMIN_EMAILS` in both `fl_frontend/.env` and `fl_backend/.env` and restarting both
+processes is the whole procedure; why a restart is needed and how `role` is re-derived afterwards are
+[`spec.md`](spec.md) §4. Each of these is easy to get wrong:
 
+- **One list, in two files.** An address granted in the frontend's file alone signs in, and every
+  admin-tier request its pages make meets `REQ-AUTH-006`; one revoked there alone is turned away by the frontend while
+  the backend would still admit it, so the two files are edited together.
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
 - **An entry the sign-in library will not take stops the site rather than that one administrator.**
-  The deploy's reader judges names alone (`docs/ops/spec.md :: I183`), so the refusal is met at boot,
-  after the recreate and behind an edge already answering 502; it names `ALLOWED_ADMIN_EMAILS` and
-  never the entry. An umlaut before the at sign is the case that turns up: the sign-in box takes no
+  The frontend's deploy reader judges names alone (`docs/ops/spec.md :: I183`), so that refusal is met
+  at boot, after the recreate and behind an edge already answering 502; an entry the backend's address
+  rule refuses is met earlier, by the deploy's preflight, before anything is recreated. Each names
+  `ALLOWED_ADMIN_EMAILS` and never the entry. An umlaut before the at sign is the case that turns up: the sign-in box takes no
   such address, so that person needs a mailbox it will accept before there is anything to allowlist.
   An umlaut domain may be entered in either spelling, the entry and the sign-in box both converting it
   to punycode.
@@ -448,13 +454,17 @@ One person can hold several — a referee is a pupil, and a contact person can b
 
 | Role           | Where their data is read                                                                                                                                                                            |
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                                                                                 |
-| Referee        | `/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                                           |
-| Contact person | `/admin/kontakte/{team_id}` for the season's block, and `/admin/bewerbungen/{bewerbung_id}` for the application it was collected on                                                                 |
+| Pupil          | `/bereich/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                                                                         |
+| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                                   |
+| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on                                                 |
 | Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in tokens and the passkey — plus `sperrliste.erstellt_von` on every ban they entered, which no erasure reaches |
 | Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                          |
 
-`/admin/aktionen` answers what was written about them and by whom, and is the only place that
+**A pupil, referee or contact person who has followed a sign-in link is in the sign-in store too**:
+the link writes their `user` row and a session in the `auth` database, read by hand as an
+administrator's is.
+
+`/bereich/admin/aktionen` answers what was written about them and by whom, and is the only place that
 question is answered at all. **Two populations sit in that collection and only one has an expiry**:
 a row the log stamped is gone twelve months after the write it recorded and a row carrying no stamp
 is expired by nothing (`docs/backend/spec.md :: I119`), so an answer promising a period has to say
@@ -469,7 +479,7 @@ notice (`fl_frontend/src/features/meta/components/views/DatenschutzView.tsx`) fo
 rather than restating it in the mail.
 
 **A ban is the one record no search finds from the address it is about.** The row holds a keyed hash
-and nothing else of the person, so `/admin/sperrliste` cannot be asked whether a given address is on
+and nothing else of the person, so `/bereich/admin/sperrliste` cannot be asked whether a given address is on
 it: the question is answered by computing that address's hash under `SPERRLISTE_SCHLUESSEL` — the
 same derivation `fl_backend/app/api/sperrliste/services.py :: adresse_hash` performs, label and fold
 included — and looking the value up against `sperrliste.adresse_hash`. The paste that does it belongs
@@ -588,17 +598,33 @@ in the same reply.
 **A false birthdate is found by a person, and the answer is a decision and a ban rather than a
 rule.** The one date anybody enters for themselves is a contact person's, at their own confirmation,
 and nothing verifies it: what surfaces is somebody recognising the person or the school saying so.
-Decline the application and bar the address at `/admin/sperrliste` with the reason in your own words
+Decline the application and bar the address at `/bereich/admin/sperrliste` with the reason in your own words
 and no person named in it, the row outliving that person's erasure
-([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up)). **The write
+([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up)). An
+administrator's address is refused (`REQ-SPERRLISTE-003`) until it has left both allowlists
+([section 3](#3-granting-or-revoking-admin-access)). **The write
 mails the person itself**, naming the reason you typed and the last season the ban covers, so there
 is nothing to send by hand; where the send fails the page says so, and there is then no address left
-anywhere to try again with. **The ban refuses the sign-ups that ask it and nothing else.** A pupil's
-registration asks it and is
-refused (`REQ-REGISTRIERUNG-009`), and so does every referee write that mints a link; every other
+anywhere to try again with. **The same write ends every live sign-in of the address**, keeping its
+account and passkeys for the day the ban ends (`docs/frontend/spec.md :: I402`); where that fails the
+page says so too, and the sessions stay in the store until their own expiry while every person page
+refuses them as no session at all (`docs/frontend/spec.md :: I406`). **Every later sign-in of the address
+is refused as its session would be created**, by a code or a passkey alike
+(`docs/frontend/spec.md :: I403`). **Beyond that the ban refuses the sign-ups that ask it and nothing
+else.** A pupil's registration asks it and is
+refused (`REQ-REGISTRIERUNG-009`), and so do an application naming the address on any seat
+(`REQ-BEWERBUNG-018`), an administrator's correction, reseat or re-send of a seat to it
+(`REQ-BEWERBUNG-019`) and every referee write that mints a link, and both sweeps withhold the
+reminder they would send it, logging the application's or registration's id; every other
 route consults the list nowhere
 ([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)), so a person reading the queue is
-still what keeps a barred address out of everything a sign-up does not cover.
+still what keeps a barred address out of everything a sign-up does not cover. **What the address
+already holds stays until you take it away**, and the ban names none of it:
+
+- a referee still booked on an unplayed fixture: reassign those fixtures first, then retire the
+  referee, which `REQ-RETIRE-004` holds to that order;
+- a pupil's squad row: retire it, which takes the pupil off the public squad list;
+- a contact seat: replace or clear it on the team's season.
 
 **A ban lapses five full seasons after the one it was entered under, and the row is removed at the
 activation that runs past it.** The season it was entered in does not count, so a ban entered while
@@ -625,7 +651,9 @@ command and not from a keyboard.
 
 **`SPERRLISTE_SCHLUESSEL` can never be rotated, and losing it costs the whole list**: replacing it
 disarms every ban in silence ([`../backend/spec.md`](../backend/spec.md#15-environment)), the one
-sign being a second ban of an address already on the list admitted rather than refused. Treat it as
+sign being a second ban of an address already on the list admitted rather than refused. It keys the
+action log's pseudonyms of signed-in people too, so a replacement leaves one person's rows under two
+pseudonyms and the older can never be recomputed. Treat it as
 the one backend secret with no recovery: back it up where the database's own access details are
 backed up, and where it is genuinely gone, clear the list and enter the bans again from whatever
 record names the addresses.
@@ -662,7 +690,7 @@ dashboard rather than here.
 log.** Every recorded write appends a row carrying the actor, the route, the collection, the
 operation and the image of what the write replaced or removed
 ([`../glossary.md`](../glossary.md#aktion--one-recorded-write-and-what-it-replaced-or-removed)), read
-at `/admin/aktionen`. A row whose values an erasure destroyed is emptied in place and stamped
+at `/bereich/admin/aktionen`. A row whose values an erasure destroyed is emptied in place and stamped
 (`docs/backend/spec.md :: I42`), so what survives an erasure is that the write happened and not what
 it held.
 
@@ -1054,14 +1082,38 @@ stored value is itself the deletion time.
 
 `verification` is the one that matters. The sign-in action is public, it is reachable by a POST to
 any URL on the site rather than to `/signin` alone, and the library writes the row before the
-allowlist is consulted — so every address anyone submits is kept, with no path in the running system
+send gate is consulted — so every address anyone submits is kept, with no path in the running system
 that removes it.
 
-`session` is smaller and the index is defence in depth: a row for an administrator who closed the
-browser is held for the library's full `expiresIn` otherwise, and with the index the store stops
+`session` is smaller and the index is defence in depth: a row for anybody who signed in and closed
+the browser is held for the library's full `expiresIn` otherwise, and with the index the store stops
 serving what the guards in `fl_frontend/src/core/auth.ts` would refuse anyway.
 
 **Nothing in this repository reports a missing one.** Neither index is created by the adapter and no
 configuration option asks for one, and `app.core.constraints --check` (§2) reads the backend's own
 declared indexes, which these are not — so the console is where both are made and where their
 presence is read.
+
+## 15. When a sign-in link does not arrive
+
+**To the person, every reason a link does not arrive looks alike**: the page answers one sentence
+whether a link went or not, so the frontend's log is the only record, and no line on this path
+carries the address. Ask when they tried and read that window
+([`../logging/error-codes.md`](../logging/error-codes.md) for each code):
+
+- `auth.link_gate_failed` under `FE-AUTH-002`: the send gate could not read what the backend holds
+  for the address, its ban included, so it sent nothing — the backend unreachable, failing, or
+  answering unreadably.
+- `auth.link_gate_address_refused` under `FE-AUTH-002`: the backend refused the address as none its
+  own rule accepts, though the sign-in form took it; the two address rules disagree.
+- `auth.link_send_failed` or `auth.sign_in_failed` under `FE-AUTH-002`: the gate admitted the
+  address, and the send or the library call around it failed; `FE-MAIL-001` under the same trace id
+  is the provider refusing the message.
+- `mail.withheld`: a stack that is not production mails nothing, and the message is in its sink.
+
+**A refusal by the gate writes no line.** It refuses an address that is barred, that holds nothing
+live, or whose only seat is on a `past` season; an address whose records all await confirmation is
+mailed, to be told so once signed in, unless it is barred. So a quiet window means a refusal, or a
+message the provider accepted and the mailbox never showed, whose bounce the delivery webhook
+reports (§10). The allowlist is read before the backend call (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`), so an
+administrator on it is mailed whether or not the backend answers.

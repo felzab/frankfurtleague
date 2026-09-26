@@ -153,7 +153,7 @@ implied claim of coverage over a route nothing exercised.
 - **A theme check needs one page load per theme.** Seed the storage key before scripts run: flipping
   the theme attribute live gives stale readings, and emulating `prefers-color-scheme` does nothing
   where the app pins a default theme.
-- **`/admin` is unreachable without a session, and credentials are off-limits.** Runtime checks go
+- **`/bereich/admin` is unreachable without a session, and credentials are off-limits.** Runtime checks go
   through throwaway probe routes under a public segment that replicate the shape, deleted before
   commit. State plainly what this leaves unverified.
 - **A visual pass earns its keep.** Screenshots of the production image in both themes have caught a

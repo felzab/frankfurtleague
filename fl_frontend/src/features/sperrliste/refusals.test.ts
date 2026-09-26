@@ -24,7 +24,7 @@ describe("the address a unique index already holds", () => {
   it("answers every refusal the create publishes", () => {
     assert.deepEqual(
       publishedRefusals(CREATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-SPERRLISTE-001", "REQ-SPERRLISTE-002"],
+      ["REQ-SPERRLISTE-001", "REQ-SPERRLISTE-002", "REQ-SPERRLISTE-003"],
     );
     for (const code of publishedRefusals(CREATE_OPERATION)) {
       assert.notEqual(answerShown(CREATE_OPERATION, code, mapAdresseRefusal), null, `${code} reaches the admin as an unhandled conflict`);
@@ -38,6 +38,14 @@ describe("the address a unique index already holds", () => {
 
     assert.equal(answered?.fieldErrors, undefined);
     assert.match(String(answered?.error), /Saison/);
+  });
+
+  /* On the box, as the duplicate is: it is the typed address that no ban may take. No repair is
+     named, because no page takes an address off the allowlist. */
+  it("lands an administrator's address on the address box", () => {
+    assert.deepEqual(mapAdresseRefusal(refusedWith(409, "REQ-SPERRLISTE-003")), {
+      fieldErrors: { email: "Diese Adresse gehört zur Verwaltung und lässt sich nicht sperren." },
+    });
   });
 
   it("leaves a conflict it does not know to the shared reader", () => {

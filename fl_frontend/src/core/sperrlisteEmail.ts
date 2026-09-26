@@ -59,9 +59,14 @@ const GRUNDLAGE_SATZ =
 const widerspruchSatz = (kontakt: string): string =>
   `Du kannst dieser Speicherung nach Art. 21 DSGVO widersprechen. Schreib uns dafür an ${kontakt}; dort beantworten wir auch Fragen zur Sperre.`;
 
-/* „anmelden“ is this branch's verb for the SIGN-IN, which consults no ban list. What a ban actually
-   refuses is a registration and a referee's entry, so the sentence names those two. */
-const EINLEITUNG = `Deine E-Mail-Adresse wurde von der Verwaltung der ${BRAND_NAME} gesperrt. Mit ihr kannst Du Dich vorerst nicht für eine Saison registrieren und auch nicht als Schiedsrichterin oder Schiedsrichter eingetragen werden.`;
+// Every refusal the ban reaches, in one sentence: a sign-in, a registration, a contact seat on an
+// application and a referee's entry. „anmelden“ is the SIGN-IN's verb and „registrieren“ the season's.
+const EINLEITUNG = `Deine E-Mail-Adresse wurde von der Verwaltung der ${BRAND_NAME} gesperrt. Mit ihr kannst Du Dich vorerst weder anmelden noch für eine Saison registrieren, und Du kannst weder als Kontaktperson in einer Bewerbung genannt noch als Schiedsrichterin oder Schiedsrichter eingetragen werden.`;
+
+// „werden beendet“: the mail leaves after the sign-out was attempted and cannot know whether it held,
+// a failure being the administrator's to read.
+const ANMELDUNGEN_SATZ =
+  "Bestehende Anmeldungen mit dieser Adresse werden beendet. Dein Zugang bleibt erhalten und funktioniert wieder, sobald die Sperre endet.";
 
 /** What the form's hint promises the mail explains, so the two say one thing. */
 const LAPSE_SATZ = "Danach endet die Sperre von selbst; Du musst dafür nichts tun.";
@@ -77,7 +82,9 @@ function renderHtml(grund: string, gesperrtBisSaisonId: string, origin: string):
     bloecke: [
       // The bound is emphasised inside the prose rather than panelled: a card of one fact beside a
       // heading naming the ban reads as a certificate of it.
-      paragraph(`${escapeHtml(EINLEITUNG)} ${strong(escapeHtml(bisSatz(gesperrtBisSaisonId)))} ${escapeHtml(LAPSE_SATZ)}`),
+      paragraph(
+        `${escapeHtml(EINLEITUNG)} ${escapeHtml(ANMELDUNGEN_SATZ)} ${strong(escapeHtml(bisSatz(gesperrtBisSaisonId)))} ${escapeHtml(LAPSE_SATZ)}`,
+      ),
       paragraph(`${GRUND_VOR} ${escapeHtml(grund)}`),
       paragraph(escapeHtml(GESPEICHERT_SATZ), "0 0 16px", ASIDE_TEXT),
       paragraph(escapeHtml(GRUNDLAGE_SATZ), "0 0 16px", ASIDE_TEXT),
@@ -95,7 +102,7 @@ function renderText(grund: string, gesperrtBisSaisonId: string, origin: string):
   const oben = [
     `${BRAND_NAME}: ${UEBERSCHRIFT}`,
     "",
-    `${EINLEITUNG} ${bisSatz(gesperrtBisSaisonId)} ${LAPSE_SATZ}`,
+    `${EINLEITUNG} ${ANMELDUNGEN_SATZ} ${bisSatz(gesperrtBisSaisonId)} ${LAPSE_SATZ}`,
     "",
     `${GRUND_VOR} ${grund}`,
     "",

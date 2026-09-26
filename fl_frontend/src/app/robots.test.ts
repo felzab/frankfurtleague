@@ -20,6 +20,9 @@ const EVERYONE = RULES.find((rule) => rule.userAgent === "*");
 /** One rule's paths on the same terms, the convention taking a bare string as readily as a list. */
 const paths = (value: string | string[] | undefined): string[] => (value === undefined ? [] : [value].flat());
 
+/** Whether a crawler reading the unnamed rule is turned back from `address`, each disallow being a prefix. */
+const withheld = (address: string): boolean => paths(EVERYONE?.disallow).some((prefix) => address.startsWith(prefix));
+
 /**
  * Pinned whole rather than sampled. Nothing compares this list to the edge's own
  * (`fl_frontend/src/app/robots.ts`), so a name dropped here is dropped from every record there is.
@@ -53,13 +56,20 @@ describe("what robots.txt keeps out of the crawl", () => {
     assert.equal(EVERYONE.allow, "/", "the public tier is no longer offered to crawlers at all");
   });
 
-  /* Both trees are real, and both are named. `/admin` is behind the session and `/api` answers the
+  /* Both trees are real, and both are named. `/bereich` is behind the session and `/api` answers the
      app's own fetches, so a crawler reaching either spends the budget on pages it may not have. */
   it("names both trees it withholds, and each of them exists", () => {
-    for (const segment of ["admin", "api"]) {
+    for (const segment of ["bereich", "api"]) {
       assert.ok(existsSync(path.join(APP_DIR, segment)), `/${segment}/ is withheld and no such tree exists`);
-      assert.ok(paths(EVERYONE?.disallow).includes(`/${segment}/`), `/${segment}/ is offered to every crawler`);
+      assert.ok(withheld(`/${segment}/`), `/${segment}/ is offered to every crawler`);
     }
+  });
+
+  /* A disallow is a prefix, so `/bereich/` leaves out the segment's own address, which is the page a
+     signed-in person lands on. */
+  it("withholds the person's landing, the tree's own address", () => {
+    assert.ok(existsSync(path.join(APP_DIR, "bereich", "(persoenlich)", "page.tsx")), "no page answers /bereich for this case to be about");
+    assert.ok(withheld("/bereich"), "/bereich is offered to every crawler");
   });
 
   /* A trainer dropped from the file is refused by whatever the dashboard still happens to hold, and

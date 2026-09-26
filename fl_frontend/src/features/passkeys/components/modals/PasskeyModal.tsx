@@ -72,7 +72,7 @@ const KEINE_PASSKEYS = "Für diesen Zugang ist kein Passkey eingetragen.";
 const liesPasskeys = (): ReturnType<typeof readPasskeysAction> => readPasskeysAction().catch(unansweredRead);
 
 /**
- * The dialog the sidemenu's options drop-up opens, never a page under `/admin`: managing one's own
+ * The dialog the sidemenu's options drop-up opens, never a page under `/bereich/admin`: managing one's own
  * credentials is account business rather than a section of the league's administration.
  */
 export function PasskeyModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {

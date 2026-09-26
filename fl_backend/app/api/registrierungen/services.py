@@ -29,6 +29,7 @@ from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
+from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
 from app.shared.folding import person_name_key
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -248,7 +249,7 @@ def build_wiederholung_filter(*, registrierung_raw: Mapping[str, Any], today: st
     return {
         "_id": registrierung_raw["_id"],
         "status": SUBMITTED,
-        "einwilligung.bestaetigt_am": None,
+        "einwilligung.bestaetigt_am": UNCONFIRMED_STAMP,
         # The deadline's own day still takes a link, as `link_is_over` reads it.
         "bestaetigung.frist": {"$gte": today},
         "bestaetigung.erinnert_am": None,
@@ -274,7 +275,7 @@ def registrierung_ist_bestaetigt(*, einwilligung: Any) -> bool:
     message went out rather than that anybody answered.
     """
 
-    return isinstance(einwilligung, Mapping) and bool(einwilligung.get("bestaetigt_am"))
+    return is_confirmed(einwilligung)
 
 
 # A reminder's fresh hash and the first mail's, both live, as an application's pair is: a pupil still
@@ -570,9 +571,9 @@ def compose_sweep_stamp(*, today: str) -> Mapping[str, Any]:
 # (`docs/backend/spec.md :: I295`).
 SWEEP_PAGE: Final = LIST_LIMIT_MAX
 
-# The consent stamp, at the path a null `einwilligung` and a null stamp both answer: matched against
-# null, a missing path matches too, which is what makes one term cover both stored shapes.
-_UNBESTAETIGT: Final[Mapping[str, Any]] = {"einwilligung.bestaetigt_am": None}
+# The consent stamp, at the path a null `einwilligung` and a null stamp both answer: `$in` with null
+# matches a missing path too, so one term covers both stored shapes and the empty stamp beside them.
+_UNBESTAETIGT: Final[Mapping[str, Any]] = {"einwilligung.bestaetigt_am": UNCONFIRMED_STAMP}
 
 
 def build_undecided_filter(*, saison_id: str) -> Mapping[str, Any]:
@@ -716,3 +717,12 @@ def compose_erinnerung_update(*, token_hash: str, bestaetigung: Any, today: str)
             "bestaetigung.erinnert_am": today,
         }
     }
+
+
+def compose_erinnerung_withheld(*, today: str) -> Mapping[str, Any]:
+    """The stamp alone, for a registration whose address the ban list holds: no link, and it leaves the reminder's read.
+
+    Left due, a page of barred rows would fill every pass's share and `refuse_a_stalled_page` would stop the pass.
+    """
+
+    return {"$set": {"bestaetigung.erinnert_am": today}}

@@ -186,7 +186,7 @@ export function renamedConfirmedSeatLabels(stored: SaisonTeamKontakteDraft | nul
 export function teamPageHref(teamId: string, saisonId: string): string {
   // The season rides along: the seats are season-scoped, and a link without it lands the admin on
   // whichever season that page falls back to.
-  return `/admin/teams/${teamId}?saison_id=${encodeURIComponent(saisonId)}`;
+  return `/bereich/admin/teams/${teamId}?saison_id=${encodeURIComponent(saisonId)}`;
 }
 
 /**

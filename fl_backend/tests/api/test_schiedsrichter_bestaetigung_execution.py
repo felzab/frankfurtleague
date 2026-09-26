@@ -841,6 +841,47 @@ class TestTheConfirmation:
         assert surviving == 0
 
 
+# A record a hand edit stamped `""`: every key the validator requires, which admits a string there.
+EMPTY_STAMPED: Mapping[str, Any] = {
+    "umfang": "intern",
+    "erteilt_von": SCHIEDSRICHTER_ERTEILT_VON,
+    "datum": "2026-03-01",
+    "bestaetigt_am": "",
+}
+
+
+class TestAStoredEmptyStamp:
+    """Every read of a stored referee record meets `""` either as absent or not at all, so none fails validation over it."""
+
+    def test_the_admin_list_serves_it_as_no_stamp(self, mongo_replica_set_url: str):
+        """`FLEinwilligung` reads the stamp as an optional date, which takes `""` for none."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            return await get_schiedsrichter(
+                schiedsrichter_collection=database[Collection.SCHIEDSRICHTER], filters=FLSchiedsrichterFilterParams()
+            )
+
+        listed = on_a_league(mongo_replica_set_url, body, referees=[{**referee_document(), EINWILLIGUNG_FELD: dict(EMPTY_STAMPED)}])
+
+        [served] = [row for row in listed.schiedsrichter if row.id == SCHIEDSRICHTER_OID]
+        assert served.einwilligung is not None
+        assert served.einwilligung.bestaetigt_am is None
+
+    def test_its_link_takes_the_answer_and_the_answer_carries_the_day(self, mongo_replica_set_url: str):
+        """The confirmation's answer is composed from the day it writes, never read off the stored stamp, which is what keeps `""` out of it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            response = await confirm(database, client, minted.bestaetigung.token)
+
+            return response, await stored(database)
+
+        response, row = on_a_league(mongo_replica_set_url, body, referees=[{**referee_document(), EINWILLIGUNG_FELD: dict(EMPTY_STAMPED)}])
+
+        assert response.bestaetigt_am == TODAY
+        assert row[EINWILLIGUNG_FELD]["bestaetigt_am"] == TODAY
+
+
 class TestAWithheldNameReachesOneCollection:
     """The scope has one home, so there is nothing to fan out and nothing on a fixture to fall out of step."""
 

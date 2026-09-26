@@ -13,10 +13,13 @@ doubleEveryAction();
    resolver the icon package's bare `./x` imports need as it evaluates, and a static import resolves first. */
 const { AdminShell } = await import("./AdminShell.tsx");
 const { ADMIN_SHELL_FALLBACK, ADMIN_SIDEMENU_STRUCTURE } = await import("../../constants.ts");
+const { ShellNotFound } = await import("@/shared/components/ui/ShellNotFound.tsx");
 
 /** The shell as the admin layout mounts it at one address, with nothing but a marker in its page slot. */
 const shellAt = (pathname: string): string =>
-  renderTree(underNext(h(AdminShell, { saisonMetadataDisplay: null, children: h("p", null, "Seiteninhalt") }), { pathname }));
+  renderTree(
+    underNext(h(AdminShell, { saisonMetadataDisplay: null, funktionSwitcher: null, children: h("p", null, "Seiteninhalt") }), { pathname }),
+  );
 
 /** The page's one heading, which is what a screen reader lands on first and what WCAG 2.4.6 judges. */
 function heading(html: string): string {
@@ -33,13 +36,13 @@ const LISTED = ADMIN_SIDEMENU_STRUCTURE.flatMap((group) => group.sub_options.map
 
 describe("the heading the admin shell puts over a page", () => {
   it("names a listed section by its nav entry, a detail route beneath it included", () => {
-    assert.equal(heading(shellAt("/admin/teams")), "Teams");
-    assert.equal(heading(shellAt("/admin/teams/6890a1b2c3d4e5f607190001")), "Teams");
+    assert.equal(heading(shellAt("/bereich/admin/teams")), "Teams");
+    assert.equal(heading(shellAt("/bereich/admin/teams/6890a1b2c3d4e5f607190001")), "Teams");
   });
 
   /* A heading names itself from its contents, so a hint inside it is read out as part of the page's name. */
   it("renders the page's hint beside the heading rather than inside it", () => {
-    const [, inside = "", after = ""] = /<h1[^>]*>([\s\S]*?)<\/h1>([\s\S]*)/.exec(shellAt("/admin/teams")) ?? [];
+    const [, inside = "", after = ""] = /<h1[^>]*>([\s\S]*?)<\/h1>([\s\S]*)/.exec(shellAt("/bereich/admin/teams")) ?? [];
 
     // Booleans rather than a match over `after`: a failing match prints the whole rendered page.
     assert.ok(!/<button|role="button"/.test(inside), "the heading holds a control");
@@ -51,12 +54,12 @@ describe("the heading the admin shell puts over a page", () => {
 
   /* The match editor has a route and no nav entry, there being no fixture index to link to. */
   it("names the match editor, which no nav entry lists", () => {
-    assert.equal(heading(shellAt("/admin/spiele/6890a1b2c3d4e5f607190001")), "Spiele");
+    assert.equal(heading(shellAt("/bereich/admin/spiele/6890a1b2c3d4e5f607190001")), "Spiele");
   });
 
   /* The catch-all's 404. Headed as a section, the page tells a screen reader it is somewhere it is not. */
   it("names no section over an address that belongs to none", () => {
-    const html = shellAt("/admin/zorbanax");
+    const html = shellAt("/bereich/admin/zorbanax");
     const title = heading(html);
 
     // First: an empty heading passes every absence below.
@@ -69,6 +72,32 @@ describe("the heading the admin shell puts over a page", () => {
 
   /* The segment is the address bar's, so a name `Object.prototype` holds must not select a member. */
   it("heads a prototype member's name as the unknown address it is", () => {
-    assert.equal(heading(shellAt("/admin/constructor")), heading(shellAt("/admin/zorbanax")));
+    assert.equal(heading(shellAt("/bereich/admin/constructor")), heading(shellAt("/bereich/admin/zorbanax")));
+  });
+});
+
+describe("the season the admin shell links under", () => {
+  /* Every admin page reads its season off the live url, so an entry or a 404's way out dropping it
+     returns the whole shell to the default season (`docs/frontend/spec.md :: I359`). */
+  it("carries the season onto every entry and onto its 404's way out", () => {
+    const html = renderTree(
+      underNext(
+        h(AdminShell, {
+          saisonMetadataDisplay: null,
+          funktionSwitcher: null,
+          children: h(ShellNotFound, { message: "Probe.", href: "/bereich/admin/probe", linkLabel: "Probe" }),
+        }),
+        { pathname: "/bereich/admin/zorbanax", search: "saison_id=2526" },
+      ),
+    );
+    const hrefs = [...html.matchAll(/href="(\/bereich\/admin\/[^"]*)"/g)].map((hit) => hit[1]!);
+
+    assert.ok(hrefs.includes("/bereich/admin/probe?saison_id=2526"), "the 404's way out drops the season");
+    assert.equal(hrefs.length, LISTED.length + 1, `the shell links ${String(hrefs.length)} admin addresses for its entries and one way out`);
+    assert.deepEqual(
+      hrefs.filter((href) => !href.endsWith("?saison_id=2526")),
+      [],
+      "these admin links drop the season",
+    );
   });
 });

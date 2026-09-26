@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { after, describe, it } from "node:test";
+import { registerHooks } from "node:module";
+import { after, beforeEach, describe, it } from "node:test";
 
 import {
   ADMIN_EMAIL,
@@ -11,6 +12,7 @@ import {
   registerAuthDoubles,
   seedLink,
 } from "./authDoubles.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "./cacheScope.ts";
 
 const STORE = "__flSubjectStore";
 const REQUEST_HEADERS = "__flSubjectRequestHeaders";
@@ -33,7 +35,13 @@ const CONFIG_DOUBLE = configDouble({
   INTERNAL_API_KEY_ADMIN: "fabricated-admin-not-a-credential",
 });
 
-const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};`;
+const HEADER_READS = "__flSubjectHeaderReads";
+
+/** Counts each arrival at the session read, which every uncached pass through the guard makes. */
+const HEADERS_DOUBLE = `export const headers = async () => {
+  globalThis.${HEADER_READS} = (globalThis.${HEADER_READS} ?? 0) + 1;
+  return globalThis.${REQUEST_HEADERS};
+};`;
 
 registerAuthDoubles({
   core: { config: CONFIG_DOUBLE },
@@ -61,9 +69,11 @@ type Subjekt = {
   sitze: { saison_id: string; team_id: string; rolle: string; team_name: string; saison_status: string }[];
   spieler: { spieler_id: string }[];
   schiedsrichter: { schiedsrichter_id: string }[];
+  unbestaetigt: boolean;
+  gesperrt: boolean;
 };
 
-const empty = (): Subjekt => ({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [] });
+const empty = (): Subjekt => ({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false });
 
 const SEAT = { saison_id: "2025/26", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" };
 const PUPIL = { spieler_id: "b".repeat(24) };
@@ -111,6 +121,22 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
 }) as typeof globalThis.fetch;
 after(() => {
   globalThis.fetch = ORIGINAL_FETCH;
+});
+
+// The server build for `subject.ts` alone, as Next renders it: the client build's `cache` passes
+// through, so a guard that lost its memo would read the same under every case here.
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === "react" && context.parentURL?.endsWith("/src/core/subject.ts") === true)
+      return { url: SERVER_REACT_URL, shortCircuit: true };
+    return nextResolve(specifier, context);
+  },
+});
+
+// Every case is a request of its own, and a memo carried across two would answer one case with
+// another's session.
+beforeEach(() => {
+  beginRenderPass();
 });
 
 // Imported here rather than at the top: a static import resolves before the hooks above are
@@ -162,6 +188,9 @@ async function guardInScope(): Promise<{ answer: Awaited<ReturnType<typeof getSu
   });
 }
 
+/** Zero before any case has reached the session read, so a case run alone still counts. */
+const headerReads = (): number => Number(globals[HEADER_READS] ?? 0);
+
 const lastSent = (): Sent => {
   const call = sent.at(-1);
   assert.ok(call !== undefined, "the guard put no request on the wire");
@@ -180,9 +209,9 @@ describe("who the seam answers for", () => {
 
   /* `admin` is the administrator's whole verdict, so a page may gate an administrator-only control
      on it: the allowlist alone answers `true` for sessions that lane refuses. */
-  it("answers an allowlisted session its seat, and marks a link-borne one no administrator", async () => {
+  it("answers an allowlisted session its seat, and marks a code-borne one no administrator", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    assert.equal(row.authFactor, "link", "the link's own verification did not stamp the factor");
+    assert.equal(row.authFactor, "code", "the mailbox factor's own verification did not stamp it");
     arriveAs(cookie);
 
     const answer = await getSubjectSession();
@@ -213,20 +242,68 @@ describe("who the seam answers for", () => {
   });
 
   /* The envelope stops here: `acknowledged` says a write landed, which is nothing a panel reading
-     three lists of records can act on. */
-  it("answers the three lists alone, carrying no transport envelope", async () => {
+     records can act on. */
+  it("answers the three lists and the two flags alone, carrying no transport envelope", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
     arriveAs(cookie);
 
     const answer = await getSubjectSession();
 
     assert.ok(answer);
-    assert.deepEqual(Object.keys(answer.subjekt).sort(), ["schiedsrichter", "sitze", "spieler"]);
+    assert.deepEqual(Object.keys(answer.subjekt).sort(), ["gesperrt", "schiedsrichter", "sitze", "spieler", "unbestaetigt"]);
   });
 
-  /* The case the seam exists for: no link reaches such an address while the allowlist gates the
-     sign-in, so the row a link would have written is seeded and the library's own verification
-     mints the session over it. */
+  /* Raised on a body carrying no record, which is the only shape the lookup sets it on: the landing
+     tells that person to confirm rather than that the league holds nothing of theirs. */
+  it("carries the lookup's pending flag as the lookup answered it", async () => {
+    const { cookie } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie);
+    nextAnswer = new Response(
+      JSON.stringify({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: true, gesperrt: false }),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      },
+    );
+
+    assert.equal((await getSubjectSession())?.subjekt.unbestaetigt, true);
+  });
+
+  /* The person the flag tells apart: no record anywhere, whom the landing tells the league holds
+     nothing of theirs rather than to confirm. */
+  it("carries a lowered pending flag where the lookup matched nothing at all", async () => {
+    const { cookie } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie);
+    nextAnswer = new Response(
+      JSON.stringify({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false }),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      },
+    );
+
+    assert.equal((await getSubjectSession())?.subjekt.unbestaetigt, false);
+  });
+
+  /* A session the ban's own ending missed, or one minted racing it, is refused on the request itself;
+     the guard then answers it as a visitor, and the sign-in gate refuses it the next sign-in. */
+  it("answers a barred subject no session, and records no actor for it", async () => {
+    const { cookie } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie);
+    nextAnswer = new Response(
+      JSON.stringify({ acknowledged: 1, sitze: [], spieler: [PUPIL], schiedsrichter: [], unbestaetigt: false, gesperrt: true }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+
+    const { answer, actor } = await guardInScope();
+
+    assert.equal(answer, null);
+    assert.equal(actor, undefined);
+  });
+
+  /* The case the seam exists for. The link is seeded rather than sent, whether one reaches such an
+     address being the send gate's question and `fl_frontend/src/core/auth.test.ts`'s subject, and
+     the library's own verification mints the session over it. */
   it("answers an address the allowlist refuses, unmarked, with the records it names", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
@@ -353,6 +430,8 @@ describe("a session the store cannot answer for", () => {
     arriveAs(cookie);
 
     for (const blank of ["", "   "]) {
+      // A request each: the second would otherwise be answered from the first one's memo.
+      beginRenderPass();
       const before = sent.length;
 
       user.email = blank;
@@ -382,9 +461,9 @@ describe("a session the store cannot answer for", () => {
 });
 
 describe("the person's two lifetimes, compared in this guard as well as the other", () => {
-  it("answers nothing for a session thirty-one days idle, and sends the same session to the sign-in", async () => {
+  it("answers nothing for a session fifteen days idle, and sends the same session to the sign-in", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
-    ageRow(row, { created: 31 * DAY_MS, idle: 31 * DAY_MS });
+    ageRow(row, { created: 15 * DAY_MS, idle: 15 * DAY_MS });
     arriveAs(cookie);
 
     const { answer, actor } = await guardInScope();
@@ -396,9 +475,9 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
 
   /* The case that fails first if the absolute cap is dropped as redundant: a session kept sliding
      never reaches the idle window at all. */
-  it("answers nothing for a session ninety-one days old however recently it was used", async () => {
+  it("answers nothing for a session thirty-one days old however recently it was used", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
-    ageRow(row, { created: 91 * DAY_MS });
+    ageRow(row, { created: 31 * DAY_MS });
     arriveAs(cookie);
 
     const { answer, actor } = await guardInScope();
@@ -408,12 +487,42 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
     assert.equal(await getSignInDestination(), "/signin", "the two copies of the absolute figure answer differently");
   });
 
-  it("serves a session twenty-nine days idle, so the two cases above are the windows and not the harness", async () => {
+  it("serves a session thirteen days idle and twenty-nine old, so the two cases above are the windows and not the harness", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
-    ageRow(row, { created: 29 * DAY_MS, idle: 29 * DAY_MS });
+    ageRow(row, { created: 29 * DAY_MS, idle: 13 * DAY_MS });
     arriveAs(cookie);
 
     assert.ok(await getSubjectSession());
-    assert.equal(await getSignInDestination(), "/");
+    assert.equal(await getSignInDestination(), "/bereich");
+  });
+});
+
+describe("the guard across one render pass", () => {
+  /* First, so a scope that failed to take fails here rather than under the count below. */
+  itOpensAScopeThatMemoizes();
+
+  /* A layout, a guard and a page each asking inside one render pass. */
+  it("reads the session and asks the backend once for every guard of one render pass", async () => {
+    const { cookie } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie);
+    const readsBefore = headerReads();
+    const sentBefore = sent.length;
+
+    const answers = await runWithRequestScope({ traceId: "0".repeat(31) + "1", spanId: "0".repeat(15) + "1" }, () =>
+      Promise.all([getSubjectSession(), getSubjectSession(), getSubjectSession()]),
+    );
+
+    assert.ok(
+      answers.every((answer) => answer?.email === PERSON_EMAIL),
+      "a guard was refused, so the counts below count refusals",
+    );
+    assert.equal(headerReads() - readsBefore, 1, "the guards of one render pass each read the session");
+    assert.equal(sent.length - sentBefore, 1, "the guards of one render pass each asked the backend");
+
+    // The control: the next request is a new pass and reads again, so the counters count reads.
+    beginRenderPass();
+    await getSubjectSession();
+    assert.equal(headerReads() - readsBefore, 2, "a second request was answered from the first one's read");
+    assert.equal(sent.length - sentBefore, 2, "a second request was answered from the first one's lookup");
   });
 });

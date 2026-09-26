@@ -8,7 +8,7 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from app.api.spieler import schemas as spieler_schemas
-from app.core.security import MISSING_TOKEN, verify_access_admin, verify_access_base, verify_access_system
+from app.core.security import MISSING_TOKEN, bind_actor, verify_access_admin, verify_access_base, verify_access_system, verify_actor_is_admin
 from app.main import create_app
 from tests.config import build_test_config
 from tests.core.app_source import api_routes
@@ -183,6 +183,39 @@ def test_every_operation_carries_exactly_one_guard(path: str, method: str):
         return
 
     assert len(guards) == 1, f"{method.upper()} {path} carries {len(guards)} guards: {guards}"
+
+
+# The operations a signed-in person reaches on the admin key through `PERSON_ACTOR_BINDERS`, whose actor
+# is a person no allowlist holds: the one exemption from the check below, by name. Empty until the
+# first router serving a person is mounted.
+PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset()
+
+# Derived from the guard, as every tier here is, so a router added later is swept without being listed.
+ADMIN_TIER_OPERATIONS = [
+    operation
+    for operation in PUBLISHED_OPERATIONS
+    if guards_of(ROUTES_BY_OPERATION[operation]) == {verify_access_admin} and operation not in PERSON_OPERATIONS
+]
+
+
+@pytest.mark.parametrize(("path", "method"), ADMIN_TIER_OPERATIONS, ids=lambda value: value)
+def test_every_admin_tier_operation_judges_its_actor_after_the_key(path: str, method: str):
+    """Every method, a read among them: a person's session reaches an admin read as it reaches a write.
+
+    After the key, or a caller holding none learns from a 403 which addresses are administrators.
+    """
+    calls = [dependency.call for dependency in ROUTES_BY_OPERATION[(path, method)].dependant.dependencies]
+
+    assert verify_actor_is_admin in calls, f"{method.upper()} {path} judges no actor against the allowlist"
+    assert calls.index(verify_access_admin) < calls.index(verify_actor_is_admin), f"{method.upper()} {path} judges its actor before its key"
+    # The allowlist passes a request naming nobody, so without the binder that one is served.
+    assert bind_actor in calls, f"{method.upper()} {path} refuses no request naming nobody"
+    assert calls.index(verify_access_admin) < calls.index(bind_actor), f"{method.upper()} {path} asks for its actor before its key"
+
+
+def test_the_person_exemption_names_only_published_operations():
+    """A stale entry would exempt nothing while reading as a decision."""
+    assert set(PERSON_OPERATIONS) <= set(PUBLISHED_OPERATIONS), f"{sorted(set(PERSON_OPERATIONS) - set(PUBLISHED_OPERATIONS))} is not published"
 
 
 def test_every_guard_this_file_knows_names_a_tier():

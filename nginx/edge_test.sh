@@ -268,7 +268,7 @@ CASES=(
   "KEEP|${BASE}/signin?error=Verification|error=Verification"
   "KEEP|${BASE}/api/bewerbung/kuerzel?q=ABC|q=ABC"
   "KEEP|${BASE}/teams?saison_id=abc&shorthand=FCB|shorthand=FCB"
-  "KEEP|${BASE}/admin/spiele?saison_id=abc|saison_id=abc"
+  "KEEP|${BASE}/bereich/admin/spiele?saison_id=abc|saison_id=abc"
 
   # A control over the CLIENT: it fails when `--path-as-is` stops taking effect, and every
   # spelling above is then graded on a path nginx never received.

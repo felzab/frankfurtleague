@@ -366,7 +366,7 @@ describe("the season parameter this list owns", () => {
     );
   });
 
-  /* `/admin/teams` labels its season facet identically and answers it in other words. A third list
+  /* `/bereich/admin/teams` labels its season facet identically and answers it in other words. A third list
      spelling this parameter would send links here whose values this facet has no row for, answered
      with the default rather than with what the link meant. */
   it("is spelled by no other list, whatever that list means by it", () => {

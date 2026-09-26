@@ -5,8 +5,10 @@ One function computes the stored form, so a write and every later check hash und
 spelling would file rows no check can match, and nothing would report it.
 """
 
+import contextlib
 import hashlib
 import hmac
+from collections.abc import Iterable
 from http import HTTPStatus
 from typing import Final
 
@@ -15,6 +17,7 @@ from pydantic import SecretStr
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import canonical_address
 from app.shared.schemas.bounds import SAISON_ID_LENGTH, SPERRE_DAUER_SAISONS
+from app.shared.sub_keys import derive_sub_key
 
 # One code over two readers: each slice words it for its own, an administrator being told plainly
 # what a visitor is told neutrally (`.claude/rules/cross-surface.md`).
@@ -22,15 +25,12 @@ SPERRLISTE_ADRESSE_GESPERRT = "REQ-SPERRLISTE-001"
 
 SPERRLISTE_KEINE_SAISON = "REQ-SPERRLISTE-002"
 
-# One label per purpose: the same master keys a second corpus in a later programme, and a mistake
-# in one must not read the other. Not a rotation scheme (`docs/backend/spec.md :: 1.5`).
+SPERRLISTE_VERWALTUNG = "REQ-SPERRLISTE-003"
+
+# One label per purpose: the same master keys the action log's pseudonyms
+# (`app/core/security.py :: AKTEUR_PSEUDONYM_VERSION`), and a mistake in one must not read the other.
+# Not a rotation scheme (`docs/backend/spec.md :: 1.5`).
 SPERRLISTE_SCHLUESSEL_VERSION: Final = "sperrliste-v1"
-
-
-def _sub_key(master: SecretStr) -> bytes:
-    """Derived per call rather than memoised: a cache keyed on the master holds the secret in a module-level dict for the process's life."""
-
-    return hmac.new(master.get_secret_value().encode("utf-8"), SPERRLISTE_SCHLUESSEL_VERSION.encode("utf-8"), hashlib.sha256).digest()
 
 
 def adresse_hash(address: str, *, schluessel: SecretStr) -> str:
@@ -42,7 +42,9 @@ def adresse_hash(address: str, *, schluessel: SecretStr) -> str:
 
     # The rule every address payload runs too (`app/shared/schemas/kontakt.py :: CustomEmail`), so an
     # address a payload admitted keys a ban rather than answering 500.
-    return hmac.new(_sub_key(schluessel), canonical_address(address).encode("utf-8"), hashlib.sha256).hexdigest()
+    return hmac.new(
+        derive_sub_key(schluessel, SPERRLISTE_SCHLUESSEL_VERSION), canonical_address(address).encode("utf-8"), hashlib.sha256
+    ).hexdigest()
 
 
 def compose_gesperrt_bis_saison_id(*, massgebliche_saison_id: str) -> str:
@@ -81,6 +83,39 @@ def find_keine_saison_refusal(*, massgebliche_saison_id: str | None) -> WriteRef
         error_code=SPERRLISTE_KEINE_SAISON,
         status=HTTPStatus.CONFLICT,
         message="a ban lapses after five seasons and no season is running, so there is no season to count them from",
+    )
+
+
+def verwaltung_hashes(administrators: Iterable[str], *, schluessel: SecretStr) -> set[str]:
+    """Each administrator's address as a ban is keyed.
+
+    Hashes rather than sign-in identifiers: a ban bars by its hash, and the two folds read a domain
+    differently.
+    """
+
+    hashes: set[str] = set()
+    for administrator in administrators:
+        # An entry the address rule refuses is left out: no ban can key it either.
+        with contextlib.suppress(ValueError):
+            hashes.add(adresse_hash(administrator, schluessel=schluessel))
+
+    return hashes
+
+
+def find_verwaltung_refusal(*, gehasht: str, verwaltung: set[str]) -> WriteRefusal | None:
+    """`REQ-SPERRLISTE-003`: the address belongs to an administrator, who is taken off the allowlist first.
+
+    The target's state, so 409: the ban is refused for what the address is, and removing the
+    administration is what changes it.
+    """
+
+    if gehasht not in verwaltung:
+        return None
+
+    return WriteRefusal(
+        error_code=SPERRLISTE_VERWALTUNG,
+        status=HTTPStatus.CONFLICT,
+        message="this email address belongs to an administrator; remove it from ALLOWED_ADMIN_EMAILS before banning it",
     )
 
 

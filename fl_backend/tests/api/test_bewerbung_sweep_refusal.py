@@ -174,6 +174,13 @@ class TestTheReminderMark:
 
         assert not seat_reminder_is_due(kontakte=kontakte_block, bestaetigungen=bookkeeping, seat="trainer", today=TODAY), why
 
+    def test_a_seat_stamped_empty_is_still_reminded(self):
+        """`is_confirmed` reads `""` as no confirmation (`docs/backend/spec.md :: I387`), so the seat is still owed its one chase."""
+
+        empty = kontakte(trainer=kontaktperson_document("Quillhilde", bestaetigt_am=""))
+
+        assert seat_reminder_is_due(kontakte=empty, bestaetigungen=bestaetigungen(), seat="trainer", today=TODAY)
+
     def test_a_re_sent_seat_reaches_its_own_mark_later(self):
         """A re-send moves `verschickt_am`, so that seat is reminded on its own day while the others go now."""
 
@@ -261,7 +268,7 @@ class TestWhatAReminderWrites:
     """
 
     def test_the_stamp_the_fresh_hash_and_the_kept_hash_and_nothing_else(self):
-        update = compose_erinnerung_update(hashes={"trainer": "fresh"}, bestaetigungen=bestaetigungen(), today=TODAY)
+        update = compose_erinnerung_update(hashes={"trainer": "fresh"}, withheld=[], bestaetigungen=bestaetigungen(), today=TODAY)
 
         assert update == {
             "$set": {
@@ -272,7 +279,9 @@ class TestWhatAReminderWrites:
         }
 
     def test_two_seats_take_two_fresh_hashes(self):
-        update = compose_erinnerung_update(hashes={"trainer": "a", "stellvertretung": "b"}, bestaetigungen=bestaetigungen(), today=TODAY)
+        update = compose_erinnerung_update(
+            hashes={"trainer": "a", "stellvertretung": "b"}, withheld=[], bestaetigungen=bestaetigungen(), today=TODAY
+        )
 
         assert {key.split(".")[1] for key in update["$set"]} == {"trainer", "stellvertretung"}
         assert len(update["$set"]) == 6
@@ -314,6 +323,14 @@ class TestTheFourteenDayClock:
 
         stamped = kontakte(**{seat: kontaktperson_document(seat.title(), bestaetigt_am=YESTERDAY) for seat in KONTAKT_SEATS})
         stamped[emptied] = None
+
+        assert deletion_is_due(bewerbung_raw=application(bestaetigungsfrist=YESTERDAY, kontakte=stamped), today=TODAY)
+
+    def test_a_seat_stamped_empty_counts_as_outstanding(self):
+        """Otherwise an application nobody can accept outlives its deadline for the length of the season."""
+
+        stamped = kontakte(**{seat: kontaktperson_document(seat.title(), bestaetigt_am=YESTERDAY) for seat in KONTAKT_SEATS})
+        stamped["trainer"] = kontaktperson_document("Trainer", bestaetigt_am="")
 
         assert deletion_is_due(bewerbung_raw=application(bestaetigungsfrist=YESTERDAY, kontakte=stamped), today=TODAY)
 

@@ -64,7 +64,7 @@ describe("whether a page shows a finished season", () => {
 });
 
 /* The order every admin page and the admin header's default resolve in (`docs/frontend/spec.md ::
-   I359`); `fl_frontend/src/app/admin/omittedSaison.test.ts` renders the header against the pages. */
+   I359`); `fl_frontend/src/app/bereich/admin/omittedSaison.test.ts` renders the header against the pages. */
 describe("which season a page addresses", () => {
   const PAST = { id: "2025", status: "past" } as const;
   const ACTIVE = { id: "2026", status: "active" } as const;

@@ -64,9 +64,10 @@ from app.core.logging import setup_custom_logger
 from app.core.middlewares import TraceContextMiddleware
 from app.core.routing import ObjectIdConvertor
 from app.core.security import (
+    ACTOR_NOT_ADMIN,
     MISSING_ACTOR,
     MISSING_TOKEN,
-    SAFE_METHODS,
+    PERSON_ACTOR_BINDERS,
     WRONG_ADMIN_KEY,
     WRONG_BASE_KEY,
     WRONG_SYSTEM_KEY,
@@ -75,12 +76,13 @@ from app.core.security import (
     verify_access_admin,
     verify_access_base,
     verify_access_system,
+    verify_actor_is_admin,
 )
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
-# Split by tier and by `bind_actor`, never by method: `spielorte`, `schiedsrichter` and the ADMIN
-# `bewerbungen` router read under `verify_access_admin`, the rest under `verify_access_base`. Order
-# carries nothing here (`app/core/routing.py`).
+# Split by whether a router writes, never by method: `spielorte`, `schiedsrichter`, `registrierungen`
+# and the ADMIN `bewerbungen` router read under `verify_access_admin`, the rest under
+# `verify_access_base`. Order carries nothing here (`app/core/routing.py`).
 READ_ROUTERS = (
     spiele_router,
     teams_router,
@@ -138,11 +140,12 @@ DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
     verify_access_admin: (HTTPStatus.UNAUTHORIZED, WRONG_ADMIN_KEY),
     verify_access_system: (HTTPStatus.UNAUTHORIZED, WRONG_SYSTEM_KEY),
     bind_actor: (HTTPStatus.BAD_REQUEST, MISSING_ACTOR),
+    # Every method: a header present on a read is judged as on a write (`app/core/security.py :: verify_actor_is_admin`).
+    verify_actor_is_admin: (HTTPStatus.FORBIDDEN, ACTOR_NOT_ADMIN),
+    **{binder: (HTTPStatus.BAD_REQUEST, MISSING_ACTOR) for binder in PERSON_ACTOR_BINDERS.values()},
     get_db_client: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
     get_database: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
 }
-# Refusing on a write alone, a read passing whatever it carries (`app/core/security.py :: bind_actor`).
-WRITE_ONLY_DEPENDENCIES = frozenset({bind_actor})
 UNGUARDED_TIER = "none"
 
 STORES_NOTHING_EXTENSION = "x-fl-stores-nothing"
@@ -360,8 +363,6 @@ def dependency_refusals(app: FastAPI) -> dict[Operation, Refusals]:
         refusing = set(_dependency_calls(route.dependant)) & DEPENDENCY_REFUSALS.keys()
         for operation in route.operations:
             for call in refusing:
-                if call in WRITE_ONLY_DEPENDENCIES and operation[1].upper() in SAFE_METHODS:
-                    continue
                 status, code = DEPENDENCY_REFUSALS[call]
                 found.setdefault(operation, {}).setdefault(status, set()).add(code)
 

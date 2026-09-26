@@ -25,7 +25,7 @@ from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_fr
 from app.core.dependencies import BewerbungenCollection
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
-from app.core.security import verify_access_admin
+from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # Admin-guarded, not base, as `schiedsrichter` is: an application carries three people's names,
@@ -35,7 +35,7 @@ from app.shared.schemas.custom import CustomRouteObjectId
 # `public_router.py` shares this prefix at base tier and reads no stored application.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/bewerbungen",
-    dependencies=[Depends(verify_access_admin)],
+    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
 # `Query()` and never `Depends()`: on a `Depends()` model a `list` field is read as a BODY field, so

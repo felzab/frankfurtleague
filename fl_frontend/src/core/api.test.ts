@@ -33,7 +33,7 @@ registerHooks({
 });
 
 const { apiClient } = await import("./api.ts");
-const { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } = await import("./errors.ts");
+const { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, UnattributedAdminCallError } = await import("./errors.ts");
 const { REQUEST_DEADLINE_MS, requestOutcomeUnknown, requestWriteSent, runWithRequestScope } = await import("./requestScope.ts");
 const { ACTOR_HEADER, readTraceparent, TRACEPARENT_HEADER } = await import("./trace.ts");
 
@@ -161,6 +161,20 @@ describe("the two headers this hop sets", () => {
       apiClient("/saisons", z.array(z.unknown()), { headers: { ...CALLER_HEADERS } }),
     );
     assert.equal(new Headers(sends.at(-1)?.init.headers).get(ACTOR_HEADER), null);
+  });
+
+  // The backend refuses it on arrival (REQ-AUTH-005), and the sweep over every query relies on this
+  // refusal to name a read that opened outside `runAdminRead`. A caller's own header names nobody.
+  it("refuses an admin call whose scope names nobody before anything is sent", async () => {
+    await assert.rejects(
+      runWithRequestScope({ traceId: TRACE, spanId: SPAN }, () =>
+        apiClient("/saisons", z.array(z.unknown()), { authType: "admin", headers: { ...CALLER_HEADERS } }),
+      ),
+      UnattributedAdminCallError,
+    );
+    await assert.rejects(apiClient("/saisons", z.array(z.unknown()), { authType: "admin" }), UnattributedAdminCallError);
+
+    assert.deepEqual(sends, []);
   });
 
   it("keeps a header the caller passes that this hop does not mint", async () => {

@@ -15,7 +15,7 @@ import { toFieldErrors } from "@/shared/utils/validation";
 
 import type { FormState } from "@/shared/types/types";
 
-// Deliberately identical whether or not the address is allowlisted: this action is public, so a
+// Deliberately identical whether or not the send gate admits the address: this action is public, so a
 // distinguishable "not authorized" is a membership oracle.
 
 // `submittedEmail` reaches the panel that names where the link went, so it is the folded address a
@@ -55,14 +55,14 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
     const requestHeaders = await headers();
 
     // Folded HERE, which is the boundary: below this line the verification row, the mailed
-    // recipient, the allowlist gate and the stored `user` row all carry one string.
+    // recipient, the send gate and the stored `user` row all carry one string.
 
     // The library folds CASE alone and refuses a Unicode domain, so the punycode the fold converts
-    // one to is the only spelling in which that administrator signs in at all.
+    // one to is the only spelling in which that address signs in at all.
     const email = asSignInIdentifier(validated.data.email);
 
-    // The whole call, behind the response: the allowlist gate, the token write and the send all
-    // sit in the branch-dependent half, so no branch does any of it before the caller is answered.
+    // The whole call, behind the response: the token write, the send gate and the send all sit in
+    // the branch-dependent half, so no branch does any of it before the caller is answered.
     after(async () => {
       try {
         // No `callbackURL`: the plugin spends it building a `url` this application discards, and a

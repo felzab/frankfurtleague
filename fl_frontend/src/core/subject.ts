@@ -1,20 +1,26 @@
 import "server-only";
 
+import { cache } from "react";
 import { headers } from "next/headers";
 
-import { apiClient } from "./api";
 import { auth, isAdminSession, isWithinPersonLifetime } from "./auth";
 import { asSignInIdentifier } from "./emailAddress";
 import { setRequestActor } from "./requestScope";
-import { FLSubjektResponseSchema } from "./schemas";
+import { lookUpSubjekt } from "./signInGate";
 
-import type { FLSubjektPayload, FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler } from "./schemas";
+import type { FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler } from "./schemas";
 
 /** Read-only to the depth a panel reaches: what the league holds is the endpoint's to change. */
 type SubjectRecords = {
   readonly sitze: readonly Readonly<FLSubjektSitz>[];
   readonly spieler: readonly Readonly<FLSubjektSpieler>[];
   readonly schiedsrichter: readonly Readonly<FLSubjektSchiedsrichter>[];
+  // Beside the lists rather than read off them: the lookup drops every unconfirmed record, so empty
+  // lists alone cannot tell a person awaiting confirmation from one the league holds nothing for.
+  readonly unbestaetigt: boolean;
+  // The backend's own verdict, never recomputed here; `getSubjectSession` serves no subject that
+  // carries it set, so only the sign-in gate ever reads it `true`.
+  readonly gesperrt: boolean;
 };
 
 /**
@@ -23,15 +29,14 @@ type SubjectRecords = {
  */
 export type SubjectSession = { readonly email: string; readonly admin: boolean; readonly subjekt: SubjectRecords };
 
-// Both guards on one request is a programming error rather than a shape to support, and
-// `fl_frontend/src/core/requestScope.ts :: setRequestActor` refuses the second actor
-// (`docs/frontend/spec.md :: I272`).
+// React's `cache`, never `"use cache"`, which would hand one request's session to another: a layout,
+// a guard and a page of one render pass share one session read and one lookup.
 /**
- * `null` where no readable session stands; every backend failure throws, so the panel takes an
- * error boundary rather than a sign-in nobody needs. A server action calling this wraps that throw
- * (`docs/logging/spec.md :: L6`).
+ * `null` where no readable session stands, or its subject is barred; every backend failure throws,
+ * so the panel takes an error boundary rather than a sign-in nobody needs. A server action calling
+ * this wraps that throw (`docs/logging/spec.md :: L6`).
  */
-export async function getSubjectSession(): Promise<SubjectSession | null> {
+export const getSubjectSession = cache(async (): Promise<SubjectSession | null> => {
   const served = await auth.api.getSession({ headers: await headers() });
   // Both figures here as well as at `getAdminSession`: a lane that skips them is a lane in which
   // the cap does not exist.
@@ -45,25 +50,17 @@ export async function getSubjectSession(): Promise<SubjectSession | null> {
   // empty one is refused here rather than at the endpoint, which answers 422.
   if (email === "") return null;
 
+  // The records and the two flags, never the parsed body (`fl_frontend/src/core/signInGate.ts :: lookUpSubjekt`).
+  const subjekt = await lookUpSubjekt(email);
+
+  // On every request rather than only at the ban: a session minted racing the ban, or one its ending
+  // missed, is no session here (`docs/frontend/spec.md :: I406`). An administrator is never barred.
+  if (subjekt.gesperrt) return null;
+
   // Set here rather than at the write: `fl_backend/app/core/security.py :: bind_actor` refuses a
-  // person's write carrying no actor.
+  // person's write carrying no actor. Both guards on one request is a programming error, so the
+  // second actor throws (`docs/frontend/spec.md :: I272`).
   setRequestActor(email);
 
-  const payload: FLSubjektPayload = { email: email };
-  // In the body and on no query parameter: a URL carrying an address reaches the edge's access
-  // line, which nothing downstream un-logs (`docs/logging/spec.md :: L11`).
-  const subjekt = await apiClient("/identitaet/subjekt", FLSubjektResponseSchema, {
-    method: "POST",
-    readOnly: true,
-    authType: "system",
-    body: JSON.stringify(payload),
-  });
-
-  // The three lists and not the parsed body: `acknowledged` is the transport saying a write landed,
-  // which a panel reading records has nothing to do with.
-  return {
-    email: email,
-    admin: isAdminSession(served),
-    subjekt: { sitze: subjekt.sitze, spieler: subjekt.spieler, schiedsrichter: subjekt.schiedsrichter },
-  };
-}
+  return { email: email, admin: isAdminSession(served), subjekt: subjekt };
+});

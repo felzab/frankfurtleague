@@ -29,7 +29,7 @@ export function AppTopBar({
   onToggleMobileMenu: () => void;
   /** Only to size the brand block to the rail beneath it — the bar has no collapse control of its own. */
   isDesktopCollapsed: boolean;
-  /** Forwarded to the options menu; only the admin shell supplies one. */
+  /** Forwarded to the options menu; a shell for the public dashboard supplies none. */
   onSignOut?: () => Promise<FormState>;
 }) {
   // Hoisted out of the class template because the Tailwind lint cannot read a class string through an

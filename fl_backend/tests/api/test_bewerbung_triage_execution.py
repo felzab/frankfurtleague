@@ -32,6 +32,7 @@ from app.api.bewerbungen.schemas import (
 from app.api.bewerbungen.services import (
     BEWERBUNG_ALREADY_DECIDED,
     BEWERBUNG_KONTAKT_EMAIL_TAKEN,
+    BEWERBUNG_KONTAKT_GESPERRT,
     BEWERBUNG_KONTAKTE_UNCONFIRMED,
     BEWERBUNG_SCHULE_UNUSABLE,
     BEWERBUNG_SEAT_ALREADY_ANSWERED,
@@ -46,6 +47,7 @@ from app.api.bewerbungen.services import (
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
 from app.api.kontakte.admin_router import erase_kontaktperson
 from app.api.kontakte.schemas import FLKontaktErasurePayload
+from app.api.sperrliste.services import adresse_hash, compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import post_team
 from app.api.teams.schemas import FLPostTeamPayload
 from app.api.teams.services import CLUB_RETIRED, ENTRY_GRUPPE_FULL, ENTRY_SAISON_NOT_FUTURE, UNCONFIRMED_HERKUNFT
@@ -56,7 +58,7 @@ from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.core.security import ACTOR_HEADER
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH
+from tests.config import ADMIN_AUTH, build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
 from tests.worker import worker_database
@@ -335,7 +337,7 @@ class TestAnAcceptanceEntersTheSchool:
         assert (rows[0]["team_id"], rows[0]["name"], rows[0]["shorthand"]) == (EXISTING_OID, EXISTING_NAME, EXISTING_SHORTHAND)
 
     def test_the_three_people_reach_the_junction_row_without_a_date_no_seat_of_theirs_stamped(self, mongo_replica_set_url: str):
-        """They arrive WITH the season's row rather than being typed in after it, which is what `/admin/kontakte` then reads.
+        """They arrive WITH the season's row rather than being typed in after it, which is what `/bereich/admin/kontakte` then reads.
 
         The seeded corpus is a pre-flow application, whose dates its applicant gave for three other
         people.
@@ -1203,6 +1205,23 @@ CORRECTION_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000a")
 
 CORRECTED_EMAIL = "sekretariat@zorbanax.example.de"
 
+CONFIG = build_test_config()
+
+
+def ban_document(address: str) -> dict[str, Any]:
+    """One ban as the shipped write stores it, keyed under the suite's own settings and bounded from this season."""
+
+    return {
+        "_id": ObjectId(),
+        "adresse_hash": adresse_hash(address, schluessel=CONFIG.sperrliste_schluessel),
+        "schluessel_version": "sperrliste-v1",
+        "grund": "Falsches Geburtsdatum bei der Anmeldung",
+        "erstellt_von": "admin@frankfurtleague.de",
+        "erstellt_am": "2026-03-15",
+        "gesperrt_bis_saison_id": compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID),
+    }
+
+
 REFUSED_MESSAGE = "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"
 
 
@@ -1212,7 +1231,10 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, seat: str, 
         seat=seat,
         email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": email}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        saisons_collection=database[Collection.SAISONS],
+        sperrliste_collection=database[Collection.SPERRLISTE],
         db=client,
+        config=CONFIG,
         today=TODAY,
     )
 
@@ -1500,6 +1522,9 @@ async def resend(database: AsyncDatabase, seat: str, *, as_read: Mapping[str, An
         bewerbung_id=ERNEUT_BEWERBUNG,
         seat=seat,
         bewerbungen_collection=collection if as_read is None else as_the_loser_read_it(collection, as_read),
+        saisons_collection=database[Collection.SAISONS],
+        sperrliste_collection=database[Collection.SPERRLISTE],
+        config=CONFIG,
         today=TODAY,
     )
 
@@ -1588,7 +1613,10 @@ class TestAResendRacingAnAnswer:
                 seat="ansprechperson",
                 email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": CORRECTED_EMAIL}),
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                saisons_collection=database[Collection.SAISONS],
+                sperrliste_collection=database[Collection.SPERRLISTE],
                 db=client,
+                config=CONFIG,
                 today=TODAY,
             )
             response = await resend(database, "ansprechperson", as_read=as_read)
@@ -1669,7 +1697,10 @@ async def reseat(database: AsyncDatabase, client: AsyncMongoClient, seat: str, *
         seat=seat,
         sitz_data=FLBewerbungKontaktSitzPayload.model_validate({**RESEAT_PERSON, "email": email, "text_version": RESEAT_TEXT_VERSION}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        saisons_collection=database[Collection.SAISONS],
+        sperrliste_collection=database[Collection.SPERRLISTE],
         db=client,
+        config=CONFIG,
         today=TODAY,
     )
 
@@ -1714,6 +1745,24 @@ async def seed_an_application_a_seat_was_declined_on(database: AsyncDatabase, cl
         )
     )
     await answer_for(database, client, "ansprechperson")
+
+
+class TestAResendToASeatStampedEmpty:
+    """`is_confirmed` reads `""` as unconfirmed (`docs/backend/spec.md :: I387`), and the re-send's filter reads it the same way."""
+
+    def test_the_link_is_minted_rather_than_answered_404(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await seed_an_open_ansprechperson_seat(database)
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": ERNEUT_BEWERBUNG}, {"$set": {"kontakte.ansprechperson.einwilligung.bestaetigt_am": ""}}
+            )
+            response = await resend(database, "ansprechperson")
+
+            return response, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+
+        response, stored = on_a_league(mongo_replica_set_url, body)
+
+        assert stored["bestaetigungen"]["ansprechperson"]["token_hash"] == hash_token(response.token)
 
 
 class TestSeatingAnotherPersonInAnEmptiedSeat:
@@ -1772,9 +1821,9 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         assert on_a_league(mongo_replica_set_url, body) == BEWERBUNG_TOKEN_UNKNOWN
 
     def test_one_person_holding_two_seats_is_seated_in_both_from_one_press(self, mongo_replica_set_url: str):
-        """The pair comes off `trainer_ist_zugleich`, surviving the emptying that hides it from `:: paired_seat`.
+        """The pair comes off `trainer_ist_zugleich`, surviving the emptying that hides it from `paired_seat`.
 
-        That helper answers `None` on these two slots (`app/api/bewerbungen/services.py`), leaving one seat holding the other's link.
+        `app/api/bewerbungen/services.py :: paired_seat` answers `None` on these two slots, leaving one seat holding the other's link.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -1912,3 +1961,64 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
 
         assert stored["bestaetigungsfrist"] == bestaetigungsfrist_from(today=TODAY)
         assert stored["bestaetigungsfrist"] > TODAY, "the new person is seated behind a link that already opens nothing"
+
+
+class TestABannedContactAddress:
+    """`REQ-BEWERBUNG-019`: no repair and no re-send mints a link for an address the ban list holds, and the application is left as it was."""
+
+    def test_a_resend_to_a_banned_seat_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        """The address is the stored one rather than one typed, and the link would reach it all the same."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            before = await seed_an_open_ansprechperson_seat(database)
+            await database[Collection.SPERRLISTE].insert_one(ban_document(str(before["kontakte"]["ansprechperson"]["email"])))
+            with pytest.raises(WriteRefusalException) as failure:
+                await resend(database, "ansprechperson")
+
+            return failure.value.error_code, before, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == BEWERBUNG_KONTAKT_GESPERRT
+        assert after == before
+
+    def test_a_resend_to_an_address_the_ban_list_does_not_hold_still_mints(self, mongo_replica_set_url: str):
+        """The control: a check refusing every re-send would pass the case above."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await seed_an_open_ansprechperson_seat(database)
+            await database[Collection.SPERRLISTE].insert_one(ban_document(CORRECTED_EMAIL))
+
+            return await resend(database, "ansprechperson")
+
+        assert on_a_league(mongo_replica_set_url, body).rollen == ["ansprechperson"]
+
+    def test_a_correction_naming_a_banned_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_a_bounced_application(database, client)
+            await database[Collection.SPERRLISTE].insert_one(ban_document(CORRECTED_EMAIL))
+            before = await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+            with pytest.raises(WriteRefusalException) as failure:
+                await correct(database, client, "ansprechperson")
+
+            return failure.value.error_code, before, await stored_bewerbung(database, CORRECTION_BEWERBUNG)
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == BEWERBUNG_KONTAKT_GESPERRT
+        assert after == before
+
+    def test_a_reseat_naming_a_banned_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await seed_an_application_a_seat_was_declined_on(database, client)
+            await database[Collection.SPERRLISTE].insert_one(ban_document(RESEAT_PERSON["email"]))
+            before = await stored_bewerbung(database, RESEAT_BEWERBUNG)
+            with pytest.raises(WriteRefusalException) as failure:
+                await reseat(database, client, "ansprechperson")
+
+            return failure.value.error_code, before, await stored_bewerbung(database, RESEAT_BEWERBUNG)
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == BEWERBUNG_KONTAKT_GESPERRT
+        assert after == before

@@ -15,7 +15,8 @@ from pydantic import BaseModel, StringConstraints, TypeAdapter, ValidationError
 from app.api.aktionen.schemas import HERKUNFT_JE_KIND
 from app.api.bewerbungen import schemas as bewerbungen_schemas
 from app.api.bewerbungen.services import BEWERBUNG_LAUFENDE_FASSUNG
-from app.api.saisons.schemas import TeamsPerGroup
+from app.api.identitaet.services import grants_a_panel
+from app.api.saisons.schemas import FLSaisonStatus, TeamsPerGroup
 from app.api.spiele.schemas import MAX_QUALIFIERS
 from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.spielorte.admin_router import _maps_link
@@ -1509,3 +1510,27 @@ def test_the_shared_table_blanks_each_optional_part_alone_together_and_as_spaces
     assert any(line.address.stadtteil and not line.address.stadtteil.strip() for line in lines), (
         "no row holds a district of spaces alone, which only a join that strips reads as blank"
     )
+
+
+# The season narrowing is spelled once per tier -- a person endpoint's and the frontend's panel
+# resolver's -- and both run this one table, so a status admitted at one tier alone fails that tier.
+GRANTS_A_PANEL: Final = Path(__file__).resolve().parent / "grants_a_panel.json"
+
+
+def _panel_grants() -> list[tuple[FLSaisonStatus, bool]]:
+    """Each status through the backend's own Literal, so a row naming a status nothing stores fails here rather than comparing nothing."""
+
+    rows = json.loads(GRANTS_A_PANEL.read_bytes().decode("utf-8"))
+
+    return [(TypeAdapter(FLSaisonStatus).validate_python(row["saison_status"]), row["grants_a_panel"]) for row in rows]
+
+
+def test_the_panel_table_names_every_season_status_once():
+    """A status added to the Literal and to neither table would be judged by two predicates nobody compared."""
+
+    assert sorted(status for status, _ in _panel_grants()) == sorted(get_args(FLSaisonStatus))
+
+
+@pytest.mark.parametrize(("saison_status", "grants"), _panel_grants(), ids=lambda value: str(value))
+def test_a_seat_s_season_grants_the_panel_the_shared_table_says(saison_status: FLSaisonStatus, grants: bool):
+    assert grants_a_panel(saison_status) is grants

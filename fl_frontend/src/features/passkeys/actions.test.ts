@@ -1,7 +1,18 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { ADMIN_EMAIL, asDataUrl, cookieHeader, MEMORY_ADAPTER_URL, ORIGIN, registerAuthDoubles, seedLink } from "@/core/authDoubles.ts";
+import {
+  ADMIN_EMAIL,
+  asDataUrl,
+  configDouble,
+  cookieHeader,
+  GATE_BACKEND_CONFIG,
+  MEMORY_ADAPTER_URL,
+  ORIGIN,
+  registerAuthDoubles,
+  seatEveryAddress,
+  seedLink,
+} from "@/core/authDoubles.ts";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 const STORE = "__flPasskeyStore";
@@ -24,8 +35,11 @@ export const mongodbAdapter = () => (options) => {
   return served;
 };`;
 
+// Every address this file signs in is seated: the gate at session creation is not its subject.
+seatEveryAddress();
+
 const mail = registerAuthDoubles({
-  core: { logging: LOGGING_DOUBLE },
+  core: { logging: LOGGING_DOUBLE, config: configDouble(GATE_BACKEND_CONFIG) },
   specifiers: {
     "next/headers": asDataUrl(HEADERS_DOUBLE),
     "next/cache": asDataUrl(NEXT_CACHE_DOUBLE),
@@ -55,7 +69,7 @@ const { auth, getAdminSession, PASSKEY_LIMIT } = await import("@/core/auth");
 const { readPasskeysAction, removePasskeyAction } = await import("./actions.ts");
 const { ADMIN_FORBIDDEN } = await import("@/shared/utils/adminMutation");
 
-const HOUR_MS = 60 * 60 * 1000;
+const { STEP_UP_WINDOW_MS } = await import("@/core/sessionLifetimes.ts");
 
 beforeEach(() => {
   globals[PASS_THROUGH] = false;
@@ -119,7 +133,7 @@ function seedPasskey(userId: string, label: string): Record<string, unknown> {
 }
 
 describe("the session each passkey action opens on", () => {
-  /* The proxy turns an unauthenticated `/admin` POST away, and this is what holds whatever reaches
+  /* The proxy turns an unauthenticated `/bereich/admin` POST away, and this is what holds whatever reaches
      the action anyway — a session the mailed link alone made included. */
   it("refuses the list to a session the passkey did not make, and reads no rows for it", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
@@ -213,10 +227,10 @@ describe("what a removal costs, and what it refuses", () => {
   });
 
   /* The step-up, which is the whole of what a stolen cookie cannot do: the dialog re-runs the
-     assertion ceremony before it calls this, and an hour-old session has not. */
-  it("refuses a removal from a session whose assertion is an hour old", async () => {
+     assertion ceremony before it calls this, and a session past the step-up window has not. */
+  it("refuses a removal from a session whose assertion is past the step-up window", async () => {
     const { cookie, row } = await steppedUpAdmin();
-    row.createdAt = new Date(Date.now() - HOUR_MS);
+    row.createdAt = new Date(Date.now() - STEP_UP_WINDOW_MS - 60_000);
     const held = seedPasskey(row.userId, "eins");
     seedPasskey(row.userId, "zwei");
     arriveAs(cookie);

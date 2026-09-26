@@ -28,7 +28,7 @@ type AdminSaisonEditViewProps = {
 };
 
 /**
- * The body of `/admin/saisons/[saison_id]`. **The header carries no control and states no value**: a
+ * The body of `/bereich/admin/saisons/[saison_id]`. **The header carries no control and states no value**: a
  * season cannot be retired, and the dates and status are shown where they can be changed.
  */
 export function AdminSaisonEditView(props: AdminSaisonEditViewProps) {

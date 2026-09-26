@@ -8,6 +8,7 @@ import { RAIL_GUTTER_CLASSES } from "./railGutter";
 import { SidemenuDrawerHeader } from "./SidemenuDrawerHeader";
 import { SidemenuFooter } from "./SidemenuFooter";
 import { SidemenuNavLinks, SidemenuNavLinksWithSaisonQuery } from "./SidemenuNavLinks";
+import { SidemenuStateProvider } from "./SidemenuState";
 
 import type { FormState, SidemenuStructure } from "@/shared/types/types";
 
@@ -18,7 +19,9 @@ import type { FormState, SidemenuStructure } from "@/shared/types/types";
 export function Sidemenu<TIcon extends string>({
   structure,
   linkPrefix,
+  keepsSaisonQuery,
   saisonMetadataDisplay,
+  funktionSwitcher,
   iconDictionary,
   onSignOut,
   onManagePasskeys,
@@ -30,7 +33,9 @@ export function Sidemenu<TIcon extends string>({
 }: {
   structure: SidemenuStructure<TIcon>;
   linkPrefix: string;
+  keepsSaisonQuery: boolean;
   saisonMetadataDisplay: React.ReactNode;
+  funktionSwitcher: React.ReactNode;
   iconDictionary: Record<TIcon, React.ElementType>;
   /** Forwarded to the footer's options menu; the bar carries the same control. */
   onSignOut?: () => Promise<FormState>;
@@ -71,6 +76,12 @@ export function Sidemenu<TIcon extends string>({
       {/* The gutter is reserved on both edges while collapsed: a one-edge reservation takes its strip off the right
           alone, so the icon column sits left of the rail's centre. Expanded, the content is left-aligned text. */}
       <div className={`flex flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto px-3 py-4 ${railGutter}`}>
+        {/* First, above the season, and kept while collapsed where the season slot is not: which Funktion the
+            person is acting in frames everything below it. */}
+        <SidemenuStateProvider state={{ isDesktopCollapsed: isDesktopCollapsed, onMobileClose: onMobileClose }}>
+          {funktionSwitcher}
+        </SidemenuStateProvider>
+
         {/* The same placeholder `SaisonSelector` shows until it hydrates, so the wait reads as one continuous state. */}
         <Suspense fallback={<SaisonSlotSkeleton />}>
           <div className={`transition-opacity duration-300 ${isDesktopCollapsed ? "hidden h-0 lg:block lg:opacity-0" : "opacity-100"}`}>
@@ -78,17 +89,25 @@ export function Sidemenu<TIcon extends string>({
           </div>
         </Suspense>
 
-        {/* `useSearchParams()` lives below this boundary and hangs unconditionally during a prerender, so hoisting
-            it bails out the whole route root. Nothing in the fallback may call a dynamic hook either. */}
-        <Suspense
-          fallback={
-            <SidemenuNavLinks
-              {...navLinkProps}
-              queryString=""
-            />
-          }>
-          <SidemenuNavLinksWithSaisonQuery {...navLinkProps} />
-        </Suspense>
+        {/* Only a shell keeping its season in the query reads one, below this boundary: `useSearchParams()` hangs
+            unconditionally during a prerender, so hoisting it bails out the whole route root. Nothing in the fallback
+            may call a dynamic hook either. */}
+        {keepsSaisonQuery ? (
+          <Suspense
+            fallback={
+              <SidemenuNavLinks
+                {...navLinkProps}
+                queryString=""
+              />
+            }>
+            <SidemenuNavLinksWithSaisonQuery {...navLinkProps} />
+          </Suspense>
+        ) : (
+          <SidemenuNavLinks
+            {...navLinkProps}
+            queryString=""
+          />
+        )}
       </div>
 
       <SidemenuFooter

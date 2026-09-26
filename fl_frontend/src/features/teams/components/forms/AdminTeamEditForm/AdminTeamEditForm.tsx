@@ -214,7 +214,7 @@ export function AdminTeamEditForm({
   };
 
   const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
-    fallbackHref: saisonHref("/admin/teams"),
+    fallbackHref: saisonHref("/bereich/admin/teams"),
     isDirty,
     resetDraftToStored,
   });
@@ -417,7 +417,7 @@ export function AdminTeamEditForm({
             <FormKontakteLinkSection
               saisonId={saison.saisonId}
               kontakte={storedMembership.kontakte}
-              href={`/admin/kontakte/${team.id}?saison_id=${encodeURIComponent(saison.saisonId)}`}
+              href={`/bereich/admin/kontakte/${team.id}?saison_id=${encodeURIComponent(saison.saisonId)}`}
             />
           )}
 

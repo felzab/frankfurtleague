@@ -34,13 +34,15 @@ const STRUCTURE: SidemenuStructure<keyof typeof ICONS> = [
 
 const LABELS = STRUCTURE.flatMap((group) => group.sub_options.map((option) => option.label));
 
-function rail(isDesktopCollapsed: boolean): string {
+function rail(isDesktopCollapsed: boolean, keepsSaisonQuery = true): string {
   return renderTree(
     underNext(
       h(Sidemenu, {
         structure: STRUCTURE,
         linkPrefix: "/dashboard",
+        keepsSaisonQuery,
         saisonMetadataDisplay: null,
+        funktionSwitcher: null,
         iconDictionary: ICONS,
         pathname: "/dashboard/spielplan",
         isMobileOpen: false,
@@ -166,5 +168,94 @@ describe("how the rail's two halves line up", () => {
       [],
       "these collapsed squares name neither inset ring token",
     );
+  });
+});
+
+describe("where the rail's entries send the reader", () => {
+  const entryHrefs = (markup: string): string[] => [...markup.matchAll(/<a\b[^>]*href="(\/dashboard\/[^"]*)"/g)].map((hit) => hit[1]!);
+
+  /* A shell reading its season off the live url returns to the default season on any entry that
+     drops it. */
+  it("carries the season onto every entry where the shell keeps it in the query", () => {
+    const hrefs = entryHrefs(rail(false, true));
+
+    assert.equal(hrefs.length, LABELS.length, `the rail links ${String(hrefs.length)} entries for ${String(LABELS.length)} labels`);
+    assert.deepEqual(
+      hrefs.filter((href) => !href.endsWith("?saison_id=2526")),
+      [],
+      "these entries drop the season",
+    );
+  });
+
+  /* A season in the path, or none at all, reads no query: an entry carrying one names a season the
+     page it opens never reads. */
+  it("carries no season onto any entry where the shell keeps none in the query", () => {
+    const hrefs = entryHrefs(rail(false, false));
+
+    assert.equal(hrefs.length, LABELS.length, `the rail links ${String(hrefs.length)} entries for ${String(LABELS.length)} labels`);
+    assert.deepEqual(
+      hrefs.filter((href) => href.includes("saison_id")),
+      [],
+      "these entries carry a season the shell keeps out of the query",
+    );
+  });
+});
+
+describe("which entry the rail marks current where the area has a landing", () => {
+  const PREFIX = "/bereich/team/probe-team/probe-saison";
+
+  /* An empty id is the landing at the prefix itself, as a shell reaching its landing by no segment has. */
+  const LANDING: SidemenuStructure<keyof typeof ICONS> = [
+    {
+      category_name: "",
+      sub_options: [
+        { id: "", label: "Landung", iconName: "Persons", hint: { lead: "Probe." } },
+        { id: "kader", label: "Kader", iconName: "Calendar", hint: { lead: "Probe." } },
+      ],
+    },
+  ];
+
+  /** Each entry's label, its href and whether it is marked current, standing at `pathname`. */
+  function entriesAt(pathname: string): { label: string; href: string; current: boolean }[] {
+    const markup = renderTree(
+      underNext(
+        h(Sidemenu, {
+          structure: LANDING,
+          linkPrefix: PREFIX,
+          keepsSaisonQuery: false,
+          saisonMetadataDisplay: null,
+          funktionSwitcher: null,
+          iconDictionary: ICONS,
+          pathname,
+          isMobileOpen: false,
+          onMobileClose: () => undefined,
+          isDesktopCollapsed: false,
+          onToggleDesktopMenu: () => undefined,
+        }),
+        { pathname },
+      ),
+    );
+
+    return [...markup.matchAll(/<a\b[^>]*>/g)]
+      .map((hit) => hit[0])
+      .filter((tag) => tag.includes(`href="${PREFIX}`))
+      .map((tag) => ({
+        label: /\saria-label="([^"]*)"/.exec(tag)?.[1] ?? "",
+        href: /\shref="([^"]*)"/.exec(tag)?.[1] ?? "",
+        current: tag.includes('aria-current="page"'),
+      }));
+  }
+
+  /* Every entry's address sits beneath the landing's, so a landing matched by prefix would light
+     beside whichever entry the reader is on, and one matched on a trailing slash never lights. */
+  it("marks the landing current on its own address and on no address beneath it", () => {
+    assert.deepEqual(entriesAt(PREFIX), [
+      { label: "Landung", href: PREFIX, current: true },
+      { label: "Kader", href: `${PREFIX}/kader`, current: false },
+    ]);
+    assert.deepEqual(entriesAt(`${PREFIX}/kader/probe-spieler`), [
+      { label: "Landung", href: PREFIX, current: false },
+      { label: "Kader", href: `${PREFIX}/kader`, current: true },
+    ]);
   });
 });

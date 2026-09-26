@@ -12,7 +12,7 @@ type ServerReact = {
   __SERVER_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE: { A: CacheDispatcher | null };
 };
 
-const FRONTEND_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
+const FRONTEND_DIR = path.resolve(import.meta.dirname, "..", "..");
 
 /** Rooted at the frontend manifest, so a caller's own depth never reaches a dependency lookup. */
 const requireFromFrontend = createRequire(path.join(FRONTEND_DIR, "package.json"));

@@ -5,7 +5,7 @@ import { after, describe, it } from "node:test";
 import { MongoDBContainer } from "@testcontainers/mongodb";
 
 import { ADMIN_EMAIL, asDataUrl, configDouble, cookieHeader, lastMailedToken, ORIGIN, registerAuthDoubles } from "@/core/authDoubles.ts";
-import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/core/cacheScope.ts";
 
 import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
 import type { CommandStartedEvent, MongoClient } from "mongodb";
@@ -81,7 +81,7 @@ describe("the administrator's session across one render pass", () => {
   itOpensAScopeThatMemoizes();
 
   /* The admin layout wraps the shell's season slot and the page segment in a guard each, and both
-     run in one render pass: `fl_frontend/src/app/admin/layout.tsx :: AdminLayout`. */
+     run in one render pass: `fl_frontend/src/app/bereich/admin/layout.tsx :: AdminLayout`. */
   it("reads the store once for both of the layout's guards", async () => {
     globals[REQUEST_HEADERS] = await signInAsAdministrator();
 

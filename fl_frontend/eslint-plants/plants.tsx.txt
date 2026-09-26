@@ -63,6 +63,10 @@ export const TALL = "min-h-[100vh]"; // expect: vh
 export const ENDPOINT = "https://api.resend.com/emails"; // expect: resend
 export const STALE = "/bestaetigung?token=x"; // expect: stale-path
 export const STALE_HANDLER = "/api/bestaetigung"; // expect: stale-path
+export const STALE_ADMIN = "/admin/teams"; // expect: stale-admin
+export const STALE_ADMIN_ROOT = "/admin"; // expect: stale-admin
+export const STALE_ADMIN_URL = "Weiter unter https://frankfurtleague.de/admin/teams."; // expect: stale-admin
+export const PANEL_URL = "https://frankfurtleague.de/bereich/admin/teams";
 export const RADIUS = PILL_RADIUS_CLASSES;
 export const CONTEXT = AppRouterContext;
 export const NAMESPACE = HeroUI;
@@ -88,6 +92,9 @@ export const TALL_TEMPLATE = `min-h-[100vh] ${extra}`; // expect: vh
 export const ENDPOINT_TEMPLATE = `https://api.resend.com/emails`; // expect: resend
 export const STALE_TEMPLATE = `/bestaetigung?token=${id}`; // expect: stale-path
 export const STALE_HANDLER_TEMPLATE = `/api/bestaetigung`; // expect: stale-path
+export const STALE_ADMIN_TEMPLATE = `/admin/teams/${id}`; // expect: stale-admin
+export const STALE_ADMIN_AFTER_A_HOLE = `${extra}/admin`; // expect: stale-admin
+export const STALE_ADMIN_URL_TEMPLATE = `${extra} http://localhost:3000/admin`; // expect: stale-admin
 export const DELETION_TEMPLATE = `deletePasskey`; // expect: passkey-deletion
 export const DELETION_MEMBER = auth.api.deletePasskey; // expect: passkey-deletion
 export const ROOT_LOADED = await import("@heroui/react"); // expect: vendor-root-load

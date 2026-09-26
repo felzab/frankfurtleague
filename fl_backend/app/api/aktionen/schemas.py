@@ -2,8 +2,9 @@ from collections.abc import Mapping
 from typing import Annotated, Any, Final, Literal, get_args
 
 from bson import ObjectId
-from pydantic import BaseModel, BeforeValidator, Field, TypeAdapter, field_validator, model_validator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, Field, TypeAdapter, field_validator, model_validator
 
+from app.core.recording import AktorFunktion
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
 from app.shared.schemas.custom import CustomObjectId
 from app.shared.schemas.responses import BaseAPIResponse
@@ -32,18 +33,44 @@ def _stringify_oids(value: Any) -> Any:
 
 # One alias for the row and the categoriser below, which is exhaustive over it: a kind added here
 # without a category is a recorded write the log's origin filter cannot reach.
-FLAktorKind = Literal["admin_session", "system", "public"]
+FLAktorKind = Literal["admin_session", "person_session", "system", "public"]
 
-# What the origin filter narrows on, and no stored value: `person` is the category a stronger sign-in
-# scheme records a new kind under, so the categories outlive the kinds they are derived from.
+# What the origin filter narrows on, and no stored value: `person` files an administrator's session
+# and a signed-in person's alike, so the categories outlive the kinds they are derived from.
 FLAktionHerkunft = Literal["person", "system", "public"]
 
 
-class FLAktor(BaseModel):
-    """Who a write was attributed to. Mirrors `app/core/recording.py :: Actor`."""
+class FLAktorMitAdresse(BaseModel):
+    """An actor the row names by `email`: an administrator's address, or a sentinel. Mirrors `app/core/recording.py :: Actor`."""
 
-    kind: FLAktorKind
+    kind: Literal["admin_session", "system", "public"]
     email: str
+
+
+# All a read serves of a pseudonym, the log page showing no more: the whole value would put a stable
+# key to one person in every administrator's browser for no control reading it.
+# `fl_frontend/src/features/aktionen/utils.ts :: PSEUDONYM_SHOWN` renders the same count.
+PSEUDONYM_SERVED_LENGTH: Final = 8
+
+
+def _served_prefix(pseudonym: str) -> str:
+    return pseudonym[:PSEUDONYM_SERVED_LENGTH]
+
+
+class FLAktorPerson(BaseModel):
+    """A signed-in person, named by a pseudonym and the Funktion the write was authorised under.
+
+    Mirrors `app/core/recording.py :: PersonActor`, and carries no address.
+    """
+
+    kind: Literal["person_session"]
+    pseudonym: Annotated[str, AfterValidator(_served_prefix)]
+    funktion: AktorFunktion
+
+
+# On `kind`, so a person's row can never be read as carrying an address, nor an administrator's as
+# carrying none.
+FLAktor = Annotated[FLAktorMitAdresse | FLAktorPerson, Field(discriminator="kind")]
 
 
 def herkunft_of_kind(kind: FLAktorKind) -> FLAktionHerkunft:
@@ -54,7 +81,7 @@ def herkunft_of_kind(kind: FLAktorKind) -> FLAktionHerkunft:
     """
 
     match kind:
-        case "admin_session":
+        case "admin_session" | "person_session":
             return "person"
         case "system":
             return "system"

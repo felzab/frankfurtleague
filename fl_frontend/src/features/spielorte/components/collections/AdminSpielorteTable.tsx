@@ -122,7 +122,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
       />
       {/* A link and not a press: the venue form edits on a page of its own. */}
       <RowActionLink
-        href={saisonHref(`/admin/spielorte/${ort.id}`)}
+        href={saisonHref(`/bereich/admin/spielorte/${ort.id}`)}
         label="Bearbeiten"
         ariaLabel={`Spielort ${ort.name} bearbeiten`}>
         <Pencil
@@ -160,7 +160,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
             here would fuzzy-match every `SEARCH_KEYS` entry and light no chip. */}
         <RowActionMenuItem
           id="spiele"
-          href={saisonHref(`/admin/spielsuche?ort=${ort.id}`)}
+          href={saisonHref(`/bereich/admin/spielsuche?ort=${ort.id}`)}
           label="Spiele anzeigen">
           <Magnifier
             aria-hidden="true"

@@ -1,5 +1,5 @@
 import { apiClient } from "@/core/api";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
+import { runAdminRead } from "@/shared/utils/adminRead";
 
 import { FLSpieleActionRequiredResponseSchema } from "../spiele/schemas";
 
@@ -10,7 +10,7 @@ import type { FLSpieleActionRequiredResponse } from "../spiele/schemas";
  * also what lets it seed the request's trace scope.
  */
 export const getAdminSpieleActionRequired = async (filters: { saison_id?: string } = {}): Promise<FLSpieleActionRequiredResponse> => {
-  return runWithIncomingTrace(() =>
+  return runAdminRead(() =>
     // Optional as the server's parameter is, yet never omitted by a page: the backend resolves an omitted
     // one to the active season (`docs/backend/spec.md :: I4`), which need not be the header's (`docs/frontend/spec.md :: I359`).
     apiClient<FLSpieleActionRequiredResponse>("/spiele/action_required", FLSpieleActionRequiredResponseSchema, {

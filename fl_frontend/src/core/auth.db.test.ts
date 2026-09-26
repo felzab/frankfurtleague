@@ -10,6 +10,7 @@ import {
   BARRIER_TIMEOUT_MS,
   configDouble,
   cookieHeader,
+  GATE_BACKEND_CONFIG,
   lastMailedToken,
   ORIGIN,
   registerAuthDoubles,
@@ -59,8 +60,22 @@ const LOGGING_DOUBLE = `export const logger = {
 };`;
 
 const { sent } = registerAuthDoubles({
-  core: { config: configDouble({ MONGODB_URI: MONGO_URL }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
+  core: { config: configDouble({ MONGODB_URI: MONGO_URL, ...GATE_BACKEND_CONFIG }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
 });
+
+/** What the sign-in gate's backend read answers every address; a case sets it and `beforeEach` resets it. */
+let gateAnswer: { sitze: unknown[]; gesperrt: boolean } = { sitze: [], gesperrt: false };
+const LIVE_SEAT = { saison_id: "2026", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" };
+
+// The backend's origin alone: every other request, the container runtime's among them, goes out as it came.
+const ORIGINAL_FETCH = globalThis.fetch;
+globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
+  const url = input instanceof Request ? input.url : String(input);
+  if (!url.startsWith(GATE_BACKEND_CONFIG.API_URL)) return ORIGINAL_FETCH(input, init);
+
+  const body = { acknowledged: 1, spieler: [], schiedsrichter: [], unbestaetigt: false, ...gateAnswer };
+  return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
+}) as typeof globalThis.fetch;
 
 /**
  * Holds the one write that arrives first until `release`, and passes every later one: the order in
@@ -107,7 +122,7 @@ globals[CONSUMING] = () => consuming();
 
 // Imported after the hooks above are registered: a static import resolves before they exist.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth, PASSKEY_LIMIT } = await import("./auth.ts");
+const { auth, endSessionsOfAddress, PASSKEY_LIMIT } = await import("./auth.ts");
 const { ENROLMENT_CONFLICT } = await import("./passkeyRefusal.ts");
 
 type Collection = {
@@ -125,11 +140,13 @@ const realClient = globals[REAL_CLIENT] as RealClient;
 const authDb = () => realClient.db("auth");
 
 after(async () => {
+  globalThis.fetch = ORIGINAL_FETCH;
   await realClient.close();
   await mongod.stop();
 });
 
 beforeEach(async () => {
+  gateAnswer = { sitze: [], gesperrt: false };
   barrier.disarm();
   warnings.length = 0;
   consuming = async () => undefined;
@@ -227,12 +244,16 @@ async function offer(cookie: string): Promise<Offered> {
   return { cookie: `${cookie}; ${cookieHeader(offered)}`, challenge };
 }
 
-function verify(offered: Offered, rawId: Buffer): Promise<Response> {
+function verify(offered: Offered, rawId: Buffer, extra: Record<string, unknown> = {}): Promise<Response> {
   return overHttp("/passkey/verify-registration", {
     method: "POST",
     cookie: offered.cookie,
-    body: { response: registrationFor(offered.challenge, rawId) },
+    body: { response: registrationFor(offered.challenge, rawId), ...extra },
   });
+}
+
+async function sessionRows(): Promise<Record<string, unknown>[]> {
+  return authDb().collection("session").find({}).toArray();
 }
 
 async function passkeyRows(): Promise<Record<string, unknown>[]> {
@@ -392,5 +413,125 @@ describe("two enrolments of one administrator at once, against a real database (
     const answer = await verify(offered, AUTHENTICATOR_A);
 
     assert.deepEqual({ status: answer.status, rows: (await passkeyRows()).length }, { status: 500, rows: 0 });
+  });
+});
+
+/* The session a setup mints is written inside the transaction the patched plugin opens around the
+   registration, so a setup the database refuses signs nobody in and nobody out
+   (`docs/frontend/spec.md :: I399`). */
+describe("a passkey setup that signs in, against a real database", () => {
+  it("replaces the code's session with the passkey's, the credential stamped", async () => {
+    const offered = await offer(await signIn(ADMIN_EMAIL));
+
+    const enrolled = await verify(offered, AUTHENTICATOR_A, { createSession: true });
+    assert.equal(enrolled.status, 200, await enrolled.clone().text());
+
+    const sessions = await sessionRows();
+    assert.deepEqual(
+      sessions.map(({ authFactor, passkeyCredentialId }) => [authFactor, passkeyCredentialId]),
+      [["passkey", AUTHENTICATOR_A.toString("base64url")]],
+      "the code's session outlived the setup, or the passkey's was never written",
+    );
+  });
+
+  it("mints one session for the winner of two setups at once, and leaves the loser signed in by code", async () => {
+    const a = await offer(await signIn(ADMIN_EMAIL));
+    const b = await offer(await signIn(ADMIN_EMAIL));
+    const mailedBefore = sent.length;
+
+    barrier.arm(2);
+    const responses = await Promise.all([
+      verify(a, AUTHENTICATOR_A, { createSession: true }),
+      verify(b, AUTHENTICATOR_B, { createSession: true }),
+    ]);
+    barrier.disarm();
+    assert.ok(await barrier.filled, "the setups were not both held at their first write, so no race was run");
+
+    assert.deepEqual(responses.map((response) => response.status).sort(), [200, 409]);
+    assert.equal(sent.length - mailedBefore, 1);
+    const factors = (await sessionRows()).map(({ authFactor }) => authFactor).sort();
+    assert.deepEqual(factors, ["code", "passkey"], "the refused setup minted a session or ended its caller's");
+  });
+});
+
+describe("what a ban ends, against a real database (`docs/frontend/spec.md :: I402`)", () => {
+  it("deletes every session of the account at the folded address, and keeps the account and its passkeys", async () => {
+    const { adapter } = await auth.$context;
+    const person = await adapter.create<Record<string, unknown>, { id: string }>({
+      model: "user",
+      data: { email: "leser@xn--bcher-kva.example", emailVerified: true, name: "", createdAt: new Date(), updatedAt: new Date() },
+    });
+    const other = await adapter.create<Record<string, unknown>, { id: string }>({
+      model: "user",
+      data: { email: "unbeteiligt@example.org", emailVerified: true, name: "", createdAt: new Date(), updatedAt: new Date() },
+    });
+    const session = (userId: string) => ({
+      userId: userId,
+      token: randomUUID(),
+      expiresAt: new Date(Date.now() + 60_000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      authFactor: "code",
+    });
+    for (const userId of [person.id, person.id, other.id]) await adapter.create({ model: "session", data: session(userId) });
+    await adapter.create({
+      model: "passkey",
+      data: {
+        userId: person.id,
+        credentialID: "kept",
+        publicKey: "k",
+        counter: 0,
+        deviceType: "singleDevice",
+        backedUp: false,
+        transports: "",
+        createdAt: new Date(),
+      },
+    });
+
+    await endSessionsOfAddress("Leser@Bücher.example");
+
+    assert.deepEqual(
+      (await sessionRows()).map(({ userId }) => String(userId)),
+      [other.id],
+      "a session of the barred account survived, or another account's was ended",
+    );
+    assert.equal((await authDb().collection("user").find({}).toArray()).length, 2);
+    assert.equal((await passkeyRows()).length, 1);
+  });
+});
+
+/* The set-up that signs in mints inside the registration's transaction, so the gate refusing that mint
+   takes the passkey row back with it (`docs/frontend/spec.md :: I403`). */
+describe("a set-up the gate refuses, against a real database", () => {
+  it("writes no passkey for a person barred after signing in, and leaves them signed in by code", async () => {
+    const email = "gesperrt-spaeter@example.org";
+    const token = `fabricated-link-${randomUUID()}`;
+    const { adapter } = await auth.$context;
+    await adapter.create({
+      model: "verification",
+      data: {
+        identifier: createHash("sha256").update(token).digest("base64url"),
+        value: JSON.stringify({ email }),
+        expiresAt: new Date(Date.now() + 60_000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    gateAnswer = { sitze: [LIVE_SEAT], gesperrt: false };
+    const verified = await auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true });
+    const cookie = cookieHeader(verified);
+    assert.equal((await sessionRows()).length, 1, "the seated person was not signed in, so the case below proves nothing");
+
+    const offered = await offer(cookie);
+    gateAnswer = { sitze: [LIVE_SEAT], gesperrt: true };
+    const refused = await verify(offered, AUTHENTICATOR_A, { createSession: true });
+
+    assert.equal(refused.status, 403, await refused.clone().text());
+    assert.deepEqual(await passkeyRows(), [], "the refused set-up left its passkey behind");
+    assert.deepEqual(
+      (await sessionRows()).map(({ authFactor }) => authFactor),
+      ["code"],
+    );
   });
 });

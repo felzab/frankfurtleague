@@ -31,7 +31,7 @@ export function TopNav() {
 
           <Link
             // eslint-disable-next-line local/admin-link -- the public chrome's way into the admin area; no season is in scope outside it
-            href="/admin"
+            href="/bereich/admin"
             className="rounded-full px-4 py-1.5 fluid-sm font-semibold text-foreground transition-colors hover:bg-hover">
             Verwalten
           </Link>
@@ -64,7 +64,7 @@ export function TopNav() {
               id="admin"
               textValue="Verwalten"
               // eslint-disable-next-line local/admin-link -- the public chrome's way into the admin area; no season is in scope outside it
-              href="/admin"
+              href="/bereich/admin"
               className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
               <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">Verwalten</Label>
               <Pencil

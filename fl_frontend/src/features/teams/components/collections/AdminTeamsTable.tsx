@@ -113,7 +113,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   const renderActions = (team: AdminTeamRow) => (
     <RowActions>
       <RowActionLink
-        href={withSaisonId(`/admin/teams/${team.id}`, selectedFromUrl)}
+        href={withSaisonId(`/bereich/admin/teams/${team.id}`, selectedFromUrl)}
         label="Bearbeiten"
         ariaLabel={`Team ${team.name} bearbeiten`}>
         <Pencil
@@ -147,7 +147,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
             are that facet's options, so a club outside the season drops out and the link widens. */}
         <RowActionMenuItem
           id="spieler"
-          href={withSaisonId(`/admin/spieler?team=${team.id}`, selectedFromUrl)}
+          href={withSaisonId(`/bereich/admin/spieler?team=${team.id}`, selectedFromUrl)}
           label="Spieler anzeigen">
           <PersonPencil
             aria-hidden="true"
@@ -158,7 +158,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
             hang off the junction, so without it this opens another season's three people. */}
         <RowActionMenuItem
           id="kontakte"
-          href={withSaisonId(`/admin/kontakte?team=${team.id}`, selectedFromUrl)}
+          href={withSaisonId(`/bereich/admin/kontakte?team=${team.id}`, selectedFromUrl)}
           label="Kontakte anzeigen">
           <Envelope
             aria-hidden="true"
@@ -169,7 +169,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
             fixtures whichever slot it occupies. */}
         <RowActionMenuItem
           id="spiele"
-          href={withSaisonId(`/admin/spielsuche?team=${team.id}`, selectedFromUrl)}
+          href={withSaisonId(`/bereich/admin/spielsuche?team=${team.id}`, selectedFromUrl)}
           label="Spiele anzeigen">
           <Magnifier
             aria-hidden="true"

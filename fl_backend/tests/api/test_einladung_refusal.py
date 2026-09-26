@@ -1,6 +1,7 @@
 import inspect
 from typing import Any
 
+import pytest
 from pydantic import BaseModel
 
 from app.api.einladungen import schemas as einladungen_schemas
@@ -254,8 +255,11 @@ class TestWhatDecidesASkip:
     def test_a_team_with_no_contact_block_is_skipped(self):
         assert plan(block=None) == ([], "kein_kontaktblock", False)
 
-    def test_a_block_with_no_confirmed_seat_is_skipped(self):
-        block = kontakte(trainer=kontaktperson("Bramblewick", "bramblewick@example.com", bestaetigt_am=None))
+    @pytest.mark.parametrize("bestaetigt_am", [None, ""], ids=["null stamp", "empty stamp"])
+    def test_a_block_with_no_confirmed_seat_is_skipped(self, bestaetigt_am: str | None):
+        """An address nobody has proven gets no credential, a stamp of `""` being none (`docs/backend/spec.md :: I387`)."""
+
+        block = kontakte(trainer=kontaktperson("Bramblewick", "bramblewick@example.com", bestaetigt_am=bestaetigt_am))
 
         assert plan(block=block) == ([], "keine_bestaetigte_kontaktperson", False)
 

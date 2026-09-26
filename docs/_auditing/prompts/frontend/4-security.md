@@ -11,8 +11,9 @@ authorization table (S1), and the per-segment protected-route table (S3). Every 
 concrete exploit sentence.
 
 CONTEXT — derive, do not assume: auth is Better Auth via `src/core/auth.ts` with a proxy matcher on
-`/admin/:path*` **plus** an in-layout `getAdminSession()` guard (defence in depth — verify both still
-exist rather than assuming either); the frontend holds tiered internal API keys used by
+`/bereich/:path*`, whose administrator check covers the `/bereich/admin` subtree, **plus** an
+in-layout `getAdminSession()` guard (defence in depth — verify both still exist rather than
+assuming either); the frontend holds tiered internal API keys used by
 `src/core/api.ts`. Ratified postures to check conformance against, not to re-litigate — each is a
 `.claude/rules/cross-surface.md` clause: the single enforced CSP with `react/no-danger` as compensating control,
 the kept system tier, and the absence of a reference-data invalidation endpoint.
@@ -43,7 +44,11 @@ needs a shown chain or a named bundle file.
 S3. **Protected route coverage.** The required table per route segment: intended protection |
 proxy-matcher coverage | in-layout or in-page guard | gap. Probe the matcher for holes (variants,
 redirects evaluated before the proxy, route handlers and actions that layout guards do not
-protect).
+protect). **Probe the proxy's subtree check as a second surface**: the matcher admits a path, then
+the `/bereich/admin` prefix test inside the proxy decides whether the administrator check runs, and
+it reads the path raw and decoded. A spelling the matcher admits and the prefix test misses — an
+encoded segment, a doubled or trailing slash, a case variant, a malformed escape — reaches the panel
+with no proxy check at all, leaving the in-layout guard alone.
 
 S4. **Privilege escalation via key tiers.** Per `apiClient` call site: authType | routes it is
 reachable from | minimum privilege actually required. A public page transitively invoking an

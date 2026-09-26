@@ -1,6 +1,7 @@
 import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
+import { runAdminRead } from "@/shared/utils/adminRead";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
@@ -20,7 +21,7 @@ import type { FLSchiedsrichterFilterParams, SchiedsrichterAnsicht, Schiedsrichte
  */
 export async function getSchiedsrichter(filters: FLSchiedsrichterFilterParams = {}): Promise<FLSchiedsrichterListResponse> {
   // No cache tag either: one means nothing outside a cache scope.
-  return runWithIncomingTrace(() =>
+  return runAdminRead(() =>
     apiClient<FLSchiedsrichterListResponse>("/schiedsrichter", FLSchiedsrichterListResponseSchema, {
       authType: "admin",
       params: filters,
@@ -35,7 +36,7 @@ export async function getSchiedsrichter(filters: FLSchiedsrichterFilterParams = 
  * **Uncached** for the reason the list is.
  */
 export async function getSchiedsrichterById(schiedsrichterId: string): Promise<FLSchiedsrichterSingleResponse | null> {
-  return runWithIncomingTrace(() =>
+  return runAdminRead(() =>
     // `null` for "no such referee", which the editor page turns into `notFound()`. Every other
     // status still throws.
     apiClient<FLSchiedsrichterSingleResponse>(`/schiedsrichter/${schiedsrichterId}`, FLSchiedsrichterSingleResponseSchema, {

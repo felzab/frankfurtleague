@@ -157,10 +157,10 @@ describe("the notices a narrowing raises", () => {
      fall back to the default the moment a reader leaves the narrowing. */
   it("carries the shell's season out of the narrowing, and writes no season where the URL names none", () => {
     const withSeason = anchor(notice(view({ dokumentId: ROW.document_id }), HEADING.dokument).body);
-    assert.equal(withSeason.href, "/admin/aktionen?saison_id=2526");
+    assert.equal(withSeason.href, "/bereich/admin/aktionen?saison_id=2526");
     assert.equal(withSeason.name, "Alle Änderungen anzeigen");
 
-    assert.equal(anchor(notice(view({ vorgangId: ROW.trace_id }, ""), HEADING.vorgang).body).href, "/admin/aktionen");
+    assert.equal(anchor(notice(view({ vorgangId: ROW.trace_id }, ""), HEADING.vorgang).body).href, "/bereich/admin/aktionen");
   });
 
   it("raises neither notice while the URL narrows to nothing", () => {
@@ -213,5 +213,24 @@ describe("what an empty log says about itself", () => {
 
     assert.ok(html.includes(AKTIONEN_CRUD_COPY.emptyForFilters), "the empty area is not the filter's");
     assert.ok(!html.includes(AKTIONEN_CRUD_COPY.emptyOverall), "the log claims it recorded nothing");
+  });
+});
+
+describe("who a row names", () => {
+  /* A signed-in person carries no address, and the row prints none: the Funktion and the start of the
+     pseudonym are the whole of what names them, and the rest of the pseudonym stays off the page. */
+  it("names a signed-in person by the Funktion and the start of the pseudonym", () => {
+    const person: AdminAktionRow = {
+      ...ROW,
+      actor: { kind: "person_session", pseudonym: "3f9a07c2".padEnd(64, "d"), funktion: "spieler" },
+    };
+    const html = view({ aktionen: [person] });
+
+    assert.match(textOf(html), /Spieler · 3f9a07c2/);
+    assert.doesNotMatch(html, /3f9a07c2d/, "the row prints more of the pseudonym than its first eight characters");
+  });
+
+  it("names an administrator by the address", () => {
+    assert.match(textOf(view()), /eine\.person@beispiel\.de/);
   });
 });

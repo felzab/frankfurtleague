@@ -218,6 +218,7 @@ class TestARegistrationAlreadyConfirmed:
         [
             pytest.param(None, False, id="nobody has answered"),
             pytest.param({"bestaetigt_am": None}, False, id="a record without its stamp"),
+            pytest.param({"bestaetigt_am": ""}, False, id="a record stamped with an empty string"),
             pytest.param(einwilligung(), True, id="confirmed"),
         ],
     )

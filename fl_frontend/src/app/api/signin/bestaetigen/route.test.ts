@@ -14,8 +14,7 @@ const MINTED = "fabricated-session-token";
 
 /* The verification replaced at the module boundary: the real one needs a session store, and it
    consumes its token atomically, so a second call on one token is refused rather than repeated. */
-const AUTH_DOUBLE = `export const SIGN_IN_LANDING = "/signin/weiter";
-export const auth = {
+const AUTH_DOUBLE = `export const auth = {
   api: {
     magicLinkVerify: async ({ query }) => {
       const spent = globalThis.${SPENT};

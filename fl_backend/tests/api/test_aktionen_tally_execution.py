@@ -31,10 +31,19 @@ PATCHED_TEAMS = LIST_LIMIT_DEFAULT
 # or the two swapped, and both maps would still add up.
 CREATED_TEAMS = 3
 CREATED_VENUES = 5
+# The second kind filed under `person`, older than every patch above so the cut page never serves it
+# and only the counts can show it was folded in.
+PERSON_PATCHES = 2
 
 # One kind per block and never one per row: `herkunft` is a CATEGORY over `actor.kind`, so a block
 # whose kinds were mixed would leave every count below agreeing with either mapping of the two.
-ACTOR_EMAIL_JE_KIND = {"admin_session": "admin@example.invalid", "system": SYSTEM_ACTOR_EMAIL, "public": PUBLIC_ACTOR_EMAIL}
+ACTOR_JE_KIND: dict[str, dict[str, str]] = {
+    "admin_session": {"kind": "admin_session", "email": "admin@example.invalid"},
+    # A pseudonym's shape, as `app/core/security.py :: akteur_pseudonym` stores one, and no address.
+    "person_session": {"kind": "person_session", "pseudonym": "5e" * 32, "funktion": "kontakt"},
+    "system": {"kind": "system", "email": SYSTEM_ACTOR_EMAIL},
+    "public": {"kind": "public", "email": PUBLIC_ACTOR_EMAIL},
+}
 
 
 def log_row(
@@ -50,7 +59,7 @@ def log_row(
     return {
         "_id": ObjectId(f"6890a1b2c3d4e5f607{index:06d}"),
         "at": at,
-        "actor": {"kind": kind, "email": ACTOR_EMAIL_JE_KIND[kind]},
+        "actor": ACTOR_JE_KIND[kind],
         # Distinct per row unless a caller shares one, so a narrowing on a trace selects what it seeded.
         "trace_id": trace_id or f"{index:032x}",
         "request": {"method": "PATCH", "path": "/api/v0/teams/{team_id}"},
@@ -114,16 +123,28 @@ def seeded_log() -> list[dict[str, Any]]:
         )
     ]
 
-    return patched + created + venues + seasons
+    person = [
+        log_row(
+            PATCHED_TEAMS + CREATED_TEAMS + CREATED_VENUES + 1 + index,
+            collection="teams",
+            operation="patch_one",
+            at="2025-03-12T09:30:00+00:00",
+            document_id=ObjectId(f"6890a1b2c3d4e5f60a{index:06d}"),
+            kind="person_session",
+        )
+        for index in range(PERSON_PATCHES)
+    ]
+
+    return patched + created + venues + seasons + person
 
 
 # What the log holds, counted from the block sizes above rather than off the corpus: counting the
 # seeded list itself would compare one reading of it against another.
-EVERY_AREA = {"teams": PATCHED_TEAMS + CREATED_TEAMS, "spielorte": CREATED_VENUES, "saisons": 1}
-EVERY_OPERATION = {"patch_one": PATCHED_TEAMS + 1, "insert": CREATED_TEAMS + CREATED_VENUES}
+EVERY_AREA = {"teams": PATCHED_TEAMS + CREATED_TEAMS + PERSON_PATCHES, "spielorte": CREATED_VENUES, "saisons": 1}
+EVERY_OPERATION = {"patch_one": PATCHED_TEAMS + 1 + PERSON_PATCHES, "insert": CREATED_TEAMS + CREATED_VENUES}
 # The third dimension, and the one no stored field holds: each key is the category a block's kind is
 # filed under, so a mapping either tier moved alone lands a count under a name the other never sends.
-EVERY_HERKUNFT = {"person": PATCHED_TEAMS, "system": CREATED_TEAMS + 1, "public": CREATED_VENUES}
+EVERY_HERKUNFT = {"person": PATCHED_TEAMS + PERSON_PATCHES, "system": CREATED_TEAMS + 1, "public": CREATED_VENUES}
 
 
 def answered(mongo_url: str, **filters: Any) -> FLAktionenListResponse:
@@ -199,14 +220,17 @@ def test_an_origin_selects_the_kinds_it_is_filed_under_and_keeps_its_own_count(m
     assert log.anzahl_je_herkunft == EVERY_HERKUNFT
 
 
-def test_the_signed_in_origin_selects_the_kind_it_stands_for(mongo_url: str):
-    """`person` is the category over `admin_session`, and it is the one whose two names differ — a fold dropped here serves nothing."""
+def test_the_signed_in_origin_selects_both_kinds_it_stands_for(mongo_url: str):
+    """`person` is the category over `admin_session` and `person_session`, and its two names differ from theirs.
+
+    The cut page serves the first kind alone, so the count is what shows the second folded in.
+    """
 
     log = answered(mongo_url, herkunft="person")
 
     assert {row.actor.kind for row in log.aktionen} == {"admin_session"}
     assert len(log.aktionen) == PATCHED_TEAMS
-    assert log.anzahl_je_collection == {"teams": PATCHED_TEAMS}
+    assert log.anzahl_je_collection == {"teams": PATCHED_TEAMS + PERSON_PATCHES}
     assert log.anzahl_je_herkunft == EVERY_HERKUNFT
 
 
@@ -222,7 +246,7 @@ def test_a_two_area_selection_reaches_the_read_as_one_term(mongo_url: str):
 
 
 def test_a_two_origin_selection_reaches_the_read_as_one_term(mongo_url: str):
-    """Two categories over three kinds, so the compiled `$in` is longer than the selection — which an equality could not express."""
+    """Two categories out of three, each compiled to the kinds filed under it — which an equality could not express."""
 
     log = answered(mongo_url, herkunft="system,public")
 

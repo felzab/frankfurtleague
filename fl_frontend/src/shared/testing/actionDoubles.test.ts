@@ -6,7 +6,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { cacheCalls, doubleActionRequest, doubleActions, doubleToasts } from "./actionDoubles.ts";
+import { cacheCalls, doubleActionRequest, doubleActions, doubleToasts, exportingModule } from "./actionDoubles.ts";
 
 const SRC = path.resolve(import.meta.dirname, "..", "..");
 
@@ -15,7 +15,7 @@ const { raised } = doubleToasts();
 /* One slice's real module, replaced whole: what the double has to derive is that module's own export
    list, so a stub written here would prove nothing about the derivation. */
 const { calls, answerWith, answerPending, leavePending } = doubleActions({ modules: ["/src/features/spieltage/actions.ts"] });
-const { setSession } = doubleActionRequest();
+const { setSession, setSubject, subjectReads } = doubleActionRequest();
 // A module a real action writes through, which the double refuses rather than stands in for.
 doubleActions({ modules: ["/src/features/spielorte/mutations.ts"] });
 
@@ -25,6 +25,7 @@ const { appToast, UNDO_TIMEOUT_MS } = await import("@/shared/utils/appToast.ts")
 const spieltage = await import("@/features/spieltage/actions.ts");
 const nextCache = await import("next/cache");
 const { getAdminSession, getSignInDestination } = await import("@/core/auth.ts");
+const { getSubjectSession } = await import("@/core/subject.ts");
 
 describe("the actions double", () => {
   /* Stood in for, a module a real action writes through records no write, and the admin spine then
@@ -149,15 +150,41 @@ describe("the request double", () => {
     assert.equal(await getAdminSession(), null);
     assert.equal(await getSignInDestination(), "/signin", "a caller with no session is sent somewhere other than to sign in");
 
-    setSession(null, "/");
+    setSession(null, "/bereich");
 
-    assert.equal(await getSignInDestination(), "/", "the destination a case named went unanswered");
+    assert.equal(await getSignInDestination(), "/bereich", "the destination a case named went unanswered");
   });
 
   /* After the case above, whose signed-out request would otherwise stand in for this case's caller. */
   it("signs the next case in as the request's own session again", async () => {
     assert.deepEqual(await getAdminSession(), { user: { email: "vorstand@example.org" } });
-    assert.equal(await getSignInDestination(), "/admin", "the previous case's destination outlived its case");
+    assert.equal(await getSignInDestination(), "/bereich/admin", "the previous case's destination outlived its case");
+  });
+
+  /* The real lookup reads the sign-in store this double replaces, so a page reaching it would crash
+     on the doubled `auth` rather than answer. */
+  it("answers the subject a case names, and counts every read of it", async () => {
+    const subject = {
+      email: "pia@example.org",
+      admin: false,
+      subjekt: { sitze: [], spieler: [{ spieler_id: "6890a1b2c3d4e5f607250001" }], schiedsrichter: [], unbestaetigt: false, gesperrt: false },
+    };
+    setSubject(subject);
+
+    assert.deepEqual(await getSubjectSession(), subject);
+    assert.deepEqual(await getSubjectSession(), subject);
+    assert.equal(subjectReads(), 2);
+
+    const refused = new Error("die Suche nach dem Subjekt schlug fehl");
+    setSubject(refused);
+
+    await assert.rejects(getSubjectSession(), refused);
+  });
+
+  /* After the case above: its subject and its count would otherwise stand in for this case's. */
+  it("starts the next case with no person signed in and no read counted", async () => {
+    assert.equal(subjectReads(), 0);
+    assert.equal(await getSubjectSession(), null);
   });
 });
 
@@ -190,5 +217,24 @@ describe("the toast double", () => {
      would be fifteen seconds of every file that raises one. */
   it("shortens the undo offer", () => {
     assert.equal(UNDO_TIMEOUT_MS, 1);
+  });
+});
+
+describe("the module a double is built as", () => {
+  const LINE_SEPARATOR = String.fromCharCode(0x2028);
+
+  /* No real module can hand the hooks such a name, their pattern reading identifier characters alone,
+     so the builder is asked directly: its source spells every export name as code. */
+  it("refuses to declare a name that is no identifier", () => {
+    for (const name of ['x", (globalThis.escaped = true), "', `x${LINE_SEPARATOR}y`]) {
+      assert.throws(() => exportingModule({ [name]: 1 }), /is no name a module can declare/, JSON.stringify(name));
+    }
+  });
+
+  it("hands each value across unchanged, whatever characters it carries", async () => {
+    const message = `"'\\${LINE_SEPARATOR}</script>`;
+    const built = (await import(`data:text/javascript,${encodeURIComponent(exportingModule({ message }))}`)) as Record<string, unknown>;
+
+    assert.equal(built.message, message);
   });
 });

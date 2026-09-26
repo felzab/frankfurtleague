@@ -141,7 +141,7 @@ class Unenforced:
     #: `<test path>::<class>` proving the claim, paired one-to-one with this tuple. An entry nothing
     #: executes decays into the oversight it exists to be distinguishable from.
     proven_by: str
-    #: An `/admin` route or a repo path to the component showing the state. Empty only where nothing
+    #: A `/bereich/admin` route or a repo path to the component showing the state. Empty only where nothing
     #: shows it, which `reason` then has to answer for.
     surfaced_by: str = ""
 
@@ -2074,6 +2074,27 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_bewerbung_submission_refusal.py::TestTheWordingTheFormShows",
     ),
     Rule(
+        code="REQ-BEWERBUNG-018",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /bewerbungen",
+        aggregate="Bewerbung",
+        summary="an address the ban list holds applies for nobody, on any of the three seats, a replayed key included",
+        implemented_by="app.api.bewerbungen.services.find_gesperrt_refusal",
+        tested_by="tests/api/test_bewerbung_submission_execution.py::TestABannedContactAddress",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-019",
+        status=HTTPStatus.CONFLICT,
+        operation=(
+            "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email · POST /bewerbungen/{bewerbung_id}/kontakte/{seat}"
+            " · POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut"
+        ),
+        aggregate="Bewerbung",
+        summary="no confirmation link is minted for a corrected, reseated or re-sent contact address the ban list still holds",
+        implemented_by="app.api.bewerbungen.services.find_kontakt_gesperrt_refusal",
+        tested_by="tests/api/test_bewerbung_triage_execution.py::TestABannedContactAddress",
+    ),
+    Rule(
         code="REQ-PURGE-001",
         status=HTTPStatus.CONFLICT,
         operation="DELETE /spieler/{spieler_id}/erasure",
@@ -2099,6 +2120,15 @@ RULES: tuple[Rule, ...] = (
         summary="no ban is entered while no season is running, the five seasons it lapses after having nothing to count from",
         implemented_by="app.api.sperrliste.services.find_keine_saison_refusal",
         tested_by="tests/api/test_sperrliste_lapse_refusal.py::TestALeagueWithNoSeasonRunning",
+    ),
+    Rule(
+        code="REQ-SPERRLISTE-003",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /sperrliste",
+        aggregate="Sperrliste",
+        summary="an administrator's address takes no ban until it has left the allowlist",
+        implemented_by="app.api.sperrliste.services.find_verwaltung_refusal",
+        tested_by="tests/api/test_sperrliste_execution.py::TestABanOfAnAdministratorsAddress",
     ),
     Rule(
         code="REQ-EINLADUNG-001",
@@ -2272,7 +2302,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-ELIGIBILITY-001",),
         proven_by="tests/core/test_unenforced.py::TestABracketSlotHeldByADisqualifiedClub",
-        surfaced_by="/admin/action_required",
+        surfaced_by="/bereich/admin/action_required",
     ),
     Unenforced(
         subject="a fixture still to be played booked onto a retired venue or referee",
@@ -2287,7 +2317,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-BOOKING-001", "REQ-RETIRE-003", "REQ-RETIRE-004"),
         proven_by="tests/core/test_unenforced.py::TestARetiredBookingOnAReopenedFixture",
-        surfaced_by="/admin/action_required",
+        surfaced_by="/bereich/admin/action_required",
     ),
     Unenforced(
         subject="one venue or referee claimed by two fixtures less than four hours apart",
@@ -2302,14 +2332,14 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-CLASH-001",),
         proven_by="tests/core/test_unenforced.py::TestADoubleBookingALiftedNoShowLeaves",
-        surfaced_by="/admin/action_required",
+        surfaced_by="/bereich/admin/action_required",
     ),
     Unenforced(
         subject="a stored bracket fault",
         reason=("Every fault is derived on each admin read and none is stored. Reporting a shape is never licence to act on it."),
         near=("REQ-WIRING-001",),
         proven_by="tests/core/test_unenforced.py::TestNoBracketFaultIsStored",
-        surfaced_by="/admin/action_required",
+        surfaced_by="/bereich/admin/action_required",
     ),
     Unenforced(
         subject="a retired row kept indefinitely",
@@ -2341,7 +2371,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-RULES-007",),
         proven_by="tests/core/test_unenforced.py::TestAGroupPhaseEveryClubLeaves",
-        surfaced_by="/admin/spieltage",
+        surfaced_by="/bereich/admin/spieltage",
     ),
     Unenforced(
         subject="a Spieltag on which a club already stands twice",
@@ -2356,7 +2386,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-SWAP-005", "REQ-SPIELTAG-001", "REQ-SPIELTAG-002"),
         proven_by="tests/core/test_unenforced.py::TestASpieltagAlreadyHoldingAClubTwice",
-        surfaced_by="/admin/action_required",
+        surfaced_by="/bereich/admin/action_required",
     ),
     Unenforced(
         subject="a person holding no squad row at all",
@@ -2368,7 +2398,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-SQUAD-001",),
         proven_by="tests/core/test_unenforced.py::TestAPersonWithNoSquadRow",
-        surfaced_by="/admin/spieler",
+        surfaced_by="/bereich/admin/spieler",
     ),
     Unenforced(
         subject="a person carrying no birthdate, whose age nothing judges",
@@ -2386,7 +2416,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-BEWERBUNG-012", "REQ-REGISTRIERUNG-007", "REQ-SQUAD-001"),
         proven_by="tests/core/test_unenforced.py::TestAPupilStoredWithNoBirthdate",
-        surfaced_by="/admin/spieler",
+        surfaced_by="/bereich/admin/spieler",
     ),
     Unenforced(
         subject="a departed club holding drawn fixtures",
@@ -2399,7 +2429,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-ELIGIBILITY-001",),
         proven_by="tests/core/test_unenforced.py::TestADisqualifiedClubKeepsItsFixtures",
-        surfaced_by="/admin/action_required",
+        surfaced_by="/bereich/admin/action_required",
     ),
     Unenforced(
         subject="a stored pre-image no current model accepts",
@@ -2423,13 +2453,13 @@ UNENFORCED: tuple[Unenforced, ...] = (
             "document -- so the same rule widened has no index to find its neighbour on: "
             "`uniq_saison_id_saison_phase_position` does not carry `beginn`, and the phase order is on no "
             "document at all. The state is reachable between phases alone: the draw gives every "
-            "knockout phase exactly one matchday, and one matchday makes no pair to order. `/admin/spieltage` "
+            "knockout phase exactly one matchday, and one matchday makes no pair to order. `/bereich/admin/spieltage` "
             "sections a season by phase in played order with each span beside it, so a phase dated against that "
             "order reads as dates running backwards down the page."
         ),
         near=("REQ-DATE-008",),
         proven_by="tests/core/test_unenforced.py::TestAPhaseDatedAgainstTheOrderItIsPlayedIn",
-        surfaced_by="/admin/spieltage",
+        surfaced_by="/bereich/admin/spieltage",
     ),
     Unenforced(
         subject="a person retired while holding a live squad row",
@@ -2441,7 +2471,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-RETIRE-001", "REQ-SQUAD-001"),
         proven_by="tests/core/test_unenforced.py::TestARetiredPersonKeepsALiveSquadRow",
-        surfaced_by="/admin/spieler",
+        surfaced_by="/bereich/admin/spieler",
     ),
     Unenforced(
         subject="a `future` season holding recorded results",
@@ -2454,7 +2484,7 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-SPIELPLAN-005", "REQ-SPIELPLAN-006"),
         proven_by="tests/core/test_unenforced.py::TestAFutureSeasonHoldingRecordedResults",
-        surfaced_by="/admin/saisons/[saison_id]",
+        surfaced_by="/bereich/admin/saisons/[saison_id]",
     ),
     Unenforced(
         subject="an abandoned fixture carrying any result, or none",
@@ -2467,6 +2497,6 @@ UNENFORCED: tuple[Unenforced, ...] = (
         ),
         near=("REQ-STATE-002", "REQ-STATE-003"),
         proven_by="tests/core/test_unenforced.py::TestAnAbandonedFixtureAndItsResult",
-        surfaced_by="/admin/spiele/[spiel_id]",
+        surfaced_by="/bereich/admin/spiele/[spiel_id]",
     ),
 )

@@ -12,6 +12,7 @@ from typing import Any, NamedTuple
 from app.api.bewerbungen.services import KONTAKT_SEATS, seat_named
 from app.api.einladungen.schemas import FLEinladungEmpfaenger, FLEinladungVersandGrund
 from app.core.exceptions import WriteRefusal
+from app.shared.einwilligung import is_confirmed
 from app.shared.folding import mailbox_key
 
 EINLADUNG_TEAM_NICHT_EINGETRAGEN = "REQ-EINLADUNG-001"
@@ -166,10 +167,7 @@ def _confirmed_seat(kontakte: Any, seat: str) -> Mapping[str, Any] | None:
     if not isinstance(entry, Mapping):
         return None
 
-    einwilligung = entry.get("einwilligung")
-    bestaetigt = einwilligung.get("bestaetigt_am") if isinstance(einwilligung, Mapping) else None
-
-    return entry if bestaetigt else None
+    return entry if is_confirmed(entry.get("einwilligung")) else None
 
 
 def bestaetigte_empfaenger(*, kontakte: Any) -> list[FLEinladungEmpfaenger]:

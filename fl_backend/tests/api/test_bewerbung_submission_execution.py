@@ -18,6 +18,7 @@ from app.api.bewerbungen.public_router import post_bewerbung
 from app.api.bewerbungen.router import get_bewerbung_by_id
 from app.api.bewerbungen.schemas import FLBewerbung, FLPostBewerbungPayload
 from app.api.bewerbungen.services import (
+    BEWERBUNG_ADRESSE_GESPERRT,
     BEWERBUNG_FASSUNG_VERALTET,
     BEWERBUNG_FENSTER_GESCHLOSSEN,
     BEWERBUNG_LAUFENDE_FASSUNG,
@@ -32,6 +33,7 @@ from app.api.bewerbungen.services import (
     hash_token,
 )
 from app.api.kontakte.services import build_clearing_update
+from app.api.sperrliste.services import adresse_hash, compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exception_handlers import PAYLOAD_REFUSED
@@ -171,6 +173,22 @@ def on_a_league(url: str, body: Body, *, bewerbung: Any = OPEN_WINDOW, saison_st
 # A version-4 key, as `crypto.randomUUID()` mints one, fixed so a failure names the same press.
 SCHLUESSEL = UUID("1b4e28ba-2fa1-4d2b-883f-0016d3cca427")
 
+CONFIG = build_test_config()
+
+
+def ban_document(address: str) -> dict[str, Any]:
+    """One ban as the shipped write stores it, keyed under the suite's own settings and bounded from this season."""
+
+    return {
+        "_id": ObjectId(),
+        "adresse_hash": adresse_hash(address, schluessel=CONFIG.sperrliste_schluessel),
+        "schluessel_version": "sperrliste-v1",
+        "grund": "Falsches Geburtsdatum bei der Anmeldung",
+        "erstellt_von": "admin@frankfurtleague.de",
+        "erstellt_am": "2026-03-15",
+        "gesperrt_bis_saison_id": compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID),
+    }
+
 
 async def submit(database: AsyncDatabase, *, schluessel: UUID | None = None, bewerbungen: Any = None, **overrides: Any) -> Any:
     """A fresh key per call unless the case names one, so every other case here is a first press."""
@@ -182,7 +200,9 @@ async def submit(database: AsyncDatabase, *, schluessel: UUID | None = None, bew
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
+        sperrliste_collection=database[Collection.SPERRLISTE],
         db=database.client,
+        config=CONFIG,
         today=TODAY,
     )
 
@@ -516,6 +536,17 @@ class TestTheSubmissionKey:
 
         assert second.bestaetigungen is None
         assert after == before
+
+    def test_a_seat_stamped_empty_is_no_answer_and_the_replay_still_hands_links(self, mongo_replica_set_url: str):
+        """`is_confirmed` reads `""` as unconfirmed (`docs/backend/spec.md :: I387`), and the replay's filter reads it the same way."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await submit(database, schluessel=SCHLUESSEL)
+            await database[Collection.BEWERBUNGEN].update_one({}, {"$set": {"kontakte.trainer.einwilligung.bestaetigt_am": ""}})
+
+            return await submit(database, schluessel=SCHLUESSEL)
+
+        assert on_a_league(mongo_replica_set_url, body).bestaetigungen is not None
 
     @pytest.mark.parametrize(
         "zustellung",
@@ -1233,3 +1264,38 @@ class TestAKuerzelARetiredClubStillHolds:
             return await database[Collection.TEAMS].count_documents({"shorthand": RETIRED_SHORTHAND})
 
         assert on_a_league(mongo_replica_set_url, body) == 1
+
+
+class TestABannedContactAddress:
+    """`REQ-BEWERBUNG-018`: an address the ban list holds applies for nobody, on whichever seat it stands."""
+
+    @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
+    def test_a_banned_address_on_any_seat_is_refused_and_stores_nothing(self, mongo_replica_set_url: str, seat: str):
+        async def body(database: AsyncDatabase) -> tuple[str, int]:
+            await database[Collection.SPERRLISTE].insert_one(ban_document(KONTAKTE[seat]["email"]))
+            with pytest.raises(WriteRefusalException) as failure:
+                await submit(database)
+
+            return failure.value.error_code, await database[Collection.BEWERBUNGEN].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body) == (BEWERBUNG_ADRESSE_GESPERRT, 0)
+
+    def test_a_replay_after_an_address_was_banned_is_refused_and_mints_nothing(self, mongo_replica_set_url: str):
+        """The first press left nothing on record, the one state a replay mints in.
+
+        Without the ask, the replay hands the banned address three fresh links.
+        """
+
+        async def body(database: AsyncDatabase) -> Any:
+            await submit(database, schluessel=SCHLUESSEL)
+            await database[Collection.SPERRLISTE].insert_one(ban_document(KONTAKTE["stellvertretung"]["email"]))
+            before = await database[Collection.BEWERBUNGEN].find_one({})
+            with pytest.raises(WriteRefusalException) as failure:
+                await submit(database, schluessel=SCHLUESSEL)
+
+            return failure.value.error_code, before, await database[Collection.BEWERBUNGEN].find({}).to_list()
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == BEWERBUNG_ADRESSE_GESPERRT
+        assert after == [before]

@@ -1,0 +1,9 @@
+// Linted as next.config.ts.
+export const redirects = [
+  { source: "/dashboard", destination: "/admin/teams" }, // expect: stale-admin
+  { source: "/alt", destination: `/admin/${"teams"}` }, // expect: stale-admin
+  { source: "/fremd", destination: "https://frankfurtleague.de/admin" }, // expect: stale-admin
+  // Free: the panel's own prefix, and a word that only starts with the old one.
+  { source: "/bereich", destination: "/bereich/admin/action_required" },
+  { source: "/verwaltung", destination: "/administration" },
+];

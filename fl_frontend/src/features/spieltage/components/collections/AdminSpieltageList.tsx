@@ -110,7 +110,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
           for a Gruppenphase row. The season rides along because the search is scoped to one, and the
           row's own is the season its fixtures are in. */}
       <RowActionLink
-        href={`/admin/spielsuche?spieltag=${spieltag.id}&saison_id=${encodeURIComponent(spieltag.saison_id)}`}
+        href={`/bereich/admin/spielsuche?spieltag=${spieltag.id}&saison_id=${encodeURIComponent(spieltag.saison_id)}`}
         label="Spiele anzeigen"
         ariaLabel={`${spieltag.label}: Spiele anzeigen`}>
         <Magnifier
@@ -120,7 +120,7 @@ export const AdminSpieltageList = memo(function AdminSpieltageList({
       </RowActionLink>
       {/* A link rather than a press: the matchday form edits on a page, so the pencil is a navigation. */}
       <RowActionLink
-        href={saisonHref(`/admin/spieltage/${spieltag.id}`)}
+        href={saisonHref(`/bereich/admin/spieltage/${spieltag.id}`)}
         label="Bearbeiten"
         ariaLabel={`${spieltag.label} bearbeiten`}>
         <Pencil

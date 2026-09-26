@@ -12,9 +12,10 @@ declare const router: { back: () => void };
 
 export const ENDPOINT = "https://api.resend.com/emails"; // expect: resend
 export const STALE = "/bestaetigung?token=x"; // expect: stale-path
+export const STALE_ADMIN = "/admin/teams"; // expect: stale-admin
 // A test fixture may spell a class the product may not: the class bans reach production alone.
 export const FIXTURE = "hover:opacity-80 gap-5";
-export const ADMIN_FIXTURE = "/admin/teams";
+export const ADMIN_FIXTURE = "/bereich/admin/teams";
 export const CONTEXT = AppRouterContext;
 export const FORM = HeroForm;
 export const NUMBER_FIELD = HeroNumberField;

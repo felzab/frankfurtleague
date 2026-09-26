@@ -49,8 +49,8 @@ describe("the notice each passkey change sends", () => {
      somebody else made. One control, at the surface where a passkey can be taken away again. */
   it("offers the administrator's own surface and no other destination", () => {
     for (const { name, mail } of BEIDE) {
-      assert.ok(mail.html.includes(`href="${ORIGIN}/admin"`), `${name} does not link the administration`);
-      assert.ok(mail.text.includes(`${ORIGIN}/admin`), `${name}'s text branch offers no way back`);
+      assert.ok(mail.html.includes(`href="${ORIGIN}/bereich/admin"`), `${name} does not link the administration`);
+      assert.ok(mail.text.includes(`${ORIGIN}/bereich/admin`), `${name}'s text branch offers no way back`);
       assert.ok(mail.html.includes("melde Dich sofort bei uns"), `${name} says nothing about a change the reader did not make`);
     }
   });

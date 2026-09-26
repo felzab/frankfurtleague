@@ -11,6 +11,11 @@ const ctaButtonStyle = tv({
     },
     /** The hero's two secondary CTAs, deliberately smaller than the primary pair beside them. */
     size: { sm: "h-10 px-4 fluid-xs" },
+    /**
+     * For a label the page does not write, such as a club's name, which a phone's width may not seat on
+     * one line: the height becomes a floor and the label wraps, as `formButton`'s `stacks` does.
+     */
+    wraps: { true: "h-auto min-h-12 py-3 text-center whitespace-normal" },
     hover: { aria: "", css: "" },
   },
   // The fill is per intent and the selector is per host, so the pair decides — one flat `hover`
@@ -31,6 +36,7 @@ const ctaButtonStyle = tv({
 export function ctaButton(options: {
   intent?: "primary" | "outline";
   size?: "sm";
+  wraps?: boolean;
   /**
    * `"aria"` on a HeroUI `Button`, whose `useHover` discards a touch pointer; `"css"` on a `next/link`, which writes no
    * such attribute. Wrong on a `Button`, a hybrid device latches `:hover` after a tap.

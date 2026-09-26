@@ -56,8 +56,8 @@ class FLSubjektSchiedsrichter(BaseModel):
     schiedsrichter_id: CustomObjectId
 
 
-class FLSubjektResponse(BaseAPIResponse):
-    """Which league records one mailbox matches, as three lists rather than three optional records.
+class FLSubjekt(BaseModel):
+    """Which confirmed, live records one mailbox matches, as three lists rather than three optional records.
 
     A list under each because one inbox holds seats at two clubs and two pupils share an address
     (`docs/datenschutz.md :: "Colleagues sharing a school inbox"`).
@@ -66,3 +66,18 @@ class FLSubjektResponse(BaseAPIResponse):
     sitze: list[FLSubjektSitz]
     spieler: list[FLSubjektSpieler]
     schiedsrichter: list[FLSubjektSchiedsrichter]
+    # Its own field and never read off empty lists: set, the mailbox holds records that could grant a
+    # panel and none is confirmed, which empty lists alone would report as nothing held
+    # (`docs/backend/spec.md :: I374`).
+    unbestaetigt: bool
+
+
+class FLSubjektResponse(FLSubjekt, BaseAPIResponse):
+    """Which confirmed, live records one mailbox matches, and whether the address is on the ban list.
+
+    The ban narrows none of the records: whether a barred person signs in is the sign-in gate's to decide.
+    """
+
+    # The endpoint's alone and not `FLSubjekt`'s: a person endpoint judging a Funktion reads the
+    # records, and the ban is keyed under a secret only this operation needs (`docs/backend/spec.md :: I389`).
+    gesperrt: bool

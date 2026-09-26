@@ -169,7 +169,7 @@ export function AdminSchiedsrichterEditForm({
   };
 
   const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
-    fallbackHref: saisonHref("/admin/schiedsrichter"),
+    fallbackHref: saisonHref("/bereich/admin/schiedsrichter"),
     isDirty,
     resetDraftToStored,
   });

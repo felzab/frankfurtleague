@@ -11,6 +11,7 @@ import { render } from "@testing-library/react";
 
 import { readPublishedDocument } from "@/core/openapiDocument.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import {
   answer,
@@ -41,6 +42,10 @@ export * from ${JSON.stringify(real)};
 const recorded = (saison) => (globalThis.${RESOLVED}.push(saison?.id ?? null), saison);
 export const resolveAdminSaison = async (searchParams) => recorded(await real.resolveAdminSaison(searchParams));
 export const requireAdminSaison = async (searchParams) => recorded(await real.requireAdminSaison(searchParams));`;
+
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent
+// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+doubleActionRequest();
 
 registerHooks({
   load(url, context, nextLoad) {
@@ -448,7 +453,7 @@ describe("the season every admin page reads", () => {
 
     assert.ok(redirects.length > 0, "no page redirected, so the case below proves nothing");
     assert.deepEqual(
-      redirects.filter((entry) => !entry.endsWith(" -> /admin/saisons")),
+      redirects.filter((entry) => !entry.endsWith(" -> /bereich/admin/saisons")),
       [],
     );
   });

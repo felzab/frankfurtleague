@@ -34,9 +34,8 @@ const MODULE_DOUBLES: Record<string, string> = {
   "/src/core/config.ts": `export const frontend_config = { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" };`,
   // Signed in, so the undo spine's session check lets a request through to the body it reads.
   "/src/core/auth.ts": `export const auth = { handler: async (request) => new Response(request.url), api: {} };
-export const SIGN_IN_LANDING = "/signin/weiter";
 export const getAdminSession = async () => ({ user: { email: "vorstand@example.org" } });
-export const getSignInDestination = async () => "/admin";`,
+export const getSignInDestination = async () => "/bereich/admin";`,
 };
 const mail = doubleSendMail();
 

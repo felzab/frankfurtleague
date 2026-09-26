@@ -12,6 +12,7 @@ from app.api.bewerbungen.schemas import FLBewerbungEinwilligungZustand, FLBewerb
 from app.api.teams.schemas import FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
+from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
 from app.shared.folding import mailbox_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
@@ -42,6 +43,8 @@ BEWERBUNG_KONTAKT_EMAIL_TAKEN = "REQ-BEWERBUNG-014"
 BEWERBUNG_SCHLUESSEL_ABWEICHEND = "REQ-BEWERBUNG-015"
 BEWERBUNG_FASSUNG_VERALTET = "REQ-BEWERBUNG-016"
 BEWERBUNG_TOKEN_PAST_DEADLINE = "REQ-BEWERBUNG-017"
+BEWERBUNG_ADRESSE_GESPERRT = "REQ-BEWERBUNG-018"
+BEWERBUNG_KONTAKT_GESPERRT = "REQ-BEWERBUNG-019"
 
 # `bewerbung: null` and no key are both the closed window, never an error (`FLSaison.bewerbung`
 # defaults).
@@ -373,7 +376,7 @@ def build_wiederholung_filter(*, bewerbung_raw: Mapping[str, Any], today: str) -
 
         terms[f"bestaetigungen.{seat}.erinnert_am"] = None
         terms[f"bestaetigungen.{seat}.abgelehnt_am"] = None
-        terms[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = None
+        terms[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = UNCONFIRMED_STAMP
         unerreicht.append(zustellung_unerreicht_term(pfad=f"bestaetigungen.{seat}.zustellung"))
 
     # The deadline's own day still takes a link, as `link_is_over` reads it.
@@ -635,11 +638,10 @@ def find_expired_token_refusal(*, bestaetigungsfrist: Any, status: Any, today: s
     return None
 
 
-def _stamp_of(kontakte: Any, seat: str) -> Any:
+def _seat_is_confirmed(kontakte: Any, seat: str) -> bool:
     slot = kontakte.get(seat) if isinstance(kontakte, Mapping) else None
-    einwilligung = slot.get("einwilligung") if isinstance(slot, Mapping) else None
 
-    return einwilligung.get("bestaetigt_am") if isinstance(einwilligung, Mapping) else None
+    return is_confirmed(slot.get("einwilligung") if isinstance(slot, Mapping) else None)
 
 
 def _declined_on(bestaetigungen: Any, seat: str) -> Any:
@@ -655,7 +657,7 @@ def seat_is_answered(*, kontakte: Any, bestaetigungen: Any, seat: str) -> bool:
     has anything left to answer.
     """
 
-    if _stamp_of(kontakte, seat) is not None or _declined_on(bestaetigungen, seat) is not None:
+    if _seat_is_confirmed(kontakte, seat) or _declined_on(bestaetigungen, seat) is not None:
         return True
 
     return not isinstance(bestaetigungen, Mapping) or not isinstance(bestaetigungen.get(seat), Mapping)
@@ -697,7 +699,7 @@ def find_alter_refusal(*, geburtsdatum: str, today: str, mindestalter: int) -> W
 def zustand_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str) -> FLBewerbungEinwilligungZustand:
     """What a reopened link shows. A stamp outranks everything: a confirmed seat on an accepted application reads as confirmed."""
 
-    if _stamp_of(bewerbung_raw.get("kontakte"), seat) is not None:
+    if _seat_is_confirmed(bewerbung_raw.get("kontakte"), seat):
         return "bestaetigt"
 
     if _declined_on(bewerbung_raw.get("bestaetigungen"), seat) is not None:
@@ -712,7 +714,7 @@ def zustand_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str) -> FL
 def ausstehende_seats(*, kontakte: Any) -> list[FLKontaktRolle]:
     """Every seat without a stamp, in declaration order. An emptied slot counts: the application cannot complete without it."""
 
-    return [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in KONTAKT_SEATS if _stamp_of(kontakte, seat) is None]
+    return [seat_named(seat) or cast(FLKontaktRolle, seat) for seat in KONTAKT_SEATS if not _seat_is_confirmed(kontakte, seat)]
 
 
 def find_unconfirmed_kontakte_refusal(*, kontakte: Any, bestaetigungen: Any) -> WriteRefusal | None:
@@ -849,9 +851,44 @@ def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[s
     for seat in seats:
         unanswered[f"bestaetigungen.{seat}"] = {"$type": "object"}
         unanswered[f"bestaetigungen.{seat}.abgelehnt_am"] = None
-        unanswered[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = None
+        unanswered[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = UNCONFIRMED_STAMP
 
     return {"_id": bewerbung_id, "status": "eingereicht", **unanswered}
+
+
+def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
+    """`REQ-BEWERBUNG-018`: the ban list holds one of the addresses a submission names.
+
+    Takes the answer rather than the lookup, so the caller's reads run in the caller's transaction.
+    """
+
+    if not gesperrt:
+        return None
+
+    # NEUTRAL and naming no seat, as the registration's refusal is: a stranger learns nothing about a
+    # list, and 403 because what fails is who is applying rather than the season's state.
+    return WriteRefusal(
+        error_code=BEWERBUNG_ADRESSE_GESPERRT,
+        status=HTTPStatus.FORBIDDEN,
+        message="one of the email addresses this application names cannot be used; use another, or ask the league",
+    )
+
+
+def find_kontakt_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
+    """`REQ-BEWERBUNG-019`: an administrator's correction or reseat names an address the ban list holds.
+
+    409 where the public form's is 403: an administrator's write naming it is about the entry it writes
+    (`docs/backend/spec.md :: 1.4`), as the referee editor's `REQ-SCHIEDSRICHTER-007` is.
+    """
+
+    if not gesperrt:
+        return None
+
+    return WriteRefusal(
+        error_code=BEWERBUNG_KONTAKT_GESPERRT,
+        status=HTTPStatus.CONFLICT,
+        message="this email address is on the ban list, so no confirmation link may be sent to it; lift the entry first",
+    )
 
 
 def find_kontakt_email_refusal(*, kontakte: Any, seats: Sequence[str], email: str) -> WriteRefusal | None:
@@ -1092,7 +1129,7 @@ def seat_reminder_is_due(*, kontakte: Any, bestaetigungen: Any, seat: str, today
     """
 
     entry = _entry_of(bestaetigungen, seat)
-    if entry is None or _stamp_of(kontakte, seat) is not None or entry.get("abgelehnt_am") is not None:
+    if entry is None or _seat_is_confirmed(kontakte, seat) or entry.get("abgelehnt_am") is not None:
         return False
 
     if entry.get("erinnert_am") is not None or not isinstance(entry.get("verschickt_am"), str):
@@ -1159,7 +1196,7 @@ def reminder_link_groups(*, kontakte: Any, bestaetigungen: Any, seats: Sequence[
     return list(groups.values())
 
 
-def compose_erinnerung_update(*, hashes: Mapping[str, str], bestaetigungen: Any, today: str) -> Mapping[str, Any]:
+def compose_erinnerung_update(*, hashes: Mapping[str, str], withheld: Sequence[str], bestaetigungen: Any, today: str) -> Mapping[str, Any]:
     """The reminder's ONE `$set`: the stamp and the fresh hash per seat, the first hash kept beside it.
 
     `verschickt_am` and the deadline stay: a reminder is not a re-send (`docs/backend/spec.md :: I152`).
@@ -1170,6 +1207,10 @@ def compose_erinnerung_update(*, hashes: Mapping[str, str], bestaetigungen: Any,
         entry = _entry_of(bestaetigungen, seat) or {}
         written[f"bestaetigungen.{seat}.token_hash"] = token_hash
         written[f"bestaetigungen.{seat}.token_hash_zuvor"] = entry.get("token_hash")
+        written[f"bestaetigungen.{seat}.erinnert_am"] = today
+    # A `withheld` seat, its address on the ban list, takes the stamp and no link: left due, a page of
+    # them would fill every pass's share and `refuse_a_stalled_page` would stop the pass.
+    for seat in withheld:
         written[f"bestaetigungen.{seat}.erinnert_am"] = today
 
     return {"$set": written}
@@ -1235,7 +1276,7 @@ def _seat_reminder_term(*, seat: str, today: str) -> Mapping[str, Any]:
         f"bestaetigungen.{seat}.erinnert_am": None,
         f"bestaetigungen.{seat}.abgelehnt_am": None,
         f"bestaetigungen.{seat}.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
-        f"kontakte.{seat}.einwilligung.bestaetigt_am": None,
+        f"kontakte.{seat}.einwilligung.bestaetigt_am": UNCONFIRMED_STAMP,
     }
 
 
@@ -1263,7 +1304,7 @@ def build_deletion_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
         "status": "eingereicht",
         "bestaetigungsfrist": {"$lt": today},
         "bestaetigungen.ansprechperson.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},
-        "$or": [{f"kontakte.{seat}.einwilligung.bestaetigt_am": None} for seat in KONTAKT_SEATS],
+        "$or": [{f"kontakte.{seat}.einwilligung.bestaetigt_am": UNCONFIRMED_STAMP} for seat in KONTAKT_SEATS],
     }
 
 

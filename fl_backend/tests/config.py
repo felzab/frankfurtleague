@@ -2,6 +2,7 @@ from pydantic import SecretStr
 from pydantic_settings import SettingsConfigDict
 
 from app.core.config import INTERNAL_API_KEY_LENGTH, SPERRLISTE_KEY_MIN_LENGTH, BackendConfig
+from app.core.security import ACTOR_HEADER
 from tests.worker import worker_database
 
 # The base name of the corpus the pymongo-seeded suites share. What they seed and what the app under
@@ -33,11 +34,19 @@ _KEY_ADMIN = "test-key-admin".ljust(INTERNAL_API_KEY_LENGTH, "0")
 # address hashes differently under two keys builds its own second key rather than reading this one.
 _SPERRLISTE_SCHLUESSEL = "test-sperrliste-key".ljust(SPERRLISTE_KEY_MIN_LENGTH, "0")
 
+# Every actor a suite names on an admin-tier route, or `app/core/security.py :: verify_actor_is_admin`
+# answers the request 403 before the case reaches what it is about.
+ALLOWED_ADMIN_EMAILS = "admin@example.com,admin@frankfurtleague.de,spielorte.admin@example.com,triage.quillhilde@example.com"
+
 # The header a request carries to reach each tier, built from the keys `build_test_config` configures
 # so that no suite spells one of its own: `compare_digest` answers a drifted key 401 and names no side.
 BASE_AUTH = {"Authorization": f"Bearer {_KEY_BASE}"}
 SYSTEM_AUTH = {"Authorization": f"Bearer {_KEY_SYSTEM}"}
-ADMIN_AUTH = {"Authorization": f"Bearer {_KEY_ADMIN}"}
+# The admin key alone, for a case about a request naming no actor.
+ADMIN_KEY = {"Authorization": f"Bearer {_KEY_ADMIN}"}
+# What an administrator's request carries: the admin tier refuses one naming nobody on every method
+# (`app/core/security.py :: bind_actor`), so the key alone reaches no admin-tier handler.
+ADMIN_AUTH = {**ADMIN_KEY, ACTOR_HEADER: "admin@example.com"}
 
 
 class ConfigReadingNoDotenvFile(BackendConfig):
@@ -67,4 +76,5 @@ def build_test_config() -> BackendConfig:
         internal_api_key_system=SecretStr(_KEY_SYSTEM),
         internal_api_key_admin=SecretStr(_KEY_ADMIN),
         sperrliste_schluessel=SecretStr(_SPERRLISTE_SCHLUESSEL),
+        allowed_admin_emails=ALLOWED_ADMIN_EMAILS,
     )

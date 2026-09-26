@@ -30,6 +30,8 @@ RENAMED = "Lessing-Gymnasium"
 STADT = "Frankfurt am Main"
 
 ACTOR = "admin@example.com"
+# A signed-in person as `app/core/recording.py :: PersonActor` stores one: a pseudonym's shape, and no address.
+PERSON = {"kind": "person_session", "pseudonym": "5e" * 32, "funktion": "kontakt"}
 RECORDED_AT = "2026-03-15T18:00:00+00:00"
 # The same instant a real row holds twice, so the pair below is what `record_write` builds rather
 # than two stamps that merely both parse.
@@ -258,6 +260,12 @@ def test_the_base_row_every_rejection_below_deviates_from_is_accepted(mongo_url:
         (recorded_row(operation="insert_one"), "the driver's spelling of the single create rather than this module's"),
         (recorded_row(actor={"kind": "admin", "email": ACTOR}), "an actor kind outside the Literal"),
         (recorded_row(actor={"email": ACTOR}), "an actor missing half its shape"),
+        (recorded_row(actor={"kind": "admin_session"}), "an administrator's actor carrying no address"),
+        (recorded_row(actor={"kind": "person_session", "pseudonym": "5e" * 32}), "a person's actor recorded under no Funktion"),
+        (recorded_row(actor=PERSON | {"funktion": "trainer"}), "a person's Funktion outside the Literal"),
+        # The case the person variant exists against: the log outlives the person's erasure.
+        (recorded_row(actor=PERSON | {"email": ACTOR}), "a person's actor carrying an address beside its pseudonym"),
+        (recorded_row(actor={"kind": "person_session", "email": ACTOR}), "a person's actor named by an address alone"),
         ({key: value for key, value in recorded_row().items() if key != "before"}, "a row carrying no `before` key at all"),
         (recorded_row(at=20260315), "a timestamp stored as a number"),
         # The defect the date stamp exists against: a TTL index over a string builds and expires
@@ -281,6 +289,7 @@ def test_a_malformed_row_is_rejected(mongo_url: str, row: dict[str, Any], why: s
             "a fan-out",
         ),
         (recorded_row(actor={"kind": "system", "email": "SYSTEM"}, request=None, trace_id="SYSTEM"), "a write made outside any request"),
+        (recorded_row(actor=PERSON), "a signed-in person's write, named by a pseudonym and a Funktion"),
         (recorded_row(redacted_at="2026-04-01", before=None), "a row whose values an erasure has already overwritten"),
         (
             recorded_row(operation="insert_many", document_id=None, db_filter=None, before=None, modified_count=75),

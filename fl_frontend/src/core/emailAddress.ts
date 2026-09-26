@@ -130,7 +130,7 @@ function foldedDomain(domain: string): string {
 }
 
 /**
- * The one folded form `fl_frontend/src/core/auth.ts :: isUserAdmin` compares an allowlist entry
+ * The one folded form `fl_frontend/src/core/allowlist.ts :: isUserAdmin` compares an allowlist entry
  * against, and the form each entry is stored in: the sign-in library lower-cases only the row it
  * stores, and normalises nothing on either lane.
  */

@@ -36,6 +36,8 @@ import { withoutPythonComments } from "./pythonComments"; // expect: test-only
 import { withoutPythonComments as withoutPythonCommentsTyped } from "./pythonComments.ts"; // expect: test-only
 import { KEY_TIERS } from "./keyTiers"; // expect: test-only
 import { KEY_TIERS as KEY_TIERSTyped } from "./keyTiers.ts"; // expect: test-only
+import { beginRenderPass } from "./cacheScope"; // expect: test-only
+import { beginRenderPass as beginRenderPassTyped } from "./cacheScope.ts"; // expect: test-only
 import { TEAM_FACETS as TEAMS_RELATIVE } from "../features/teams/facets"; // expect: layer-core
 import { FIELD_LABEL_CLASSES as LABEL_RELATIVE } from "../shared/components/ui/formFieldStyles"; // expect: layer-core
 import { TEAM_FACETS as TEAMS_FROM_ROOT } from "../../src/features/teams/facets"; // expect: layer-core
@@ -46,7 +48,7 @@ import { SITE_URL as SITE_URL_TYPED } from "./brand.ts"; // expect: site-origin
 
 export const USED = [TEAM_FACETS, FIELD_LABEL_CLASSES, captureStdout, HeroForm, DatePicker, Button, AppRouterContext, HintPanel];
 export const SPELLINGS = [captureTyped, installAuthDoubles, installTyped, doubleSendMail, doubleSendMailTyped, readScheme, readTyped, redact, redactTyped, TEAMS_RELATIVE, LABEL_RELATIVE, TEAMS_FROM_ROOT];
-export const MORE_SPELLINGS = [walkFiles, walkFilesTyped, schemaModules, schemaModulesTyped, DOCUMENT_PATH, DOCUMENT_PATHTyped, publishedCeilings, publishedCeilingsTyped, blankComments, blankCommentsTyped, openingTagAt, openingTagAtTyped, withoutPythonComments, withoutPythonCommentsTyped, KEY_TIERS, KEY_TIERSTyped];
+export const MORE_SPELLINGS = [walkFiles, walkFilesTyped, schemaModules, schemaModulesTyped, DOCUMENT_PATH, DOCUMENT_PATHTyped, publishedCeilings, publishedCeilingsTyped, blankComments, blankCommentsTyped, openingTagAt, openingTagAtTyped, withoutPythonComments, withoutPythonCommentsTyped, KEY_TIERS, KEY_TIERSTyped, beginRenderPass, beginRenderPassTyped];
 // A package's own path crosses no layer, however its directories are named.
 export const NEXT_SHARED_LOADED = import("next/dist/shared/lib/utils.js");
 export const LOADED_SLICE = await import("@/features/teams/facets"); // expect: layer-core-load

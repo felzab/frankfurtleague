@@ -27,6 +27,7 @@ from app.api.teams.schemas import (
 from app.core.collections import Collection
 from app.core.crud import build_query
 from app.core.exceptions import WriteRefusal
+from app.shared.einwilligung import is_confirmed
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
 
@@ -885,7 +886,7 @@ def _kenntnisnahme_of(seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
 def _seat_is_stamped(seat: Mapping[str, Any]) -> bool:
     """Whether this seat's own person has confirmed it (`docs/backend/spec.md :: I142`)."""
 
-    return (einwilligung := _kenntnisnahme_of(seat)) is not None and einwilligung.get("bestaetigt_am") is not None
+    return is_confirmed(seat.get("einwilligung"))
 
 
 def _seat_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:

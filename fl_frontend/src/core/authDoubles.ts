@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { registerHooks } from "node:module";
+import { after } from "node:test";
+
+import { memoryAdapter } from "better-auth/adapters/memory";
 
 import { doubleSendMail } from "./mailDouble.ts";
+
+import type { MemoryDB } from "better-auth/adapters/memory";
 
 export const ADMIN_EMAIL = "vorstand@example.org";
 
@@ -10,6 +15,20 @@ export const ADMIN_EMAIL = "vorstand@example.org";
 export const ORIGIN = { host: "localhost:3000", "x-forwarded-proto": "http" } as const;
 
 export const asDataUrl = (source: string): string => `data:text/javascript,${encodeURIComponent(source)}`;
+
+let modulesBuilt = 0;
+
+/**
+ * Each value crosses through a global and never as a literal in the source, which spells this file's
+ * own export names alone: a value written into code is safe only while every escape it passed through
+ * holds.
+ */
+function exportingModule(values: Readonly<Record<string, unknown>>): string {
+  // A slot per module, since two modules can load before either evaluates.
+  const slot = `__flAuthDoubledModule${String((modulesBuilt += 1))}`;
+  Reflect.set(globalThis, slot, values);
+  return `export const { ${Object.keys(values).join(", ")} } = globalThis.${slot};`;
+}
 
 /**
  * The config every sign-in suite runs `fl_frontend/src/core/auth.ts` under. The secret is fabricated
@@ -25,7 +44,8 @@ export function configDouble(overrides: Readonly<Record<string, unknown>> = {}):
     LOG_FORMAT: "json",
     ...overrides,
   };
-  return `export const frontend_config = ${JSON.stringify(config)};`;
+  // An override of `undefined` takes the name out, as an unset variable is absent from the real config.
+  return exportingModule({ frontend_config: Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined)) });
 }
 
 /* Replaced here rather than the adapter being given a seam: the real client needs a `MONGODB_URI`
@@ -40,8 +60,7 @@ export const MEMORY_ADAPTER_URL = import.meta.resolve("better-auth/adapters/memo
  * `auth.ts` is the library's own in-memory one, over the object held at `globalThis[store]`.
  */
 export const memoryAdapterDouble = (store: string): string =>
-  asDataUrl(`import { memoryAdapter } from ${JSON.stringify(MEMORY_ADAPTER_URL)};
-export const mongodbAdapter = () => memoryAdapter(globalThis.${store});`);
+  asDataUrl(exportingModule({ mongodbAdapter: () => memoryAdapter(Reflect.get(globalThis, store) as MemoryDB) }));
 
 const SERVER_ONLY_DOUBLE_URL = asDataUrl("export {};");
 
@@ -165,6 +184,38 @@ export function seedLink(verification: VerificationRow[], email: string): string
   });
 
   return token;
+}
+
+/** Where the sign-in gate's one backend read goes, for `configDouble` in a suite `seatEveryAddress` answers. */
+export const GATE_BACKEND_CONFIG = {
+  API_URL: "http://backend.test",
+  API_VERSION: 0,
+  INTERNAL_API_KEY_SYSTEM: "fabricated-system-not-a-credential",
+} as const;
+
+/**
+ * Answers the gate's backend read with a live seat for every address, so a suite minting a person's
+ * session gets past the gate at session creation (`docs/frontend/spec.md :: I403`). Needs
+ * `GATE_BACKEND_CONFIG` in the suite's config double.
+ */
+export function seatEveryAddress(): void {
+  const seated = {
+    acknowledged: 1,
+    sitze: [{ saison_id: "2026", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" }],
+    spieler: [],
+    schiedsrichter: [],
+    unbestaetigt: false,
+    gesperrt: false,
+  };
+  const original = globalThis.fetch;
+
+  globalThis.fetch = (() =>
+    Promise.resolve(
+      new Response(JSON.stringify(seated), { status: 200, headers: { "content-type": "application/json" } }),
+    )) as typeof globalThis.fetch;
+  after(() => {
+    globalThis.fetch = original;
+  });
 }
 
 /**

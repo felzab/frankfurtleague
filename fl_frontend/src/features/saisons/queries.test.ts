@@ -3,15 +3,19 @@ import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/core/cacheScope.ts";
+import { doubleActionRequest, NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
-import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
 
 /** The saison modules under test, whose `react` imports are the ones the server build must answer. */
 const FEATURE_URL = pathToFileURL(import.meta.dirname).href + "/";
 
 /** Stands in for `next/headers`, whose `headers()` needs a request context no test process has. */
 const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
+
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent
+// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+doubleActionRequest();
 
 // Replaced at the module boundary rather than the season code being reshaped to admit a seam: the
 // real client reaches a backend no test process runs, at a base URL no test run holds.

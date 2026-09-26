@@ -12,7 +12,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
-import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, pageBody } from "@/shared/testing/pageHarness.ts";
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
@@ -39,12 +39,16 @@ const { calls, answerWith, answerPending } = doubleActions({
 /* The real module hands its raising to HeroUI's queue rather than back to the case that caused it. */
 const { raised: toasts } = doubleToasts();
 
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent
+// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+doubleActionRequest();
+
 const { mapSchiedsrichterAnsichtRefusal, mapSchiedsrichterBestaetigungRefusal } = await import("./queries.ts");
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { FormAnonymisierenSection } = await import("./components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx");
 const { AdminSchiedsrichterEditView } = await import("./components/views/AdminSchiedsrichterEditView.tsx");
-const { default: AdminSchiedsrichterEditPage } = await import("@/app/admin/schiedsrichter/[schiedsrichter_id]/page.tsx");
+const { default: AdminSchiedsrichterEditPage } = await import("@/app/bereich/admin/schiedsrichter/[schiedsrichter_id]/page.tsx");
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..", "..");
 /** The backend redaction the panel's copy describes, read where it is written. */
@@ -457,7 +461,7 @@ describe("the erasure on the referee's editor", () => {
       [["success", "Schiedsrichterdaten gelöscht"]],
       "the write answered without its toast, so nothing below is judged",
     );
-    assert.deepEqual(seen.replaced, ["/admin/schiedsrichter"], "the erasure stays on the page whose row it deleted");
+    assert.deepEqual(seen.replaced, ["/bereich/admin/schiedsrichter"], "the erasure stays on the page whose row it deleted");
     assert.deepEqual(seen.pushed, [], "Back is left pointing at a page that now answers not-found");
     assert.equal(seen.refresh, 0, "the erasure re-reads a row it has deleted");
   });

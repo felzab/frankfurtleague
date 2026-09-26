@@ -123,6 +123,12 @@ const TEST_ONLY = [
     message: "mailDouble replaces the mail module for the process: a *.test.ts(x) file may import it, production code may not.",
   },
   {
+    // In core for `mailDouble.ts`'s reason: a core guard's memo is proven by a core suite.
+    group: ["**/cacheScope.ts", "**/cacheScope"],
+    message:
+      "cacheScope installs a render pass's memo table on the server React for the process: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
     // Any `testing` directory, so a relative path from inside `shared`, which names no `shared`, is read too.
     group: ["**/testing/**"],
     message: "src/shared/testing is the suite's harness: a *.test.ts(x) file may import it, production code may not.",
@@ -529,12 +535,28 @@ const RELATIVE_TEXT = String.raw`:matches(Literal[value=/^(?!\x2F|[a-z]+:)/], Te
 /** Where a target keeps the text it opens on: a `+`'s left, a type assertion's operand, a `concat`'s receiver. */
 const LEADING_SLOT = String.raw`:matches(BinaryExpression[operator="+"] > .left, :matches(TSAsExpression, TSSatisfiesExpression, TSNonNullExpression) > .expression, MemberExpression[property.name="concat"] > .object, CallExpression > MemberExpression.callee[property.name="concat"])`;
 
+/** The panel's old prefix as a whole segment, so `/adminTable` and `/administration` stay free. */
+const STALE_ADMIN = String.raw`/^\x2Fadmin(?![A-Za-z0-9_-])/`;
+
+/** The same prefix behind an origin, anywhere in the text: a mailed or logged address spells one. */
+const STALE_ADMIN_URL = String.raw`/[a-z]+:\x2F\x2F[^\x2F\s]+\x2Fadmin(?![A-Za-z0-9_-])/`;
+
+/**
+ * Where a literal or a template opens, as `UNSEASONED_ADMIN_LINKS` reads one, or any text naming an
+ * origin: a backend path ending in `/admin` and a route handler under `/api/admin` open on neither.
+ */
+const STALE_ADMIN_BAN = {
+  selector: `:matches(Literal[value=${STALE_ADMIN}], TemplateLiteral:matches([quasis.0.value.raw=${STALE_ADMIN}], [quasis.0.value.raw=""][quasis.1.value.raw=${STALE_ADMIN}]), Literal[value=${STALE_ADMIN_URL}], TemplateElement[value.raw=${STALE_ADMIN_URL}])`,
+  message: "The admin panel moved off /admin, which answers 404: its pages are under /bereich/admin.",
+  tests: true,
+};
+
 // The literal is the carrier's FIRST argument, or names the parameter in its own query; a route
-// handed to `ShellNotFound` is carried by that component, which `fl_frontend/src/app/notFound.test.ts`
-// renders under a season.
+// handed to `ShellNotFound` takes the season from the shell around it, which the admin shell keeps in
+// the query (`fl_frontend/src/features/admin/components/ui/AdminShell.test.ts`).
 const UNSEASONED_ADMIN_LINKS = [
-  String.raw`Literal[value=/^\x2Fadmin(?![^#]*[?&]saison_id=)/]:not(TSLiteralType > Literal):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > Literal.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > Literal)`,
-  String.raw`TemplateLiteral:matches([quasis.0.value.raw=/^\x2Fadmin/], [quasis.0.value.raw=""][quasis.1.value.raw=/^\x2Fadmin/]):not(:has(> TemplateElement[value.raw=/[?&]saison_id=/])):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > TemplateLiteral.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > JSXExpressionContainer > TemplateLiteral)`,
+  String.raw`Literal[value=/^\x2Fbereich\x2Fadmin(?![^#]*[?&]saison_id=)/]:not(TSLiteralType > Literal):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > Literal.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > Literal)`,
+  String.raw`TemplateLiteral:matches([quasis.0.value.raw=/^\x2Fbereich\x2Fadmin/], [quasis.0.value.raw=""][quasis.1.value.raw=/^\x2Fbereich\x2Fadmin/]):not(:has(> TemplateElement[value.raw=/[?&]saison_id=/])):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > TemplateLiteral.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > JSXExpressionContainer > TemplateLiteral)`,
 ];
 
 /**
@@ -715,6 +737,7 @@ const SOURCE_BANS = [
     message: "The confirmation moved off /bestaetigung: mint the link through `bestaetigungsLink`.",
     tests: true,
   },
+  STALE_ADMIN_BAN,
   {
     // The target itself, or the text its leftmost operand opens on; one ancestor outside a leading slot,
     // a call's argument or a ternary's branch, takes the text out of the lead.
@@ -818,7 +841,7 @@ const SCOPED_BANS = [
       selector: loadOf(selectorPattern(LAYER_BOUNDARY.core.regex)),
       message: "An `import()` in core is an import: core must not depend on shared or features.",
     },
-    { files: ["src/core/auth.ts", "src/core/mail.ts"], ...LOGGED_ERROR },
+    { files: ["src/core/auth.ts", "src/core/mail.ts", "src/core/signInGate.ts"], ...LOGGED_ERROR },
   ],
   [
     {
@@ -923,6 +946,8 @@ const eslintConfig = defineConfig([
   // Syntax rules rather than test sweeps: a comment naming a spelling is no literal, so prose never
   // trips one.
   ...SOURCE_BAN_BLOCKS,
+  // The one file outside `src` naming page paths: a redirect to the old prefix ships a 404 unseen.
+  { files: ["next.config.ts"], rules: syntaxBans([STALE_ADMIN_BAN]) },
   { files: ["src/**/*.{ts,tsx}"], ignores: TEST_FILES, plugins: { local: { rules: LOCAL_RULES } }, rules: { "local/admin-link": "error" } },
 
   // A dedicated rule wherever one states the ban. `useEditorExit.ts` is exempt from the history ban

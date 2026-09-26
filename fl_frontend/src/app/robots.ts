@@ -26,13 +26,10 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        // Every mailed URL among these carries a live token in its query, `/bestaetigung` standing
-        // as the prefix over its whole segment.
-
-        // The disallow is what turns a crawler back BEFORE that fetch; a page's noindex is read only
-        // after one.
-        // eslint-disable-next-line local/admin-link -- a crawler disallow rule, not a link
-        disallow: ["/api/", "/admin/", "/bestaetigung", "/signin/bestaetigen", "/registrierung"],
+        // Turns a crawler back BEFORE the fetch; a page's noindex is read only after one. Each mailed
+        // URL here carries a live token in its query, and `/bestaetigung` and `/bereich` stand
+        // unslashed, prefixes over their whole segments.
+        disallow: ["/api/", "/bereich", "/bestaetigung", "/signin/bestaetigen", "/registrierung"],
       },
       ...aiBots.map((bot) => ({
         userAgent: bot,

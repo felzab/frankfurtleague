@@ -79,6 +79,17 @@ class MalformedRequestException(BaseAPIException):
         super().__init__(status_code=status.HTTP_400_BAD_REQUEST, error_code=error_code, message=message)
 
 
+class ActorForbiddenException(BaseAPIException):
+    """The key passed and the actor it names may not act on its tier.
+
+    403, never 401, whose challenge would name a valid credential. Not a `WriteRefusal`, which is a
+    domain rule's and refuses no read.
+    """
+
+    def __init__(self, error_code: str, message: str):
+        super().__init__(status_code=status.HTTP_403_FORBIDDEN, error_code=error_code, message=message)
+
+
 class DatabaseUnavailableException(BaseAPIException):
     def __init__(self, error_code: str, message: str = "The database is not available"):
         super().__init__(

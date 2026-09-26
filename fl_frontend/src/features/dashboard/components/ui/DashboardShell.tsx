@@ -14,8 +14,11 @@ export function DashboardShell({ saisonMetadataDisplay, children }: { saisonMeta
     <AppShell
       structure={DASHBOARD_SIDEMENU_STRUCTURE}
       linkPrefix="/dashboard"
+      keepsSaisonQuery
       iconDictionary={DASHBOARD_SIDEMENU_ICONS}
       saisonMetadataDisplay={saisonMetadataDisplay}
+      // Behind no session, so no person and no Funktion to switch between.
+      funktionSwitcher={null}
       fallbackTitle={DASHBOARD_SHELL_FALLBACK.label}
       fallbackHint={DASHBOARD_SHELL_FALLBACK.hint}>
       {children}

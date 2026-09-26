@@ -1,7 +1,18 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { ADMIN_EMAIL, asDataUrl, cookieHeader, memoryAdapterDouble, ORIGIN, registerAuthDoubles, seedLink } from "./core/authDoubles.ts";
+import {
+  ADMIN_EMAIL,
+  asDataUrl,
+  configDouble,
+  cookieHeader,
+  GATE_BACKEND_CONFIG,
+  memoryAdapterDouble,
+  ORIGIN,
+  registerAuthDoubles,
+  seatEveryAddress,
+  seedLink,
+} from "./core/authDoubles.ts";
 
 const STORE = "__flProxyStore";
 const REQUEST_HEADERS = "__flProxyRequestHeaders";
@@ -12,7 +23,11 @@ const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_
 /** An address the config double's allowlist does not carry, whose session the verdict is what refuses. */
 const REMOVED_EMAIL = "ehemalig@example.org";
 
+// Every address this file signs in is seated: the gate at session creation is not its subject.
+seatEveryAddress();
+
 registerAuthDoubles({
+  core: { config: configDouble(GATE_BACKEND_CONFIG) },
   specifiers: {
     // This file's subject is the SHAPE of a turn-away rather than the store behind it.
     "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),
@@ -39,7 +54,7 @@ const store: Store = { user: [], session: [], account: [], verification: [], pas
 // registered, so neither the doubles nor the `next/server` extension would be in place yet.
 const { NextRequest } = await import("next/server");
 const { auth, getSignInDestination } = await import("./core/auth.ts");
-const { proxy } = await import("./proxy.ts");
+const { config, proxy } = await import("./proxy.ts");
 
 /** What the landing reads, for the cases that put its answer and this proxy's side by side. */
 function arriveAs(cookie: string | null): void {
@@ -70,7 +85,7 @@ admin.row.authFactor = "passkey";
 const removed = await signIn(REMOVED_EMAIL);
 removed.row.authFactor = "passkey";
 
-const ADMIN_URL = "http://localhost:3000/admin/spiele";
+const ADMIN_URL = "http://localhost:3000/bereich/admin/spiele";
 
 /** What react-dom fills the header with; the value is never read, only its presence. */
 const ACTION_ID = "6f1b0c9d4a2e8f37";
@@ -78,14 +93,14 @@ const ACTION_ID = "6f1b0c9d4a2e8f37";
 /** Every method react-dom cannot be sending an action on, so each is a page request. */
 const RENDERING_METHODS = ["HEAD", "PUT", "PATCH", "DELETE", "OPTIONS"];
 
-type Arrival = { method?: string; action?: boolean; cookie?: string };
+type Arrival = { url?: string; method?: string; action?: boolean; cookie?: string };
 
-async function arriveAtAdmin({ method = "GET", action = false, cookie }: Arrival = {}): Promise<Response> {
+async function arriveAtAdmin({ url = ADMIN_URL, method = "GET", action = false, cookie }: Arrival = {}): Promise<Response> {
   const headers = new Headers({ host: "localhost:3000" });
   if (action) headers.set("next-action", ACTION_ID);
   if (cookie !== undefined) headers.set("cookie", cookie);
 
-  const answer = await proxy(new NextRequest(ADMIN_URL, { method, headers }));
+  const answer = await proxy(new NextRequest(url, { method, headers }));
 
   assert.ok(answer instanceof Response, "the proxy answered something other than a response");
   return answer;
@@ -142,7 +157,7 @@ describe("where the admin proxy sends a signed-in request", () => {
   });
 
   /* To the landing and never the public root: the landing is the one place that decides, and it
-     sends a removed address to `/` while sending the administrator below one step further on. */
+     sends a removed address to `/bereich` while sending the administrator below one step further on. */
   it("sends a session whose address has left the allowlist to the landing", async () => {
     assert.equal(redirectedTo(await arriveAtAdmin({ cookie: removed.cookie })), "/signin/weiter");
   });
@@ -165,9 +180,9 @@ describe("where the admin proxy sends a signed-in request", () => {
     assert.equal(await getSignInDestination(), "/signin/passkey", "the landing sends a link-borne administrator somewhere else");
   });
 
-  /* The landing's `/admin` answer is the guard's own verdict, so a session it sends there is one the
+  /* The landing's `/bereich/admin` answer is the guard's own verdict, so a session it sends there is one the
      proxy lets through: the pair cannot bounce a caller between them. */
-  it("sends nobody back to `/admin` that this proxy would turn away again", async () => {
+  it("sends nobody back to `/bereich/admin` that this proxy would turn away again", async () => {
     for (const { name, cookie } of [
       { name: "link-borne administrator", cookie: (await signIn(ADMIN_EMAIL)).cookie },
       { name: "address outside the allowlist", cookie: removed.cookie },
@@ -178,7 +193,47 @@ describe("where the admin proxy sends a signed-in request", () => {
       const landing = await getSignInDestination();
       const turned = redirectedTo(await arriveAtAdmin({ cookie }));
 
-      assert.ok(landing !== "/admin" || turned === null, `${name} is bounced between the landing and the proxy`);
+      assert.ok(landing !== "/bereich/admin" || turned === null, `${name} is bounced between the landing and the proxy`);
+    }
+  });
+});
+
+describe("which addresses under the matched prefix the admin proxy judges", () => {
+  // Every case here calls the proxy directly, so a misspelled matcher would pass them all while Next
+  // never ran the proxy on a single page.
+  it("is matched to the whole `/bereich` prefix and nothing else", () => {
+    assert.deepEqual(config.matcher, ["/bereich/:path*"]);
+  });
+
+  // The person lane's words share the prefix, and the administrator's verdict turns every person away.
+  it("lets every word outside the administrator's subtree through, whoever arrives", async () => {
+    for (const url of [
+      "http://localhost:3000/bereich/team/6890a1b2c3d4e5f607190001",
+      "http://localhost:3000/bereich/administration",
+      // A malformed escape the decoding cannot read, which must not take the request down with it.
+      "http://localhost:3000/bereich/team/%E0%A4%A",
+    ]) {
+      for (const cookie of [undefined, removed.cookie]) {
+        const answer = await arriveAtAdmin({ url, cookie });
+
+        assert.equal(answer.headers.get("x-middleware-next"), "1", `${url} was judged by the administrator's verdict`);
+      }
+    }
+  });
+
+  // Next's matcher admits the decoded path as well, so the subtree is judged on an escaped spelling too.
+  it("judges the administrator's subtree whole, its root and an escaped spelling included", async () => {
+    for (const url of [
+      "http://localhost:3000/bereich/admin",
+      "http://localhost:3000/bereich/admin/spiele",
+      "http://localhost:3000/bereich/%61dmin/spiele",
+    ]) {
+      assert.equal(redirectedTo(await arriveAtAdmin({ url })), "/signin", `${url} let a signed-out request through`);
+      assert.equal(
+        redirectedTo(await arriveAtAdmin({ url, cookie: removed.cookie })),
+        "/signin/weiter",
+        `${url} let a removed address through`,
+      );
     }
   });
 });

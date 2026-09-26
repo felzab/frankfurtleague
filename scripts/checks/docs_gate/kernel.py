@@ -85,7 +85,7 @@ def has_name(path: str, names: tuple[str, ...]) -> bool:
     return path.rsplit("/", 1)[-1].lower() in _folded(names)
 
 
-# The roots an unprefixed path is written against, so `src/app/admin/admin.css` resolves.
+# The roots an unprefixed path is written against, so `src/app/bereich/admin/admin.css` resolves.
 PACKAGE_ROOTS: Final[tuple[str, ...]] = ("fl_frontend/", "fl_backend/")
 
 

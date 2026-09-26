@@ -15,7 +15,10 @@ import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 import type { ReactElement, ReactNode } from "react";
 
 /** One step a page took against the backend or the request, in the order it took them. */
-export type PageStep = { kind: "connection" } | { kind: "read"; endpoint: string; params: Record<string, unknown> };
+export type PageStep =
+  | { kind: "connection" }
+  // `body` parsed, for a read sent as a POST: what it asks about rides there rather than in `params`.
+  | { kind: "read"; endpoint: string; params: Record<string, unknown>; body: unknown };
 
 /** A schema as the doubled client is handed it: enough of Zod's surface to build the emptiest answer. */
 export type AnswerSchema = {
@@ -76,9 +79,14 @@ export function isClientModule(source: string): boolean {
   return false;
 }
 
+/**
+ * The specifier a client module imports itself by, which the resolve hook answers with the importer's
+ * own URL: spelled into the source, a URL is code wherever an escape it passed through fails.
+ */
+const SELF = "fl-page-harness:self";
+
 /** Appended to a client module, so each export is registered once the module has defined it. */
-const registering = (url: string): string =>
-  `\nimport * as __flSelf from ${JSON.stringify(url)};\nfor (const value of Object.values(__flSelf)) if (typeof value === "function") globalThis.${CLIENT_COMPONENTS}.add(value);\n`;
+const REGISTERING = `\nimport * as __flSelf from "${SELF}";\nfor (const value of Object.values(__flSelf)) if (typeof value === "function") globalThis.${CLIENT_COMPONENTS}.add(value);\n`;
 
 /**
  * ES modules alone: an `import` appended to a CommonJS one makes Node read it as an ES module. A
@@ -88,6 +96,7 @@ const ES_MODULE = new Set(["module", "module-typescript"]);
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
+    if (specifier === SELF && context.parentURL !== undefined) return { url: context.parentURL, shortCircuit: true };
     const double = PACKAGE_DOUBLES[specifier];
     return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
   },
@@ -95,7 +104,7 @@ registerHooks({
     const loaded = nextLoad(url, context);
     if (loaded.source === undefined || loaded.source === null || !ES_MODULE.has(loaded.format ?? "")) return loaded;
     const source = typeof loaded.source === "string" ? loaded.source : new TextDecoder().decode(loaded.source);
-    return isClientModule(source) ? { ...loaded, source: source + registering(url) } : loaded;
+    return isClientModule(source) ? { ...loaded, source: source + REGISTERING } : loaded;
   },
 });
 
@@ -209,10 +218,10 @@ export function answerReadsWith(respond: ReadAnswer, handingOver: HandOver = asP
   handOver = handingOver;
 }
 
-doubleApiClient(async ({ endpoint, method, params, readOnly }, handedSchema) => {
+doubleApiClient(async ({ endpoint, method, params, body: sent, readOnly }, handedSchema) => {
   const schema = handedSchema as z.ZodType & AnswerSchema;
   const asked = (params ?? {}) as Record<string, unknown>;
-  steps.push({ kind: "read", endpoint, params: asked });
+  steps.push({ kind: "read", endpoint, params: asked, body: sent === undefined ? undefined : (JSON.parse(sent) as unknown) });
   const body = await answerRead(endpoint, schema, asked);
 
   // The client's own check (`fl_frontend/src/core/api.ts :: apiClient`): a body its schema refuses

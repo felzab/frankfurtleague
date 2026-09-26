@@ -6,7 +6,7 @@ import { createElement as h } from "react";
 import { FLSaisonSchema } from "@/features/saisons/schemas.ts";
 import { FLTeamWithMembershipsSchema } from "@/features/teams/schemas.ts";
 import { submitDecision } from "@/shared/hooks/useDraftFieldErrors";
-import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, OBJECT_ID, renderPage, saisonFields } from "@/shared/testing/pageHarness.ts";
 import { answerShown, publishedRefusals } from "@/shared/testing/publishedRefusals.ts";
@@ -19,13 +19,17 @@ import { describeKontaktErasureUmfang, mirrorKontakte, toKontaktePayload } from 
 import type { FLKontaktperson, FLSaisonTeamKontakte } from "@/features/teams/schemas";
 import type { FLKontaktErasureResponse } from "./schemas.ts";
 
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent
+// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+doubleActionRequest();
+
 doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
 const { FormKontakteSection } = await import("./components/forms/AdminKontakteEditForm/FormKontakteSection.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
-const { default: AdminKontaktePage } = await import("@/app/admin/kontakte/page.tsx");
+const { default: AdminKontaktePage } = await import("@/app/bereich/admin/kontakte/page.tsx");
 
 const person = (vorname: string, nachname: string, email: string): FLKontaktperson => ({
   vorname,
@@ -61,7 +65,7 @@ const sectionMarkup = (kontakte: FLSaisonTeamKontakte): string =>
         children: h(FormKontakteSection, {
           value: kontakte,
           isMember: true,
-          teamHref: "/admin/teams/t1?saison_id=2526",
+          teamHref: "/bereich/admin/teams/t1?saison_id=2526",
           banners: [],
           onChange: () => undefined,
           onFieldLeft: () => undefined,

@@ -74,7 +74,11 @@ describe("the panel a triage decision is taken from", () => {
   it("links the club a decided application was entered into, although it names a school too", () => {
     const row = factLine(markup(), "Team");
 
-    assert.match(row, new RegExp(`<a[^>]*href="/admin/teams/${TEAM_ID}\\?saison_id=2026"`), "the club the acceptance created is not linked");
+    assert.match(
+      row,
+      new RegExp(`<a[^>]*href="/bereich/admin/teams/${TEAM_ID}\\?saison_id=2026"`),
+      "the club the acceptance created is not linked",
+    );
     assert.equal(textOf(row), TEAM_NAME);
   });
 

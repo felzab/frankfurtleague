@@ -4,6 +4,7 @@ import z from "zod";
 
 import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
+import { runAdminRead } from "@/shared/utils/adminRead";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { bewerbungenQueueTerms } from "./facets";
@@ -38,7 +39,7 @@ import type { EinwilligungAnsicht, FLBewerbungenFilterParams } from "./types";
  */
 export async function getBewerbungen(filters: FLBewerbungenFilterParams = {}): Promise<FLBewerbungenListResponse> {
   // No cache tag either: one means nothing outside a cache scope.
-  return runWithIncomingTrace(() =>
+  return runAdminRead(() =>
     apiClient<FLBewerbungenListResponse>("/bewerbungen", FLBewerbungenListResponseSchema, {
       authType: "admin",
       params: filters,
@@ -65,7 +66,7 @@ export async function getBewerbungenQueue(
  */
 // `cache` memoizes per RENDER PASS, never `"use cache"`, which keys on the arguments (`docs/frontend/spec.md` §1.2).
 export const getBewerbungById = cache(async (bewerbungId: string): Promise<FLBewerbungSingleResponse | null> =>
-  runWithIncomingTrace(() =>
+  runAdminRead(() =>
     apiClient<FLBewerbungSingleResponse>(`/bewerbungen/${encodeURIComponent(bewerbungId)}`, FLBewerbungSingleResponseSchema, {
       authType: "admin",
     }).catch((error: unknown) => {

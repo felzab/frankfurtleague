@@ -58,7 +58,7 @@ const GELOESCHT: Ereignis = {
 
 function aktionen(origin: string): readonly Aktion[] {
   // eslint-disable-next-line local/admin-link -- a link inside a message, followed from an inbox days later; no season is in scope at composing time
-  return [{ href: `${origin}/admin`, label: ZIEL_LABEL, ton: "primary" }];
+  return [{ href: `${origin}/bereich/admin`, label: ZIEL_LABEL, ton: "primary" }];
 }
 
 function renderHtml(ereignis: Ereignis, zeit: string, origin: string): string {
@@ -73,7 +73,7 @@ function renderHtml(ereignis: Ereignis, zeit: string, origin: string): string {
 }
 
 function renderText(ereignis: Ereignis, zeit: string, origin: string): string {
-  const oben = [`${BRAND_NAME}: ${ereignis.ueberschrift}`, "", ereignis.satz(zeit), "", `${ZIEL_LABEL}: ${origin}/admin`, "", WARNSATZ];
+  const oben = [`${BRAND_NAME}: ${ereignis.ueberschrift}`, "", ereignis.satz(zeit), "", `${ZIEL_LABEL}: ${origin}/bereich/admin`, "", WARNSATZ];
 
   return [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(origin, [ANTWORT_SATZ_TEXT])].join("\n");
 }

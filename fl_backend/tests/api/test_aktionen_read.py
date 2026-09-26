@@ -114,6 +114,24 @@ class TestARecordedRowSurvivesTheResponseModel:
         assert len(FLAktionenListAdapter.dump_json(rows)) > 0
 
 
+class TestAPersonsPseudonymIsServedAsItsPrefix:
+    """What the page renders is all the read hands the browser; the whole value stays in the store."""
+
+    PERSON = {"kind": "person_session", "pseudonym": "3f9a07c2" + "d" * 56, "funktion": "spieler"}
+
+    @pytest.mark.parametrize("model", [FLAktion, FLAktionMitStand])
+    def test_both_reads_serve_the_first_eight_characters(self, model: type[FLAktion] | type[FLAktionMitStand]):
+        served = json.loads(model.model_validate(stored_row(actor=dict(self.PERSON))).model_dump_json())["actor"]
+
+        assert served == {"kind": "person_session", "pseudonym": "3f9a07c2", "funktion": "spieler"}
+
+    def test_an_administrators_address_is_served_whole(self):
+        """The control: the cut is the person variant's, and an administrator's row keeps naming its mailbox."""
+        served = json.loads(FLAktion.model_validate(stored_row()).model_dump_json())["actor"]
+
+        assert served == {"kind": "admin_session", "email": "admin@example.invalid"}
+
+
 class TestTheListReportsTheImageWithoutServingIt:
     """The list row answers `stand_gesichert` in the image's place (`docs/backend/spec.md :: I107`).
 

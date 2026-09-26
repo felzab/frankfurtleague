@@ -27,5 +27,11 @@ export function mapAdresseRefusal(error: unknown): { error?: string; fieldErrors
     return { error: KEINE_SAISON };
   }
 
+  // On the box, as the duplicate is: the typed address is what is refused. No repair sentence, since
+  // leaving the administration is an operator's edit of the allowlist and no page offers it.
+  if (error.serverErrorCode === "REQ-SPERRLISTE-003") {
+    return { fieldErrors: { email: "Diese Adresse gehört zur Verwaltung und lässt sich nicht sperren." } };
+  }
+
   return null;
 }

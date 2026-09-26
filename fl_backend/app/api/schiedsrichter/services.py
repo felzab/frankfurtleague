@@ -9,6 +9,7 @@ from app.core.collections import Collection
 from app.core.exceptions import WriteRefusal
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.alter import whole_years_between
+from app.shared.einwilligung import is_confirmed
 from app.shared.folding import canonical_address, mailbox_key
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -255,16 +256,6 @@ def vorname_of(name: Any) -> str | None:
     return parts[0] if parts else None
 
 
-def _stamp_of(einwilligung: Any) -> Any:
-    return einwilligung.get("bestaetigt_am") if isinstance(einwilligung, Mapping) else None
-
-
-def is_confirmed(*, einwilligung: Any) -> bool:
-    """Whether this referee has answered. The STAMP and never a nulled hash: the hash stays live so a second press is told why."""
-
-    return _stamp_of(einwilligung) is not None
-
-
 def link_is_over(*, frist: Any, today: str) -> bool:
     """Whether the deadline has passed. A block carrying no readable deadline is over: nothing can say it is still running."""
 
@@ -317,6 +308,8 @@ def find_expired_token_refusal(*, frist: Any, today: str) -> WriteRefusal | None
 def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
     """Why this entry takes no second answer, or `None`. The single use: a stamp is what spends the link."""
 
+    # The STAMP and never a nulled hash: the hash stays live so a second press is told why
+    # (`docs/backend/spec.md :: I307`).
     if not is_confirmed(einwilligung=einwilligung):
         return None
 
