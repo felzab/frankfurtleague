@@ -683,8 +683,24 @@ def ban_document(address: str) -> dict[str, Any]:
     }
 
 
+# An address today's rule refuses, its local part being no ASCII: a stored row may hold one, and no
+# ban can be keyed on it.
+REFUSED_ADDRESS = "müller@example.com"
+
+
 class TestABarredMailboxIsNotChased:
     """No reminder carries a fresh link to an address the ban list holds: the seat is stamped, sent nothing, and logged."""
+
+    def test_an_address_the_rule_refuses_is_barred_by_nothing_and_the_pass_goes_on(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": REMIND_OID}, {"$set": {"kontakte.stellvertretung.email": REFUSED_ADDRESS}}
+            )
+            response = await sweep(database, client)
+
+            return [(entry.email, [seat.rollen for seat in entry.seats]) for entry in response.erinnerungen if entry.bewerbung_id == REMIND_OID]
+
+        assert (REFUSED_ADDRESS, [["stellvertretung"]]) in on_a_league(mongo_replica_set_url, body)
 
     def test_the_barred_seat_is_stamped_with_no_link_and_the_other_mailbox_is_chased(self, mongo_replica_set_url: str, caplog):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

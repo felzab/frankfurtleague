@@ -46,7 +46,7 @@ from app.api.bewerbungen.services import (
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import gesperrte_hashes
-from app.api.sperrliste.services import adresse_hash
+from app.api.sperrliste.services import stored_adresse_hash
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import erase_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
@@ -296,10 +296,12 @@ async def sweep_saison(
             )
             for row, seats in taken
         ]
-        hashed = {email: adresse_hash(email, schluessel=config.sperrliste_schluessel) for _, per_mailbox in per_row for email, _ in per_mailbox}
+        hashed = {
+            email: stored_adresse_hash(email, schluessel=config.sperrliste_schluessel) for _, per_mailbox in per_row for email, _ in per_mailbox
+        }
         gesperrt = await gesperrte_hashes(
             sperrliste_collection=sperrliste_collection,
-            adresse_hashes=hashed.values(),
+            adresse_hashes=[gehasht for gehasht in hashed.values() if gehasht is not None],
             massgebliche_saison_id=massgebliche_saison_id,
             session=session,
         )

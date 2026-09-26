@@ -5,7 +5,6 @@ One function computes the stored form, so a write and every later check hash und
 spelling would file rows no check can match, and nothing would report it.
 """
 
-import contextlib
 import hashlib
 import hmac
 from collections.abc import Iterable
@@ -86,20 +85,24 @@ def find_keine_saison_refusal(*, massgebliche_saison_id: str | None) -> WriteRef
     )
 
 
-def verwaltung_hashes(administrators: Iterable[str], *, schluessel: SecretStr) -> set[str]:
-    """Each administrator's address as a ban is keyed.
+def stored_adresse_hash(address: str, *, schluessel: SecretStr) -> str | None:
+    """The ban key of a stored address, or `None` where today's rule refuses it, as no ban can key one.
 
-    Hashes rather than sign-in identifiers: a ban bars by its hash, and the two folds read a domain
-    differently.
+    Never raising: a page of rows must not fail on the one a hand edit or an older rule left.
     """
 
-    hashes: set[str] = set()
-    for administrator in administrators:
-        # An entry the address rule refuses is left out: no ban can key it either.
-        with contextlib.suppress(ValueError):
-            hashes.add(adresse_hash(administrator, schluessel=schluessel))
+    try:
+        return adresse_hash(address, schluessel=schluessel)
+    except ValueError:
+        return None
 
-    return hashes
+
+def verwaltung_hashes(administrators: Iterable[str], *, schluessel: SecretStr) -> set[str]:
+    """Each administrator's address as a ban is keyed, so a ban is compared in the form it bars by."""
+
+    hashes = (stored_adresse_hash(administrator, schluessel=schluessel) for administrator in administrators)
+
+    return {gehasht for gehasht in hashes if gehasht is not None}
 
 
 def find_verwaltung_refusal(*, gehasht: str, verwaltung: set[str]) -> WriteRefusal | None:

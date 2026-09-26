@@ -261,6 +261,17 @@ class TestTheReminderClock:
         # Not merely left out of the answer: a stamp without a message would spend the one chase.
         assert document["bestaetigung"]["erinnert_am"] is None
 
+    def test_an_address_the_rule_refuses_is_barred_by_nothing_and_the_pass_goes_on(self, mongo_replica_set_url: str):
+        """A stored row may hold an address today's rule refuses, and no ban can be keyed on it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.REGISTRIERUNGEN].update_one({"_id": REMIND_OID}, {"$set": {"email": "müller@example.com"}})
+            response = await sweep(database, client)
+
+            return [entry.registrierung_id for entry in response.erinnerungen]
+
+        assert REMIND_OID in on_a_league(mongo_replica_set_url, body)
+
     def test_a_registration_whose_address_the_ban_list_holds_is_stamped_with_no_link(self, mongo_replica_set_url: str, caplog):
         """Stamped, unlike the refused address above: no query can leave the row out, the ban living in another collection.
 

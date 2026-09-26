@@ -43,7 +43,7 @@ from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.sperrliste.crud import address_is_gesperrt, gesperrte_hashes
-from app.api.sperrliste.services import adresse_hash
+from app.api.sperrliste.services import adresse_hash, stored_adresse_hash
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.services import compose_kontakte_at_entry, find_club_entry_refusal
 from app.core.config import API_VERSION, BackendConfig, get_app_config
@@ -318,7 +318,11 @@ async def erneut_einwilligung(
         adressen = {str(slot["email"]) for slot in slots if isinstance(slot, Mapping) and slot.get("email")}
         gesperrt = await gesperrte_hashes(
             sperrliste_collection=sperrliste_collection,
-            adresse_hashes=[adresse_hash(adresse, schluessel=config.sperrliste_schluessel) for adresse in adressen],
+            adresse_hashes=[
+                gehasht
+                for adresse in adressen
+                if (gehasht := stored_adresse_hash(adresse, schluessel=config.sperrliste_schluessel)) is not None
+            ],
             massgebliche_saison_id=massgebliche_saison_id,
         )
         refuse(find_kontakt_gesperrt_refusal(gesperrt=bool(gesperrt)))

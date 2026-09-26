@@ -1994,6 +1994,19 @@ class TestABannedContactAddress:
 
         assert on_a_league(mongo_replica_set_url, body).rollen == ["ansprechperson"]
 
+    def test_a_resend_to_an_address_the_rule_refuses_is_barred_by_nothing(self, mongo_replica_set_url: str):
+        """A stored seat may hold an address today's rule refuses, and no ban can be keyed on it."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await seed_an_open_ansprechperson_seat(database)
+            await database[Collection.BEWERBUNGEN].update_one(
+                {"_id": ERNEUT_BEWERBUNG}, {"$set": {"kontakte.ansprechperson.email": "müller@example.com"}}
+            )
+
+            return await resend(database, "ansprechperson")
+
+        assert on_a_league(mongo_replica_set_url, body).email == "müller@example.com"
+
     def test_a_correction_naming_a_banned_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_a_bounced_application(database, client)
