@@ -29,6 +29,7 @@ from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
+from app.shared.einwilligung import is_confirmed
 from app.shared.folding import person_name_key
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
@@ -274,7 +275,7 @@ def registrierung_ist_bestaetigt(*, einwilligung: Any) -> bool:
     message went out rather than that anybody answered.
     """
 
-    return isinstance(einwilligung, Mapping) and bool(einwilligung.get("bestaetigt_am"))
+    return is_confirmed(einwilligung)
 
 
 # A reminder's fresh hash and the first mail's, both live, as an application's pair is: a pupil still

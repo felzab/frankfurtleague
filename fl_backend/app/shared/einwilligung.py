@@ -5,8 +5,8 @@ from typing import Any
 def is_confirmed(einwilligung: Any) -> bool:
     """Whether a consent record carries its own person's confirmation (`docs/backend/spec.md :: I387`).
 
-    In `shared`: three packages read a seat's, a pupil's and a referee's record, and a copy each is how
-    one comes to grant what another refuses.
+    In `shared`: every package judging a seat's, a pupil's or a referee's record reads it here, and a
+    copy each is how one comes to grant what another refuses.
     """
 
     # `bestaetigt_am` alone: the one key a seat's `Kenntnisnahme` and a person's `Einwilligung` share.
