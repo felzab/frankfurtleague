@@ -168,3 +168,60 @@ describe("how the rail's two halves line up", () => {
     );
   });
 });
+
+describe("which entry the rail marks current where the area has a landing", () => {
+  const PREFIX = "/bereich/team/probe-team/probe-saison";
+
+  /* An empty id is the landing at the prefix itself, as a shell reaching its landing by no segment has. */
+  const LANDING: SidemenuStructure<keyof typeof ICONS> = [
+    {
+      category_name: "",
+      sub_options: [
+        { id: "", label: "Landung", iconName: "Persons", hint: { lead: "Probe." } },
+        { id: "kader", label: "Kader", iconName: "Calendar", hint: { lead: "Probe." } },
+      ],
+    },
+  ];
+
+  /** Each entry's label, its href and whether it is marked current, standing at `pathname`. */
+  function entriesAt(pathname: string): { label: string; href: string; current: boolean }[] {
+    const markup = renderTree(
+      underNext(
+        h(Sidemenu, {
+          structure: LANDING,
+          linkPrefix: PREFIX,
+          saisonMetadataDisplay: null,
+          iconDictionary: ICONS,
+          pathname,
+          isMobileOpen: false,
+          onMobileClose: () => undefined,
+          isDesktopCollapsed: false,
+          onToggleDesktopMenu: () => undefined,
+        }),
+        { pathname },
+      ),
+    );
+
+    return [...markup.matchAll(/<a\b[^>]*>/g)]
+      .map((hit) => hit[0])
+      .filter((tag) => tag.includes(`href="${PREFIX}`))
+      .map((tag) => ({
+        label: /\saria-label="([^"]*)"/.exec(tag)?.[1] ?? "",
+        href: /\shref="([^"]*)"/.exec(tag)?.[1] ?? "",
+        current: tag.includes('aria-current="page"'),
+      }));
+  }
+
+  /* Every entry's address sits beneath the landing's, so a landing matched by prefix would light
+     beside whichever entry the reader is on, and one matched on a trailing slash never lights. */
+  it("marks the landing current on its own address and on no address beneath it", () => {
+    assert.deepEqual(entriesAt(PREFIX), [
+      { label: "Landung", href: PREFIX, current: true },
+      { label: "Kader", href: `${PREFIX}/kader`, current: false },
+    ]);
+    assert.deepEqual(entriesAt(`${PREFIX}/kader/probe-spieler`), [
+      { label: "Landung", href: PREFIX, current: false },
+      { label: "Kader", href: `${PREFIX}/kader`, current: true },
+    ]);
+  });
+});
