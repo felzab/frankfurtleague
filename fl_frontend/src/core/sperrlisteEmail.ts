@@ -63,6 +63,11 @@ const widerspruchSatz = (kontakt: string): string =>
    refuses is a registration and a referee's entry, so the sentence names those two. */
 const EINLEITUNG = `Deine E-Mail-Adresse wurde von der Verwaltung der ${BRAND_NAME} gesperrt. Mit ihr kannst Du Dich vorerst nicht für eine Saison registrieren und auch nicht als Schiedsrichterin oder Schiedsrichter eingetragen werden.`;
 
+// „werden beendet“: the mail leaves after the sign-out was attempted and cannot know whether it held,
+// a failure being the administrator's to read.
+const ANMELDUNGEN_SATZ =
+  "Bestehende Anmeldungen mit dieser Adresse werden beendet. Dein Zugang bleibt erhalten und funktioniert wieder, sobald die Sperre endet.";
+
 /** What the form's hint promises the mail explains, so the two say one thing. */
 const LAPSE_SATZ = "Danach endet die Sperre von selbst; Du musst dafür nichts tun.";
 
@@ -77,7 +82,9 @@ function renderHtml(grund: string, gesperrtBisSaisonId: string, origin: string):
     bloecke: [
       // The bound is emphasised inside the prose rather than panelled: a card of one fact beside a
       // heading naming the ban reads as a certificate of it.
-      paragraph(`${escapeHtml(EINLEITUNG)} ${strong(escapeHtml(bisSatz(gesperrtBisSaisonId)))} ${escapeHtml(LAPSE_SATZ)}`),
+      paragraph(
+        `${escapeHtml(EINLEITUNG)} ${escapeHtml(ANMELDUNGEN_SATZ)} ${strong(escapeHtml(bisSatz(gesperrtBisSaisonId)))} ${escapeHtml(LAPSE_SATZ)}`,
+      ),
       paragraph(`${GRUND_VOR} ${escapeHtml(grund)}`),
       paragraph(escapeHtml(GESPEICHERT_SATZ), "0 0 16px", ASIDE_TEXT),
       paragraph(escapeHtml(GRUNDLAGE_SATZ), "0 0 16px", ASIDE_TEXT),
@@ -95,7 +102,7 @@ function renderText(grund: string, gesperrtBisSaisonId: string, origin: string):
   const oben = [
     `${BRAND_NAME}: ${UEBERSCHRIFT}`,
     "",
-    `${EINLEITUNG} ${bisSatz(gesperrtBisSaisonId)} ${LAPSE_SATZ}`,
+    `${EINLEITUNG} ${ANMELDUNGEN_SATZ} ${bisSatz(gesperrtBisSaisonId)} ${LAPSE_SATZ}`,
     "",
     `${GRUND_VOR} ${grund}`,
     "",

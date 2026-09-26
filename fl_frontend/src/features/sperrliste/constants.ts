@@ -49,4 +49,4 @@ export const sperreBisWert = (saisonId: string): string => `einschließlich Sais
 
 /** Under the create form's own address box, because the lapse is what the person typed into it is being signed up for. */
 export const SPERRE_DAUER_HINWEIS =
-  "Die Sperre endet nach fünf vollen Saisons von selbst. Die Adresse erhält sofort eine E-Mail, die den Grund, die Dauer und das Widerspruchsrecht nennt.";
+  "Die Sperre endet nach fünf vollen Saisons von selbst. Laufende Anmeldungen der Adresse werden sofort beendet, und sie erhält eine E-Mail, die den Grund, die Dauer und das Widerspruchsrecht nennt.";

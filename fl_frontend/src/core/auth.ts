@@ -850,3 +850,25 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
   // spelling, and this is the one address of this slice a person reads.
   return { step: step, email: asSignInIdentifier(served.user.email) };
 }
+
+/**
+ * Ends every live session of the account an address holds, which the refusal of its next sign-in does
+ * not reach; the account and its passkeys stay for the day the ban ends (`docs/frontend/spec.md :: I402`).
+ */
+export async function endSessionsOfAddress(address: string): Promise<void> {
+  const folded = asSignInIdentifier(address);
+
+  // The allowlist is judged ahead of the ban at every sign-in, so ending an administrator's sessions
+  // here would sign out somebody the next sign-in admits.
+  if (isUserAdmin(folded)) return;
+
+  const { adapter } = await auth.$context;
+
+  // Equality on the stored address: every sign-in hands the library the folded form, which it stores
+  // lower-cased and so unchanged.
+  const account = await adapter.findOne<{ id: string }>({ model: "user", where: [{ field: "email", value: folded }] });
+  if (account === null) return;
+
+  // By the account, never by a token: no session's cookie value leaves the store for this.
+  await adapter.deleteMany({ model: "session", where: [{ field: "userId", value: account.id }] });
+}

@@ -603,12 +603,20 @@ and no person named in it, the row outliving that person's erasure
 ([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up)). **The write
 mails the person itself**, naming the reason you typed and the last season the ban covers, so there
 is nothing to send by hand; where the send fails the page says so, and there is then no address left
-anywhere to try again with. **The ban refuses the sign-ups that ask it and nothing else.** A pupil's
-registration asks it and is
+anywhere to try again with. **The same write ends every live sign-in of the address**, keeping its
+account and passkeys for the day the ban ends (`docs/frontend/spec.md :: I402`); where that fails the
+page says so too, and the sessions then run to their own expiry. **The ban refuses the sign-ups that
+ask it and nothing else.** A pupil's registration asks it and is
 refused (`REQ-REGISTRIERUNG-009`), and so does every referee write that mints a link; every other
 route consults the list nowhere
 ([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)), so a person reading the queue is
-still what keeps a barred address out of everything a sign-up does not cover.
+still what keeps a barred address out of everything a sign-up does not cover. **What the address
+already holds stays until you take it away**, and the ban names none of it:
+
+- a referee still booked on an unplayed fixture: reassign those fixtures first, then retire the
+  referee, which `REQ-RETIRE-004` holds to that order;
+- a pupil's squad row: retire it, which takes the pupil off the public squad list;
+- a contact seat: replace or clear it on the team's season.
 
 **A ban lapses five full seasons after the one it was entered under, and the row is removed at the
 activation that runs past it.** The season it was entered in does not count, so a ban entered while

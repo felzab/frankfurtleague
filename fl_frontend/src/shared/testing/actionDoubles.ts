@@ -208,7 +208,16 @@ type AdminSessionDouble = { user: { email: string } } | null | Error;
 type SubjectDouble = SubjectSession | null | Error;
 
 /** What one request's doubled sign-in store answers, until `setSession` or `setSubject` names another for the rest of that case. */
-type SignInAnswers = { session: AdminSessionDouble; destination: string; subject: SubjectDouble; subjectReads: number };
+type SignInAnswers = {
+  session: AdminSessionDouble;
+  destination: string;
+  subject: SubjectDouble;
+  subjectReads: number;
+  /** Every address a ban asked the store to sign out, in order. */
+  signedOut: string[];
+  /** What that sign-out throws, where a case asks it to fail. */
+  signOutFailure: Error | null;
+};
 
 /** Where the real store sends a caller the session leaves out, when a case names no other. */
 const destinationOf = (session: AdminSessionDouble): string =>
@@ -222,7 +231,7 @@ const answering = (answer: unknown): Promise<unknown> => (answer instanceof Erro
  * database driver as it loads. Every other export throws where called, its name read off the real
  * module so an import links.
  */
-function sessionModule(url: string, what: string, doubled: ReadonlyMap<string, () => Promise<unknown>>): string {
+function sessionModule(url: string, what: string, doubled: ReadonlyMap<string, (...args: unknown[]) => Promise<unknown>>): string {
   const names = [...readFileSync(fileURLToPath(url), "utf8").matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)].map(
     ([, name = ""]) => name,
   );
@@ -248,6 +257,13 @@ const signInStore = (url: string, answers: SignInAnswers): string =>
     new Map([
       ["getAdminSession", () => answering(answers.session)],
       ["getSignInDestination", () => Promise.resolve(answers.destination)],
+      [
+        "endSessionsOfAddress",
+        (address: unknown) => {
+          answers.signedOut.push(String(address));
+          return answering(answers.signOutFailure ?? undefined);
+        },
+      ],
     ]),
   );
 
@@ -287,8 +303,19 @@ export function doubleActionRequest({
   setSubject: (next: SubjectDouble) => void;
   /** How often `getSubjectSession` was called since the case began. */
   subjectReads: () => number;
+  /** Every address a ban signed out since the case began. */
+  signedOut: () => readonly string[];
+  /** Makes every sign-out for the rest of the case throw `failure`. */
+  failSignOut: (failure: Error) => void;
 } {
-  const answers: SignInAnswers = { session, destination: destinationOf(session), subject, subjectReads: 0 };
+  const answers: SignInAnswers = {
+    session,
+    destination: destinationOf(session),
+    subject,
+    subjectReads: 0,
+    signedOut: [],
+    signOutFailure: null,
+  };
   // The destination goes with the session, so a case cannot leave one standing that another case's session contradicts.
   const setSession = (next: AdminSessionDouble, destination = destinationOf(next)): void => {
     answers.session = next;
@@ -302,6 +329,8 @@ export function doubleActionRequest({
     setSession(session);
     setSubject(subject);
     answers.subjectReads = 0;
+    answers.signedOut.length = 0;
+    answers.signOutFailure = null;
   });
   registerHooks({
     resolve(specifier, context, nextResolve) {
@@ -317,7 +346,13 @@ export function doubleActionRequest({
     },
   });
 
-  return { setSession, setSubject, subjectReads: () => answers.subjectReads };
+  return {
+    setSession,
+    setSubject,
+    subjectReads: () => answers.subjectReads,
+    signedOut: () => [...answers.signedOut],
+    failSignOut: (failure) => void (answers.signOutFailure = failure),
+  };
 }
 
 /** One announcement a component raised: the severity it chose, and the words it handed the reader. */

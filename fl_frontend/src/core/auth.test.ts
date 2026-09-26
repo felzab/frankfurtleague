@@ -142,7 +142,7 @@ globals[ADAPTER_CALLS] = adapterCalls;
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so neither the doubles nor the `next/server` extension would be in place yet.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth, getAdminSession, getPasskeyStep, getSignInDestination, isAdminSession, isFreshlySignedIn, PASSKEY_LIMIT } =
+const { auth, endSessionsOfAddress, getAdminSession, getPasskeyStep, getSignInDestination, isAdminSession, isFreshlySignedIn, PASSKEY_LIMIT } =
   await import("./auth.ts");
 const { buildMagicLinkEmail, LINK_VALIDITY_MINUTES } = await import("./authEmail.ts");
 const { proxy } = await import("../proxy.ts");
@@ -1490,6 +1490,56 @@ describe("the step-up every change to passkeys and sign-ins asks for", () => {
 
   it("takes a stamp it cannot read for no step-up at all", () => {
     assert.equal(isFreshlySignedIn({ user: { email: PERSON_EMAIL }, session: { createdAt: "kein Datum", authFactor: "passkey" } }), false);
+  });
+});
+
+describe("what a ban ends in the sign-in store", () => {
+  it("ends every session of the account the barred address folds to, and keeps the account and its passkeys", async () => {
+    const first = await signIn(PERSON_EMAIL);
+    const second = await signIn(PERSON_EMAIL);
+    store.passkey.push(aPasskeyFor(first.row.userId));
+    const bystander = await signIn("unbeteiligt@example.org");
+
+    await endSessionsOfAddress(PERSON_EMAIL.toUpperCase());
+
+    assert.ok(!store.session.includes(first.row) && !store.session.includes(second.row), "a session of the barred address survived");
+    assert.ok(store.session.includes(bystander.row), "the ban ended another address's session");
+    assert.ok(
+      store.user.some((user) => user.id === first.row.userId),
+      "the ban deleted the account itself",
+    );
+    assert.equal(store.passkey.length, 1, "the ban deleted the account's passkey");
+
+    arriveAs(first.cookie);
+    assert.equal(await getSignInDestination(), "/signin");
+  });
+
+  /* The store holds the folded address, whose domain is punycode: a ban typed with the Unicode
+     domain has to reach it. */
+  it("reaches an account whose address has a Unicode domain, typed either way", async () => {
+    const stored = await signIn("leser@xn--bcher-kva.example");
+
+    await endSessionsOfAddress("Leser@Bücher.example");
+
+    assert.ok(!store.session.includes(stored.row));
+  });
+
+  /* The allowlist is judged ahead of the ban at every sign-in, so its sessions stay as the next
+     sign-in would. */
+  it("leaves an allowlisted address signed in", async () => {
+    const { row } = await signIn(ADMIN_EMAIL);
+
+    await endSessionsOfAddress(ADMIN_EMAIL);
+
+    assert.ok(store.session.includes(row));
+  });
+
+  it("does nothing for an address no account holds", async () => {
+    const sessions = store.session.length;
+
+    await endSessionsOfAddress("niemand@example.org");
+
+    assert.equal(store.session.length, sessions);
   });
 });
 

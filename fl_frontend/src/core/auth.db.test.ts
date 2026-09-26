@@ -107,7 +107,7 @@ globals[CONSUMING] = () => consuming();
 
 // Imported after the hooks above are registered: a static import resolves before they exist.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth, PASSKEY_LIMIT } = await import("./auth.ts");
+const { auth, endSessionsOfAddress, PASSKEY_LIMIT } = await import("./auth.ts");
 const { ENROLMENT_CONFLICT } = await import("./passkeyRefusal.ts");
 
 type Collection = {
@@ -434,5 +434,51 @@ describe("a passkey setup that signs in, against a real database", () => {
     assert.equal(sent.length - mailedBefore, 1);
     const factors = (await sessionRows()).map(({ authFactor }) => authFactor).sort();
     assert.deepEqual(factors, ["code", "passkey"], "the refused setup minted a session or ended its caller's");
+  });
+});
+
+describe("what a ban ends, against a real database (`docs/frontend/spec.md :: I402`)", () => {
+  it("deletes every session of the account at the folded address, and keeps the account and its passkeys", async () => {
+    const { adapter } = await auth.$context;
+    const person = await adapter.create<Record<string, unknown>, { id: string }>({
+      model: "user",
+      data: { email: "leser@xn--bcher-kva.example", emailVerified: true, name: "", createdAt: new Date(), updatedAt: new Date() },
+    });
+    const other = await adapter.create<Record<string, unknown>, { id: string }>({
+      model: "user",
+      data: { email: "unbeteiligt@example.org", emailVerified: true, name: "", createdAt: new Date(), updatedAt: new Date() },
+    });
+    const session = (userId: string) => ({
+      userId: userId,
+      token: randomUUID(),
+      expiresAt: new Date(Date.now() + 60_000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      authFactor: "code",
+    });
+    for (const userId of [person.id, person.id, other.id]) await adapter.create({ model: "session", data: session(userId) });
+    await adapter.create({
+      model: "passkey",
+      data: {
+        userId: person.id,
+        credentialID: "kept",
+        publicKey: "k",
+        counter: 0,
+        deviceType: "singleDevice",
+        backedUp: false,
+        transports: "",
+        createdAt: new Date(),
+      },
+    });
+
+    await endSessionsOfAddress("Leser@Bücher.example");
+
+    assert.deepEqual(
+      (await sessionRows()).map(({ userId }) => String(userId)),
+      [other.id],
+      "a session of the barred account survived, or another account's was ended",
+    );
+    assert.equal((await authDb().collection("user").find({}).toArray()).length, 2);
+    assert.equal((await passkeyRows()).length, 1);
   });
 });

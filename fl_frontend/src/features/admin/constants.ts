@@ -226,8 +226,8 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           // What a reader would otherwise hunt the list for: the search bar reaches the reason and
           // the administrator, and a stored ban holds no address to match against.
           points: [{ term: "Die Adresse selbst", detail: "steht in keiner Zeile und lässt sich hier nicht suchen." }],
-          // What an admin comes here to do and cannot: no row expires, and none ever will.
-          note: "Eine Sperre bleibt, bis sie hier aufgehoben wird.",
+          // Both ways a row goes, since an admin reading the list takes a missing ban for a lifted one.
+          note: "Eine Sperre endet nach fünf vollen Saisons von selbst, oder wenn sie hier aufgehoben wird.",
         },
       },
     ],
