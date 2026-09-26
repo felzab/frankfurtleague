@@ -10,9 +10,9 @@ import { AdminShell } from "../ui/AdminShell";
 import type { ErrorInfo } from "next/error";
 
 /**
- * A failing read in the admin layout, the session guard's or the season slot's, which
- * `fl_frontend/src/app/bereich/admin/error.tsx` cannot catch: Next nests it inside the layout
- * (`docs/frontend/spec.md :: I385`).
+ * A failing read in the admin layout — the session guard's, the season slot's, or a defect in the
+ * switcher's, whose lookup answers its own failure — which `fl_frontend/src/app/bereich/admin/error.tsx`
+ * cannot catch: Next nests it inside the layout (`docs/frontend/spec.md :: I385`).
  */
 function AdminAreaFallback(_props: object, { error, reset }: ErrorInfo) {
   return (

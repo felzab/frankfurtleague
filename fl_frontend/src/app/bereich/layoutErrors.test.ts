@@ -10,10 +10,11 @@ import { notFound, redirect } from "next/navigation";
 
 import { cleanup, render } from "@testing-library/react";
 
+import { APIBadStatusError } from "@/core/errors.ts";
 import { doubleActionRequest, doubleEveryAction, exportingModule } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { callPage } from "@/shared/testing/pageHarness.ts";
+import { answerReadsWith, callPage, EMPTIEST_ANSWER, renderPage } from "@/shared/testing/pageHarness.ts";
 
 import type * as NextError from "next/error";
 import type { ComponentType, ReactElement, ReactNode } from "react";
@@ -187,6 +188,36 @@ describe("a read failing in an area's layout", () => {
           cleanup();
         }
       }
+    }
+  });
+});
+
+describe("the administrator's switcher failing its lookup", () => {
+  /* The switcher is one row of the rail, and the administration needs no backend answer to be reached:
+     a lookup the backend fails must not replace every admin page with the area's crash panel. */
+  it("renders the admin page and no switcher", async () => {
+    answerReadsWith((endpoint, schema, params) => {
+      if (endpoint !== "/identitaet/subjekt") return EMPTIEST_ANSWER(endpoint, schema, params);
+      throw new APIBadStatusError({
+        message: "unavailable",
+        url: `http://backend/api/v0${endpoint}`,
+        statusCode: 503,
+        endpoint: endpoint,
+        method: "POST",
+        readOnly: true,
+        traceId: "0",
+      });
+    });
+    try {
+      const markup = await renderPage(
+        underNext(h(AdminLayout, { children: h("p", null, "Seite") }), { pathname: "/bereich/admin/sperrliste" }),
+      );
+
+      assert.ok(markup.includes("<p>Seite</p>"), "the admin page is gone where the switcher's lookup failed");
+      assert.ok(!markup.includes("Spielunterbrechung"), "a failed switcher lookup takes the admin area down");
+      assert.ok(!markup.includes("Funktion wechseln"), "a switcher stands with no records to list");
+    } finally {
+      answerReadsWith(EMPTIEST_ANSWER);
     }
   });
 });
