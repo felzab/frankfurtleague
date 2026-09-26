@@ -61,9 +61,10 @@ type Subjekt = {
   sitze: { saison_id: string; team_id: string; rolle: string; team_name: string; saison_status: string }[];
   spieler: { spieler_id: string }[];
   schiedsrichter: { schiedsrichter_id: string }[];
+  unbestaetigt: boolean;
 };
 
-const empty = (): Subjekt => ({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [] });
+const empty = (): Subjekt => ({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false });
 
 const SEAT = { saison_id: "2025/26", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" };
 const PUPIL = { spieler_id: "b".repeat(24) };

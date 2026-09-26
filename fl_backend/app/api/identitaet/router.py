@@ -33,7 +33,7 @@ async def get_subjekt(
     schiedsrichter_collection: SchiedsrichterCollection,
 ) -> FLSubjektResponse:
     """
-    Answer which contact seats, pupil records and referee records the league holds for one mailbox.
+    Answer which confirmed contact seats, pupil records and referee records the league holds for one mailbox.
 
     Stores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an
     access line, which is `POST /kontakte/erasure/ansicht`'s reason too.
@@ -50,8 +50,14 @@ async def get_subjekt(
     Neither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by
     every writer that touches either.
 
+    A record is answered only once its own person has confirmed it -- a seat's `einwilligung.bestaetigt_am`, judged per seat, and the
+    same stamp on a pupil's and a referee's consent record -- and only while its row is live: a retired pupil or referee is answered
+    nothing, and so is the placeholder every erased referee's fixtures name. `unbestaetigt` is true exactly where the mailbox matched
+    live records and none of them is confirmed, so an unconfirmed person is told apart from one the league holds nothing for.
+    A seat on a `past` season is still answered, carrying its `saison_status`: which seasons grant a panel is each caller's to decide.
+
     Each list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.
-    An address the league holds nothing for is answered with three empty lists rather than a 404.
+    An address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.
     """
 
     return await find_subjekt(

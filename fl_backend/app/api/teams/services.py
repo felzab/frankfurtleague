@@ -4,6 +4,7 @@ from http import HTTPStatus
 from itertools import combinations, product
 from typing import Any, get_args
 
+from app.api.identitaet.services import is_confirmed
 from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
@@ -885,7 +886,7 @@ def _kenntnisnahme_of(seat: Mapping[str, Any]) -> Mapping[str, Any] | None:
 def _seat_is_stamped(seat: Mapping[str, Any]) -> bool:
     """Whether this seat's own person has confirmed it (`docs/backend/spec.md :: I142`)."""
 
-    return (einwilligung := _kenntnisnahme_of(seat)) is not None and einwilligung.get("bestaetigt_am") is not None
+    return is_confirmed(seat.get("einwilligung"))
 
 
 def _seat_held_by(stored_slot: Any, *, seat: Mapping[str, Any]) -> Mapping[str, Any] | None:

@@ -57,7 +57,7 @@ class FLSubjektSchiedsrichter(BaseModel):
 
 
 class FLSubjektResponse(BaseAPIResponse):
-    """Which league records one mailbox matches, as three lists rather than three optional records.
+    """Which confirmed, live records one mailbox matches, as three lists rather than three optional records.
 
     A list under each because one inbox holds seats at two clubs and two pupils share an address
     (`docs/datenschutz.md :: "Colleagues sharing a school inbox"`).
@@ -66,3 +66,7 @@ class FLSubjektResponse(BaseAPIResponse):
     sitze: list[FLSubjektSitz]
     spieler: list[FLSubjektSpieler]
     schiedsrichter: list[FLSubjektSchiedsrichter]
+    # Its own field and never read off empty lists: a person whose records all await their own
+    # confirmation is one press from holding them, which empty lists alone cannot say
+    # (`docs/backend/spec.md :: I374`).
+    unbestaetigt: bool

@@ -1,0 +1,5 @@
+[
+  { "saison_status": "past", "grants_a_panel": false },
+  { "saison_status": "active", "grants_a_panel": true },
+  { "saison_status": "future", "grants_a_panel": true }
+]

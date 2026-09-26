@@ -21,7 +21,7 @@ from app.shared.folding import league_address, sign_in_identifier
 from tests.app_client import app_client
 from tests.config import BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import rules_document, saison_document, saison_team_document, spieler_document, team_document
+from tests.documents import EINWILLIGUNG, rules_document, saison_document, saison_team_document, spieler_document, team_document
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -57,6 +57,11 @@ DOUBLE_S_STORED = "Post@strasse.de"
 # Nobody this identifier may reach, in each of the three collections.
 BYSTANDER = "baldur.krautzberger@example.com"
 
+# A mailbox whose every record awaits its own person's confirmation, and one whose every record is
+# confirmed on a row that has since been retired.
+UNCONFIRMED = "ottilie.wartezeit@schule.de"
+RETIRED = "rudolf.ruhestand@schule.de"
+
 # One mailbox at an internationalised domain, stored as every payload stores it
 # (`docs/backend/spec.md :: I332`): the domain in punycode, and folded too on a pupil's row.
 # Asked in punycode, the only form the sign-in library hands over.
@@ -83,11 +88,14 @@ IDN_ROW_OID = ObjectId("6890a1b2c3d4e5f607820017")
 PUPIL_ONE_OID = ObjectId("6890a1b2c3d4e5f607820021")
 PUPIL_TWO_OID = ObjectId("6890a1b2c3d4e5f607820022")
 IDN_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820023")
+RETIRED_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820024")
 BYSTANDER_PUPIL_OID = ObjectId("6890a1b2c3d4e5f607820029")
 REFEREE_ONE_OID = ObjectId("6890a1b2c3d4e5f607820031")
 REFEREE_TWO_OID = ObjectId("6890a1b2c3d4e5f607820032")
 HAND_EDITED_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820033")
 IDN_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820034")
+UNCONFIRMED_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820035")
+RETIRED_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820036")
 BYSTANDER_REFEREE_OID = ObjectId("6890a1b2c3d4e5f607820039")
 
 # The name the junction row was entered under, and the one the club has taken since. They differ so
@@ -96,17 +104,28 @@ ROW_NAME_A = "Helmholtz"
 CLUB_NAME_A_NOW = "Helmholtz-Gymnasium"
 ROW_NAME_B = "Lessing"
 
-KENNTNISNAHME: dict[str, Any] = {"umfang": "kontaktdaten", "erfasst_von": "administrativ", "text_version": "v1", "datum": "2026-01-05"}
+STAMP = "2026-01-20"
+
+KENNTNISNAHME: dict[str, Any] = {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-05"}
 
 
-def _person(email: str) -> dict[str, Any]:
-    """Every field `app/core/constraints.py :: _KONTAKTPERSON` requires, the address the only one a case reads."""
+def _person(email: str, *, bestaetigt_am: str | None = STAMP) -> dict[str, Any]:
+    """Every field `app/core/constraints.py :: _KONTAKTPERSON` requires, the address and the stamp the only ones a case reads.
 
-    return {"vorname": "Anna", "nachname": "Müller", "email": email, "telefon": "+49 69 5550101", "einwilligung": dict(KENNTNISNAHME)}
+    Stamped by default: the lookup answers a seat only once its own person has confirmed it.
+    """
+
+    return {
+        "vorname": "Anna",
+        "nachname": "Müller",
+        "email": email,
+        "telefon": "+49 69 5550101",
+        "einwilligung": {**KENNTNISNAHME, "bestaetigt_am": bestaetigt_am},
+    }
 
 
-def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str, **slots: str) -> dict[str, Any]:
-    """A `saison_teams` row seating whoever the caller names, the slots it does not name left empty."""
+def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str, **slots: str | dict[str, Any]) -> dict[str, Any]:
+    """A `saison_teams` row seating whoever the caller names, an address as a confirmed seat, the slots it does not name left empty."""
 
     return saison_team_document(
         saison_id,
@@ -116,7 +135,7 @@ def _junction(row_id: ObjectId, saison_id: str, team_id: ObjectId, *, name: str,
         _id=row_id,
         kontakte={
             **{slot: None for slot in KONTAKT_SLOTS},
-            **{slot: _person(email) for slot, email in slots.items()},
+            **{slot: _person(seat) if isinstance(seat, str) else seat for slot, seat in slots.items()},
             # A declaration about two slots rather than a slot of its own, so it names nobody and
             # no case here turns on it (`app/api/kontakte/services.py :: KONTAKT_SLOTS`).
             "trainer_ist_zugleich": None,
@@ -146,9 +165,9 @@ def _pupil(pupil_id: ObjectId, email: str) -> dict[str, Any]:
     return spieler_document(pupil_id, "Anna", "Müller", email=email)
 
 
-def _referee(referee_id: ObjectId, email: str, name: str) -> dict[str, Any]:
+def _referee(referee_id: ObjectId, email: str, name: str, **fields: Any) -> dict[str, Any]:
     # A name per referee for `_club`'s reason: `app/core/constraints.py :: uniq_schiedsrichter_name`
-    # indexes it.
+    # indexes it. Confirmed unless the caller says otherwise, as `_person` is.
     return {
         "_id": referee_id,
         "name": name,
@@ -156,6 +175,8 @@ def _referee(referee_id: ObjectId, email: str, name: str) -> dict[str, Any]:
         "default_payment": 20,
         "kontakt": {"telefon": "+49 69 5550202", "email": email},
         "inactive_since": None,
+        "einwilligung": {**EINWILLIGUNG, "bestaetigt_am": STAMP},
+        **fields,
     }
 
 
@@ -163,7 +184,10 @@ Body = Callable[[AsyncDatabase], Awaitable[Any]]
 
 
 async def _seed(database: AsyncDatabase) -> None:
-    """One corpus for every case: the mailbox in all three collections twice over, a bystander beside each, and the refused spellings."""
+    """One corpus for every case: the mailbox in all three collections twice over, a bystander beside each, and the refused spellings.
+
+    Beside them, one mailbox whose records are all unconfirmed and one whose rows are all retired.
+    """
 
     await database[Collection.SAISONS].insert_many(
         [_saison(PAST_SAISON, "past"), _saison(ACTIVE_SAISON, "active"), _saison(FUTURE_SAISON, "future")]
@@ -183,7 +207,14 @@ async def _seed(database: AsyncDatabase) -> None:
                 trainer=SEAT_STORED_UPPER,
                 ansprechperson=SEAT_STORED_DOMAIN,
             ),
-            _junction(BYSTANDER_ROW_OID, ACTIVE_SAISON, TEAM_C_OID, name="Krautzberg", trainer=BYSTANDER),
+            _junction(
+                BYSTANDER_ROW_OID,
+                ACTIVE_SAISON,
+                TEAM_C_OID,
+                name="Krautzberg",
+                trainer=BYSTANDER,
+                ansprechperson=_person(UNCONFIRMED, bestaetigt_am=None),
+            ),
             _junction(SHARP_S_ROW_OID, FUTURE_SAISON, TEAM_A_OID, name=ROW_NAME_A, trainer=SHARP_S_STORED),
             _junction(DOUBLE_S_ROW_OID, FUTURE_SAISON, TEAM_B_OID, name=ROW_NAME_B, trainer=DOUBLE_S_STORED),
             _junction(HAND_EDITED_ROW_OID, FUTURE_SAISON, TEAM_C_OID, name="Krautzberg", trainer=HAND_EDITED_STORED),
@@ -196,6 +227,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _pupil(PUPIL_TWO_OID, PUPIL_STORED),
             _pupil(IDN_PUPIL_OID, IDN_PUPIL_STORED),
             _pupil(BYSTANDER_PUPIL_OID, BYSTANDER),
+            {**_pupil(RETIRED_PUPIL_OID, RETIRED), "inactive_since": "2026-03-01"},
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
@@ -205,6 +237,8 @@ async def _seed(database: AsyncDatabase) -> None:
             _referee(HAND_EDITED_REFEREE_OID, HAND_EDITED_STORED, "D. Umlaut"),
             _referee(IDN_REFEREE_OID, IDN_SEAT_STORED, "E. Umlaut"),
             _referee(BYSTANDER_REFEREE_OID, BYSTANDER, "B. Krautzberger"),
+            _referee(UNCONFIRMED_REFEREE_OID, UNCONFIRMED, "F. Wartezeit", einwilligung=None),
+            _referee(RETIRED_REFEREE_OID, RETIRED, "G. Ruhestand", inactive_since="2026-03-01"),
         ]
     )
 
@@ -456,4 +490,25 @@ def test_the_mounted_route_serves_the_three_kinds_the_corpus_holds(mongo_url: st
         ],
         "spieler": [{"spieler_id": str(PUPIL_ONE_OID)}, {"spieler_id": str(PUPIL_TWO_OID)}],
         "schiedsrichter": [{"schiedsrichter_id": str(REFEREE_ONE_OID)}, {"schiedsrichter_id": str(REFEREE_TWO_OID)}],
+        "unbestaetigt": False,
     }
+
+
+@pytest.mark.db
+def test_the_mounted_route_flags_a_mailbox_whose_every_record_awaits_its_confirmation(mongo_url: str):
+    """An unconfirmed seat and a referee row whose record is null: the lists empty and the flag set, which empty lists alone cannot say."""
+
+    response = served_over_http(mongo_url, UNCONFIRMED)
+
+    assert response.status_code == 200
+    assert response.json() == {"acknowledged": 1, "sitze": [], "spieler": [], "schiedsrichter": [], "unbestaetigt": True}
+
+
+@pytest.mark.db
+def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(mongo_url: str):
+    """A confirmed pupil row and a confirmed referee row, both retired: empty lists and the flag down, as for a mailbox holding nothing."""
+
+    response = served_over_http(mongo_url, RETIRED)
+
+    assert response.status_code == 200
+    assert response.json() == {"acknowledged": 1, "sitze": [], "spieler": [], "schiedsrichter": [], "unbestaetigt": False}

@@ -33,8 +33,6 @@ export const FLRefusedPayloadBodySchema = FLFailureBodySchema.extend({ fields: z
 export const FLSubjektPayloadSchema = z.object({ email: z.string() });
 export type FLSubjektPayload = z.infer<typeof FLSubjektPayloadSchema>;
 
-// A fourth key declares a contract nothing serves: the pending flag a seat switcher shows is
-// derived beside the confirmation records this lookup never opens.
 /**
  * One contact seat the mailbox holds on a `saison_teams` row, per seat rather than per person: one
  * junction row seats one person twice where `trainer_ist_zugleich` says so.
@@ -61,12 +59,17 @@ export const FLSubjektSchiedsrichterSchema = z.object({ schiedsrichter_id: Custo
 export type FLSubjektSchiedsrichter = z.infer<typeof FLSubjektSchiedsrichterSchema>;
 
 /**
- * Which league records one mailbox matches. A list under each rather than an optional record: one
- * inbox holds seats at two clubs, and two pupils share an address (`docs/datenschutz.md`).
+ * Which confirmed, live league records one mailbox matches. A list under each rather than an
+ * optional record: one inbox holds seats at two clubs, and two pupils share an address
+ * (`docs/datenschutz.md`).
  */
 export const FLSubjektResponseSchema = BaseAPIResponseSchema.extend({
   sitze: z.array(FLSubjektSitzSchema),
   spieler: z.array(FLSubjektSpielerSchema),
   schiedsrichter: z.array(FLSubjektSchiedsrichterSchema),
+  // Read beside the lists and never from their being empty: empty lists with this set are a person
+  // one confirmation from holding their records, not a mailbox the league holds nothing for
+  // (`docs/backend/spec.md :: I374`).
+  unbestaetigt: z.boolean(),
 });
 export type FLSubjektResponse = z.infer<typeof FLSubjektResponseSchema>;
