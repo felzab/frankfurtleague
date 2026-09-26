@@ -5,10 +5,21 @@ import { beforeEach } from "node:test";
 export type SentMail = { to: string; subject: string; html: string; text: string; tags?: Record<string, string>; idempotencyKey?: string };
 
 /**
- * How the mailer ends one message. `withheld` and `recipient` are raised before any attempt, so no
- * write is recorded; `accepted`, `refused` and `lost` answer an attempt, which records one.
+ * How the mailer ends one message. `withheld`, `recipient` and `unsent` are raised before any
+ * attempt, so no write is recorded; an acceptance, a refusal and `lost` answer an attempt, which
+ * records one.
  */
-export type MailOutcome = "withheld" | "recipient" | "accepted" | "refused" | "lost";
+export type MailOutcome =
+  | "withheld"
+  | "recipient"
+  | "unsent"
+  | "accepted"
+  | "refused"
+  | "lost"
+  // Accepted under this id, `null` where the provider's answer named none: `accepted` mints one of its own.
+  | { accepted: string | null }
+  // Refused at this status, with the provider's token where its body carried one: `refused` is a 422 carrying none.
+  | { refused: number; providerErrorName?: string };
 
 type MailAnswer = (mail: SentMail) => MailOutcome | Promise<MailOutcome>;
 
@@ -46,10 +57,14 @@ export const sendMail = async (mail) => {
   const outcome = await bus.answer(mail);
   if (outcome === "withheld") throw new MailWithheldError();
   if (outcome === "recipient") throw new MailRecipientError();
+  if (outcome === "unsent") throw new MailUnsentError();
   recordWriteSent();
-  if (outcome === "refused") throw new MailSendError({ message: "The mail provider refused the message.", url: PROVIDER, statusCode: 422, traceId: "0" });
+  const refusal = outcome === "refused" ? { refused: 422 } : outcome;
+  if (typeof refusal === "object" && "refused" in refusal) {
+    throw new MailSendError({ message: "The mail provider refused the message.", url: PROVIDER, statusCode: refusal.refused, providerErrorName: refusal.providerErrorName, traceId: "0" });
+  }
   if (outcome === "lost") throw new APINetworkError({ message: "Mail request failed.", url: PROVIDER, method: "POST", readOnly: false, traceId: "0", isTimeout: false });
-  return { id: "msg-" + String(bus.sent.length) };
+  return { id: typeof outcome === "object" ? outcome.accepted : "msg-" + String(bus.sent.length) };
 };`;
 
   registerHooks({
