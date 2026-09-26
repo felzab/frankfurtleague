@@ -171,6 +171,15 @@ describe("the page harness", () => {
     );
   });
 
+  /* A `data:` URL keeps a quote as it is written, where a file URL would have percent-encoded it. */
+  it("calls no component a `use client` module exports whatever its URL carries", async () => {
+    const url = 'data:text/javascript,"use client";export const Widget=()=>{throw(Error("called"))};';
+    const { Widget } = (await import(url)) as { Widget: () => never };
+    const walk = await callPage(() => h("div", null, h(Widget)), PROPS);
+
+    assert.deepEqual(walk.thrown, [], "a client component was called outside a render");
+  });
+
   /* The two cases above reach the directive through real modules; these are the prologue's edges, and a
      comment run a backtracking pattern takes exponential time over before it answers. */
   it("reads `use client` from the directive prologue alone", () => {
