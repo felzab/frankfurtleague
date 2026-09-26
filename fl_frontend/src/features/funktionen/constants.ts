@@ -4,7 +4,6 @@ import PersonPencil from "@gravity-ui/icons/PersonPencil";
 
 import type { SidemenuHint, SidemenuStructure, SidemenuStructureSubOption } from "@/shared/types/types";
 import type React from "react";
-import type { TeamSeat } from "./teamSeats";
 
 /** `PersonIconName` is derived from this, so an `iconName` typo below is a compile error. */
 export const PERSON_SIDEMENU_ICONS = {
@@ -102,11 +101,3 @@ export const TEAM_SIDEMENU_ENTRIES = [
     },
   },
 ] as const satisfies readonly SidemenuStructureSubOption<TeamIconName>[];
-
-/**
- * The team shell's one unnamed group for the seats held at the address's team and season: every entry
- * for any seat, since the Trainer's reaches exactly what an Ansprechperson's does, and none for no seat.
- */
-export function teamStructureFor(seats: readonly TeamSeat[]): SidemenuStructure<TeamIconName> {
-  return seats.length === 0 ? [] : [{ category_name: "", sub_options: [...TEAM_SIDEMENU_ENTRIES] }];
-}
