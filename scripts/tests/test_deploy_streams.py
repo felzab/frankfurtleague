@@ -1,15 +1,14 @@
-"""SCRIPTS · what `scripts/ops/deploy.sh` copies and reads before a container is replaced.
+"""SCRIPTS · what `scripts/ops/deploy.sh` copies and reads around a container's recreate.
 
 `--force-recreate` discards a container's `json-file` stream and a failed deploy recreates the
 application pair twice, so `:: copy_streams` runs on both paths -- refusing where nothing has been
 recreated yet, and warning inside `:: roll_back`, where the site is already down and a log file is
 not worth leaving it there. `:: check_env_names` is the backend's environment read before the
 recreate: the environment file is a file to the settings class only there, and everything it prints
-is names. `scripts/lib/_lib.sh :: wait_healthy` is the read after it, and the compose file it is
-handed reaches compose as two arguments under that file's IFS.
-Each is lifted out of the script and driven behind a stand-in `docker`, so no daemon and no compose
-file of this machine; the snippet that reader hands the image is run for real instead, because a stub
-records an argv and answers nothing about what the image does.
+is names. `scripts/lib/_lib.sh :: wait_healthy`, sourced whole, is the read after it.
+Each is driven behind a stand-in `docker`, so no daemon and no compose file of this machine; the
+snippet that reader hands the image is run for real instead, because a stub records an argv and
+answers nothing about what the image does.
 
 Invariants:
   Nothing here reads or writes a real environment file: the fixture builds its own, of dummy names.
@@ -35,9 +34,9 @@ BACKEND_DOCKERFILE: Final = REPO_ROOT / "fl_backend" / "Dockerfile"
 
 STAMP: Final = "2026-09-07T101500"
 
-# `ps` and `logs` are steered by a service-name list in the environment; `run` records the argv it
-# was handed, which is the whole of what the mount and the user are asserted from, and `ps` records
-# its own beside it. `inspect` answers every container healthy.
+# `ps` and `logs` are steered by a service-name list in the environment. `run` and `ps` record their
+# argv, the whole of what the mount, the user and the compose file are asserted from; `inspect`
+# answers every container healthy.
 STUB: Final = """#!/usr/bin/env bash
 set -u
 last=""
@@ -429,10 +428,9 @@ def test_the_configuration_is_read_before_anything_is_pulled_or_recreated() -> N
 
 
 def test_the_health_read_hands_compose_the_deploys_file_as_two_arguments() -> None:
-    """`_lib.sh`'s IFS splits no word on a space, so a flag and its file joined in one expansion arrive as one argument.
+    """Under `_lib.sh`'s IFS, a flag and its file joined in one expansion arrive as one argument.
 
-    Compose reads that as a file named " docker-compose.yml" and exits 1, and every deploy then refuses
-    at the health wait with the site answering 502.
+    Compose reads a file named " docker-compose.yml", exits 1, and the deploy refuses at the health wait.
     """
     code, output, fixture = _run('wait_healthy "$COMPOSE" backend 3')
     argv = fixture.ps_argv.read_text(encoding="utf-8").splitlines()
