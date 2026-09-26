@@ -160,14 +160,28 @@ async def _answer_as_the_first(
     registrierungen_collection: AsyncCollection,
     saison_teams_collection: AsyncCollection,
     teams_collection: AsyncCollection,
+    sperrliste_collection: AsyncCollection,
     stored: Mapping[str, Any],
     fingerabdruck: str,
+    gehasht: str,
+    massgebliche_saison_id: str | None,
     today: str,
     session: AsyncClientSession,
 ) -> FLPostRegistrierungResponse:
     """The answer a stored key gets: the registration it already holds, never a second one (`docs/backend/spec.md :: I346`)."""
 
     refuse(find_abweichender_fingerabdruck_refusal(gespeichert=stored.get("idempotenz_fingerabdruck"), fingerabdruck=fingerabdruck))
+
+    # Before the mint below, as the first request asked it before its own, or a ban entered since is
+    # answered with a fresh link. The fingerprint just matched, so `gehasht` keys the stored address
+    # (`docs/backend/spec.md :: I413`).
+    gesperrt = await address_is_gesperrt(
+        sperrliste_collection=sperrliste_collection,
+        adresse_hash=gehasht,
+        massgebliche_saison_id=massgebliche_saison_id,
+        session=session,
+    )
+    refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
     raw: str | None = None
     db_filter = build_wiederholung_filter(registrierung_raw=stored, today=today)
@@ -242,7 +256,8 @@ async def post_registrierung(
     An `Idempotency-Key` header makes a second press safe. A key already stored answers with the
     registration it holds and stores none: a fresh link where no message is known to have reached the
     inbox and nothing is confirmed, none otherwise. The same key over other details is refused
-    (`REQ-REGISTRIERUNG-011`).
+    (`REQ-REGISTRIERUNG-011`), and so is a key whose address has been banned since
+    (`REQ-REGISTRIERUNG-009`), before any link is minted.
     """
 
     schluessel = None if idempotency_key is None else str(idempotency_key)
@@ -277,8 +292,11 @@ async def post_registrierung(
                 registrierungen_collection=registrierungen_collection,
                 saison_teams_collection=saison_teams_collection,
                 teams_collection=teams_collection,
+                sperrliste_collection=sperrliste_collection,
                 stored=stored,
                 fingerabdruck=fingerabdruck,
+                gehasht=gehasht,
+                massgebliche_saison_id=massgebliche_saison_id,
                 today=today,
                 session=session,
             )

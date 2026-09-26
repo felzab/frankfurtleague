@@ -137,6 +137,22 @@ def junction_document(saison_id: str, team_id: ObjectId, name: str) -> dict[str,
     return documents.saison_team_document(saison_id, team_id, name, name[:2].upper())
 
 
+def ban_document(address: str, *, bis: str | None = None) -> dict[str, Any]:
+    """One ban as the shipped write stores it, keyed under the suite's own settings."""
+
+    return {
+        "_id": ObjectId(),
+        "adresse_hash": adresse_hash(address, schluessel=CONFIG.sperrliste_schluessel),
+        "schluessel_version": "sperrliste-v1",
+        "grund": "Falsches Geburtsdatum bei der Anmeldung",
+        "erstellt_von": "admin@frankfurtleague.de",
+        "erstellt_am": "2026-03-15",
+        # Composed by the production helper rather than spelled: a hand-written bound that drifted
+        # from it would leave these cases passing over a lapsed row.
+        "gesperrt_bis_saison_id": bis or compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID),
+    }
+
+
 def on_a_league(
     url: str,
     body: Body,
@@ -193,19 +209,7 @@ def on_a_league(
                 )
 
             if banned is not None:
-                await database[Collection.SPERRLISTE].insert_one(
-                    {
-                        "_id": ObjectId(),
-                        "adresse_hash": adresse_hash(banned, schluessel=CONFIG.sperrliste_schluessel),
-                        "schluessel_version": "sperrliste-v1",
-                        "grund": "Falsches Geburtsdatum bei der Anmeldung",
-                        "erstellt_von": "admin@frankfurtleague.de",
-                        "erstellt_am": "2026-03-15",
-                        # Composed by the production helper rather than spelled: a hand-written bound
-                        # that drifted from it would leave these cases passing over a lapsed row.
-                        "gesperrt_bis_saison_id": banned_bis or compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID),
-                    }
-                )
+                await database[Collection.SPERRLISTE].insert_one(ban_document(banned, bis=banned_bis))
 
             if matchday_beginn is not None:
                 await database[Collection.SPIELTAGE].insert_one(
@@ -474,6 +478,26 @@ class TestTheSubmissionKey:
         first, second = on_a_league(mongo_replica_set_url, body)
 
         assert first == second
+
+    def test_a_replay_after_the_address_was_banned_is_refused_and_mints_nothing(self, mongo_replica_set_url: str):
+        """The first press left nothing on record, the one state a replay mints in.
+
+        Without the ask, the replay hands the banned address a fresh link.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await register(database, client, schluessel=SCHLUESSEL)
+            await database[Collection.SPERRLISTE].insert_one(ban_document(PUPIL_EMAIL))
+            before = (await rows_of(database))[0]
+            with pytest.raises(WriteRefusalException) as refused:
+                await register(database, client, schluessel=SCHLUESSEL)
+
+            return refused.value.error_code, before, await rows_of(database)
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == REGISTRIERUNG_ADRESSE_GESPERRT
+        assert after == [before]
 
     def test_the_same_key_over_other_details_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
