@@ -168,11 +168,11 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | `= /api/bestaetigung/schiedsrichter` | `frontend:3000` | Next route handler, the referee's confirmation link — paired `limit_req` `zone=bestaetigung burst=3` and `zone=bestaetigung48 burst=30`, and `client_max_body_size 8k`                               |
 | `= /api/mail/zustellung`             | `frontend:3000` | Next route handler, the mail provider's delivery webhook — paired `limit_req` `zone=zustellung burst=300` and `zone=zustellung48 burst=3000`, and `client_max_body_size 8k`                          |
 | the `/` twins                        | `frontend:3000` | Each metered exact-match path above has a trailing-slash twin carrying its canonical's zones, and its body cap where the canonical sets one                                                          |
-| `/api/admin/`                        | `frontend:3000` | The page-owned editors' undo handlers                                                                                                                                                                |
+| `/api/admin/`                        | `frontend:3000` | The page-owned editors' undo handlers, and the server-action pair `zone=action burst=30` and `zone=action48 burst=300`                                                                               |
 | `= /api/v0/system/is_live`           | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (I13, §3)                                                                                             |
 | `= /signin`                          | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
 | `/_next/static/`                     | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`                                                                                                                                                 |
-| `/`                                  | `frontend:3000` | Catch-all — `limit_conn conn 50`, the only ceiling that reaches it                                                                                                                                   |
+| `/`                                  | `frontend:3000` | Catch-all — `limit_conn conn 50`, and the server-action pair, which meters nothing else                                                                                                              |
 
 **Every `/api/...` path but the liveness probe reaches Next** — some through a block naming it, the
 rest through the catch-all, which answers Next's HTML 404 where nothing routes the path (§3). The
@@ -262,8 +262,13 @@ share one pair. `bewerbung48` is the one deliberate exception to the multiplier,
 RATE alone: three times rather than ten, on a count of applications per season rather than a ratio.
 What decides that number, and what it risks, is at the zone in `nginx/shared/http.conf`.
 
-**`location /` takes a connection ceiling rather than a rate zone**, `limit_conn conn 50` on the
-narrow key, sized for HTTP/2 where nginx counts each concurrent request as a connection. **That
+**`location /` takes a connection ceiling rather than a rate zone keyed on every request**,
+`limit_conn conn 50` on the narrow key, sized for HTTP/2 where nginx counts each concurrent request
+as a connection. **Its one rate zone pair keys on server actions alone**, `action`/`action48` over
+`nginx/shared/http.conf :: $action_limit_key`: a POST carrying a `Next-Action` header or either
+form content type, which is every post Next 16.3.6 runs as an action. Every other request's key is
+empty, so no page load or asset is metered; the pair is rated above any administrator's run of
+saves, and `/api/admin/` carries it too, an action posted there reaching Next as well. **That
 makes one directive count differently on the two stacks**: `nginx/local/local.conf` serves HTTP/1.1, so
 the one line in `nginx/shared/site.conf` bounds whole connections locally.
 
@@ -310,8 +315,8 @@ lands on the error boundary before any application code runs. Every page and eve
 arrives through `location /`, and the browser posts an action to the address of the page it is on,
 so the sign-in form's own POST lands on `= /signin`. **What that zone bounds is the PATH and never
 the action**: a server action resolves from a process-wide module map with no reference to the
-address it was posted to, so the same action posted to any other page reaches it and is metered by
-nothing (`fl_frontend/src/features/auth/actions.ts :: handleSignIn`). **A rate limit is the edge
+address it was posted to, so the same action posted to any other page reaches it, metered there only by the server-action
+pair above (`fl_frontend/src/features/auth/actions.ts :: handleSignIn`). **A rate limit is the edge
 control that fits**, because a status code is an answer the caller can read; `limit_req` on these
 paths is that control at the origin.
 

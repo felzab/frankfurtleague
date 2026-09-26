@@ -535,6 +535,61 @@ for _i in "${!HEADER_PATHS[@]}"; do
   fi
 done
 
+# --- the server-action pair -----------------------------------------------------------------------
+
+# One network's actions: saves at an administrator's pace pass, a flood past the burst is refused,
+# both form posts count as actions, and a request that is no action is never metered.
+ACTION_FAILURES=0
+ACTION_ID="7f3c0ffee7f3c0ffee7f3c0ffee7f3c0ffee7f3c0f"
+action_request() { # $1 a label, the rest curl options naming one transfer
+  local label="$1"; shift
+  ACTION_LABELS+=( "$label" )
+  if (( ${#ACTION_REQUESTS[@]} > 0 )); then ACTION_REQUESTS+=( --next ); fi
+  ACTION_REQUESTS+=( -s -o /dev/null -w '%{http_code}\n' --max-time 5 -H "Host: localhost" "$@" )
+}
+ACTION_LABELS=()
+ACTION_REQUESTS=()
+# Twenty saves at once, under the burst of thirty.
+for _ in $(seq 1 20); do
+  action_request rhythm -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
+    --data '[]' "${BASE}/bereich/admin/spiele"
+done
+# Thirty more inside the same seconds: the burst and the second or two of refill are spent.
+for _ in $(seq 1 30); do
+  action_request flood -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" \
+    --data '[]' "${BASE}/"
+done
+# The key spent, so each of these answers 429 only if the map takes it for an action.
+action_request multipart -X POST -F "probe=1" "${BASE}/"
+action_request urlencoded -X POST --data "probe=1" "${BASE}/"
+action_request admin-prefix -X POST -H "Next-Action: ${ACTION_ID}" --data '[]' "${BASE}/api/admin/probe"
+# And each of these answers 200 only if the map leaves it out.
+action_request json-post -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/"
+action_request page-load "${BASE}/"
+
+mapfile -t ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
+expect_action() { # $1 label, $2 the status every transfer of it must answer, or "some:<status>"
+  local label="$1" wanted="$2" _j _status found=0 all=1
+  for _j in "${!ACTION_LABELS[@]}"; do
+    [[ "${ACTION_LABELS[_j]}" == "$label" ]] || continue
+    _status="${ACTION_STATUSES[_j]:-none}"; _status="${_status%$'\r'}"
+    if [[ "$_status" == "${wanted#some:}" ]]; then found=1; else all=0; fi
+  done
+  if [[ "$wanted" == some:* ]] && (( found )); then return 0; fi
+  if [[ "$wanted" != some:* ]] && (( all )); then return 0; fi
+  fail "ACTION ${label}"
+  detail "expected ${wanted/some:/at least one } from every '${label}' transfer, nginx answered: $(
+    for _j in "${!ACTION_LABELS[@]}"; do [[ "${ACTION_LABELS[_j]}" == "$label" ]] && printf '%s ' "${ACTION_STATUSES[_j]%$'\r'}"; done)"
+  ACTION_FAILURES=$(( ACTION_FAILURES + 1 ))
+}
+expect_action rhythm 200
+expect_action flood some:429
+expect_action multipart 429
+expect_action urlencoded 429
+expect_action admin-prefix 429
+expect_action json-post 200
+expect_action page-load 200
+
 # --- the Control API the deploy reloads through ----------------------------------------------------
 
 # Asked as `scripts/ops/deploy.sh :: edge_control` asks it, and its dump decoded by the deploy's own
@@ -666,12 +721,12 @@ if [[ "$WWW_STATUS" != 301 || "${SENT_VALUE[location]:-}" != "https://frankfurtl
 fi
 grade_security_headers "www.frankfurtleague.de"
 
-if (( HEADER_FAILURES + CONTROL_FAILURES > 0 )); then
-  die "${HEADER_FAILURES} header and ${CONTROL_FAILURES} Control API cases failed. Each is what nginx SENT or
-ANSWERED, or what reached Next through it."
+if (( HEADER_FAILURES + ACTION_FAILURES + CONTROL_FAILURES > 0 )); then
+  die "${HEADER_FAILURES} header, ${ACTION_FAILURES} server-action and ${CONTROL_FAILURES} Control API cases failed.
+Each is what nginx SENT or ANSWERED, or what reached Next through it."
 fi
 
 ok "${#CASES[@]} redaction cases clean, no visitor in the container's own streams,
 ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written,
-${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor, and the
-Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker"
+${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor, server
+actions metered on their own pair and nothing else metered by it, and the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker"
