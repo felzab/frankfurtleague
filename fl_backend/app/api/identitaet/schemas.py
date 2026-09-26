@@ -66,7 +66,7 @@ class FLSubjektResponse(BaseAPIResponse):
     sitze: list[FLSubjektSitz]
     spieler: list[FLSubjektSpieler]
     schiedsrichter: list[FLSubjektSchiedsrichter]
-    # Its own field and never read off empty lists: a person whose records all await their own
-    # confirmation is one press from holding them, which empty lists alone cannot say
+    # Its own field and never read off empty lists: set, the mailbox holds records that could grant a
+    # panel and none is confirmed, which empty lists alone would report as nothing held
     # (`docs/backend/spec.md :: I374`).
     unbestaetigt: bool

@@ -67,8 +67,8 @@ export const FLSubjektResponseSchema = BaseAPIResponseSchema.extend({
   sitze: z.array(FLSubjektSitzSchema),
   spieler: z.array(FLSubjektSpielerSchema),
   schiedsrichter: z.array(FLSubjektSchiedsrichterSchema),
-  // Read beside the lists and never from their being empty: empty lists with this set are a person
-  // one confirmation from holding their records, not a mailbox the league holds nothing for
+  // Read beside the lists and never from their being empty: empty lists with this set are records
+  // that could grant a panel and that nobody has confirmed, not a mailbox the league holds nothing for
   // (`docs/backend/spec.md :: I374`).
   unbestaetigt: z.boolean(),
 });

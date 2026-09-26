@@ -51,10 +51,13 @@ async def get_subjekt(
     every writer that touches either.
 
     A record is answered only once its own person has confirmed it -- a seat's `einwilligung.bestaetigt_am`, judged per seat, and the
-    same stamp on a pupil's and a referee's consent record -- and only while its row is live: a retired pupil or referee is answered
-    nothing, and so is the placeholder every erased referee's fixtures name. `unbestaetigt` is true exactly where the mailbox matched
-    live records and none of them is confirmed, so an unconfirmed person is told apart from one the league holds nothing for.
+    same stamp on a pupil's and a referee's consent record, an empty stamp confirming nothing -- and only while its row is live: a
+    retired pupil or referee is answered nothing, and so is the placeholder every erased referee's fixtures name.
     A seat on a `past` season is still answered, carrying its `saison_status`: which seasons grant a panel is each caller's to decide.
+
+    `unbestaetigt` is true exactly where the mailbox holds records that could grant a panel -- a live pupil or referee row, or a seat
+    on an `active` or `future` season -- and none of them is confirmed, so an unconfirmed person is told apart from one the league
+    holds nothing for. A seat on a `past` season counts toward neither answer: confirming it would open nothing.
 
     Each list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.
     An address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.

@@ -65,6 +65,11 @@ NIEMAND = "niemand.hierverzeichnet@example.com"
 LEER_SITZ = "leer.sitz@schule.de"
 LEER_SPIELER = "leer.spieler@schule.de"
 LEER_PFEIFE = "leer.pfeife@schule.de"
+NUR_SPIELER_OFFEN = "nur.spieler.offen@schule.de"
+# A confirmed seat on a `past` season beside an unconfirmed one on the `active` season, and an
+# unconfirmed `past` seat alone: the flag is judged over what could grant a panel.
+VERGANGEN_UND_OFFEN = "vergangen.und.offen@schule.de"
+NUR_VERGANGEN_OFFEN = "nur.vergangen.offen@schule.de"
 
 # The „ß“ decision: IDNA 2008 keeps „ß“ in a domain, so the two are two mailboxes.
 SHARP_S_ASKED = "Post@straße.de"
@@ -76,6 +81,7 @@ PUPIL_GEMISCHT_OID = ObjectId("6890a1b2c3d4e5f607830022")
 PUPIL_EHEMALIG_OID = ObjectId("6890a1b2c3d4e5f607830023")
 PUPIL_RUHESTAND_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607830024")
 PUPIL_LEER_OID = ObjectId("6890a1b2c3d4e5f607830025")
+PUPIL_NUR_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607830026")
 REFEREE_UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607830031")
 REFEREE_GEMISCHT_OID = ObjectId("6890a1b2c3d4e5f607830032")
 REFEREE_RUHESTAND_OID = ObjectId("6890a1b2c3d4e5f607830033")
@@ -170,7 +176,15 @@ async def _seed(database: AsyncDatabase) -> None:
                 ansprechperson=_seat(OHNE_STEMPEL, bestaetigt_am=None),
                 stellvertretung=_seat(OHNE_SCHLUESSEL, keyed=False),
             ),
-            _junction(ROW_PAST_A_OID, PAST_SAISON, TEAM_A_OID, ROW_NAME_A, trainer=_seat(ZEITEN)),
+            _junction(
+                ROW_PAST_A_OID,
+                PAST_SAISON,
+                TEAM_A_OID,
+                ROW_NAME_A,
+                trainer=_seat(ZEITEN),
+                ansprechperson=_seat(VERGANGEN_UND_OFFEN),
+                stellvertretung=_seat(NUR_VERGANGEN_OFFEN, bestaetigt_am=None),
+            ),
             _junction(ROW_FUTURE_A_OID, FUTURE_SAISON, TEAM_A_OID, ROW_NAME_A, trainer=_seat(ZEITEN), ansprechperson=_seat(DOUBLE_S_STORED)),
             # The Trainer also holds the Ansprechperson seat, confirmed in the first and entered by an
             # administrator into the second: the stamp is the SLOT's, so the second grants nothing.
@@ -184,7 +198,14 @@ async def _seed(database: AsyncDatabase) -> None:
                 ansprechperson=_seat(ZUGLEICH, bestaetigt_am=None),
                 stellvertretung=_seat(NUR_OFFEN, bestaetigt_am=None),
             ),
-            _junction(ROW_ACTIVE_D_OID, ACTIVE_SAISON, TEAM_D_OID, ROW_NAME_D, trainer=_seat(LEER_SITZ, bestaetigt_am="")),
+            _junction(
+                ROW_ACTIVE_D_OID,
+                ACTIVE_SAISON,
+                TEAM_D_OID,
+                ROW_NAME_D,
+                trainer=_seat(LEER_SITZ, bestaetigt_am=""),
+                ansprechperson=_seat(VERGANGEN_UND_OFFEN, bestaetigt_am=None),
+            ),
         ]
     )
     await database[Collection.SPIELER].insert_many(
@@ -194,6 +215,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _pupil(PUPIL_EHEMALIG_OID, EHEMALIG, bestaetigt_am=STAMP, inactive_since="2026-03-01"),
             _pupil(PUPIL_RUHESTAND_OFFEN_OID, RUHESTAND_OFFEN, bestaetigt_am=None, inactive_since="2026-03-01"),
             _pupil(PUPIL_LEER_OID, LEER_SPIELER, bestaetigt_am=""),
+            _pupil(PUPIL_NUR_OFFEN_OID, NUR_SPIELER_OFFEN, bestaetigt_am=None),
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
@@ -290,7 +312,36 @@ class TestTheFold:
 @pytest.mark.db
 class TestTheConfirmationNarrowing:
     def test_a_seat_with_a_null_stamp_grants_nothing(self, seeded_league: str):
-        assert answered(seeded_league, OHNE_STEMPEL).sitze == []
+        """The seat is the mailbox's only record, so the flag's seat arm is what raises it."""
+
+        answer = answered(seeded_league, OHNE_STEMPEL)
+
+        assert answer.sitze == []
+        assert answer.unbestaetigt is True
+
+    def test_an_unconfirmed_pupil_alone_is_answered_nothing_and_flagged(self, seeded_league: str):
+        """The flag's pupil arm, with no seat or referee beside it to raise the flag instead."""
+
+        answer = answered(seeded_league, NUR_SPIELER_OFFEN)
+
+        assert is_empty(answer)
+        assert answer.unbestaetigt is True
+
+    def test_a_confirmed_past_seat_beside_an_unconfirmed_active_one_is_flagged(self, seeded_league: str):
+        """Kills a flag judged before the season narrowing: the past seat's stamp would hold it down while nothing is granted."""
+
+        answer = answered(seeded_league, VERGANGEN_UND_OFFEN)
+
+        assert answer.sitze == []
+        assert answer.unbestaetigt is True
+
+    def test_an_unconfirmed_past_seat_alone_is_not_flagged(self, seeded_league: str):
+        """Confirming a past seat opens nothing, so this mailbox meets the landing of one holding nothing."""
+
+        answer = answered(seeded_league, NUR_VERGANGEN_OFFEN)
+
+        assert is_empty(answer)
+        assert answer.unbestaetigt is False
 
     def test_a_seat_whose_record_carries_no_stamp_key_grants_nothing(self, seeded_league: str):
         """The shape a predicate written as `!= None` over a projected field passes: the key is absent rather than null."""
@@ -336,7 +387,7 @@ class TestTheConfirmationNarrowing:
         assert answer.unbestaetigt is False
 
     def test_one_confirmed_record_beside_an_unconfirmed_one_leaves_the_flag_down(self, seeded_league: str):
-        """Kills a flag set by ANY unconfirmed record: the person holds a Funktion, so the pending landing would hide it."""
+        """Kills a flag set by ANY unconfirmed record: a person holding a Funktion is not awaiting their own confirmation."""
 
         answer = answered(seeded_league, GEMISCHT)
 

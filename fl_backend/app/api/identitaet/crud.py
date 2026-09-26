@@ -14,6 +14,7 @@ from app.api.identitaet.services import (
     seat_is_confirmed,
     seats_naming,
 )
+from app.api.saisons.schemas import FLSaisonStatus
 from app.core.crud import aggregate_many_from_db
 from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
@@ -21,7 +22,7 @@ from app.shared.folding import sign_in_identifier
 
 async def _statuses_of(
     *, saisons_collection: AsyncCollection, saison_ids: Sequence[str], session: AsyncClientSession | None
-) -> Mapping[str, str]:
+) -> Mapping[str, FLSaisonStatus]:
     """One read of `saisons` for every season the seats sit in, the junction row carrying no copy of its season's `status`.
 
     Made after the fold has judged, so a row the pre-filter alone reached is never read for.
@@ -53,7 +54,7 @@ async def find_subjekt(
     # states which session this read belongs to instead of silently opening a second one.
     session: AsyncClientSession | None,
 ) -> FLSubjektResponse:
-    """Every confirmed, live record this folded identifier matches, and whether only unconfirmed ones did.
+    """Every confirmed, live record this folded identifier matches, and whether its granting records are all unconfirmed.
 
     Unbounded on all four reads, as `app/api/kontakte/admin_router.py`'s are: a capped list reads as
     a person holding fewer records rather than as a truncated answer.
@@ -76,9 +77,9 @@ async def find_subjekt(
     confirmed_pupils = [row for row in pupil_rows if is_confirmed(row.get("einwilligung"))]
     confirmed_referees = [row for row in referees if is_confirmed(row.get("einwilligung"))]
 
-    statuses = await _statuses_of(
-        saisons_collection=saisons_collection, saison_ids=[row["saison_id"] for row, _ in confirmed_seats], session=session
-    )
+    # Every matched seat's season and not only the confirmed ones': the flag below reads an unconfirmed
+    # seat's status too, so a seat whose season has no row stays loud whichever list counts it.
+    statuses = await _statuses_of(saisons_collection=saisons_collection, saison_ids=[row["saison_id"] for row, _ in seats], session=session)
 
     return FLSubjektResponse(
         sitze=[
@@ -97,8 +98,11 @@ async def find_subjekt(
         ],
         spieler=[FLSubjektSpieler(spieler_id=row["_id"]) for row in confirmed_pupils],
         schiedsrichter=[FLSubjektSchiedsrichter(schiedsrichter_id=row["_id"]) for row in confirmed_referees],
+        # Over the records that could grant a panel alone (`docs/backend/spec.md :: I374`): confirming a
+        # seat on a `past` season opens nothing, so it neither raises the flag nor holds it down.
         unbestaetigt=awaits_confirmation(
-            [seat_is_confirmed(row, slot) for row, slot in seats] + [is_confirmed(row.get("einwilligung")) for row in [*pupil_rows, *referees]]
+            [seat_is_confirmed(row, slot) for row, slot in seats if grants_a_panel(statuses[row["saison_id"]])]
+            + [is_confirmed(row.get("einwilligung")) for row in [*pupil_rows, *referees]]
         ),
     )
 

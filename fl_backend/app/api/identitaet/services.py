@@ -88,7 +88,7 @@ def seat_is_confirmed(row: Mapping[str, Any], slot: str) -> bool:
 
 
 def awaits_confirmation(confirmations: Iterable[bool]) -> bool:
-    """Whether a mailbox matched records and its own person has confirmed none of them (`docs/backend/spec.md :: I374`)."""
+    """Whether a mailbox holds records that could grant a panel and has confirmed none of them (`docs/backend/spec.md :: I374`)."""
 
     judged = list(confirmations)
 
