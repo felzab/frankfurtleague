@@ -118,6 +118,12 @@ describe("the heading the person shell puts over a page", () => {
     assert.equal(heading(shellAt("/bereich/schiedsrichter")), PERSON_SIDEMENU_ENTRIES.schiedsrichter.label);
   });
 
+  /* The account page is no entry of this shell's, and headed by the first segment it would read as an
+     address nothing claims. */
+  it("names the account page „Konto“ rather than the area", () => {
+    assert.equal(heading(shellAt("/bereich/konto")), "Konto");
+  });
+
   /* The catch-all's 404. Headed as a page, it tells a screen reader it is somewhere it is not. */
   it("names no page over an address that belongs to none", () => {
     const html = shellAt("/bereich/zorbanax");
