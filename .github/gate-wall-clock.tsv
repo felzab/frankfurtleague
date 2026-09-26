@@ -495,6 +495,14 @@
 # 2026-09-26 on a sixteen-core Windows machine running nothing else. Each is a chunk far shorter
 # than the suite's longest, inside the floor the `scripts` row carries, so no row moves.
 #
+# `format` restores prettier's cache on a runner, under a key carrying the lockfile and the commit
+# (`.github/workflows/verify.yml`, the format job). The scope took 21 s from an empty cache against
+# 9.1-9.3 s warm, and prettier alone 18.2-19.1 s against 6.4-6.6 s; a warm check with 50 source files
+# changed took 6.9-7.1 s, and with 400 changed 10.9-11.1 s. Three to five interleaved rounds each,
+# measured locally on 2026-09-26 on a sixteen-core Windows machine running nothing else. A runner
+# still starts cold wherever the lockfile moves and on a key's first run, so the budget is the cold
+# job's: its six uncached runs to 2026-09-26 spanned 41-56 s, and the rule above gives 70 s.
+#
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
 # file at parse, in any of its modes, and compares nothing at all.
@@ -503,7 +511,7 @@
 backend	35	14	60	24@2026-09-07
 db	49	40	125	24@2026-09-07
 docs	39	10	60	24@2026-09-07
-format	-	-	50	3@2026-08-31
+format	-	-	70	6@2026-09-26
 frontend	264	10	360	5@2026-09-20
 frontend-units (1)	-	-	150	4@2026-09-25
 frontend-units (2)	-	-	150	4@2026-09-25
