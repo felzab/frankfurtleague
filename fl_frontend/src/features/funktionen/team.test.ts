@@ -98,10 +98,13 @@ const linksIn = (markup: string): { href: string; text: string }[] =>
 const FORBIDDEN_BADGE = "Tribüne";
 
 describe("the guard over a team's area", () => {
-  /* Driven through the layout, so the case fails wherever the redirect goes missing. */
+  /* The layout's own turn-away, over a child that redirects nothing: under a page, the page's own
+     redirect would pass this case with the layout's gone. */
   it("sends a request with no person's session to sign in", async () => {
     setSubject(null);
-    const { thrown } = await callPage(landingAt(TEAM_A, "2526"), { params: Promise.resolve({}), searchParams: Promise.resolve({}) });
+    const layoutAlone = () =>
+      h(TeamLayout, { params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526" }), children: h("p", null, "Seite") });
+    const { thrown } = await callPage(layoutAlone, { params: Promise.resolve({}), searchParams: Promise.resolve({}) });
 
     assert.deepEqual(
       thrown.flatMap((error) => redirectTarget(error) ?? []),

@@ -39,6 +39,7 @@ registerHooks({
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step and the doubles as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { default: PersoenlichLayout } = await import("@/app/bereich/(persoenlich)/layout.tsx");
+const { FunktionenGuard } = await import("@/features/funktionen/components/providers/FunktionenGuard.tsx");
 const { default: PersoenlichStartPage } = await import("@/app/bereich/(persoenlich)/page.tsx");
 const { default: PersoenlichSchiedsrichterPage } = await import("@/app/bereich/(persoenlich)/schiedsrichter/page.tsx");
 const { default: PersoenlichSpielerPage } = await import("@/app/bereich/(persoenlich)/spieler/page.tsx");
@@ -84,16 +85,23 @@ async function switchHrefs(): Promise<string[]> {
 }
 
 describe("the guard over the person area", () => {
-  /* The shell's own turn-away, which a page's read cannot give it: the proxy judges `/bereich/admin`
-     alone. Driven through the layout, so the case fails wherever the layout's redirect goes missing. */
+  /* The layout's own turn-away, over a child that redirects nothing: under a page, the page's own
+     redirect would pass this case with the layout's gone. */
   it("sends a request with no person's session to sign in", async () => {
     setSubject(null);
 
-    assert.deepEqual(await redirectsOf(landingUnderItsLayout), ["/signin"]);
+    assert.deepEqual(await redirectsOf(() => h(PersoenlichLayout, { children: h("p", null, "Seite") })), ["/signin"]);
   });
 
-  /* The control for the case above: a live session passes the guard and reaches the landing's own
-     answer, so the redirect there is the guard's and not the page's. */
+  /* The guard alone, which both lanes' layouts mount above their chrome. */
+  it("turns a missing session away before anything under it renders", async () => {
+    setSubject(null);
+
+    assert.deepEqual(await redirectsOf(() => h(FunktionenGuard, { children: h("p", null, "Seite") })), ["/signin"]);
+  });
+
+  /* The control for the cases above: a live session passes the layout and reaches the page under it,
+     whose own answer is what comes back. */
   it("lets a person's session through to the page", async () => {
     setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }));
 
