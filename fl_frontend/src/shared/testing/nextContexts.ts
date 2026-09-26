@@ -1,7 +1,8 @@
 import { createElement as h } from "react";
 import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
-import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
+import { PathnameContext, PathParamsContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime.js";
 
+import type { Params } from "next/dist/server/request/params.js";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime.js";
 import type { ReactNode } from "react";
 
@@ -53,7 +54,7 @@ export function recordingRouter(overrides: Partial<AppRouterInstance> = {}): { r
 }
 
 /**
- * A tree under the three contexts `next/navigation` reads and exports no provider for. All three
+ * A tree under the four contexts `next/navigation` reads and exports no provider for. All four
  * every time: without one, a component reading a parameter throws for the wiring.
  */
 export function underNext(
@@ -64,13 +65,18 @@ export function underNext(
     // `null` is what the context carries with no provider at all, so a caller naming no path keeps
     // whatever the component does without one.
     pathname = null,
-  }: { router?: AppRouterInstance; search?: URLSearchParams | string; pathname?: string | null } = {},
+    // `null` for the same reason: `useParams()` answers it where no dynamic segment is matched.
+    params = null,
+  }: { router?: AppRouterInstance; search?: URLSearchParams | string; pathname?: string | null; params?: Params | null } = {},
 ): ReactNode {
   return h(AppRouterContext.Provider, {
     value: router,
     children: h(SearchParamsContext.Provider, {
       value: typeof search === "string" ? new URLSearchParams(search) : search,
-      children: h(PathnameContext.Provider, { value: pathname, children: tree }),
+      children: h(PathnameContext.Provider, {
+        value: pathname,
+        children: h(PathParamsContext.Provider, { value: params, children: tree }),
+      }),
     }),
   });
 }

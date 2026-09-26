@@ -74,11 +74,60 @@ const ROOT_MOUNTED = AREAS.filter(isRootMounted);
  */
 const UNDER_PUBLIC_SHELL = [path.join(APP_DIR, "not-found.tsx"), ...ROOT_MOUNTED.map((dir) => path.join(dir, "not-found.tsx"))];
 
-/** The url prefix an area occupies, which its own boundary's way out has to stay inside. */
+/** A segment the address fills in: `[team_id]` takes whatever team the reader asked for. */
+const DYNAMIC = /^\[(\w+)\]$/;
+
+/** What a dynamic segment is served under, so an area's prefix and its boundary's params agree. */
+const probeOf = (name: string) => `probe-${name}`;
+
+const paramsOf = (dir: string): Record<string, string> =>
+  Object.fromEntries(segmentsOf(dir).flatMap((segment) => (DYNAMIC.exec(segment) ?? []).slice(1).map((name) => [name, probeOf(name)])));
+
+/** The url segments an area occupies, `[team_id]` standing for whatever one segment the address holds there. */
+const patternOf = (dir: string) => segmentsOf(dir).filter((segment) => !isRouteGroup(segment));
+
+/**
+ * The url prefix an area occupies, which its own boundary's way out has to stay inside: filled in, as
+ * the reader's address is, because a way out holding `[team_id]` literally links nowhere.
+ */
 const prefixOf = (dir: string) =>
-  `/${segmentsOf(dir)
-    .filter((segment) => !isRouteGroup(segment))
+  `/${patternOf(dir)
+    .map((segment) => {
+      const name = DYNAMIC.exec(segment)?.[1];
+      return name === undefined ? segment : probeOf(name);
+    })
     .join("/")}`;
+
+/** An address's path, cut into its segments, its query and fragment dropped. */
+const pathSegmentsOf = (href: string) => (href.split(/[?#]/)[0] ?? "").split("/").filter(Boolean);
+
+/**
+ * The area an address lands in: the deepest whose segments it opens with, so `/bereich/admin` is an
+ * area of its own and never the one at `/bereich` around it.
+ */
+function areaOf(href: string, areas: readonly string[]): string | undefined {
+  const segments = pathSegmentsOf(href);
+  const staticDepth = (dir: string) => patternOf(dir).filter((segment) => !DYNAMIC.test(segment)).length;
+
+  return (
+    areas
+      .filter((dir) =>
+        patternOf(dir).every((segment, index) => segments[index] !== undefined && (DYNAMIC.test(segment) || segment === segments[index])),
+      )
+      // A static segment outranks a dynamic one at equal depth, as it does in Next's own matching.
+      .sort((one, other) => patternOf(other).length - patternOf(one).length || staticDepth(other) - staticDepth(one))[0]
+  );
+}
+
+/**
+ * The ways out of `dir`'s boundary that leave it: into another area, or onto another team or season
+ * than the one its dynamic segments were served under.
+ */
+function strayWaysOut(dir: string, hrefs: readonly string[], areas: readonly string[]): string[] {
+  const served = pathSegmentsOf(prefixOf(dir));
+
+  return hrefs.filter((href) => areaOf(href, areas) !== dir || served.some((segment, index) => pathSegmentsOf(href)[index] !== segment));
+}
 
 const inside = (dir: string) => (file: string) => file.startsWith(dir + path.sep);
 
@@ -100,7 +149,14 @@ const SAISON = "2526";
 async function markupOf(boundary: string): Promise<string> {
   const { default: Boundary } = (await import(pathToFileURL(boundary).href)) as { default: () => React.ReactNode };
 
-  return renderTree(underNext(h(Boundary, {}), { search: `saison_id=${SAISON}` }));
+  // Under the params its own area is served with: a boundary inside a dynamic segment builds its way
+  // out from them, and with none it has no address to stay inside.
+  return renderTree(
+    underNext(h(Boundary, {}), {
+      search: `saison_id=${SAISON}`,
+      params: paramsOf(path.dirname(boundary)),
+    }),
+  );
 }
 
 const MARKUP = new Map(await Promise.all(BOUNDARIES.map(async (file) => [file, await markupOf(file)] as const)));
@@ -128,9 +184,11 @@ describe("the areas a 404 can be met in", () => {
   /* First: a walk that stopped at the segment root would find every area's own layout, miss a
      boundary nested below one, and report that as proof. The two walks share `filesUnder`. */
   it("reaches the segments below the ones it is walking", () => {
+    // An area's own layout proves no descent however deep it sits: `bereich` holds none, so its
+    // areas' own layouts sit two segments down.
     assert.ok(
-      LAYOUTS.some((file) => path.dirname(path.dirname(file)) !== APP_DIR),
-      "every layout the walk found sits at an area root or above, so it never descended",
+      LAYOUT_DIRS.some((dir) => !AREAS.includes(dir)),
+      "every layout the walk found is an area's own, so it never descended below one",
     );
   });
 
@@ -345,37 +403,51 @@ describe("what every 404 tells a crawler", () => {
 });
 
 describe("where each 404 sends the reader", () => {
-  /* The boundaries under the public shell are exempt from both cases below: that area owns no url
+  /* The boundaries under the public shell are exempt from the cases below: that area owns no url
      prefix for a way out to stay inside, and the public routes mount no season selector for a link
      to lose. */
   const SHELLED = PREFIXED.map((dir) => {
     const markup = MARKUP.get(path.join(dir, "not-found.tsx"));
     // Throw rather than answer undefined: an area whose boundary has moved would otherwise reach
-    // the two cases below as a crash rather than as the placement finding that explains it.
+    // the cases below as a crash rather than as the placement finding that explains it.
     if (markup === undefined) throw new Error(`${prefixOf(dir)} has no boundary at its root to read a way out off`);
 
-    return [dir, markup] as const;
+    return { dir, markup };
   });
 
   /* The root boundary offers the visitor's start page, so a way out leaving the area hands a reader
      back through the front door of a section they were already inside. */
   it("keeps every way out inside its own area", () => {
-    for (const [dir, markup] of SHELLED) {
+    for (const { dir, markup } of SHELLED) {
       const hrefs = hrefsIn(markup);
 
       assert.ok(hrefs.length > 0, `${prefixOf(dir)}'s boundary renders no way out at all`);
-      assert.deepEqual(
-        hrefs.filter((href) => !href.startsWith(prefixOf(dir))),
-        [],
-        `these links leave ${prefixOf(dir)}`,
-      );
+      assert.deepEqual(strayWaysOut(dir, hrefs, AREAS), [], `these links leave ${prefixOf(dir)}`);
     }
+  });
+
+  /* The reader above, held against areas the tree need not hold: an outer area's prefix holds every
+     area nested in it, and the right team in another season still leaves the served address. */
+  it("tells an area from the one around it, and the served season from another", () => {
+    const person = path.join(APP_DIR, "bereich", "(persoenlich)");
+    const admin = path.join(APP_DIR, "bereich", "admin");
+    const team = path.join(APP_DIR, "bereich", "team", "[team_id]", "[saison_id]");
+    const areas = [path.join(APP_DIR, "(public)"), person, admin, team];
+    const served = prefixOf(team);
+
+    assert.deepEqual(strayWaysOut(person, ["/bereich", "/bereich/admin", "/bereich/adminbereich"], areas), ["/bereich/admin"]);
+    assert.deepEqual(strayWaysOut(admin, ["/bereich/admin/teams", "/bereich"], areas), ["/bereich"]);
+    assert.deepEqual(strayWaysOut(person, [`${served}/kader`], areas), [`${served}/kader`]);
+    assert.deepEqual(strayWaysOut(team, [served, `${served}/kader?x=1`, "/bereich/team/probe-team_id/2425", "/bereich"], areas), [
+      "/bereich/team/probe-team_id/2425",
+      "/bereich",
+    ]);
   });
 
   /* Both shells read the season off the live url, so a way out dropping it returns the whole shell
      to the default season on the way back (`fl_frontend/src/shared/utils/saisonHref.ts`). */
   it("carries the season the 404 was served under", () => {
-    for (const [dir, markup] of SHELLED) {
+    for (const { dir, markup } of SHELLED) {
       assert.deepEqual(
         hrefsIn(markup).filter((href) => !href.includes(`saison_id=${SAISON}`)),
         [],
