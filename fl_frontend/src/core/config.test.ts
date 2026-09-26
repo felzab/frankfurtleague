@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { afterEach, describe, it } from "node:test";
 
-import { magicLink } from "better-auth/plugins/magic-link";
+import { isAPIError } from "better-auth/api";
+import { emailOTP } from "better-auth/plugins/email-otp";
 
 import { asSignInIdentifier, isDeliverableAddress, isSignInLibraryAddress, KONTAKT_EMAIL_MAX_LENGTH } from "./emailAddress.ts";
 import { documentsWrittenBy, documentsWrittenByAsync } from "./stdoutCapture.ts";
@@ -364,30 +365,49 @@ describe("the administrator allowlist", () => {
 });
 
 describe("the sign-in library's own rule", () => {
-  /* The endpoint's own body schema, not a copy of its pattern: `fl_frontend/src/core/auth.ts`
-     registers this plugin and `fl_frontend/src/core/auth.test.ts` drives the endpoint through it,
-     so what this object refuses is what an administrator's request for a link meets. */
-  const libraryBody = magicLink({ sendMagicLink: async () => undefined }).endpoints.signInMagicLink.options.body;
+  /* The send endpoint's own check, driven rather than copied: what it refuses is what a request for a
+     code meets. It checks inside its handler, ahead of its first store call, which a store throwing
+     on any use marks. */
+  const sendCode = emailOTP({ sendVerificationOTP: async () => undefined }).endpoints.sendVerificationOTP;
 
-  const libraryTakes = (folded: string): boolean => libraryBody.safeParse({ email: folded }).success;
+  class ReachedTheStore extends Error {}
+  const refusingStore = new Proxy(
+    {},
+    {
+      get: () => () => {
+        throw new ReachedTheStore();
+      },
+    },
+  );
+
+  async function libraryTakes(folded: string): Promise<boolean> {
+    try {
+      await sendCode({ body: { email: folded, type: "sign-in" }, context: { internalAdapter: refusingStore } });
+    } catch (answered) {
+      if (answered instanceof ReachedTheStore) return true;
+      if (isAPIError(answered) && answered.body?.code === "INVALID_EMAIL") return false;
+      throw answered;
+    }
+    assert.fail("the endpoint reached neither its refusal nor the store");
+  }
 
   /* An agreement over a table of refusals alone agrees on everything, and a table short of the
      clauses agrees on the ones it left out. */
-  it("compares a table that covers both regexes and carries an answer of each kind", () => {
-    const answers = ADDRESS_TABLE.map(([, address]) => libraryTakes(asSignInIdentifier(address)));
+  it("compares a table that covers both regexes and carries an answer of each kind", async () => {
+    const answers = await Promise.all(ADDRESS_TABLE.map(([, address]) => libraryTakes(asSignInIdentifier(address))));
 
     assert.ok(ADDRESS_TABLE.length >= 12, `the table holds ${String(ADDRESS_TABLE.length)} rows`);
     assert.ok(answers.includes(true), "the library takes nothing in the table");
     assert.ok(answers.includes(false), "the library takes everything in the table");
   });
 
-  /* Two zod copies are installed and this module resolves the one the library does not, so a release
-     moving either regex is a lock-out that nothing else here would catch. */
-  it("answers each address the way the allowlist's own predicate does", () => {
+  /* The library's check is its own, so a release moving it is a lock-out that nothing else here
+     would catch. */
+  it("answers each address the way the allowlist's own predicate does", async () => {
     for (const [clause, address] of ADDRESS_TABLE) {
       const folded = asSignInIdentifier(address);
 
-      assert.equal(isSignInLibraryAddress(folded), libraryTakes(folded), `disagreed on ${clause}: ${address}`);
+      assert.equal(isSignInLibraryAddress(folded), await libraryTakes(folded), `disagreed on ${clause}: ${address}`);
     }
   });
 });

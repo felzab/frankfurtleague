@@ -10,7 +10,7 @@ import {
   memoryAdapterDouble,
   ORIGIN,
   registerAuthDoubles,
-  seedLink,
+  signInByCode,
 } from "./authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "./cacheScope.ts";
 
@@ -149,14 +149,9 @@ const { APINetworkError } = await import("./errors.ts");
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
-/** Mints a session the way a followed link does, and hands back its cookie and its stored row. */
+/** Mints a session the way a typed code does, and hands back its cookie and its stored row. */
 async function signIn(email: string): Promise<{ cookie: string; row: SessionRow }> {
-  const verified = await auth.api.magicLinkVerify({
-    query: { token: seedLink(store.verification, email) },
-    headers: new Headers(ORIGIN),
-    returnHeaders: true,
-  });
-  const cookie = cookieHeader(verified);
+  const cookie = cookieHeader(await signInByCode(auth, email));
 
   const row = store.session.at(-1);
   assert.ok(row !== undefined, "the verification wrote no session row");

@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 
 import { answerReadsWith, callPage, EMPTIEST_ANSWER, pageBody, redirectTarget } from "@/shared/testing/pageHarness.ts";
 
-import { asDataUrl, cookieHeader, memoryAdapterDouble, ORIGIN, registerAuthDoubles, seedLink } from "../../core/authDoubles.ts";
+import { asDataUrl, cookieHeader, memoryAdapterDouble, ORIGIN, registerAuthDoubles, signInByCode } from "../../core/authDoubles.ts";
 
 const STORE = "__flOfferLaterStore";
 const REQUEST_HEADERS = "__flOfferLaterRequestHeaders";
@@ -13,7 +13,7 @@ const PERSON_EMAIL = "spielerin@example.org";
 const TEAM_ID = "6890a1b2c3d4e5f607250011";
 
 const globals = globalThis as unknown as Record<string, unknown>;
-const store = { user: [], session: [] as { createdAt: Date }[], account: [], verification: [] as Parameters<typeof seedLink>[0], passkey: [] };
+const store = { user: [], session: [] as { createdAt: Date }[], account: [], verification: [] as unknown[], passkey: [] };
 globals[STORE] = store;
 
 /* Registered after the page harness's, so this request's cookie answers `headers()` rather than its
@@ -56,11 +56,7 @@ async function redirectsOf(Page: (props: typeof NO_PROPS) => unknown): Promise<s
    required in all but name (`docs/frontend/spec.md :: I412`). */
 describe("where „Später“ on the passkey offer leads", () => {
   it("reaches the person's own page from inside the offer window, by no route back to the offer", async () => {
-    const verified = await auth.api.magicLinkVerify({
-      query: { token: seedLink(store.verification, PERSON_EMAIL) },
-      headers: new Headers(ORIGIN),
-      returnHeaders: true,
-    });
+    const verified = await signInByCode(auth, PERSON_EMAIL, ORIGIN);
     globals[REQUEST_HEADERS] = new Headers({ ...ORIGIN, cookie: cookieHeader(verified) });
 
     // Inside the window: the landing offers the passkey, and the page shows the offer.

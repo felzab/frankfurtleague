@@ -18,11 +18,12 @@ import type { FormState } from "@/shared/types/types";
 // Deliberately identical whether or not the send gate admits the address: this action is public, so a
 // distinguishable "not authorized" is a membership oracle.
 
-// `submittedEmail` reaches the panel that names where the link went, so it is the folded address a
-// send was really addressed to rather than the keystrokes -- which the refusal above echoes instead.
+// `submittedEmail` reaches the panel that names where the code went, and the code step posts it back,
+// so it is the folded address a send was really addressed to rather than the keystrokes -- which the
+// refusal above echoes instead.
 const neutralResult = (submittedEmail: string): FormState => ({
   success: true,
-  message: "Falls zu dieser Adresse ein Zugang gehört, ist ein Anmeldelink unterwegs.",
+  message: "Falls zu dieser Adresse ein Zugang gehört, ist ein Anmeldecode unterwegs.",
   submittedEmail,
 });
 
@@ -54,24 +55,21 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
     // second read inside it would be a second trip through Next's own request store for one value.
     const requestHeaders = await headers();
 
-    // Folded HERE, which is the boundary: below this line the verification row, the mailed
-    // recipient, the send gate and the stored `user` row all carry one string.
+    // Folded HERE, which is the boundary: below this line the code row, the mailed recipient, the
+    // gate and the stored `user` row all carry one string (`docs/frontend/spec.md :: I446`).
 
     // The library folds CASE alone and refuses a Unicode domain, so the punycode the fold converts
-    // one to is the only spelling in which that address signs in at all.
+    // one to is the only spelling in which that person signs in at all.
     const email = asSignInIdentifier(validated.data.email);
 
-    // The whole call, behind the response: the token write, the send gate and the send all sit in
-    // the branch-dependent half, so no branch does any of it before the caller is answered.
+    // The whole call, behind the response: the code write, the mail cap, the gate and the send all
+    // sit in the branch-dependent half, so no branch does any of it before the caller is answered.
     after(async () => {
       try {
-        // No `callbackURL`: the plugin spends it building a `url` this application discards, and a
-        // destination named at the request reads as one travelling in the mailed link.
-
-        // No `request` either, so the endpoint's own form-CSRF check never runs: what stands in its
-        // place is Next's server-action origin check, which refuses a mismatched `Origin` and lets a
+        // No `request`, so the endpoint's own form-CSRF check never runs: what stands in its place
+        // is Next's server-action origin check, which refuses a mismatched `Origin` and lets a
         // request carrying none through with a warning.
-        await auth.api.signInMagicLink({ body: { email }, headers: requestHeaders });
+        await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: requestHeaders });
       } catch (failed) {
         // Name only: an error on this path routinely carries the submitted address, and
         // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and stack in full.

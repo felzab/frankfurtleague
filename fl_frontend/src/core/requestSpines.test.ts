@@ -34,6 +34,7 @@ const MODULE_DOUBLES: Record<string, string> = {
   "/src/core/config.ts": `export const frontend_config = { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" };`,
   // Signed in, so the undo spine's session check lets a request through to the body it reads.
   "/src/core/auth.ts": `export const auth = { handler: async (request) => new Response(request.url), api: {} };
+export const ADDRESS_ATTEMPTS_EXHAUSTED = "ADDRESS_ATTEMPTS_EXHAUSTED";
 export const getAdminSession = async () => ({ user: { email: "vorstand@example.org" } });
 export const isFreshlySignedIn = () => true;
 export const getSignInDestination = async () => "/bereich/admin";`,
@@ -62,7 +63,7 @@ type Handler = (request: unknown, context: unknown) => Promise<unknown>;
 /** The handlers this guard must not stand in front of, and why. */
 const UNGUARDED: Record<string, string> = {
   "api/auth/[...all]/route.ts GET":
-    "the sign-in library's verification path is followed out of a mail client, so it arrives cross-site by construction",
+    "the library's own hook refuses every GET but the passkey's options, which hand out only a challenge its verify checks",
   "api/auth/[...all]/route.ts POST": "the sign-in library brings an origin check of its own to every path a browser posts to",
   "api/mail/zustellung/route.ts POST":
     "the provider's delivery webhook, which a 200 from the spine would tell that a forgery and an unreachable backend were both accepted",

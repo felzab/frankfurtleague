@@ -10,7 +10,7 @@ import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import type { FormState } from "@/shared/types/types.ts";
 
 /** The sentence the action answers with whether or not the address is allowlisted. */
-const NEUTRAL_ANSWER = "Falls zu dieser Adresse ein Zugang gehört, ist ein Anmeldelink unterwegs.";
+const NEUTRAL_ANSWER = "Falls zu dieser Adresse ein Zugang gehört, ist ein Anmeldecode unterwegs.";
 
 const SIGN_IN = "__flSignInActionOutcome";
 const DEFERRED = "__flSignInActionDeferred";
@@ -37,7 +37,7 @@ registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/auth.ts")) {
-      const source = `export const auth = { api: { signInMagicLink: async () => globalThis.${SIGN_IN}() } };`;
+      const source = `export const auth = { api: { sendVerificationOTP: async () => globalThis.${SIGN_IN}() } };`;
       return { format: "module", source, shortCircuit: true };
     }
     if (url.endsWith("/src/core/logging.ts")) {
@@ -72,7 +72,7 @@ async function signInAnswering(outcome: () => Promise<void>): Promise<{ answer: 
 }
 
 /*
- The subject is the answer: an allowlisted address is sent a link, and every other outcome the
+ The subject is the answer: an allowlisted address is sent a code, and every other outcome the
  sign-in can reach must read the same, or the public action is a membership oracle.
 */
 describe("handleSignIn's answer", () => {

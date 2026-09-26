@@ -335,7 +335,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   leaves here (`docs/backend/spec.md :: I42` is the redaction it sits beside, and `:: I48` what a
   removal records).
 - **The erasure of anybody who has signed in includes the sign-in store.** The `auth` database
-  holds the address, sessions and sign-in tokens of everyone who has followed a sign-in link — an
+  holds the address, sessions and sign-in codes of everyone who has signed in — an
   administrator, and a person the send gate offered one (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`) — and the
   passkeys of anyone who set one up. It is inside the erasure, and it is reached by hand:
   `fl_frontend/src/core/auth.ts` is where that store is configured, and
@@ -348,11 +348,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   key staying on their own device; a `session` row holds the account it belongs to, its own
   expiry, which factor made it and, where a passkey did, that passkey's credential identifier, and
   neither the address nor the browser the sign-in came from. A `user` row's `updatedAt` records when that account, or any of its passkeys, last
-  changed, a removal included (`fl_frontend/src/core/auth.ts :: claimAccount`). **A session and a sign-in token each carry an expiry set at that
+  changed, a removal included (`fl_frontend/src/core/auth.ts :: claimAccount`). **A session and a sign-in code each carry an expiry set at that
   configuration, and the expiry bounds the credential rather than the row**: the library drops a
   session row when its holder presents the stale cookie and leaves it standing where nobody comes
-  back, and it consumes a sign-in token's row when the link is followed, live or expired, so one
-  nobody follows is deleted by nothing. Neither collection is swept by the application; the
+  back, and it consumes a code's row when the code is typed, live or expired, sweeping expired
+  `verification` rows only when it next reads one. Per typed address it also keeps rows counting
+  failed codes for a day and sent codes for an hour, under a keyed hash of the address rather than
+  the address (`fl_frontend/src/core/auth.ts :: boundIdentifier`). Neither collection is swept by
+  the application; the
   retention index each needs is a console step
   ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-two-expiry-indexes)).
 - **The sign-in store holds more than the people it signs in.** The sign-in send is public and the
@@ -360,7 +363,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   who submits the form is held there — a person the gate admits and a stranger alike — until that
   retention index removes it
   ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-two-expiry-indexes)). Nothing else is
-  recorded of such a person: no `user` row is written until a link is followed, and a link is mailed
+  recorded of such a person: no `user` row is written until a code is typed right, and a code is mailed
   only to an administrator or to an address the league holds records for (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`).
 - **No log row names a person as the one who wrote it today, and a person's own write is
   recorded under a pseudonym rather than their address.** `fl_frontend/src/core/subject.ts :: getSubjectSession`

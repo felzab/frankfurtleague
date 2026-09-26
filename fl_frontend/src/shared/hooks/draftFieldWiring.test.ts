@@ -126,13 +126,13 @@ const kontakt = (vorname: string, email: string) => ({
    skips the shared block posts whatever it holds and learns the rules from the server. Each form below is
    pressed nowhere else. */
 describe("a public or single-purpose form's press over a draft its schema refuses", () => {
-  it("the sign-in card sends no link for an empty address", async () => {
+  it("the sign-in card sends no code for an empty address", async () => {
     const user = userEvent.setup();
     const { SignInForm } = await import("@/features/auth/components/forms/SignInForm.tsx");
-    render(h(SignInForm));
+    render(h(SignInForm, { next: "/signin/weiter" }));
     calls.length = 0;
 
-    await user.click(screen.getByRole("button", { name: "Link senden" }));
+    await user.click(screen.getByRole("button", { name: "Code senden" }));
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
 
     assert.deepEqual(

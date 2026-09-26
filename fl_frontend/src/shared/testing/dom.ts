@@ -34,6 +34,9 @@ globalThis.ResizeObserver ??= class {
 window.Element.prototype.getAnimations ??= () => [];
 // An opened list scrolls its option into view.
 window.Element.prototype.scrollTo ??= () => undefined;
+// Nor does it hit-test a point: the sign-in code field asks what stands at its right edge, looking for a password
+// manager's badge to make room for, and here nothing ever does.
+window.Document.prototype.elementFromPoint ??= () => null;
 
 // Nor does it evaluate a media query, which the editors' rails read as they mount. Every query answers unmatched and
 // never changes, the narrow layout being the one a page without a viewport renders.

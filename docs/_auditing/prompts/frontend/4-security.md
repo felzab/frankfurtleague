@@ -56,7 +56,8 @@ admin-key call is CRITICAL.
 
 S5. **Auth configuration.** Session strategy and lifetime, cookie flags and what derives them, CSRF,
 role assignment provenance (user-controllable?), account linking, sign-out revocation, the
-magic-link flow (validity window, email content source), and the pinned-beta risk if the pin still
+mailed-code flow (validity window, the per-address failure and mail bounds, email content source),
+and the pinned-beta risk if the pin still
 exists — check the installed version's own documented behaviour, not stable-version assumptions.
 
 S6. **Enumeration and side channels.** For every authentication-adjacent flow: does _any_ observable

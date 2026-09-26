@@ -67,13 +67,13 @@ export async function POST(request: NextRequest) {
     const meldung = leseZustellEreignis(ereignis);
     if (meldung === null) return ANGEWENDET([]);
 
-    // The sign-in lane, which no store holds: anything but a delivery locks an administrator out
-    // of their only way in, so the LINE is the record.
+    // The sign-in lane, which no store holds: anything but a delivery locks out whoever holds no
+    // passkey, so the LINE is the record.
 
     // Never the address (`docs/logging/spec.md :: L9`).
     if (meldung.ziel === "anmeldung") {
       if (meldung.stand !== "zugestellt") {
-        logger.warn("mail.anmeldelink_nicht_zugestellt", {
+        logger.warn("mail.anmeldecode_nicht_zugestellt", {
           error_code: "FE-MAIL-007",
           stand: meldung.stand,
           nachricht_id: meldung.nachricht_id,

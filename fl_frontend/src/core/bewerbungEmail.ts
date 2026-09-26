@@ -123,7 +123,7 @@ function neuBewerbenAktion(origin: string, saisonId: string): Aktion {
   return { href: `${origin}/bewerbung/${encodeURIComponent(saisonId)}`, label: "Neu bewerben", ton: "primary" };
 }
 
-// Spelled here as well as in `fl_frontend/src/core/authEmail.ts :: FALLBACK_SATZ`: one situation
+// Spelled here as well as in `fl_frontend/src/core/schiedsrichterEmail.ts :: FALLBACK_SATZ`: one situation
 // reads as one sentence to the person meeting it, so the two move together.
 const FALLBACK_SATZ = "Falls der Button nicht funktioniert, kopiere diese Adresse in Deinen Browser:";
 /** The singular sentence standing over two addresses tells its reader that one of them is theirs. */

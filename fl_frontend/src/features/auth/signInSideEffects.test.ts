@@ -89,7 +89,7 @@ const store = {
   user: [] as { email: string }[],
   session: [] as unknown[],
   account: [],
-  verification: [] as { expiresAt: Date }[],
+  verification: [] as { identifier: string; expiresAt: Date }[],
   passkey: [],
 };
 
@@ -107,9 +107,9 @@ arriveAs(null);
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so neither the doubles nor the `next/server` extension would be in place yet.
 const { NextRequest, NextResponse } = await import("next/server");
-const { auth, getSignInDestination } = await import("@/core/auth.ts");
+const { getSignInDestination } = await import("@/core/auth.ts");
 const { handleSignIn } = await import("./actions.ts");
-const bestaetigen = await import("@/app/api/signin/bestaetigen/route.ts");
+const codeRoute = await import("@/app/api/signin/code/route.ts");
 
 interface Attempt {
   /** The response's `Set-Cookie` lines, serialised by the same `ResponseCookies` Next hands an action. */
@@ -178,19 +178,41 @@ async function signInWith(email: string): Promise<Attempt> {
   };
 }
 
-/** Follows the link the last message carried, which is what writes the `user` row a spelling reaches. */
-async function followTheLastLink(): Promise<void> {
+/** The code the last message carried, as the reader copies it off the mail. */
+function theLastCode(): string {
   const message = sent.at(-1);
-  assert.ok(message, "no message was sent, so there is no link to follow");
+  assert.ok(message, "no message was sent, so there is no code to type");
 
-  const found = /[?&]token=([^\s&]+)/.exec(message.text);
-  assert.ok(found?.[1], "the message carries no token parameter");
+  const found = /^(\d{6})$/m.exec(message.text);
+  assert.ok(found?.[1], "the message carries no code");
 
-  await auth.api.magicLinkVerify({
-    query: { token: decodeURIComponent(found[1]) },
-    headers: new Headers({ host: "localhost:3000", "x-forwarded-proto": "http" }),
-    returnHeaders: true,
-  });
+  return found[1];
+}
+
+/** Types `code` for `email` into the code step, as the form posts it; the jar is the case's own. */
+async function typeTheCode(email: string, code: string): Promise<Response> {
+  return codeRoute.POST(
+    new NextRequest("http://localhost:3000/api/signin/code", {
+      method: "POST",
+      headers: { "sec-fetch-site": "same-origin", "content-type": "application/json" },
+      body: JSON.stringify({ email, code }),
+    }),
+  );
+}
+
+/** A jar recording what the store is handed, installed for a case that reads the cookie a code wrote. */
+function recordingJar(): { name: string; value: string }[] {
+  const written: { name: string; value: string }[] = [];
+  const response = new NextResponse();
+  globals[COOKIE_JAR] = {
+    set: (name: string, value: string, options: Parameters<typeof response.cookies.set>[2]) => {
+      written.push({ name, value });
+      return response.cookies.set(name, value, options);
+    },
+    delete: (name: string) => response.cookies.delete(name),
+  };
+
+  return written;
 }
 
 /** The answer with the echo dropped: `submittedEmail` is the caller's own input and differs by design. */
@@ -216,7 +238,7 @@ const refusedByTheGate = {
 describe("what a sign-in leaves behind on the response", () => {
   /* First, because every comparison below holds trivially of two attempts that both got nowhere:
      a config double that failed to land would refuse both addresses and agree on everything. */
-  it("really did take the two branches, one mailing a link and the other not", () => {
+  it("really did take the two branches, one mailing a code and the other not", () => {
     assert.deepEqual(
       [...allowlisted.mailed],
       [ALLOWLISTED],
@@ -250,11 +272,12 @@ describe("what a sign-in leaves behind on the response", () => {
     assert.equal(rejected.scheduled, 1, "the rejected branch scheduled nothing, so the two are distinguishable by what they defer");
   });
 
-  it("writes the verification row behind the response as well, on both branches", () => {
+  it("writes the verification rows behind the response as well, the same on both branches", () => {
     assert.equal(allowlisted.writtenWhileAnswering, 0, "the caller waited on a store write");
     assert.equal(rejected.writtenWhileAnswering, 0);
-    assert.equal(allowlisted.writtenAfter, 1);
-    assert.equal(rejected.writtenAfter, 1, "the two branches differ in what the store gained, which is an oracle to anyone who can read it");
+    // The code's own row and the row counting a mail against the address.
+    assert.equal(allowlisted.writtenAfter, 2);
+    assert.equal(rejected.writtenAfter, 2, "the two branches differ in what the store gained, which is an oracle to anyone who can read it");
   });
 });
 
@@ -290,40 +313,19 @@ describe("what the gate's backend read leaves on the response", () => {
   }
 });
 
-describe("what the press under the mailed link leaves in the cookie store", () => {
+describe("what a typed code leaves in the cookie store", () => {
   /* The one wiring the whole sign-in rests on: the handler drops the verification's own answer, and
-     `nextCookies()` writes the browser's copy into Next's store rather than onto the redirect. */
+     `nextCookies()` writes the browser's copy into Next's store rather than onto the JSON answer. */
   it("writes the session cookie through Next's store, and a guard then answers for it", async () => {
     await signInWith(ALLOWLISTED);
-    const message = sent.at(-1);
-    assert.ok(message, "the sign-in mailed nothing, so there is no link to press");
+    const code = theLastCode();
 
-    const found = /[?&]token=([^\s&]+)/.exec(message.text);
-    assert.ok(found?.[1], "the message carries no token parameter");
+    // Installed after the send, which fits a jar of its own: what this case reads is the code.
+    const written = recordingJar();
+    const typed = await typeTheCode(ALLOWLISTED, code);
 
-    // Installed after the send, which fits a jar of its own: what this case reads is the press.
-    const written: { name: string; value: string }[] = [];
-    const response = new NextResponse();
-    globals[COOKIE_JAR] = {
-      set: (name: string, value: string, options: Parameters<typeof response.cookies.set>[2]) => {
-        written.push({ name, value });
-        return response.cookies.set(name, value, options);
-      },
-      delete: (name: string) => response.cookies.delete(name),
-    };
-
-    const body = new FormData();
-    body.set("token", decodeURIComponent(found[1]));
-    const pressed = await bestaetigen.POST(
-      new NextRequest("http://localhost:3000/api/signin/bestaetigen", {
-        method: "POST",
-        headers: { "sec-fetch-site": "same-origin" },
-        body: body,
-      }),
-    );
-
-    assert.equal(pressed.status, 303);
-    assert.deepEqual([...pressed.headers.getSetCookie()], [], "the handler answered the credential on its own response");
+    assert.deepEqual(await typed.json(), { success: true });
+    assert.deepEqual([...typed.headers.getSetCookie()], [], "the handler answered the credential on its own response");
 
     const session = written.find((cookie) => cookie.name.endsWith("session_token"));
     assert.ok(session, `no session cookie was written to the store: ${JSON.stringify(written)}`);
@@ -335,51 +337,40 @@ describe("what the press under the mailed link leaves in the cookie store", () =
   });
 
   /* The window the message states is worth nothing unless the store enforces it: the library
-     consumes an expired row on the way past, so a link pressed late must refuse rather than sign in. */
-  it("refuses a link whose row has expired, and mints no session for it", async () => {
+     consumes an expired row on the way past, so a code typed late must refuse rather than sign in. */
+  it("refuses a code whose row has expired, and mints no session for it", async () => {
     await signInWith(ALLOWLISTED);
-    const message = sent.at(-1);
-    assert.ok(message);
+    const code = theLastCode();
 
-    const found = /[?&]token=([^\s&]+)/.exec(message.text);
-    assert.ok(found?.[1]);
-
-    const row = store.verification.at(-1);
-    assert.ok(row, "the sign-in wrote no verification row to age");
+    const row = store.verification.findLast((entry) => entry.identifier === `sign-in-otp-${ALLOWLISTED}`);
+    assert.ok(row, "the sign-in wrote no code row to age");
     // Aged in the STORE, never by a clock handed to the running application, which would be a
     // testing-only seam in production code.
     row.expiresAt = new Date(Date.now() - 1000);
 
     const sessions = store.session.length;
-    const body = new FormData();
-    body.set("token", decodeURIComponent(found[1]));
+    recordingJar();
+    const typed = await typeTheCode(ALLOWLISTED, code);
 
-    const pressed = await bestaetigen.POST(
-      new NextRequest("http://localhost:3000/api/signin/bestaetigen", {
-        method: "POST",
-        headers: { "sec-fetch-site": "same-origin" },
-        body: body,
-      }),
-    );
-
-    assert.equal(pressed.status, 303);
-    assert.equal(pressed.headers.get("location"), "/signin/bestaetigen");
-    assert.equal(store.session.length, sessions, "an expired link still minted a session");
+    assert.deepEqual(await typed.json(), { success: false, error: "Der Code ist abgelaufen. Fordere einen neuen an." });
+    assert.equal(store.session.length, sessions, "an expired code still minted a session");
   });
 });
 
-describe("which administrator two spellings of one address reach", () => {
-  /* The library folds CASE alone, on the row it stores: a spelling whose domain only the fold converts
-     would otherwise verify into a second `user` row -- a second administrator, with a passkey of their own. */
-  it("writes one user row for two spellings the allowlist reads as one address", async () => {
-    await signInWith(ALLOWLISTED);
-    await followTheLastLink();
-
+describe("which account two spellings of one address reach", () => {
+  /* The library folds CASE alone, on the row it stores: a spelling only the fold converts would
+     otherwise verify into a second `user` row, which a ban matching the first by equality never ends. */
+  it("writes one user row for two spellings the fold reads as one address, through the send and the code alike", async () => {
     // The fold makes the half-width ideographic full stop a dot; `toLowerCase` alone does not.
-    await signInWith(ALLOWLISTED.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61)));
-    await followTheLastLink();
+    const spelledOtherwise = ALLOWLISTED.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61));
 
-    // The whole store, not a slice: no other address here is ever mailed a link, so a second row
+    for (const spelling of [ALLOWLISTED, spelledOtherwise]) {
+      await signInWith(spelling);
+      recordingJar();
+      assert.deepEqual(await (await typeTheCode(spelling, theLastCode())).json(), { success: true }, `${spelling} was not signed in`);
+    }
+
+    // The whole store, not a slice: no other address here is ever mailed a code, so a second row
     // could only be the second spelling's.
     assert.deepEqual(
       store.user.map((user) => user.email),

@@ -95,7 +95,7 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   ]);
 }) as typeof fetch;
 
-const MESSAGE = { to: "trainer@example.org", subject: "Anmeldelink", html: "<p>Hallo</p>", text: "Hallo" };
+const MESSAGE = { to: "trainer@example.org", subject: "Anmeldecode", html: "<p>Hallo</p>", text: "Hallo" };
 
 const jsonResponse = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), { status: status, headers: { "content-type": "application/json" } });
@@ -491,7 +491,7 @@ describe("the sink a deployment that does not mail writes instead", () => {
     assert.equal(new Set(written).size, 3, `three messages at one instant left ${String(new Set(written).size)} files`);
   });
 
-  /* The directory holds a magic link, which is a bearer credential: a name outside this pattern is
+  /* The directory holds a sign-in code, which is a bearer credential: a name outside this pattern is
      one git offers to commit and `prettier --check` then rewrites. */
   it("writes into a directory both ignore files hold", () => {
     for (const ignoreFile of [".gitignore", ".prettierignore"]) {

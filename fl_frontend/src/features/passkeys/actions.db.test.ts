@@ -12,9 +12,9 @@ import {
   BARRIER_TIMEOUT_MS,
   configDouble,
   cookieHeader,
-  lastMailedToken,
   ORIGIN,
   registerAuthDoubles,
+  signInByCode,
 } from "@/core/authDoubles.ts";
 import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
@@ -169,13 +169,7 @@ beforeEach(async () => {
  * the stamp its assertion writes, set on the session this call minted and on no earlier one.
  */
 async function steppedUpAdmin(credentialID = "fl-passkey-db-eigener"): Promise<{ cookie: string; userId: string }> {
-  await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
-  const verified = await auth.api.magicLinkVerify({
-    query: { token: lastMailedToken(sent, ADMIN_EMAIL) ?? assert.fail(`nothing was mailed to ${ADMIN_EMAIL}`) },
-    headers: new Headers(ORIGIN),
-    returnHeaders: true,
-  });
-  const cookie = cookieHeader(verified);
+  const cookie = cookieHeader(await signInByCode(auth, ADMIN_EMAIL));
 
   await authDb()
     .collection("session")

@@ -192,7 +192,7 @@ if (( DOWN )); then
     # `--remove-orphans` here as well as on the way up: a service deleted from the compose file
     # leaves a container behind that nothing else on this machine will ever mention again.
     quietly docker compose down --remove-orphans || die "the stack could not be stopped — the output above is compose's own."
-    # A withheld sign-in mail holds a live magic link, a credential nothing needs once the stack is
+    # A withheld sign-in mail holds a live code, a credential nothing needs once the stack is
     # down; the copy and the access log stay until --fresh, being records rather than credentials.
     rm -rf "${REPO_ROOT:?}/.tmp-mail"
     ok "stopped — the withheld mail is gone"

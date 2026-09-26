@@ -55,6 +55,7 @@
 @import "@heroui/styles/components/toast.css" layer(components);
 
 /* Forms */
+@import "@heroui/styles/components/input-otp.css" layer(components);
 @import "@heroui/styles/components/input.css" layer(components);
 @import "@heroui/styles/components/input-group.css" layer(components);
 @import "@heroui/styles/components/number-field.css" layer(components);

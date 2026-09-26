@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
-import { ADMIN_WINDOW_HOURS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes.ts";
+import { ADMIN_WINDOW_HOURS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes.ts";
+import { CODE_FAILURE_WINDOW_HOURS } from "@/core/signInCode.ts";
 import {
   BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
   BEWERBUNG_ERINNERUNG_TAGE,
@@ -17,7 +18,7 @@ import { renderMarkup, textOf } from "@/shared/testing/renderTest";
 
 const { DatenschutzView } = await import("./DatenschutzView.tsx");
 // After the harness, as the view is: the module is `server-only`, which the harness stands in for.
-const { LINK_VALIDITY_MINUTES } = await import("@/core/authEmail.ts");
+const { CODE_VALIDITY_MINUTES } = await import("@/core/authEmail.ts");
 
 const MARKUP = renderMarkup(DatenschutzView, {});
 
@@ -70,7 +71,7 @@ describe("the privacy notice's account of the association", () => {
   /* The „Stand“ is what a reader compares against the version they last read, so it moves with any
      change to this page and a stale one tells them there was none. */
   it("dates the notice to the day this wording landed", () => {
-    rendert("Stand: 24. September 2026");
+    rendert("Stand: 26. September 2026");
   });
 });
 
@@ -180,10 +181,20 @@ describe("the privacy notice's retention table", () => {
     assert.equal(ANGABEN.get("Sicherungskopien der Datenbank"), "Etwa acht Tage");
   });
 
-  it("gives a sign-in link its lifetime in words, at the constant the sign-in enforces", () => {
+  it("gives a sign-in code its lifetime in words, at the constant the sign-in enforces", () => {
     assert.ok(
-      ANGABEN.get("Anmeldung zur Verwaltung: E-Mail-Adresse, Anmeldelink, Sitzung und Passkey")?.startsWith(
-        `Ein Anmeldelink gilt ${inWorten(LINK_VALIDITY_MINUTES)} Minuten und wird danach gelöscht;`,
+      ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.startsWith(
+        `Ein Anmeldecode gilt ${inWorten(CODE_VALIDITY_MINUTES)} Minuten und wird danach gelöscht;`,
+      ),
+    );
+  });
+
+  /* The rows counting an address's failed codes outlive the code by a day, and are told apart from
+     the address itself only by being keyed. */
+  it("says how long an address's failed codes are counted, at the constant the count keeps", () => {
+    assert.ok(
+      ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.includes(
+        `Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, versandte Codes eine Stunde lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse;`,
       ),
     );
   });
@@ -205,15 +216,22 @@ describe("the privacy notice states the sign-in's session figures at the constan
   const LEERLAUF = `${String(SESSION_EXPIRES_IN_DAYS)} Tage lang nicht genutzt`;
   const VERWALTUNG = `${String(ADMIN_WINDOW_HOURS)} Stunden`;
 
+  // A person's two figures, never the library's one: the longest of all four is nobody's idle window.
   it("in the retention table", () => {
-    const zeile = ANGABEN.get("Anmeldung zur Verwaltung: E-Mail-Adresse, Anmeldelink, Sitzung und Passkey") ?? "";
+    const zeile = ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey") ?? "";
+    const tage = (ms: number): string => String(ms / (24 * 60 * 60 * 1000));
 
-    assert.ok(zeile.includes(`Eine Sitzung läuft ab, wenn sie ${LEERLAUF} wurde; für die Verwaltung gilt sie höchstens ${VERWALTUNG}.`));
+    assert.ok(
+      zeile.includes(
+        `Eine Sitzung endet, wenn sie ${tage(PERSON_LIFETIME.idle)} Tage lang nicht genutzt wurde, spätestens aber ` +
+          `${tage(PERSON_LIFETIME.absolute)} Tage nach der Anmeldung; für die Verwaltung gilt sie höchstens ${VERWALTUNG}.`,
+      ),
+    );
   });
 
   it("in the cookie section", () => {
     assert.ok(SEITE.includes(`Das Cookie selbst läuft ab, wenn die Sitzung ${LEERLAUF} wurde`));
-    assert.ok(SEITE.includes(`ob die Anmeldung nicht länger als ${VERWALTUNG} her ist`));
+    assert.ok(SEITE.includes(`für den Zugang zur Verwaltung nicht länger als ${VERWALTUNG}, und verlangen danach eine neue Anmeldung`));
   });
 });
 
@@ -268,7 +286,16 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
     statt: "Diese Website legt in Deinem Browser nur ab, was für ihren Betrieb notwendig ist:",
   },
   { weg: "Darüber hinaus speichern wir nichts in Deinem Browser", statt: "Darüber hinaus wird nichts in Deinem Browser abgelegt" },
-  { weg: "nach höchstens 90 Tagen", statt: `Eine Sitzung läuft ab, wenn sie ${String(SESSION_EXPIRES_IN_DAYS)} Tage lang nicht genutzt wurde` },
+  {
+    weg: "nach höchstens 90 Tagen",
+    statt: `Das Cookie selbst läuft ab, wenn die Sitzung ${String(SESSION_EXPIRES_IN_DAYS)} Tage lang nicht genutzt wurde`,
+  },
+  { weg: "Anmeldelink", statt: "Ein Anmeldecode gilt zehn Minuten und wird danach gelöscht" },
+  { weg: "Ein Sitzungs-Cookie für angemeldete Administratorinnen und Administratoren", statt: "Ein Sitzungs-Cookie für angemeldete Personen." },
+  {
+    weg: "Während eine Administratorin oder ein Administrator einen Passkey einrichtet",
+    statt: "Die Anmeldeseite setzt es schon beim Aufruf, damit Dein Browser Dir einen gespeicherten Passkey im Adressfeld anbieten kann",
+  },
   { weg: "Es findet keine automatisierte Entscheidungsfindung" },
   // The media-consent and Stufe refusals exist too, reachable only by a request no page sends.
   { weg: "Ohne einen Menschen weist die Website nur zweierlei zurück" },

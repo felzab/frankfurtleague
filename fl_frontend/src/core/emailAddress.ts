@@ -107,9 +107,9 @@ export function hasAsciiLocalPart(value: string): boolean {
 }
 
 /**
- * The sign-in library's own primitive rather than a copy of its pattern: `better-auth` parses the
- * magic-link body with `z.email()`. What holds the two together is the table in
- * `fl_frontend/src/core/config.test.ts :: "the sign-in library's own rule"` and nothing else.
+ * The sign-in library's own primitive rather than a copy of its pattern: `better-auth` checks a
+ * code's address with `z.email()`, and only the table in
+ * `fl_frontend/src/core/config.test.ts :: "the sign-in library's own rule"` holds the two together.
  */
 const SIGN_IN_LIBRARY_EMAIL = z.email();
 

@@ -5,4 +5,4 @@
 export const ANMELDUNG_TAG = "anmeldung";
 
 /** One message goes out on this lane, so the value names the lane rather than a row to place it against. */
-export const ANMELDUNG_LINK = "link";
+export const ANMELDUNG_CODE = "code";

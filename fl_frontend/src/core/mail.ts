@@ -29,7 +29,7 @@ const MAIL_ATTEMPTS = 3;
 const MAIL_RETRY_DELAY_MS = 400;
 
 // `.gitignore` and `.prettierignore` both hold `.tmp-*/`, and a name outside that pattern is one git
-// offers to commit -- with a magic link, a bearer credential, inside it.
+// offers to commit -- with a sign-in code, a bearer credential, inside it.
 const MAIL_SINK_DIR = ".tmp-mail";
 
 /** Long enough for the biggest fan-out this application draws, short enough to end rather than spin. */

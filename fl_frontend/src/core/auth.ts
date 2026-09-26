@@ -7,15 +7,15 @@ import { mongodbAdapter } from "@better-auth/mongo-adapter";
 import { passkey } from "@better-auth/passkey";
 import { betterAuth, getCurrentAdapter } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
+import { makeSignature } from "better-auth/crypto";
 import { nextCookies } from "better-auth/next-js";
 import { customSession } from "better-auth/plugins/custom-session";
-import { magicLink } from "better-auth/plugins/magic-link";
+import { emailOTP } from "better-auth/plugins/email-otp";
 import { MongoServerError } from "mongodb";
 
 import { isUserAdmin } from "./allowlist";
-import { buildAnmeldeLink } from "./anmeldeLink";
-import { ANMELDUNG_LINK, ANMELDUNG_TAG } from "./anmeldeTag";
-import { buildMagicLinkEmail, LINK_VALIDITY_MINUTES } from "./authEmail";
+import { ANMELDUNG_CODE, ANMELDUNG_TAG } from "./anmeldeTag";
+import { buildCodeEmail, CODE_VALIDITY_MINUTES } from "./authEmail";
 import { frontend_config } from "./config";
 import { client } from "./db";
 import { asSignInIdentifier } from "./emailAddress";
@@ -29,9 +29,10 @@ import { passkeyLastUse } from "./passkeyLastUse";
 import { ENROLMENT_CONFLICT, SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
 import { setRequestActor } from "./requestScope";
 import { ADMIN_LIFETIME, ENROLMENT_WINDOW_MS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS, STEP_UP_WINDOW_MS } from "./sessionLifetimes";
+import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "./signInCode";
 import { mayReceiveSignIn } from "./signInGate";
 
-import type { BetterAuthOptions, DBTransactionAdapter, GenericEndpointContext } from "better-auth";
+import type { AuthContext, BetterAuthOptions, DBTransactionAdapter, GenericEndpointContext } from "better-auth";
 import type { PasskeyEmail } from "./passkeyEmail";
 import type { Lifetime } from "./sessionLifetimes";
 
@@ -50,8 +51,20 @@ const SESSION_EXPIRES_IN_SECONDS = SESSION_EXPIRES_IN_DAYS * 24 * 60 * 60;
 // granularity.
 const SESSION_UPDATE_AGE_SECONDS = 60 * 60;
 
-// Far below the plugin's own default: a sign-in link is a bearer credential sitting in an inbox.
-const LINK_VALIDITY_SECONDS = LINK_VALIDITY_MINUTES * 60;
+const CODE_VALIDITY_SECONDS = CODE_VALIDITY_MINUTES * 60;
+
+/** The one path that spends a code, which `fl_frontend/src/app/api/signin/code/route.ts` calls in process. */
+const CODE_SIGN_IN_PATH = "/sign-in/email-otp";
+
+const HOUR_MS = 60 * 60 * 1000;
+
+// Prefixes the plugin never writes, so these rows are told from its code rows by identifier alone,
+// and an operator can clear every lock at once (`docs/ops/runbooks.md` §17).
+const FAILURE_ROW_PREFIX = "sign-in-attempt-";
+const MAIL_ROW_PREFIX = "sign-in-mail-";
+
+/** The refusal the route words as the address being locked, whatever code the request carried. */
+export const ADDRESS_ATTEMPTS_EXHAUSTED = "ADDRESS_ATTEMPTS_EXHAUSTED";
 
 // The assertion's session-creating path, read off `@better-auth/passkey` 1.7.5 on 2026-09-20: its
 // `signIn.passkey` is a client helper over two endpoints rather than a route.
@@ -88,9 +101,7 @@ type AuthFactor = typeof PASSKEY_FACTOR | typeof CODE_FACTOR;
 const SESSION_FACTOR_BY_PATH: ReadonlyMap<string, AuthFactor> = new Map([
   [PASSKEY_ASSERTION_PATH, PASSKEY_FACTOR],
   [PASSKEY_REGISTRATION_PATH, PASSKEY_FACTOR],
-  ["/sign-in/email-otp", CODE_FACTOR],
-  // The mailed link proves the mailbox, as the code does; the entry goes with the link itself.
-  ["/magic-link/verify", CODE_FACTOR],
+  [CODE_SIGN_IN_PATH, CODE_FACTOR],
 ]);
 
 /** Named, because the library's failure line records an error's name and nothing else. */
@@ -301,6 +312,45 @@ async function refuseUnadmitted(ctx: GenericEndpointContext, userId: string): Pr
   throw APIError.fromStatus("SERVICE_UNAVAILABLE");
 }
 
+/** As much of the library's context as the two per-address bounds below read and write. */
+type BoundContext = Pick<AuthContext, "adapter" | "internalAdapter" | "secret">;
+
+/**
+ * Keyed under the library's own secret, never hashed plain: an address is guessable, so an unkeyed
+ * digest is the address (`docs/frontend/spec.md :: I445`). Folded, so two spellings share one bound.
+ */
+async function boundIdentifier(prefix: string, email: string, secret: string): Promise<string> {
+  return `${prefix}${await makeSignature(asSignInIdentifier(email), secret)}`;
+}
+
+/**
+ * The row goes in BEFORE the count, so requests racing past the limit each count the other's; a
+ * refused event takes its own back out, so hammering a closed bound never holds it past its window.
+ */
+async function withinBound(context: BoundContext, prefix: string, email: string, limit: number, windowMs: number): Promise<boolean> {
+  const identifier = await boundIdentifier(prefix, email, context.secret);
+  const own = await context.internalAdapter.createVerificationValue({ identifier, value: prefix, expiresAt: new Date(Date.now() + windowMs) });
+
+  const held = await context.adapter.count({
+    model: "verification",
+    where: [
+      { field: "identifier", value: identifier },
+      // Filtered here as well as swept by the library and by the TTL index: either can lag.
+      { field: "expiresAt", operator: "gt", value: new Date() },
+    ],
+  });
+  if (held <= limit) return true;
+
+  await context.adapter.delete({ model: "verification", where: [{ field: "id", value: own.id }] });
+  return false;
+}
+
+/** The address a code sign-in names, or `null` where the body carries none the library would read. */
+function codeSignInAddress(body: unknown): string | null {
+  const email: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "email") : undefined;
+  return typeof email === "string" ? email : null;
+}
+
 /* The library mounts forty endpoints and an upgrade adds more, so the surface is closed from two
    sides: the documented switch below, and the default-deny hook that also covers what it cannot. */
 
@@ -321,13 +371,20 @@ const DISABLED_PATHS: readonly string[] = [
   "/change-password",
   "/delete-user",
   "/delete-user/callback",
+  "/email-otp/change-email",
+  "/email-otp/check-verification-otp",
+  "/email-otp/request-email-change",
+  "/email-otp/request-password-reset",
+  "/email-otp/reset-password",
+  "/email-otp/send-verification-otp",
+  "/email-otp/verify-email",
   "/error",
+  "/forget-password/email-otp",
   "/get-access-token",
   "/get-session",
   "/link-social",
   "/list-accounts",
   "/list-sessions",
-  "/magic-link/verify",
   "/ok",
   "/passkey/delete-passkey",
   "/passkey/list-user-passkeys",
@@ -340,7 +397,7 @@ const DISABLED_PATHS: readonly string[] = [
   "/revoke-sessions",
   "/send-verification-email",
   "/sign-in/email",
-  "/sign-in/magic-link",
+  CODE_SIGN_IN_PATH,
   "/sign-in/social",
   "/sign-out",
   "/sign-up/email",
@@ -359,7 +416,7 @@ async function notify(message: PasskeyEmail, email: string): Promise<void> {
   try {
     await sendMail({ to: email, subject: message.subject, html: message.html, text: message.text });
   } catch (failed) {
-    // Name only, as the link's own send writes one: a failure here routinely carries the address.
+    // Name only, as the code's own send writes one: a failure here routinely carries the address.
     logger.error("auth.passkey_notice_failed", undefined, {
       error_code: "FE-AUTH-004",
       name: failed instanceof Error ? failed.name : "unknown",
@@ -481,8 +538,9 @@ const authOptions = {
     },
   },
 
-  // Off everywhere: the edge meters these paths (`docs/ops/spec.md :: I4`), and the magic-link
-  // plugin's own rule would cap the mail path under a second meter nothing there can see.
+  // Off everywhere: the edge meters these paths (`docs/ops/spec.md :: I4`), and the library's own
+  // rules key on a network address it does not store and reach no in-process call; `withinBound`
+  // stands in for them.
   rateLimit: { enabled: false },
 
   disabledPaths: [...DISABLED_PATHS],
@@ -508,6 +566,18 @@ const authOptions = {
 
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
+      // Above the in-process return below, because the route handler's own call is in process and
+      // is the only caller. Counted whatever the address holds: a lock only members met would be a
+      // membership oracle.
+      const address = ctx.path === CODE_SIGN_IN_PATH ? codeSignInAddress(ctx.body) : null;
+      if (
+        address !== null &&
+        !(await withinBound(ctx.context, FAILURE_ROW_PREFIX, address, CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS * HOUR_MS))
+      ) {
+        logger.info("auth.code_attempts_exhausted");
+        throw new APIError("TOO_MANY_REQUESTS", { code: ADDRESS_ATTEMPTS_EXHAUSTED, message: "Too many failed codes for this address." });
+      }
+
       // An absent `ctx.request` is the library's own test for a call that did not arrive over HTTP,
       // taken by `originCheckMiddleware` and by `requestOnlySessionMiddleware`. Nothing in process
       // is filtered here: those callers are this repository's own code.
@@ -544,6 +614,14 @@ const authOptions = {
     // The `Set-Cookie` the endpoint wrote is untouched: `runAfterHooks` merges this hook's own
     // headers into the response's rather than replacing them, so the credential still travels.
     after: createAuthMiddleware(async (ctx) => {
+      // A code that signed in clears the address's failures; a refusal leaves its own row counted.
+      const signedIn = ctx.path === CODE_SIGN_IN_PATH && !isAPIError(ctx.context.returned) ? codeSignInAddress(ctx.body) : null;
+      if (signedIn !== null) {
+        await ctx.context.internalAdapter.deleteVerificationByIdentifier(
+          await boundIdentifier(FAILURE_ROW_PREFIX, signedIn, ctx.context.secret),
+        );
+      }
+
       if (!CEREMONY_VERIFY_PATHS.has(ctx.path)) return undefined;
 
       // Left standing where the ceremony was refused, or a refusal is answered as a success.
@@ -566,35 +644,48 @@ const authOptions = {
 
   plugins: [
     // `disableSignUp` stays off: every person's row is written at their first verification, so set
-    // it the first correct link dies, and the gate below is the only barrier.
+    // it the first correct code dies, and the gate below is the only barrier.
 
-    // What bounds who holds a redeemable token is the gate below, and the hash at rest.
-    magicLink({
-      expiresIn: LINK_VALIDITY_SECONDS,
-      // At rest as `fl_backend/app/api/bewerbungen/services.py :: hash_token` holds every other
-      // token this league mints; the raw one still reaches the send below.
-      storeToken: "hashed",
-      async sendMagicLink({ email, token }) {
+    // A code row for EVERY address typed, and the send below handed each one, so a verify reads alike
+    // for a member and a stranger and the gate decides only the mail (`docs/frontend/spec.md :: I443`).
+    emailOTP({
+      otpLength: SIGN_IN_CODE_LENGTH,
+      expiresIn: CODE_VALIDITY_SECONDS,
+      allowedAttempts: 3,
+      // Encrypted rather than hashed: a hashed code cannot be read back, and the plugin then mints a
+      // new one on every resend, which breaks a code read in the first mail and typed after the second.
+      storeOTP: "encrypted",
+      // A resend inside the window mails the SAME code, restarting its window and keeping its tries.
+      resendStrategy: "reuse",
+      async sendVerificationOTP({ email, otp, type }, ctx) {
+        // The one type this application asks for: every endpoint minting another is refused over
+        // HTTP and never called in process.
+        if (type !== "sign-in") return;
+
+        // Ahead of the gate, so the store gains the same rows whichever way the gate answers: a row
+        // written for a member alone tells anyone reading the store who is one.
+        if (ctx === undefined || !(await withinBound(ctx.context, MAIL_ROW_PREFIX, email, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS))) {
+          logger.info("auth.code_mail_capped");
+          return;
+        }
+
         // The refusal, whole: an address the gate refuses, for whatever reason, is mailed nothing
         // and this returns as though it had, so every branch is one answer.
         if ((await mayReceiveSignIn(email)) !== "admitted") return;
 
-        // The plugin's own `url` is discarded: a mail gateway spends a link that acts on a GET, so
-        // what is mailed is the page whose button completes the sign-in.
-        const link = buildAnmeldeLink(token);
         // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is
         // not production must not mail production links (`docs/frontend/spec.md :: I186`).
-        const { subject, html, text } = buildMagicLinkEmail(link, frontend_config.AUTH_URL);
+        const { subject, html, text } = buildCodeEmail(otp, frontend_config.AUTH_URL);
 
         try {
           // Tagged so the delivery webhook can tell this lane from the application flow's and put
-          // a bounce on the stream: an administrator whose mailbox refuses mail is locked out, and
-          // an untagged event reaches no reader at all.
-          await sendMail({ to: email, subject, html, text, tags: { [ANMELDUNG_TAG]: ANMELDUNG_LINK } });
+          // a bounce on the stream: a mailbox refusing the code locks out whoever holds no passkey,
+          // and an untagged event reaches no reader at all.
+          await sendMail({ to: email, subject, html, text, tags: { [ANMELDUNG_TAG]: ANMELDUNG_CODE } });
         } catch (failed) {
           // Name only: a failure on this path routinely carries the submitted address, and
           // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and stack in full.
-          logger.error("auth.link_send_failed", undefined, {
+          logger.error("auth.code_send_failed", undefined, {
             error_code: "FE-AUTH-002",
             name: failed instanceof Error ? failed.name : "unknown",
           });
@@ -808,7 +899,7 @@ function isAdminWithinWindow(served: ServedSession): boolean {
 
 /**
  * Whether this served session may act as an administrator — allowlisted, inside both of the
- * administrator's figures, and made by the passkey rather than by the mailed link alone.
+ * administrator's figures, and made by the passkey rather than by a mailed code alone.
  */
 export function isAdminSession(served: ServedSession): boolean {
   return isAdminWithinWindow(served) && served.session.authFactor === PASSKEY_FACTOR;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { ADMIN_EMAIL, configDouble, memoryAdapterDouble, registerAuthDoubles, seedLink } from "./authDoubles.ts";
+import { ADMIN_EMAIL, configDouble, memoryAdapterDouble, registerAuthDoubles, signInByCode } from "./authDoubles.ts";
 
 const STORE = "__flAuthCookieStore";
 
@@ -9,7 +9,7 @@ const STORE = "__flAuthCookieStore";
 const HTTPS_ORIGIN = "https://liga.example";
 
 const globals = globalThis as unknown as Record<string, unknown>;
-const store = { user: [], session: [], account: [], verification: [] as Parameters<typeof seedLink>[0], passkey: [] };
+const store = { user: [], session: [], account: [], verification: [] as unknown[], passkey: [] };
 globals[STORE] = store;
 
 registerAuthDoubles({
@@ -34,11 +34,7 @@ function cookiesOf(answer: { headers: Headers }): { name: string; attributes: st
    overwrite it. The library would prefix `__Secure-` to any configured name, which binds no host. */
 describe("the session cookie over https", () => {
   it("is host-bound: `__Host-`, `Secure`, `Path=/` and no `Domain`", async () => {
-    const verified = await auth.api.magicLinkVerify({
-      query: { token: seedLink(store.verification, ADMIN_EMAIL) },
-      headers: new Headers(HEADERS),
-      returnHeaders: true,
-    });
+    const verified = await signInByCode(auth, ADMIN_EMAIL, HEADERS);
 
     const written = cookiesOf(verified);
     const session = written.find((cookie) => cookie.name.endsWith(".session_token"));

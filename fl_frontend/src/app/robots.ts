@@ -29,7 +29,7 @@ export default function robots(): MetadataRoute.Robots {
         // Turns a crawler back BEFORE the fetch; a page's noindex is read only after one. Each mailed
         // URL here carries a live token in its query, and `/bestaetigung` and `/bereich` stand
         // unslashed, prefixes over their whole segments.
-        disallow: ["/api/", "/bereich", "/bestaetigung", "/signin/bestaetigen", "/registrierung"],
+        disallow: ["/api/", "/bereich", "/bestaetigung", "/registrierung"],
       },
       ...aiBots.map((bot) => ({
         userAgent: bot,

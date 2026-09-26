@@ -718,7 +718,7 @@ const SOURCE_BANS = [
     ...FAILURE_BY_HAND,
     exempt: [
       // Failures no FastAPI write words, so none carries an unknown outcome: Better Auth answers the
-      // sign-out and mints the sign-in link.
+      // sign-out and sends and checks the sign-in code.
       "src/shared/hooks/useSignOut.ts",
       "src/features/auth/components/forms/SignInForm.tsx",
       // An undo of unknown outcome, under the undo's own unclear title: `appToast.failure`'s speaks of a save.
@@ -772,8 +772,6 @@ const SOURCE_BANS = [
     selector: 'JSXOpeningElement[name.name="form"]',
     message:
       "A form is the shared Form, never a native <form>: fl_frontend/src/shared/components/ui/Form.tsx owns the submit and takes no function action (docs/frontend/spec.md :: I32).",
-    // It posts with no script of the page's own, so it runs before, and without, the app's JavaScript.
-    exempt: ["src/app/(public)/signin/bestaetigen/page.tsx"],
   },
   {
     // Read off the element, so a hint handed down to a field through a prop or a child component passes unread.

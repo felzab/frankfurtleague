@@ -50,7 +50,7 @@ const {
   buildBewerbungWiderspruchEmail,
   buildBewerbungZusageEmail,
 } = await import("./bewerbungEmail.ts");
-const { buildMagicLinkEmail } = await import("./authEmail.ts");
+const { buildCodeEmail } = await import("./authEmail.ts");
 const { buildEinladungEmail } = await import("./einladungEmail.ts");
 const { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } = await import("./passkeyEmail.ts");
 const { buildRegistrierungBestaetigungEmail, buildRegistrierungErinnerungEmail, buildRegistrierungSaisonendeEmail } =
@@ -177,7 +177,7 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       origin: origin,
       link: `${ORIGIN}/registrierung?token=beispiel-fuenf`,
     }),
-  buildMagicLinkEmail: (origin) => buildMagicLinkEmail("https://frankfurtleague.de/api/auth/callback/resend?token=abc&email=a%40b.de", origin),
+  buildCodeEmail: (origin) => buildCodeEmail("048213", origin),
   buildPasskeyHinzugefuegtEmail: (origin) =>
     buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date("2026-01-15T22:30:00Z"), origin: origin, konto: "/bereich/konto" }),
   buildPasskeyGeloeschtEmail: (origin) =>
@@ -217,7 +217,7 @@ describe("the shared email shell", () => {
   /* Both directions, so neither side can be satisfied by the other shrinking: a builder with no
      fixture fails here rather than dropping out of every sweep, and a stale fixture fails too. */
   it("sweeps every message builder the mail modules export", () => {
-    // The sign-in link, the two decisions and the confirmation workflow's six. A walk finding fewer
+    // The sign-in code, the two decisions and the confirmation workflow's six. A walk finding fewer
     // has stopped reading the modules, and every sweep below then runs over nothing.
     assert.ok(BUILT_MESSAGES.length >= 9, `expected at least 9 message builders, found ${String(BUILT_MESSAGES.length)}`);
     assert.deepEqual(BUILT_MESSAGES, Object.keys(FIXTURES).sort(), "a message builder has no fixture, or a fixture names no builder");
@@ -457,11 +457,14 @@ describe("the shared email shell", () => {
      line box. The border counts into the same box, which is why the outline control's padding is 1px
      short of the filled one's on both axes. */
   it("gives every control the 48px box, the 12px radius and the 700 weight ctaButton gives it", () => {
-    for (const { name, mail } of MESSAGES) {
-      const all = buttons(mail.html);
+    // The sign-in code's message carries none by design, so the floor is over the whole population.
+    assert.ok(
+      MESSAGES.filter(({ mail }) => buttons(mail.html).length > 0).length >= 8,
+      "fewer messages render a control, so this test proves little",
+    );
 
-      assert.ok(all.length >= 1, `${name} renders no control at all, so this test proves nothing`);
-      for (const { cell, anchor } of all) {
+    for (const { name, mail } of MESSAGES) {
+      for (const { cell, anchor } of buttons(mail.html)) {
         const outlined = cell.includes("border:1px solid");
         const height = number(anchor, /padding:(\d+)px/);
         const width = number(anchor, /padding:\d+px (\d+)px/);

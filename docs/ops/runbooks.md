@@ -22,8 +22,9 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [12. Deleting this season's player records and resetting the action log](#12-deleting-this-seasons-player-records-and-resetting-the-action-log) | Its two halves, the referee drop, and what is lost with them   |
 | [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                                      | Who is re-erased, and what the restore took the record of      |
 | [14. The `auth` database's two expiry indexes](#14-the-auth-databases-two-expiry-indexes)                                                       | Which collections grow without one, and what creates it        |
-| [15. When a sign-in link does not arrive](#15-when-a-sign-in-link-does-not-arrive)                                                              | What the person cannot tell apart, and the line that can       |
+| [15. When a sign-in code does not arrive](#15-when-a-sign-in-code-does-not-arrive)                                                              | What the person cannot tell apart, and the line that can       |
 | [16. The checkout root's `.env`](#16-the-checkout-roots-env)                                                                                    | What it holds, and how each machine makes its own              |
+| [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                                       | Who meets it, when it lifts, and what clearing it costs        |
 
 ---
 
@@ -386,8 +387,8 @@ these is easy to get wrong:
   passkey sign-in or confirmation inside the step-up window, and the last row cannot be removed.
   Removing one signs out the devices that passkey signed in, and no other.
 - **An administrator who has lost every passkey is recovered in the Atlas console**, by deleting
-  their rows in the `passkey` collection of the `auth` database; their next sign-in through the
-  e-mail link enrols anew. **Until those rows are gone the mailed link enrols nothing**, their own
+  their rows in the `passkey` collection of the `auth` database; their next sign-in by mailed
+  code enrols anew. **Until those rows are gone a code sign-in enrols nothing**, their own
   included, so a deletion against the wrong database reads to them as the step never being offered.
 - **A device that cannot enrol a passkey is no way in, and no setting here relaxes it.** An
   administrator who enrolled a second device in advance still has one; one who did not is in the
@@ -399,7 +400,7 @@ these is easy to get wrong:
   password and no code to fall back to. **Where nobody can get in at all, the way back is the
   previous image** (§1's deploy by tag), which authenticates against the store that build carries —
   so it works only while that store is still there, and dropping it is what closes this route.
-- **A removal is not a recovery route, and no control offers one to a session the mailed link alone
+- **A removal is not a recovery route, and no control offers one to a session a mailed code alone
   made**: such a session could otherwise swap the administrator's passkey for a stolen mailbox's,
   which is the attack the second factor exists against.
 - **An admin ending their own session needs no restart at all**: the sidemenu's options menu carries a
@@ -501,8 +502,8 @@ One person can hold several — a referee is a pupil, and a contact person can b
 | Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in tokens and the passkey — plus `sperrliste.erstellt_von` on every ban they entered, which no erasure reaches |
 | Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                          |
 
-**A pupil, referee or contact person who has followed a sign-in link is in the sign-in store too**:
-the link writes their `user` row and a session in the `auth` database, read by hand as an
+**A pupil, referee or contact person who has signed in is in the sign-in store too**: their first
+code writes their `user` row and a session in the `auth` database, read by hand as an
 administrator's is.
 
 `/bereich/admin/aktionen` answers what was written about them and by whom, and is the only place that
@@ -723,7 +724,8 @@ stream by the runtime's size rotation (`docs/logging/spec.md :: 1.2`), so a busy
 own oldest lines away and the window is set by traffic rather than chosen; a deploy's copy by the
 thirty days after the deploy wrote it; and the edge's two logs by eight days at most. The edge's
 access line carries the visitor's address, user agent and referer with the credential arms redacted
-(`docs/logging/spec.md :: L11`), so neither a sign-in token nor a confirmation token is in it; the
+(`docs/logging/spec.md :: L11`), so no confirmation token is in it, and a sign-in code travels in a
+request body rather than a URL; the
 same request line reached Cloudflare unredacted, and what Cloudflare keeps is settled in its
 dashboard rather than here.
 
@@ -1135,10 +1137,10 @@ configuration option asks for one, and `app.core.constraints --check` (§2) read
 declared indexes, which these are not — so the console is where both are made and where their
 presence is read.
 
-## 15. When a sign-in link does not arrive
+## 15. When a sign-in code does not arrive
 
-**To the person, every reason a link does not arrive looks alike**: the page answers one sentence
-whether a link went or not, so the frontend's log is the only record, and no line on this path
+**To the person, every reason a code does not arrive looks alike**: the page answers one sentence
+whether a code went or not, so the frontend's log is the only record, and no line on this path
 carries the address. Ask when they tried and read that window
 ([`../logging/error-codes.md`](../logging/error-codes.md) for each code):
 
@@ -1147,9 +1149,11 @@ carries the address. Ask when they tried and read that window
   answering unreadably.
 - `auth.link_gate_address_refused` under `FE-AUTH-002`: the backend refused the address as none its
   own rule accepts, though the sign-in form took it; the two address rules disagree.
-- `auth.link_send_failed` or `auth.sign_in_failed` under `FE-AUTH-002`: the gate admitted the
+- `auth.code_send_failed` or `auth.sign_in_failed` under `FE-AUTH-002`: the gate admitted the
   address, and the send or the library call around it failed; `FE-MAIL-001` under the same trace id
   is the provider refusing the message.
+- `auth.code_mail_capped`, an info line: the address had been sent five codes inside the hour, so
+  this one was sent nothing (`docs/frontend/spec.md :: I442`).
 - `mail.withheld`: a stack that is not production mails nothing, and the message is in its sink.
 
 **A refusal by the gate writes no line.** It refuses an address that is barred, that holds nothing
@@ -1183,3 +1187,22 @@ Git Bash's `openssl` ends its line with a carriage return, which command substit
 regenerated, readable by the deploying user alone (`chmod 600 .env`), and kept in the password
 manager as an entry of its own. A key changed there reaches the containers only when they are
 recreated, which the next deploy does: `docker compose restart` re-reads no environment file.
+
+## 17. Clearing an address's code lock
+
+An address that has failed ten codes inside a day is refused every code until the oldest of those
+failures is a day old, the right code included (`docs/frontend/spec.md :: I441`); the person is
+told there were too many tries with this address. Anyone who knows an address can bring it on, and
+the rows counting it carry a keyed hash rather than the address (`:: I445`), so no row can be picked
+out for one person:
+
+- **A person holding a passkey needs nothing**: a passkey sign-in never meets the lock.
+- **Otherwise it lifts by itself**, each failure's row expiring a day after it was written, removed
+  by the `verification` index in §14.
+- **To lift it sooner, lift every address's at once**: in the Atlas console, delete from the `auth`
+  database's `verification` collection every row whose `identifier` starts with
+  `sign-in-attempt-`. Every address then has its ten tries back, which is the price of an
+  identifier nobody can compute by hand.
+
+The five-an-hour mail cap (`docs/frontend/spec.md :: I442`) keeps rows of the same shape under
+`sign-in-mail-`; they lift within the hour and nothing here touches them.

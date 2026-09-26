@@ -4,7 +4,7 @@ import { after, describe, it } from "node:test";
 
 import { MongoDBContainer } from "@testcontainers/mongodb";
 
-import { ADMIN_EMAIL, asDataUrl, configDouble, cookieHeader, lastMailedToken, ORIGIN, registerAuthDoubles } from "@/core/authDoubles.ts";
+import { ADMIN_EMAIL, asDataUrl, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "@/core/authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/core/cacheScope.ts";
 
 import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
@@ -29,7 +29,7 @@ const globals = globalThis as unknown as Record<string, unknown>;
 // counted is the one `fl_frontend/src/core/db.ts` builds.
 const PRODUCTION_DB = `${import.meta.resolve("@/core/db.ts")}?production`;
 
-const { sent } = registerAuthDoubles({
+registerAuthDoubles({
   core: {
     config: configDouble({ MONGODB_URI: `${mongod.getConnectionString()}/?directConnection=true` }),
     db: `export { client } from ${JSON.stringify(PRODUCTION_DB)};`,
@@ -62,12 +62,7 @@ client.on("commandStarted", (event) => {
 
 /** Signs the administrator in, and makes the session one the passkey minted, which the guard admits. */
 async function signInAsAdministrator(): Promise<Headers> {
-  await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
-  const verified = await auth.api.magicLinkVerify({
-    query: { token: lastMailedToken(sent, ADMIN_EMAIL) ?? assert.fail(`nothing was mailed to ${ADMIN_EMAIL}`) },
-    headers: new Headers(ORIGIN),
-    returnHeaders: true,
-  });
+  const verified = await signInByCode(auth, ADMIN_EMAIL);
   await client
     .db("auth")
     .collection("session")

@@ -40,7 +40,7 @@ secrets/
 .npmrc
 
 # What a run leaves in the checkout: the gate's fixtures, whose EXIT trap misses Ctrl-C, and a mail
-# sink holding magic links. Unignored, a leftover is an untracked change a scoped run refuses over.
+# sink holding sign-in codes. Unignored, a leftover is an untracked change a scoped run refuses over.
 .tmp-*/
 
 # Docker Desktop on Windows creates these when Git Bash MSYS conversion mangles a bind-mount path

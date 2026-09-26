@@ -240,7 +240,7 @@ describe("what one delivery event says about a seat", () => {
     assert.equal(leseZustellEreignis(eventFor("contact.created")), null);
   });
 
-  /* The sign-in link is the untagged case, and it has no record to hang a state on. */
+  /* A message outside every tagged lane, which has no record to hang a state on. */
   it("says nothing for a message this application did not tag", () => {
     assert.equal(leseZustellEreignis(eventFor("email.delivered", { tags: undefined })), null);
     assert.equal(leseZustellEreignis(eventFor("email.delivered", { tags: { anlass: "eingang" } })), null);
@@ -483,13 +483,13 @@ describe("POST /api/mail/zustellung", () => {
     assert.ok(!inspect(logs, { depth: null }).includes("<script>"), "the reported kind reached the stream");
   });
 
-  /* The sign-in link is the one credential an administrator has no second route to: a mailbox that
-     refuses it locks them out, and before the tag rode the send there was nothing to see at all. */
-  it("writes one line for a sign-in link that did not arrive, naming neither the address nor a record", async () => {
+  /* The sign-in code is the one way in for whoever holds no passkey: a mailbox that refuses it locks
+     them out, and without the tag riding the send there would be nothing to see at all. */
+  it("writes one line for a sign-in code that did not arrive, naming neither the address nor a record", async () => {
     const anmeldung = eventFor("email.bounced", {
       bounce: { type: "Permanent", subType: "Suppressed" },
-      subject: "Anmeldelink für die Frankfurt League",
-      tags: { anmeldung: "link" },
+      subject: "Dein Anmeldecode für die Frankfurt League",
+      tags: { anmeldung: "code" },
     });
 
     const { status, body } = await answerTo(signed(JSON.stringify(anmeldung)));
@@ -509,8 +509,8 @@ describe("POST /api/mail/zustellung", () => {
 
   /* The ordinary course, and the arm that decides whether the line above is a signal: a lane
      logging every event would bury the one an operator has to act on. */
-  it("writes nothing for a sign-in link that was delivered", async () => {
-    const anmeldung = eventFor("email.delivered", { tags: { anmeldung: "link" } });
+  it("writes nothing for a sign-in code that was delivered", async () => {
+    const anmeldung = eventFor("email.delivered", { tags: { anmeldung: "code" } });
 
     const { status, body } = await answerTo(signed(JSON.stringify(anmeldung)));
 

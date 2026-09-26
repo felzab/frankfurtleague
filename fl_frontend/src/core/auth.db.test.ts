@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { after, beforeEach, describe, it } from "node:test";
 
 import { MongoDBContainer } from "@testcontainers/mongodb";
@@ -11,9 +11,9 @@ import {
   configDouble,
   cookieHeader,
   GATE_BACKEND_CONFIG,
-  lastMailedToken,
   ORIGIN,
   registerAuthDoubles,
+  signInByCode,
 } from "./authDoubles.ts";
 import { registrationFor } from "./testAuthenticator.ts";
 
@@ -168,15 +168,9 @@ async function overHttp(path: string, { method = "GET", cookie, body }: { method
   return method === "GET" ? handler.GET(request) : handler.POST(request);
 }
 
-/** A link-borne session, minted the way a followed link mints one. */
+/** A code-borne session, minted the way a typed code mints one. */
 async function signIn(email: string): Promise<string> {
-  await auth.api.signInMagicLink({ body: { email }, headers: new Headers(ORIGIN) });
-  const verified = await auth.api.magicLinkVerify({
-    query: { token: lastMailedToken(sent, email) ?? assert.fail(`nothing was mailed to ${email}`) },
-    headers: new Headers(ORIGIN),
-    returnHeaders: true,
-  });
-  return cookieHeader(verified);
+  return cookieHeader(await signInByCode(auth, email));
 }
 
 type Offered = { cookie: string; challenge: string };
@@ -450,22 +444,9 @@ describe("what a ban ends, against a real database (`docs/frontend/spec.md :: I4
 describe("a set-up the gate refuses, against a real database", () => {
   it("writes no passkey for a person barred after signing in, and leaves them signed in by code", async () => {
     const email = "gesperrt-spaeter@example.org";
-    const token = `fabricated-link-${randomUUID()}`;
-    const { adapter } = await auth.$context;
-    await adapter.create({
-      model: "verification",
-      data: {
-        identifier: createHash("sha256").update(token).digest("base64url"),
-        value: JSON.stringify({ email }),
-        expiresAt: new Date(Date.now() + 60_000),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    });
 
     gateAnswer = { sitze: [LIVE_SEAT], gesperrt: false };
-    const verified = await auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true });
-    const cookie = cookieHeader(verified);
+    const cookie = cookieHeader(await signInByCode(auth, email));
     assert.equal((await sessionRows()).length, 1, "the seated person was not signed in, so the case below proves nothing");
 
     const offered = await offer(cookie);

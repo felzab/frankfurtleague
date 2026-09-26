@@ -34,7 +34,6 @@ const APP_DIR = import.meta.dirname;
 const WITHHELD = [
   "/signin",
   "/signin/weiter",
-  "/signin/bestaetigen",
   "/signin/passkey",
   "/bestaetigung/kontakt",
   "/bestaetigung/schiedsrichter",

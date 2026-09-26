@@ -3,16 +3,18 @@ import { createRequire } from "node:module";
 import { after, afterEach, beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { isAPIError } from "better-auth/api";
+
 import {
   ADMIN_EMAIL,
   asDataUrl,
   configDouble,
   cookieHeader,
-  lastMailedToken,
+  lastMailedCode,
   MEMORY_ADAPTER_URL,
   ORIGIN,
   registerAuthDoubles,
-  seedLink,
+  signInByCode,
 } from "./authDoubles.ts";
 import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "./testAuthenticator.ts";
@@ -42,19 +44,30 @@ const LOGGING_DOUBLE = `export const logger = {
   error: (message, error, meta) => globalThis.${LOGGED}.push({ message, error, meta }),
 };`;
 
-/* The memory store under the real `auth.ts`, recording what the module handed the adapter's factory
-   on the way. */
+/* The memory store under the real `auth.ts`, recording what the module handed the adapter's factory,
+   and each operation on the adapter while a case holds `operations` open: what an answer's timing
+   is made of. */
 const ADAPTER_DOUBLE = `import { memoryAdapter } from ${JSON.stringify(MEMORY_ADAPTER_URL)};
 export const mongodbAdapter = (db, config) => {
   globalThis.${ADAPTER_CALLS}.pairs.push({ db, config });
-  return memoryAdapter(globalThis.${STORE});
+  const factory = memoryAdapter(globalThis.${STORE});
+  return (options) => new Proxy(factory(options), {
+    get: (target, key) => {
+      const value = Reflect.get(target, key);
+      if (typeof value !== "function" || typeof key !== "string") return value;
+      return (...args) => {
+        globalThis.${ADAPTER_CALLS}.operations?.push(key + " " + String(args[0]?.model ?? ""));
+        return value.apply(target, args);
+      };
+    },
+  });
 };`;
 
 const API_ORIGIN = "http://backend.test";
 
-/* The link is caught on its way out rather than off the store: `storeToken: "hashed"` means the
-   stored identifier is not the token, and a `sendMagicLink` double would replace the send gate
-   this file is checking with itself. */
+/* The code is caught on its way out rather than off the store: `storeOTP: "encrypted"` means the
+   stored value is not the code, and a `sendVerificationOTP` double would replace the send gate this
+   file is checking with itself. */
 const { sent } = registerAuthDoubles({
   core: {
     db: DB_DOUBLE,
@@ -134,7 +147,11 @@ type LogLine = { message: string; error: unknown; meta: Record<string, unknown> 
 
 const store: Store = { user: [], session: [], account: [], verification: [], passkey: [] };
 const logged: LogLine[] = [];
-const adapterCalls = { databases: [] as string[], pairs: [] as { db: unknown; config?: { client?: unknown } }[] };
+const adapterCalls = {
+  databases: [] as string[],
+  pairs: [] as { db: unknown; config?: { client?: unknown } }[],
+  operations: undefined as string[] | undefined,
+};
 
 const globals = globalThis as unknown as Record<string, unknown>;
 globals[STORE] = store;
@@ -151,7 +168,7 @@ const { runWithEndpointContext } = (await import(
 )) as { runWithEndpointContext: <T>(context: object, run: () => Promise<T>) => Promise<T> };
 const { auth, endSessionsOfAddress, getAdminSession, getPasskeyStep, getSignInDestination, isAdminSession, isFreshlySignedIn, PASSKEY_LIMIT } =
   await import("./auth.ts");
-const { buildMagicLinkEmail, LINK_VALIDITY_MINUTES } = await import("./authEmail.ts");
+const { buildCodeEmail, CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
 const { proxy } = await import("../proxy.ts");
 const { NextRequest } = await import("next/server");
 
@@ -163,20 +180,50 @@ const DAY_MS = 24 * HOUR_MS;
 // survives that case FAILING, and every later case then reports the first one's fault as its own.
 beforeEach(() => {
   store.passkey.length = 0;
+  // The per-address bounds count rows here, so one case's failures and mails would spend the next's.
+  store.verification.length = 0;
 });
 
-/** Mints a session the way a followed link does, and hands back its cookie and its stored row. */
+/** What a typed code is answered with: the refusal's status, code and message, or the success's status. */
+type Refusal = { status: number; code?: unknown; message?: unknown };
+
+async function answerOf(email: string, otp: string): Promise<Refusal> {
+  try {
+    await auth.api.signInEmailOTP({ body: { email, otp }, headers: new Headers(ORIGIN), returnHeaders: true });
+    return { status: 200 };
+  } catch (refused) {
+    if (!isAPIError(refused)) throw refused;
+    return { status: refused.statusCode, code: refused.body?.code, message: refused.body?.message };
+  }
+}
+
+/** The code row the plugin holds for `email`, the latest of them. */
+function codeRowOf(email: string): Store["verification"][number] | undefined {
+  return store.verification.findLast((row) => row.identifier === `sign-in-otp-${email}`);
+}
+
+/** The rows counting failed codes, every address's. */
+function failureRows(): Store["verification"] {
+  return store.verification.filter((row) => row.identifier.startsWith("sign-in-attempt-"));
+}
+
+/** A code of the right shape that is not `otp`. */
+const wrongFor = (otp: string): string => (otp === "000000" ? "111111" : "000000");
+
+/** A code that is not the one `email` holds, read through the plugin's own server-only read: a stranger is mailed nothing. */
+async function wrongCodeFor(email: string): Promise<string> {
+  const { otp } = await auth.api.getVerificationOTP({ query: { email, type: "sign-in" } });
+  assert.ok(otp !== null, `${email} holds no live code`);
+  return wrongFor(otp);
+}
+
+/** Mints a session the way a typed code does, and hands back its cookie and its stored row. */
 async function signIn(email: string): Promise<{ cookie: string; row: SessionRow }> {
-  await auth.api.signInMagicLink({ body: { email }, headers: new Headers(ORIGIN) });
-
-  // A person's address is mailed nothing, so its link is seeded where the send stayed silent.
-  const token = lastMailedToken(sent, email) ?? seedLink(store.verification, email);
-
   // Seated for the mint alone, unless the case said otherwise: the gate at session creation admits
   // nobody else, and a seat left standing would change what a later case's send mails.
   const seated = !BACKENDS.has(email);
   if (seated) BACKENDS.set(email, { ...NOTHING_HELD, sitze: [A_SEAT] });
-  const verified = await auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true }).finally(() => {
+  const verified = await signInByCode(auth, email).finally(() => {
     if (seated) BACKENDS.delete(email);
   });
   const cookie = cookieHeader(verified);
@@ -243,12 +290,12 @@ const OVER_HTTP = [
 
 /** What this application's own code reaches through `auth.api`, and no browser may. */
 const IN_PROCESS_ONLY = [
+  "/email-otp/send-verification-otp",
   "/get-session",
-  "/magic-link/verify",
   "/passkey/delete-passkey",
   "/passkey/list-user-passkeys",
   "/revoke-other-sessions",
-  "/sign-in/magic-link",
+  "/sign-in/email-otp",
   "/sign-out",
 ];
 
@@ -260,7 +307,14 @@ const REFUSED = [
   "/change-password",
   "/delete-user",
   "/delete-user/callback",
+  "/email-otp/change-email",
+  "/email-otp/check-verification-otp",
+  "/email-otp/request-email-change",
+  "/email-otp/request-password-reset",
+  "/email-otp/reset-password",
+  "/email-otp/verify-email",
   "/error",
+  "/forget-password/email-otp",
   "/get-access-token",
   "/link-social",
   "/list-accounts",
@@ -369,19 +423,19 @@ describe("what the mounted HTTP surface answers", () => {
     assert.deepEqual(store.passkey, [held], "a route the allowlist refuses still reached the passkey rows");
   });
 
-  /* Mounted and unmailed: its answer to a caller who names no `callbackURL` is the raw session
-     token, so an open arm here hands one out over HTTP for a link out of any inbox. */
-  it("refuses the library's own verification over HTTP while the route handler's call still signs in", async () => {
-    await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
-    const token = lastMailedToken(sent, ADMIN_EMAIL);
-    assert.ok(token !== null);
+  /* Mounted and unmailed: its answer is the raw session token, and over HTTP it meets neither the
+     route handler's origin guard nor its edge zones, so an open arm here spends a code unbounded. */
+  it("refuses the library's own code sign-in over HTTP while the route handler's call still signs in", async () => {
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    const otp = lastMailedCode(sent, ADMIN_EMAIL);
+    assert.ok(otp !== null);
     const sessions = store.session.length;
 
-    assert.equal((await overHttp(`/magic-link/verify?token=${encodeURIComponent(token)}`)).status, 404);
+    assert.equal((await overHttp("/sign-in/email-otp", { method: "POST", body: { email: ADMIN_EMAIL, otp } })).status, 404);
     assert.equal(store.session.length, sessions, "the refused arm minted a session on its way out");
 
-    const verified = await auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true });
-    assert.ok(verified.headers.getSetCookie().length > 0, "the HTTP arm spent the token the handler still needs");
+    const verified = await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true });
+    assert.ok(verified.headers.getSetCookie().length > 0, "the HTTP arm spent the code the handler still needs");
   });
 
   /* Every path outside the browser's four, driven rather than sampled: a set the module widens by
@@ -434,9 +488,10 @@ describe("what the mounted HTTP surface answers", () => {
 
     assert.equal(new Set(classified).size, classified.length, "a path was placed in more than one set");
     assert.deepEqual([...mountedMethods.keys()].sort(), [...classified].sort());
-    // The library mounts one endpoint with no path of its own, which the router never registers; a
-    // second would be a new server-only surface nobody had looked at.
-    assert.equal(mountedEndpoints.length - mountedMethods.size, 1);
+    // Three endpoints have no path of their own, which the router never registers: the library's one,
+    // and the code plugin's server-only mint and read. A fourth would be a new server-only surface
+    // nobody had looked at.
+    assert.equal(mountedEndpoints.length - mountedMethods.size, 3);
   });
 });
 
@@ -1243,14 +1298,10 @@ describe("what a session row keeps about the request that made it", () => {
   /* Neither is read anywhere: the limiter that would is off, and the edge already holds the address
      under its own retention clock. Kept here they would sit under none. */
   it("stores neither the caller's address nor its user agent, with both headers on the request", async () => {
-    await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
-    const token = lastMailedToken(sent, ADMIN_EMAIL);
-    assert.ok(token !== null);
-
-    const verified = await auth.api.magicLinkVerify({
-      query: { token },
-      headers: new Headers({ ...ORIGIN, "x-forwarded-for": "203.0.113.7", "user-agent": "Mozilla/5.0 (Fabriziert)" }),
-      returnHeaders: true,
+    const verified = await signInByCode(auth, ADMIN_EMAIL, {
+      ...ORIGIN,
+      "x-forwarded-for": "203.0.113.7",
+      "user-agent": "Mozilla/5.0 (Fabriziert)",
     });
     assert.ok(verified.headers.getSetCookie().length > 0);
 
@@ -1408,10 +1459,7 @@ describe("which session a new sign-in replaces", () => {
   it("ends the replaced session on a mailbox sign-in too, whoever's it was", async () => {
     const person = await signIn(PERSON_EMAIL);
 
-    await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
-    const token = lastMailedToken(sent, ADMIN_EMAIL);
-    assert.ok(token !== null);
-    await auth.api.magicLinkVerify({ query: { token }, headers: new Headers({ ...ORIGIN, cookie: person.cookie }), returnHeaders: true });
+    await signInByCode(auth, ADMIN_EMAIL, { ...ORIGIN, cookie: person.cookie });
 
     assert.ok(!store.session.includes(person.row), "the browser's previous session outlived the sign-in that replaced it");
   });
@@ -1569,12 +1617,12 @@ describe("what the library's own log stream reaches this application as", () => 
   });
 });
 
-describe("what the link costs an address the allowlist does not carry", () => {
+describe("what the code costs an address the allowlist does not carry", () => {
   it("mails the allowlisted address and mails the other nothing, on the same answer", async () => {
     const before = sent.length;
 
-    const first = await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
-    const second = await auth.api.signInMagicLink({ body: { email: PERSON_EMAIL }, headers: new Headers(ORIGIN) });
+    const first = await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    const second = await auth.api.sendVerificationOTP({ body: { email: PERSON_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
     assert.deepEqual(first, second, "the two addresses were answered differently by the library itself");
     assert.deepEqual(
@@ -1583,75 +1631,289 @@ describe("what the link costs an address the allowlist does not carry", () => {
     );
   });
 
-  /* The SEND path, where the plugin hands `sendMagicLink` the address exactly as it was typed: the
-     library lower-cases only the row it stores, which is a different lane and a later one. */
-  it("mails an allowlisted address typed in another case, which nothing before the gate folds", async () => {
+  it("writes a code row for the address the gate mails nothing, as for the one it mails", async () => {
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    await auth.api.sendVerificationOTP({ body: { email: PERSON_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+
+    assert.ok(codeRowOf(ADMIN_EMAIL), "the mailed address holds no code row");
+    assert.ok(codeRowOf(PERSON_EMAIL), "the unmailed address holds no code row, so a verify tells the two apart");
+  });
+
+  it("mails an allowlisted address typed in another case", async () => {
     const before = sent.length;
 
-    await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL.toUpperCase() }, headers: new Headers(ORIGIN) });
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL.toUpperCase(), type: "sign-in" }, headers: new Headers(ORIGIN) });
 
     assert.equal(sent.slice(before).length, 1, "the allowlist refused an address differing only in case");
   });
 
   /* The one thing telling this lane's delivery events from the application flow's: untagged, the
-     bounce that locks an administrator out of their own mailbox reaches no reader at all. */
+     bounce that locks somebody out of their own mailbox reaches no reader at all. */
   it("tags the sign-in mail on the lane the delivery webhook reads it by", async () => {
-    await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
     // The pair written out: read from `fl_frontend/src/core/anmeldeTag.ts` this would compare the
     // constants with themselves, and the webhook reader is a second tree holding the same two words.
-    assert.deepEqual(sent.at(-1)?.tags, { anmeldung: "link" });
+    assert.deepEqual(sent.at(-1)?.tags, { anmeldung: "code" });
   });
 
-  it("hashes the link's token at rest, so the store never holds the credential that was mailed", async () => {
-    await signIn(ADMIN_EMAIL);
+  it("keeps the mailed code out of the store, which holds it encrypted", async () => {
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    const otp = lastMailedCode(sent, ADMIN_EMAIL);
+    assert.ok(otp !== null);
 
-    const token = lastMailedToken(sent, ADMIN_EMAIL);
-    assert.ok(token !== null);
-    assert.ok(!store.verification.some((entry) => entry.identifier === token), "the raw token is in the store");
+    assert.ok(!JSON.stringify(store.verification).includes(otp), "the mailed code is in the store as sent");
   });
 
-  it("consumes the link on its first use, so a second press of the same button is refused", async () => {
-    await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
-    const token = lastMailedToken(sent, ADMIN_EMAIL);
-    assert.ok(token !== null);
+  /* The reason the code is stored encrypted rather than hashed: a hashed code cannot be read back, so
+     the plugin mints a fresh one on every resend, and a code read in the first mail fails once the second arrives. */
+  it("mails the same code again when it is asked for again inside its window", async () => {
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    const first = lastMailedCode(sent, ADMIN_EMAIL);
+    const mailed = sent.length;
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
-    await auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true });
-
-    await assert.rejects(() => auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN) }));
+    assert.equal(sent.length, mailed + 1, "the second request mailed nothing, so there is nothing to compare");
+    assert.equal(lastMailedCode(sent, ADMIN_EMAIL), first);
   });
 
-  it("mails the page whose button completes the sign-in, and prints the lifetime that page's link has", async () => {
-    await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
+  it("consumes the code on its first use, so a second entry of the same code is refused", async () => {
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    const otp = lastMailedCode(sent, ADMIN_EMAIL);
+    assert.ok(otp !== null);
+
+    await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true });
+
+    assert.equal((await answerOf(ADMIN_EMAIL, otp)).code, "INVALID_OTP");
+  });
+
+  it("mails the code and the lifetime it has, and no link a forwarded message could be spent through", async () => {
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
     const message = sent.at(-1);
-    assert.ok(message);
-    assert.match(
-      message.text,
-      /\/signin\/bestaetigen\?token=/,
-      "the mail carries the library's own verification path, which a gateway spends on a GET",
-    );
-    assert.ok(message.text.includes(`${String(LINK_VALIDITY_MINUTES)} Minuten`));
+    const otp = lastMailedCode(sent, ADMIN_EMAIL);
+    assert.ok(message && otp !== null);
+    assert.ok(message.text.includes(`${String(CODE_VALIDITY_MINUTES)} Minuten`));
+    for (const url of `${message.text} ${message.html}`.match(/https?:\/\/[^\s"<]+/g) ?? []) {
+      assert.ok(!url.includes(otp), `the message carries the code inside a link: ${url}`);
+    }
   });
 
   it("states that same figure in the rendered message, which is the copy a reader acts on", () => {
-    const { text, html } = buildMagicLinkEmail("http://localhost:3000/signin/bestaetigen?token=x", "http://localhost:3000");
+    const { text, html } = buildCodeEmail("123456", "http://localhost:3000");
 
-    assert.ok(text.includes(`${String(LINK_VALIDITY_MINUTES)} Minuten`));
-    assert.ok(html.includes(`${String(LINK_VALIDITY_MINUTES)} Minuten`));
+    assert.ok(text.includes(`${String(CODE_VALIDITY_MINUTES)} Minuten`));
+    assert.ok(html.includes(`${String(CODE_VALIDITY_MINUTES)} Minuten`));
   });
 
   /* Delete the `expiresIn` option and the plugin's own five-minute default halves the window in
      silence, while the message above goes on stating the figure this module means. */
   it("writes the row it expires on at the figure the message states", async () => {
     const requested = Date.now();
-    await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
-    const written = store.verification.at(-1);
+    const written = codeRowOf(ADMIN_EMAIL);
     assert.ok(written !== undefined);
 
     const window_ = Math.round((written.expiresAt.getTime() - requested) / 1000);
-    assert.equal(window_, LINK_VALIDITY_MINUTES * 60, "the row the library wrote does not carry this module's window");
+    assert.equal(window_, CODE_VALIDITY_MINUTES * 60, "the row the library wrote does not carry this module's window");
+  });
+});
+
+/** An address the store holds no account for and the gate mails nothing: the stranger arm below. */
+const STRANGER_EMAIL = "niemand@example.org";
+
+/*
+ Every answer a typed code can get, compared over an address holding an account and one holding
+ none (`docs/frontend/spec.md :: I443`), and the store operations each made, which are what its
+ timing is made of.
+*/
+describe("what a typed code is answered, with an account and without", () => {
+  /** The answer a guess of `otp` gets for `email`, and the store operations it cost. */
+  async function guessed(email: string, otp: string): Promise<{ answer: Refusal; operations: readonly string[] }> {
+    adapterCalls.operations = [];
+    const answer = await answerOf(email, otp);
+    const operations = adapterCalls.operations;
+    adapterCalls.operations = undefined;
+    assert.ok(operations.length > 0, "no store operation was recorded, so the two arms are compared over nothing");
+
+    return { answer, operations };
+  }
+
+  /** Both addresses sent a code, the member's account standing. */
+  async function sendBoth(): Promise<void> {
+    await signIn(ADMIN_EMAIL);
+    for (const email of [ADMIN_EMAIL, STRANGER_EMAIL]) {
+      await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    }
+    assert.ok(
+      store.user.some((user) => user.email === ADMIN_EMAIL),
+      "the member holds no account, so the arms do not differ",
+    );
+    assert.ok(!store.user.some((user) => user.email === STRANGER_EMAIL), "the stranger holds an account");
+  }
+
+  it("answers a wrong code alike", async () => {
+    await sendBoth();
+
+    const member = await guessed(ADMIN_EMAIL, await wrongCodeFor(ADMIN_EMAIL));
+    const stranger = await guessed(STRANGER_EMAIL, await wrongCodeFor(STRANGER_EMAIL));
+
+    assert.equal(member.answer.code, "INVALID_OTP");
+    assert.deepEqual(stranger, member);
+  });
+
+  it("answers an expired code alike", async () => {
+    await sendBoth();
+
+    // One address at a time: every read of a code row sweeps EVERY expired row out of the store, so
+    // aging both first would leave the second nothing to be refused as expired.
+    async function expired(email: string) {
+      const row = codeRowOf(email);
+      assert.ok(row, `${email} holds no code row to age`);
+      // Aged in the STORE, never by a clock handed to the running application.
+      row.expiresAt = new Date(Date.now() - 1000);
+
+      // Any code: an expired row is refused before its code is compared.
+      return guessed(email, "000000");
+    }
+
+    const member = await expired(ADMIN_EMAIL);
+    const stranger = await expired(STRANGER_EMAIL);
+
+    assert.equal(member.answer.code, "OTP_EXPIRED");
+    assert.deepEqual(stranger, member);
+  });
+
+  it("answers a code tried too often alike", async () => {
+    await sendBoth();
+    for (const email of [ADMIN_EMAIL, STRANGER_EMAIL]) {
+      const wrong = await wrongCodeFor(email);
+      for (let attempt = 0; attempt < 3; attempt += 1) await answerOf(email, wrong);
+    }
+
+    const member = await guessed(ADMIN_EMAIL, "000000");
+    const stranger = await guessed(STRANGER_EMAIL, "000000");
+
+    assert.equal(member.answer.code, "TOO_MANY_ATTEMPTS");
+    assert.deepEqual(stranger, member);
+  });
+
+  it("answers an address tried too often alike", async () => {
+    await sendBoth();
+    for (const email of [ADMIN_EMAIL, STRANGER_EMAIL]) {
+      const wrong = await wrongCodeFor(email);
+      for (let attempt = 0; attempt < 10; attempt += 1) await answerOf(email, wrong);
+    }
+
+    const member = await guessed(ADMIN_EMAIL, "000000");
+    const stranger = await guessed(STRANGER_EMAIL, "000000");
+
+    assert.equal(member.answer.code, "ADDRESS_ATTEMPTS_EXHAUSTED");
+    assert.deepEqual(stranger, member);
+  });
+});
+
+describe("the failures one address may spend, across every code it is sent (`docs/frontend/spec.md :: I441`)", () => {
+  /** A code for the member, freshly mailed. */
+  async function mailedCode(): Promise<string> {
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    const otp = lastMailedCode(sent, ADMIN_EMAIL);
+    assert.ok(otp !== null, "no code was mailed");
+    return otp;
+  }
+
+  /* The plugin bounds each CODE at three tries and starts every new one at zero, so a guesser asking
+     for a new code after each third miss meets no bound of the plugin's at all. */
+  it("counts every failure against the address, so a new code does not reset the bound", async () => {
+    // Two codes spent whole, four failures each: the fourth entry ends the exhausted code, which the
+    // next send then replaces rather than reuses.
+    for (let code = 0; code < 2; code += 1) {
+      const wrong = wrongFor(await mailedCode());
+      for (let attempt = 0; attempt < 3; attempt += 1) assert.equal((await answerOf(ADMIN_EMAIL, wrong)).code, "INVALID_OTP");
+      assert.equal((await answerOf(ADMIN_EMAIL, wrong)).code, "TOO_MANY_ATTEMPTS");
+    }
+
+    // A third, fresh code: two misses on it make ten, and its own right entry is then the eleventh.
+    const otp = await mailedCode();
+    for (let attempt = 0; attempt < 2; attempt += 1) assert.equal((await answerOf(ADMIN_EMAIL, wrongFor(otp))).code, "INVALID_OTP");
+    assert.equal(failureRows().length, 10);
+
+    assert.equal((await answerOf(ADMIN_EMAIL, otp)).code, "ADDRESS_ATTEMPTS_EXHAUSTED", "a new code reset the address's failures");
+  });
+
+  it("refuses the eleventh failure's successor whatever code it carries, the right one included", async () => {
+    const otp = await mailedCode();
+    const wrong = wrongFor(otp);
+    for (let attempt = 0; attempt < 10; attempt += 1) await answerOf(ADMIN_EMAIL, wrong);
+    const sessions = store.session.length;
+
+    assert.equal((await answerOf(ADMIN_EMAIL, otp)).code, "ADDRESS_ATTEMPTS_EXHAUSTED");
+    assert.equal(store.session.length, sessions, "the right code signed in past the bound");
+  });
+
+  it("takes a refused attempt's own row back out, so hammering a closed bound does not extend it", async () => {
+    const otp = await mailedCode();
+    const wrong = wrongFor(otp);
+    for (let attempt = 0; attempt < 10; attempt += 1) await answerOf(ADMIN_EMAIL, wrong);
+
+    for (let attempt = 0; attempt < 3; attempt += 1) assert.equal((await answerOf(ADMIN_EMAIL, wrong)).code, "ADDRESS_ATTEMPTS_EXHAUSTED");
+
+    assert.equal(failureRows().length, 10);
+  });
+
+  it("clears the address's failures once a code signs in", async () => {
+    const otp = await mailedCode();
+    const wrong = wrongFor(otp);
+    for (let attempt = 0; attempt < 2; attempt += 1) await answerOf(ADMIN_EMAIL, wrong);
+    assert.equal(failureRows().length, 2);
+
+    await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true });
+
+    assert.equal(failureRows().length, 0);
+  });
+
+  /* Each attempt's row goes in before it counts, so every count includes every attempt that has
+     begun: a count taken first would let a burst all read zero and all pass. */
+  it("lets no burst of concurrent attempts past the bound", async () => {
+    const wrong = wrongFor(await mailedCode());
+
+    const answers = await Promise.all(Array.from({ length: 15 }, () => answerOf(ADMIN_EMAIL, wrong)));
+
+    const refused = answers.filter((answer) => answer.code === "ADDRESS_ATTEMPTS_EXHAUSTED").length;
+    assert.ok(15 - refused <= 10, `${String(15 - refused)} of 15 concurrent attempts reached the code`);
+    assert.ok(failureRows().length <= 10);
+  });
+
+  it("keeps the address out of the rows that count it", async () => {
+    const otp = await mailedCode();
+    await answerOf(ADMIN_EMAIL, wrongFor(otp));
+
+    assert.equal(failureRows().length, 1);
+    for (const row of failureRows()) {
+      assert.ok(!JSON.stringify(row).includes(ADMIN_EMAIL.split("@")[0] ?? ADMIN_EMAIL), "the address is readable in a failure row");
+    }
+  });
+});
+
+describe("the code mails one address may be sent in an hour (`docs/frontend/spec.md :: I442`)", () => {
+  it("mails nothing past the fifth, on the same answer as the first", async () => {
+    const before = sent.length;
+    const answers = [];
+    for (let send = 0; send < 6; send += 1) {
+      answers.push(await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) }));
+    }
+
+    assert.equal(sent.length - before, 5);
+    assert.deepEqual(answers.at(-1), answers[0], "the capped send answered otherwise than a mailed one");
+  });
+
+  it("takes a capped send's own row back out", async () => {
+    for (let send = 0; send < 8; send += 1) {
+      await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    }
+
+    assert.equal(store.verification.filter((row) => row.identifier.startsWith("sign-in-mail-")).length, 5);
   });
 });
 
@@ -1669,10 +1931,10 @@ describe("which addresses outside the allowlist the send gate mails", () => {
   // describe's sign-in for a reason none of them is about.
   afterEach(() => BACKENDS.clear());
 
-  /** Asks the plugin's own endpoint for a link, answering what it answered and who was mailed. */
+  /** Asks the plugin's own endpoint for a code, answering what it answered and who was mailed. */
   async function askFor(email: string): Promise<{ answer: unknown; mailed: string[] }> {
     const before = sent.length;
-    const answer = await auth.api.signInMagicLink({ body: { email }, headers: new Headers(ORIGIN) });
+    const answer = await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
     return { answer, mailed: sent.slice(before).map((message) => message.to) };
   }
@@ -1724,7 +1986,7 @@ describe("which addresses outside the allowlist the send gate mails", () => {
   });
 
   /* The order is the subject: the allowlist in process ahead of the read is what keeps an
-     administrator's link from depending on a backend call. */
+     administrator's code from depending on a backend call. */
   it("mails an allowlisted address while the backend read throws, asking nothing", async () => {
     BACKENDS.set(ADMIN_EMAIL, "throws");
 
@@ -1815,11 +2077,10 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
     BACKENDS.delete(ADMIN_EMAIL);
   });
 
-  /** A mailbox sign-in for `email` through a seeded link, answering whether it minted a session. */
+  /** A code sign-in for `email`, the code minted without the send's gate, answering whether it minted a session. */
   async function mailboxSignIn(email: string): Promise<boolean> {
     const before = store.session.length;
-    const token = seedLink(store.verification, email);
-    await auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true }).catch(() => undefined);
+    await signInByCode(auth, email).catch(() => undefined);
 
     return store.session.length > before;
   }

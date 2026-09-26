@@ -14,7 +14,7 @@ import {
   MongoTransactionError,
 } from "mongodb";
 
-import { ADMIN_EMAIL, configDouble, cookieHeader, lastMailedToken, ORIGIN, registerAuthDoubles } from "./authDoubles.ts";
+import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "./authDoubles.ts";
 
 import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
 import type { MongoClient } from "mongodb";
@@ -152,7 +152,7 @@ globals[LOGGED] = logged;
 // under test is the one `fl_frontend/src/core/db.ts` builds, over the relay.
 const PRODUCTION_DB = `${import.meta.resolve("./db.ts")}?production`;
 
-const { sent } = registerAuthDoubles({
+registerAuthDoubles({
   core: {
     config: configDouble({ MONGODB_URI: RELAYED_URL }),
     db: `export { client } from ${JSON.stringify(PRODUCTION_DB)};`,
@@ -253,13 +253,7 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
   /* The read every admin request makes twice, in `fl_frontend/src/proxy.ts` and in each guard. The
      library answers a failed read as no session and logs it, so the line is what names the bound. */
   it("ends a session read the store never answers within its `timeoutMS`", async () => {
-    await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
-    const verified = await auth.api.magicLinkVerify({
-      query: { token: lastMailedToken(sent, ADMIN_EMAIL) ?? assert.fail(`nothing was mailed to ${ADMIN_EMAIL}`) },
-      headers: new Headers(ORIGIN),
-      returnHeaders: true,
-    });
-    const headers = new Headers({ ...ORIGIN, cookie: cookieHeader(verified) });
+    const headers = new Headers({ ...ORIGIN, cookie: cookieHeader(await signInByCode(auth, ADMIN_EMAIL)) });
 
     // The control: the same read answers through the relay while it passes requests on.
     const answered = await auth.api.getSession({ headers });
@@ -274,17 +268,16 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
     );
   });
 
-  /* A magic link's sign-in runs the adapter's own transaction to consume its token. The timeout does
-     not surface: the adapter aborts whatever failed, the driver refuses an abort after a commit, and
-     that refusal replaces it, unlogged. */
+  /* A code's sign-in runs the adapter's own transaction to consume its row. The timeout does not
+     surface: the adapter aborts whatever failed, the driver refuses an abort after a commit, and that
+     refusal replaces it, unlogged. */
   it("ends the adapter's own transaction within its `timeoutMS` when the store never answers its commit", async () => {
-    await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
-    const token = lastMailedToken(sent, ADMIN_EMAIL) ?? assert.fail(`nothing was mailed to ${ADMIN_EMAIL}`);
+    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
     logged.length = 0;
 
     const outcome = await relay.hangFrom("commitTransaction", () =>
       settledWithin(OPERATION_BOUND, "the hung commit", () =>
-        auth.api.magicLinkVerify({ query: { token }, headers: new Headers(ORIGIN), returnHeaders: true }),
+        auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }),
       ),
     );
 

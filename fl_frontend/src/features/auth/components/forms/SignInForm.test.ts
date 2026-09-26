@@ -3,21 +3,28 @@ import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import { describe, it } from "node:test";
+import { beforeEach, describe, it, mock } from "node:test";
 
 import { act, createElement as h } from "react";
 
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { doubleActions } from "@/shared/testing/actionDoubles.ts";
+import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 
 import type { FormState } from "@/shared/types/types";
+
+const LEFT = "__flSignInLeft";
 
 /* `next/error` is CommonJS whose exports Node's static reader cannot see, so the ESM import of
    `catchError` fails at link. The shim hands on the real function rather than a stand-in. */
 const NEXT_ERROR_INTEROP = `import { createRequire } from "node:module";
 export const { catchError } = createRequire(${JSON.stringify(import.meta.filename)})("next/error");`;
+
+/* A full document navigation, which jsdom does not implement and whose `location` no test can
+   replace: recorded at the module boundary. */
+const NAVIGATION_DOUBLE = `export function leaveDocumentFor(path) { globalThis.${LEFT}.push(path); }`;
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -26,39 +33,63 @@ registerHooks({
       return { url: `data:text/javascript,${encodeURIComponent(NEXT_ERROR_INTEROP)}`, shortCircuit: true };
     return nextResolve(specifier, context);
   },
+  load(url, context, nextLoad) {
+    if (url.endsWith("/src/shared/utils/documentNavigation.ts")) return { format: "module", source: NAVIGATION_DOUBLE, shortCircuit: true };
+    return nextLoad(url, context);
+  },
 });
 
 /** The send, replaced at the module boundary: the real one needs a session store and a mail provider. */
 const { calls, answerWith } = doubleActions({ modules: ["/src/features/auth/actions.ts"] });
+const { raised } = doubleToasts();
+const fetchMock = doubleFetch();
+
+/** Every path the card left the document for. */
+const left: string[] = [];
+Reflect.set(globalThis, LEFT, left);
 
 const { SignInForm } = await import("./SignInForm.tsx");
 
-describe("the sign-in card's required mark", () => {
-  /* The mark's opt-out reaches a field inside a `form` alone, and the unavailable panel is a `div`: a
-     required field there wears HeroUI's red star, which reads as a refusal nobody made. */
-  it("requires the admin's address, and claims no required field on the panel nothing can submit", async () => {
-    const user = userEvent.setup();
-    render(h(SignInForm));
+const ADDRESS = "vorstand@example.org";
+const LANDING = "/signin/weiter";
+const NEUTRAL = "Falls zu dieser Adresse ein Zugang gehört, ist ein Anmeldecode unterwegs.";
+const SENT: FormState = { success: true, message: NEUTRAL, submittedEmail: ADDRESS };
 
-    assert.equal(screen.getByRole("textbox", { name: "E-Mail-Adresse" }).getAttribute("aria-required"), "true");
+/** The route's answer to one typed code, as `postPublicForm` reads it. */
+const answered = (body: unknown): Response =>
+  new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
 
-    await user.click(screen.getByRole("tab", { name: "Spieler" }));
-
-    /* Both spellings of the mark, over every box the panel renders: `validationBehavior` decides which
-       one a field wears, and this panel is a `div` with no `Form` above it to set that mode. */
-    for (const field of within(screen.getByRole("tabpanel")).getAllByRole<HTMLInputElement>("textbox")) {
-      assert.ok(
-        !field.required && field.getAttribute("aria-required") === null,
-        "the unavailable panel marks a field required, which draws HeroUI's red star",
-      );
-    }
-  });
+beforeEach(() => {
+  left.length = 0;
+  raised.length = 0;
+  answerWith(() => Promise.resolve(SENT));
 });
 
-describe("the admin's send while it runs", () => {
+/** The card with the code sent to `ADDRESS`, standing on the code step. */
+async function atTheCodeStep(user: ReturnType<typeof userEvent.setup>): Promise<HTMLInputElement> {
+  render(h(SignInForm, { next: LANDING }));
+  await user.type(screen.getByRole("textbox", { name: "E-Mail-Adresse" }), `${ADDRESS}{Enter}`);
+
+  return screen.findByLabelText<HTMLInputElement>("Code aus der E-Mail");
+}
+
+describe("the sign-in card's address step", () => {
+  it("requires the address", () => {
+    render(h(SignInForm, { next: LANDING }));
+
+    assert.equal(screen.getByRole("textbox", { name: "E-Mail-Adresse" }).getAttribute("aria-required"), "true");
+  });
+
+  /* The browser offers a saved passkey in this box only where `webauthn` is the LAST token. */
+  it("offers the box to the browser's username and passkey autofill, passkey last", () => {
+    render(h(SignInForm, { next: LANDING }));
+
+    assert.equal(screen.getByRole("textbox", { name: "E-Mail-Adresse" }).getAttribute("autocomplete"), "username webauthn");
+  });
+
   /* A pending button stops being a submit button, so `Enter` in the box submits the form by itself, and a
-     second send is a second link. Read-only rather than disabled, so the box keeps the focus `Enter` left in it. */
-  it("sends one link however often Enter is pressed, and holds the address read-only meanwhile", async () => {
+     second send is a second code. Read-only rather than disabled, so the box keeps the focus `Enter` left in it. */
+  it("sends one code however often Enter is pressed, and holds the address read-only meanwhile", async () => {
     const user = userEvent.setup();
     let settle: (state: FormState) => void = () => undefined;
     answerWith(
@@ -67,10 +98,11 @@ describe("the admin's send while it runs", () => {
           settle = resolve;
         }),
     );
-    render(h(SignInForm));
+    const before = calls.length;
+    render(h(SignInForm, { next: LANDING }));
     const address = screen.getByRole<HTMLInputElement>("textbox", { name: "E-Mail-Adresse" });
 
-    await user.type(address, "admin@example.org{Enter}");
+    await user.type(address, `${ADDRESS}{Enter}`);
     assert.ok(screen.queryByRole("button", { name: "Sendet..." }), "the running send is not shown on its button");
     assert.equal(address.readOnly, true, "the address stays editable under a running send");
     assert.equal(address.disabled, false, "the address is disabled, which drops the focus that pressed Enter");
@@ -78,9 +110,117 @@ describe("the admin's send while it runs", () => {
     await user.keyboard("{Enter}");
     // A second dispatch queues behind the first, so it is called only once the first has answered.
     await act(async () => {
-      settle({ success: true, message: "Wir haben Dir einen Link geschickt.", submittedEmail: "admin@example.org" });
+      settle(SENT);
     });
 
-    assert.equal(calls.length, 1, "a second Enter during the send sent a second link");
+    assert.equal(calls.length - before, 1, "a second Enter during the send sent a second code");
+  });
+});
+
+describe("the sign-in card's code step", () => {
+  /* In place, in the same tab: the code is typed where it was asked for, which is what makes a code
+     read on a phone work on the laptop. */
+  it("replaces the address step with the answer, the address and the code field it describes", async () => {
+    const user = userEvent.setup();
+    const field = await atTheCodeStep(user);
+
+    assert.ok(screen.getByText("Prüfe Dein Postfach"));
+    assert.ok(screen.getByText(ADDRESS));
+    assert.ok(screen.getByText(NEUTRAL));
+    assert.equal(field.getAttribute("autocomplete"), "one-time-code", "the keyboard is not offered the code from the mail");
+    assert.ok(document.activeElement === field, "the step replaced the pressed button and left the focus on the document");
+
+    const hint = document.getElementById(field.getAttribute("aria-describedby") ?? "");
+    assert.match(hint?.textContent ?? "", /^Kein Code angekommen\?/);
+  });
+
+  /* The sixth digit is the submit: a press after it is a press the reader should not have to make. */
+  it("checks the code on its sixth digit, for the address it was sent to, and leaves for the landing", async () => {
+    const user = userEvent.setup();
+    const field = await atTheCodeStep(user);
+    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(answered({ success: true })));
+
+    await user.type(field, "048213");
+
+    await waitFor(() => assert.deepEqual(left, [LANDING]));
+    assert.equal(fetchMock.mock.callCount(), 1);
+    const [endpoint, init] = fetchMock.mock.calls[0]?.arguments ?? [];
+    assert.equal(String(endpoint), "/api/signin/code");
+    assert.deepEqual(JSON.parse(String(init?.body)), { email: ADDRESS, code: "048213" });
+  });
+
+  /* The digits go with the refusal, so retyping submits by itself again rather than waiting on a press. */
+  it("says why a code was refused at the field, and empties it for the next try", async () => {
+    const user = userEvent.setup();
+    const field = await atTheCodeStep(user);
+    const falsch = "Der Code stimmt nicht. Prüfe ihn und gib ihn noch einmal ein.";
+    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(answered({ success: false, error: falsch })));
+
+    await user.type(field, "000000");
+
+    const refusal = await screen.findByRole("alert");
+    assert.equal(refusal.textContent, falsch);
+    assert.ok((field.getAttribute("aria-describedby") ?? "").split(" ").includes(refusal.id), "the refusal describes no field");
+    assert.equal(field.value, "");
+    assert.deepEqual(left, []);
+
+    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(answered({ success: true })));
+    await user.type(field, "048213");
+    await waitFor(() => assert.deepEqual(left, [LANDING]));
+  });
+
+  /* An answer that was not this application's names no reason, since none reached the page. */
+  it("raises a toast for an answer the edge gave instead, and leaves nothing behind at the field", async () => {
+    const user = userEvent.setup();
+    const field = await atTheCodeStep(user);
+    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response("<html>zu viele</html>", { status: 429 })));
+
+    await user.type(field, "048213");
+
+    await waitFor(() => assert.equal(raised.at(-1)?.title, "Nicht angemeldet"));
+    assert.ok(screen.queryByRole("alert") === null, "a refusal stands at the field for an answer that was not ours");
+  });
+
+  it("returns to the address step with the address kept", async () => {
+    const user = userEvent.setup();
+    await atTheCodeStep(user);
+
+    await user.click(screen.getByRole("button", { name: "Andere E-Mail-Adresse verwenden" }));
+
+    assert.equal(screen.getByRole<HTMLInputElement>("textbox", { name: "E-Mail-Adresse" }).value, ADDRESS);
+  });
+
+  /* Driven on a clock of the case's own, taken before the step arms its cooldown, and with events
+     that wait on no timer of their own, which the case's clock would hold forever. */
+  it("offers the code again only once half a minute has passed", async () => {
+    const before = calls.length;
+    mock.timers.enable({ apis: ["setTimeout"] });
+    try {
+      render(h(SignInForm, { next: LANDING }));
+      fireEvent.change(screen.getByRole("textbox", { name: "E-Mail-Adresse" }), { target: { value: ADDRESS } });
+      await act(async () => {
+        fireEvent.submit(screen.getByRole("textbox", { name: "E-Mail-Adresse" }).closest("form") as HTMLFormElement);
+      });
+      const resend = () => screen.getByRole("button", { name: "Code erneut senden" });
+      assert.equal(resend().hasAttribute("disabled"), true, "the resend is open at once");
+
+      await act(async () => {
+        mock.timers.tick(29_999);
+      });
+      assert.equal(resend().hasAttribute("disabled"), true, "the resend opened before half a minute");
+
+      await act(async () => {
+        mock.timers.tick(1);
+      });
+      assert.equal(resend().hasAttribute("disabled"), false, "the resend stayed closed past half a minute");
+
+      await act(async () => {
+        fireEvent.click(resend());
+      });
+    } finally {
+      mock.timers.reset();
+    }
+
+    assert.equal(calls.length - before, 2, "the open resend sent nothing");
   });
 });

@@ -11,7 +11,7 @@ import {
   ORIGIN,
   registerAuthDoubles,
   seatEveryAddress,
-  seedLink,
+  signInByCode,
 } from "./core/authDoubles.ts";
 
 const STORE = "__flProxyStore";
@@ -64,12 +64,7 @@ function arriveAs(cookie: string | null): void {
 arriveAs(null);
 
 async function signIn(email: string): Promise<{ cookie: string; row: SessionRow }> {
-  const verified = await auth.api.magicLinkVerify({
-    query: { token: seedLink(store.verification, email) },
-    headers: new Headers(ORIGIN),
-    returnHeaders: true,
-  });
-  const cookie = cookieHeader(verified);
+  const cookie = cookieHeader(await signInByCode(auth, email));
 
   const row = store.session.at(-1);
   assert.ok(row !== undefined, "the verification wrote no session row");

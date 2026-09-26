@@ -1,8 +1,9 @@
 import Link from "next/link";
 
-import { LINK_VALIDITY_MINUTES } from "@/core/authEmail";
+import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { KONTAKT_EMAIL, VEREIN_ANSCHRIFT, VEREIN_NAME } from "@/core/brand";
-import { ADMIN_WINDOW_HOURS, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
+import { ADMIN_WINDOW_HOURS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes";
+import { CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_WINDOW_HOURS } from "@/core/signInCode";
 import {
   BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
   BEWERBUNG_ERINNERUNG_TAGE,
@@ -28,13 +29,20 @@ const ABSATZ_CLASSES = "fluid-sm leading-relaxed font-medium text-pretty text-fo
  * Hand-set, the way `fl_frontend/src/app/sitemap.ts :: CONTENT_LAST_MODIFIED` is: a live `new Date()`
  * is a dynamic read, which would take this page off the static shell.
  */
-const STAND = "24. September 2026";
+const STAND = "26. September 2026";
 
 /**
  * German writes a count from one to twelve in words, and a fortnight as „vierzehn Tage“; a larger count
  * stays in digits. Indexed by a constant's literal type: a constant moved to a count with no word here fails `tsc`.
  */
 const ZAHLWORT = { 3: "drei", 7: "sieben", 10: "zehn", 14: "vierzehn" } as const;
+
+/** One hour, the one count a sentence here pairs with a feminine singular: a window moved off it fails `tsc` rather than reading „eine Stunden“. */
+const EINE_STUNDE = { 1: "eine Stunde" } as const;
+
+const TAG_MS = 24 * 60 * 60 * 1000;
+const PERSON_LEERLAUF_TAGE = PERSON_LIFETIME.idle / TAG_MS;
+const PERSON_HOECHSTENS_TAGE = PERSON_LIFETIME.absolute / TAG_MS;
 
 const amSatzanfang = (wort: string): string => `${wort.charAt(0).toUpperCase()}${wort.slice(1)}`;
 
@@ -175,10 +183,10 @@ const FRISTEN = [
       "Fünf volle Saisons nach der Saison des Eintrags; danach wird der Eintrag bei der nächsten Saisonaktivierung von selbst gelöscht. Die Verwaltung kann die Sperre jederzeit vorher aufheben. Bis dahin bleibt der Eintrag auch bestehen, wenn die übrigen Daten gelöscht werden",
   },
   {
-    daten: "Anmeldung zur Verwaltung: E-Mail-Adresse, Anmeldelink, Sitzung und Passkey",
+    daten: "Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey",
     // Each figure read off the constant the sign-in enforces, never typed: a copy typed here is a
     // promise nothing keeps.
-    frist: `Ein Anmeldelink gilt ${ZAHLWORT[LINK_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Zugang in das Anmeldeformular einträgt. Eine Sitzung läuft ab, wenn sie ${String(SESSION_EXPIRES_IN_DAYS)} Tage lang nicht genutzt wurde; für die Verwaltung gilt sie höchstens ${String(ADMIN_WINDOW_HOURS)} Stunden. Adresse und Passkey einer Administratorin oder eines Administrators bleiben, solange der Zugang besteht, und werden auf Wunsch gelöscht`,
+    frist: `Ein Anmeldecode gilt ${ZAHLWORT[CODE_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Zugang in das Anmeldeformular einträgt. Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, versandte Codes ${EINE_STUNDE[CODE_MAIL_WINDOW_HOURS]} lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse; eine erfolgreiche Anmeldung löscht die gezählten Fehlversuche. Eine Sitzung endet, wenn sie ${String(PERSON_LEERLAUF_TAGE)} Tage lang nicht genutzt wurde, spätestens aber ${String(PERSON_HOECHSTENS_TAGE)} Tage nach der Anmeldung; für die Verwaltung gilt sie höchstens ${String(ADMIN_WINDOW_HOURS)} Stunden. Zu einer Sitzung, die mit einem Passkey begonnen hat, speichern wir, welcher Passkey das war. Adresse und Passkeys bleiben, solange der Zugang besteht, und werden auf Wunsch gelöscht`,
   },
   {
     daten: "Änderungsprotokoll der Verwaltung",
@@ -552,17 +560,20 @@ export function DatenschutzView() {
           <p className={ABSATZ_CLASSES}>Diese Website legt in Deinem Browser nur ab, was für ihren Betrieb notwendig ist:</p>
           <ul className="flex list-disc flex-col gap-y-2 pl-5">
             <li className={ABSATZ_CLASSES}>
-              Ein Sitzungs-Cookie für angemeldete Administratorinnen und Administratoren. Es entsteht erst bei der Anmeldung und hält die
-              Sitzung. Das Cookie selbst läuft ab, wenn die Sitzung {SESSION_EXPIRES_IN_DAYS} Tage lang nicht genutzt wurde; für den Zugang zur
-              Verwaltung prüfen wir bei jedem Aufruf zusätzlich, ob die Anmeldung nicht länger als {ADMIN_WINDOW_HOURS} Stunden her ist, und
-              verlangen danach eine neue Anmeldung. Wer sich nicht anmeldet, bekommt es nie. Rechtsgrundlage für die Anmeldung zur Verwaltung
-              ist Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, dass nur berechtigte Personen die Verwaltung erreichen.
+              Ein Sitzungs-Cookie für angemeldete Personen. Es entsteht erst bei der Anmeldung und hält die Sitzung. Das Cookie selbst läuft ab,
+              wenn die Sitzung {SESSION_EXPIRES_IN_DAYS} Tage lang nicht genutzt wurde; bei jedem Aufruf prüfen wir zusätzlich, ob die Anmeldung
+              nicht länger als {PERSON_HOECHSTENS_TAGE} Tage her ist, für den Zugang zur Verwaltung nicht länger als {ADMIN_WINDOW_HOURS}{" "}
+              Stunden, und verlangen danach eine neue Anmeldung. Wer sich nicht anmeldet, bekommt es nie. Rechtsgrundlage für die Anmeldung ist
+              Art. 6 Abs. 1 lit. f DSGVO; unser berechtigtes Interesse ist, dass nur Du Deinen Bereich und nur berechtigte Personen die
+              Verwaltung erreichen.
             </li>
             {/* Typed: `@better-auth/passkey` (1.7.5, read 2026-09-24) sets this cookie's life to its `MAX_AGE_IN_SECONDS`,
                 300, which it neither exports nor takes as an option, and moves it without us. */}
             <li className={ABSATZ_CLASSES}>
-              Während eine Administratorin oder ein Administrator einen Passkey einrichtet oder sich damit anmeldet, ein zweites Cookie, das
-              diesen einen Vorgang zusammenhält. Es läuft nach fünf Minuten ab.
+              Auf der Anmeldeseite und während jemand einen Passkey einrichtet oder sich damit anmeldet, ein zweites Cookie, das diesen einen
+              Vorgang zusammenhält. Die Anmeldeseite setzt es schon beim Aufruf, damit Dein Browser Dir einen gespeicherten Passkey im
+              Adressfeld anbieten kann; zu jedem Aufruf speichern wir dafür einen Eintrag ohne Angaben zu Deiner Person. Cookie und Eintrag
+              laufen nach fünf Minuten ab.
             </li>
             <li className={ABSATZ_CLASSES}>
               Eine Freigabe von Cloudflare, wenn Du die Anmeldeseite oder das Bewerbungsformular aufrufst. Cloudflare prüft dort mit einer

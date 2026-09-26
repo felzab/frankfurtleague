@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { createHash, randomUUID } from "node:crypto";
 import { registerHooks } from "node:module";
 import { after } from "node:test";
 
@@ -8,6 +7,7 @@ import { memoryAdapter } from "better-auth/adapters/memory";
 import { doubleSendMail } from "./mailDouble.ts";
 
 import type { MemoryDB } from "better-auth/adapters/memory";
+import type { auth as AuthInstance } from "./auth.ts";
 
 export const ADMIN_EMAIL = "vorstand@example.org";
 
@@ -164,26 +164,19 @@ export const cookieHeader = (response: { headers: Headers }): string =>
     .map((line) => line.split(";")[0])
     .join("; ");
 
-type VerificationRow = { id: string; identifier: string; value: string; expiresAt: Date; createdAt: Date; updatedAt: Date };
-
 /**
- * A link for `email` written straight into a memory store, at the shape the plugin stores one --
- * SHA-256, base64url, no padding. Verification gates on no allowlist, so this mints a session for an
- * address the send would mail nothing.
+ * A session minted the way a typed code mints one, off the plugin's own server-only mint, which
+ * passes no gate and sends nothing: it serves an address the send mails nothing, and never meets
+ * the mail cap.
  */
-export function seedLink(verification: VerificationRow[], email: string): string {
-  const token = `fabricated-link-${randomUUID()}`;
+export async function signInByCode(
+  auth: typeof AuthInstance,
+  email: string,
+  headers: HeadersInit = ORIGIN,
+): Promise<{ headers: Headers; response: unknown }> {
+  const otp = await auth.api.createVerificationOTP({ body: { email, type: "sign-in" } });
 
-  verification.push({
-    id: randomUUID(),
-    identifier: createHash("sha256").update(token).digest("base64url"),
-    value: JSON.stringify({ email }),
-    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-
-  return token;
+  return auth.api.signInEmailOTP({ body: { email, otp }, headers: new Headers(headers), returnHeaders: true });
 }
 
 /** Where the sign-in gate's one backend read goes, for `configDouble` in a suite `seatEveryAddress` answers. */
@@ -219,15 +212,16 @@ export function seatEveryAddress(): void {
 }
 
 /**
- * The token out of the last message mailed to `email`, or `null` where none was. Read off the send
- * rather than the store: `storeToken: "hashed"` means the stored identifier is not the token.
+ * The code out of the last message mailed to `email`, or `null` where none was. Read off the send
+ * rather than the store: `storeOTP: "encrypted"` means the stored value is not the code.
  */
-export function lastMailedToken(sent: readonly { to: string; text: string }[], email: string): string | null {
+export function lastMailedCode(sent: readonly { to: string; text: string }[], email: string): string | null {
   const message = [...sent].reverse().find((entry) => entry.to === email);
   if (message === undefined) return null;
 
-  const found = /[?&]token=([^\s&]+)/.exec(message.text);
-  assert.ok(found?.[1], `the message to ${email} carries no token parameter`);
+  // The code stands on a line of its own in the text branch.
+  const found = /^(\d{6})$/m.exec(message.text);
+  assert.ok(found?.[1], `the message to ${email} carries no code`);
 
-  return decodeURIComponent(found[1]);
+  return found[1];
 }
