@@ -123,6 +123,12 @@ const TEST_ONLY = [
     message: "mailDouble replaces the mail module for the process: a *.test.ts(x) file may import it, production code may not.",
   },
   {
+    // In core for `mailDouble.ts`'s reason: a core guard's memo is proven by a core suite.
+    group: ["**/cacheScope.ts", "**/cacheScope"],
+    message:
+      "cacheScope installs a render pass's memo table on the server React for the process: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
     // Any `testing` directory, so a relative path from inside `shared`, which names no `shared`, is read too.
     group: ["**/testing/**"],
     message: "src/shared/testing is the suite's harness: a *.test.ts(x) file may import it, production code may not.",

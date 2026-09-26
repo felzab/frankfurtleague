@@ -3,10 +3,10 @@ import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { SERVER_REACT_URL } from "@/core/cacheScope.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
 import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
-import { SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
 
 /** The slice modules under test, whose `react` imports are the ones the server build must answer. */
 const FEATURES_URL = pathToFileURL(`${import.meta.dirname}/../features/`).href;
