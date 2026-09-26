@@ -275,9 +275,10 @@ describe("what a sign-in leaves behind on the response", () => {
   it("writes the verification rows behind the response as well, the same on both branches", () => {
     assert.equal(allowlisted.writtenWhileAnswering, 0, "the caller waited on a store write");
     assert.equal(rejected.writtenWhileAnswering, 0);
-    // The code's own row, and the rows counting a send against the address and against every address.
+    // The code's own row and the row counting a send against the address, on both branches; the mailed
+    // one adds the every-address total's, which names no address.
     assert.equal(allowlisted.writtenAfter, 3);
-    assert.equal(rejected.writtenAfter, 3, "the two branches differ in what the store gained, which is an oracle to anyone who can read it");
+    assert.equal(rejected.writtenAfter, 2, "the two branches differ in what the store gained about the address, which is an oracle");
   });
 });
 

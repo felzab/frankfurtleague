@@ -66,12 +66,11 @@ const HOUR_MS = 60 * 60 * 1000;
 const FAILURE_ROW_PREFIX = "sign-in-attempt-";
 const MAIL_ROW_PREFIX = "sign-in-mail-";
 
-/** Every address's sends in one count, under the mail rows' prefix so the runbook's sweep of those reaches it. */
+/** Every address's mails in one count, under the mail rows' prefix so the runbook's sweep of those reaches it. */
 const MAIL_TOTAL_IDENTIFIER = `${MAIL_ROW_PREFIX}every-address`;
 
-// The per-address cap lets a flood grow with every address typed, and codes spending the provider's
-// quota stop every other mail the league sends. Counting requests, it sits well above an hour of real
-// sign-ins.
+// The per-address cap lets a flood grow with every member's address, and codes spending the
+// provider's quota stop every other mail the league sends. Set well above an hour of real sign-ins.
 const CODE_MAIL_TOTAL_LIMIT = 100;
 
 /** The refusal the route words as the address being locked, whatever code the request carried. */
@@ -654,16 +653,6 @@ const authOptions = {
         return ctx.json({ success: true });
       }
 
-      // Every send asked for, a stranger's included, for the per-address cap's reason: a total counting
-      // mails alone would be written for members alone.
-      if (
-        recipient !== null &&
-        !(await withinBound(ctx.context, MAIL_TOTAL_IDENTIFIER, CODE_MAIL_TOTAL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS))
-      ) {
-        logger.warn("auth.code_mail_total_capped", { error_code: "FE-AUTH-008" });
-        return ctx.json({ success: true });
-      }
-
       // An absent `ctx.request` is the library's own test for a call that did not arrive over HTTP,
       // taken by `originCheckMiddleware` and by `requestOnlySessionMiddleware`. Nothing in process
       // is filtered here: those callers are this repository's own code.
@@ -740,7 +729,7 @@ const authOptions = {
       // "reuse" moved a live code's expiry on every send, so a code asked for again every few minutes
       // never lapsed.
       resendStrategy: "rotate",
-      async sendVerificationOTP({ email, otp, type }) {
+      async sendVerificationOTP({ email, otp, type }, ctx) {
         // The one type this application asks for: every endpoint minting another is refused over
         // HTTP and never called in process.
         if (type !== "sign-in") return;
@@ -748,6 +737,17 @@ const authOptions = {
         // The refusal, whole: an address the gate refuses, for whatever reason, is mailed nothing
         // and this returns as though it had, so every branch is one answer.
         if ((await mayReceiveSignIn(email)) !== "admitted") return;
+
+        // Mails sent, past the gate: a count of requests would let invented addresses close sign-in
+        // for everyone. Its rows carry no address and no hash of one, so the aggregate tells nobody who
+        // is a member.
+        if (
+          ctx === undefined ||
+          !(await withinBound(ctx.context, MAIL_TOTAL_IDENTIFIER, CODE_MAIL_TOTAL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS))
+        ) {
+          logger.warn("auth.code_mail_total_capped", { error_code: "FE-AUTH-008" });
+          return;
+        }
 
         // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is
         // not production must not mail production links (`docs/frontend/spec.md :: I186`).

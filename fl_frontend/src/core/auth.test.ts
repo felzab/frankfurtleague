@@ -2020,13 +2020,26 @@ describe("the code mails one address may be sent in an hour (`docs/frontend/spec
     assert.deepEqual(capped, mailedAnswer);
   });
 
-  /* A total counting mails alone would gain a row for a member and none for a stranger. */
-  it("counts a send the gate refuses against the hour's total as it counts a mailed one", async () => {
+  /* Counted per request, invented addresses would close sign-in for everyone. */
+  it("counts mails sent against the hour's total, and no send the gate refuses", async () => {
     await auth.api.sendVerificationOTP({ body: { email: STRANGER_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    assert.equal(store.verification.filter((row) => row.identifier === TOTAL_ROW).length, 1);
+    assert.equal(store.verification.filter((row) => row.identifier === TOTAL_ROW).length, 0, "a send that mailed nothing spent the total");
 
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
-    assert.equal(store.verification.filter((row) => row.identifier === TOTAL_ROW).length, 2);
+    assert.equal(store.verification.filter((row) => row.identifier === TOTAL_ROW).length, 1);
+  });
+
+  /* Written for mails alone, so a row naming its address, or a keyed hash of it, would be the oracle
+     the per-address rows avoid by being written for every address. */
+  it("keeps every address out of the total's rows", async () => {
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    const [total] = store.verification.filter((row) => row.identifier === TOTAL_ROW);
+    const keyed = store.verification.find((row) => row.identifier.startsWith("sign-in-mail-") && row.identifier !== TOTAL_ROW);
+    assert.ok(total !== undefined && keyed !== undefined, "no send was counted, so nothing below is compared");
+
+    const serialised = JSON.stringify(total);
+    assert.ok(!serialised.includes(ADMIN_EMAIL.split("@")[0] ?? ADMIN_EMAIL), "the total's row names the address");
+    assert.ok(!serialised.includes(keyed.identifier.slice("sign-in-mail-".length)), "the total's row carries the address's keyed hash");
   });
 });
 

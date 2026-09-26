@@ -1156,9 +1156,11 @@ carries the address. Ask when they tried and read that window
   hour, so this one was sent nothing (`docs/frontend/spec.md :: I442`). The five count every request,
   a stranger's and one the gate refused included, so an address can be capped with nothing mailed;
   retries during a backend outage spend a person's hour the same way.
-- `auth.code_mail_total_capped` under `FE-AUTH-008`: a hundred codes had been asked for across every
-  address inside the hour (`docs/frontend/spec.md :: I447`), so nobody was sent one. A run of these is
-  a flood rather than a busy evening; it lifts within the hour, or at once by the sweep in §17.
+- `auth.code_mail_total_capped` under `FE-AUTH-008`: a hundred codes had been mailed across every
+  address inside the hour (`docs/frontend/spec.md :: I447`), so nobody was sent one, and the code the
+  person held was replaced unmailed. Only admitted addresses count, so a run of these is a flood over
+  members' addresses or an evening outgrowing the figure; it lifts within the hour, or at once by the
+  sweep in §17.
 - `mail.withheld`: a stack that is not production mails nothing, and the message is in its sink.
 
 **A refusal by the gate writes no line.** It refuses an address that is barred, that holds nothing
