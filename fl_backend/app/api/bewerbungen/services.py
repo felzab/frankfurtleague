@@ -42,6 +42,8 @@ BEWERBUNG_KONTAKT_EMAIL_TAKEN = "REQ-BEWERBUNG-014"
 BEWERBUNG_SCHLUESSEL_ABWEICHEND = "REQ-BEWERBUNG-015"
 BEWERBUNG_FASSUNG_VERALTET = "REQ-BEWERBUNG-016"
 BEWERBUNG_TOKEN_PAST_DEADLINE = "REQ-BEWERBUNG-017"
+BEWERBUNG_ADRESSE_GESPERRT = "REQ-BEWERBUNG-018"
+BEWERBUNG_KONTAKT_GESPERRT = "REQ-BEWERBUNG-019"
 
 # `bewerbung: null` and no key are both the closed window, never an error (`FLSaison.bewerbung`
 # defaults).
@@ -852,6 +854,41 @@ def build_erneut_filter(*, bewerbung_id: Any, seats: Sequence[str]) -> Mapping[s
         unanswered[f"kontakte.{seat}.einwilligung.bestaetigt_am"] = None
 
     return {"_id": bewerbung_id, "status": "eingereicht", **unanswered}
+
+
+def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
+    """`REQ-BEWERBUNG-018`: the ban list holds one of the addresses a submission names.
+
+    Takes the answer rather than the lookup, so the caller's reads run in the caller's transaction.
+    """
+
+    if not gesperrt:
+        return None
+
+    # NEUTRAL and naming no seat, as the registration's refusal is: a stranger learns nothing about a
+    # list, and 403 because what fails is who is applying rather than the season's state.
+    return WriteRefusal(
+        error_code=BEWERBUNG_ADRESSE_GESPERRT,
+        status=HTTPStatus.FORBIDDEN,
+        message="one of the email addresses this application names cannot be used; use another, or ask the league",
+    )
+
+
+def find_kontakt_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
+    """`REQ-BEWERBUNG-019`: an administrator's correction or reseat names an address the ban list holds.
+
+    409 where the public form's is 403: an administrator's write naming it is about the entry it writes
+    (`docs/backend/spec.md :: 1.4`), as the referee editor's `REQ-SCHIEDSRICHTER-007` is.
+    """
+
+    if not gesperrt:
+        return None
+
+    return WriteRefusal(
+        error_code=BEWERBUNG_KONTAKT_GESPERRT,
+        status=HTTPStatus.CONFLICT,
+        message="this email address is on the ban list, so no confirmation link may be sent to it; lift the entry first",
+    )
 
 
 def find_kontakt_email_refusal(*, kontakte: Any, seats: Sequence[str], email: str) -> WriteRefusal | None:

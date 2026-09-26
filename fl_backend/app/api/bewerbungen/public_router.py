@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, Header
@@ -30,6 +30,7 @@ from app.api.bewerbungen.services import (
     compose_wiederholung_update,
     find_abweichender_fingerabdruck_refusal,
     find_already_entered_refusal,
+    find_gesperrt_refusal,
     find_picked_club_refusal,
     find_shorthand_refusal,
     find_submission_subject_refusal,
@@ -41,13 +42,17 @@ from app.api.bewerbungen.services import (
     saison_nimmt_bewerbungen_an,
     season_has_ended,
 )
-from app.core.config import API_VERSION
+from app.api.saisons.crud import pull_massgebliche_saison_id
+from app.api.sperrliste.crud import address_is_gesperrt
+from app.api.sperrliste.services import adresse_hash
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
     SaisonsCollection,
     SaisonTeamsCollection,
+    SperrlisteCollection,
     TeamsCollection,
     get_german_date_str,
 )
@@ -254,12 +259,42 @@ async def get_trikotfarben(
     return FLBewerbungTrikotFarbenResponse(saison_id=saison_id, vergeben=assigned_trikot_farben(stored=stored))
 
 
+async def _any_gesperrt(
+    *, sperrliste_collection: AsyncCollection, gehasht: Sequence[str], massgebliche_saison_id: str | None, session: AsyncClientSession
+) -> bool:
+    """Whether the ban list holds any of the seats' addresses, asked in the caller's transaction."""
+
+    for adresse in gehasht:
+        if await address_is_gesperrt(
+            sperrliste_collection=sperrliste_collection, adresse_hash=adresse, massgebliche_saison_id=massgebliche_saison_id, session=session
+        ):
+            return True
+
+    return False
+
+
 async def _answer_as_the_first(
-    *, bewerbungen_collection: AsyncCollection, stored: Mapping[str, Any], fingerabdruck: str, today: str, session: AsyncClientSession
+    *,
+    bewerbungen_collection: AsyncCollection,
+    sperrliste_collection: AsyncCollection,
+    stored: Mapping[str, Any],
+    fingerabdruck: str,
+    gehasht: Sequence[str],
+    massgebliche_saison_id: str | None,
+    today: str,
+    session: AsyncClientSession,
 ) -> FLPostBewerbungResponse:
     """The answer a stored key gets: the application it already holds, never a second one (`docs/backend/spec.md :: I346`)."""
 
     refuse(find_abweichender_fingerabdruck_refusal(gespeichert=stored.get("idempotenz_fingerabdruck"), fingerabdruck=fingerabdruck))
+
+    # Before the mint below, as the first press asks it before its own, or a ban entered since is
+    # answered with fresh links. The fingerprint just matched, so `gehasht` keys the stored addresses
+    # (`docs/backend/spec.md :: I414`).
+    gesperrt = await _any_gesperrt(
+        sperrliste_collection=sperrliste_collection, gehasht=gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session
+    )
+    refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
     tokens: FLBewerbungBestaetigungTokens | None = None
     db_filter = build_wiederholung_filter(bewerbung_raw=stored, today=today)
@@ -305,7 +340,9 @@ async def post_bewerbung(
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
+    sperrliste_collection: SperrlisteCollection,
     db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
     # visitor's own press is then refused as a changed replay.
     # Optional, so a page loaded before the form sent one still submits, unprotected.
@@ -324,12 +361,27 @@ async def post_bewerbung(
     application it holds and stores none: fresh links where no message to any seat is known to have
     reached its inbox, none otherwise. The same key over other details is refused (`REQ-BEWERBUNG-015`).
 
+    An address the ban list holds, on any seat, is refused (`REQ-BEWERBUNG-018`) on a first press and on a
+    replay alike, before any link is minted.
+
     A seat naming a consent wording other than the one the form now shows is refused (`REQ-BEWERBUNG-016`),
     and only once the key has been looked up: a stored key is answered whatever wording it names.
     """
 
     schluessel = None if idempotency_key is None else str(idempotency_key)
     fingerabdruck = payload_fingerabdruck(bewerbung_data)
+
+    # Hashed outside the transaction, whose callback may run again: the hash reads no document. One
+    # per distinct address, the seat the Trainer also holds naming theirs twice.
+    kontakte = bewerbung_data.kontakte
+    gehasht = sorted(
+        {
+            adresse_hash(str(person.email), schluessel=config.sperrliste_schluessel)
+            for person in (kontakte.trainer, kontakte.ansprechperson, kontakte.stellvertretung)
+        }
+    )
+    # The REFERENCE season a ban is counted from, as the registration reads it.
+    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection)
 
     async def store_or_replay(session: AsyncClientSession) -> FLPostBewerbungResponse:
         """The replay or the judged insert, in one transaction: either write is the request's only one (`docs/backend/spec.md :: I52`)."""
@@ -342,7 +394,14 @@ async def post_bewerbung(
         )
         if stored is not None:
             return await _answer_as_the_first(
-                bewerbungen_collection=bewerbungen_collection, stored=stored, fingerabdruck=fingerabdruck, today=today, session=session
+                bewerbungen_collection=bewerbungen_collection,
+                sperrliste_collection=sperrliste_collection,
+                stored=stored,
+                fingerabdruck=fingerabdruck,
+                gehasht=gehasht,
+                massgebliche_saison_id=massgebliche_saison_id,
+                today=today,
+                session=session,
             )
 
         # After the lookup and never ahead of it: a retry across a deploy that moved the label resends
@@ -379,6 +438,13 @@ async def post_bewerbung(
                 {"saison_id": bewerbung_data.saison_id, "team_id": bewerbung_data.team_id}, limit=1, session=session
             )
             refuse(find_already_entered_refusal(entered=entered > 0))
+
+        # Last, as the registration asks it: every other refusal names what the applicant can repair
+        # themselves, and this one they are told neutrally.
+        gesperrt = await _any_gesperrt(
+            sperrliste_collection=sperrliste_collection, gehasht=gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session
+        )
+        refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
         # Minted here rather than in the document literal below, so the raw half reaches the response
         # and the hashed half the database, and the two never sit in one structure.

@@ -1,3 +1,5 @@
+import { buildRefusal } from "@/shared/utils/refusal";
+
 /**
  * The reason's bound, mirrored from `fl_backend/app/shared/schemas/bounds.py` and paired with it by
  * `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS`. Bound here too because the
@@ -50,3 +52,13 @@ export const sperreBisWert = (saisonId: string): string => `einschließlich Sais
 /** Under the create form's own address box, because the lapse is what the person typed into it is being signed up for. */
 export const SPERRE_DAUER_HINWEIS =
   "Die Sperre endet nach fünf vollen Saisons von selbst. Laufende Anmeldungen der Adresse werden sofort beendet, und sie erhält eine E-Mail, die den Grund, die Dauer und das Widerspruchsrecht nennt.";
+
+/**
+ * The administrator's own sentence rather than a visitor's neutral one: every site raising it is
+ * admin-tier, and hiding the ban from the person who keeps the list hides it from the one reader who
+ * can act on it.
+ */
+export const SPERRLISTE_ADRESSE_GESPERRT = buildRefusal({
+  reason: "Diese E-Mail-Adresse steht auf der Sperrliste",
+  repair: "Trage eine andere Adresse ein oder hebe die Sperre unter /bereich/admin/sperrliste auf",
+});

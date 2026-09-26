@@ -1,3 +1,4 @@
+import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
 
@@ -48,28 +49,18 @@ export function mapAnonymiseRefusal(error: unknown): string | null {
   return null;
 }
 
-/**
- * The administrator's own sentence rather than a visitor's neutral one: every site raising it here
- * is admin-tier, and hiding the ban from the person who keeps the list hides it from the one reader
- * who can act on it.
- */
-const ADRESSE_GESPERRT = buildRefusal({
-  reason: "Diese E-Mail-Adresse steht auf der Sperrliste",
-  repair: "Trage eine andere Adresse ein oder hebe die Sperre unter /bereich/admin/sperrliste auf",
-});
-
 /** `null` where the refusal is something else. The reactivation is a row's button, so the ban is a sentence and no box's. */
 export function mapReactivateRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "REQ-SCHIEDSRICHTER-007" ? ADRESSE_GESPERRT : null;
+  return error.serverErrorCode === "REQ-SCHIEDSRICHTER-007" ? SPERRLISTE_ADRESSE_GESPERRT : null;
 }
 
 /** `null` where the refusal is something else. It lands on the address box, which is the value the list refused. */
 export function mapGesperrteAdresseRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
 
-  return error.serverErrorCode === "REQ-SCHIEDSRICHTER-007" ? { fieldErrors: { "kontakt.email": ADRESSE_GESPERRT } } : null;
+  return error.serverErrorCode === "REQ-SCHIEDSRICHTER-007" ? { fieldErrors: { "kontakt.email": SPERRLISTE_ADRESSE_GESPERRT } } : null;
 }
 
 /** The re-send's own two refusals, or `null`. Neither lands on a field: the control is a panel button, not a form. */
@@ -89,7 +80,7 @@ export function mapEinladenRefusal(error: unknown): string | null {
     case "REQ-SCHIEDSRICHTER-006":
       return KEINE_ADRESSE;
     case "REQ-SCHIEDSRICHTER-007":
-      return ADRESSE_GESPERRT;
+      return SPERRLISTE_ADRESSE_GESPERRT;
     default:
       return null;
   }

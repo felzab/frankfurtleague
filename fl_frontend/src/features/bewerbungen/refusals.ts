@@ -1,3 +1,4 @@
+import { SPERRLISTE_ADRESSE_GESPERRT } from "@/features/sperrliste/constants";
 import { mapAlreadyEnteredRefusal } from "@/features/teams/refusals";
 import { isRefusal } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
@@ -160,6 +161,8 @@ export function mapKontaktEmailRefusal(error: unknown): { error?: string; fieldE
     // thing to change, and the submission words the same collision the same way.
     case "REQ-BEWERBUNG-014":
       return { fieldErrors: { email: ADRESSE_SCHON_VERGEBEN } };
+    case "REQ-BEWERBUNG-019":
+      return { fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT } };
     default:
       return null;
   }
@@ -183,6 +186,8 @@ export function mapKontaktSitzRefusal(error: unknown): { error?: string; fieldEr
       };
     case "REQ-BEWERBUNG-014":
       return { fieldErrors: { email: ADRESSE_SCHON_VERGEBEN } };
+    case "REQ-BEWERBUNG-019":
+      return { fieldErrors: { email: SPERRLISTE_ADRESSE_GESPERRT } };
     default:
       return null;
   }
