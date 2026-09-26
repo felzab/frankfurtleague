@@ -600,7 +600,9 @@ rule.** The one date anybody enters for themselves is a contact person's, at the
 and nothing verifies it: what surfaces is somebody recognising the person or the school saying so.
 Decline the application and bar the address at `/bereich/admin/sperrliste` with the reason in your own words
 and no person named in it, the row outliving that person's erasure
-([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up)). **The write
+([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up)). An
+administrator's address is refused (`REQ-SPERRLISTE-003`) until it has left both allowlists
+([section 3](#3-granting-or-revoking-admin-access)). **The write
 mails the person itself**, naming the reason you typed and the last season the ban covers, so there
 is nothing to send by hand; where the send fails the page says so, and there is then no address left
 anywhere to try again with. **The same write ends every live sign-in of the address**, keeping its

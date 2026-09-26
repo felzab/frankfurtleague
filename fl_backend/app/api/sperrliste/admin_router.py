@@ -21,6 +21,8 @@ from app.api.sperrliste.services import (
     compose_gesperrt_bis_saison_id,
     find_keine_saison_refusal,
     find_sperrliste_refusal,
+    find_verwaltung_refusal,
+    verwaltung_hashes,
 )
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import delete_many_from_db, patch_many_in_db, post_one_to_db, pull_one_from_db, refuse
@@ -102,13 +104,21 @@ async def post_sperrliste_eintrag(
     """
     Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.
 
-    Refused where the list already holds the address (`REQ-SPERRLISTE-001`), and while no season is
-    running, there being nothing to count the ban's five seasons from
-    (`REQ-SPERRLISTE-002`). The ban covers the fifth season after the one running now — the last one
-    it covers is answered as `gesperrt_bis_saison_id` — and it survives that person's erasure.
+    Refused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is
+    running, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and
+    where the address is an administrator's (`REQ-SPERRLISTE-003`). The ban covers the fifth season
+    after the one running now — the last one it covers is answered as `gesperrt_bis_saison_id` — and
+    it survives that person's erasure.
     """
 
     gehasht = adresse_hash(str(sperrliste_data.email), schluessel=config.sperrliste_schluessel)
+    # Before the transaction: it reads the settings alone, which no retry changes.
+    refuse(
+        find_verwaltung_refusal(
+            gehasht=gehasht,
+            verwaltung=verwaltung_hashes(config.allowed_admin_emails_list, schluessel=config.sperrliste_schluessel),
+        )
+    )
 
     async def judge_and_ban(session: AsyncClientSession) -> tuple[InsertOneResult, str]:
         """Read the season, ask the list, then write into it. Each is handed this transaction's session, so a retry re-runs all three."""

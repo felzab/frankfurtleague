@@ -2122,6 +2122,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_sperrliste_lapse_refusal.py::TestALeagueWithNoSeasonRunning",
     ),
     Rule(
+        code="REQ-SPERRLISTE-003",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /sperrliste",
+        aggregate="Sperrliste",
+        summary="an administrator's address takes no ban until it has left the allowlist",
+        implemented_by="app.api.sperrliste.services.find_verwaltung_refusal",
+        tested_by="tests/api/test_sperrliste_execution.py::TestABanOfAnAdministratorsAddress",
+    ),
+    Rule(
         code="REQ-EINLADUNG-001",
         status=HTTPStatus.NOT_FOUND,
         operation="POST /teams/{team_id}/saisons/{saison_id}/einladung",

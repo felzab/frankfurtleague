@@ -13,7 +13,7 @@ from pymongo.errors import DuplicateKeyError
 from app.api.sperrliste.admin_router import delete_sperrliste_eintrag, get_sperrliste, post_sperrliste_eintrag
 from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
-from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
+from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_SCHLUESSEL_VERSION, SPERRLISTE_VERWALTUNG, adresse_hash
 from app.api.spieler.admin_router import delete_spieler, erase_spieler
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
@@ -218,6 +218,22 @@ class TestASecondBanOfOneAddress:
             return await database[Collection.SPERRLISTE].count_documents({})
 
         assert on_a_clean_list(mongo_replica_set_url, body) == 2
+
+
+class TestABanOfAnAdministratorsAddress:
+    """`REQ-SPERRLISTE-003`: an address on the backend's allowlist takes no ban, whatever its spelling."""
+
+    def test_it_is_refused_and_nothing_is_stored_while_another_address_is_banned(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
+            with pytest.raises(WriteRefusalException) as raised:
+                await ban(database, client, email=ADMIN.upper())
+            refused = await database[Collection.SPERRLISTE].count_documents({})
+            # The control: a check refusing every address would pass the refusal above.
+            await ban(database, client)
+
+            return raised.value.error_code, refused
+
+        assert on_a_clean_list(mongo_replica_set_url, body) == (SPERRLISTE_VERWALTUNG, 0)
 
 
 class TestTheCheckASignUpWillAsk:
