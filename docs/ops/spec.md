@@ -639,8 +639,8 @@ frontend's opens.
 choice is the clock's: every worker thread loads the whole configuration again, which a warm run on a
 loaded machine pays at several times the serial span — eslint's own `ESLintPoorConcurrencyWarning`
 advises disabling concurrency there — while an uncached run divides its work between them. A
-development machine mostly answers from the cache and runs serial; a runner restores the pnpm store
-and never `node_modules`, so it pays the cold fill on every run, and `scripts/gate/verify.sh ::
+development machine mostly answers from the cache and runs serial; a runner restores no eslint
+cache, so it pays the cold fill on every run, and `scripts/gate/verify.sh ::
 do_eslint` adds `--concurrency auto` where `GITHUB_ACTIONS` is set — never on `CI`, which a
 developer's shell may export. **The cache lives under
 `fl_frontend/node_modules/.cache/eslint/` and never at eslint's default location**, because eslint
@@ -668,8 +668,10 @@ never stashes, hides or resets the working tree, and a commit it refuses leaves 
 working tree as they were (I354). The hook is convenience and never the enforcement — a clone that
 has not pointed `core.hooksPath` at it has no hook at all, and this scope and CI are what bind. The
 formatter's own cache is keyed on content, and what it cannot see is a prettier plugin's own change,
-so a plugin bump warrants deleting that cache file — prettier's documented caveat, accepted because
-a plugin moves only through the lockfile and CI runs uncached either way. **What the cache spares is
+so a plugin bump warrants deleting that cache file — prettier's documented caveat, accepted on a
+development machine because a plugin moves only through the lockfile. **CI's format verdict never
+rests on a verdict another lockfile wrote**: the format job restores prettier's cache under a key
+carrying the lockfile's hash, so a plugin bump starts a runner from an empty cache. **What the cache spares is
 the parse and never the walk**: prettier lists every entry under `..`, `node_modules` and `.git`
 included, before it asks `.prettierignore` which files to read, so a tool cache that file does not
 name is read on every run.

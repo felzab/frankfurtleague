@@ -156,6 +156,23 @@ jobs:
       # prettier and its plugins are dependencies of fl_frontend, so the check needs that install
       # even though what it reads is mostly outside it.
       - uses: ./.github/actions/frontend-toolchain
+      # Restored after the toolchain, so its install never meets the restored directory.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          # Prettier's default `--cache-location` (https://prettier.io/docs/cli), which
+          # `fl_frontend/package.json :: "format:check"` leaves in place.
+          path: fl_frontend/node_modules/.cache/prettier
+          # Prettier keys a verdict on its own version, Node's and the options, never on a plugin's
+          # code, so the lockfile is in the key and the prefix alike: no runner reads a verdict
+          # another lockfile's plugins wrote (`docs/ops/spec.md` §1.6).
+
+          # A plugin option naming a repository file, `tailwindStylesheet` among them, is a verdict
+          # input prettier's key misses: that file's hash joins the key and the prefix too.
+          key: prettier-${{ runner.os }}-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ github.sha }}
+          # The newest verdicts under this lockfile; the commit in the key makes each new tree save
+          # its own, where a lockfile-only key would freeze the first run's.
+          restore-keys: |
+            prettier-${{ runner.os }}-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-
       - name: Run the format scope
         run: ./scripts/gate/verify.sh --format
 
