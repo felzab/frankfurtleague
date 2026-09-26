@@ -57,7 +57,10 @@ everything else binds the agent as written.
 - Name the branch for the change, kebab-case, with no `feature/`, `fix/` or `chore/` prefix. Edits
   found on `main` go across with `git checkout -b <name>`; say plainly that it happened.
 - Every change reaches `main` through a pull request. Open it yourself, always as a draft:
-  `gh pr create --draft`. Marking it ready and merging it are the owner's, by any route.
+  `gh pr create --draft`. **Only marking it ready and merging it are the owner's**, by any route.
+  Once the owner merges, sync the primary checkout from a clean tree —
+  `git checkout main && git pull --ff-only origin main` — and delete the merged branch:
+  `git branch -d <name>`, and `git push origin --delete <name>` where GitHub has not already.
 - Never run `git reset --hard`, and never discard uncommitted work you did not write — for example
   `git stash`, `git clean`, `git checkout -f` or `git switch -f`, or `git checkout -- <path>` or
   `git restore` over another session's edits. Undo your own commit with `git reset --soft HEAD~1`.
@@ -72,8 +75,7 @@ a pushed commit body stands, and the pull request body carries the correction. *
 when the branch is pushed, the draft pull request's link is in the response, and every check
 `gh pr checks <n> --watch` lists, `pr-body` among them, has concluded, each conclusion named in the
 same response** — not when the local gate or `verify` alone is green. A run that has not concluded
-is reported as pending, with its link. The `git checkout main && git pull` after a merge is the
-owner's.
+is reported as pending, with its link.
 
 ### The gate
 
