@@ -59,9 +59,14 @@ const landingAt = (teamId: string, saisonId: string) => {
   return () => h(TeamLayout, { params: params, children: h(TeamStartPage, { params: params, searchParams: Promise.resolve({}) }) });
 };
 
-/** What a browser holds once the landing's stream at that address has run. */
+/**
+ * What a browser holds once the landing's stream at that address has run, arrived at with a season in
+ * its query as a link from the admin's or the dashboard's shell carries one.
+ */
 async function rendered(teamId: string, saisonId: string): Promise<{ markup: string; text: string }> {
-  const markup = await renderPage(underNext(h(landingAt(teamId, saisonId)), { pathname: `/bereich/team/${teamId}/${saisonId}` }));
+  const markup = await renderPage(
+    underNext(h(landingAt(teamId, saisonId)), { pathname: `/bereich/team/${teamId}/${saisonId}`, search: `saison_id=${saisonId}` }),
+  );
 
   return { markup: markup, text: textOf(markup, " ").replace(/\s+/g, " ") };
 }

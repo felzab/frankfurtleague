@@ -24,7 +24,10 @@ const SCHIEDSRICHTER: Funktion = { art: "schiedsrichter", schiedsrichter_id: "68
 const listedFor = (funktionen: Funktion[]): string[] =>
   personStructureFor(personEintraegeOf(funktionen)).flatMap((group) => group.sub_options.map((option) => option.label));
 
-/** The shell as the person layout mounts it at one address, for a person holding every person-lane Funktion. */
+/**
+ * The shell as the person layout mounts it at one address, for a person holding every person-lane
+ * Funktion, arrived at with a season in the query as a link from the admin's shell carries one.
+ */
 const shellAt = (pathname: string): string =>
   renderTree(
     underNext(
@@ -32,9 +35,17 @@ const shellAt = (pathname: string): string =>
         structure: personStructureFor(personEintraegeOf([SPIELER, SCHIEDSRICHTER])),
         children: h("p", null, "Seiteninhalt"),
       }),
-      { pathname },
+      { pathname, search: "saison_id=2526" },
     ),
   );
+
+/** Every link the markup offers, each as its href and whether it marks the current page. */
+const linksIn = (html: string): { href: string; current: boolean; text: string }[] =>
+  [...html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/g)].map(([, attributes = "", inner = ""]) => ({
+    href: /\bhref="([^"]*)"/.exec(attributes)?.[1] ?? "",
+    current: /\baria-current="page"/.test(attributes),
+    text: textOf(inner, " ").replace(/\s+/g, " ").trim(),
+  }));
 
 /** The page's one heading, which is what a screen reader lands on first and what WCAG 2.4.6 judges. */
 function heading(html: string): string {
@@ -68,17 +79,42 @@ describe("what the person shell lists", () => {
   });
 });
 
+describe("the links the person shell offers", () => {
+  /* The landing's entry is the prefix itself, so it is current there and nowhere below it. */
+  it("marks the landing's entry current on /bereich alone, linking to the prefix itself", () => {
+    const landing = PERSON_SIDEMENU_ENTRIES.landing.label;
+    const entry = (pathname: string) => linksIn(shellAt(pathname)).find((link) => link.text === landing);
+
+    assert.deepEqual(entry("/bereich"), { href: "/bereich", current: true, text: landing });
+    assert.equal(entry("/bereich/spieler")?.current, false, "the landing's entry is current on a page below it");
+    assert.ok(!linksIn(shellAt("/bereich")).some((link) => link.href === "/bereich/"), "an entry links to /bereich/ rather than the prefix");
+  });
+
+  /* A person's pages are scoped to the person, so a season the address arrived with rides no link on. */
+  it("carries no season on any link, whatever the address arrived with", () => {
+    const links = linksIn(shellAt("/bereich"));
+
+    // The control: an empty list passes the absence below unread.
+    assert.ok(
+      links.some((link) => link.href.startsWith("/bereich")),
+      "the shell renders no link into the area at all",
+    );
+    assert.deepEqual(
+      links.filter((link) => link.href.includes("saison_id")),
+      [],
+      "these links carry a season the person area never reads",
+    );
+  });
+});
+
 describe("the heading the person shell puts over a page", () => {
   it("names the landing by its own entry rather than as an unknown address", () => {
     assert.equal(heading(shellAt("/bereich")), PERSON_SIDEMENU_ENTRIES.landing.label);
   });
 
-  /* The account page sits under each Funktion's word and is reached from the bar, so it takes that
-     Funktion's heading and names itself in its own, as an admin detail page does. */
-  it("names a Funktion's page and every page beneath it by that Funktion", () => {
+  it("names a Funktion's page by that Funktion", () => {
     assert.equal(heading(shellAt("/bereich/spieler")), PERSON_SIDEMENU_ENTRIES.spieler.label);
-    assert.equal(heading(shellAt("/bereich/spieler/konto")), PERSON_SIDEMENU_ENTRIES.spieler.label);
-    assert.equal(heading(shellAt("/bereich/schiedsrichter/konto")), PERSON_SIDEMENU_ENTRIES.schiedsrichter.label);
+    assert.equal(heading(shellAt("/bereich/schiedsrichter")), PERSON_SIDEMENU_ENTRIES.schiedsrichter.label);
   });
 
   /* The catch-all's 404. Headed as a page, it tells a screen reader it is somewhere it is not. */
