@@ -1,3 +1,5 @@
+import { teamHref } from "./teamSeats";
+
 import type { Funktion } from "@/core/funktionen";
 import type { PersonEintrag } from "./constants";
 
@@ -5,7 +7,7 @@ import type { PersonEintrag } from "./constants";
 function funktionHref(funktion: Funktion): string {
   switch (funktion.art) {
     case "kontakt":
-      return `/bereich/team/${funktion.team_id}/${funktion.saison_id}`;
+      return teamHref(funktion.team_id, funktion.saison_id);
     case "spieler":
       return "/bereich/spieler";
     case "schiedsrichter":
