@@ -14,7 +14,7 @@ import type { Metadata } from "next";
  */
 export const metadata: Metadata = {
   title: "Anmeldung",
-  description: "Anmeldung zur Verwaltung der Frankfurt League.",
+  description: "Anmeldung bei der Frankfurt League.",
   robots: { index: false, follow: false },
   openGraph: openGraphFor("/signin/weiter"),
   alternates: { canonical: "/signin/weiter" },
