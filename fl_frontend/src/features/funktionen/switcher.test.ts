@@ -48,7 +48,7 @@ const sitz = (fields: Partial<FLSubjektSitz> = {}): FLSubjektSitz => ({
 const person = (records: Partial<SubjectSession["subjekt"]> = {}): SubjectSession => ({
   email: "pia@example.org",
   admin: false,
-  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, ...records },
+  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, ...records },
 });
 
 const SPIELER_ROW = { spieler_id: TEAM_A };
