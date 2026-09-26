@@ -53,6 +53,8 @@ const FRONTEND_ONLY: Record<string, string> = {
 
   // The sign-in address never reaches FastAPI: `handleSignIn` hands it to the sign-in library, which mails the link.
   SignInPayload: "the sign-in action posts to the sign-in library rather than to the API, so no component describes it",
+  // The rename goes to the sign-in library's `updatePasskey` in process, never to FastAPI.
+  PasskeyNamePayload: "the passkey rename posts to the sign-in library rather than to the API, so no component describes it",
 
   CustomDateString: "a Pydantic Annotated alias, inlined at each use site",
   CustomTimeString: "a Pydantic Annotated alias, inlined at each use site",
