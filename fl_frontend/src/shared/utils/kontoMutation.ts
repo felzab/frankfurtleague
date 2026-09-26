@@ -12,6 +12,14 @@ export const KONTO_FORBIDDEN = "Deine Anmeldung ist abgelaufen. Melde Dich neu a
 /** The signed-in holder of the account page, in either lane; never the row's `token` (`docs/frontend/spec.md :: I198`). */
 export type KontoSession = NonNullable<Awaited<ReturnType<typeof getKontoSession>>>;
 
+/**
+ * Whether the served session is the one the page was drawn for: the browser offers every account's
+ * passkey, so a confirmation can sign another account in (`docs/frontend/spec.md :: I428`).
+ */
+export function isHeldBy(served: { readonly user: { readonly id: string } }, holderId: string): boolean {
+  return served.user.id === holderId;
+}
+
 /** Until when the served session counts as confirmed, as epoch milliseconds, or `null` where it already does not. */
 export function freshUntil(served: KontoSession): number | null {
   return isFreshlySignedIn(served) ? new Date(served.session.createdAt).getTime() + STEP_UP_WINDOW_MS : null;

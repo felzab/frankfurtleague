@@ -43,7 +43,17 @@ Reflect.set(globalThis, BUS, {
   },
 });
 
-const { calls } = doubleActions({ modules: [/\/features\/sperrliste\/actions\.ts$/] });
+/** Whether the session a confirmation mints is the asking administrator's, as the holder check answers it. */
+let heldBy = true;
+
+const { calls } = doubleActions({
+  modules: [/\/features\/sperrliste\/actions\.ts$/, /\/features\/admin\/actions\.ts$/],
+  // One answer for the write and the holder check: each reads its own field of it.
+  answer: () => Promise.resolve({ success: true, message: "Gespeichert.", gleich: heldBy }),
+});
+
+/** The writes the panel sent, the holder check left out. */
+const writes = (): string[] => calls.map((call) => call.action).filter((action) => action !== "pruefeAdministratorAction");
 doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
@@ -57,7 +67,7 @@ const ARMED = "Ja, Sperre vom 12.03.2026 endgültig aufheben";
 const page = (confirmedUntil: number | null) =>
   underNext(
     h(AdminStepUpProvider, {
-      served: { confirmedUntil },
+      served: { confirmedUntil, inhaberId: "administrator" },
       children: h(AdminSperreAufhebenPanel, { sperreId: "6890a1b2c3d4e5f607190001", gesperrtAm: "12.03.2026" }),
     }),
   );
@@ -80,6 +90,7 @@ describe("the administrator's step-up window", () => {
   beforeEach(() => {
     prompts = 0;
     promptAnswer = () => Promise.resolve({ data: {}, error: null });
+    heldBy = true;
   });
 
   /* A confirmation is a fresh sign-in, so what it buys is the window again: drop the provider's own
@@ -99,10 +110,7 @@ describe("the administrator's step-up window", () => {
 
     unmount();
     assert.equal(prompts, 1, "a write inside the window ran the prompt again");
-    assert.deepEqual(
-      calls.map((call) => call.action),
-      ["deleteSperreAction", "deleteSperreAction"],
-    );
+    assert.deepEqual(writes(), ["deleteSperreAction", "deleteSperreAction"]);
   });
 
   /* Half-open at its end, as the server's own test is: the millisecond the window closes is the first
@@ -189,6 +197,33 @@ describe("the administrator's step-up window", () => {
     assert.ok(screen.getByRole("button", { name: STEP_UP_LABEL }), "the control left the prompt after a refusal");
     unmount();
     assert.equal(calls.length, before, "a refused prompt sent the write");
+  });
+
+  /* The browser offers every account's passkey, and the one asserted signs its own account in: the
+     waiting write would then run as that account (`docs/frontend/spec.md :: I428`). */
+  it("leaves the write unrun where the confirmation signed in another account", async (t) => {
+    const user = userEvent.setup();
+    t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
+    heldBy = false;
+    const before = writes().length;
+    const checksBefore = calls.length;
+    const { unmount } = render(page(null));
+
+    await arm(user);
+    t.mock.timers.tick(DOUBLE_PRESS_MS);
+    await user.click(screen.getByRole("button", { name: STEP_UP_LABEL }));
+    assert.ok(await screen.findByText(STEP_UP_REFUSED), "a confirmation for another account is not said to have failed");
+    unmount();
+
+    assert.deepEqual(
+      calls
+        .slice(checksBefore)
+        .filter((call) => call.action === "pruefeAdministratorAction")
+        .map((call) => call.payload),
+      ["administrator"],
+      "the confirmation was never checked against the administrator who asked",
+    );
+    assert.equal(writes().length, before, "a confirmation for another account ran the write");
   });
 
   /* The options request throws rather than answering `error` when it never arrives; uncaught, the press

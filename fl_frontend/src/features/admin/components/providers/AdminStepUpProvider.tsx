@@ -6,6 +6,8 @@ import { authClient } from "@/core/authClient";
 import { STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
 import { StepUpContext } from "@/shared/components/ui/stepUp";
 
+import { pruefeAdministratorAction } from "../../actions";
+
 import type { StepUp } from "@/shared/components/ui/stepUp";
 import type { ReactNode } from "react";
 
@@ -21,7 +23,7 @@ export function AdminStepUpProvider({
    * Epoch milliseconds, on the server's clock, the session stays confirmed until; `null` where it is
    * not. Wrapped so each server render hands over a new object, even carrying the same figure.
    */
-  served: { readonly confirmedUntil: number | null };
+  served: { readonly confirmedUntil: number | null; readonly inhaberId: string };
   children: ReactNode;
 }) {
   // A confirmation made here stands until the next server render, whose figure then wins even where it
@@ -41,8 +43,13 @@ export function AdminStepUpProvider({
         try {
           const { error } = await authClient.signIn.passkey();
           if (error !== null) return false;
+
+          // The account page's check, and never a second spelling: an assertion signing another account
+          // in leaves the waiting write unrun (`docs/frontend/spec.md :: I428`).
+          const holder = await pruefeAdministratorAction(served.inhaberId);
+          if (!holder.success || !holder.gleich) return false;
         } catch {
-          // Thrown only by the options request, ahead of the prompt; every later failure arrives on `error`.
+          // Thrown by the options request ahead of the prompt, and by a holder check that never came back.
           return false;
         }
         // Wrapped: the press awaits this inside its transition, and React leaves an update after an
@@ -53,7 +60,7 @@ export function AdminStepUpProvider({
         return true;
       },
     }),
-    [until],
+    [until, served.inhaberId],
   );
 
   return <StepUpContext.Provider value={stepUp}>{children}</StepUpContext.Provider>;

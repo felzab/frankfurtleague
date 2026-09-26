@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 
 import { auth } from "@/core/auth";
 import { recordWriteSent } from "@/core/requestScope";
-import { runKontoMutation } from "@/shared/utils/kontoMutation";
+import { isHeldBy, runKontoMutation } from "@/shared/utils/kontoMutation";
 import { VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import type { ActionResult, QueryResult } from "@/shared/types/types";
@@ -59,5 +59,5 @@ export async function endAndereAnmeldungenAction(): Promise<ActionResult> {
  * (`docs/frontend/spec.md :: I428`).
  */
 export async function pruefeInhaberAction(inhaberId: string): Promise<QueryResult<{ gleich: boolean }>> {
-  return runKontoMutation("pruefeInhaberAction", async (served) => ({ success: true, gleich: served.user.id === inhaberId }));
+  return runKontoMutation("pruefeInhaberAction", async (served) => ({ success: true, gleich: isHeldBy(served, inhaberId) }));
 }
