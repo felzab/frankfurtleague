@@ -111,7 +111,7 @@ async function sicherheitAs(cookie: string) {
 
 describe("what the sign-in list hands the page", () => {
   /* The row's `token` is the session cookie's own value: a page holding it could hand any device's
-     session to a script (`docs/frontend/spec.md :: I411`). */
+     session to a script (`docs/frontend/spec.md :: I420`). */
   it("carries no session's token, this device's or another's", async () => {
     const other = await signIn(PERSON_EMAIL);
     const { cookie, row } = await signIn(PERSON_EMAIL);
@@ -282,7 +282,7 @@ describe("ending one sign-in", () => {
   });
 
   /* A row is ended only where its id AND the holder's own user id match: an id copied off another
-     person's page ends nothing (`docs/frontend/spec.md :: I412`). */
+     person's page ends nothing (`docs/frontend/spec.md :: I421`). */
   it("ends nothing for another person's sign-in id, and says the list is stale", async () => {
     const theirs = await signIn(OTHER_EMAIL);
     const { cookie } = await signIn(PERSON_EMAIL);

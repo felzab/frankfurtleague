@@ -414,7 +414,7 @@ describe("what a rename writes", () => {
 });
 
 /* The page reads this after the enrolment guard answered 404, which it answers alike for the cap, a
-   closed window and an authenticator already held (`docs/frontend/spec.md :: I453`). */
+   closed window and an authenticator already held (`docs/frontend/spec.md :: I427`). */
 describe("what the page reads after a refused enrolment", () => {
   /* Judged by the enrolment's own window, narrower than every other change's: inside the two hours
      and past the five minutes, the guard refused the enrolment for the window. */

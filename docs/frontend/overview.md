@@ -94,9 +94,9 @@ revocation out of band rather than a lifetime expiring ([`spec.md`](spec.md) §4
 
 **A person's sign-in is managed on one account page, `/bereich/konto`, whichever area they hold**:
 every signed-in shell links it, and its passkeys and sign-ins change only behind a sign-in or a
-confirmation inside the step-up window, in either lane ([`spec.md`](spec.md) I413). It reads the
+confirmation inside the step-up window, in either lane ([`spec.md`](spec.md) I422). It reads the
 sign-in store directly for the same reason the guards do, and never through the library's session
-list, which answers every session's cookie value ([`spec.md`](spec.md) I411).
+list, which answers every session's cookie value ([`spec.md`](spec.md) I420).
 
 ## Read next
 

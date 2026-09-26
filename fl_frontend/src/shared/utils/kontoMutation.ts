@@ -41,7 +41,7 @@ export function enrolmentUntil(served: KontoSession): number | null {
 
 /**
  * The account page's spine: every change there is refused past the step-up window, whichever lane the
- * holder signs in by (`docs/frontend/spec.md :: I413`).
+ * holder signs in by (`docs/frontend/spec.md :: I422`).
  */
 export async function runKontoMutation<T extends { success: boolean }>(
   mutationName: string,

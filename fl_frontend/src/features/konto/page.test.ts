@@ -117,7 +117,7 @@ const SHELLS = {
     ),
 };
 
-describe("how every shell reaches the account page (`docs/frontend/spec.md :: I414`)", () => {
+describe("how every shell reaches the account page (`docs/frontend/spec.md :: I423`)", () => {
   for (const [name, shell] of Object.entries(SHELLS)) {
     /* One address, declared once per shell: the bar's link and the drawer's item both lead there. */
     it(`links the one account page from the ${name} shell`, () => {

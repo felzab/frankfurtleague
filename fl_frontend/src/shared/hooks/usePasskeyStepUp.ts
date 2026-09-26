@@ -18,8 +18,8 @@ export interface PasskeyStepUp {
 }
 
 /**
- * A confirmation is a fresh sign-in (`docs/frontend/spec.md :: I413`), and the browser offers every
- * account's passkey: `istInhaber` asks whose session the assertion minted (`docs/frontend/spec.md :: I454`).
+ * A confirmation is a fresh sign-in (`docs/frontend/spec.md :: I422`), and the browser offers every
+ * account's passkey: `istInhaber` asks whose session the assertion minted (`docs/frontend/spec.md :: I428`).
  */
 export function usePasskeyStepUp(istInhaber: () => Promise<boolean>): PasskeyStepUp {
   const [isPending, setIsPending] = useState(false);

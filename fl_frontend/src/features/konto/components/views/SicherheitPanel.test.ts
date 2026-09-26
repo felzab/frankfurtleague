@@ -147,7 +147,7 @@ describe("a change past the step-up window", () => {
   });
 
   /* The browser offers every account's passkey: one of another account's signs that account in, and
-     the waiting change would run as it (`docs/frontend/spec.md :: I454`). */
+     the waiting change would run as it (`docs/frontend/spec.md :: I428`). */
   it("runs nothing when the confirmation signed another account in, and says so", async () => {
     const user = userEvent.setup();
     answers.pruefeInhaberAction = { success: true, gleich: false };
@@ -341,7 +341,7 @@ describe("adding a passkey", () => {
   });
 
   /* The guard answers the cap, a stale sign-in and an authenticator already held alike 404, so the page
-     asks which it was (`docs/frontend/spec.md :: I453`). */
+     asks which it was (`docs/frontend/spec.md :: I427`). */
   describe("a 404 from the enrolment guard", () => {
     it("names the cap where the re-read finds it reached", async () => {
       const user = userEvent.setup();

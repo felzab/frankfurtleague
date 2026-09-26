@@ -68,7 +68,7 @@ describe("the confirmation by passkey", () => {
   });
 
   /* The browser offers every account's passkey, and another account's signs that account in
-     (`docs/frontend/spec.md :: I454`). */
+     (`docs/frontend/spec.md :: I428`). */
   it("refuses an assertion that signed another account in", async () => {
     holder = () => Promise.resolve(false);
     open();

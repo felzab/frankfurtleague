@@ -62,7 +62,7 @@ const wantsStepUp = (result: { success: boolean }): result is StepUpRefusalAnswe
 
 /**
  * The „Sicherheit“ section: the passkeys, the sign-ins, and the one confirmation every change on it
- * passes (`docs/frontend/spec.md :: I413`).
+ * passes (`docs/frontend/spec.md :: I422`).
  */
 export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
   const router = useRouter();
@@ -338,7 +338,7 @@ async function enrolmentHeld(): Promise<EnrolmentHeld | null> {
 
 /**
  * The enrolment guard answers the cap, a stale sign-in and an authenticator already held alike 404, so
- * the page asks again which it was (`docs/frontend/spec.md :: I453`); the third is the one left.
+ * the page asks again which it was (`docs/frontend/spec.md :: I427`); the third is the one left.
  */
 async function enrolmentRefused(): Promise<EnrolmentHeld> {
   const stand = await readPasskeyStandAction().catch(unansweredAction);

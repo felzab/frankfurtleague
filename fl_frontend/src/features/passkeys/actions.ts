@@ -83,7 +83,7 @@ export async function renamePasskeyAction(id: string, name: string): Promise<Act
 /**
  * Read after the enrolment guard's 404, which answers the cap, a stale sign-in and a held authenticator
  * alike: the step-up refusal, by the enrolment's own window, names the second, the count the first
- * (`docs/frontend/spec.md :: I453`).
+ * (`docs/frontend/spec.md :: I427`).
  */
 export async function readPasskeyStandAction(): Promise<QueryResult<{ kannHinzufuegen: boolean }>> {
   return runKontoMutation("readPasskeyStandAction", async (served) => {

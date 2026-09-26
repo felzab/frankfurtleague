@@ -25,7 +25,7 @@ async function openedWith(kontoHref: string | null): Promise<void> {
   await screen.findByRole("menu");
 }
 
-describe("the drawer's way to the account page (`docs/frontend/spec.md :: I414`)", () => {
+describe("the drawer's way to the account page (`docs/frontend/spec.md :: I423`)", () => {
   /* Below `lg` the bar's link is hidden, and this item is the one way to the page there. */
   it("offers „Konto“ as a link to the account page the shell declares", async () => {
     await openedWith(KONTO_HREF);

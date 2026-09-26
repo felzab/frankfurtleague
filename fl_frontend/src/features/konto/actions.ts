@@ -14,7 +14,7 @@ const SCHON_BEENDET = "Die Anmeldung war schon beendet. Lade die Seite neu.";
 
 /**
  * Ends one of the holder's other sign-ins. By id AND the holder's own user id, so an id belonging to
- * another person ends nothing (`docs/frontend/spec.md :: I412`).
+ * another person ends nothing (`docs/frontend/spec.md :: I421`).
  */
 export async function endAnmeldungAction(id: string): Promise<ActionResult> {
   return runKontoMutation("endAnmeldungAction", async (served) => {
@@ -56,7 +56,7 @@ export async function endAndereAnmeldungenAction(): Promise<ActionResult> {
 /**
  * Whether the session a confirmation just made is the page's holder's: the browser offers every
  * account's passkey, and another account's would otherwise run the waiting change as that account
- * (`docs/frontend/spec.md :: I454`).
+ * (`docs/frontend/spec.md :: I428`).
  */
 export async function pruefeInhaberAction(inhaberId: string): Promise<QueryResult<{ gleich: boolean }>> {
   return runKontoMutation("pruefeInhaberAction", async (served) => ({ success: true, gleich: served.user.id === inhaberId }));

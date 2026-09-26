@@ -25,13 +25,13 @@ type SessionRow = {
 
 /**
  * Every live row: a limit left unnamed is the adapter's default of 100, and a sign-in past it would be
- * missing from the list a holder searches for a device they do not know (`docs/frontend/spec.md :: I451`).
+ * missing from the list a holder searches for a device they do not know (`docs/frontend/spec.md :: I425`).
  */
 const EVERY_ROW = Number.MAX_SAFE_INTEGER;
 
 /**
  * Through the store's own adapter rather than the library's `/list-sessions`, which answers every row
- * whole, `token` included, and that value is the session cookie (`docs/frontend/spec.md :: I411`).
+ * whole, `token` included, and that value is the session cookie (`docs/frontend/spec.md :: I420`).
  */
 export async function readSicherheit(served: KontoSession): Promise<Sicherheit> {
   const [held, rows] = await Promise.all([
@@ -66,7 +66,7 @@ function anmeldungenOf(rows: readonly SessionRow[], held: readonly PasskeyRow[],
   return (
     rows
       // The person lifetime for an administrator's address too: the person area admits their session
-      // that long and only the administration for less, so the widest guard decides (`docs/frontend/spec.md :: I451`).
+      // that long and only the administration for less, so the widest guard decides (`docs/frontend/spec.md :: I425`).
       .filter((row) => isWithinPersonLifetime(row))
       .flatMap((row): Anmeldung[] => {
         const faktor = faktorOf(row, held);

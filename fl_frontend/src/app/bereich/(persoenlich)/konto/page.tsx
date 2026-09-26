@@ -12,7 +12,7 @@ export default async function KontoPage() {
   const subject = await requireSubjectSession();
 
   // An allowlisted address whose administrator verdict lapsed owes that lane's step before its
-  // passkeys, as the landing sends it (`docs/frontend/spec.md :: I452`); here the section stands empty.
+  // passkeys, as the landing sends it (`docs/frontend/spec.md :: I426`); here the section stands empty.
   // eslint-disable-next-line local/admin-link -- the proxy turns it away before any season is read
   if (!subject.admin && isUserAdmin(subject.email)) redirect("/bereich/admin");
 

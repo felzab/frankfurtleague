@@ -5,7 +5,7 @@ export type AnmeldungFaktor = { readonly art: "passkey"; readonly name: string }
 
 /**
  * One live sign-in of the holder's, projected off its session row. The row's `token` is the cookie's
- * own value and never leaves the server (`docs/frontend/spec.md :: I411`); the id alone addresses it.
+ * own value and never leaves the server (`docs/frontend/spec.md :: I420`); the id alone addresses it.
  */
 export interface Anmeldung {
   readonly id: string;
