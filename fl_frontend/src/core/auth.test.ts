@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
+import { createRequire } from "node:module";
 import { after, afterEach, beforeEach, describe, it } from "node:test";
+import { pathToFileURL } from "node:url";
 
 import {
   ADMIN_EMAIL,
@@ -142,6 +144,11 @@ globals[ADAPTER_CALLS] = adapterCalls;
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so neither the doubles nor the `next/server` extension would be in place yet.
 const { toNextJsHandler } = await import("better-auth/next-js");
+/* The library's own runner for an endpoint's context, from the copy `better-auth` itself resolves:
+   `@better-auth/core` is no dependency of this package, and a second copy would hold no context. */
+const { runWithEndpointContext } = (await import(
+  pathToFileURL(createRequire(import.meta.resolve("better-auth")).resolve("@better-auth/core/context")).href
+)) as { runWithEndpointContext: <T>(context: object, run: () => Promise<T>) => Promise<T> };
 const { auth, endSessionsOfAddress, getAdminSession, getPasskeyStep, getSignInDestination, isAdminSession, isFreshlySignedIn, PASSKEY_LIMIT } =
   await import("./auth.ts");
 const { buildMagicLinkEmail, LINK_VALIDITY_MINUTES } = await import("./authEmail.ts");
@@ -1436,6 +1443,37 @@ describe("what a session records about the sign-in that made it", () => {
     await assert.rejects(
       () => internalAdapter.createSession(row.userId),
       (raised: unknown) => raised instanceof Error && raised.name === "SessionFromUnlistedPath",
+    );
+    assert.equal(store.session.length, sessions);
+  });
+
+  /* The arm a release adding a sign-in route reaches: a mint inside an endpoint's own context, on a
+     path the table never classified. The library runs every `auth.api` call and route this way. */
+  it("refuses a session minted inside an endpoint whose path the table does not list, writing no row", async () => {
+    const { row } = await signIn(ADMIN_EMAIL);
+    const context = await auth.$context;
+    const sessions = store.session.length;
+
+    await assert.rejects(
+      () => runWithEndpointContext({ path: "/sign-in/social", body: {}, context }, () => context.internalAdapter.createSession(row.userId)),
+      (raised: unknown) => raised instanceof Error && raised.name === "SessionFromUnlistedPath",
+    );
+    assert.equal(store.session.length, sessions);
+  });
+
+  /* A passkey path that reaches the mint with no credential in its body would stamp a session no
+     removal can end: refused rather than stamped empty. */
+  it("refuses a passkey session whose ceremony names no credential, writing no row", async () => {
+    const { row } = await signIn(ADMIN_EMAIL);
+    const context = await auth.$context;
+    const sessions = store.session.length;
+
+    await assert.rejects(
+      () =>
+        runWithEndpointContext({ path: "/passkey/verify-authentication", body: { response: {} }, context }, () =>
+          context.internalAdapter.createSession(row.userId),
+        ),
+      (raised: unknown) => raised instanceof Error && raised.name === "CeremonyNamedNoCredential",
     );
     assert.equal(store.session.length, sessions);
   });
