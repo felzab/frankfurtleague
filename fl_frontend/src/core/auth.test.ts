@@ -1960,6 +1960,9 @@ describe("the failures one address may spend, across every code it is sent (`doc
 });
 
 describe("the code mails one address may be sent in an hour (`docs/frontend/spec.md :: I442`)", () => {
+  /* Written out rather than read from the module: the runbook's sweep matches rows by this spelling. */
+  const TOTAL_ROW = "sign-in-mail-every-address";
+
   it("mails nothing past the fifth, on the same answer as the first", async () => {
     const before = sent.length;
     const answers = [];
@@ -1976,7 +1979,8 @@ describe("the code mails one address may be sent in an hour (`docs/frontend/spec
       await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
     }
 
-    assert.equal(store.verification.filter((row) => row.identifier.startsWith("sign-in-mail-")).length, 5);
+    const perAddress = store.verification.filter((row) => row.identifier.startsWith("sign-in-mail-") && row.identifier !== TOTAL_ROW);
+    assert.equal(perAddress.length, 5);
   });
 
   /* The plugin writes a new code before its send callback runs, so a send capped there would void
@@ -1993,6 +1997,36 @@ describe("the code mails one address may be sent in an hour (`docs/frontend/spec
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
     assert.equal((await answerOf(ADMIN_EMAIL, fifth)).status, 200, "the capped send voided the code the person holds");
+  });
+
+  it("mails no address past the hour's total, on the same answer as a mailed send", async () => {
+    const mailedAnswer = await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    const expiresAt = new Date(Date.now() + HOUR_MS);
+    for (let row = store.verification.filter((held) => held.identifier === TOTAL_ROW).length; row < 100; row += 1) {
+      store.verification.push({
+        id: `total-${String(row)}`,
+        identifier: TOTAL_ROW,
+        value: "counted",
+        expiresAt,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+    const before = sent.length;
+
+    const capped = await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+
+    assert.equal(sent.length, before, "a send past the total was mailed");
+    assert.deepEqual(capped, mailedAnswer);
+  });
+
+  /* A total counting mails alone would gain a row for a member and none for a stranger. */
+  it("counts a send the gate refuses against the hour's total as it counts a mailed one", async () => {
+    await auth.api.sendVerificationOTP({ body: { email: STRANGER_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    assert.equal(store.verification.filter((row) => row.identifier === TOTAL_ROW).length, 1);
+
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    assert.equal(store.verification.filter((row) => row.identifier === TOTAL_ROW).length, 2);
   });
 });
 

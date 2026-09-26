@@ -66,6 +66,14 @@ const HOUR_MS = 60 * 60 * 1000;
 const FAILURE_ROW_PREFIX = "sign-in-attempt-";
 const MAIL_ROW_PREFIX = "sign-in-mail-";
 
+/** Every address's sends in one count, under the mail rows' prefix so the runbook's sweep of those reaches it. */
+const MAIL_TOTAL_IDENTIFIER = `${MAIL_ROW_PREFIX}every-address`;
+
+// The per-address cap lets a flood grow with every address typed, and codes spending the provider's
+// quota stop every other mail the league sends. Counting requests, it sits well above an hour of real
+// sign-ins.
+const CODE_MAIL_TOTAL_LIMIT = 100;
+
 /** The refusal the route words as the address being locked, whatever code the request carried. */
 export const ADDRESS_ATTEMPTS_EXHAUSTED = "ADDRESS_ATTEMPTS_EXHAUSTED";
 
@@ -315,7 +323,7 @@ async function refuseUnadmitted(ctx: GenericEndpointContext, userId: string): Pr
   throw APIError.fromStatus("SERVICE_UNAVAILABLE");
 }
 
-/** As much of the library's context as the two per-address bounds below read and write. */
+/** As much of the library's context as the bounds below read and write. */
 type BoundContext = Pick<AuthContext, "adapter" | "internalAdapter" | "secret">;
 
 /**
@@ -330,9 +338,12 @@ async function boundIdentifier(prefix: string, email: string, secret: string): P
  * The row goes in BEFORE the count, so requests racing past the limit each count the other's; a
  * refused event takes its own back out, so hammering a closed bound never holds it past its window.
  */
-async function withinBound(context: BoundContext, prefix: string, email: string, limit: number, windowMs: number): Promise<boolean> {
-  const identifier = await boundIdentifier(prefix, email, context.secret);
-  const own = await context.internalAdapter.createVerificationValue({ identifier, value: prefix, expiresAt: new Date(Date.now() + windowMs) });
+async function withinBound(context: BoundContext, identifier: string, limit: number, windowMs: number): Promise<boolean> {
+  const own = await context.internalAdapter.createVerificationValue({
+    identifier,
+    value: "counted",
+    expiresAt: new Date(Date.now() + windowMs),
+  });
 
   const held = await context.adapter.count({
     model: "verification",
@@ -614,7 +625,12 @@ const authOptions = {
       const address = ctx.path === CODE_SIGN_IN_PATH ? codeSignInAddress(ctx.body) : null;
       if (
         address !== null &&
-        !(await withinBound(ctx.context, FAILURE_ROW_PREFIX, address, CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS * HOUR_MS))
+        !(await withinBound(
+          ctx.context,
+          await boundIdentifier(FAILURE_ROW_PREFIX, address, ctx.context.secret),
+          CODE_FAILURE_LIMIT,
+          CODE_FAILURE_WINDOW_HOURS * HOUR_MS,
+        ))
       ) {
         logger.info("auth.code_attempts_exhausted");
         throw new APIError("TOO_MANY_REQUESTS", { code: ADDRESS_ATTEMPTS_EXHAUSTED, message: "Too many failed codes for this address." });
@@ -626,10 +642,25 @@ const authOptions = {
       const recipient = ctx.path === CODE_SEND_PATH ? codeSendAddress(ctx.body) : null;
       if (
         recipient !== null &&
-        !(await withinBound(ctx.context, MAIL_ROW_PREFIX, recipient, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS))
+        !(await withinBound(
+          ctx.context,
+          await boundIdentifier(MAIL_ROW_PREFIX, recipient, ctx.context.secret),
+          CODE_MAIL_LIMIT,
+          CODE_MAIL_WINDOW_HOURS * HOUR_MS,
+        ))
       ) {
         logger.info("auth.code_mail_capped");
         // The plugin's own answer to a send, so a capped one reads as a mailed one.
+        return ctx.json({ success: true });
+      }
+
+      // Every send asked for, a stranger's included, for the per-address cap's reason: a total counting
+      // mails alone would be written for members alone.
+      if (
+        recipient !== null &&
+        !(await withinBound(ctx.context, MAIL_TOTAL_IDENTIFIER, CODE_MAIL_TOTAL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS))
+      ) {
+        logger.warn("auth.code_mail_total_capped", { error_code: "FE-AUTH-008" });
         return ctx.json({ success: true });
       }
 

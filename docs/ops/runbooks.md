@@ -1156,6 +1156,9 @@ carries the address. Ask when they tried and read that window
   hour, so this one was sent nothing (`docs/frontend/spec.md :: I442`). The five count every request,
   a stranger's and one the gate refused included, so an address can be capped with nothing mailed;
   retries during a backend outage spend a person's hour the same way.
+- `auth.code_mail_total_capped` under `FE-AUTH-008`: a hundred codes had been asked for across every
+  address inside the hour (`docs/frontend/spec.md :: I447`), so nobody was sent one. A run of these is
+  a flood rather than a busy evening; it lifts within the hour, or at once by the sweep in §17.
 - `mail.withheld`: a stack that is not production mails nothing, and the message is in its sink.
 
 **A refusal by the gate writes no line.** It refuses an address that is barred, that holds nothing
@@ -1207,4 +1210,6 @@ out for one person:
   identifier nobody can compute by hand.
 
 The five-an-hour mail cap (`docs/frontend/spec.md :: I442`) keeps rows of the same shape under
-`sign-in-mail-`; they lift within the hour and nothing here touches them.
+`sign-in-mail-`, the every-address total (`:: I447`) among them as `sign-in-mail-every-address`;
+they lift within the hour. During a flood the total can be lifted sooner the same way, by deleting
+every row whose `identifier` starts with `sign-in-mail-`, which gives every address its hour back.
