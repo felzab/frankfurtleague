@@ -4,7 +4,6 @@ from http import HTTPStatus
 from itertools import combinations, product
 from typing import Any, get_args
 
-from app.api.identitaet.services import is_confirmed
 from app.api.kontakte.services import KONTAKT_SLOTS
 from app.api.saisons.schemas import FLSaisonRules
 from app.api.spiele.schemas import (
@@ -28,6 +27,7 @@ from app.api.teams.schemas import (
 from app.core.collections import Collection
 from app.core.crud import build_query
 from app.core.exceptions import WriteRefusal
+from app.shared.einwilligung import is_confirmed
 from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.custom import CustomObjectId
 

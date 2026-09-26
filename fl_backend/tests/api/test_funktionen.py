@@ -26,15 +26,18 @@ FUTURE_SAISON = "2627"
 TEAM_A_OID = ObjectId("6890a1b2c3d4e5f607830001")
 TEAM_B_OID = ObjectId("6890a1b2c3d4e5f607830002")
 TEAM_C_OID = ObjectId("6890a1b2c3d4e5f607830003")
+TEAM_D_OID = ObjectId("6890a1b2c3d4e5f607830004")
 ROW_ACTIVE_A_OID = ObjectId("6890a1b2c3d4e5f607830011")
 ROW_ACTIVE_B_OID = ObjectId("6890a1b2c3d4e5f607830012")
 ROW_PAST_A_OID = ObjectId("6890a1b2c3d4e5f607830013")
 ROW_FUTURE_A_OID = ObjectId("6890a1b2c3d4e5f607830014")
 ROW_ACTIVE_C_OID = ObjectId("6890a1b2c3d4e5f607830015")
+ROW_ACTIVE_D_OID = ObjectId("6890a1b2c3d4e5f607830016")
 
 ROW_NAME_A = "Helmholtz"
 ROW_NAME_B = "Lessing"
 ROW_NAME_C = "Goethe"
+ROW_NAME_D = "Schiller"
 
 STAMP = "2026-02-01"
 
@@ -58,6 +61,10 @@ PFEIFE_NULL_RECORD = "pfeife.null@schule.de"
 PFEIFE_NULL_STEMPEL = "pfeife.offen@schule.de"
 GEIST = "geist@schule.de"
 NIEMAND = "niemand.hierverzeichnet@example.com"
+# Stamped with an empty string, which the validator admits from a hand edit: one mailbox per kind.
+LEER_SITZ = "leer.sitz@schule.de"
+LEER_SPIELER = "leer.spieler@schule.de"
+LEER_PFEIFE = "leer.pfeife@schule.de"
 
 # The „ß“ decision: IDNA 2008 keeps „ß“ in a domain, so the two are two mailboxes.
 SHARP_S_ASKED = "Post@straße.de"
@@ -68,12 +75,14 @@ PUPIL_UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607830021")
 PUPIL_GEMISCHT_OID = ObjectId("6890a1b2c3d4e5f607830022")
 PUPIL_EHEMALIG_OID = ObjectId("6890a1b2c3d4e5f607830023")
 PUPIL_RUHESTAND_OFFEN_OID = ObjectId("6890a1b2c3d4e5f607830024")
+PUPIL_LEER_OID = ObjectId("6890a1b2c3d4e5f607830025")
 REFEREE_UNCONFIRMED_OID = ObjectId("6890a1b2c3d4e5f607830031")
 REFEREE_GEMISCHT_OID = ObjectId("6890a1b2c3d4e5f607830032")
 REFEREE_RUHESTAND_OID = ObjectId("6890a1b2c3d4e5f607830033")
 REFEREE_OHNE_RECORD_OID = ObjectId("6890a1b2c3d4e5f607830034")
 REFEREE_NULL_RECORD_OID = ObjectId("6890a1b2c3d4e5f607830035")
 REFEREE_NULL_STEMPEL_OID = ObjectId("6890a1b2c3d4e5f607830036")
+REFEREE_LEER_OID = ObjectId("6890a1b2c3d4e5f607830037")
 
 KENNTNISNAHME: dict[str, Any] = {"umfang": "kontaktdaten", "erfasst_von": "person", "text_version": "v1", "datum": "2026-01-05"}
 
@@ -175,6 +184,7 @@ async def _seed(database: AsyncDatabase) -> None:
                 ansprechperson=_seat(ZUGLEICH, bestaetigt_am=None),
                 stellvertretung=_seat(NUR_OFFEN, bestaetigt_am=None),
             ),
+            _junction(ROW_ACTIVE_D_OID, ACTIVE_SAISON, TEAM_D_OID, ROW_NAME_D, trainer=_seat(LEER_SITZ, bestaetigt_am="")),
         ]
     )
     await database[Collection.SPIELER].insert_many(
@@ -183,6 +193,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _pupil(PUPIL_GEMISCHT_OID, GEMISCHT, bestaetigt_am=None),
             _pupil(PUPIL_EHEMALIG_OID, EHEMALIG, bestaetigt_am=STAMP, inactive_since="2026-03-01"),
             _pupil(PUPIL_RUHESTAND_OFFEN_OID, RUHESTAND_OFFEN, bestaetigt_am=None, inactive_since="2026-03-01"),
+            _pupil(PUPIL_LEER_OID, LEER_SPIELER, bestaetigt_am=""),
         ]
     )
     await database[Collection.SCHIEDSRICHTER].insert_many(
@@ -193,6 +204,7 @@ async def _seed(database: AsyncDatabase) -> None:
             _referee(REFEREE_OHNE_RECORD_OID, PFEIFE_OHNE_RECORD, "D. Ohne"),
             _referee(REFEREE_NULL_RECORD_OID, PFEIFE_NULL_RECORD, "E. Null", einwilligung=None),
             _referee(REFEREE_NULL_STEMPEL_OID, PFEIFE_NULL_STEMPEL, "F. Stempel", einwilligung=UNCONFIRMED),
+            _referee(REFEREE_LEER_OID, LEER_PFEIFE, "G. Leer", einwilligung={**EINWILLIGUNG, "bestaetigt_am": ""}),
             # The ghost as no write leaves it -- an address, a stamp, not retired -- so that its id is
             # the one thing left keeping it out of every answer.
             _referee(GHOST_SCHIEDSRICHTER_ID, GEIST, None, einwilligung=CONFIRMED),
@@ -299,6 +311,15 @@ class TestTheConfirmationNarrowing:
         answer = answered(seeded_league, email)
 
         assert (answer.schiedsrichter, answer.unbestaetigt) == ([], True)
+
+    @pytest.mark.parametrize("email", [LEER_SITZ, LEER_SPIELER, LEER_PFEIFE], ids=["seat", "pupil", "referee"])
+    def test_an_empty_stamp_grants_nothing(self, seeded_league: str, email: str):
+        """Kills a presence test: `""` is a string the validator admits, and the public name read already withholds on it."""
+
+        answer = answered(seeded_league, email)
+
+        assert is_empty(answer)
+        assert answer.unbestaetigt is True
 
     def test_a_mailbox_holding_only_unconfirmed_records_is_answered_nothing_and_flagged(self, seeded_league: str):
         """A seat, a pupil and a referee, none confirmed: an empty answer that is NOT the answer for a mailbox holding nothing."""

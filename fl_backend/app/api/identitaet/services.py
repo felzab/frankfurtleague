@@ -12,6 +12,7 @@ from typing import Any
 from app.api.kontakte.services import KONTAKT_SLOTS, same_address
 from app.api.saisons.schemas import FLSaisonStatus
 from app.api.schiedsrichter.services import build_real_referees_filter
+from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
 
 # A retired pupil or referee row is matched by nothing, where an unconfirmed one is read and judged:
@@ -42,7 +43,7 @@ def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
 
 
 def build_referee_pipeline(identifier: str) -> list[Mapping[str, Any]]:
-    """The stored address rides along so `folds_to` can judge it, and the stamp so `is_confirmed` can; nothing else of the person does."""
+    """The stored address rides along so `folds_to` can judge it, and the stamp so the confirmation can; nothing else of the person does."""
 
     return [
         # The ghost by its id and not only by its null address or its retirement: either of those
@@ -78,14 +79,6 @@ def seats_naming(rows: Sequence[Mapping[str, Any]], identifier: str) -> list[tup
         for slot in KONTAKT_SLOTS
         if folds_to(((row.get("kontakte") or {}).get(slot) or {}).get("email"), identifier)
     ]
-
-
-def is_confirmed(einwilligung: Any) -> bool:
-    """Whether a seat's, a pupil's or a referee's record carries its own person's confirmation (`docs/backend/spec.md :: I373`)."""
-
-    # A missing record, a null one, a missing key and a null key are all unconfirmed: a seat's
-    # validator leaves the key out of `required`, and a referee's record is null until its person answers.
-    return isinstance(einwilligung, Mapping) and einwilligung.get("bestaetigt_am") is not None
 
 
 def seat_is_confirmed(row: Mapping[str, Any], slot: str) -> bool:

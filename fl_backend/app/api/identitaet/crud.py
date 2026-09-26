@@ -11,11 +11,11 @@ from app.api.identitaet.services import (
     build_seat_pipeline,
     folds_to,
     grants_a_panel,
-    is_confirmed,
     seat_is_confirmed,
     seats_naming,
 )
 from app.core.crud import aggregate_many_from_db
+from app.shared.einwilligung import is_confirmed
 from app.shared.folding import sign_in_identifier
 
 
