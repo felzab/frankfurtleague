@@ -200,36 +200,12 @@ done
 #   KEEP|<url>|<text>  <text> MUST appear; the controls below carry why
 
 CASES=(
-  # The plain case: the library's own verification path, the token in the query.
-  "LEAK|${BASE}/api/auth/magic-link/verify?callbackURL=%2F&token=${TOK}"
-
-  # Spellings the raw URI does not begin with, which $request_uri carries and $uri does not. A
-  # trailing slash on AUTH_URL produces the first of them for real.
-  "LEAK|${BASE}//api/auth/magic-link/verify?token=${TOK}"
-  "LEAK|${BASE}/api//auth/magic-link/verify?token=${TOK}"
-  "LEAK|${BASE}/%61pi/auth/magic-link/verify?token=${TOK}"
-  "LEAK|${BASE}/api/./auth/magic-link/verify?token=${TOK}"
-  "LEAK|${BASE}/api/auth/magic-link/verify%3Ftoken=${TOK}"
-
-  # Case, and the trailing slash a prefix written without one still has to cover.
-  "LEAK|${BASE}/API/AUTH/MAGIC-LINK/VERIFY?token=${TOK}"
-  "LEAK|${BASE}/Api/Auth/Magic-Link/Verify?token=${TOK}"
-  "LEAK|${BASE}/api/auth/magic-link/verify/?token=${TOK}"
-
-  # The parameter guard standing alone, on paths the verification prefix never covers -- the mailed
-  # landing among them, which is the URL this application actually sends.
-  "LEAK|${BASE}/signin/bestaetigen?token=${TOK}"
-  # The referee's own landing. The map matches the parameter wherever it sits, so this case is a pin
-  # against narrowing it to a path list rather than a fix for anything.
+  # The pages a mailed link lands on, each served by `location /`: pins against narrowing the map,
+  # which matches the parameter wherever it sits, to a path list.
   "LEAK|${BASE}/bestaetigung/schiedsrichter?token=${TOK}"
-  # The pupil's own landing, a pin for the referee case's reason.
   "LEAK|${BASE}/bestaetigung/spieler?token=${TOK}"
-  # The contact person's own landing, a pin for the referee case's reason.
   "LEAK|${BASE}/bestaetigung/kontakt?token=${TOK}"
-  # The pupil's registration landing, a pin for the referee case's reason: the invite link a whole
-  # team is handed arrives here, so it is a mailed landing like the four above it.
   "LEAK|${BASE}/registrierung?token=${TOK}"
-  "LEAK|${BASE}/api/auth/sign-in/magic-link?token=${TOK}"
   "LEAK|${BASE}/signin?token=${TOK}"
   "LEAK|${BASE}/signin?foo=1&token=${TOK}"
   "LEAK|${BASE}/signin?foo=1&EMAIL=${EM}"
@@ -253,12 +229,9 @@ CASES=(
   "LEAK|${BASE}/signin?token=a%09b${TOK}"
   "LEAK|${BASE}/signin?token=a%22b${TOK}"
   "LEAK|${BASE}/signin?token=a,b${TOK}"
-  "LEAK|${BASE}/api/auth/magic-link/verify?token=a%20b${TOK}&email=${EM}"
 
   # The referer, which Referrer-Policy: strict-origin-when-cross-origin fills with the whole URL on
   # a same-origin navigation. It needs no misspelling at all to carry a credential.
-  "LEAK-REF|http://localhost/api/auth/magic-link/verify?token=${TOK}&email=${EM}"
-  "LEAK-REF|http://localhost/api/auth/magic-link/verify%3Ftoken=${TOK}"
   "LEAK-REF|http://localhost/x%3Ftoken%3D${TOK}"
   "LEAK-REF|http://localhost/x?a=1&token=${TOK}"
   "LEAK-REF|http://localhost/x/token=${TOK}"
