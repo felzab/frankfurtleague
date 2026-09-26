@@ -6,6 +6,7 @@ from app.api.spieler.schemas import FLSpielerFilterParams, FLSpielerRolle
 from app.core.collections import Collection
 from app.core.crud import build_query, build_sort
 from app.core.exceptions import WriteRefusal
+from app.shared.einwilligung import is_confirmed
 from app.shared.schemas.custom import CustomObjectId
 
 AS_NAME = "saison_data"
@@ -49,12 +50,10 @@ def name_is_public(einwilligung: Mapping[str, Any] | None) -> bool:
     if einwilligung is None:
         return False
 
-    stamped = einwilligung.get("bestaetigt_am")
-
     # Both, never the scope alone: `app/core/constraints.py :: _EINWILLIGUNG` admits a null
-    # `bestaetigt_am`, so `kader_oeffentlich` with no stamp is a scope nobody confirmed. An empty
-    # string is another such record, and a type test alone calls it stamped.
-    return einwilligung.get("umfang") == "kader_oeffentlich" and isinstance(stamped, str) and stamped != ""
+    # `bestaetigt_am`, so `kader_oeffentlich` with no stamp is a scope nobody confirmed. The stamp is
+    # the shared predicate's to judge (`docs/backend/spec.md :: I387`), `""` included.
+    return einwilligung.get("umfang") == "kader_oeffentlich" and is_confirmed(einwilligung)
 
 
 # `name_is_public`'s three inputs as a Mongo expression. By `$type` rather than `$eq: null`, for
