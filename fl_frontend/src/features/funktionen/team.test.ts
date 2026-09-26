@@ -1,17 +1,21 @@
 import assert from "node:assert/strict";
 import { createRequire, registerHooks } from "node:module";
+import path from "node:path";
 import { describe, it } from "node:test";
+import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
+import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction, exportingModule } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { callPage, redirectTarget, renderPage } from "@/shared/testing/pageHarness.ts";
+import { callPage, clearSteps, readsOf, redirectTarget, renderPage, steps } from "@/shared/testing/pageHarness.ts";
 import { textOf } from "@/shared/testing/renderTest.ts";
 
 import type { FLSubjektSitz } from "@/core/schemas.ts";
 import type { SubjectSession } from "@/core/subject.ts";
 import type * as NextError from "next/error";
+import type { ReactNode } from "react";
 
 const { setSubject } = doubleActionRequest();
 // The shell hands a sign-out action to the bar, whose real module reaches `next/server` past the harness.
@@ -35,6 +39,16 @@ const { default: TeamStartPage } = await import("@/app/bereich/team/[team_id]/[s
 
 const TEAM_A = "6890a1b2c3d4e5f607250011";
 const TEAM_B = "6890a1b2c3d4e5f607250012";
+
+const TEAM_DIR = path.resolve(import.meta.dirname, "..", "..", "app", "bereich", "team", "[team_id]", "[saison_id]");
+
+/** Every page under the team area, read off the tree; the catch-all answers not-found for everyone. */
+const TEAM_PAGES = filesUnder(TEAM_DIR, (name) => name === "page.tsx", 1).filter(
+  (file) => !/^\[\.\.\..+\]$/.test(path.basename(path.dirname(file))),
+);
+
+/** Team A's address this season, which the person below holds nothing on. */
+const HELD_BY_NOBODY = { params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526" }), searchParams: Promise.resolve({}) };
 
 const sitz = (fields: Partial<FLSubjektSitz> = {}): FLSubjektSitz => ({
   saison_id: "2526",
@@ -139,6 +153,21 @@ describe("what a person meets at an address they hold no seat on", () => {
     // The control: at the held address the same page renders the team, so the empty answer is the check's.
     assert.ok((await renderPage(underNext(page(TEAM_A)))).includes("Goethe-Gymnasium"), "the page renders nothing even where a seat stands");
     assert.equal(await renderPage(underNext(page(TEAM_B))), "", "the page renders for an address the person holds no seat on");
+  });
+
+  /* Every team page, a page added tomorrow included: one that reads before it checks the seat puts that
+     read's data in the payload beside the forbidden panel. */
+  it("renders nothing and reads nothing from any team page at an address held by nobody there", async () => {
+    setSubject(person({ sitze: [sitz({ team_id: TEAM_B, team_name: "Lessing-Gymnasium" })] }));
+
+    for (const file of TEAM_PAGES) {
+      const { default: Page } = (await import(pathToFileURL(file).href)) as { default: (props: typeof HELD_BY_NOBODY) => ReactNode };
+      clearSteps();
+      const markup = await renderPage(underNext(h(Page, HELD_BY_NOBODY)));
+
+      assert.equal(markup, "", `${path.relative(TEAM_DIR, file)} renders at an address the person holds no seat on`);
+      assert.deepEqual(readsOf(steps), [], `${path.relative(TEAM_DIR, file)} reads before it checks the seat`);
+    }
   });
 
   /* Inside the shell, so the person meets their own navigation, and naming nothing of the address: no
