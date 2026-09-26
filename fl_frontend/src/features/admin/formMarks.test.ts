@@ -519,7 +519,7 @@ const FORMS: Record<string, FormCase> = {
     module: "features/passkeys/components/ui/PasskeyKarteView.tsx",
     marks: async () => {
       const { PasskeyKarteView } = await import("@/features/passkeys/components/ui/PasskeyKarteView.tsx");
-      const RENAME = () => Promise.resolve(true);
+      const RENAME = () => Promise.resolve();
       return marksOf(
         h(
           "ul",

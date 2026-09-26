@@ -266,7 +266,7 @@ const PANELS: Record<string, Arming[]> = {
             reason: null,
             istLetzter: false,
             onRemove: () => Promise.resolve(),
-            onRename: () => Promise.resolve(true),
+            onRename: () => Promise.resolve(),
           }),
         ),
       resting: "Löschen",

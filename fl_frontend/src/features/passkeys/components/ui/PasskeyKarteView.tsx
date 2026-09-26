@@ -17,7 +17,7 @@ import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
-import { FIELD_ERROR_CLASSES } from "@/shared/components/ui/formFieldStyles";
+import { FIELD_ERROR_CLASSES, FIELD_INPUT_CLASSES, FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
@@ -64,8 +64,11 @@ export function PasskeyKarteView({
   /** Whether this is the holder's only passkey and they may still delete it, which the reveal then says. */
   istLetzter: boolean;
   onRemove: (id: string) => Promise<void>;
-  /** Resolves to whether the name landed, so the form closes on a success alone. */
-  onRename: (id: string, name: string) => Promise<boolean>;
+  /**
+   * `gelandet` closes the form, called once the name is stored: that may be after a confirmation the
+   * rename waited for, long after the promise settled.
+   */
+  onRename: (id: string, name: string, gelandet: () => void) => Promise<void>;
 }) {
   const twoPress = useTwoPressConfirm();
   const [isRenaming, setIsRenaming] = useState(false);
@@ -87,9 +90,7 @@ export function PasskeyKarteView({
         <PasskeyNameForm
           karte={karte}
           onCancel={() => setIsRenaming(false)}
-          onSave={async (name) => {
-            if (await onRename(karte.id, name)) setIsRenaming(false);
-          }}
+          onSave={(name) => onRename(karte.id, name, () => setIsRenaming(false))}
         />
       ) : (
         <>
@@ -170,8 +171,8 @@ function PasskeyNameForm({ karte, onCancel, onSave }: { karte: PasskeyKarte; onC
         onChange={setName}
         maxLength={PASSKEY_NAME_MAX}
         isReadOnly={isPending}>
-        <Label className="fluid-xs font-bold tracking-wider text-foreground uppercase">Name</Label>
-        <Input className="w-full rounded-xl border border-control bg-surface px-4 py-3 fluid-xs text-foreground outline-none sm:fluid-sm" />
+        <Label className={FIELD_LABEL_CLASSES}>Name</Label>
+        <Input className={FIELD_INPUT_CLASSES} />
         <Description className="muted-hint">Zum Beispiel „Mein iPhone“.</Description>
         <FieldError className={FIELD_ERROR_CLASSES} />
       </TextField>

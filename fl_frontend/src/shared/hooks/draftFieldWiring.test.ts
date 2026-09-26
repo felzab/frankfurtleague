@@ -145,7 +145,7 @@ describe("a public or single-purpose form's press over a draft its schema refuse
   it("a passkey card's rename sends no name for an emptied box", async () => {
     const user = userEvent.setup();
     const { PasskeyKarteView } = await import("@/features/passkeys/components/ui/PasskeyKarteView.tsx");
-    const RENAME = mock.fn(async (_id: string, _name: string) => true);
+    const RENAME = mock.fn(async (_id: string, _name: string, _gelandet: () => void) => {});
     render(
       h(
         "ul",
