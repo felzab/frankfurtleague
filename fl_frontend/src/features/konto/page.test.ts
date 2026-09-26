@@ -32,7 +32,7 @@ const NO_PROPS = { params: Promise.resolve({}), searchParams: Promise.resolve({}
 const OHNE_FUNKTION: SubjectSession = {
   email: "pia@example.org",
   admin: false,
-  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: true },
+  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: true, gesperrt: false },
 };
 
 /** The page's one heading, which is the bar's: a view under it carries none. */
@@ -69,11 +69,19 @@ describe("the account page", () => {
 
 /** Every shell a session stands behind, as its layout mounts it at `pathname`. */
 const SHELLS = {
-  admin: (pathname: string) => underNext(h(AdminShell, { saisonMetadataDisplay: null, children: h("p", null, "Seite") }), { pathname }),
-  person: (pathname: string) => underNext(h(PersonShell, { structure: [], children: h("p", null, "Seite") }), { pathname }),
+  admin: (pathname: string) =>
+    underNext(h(AdminShell, { saisonMetadataDisplay: null, funktionSwitcher: null, children: h("p", null, "Seite") }), { pathname }),
+  person: (pathname: string) => underNext(h(PersonShell, { structure: [], orte: [], children: h("p", null, "Seite") }), { pathname }),
   team: (pathname: string) =>
     underNext(
-      h(TeamShell, { teamId: "6890a1b2c3d4e5f607250011", saisonId: "2526", structure: [], saison: null, children: h("p", null, "Seite") }),
+      h(TeamShell, {
+        teamId: "6890a1b2c3d4e5f607250011",
+        saisonId: "2526",
+        structure: [],
+        saison: null,
+        orte: [],
+        children: h("p", null, "Seite"),
+      }),
       {
         pathname,
       },
