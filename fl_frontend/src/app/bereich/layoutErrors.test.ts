@@ -15,7 +15,7 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/cor
 import { doubleActionRequest, doubleEveryAction, exportingModule } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { answerReadsWith, callPage, EMPTIEST_ANSWER, renderPage } from "@/shared/testing/pageHarness.ts";
+import { answerReadsWith, callPage, clearSteps, EMPTIEST_ANSWER, pageBody, renderPage, steps } from "@/shared/testing/pageHarness.ts";
 
 import type * as NextError from "next/error";
 import type { ComponentType, ReactElement, ReactNode } from "react";
@@ -204,6 +204,33 @@ describe("a read failing in an area's layout", () => {
           cleanup();
         }
       }
+    }
+  });
+});
+
+describe("the chrome under a person lane's guard", () => {
+  /* The builder stage reaches no sign-in store, and the guard's own `connection()` shields the chrome
+     only while it is mounted over it: the chrome's read failing as the build's does must find the
+     request already awaited. */
+  it("awaits the request before its own session read, whatever is mounted above it", async () => {
+    for (const area of AREAS.filter(({ boundary }) => boundary !== AdminAreaBoundary)) {
+      setSubject({
+        email: "pia@example.org",
+        admin: false,
+        subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false },
+      });
+      // What the guard hands on: the chrome's element, called below on its own.
+      const guarded = (await pageBody(area.layout, {})) as ReactElement<{ children: ReactElement<Record<string, unknown>> }>;
+      const chrome = guarded.props.children as ReactElement<Record<string, unknown>> & { type: (props: unknown) => Promise<unknown> };
+      area.failRead();
+      clearSteps();
+
+      await assert.rejects(chrome.type(chrome.props), OUTAGE, `${area.name}'s chrome reads no session`);
+      assert.deepEqual(
+        steps.map(({ kind }) => kind),
+        ["connection"],
+        `${area.name}'s chrome reads the session before it awaits the request`,
+      );
     }
   });
 });

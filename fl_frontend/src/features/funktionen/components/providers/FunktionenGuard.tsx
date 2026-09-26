@@ -7,8 +7,8 @@ import { requireSubjectSession } from "../../resolvers";
  * `/bereich/admin`: an administrator's render reads `getAdminSession` alone.
  */
 export async function FunktionenGuard({ children }: { children: React.ReactNode }) {
-  // The builder stage has no reachable Mongo, so a session lookup resolved at build time fails the
-  // image build.
+  // For this read alone: the builder stage reaches no sign-in store, and each chrome under this
+  // awaits its own, so no read depends on where this guard is mounted.
   await connection();
   // The lane's turn-away, held apart from the chrome as `AdminAuthGuard` is: `proxy.ts` judges
   // `/bereich/admin` alone. The chrome's read below is the same memoised call, so this costs no read.

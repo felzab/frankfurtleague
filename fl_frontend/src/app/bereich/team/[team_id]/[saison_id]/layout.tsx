@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 
 import { funktionenOf } from "@/core/funktionen";
 import { FunktionenGuard } from "@/features/funktionen/components/providers/FunktionenGuard";
@@ -32,6 +33,9 @@ export default function TeamLayout({ children, params }: { children: React.React
 }
 
 async function TeamChrome({ params, children }: { params: TeamParams; children: React.ReactNode }) {
+  // Its own, whatever is mounted above: the builder stage reaches no sign-in store, so a session read
+  // ahead of this runs at build time wherever the guard is not over it (`docs/frontend/spec.md :: I448`).
+  await connection();
   const { team_id, saison_id } = await params;
   // The guard's own read, memoised per render (`fl_frontend/src/core/subject.ts :: getSubjectSession`).
   const subject = await requireSubjectSession();
