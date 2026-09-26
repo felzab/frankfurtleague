@@ -3,9 +3,9 @@ import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 import { inspect } from "node:util";
 
-import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
+import { doubleSendMail } from "@/core/mailDouble.ts";
 
-import type { MailOutcome } from "@/shared/testing/mailDouble.ts";
+import type { MailOutcome } from "@/core/mailDouble.ts";
 import type { ZielAuftrag } from "./notifications.ts";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */

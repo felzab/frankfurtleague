@@ -6,7 +6,6 @@ import { MongoDBContainer } from "@testcontainers/mongodb";
 
 import { ADMIN_EMAIL, asDataUrl, configDouble, cookieHeader, lastMailedToken, ORIGIN, registerAuthDoubles } from "@/core/authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/shared/testing/cacheScope.ts";
-import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 
 import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
 import type { CommandStartedEvent, MongoClient } from "mongodb";
@@ -30,15 +29,13 @@ const globals = globalThis as unknown as Record<string, unknown>;
 // counted is the one `fl_frontend/src/core/db.ts` builds.
 const PRODUCTION_DB = `${import.meta.resolve("@/core/db.ts")}?production`;
 
-registerAuthDoubles({
+const { sent } = registerAuthDoubles({
   core: {
     config: configDouble({ MONGODB_URI: `${mongod.getConnectionString()}/?directConnection=true` }),
     db: `export { client } from ${JSON.stringify(PRODUCTION_DB)};`,
   },
   specifiers: { "next/headers": asDataUrl(`export const headers = async () => globalThis.${REQUEST_HEADERS};`) },
 });
-// After `registerAuthDoubles`, whose silent mailer this one stands in front of.
-const { sent } = doubleSendMail();
 
 // The server build for `auth.ts` alone, whose `cache` memoizes where the client build's passes
 // through; the library's own `react` stays the build it ships against.

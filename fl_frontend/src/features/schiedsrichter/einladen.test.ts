@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 

@@ -10,9 +10,9 @@ import { createElement as h } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleActionRequest, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
-import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { assertEachAnswered, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { toActionErrorResult } from "@/shared/utils/actionError.ts";
@@ -20,8 +20,8 @@ import { toActionErrorResult } from "@/shared/utils/actionError.ts";
 import { mapAdresseRefusal } from "./refusals.ts";
 import { FLPostSperrlistePayloadSchema } from "./schemas.ts";
 
+import type { MailOutcome } from "@/core/mailDouble.ts";
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
-import type { MailOutcome } from "@/shared/testing/mailDouble.ts";
 
 /* The ORDER between the write and the send decides whether somebody is told they are barred by a
    request that then failed, and no render shows it (`docs/frontend/spec.md` §1.9). Each double

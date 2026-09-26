@@ -118,6 +118,11 @@ const TEST_ONLY = [
       "authDoubles replaces the config, the database and the mail module for the process: a *.test.ts(x) file may import it, production code may not.",
   },
   {
+    // In core rather than `src/shared/testing`, so a core suite can import it past the layer boundary.
+    group: ["**/mailDouble.ts", "**/mailDouble"],
+    message: "mailDouble replaces the mail module for the process: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
     // Any `testing` directory, so a relative path from inside `shared`, which names no `shared`, is read too.
     group: ["**/testing/**"],
     message: "src/shared/testing is the suite's harness: a *.test.ts(x) file may import it, production code may not.",

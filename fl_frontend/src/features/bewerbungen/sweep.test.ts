@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it, mock } from "node:test";
 
+import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
-import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 
-import type { SentMail } from "@/shared/testing/mailDouble.ts";
+import type { SentMail } from "@/core/mailDouble.ts";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;

@@ -4,9 +4,9 @@ import { describe, it } from "node:test";
 
 import { SITE_URL } from "@/core/brand.ts";
 import { redactedParameterNames } from "@/core/edgeRedaction.ts";
+import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
-import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 
 import { einladungsLink } from "./einladungLink.ts";
 

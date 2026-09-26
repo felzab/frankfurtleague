@@ -3,7 +3,6 @@ import { beforeEach, describe, it } from "node:test";
 
 import { ADMIN_EMAIL, asDataUrl, cookieHeader, MEMORY_ADAPTER_URL, ORIGIN, registerAuthDoubles, seedLink } from "@/core/authDoubles.ts";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
-import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 
 const STORE = "__flPasskeyStore";
 const REQUEST_HEADERS = "__flPasskeyRequestHeaders";
@@ -25,7 +24,7 @@ export const mongodbAdapter = () => (options) => {
   return served;
 };`;
 
-registerAuthDoubles({
+const mail = registerAuthDoubles({
   core: { logging: LOGGING_DOUBLE },
   specifiers: {
     "next/headers": asDataUrl(HEADERS_DOUBLE),
@@ -33,8 +32,6 @@ registerAuthDoubles({
     "@better-auth/mongo-adapter": asDataUrl(ADAPTER_DOUBLE),
   },
 });
-// After `registerAuthDoubles`, whose silent mailer this one stands in front of.
-const mail = doubleSendMail();
 
 type SessionRow = { token: string; userId: string; expiresAt: Date; createdAt: Date; updatedAt: Date; authFactor?: string };
 

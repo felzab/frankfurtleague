@@ -22,7 +22,6 @@ const mongod = await new MongoDBContainer("mongo:8.3.11").start();
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
 const MONGO_URL = `${mongod.getConnectionString()}/?directConnection=true`;
 
-const SENT = "__flAuthDbSentMail";
 const BARRIER = "__flAuthDbBarrier";
 const LOGGED = "__flAuthDbLogged";
 const CONSUMING = "__flAuthDbConsuming";
@@ -52,7 +51,6 @@ export const client = new Proxy(real, { get(target, prop) {
   return bound(target, Reflect.get(target, prop, target));
 }});`;
 
-const MAIL_DOUBLE = `export const sendMail = async (message) => { globalThis.${SENT}.push(message); return { id: null }; };`;
 const LOGGING_DOUBLE = `export const logger = {
   debug: () => {},
   info: () => {},
@@ -60,8 +58,8 @@ const LOGGING_DOUBLE = `export const logger = {
   error: () => {},
 };`;
 
-registerAuthDoubles({
-  core: { config: configDouble({ MONGODB_URI: MONGO_URL }), db: DB_DOUBLE, mail: MAIL_DOUBLE, logging: LOGGING_DOUBLE },
+const { sent } = registerAuthDoubles({
+  core: { config: configDouble({ MONGODB_URI: MONGO_URL }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
 });
 
 /**
@@ -97,11 +95,9 @@ class Gate {
   }
 }
 
-const sent: { to: string; subject: string; text: string }[] = [];
 const warnings: string[] = [];
 const barrier = new Barrier();
 const globals = globalThis as unknown as Record<string, unknown>;
-globals[SENT] = sent;
 globals[LOGGED] = warnings;
 globals[BARRIER] = barrier;
 
@@ -135,7 +131,6 @@ after(async () => {
 
 beforeEach(async () => {
   barrier.disarm();
-  sent.length = 0;
   warnings.length = 0;
   consuming = async () => undefined;
   await authDb().dropDatabase();

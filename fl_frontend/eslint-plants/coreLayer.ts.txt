@@ -14,6 +14,8 @@ import { AppRouterContext } from "next/dist/shared/lib/app-router-context.shared
 import { captureStdout as captureTyped } from "./stdoutCapture.ts"; // expect: test-only
 import { installAuthDoubles } from "./authDoubles"; // expect: test-only
 import { installAuthDoubles as installTyped } from "./authDoubles.ts"; // expect: test-only
+import { doubleSendMail } from "./mailDouble"; // expect: test-only
+import { doubleSendMail as doubleSendMailTyped } from "./mailDouble.ts"; // expect: test-only
 import { readScheme } from "./schemeReader"; // expect: test-only
 import { readScheme as readTyped } from "./schemeReader.ts"; // expect: test-only
 import { redact } from "./edgeRedaction"; // expect: test-only
@@ -43,7 +45,7 @@ import { SITE_URL } from "./brand"; // expect: site-origin
 import { SITE_URL as SITE_URL_TYPED } from "./brand.ts"; // expect: site-origin
 
 export const USED = [TEAM_FACETS, FIELD_LABEL_CLASSES, captureStdout, HeroForm, DatePicker, Button, AppRouterContext, HintPanel];
-export const SPELLINGS = [captureTyped, installAuthDoubles, installTyped, readScheme, readTyped, redact, redactTyped, TEAMS_RELATIVE, LABEL_RELATIVE, TEAMS_FROM_ROOT];
+export const SPELLINGS = [captureTyped, installAuthDoubles, installTyped, doubleSendMail, doubleSendMailTyped, readScheme, readTyped, redact, redactTyped, TEAMS_RELATIVE, LABEL_RELATIVE, TEAMS_FROM_ROOT];
 export const MORE_SPELLINGS = [walkFiles, walkFilesTyped, schemaModules, schemaModulesTyped, DOCUMENT_PATH, DOCUMENT_PATHTyped, publishedCeilings, publishedCeilingsTyped, blankComments, blankCommentsTyped, openingTagAt, openingTagAtTyped, withoutPythonComments, withoutPythonCommentsTyped, KEY_TIERS, KEY_TIERSTyped];
 // A package's own path crosses no layer, however its directories are named.
 export const NEXT_SHARED_LOADED = import("next/dist/shared/lib/utils.js");

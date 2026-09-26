@@ -17,7 +17,6 @@ import {
   registerAuthDoubles,
 } from "@/core/authDoubles.ts";
 import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
-import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 
 // A replica set, which the module starts by default: the property under test is a transaction's.
 const mongod = await new MongoDBContainer("mongo:8.3.11").start();
@@ -81,12 +80,10 @@ const LOGGING_DOUBLE = `export const logger = {
   error: () => {},
 };`;
 
-registerAuthDoubles({
+const { sent } = registerAuthDoubles({
   core: { config: configDouble({ MONGODB_URI: MONGO_URL }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
   specifiers: { "next/headers": asDataUrl(HEADERS_DOUBLE), "next/cache": asDataUrl(NEXT_CACHE_DOUBLE) },
 });
-// After `registerAuthDoubles`, whose silent mailer this one stands in front of.
-const { sent } = doubleSendMail();
 
 /**
  * Holds the first removal whose transaction reads the passkey rows, where its snapshot is taken, until

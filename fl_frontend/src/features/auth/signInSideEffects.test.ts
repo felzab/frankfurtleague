@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { ADMIN_EMAIL, asDataUrl, memoryAdapterDouble, ORIGIN, registerAuthDoubles } from "@/core/authDoubles.ts";
-import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 
 import type { FormState } from "@/shared/types/types.ts";
 
@@ -29,7 +28,9 @@ export const cookies = async () => globalThis.${COOKIE_JAR};`;
 const NEXT_SERVER_DOUBLE = `export * from ${JSON.stringify(import.meta.resolve("next/server"))};
 export const after = (task) => { globalThis.${DEFERRED}.push(task); };`;
 
-registerAuthDoubles({
+// Recorded rather than sent: the send is what parts the two branches, so a file that cannot see it
+// would compare two refusals and pass.
+const { sent } = registerAuthDoubles({
   specifiers: {
     // Both spellings: the application imports the bare one, and `nextCookies()` reaches for the
     // extension itself -- so a double on one alone leaves the cookie writer on the real module.
@@ -41,10 +42,6 @@ registerAuthDoubles({
   },
 });
 
-// Recorded rather than sent: the send is what parts the two branches, so a file that cannot see it
-// would compare two refusals and pass. After `registerAuthDoubles`, whose silent mailer this one
-// stands in front of.
-const { sent } = doubleSendMail();
 const deferred: (() => Promise<void>)[] = [];
 const store = {
   user: [] as { email: string }[],

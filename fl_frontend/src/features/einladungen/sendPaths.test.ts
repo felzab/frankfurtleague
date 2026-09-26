@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
-import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 
-import type { MailOutcome, SentMail } from "@/shared/testing/mailDouble.ts";
+import type { MailOutcome, SentMail } from "@/core/mailDouble.ts";
 
 /* The real client reaches a backend no test process runs and the real mailer a provider, so those two
    are replaced; the fan-out is the real one, and what the actions hand it is read off the messages it sends. */

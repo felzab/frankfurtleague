@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { doubleSendMail } from "./mailDouble.ts";
 import { filesUnder } from "./treeWalk.ts";
 
 const APP_DIR = path.resolve(import.meta.dirname, "..", "app");
@@ -29,9 +30,6 @@ const unreached = (name: string) => `() => { throw new Error("${name} is past th
 
 const MODULE_DOUBLES: Record<string, string> = {
   "/src/core/api.ts": `export const apiClient = ${unreached("the backend")};`,
-  "/src/core/mail.ts": `export const sendMail = ${unreached("the mail provider")};
-export class MailWithheldError extends Error {}
-export class MailRecipientError extends Error {}`,
   "/src/core/logging.ts": "const inert = () => undefined; export const logger = { debug: inert, info: inert, warn: inert, error: inert };",
   "/src/core/config.ts": `export const frontend_config = { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" };`,
   // Signed in, so the undo spine's session check lets a request through to the body it reads.
@@ -40,6 +38,7 @@ export const SIGN_IN_LANDING = "/signin/weiter";
 export const getAdminSession = async () => ({ user: { email: "vorstand@example.org" } });
 export const getSignInDestination = async () => "/admin";`,
 };
+const mail = doubleSendMail();
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -147,6 +146,7 @@ describe("the cross-site guard every session-less route stands behind", () => {
     }
 
     assert.deepEqual(through.sort(), [...UNGUARDED_BY_DECISION].sort());
+    assert.deepEqual(mail.sent, [], "a cross-site request reached the mailer");
   });
 
   /* `null` passes deliberately: a browser too old to send the header is still a reader of this page. */

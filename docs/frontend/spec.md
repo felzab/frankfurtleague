@@ -852,7 +852,7 @@ called for what it returns**, in the request Next would serve it in, doubled by
 `fl_frontend/src/shared/testing/actionDoubles.ts :: doubleActionRequest`, with its slice's real
 `mutations.ts` sending through the client
 `fl_frontend/src/shared/testing/apiClientDouble.ts :: doubleApiAnswers` doubles and its messages
-through the mailer `fl_frontend/src/shared/testing/mailDouble.ts :: doubleSendMail` doubles: each
+through the mailer `fl_frontend/src/core/mailDouble.ts :: doubleSendMail` doubles: each
 records a sent write as the real one does, and the admin spine answers by that record. Which mapper
 an action consults is held by what it answers each
 published refusal with (`fl_frontend/src/shared/testing/publishedRefusals.ts :: assertEachAnswered`),

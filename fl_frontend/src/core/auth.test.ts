@@ -16,7 +16,6 @@ import {
 const STORE = "__flAuthStore";
 const ADAPTER_CALLS = "__flAuthAdapterCalls";
 const REQUEST_HEADERS = "__flAuthRequestHeaders";
-const SENT = "__flAuthSentMail";
 const LOGGED = "__flAuthLogged";
 
 /** Allowlisted by nothing: the person arm of every case below. */
@@ -26,14 +25,6 @@ const PERSON_EMAIL = "spielerin@example.org";
    a `MongoClient` at import, so loading it would reach for a server no test run holds. */
 const DB_DOUBLE = `export const client = {
   db: (name) => { globalThis.${ADAPTER_CALLS}.databases.push(name); return { name }; },
-};`;
-
-/* The link is caught on its way out rather than off the store: `storeToken: "hashed"` means the
-   stored identifier is not the token, and a `sendMagicLink` double would replace the allowlist
-   gate this file is checking with itself. */
-const MAIL_DOUBLE = `export const sendMail = async (message) => {
-  globalThis.${SENT}.push(message);
-  return { id: null };
 };`;
 
 const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};`;
@@ -55,8 +46,11 @@ export const mongodbAdapter = (db, config) => {
   return memoryAdapter(globalThis.${STORE});
 };`;
 
-registerAuthDoubles({
-  core: { db: DB_DOUBLE, mail: MAIL_DOUBLE, logging: LOGGING_DOUBLE },
+/* The link is caught on its way out rather than off the store: `storeToken: "hashed"` means the
+   stored identifier is not the token, and a `sendMagicLink` double would replace the allowlist
+   gate this file is checking with itself. */
+const { sent } = registerAuthDoubles({
+  core: { db: DB_DOUBLE, logging: LOGGING_DOUBLE },
   specifiers: { "next/headers": asDataUrl(HEADERS_DOUBLE), "@better-auth/mongo-adapter": asDataUrl(ADAPTER_DOUBLE) },
 });
 
@@ -84,19 +78,15 @@ const aPasskeyFor = (userId: string) => ({
   createdAt: new Date(),
 });
 
-type Message = { to: string; text: string; tags?: Record<string, string> };
-
 /** One call the module made on the application's own writer. */
 type LogLine = { message: string; error: unknown; meta: Record<string, unknown> };
 
 const store: Store = { user: [], session: [], account: [], verification: [], passkey: [] };
-const sent: Message[] = [];
 const logged: LogLine[] = [];
 const adapterCalls = { databases: [] as string[], pairs: [] as { db: unknown; config?: { client?: unknown } }[] };
 
 const globals = globalThis as unknown as Record<string, unknown>;
 globals[STORE] = store;
-globals[SENT] = sent;
 globals[LOGGED] = logged;
 globals[ADAPTER_CALLS] = adapterCalls;
 

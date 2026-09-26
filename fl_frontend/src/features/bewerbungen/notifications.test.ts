@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
-import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
+import { doubleSendMail } from "@/core/mailDouble.ts";
 
-import type { MailOutcome } from "@/shared/testing/mailDouble.ts";
+import type { MailOutcome } from "@/core/mailDouble.ts";
 import type { FLKontaktperson } from "../teams/schemas.ts";
 import type { BewerbungSeats } from "./notifications.ts";
 

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { registerHooks } from "node:module";
 
+import { doubleSendMail } from "./mailDouble.ts";
+
 export const ADMIN_EMAIL = "vorstand@example.org";
 
 /** What a request arriving at the served origin carries, matched to the config double's `AUTH_URL`. */
@@ -31,10 +33,6 @@ export function configDouble(overrides: Readonly<Record<string, unknown>> = {}):
    rather than fail at once. */
 const DB_DOUBLE = `export const client = { db: () => ({}) };`;
 
-// The sign-in path mails an allowlisted address on the way to a session, and a gateway no test run
-// holds would answer that send.
-const MAIL_DOUBLE = `export const sendMail = async () => ({ id: null });`;
-
 export const MEMORY_ADAPTER_URL = import.meta.resolve("better-auth/adapters/memory");
 
 /**
@@ -48,7 +46,7 @@ export const mongodbAdapter = () => memoryAdapter(globalThis.${store});`);
 const SERVER_ONLY_DOUBLE_URL = asDataUrl("export {};");
 
 type Doubles = {
-  /** Module sources by the `fl_frontend/src/core/<name>.ts` they replace, over the three defaults. */
+  /** Module sources by the `fl_frontend/src/core/<name>.ts` they replace, over the two defaults. */
   readonly core?: Readonly<Record<string, string>>;
   /** Module URLs by the bare specifier they replace. */
   readonly specifiers?: Readonly<Record<string, string>>;
@@ -59,8 +57,11 @@ type Doubles = {
  * with a dynamic import: a static one resolves before the hooks exist. Test-only, which
  * `no-restricted-imports` in `fl_frontend/eslint.config.mjs` holds it to.
  */
-export function registerAuthDoubles({ core = {}, specifiers = {} }: Doubles = {}): void {
-  const sources = Object.entries({ config: configDouble(), db: DB_DOUBLE, mail: MAIL_DOUBLE, ...core });
+export function registerAuthDoubles({ core = {}, specifiers = {} }: Doubles = {}): ReturnType<typeof doubleSendMail> {
+  // The mailer is always `doubleSendMail`'s, whose record this answers. A second one is refused rather
+  // than layered: two mailer hooks answer by registration order, and a suite would read whichever came last.
+  if ("mail" in core) throw new Error("The mailer is doubleSendMail's: read the record registerAuthDoubles answers.");
+  const sources = Object.entries({ config: configDouble(), db: DB_DOUBLE, ...core });
   const replaced = new Map(Object.entries(specifiers));
 
   registerHooks({
@@ -79,6 +80,8 @@ export function registerAuthDoubles({ core = {}, specifiers = {} }: Doubles = {}
       return nextLoad(url, context);
     },
   });
+
+  return doubleSendMail();
 }
 
 /** How long a held write or read waits for the requests racing it, in both db-tier suites. */

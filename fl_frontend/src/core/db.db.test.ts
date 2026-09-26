@@ -143,23 +143,19 @@ const relay = new Relay();
 opened.relay = relay;
 const RELAYED_URL = `mongodb://127.0.0.1:${await relay.listen()}/?directConnection=true`;
 
-const SENT = "__flDbTierSentMail";
 const LOGGED = "__flDbTierLogged";
-const sent: { to: string; subject: string; text: string }[] = [];
 const logged: Record<string, unknown>[] = [];
 const globals = globalThis as unknown as Record<string, unknown>;
-globals[SENT] = sent;
 globals[LOGGED] = logged;
 
 // The query suffix takes the real module past the load hook's match on a path's end: the client
 // under test is the one `fl_frontend/src/core/db.ts` builds, over the relay.
 const PRODUCTION_DB = `${import.meta.resolve("./db.ts")}?production`;
 
-registerAuthDoubles({
+const { sent } = registerAuthDoubles({
   core: {
     config: configDouble({ MONGODB_URI: RELAYED_URL }),
     db: `export { client } from ${JSON.stringify(PRODUCTION_DB)};`,
-    mail: `export const sendMail = async (message) => { globalThis.${SENT}.push(message); return { id: null }; };`,
     logging: `export const logger = {
   debug: () => {},
   info: () => {},
