@@ -567,8 +567,8 @@ describe("the second factor, judged at the same guard", () => {
     assert.equal(await getSignInDestination(), "/bereich/admin");
   });
 
-  /* Enrolment leaves the link-borne session standing, so holding a passkey decides which control
-     the page offers and never whether the administrator is through. */
+  /* A passkey enrolled elsewhere leaves this mailbox session as it was, so holding one decides which
+     control the page offers and never whether the administrator is through. */
   it("offers enrolment while no passkey stands and the assertion once one does", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     arriveAs(cookie);
@@ -578,7 +578,7 @@ describe("the second factor, judged at the same guard", () => {
     store.passkey.push({ userId: row.userId });
 
     assert.deepEqual(await getPasskeyStep(), { step: "assert", email: ADMIN_EMAIL });
-    assert.equal(await getAdminSession(), null, "holding a passkey let a link-borne session through");
+    assert.equal(await getAdminSession(), null, "holding a passkey let a mailbox session through");
   });
 
   /* The one address this slice puts in front of a person, and the library stores whatever spelling

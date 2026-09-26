@@ -155,7 +155,11 @@ Every ruling below is the sign-up flow as it stands for the next season.
     (`REQ-REGISTRIERUNG-007`), a referee (`REQ-SCHIEDSRICHTER-005`) and a contact person
     (`REQ-BEWERBUNG-012`), so a mistyped date costs nothing and the same link takes the right one
     while it runs;
-  - an address the ban list holds, for a registration (`REQ-REGISTRIERUNG-009`).
+  - an address the ban list holds, for a registration (`REQ-REGISTRIERUNG-009`) and for a sign-in
+    by any route, refused as its session would be created
+    (`fl_frontend/src/core/auth.ts :: refuseUnadmitted`); the notice's „eine E-Mail-Adresse, die
+    gesperrt ist“ names no route, so it covers both, and the ban's own mail tells the person the
+    sign-in is barred.
 
   What the review can change is bounded by the rule each refusal applies: a person reads the case
   and answers, a mistyped date is corrected through the same link, an administrator can lift a ban
