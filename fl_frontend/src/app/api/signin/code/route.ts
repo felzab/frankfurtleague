@@ -8,7 +8,9 @@ import { ADDRESS_ATTEMPTS_EXHAUSTED, auth } from "@/core/auth";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { frontend_config } from "@/core/config";
 import { asSignInIdentifier } from "@/core/emailAddress";
+import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING } from "@/core/passkeyRefusal";
 import { CODE_FAILURE_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "@/core/signInCode";
+import { GESPERRT, OHNE_FUNKTION, VERSUCHE_ES_ERNEUT } from "@/features/auth/passkeyAnswers";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 
 import type { NextRequest } from "next/server";
@@ -30,6 +32,10 @@ const REFUSAL_BY_CODE: Readonly<Record<string, string>> = {
   OTP_EXPIRED: "Der Code ist abgelaufen. Fordere einen neuen an.",
   TOO_MANY_ATTEMPTS: "Zu viele Versuche mit diesem Code. Fordere einen neuen an.",
   [ADDRESS_ATTEMPTS_EXHAUSTED]: `Zu viele Versuche mit dieser Adresse. Melde Dich mit einem Passkey an oder versuche es in ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden wieder.`,
+  // The mint's own refusals, met only past a right code, so only the mailbox's holder reads them; the
+  // passkey's answers word the same two.
+  [SIGN_IN_BARRED]: GESPERRT,
+  [SIGN_IN_HOLDS_NOTHING]: OHNE_FUNKTION,
 };
 
 /** 200 for every answer this application decided, which is what `postPublicForm` tells an edge's answer apart by. */
@@ -98,9 +104,10 @@ export async function POST(request: NextRequest) {
     // reader as a wrong code.
     if (!isAPIError(error)) throw error;
 
+    // Any other refusal, the mint's unreachable backend among them, is one the same press may pass,
+    // which is what the retry sentence tells the reader.
     const code: unknown = error.body?.code;
-    const sentence = typeof code === "string" ? REFUSAL_BY_CODE[code] : undefined;
-    if (sentence === undefined) throw error;
+    const sentence = (typeof code === "string" ? REFUSAL_BY_CODE[code] : undefined) ?? VERSUCHE_ES_ERNEUT;
 
     if (code === "INVALID_OTP" && (await alreadySignedIn(requestHeaders, email))) return signedIn();
 

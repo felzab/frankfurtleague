@@ -27,7 +27,8 @@ export const auth = {
       if (outcome === "broken") throw new Error("the store answered nothing");
       const refusal = new Error(outcome);
       refusal.name = "APIError";
-      refusal.body = { code: outcome, message: outcome };
+      // A status-only refusal, as \`APIError.fromStatus\` raises one, carries no code.
+      refusal.body = outcome === "SERVICE_UNAVAILABLE" ? undefined : { code: outcome, message: outcome };
       throw refusal;
     },
     getSession: async () => globalThis.${SERVED},
@@ -113,6 +114,14 @@ describe("the route a typed code is checked at", () => {
         "ADDRESS_ATTEMPTS_EXHAUSTED",
         "Zu viele Versuche mit dieser Adresse. Melde Dich mit einem Passkey an oder versuche es in 24 Stunden wieder.",
       ],
+      ["SIGN_IN_BARRED", "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Anmeldung möglich."],
+      [
+        "SIGN_IN_HOLDS_NOTHING",
+        "Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn Du das für einen Fehler hältst, schreib uns an kontakt@frankfurtleague.de.",
+      ],
+      // The mint's backend unreachable, and any refusal a release adds: the retry, never a 500.
+      ["SERVICE_UNAVAILABLE", "Versuche es noch einmal."],
+      ["SOME_NEW_REFUSAL", "Versuche es noch einmal."],
     ];
 
     for (const [code, sentence] of expected) {
@@ -156,11 +165,9 @@ describe("the route a typed code is checked at", () => {
   });
 
   /* A failure that is this application's never reads to the reader as a wrong code. */
-  it("throws a failure the library did not raise, and a refusal it does not know, rather than wording either", async () => {
-    for (const outcome of ["broken", "SOME_NEW_REFUSAL"]) {
-      globals[OUTCOME] = outcome;
-      await assert.rejects(() => handler.POST(post({ email: ADDRESS, code: CODE })), `${outcome} was worded`);
-    }
+  it("throws a failure the library did not raise rather than wording it", async () => {
+    globals[OUTCOME] = "broken";
+    await assert.rejects(() => handler.POST(post({ email: ADDRESS, code: CODE })));
   });
 
   it("answers a body it cannot read as a wrong code, and reaches the library not at all", async () => {

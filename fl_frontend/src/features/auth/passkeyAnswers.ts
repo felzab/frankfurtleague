@@ -15,10 +15,10 @@ const OHNE_BESTAETIGUNG =
  * Named plainly: only the holder of the authenticator can reach this refusal, and the ban's own mail
  * has already told them.
  */
-const GESPERRT = "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Anmeldung möglich.";
+export const GESPERRT = "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Anmeldung möglich.";
 
 /** An address that holds nothing in the league, which a retry would not change. */
-const OHNE_FUNKTION = `Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn Du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`;
+export const OHNE_FUNKTION = `Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn Du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`;
 
 /** Read off the answer rather than off its type: the client declares no `code`, and the body has one. */
 export const refusalCode = (error: unknown): string | undefined =>

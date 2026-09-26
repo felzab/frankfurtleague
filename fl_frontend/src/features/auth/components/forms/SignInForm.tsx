@@ -24,6 +24,7 @@ import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
 import { postPublicForm } from "@/shared/utils/publicSubmit";
 
 import { handleSignIn } from "../../actions";
+import { VERSUCHE_ES_ERNEUT } from "../../passkeyAnswers";
 import { SignInActionFallback } from "../ui/SignInActionFallback";
 
 import type { FormState } from "@/shared/types/types";
@@ -37,9 +38,6 @@ const CODE_ENDPOINT = "/api/signin/code";
 const RESEND_COOLDOWN_MS = 30_000;
 
 const LABEL_CLASSES = "fluid-xs font-bold tracking-wider text-foreground uppercase";
-
-/** The way out alone: the toast's title has already said the sign-in did not happen. */
-const VERSUCHE_ES_ERNEUT = "Versuche es noch einmal.";
 
 /**
  * Next's own boundary rather than a hand-written class: a class catches every throw, a framework
