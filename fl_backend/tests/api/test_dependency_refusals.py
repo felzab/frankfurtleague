@@ -23,13 +23,16 @@ from app.core.security import ACTOR_HEADER, verify_access_admin, verify_access_b
 from app.main import DEPENDENCY_REFUSALS, create_app, dependency_refusals
 from tests.config import ADMIN_KEY, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes, declared, module_of, parsed
+from tests.grants import admit
 
-APP = create_app(build_test_config())
+# Its actor check answered without a database, so a request naming a non-administrator meets its
+# refusal there rather than the missing database behind it.
+APP = admit(create_app(build_test_config()))
 
 TIER_KEYS: Mapping[Any, Mapping[str, str]] = {verify_access_base: BASE_AUTH, verify_access_admin: ADMIN_KEY, verify_access_system: SYSTEM_AUTH}
 WRONG_KEY = {"Authorization": "Bearer wrong"}
 ACTOR = {ACTOR_HEADER: "admin@example.com"}
-# Well-formed and on no allowlist `build_test_config` configures.
+# Well-formed and holding none of the grants `APP` answers from.
 NOT_AN_ADMINISTRATOR = {ACTOR_HEADER: "schueler@example.com"}
 
 # What a path parameter is filled with: an id the `objectid` convertor matches, and a word for anything else.

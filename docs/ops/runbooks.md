@@ -330,13 +330,44 @@ a perfectly good name, and a row missing its name can name a club that exists.
 
 ## 3. Granting or revoking admin access
 
-Editing `ALLOWED_ADMIN_EMAILS` in both `fl_frontend/.env` and `fl_backend/.env` and restarting both
-processes is the whole procedure; why a restart is needed and how `role` is re-derived afterwards are
-[`spec.md`](spec.md) §4. Each of these is easy to get wrong:
+Two things admit an administrator, and each is changed on its own: a grant in the `berechtigungen`
+collection, which the backend reads on every admin-tier request, and the address in
+`ALLOWED_ADMIN_EMAILS` in `fl_frontend/.env`, which the frontend reads and which takes a recreate of
+the frontend; why, and how `role` is re-derived afterwards, are [`spec.md`](spec.md) §4. Each of
+these is easy to get wrong:
 
-- **One list, in two files.** An address granted in the frontend's file alone signs in, and every
-  admin-tier request its pages make meets `REQ-AUTH-006`; one revoked there alone is turned away by the frontend while
-  the backend would still admit it, so the two files are edited together.
+- **The grant and the frontend's entry are two halves.** An address holding the entry and no grant
+  signs in, and every admin-tier request its pages make meets `REQ-AUTH-006`; one holding a grant
+  and no entry is turned away at the sign-in. Revoking the grant is what shuts the backend, from
+  the next request, whatever the frontend's file still says.
+- **A grant is written in MongoDB Playground, against the application database** (`DB_BASE_NAME`,
+  which `fl_backend/.env` names), because no page calls the grant routes and no route writes an
+  owner at all (`docs/backend/spec.md :: I436`). The address goes in FOLDED — trimmed, the letters
+  of both halves lower-case, the domain in punycode — or it admits nobody, the validator refusing no
+  spelling; the boot names such a row as `SRV-BOOT-007` and never its address:
+
+  ```js
+  use("<DB_BASE_NAME>");
+  db.berechtigungen.insertOne({
+    adresse: "<folded address>",
+    verwaltung: "administration", // or "owner"
+    erteilt_von: "PLAYGROUND",
+    erteilt_am: new Date(),
+  });
+  ```
+
+  A revoke is `db.berechtigungen.deleteOne({ adresse: "<folded address>" })`.
+
+- **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer
+  (`docs/backend/spec.md :: I435`), and the Playground refuses nothing: the boot warns with
+  `SRV-BOOT-005` where no grant is left and `SRV-BOOT-006` where no owner is, and serves the public
+  site either way.
+- **A barred address is granted nothing, and a granted one is banned by nothing**
+  (`docs/backend/spec.md :: I437`): lift the ban first, or revoke the grant first. A grant the
+  Playground writes onto a barred address is refused by nothing, and the reconciliation flags it.
+- **Every change, a Playground one included, is answered by `POST /berechtigungen/abgleich`** until
+  a stamp records it, a Playground change naming no administrator (`docs/backend/spec.md :: I439`).
+  Deleting a row of `berechtigungen_angekuendigt` by hand has that grant announced again as new.
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
 - **An entry the sign-in library will not take stops the site rather than that one administrator.**
@@ -611,7 +642,7 @@ and nothing verifies it: what surfaces is somebody recognising the person or the
 Decline the application and bar the address at `/bereich/admin/sperrliste` with the reason in your own words
 and no person named in it, the row outliving that person's erasure
 ([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up)). An
-administrator's address is refused (`REQ-SPERRLISTE-003`) until it has left both allowlists
+address holding a grant is refused (`REQ-SPERRLISTE-003`) until the grant is revoked
 ([section 3](#3-granting-or-revoking-admin-access)). **The write
 mails the person itself**, naming the reason you typed and the last season the ban covers, so there
 is nothing to send by hand; where the send fails the page says so, and there is then no address left

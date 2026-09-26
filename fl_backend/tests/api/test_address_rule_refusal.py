@@ -18,7 +18,7 @@ from app.core.exception_handlers import DATABASE_FAILED, PAYLOAD_REFUSED, UNKNOW
 from app.core.security import ACTOR_HEADER
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI
+from tests.config import ADMIN_AUTH, ADMINISTRATORS, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI
 
 # Built from code points rather than spelled: each renders like the ASCII character beside it, and a
 # reader fixing the "typo" would leave every case below comparing ASCII with ASCII.
@@ -82,7 +82,7 @@ def answered(route: str, email: str) -> Response:
 
 def requested(method: str, path: str, headers: Mapping[str, str], **sent: Any) -> Response:
     async def _answered() -> Response:
-        async with app_client(UNANSWERED_URI) as http:
+        async with app_client(UNANSWERED_URI, admitting=ADMINISTRATORS) as http:
             # The app's request deadline would hold each control against this unanswered server,
             # and nested inside this one it cannot extend it. A refused body touches no driver
             # call, so no deadline turns a 422 into the control's answer.

@@ -12,6 +12,7 @@ from app.core.config import BackendConfig, get_app_config
 from app.core.constraints import apply_constraints
 from app.core.exceptions import NO_DATABASE_CLIENT, DatabaseUnavailableException
 from app.core.logging import fl_logger
+from app.shared.folding import sign_in_identifier
 
 
 class Refusal(NamedTuple):
@@ -57,6 +58,44 @@ def _refusal_for(error: BaseException) -> Refusal:
     return UNREACHABLE
 
 
+class BootWarning(NamedTuple):
+    """`Refusal`'s pair for a line the boot goes on past.
+
+    Warnings rather than refusals: the public site needs no administrator, and a boot refused over the
+    grants would take it down to repair a state only a Playground paste repairs.
+    """
+
+    sentence: str
+    error_code: str
+
+
+NO_GRANT = BootWarning("berechtigungen holds no grant, so nobody can enter the administration.", "SRV-BOOT-005")
+NO_OWNER = BootWarning("berechtigungen holds no owner row, so no grant is out of an administrator's reach.", "SRV-BOOT-006")
+UNFOLDED_GRANT = BootWarning("berechtigungen holds {count} grant(s) whose address is not folded, which no request can match.", "SRV-BOOT-007")
+
+
+async def warn_about_the_grants(berechtigungen_collection: AsyncCollection) -> None:
+    """Name at boot a list that admits nobody, protects nobody, or holds a row no request matches.
+
+    Counts alone reach the line and never an address: the log outlives the grants it describes.
+    """
+
+    grants = await berechtigungen_collection.find({}, projection={"adresse": 1, "verwaltung": 1}).to_list(length=None)
+
+    if not grants:
+        fl_logger.warning(NO_GRANT.sentence, extra={"error_code": NO_GRANT.error_code})
+        return
+
+    if all(grant.get("verwaltung") != "owner" for grant in grants):
+        fl_logger.warning(NO_OWNER.sentence, extra={"error_code": NO_OWNER.error_code})
+
+    # The validator types the field and refuses no spelling (`docs/backend/spec.md :: I16`), so a row
+    # the Playground typed with a capital is stored, and matches no folded header.
+    unfolded = sum(1 for grant in grants if sign_in_identifier(str(grant.get("adresse", ""))) != grant.get("adresse"))
+    if unfolded:
+        fl_logger.warning(UNFOLDED_GRANT.sentence.format(count=unfolded), extra={"error_code": UNFOLDED_GRANT.error_code})
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # The settings the application was built with (`app/main.py :: create_app`), which its requests read too.
@@ -100,6 +139,8 @@ async def lifespan(app: FastAPI):
             f"{constraints.unique_indexes} unique, {constraints.support_indexes} support "
             f"and {constraints.ttl_indexes} TTL indexes."
         )
+
+        await warn_about_the_grants(app.state.db_client[config.db_base_name][Collection.BERECHTIGUNGEN])
 
         yield
 
@@ -211,3 +252,15 @@ async def get_registrierungen_collection(
     db: AsyncDatabase = Depends(get_database),
 ) -> AsyncCollection:
     return db[Collection.REGISTRIERUNGEN]
+
+
+async def get_berechtigungen_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.BERECHTIGUNGEN]
+
+
+async def get_berechtigungen_angekuendigt_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.BERECHTIGUNGEN_ANGEKUENDIGT]

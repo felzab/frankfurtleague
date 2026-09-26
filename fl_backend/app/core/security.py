@@ -8,8 +8,11 @@ from typing import Annotated, Final, TypeIs, get_args
 from fastapi import Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import SecretStr
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.core.config import BackendConfig, get_app_config
+from app.core.crud import pull_many_from_db
+from app.core.db import get_berechtigungen_collection
 from app.core.exceptions import ActorForbiddenException, MalformedRequestException, RequestAuthorizationException
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, AktorFunktion, PersonActor, actor_var, request_var
 from app.shared.folding import sign_in_identifier
@@ -105,8 +108,10 @@ def is_well_formed_actor(header_value: str | None) -> TypeIs[str]:
     return header_value is not None and len(header_value) <= ACTOR_MAX_LENGTH and WELL_FORMED_ACTOR.fullmatch(header_value) is not None
 
 
-async def verify_actor_is_admin(request: Request, config: Annotated[BackendConfig, Depends(get_app_config)]) -> None:
-    """Refuse an actor an admin-tier route names who is not on the allowlist.
+async def verify_actor_is_admin(
+    request: Request, berechtigungen_collection: Annotated[AsyncCollection, Depends(get_berechtigungen_collection)]
+) -> None:
+    """Refuse an actor an admin-tier route names who holds no grant, read per request (`docs/backend/spec.md :: I383`).
 
     An absent or malformed header passes here and meets `bind_actor`, declared after it on every
     admin-tier router, which refuses either on every method.
@@ -116,8 +121,12 @@ async def verify_actor_is_admin(request: Request, config: Annotated[BackendConfi
     if not is_well_formed_actor(header_value):
         return
 
-    # Both sides folded, or a mixed-case header locks an administrator out of the panel.
-    if sign_in_identifier(header_value) not in config.allowed_admin_emails_list:
+    # Folded, as every grant is stored, or a mixed-case header locks an administrator out of the
+    # panel. Either tier admits: `owner` holds every power `administration` does.
+    granted = await pull_many_from_db(
+        collection=berechtigungen_collection, db_filter={"adresse": sign_in_identifier(header_value)}, limit=1, projection=["_id"]
+    )
+    if not granted:
         # The address stays out of the message, which reaches the log line.
         raise ActorForbiddenException(error_code=ACTOR_NOT_ADMIN, message=f"the {ACTOR_HEADER} this request names is not an administrator")
 

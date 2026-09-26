@@ -12,7 +12,7 @@ from app.core.config import API_VERSION
 from app.core.exceptions import DUPLICATE_KEY
 from app.core.security import ACTOR_HEADER
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH
+from tests.config import ADMIN_AUTH, grants_for_the_suite
 from tests.database import a_clean_database_sync
 from tests.worker import worker_database
 
@@ -104,6 +104,7 @@ def seeded_url(mongo_replica_set_url: str) -> str:
     client = MongoClient(mongo_replica_set_url)
     try:
         database = a_clean_database_sync(client, mongo_replica_set_url, DATABASE_NAME)
+        database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
         database[Collection.SPIELORTE].insert_many(
             [
                 venue_document(STANDING_OID, STANDING_NAME),

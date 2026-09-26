@@ -203,6 +203,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str) 
         sperrliste_data=FLPostSperrlistePayload(email=email, grund="Wiederholte Falschangaben"),
         sperrliste_collection=database[Collection.SPERRLISTE],
         saisons_collection=database[Collection.SAISONS],
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         db=client,
         config=CONFIG,
         erstellt_von="admin@frankfurtleague.de",

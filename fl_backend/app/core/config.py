@@ -7,8 +7,6 @@ from pydantic import AfterValidator, Field, SecretStr, ValidationError, field_va
 from pydantic_core import PydanticCustomError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.shared.folding import league_address, sign_in_identifier
-
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 # A property of THIS CODE, never a deployment's: an environment able to set it could serve
@@ -103,15 +101,6 @@ class BackendConfig(BaseSettings):
     def api_cors_allowed_origins_list(self) -> list[str]:
         return _entries(self.api_cors_allowed_origins)
 
-    # The frontend's own name for its copy (`fl_frontend/src/core/config.ts :: ADMIN_EMAIL_ALLOWLIST`):
-    # an address granted in one process alone is an administrator the other refuses.
-    allowed_admin_emails: str = Field(description="The administrators an admin-tier request may name as its actor")
-
-    @property
-    def allowed_admin_emails_list(self) -> list[str]:
-        # Folded, as the header each is compared with is (`app/core/security.py :: verify_actor_is_admin`).
-        return [sign_in_identifier(entry) for entry in _entries(self.allowed_admin_emails)]
-
     mongodb_uri: SecretStr = Field(description="MongoDB Connection URI")
     # The characters MongoDB accepts in a database name: a value carrying a separator or a space
     # would otherwise open a namespace no other tool on this host can name.
@@ -194,16 +183,6 @@ class BackendConfig(BaseSettings):
         for entry in _entries(value):
             if ORIGIN.fullmatch(entry) is None:
                 raise ValueError("every entry must be an http:// or https:// origin carrying no path")
-        return value
-
-    @field_validator("allowed_admin_emails")
-    def validate_allowed_admin_emails(cls, value: str) -> str:
-        # The API's address rule over the folded entry, the half of the frontend's check
-        # `isDeliverableAddress` mirrors. Its other half, the sign-in library's own `z.email()`, decides
-        # whether a link can reach the address, and this process sends none.
-        for entry in _entries(value):
-            # Raises the refusal itself, the length ceiling among its rules, and quotes no address.
-            league_address(sign_in_identifier(entry))
         return value
 
     @model_validator(mode="after")

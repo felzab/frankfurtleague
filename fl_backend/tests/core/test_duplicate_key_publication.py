@@ -33,7 +33,7 @@ from app.core.exceptions import DUPLICATE_KEY
 from app.core.security import ACTOR_HEADER
 from app.main import create_app
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, build_test_config
+from tests.config import ADMIN_AUTH, build_test_config, grants_for_the_suite
 from tests.core.app_source import (
     APP_ROOT,
     BACKEND_ROOT,
@@ -429,7 +429,7 @@ def test_a_season_created_twice_answers_the_published_duplicate_key(mongo_url: s
 
     client = MongoClient(mongo_url)
     try:
-        a_clean_database_sync(client, mongo_url, DUPLICATE_SEASON_DATABASE)
+        a_clean_database_sync(client, mongo_url, DUPLICATE_SEASON_DATABASE)[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
     finally:
         client.close()
 

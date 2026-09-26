@@ -101,7 +101,7 @@ which field is [`docs/domain.md`](../domain.md#a-seasons-rules-are-the-interesti
 | `REQ-AUTH-003`  | 401    | `system` key invalid                                                                                                                                                                                                                                                                                                                                                                                                |
 | `REQ-AUTH-004`  | 401    | `admin` key invalid                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `REQ-AUTH-005`  | 400    | No usable `X-FL-Actor` header on an admin-tier request, or on any request a person's route serves                                                                                                                                                                                                                                                                                                                   |
-| `REQ-AUTH-006`  | 403    | The `X-FL-Actor` an admin-tier request names is not on `ALLOWED_ADMIN_EMAILS`                                                                                                                                                                                                                                                                                                                                       |
+| `REQ-AUTH-006`  | 403    | The `X-FL-Actor` an admin-tier request names holds no grant in `berechtigungen`                                                                                                                                                                                                                                                                                                                                     |
 | `REQ-VAL-001`   | 422    | Request payload or parameters failed validation                                                                                                                                                                                                                                                                                                                                                                     |
 | `REQ-VAL-002`   | 400    | The request body could not be read — not JSON at all, or not UTF-8 — so no field is named                                                                                                                                                                                                                                                                                                                           |
 | `REQ-ROUTE-001` | 404    | No route serves the path — a malformed path id among them, the convertor refusing it before any handler                                                                                                                                                                                                                                                                                                             |
@@ -173,16 +173,21 @@ table**, the backend's leaving the process as a Python traceback on stderr befor
 configured ([`spec.md`](spec.md#12-the-stream-contract) §1.2): what identifies it is the variable
 names `fl_backend/app/core/config.py :: get_config` prints.
 
-| Code           | Meaning                                                                                      |
-| -------------- | -------------------------------------------------------------------------------------------- |
-| `SRV-BOOT-001` | The MongoDB server could not be reached                                                      |
-| `SRV-BOOT-002` | `MONGODB_URI` yielded no server to connect to                                                |
-| `SRV-BOOT-003` | The server refused to authenticate the credentials in `MONGODB_URI`                          |
-| `SRV-BOOT-004` | The database constraints could not be applied                                                |
-| `FE-BOOT-001`  | A frontend environment variable failed validation; the line names the variables and no value |
+| Code           | Meaning                                                                                                                         |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `SRV-BOOT-001` | The MongoDB server could not be reached                                                                                         |
+| `SRV-BOOT-002` | `MONGODB_URI` yielded no server to connect to                                                                                   |
+| `SRV-BOOT-003` | The server refused to authenticate the credentials in `MONGODB_URI`                                                             |
+| `SRV-BOOT-004` | The database constraints could not be applied                                                                                   |
+| `SRV-BOOT-005` | A warning, and the boot goes on: `berechtigungen` holds no grant, so nobody can enter the administration                        |
+| `SRV-BOOT-006` | A warning, and the boot goes on: no grant is an `owner` grant, so every grant is within an administrator's reach                |
+| `SRV-BOOT-007` | A warning, and the boot goes on: a grant's address is not folded, so no request matches it; the line counts them and names none |
+| `FE-BOOT-001`  | A frontend environment variable failed validation; the line names the variables and no value                                    |
 
 The first three `SRV-BOOT-*` rows are one decision — `db.py :: _refusal_for`, which pairs each
-cause's sentence with its code — so a fourth cause added there takes a fourth row here.
+cause's sentence with its code — so a fourth cause added there takes a fourth row here. **The three
+warnings refuse nothing** (`fl_backend/app/core/db.py :: warn_about_the_grants`): the public site
+needs no administrator, and a state only a Playground paste repairs is no reason to take it down.
 
 ## 4. Forwarded codes
 

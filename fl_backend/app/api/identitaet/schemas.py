@@ -1,5 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 
+from app.api.berechtigungen.schemas import FLVerwaltung
+
 # The wire's spelling of the three seats, imported rather than restated as
 # `app/api/kontakte/schemas.py` imports it: a second closed set here would name a seat no other
 # endpoint publishes.
@@ -81,3 +83,6 @@ class FLSubjektResponse(FLSubjekt, BaseAPIResponse):
     # The endpoint's alone and not `FLSubjekt`'s: a person endpoint judging a Funktion reads the
     # records, and the ban is keyed under a secret only this operation needs (`docs/backend/spec.md :: I389`).
     gesperrt: bool
+    # The grant this mailbox holds, or null: stored, where the lists beside it are derived, so it is
+    # the endpoint's alone for `gesperrt`'s reason too -- no person endpoint authorises against it.
+    verwaltung: FLVerwaltung | None

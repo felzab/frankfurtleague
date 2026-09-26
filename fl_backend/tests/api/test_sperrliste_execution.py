@@ -17,7 +17,7 @@ from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_
 from app.api.spieler.admin_router import delete_spieler, erase_spieler
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
-from tests.config import build_test_config
+from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document
 from tests.worker import worker_database
@@ -78,6 +78,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str =
         sperrliste_data=FLPostSperrlistePayload(email=email, grund=grund),
         sperrliste_collection=database[Collection.SPERRLISTE],
         saisons_collection=database[Collection.SAISONS],
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         db=client,
         config=CONFIG,
         erstellt_von=von,
@@ -221,10 +222,15 @@ class TestASecondBanOfOneAddress:
 
 
 class TestABanOfAnAdministratorsAddress:
-    """`REQ-SPERRLISTE-003`: an address on the backend's allowlist takes no ban, whatever its spelling."""
+    """`REQ-SPERRLISTE-003`: an address holding a grant takes no ban, whatever its spelling and whichever tier it holds."""
 
     def test_it_is_refused_and_nothing_is_stored_while_another_address_is_banned(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
+            # `administration` rather than `owner`, the suite's first row, so the refusal is shown to read
+            # every grant and not an `owner` grant alone.
+            await database[Collection.BERECHTIGUNGEN].insert_many(
+                [grant for grant in grants_for_the_suite() if grant["adresse"] in (ADMIN, "admin@example.com")]
+            )
             with pytest.raises(WriteRefusalException) as raised:
                 await ban(database, client, email=ADMIN.upper())
             refused = await database[Collection.SPERRLISTE].count_documents({})

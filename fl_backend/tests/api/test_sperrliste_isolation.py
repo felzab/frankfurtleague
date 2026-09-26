@@ -112,6 +112,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, saisons: Any
             sperrliste_data=FLPostSperrlistePayload(email=BANNED, grund=GRUND),
             sperrliste_collection=database[Collection.SPERRLISTE],
             saisons_collection=saisons if saisons is not None else database[Collection.SAISONS],
+            berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
             db=client,
             config=CONFIG,
             erstellt_von=ADMIN,

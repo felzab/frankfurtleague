@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 
+from app.api.berechtigungen.crud import pull_the_list_to_judge
 from app.api.sperrliste.admin_router import _pull_the_season_a_ban_counts_from
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.crud import anchor_a_booked_referee, anchor_a_booked_venue, pull_booked_referee, pull_booked_venue
@@ -97,6 +98,15 @@ CALLERS: dict[str, frozenset[str]] = {
     "anchor_a_booked_referee": frozenset({"app/api/spiele/admin_router.py :: write_and_resolve_the_bracket"}),
     # The rollover sweeps what a ban's bound falls below, and writes the season the ban is counted from.
     "_pull_the_season_a_ban_counts_from": frozenset({"app/api/sperrliste/admin_router.py :: judge_and_ban"}),
+    # The floor of two and the two refusals between a ban and a grant are each judged over the whole
+    # list, so every transaction judging one writes every row of it.
+    "pull_the_list_to_judge": frozenset(
+        {
+            "app/api/berechtigungen/admin_router.py :: judge_and_grant",
+            "app/api/berechtigungen/admin_router.py :: judge_and_revoke",
+            "app/api/sperrliste/admin_router.py :: judge_and_ban",
+        }
+    ),
 }
 
 CHOKE_POINT_FUNCTIONS = tuple(function for function, _, _ in CHOKE_POINTS)
@@ -108,6 +118,7 @@ ANCHORS: tuple[tuple[Callable[..., Any], str], ...] = (
     (anchor_a_booked_venue, "spielorte_collection"),
     (anchor_a_booked_referee, "schiedsrichter_collection"),
     (_pull_the_season_a_ban_counts_from, "saisons_collection"),
+    (pull_the_list_to_judge, "berechtigungen_collection"),
 )
 
 ANCHORING_FUNCTIONS = tuple(function for function, _ in ANCHORS)

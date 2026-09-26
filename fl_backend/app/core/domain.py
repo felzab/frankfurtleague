@@ -279,6 +279,33 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "judged once, inside the Saison boundary, by the path that writes them."
         ),
     ),
+    Aggregate(
+        name="Berechtigung",
+        root=Collection.BERECHTIGUNGEN,
+        members=(),
+        boundary=(
+            "The whole list is the boundary, not one row: the floor of two is a rule over every grant at once, so every "
+            "transaction judging it writes every row of it, and two revokes or a grant beside a ban conflict instead of "
+            "both committing (`docs/backend/spec.md :: I53`). A row names an address rather than a person record, as a "
+            "ban does, so it is in no boundary with `spieler`, a seat or a referee, and one person holding a grant and a "
+            "seat is two unrelated facts. The ban list is held apart from it by refusal in both directions rather than by "
+            "membership: a grant is refused for a barred address and a ban for a granted one, each write reading the other "
+            "collection inside its own transaction. `owner` rows are written by no route at all. Anonymous it is not: "
+            "`adresse` and `erteilt_von` are administrators' addresses in plain, served to every administrator."
+        ),
+    ),
+    Aggregate(
+        name="Berechtigungsankuendigung",
+        root=Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
+        members=(),
+        boundary=(
+            "What every administrator has been told the grants are, one row per grant keyed on the grant's own id. Held "
+            "true against nothing: it trails `berechtigungen` on purpose, and the distance between the two is exactly "
+            "what the reconciliation mails, so a rule binding them in one transaction would announce nothing. It is written "
+            "by the reconciliation's stamp alone, after the mail went out, and a grant removed outside the application is "
+            "found only because its row here outlives it."
+        ),
+    ),
 )
 
 
@@ -2126,9 +2153,45 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation="POST /sperrliste",
         aggregate="Sperrliste",
-        summary="an administrator's address takes no ban until it has left the allowlist",
+        summary="an address holding a grant of either tier takes no ban until the grant is revoked",
         implemented_by="app.api.sperrliste.services.find_verwaltung_refusal",
         tested_by="tests/api/test_sperrliste_execution.py::TestABanOfAnAdministratorsAddress",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-001",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /berechtigungen",
+        aggregate="Berechtigung",
+        summary="an address already holding a grant of either tier takes no second one",
+        implemented_by="app.api.berechtigungen.services.find_vorhanden_refusal",
+        tested_by="tests/api/test_berechtigungen_execution.py::TestASecondGrantOfOneAddress",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-002",
+        status=HTTPStatus.CONFLICT,
+        operation="DELETE /berechtigungen/{berechtigung_id}",
+        aggregate="Berechtigung",
+        summary="an `owner` row is revoked by no route, being changed in the database directly",
+        implemented_by="app.api.berechtigungen.services.find_inhaber_refusal",
+        tested_by="tests/api/test_berechtigungen_execution.py::TestTheOwnersRow",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-003",
+        status=HTTPStatus.CONFLICT,
+        operation="POST /berechtigungen",
+        aggregate="Berechtigung",
+        summary="an address the ban list holds is granted nothing until the ban is lifted",
+        implemented_by="app.api.berechtigungen.services.find_gesperrt_refusal",
+        tested_by="tests/api/test_berechtigungen_execution.py::TestAGrantToABarredAddress",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-004",
+        status=HTTPStatus.CONFLICT,
+        operation="DELETE /berechtigungen/{berechtigung_id}",
+        aggregate="Berechtigung",
+        summary="a revoke leaves at least two grants standing, any `owner` grant counted among them",
+        implemented_by="app.api.berechtigungen.services.find_mindestzahl_refusal",
+        tested_by="tests/api/test_berechtigungen_execution.py::TestTheFloorOfTwo",
     ),
     Rule(
         code="REQ-EINLADUNG-001",

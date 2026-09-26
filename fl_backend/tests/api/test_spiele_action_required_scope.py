@@ -14,7 +14,7 @@ from app.core.config import API_VERSION
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from tests import documents
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, build_test_config
+from tests.config import ADMIN_AUTH, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database_sync
 
 from .conftest import unwritten
@@ -82,6 +82,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
     client = MongoClient(mongo_url)
     try:
         database = a_clean_database_sync(client, mongo_url, database_name)
+        database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
         database[Collection.SAISONS].insert_many(
             [
                 documents.saison_document(OTHER_SAISON, "past"),

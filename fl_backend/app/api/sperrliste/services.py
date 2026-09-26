@@ -103,10 +103,10 @@ def verwaltung_hashes(administrators: Iterable[str], *, schluessel: SecretStr) -
 
 
 def find_verwaltung_refusal(*, gehasht: str, verwaltung: set[str]) -> WriteRefusal | None:
-    """`REQ-SPERRLISTE-003`: the address belongs to an administrator, who is taken off the allowlist first.
+    """`REQ-SPERRLISTE-003`: the address holds a grant in `berechtigungen`, which is revoked first.
 
-    The target's state, so 409: the ban is refused for what the address is, and removing the
-    administration is what changes it.
+    The target's state, so 409: the ban is refused for what the address is, and revoking the grant
+    is what changes it.
     """
 
     if gehasht not in verwaltung:
@@ -115,7 +115,7 @@ def find_verwaltung_refusal(*, gehasht: str, verwaltung: set[str]) -> WriteRefus
     return WriteRefusal(
         error_code=SPERRLISTE_VERWALTUNG,
         status=HTTPStatus.CONFLICT,
-        message="this email address belongs to an administrator; remove it from ALLOWED_ADMIN_EMAILS before banning it",
+        message="this email address holds access to the administration; revoke that access before banning it",
     )
 
 

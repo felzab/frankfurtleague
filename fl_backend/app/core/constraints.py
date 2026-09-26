@@ -368,6 +368,10 @@ _BEWERBUNG_ENTSCHEIDUNG = _object(
 # admits it deletes the row.
 _REGISTRIERUNG_STATUS = ["eingereicht", "abgelehnt"]
 
+# Closed here as well as on the model: a grant is typed in by hand in the Playground, and the
+# validator is the one check that paste meets.
+_VERWALTUNG = ["owner", "administration"]
+
 # The key a public submission is replayed by, and the digest of the payload it first carried
 # (`docs/backend/spec.md :: I346`). Out of `required` in both collections: every row stored
 # before the key carries none.
@@ -936,6 +940,36 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
             },
         )
     },
+    Collection.BERECHTIGUNGEN: {
+        "$jsonSchema": _object(
+            required=("_id", "adresse", "verwaltung", "erteilt_von", "erteilt_am"),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                # The folded sign-in identifier, which nothing here can check without a pattern
+                # (`docs/backend/spec.md :: I16`): a row typed unfolded matches no request, and the
+                # boot names it (`app/core/db.py :: warn_about_the_grants`).
+                "adresse": {"bsonType": "string"},
+                "verwaltung": {"bsonType": "string", "enum": _VERWALTUNG},
+                "erteilt_von": {"bsonType": "string"},
+                # A date and not the German day string the ban list stores: the Playground writes
+                # `new Date()`, which is one spelling nobody can mistype.
+                "erteilt_am": {"bsonType": "date"},
+            },
+        )
+    },
+    Collection.BERECHTIGUNGEN_ANGEKUENDIGT: {
+        "$jsonSchema": _object(
+            required=("_id", "adresse", "verwaltung", "angekuendigt_am"),
+            properties={
+                # The grant's own `_id`, so a revoke and a re-grant of one address are two changes
+                # rather than none.
+                "_id": {"bsonType": "objectId"},
+                "adresse": {"bsonType": "string"},
+                "verwaltung": {"bsonType": "string", "enum": _VERWALTUNG},
+                "angekuendigt_am": {"bsonType": "date"},
+            },
+        )
+    },
 }
 
 
@@ -1008,6 +1042,9 @@ UNIQUE_INDEXES: Sequence[UniqueIndex] = (
     # row would be refused. Checked at each write rather than at the commit, so a rollover demotes
     # before it promotes (`app/api/saisons/admin_router.py :: activate_saison`).
     UniqueIndex(Collection.SAISONS, "uniq_saison_active", ("status",), "at most one season is active", partial_filter={"status": "active"}),
+    # Also the READ path of every admin-tier request (`app/core/security.py :: verify_actor_is_admin`),
+    # and what refuses a second grant a Playground paste adds for an address already holding one.
+    UniqueIndex(Collection.BERECHTIGUNGEN, "uniq_berechtigung_adresse", ("adresse",), "one grant per address"),
 )
 
 

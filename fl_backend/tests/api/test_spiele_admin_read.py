@@ -15,7 +15,7 @@ from app.core.exceptions import DOCUMENT_NOT_FOUND
 from app.core.security import WRONG_ADMIN_KEY, WRONG_BASE_KEY
 from tests import documents
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
+from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database_sync
 
 from .conftest import unwritten
@@ -93,6 +93,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
     client = MongoClient(mongo_url)
     try:
         database = a_clean_database_sync(client, mongo_url, database_name)
+        database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
         database[Collection.SPIELE].insert_one(spiel_document())
         database[Collection.SAISON_TEAMS].insert_one(junction_row())
 

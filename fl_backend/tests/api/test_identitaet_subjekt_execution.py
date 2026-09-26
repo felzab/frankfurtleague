@@ -1,5 +1,6 @@
 import asyncio
 from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any, get_args
 
 import pytest
@@ -72,6 +73,11 @@ GESPERRT_ASKED = "GERDA.GESPERRT@schule.de"
 ABGELAUFEN = "arno.abgelaufen@schule.de"
 BAN_ACTIVE_OID = ObjectId("6890a1b2c3d4e5f607820041")
 BAN_LAPSED_OID = ObjectId("6890a1b2c3d4e5f607820042")
+
+# The grants, stored folded as every grant is, and one asked in capitals.
+VERWALTUNG_INHABER = "inhaberin@frankfurtleague.de"
+VERWALTUNG_STORED = "verena.verwaltung@schule.de"
+VERWALTUNG_ASKED = "Verena.Verwaltung@SCHULE.de"
 
 # One mailbox at an internationalised domain, stored as every payload stores it
 # (`docs/backend/spec.md :: I332`): the domain in punycode, and folded too on a pupil's row.
@@ -256,6 +262,13 @@ async def _seed(database: AsyncDatabase) -> None:
     await database[Collection.SPERRLISTE].insert_many(
         [_ban(BAN_ACTIVE_OID, GESPERRT_STORED, bis=FUTURE_SAISON), _ban(BAN_LAPSED_OID, ABGELAUFEN, bis=PAST_SAISON)]
     )
+    await database[Collection.BERECHTIGUNGEN].insert_many([_grant(VERWALTUNG_INHABER, "owner"), _grant(VERWALTUNG_STORED, "administration")])
+
+
+def _grant(adresse: str, verwaltung: str) -> dict[str, Any]:
+    """A grant as the Playground or the grant route stores one: the folded identifier and its tier."""
+
+    return {"adresse": adresse, "verwaltung": verwaltung, "erteilt_von": "PLAYGROUND", "erteilt_am": datetime(2026, 1, 1, tzinfo=UTC)}
 
 
 def _ban(ban_id: ObjectId, email: str, *, bis: str) -> dict[str, Any]:
@@ -298,6 +311,7 @@ async def call_subjekt(database: AsyncDatabase, email: str) -> FLSubjektResponse
         spieler_collection=database[Collection.SPIELER],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         sperrliste_collection=database[Collection.SPERRLISTE],
+        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         config=CONFIG,
     )
 
@@ -523,6 +537,7 @@ def test_the_mounted_route_serves_the_three_kinds_the_corpus_holds(mongo_url: st
         "schiedsrichter": [{"schiedsrichter_id": str(REFEREE_ONE_OID)}, {"schiedsrichter_id": str(REFEREE_TWO_OID)}],
         "unbestaetigt": False,
         "gesperrt": False,
+        "verwaltung": None,
     }
 
 
@@ -533,7 +548,15 @@ def test_the_mounted_route_flags_a_mailbox_whose_every_record_awaits_its_confirm
     response = served_over_http(mongo_url, UNCONFIRMED)
 
     assert response.status_code == 200
-    assert response.json() == {"acknowledged": 1, "sitze": [], "spieler": [], "schiedsrichter": [], "unbestaetigt": True, "gesperrt": False}
+    assert response.json() == {
+        "acknowledged": 1,
+        "sitze": [],
+        "spieler": [],
+        "schiedsrichter": [],
+        "unbestaetigt": True,
+        "gesperrt": False,
+        "verwaltung": None,
+    }
 
 
 @pytest.mark.db
@@ -543,7 +566,15 @@ def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(mongo_u
     response = served_over_http(mongo_url, RETIRED)
 
     assert response.status_code == 200
-    assert response.json() == {"acknowledged": 1, "sitze": [], "spieler": [], "schiedsrichter": [], "unbestaetigt": False, "gesperrt": False}
+    assert response.json() == {
+        "acknowledged": 1,
+        "sitze": [],
+        "spieler": [],
+        "schiedsrichter": [],
+        "unbestaetigt": False,
+        "gesperrt": False,
+        "verwaltung": None,
+    }
 
 
 @pytest.mark.db
@@ -563,3 +594,24 @@ class TestTheBanFlag:
         """The row still stands, as it does between the season's end and the rollover that deletes it; its bound is what lapses it."""
 
         assert answered(mongo_url, ABGELAUFEN).gesperrt is False
+
+
+@pytest.mark.db
+class TestTheGrant:
+    """`verwaltung`: the one stored answer, read off `berechtigungen` on the folded identifier."""
+
+    def test_an_administrators_grant_is_answered_whatever_case_it_is_asked_in(self, mongo_url: str):
+        """Asked in capitals; the grant stores the folded spelling, so an equality on the raw address would answer null."""
+
+        assert answered(mongo_url, VERWALTUNG_ASKED).verwaltung == "administration"
+
+    def test_the_owners_grant_is_answered_as_the_owner(self, mongo_url: str):
+        assert answered(mongo_url, VERWALTUNG_INHABER).verwaltung == "owner"
+
+    def test_a_mailbox_holding_records_and_no_grant_is_answered_null(self, mongo_url: str):
+        """The control: a lookup answering a tier for every address passes both cases above."""
+
+        answer = answered(mongo_url)
+
+        assert answer.verwaltung is None
+        assert answer.sitze

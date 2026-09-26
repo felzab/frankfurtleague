@@ -2,13 +2,21 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
 
+from app.api.berechtigungen.crud import verwaltung_of
 from app.api.identitaet.crud import find_subjekt
 from app.api.identitaet.schemas import FLSubjektPayload, FLSubjektResponse
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import address_is_gesperrt
 from app.api.sperrliste.services import adresse_hash
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.dependencies import SaisonsCollection, SaisonTeamsCollection, SchiedsrichterCollection, SperrlisteCollection, SpielerCollection
+from app.core.dependencies import (
+    BerechtigungenCollection,
+    SaisonsCollection,
+    SaisonTeamsCollection,
+    SchiedsrichterCollection,
+    SperrlisteCollection,
+    SpielerCollection,
+)
 from app.core.exception_handlers import stores_nothing
 from app.core.security import bind_system_actor, verify_access_system
 from app.shared.folding import sign_in_identifier
@@ -35,6 +43,7 @@ async def get_subjekt(
     spieler_collection: SpielerCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
     sperrliste_collection: SperrlisteCollection,
+    berechtigungen_collection: BerechtigungenCollection,
     config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> FLSubjektResponse:
     """
@@ -68,6 +77,10 @@ async def get_subjekt(
     `gesperrt` says whether the address is on the ban list, judged as a sign-up is: the address in any spelling that folds to the same
     mailbox, and a ban only while the running season is within its bound. It narrows none of the records beside it.
 
+    `verwaltung` is the grant the mailbox holds in `berechtigungen` -- `owner`, `administration`, or null for none -- matched on the
+    folded identifier alone, the one spelling a grant is stored in. It is the one stored answer here: whether a person is an
+    administrator is decided by a grant rather than derived from a league record, and it narrows none of the records beside it.
+
     Each list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.
     An address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.
     """
@@ -93,4 +106,6 @@ async def get_subjekt(
         massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection=saisons_collection),
     )
 
-    return FLSubjektResponse(**subjekt.model_dump(), gesperrt=gesperrt)
+    verwaltung = await verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=sign_in_identifier(str(subjekt_data.email)))
+
+    return FLSubjektResponse(**subjekt.model_dump(), gesperrt=gesperrt, verwaltung=verwaltung)

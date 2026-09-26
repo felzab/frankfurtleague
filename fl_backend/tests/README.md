@@ -12,6 +12,7 @@ them.
 | `conftest.py`                                              | The factory fixtures, and the session-scoped `mongod` servers, each yielded as a url                                    |
 | `config.py`                                                | The settings an application under test is built with                                                                    |
 | `app_client.py`                                            | The application under test, served in process to an HTTP client of the test's own                                       |
+| `grants.py`                                                | The actor check answered from a fixed set of grants, for an application whose database never answers                    |
 | `database.py`                                              | The database a db test opens for itself: built once, emptied per call                                                   |
 | `worker.py`                                                | The per-worker database naming, and the guard that holds every open to it                                               |
 | `tier.py`                                                  | The refusal of a test that uses a database without `@pytest.mark.db`                                                    |

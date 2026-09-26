@@ -39,7 +39,7 @@ from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.security import ACTOR_HEADER
 from app.main import STORES_NOTHING_EXTENSION, create_app
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, TEST_BASE_URL, UNANSWERED_URI, build_test_config
+from tests.config import ADMIN_AUTH, ADMINISTRATORS, TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_team_document
@@ -94,7 +94,7 @@ def _erasure_answered() -> tuple[Response, float]:
     """`POST /kontakte/erasure`, whose first database call is inside its transaction, against a server nothing answers."""
 
     async def _answered() -> tuple[Response, float]:
-        async with app_client(UNANSWERED_URI) as http:
+        async with app_client(UNANSWERED_URI, admitting=ADMINISTRATORS) as http:
             started = time.monotonic()
             response = await http.post(f"/api/v{API_VERSION}/kontakte/erasure", headers=ADMIN_HEADERS, json={"email": "anna.mueller@schule.de"})
             return response, time.monotonic() - started
@@ -289,6 +289,7 @@ def _pressed(url: str, stand_in: Callable[[AsyncCollection], Any], *, seed_links
                 )
             )
             await database[Collection.SAISON_TEAMS].insert_many([_junction_row(team_id) for team_id in TEAM_NAMES])
+            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             if seeded:
                 await database[Collection.EINLADUNGEN].insert_many(list(seeded.values()))
 

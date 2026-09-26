@@ -5,6 +5,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
+from app.api.berechtigungen.crud import pull_the_list_to_judge
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
@@ -26,7 +27,7 @@ from app.api.sperrliste.services import (
 )
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import delete_many_from_db, patch_many_in_db, post_one_to_db, pull_one_from_db, refuse
-from app.core.dependencies import DBClient, SaisonsCollection, SperrlisteCollection, get_german_date_str
+from app.core.dependencies import BerechtigungenCollection, DBClient, SaisonsCollection, SperrlisteCollection, get_german_date_str
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin
@@ -96,6 +97,7 @@ async def post_sperrliste_eintrag(
     sperrliste_data: Annotated[FLPostSperrlistePayload, Body()],
     sperrliste_collection: SperrlisteCollection,
     saisons_collection: SaisonsCollection,
+    berechtigungen_collection: BerechtigungenCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     erstellt_von: str = Depends(get_actor_email),
@@ -112,16 +114,19 @@ async def post_sperrliste_eintrag(
     """
 
     gehasht = adresse_hash(str(sperrliste_data.email), schluessel=config.sperrliste_schluessel)
-    # Before the transaction: it reads the settings alone, which no retry changes.
-    refuse(
-        find_verwaltung_refusal(
-            gehasht=gehasht,
-            verwaltung=verwaltung_hashes(config.allowed_admin_emails_list, schluessel=config.sperrliste_schluessel),
-        )
-    )
 
     async def judge_and_ban(session: AsyncClientSession) -> tuple[InsertOneResult, str]:
-        """Read the season, ask the list, then write into it. Each is handed this transaction's session, so a retry re-runs all three."""
+        """Ask the grants, read the season, ask the list, then write. Each takes this transaction's session, so a retry re-runs all four."""
+
+        # Through the grants' anchor: a grant of this address committing beside this ban writes the
+        # same rows, so one of the two retries and meets the other's refusal (`docs/backend/spec.md :: I53`).
+        grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
+        refuse(
+            find_verwaltung_refusal(
+                gehasht=gehasht,
+                verwaltung=verwaltung_hashes([str(grant["adresse"]) for grant in grants], schluessel=config.sperrliste_schluessel),
+            )
+        )
 
         massgebliche_saison_id = await _pull_the_season_a_ban_counts_from(saisons_collection=saisons_collection, session=session)
         gesperrt_bis_saison_id = compose_gesperrt_bis_saison_id(massgebliche_saison_id=massgebliche_saison_id)

@@ -1,3 +1,6 @@
+from datetime import UTC, datetime
+from typing import Any
+
 from pydantic import SecretStr
 from pydantic_settings import SettingsConfigDict
 
@@ -34,9 +37,10 @@ _KEY_ADMIN = "test-key-admin".ljust(INTERNAL_API_KEY_LENGTH, "0")
 # address hashes differently under two keys builds its own second key rather than reading this one.
 _SPERRLISTE_SCHLUESSEL = "test-sperrliste-key".ljust(SPERRLISTE_KEY_MIN_LENGTH, "0")
 
-# Every actor a suite names on an admin-tier route, or `app/core/security.py :: verify_actor_is_admin`
-# answers the request 403 before the case reaches what it is about.
-ALLOWED_ADMIN_EMAILS = "admin@example.com,admin@frankfurtleague.de,spielorte.admin@example.com,triage.quillhilde@example.com"
+# Every actor a suite names on an admin-tier route, each a grant `grants_for_the_suite` seeds, or
+# `app/core/security.py :: verify_actor_is_admin` answers the request 403 before the case reaches what
+# it is about. Folded, as a grant is stored.
+ADMINISTRATORS = ("admin@example.com", "admin@frankfurtleague.de", "spielorte.admin@example.com", "triage.quillhilde@example.com")
 
 # The header a request carries to reach each tier, built from the keys `build_test_config` configures
 # so that no suite spells one of its own: `compare_digest` answers a drifted key 401 and names no side.
@@ -76,5 +80,21 @@ def build_test_config() -> BackendConfig:
         internal_api_key_system=SecretStr(_KEY_SYSTEM),
         internal_api_key_admin=SecretStr(_KEY_ADMIN),
         sperrliste_schluessel=SecretStr(_SPERRLISTE_SCHLUESSEL),
-        allowed_admin_emails=ALLOWED_ADMIN_EMAILS,
     )
+
+
+def grants_for_the_suite() -> list[dict[str, Any]]:
+    """`ADMINISTRATORS` as the `berechtigungen` rows a suite seeds before an admin-tier request, the first as an `owner`.
+
+    Written straight to the collection, as the Playground writes a grant: no route writes an owner.
+    """
+
+    return [
+        {
+            "adresse": adresse,
+            "verwaltung": "owner" if index == 0 else "administration",
+            "erteilt_von": "PLAYGROUND",
+            "erteilt_am": datetime(2026, 1, 1, tzinfo=UTC),
+        }
+        for index, adresse in enumerate(ADMINISTRATORS)
+    ]

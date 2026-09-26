@@ -60,7 +60,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   ([`glossary.md`](glossary.md#einwilligung--kenntnisnahme--one-stored-key-over-two-vocabularies-a-persons-own-consent-and-what-a-contact-seat-was-told)).
   **No such flow exists for organisers or
   administrators:** an organiser is listed on their own word to me
-  ([section 4](#4-what-is-published-and-on-what-basis)), and an administrator is an entry on the
+  ([section 4](#4-what-is-published-and-on-what-basis)), and an administrator is a grant another
+  administrator or the database entered (`docs/glossary.md :: Berechtigung`), beside an entry on the
   allowlist `fl_frontend/src/core/allowlist.ts :: isUserAdmin` reads.
 - **The minimum age is 16 for every role, and 18 for the two seats that sign for the school.**
   A registration below 16 is refused as `REQ-REGISTRIERUNG-007`, judged against the birthdate the
@@ -322,6 +323,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   than inferred on the client
   (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktReveal.tsx :: FormKontaktReveal`).
   A person id across seasons is not introduced: contact persons are season-scoped by design.
+- **An administrator's address is stored as their grant, in plain, and so is the address of
+  whoever granted it.** `berechtigungen` holds the grant and `berechtigungen_angekuendigt` what the
+  other administrators were told of it, and every administrator is served both addresses. A revoke
+  removes the grant at once and the announced row at the next reconciliation
+  (`docs/backend/spec.md :: I439`); the log keeps each removed row's image, the address in it, for
+  its twelve months, as it keeps every administrator's write. No erasure route reaches a grant: the revoke is the route, and
+  an `owner` grant is removed in the database directly (`docs/backend/spec.md :: I436`).
 - **The administrator's own email on every log row stays, outside every redaction.** The log
   exists to say who did what; the asymmetry is deliberate and is stated at the invariant once it
   leaves here (`docs/backend/spec.md :: I42` is the redaction it sits beside, and `:: I48` what a

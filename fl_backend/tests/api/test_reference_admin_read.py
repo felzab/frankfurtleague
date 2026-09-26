@@ -13,7 +13,7 @@ from app.core.config import API_VERSION
 from app.core.exception_handlers import DATABASE_FAILED
 from app.core.security import ACTOR_HEADER, WRONG_ADMIN_KEY
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config
+from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database_sync
 from tests.worker import worker_database
 
@@ -161,6 +161,7 @@ def seeded_url(mongo_url: str) -> Iterator[str]:
     client = MongoClient(mongo_url)
     try:
         database = a_clean_database_sync(client, mongo_url, CORPUS_DATABASE)
+        database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
         database[Collection.SPIELORTE].insert_one(spielort_document())
         database[Collection.SCHIEDSRICHTER].insert_many(schiedsrichter_documents())
 
@@ -176,7 +177,7 @@ def empty_url(mongo_url: str) -> str:
 
     client = MongoClient(mongo_url)
     try:
-        a_clean_database_sync(client, mongo_url, CREATED_VENUE_DATABASE)
+        a_clean_database_sync(client, mongo_url, CREATED_VENUE_DATABASE)[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
 
         return mongo_url
     finally:

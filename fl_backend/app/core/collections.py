@@ -42,3 +42,9 @@ class Collection(StrEnum):
     #: One pupil's pending registration for a team's season. Erased by its own clocks and by the
     #: admission, which writes the person and the squad row in the transaction that deletes it.
     REGISTRIERUNGEN = "registrierungen"
+    #: Who may enter the Verwaltung: one row per folded address. The one stored role, the other
+    #: Funktionen being derived from league records (`docs/glossary.md`, `Berechtigung`).
+    BERECHTIGUNGEN = "berechtigungen"
+    #: The grants every administrator has been told of. Its own collection because a grant removed
+    #: outside the application leaves no trace in `berechtigungen` to compare against.
+    BERECHTIGUNGEN_ANGEKUENDIGT = "berechtigungen_angekuendigt"

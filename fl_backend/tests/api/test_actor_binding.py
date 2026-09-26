@@ -42,13 +42,16 @@ from app.core.security import (
 from app.main import create_app
 from tests.config import ADMIN_AUTH, ADMIN_KEY, build_test_config
 from tests.core.app_source import api_routes
+from tests.grants import admit
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
 
 # Module level, as `tests/api/test_admin_guard.py` builds it: pytest resolves parametrisation during
 # collection, before a fixture could run.
 CONFIG = build_test_config()
-APP = create_app(CONFIG)
+# Its actor check answered from `tests/config.py :: ADMINISTRATORS`, so a case clearing it meets the
+# missing database at the handler rather than at the check.
+APP = admit(create_app(CONFIG))
 
 TEAM_ID = "6890a1b2c3d4e5f607182930"
 WRITE_PATH = f"/api/v0/teams/{TEAM_ID}"
@@ -188,7 +191,7 @@ class TestTheGuardOverAServedRequest:
 class TestTheGuardExemptsNoMethod:
     @pytest.mark.parametrize("method", [*sorted(SAFE_METHODS), "POST", "PATCH", "DELETE", "PUT"])
     def test_every_method_with_no_actor_raises(self, method: str):
-        """A read among them: the actor is what the allowlist judges, so a request naming nobody has nothing to be judged by."""
+        """A read among them: the actor is what the grants judge, so a request naming nobody has nothing to be judged by."""
         with pytest.raises(MalformedRequestException) as excinfo:
             asyncio.run(through_the_binder(request_for(method, None)))
 
@@ -265,6 +268,10 @@ SYSTEM_WRITES = [
     # Reads rather than writes, and listed for the binder all the same: omitted, it is demanded the
     # administrator's `X-FL-Actor`, which the system key never sends.
     ("/api/v0/identitaet/subjekt", "POST"),
+    # The grants' reconciliation: the read's reason above for the one, and the stamp is recorded
+    # under `SYSTEM` because a change made in the database directly had no administrator.
+    ("/api/v0/berechtigungen/abgleich", "POST"),
+    ("/api/v0/berechtigungen/abgleich/angekuendigt", "POST"),
 ]
 
 # The writes a signed-in person makes on the admin key, binding one of `PERSON_ACTOR_BINDERS` in
@@ -429,14 +436,14 @@ def test_an_ordinary_address_is_still_admitted():
 # whose binder guards no write.
 READ_ROUTER_PATH = "/api/v0/spielorte"
 
-# Well-formed, and on no allowlist `build_test_config` configures.
+# Well-formed, and holding none of the grants `APP` answers from.
 NOT_AN_ADMINISTRATOR = "schueler@example.com"
 
 
-class TestTheAllowlistOverAServedRequest:
-    """An actor named on an admin-tier route must be on the administrator allowlist, whatever the method."""
+class TestTheGrantsOverAServedRequest:
+    """An actor named on an admin-tier route must hold a grant in `berechtigungen`, whatever the method."""
 
-    def test_an_allowlisted_address_binds_on_a_write(self):
+    def test_a_granted_address_binds_on_a_write(self):
         """The control, reaching the database: every refusal below would pass on a check refusing everybody."""
         response = client().delete(WRITE_PATH, headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR})
 
@@ -466,18 +473,10 @@ class TestTheAllowlistOverAServedRequest:
         assert "www-authenticate" not in response.headers
 
     @pytest.mark.parametrize("path", [WRITE_PATH, READ_ROUTER_PATH])
-    def test_an_allowlisted_address_in_another_case_is_admitted(self, path: str):
+    def test_a_granted_address_in_another_case_is_admitted(self, path: str):
         """Both sides folded, or a session spelled in capitals locks its administrator out of the panel."""
         method = "delete" if path == WRITE_PATH else "get"
         response = getattr(client(), method)(path, headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR.upper()})
-
-        assert response.status_code == 503
-        assert response.json()["error_code"] == UNREACHED_DATABASE
-
-    def test_an_entry_spelled_in_another_case_admits_its_administrator(self):
-        """The list's side of the fold, where the case above drives the header's: an entry typed in capitals grants its session."""
-        typed_in_capitals = create_app(CONFIG.model_copy(update={"allowed_admin_emails": ACTOR.upper()}))
-        response = TestClient(typed_in_capitals, raise_server_exceptions=False).delete(WRITE_PATH, headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR})
 
         assert response.status_code == 503
         assert response.json()["error_code"] == UNREACHED_DATABASE
@@ -487,7 +486,7 @@ class TestTheAllowlistOverAServedRequest:
         [pytest.param({}, id="no actor"), pytest.param({ACTOR_HEADER: "not-an-address"}, id="a malformed actor")],
     )
     def test_a_read_naming_nobody_is_refused_on_a_router_that_writes_nothing(self, headers: Mapping[str, str]):
-        """The read routers carry `bind_actor` for this alone, so an admin-tier read has no route around the allowlist."""
+        """The read routers carry `bind_actor` for this alone, so an admin-tier read has no route around the grants."""
         response = client().get(READ_ROUTER_PATH, headers={**ADMIN_KEY, **headers})
 
         assert response.status_code == 400

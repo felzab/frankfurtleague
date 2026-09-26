@@ -15,6 +15,8 @@ from pydantic.json_schema import models_json_schema
 from starlette.convertors import Convertor
 
 from app.api.aktionen.admin_router import router as aktionen_admin_router
+from app.api.berechtigungen.admin_router import router as berechtigungen_admin_router
+from app.api.berechtigungen.sweep_router import router as berechtigungen_sweep_router
 from app.api.bewerbungen.admin_router import router as bewerbungen_admin_router
 from app.api.bewerbungen.einwilligung_router import router as bewerbungen_einwilligung_router
 from app.api.bewerbungen.public_router import router as bewerbungen_public_router
@@ -106,6 +108,7 @@ WRITE_ROUTERS = (
     bewerbungen_admin_router,
     kontakte_admin_router,
     sperrliste_admin_router,
+    berechtigungen_admin_router,
 )
 # Its own group because it belongs to neither: base-tier and mixed read/write, so either tuple's
 # comment would go false about the tier or the methods.
@@ -125,6 +128,7 @@ SYSTEM_ROUTERS = (
     registrierungen_sweep_router,
     zustellung_router,
     identitaet_router,
+    berechtigungen_sweep_router,
 )
 
 # Spelled as `fl_frontend/src/core/api.ts :: FetchOptions` spells its `authType`, the value being

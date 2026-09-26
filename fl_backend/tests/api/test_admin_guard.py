@@ -108,6 +108,10 @@ SYSTEM_WRITES = [
     # travels in a body, so `MUTATIONS` covers it, and this exemption leaves its one guard the
     # system tier's.
     ("/api/v0/identitaet/subjekt", "post"),
+    # The grants' reconciliation, one call reading and one stamping: the frontend's timer holds no
+    # session, and a change made in the database directly has no administrator to attribute it to.
+    ("/api/v0/berechtigungen/abgleich", "post"),
+    ("/api/v0/berechtigungen/abgleich/angekuendigt", "post"),
 ]
 
 MUTATIONS = [
@@ -186,7 +190,7 @@ def test_every_operation_carries_exactly_one_guard(path: str, method: str):
 
 
 # The operations a signed-in person reaches on the admin key through `PERSON_ACTOR_BINDERS`, whose actor
-# is a person no allowlist holds: the one exemption from the check below, by name. Empty until the
+# is a person no grant names: the one exemption from the check below, by name. Empty until the
 # first router serving a person is mounted.
 PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset()
 
@@ -206,9 +210,9 @@ def test_every_admin_tier_operation_judges_its_actor_after_the_key(path: str, me
     """
     calls = [dependency.call for dependency in ROUTES_BY_OPERATION[(path, method)].dependant.dependencies]
 
-    assert verify_actor_is_admin in calls, f"{method.upper()} {path} judges no actor against the allowlist"
+    assert verify_actor_is_admin in calls, f"{method.upper()} {path} judges no actor against the grants"
     assert calls.index(verify_access_admin) < calls.index(verify_actor_is_admin), f"{method.upper()} {path} judges its actor before its key"
-    # The allowlist passes a request naming nobody, so without the binder that one is served.
+    # The grants check passes a request naming nobody, so without the binder that one is served.
     assert bind_actor in calls, f"{method.upper()} {path} refuses no request naming nobody"
     assert calls.index(verify_access_admin) < calls.index(bind_actor), f"{method.upper()} {path} asks for its actor before its key"
 
