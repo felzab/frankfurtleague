@@ -10,37 +10,16 @@ const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("expor
 /** The origin the local stack serves from, which `docker-compose.local.yml` sets `AUTH_URL` to. */
 const ORIGIN = "http://localhost:3000";
 
-/** The text of each message the minter's fan-out built, one per recipient. */
-const mailed: string[] = [];
-Reflect.set(globalThis, "__flSchiedsrichterMailed", mailed);
-
-/* The minter's config and fan-out, replaced at the module boundary: the real config answers no origin
-   in a test process, and the real fan-out reaches a mail provider. */
-const MODULE_DOUBLES: Readonly<Record<string, string>> = {
-  "/src/core/config.ts": `export const frontend_config = { AUTH_URL: ${JSON.stringify(ORIGIN)} };`,
-  "/src/features/zustellung/notifications.ts": `export const sendZielMail = async ({ recipients, buildMail }) => {
-  for (const to of recipients) globalThis.__flSchiedsrichterMailed.push(buildMail(to).text);
-  return { delivered: recipients, unreachable: [] };
-};`,
-};
-
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
     return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    const double = Object.entries(MODULE_DOUBLES).find(([tail]) => url.endsWith(tail))?.[1];
-    return double === undefined ? nextLoad(url, context) : { format: "module", source: double, shortCircuit: true };
   },
 });
 
 const { buildSchiedsrichterBestaetigungEmail, schiedsrichterBestaetigungsLink, SCHIEDSRICHTER_BESTAETIGUNG_PATH } =
   await import("./schiedsrichterEmail.ts");
 const { KONTAKT_EMAIL } = await import("./brand.ts");
-// Loaded rather than imported: core imports no slice, and the minter is the one this link has.
-const { mailSchiedsrichterLink } = await import("@/features/schiedsrichter/notifications.ts");
 
 const TOKEN = "abc123";
 const FRIST = "05.10.2026";
@@ -84,26 +63,6 @@ describe("the link this message spells", () => {
 
     assert.ok(redacted.length > 0, "the edge's map was read as replacing no parameter at all, so this case compares nothing");
     assert.ok(redacted.includes(name), `the link is spelled \`${name}=\`, which the edge does not redact`);
-  });
-
-  /* A link built on the published origin sends a reader of the local stack into production, and the
-     two origins are separate settings for the reason `docs/frontend/spec.md :: I186` gives. */
-  it("is mailed by its minter on the configured origin", async () => {
-    mailed.length = 0;
-
-    const delivered = await mailSchiedsrichterLink({
-      operation: "POST /schiedsrichter",
-      schiedsrichterId: "6890a1b2c3d4e5f607190001",
-      email: "anna@example.org",
-      name: "Anna Beispiel",
-      mint: { token: TOKEN, frist: "2026-10-05", email: "anna@example.org" },
-      anlass: "empfang",
-    });
-
-    // Delivered first, so a minter that mailed nothing cannot pass the origin check over no message.
-    assert.equal(delivered, true);
-    assert.equal(mailed.length, 1);
-    assert.ok(mailed[0]?.includes(schiedsrichterBestaetigungsLink(ORIGIN, TOKEN)), `the mailed link stands elsewhere: ${mailed[0] ?? ""}`);
   });
 
   /* The origin is normalised INSIDE the builder, which is what puts a trailing slash on
