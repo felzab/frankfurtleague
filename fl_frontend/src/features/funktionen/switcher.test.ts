@@ -32,6 +32,9 @@ registerHooks({
 const { default: TeamLayout } = await import("@/app/bereich/team/[team_id]/[saison_id]/layout.tsx");
 const { default: PersoenlichLayout } = await import("@/app/bereich/(persoenlich)/layout.tsx");
 const { default: AdminLayout } = await import("@/app/bereich/admin/layout.tsx");
+const { default: PersoenlichStartPage } = await import("@/app/bereich/(persoenlich)/page.tsx");
+const { funktionenOf } = await import("@/core/funktionen.ts");
+const { funktionOrteOf } = await import("./utils.ts");
 
 const TEAM_A = "6890a1b2c3d4e5f607250011";
 
@@ -97,6 +100,26 @@ describe("the switcher each signed-in shell heads its sidemenu with", () => {
     const markup = await renderPage(underNext(h(PersoenlichLayout, { children: null }), { pathname: "/bereich" }));
 
     assert.equal(triggerIn(markup), "Übersicht, Funktion wechseln");
+  });
+});
+
+describe("the places the switcher lists", () => {
+  /* The switcher is the landing's list in a menu: what the landing's cards offer, in their order and under
+     their words, is what a person reaching for the switcher expects. */
+  it("are the landing's own cards, in their order and under their words", async () => {
+    const subject = person({
+      sitze: [sitz({ rolle: "trainer" }), sitz(), sitz({ team_id: "6890a1b2c3d4e5f607250012", team_name: "Lessing-Gymnasium" })],
+      spieler: [SPIELER_ROW],
+      schiedsrichter: [SCHIEDSRICHTER_ROW],
+    });
+    setSubject(subject);
+    const landing = await renderPage(underNext(h(PersoenlichStartPage), { pathname: "/bereich" }));
+    const cards = [
+      ...landing.matchAll(/<a [^>]*href="([^"]*)"[^>]*>\s*<div[^>]*>\s*<span[^>]*>([^<]*)<\/span>\s*<span[^>]*>([^<]*)<\/span>/g),
+    ].map(([, href, titel, detail]) => ({ href: href!, titel: titel!, detail: detail! }));
+
+    assert.ok(cards.length >= 4, `the landing offers ${String(cards.length)} cards to compare against`);
+    assert.deepEqual(funktionOrteOf(funktionenOf(subject).funktionen), cards);
   });
 });
 

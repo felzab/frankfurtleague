@@ -319,7 +319,7 @@ async function readsUnder(dir: string): Promise<number> {
 describe("an admin render's subject reads", () => {
   /* The guard sits in the person's layouts only, so an administrator's request runs `getAdminSession`
      alone. A real admin page under every layout above it, which is where a guard added too high lands. */
-  it("is none", async () => {
+  it("runs no person guard", async () => {
     setSession({ user: { email: "pia@example.org" } }, "/bereich/admin");
     setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }, true));
 
