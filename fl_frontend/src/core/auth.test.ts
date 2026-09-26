@@ -1883,6 +1883,29 @@ describe("the failures one address may spend, across every code it is sent (`doc
     assert.equal(failureRows().length, 0);
   });
 
+  /* The mint refuses only a code that verified, so none of its refusals is a guess: counted, a ban or
+     a backend outage would spend the address's day. */
+  it("counts none of the mint's refusals against the address, and still counts a wrong code", async () => {
+    const address = "an-der-praegung-gescheitert@example.org";
+    const refusals: unknown[] = [];
+    try {
+      for (const backend of [{ ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true }, NOTHING_HELD, "throws"] as const) {
+        BACKENDS.set(address, backend);
+        const otp = await auth.api.createVerificationOTP({ body: { email: address, type: "sign-in" } });
+        const refused = await answerOf(address, otp);
+        refusals.push(refused.code ?? refused.status);
+      }
+      assert.deepEqual(refusals, ["SIGN_IN_BARRED", "SIGN_IN_HOLDS_NOTHING", 503], "a case below reached no refusal at the mint");
+      assert.equal(failureRows().length, 0, "a refusal at the mint was counted as a failed code");
+
+      const otp = await auth.api.createVerificationOTP({ body: { email: address, type: "sign-in" } });
+      assert.equal((await answerOf(address, wrongFor(otp))).code, "INVALID_OTP");
+      assert.equal(failureRows().length, 1);
+    } finally {
+      BACKENDS.delete(address);
+    }
+  });
+
   /* Each attempt's row goes in before it counts, so a burst cannot all read zero and all pass. The
      barrier holds every attempt at its count until the whole burst has arrived, the worst
      interleaving there is. */

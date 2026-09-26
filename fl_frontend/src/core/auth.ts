@@ -345,6 +345,39 @@ async function withinBound(context: BoundContext, prefix: string, email: string,
   return false;
 }
 
+/**
+ * `refuseUnadmitted`'s answers, which a code sign-in meets only once its code has verified: none of
+ * them is a guess, and counted as one a ban or a backend outage would spend the address's day.
+ */
+function refusedAtMint(returned: APIError): boolean {
+  const code: unknown = returned.body?.code;
+  return code === SIGN_IN_BARRED || code === SIGN_IN_HOLDS_NOTHING || returned.status === "SERVICE_UNAVAILABLE";
+}
+
+/** What a finished code sign-in leaves counted against its address: a code the plugin refused, and nothing else. */
+async function settleCodeAttempt(context: BoundContext, address: string, returned: unknown): Promise<void> {
+  const identifier = await boundIdentifier(FAILURE_ROW_PREFIX, address, context.secret);
+
+  if (!isAPIError(returned)) {
+    // `deleteMany` and never `deleteVerificationByIdentifier`, which the MongoDB adapter carries out as
+    // `deleteOne`: a sign-in after three failures would clear one of them.
+    await context.adapter.deleteMany({ model: "verification", where: [{ field: "identifier", value: identifier }] });
+    return;
+  }
+
+  if (!refusedAtMint(returned)) return;
+
+  // The newest row rather than this attempt's own, which the hook before did not keep: the rows of one
+  // identifier count alike, so which one goes moves the count by nothing.
+  const [newest] = await context.adapter.findMany<{ id: string }>({
+    model: "verification",
+    where: [{ field: "identifier", value: identifier }],
+    sortBy: { field: "createdAt", direction: "desc" },
+    limit: 1,
+  });
+  if (newest !== undefined) await context.adapter.delete({ model: "verification", where: [{ field: "id", value: newest.id }] });
+}
+
 /** The address a code sign-in names, or `null` where the body carries none the library would read. */
 function codeSignInAddress(body: unknown): string | null {
   const email: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "email") : undefined;
@@ -614,16 +647,8 @@ const authOptions = {
     // The `Set-Cookie` the endpoint wrote is untouched: `runAfterHooks` merges this hook's own
     // headers into the response's rather than replacing them, so the credential still travels.
     after: createAuthMiddleware(async (ctx) => {
-      // A code that signed in clears the address's failures; a refusal leaves its own row counted.
-      const signedIn = ctx.path === CODE_SIGN_IN_PATH && !isAPIError(ctx.context.returned) ? codeSignInAddress(ctx.body) : null;
-      if (signedIn !== null) {
-        // The adapter's `deleteMany` and never `deleteVerificationByIdentifier`, which the MongoDB
-        // adapter carries out as `deleteOne`: a sign-in after three failures would clear one of them.
-        await ctx.context.adapter.deleteMany({
-          model: "verification",
-          where: [{ field: "identifier", value: await boundIdentifier(FAILURE_ROW_PREFIX, signedIn, ctx.context.secret) }],
-        });
-      }
+      const attempted = ctx.path === CODE_SIGN_IN_PATH ? codeSignInAddress(ctx.body) : null;
+      if (attempted !== null) await settleCodeAttempt(ctx.context, attempted, ctx.context.returned);
 
       if (!CEREMONY_VERIFY_PATHS.has(ctx.path)) return undefined;
 
