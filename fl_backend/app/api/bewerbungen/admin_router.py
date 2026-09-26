@@ -308,12 +308,14 @@ async def erneut_einwilligung(
     massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection)
 
     async def refuse_a_barred_address(stored: Mapping[str, Any], seats: tuple[FLKontaktRolle, ...]) -> None:
-        """Every address the link would go to, judged as the correction judges the one it writes.
+        """Every address the seats the link answers hold, judged as the correction judges the one it writes.
 
         A correction racing past this read moves the mailbox to an address that correction asked about.
         """
 
         kontakte = stored.get("kontakte")
+        # Both seats of a pair, which no write path lets hold two addresses: the submission requires the
+        # pair's details equal and the correction moves both. Only a hand edit could part them.
         slots = [kontakte.get(held) for held in seats] if isinstance(kontakte, Mapping) else []
         adressen = {str(slot["email"]) for slot in slots if isinstance(slot, Mapping) and slot.get("email")}
         gesperrt = await gesperrte_hashes(

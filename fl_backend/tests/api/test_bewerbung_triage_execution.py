@@ -1536,13 +1536,17 @@ class MissesTheFirstWrite:
     A row that moved away from the filter and back before the re-read looks exactly like this.
     """
 
-    def __init__(self, collection: AsyncCollection) -> None:
+    def __init__(self, collection: AsyncCollection, *, meanwhile: Callable[[], Awaitable[Any]] | None = None) -> None:
         self._collection = collection
         self._missed = False
+        # What else lands between the miss and the re-read, where a case needs something to.
+        self._meanwhile = meanwhile
 
     async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
         if not self._missed:
             self._missed = True
+            if self._meanwhile is not None:
+                await self._meanwhile()
             return None
 
         return await self._collection.find_one_and_update(*args, **kwargs)
@@ -1642,6 +1646,26 @@ class TestAResendRacingAnAnswer:
         response, stored = on_a_league(mongo_replica_set_url, body)
 
         assert stored["bestaetigungen"]["ansprechperson"]["token_hash"] == hash_token(response.token)
+
+    def test_a_ban_entered_before_the_re_read_is_asked_and_refuses_the_link(self, mongo_replica_set_url: str):
+        """The re-read is judged afresh, the ban included, so a ban landing between the two asks mints nothing."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            before = await seed_an_open_ansprechperson_seat(database)
+            address = str(before["kontakte"]["ansprechperson"]["email"])
+
+            async def ban() -> None:
+                await database[Collection.SPERRLISTE].insert_one(ban_document(address))
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await resend(database, "ansprechperson", bewerbungen=MissesTheFirstWrite(database[Collection.BEWERBUNGEN], meanwhile=ban))
+
+            return refused.value.error_code, before, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == BEWERBUNG_KONTAKT_GESPERRT
+        assert after == before
 
     def test_a_person_holding_two_seats_is_answered_for_both(self, mongo_replica_set_url: str):
         """The caller records the delivery and words the mail's role text from `rollen`, so one seat named would cover half the link."""
