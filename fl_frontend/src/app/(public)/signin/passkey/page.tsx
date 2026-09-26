@@ -42,7 +42,15 @@ async function PasskeyInhalt() {
   const schritt = await getPasskeyStep();
   if (schritt === null) redirect(SIGN_IN_LANDING);
 
-  return (
+  // „Später“ goes past the landing rather than to it, which would offer the passkey again.
+  return schritt.step === "offer" ? (
+    <PasskeyForm
+      step="offer"
+      address={schritt.email}
+      next={SIGN_IN_LANDING}
+      later="/bereich"
+    />
+  ) : (
     <PasskeyForm
       step={schritt.step}
       address={schritt.email}
