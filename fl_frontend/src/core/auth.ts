@@ -470,7 +470,8 @@ const authOptions = {
             },
           };
         },
-        // After the commit, so a sign-in that failed signs nobody out (`docs/frontend/spec.md :: I399`).
+        // Right after the insert, past every refusal; after the commit only for a set-up that signs in.
+        // On the assertion and code paths a failed user read or cookie write still signs the caller out.
         after: async (session, ctx) => {
           if (ctx) await endReplacedSession(ctx, session.token);
         },
