@@ -1,0 +1,14 @@
+// Linted as src/features/zzplant/classOrder.tsx.
+declare const size: string;
+
+export const PLANT_STRING_CLASSES = "p-2 flex"; // expect: class-order
+export const PLANT_TEMPLATE_CLASSES = `p-2 flex ${size}`; // expect: class-order
+export const PLANT_MAP_CLASSES = { open: "p-2 flex" }; // expect: class-order
+export const PLANT_SORTED_CLASSES = "flex p-2";
+// Tailwind orders neither of the first two, so each keeps its place, as the Prettier plugin keeps it.
+export const PLANT_UNORDERED_CLASSES = "group skeleton p-2";
+
+// A class list the Prettier plugin sorts is its alone.
+export function ClassOrder() {
+  return <div className="p-2 flex" />;
+}

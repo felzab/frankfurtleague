@@ -82,6 +82,7 @@ const BANS = [
   ["uncached-read", /This module caches no read/],
   ["logged-error", /Hand `logger\.error` `undefined`/],
   ["unknown-class", /^Unknown class detected/],
+  ["class-order", /^Incorrect class order/],
   ["unused-disable", /^Unused eslint-disable directive/],
 ];
 

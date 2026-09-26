@@ -185,7 +185,11 @@ const SUITE_IMPORTS = [
 ];
 
 /** A module constant holding a class list, whose name is how `better-tailwindcss` finds it. */
-const CLASS_LIST_CONSTANT = "^[A-Z][A-Z0-9_]*_CLASSES$";
+const CLASS_LIST_CONSTANT = {
+  kind: SelectorKind.Variable,
+  name: "^[A-Z][A-Z0-9_]*_CLASSES$",
+  match: [{ type: MatcherType.String }, { type: MatcherType.ObjectValue }],
+};
 const UNSUFFIXED_CONSTANT = "[name=/^[A-Z][A-Z0-9_]*$/]:not([name=/_CLASSES$/])";
 const CLASS_LIST_SITES = [
   'JSXAttribute[name.name="className"] > JSXExpressionContainer',
@@ -1009,10 +1013,7 @@ const eslintConfig = defineConfig([
         detectComponentClasses: true,
         // The plugin reads a variable by its whole name and nothing else, so a class list held in a
         // module constant is reached through the suffix every such constant carries.
-        selectors: [
-          ...getDefaultSelectors(),
-          { kind: SelectorKind.Variable, name: CLASS_LIST_CONSTANT, match: [{ type: MatcherType.String }, { type: MatcherType.ObjectValue }] },
-        ],
+        selectors: [...getDefaultSelectors(), CLASS_LIST_CONSTANT],
       },
     },
     rules: {
@@ -1025,6 +1026,18 @@ const eslintConfig = defineConfig([
       // interpolations. The convention is the real fix — put the separating space in the template
       // literal, never at the end of a class string.
       "better-tailwindcss/no-concatenated-classes": "error",
+
+      "better-tailwindcss/enforce-consistent-class-order": [
+        "error",
+        {
+          // The constants alone, which the Prettier plugin never sorts: a class list both tools sorted
+          // would have two owners, and a version bump moving either order would set them fighting over it.
+          selectors: [CLASS_LIST_CONSTANT],
+          // On, a HeroUI component class sorts ahead of `group` or `peer`, where the Prettier plugin
+          // keeps both where they stand; off, the two orders agree.
+          detectComponentClasses: false,
+        },
+      ],
     },
   },
 
