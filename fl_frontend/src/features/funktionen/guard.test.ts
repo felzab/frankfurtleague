@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
+import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { callPage, redirectTarget, renderPage } from "@/shared/testing/pageHarness.ts";
@@ -64,8 +65,8 @@ async function switchHrefs(): Promise<string[]> {
 }
 
 describe("the guard over the person area", () => {
-  /* The only layer: the proxy judges `/bereich/admin` alone, so a person's pages are turned away here
-     or nowhere. Driven through the layout, so the case fails wherever the redirect goes missing. */
+  /* The shell's own turn-away, which a page's read cannot give it: the proxy judges `/bereich/admin`
+     alone. Driven through the layout, so the case fails wherever the layout's redirect goes missing. */
   it("sends a request with no person's session to sign in", async () => {
     setSubject(null);
 
@@ -170,6 +171,38 @@ describe("the referee's page", () => {
   });
 });
 
+/** A page answered with the team area's own parameters, which every other page ignores. */
+const PAGE_PARAMS = { params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526" }), searchParams: Promise.resolve({}) };
+
+/** A segment matching what no sibling route does, whose page answers not-found for everyone. */
+const CATCH_ALL = /^\[\.\.\..+\]$/;
+
+/** Every person and team page, read off the tree so a page added tomorrow answers to the case below. */
+const PERSON_PAGES = [
+  ...filesUnder(path.join(APP_DIR, "bereich", "(persoenlich)"), (name) => name === "page.tsx", 3),
+  ...filesUnder(path.join(APP_DIR, "bereich", "team"), (name) => name === "page.tsx", 1),
+].filter((file) => !CATCH_ALL.test(path.basename(path.dirname(file))));
+
+describe("every person page's subject", () => {
+  /* A layout does not rerun on a soft navigation, so a page is where a lapsed session meets its
+     redirect. Each page is called alone: the harness walks a page only if its layout returns it,
+     which Next does not wait for. */
+  it("sends a request with no person's session to sign in from the page itself", async () => {
+    setSubject(null);
+
+    for (const file of PERSON_PAGES) {
+      const { default: Page } = (await import(pathToFileURL(file).href)) as { default: (props: typeof PAGE_PARAMS) => unknown };
+      const { thrown } = await callPage(Page, PAGE_PARAMS);
+
+      assert.deepEqual(
+        thrown.flatMap((error) => redirectTarget(error) ?? []),
+        ["/signin"],
+        `${path.relative(APP_DIR, file)} answers a lapsed session with no redirect to sign in`,
+      );
+    }
+  });
+});
+
 type Layout = (props: { children: ReactNode }) => ReactNode | Promise<ReactNode>;
 
 /** Every layout from the app root down to `dir`, outermost first: the chain Next wraps a page in there. */
@@ -183,16 +216,20 @@ async function layoutsDownTo(dir: string): Promise<Layout[]> {
   return Promise.all(chain.map(async (file) => ((await import(pathToFileURL(file).href)) as { default: Layout }).default));
 }
 
-/** The page slot of a chain, which records that the walk got past every guard to it. */
+/** Around the page, recording that the walk got past every guard to it. */
 let reached = false;
-const Probe = async () => {
+const Probe = ({ children }: { children: ReactNode }) => {
   reached = true;
-  return null;
+  return children;
 };
 
+/** How often the subject is read rendering `dir`'s own page under every layout above it. */
 async function readsUnder(dir: string): Promise<number> {
   const layouts = await layoutsDownTo(dir);
-  const Chain = () => layouts.reduceRight<ReactNode>((inner, Layout) => h(Layout, { children: inner }), h(Probe));
+  const { default: Page } = (await import(pathToFileURL(path.join(dir, "page.tsx")).href)) as {
+    default: (props: typeof PAGE_PARAMS) => ReactNode | Promise<ReactNode>;
+  };
+  const Chain = () => layouts.reduceRight<ReactNode>((inner, Layout) => h(Layout, { children: inner }), h(Probe, null, h(Page, PAGE_PARAMS)));
   reached = false;
 
   await callPage(Chain, NO_PROPS);
@@ -201,16 +238,16 @@ async function readsUnder(dir: string): Promise<number> {
   return subjectReads();
 }
 
-describe("the subject read an administrator's render makes", () => {
+describe("an admin render's subject reads", () => {
   /* The guard sits in the person's layouts only, so an administrator's request runs `getAdminSession`
-     alone. Driven through every layout above the page, which is where a guard added too high lands. */
+     alone. A real admin page under every layout above it, which is where a guard added too high lands. */
   it("is none", async () => {
     setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }, true));
 
-    assert.equal(await readsUnder(path.join(APP_DIR, "bereich", "admin", "spieler")), 0);
+    assert.equal(await readsUnder(path.join(APP_DIR, "bereich", "admin", "sperrliste")), 0);
   });
 
-  /* The control: the same chain under the person area reads the subject, so the count above is a
+  /* The control: the same walk under the person area reads the subject, so the count above is a
      counter that counts. */
   it("is made under the person area", async () => {
     setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }));

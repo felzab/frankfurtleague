@@ -1,10 +1,10 @@
 import { Suspense } from "react";
 
 import { funktionenOf } from "@/core/funktionen";
-import { getSubjectSession } from "@/core/subject";
 import { FunktionenGuard } from "@/features/funktionen/components/providers/FunktionenGuard";
 import { PersonShell } from "@/features/funktionen/components/ui/PersonShell";
 import { personStructureFor } from "@/features/funktionen/constants";
+import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { personEintraegeOf } from "@/features/funktionen/utils";
 import { PageLoader } from "@/shared/components/ui/PageLoader";
 
@@ -25,10 +25,7 @@ export default function PersoenlichLayout({ children }: { children: React.ReactN
 
 async function PersonChrome({ children }: { children: React.ReactNode }) {
   // The guard's own read, memoised per render (`fl_frontend/src/core/subject.ts :: getSubjectSession`).
-  const subject = await getSubjectSession();
-  // Nothing rather than a second redirect: the guard above is the one place a missing session is
-  // turned away, and nothing of the person's is drawn without one.
-  if (subject === null) return null;
+  const subject = await requireSubjectSession();
 
   return <PersonShell structure={personStructureFor(personEintraegeOf(funktionenOf(subject).funktionen))}>{children}</PersonShell>;
 }

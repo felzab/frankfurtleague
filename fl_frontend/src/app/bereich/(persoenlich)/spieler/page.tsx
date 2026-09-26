@@ -2,15 +2,12 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
 import { funktionenOf } from "@/core/funktionen";
-import { getSubjectSession } from "@/core/subject";
+import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 
 export default async function PersoenlichSpielerPage() {
   await connection();
-  const subject = await getSubjectSession();
-  // Nothing rather than a second redirect, for the reason
-  // `fl_frontend/src/app/bereich/(persoenlich)/layout.tsx :: PersonChrome` gives.
-  if (subject === null) return null;
+  const subject = await requireSubjectSession();
 
   // To the landing rather than a 404, for the reason
   // `fl_frontend/src/app/bereich/(persoenlich)/schiedsrichter/page.tsx` gives.

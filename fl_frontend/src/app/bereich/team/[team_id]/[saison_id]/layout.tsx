@@ -1,11 +1,11 @@
 import { Suspense } from "react";
 
 import { funktionenOf } from "@/core/funktionen";
-import { getSubjectSession } from "@/core/subject";
 import { FunktionenGuard } from "@/features/funktionen/components/providers/FunktionenGuard";
 import { TeamForbiddenPanel } from "@/features/funktionen/components/ui/TeamForbiddenPanel";
 import { TeamShell } from "@/features/funktionen/components/ui/TeamShell";
 import { teamStructureFor } from "@/features/funktionen/constants";
+import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { seatsAt } from "@/features/funktionen/teamSeats";
 import { PageLoader } from "@/shared/components/ui/PageLoader";
 
@@ -29,10 +29,7 @@ export default function TeamLayout({ children, params }: { children: React.React
 async function TeamChrome({ params, children }: { params: TeamParams; children: React.ReactNode }) {
   const { team_id, saison_id } = await params;
   // The guard's own read, memoised per render (`fl_frontend/src/core/subject.ts :: getSubjectSession`).
-  const subject = await getSubjectSession();
-  // Nothing rather than a second redirect, for the reason
-  // `fl_frontend/src/app/bereich/(persoenlich)/layout.tsx :: PersonChrome` gives.
-  if (subject === null) return null;
+  const subject = await requireSubjectSession();
 
   const { funktionen } = funktionenOf(subject);
   // A seat on a `past` season is no Funktion, so its address lands here as held by nobody.
