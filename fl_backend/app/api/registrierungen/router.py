@@ -7,7 +7,7 @@ from app.api.registrierungen.services import WITHOUT_TOKEN_HASHES, build_registr
 from app.core.config import API_VERSION
 from app.core.crud import pull_many_from_db
 from app.core.dependencies import RegistrierungenCollection
-from app.core.security import verify_access_admin, verify_actor_is_admin
+from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
 
 # Admin-guarded, not base, as the application's own list is: a registration holds a pupil's name,
 # their address and, once they have confirmed, their date of birth (`READ-CONTACT-001`).
@@ -16,7 +16,7 @@ from app.core.security import verify_access_admin, verify_actor_is_admin
 # registration but the one a link they were handed opens.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/registrierungen",
-    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin)],
+    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
 FLRegistrierungenFilters = Annotated[FLRegistrierungenFilterParams, Query()]

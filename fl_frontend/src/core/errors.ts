@@ -35,6 +35,19 @@ export class RolledBackError extends Error {
 }
 
 /**
+ * An admin-tier call made with no actor recorded, refused before it is sent as the backend would refuse
+ * it on arrival (`docs/backend/spec.md :: I41`). A programming error: the call opened outside
+ * `runAdminRead` and outside an admin action's guard.
+ */
+export class UnattributedAdminCallError extends Error {
+  override name = "UnattributedAdminCallError";
+
+  constructor(endpoint: string) {
+    super(`An admin-tier call to ${endpoint} names no actor.`);
+  }
+}
+
+/**
  * A write the request's deadline refused before it was sent: nothing left, so it changed nothing, as
  * `fl_frontend/src/core/mail.ts :: MailUnsentError` says of a message. `FE-NET-001`, a call the network
  * never answered.

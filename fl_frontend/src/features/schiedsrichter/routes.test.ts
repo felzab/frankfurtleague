@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { callPage, clearSteps, OBJECT_ID, readsOf, steps } from "@/shared/testing/pageHarness.ts";
+
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent
+// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+doubleActionRequest();
 
 const { default: AdminSchiedsrichterEditPage } = await import("@/app/bereich/admin/schiedsrichter/[schiedsrichter_id]/page.tsx");
 const { default: AdminSchiedsrichterPage } = await import("@/app/bereich/admin/schiedsrichter/page.tsx");

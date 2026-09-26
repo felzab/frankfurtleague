@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 
 import { SERVER_REACT_URL } from "@/core/cacheScope.ts";
 import { APIBadStatusError } from "@/core/errors.ts";
-import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 /** The slice modules under test, whose `react` imports are the ones the server build must answer. */
@@ -13,6 +13,10 @@ const FEATURES_URL = pathToFileURL(`${import.meta.dirname}/../features/`).href;
 
 /** What the doubled client throws for every read, set by each case. */
 let failure: unknown;
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent
+// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+doubleActionRequest();
+
 doubleApiClient(() => {
   throw failure;
 });

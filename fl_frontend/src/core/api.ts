@@ -5,7 +5,14 @@ import z from "zod";
 import { dispatchRequest, sentRequestOf } from "./apiDispatch";
 import { isPathAsSpelled } from "./apiPath";
 import { frontend_config } from "./config";
-import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError, mayHaveWritten } from "./errors";
+import {
+  APIBadStatusError,
+  APIMalformedDataError,
+  APINetworkError,
+  ApiUnsentError,
+  mayHaveWritten,
+  UnattributedAdminCallError,
+} from "./errors";
 import { logger } from "./logging";
 import { boundCall, getRequestActor, getRequestSpanId, getRequestTraceId } from "./requestScope";
 import { FLRefusedPayloadBodySchema } from "./schemas";
@@ -143,6 +150,9 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   // attribute a machine read to a person. Omitted rather than sent empty, so an unattributed call
   // reads as one everywhere it is inspected.
   const actor = authType === "admin" ? getRequestActor() : undefined;
+  // Refused before it leaves: an admin-tier call opens under `runAdminRead` or an admin action's guard,
+  // which record the actor first.
+  if (authType === "admin" && !actor) throw new UnattributedAdminCallError(endpoint);
   if (actor) headers.set(ACTOR_HEADER, actor);
   else headers.delete(ACTOR_HEADER);
 

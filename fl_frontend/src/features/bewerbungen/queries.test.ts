@@ -3,7 +3,7 @@ import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import { APIBadStatusError } from "@/core/errors";
-import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 /** Stands in for `next/headers`, whose `headers()` needs a request context no test process has. */
@@ -11,6 +11,10 @@ const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADE
 
 /** What the doubled client throws, so a query's own catch arm is what a case exercises. */
 let failure: unknown;
+
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent
+// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+doubleActionRequest();
 
 const calls = doubleApiClient(() => {
   if (failure !== undefined) throw failure;

@@ -2,7 +2,7 @@ import { cache } from "react";
 import { cacheLife, cacheTag } from "next/cache";
 
 import { apiClient } from "@/core/api";
-import { runWithIncomingTrace } from "@/shared/utils/traceScope";
+import { runAdminRead } from "@/shared/utils/adminRead";
 
 import { FLSpielerListResponseSchema, FLSpielerMembershipsResponseSchema, FLSpielerNachnominierungResponseSchema } from "./schemas";
 
@@ -34,7 +34,7 @@ export async function getSpieler(filters: FLSpielerFilterParams = {}): Promise<F
 // Never `"use cache"` here, which keys on the arguments rather than the caller
 // (`docs/frontend/spec.md` §1.2).
 export const getSpielerMemberships = cache(async (): Promise<FLSpielerMembershipsResponse> =>
-  runWithIncomingTrace(() =>
+  runAdminRead(() =>
     apiClient<FLSpielerMembershipsResponse>("/spieler/memberships", FLSpielerMembershipsResponseSchema, { authType: "admin" }),
   ),
 );
@@ -42,7 +42,7 @@ export const getSpielerMemberships = cache(async (): Promise<FLSpielerMembership
 /** Whether the squad create would mark an entry into this season a Nachnominierung today. */
 // Never `"use cache"`, for `getSpielerMemberships`' reason, and because the answer turns over at midnight.
 export const getSpielerNachnominierung = cache(async (saisonId: string): Promise<FLSpielerNachnominierungResponse> =>
-  runWithIncomingTrace(() =>
+  runAdminRead(() =>
     apiClient<FLSpielerNachnominierungResponse>(`/spieler/nachnominierung/${saisonId}`, FLSpielerNachnominierungResponseSchema, {
       authType: "admin",
     }),

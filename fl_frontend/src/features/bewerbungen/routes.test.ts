@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 
 import { ADMIN_SIDEMENU_STRUCTURE } from "@/features/admin/constants.ts";
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import {
   answer,
   answerReadsWith,
@@ -54,6 +55,10 @@ const DOUBLED: [string, string][] = [
   ["/src/features/bewerbungen/components/views/BewerbungView.tsx", RENDERS_NOTHING],
   ["/src/shared/components/ui/ContentLoader.tsx", RENDERS_NOTHING],
 ];
+
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent
+// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+doubleActionRequest();
 
 registerHooks({
   load(url, context, nextLoad) {

@@ -2,6 +2,7 @@ from pydantic import SecretStr
 from pydantic_settings import SettingsConfigDict
 
 from app.core.config import INTERNAL_API_KEY_LENGTH, SPERRLISTE_KEY_MIN_LENGTH, BackendConfig
+from app.core.security import ACTOR_HEADER
 from tests.worker import worker_database
 
 # The base name of the corpus the pymongo-seeded suites share. What they seed and what the app under
@@ -41,7 +42,11 @@ ALLOWED_ADMIN_EMAILS = "admin@example.com,admin@frankfurtleague.de,spielorte.adm
 # so that no suite spells one of its own: `compare_digest` answers a drifted key 401 and names no side.
 BASE_AUTH = {"Authorization": f"Bearer {_KEY_BASE}"}
 SYSTEM_AUTH = {"Authorization": f"Bearer {_KEY_SYSTEM}"}
-ADMIN_AUTH = {"Authorization": f"Bearer {_KEY_ADMIN}"}
+# The admin key alone, for a case about a request naming no actor.
+ADMIN_KEY = {"Authorization": f"Bearer {_KEY_ADMIN}"}
+# What an administrator's request carries: the admin tier refuses one naming nobody on every method
+# (`app/core/security.py :: bind_actor`), so the key alone reaches no admin-tier handler.
+ADMIN_AUTH = {**ADMIN_KEY, ACTOR_HEADER: "admin@example.com"}
 
 
 class ConfigReadingNoDotenvFile(BackendConfig):

@@ -95,8 +95,7 @@ ACTOR_NOT_ADMIN = "REQ-AUTH-006"
 WELL_FORMED_ACTOR = re.compile(r"[^@\s\x00-\x1f]+@[^@\s\x00-\x1f]+\.[^@\s\x00-\x1f]+\Z")
 ACTOR_MAX_LENGTH = 254
 
-# The methods that record nothing. Admin routers serve reads as well as writes, so demanding an
-# actor of every method would refuse those reads to buy an attribution no row would carry.
+# The methods that record nothing (`app/core/exception_handlers.py` reads them).
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
@@ -109,8 +108,8 @@ def is_well_formed_actor(header_value: str | None) -> TypeIs[str]:
 async def verify_actor_is_admin(request: Request, config: Annotated[BackendConfig, Depends(get_app_config)]) -> None:
     """Refuse an actor an admin-tier route names who is not on the allowlist.
 
-    Its own dependency, the admin READ routers declaring no `bind_actor`. It demands no header: an
-    absent or malformed one passes, `bind_actor` refusing either on a write.
+    An absent or malformed header passes here and meets `bind_actor`, declared after it on every
+    admin-tier router, which refuses either on every method.
     """
 
     header_value = request.headers.get(ACTOR_HEADER)
@@ -124,20 +123,16 @@ async def verify_actor_is_admin(request: Request, config: Annotated[BackendConfi
 
 
 async def bind_actor(request: Request) -> AsyncIterator[None]:
-    """Attribute every write this request makes to the administrator who made it.
+    """Attribute this request's writes to their administrator, and refuse a request naming nobody.
 
-    Fail closed on a write, exempt on a read, and declared at router level so a write added later
-    cannot miss it (`docs/backend/spec.md :: I41`).
+    Every method, a read included: the allowlist judges who asks off this header. At router level, so
+    a later operation cannot miss it (`docs/backend/spec.md :: I41`).
     """
 
     header_value = request.headers.get(ACTOR_HEADER)
 
     if not is_well_formed_actor(header_value):
-        if request.method not in SAFE_METHODS:
-            raise MalformedRequestException(error_code=MISSING_ACTOR, message=f"a write carries no well-formed {ACTOR_HEADER}")
-
-        yield
-        return
+        raise MalformedRequestException(error_code=MISSING_ACTOR, message=f"an admin-tier request carries no well-formed {ACTOR_HEADER}")
 
     actor_token = actor_var.set(Actor(kind="admin_session", email=header_value))
     # The route's template, not `request.url.path`: an id baked into the stored path would make one
@@ -179,8 +174,7 @@ def person_actor_binder(funktion: AktorFunktion) -> Callable[..., AsyncIterator[
     async def bind_person(request: Request, config: Annotated[BackendConfig, Depends(get_app_config)]) -> AsyncIterator[str]:
         """Attribute this request's writes to the signed-in person it names, and yield their folded identifier.
 
-        Refuses on EVERY method: a person's route serves nothing anonymous, so `bind_actor`'s
-        `SAFE_METHODS` exemption is not wanted here.
+        Refuses on EVERY method, as `bind_actor` does: a person's route serves nothing anonymous.
         """
 
         header_value = request.headers.get(ACTOR_HEADER)

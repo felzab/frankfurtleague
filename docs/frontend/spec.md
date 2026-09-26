@@ -297,8 +297,10 @@ costs nothing but what was typed.
 **That `getAdminSession()` call is also what makes the write attributable**: it records the folded
 identifier of the session's address (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`)
 in the request scope `runAdminMutation` has just seeded, and `apiClient` sends it as `X-FL-Actor` on
-admin-tier calls alone — the ordering is load-bearing. A write reaching the backend without it comes
-back 400 with `REQ-AUTH-005` ([`docs/backend/spec.md`](../backend/spec.md) I41).
+admin-tier calls alone — the ordering is load-bearing. **A read records it too**: every admin-tier
+query runs inside `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`, and `apiClient` refuses
+to send an admin-tier call whose scope names nobody (I415). A request reaching the backend without it
+comes back 400 with `REQ-AUTH-005` ([`docs/backend/spec.md`](../backend/spec.md) I41).
 
 **Two guards resolve a session, and one request may run only one of them** (I272).
 `getAdminSession()` is the administrator's lane; `fl_frontend/src/core/subject.ts ::
@@ -2063,6 +2065,7 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | I406 | **A person whose subject the lookup marks `gesperrt` holds no session**, on every request: one the ban's ending missed or a sign-in raced is refused                                                                                               | `fl_frontend/src/core/subject.ts :: getSubjectSession`; `fl_frontend/src/core/subject.test.ts`'s barred case                                                                                                                                                                                                                                                                                                                                                                        |
 | I411 | **Adding a passkey asks five minutes, every other passkey or sign-in change two hours**: a passkey outlives the session that adds it                                                                                                               | `fl_frontend/src/core/sessionLifetimes.ts :: ENROLMENT_WINDOW_MS` and `:: STEP_UP_WINDOW_MS`; `fl_frontend/src/core/auth.test.ts :: "the window an enrolment happens inside"`                                                                                                                                                                                                                                                                                                       |
 | I412 | **„Später“ on the passkey offer reaches the person's own page**, nothing there leading back to the offer and making it required                                                                                                                    | `fl_frontend/src/features/auth/passkeyOfferLater.test.ts`, over the real `fl_frontend/src/core/auth.ts :: getSignInDestination`, passkey page and person landing                                                                                                                                                                                                                                                                                                                    |
+| I415 | **Every admin-tier call names its administrator**: a read records the actor through `runAdminRead`, and `apiClient` refuses one sent naming nobody                                                                                                 | `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`, `fl_frontend/src/core/errors.ts :: UnattributedAdminCallError`; `fl_frontend/src/shared/utils/adminReadSpine.test.ts`, `fl_frontend/src/shared/utils/adminRead.test.ts`, `fl_frontend/src/core/api.test.ts`                                                                                                                                                                                                            |
 
 ## 3. Violation → remedy
 

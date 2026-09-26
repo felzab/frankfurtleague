@@ -8,13 +8,17 @@ import { pathToFileURL } from "node:url";
 
 import { createElement as h, Suspense } from "react";
 
-import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderPage } from "@/shared/testing/pageHarness.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { PageProps } from "@/shared/testing/pageHarness.ts";
 import type { ReactElement, ReactNode } from "react";
+
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent
+// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+doubleActionRequest();
 
 doubleEveryAction();
 

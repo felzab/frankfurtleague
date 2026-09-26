@@ -8,7 +8,7 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from app.api.spieler import schemas as spieler_schemas
-from app.core.security import MISSING_TOKEN, verify_access_admin, verify_access_base, verify_access_system, verify_actor_is_admin
+from app.core.security import MISSING_TOKEN, bind_actor, verify_access_admin, verify_access_base, verify_access_system, verify_actor_is_admin
 from app.main import create_app
 from tests.config import build_test_config
 from tests.core.app_source import api_routes
@@ -208,6 +208,9 @@ def test_every_admin_tier_operation_judges_its_actor_after_the_key(path: str, me
 
     assert verify_actor_is_admin in calls, f"{method.upper()} {path} judges no actor against the allowlist"
     assert calls.index(verify_access_admin) < calls.index(verify_actor_is_admin), f"{method.upper()} {path} judges its actor before its key"
+    # The allowlist passes a request naming nobody, so without the binder that one is served.
+    assert bind_actor in calls, f"{method.upper()} {path} refuses no request naming nobody"
+    assert calls.index(verify_access_admin) < calls.index(bind_actor), f"{method.upper()} {path} asks for its actor before its key"
 
 
 def test_the_person_exemption_names_only_published_operations():

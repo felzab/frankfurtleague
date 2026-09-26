@@ -17,7 +17,7 @@ import { FLTeamMembershipSchema, FLTeamWithMembershipsSchema } from "@/features/
 import { buildEmptyKontaktperson } from "@/features/teams/utils";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { resolveBlockingBanners } from "@/shared/components/ui/railBanner";
-import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import {
@@ -57,6 +57,10 @@ const { calls, answerWith } = doubleEveryAction();
 const { raised: toasts } = doubleToasts();
 
 /** The undo's dispatch, which posts to a route handler with the browser's own `fetch`. */
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent
+// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+doubleActionRequest();
+
 const fetchMock = doubleFetch();
 
 /** Each navigation a control makes, which both destructive controls and both ways out are judged by. */

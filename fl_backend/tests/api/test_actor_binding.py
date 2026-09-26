@@ -40,7 +40,7 @@ from app.core.security import (
     get_actor_email,
 )
 from app.main import create_app
-from tests.config import ADMIN_AUTH, build_test_config
+from tests.config import ADMIN_AUTH, ADMIN_KEY, build_test_config
 from tests.core.app_source import api_routes
 
 from .conftest import MINIMUM_EXPECTED_MUTATIONS
@@ -54,9 +54,8 @@ TEAM_ID = "6890a1b2c3d4e5f607182930"
 WRITE_PATH = f"/api/v0/teams/{TEAM_ID}"
 ROUTE_TEMPLATE = "/api/v0/teams/{team_id}"
 
-# Admin-guarded and read-only, which is the pair `SAFE_METHODS` exists for: an actor demanded of
-# every method served by an admin router would refuse this read and the three beside it.
-EXEMPT_READ_PATH = "/api/v0/aktionen"
+# An admin-guarded read on a router that also writes: refused naming nobody as a write is.
+READ_PATH = "/api/v0/aktionen"
 
 ACTOR = "admin@example.com"
 
@@ -156,7 +155,7 @@ class TestTheGuardOverAServedRequest:
     @pytest.mark.parametrize(("method", "path"), WRITES)
     def test_a_write_with_no_actor_is_refused(self, method: str, path: str):
         """Fail closed: an unattributed write is the one thing a log complete by construction cannot allow."""
-        response = getattr(client(), method)(path, headers=ADMIN_AUTH)
+        response = getattr(client(), method)(path, headers=ADMIN_KEY)
 
         assert response.status_code == 400
         assert response.json()["error_code"] == MISSING_ACTOR
@@ -178,25 +177,18 @@ class TestTheGuardOverAServedRequest:
         assert response.status_code == 503
         assert response.json()["error_code"] == UNREACHED_DATABASE
 
-    def test_an_admin_read_with_no_actor_is_exempt(self):
-        """This read and the three beside it are served by admin routers and record nothing, so demanding an actor would refuse them."""
-        response = client().get(EXEMPT_READ_PATH, headers=ADMIN_AUTH)
+    def test_an_admin_read_with_no_actor_is_refused(self):
+        """What an admin-tier read serves is authorised by who asks, so a read naming nobody is refused as a write is."""
+        response = client().get(READ_PATH, headers=ADMIN_KEY)
 
-        assert response.status_code == 503
-        assert response.json()["error_code"] == UNREACHED_DATABASE
+        assert response.status_code == 400
+        assert response.json()["error_code"] == MISSING_ACTOR
 
 
-class TestTheGuardDecidesByMethodAlone:
-    @pytest.mark.parametrize("method", sorted(SAFE_METHODS))
-    def test_a_safe_method_passes_with_no_actor(self, method: str):
-        """HEAD and OPTIONS reach no route of this application's own, and refusing them would answer a preflight with a 400."""
-        during, _ = asyncio.run(through_the_binder(request_for(method, None)))
-
-        assert during == (SYSTEM_ACTOR, None)
-
-    @pytest.mark.parametrize("method", ["POST", "PATCH", "DELETE", "PUT"])
-    def test_an_unsafe_method_with_no_actor_raises(self, method: str):
-        """The decision is the METHOD's, not the route's: `PUT` is served nowhere and would still have to fail closed."""
+class TestTheGuardExemptsNoMethod:
+    @pytest.mark.parametrize("method", [*sorted(SAFE_METHODS), "POST", "PATCH", "DELETE", "PUT"])
+    def test_every_method_with_no_actor_raises(self, method: str):
+        """A read among them: the actor is what the allowlist judges, so a request naming nobody has nothing to be judged by."""
         with pytest.raises(MalformedRequestException) as excinfo:
             asyncio.run(through_the_binder(request_for(method, None)))
 
@@ -226,9 +218,8 @@ class TestWhatTheBindingLeavesBehind:
 
         async def _two_requests() -> Actor | PersonActor:
             await through_the_binder(request_for("PATCH", ACTOR))
-            during, _ = await through_the_binder(request_for("GET", None))
-
-            return during[0]
+            # The next request on this loop, binding nothing yet: what it reads is what it inherits.
+            return actor_var.get()
 
         assert asyncio.run(_two_requests()) is SYSTEM_ACTOR
 
@@ -444,8 +435,8 @@ def test_an_ordinary_address_is_still_admitted():
     assert WELL_FORMED_ACTOR.fullmatch(ACTOR) is not None
 
 
-# A second admin-tier read, on a router declaring the allowlist check and no `bind_actor`, so the check
-# is shown to reach a router the binder never did.
+# A second admin-tier read, on a router that writes nothing, so the check is shown to reach a router
+# whose binder guards no write.
 READ_ROUTER_PATH = "/api/v0/spielorte"
 
 # Well-formed, and on no allowlist `build_test_config` configures.
@@ -466,8 +457,8 @@ class TestTheAllowlistOverAServedRequest:
         ("method", "path"),
         [
             pytest.param("delete", WRITE_PATH, id="a write"),
-            pytest.param("get", EXEMPT_READ_PATH, id="a read beside the writes"),
-            pytest.param("get", READ_ROUTER_PATH, id="a read on a router binding no actor"),
+            pytest.param("get", READ_PATH, id="a read beside the writes"),
+            pytest.param("get", READ_ROUTER_PATH, id="a read on a router that writes nothing"),
         ],
     )
     def test_an_address_off_the_list_is_refused_before_anything_is_reached(self, method: str, path: str):
@@ -505,12 +496,12 @@ class TestTheAllowlistOverAServedRequest:
         "headers",
         [pytest.param({}, id="no actor"), pytest.param({ACTOR_HEADER: "not-an-address"}, id="a malformed actor")],
     )
-    def test_a_read_naming_nobody_is_still_served(self, headers: Mapping[str, str]):
-        """The read exemption untouched: the rule refuses a present actor and demands none."""
-        response = client().get(READ_ROUTER_PATH, headers={**ADMIN_AUTH, **headers})
+    def test_a_read_naming_nobody_is_refused_on_a_router_that_writes_nothing(self, headers: Mapping[str, str]):
+        """The read routers carry `bind_actor` for this alone, so an admin-tier read has no route around the allowlist."""
+        response = client().get(READ_ROUTER_PATH, headers={**ADMIN_KEY, **headers})
 
-        assert response.status_code == 503
-        assert response.json()["error_code"] == UNREACHED_DATABASE
+        assert response.status_code == 400
+        assert response.json()["error_code"] == MISSING_ACTOR
 
 
 # Obviously fake, padded to the boot's floor, and the key the pseudonym below was computed under.

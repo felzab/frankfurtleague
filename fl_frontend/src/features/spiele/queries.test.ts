@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/core/cacheScope.ts";
-import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 /** The three filtered admin reads under test, whose `react` imports the server build must answer. */
@@ -15,6 +15,10 @@ const FEATURE_URLS = ["spiele", "spieltage", "teams"].map((feature) => `${pathTo
 const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
 /** Every request the doubled client was asked for, cumulative across every pass in this file. */
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent
+// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+doubleActionRequest();
+
 const reads = doubleApiClient(() => ({ format: "list", teams: [], spiele: [], spieltage: [] }));
 
 registerHooks({

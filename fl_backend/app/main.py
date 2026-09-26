@@ -68,7 +68,6 @@ from app.core.security import (
     MISSING_ACTOR,
     MISSING_TOKEN,
     PERSON_ACTOR_BINDERS,
-    SAFE_METHODS,
     WRONG_ADMIN_KEY,
     WRONG_BASE_KEY,
     WRONG_SYSTEM_KEY,
@@ -81,7 +80,7 @@ from app.core.security import (
 )
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
-# Split by tier and by `bind_actor`, never by method: `spielorte`, `schiedsrichter`, `registrierungen`
+# Split by whether a router writes, never by method: `spielorte`, `schiedsrichter`, `registrierungen`
 # and the ADMIN `bewerbungen` router read under `verify_access_admin`, the rest under
 # `verify_access_base`. Order carries nothing here (`app/core/routing.py`).
 READ_ROUTERS = (
@@ -147,8 +146,6 @@ DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
     get_db_client: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
     get_database: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
 }
-# Refusing on a write alone, a read passing whatever it carries (`app/core/security.py :: bind_actor`).
-WRITE_ONLY_DEPENDENCIES = frozenset({bind_actor})
 UNGUARDED_TIER = "none"
 
 STORES_NOTHING_EXTENSION = "x-fl-stores-nothing"
@@ -366,8 +363,6 @@ def dependency_refusals(app: FastAPI) -> dict[Operation, Refusals]:
         refusing = set(_dependency_calls(route.dependant)) & DEPENDENCY_REFUSALS.keys()
         for operation in route.operations:
             for call in refusing:
-                if call in WRITE_ONLY_DEPENDENCIES and operation[1].upper() in SAFE_METHODS:
-                    continue
                 status, code = DEPENDENCY_REFUSALS[call]
                 found.setdefault(operation, {}).setdefault(status, set()).add(code)
 

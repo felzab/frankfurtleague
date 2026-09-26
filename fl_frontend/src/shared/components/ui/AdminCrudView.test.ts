@@ -12,7 +12,7 @@ import { createElement as h } from "react";
 import tailwind from "@tailwindcss/postcss";
 import postcss from "postcss";
 
-import { doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { asRenderedPage, isNavigation, renderPage } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
@@ -24,6 +24,10 @@ import type { ReactElement, ReactNode } from "react";
 import type { AdminCrudShape } from "./AdminCrudFallback";
 
 // The admin pages below mount create modals, whose real actions reach the sign-in store.
+// An administrator's session: every admin-tier read resolves its actor from it before it is sent
+// (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
+doubleActionRequest();
+
 doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX

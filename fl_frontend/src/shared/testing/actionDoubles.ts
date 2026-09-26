@@ -227,6 +227,20 @@ const destinationOf = (session: AdminSessionDouble): string =>
 const answering = (answer: unknown): Promise<unknown> => (answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer));
 
 /**
+ * The session, recorded as the request's actor where it is an administrator's, as the real
+ * `getAdminSession` records it. Imported at the call, so the scope is the one the code under test loaded.
+ */
+async function administratorOf(session: AdminSessionDouble): Promise<unknown> {
+  if (session !== null && !(session instanceof Error)) {
+    const { setRequestActor } = await import("@/core/requestScope.ts");
+    const { asSignInIdentifier } = await import("@/core/emailAddress.ts");
+    setRequestActor(asSignInIdentifier(session.user.email));
+  }
+
+  return answering(session);
+}
+
+/**
  * `url`'s module with `doubled` standing in for the exports it names, the real one opening the
  * database driver as it loads. Every other export throws where called, its name read off the real
  * module so an import links.
@@ -255,7 +269,7 @@ const signInStore = (url: string, answers: SignInAnswers): string =>
     url,
     "the sign-in store",
     new Map([
-      ["getAdminSession", () => answering(answers.session)],
+      ["getAdminSession", () => administratorOf(answers.session)],
       ["getSignInDestination", () => Promise.resolve(answers.destination)],
       [
         "endSessionsOfAddress",

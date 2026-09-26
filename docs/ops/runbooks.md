@@ -326,7 +326,7 @@ processes is the whole procedure; why a restart is needed and how `role` is re-d
 [`spec.md`](spec.md) §4. Each of these is easy to get wrong:
 
 - **One list, in two files.** An address granted in the frontend's file alone signs in, and every
-  save it makes meets `REQ-AUTH-006`; one revoked there alone is turned away by the frontend while
+  admin-tier request its pages make meets `REQ-AUTH-006`; one revoked there alone is turned away by the frontend while
   the backend would still admit it, so the two files are edited together.
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
