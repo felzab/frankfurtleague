@@ -12,7 +12,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.services import hash_token
 from app.api.bewerbungen.sweep_router import get_sweep_saisons
 from app.api.registrierungen import sweep_router as sweep_router_module
-from app.api.registrierungen.services import SWEEP_PAGE
+from app.api.registrierungen.services import SWEEP_PAGE, build_erinnerung_filter, build_unconfirmed_filter, build_wiederholung_filter
 from app.api.registrierungen.sweep_router import REMINDERS_PER_PASS, sweep_registrierungen
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -473,6 +473,51 @@ async def passes_until_empty(one_pass: Callable[[], Awaitable[int]], *, share: i
         taken.append(took)
 
     raise AssertionError(f"{total} rows at {share} a pass take {passes} passes, and pass {passes + 1} still took rows: {taken}")
+
+
+EMPTY_STAMP_OID = ObjectId("6890a1b2c3d4e5f607970031")
+
+
+def stamped_empty(*, frist: str) -> dict[str, Any]:
+    """A row whose consent record a hand edit stamped `""`, which `app/shared/einwilligung.py :: is_confirmed` calls unconfirmed."""
+
+    return registrierung(EMPTY_STAMP_OID, einwilligung=einwilligung(bestaetigt_am=""), bestaetigung=bestaetigung(EMPTY_STAMP_OID, frist=frist))
+
+
+class TestAnEmptyStampIsUnconfirmedToEveryFilter:
+    """Each filter selecting unconfirmed rows, run by the database itself: `None` alone never matches `""`, and only a server says so."""
+
+    def test_the_deadline_takes_a_row_stamped_empty(self, mongo_replica_set_url: str):
+        assert EMPTY_STAMP_OID in selected(mongo_replica_set_url, stamped_empty(frist=YESTERDAY), build_unconfirmed_filter)
+
+    def test_the_reminder_takes_a_row_stamped_empty(self, mongo_replica_set_url: str):
+        assert EMPTY_STAMP_OID in selected(mongo_replica_set_url, stamped_empty(frist="2026-04-05"), build_erinnerung_filter)
+
+    def test_a_replay_hands_a_row_stamped_empty_a_fresh_link(self, mongo_replica_set_url: str):
+        row = stamped_empty(frist="2026-04-05")
+        replay_filter = build_wiederholung_filter(registrierung_raw=row, today=TODAY)
+        assert replay_filter is not None
+
+        assert selected(mongo_replica_set_url, row, lambda **_: replay_filter) == [EMPTY_STAMP_OID]
+
+    def test_a_null_record_and_a_confirmed_one_still_part_as_they_did(self, mongo_replica_set_url: str):
+        """The control: `$in` with null still matches the corpus's null record, and a real stamp is still passed over."""
+
+        chosen = selected(mongo_replica_set_url, stamped_empty(frist=YESTERDAY), build_unconfirmed_filter)
+
+        assert (EXPIRED_OID in chosen, CONFIRMED_OID in chosen) == (True, False)
+
+
+def selected(url: str, row: dict[str, Any], build: Callable[..., Mapping[str, Any]]) -> list[ObjectId]:
+    """The ids a filter selects from the corpus plus `row`, asked of the server rather than of a matcher."""
+
+    async def body(database: AsyncDatabase, _: AsyncMongoClient) -> list[ObjectId]:
+        await database[Collection.REGISTRIERUNGEN].insert_one(row)
+        rows = await database[Collection.REGISTRIERUNGEN].find(build(saison_id=SAISON_ID, today=TODAY), {"_id": 1}).to_list(length=None)
+
+        return sorted(found["_id"] for found in rows)
+
+    return on_a_league(url, body)
 
 
 class TestTheReminderClockTakesAShareEachCall:
