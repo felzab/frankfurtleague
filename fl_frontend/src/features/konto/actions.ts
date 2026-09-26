@@ -7,7 +7,7 @@ import { recordWriteSent } from "@/core/requestScope";
 import { runKontoMutation } from "@/shared/utils/kontoMutation";
 import { VALIDATION_FAILED } from "@/shared/utils/validation";
 
-import type { ActionResult } from "@/shared/types/types";
+import type { ActionResult, QueryResult } from "@/shared/types/types";
 
 /** A row another device ended first, or one that was never the holder's: to the holder, a stale list. */
 const SCHON_BEENDET = "Die Anmeldung war schon beendet. Lade die Seite neu.";
@@ -51,4 +51,13 @@ export async function endAndereAnmeldungenAction(): Promise<ActionResult> {
 
     return { success: true, message: "Alle anderen abgemeldet" };
   });
+}
+
+/**
+ * Whether the session a confirmation just made is the page's holder's: the browser offers every
+ * account's passkey, and another account's would otherwise run the waiting change as that account
+ * (`docs/frontend/spec.md :: I454`).
+ */
+export async function pruefeInhaberAction(inhaberId: string): Promise<QueryResult<{ gleich: boolean }>> {
+  return runKontoMutation("pruefeInhaberAction", async (served) => ({ success: true, gleich: served.user.id === inhaberId }));
 }

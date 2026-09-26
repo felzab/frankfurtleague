@@ -25,6 +25,8 @@ export interface Sicherheit {
   readonly anmeldungen: readonly Anmeldung[];
   /** An administrator's address, whose last passkey is kept and whose confirmation is a passkey's alone. */
   readonly verwaltung: boolean;
+  /** The holder's user id, which a confirmation's new session must carry before a waiting change runs. */
+  readonly inhaberId: string;
   /** Until when the page's session counts as confirmed, in epoch milliseconds; `null` where it already does not. */
   readonly freshUntil: number | null;
 }

@@ -57,6 +57,7 @@ export async function readSicherheit(served: KontoSession): Promise<Sicherheit> 
     kannHinzufuegen: kannHinzufuegen,
     anmeldungen: anmeldungenOf(rows, held, served),
     verwaltung: isUserAdmin(served.user.email),
+    inhaberId: served.user.id,
     freshUntil: freshUntil(served),
   };
 }
@@ -64,9 +65,8 @@ export async function readSicherheit(served: KontoSession): Promise<Sicherheit> 
 function anmeldungenOf(rows: readonly SessionRow[], held: readonly PasskeyRow[], served: KontoSession): Anmeldung[] {
   return (
     rows
-      // The person lifetime for every holder, an administrator's address included: the person area and
-      // this page admit an administrator's session that long, the administration alone for less, so a
-      // row is live, and ends at the latest, by the widest guard admitting it (`docs/frontend/spec.md :: I451`).
+      // The person lifetime for an administrator's address too: the person area admits their session
+      // that long and only the administration for less, so the widest guard decides (`docs/frontend/spec.md :: I451`).
       .filter((row) => isWithinPersonLifetime(row))
       .flatMap((row): Anmeldung[] => {
         const faktor = faktorOf(row, held);
