@@ -11,7 +11,7 @@ import {
   ORIGIN,
   registerAuthDoubles,
   seatEveryAddress,
-  seedLink,
+  signInByCode,
 } from "@/core/authDoubles.ts";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
@@ -82,14 +82,9 @@ beforeEach(() => {
   cacheCalls.length = 0;
 });
 
-/** Mints a session the way a followed link does, and hands back its cookie and its stored row. */
+/** Mints a session the way a typed code does, and hands back its cookie and its stored row. */
 async function signIn(email: string): Promise<{ cookie: string; row: SessionRow }> {
-  const verified = await auth.api.magicLinkVerify({
-    query: { token: seedLink(store.verification, email) },
-    headers: new Headers(ORIGIN),
-    returnHeaders: true,
-  });
-  const cookie = cookieHeader(verified);
+  const cookie = cookieHeader(await signInByCode(auth, email));
 
   const row = store.session.at(-1);
   assert.ok(row !== undefined, "the verification wrote no session row");
