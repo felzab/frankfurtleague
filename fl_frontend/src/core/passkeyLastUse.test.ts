@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import { beforeEach, describe, it } from "node:test";
 
 import {
@@ -12,6 +11,7 @@ import {
   registerAuthDoubles,
   seatEveryAddress,
 } from "./authDoubles.ts";
+import { assertionFor, COSE_KEY } from "./testAuthenticator.ts";
 
 const STORE = "__flLastUseStore";
 const STAMP_REFUSED = "__flLastUseStampRefused";
@@ -54,45 +54,9 @@ const { auth } = await import("./auth.ts");
 
 const handler = toNextJsHandler(auth);
 
-/* A P-256 authenticator, because nothing else drives an assertion the plugin verifies: the use this
-   file stamps is a verified one, so no double standing in for the library could be carrying it. */
-const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
-const jwk = publicKey.export({ format: "jwk" });
-
-/** A COSE_Key for ES256 over P-256, which is the form the plugin stores a passkey's key in. */
-const COSE_KEY = Buffer.concat([
-  Buffer.from([0xa5, 0x01, 0x02, 0x03, 0x26, 0x20, 0x01, 0x21, 0x58, 0x20]),
-  Buffer.from(jwk.x ?? "", "base64url"),
-  Buffer.from([0x22, 0x58, 0x20]),
-  Buffer.from(jwk.y ?? "", "base64url"),
-]);
-
 const USER_ID = "eine-person";
 const ASSERTED = Buffer.from("der-benutzte-schluessel").toString("base64url");
 const OTHER = Buffer.from("der-andere-schluessel").toString("base64url");
-
-/** `rpIdHash ‖ flags ‖ signCount`, the bytes an assertion is signed over; present, and verified or not. */
-const authenticatorData = (userVerified: boolean): Buffer =>
-  Buffer.concat([createHash("sha256").update("localhost").digest(), Buffer.from([userVerified ? 0x05 : 0x01]), Buffer.alloc(4)]);
-
-function assertionFor(challenge: string, userVerified: boolean) {
-  const clientData = Buffer.from(
-    JSON.stringify({ type: "webauthn.get", challenge: challenge, origin: "http://localhost:3000", crossOrigin: false }),
-  );
-  const signed = Buffer.concat([authenticatorData(userVerified), createHash("sha256").update(clientData).digest()]);
-
-  return {
-    id: ASSERTED,
-    rawId: ASSERTED,
-    type: "public-key",
-    clientExtensionResults: {},
-    response: {
-      clientDataJSON: clientData.toString("base64url"),
-      authenticatorData: authenticatorData(userVerified).toString("base64url"),
-      signature: sign("sha256", signed, privateKey).toString("base64url"),
-    },
-  };
-}
 
 async function overHttp(path: string, { cookie, body }: { cookie?: string; body?: unknown } = {}): Promise<Response> {
   const headers: Record<string, string> = { ...ORIGIN, origin: "http://localhost:3000" };
@@ -113,7 +77,7 @@ async function assertPasskey(userVerified: boolean, cookie?: string): Promise<Re
 
   return overHttp("/passkey/verify-authentication", {
     cookie: cookie === undefined ? challengeCookie : `${cookie}; ${challengeCookie}`,
-    body: { response: assertionFor(challenge, userVerified) },
+    body: { response: assertionFor(challenge, userVerified, undefined, ASSERTED) },
   });
 }
 

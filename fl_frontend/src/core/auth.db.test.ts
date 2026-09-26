@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createHash, generateKeyPairSync, randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { after, beforeEach, describe, it } from "node:test";
 
 import { MongoDBContainer } from "@testcontainers/mongodb";
@@ -15,6 +15,7 @@ import {
   ORIGIN,
   registerAuthDoubles,
 } from "./authDoubles.ts";
+import { registrationFor } from "./testAuthenticator.ts";
 
 // A replica set, which the module starts by default: why this file needs one is
 // `docs/frontend/spec.md` §1.9's.
@@ -178,62 +179,6 @@ async function signIn(email: string): Promise<string> {
   return cookieHeader(verified);
 }
 
-// A P-256 COSE key the plugin can parse; the attestation is "none", so nothing signs.
-const { publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
-const jwk = publicKey.export({ format: "jwk" });
-const COSE_KEY = Buffer.concat([
-  Buffer.from([0xa5, 0x01, 0x02, 0x03, 0x26, 0x20, 0x01, 0x21, 0x58, 0x20]),
-  Buffer.from(jwk.x ?? "", "base64url"),
-  Buffer.from([0x22, 0x58, 0x20]),
-  Buffer.from(jwk.y ?? "", "base64url"),
-]);
-
-function attestationObject(rawId: Buffer): Buffer {
-  const idLength = Buffer.alloc(2);
-  idLength.writeUInt16BE(rawId.length);
-  // RP id hash, the flags user-present, user-verified and attested-credential-data, a zero counter
-  // and a zero AAGUID.
-  const authData = Buffer.concat([
-    createHash("sha256").update("localhost").digest(),
-    Buffer.from([0x45]),
-    Buffer.alloc(4),
-    Buffer.alloc(16),
-    idLength,
-    rawId,
-    COSE_KEY,
-  ]);
-  const dataLength = Buffer.alloc(2);
-  dataLength.writeUInt16BE(authData.length);
-  return Buffer.concat([
-    Buffer.from([0xa3, 0x63]),
-    Buffer.from("fmt"),
-    Buffer.from([0x64]),
-    Buffer.from("none"),
-    Buffer.from([0x67]),
-    Buffer.from("attStmt"),
-    Buffer.from([0xa0, 0x68]),
-    Buffer.from("authData"),
-    Buffer.from([0x59]),
-    dataLength,
-    authData,
-  ]);
-}
-
-function registrationFor(challenge: string, rawId: Buffer) {
-  const clientData = Buffer.from(JSON.stringify({ type: "webauthn.create", challenge, origin: "http://localhost:3000", crossOrigin: false }));
-  return {
-    id: rawId.toString("base64url"),
-    rawId: rawId.toString("base64url"),
-    type: "public-key",
-    clientExtensionResults: {},
-    response: {
-      clientDataJSON: clientData.toString("base64url"),
-      attestationObject: attestationObject(rawId).toString("base64url"),
-      transports: ["internal"],
-    },
-  };
-}
-
 type Offered = { cookie: string; challenge: string };
 
 /** The options half, run to completion: what the verify half then needs to be posted. */
@@ -248,7 +193,7 @@ function verify(offered: Offered, rawId: Buffer, extra: Record<string, unknown> 
   return overHttp("/passkey/verify-registration", {
     method: "POST",
     cookie: offered.cookie,
-    body: { response: registrationFor(offered.challenge, rawId), ...extra },
+    body: { response: registrationFor(offered.challenge, true, rawId), ...extra },
   });
 }
 

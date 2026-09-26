@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { createHash, generateKeyPairSync, sign } from "node:crypto";
 import { createRequire } from "node:module";
 import { after, afterEach, beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -16,6 +15,7 @@ import {
   seedLink,
 } from "./authDoubles.ts";
 import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
+import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "./testAuthenticator.ts";
 
 const STORE = "__flAuthStore";
 const ADAPTER_CALLS = "__flAuthAdapterCalls";
@@ -737,123 +737,9 @@ describe("the window an enrolment happens inside", () => {
   });
 });
 
-/* A P-256 authenticator, because nothing else drives a WebAuthn assertion: the flag this slice
-   requires is set by the authenticator alone, and no double standing in for the library would be
-   carrying it. */
-const { privateKey, publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
-const jwk = publicKey.export({ format: "jwk" });
-
-/** A COSE_Key for ES256 over P-256, which is the form the plugin stores a passkey's key in. */
-const COSE_KEY = Buffer.concat([
-  Buffer.from([0xa5, 0x01, 0x02, 0x03, 0x26, 0x20, 0x01, 0x21, 0x58, 0x20]),
-  Buffer.from(jwk.x ?? "", "base64url"),
-  Buffer.from([0x22, 0x58, 0x20]),
-  Buffer.from(jwk.y ?? "", "base64url"),
-]);
-
-const CREDENTIAL_RAW_ID = Buffer.from("fabricated-credential-id");
-const CREDENTIAL_ID = CREDENTIAL_RAW_ID.toString("base64url");
-
 /* A second authenticator, for the cases where one account enrols twice: the plugin only checks the
    credential id it is handed, so a second registration needs no key of its own to be verified. */
 const SECOND_RAW_ID = Buffer.from("fabricated-credential-id-zwei");
-
-const FLAG_PRESENT = 0x01;
-const FLAG_VERIFIED = 0x04;
-/** Attested credential data follows the counter, which is what carries the key out of a registration. */
-const FLAG_ATTESTED = 0x40;
-
-/** `rpIdHash ‖ flags ‖ signCount`, the 37 bytes an assertion is signed over. */
-function authenticatorData(userVerified: boolean): Buffer {
-  return Buffer.concat([
-    createHash("sha256").update("localhost").digest(),
-    Buffer.from([userVerified ? FLAG_PRESENT | FLAG_VERIFIED : FLAG_PRESENT]),
-    Buffer.from([0, 0, 0, 0]),
-  ]);
-}
-
-/** The same 37 bytes with the attested credential data a registration appends: AAGUID, the id and the key. */
-function registrationAuthenticatorData(userVerified: boolean, rawId: Buffer): Buffer {
-  const length = Buffer.alloc(2);
-  length.writeUInt16BE(rawId.length);
-
-  return Buffer.concat([
-    createHash("sha256").update("localhost").digest(),
-    Buffer.from([FLAG_ATTESTED | (userVerified ? FLAG_PRESENT | FLAG_VERIFIED : FLAG_PRESENT)]),
-    Buffer.from([0, 0, 0, 0]),
-    // All zeroes, which is what a privacy-preserving platform reports and what the plugin stores.
-    Buffer.alloc(16),
-    length,
-    rawId,
-    COSE_KEY,
-  ]);
-}
-
-/* CBOR by hand, because no encoder is installed and the shape is fixed. The two-byte length header
-   is legal at any size, so the one branch a hand-rolled writer gets wrong is not written. */
-function attestationObject(userVerified: boolean, rawId: Buffer): Buffer {
-  const authData = registrationAuthenticatorData(userVerified, rawId);
-  const length = Buffer.alloc(2);
-  length.writeUInt16BE(authData.length);
-
-  return Buffer.concat([
-    Buffer.from([0xa3]),
-    Buffer.from([0x63]),
-    Buffer.from("fmt"),
-    Buffer.from([0x64]),
-    Buffer.from("none"),
-    Buffer.from([0x67]),
-    Buffer.from("attStmt"),
-    Buffer.from([0xa0]),
-    Buffer.from([0x68]),
-    Buffer.from("authData"),
-    Buffer.from([0x59]),
-    length,
-    authData,
-  ]);
-}
-
-/** One enrolment as a browser would post it, over the challenge the options call minted. */
-function registrationFor(challenge: string, userVerified: boolean, rawId: Buffer = CREDENTIAL_RAW_ID) {
-  const clientData = Buffer.from(
-    JSON.stringify({ type: "webauthn.create", challenge: challenge, origin: "http://localhost:3000", crossOrigin: false }),
-  );
-
-  return {
-    id: rawId.toString("base64url"),
-    rawId: rawId.toString("base64url"),
-    type: "public-key",
-    clientExtensionResults: {},
-    response: {
-      clientDataJSON: clientData.toString("base64url"),
-      attestationObject: attestationObject(userVerified, rawId).toString("base64url"),
-      transports: ["internal"],
-    },
-  };
-}
-
-/** One assertion as a browser would post it, signed over the challenge the options call minted. */
-function assertionFor(challenge: string, userVerified: boolean, origin = "http://localhost:3000") {
-  const clientData = Buffer.from(JSON.stringify({ type: "webauthn.get", challenge: challenge, origin: origin, crossOrigin: false }));
-  const signed = Buffer.concat([authenticatorData(userVerified), createHash("sha256").update(clientData).digest()]);
-
-  return {
-    id: CREDENTIAL_ID,
-    rawId: CREDENTIAL_ID,
-    // Narrowed, because the library's own type for this body admits the one spelling and the
-    // in-process arm below is handed it rather than a JSON string.
-    type: "public-key" as const,
-    clientExtensionResults: {},
-    response: {
-      clientDataJSON: clientData.toString("base64url"),
-      authenticatorData: authenticatorData(userVerified).toString("base64url"),
-      signature: sign("sha256", signed, privateKey).toString("base64url"),
-      // Left out rather than nulled: the library's own type for this body has no null in it, and an
-      // authenticator returning no user handle omits the member.
-      userHandle: undefined,
-    },
-  };
-}
 
 /** The whole ceremony a browser runs, from the options call to the assertion the plugin verifies. */
 async function assertPasskey(cookie: string, userVerified: boolean): Promise<Response> {
