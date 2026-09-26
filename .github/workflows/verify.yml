@@ -96,6 +96,10 @@ jobs:
       - uses: ./.github/actions/backend-toolchain
         with:
           application: true
+          # The uv cache's one writer, on every event: of the jobs installing the application, this
+          # one runs furthest under its budget in `.github/gate-wall-clock.tsv`, and the save is
+          # setup-uv's post step, inside the span that budget holds.
+          save-cache: true
       - name: Run the docs scope
         run: ./scripts/gate/verify.sh --docs
       - name: Hold a moved gate budget to its measurement

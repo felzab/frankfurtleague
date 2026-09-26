@@ -12,13 +12,46 @@ inputs:
       `true` where a step imports the application, which installs the project and its graph with
       the dev group; `false` installs the dev group alone.
     required: true
+  save-cache:
+    description: >-
+      `true` in the one caller that writes the uv cache to the Actions cache when none was restored
+      under its key; `false`, the default, restores it and writes nothing.
+    required: false
+    default: "false"
 
 runs:
   using: composite
   steps:
+    # setup-uv reads any value but `true` and `auto` as `false`, so a misspelt `true` would leave the cache
+    # unwritten with nothing failing.
+    - name: Refuse a save-cache that is not true or false, or true without the application
+      shell: bash
+      env:
+        SAVE_CACHE: ${{ inputs.save-cache }}
+        APPLICATION: ${{ inputs.application }}
+      run: |
+        case "$SAVE_CACHE" in
+          false) ;;
+          true)
+            # Every caller restores under one key, so a cache written without the application sends
+            # each caller installing it to the registry for the rest.
+            if [ "$APPLICATION" != true ]; then
+              echo "::error title=Backend toolchain::save-cache is true where application is '${APPLICATION}', and only a caller installing the application writes the cache."
+              exit 1
+            fi
+            ;;
+          *)
+            echo "::error title=Backend toolchain::save-cache is '${SAVE_CACHE}', and only true or false is read."
+            exit 1
+            ;;
+        esac
+
     - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
       with:
         enable-cache: true
+        # One writer: on a miss every saving job archives the whole cache at job end and all but the
+        # first fail to reserve its key. An exact hit, the only restore setup-uv makes, saves nothing.
+        save-cache: ${{ inputs.save-cache }}
         # setup-uv reads `[tool.uv] required-version` from the repository root alone, and the pin
         # lives in fl_backend's manifest. Without this line CI's uv is that day's latest, and the
         # sync below refuses the moment the two differ.
