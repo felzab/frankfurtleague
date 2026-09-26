@@ -15,7 +15,7 @@ from tests.database import a_clean_database, on_the_seed_loop, shared_client
 from tests.documents import EINWILLIGUNG, rules_document, saison_document, saison_team_document, spieler_document
 from tests.worker import worker_database
 
-from .conftest import unwritten
+from .conftest import AUSTRITT, unwritten
 
 DATABASE_NAME = worker_database("fl_funktionen_test")
 
@@ -27,17 +27,21 @@ TEAM_A_OID = ObjectId("6890a1b2c3d4e5f607830001")
 TEAM_B_OID = ObjectId("6890a1b2c3d4e5f607830002")
 TEAM_C_OID = ObjectId("6890a1b2c3d4e5f607830003")
 TEAM_D_OID = ObjectId("6890a1b2c3d4e5f607830004")
+TEAM_E_OID = ObjectId("6890a1b2c3d4e5f607830005")
 ROW_ACTIVE_A_OID = ObjectId("6890a1b2c3d4e5f607830011")
 ROW_ACTIVE_B_OID = ObjectId("6890a1b2c3d4e5f607830012")
 ROW_PAST_A_OID = ObjectId("6890a1b2c3d4e5f607830013")
 ROW_FUTURE_A_OID = ObjectId("6890a1b2c3d4e5f607830014")
 ROW_ACTIVE_C_OID = ObjectId("6890a1b2c3d4e5f607830015")
 ROW_ACTIVE_D_OID = ObjectId("6890a1b2c3d4e5f607830016")
+ROW_ACTIVE_E_OID = ObjectId("6890a1b2c3d4e5f607830017")
+ROW_FUTURE_E_OID = ObjectId("6890a1b2c3d4e5f607830018")
 
 ROW_NAME_A = "Helmholtz"
 ROW_NAME_B = "Lessing"
 ROW_NAME_C = "Goethe"
 ROW_NAME_D = "Schiller"
+ROW_NAME_E = "Herder"
 
 STAMP = "2026-02-01"
 
@@ -70,6 +74,9 @@ NUR_SPIELER_OFFEN = "nur.spieler.offen@schule.de"
 # unconfirmed `past` seat alone: the flag is judged over what could grant a panel.
 VERGANGEN_UND_OFFEN = "vergangen.und.offen@schule.de"
 NUR_VERGANGEN_OFFEN = "nur.vergangen.offen@schule.de"
+# Seated on a team that withdrew from the active season and is entered again for the future one.
+AUSGETRETEN = "ausgetreten.sitz@schule.de"
+AUSGETRETEN_OFFEN = "ausgetreten.offen@schule.de"
 
 # The „ß“ decision: IDNA 2008 keeps „ß“ in a domain, so the two are two mailboxes.
 SHARP_S_ASKED = "Post@straße.de"
@@ -102,7 +109,14 @@ def _seat(email: str, *, bestaetigt_am: str | None = STAMP, keyed: bool = True) 
 
 
 def _junction(
-    row_id: ObjectId, saison_id: str, team_id: ObjectId, name: str, *, zugleich: str | None = None, **slots: dict[str, Any]
+    row_id: ObjectId,
+    saison_id: str,
+    team_id: ObjectId,
+    name: str,
+    *,
+    zugleich: str | None = None,
+    austritt: dict[str, Any] | None = None,
+    **slots: dict[str, Any],
 ) -> dict[str, Any]:
     return saison_team_document(
         saison_id,
@@ -110,6 +124,7 @@ def _junction(
         name,
         name[:2].upper(),
         _id=row_id,
+        austritt=austritt,
         kontakte={**{slot: None for slot in KONTAKT_SLOTS}, **slots, "trainer_ist_zugleich": zugleich},
     )
 
@@ -206,6 +221,16 @@ async def _seed(database: AsyncDatabase) -> None:
                 trainer=_seat(LEER_SITZ, bestaetigt_am=""),
                 ansprechperson=_seat(VERGANGEN_UND_OFFEN, bestaetigt_am=None),
             ),
+            _junction(
+                ROW_ACTIVE_E_OID,
+                ACTIVE_SAISON,
+                TEAM_E_OID,
+                ROW_NAME_E,
+                austritt=dict(AUSTRITT),
+                trainer=_seat(AUSGETRETEN),
+                ansprechperson=_seat(AUSGETRETEN_OFFEN, bestaetigt_am=None),
+            ),
+            _junction(ROW_FUTURE_E_OID, FUTURE_SAISON, TEAM_E_OID, ROW_NAME_E, trainer=_seat(AUSGETRETEN)),
         ]
     )
     await database[Collection.SPIELER].insert_many(
@@ -422,6 +447,22 @@ class TestTheConfirmationNarrowing:
 
         assert seats(inside) == [(ACTIVE_SAISON, TEAM_B_OID, "ansprechperson", ROW_NAME_B, "active")]
         assert outside.sitze == []
+
+
+@pytest.mark.db
+class TestTheWithdrawalNarrowing:
+    def test_a_seat_on_the_season_its_team_withdrew_from_grants_nothing_while_the_next_season_s_does(self, seeded_league: str):
+        """Both seats confirmed, so the withdrawal alone parts them; the future row is the same team's, which a per-team test would drop too."""
+
+        assert seats(answered(seeded_league, AUSGETRETEN)) == [(FUTURE_SAISON, TEAM_E_OID, "trainer", ROW_NAME_E, "future")]
+
+    def test_an_unconfirmed_seat_on_a_withdrawn_row_does_not_raise_the_flag(self, seeded_league: str):
+        """The row grants nothing, so confirming the seat would open nothing."""
+
+        answer = answered(seeded_league, AUSGETRETEN_OFFEN)
+
+        assert is_empty(answer)
+        assert answer.unbestaetigt is False
 
 
 @pytest.mark.db

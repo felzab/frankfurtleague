@@ -52,7 +52,8 @@ async def get_subjekt(
 
     A record is answered only once its own person has confirmed it -- a seat's `einwilligung.bestaetigt_am`, judged per seat, and the
     same stamp on a pupil's and a referee's consent record, an empty stamp confirming nothing -- and only while its row is live: a
-    retired pupil or referee is answered nothing, and so is the placeholder every erased referee's fixtures name.
+    retired pupil or referee is answered nothing, and so is the placeholder every erased referee's fixtures name. A seat on a season
+    its team withdrew from, by disqualification or withdrawal alike, is answered nothing either; its seats on other seasons stand.
     A seat on a `past` season is still answered, carrying its `saison_status`: which seasons grant a panel is each caller's to decide.
 
     `unbestaetigt` is true exactly where the mailbox holds records that could grant a panel -- a live pupil or referee row, or a seat

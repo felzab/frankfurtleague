@@ -25,7 +25,10 @@ def build_seat_pipeline(identifier: str) -> list[Mapping[str, Any]]:
     """Every junction row whose block may name the address."""
 
     return [
-        {"$match": {"$or": [{f"kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_SLOTS]}},
+        # A team withdrawn from this season holds no seat in it (`docs/backend/spec.md :: I376`), its
+        # other seasons' seats standing. The record's presence is the test, as every rule keyed on a
+        # club having left reads it.
+        {"$match": {"$or": [{f"kontakte.{slot}.email": same_address(identifier)} for slot in KONTAKT_SLOTS], "austritt": None}},
         # `name` rides along free, this read opening the row anyway, and it is the row's own rather
         # than the club's (`docs/backend/spec.md :: I13`).
         {
