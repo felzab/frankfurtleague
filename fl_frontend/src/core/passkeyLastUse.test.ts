@@ -14,13 +14,24 @@ import {
 } from "./authDoubles.ts";
 
 const STORE = "__flLastUseStore";
+const STAMP_REFUSED = "__flLastUseStampRefused";
+const WARNED = "__flLastUseWarned";
 
 const HEADERS_DOUBLE = `export const headers = async () => new Headers();`;
 
-const LOGGING_DOUBLE = `export const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };`;
+const LOGGING_DOUBLE = `export const logger = {
+  debug: () => {}, info: () => {}, error: () => {},
+  warn: (event, fields) => globalThis.${WARNED}.push([event, fields]),
+};`;
 
+/* Where the flag is set, the stamp's write is refused and every other write lands: the plugin's own
+   counter update runs on the same row in the same request. */
 const ADAPTER_DOUBLE = `import { memoryAdapter } from ${JSON.stringify(MEMORY_ADAPTER_URL)};
-export const mongodbAdapter = () => memoryAdapter(globalThis.${STORE});`;
+export const mongodbAdapter = () => (options) => {
+  const adapter = memoryAdapter(globalThis.${STORE})(options);
+  const refused = (args) => globalThis.${STAMP_REFUSED} && args.model === "passkey" && args.update?.lastUsedAt !== undefined;
+  return { ...adapter, update: (args) => (refused(args) ? Promise.reject(new Error("stamp refused")) : adapter.update(args)) };
+};`;
 
 // Every address this file signs in is seated: the gate at session creation is not its subject.
 seatEveryAddress();
@@ -34,6 +45,8 @@ type Store = Record<"user" | "session" | "account" | "verification" | "passkey",
 
 const store: Store = { user: [], session: [], account: [], verification: [], passkey: [] };
 Reflect.set(globalThis, STORE, store);
+const warned: [string, Record<string, unknown>][] = [];
+Reflect.set(globalThis, WARNED, warned);
 
 // Imported here rather than at the top: a static import resolves before the doubles above exist.
 const { toNextJsHandler } = await import("better-auth/next-js");
@@ -123,6 +136,8 @@ function seedPasskey(credentialID: string): Record<string, unknown> {
 const lastUse = (row: Record<string, unknown>): unknown => Reflect.get(row, "lastUsedAt");
 
 beforeEach(() => {
+  Reflect.set(globalThis, STAMP_REFUSED, false);
+  warned.length = 0;
   store.passkey.length = 0;
   store.session.length = 0;
   store.user.length = 0;
@@ -153,6 +168,20 @@ describe("when a passkey was last used", () => {
 
     assert.equal(answer.status, 200, await answer.clone().text());
     assert.ok(lastUse(asserted) instanceof Date, "the step-up left no use on the row");
+  });
+
+  /* The date is a card's line, and a store that refused it is no reason to answer a verified
+     sign-in as a failure: the session is already committed, and its cookie would be lost. */
+  it("signs the holder in, and logs the unstamped use, when the stamp's write fails", async () => {
+    const asserted = seedPasskey(ASSERTED);
+    Reflect.set(globalThis, STAMP_REFUSED, true);
+
+    const answer = await assertPasskey(true);
+
+    assert.equal(answer.status, 200, await answer.clone().text());
+    assert.ok(cookieHeader(answer) !== "", "the verified sign-in set no session cookie");
+    assert.equal(lastUse(asserted), undefined);
+    assert.deepEqual(warned, [["auth.passkey_last_use_failed", { error_code: "FE-AUTH-007", name: "Error" }]]);
   });
 
   /* A refused assertion signed nobody in, so a date here would tell the card's reader it had. */

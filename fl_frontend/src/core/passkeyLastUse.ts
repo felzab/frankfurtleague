@@ -2,6 +2,8 @@ import "server-only";
 
 import { createAuthMiddleware, isAPIError } from "better-auth/api";
 
+import { logger } from "./logging";
+
 import type { BetterAuthPlugin } from "better-auth";
 
 // The plugin's own spelling of the assertion's verify route, which is the only path whose success is
@@ -34,13 +36,22 @@ export const passkeyLastUse = () =>
             const credentialID: unknown = Reflect.get(Reflect.get(ctx.body ?? {}, "response") ?? {}, "id");
             if (typeof credentialID !== "string" || credentialID === "") return;
 
-            // By the credential the plugin itself looked the row up by, so the stamp lands on the row
-            // that verified and on no other.
-            await ctx.context.adapter.update({
-              model: "passkey",
-              where: [{ field: "credentialID", value: credentialID }],
-              update: { lastUsedAt: new Date() },
-            });
+            try {
+              // By the credential the plugin itself looked the row up by, so the stamp lands on the row
+              // that verified and on no other.
+              await ctx.context.adapter.update({
+                model: "passkey",
+                where: [{ field: "credentialID", value: credentialID }],
+                update: { lastUsedAt: new Date() },
+              });
+            } catch (failed) {
+              // Logged and left: the sign-in is verified and its session committed, and a card's date
+              // is no reason to answer it as a failure.
+              logger.warn("auth.passkey_last_use_failed", {
+                error_code: "FE-AUTH-007",
+                name: failed instanceof Error ? failed.name : "unknown",
+              });
+            }
           }),
         },
       ],
