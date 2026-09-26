@@ -44,7 +44,7 @@ def build_document() -> dict[str, Any]:
 
 
 def read_document() -> dict[str, Any]:
-    """Parsed, never compared as bytes: prettier owns this file's formatting."""
+    """Parsed, never compared as bytes: the check guards what the service publishes, and `serialize` alone formats the file."""
     return json.loads(DOCUMENT_PATH.read_text(encoding="utf-8"))
 
 
