@@ -92,8 +92,18 @@ const landingUnderItsLayout = () => h(PersoenlichLayout, { children: h(Persoenli
 
 /** The `href` of every link the landing's switch offers. */
 async function switchHrefs(): Promise<string[]> {
-  const markup = await renderPage(underNext(h(PersoenlichStartPage)));
+  const { markup, reads } = await renderedAlone(PersoenlichStartPage);
+  assert.deepEqual(reads, [], "the landing reads past the session its switch is drawn from");
+
   return [...markup.matchAll(/<a [^>]*href="([^"]*)"/g)].map(([, href]) => href!);
+}
+
+/** A person page as its render leaves it, with every backend read the render made on the way. */
+async function renderedAlone(Page: () => ReactNode | Promise<ReactNode>): Promise<{ markup: string; reads: string[] }> {
+  clearSteps();
+  const markup = await renderPage(underNext(h(Page)));
+
+  return { markup: markup, reads: readsOf(steps).map(({ endpoint }) => endpoint) };
 }
 
 describe("the guard over the person area", () => {
@@ -138,8 +148,9 @@ describe("the guard over the person area", () => {
 describe("where the landing takes a person", () => {
   it("renders the empty landing for a person holding no Funktion", async () => {
     setSubject(person());
-    const markup = await renderPage(underNext(h(PersoenlichStartPage)));
+    const { markup, reads } = await renderedAlone(PersoenlichStartPage);
 
+    assert.deepEqual(reads, [], "the empty landing reads past the session it is drawn from");
     assert.ok(markup.includes("nirgends eingetragen"), "the empty landing is not what renders");
     assert.ok(!markup.includes("Noch nicht bestätigt"), "a person with nothing pending is told a link is waiting");
   });
@@ -148,8 +159,9 @@ describe("where the landing takes a person", () => {
      confirmed, so what is missing is the person's own link rather than a record. */
   it("renders the pending page, not the empty one, where a record waits on the person's link", async () => {
     setSubject(person({ unbestaetigt: true }));
-    const markup = await renderPage(underNext(h(PersoenlichStartPage)));
+    const { markup, reads } = await renderedAlone(PersoenlichStartPage);
 
+    assert.deepEqual(reads, [], "the pending page reads past the session it is drawn from");
     assert.ok(markup.includes("Noch nicht bestätigt"), "the pending page is not what renders");
     assert.ok(markup.includes("kontakt@frankfurtleague.de"), "the pending page names nobody to write to");
     assert.ok(!markup.includes("nirgends eingetragen"), "the pending person is told they are entered nowhere");
@@ -217,8 +229,10 @@ describe("where the landing takes a person", () => {
         sitze: [sitz({ rolle: "trainer" }), sitz({ rolle: "ansprechperson" }), sitz({ team_id: TEAM_B, team_name: "Lessing-Gymnasium" })],
       }),
     );
-    const text = textOf(await renderPage(underNext(h(PersoenlichStartPage))), " ").replace(/\s+/g, " ");
+    const { markup, reads } = await renderedAlone(PersoenlichStartPage);
+    const text = textOf(markup, " ").replace(/\s+/g, " ");
 
+    assert.deepEqual(reads, [], "the landing reads past the session its list is drawn from");
     assert.ok(text.includes("Goethe-Gymnasium Saison 2526 · Ansprechperson und Trainer"), text);
     assert.ok(text.includes("Lessing-Gymnasium Saison 2526 · Ansprechperson"), text);
   });
@@ -234,8 +248,9 @@ describe("where the landing takes a person", () => {
 describe("the referee's page", () => {
   it("tells a referee that no match is assigned yet", async () => {
     setSubject(person({ schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }));
-    const markup = await renderPage(underNext(h(PersoenlichSchiedsrichterPage)));
+    const { markup, reads } = await renderedAlone(PersoenlichSchiedsrichterPage);
 
+    assert.deepEqual(reads, [], "the referee's page reads past the session it is drawn from");
     assert.ok(markup.includes("Dir ist noch kein Spiel zugeteilt."), "the referee's empty state is not what renders");
   });
 
@@ -250,8 +265,9 @@ describe("the referee's page", () => {
 describe("the player's page", () => {
   it("tells a player they are entered", async () => {
     setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }));
-    const markup = await renderPage(underNext(h(PersoenlichSpielerPage)));
+    const { markup, reads } = await renderedAlone(PersoenlichSpielerPage);
 
+    assert.deepEqual(reads, [], "the player's page reads past the session it is drawn from");
     assert.ok(markup.includes("Du bist als Spieler eingetragen."), "the player's page is not what renders");
   });
 

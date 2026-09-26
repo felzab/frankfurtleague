@@ -11,6 +11,7 @@ import { answer, answerReadsWith, clearSteps, EMPTIEST_ANSWER, readsOf, renderPa
 import type { FLSubjektResponse, FLSubjektSitz } from "@/core/schemas.ts";
 import type { SubjectSession } from "@/core/subject.ts";
 import type * as NextError from "next/error";
+import type { ReactElement } from "react";
 
 const { setSession, setSubject, subjectReads } = doubleActionRequest();
 // The shells hand a sign-out action to the bar, whose real module reaches `next/server` past the harness.
@@ -67,29 +68,40 @@ answerReadsWith((endpoint, schema, params) =>
 /** The name the switcher's trigger carries in the markup, or `null` where the shell shows no switcher. */
 const triggerIn = (markup: string): string | null => /aria-label="([^"]*, Funktion wechseln)"/.exec(markup)?.[1] ?? null;
 
-const teamAt = (pathname: string) => {
-  const params = Promise.resolve({ team_id: TEAM_A, saison_id: "2526" });
-  return renderPage(underNext(h(TeamLayout, { params: params, children: null }), { pathname }));
-};
+/** What a render at `pathname` leaves, and every backend read it made on the way. */
+async function renderedAt(tree: ReactElement, pathname: string): Promise<{ markup: string; reads: string[] }> {
+  clearSteps();
+  const markup = await renderPage(underNext(tree, { pathname }));
+
+  return { markup: markup, reads: readsOf(steps).map(({ endpoint }) => endpoint) };
+}
+
+const teamAt = (pathname: string) =>
+  renderedAt(h(TeamLayout, { params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526" }), children: null }), pathname);
 
 describe("the switcher each signed-in shell heads its sidemenu with", () => {
   it("names the team a seat holder stands in, where they hold another place", async () => {
     setSubject(person({ sitze: [sitz()], spieler: [SPIELER_ROW] }));
+    const { markup, reads } = await teamAt(`/bereich/team/${TEAM_A}/2526`);
 
-    assert.equal(triggerIn(await teamAt(`/bereich/team/${TEAM_A}/2526`)), "Goethe-Gymnasium, Funktion wechseln");
+    assert.deepEqual(reads, [], "the team shell reads past the session its switcher is drawn from");
+    assert.equal(triggerIn(markup), "Goethe-Gymnasium, Funktion wechseln");
   });
 
   /* Two seats at one team and season are one place, which is no choice to offer. */
   it("shows none to a person whose seats all lead to the one team and season", async () => {
     setSubject(person({ sitze: [sitz({ rolle: "trainer" }), sitz()] }));
+    const { markup, reads } = await teamAt(`/bereich/team/${TEAM_A}/2526`);
 
-    assert.equal(triggerIn(await teamAt(`/bereich/team/${TEAM_A}/2526`)), null);
+    assert.deepEqual(reads, [], "the team shell reads past the session its switcher is drawn from");
+    assert.equal(triggerIn(markup), null);
   });
 
   it("names the person-lane page a person stands on", async () => {
     setSubject(person({ spieler: [SPIELER_ROW], schiedsrichter: [SCHIEDSRICHTER_ROW] }));
-    const markup = await renderPage(underNext(h(PersoenlichLayout, { children: null }), { pathname: "/bereich/spieler" }));
+    const { markup, reads } = await renderedAt(h(PersoenlichLayout, { children: null }), "/bereich/spieler");
 
+    assert.deepEqual(reads, [], "the person shell reads past the session its switcher is drawn from");
     assert.equal(triggerIn(markup), "Spieler, Funktion wechseln");
   });
 
@@ -97,8 +109,9 @@ describe("the switcher each signed-in shell heads its sidemenu with", () => {
      switcher standing there. */
   it("names the person's landing as the rail's entry for it does", async () => {
     setSubject(person({ spieler: [SPIELER_ROW], schiedsrichter: [SCHIEDSRICHTER_ROW] }));
-    const markup = await renderPage(underNext(h(PersoenlichLayout, { children: null }), { pathname: "/bereich" }));
+    const { markup, reads } = await renderedAt(h(PersoenlichLayout, { children: null }), "/bereich");
 
+    assert.deepEqual(reads, [], "the person shell reads past the session its switcher is drawn from");
     assert.equal(triggerIn(markup), "Übersicht, Funktion wechseln");
   });
 });
@@ -113,7 +126,8 @@ describe("the places the switcher lists", () => {
       schiedsrichter: [SCHIEDSRICHTER_ROW],
     });
     setSubject(subject);
-    const landing = await renderPage(underNext(h(PersoenlichStartPage), { pathname: "/bereich" }));
+    const { markup: landing, reads } = await renderedAt(h(PersoenlichStartPage), "/bereich");
+    assert.deepEqual(reads, [], "the landing reads past the session its cards are drawn from");
     const cards = [
       ...landing.matchAll(/<a [^>]*href="([^"]*)"[^>]*>\s*<div[^>]*>\s*<span[^>]*>([^<]*)<\/span>\s*<span[^>]*>([^<]*)<\/span>/g),
     ].map(([, href, titel, detail]) => ({ href: href!, titel: titel!, detail: detail! }));

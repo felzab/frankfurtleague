@@ -87,12 +87,13 @@ const landingAt = (teamId: string, saisonId: string) => {
  * What a browser holds once the landing's stream at that address has run, arrived at with a season in
  * its query as a link from the admin's or the dashboard's shell carries one.
  */
-async function rendered(teamId: string, saisonId: string): Promise<{ markup: string; text: string }> {
+async function rendered(teamId: string, saisonId: string): Promise<{ markup: string; text: string; reads: string[] }> {
+  clearSteps();
   const markup = await renderPage(
     underNext(h(landingAt(teamId, saisonId)), { pathname: `/bereich/team/${teamId}/${saisonId}`, search: `saison_id=${saisonId}` }),
   );
 
-  return { markup: markup, text: textOf(markup, " ").replace(/\s+/g, " ") };
+  return { markup: markup, text: textOf(markup, " ").replace(/\s+/g, " "), reads: readsOf(steps).map(({ endpoint }) => endpoint) };
 }
 
 /** The page's one heading, which the shell's top bar carries. */
@@ -132,8 +133,9 @@ describe("what a seat holder meets at their team's address", () => {
      it played that season, and every role they hold on it, each in its long form. */
   it("renders the landing inside the team shell, naming the team and the person's roles", async () => {
     setSubject(person({ sitze: [sitz({ rolle: "trainer" }), sitz({ rolle: "ansprechperson" })] }));
-    const { markup, text } = await rendered(TEAM_A, "2526");
+    const { markup, text, reads } = await rendered(TEAM_A, "2526");
 
+    assert.deepEqual(reads, [], "the landing and its shell read past the session, which they are rendered from");
     assert.ok(markup.includes("data-app-shell"), "the landing renders outside the team shell");
     assert.equal(heading(markup), "Übersicht");
     assert.match(markup, /<h2[^>]*>Goethe-Gymnasium<\/h2>/, "the landing's heading does not name the team");
@@ -144,8 +146,9 @@ describe("what a seat holder meets at their team's address", () => {
   /* The season is the address's own segment, so the chip names it and no link repeats it as a query. */
   it("names the address's season in the shell and carries it on no link as a query", async () => {
     setSubject(person({ sitze: [sitz()] }));
-    const { markup, text } = await rendered(TEAM_A, "2526");
+    const { markup, text, reads } = await rendered(TEAM_A, "2526");
 
+    assert.deepEqual(reads, [], "the landing and its shell read past the session, which they are rendered from");
     assert.ok(text.includes("Saison 2526"), "the shell names no season");
     assert.deepEqual(
       linksIn(markup).filter((link) => link.href.includes("?")),
@@ -213,8 +216,9 @@ describe("what a person meets at an address they hold no seat on", () => {
   it("renders the forbidden panel inside the shell for another team, linking to the team the person holds", async () => {
     setSubject(person({ sitze: [sitz()] }));
     // A season the person holds nothing in either, so a mention of it can only be the address's.
-    const { markup, text } = await rendered(TEAM_B, "2627");
+    const { markup, text, reads } = await rendered(TEAM_B, "2627");
 
+    assert.deepEqual(reads, [], "the forbidden panel's render reads at an address the person holds no seat on");
     assert.ok(markup.includes("data-app-shell"), "the forbidden panel renders outside the team shell");
     assert.ok(markup.includes(FORBIDDEN_BADGE), "the forbidden panel is not what renders");
     assert.ok(text.includes("Hier bist Du nicht eingetragen."), text);
@@ -227,8 +231,9 @@ describe("what a person meets at an address they hold no seat on", () => {
   /* A seat on a `past` season grants no panel, so its own team's address answers as held by nobody. */
   it("renders the forbidden panel for a seat on a past season", async () => {
     setSubject(person({ sitze: [sitz({ saison_id: "2425", saison_status: "past" })] }));
-    const { markup } = await rendered(TEAM_A, "2425");
+    const { markup, reads } = await rendered(TEAM_A, "2425");
 
+    assert.deepEqual(reads, [], "the forbidden panel's render reads at a past season's address");
     assert.ok(markup.includes(FORBIDDEN_BADGE), "a past season's address renders its panel");
     assert.deepEqual(wayOutsIn(markup), [{ href: "/bereich", text: "Zu Deinem Bereich" }]);
   });
@@ -240,8 +245,9 @@ describe("what a person meets at an address they hold no seat on", () => {
         sitze: [sitz({ rolle: "trainer" }), sitz({ rolle: "ansprechperson" }), sitz({ saison_id: "2627", saison_status: "future" })],
       }),
     );
-    const { markup } = await rendered(TEAM_B, "2526");
+    const { markup, reads } = await rendered(TEAM_B, "2526");
 
+    assert.deepEqual(reads, [], "the forbidden panel's render reads at an address the person holds no seat on");
     assert.deepEqual(
       wayOutsIn(markup).map((link) => link.href),
       [`/bereich/team/${TEAM_A}/2526`, `/bereich/team/${TEAM_A}/2627`],
