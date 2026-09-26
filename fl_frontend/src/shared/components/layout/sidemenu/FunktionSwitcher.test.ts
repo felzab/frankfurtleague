@@ -183,10 +183,18 @@ describe("what the switcher lists", () => {
   /* Each press leaves the shell, and the router hides the departing tree rather than unmounting it. */
   it("closes the drawer on every press", async () => {
     const { closes } = switcherAt(GOETHE.href);
-    const [, spieler] = await openMenu("Goethe-Gymnasium, Funktion wechseln");
+    const offered = (await openMenu("Goethe-Gymnasium, Funktion wechseln")).length;
 
-    await userEvent.setup().click(spieler!);
+    // Each press closes the menu, so it is opened again for the next item, the way to `/bereich` among them.
+    for (let index = 0; index < offered; index += 1) {
+      const items =
+        index === 0
+          ? [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"], [role="menuitem"]')]
+          : await openMenu("Goethe-Gymnasium, Funktion wechseln");
+      await userEvent.setup().click(items[index]!);
+    }
 
-    assert.equal(closes(), 1, "a press into another place leaves the drawer open behind it");
+    assert.equal(offered, 3, `the menu offers ${String(offered)} items rather than two places and the way to /bereich`);
+    assert.equal(closes(), offered, "a press leaves the drawer open behind it");
   });
 });

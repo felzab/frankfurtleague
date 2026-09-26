@@ -74,7 +74,7 @@ describe("what the team shell lists", () => {
   });
 
   /* A pupil's row or a referee's is no seat on any team, even one carrying the address's own team and
-     season, as a squad row naming its team would: only the `art` tells it from a seat. */
+     season, which none carries today and a later Funktion may: only the `art` tells it from a seat. */
   it("lists nothing for a Funktion that is no seat", () => {
     const address = { team_id: TEAM_A, saison_id: "2526", rolle: "ansprechperson" };
     const spieler = { art: "spieler" as const, spieler_id: TEAM_A, ...address };
