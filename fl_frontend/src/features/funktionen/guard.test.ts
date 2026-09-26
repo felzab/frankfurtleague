@@ -25,6 +25,9 @@ doubleEveryAction();
 const { default: PersoenlichLayout } = await import("@/app/bereich/(persoenlich)/layout.tsx");
 const { default: PersoenlichStartPage } = await import("@/app/bereich/(persoenlich)/page.tsx");
 const { default: PersoenlichSchiedsrichterPage } = await import("@/app/bereich/(persoenlich)/schiedsrichter/page.tsx");
+const { default: PersoenlichSpielerPage } = await import("@/app/bereich/(persoenlich)/spieler/page.tsx");
+/** Every redirect the build loads, which Next answers before any route is matched. */
+const { default: nextConfig } = await import("../../../next.config.ts");
 
 const APP_DIR = path.resolve(import.meta.dirname, "..", "..", "app");
 
@@ -168,6 +171,36 @@ describe("the referee's page", () => {
     setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }));
 
     assert.deepEqual(await redirectsOf(PersoenlichSchiedsrichterPage), ["/bereich"]);
+  });
+});
+
+describe("the player's page", () => {
+  it("tells a player they are entered", async () => {
+    setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }));
+    const markup = await renderPage(underNext(h(PersoenlichSpielerPage)));
+
+    assert.ok(markup.includes("Du bist als Spieler eingetragen."), "the player's page is not what renders");
+  });
+
+  /* The page speaks to a player, so a person holding no squad row is sent where their own Funktionen are. */
+  it("sends a person holding no player row to the landing", async () => {
+    setSubject(person({ schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }));
+
+    assert.deepEqual(await redirectsOf(PersoenlichSpielerPage), ["/bereich"]);
+  });
+});
+
+describe("the bare /bereich/admin", () => {
+  /* The person area's catch-all matches every `/bereich/<word>` no sibling route takes, so a bare
+     `/bereich/admin` with no page of its own would render the person layout to an administrator. */
+  it("is answered inside the admin area, never by the person catch-all", async () => {
+    const redirects = await nextConfig.redirects?.();
+    const redirected = (redirects ?? []).some((rule) => rule.source === "/bereich/admin" && rule.destination.startsWith("/bereich/admin/"));
+
+    assert.ok(
+      existsSync(path.join(APP_DIR, "bereich", "admin", "page.tsx")) || redirected,
+      "/bereich/admin has no page and no redirect into its subtree, so the person catch-all answers it",
+    );
   });
 });
 
