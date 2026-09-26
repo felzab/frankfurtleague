@@ -1174,10 +1174,11 @@ written at the rule, never suppressed at this call site." \
     skip "this python is below the checkers' floor, so neither stack's exposure was judged"
   else
     run_checker stop "scripts/checks/check_compose_model.py" "A stack exposes more than its edge, mounts or starts the edge other
-than the deploy reads it, or trusts an address that is not the connector's. The findings above name
-the service and the rule: docs/ops/spec.md I1, I174, I355 or I18." \
+than the deploy reads it, trusts an address that is not the connector's, or hands a service other
+environment files than the deploy judges. The findings above name the service and the rule:
+docs/ops/spec.md I1, I174, I355, I18 or I429." \
       "$OPS_PY" scripts/checks/check_compose_model.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json"
-    ok "production publishes nothing and declares no database; locally only nginx leaves loopback; both edges mount nginx/ by directory and open the Control API where the deploy asks it; production's edge trusts the connector alone"
+    ok "production publishes nothing and declares no database; locally only nginx leaves loopback; both edges mount nginx/ by directory and open the Control API where the deploy asks it; either edge trusts the connector alone; each application service reads its package's environment file, then the checkout's"
   fi
 
   step "ops · nginx accepts prod.conf"
