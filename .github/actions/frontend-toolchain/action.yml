@@ -7,12 +7,51 @@ description: >-
 # this file until actions/checkout has run -- which is also why the checkout stays in each job,
 # where its own fetch-depth is decided.
 
-# Local, so it needs no Actions allowlist entry (docs/_git/spec.md, Repository settings); the action
-# it calls does. Dependabot reaches its pin through .github/dependabot.yml's composite-action entry.
+# Local, so it needs no Actions allowlist entry (docs/_git/spec.md, Repository settings); pnpm/setup,
+# the one third-party action it calls, does. Dependabot reaches its pins through
+# .github/dependabot.yml's composite-action entry.
+
+inputs:
+  save-store:
+    description: >-
+      `true` in the one caller that writes the pnpm store to the Actions cache when the store it
+      restored was not this lockfile's and this runtime's; `false`, the default, restores and writes
+      nothing.
+    required: false
+    default: "false"
 
 runs:
   using: composite
   steps:
+    # Any other value is refused: read as `false`, a misspelt `true` would leave the cache unwritten
+    # with nothing failing.
+    - name: Refuse a save-store that is neither true nor false
+      shell: bash
+      env:
+        SAVE_STORE: ${{ inputs.save-store }}
+      run: |
+        case "$SAVE_STORE" in
+          true | false) ;;
+          *)
+            echo "::error title=Frontend toolchain::save-store is '${SAVE_STORE}', and only true or false is read."
+            exit 1
+            ;;
+        esac
+
+    # Ahead of pnpm/setup, so the Node it installs is read from the store too. The newest store for
+    # this lockfile, else for any: a changed lockfile downloads what changed rather than everything.
+    - id: restore-store
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        # The store every step here names. pnpm's default under the `PNPM_HOME` pnpm/setup exports
+        # lies inside the directory pnpm/setup deletes before installing, which would take this
+        # restore with it.
+        path: ${{ runner.temp }}/pnpm-store
+        key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-
+        restore-keys: |
+          pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-
+          pnpm-store-${{ runner.os }}-${{ runner.arch }}-
+
     # pnpm/setup fetches pnpm's binary at the `packageManager` version and installs the Node
     # `devEngines.runtime` declares: one action for both, and no npm self-install.
 
@@ -21,13 +60,58 @@ runs:
 
     # Bounded: a changed lockfile re-verifies, the log is uploaded when the install ends rather than
     # at job end, out of reach of later steps, and one a record vanished from is discarded.
-    - uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+    - id: setup
+      uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # v3.0.0
+      env:
+        pnpm_config_store_dir: ${{ runner.temp }}/pnpm-store
       with:
         # The image pins pnpm again at `fl_frontend/Dockerfile :: ARG PNPM_VERSION`; nothing compares
         # them, so bump both.
         working-directory: fl_frontend
-        # The store cache, keyed on the lockfile and the runtime.
-        cache: true
+        # Never its own store cache: that saves under a key unique to each job of each run, so every
+        # job uploads the whole store whatever it restored. The steps around this one cache it.
+        cache: false
         # `pnpm install --frozen-lockfile`, plus a refusal when no lockfile exists at all -- where a
         # plain install resolves from the registry, writes one and exits 0.
         require-lockfile: true
+
+    # The key the save writes, spelled here alone: the runtime pnpm/setup resolved is in it, so a new
+    # Node release is saved once. An exact match restored means nothing is saved.
+    - id: store-key
+      name: Decide whether the pnpm store is saved
+      if: inputs.save-store == 'true'
+      shell: bash
+      env:
+        KEY: ${{ steps.restore-store.outputs.cache-primary-key }}${{ steps.setup.outputs.runtime-name }}-${{ steps.setup.outputs.runtime-version }}
+        MATCHED: ${{ steps.restore-store.outputs.cache-matched-key }}
+      run: |
+        echo "key=${KEY}" >> "$GITHUB_OUTPUT"
+        if [ "$KEY" = "$MATCHED" ]; then
+          echo "miss=false" >> "$GITHUB_OUTPUT"
+        else
+          echo "miss=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    # A store restored for another lockfile or runtime holds packages this install does not use.
+    - id: prune-store
+      name: Prune the pnpm store before it is saved
+      if: steps.store-key.outputs.miss == 'true'
+      # A failed prune costs the run its save, never its verdict.
+      continue-on-error: true
+      env:
+        pnpm_config_store_dir: ${{ runner.temp }}/pnpm-store
+      shell: bash
+      working-directory: fl_frontend
+      run: |
+        pnpm store prune
+        # The prune clears only its own layout's directory: a layout an earlier pnpm major left
+        # beside it goes here, or rides every later restore.
+        store="$(pnpm store path)"
+        find "$(dirname "$store")" -mindepth 1 -maxdepth 1 ! -path "$store" -exec rm -rf {} +
+
+    # Here, not at job end: what later steps write never reaches the cache.
+    - if: steps.prune-store.outcome == 'success'
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ runner.temp }}/pnpm-store
+        key: ${{ steps.store-key.outputs.key }}

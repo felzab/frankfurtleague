@@ -281,6 +281,12 @@ jobs:
           python-version-file: fl_backend/.python-version
       # The scope builds the application, so the installed tree is the job.
       - uses: ./.github/actions/frontend-toolchain
+        # The pnpm store's one writer, on every event, so a pull request's first run warms its later
+        # ones. That entry is scoped to its merge ref and never restored on main, whose scope the
+        # trusted-trigger advice guards
+        # (https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache).
+        with:
+          save-store: true
       # The source trees are in the key, not the lockfile alone: a key coarser than what the cache
       # depends on hits exactly every run, and actions/cache does not write on an exact hit.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
