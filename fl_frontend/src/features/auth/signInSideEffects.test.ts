@@ -2,25 +2,18 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { ADMIN_EMAIL, asDataUrl, memoryAdapterDouble, ORIGIN, registerAuthDoubles } from "@/core/authDoubles.ts";
+import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 
 import type { FormState } from "@/shared/types/types.ts";
 
 const STORE = "__flSignInStore";
 const COOKIE_JAR = "__flSignInCookieJar";
 const REQUEST_HEADERS = "__flSignInRequestHeaders";
-const SENT = "__flSignInSentMail";
 const DEFERRED = "__flSignInDeferredWork";
 
 const ALLOWLISTED = ADMIN_EMAIL;
 /** Absent from the config double's allowlist, so the gate inside the send is what refuses it. */
 const REJECTED = "fremde@example.org";
-
-// Recorded rather than sent: the send is what parts the two branches, so a file that cannot see it
-// would compare two refusals and pass. The text carries the link, which is where a token is read.
-const MAIL_DOUBLE = `export const sendMail = async (message) => {
-  globalThis.${SENT}.push({ to: message.to, text: message.text });
-  return { id: null };
-};`;
 
 /**
  * `headers()` feeds the trace scope and the endpoint's own `requireHeaders`. `cookies()` hands back
@@ -37,7 +30,6 @@ const NEXT_SERVER_DOUBLE = `export * from ${JSON.stringify(import.meta.resolve("
 export const after = (task) => { globalThis.${DEFERRED}.push(task); };`;
 
 registerAuthDoubles({
-  core: { mail: MAIL_DOUBLE },
   specifiers: {
     // Both spellings: the application imports the bare one, and `nextCookies()` reaches for the
     // extension itself -- so a double on one alone leaves the cookie writer on the real module.
@@ -49,7 +41,10 @@ registerAuthDoubles({
   },
 });
 
-const sent: { to: string; text: string }[] = [];
+// Recorded rather than sent: the send is what parts the two branches, so a file that cannot see it
+// would compare two refusals and pass. After `registerAuthDoubles`, whose silent mailer this one
+// stands in front of.
+const { sent } = doubleSendMail();
 const deferred: (() => Promise<void>)[] = [];
 const store = {
   user: [] as { email: string }[],
@@ -60,7 +55,6 @@ const store = {
 };
 
 const globals = globalThis as unknown as Record<string, unknown>;
-globals[SENT] = sent;
 globals[DEFERRED] = deferred;
 globals[STORE] = store;
 

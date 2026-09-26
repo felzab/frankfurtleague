@@ -3,25 +3,14 @@ import { beforeEach, describe, it } from "node:test";
 
 import { ADMIN_EMAIL, asDataUrl, cookieHeader, MEMORY_ADAPTER_URL, ORIGIN, registerAuthDoubles, seedLink } from "@/core/authDoubles.ts";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 
 const STORE = "__flPasskeyStore";
 const REQUEST_HEADERS = "__flPasskeyRequestHeaders";
-const SENT = "__flPasskeySentMail";
 const PASS_THROUGH = "__flPasskeyPassThrough";
-const WITHHELD = "__flPasskeyWithheld";
 
 /** Allowlisted by nothing, so every guard below has an arm that is refused for the address alone. */
 const PERSON_EMAIL = "spielerin@example.org";
-
-/* Records the message it sends as the real client does, and withholds it where the flag is set before
-   anything leaves, as a deployment that does not mail withholds it. */
-const MAIL_DOUBLE = `import { recordWriteSent } from "@/core/requestScope";
-export const sendMail = async (message) => {
-  if (globalThis.${WITHHELD}) throw new Error("withheld");
-  recordWriteSent();
-  globalThis.${SENT}.push(message);
-  return { id: null };
-};`;
 
 const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};`;
 
@@ -37,13 +26,15 @@ export const mongodbAdapter = () => (options) => {
 };`;
 
 registerAuthDoubles({
-  core: { mail: MAIL_DOUBLE, logging: LOGGING_DOUBLE },
+  core: { logging: LOGGING_DOUBLE },
   specifiers: {
     "next/headers": asDataUrl(HEADERS_DOUBLE),
     "next/cache": asDataUrl(NEXT_CACHE_DOUBLE),
     "@better-auth/mongo-adapter": asDataUrl(ADAPTER_DOUBLE),
   },
 });
+// After `registerAuthDoubles`, whose silent mailer this one stands in front of.
+const mail = doubleSendMail();
 
 type SessionRow = { token: string; userId: string; expiresAt: Date; createdAt: Date; updatedAt: Date; authFactor?: string };
 
@@ -56,11 +47,10 @@ type Store = {
 };
 
 const store: Store = { user: [], session: [], account: [], verification: [], passkey: [] };
-const sent: { to: string; subject: string; text: string; html: string }[] = [];
+const sent = mail.sent;
 
 const globals = globalThis as unknown as Record<string, unknown>;
 globals[STORE] = store;
-globals[SENT] = sent;
 
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so none of the doubles would be in place yet.
@@ -72,10 +62,8 @@ const HOUR_MS = 60 * 60 * 1000;
 
 beforeEach(() => {
   globals[PASS_THROUGH] = false;
-  globals[WITHHELD] = false;
   store.passkey.length = 0;
   store.session.length = 0;
-  sent.length = 0;
   cacheCalls.length = 0;
 });
 
@@ -272,10 +260,14 @@ describe("what a removal costs, and what it refuses", () => {
     const held = seedPasskey(row.userId, "eins");
     seedPasskey(row.userId, "zwei");
     arriveAs(cookie);
-    globals[WITHHELD] = true;
+    mail.answerWith(() => "withheld");
 
     assert.equal((await removePasskeyAction(String(held.id))).success, true);
-    assert.deepEqual(sent, [], "the notice left, so the refresh below is judged over its record");
+    assert.deepEqual(
+      sent.map(({ to }) => to),
+      [ADMIN_EMAIL],
+      "the notice never reached the mailer to be withheld",
+    );
     assert.deepEqual(cacheCalls, [{ name: "refresh", args: [] }], "the administrator's page was left standing");
   });
 

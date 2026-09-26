@@ -17,6 +17,7 @@ import {
   registerAuthDoubles,
 } from "@/core/authDoubles.ts";
 import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
+import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 
 // A replica set, which the module starts by default: the property under test is a transaction's.
 const mongod = await new MongoDBContainer("mongo:8.3.11").start();
@@ -25,7 +26,6 @@ const mongod = await new MongoDBContainer("mongo:8.3.11").start();
 const MONGO_URL = `${mongod.getConnectionString()}/?directConnection=true`;
 
 const REQUEST_HEADERS = "__flPasskeyDbRequestHeaders";
-const SENT = "__flPasskeyDbSentMail";
 const LOGGED = "__flPasskeyDbLogged";
 const BARRIER = "__flPasskeyDbBarrier";
 const SIGNING_OUT = "__flPasskeyDbSigningOut";
@@ -72,7 +72,6 @@ export const client = new Proxy(real, { get(target, prop) {
   return bound(target, Reflect.get(target, prop, target));
 }});`;
 
-const MAIL_DOUBLE = `export const sendMail = async (message) => { globalThis.${SENT}.push(message); return { id: null }; };`;
 const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};`;
 
 const LOGGING_DOUBLE = `export const logger = {
@@ -83,9 +82,11 @@ const LOGGING_DOUBLE = `export const logger = {
 };`;
 
 registerAuthDoubles({
-  core: { config: configDouble({ MONGODB_URI: MONGO_URL }), db: DB_DOUBLE, mail: MAIL_DOUBLE, logging: LOGGING_DOUBLE },
+  core: { config: configDouble({ MONGODB_URI: MONGO_URL }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
   specifiers: { "next/headers": asDataUrl(HEADERS_DOUBLE), "next/cache": asDataUrl(NEXT_CACHE_DOUBLE) },
 });
+// After `registerAuthDoubles`, whose silent mailer this one stands in front of.
+const { sent } = doubleSendMail();
 
 /**
  * Holds the first removal whose transaction reads the passkey rows, where its snapshot is taken, until
@@ -120,11 +121,9 @@ class Gate {
 /** The gate no case holds: every read passes. */
 const OPEN_GATE = { arrive: async () => undefined };
 
-const sent: { to: string; text: string }[] = [];
 const warnings: string[] = [];
 const barrier = new Barrier();
 const globals = globalThis as unknown as Record<string, unknown>;
-globals[SENT] = sent;
 globals[LOGGED] = warnings;
 globals[BARRIER] = barrier;
 globals[GATE] = OPEN_GATE;
@@ -161,7 +160,6 @@ after(async () => {
 
 beforeEach(async () => {
   barrier.disarm();
-  sent.length = 0;
   warnings.length = 0;
   signingOut = async () => undefined;
   committed = async () => undefined;
