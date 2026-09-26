@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
+import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, doubleEveryAction, exportingModule } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { pageBody } from "@/shared/testing/pageHarness.ts";
+import { callPage, pageBody, redirectTarget } from "@/shared/testing/pageHarness.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { SubjectSession } from "@/core/subject.ts";
@@ -14,6 +15,18 @@ import type { Sicherheit } from "./types.ts";
 const { setSubject } = doubleActionRequest();
 // The shells hand a sign-out action to the bar, and the section's actions are called nowhere here.
 doubleEveryAction();
+
+/** The one address the allowlist holds here, which the environment would otherwise name. */
+const ALLOWLISTED = "vorstand@example.org";
+const ALLOWLIST_DOUBLE = exportingModule({ isUserAdmin: (email?: string | null) => email === ALLOWLISTED });
+
+registerHooks({
+  load(url, context, nextLoad) {
+    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
+    if (url.endsWith("/src/core/allowlist.ts")) return { format: "module", source: ALLOWLIST_DOUBLE, shortCircuit: true };
+    return nextLoad(url, context);
+  },
+});
 
 /* Reached with `await import` and never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { default: KontoPage } = await import("@/app/bereich/(persoenlich)/konto/page.tsx");
@@ -56,6 +69,21 @@ describe("the account page", () => {
     const props = body.props as { email: string; sicherheit: { type: unknown } };
     assert.equal(props.email, "pia@example.org");
     assert.equal(props.sicherheit.type, SicherheitSection);
+  });
+
+  /* The section is the administrator's lane's to fill, so a lapsed administrator verdict is sent on to
+     that lane's step, as the landing sends it, rather than shown an empty section. */
+  it("sends an allowlisted address whose administrator verdict lapsed to the admin subtree", async () => {
+    setSubject({ ...OHNE_FUNKTION, email: ALLOWLISTED });
+    const { thrown } = await callPage(KontoPage, NO_PROPS);
+    assert.deepEqual(
+      thrown.flatMap((error) => redirectTarget(error) ?? []),
+      ["/bereich/admin"],
+    );
+
+    // The control: the administrator's own verdict standing, the page renders.
+    setSubject({ ...OHNE_FUNKTION, email: ALLOWLISTED, admin: true });
+    assert.equal((await pageBody(KontoPage, NO_PROPS)).type, KontoPanel);
   });
 
   it("draws the address under a panel heading and carries no second h1", () => {
