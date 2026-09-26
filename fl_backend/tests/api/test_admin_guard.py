@@ -185,7 +185,7 @@ def test_every_operation_carries_exactly_one_guard(path: str, method: str):
     assert len(guards) == 1, f"{method.upper()} {path} carries {len(guards)} guards: {guards}"
 
 
-# The operations a signed-in person reaches on the admin key through `bind_person_actor`, whose actor
+# The operations a signed-in person reaches on the admin key through `PERSON_ACTOR_BINDERS`, whose actor
 # is a person no allowlist holds: the one exemption from the check below, by name. Empty until the
 # first router serving a person is mounted.
 PERSON_OPERATIONS: frozenset[tuple[str, str]] = frozenset()

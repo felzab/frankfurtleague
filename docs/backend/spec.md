@@ -499,8 +499,8 @@ one HMAC of the master under its own label — so a compromise or a mistake in o
 another, and a later purpose joins by choosing a label rather than by sharing a digest. The ban
 list's label is `fl_backend/app/api/sperrliste/services.py :: SPERRLISTE_SCHLUESSEL_VERSION`, and
 every row records it. **The action log's pseudonym of a signed-in person is the second purpose**
-(`fl_backend/app/core/security.py :: AKTEUR_PSEUDONYM_VERSION`), so a replaced master also parts
-every row a person wrote from the pseudonym their erasure is keyed on.
+(`fl_backend/app/core/security.py :: AKTEUR_PSEUDONYM_VERSION`), so a replaced master also leaves
+one person's rows before and after it under two pseudonyms, and the older can never be recomputed.
 
 **`ALLOWED_ADMIN_EMAILS` is the frontend's allowlist held a second time**, and an address in one
 process's copy alone is an administrator the other refuses: the frontend turns the session away,

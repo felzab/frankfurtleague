@@ -298,14 +298,15 @@ costs nothing but what was typed.
 identifier of the session's address (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`)
 in the request scope `runAdminMutation` has just seeded, and `apiClient` sends it as `X-FL-Actor` on
 admin-tier calls alone — the ordering is load-bearing. A write reaching the backend without it comes
-back 401 ([`docs/backend/spec.md`](../backend/spec.md) I41).
+back 400 with `REQ-AUTH-005` ([`docs/backend/spec.md`](../backend/spec.md) I41).
 
 **Two guards resolve a session, and one request may run only one of them** (I272).
 `getAdminSession()` is the administrator's lane; `fl_frontend/src/core/subject.ts ::
 getSubjectSession` is a person's, and it answers the league records one mailbox matches rather than
 authorizing anything. Both compose the actor by folding the same address, so one person is one
-spelling in `aktionen` whichever lane recorded the write; a page that called both would set two
-actors on one request, and `setRequestActor` throws rather than letting the later call rename what
+identifier whichever lane sent the request — an administrator's writes are logged under it, a
+person's under its pseudonym (`fl_backend/app/core/security.py :: akteur_pseudonym`); a page that
+called both would set two actors on one request, and `setRequestActor` throws rather than letting the later call rename what
 the earlier attributed.
 
 **`getSubjectSession`'s `admin` field is the administrator's whole verdict**
@@ -2111,7 +2112,7 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | No guard proves a refusal message is German                                                                                                          | Accepted — detecting German needs a dictionary, and a list short enough to maintain fails an ordinary German sentence; §1.12 and review carry it instead                                    |
 | Pydantic and Zod models are hand-mirrored                                                                                                            | Accepted — checked rather than generated (I17, I236): every length and pattern is paired or recorded, and one payload's refusals with them                                                  |
-| Revocation is out of band, never the session lifetime; `fl_frontend/src/features/auth/actions.ts :: signOutAction` is the admin's own sign-out       | Accepted — an operator revokes by removing the address from `ALLOWED_ADMIN_EMAILS`, which `fl_frontend/src/core/allowlist.ts :: isUserAdmin` re-reads on every request                      |
+| Revocation is out of band, never the session lifetime; `fl_frontend/src/features/auth/actions.ts :: signOutAction` is the admin's own sign-out       | Accepted — an operator removes the address from both processes' `ALLOWED_ADMIN_EMAILS`; `fl_frontend/src/core/allowlist.ts :: isUserAdmin` re-reads the frontend's copy on every request    |
 | A person navigating only client-side never slides their own idle window (I135)                                                                       | Accepted — `nextCookies()` skips the session refresh on a server-component read; an administrator is unreachable by it, the 48-hour cap being measured from `createdAt`                     |
 | Next injects a polyfill bundle `browserslist` cannot cut                                                                                             | Accepted — `next/dist/build/polyfills/polyfill-module.js` ships unconditionally and no supported way to drop it exists; PageSpeed reports it under "Legacy JavaScript" in an unscored audit |
 | The rules §1.8 records are enforced by a linter past end of life, whose current documentation describes a major version this repository does not run | Open — `fl_frontend/package.json` holds eslint at a 9.x line taking no further fix, so §1.8's decisions and I9's boundary rest on an unrepairable tool                                      |

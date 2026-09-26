@@ -80,7 +80,9 @@ entities — and it exists because the adapter has no HTTP transport and sits on
 authorization check. Application data goes through FastAPI without exception.
 
 **Admin is an email allowlist, not a stored role.** `ALLOWED_ADMIN_EMAILS` is checked on every
-session read, through `fl_frontend/src/core/allowlist.ts :: isUserAdmin`, where the policy is defined. `getAdminSession()` is the gate `runAdminMutation` opens every admin server action on ([`spec.md`](spec.md) I7), and its
+session read, through `fl_frontend/src/core/allowlist.ts :: isUserAdmin`, where the policy is defined;
+the backend holds the same list and refuses an admin-tier request naming an actor off it
+([`../backend/spec.md`](../backend/spec.md) I383). `getAdminSession()` is the gate `runAdminMutation` opens every admin server action on ([`spec.md`](spec.md) I7), and its
 return value has to be checked — [`spec.md`](spec.md) I8 says what happens when it is not.
 
 **Route protection is layered**: `fl_frontend/src/proxy.ts` matches `/bereich/:path*` and turns

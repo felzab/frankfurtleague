@@ -325,16 +325,16 @@ Editing `ALLOWED_ADMIN_EMAILS` in both `fl_frontend/.env` and `fl_backend/.env` 
 processes is the whole procedure; why a restart is needed and how `role` is re-derived afterwards are
 [`spec.md`](spec.md) §4. Each of these is easy to get wrong:
 
-- **One list, in two files.** An address granted in the frontend's file alone signs in and then meets
-  `REQ-AUTH-006` on every admin page's request; one revoked there alone is turned away by the
-  frontend while the backend would still admit it, so the two files are edited together.
-
+- **One list, in two files.** An address granted in the frontend's file alone signs in, and every
+  save it makes meets `REQ-AUTH-006`; one revoked there alone is turned away by the frontend while
+  the backend would still admit it, so the two files are edited together.
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
 - **An entry the sign-in library will not take stops the site rather than that one administrator.**
-  The deploy's reader judges names alone (`docs/ops/spec.md :: I183`), so the refusal is met at boot,
-  after the recreate and behind an edge already answering 502; it names `ALLOWED_ADMIN_EMAILS` and
-  never the entry. An umlaut before the at sign is the case that turns up: the sign-in box takes no
+  The frontend's deploy reader judges names alone (`docs/ops/spec.md :: I183`), so that refusal is met
+  at boot, after the recreate and behind an edge already answering 502; an entry the backend's address
+  rule refuses is met earlier, by the deploy's preflight, before anything is recreated. Each names
+  `ALLOWED_ADMIN_EMAILS` and never the entry. An umlaut before the at sign is the case that turns up: the sign-in box takes no
   such address, so that person needs a mailbox it will accept before there is anything to allowlist.
   An umlaut domain may be entered in either spelling, the entry and the sign-in box both converting it
   to punycode.
@@ -646,7 +646,9 @@ command and not from a keyboard.
 
 **`SPERRLISTE_SCHLUESSEL` can never be rotated, and losing it costs the whole list**: replacing it
 disarms every ban in silence ([`../backend/spec.md`](../backend/spec.md#15-environment)), the one
-sign being a second ban of an address already on the list admitted rather than refused. Treat it as
+sign being a second ban of an address already on the list admitted rather than refused. It keys the
+action log's pseudonyms of signed-in people too, so a replacement leaves one person's rows under two
+pseudonyms and the older can never be recomputed. Treat it as
 the one backend secret with no recovery: back it up where the database's own access details are
 backed up, and where it is genuinely gone, clear the list and enter the bans again from whatever
 record names the addresses.

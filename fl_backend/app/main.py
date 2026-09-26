@@ -81,9 +81,9 @@ from app.core.security import (
 )
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
-# Split by tier and by `bind_actor`, never by method: `spielorte`, `schiedsrichter` and the ADMIN
-# `bewerbungen` router read under `verify_access_admin`, the rest under `verify_access_base`. Order
-# carries nothing here (`app/core/routing.py`).
+# Split by tier and by `bind_actor`, never by method: `spielorte`, `schiedsrichter`, `registrierungen`
+# and the ADMIN `bewerbungen` router read under `verify_access_admin`, the rest under
+# `verify_access_base`. Order carries nothing here (`app/core/routing.py`).
 READ_ROUTERS = (
     spiele_router,
     teams_router,

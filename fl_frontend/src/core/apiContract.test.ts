@@ -95,7 +95,7 @@ const FRONTEND_ONLY: Record<string, string> = {
 
   FLSpielQuelle: "the discriminated union is published inline on each teamN_quelle; both variants are paired",
 
-  FLAktor: "the discriminated union is published inline on FLAktion's actor; both variants are paired",
+  FLAktor: "the discriminated union is published inline on the actor of FLAktion and FLAktionMitStand; both variants are paired",
 
   FLSpielRestorableField: "a Pydantic Literal alias, inlined as an enum on the restore report's `replaced` and on no component of its own",
 
