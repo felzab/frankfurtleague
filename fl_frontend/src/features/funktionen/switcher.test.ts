@@ -89,6 +89,15 @@ describe("the switcher each signed-in shell heads its sidemenu with", () => {
 
     assert.equal(triggerIn(markup), "Spieler, Funktion wechseln");
   });
+
+  /* One page, one name: the rail's own entry and the bar call `/bereich` „Übersicht“, and so does the
+     switcher standing there. */
+  it("names the person's landing as the rail's entry for it does", async () => {
+    setSubject(person({ spieler: [SPIELER_ROW], schiedsrichter: [SCHIEDSRICHTER_ROW] }));
+    const markup = await renderPage(underNext(h(PersoenlichLayout, { children: null }), { pathname: "/bereich" }));
+
+    assert.equal(triggerIn(markup), "Übersicht, Funktion wechseln");
+  });
 });
 
 describe("the administrator's switcher", () => {

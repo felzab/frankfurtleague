@@ -4,7 +4,7 @@ import { signOutAction } from "@/features/auth/actions";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
 import { FunktionSwitcher } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
 
-import { PERSON_SHELL_FALLBACK, PERSON_SIDEMENU_ICONS } from "../../constants";
+import { PERSON_SHELL_FALLBACK, PERSON_SIDEMENU_ENTRIES, PERSON_SIDEMENU_ICONS } from "../../constants";
 
 import type { FunktionOrt } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
 import type { SidemenuStructure } from "@/shared/types/types";
@@ -33,11 +33,12 @@ export function PersonShell({
       // A person's pages are scoped to the person rather than to a season, so no season slot stands
       // and no link carries one.
       saisonMetadataDisplay={null}
-      // No way to `/bereich` beneath the places: this shell's own „Übersicht“ entry is that address.
+      // No way to `/bereich` beneath the places: this shell's own „Übersicht“ entry is that address, and the
+      // trigger names this area's pages by that page's name, so one page carries one name in one rail.
       funktionSwitcher={
         <FunktionSwitcher
           orte={orte}
-          ohneOrt={PERSON_SHELL_FALLBACK.label}
+          ohneOrt={PERSON_SIDEMENU_ENTRIES.landing.label}
           mitBereich={false}
         />
       }
