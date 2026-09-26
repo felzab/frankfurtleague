@@ -157,12 +157,19 @@ describe("the administrator's switcher", () => {
   /* One spelling per person: the session keeps the address as it was typed, and a lookup keyed on that
      spelling names a second mailbox to the join (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`). */
   it("asks about the admin session's own address, folded", async () => {
-    setSession({ user: { email: "Vorstand@Example.org" } });
-    await adminAt({ sitze: [sitz()] });
+    // Two addresses, so a lookup keyed on any one fixed spelling answers one of them wrong.
+    for (const [typed, folded] of [
+      ["Vorstand@Example.org", "vorstand@example.org"],
+      ["Kasse@Frankfurt-League.DE", "kasse@frankfurt-league.de"],
+    ] as const) {
+      setSession({ user: { email: typed } });
+      await adminAt({ sitze: [sitz()] });
 
-    assert.deepEqual(
-      steps.flatMap((step) => (step.kind === "read" && step.endpoint === "/identitaet/subjekt" ? [step.body] : [])),
-      [{ email: "vorstand@example.org" }],
-    );
+      assert.deepEqual(
+        steps.flatMap((step) => (step.kind === "read" && step.endpoint === "/identitaet/subjekt" ? [step.body] : [])),
+        [{ email: folded }],
+        `the lookup for ${typed} asks about another address`,
+      );
+    }
   });
 });
