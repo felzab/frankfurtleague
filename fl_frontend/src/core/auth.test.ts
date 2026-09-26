@@ -8,6 +8,7 @@ import { isAPIError } from "better-auth/api";
 import {
   ADMIN_EMAIL,
   asDataUrl,
+  Barrier,
   configDouble,
   cookieHeader,
   lastMailedCode,
@@ -55,6 +56,14 @@ export const mongodbAdapter = (db, config) => {
     get: (target, key) => {
       const value = Reflect.get(target, key);
       if (typeof value !== "function" || typeof key !== "string") return value;
+      // A count waits at the barrier a case arms, so every attempt of a burst reaches its count first.
+      if (key === "count") {
+        return async (...args) => {
+          globalThis.${ADAPTER_CALLS}.operations?.push(key + " " + String(args[0]?.model ?? ""));
+          await globalThis.${ADAPTER_CALLS}.counts.arrive();
+          return value.apply(target, args);
+        };
+      }
       return (...args) => {
         globalThis.${ADAPTER_CALLS}.operations?.push(key + " " + String(args[0]?.model ?? ""));
         return value.apply(target, args);
@@ -151,6 +160,7 @@ const adapterCalls = {
   databases: [] as string[],
   pairs: [] as { db: unknown; config?: { client?: unknown } }[],
   operations: undefined as string[] | undefined,
+  counts: new Barrier(),
 };
 
 const globals = globalThis as unknown as Record<string, unknown>;
@@ -1873,12 +1883,15 @@ describe("the failures one address may spend, across every code it is sent (`doc
     assert.equal(failureRows().length, 0);
   });
 
-  /* Each attempt's row goes in before it counts, so every count includes every attempt that has
-     begun: a count taken first would let a burst all read zero and all pass. */
+  /* Each attempt's row goes in before it counts, so a burst cannot all read zero and all pass. The
+     barrier holds every attempt at its count until the whole burst has arrived, the worst
+     interleaving there is. */
   it("lets no burst of concurrent attempts past the bound", async () => {
     const wrong = wrongFor(await mailedCode());
 
+    adapterCalls.counts.arm(15);
     const answers = await Promise.all(Array.from({ length: 15 }, () => answerOf(ADMIN_EMAIL, wrong)));
+    assert.ok(await adapterCalls.counts.filled, "the burst never met at the count, so it ran no race");
 
     const refused = answers.filter((answer) => answer.code === "ADDRESS_ATTEMPTS_EXHAUSTED").length;
     assert.ok(15 - refused <= 10, `${String(15 - refused)} of 15 concurrent attempts reached the code`);
