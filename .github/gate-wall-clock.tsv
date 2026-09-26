@@ -239,11 +239,13 @@
 # holds, the tier took 40.8-41.7 s at a four-core runner's width of three files, against 39.6-40.4 s
 # for the backend's db tier at its width of four, five interleaved rounds; the install behind them,
 # `pnpm install --frozen-lockfile` into an empty `node_modules` from a warm store, took 18.4-19.6 s
-# over five runs. The scope starts the two suites together
-# (`scripts/gate/verify.sh :: start_steps`), the frontend's files spending their time waiting out
-# the bounds they assert, and together they took 42.3-42.6 s in the same rounds, the longer suite
-# and not the sum. Measured locally on
-# 2026-09-26 on a sixteen-core Windows machine running nothing else. The `db` job ran 149 s against
+# over five runs. Where the scope runs alone, as its CI job does, it starts the two suites
+# together (`scripts/gate/verify.sh :: start_steps`), the frontend's files spending their time
+# waiting out the bounds they assert, and together they took 42.3-42.6 s in the same rounds, the
+# longer suite and not the sum. Beside other scopes it runs them one after the other: in a bare
+# gate run with every scope started together, the frontend's files took 129 s and six cases
+# overran the sign-in store's 3 s bounds. Measured locally on 2026-09-26 on a sixteen-core Windows
+# machine running nothing else. The `db` job ran 149 s against
 # its 125 s budget on the 2026-09-25 push that ran the suites one after the other; the overlap
 # takes off the shorter suite, about 40 s here, so the budget does not move and the first runs
 # carrying the pool show what a runner saves.

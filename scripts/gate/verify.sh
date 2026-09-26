@@ -1332,9 +1332,14 @@ if (( RUN_DB )); then
   # little as the red (`docs/ops/spec.md` §1.6).
   claim_db_run
 
-  # Started together: the frontend's files spend their time waiting on the bounds they assert,
-  # which costs the backend's workers nothing, so the scope costs its longer suite rather than both.
-  start_steps --db backend_db frontend_db
+  # Together only where this section runs alone, as in a CI db job or a bare `--db`: beside other
+  # sections the frontend's 3 s store bounds overrun. A worker is one of several; the section list,
+  # not `GITHUB_ACTIONS`, says which.
+  DB_TOGETHER=0
+  if ! worker && (( ${#SCOPE_ORDER[@]} == 1 )); then
+    DB_TOGETHER=1
+    start_steps --db backend_db frontend_db
+  fi
 
   # `loadfile` for cost, not isolation: `fl_backend/tests/worker.py :: worker_database` is what
   # isolates, so `--dist load` would hold too.
@@ -1342,12 +1347,16 @@ if (( RUN_DB )); then
   # Both mongods are shared (`fl_backend/tests/conftest.py :: pytest_configure_node`), so past
   # `GATE_WIDTH_DB_PYTEST` the workers fight over the same servers whatever the core count.
   step "db · pytest -m db, distributed over the two shared mongods"
-  unit_join backend_db
   # pytest answers its own codes, not this gate's: 2 is a collection error, 4 a usage error and 5
   # no test collected, and none is a db-tier failure. The width flag is the live route to a 4, an
   # empty one otherwise reading as the tests having failed.
   DB_RC=0
-  quietly unit_replay backend_db || DB_RC=$?
+  if (( DB_TOGETHER )); then
+    unit_join backend_db
+    quietly unit_replay backend_db || DB_RC=$?
+  else
+    quietly do_backend_db || DB_RC=$?
+  fi
   case "$DB_RC" in
     0) ;;
     1) die "fl_backend db-tier tests failed.
@@ -1361,11 +1370,15 @@ Re-run without \`-n auto --dist loadfile --maxprocesses ${GATE_WIDTH_DB_PYTEST}\
   # Each file starts its own replica set through `@testcontainers/mongodb`
   # (`docs/frontend/spec.md` §1.9), so the claim above covers them and no shared server is touched.
   step "db · the frontend's *.db.test.ts files"
-  unit_join frontend_db
   # The runner's own codes, as the unit tests read them: 1 is a failing test, anything else a run
   # that reached no verdict.
   FRONTEND_DB_RC=0
-  quietly unit_replay frontend_db || FRONTEND_DB_RC=$?
+  if (( DB_TOGETHER )); then
+    unit_join frontend_db
+    quietly unit_replay frontend_db || FRONTEND_DB_RC=$?
+  else
+    quietly do_frontend_db || FRONTEND_DB_RC=$?
+  fi
   case "$FRONTEND_DB_RC" in
     0) ;;
     1) die "fl_frontend db-tier tests failed.
