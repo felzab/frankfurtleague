@@ -27,7 +27,7 @@ The recurring procedures are in [`runbooks.md`](runbooks.md).
 **Production's four services, `frontend`, `backend`, `nginx` and `cloudflared`, publish no port at
 all** (I1): `cloudflared` dials out to Cloudflare and carries every
 request back over `frankfurtleague-net`, so nginx needs no host port to be reached from the
-internet, and the connector holds a static address on that network because `nginx/prod/prod.conf` trusts
+internet, and the connector holds a static address on that network because `nginx/shared/http.conf` trusts
 it by address (§1.3). It reads its credential with `--token-file` from a host file no environment
 variable and no command line carries (§1.2), and the tunnel's own public hostnames and origin
 settings are dashboard state (§1.8).
@@ -218,14 +218,15 @@ URI this block matches decodes either to the probe or to nothing — but the err
 the framework the origin runs.
 
 **`$remote_addr` is the visitor rather than the tunnel's connector**, and every zone keys on what
-that rewrite produced (`nginx/prod/prod.conf :: real_ip_header`, `:: set_real_ip_from`); the access line
+that rewrite produced (`nginx/shared/http.conf :: real_ip_header`, `:: set_real_ip_from`); the access line
 records it ([`docs/logging/spec.md`](../logging/spec.md) §1.2). **The trusted set is one address,
-the connector's** — nothing else reaches this origin (§1.1, I1) — which is what Cloudflare's
-published ranges could never be, being every customer's egress rather than this account's. **A
+the connector's, on both edges** — nothing else reaches this origin (§1.1, I1) — which is what
+Cloudflare's published ranges could never be, being every customer's egress rather than this
+account's; the local edge serves the same set, inert with no connector in front of it. **A
 fallback to the connector's own address is marked rather than silent**: the access line carries
 `realip_fallback`, `1` where the rewrite did not take (each case measured 2026-08-31 against a
 running nginx: recovered `0`, absent `1`, malformed `1`). The marker costs a second copy of that
-address in `nginx/prod/prod.conf`, the `geo` beside `set_real_ip_from`, and the two change together.
+address in `nginx/shared/http.conf`, the `geo` beside `set_real_ip_from`, and the two change together.
 
 **A zone keyed on the POST map limits no GET on its path** — an empty key is exempt from
 `limit_req` — so every zone over `$signin_limit_key` or `$signin_limit_key48` reaches POSTs alone.
@@ -1104,7 +1105,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I15  | Every platform-conditional branch `scripts/checks/docs_gate/platform.py` reaches is a named module constant or an allowlist row carrying its reason (§1.6, PLAT-1 to PLAT-4)  | gate check `platform-branch`, over `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`; the effect a branch selects is proven by the `verify` workflow's Linux run alone                                                                                                      |
 | I16  | No Python in `scripts/checks/docs_gate/platform.py :: PYTHON_SCOPES` opens a text-mode writer without `newline=""`, so nothing it writes carries CRLF to a Linux shell (§1.6) | gate check `crlf-write`, over `scripts/checks/docs_gate/platform.py :: TEXT_WRITE_ALLOW`; a shell redirect of a program's stdout carries no call to read and stays the reader's                                                                                                    |
 | I17  | No `verify` job spans longer than its budget in `.github/gate-wall-clock.tsv`, no job runs without a row, and no figure rises unmeasured (§1.6)                               | `scripts/checks/check_gate_budget.py`, `--jobs` in the aggregate `verify` job and `--base` in a pull request's `docs` job; `scripts/tests/test_check_gate_budget.py` drives the committed table red and green (§1.6)                                                               |
-| I18  | A rate-limit key is the visitor's own network, never the tunnel connector's address, and no prefix splits across two keys (§1.3)                                              | `nginx/shared/http.conf :: map $remote_addr $client_net` and `:: map $remote_addr $client_net48`, `nginx/prod/prod.conf :: set_real_ip_from` and `:: real_ip_header`; trust held by `scripts/checks/check_compose_model.py :: trusted_connector`, keys unenforced                  |
+| I18  | A rate-limit key is the visitor's own network, never the tunnel connector's address, and no prefix splits across two keys (§1.3)                                              | `nginx/shared/http.conf :: map $remote_addr $client_net` and `:: map $remote_addr $client_net48`, `nginx/shared/http.conf :: set_real_ip_from` and `:: real_ip_header`; trust held by `scripts/checks/check_compose_model.py :: trusted_connector`, keys unenforced                |
 | I133 | The catch-all makes a Next route handler reachable the moment it exists, its OWN authorization the only guard in front of it (§1.3)                                           | unenforced — `nginx/shared/site.conf :: location /` is a prefix matching everything, and nothing sweeps a new route handler for its guard                                                                                                                                          |
 | I134 | FastAPI's `/docs`, `/redoc` and `/openapi.json` are served by the app but reachable from no edge route, so nothing off this host meets them (I13)                             | unenforced — `fl_backend/app/main.py :: create_app` sets no `docs_url`, `nginx/shared/site.conf` names no `/docs` location, and nothing checks either                                                                                                                              |
 | I149 | One `frontend` service, declared once, and no replica count is what lets the retention sweep hold one timer per process with no lease                                         | unenforced — `docker-compose.yml` declares the service and the local file merges into it; nothing refuses a second or a `deploy.replicas`                                                                                                                                          |

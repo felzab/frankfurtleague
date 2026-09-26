@@ -13,8 +13,8 @@ Invariants:
   `scripts/ops/deploy.sh :: EDGE_CONFIG_DIRS` compares (`docs/ops/spec.md :: I355`).
 - The edge opens its Control API at `scripts/ops/deploy.sh :: EDGE_CONTROL_SOCKET`, in a tmpfs of
   mode 700.
-- Production's edge trusts the connector's rendered address alone, in `nginx/prod/prod.conf`'s
-  `set_real_ip_from` and in the geo arm marking the fallback (`docs/ops/spec.md :: I18`).
+- Either edge trusts the connector's rendered address alone, in `set_real_ip_from` and in the geo
+  arm marking the fallback (`docs/ops/spec.md :: I18`).
 """
 
 from __future__ import annotations
@@ -56,8 +56,6 @@ DEPLOY: Final = REPO_ROOT / "scripts" / "ops" / "deploy.sh"
 
 # The one service whose requests production's edge takes the visitor's address from.
 CONNECTOR_SERVICE: Final = "cloudflared"
-
-PROD_CONF: Final = REPO_ROOT / "nginx" / "prod" / "prod.conf"
 
 
 def services(model: dict[str, Any], name: str) -> dict[str, Any]:
@@ -220,9 +218,19 @@ def connector_address(model: dict[str, Any], name: str) -> str:
     addresses = [address for address in addresses if address]
     if len(addresses) != 1:
         raise ValueError(
-            f"{name}: {CONNECTOR_SERVICE} has {len(addresses)} static addresses, not one, so its trust in prod.conf was not compared"
+            f"{name}: {CONNECTOR_SERVICE} has {len(addresses)} static addresses, not one, so the edge's trust in it was not compared"
         )
     return str(addresses[0])
+
+
+def edge_configuration(pairs: list[tuple[str, str]], checkout: Path) -> str:
+    """Every file in the checkout directories an edge mounts, joined.
+
+    Read whole rather than from the file holding the trust today: `set_real_ip_from` is valid in a
+    server and a location too, and each one adds to the set.
+    """
+    directories = [checkout / source for source, _ in sorted(pairs) if (checkout / source).is_dir()]
+    return "\n".join(file.read_bytes().decode() for directory in directories for file in sorted(directory.iterdir()) if file.is_file())
 
 
 def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
@@ -231,10 +239,10 @@ def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
     Another address leaves every visitor keyed to the connector's; a wider one lets any host on it name a visitor.
     """
     trusted = re.findall(r"^\s*set_real_ip_from\s+([^;\s]+)\s*;", conf, re.MULTILINE)
-    block = re.search(r"^geo \$realip_fallback \{(.*?)^\}", conf, re.MULTILINE | re.DOTALL)
-    if block is None:
+    blocks = re.findall(r"^geo \$realip_fallback \{(.*?)^\}", conf, re.MULTILINE | re.DOTALL)
+    if not blocks:
         raise ValueError(f"{name} declares no `geo $realip_fallback` block, so the fallback's marker was not compared")
-    arms = [tuple(arm) for arm in re.findall(r"^\s*([^\s;]+)\s+([^\s;]+)\s*;", block.group(1), re.MULTILINE) if arm[0] != "default"]
+    arms = [tuple(arm) for block in blocks for arm in re.findall(r"^\s*([^\s;]+)\s+([^\s;]+)\s*;", block, re.MULTILINE) if arm[0] != "default"]
     findings: list[Finding] = []
     if trusted != [address]:
         findings.append(
@@ -265,11 +273,15 @@ def main() -> int:
         local_model = json.loads(Path(args.local).read_bytes())
         findings = production(prod_model, "production") + local(local_model, "local")
         prod_pairs, prod_mounts = edge_mounts(prod_model, "production", Path(args.production).resolve().parent, REPO_ROOT)
-        _, local_mounts = edge_mounts(local_model, "local", Path(args.local).resolve().parent, REPO_ROOT)
+        local_pairs, local_mounts = edge_mounts(local_model, "local", Path(args.local).resolve().parent, REPO_ROOT)
         findings += prod_mounts + local_mounts + compared(prod_pairs, deploy_pairs(DEPLOY), "production")
         socket = deploy_socket(DEPLOY)
         findings += control_socket(prod_model, "production", socket) + control_socket(local_model, "local", socket)
-        findings += trusted_connector(PROD_CONF.read_bytes().decode(), connector_address(prod_model, "production"), "nginx/prod/prod.conf")
+        # Production's address for both: the local stack starts no connector, and an edge trusting
+        # what the other does not is serving another edge's configuration.
+        connector = connector_address(prod_model, "production")
+        for pairs, name in ((prod_pairs, "production's edge"), (local_pairs, "the local edge")):
+            findings += trusted_connector(edge_configuration(pairs, REPO_ROOT), connector, name)
     except (*UNREADABLE, ValueError) as error:
         print(f"      {error}", file=sys.stderr)
         print("      Nothing was judged, so this is a refusal rather than a verdict on either stack.", file=sys.stderr)
@@ -279,7 +291,7 @@ def main() -> int:
         print(f"      production publishes nothing and runs {len(PRODUCTION_SERVICES)} services; locally only {EDGE_SERVICE} leaves loopback")
         print(f"      both edges mount {EDGE_CONFIG_ROOT}/ by directory, production's the pairs the deploy compares")
         print("      both edges open the Control API where the deploy asks it, in a tmpfs of mode 700")
-        print(f"      production's edge trusts the {CONNECTOR_SERVICE} address alone, and marks it as the fallback")
+        print(f"      either edge trusts the {CONNECTOR_SERVICE} address alone, and marks it as the fallback")
     return code
 
 

@@ -191,7 +191,7 @@ secrets:
 networks:
   frankfurtleague-net:
     driver: bridge
-    # Declared rather than left to the daemon: `nginx/prod/prod.conf :: set_real_ip_from` trusts the
+    # Declared rather than left to the daemon: `nginx/shared/http.conf :: set_real_ip_from` trusts the
     # connector by address, and a bridge subnet the daemon picks differs per host, silently
     # returning every request to the fail-open path.
     ipam:

@@ -7,6 +7,9 @@ rule rather than either compose file's current wording.
 
 from __future__ import annotations
 
+import contextlib
+import io
+import json
 from pathlib import Path
 from typing import Any
 
@@ -187,7 +190,7 @@ CONNECTOR = "172.30.0.250"
 
 
 def conf(real_ip: str = f"set_real_ip_from {CONNECTOR};", arm: str = f"{CONNECTOR}/32  1;") -> str:
-    """`nginx/prod/prod.conf`'s trust, as that file spells it."""
+    """An edge's trust, as `nginx/shared/http.conf` spells it."""
     return f"{real_ip}\nreal_ip_header CF-Connecting-IP;\n\ngeo $realip_fallback {{\n    default          0;\n    {arm}\n}}\n"
 
 
@@ -219,7 +222,80 @@ def test_a_conf_without_the_fallback_marker_refuses():
         checker.trusted_connector(f"set_real_ip_from {CONNECTOR};\n", CONNECTOR, "c")
     except ValueError:
         return
-    raise AssertionError("a prod.conf with no geo block was judged")
+    raise AssertionError("a configuration with no geo block was judged")
+
+
+def test_a_second_fallback_marker_fails():
+    """Each file an edge mounts is read, so a block an entry file repeats is a second marker, not a hidden one."""
+    assert len(checker.trusted_connector(conf() + conf(real_ip=""), CONNECTOR, "c")) == 1
+
+
+def mounted(prod: str, shared: str) -> Path:
+    """A checkout whose two mounted directories hold one file each."""
+    root = new_root("fl-compose-trust-")
+    for directory, text in (("nginx/prod", prod), ("nginx/shared", shared)):
+        (root / directory).mkdir(parents=True)
+        (root / directory / "edge.conf").write_bytes(text.encode())
+    return root
+
+
+PAIRS = [("nginx/prod", "/etc/nginx/conf.d"), ("nginx/shared", "/etc/nginx/shared")]
+
+
+def test_trust_in_the_shared_file_reaches_the_edge_mounting_it():
+    assert checker.trusted_connector(checker.edge_configuration(PAIRS, mounted("", conf())), CONNECTOR, "c") == []
+
+
+def test_trust_an_entry_file_adds_beside_the_shared_one_fails():
+    """`set_real_ip_from` adds to the set wherever it is written, a server block included."""
+    widened = mounted("server {\n    set_real_ip_from 173.245.48.0/20;\n}\n", conf())
+
+    assert len(checker.trusted_connector(checker.edge_configuration(PAIRS, widened), CONNECTOR, "c")) == 1
+
+
+def test_a_mounted_directory_the_checkout_lacks_is_left_to_the_mount_check():
+    """`edge_mounts` reports it as a finding; reading it here would turn that finding into a refusal."""
+    root = mounted("", conf())
+    missing = [*PAIRS, ("nginx/absent", "/etc/nginx/absent")]
+
+    assert checker.trusted_connector(checker.edge_configuration(missing, root), CONNECTOR, "c") == []
+
+
+def rendered_stack(project: Path, conf_dir: str, **extra: dict[str, Any]) -> dict[str, Any]:
+    """A stack as the gate renders it beside `project`, its edge mounting `conf_dir` and `nginx/shared` of this checkout."""
+    edge_volumes = [
+        {"type": "bind", "source": str(project / conf_dir), "target": "/etc/nginx/conf.d"},
+        {"type": "bind", "source": str(project / "nginx/shared"), "target": "/etc/nginx/shared"},
+    ]
+    nginx = {"volumes": edge_volumes, "command": LISTENING, "tmpfs": ["/run/nginx-control:mode=700"]}
+    return model(nginx=nginx, **extra)
+
+
+def run_main(production: dict[str, Any], local: dict[str, Any], project: Path) -> tuple[int, str]:
+    """`main` over two rendered models: its exit code and what it printed, as `test_check_gate_budget.py :: run_main` drives its own."""
+    for name, rendered in (("production.json", production), ("local.json", local)):
+        (project / name).write_bytes(json.dumps(rendered).encode())
+    out = io.StringIO()
+    argv_before = checker.sys.argv
+    checker.sys.argv = ["check_compose_model.py", str(project / "production.json"), str(project / "local.json")]
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(out):
+            code = checker.main()
+    finally:
+        checker.sys.argv = argv_before
+    return code, out.getvalue()
+
+
+def test_both_edges_of_this_checkout_are_judged_and_trust_the_connector_alone():
+    """The nginx files as they stand, through `main`: a trust either edge's own directory adds fails this."""
+    project = new_root("fl-compose-main-")
+    connector = {"networks": {"frankfurtleague-net": {"ipv4_address": CONNECTOR}}}
+    production = rendered_stack(project, "nginx/prod", frontend={}, backend={}, cloudflared=connector)
+    local = rendered_stack(project, "nginx/local")
+
+    code, said = run_main(production, local, project)
+
+    assert code == 0, said
 
 
 def test_a_connector_without_one_static_address_refuses():
