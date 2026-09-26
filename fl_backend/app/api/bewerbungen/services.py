@@ -1196,7 +1196,7 @@ def reminder_link_groups(*, kontakte: Any, bestaetigungen: Any, seats: Sequence[
     return list(groups.values())
 
 
-def compose_erinnerung_update(*, hashes: Mapping[str, str], bestaetigungen: Any, today: str) -> Mapping[str, Any]:
+def compose_erinnerung_update(*, hashes: Mapping[str, str], withheld: Sequence[str], bestaetigungen: Any, today: str) -> Mapping[str, Any]:
     """The reminder's ONE `$set`: the stamp and the fresh hash per seat, the first hash kept beside it.
 
     `verschickt_am` and the deadline stay: a reminder is not a re-send (`docs/backend/spec.md :: I152`).
@@ -1207,6 +1207,10 @@ def compose_erinnerung_update(*, hashes: Mapping[str, str], bestaetigungen: Any,
         entry = _entry_of(bestaetigungen, seat) or {}
         written[f"bestaetigungen.{seat}.token_hash"] = token_hash
         written[f"bestaetigungen.{seat}.token_hash_zuvor"] = entry.get("token_hash")
+        written[f"bestaetigungen.{seat}.erinnert_am"] = today
+    # A `withheld` seat, its address on the ban list, takes the stamp and no link: left due, a page of
+    # them would fill every pass's share and `refuse_a_stalled_page` would stop the pass.
+    for seat in withheld:
         written[f"bestaetigungen.{seat}.erinnert_am"] = today
 
     return {"$set": written}

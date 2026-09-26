@@ -1,6 +1,6 @@
 from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Any, Final
+from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Depends
 from pymongo import ASCENDING, ReturnDocument
@@ -17,6 +17,7 @@ from app.api.registrierungen.services import (
     build_unconfirmed_filter,
     build_undecided_filter,
     compose_erinnerung_update,
+    compose_erinnerung_withheld,
     compose_sweep_stamp,
     decline_erasure_is_due,
     erinnerung_is_due,
@@ -24,19 +25,24 @@ from app.api.registrierungen.services import (
     undecided_erasure_is_due,
 )
 from app.api.saisons.cache import dropping_the_saison_cache
+from app.api.saisons.crud import pull_massgebliche_saison_id
+from app.api.sperrliste.crud import gesperrte_hashes
+from app.api.sperrliste.services import adresse_hash
 from app.core.collections import Collection
-from app.core.config import API_VERSION
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import erase_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     AktionenCollection,
     DBClient,
     RegistrierungenCollection,
     SaisonsCollection,
+    SperrlisteCollection,
     TeamsCollection,
     get_german_date_str,
     get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
+from app.core.logging import fl_logger
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
 from app.core.transactions import drain, refuse_a_stalled_page
@@ -107,7 +113,9 @@ async def sweep_registrierungen(
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
     aktionen_collection: AktionenCollection,
+    sperrliste_collection: SperrlisteCollection,
     db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLRegistrierungSweepResponse:
@@ -125,7 +133,8 @@ async def sweep_registrierungen(
     named that day. Then one reminder per registration at its reminder age, earliest deadline first: a fresh link is minted and
     `erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and the link already
     in that inbox stays valid beside the fresh one. One call reminds a bounded share of the registrations due; the rest stay due and
-    the calls after it remind them. A registration whose last message the mail provider refused is not chased at all. Every removal
+    the calls after it remind them. A registration whose last message the mail provider refused is not chased at all, and one whose
+    address the ban list holds is stamped and sent nothing, the pass logging its id. Every removal
     names this season alone, is made inside a transaction and takes its log rows with it.
 
     Whatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transaction, so no later step of the same
@@ -145,6 +154,8 @@ async def sweep_registrierungen(
     saison_status = saison_raw.get("status")
 
     stamp = log_stamp(germany_now)
+    # Outside the reminder's transaction, whose callback may run again, as the application sweep reads it.
+    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection)
 
     async def stamp_the_run(session: AsyncClientSession) -> None:
         """One fan-out over every season today has not reached, inside the pass's LAST transaction, so a stamped day is a committed call."""
@@ -242,8 +253,11 @@ async def sweep_registrierungen(
 
         return len(rows), result.deleted_count, redacted
 
-    async def remind(session: AsyncClientSession) -> list[FLRegistrierungSweepErinnerung]:
-        """Stamp, mint, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges."""
+    async def remind(session: AsyncClientSession) -> tuple[list[FLRegistrierungSweepErinnerung], list[Any]]:
+        """Stamp, mint, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges.
+
+        Also answers every registration whose reminder a ban withheld, for the log line.
+        """
 
         rows = await pull_many_from_db(
             collection=registrierungen_collection,
@@ -260,9 +274,28 @@ async def sweep_registrierungen(
         taken = [row for row in rows if erinnerung_is_due(registrierung_raw=row, today=today)][:REMINDERS_PER_PASS]
         refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
         team_names = await _team_names(teams_collection=teams_collection, rows=taken, session=session)
+        hashed = {row["_id"]: adresse_hash(str(row["email"]), schluessel=config.sperrliste_schluessel) for row in taken if row.get("email")}
+        gesperrt = await gesperrte_hashes(
+            sperrliste_collection=sperrliste_collection,
+            adresse_hashes=hashed.values(),
+            massgebliche_saison_id=massgebliche_saison_id,
+            session=session,
+        )
 
         erinnerungen: list[FLRegistrierungSweepErinnerung] = []
+        withheld: list[Any] = []
         for row in taken:
+            if hashed.get(row["_id"]) in gesperrt:
+                await patch_one_in_db(
+                    collection=registrierungen_collection,
+                    db_filter={"_id": row["_id"]},
+                    update=compose_erinnerung_withheld(today=today),
+                    session=session,
+                    return_document=ReturnDocument.BEFORE,
+                )
+                withheld.append(row["_id"])
+                continue
+
             raw, token_hash = mint_token()
             # The stamp lands before the caller can mail: a crash between the two costs one reminder,
             # where the other order would repeat it every day until the address worked.
@@ -286,7 +319,7 @@ async def sweep_registrierungen(
 
         await stamp_the_run(session)
 
-        return erinnerungen
+        return erinnerungen, withheld
 
     async def erase_declined(session: AsyncClientSession) -> tuple[int, int, int]:
         """The one-month clock: erase, then redact. Read in-session, so a retry re-judges."""
@@ -342,7 +375,12 @@ async def sweep_registrierungen(
             )
 
             async with db.start_session() as session:
-                erinnerungen = await session.with_transaction(remind)
+                erinnerungen, withheld = await session.with_transaction(remind)
+
+            # After the commit, so a retried transaction writes no second line; the id alone, the
+            # address being what the ban protects.
+            for registrierung_id in withheld:
+                fl_logger.info(f"Reminder withheld from a barred address: registration {registrierung_id}")
 
     return FLRegistrierungSweepResponse(
         saison_id=saison_id,

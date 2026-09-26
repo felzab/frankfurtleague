@@ -1522,6 +1522,9 @@ async def resend(database: AsyncDatabase, seat: str, *, as_read: Mapping[str, An
         bewerbung_id=ERNEUT_BEWERBUNG,
         seat=seat,
         bewerbungen_collection=collection if as_read is None else as_the_loser_read_it(collection, as_read),
+        saisons_collection=database[Collection.SAISONS],
+        sperrliste_collection=database[Collection.SPERRLISTE],
+        config=CONFIG,
         today=TODAY,
     )
 
@@ -1943,7 +1946,34 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
 
 
 class TestABannedContactAddress:
-    """`REQ-BEWERBUNG-019`: neither repair mints a link for an address the ban list holds, and the application is left as it was."""
+    """`REQ-BEWERBUNG-019`: no repair and no re-send mints a link for an address the ban list holds, and the application is left as it was."""
+
+    def test_a_resend_to_a_banned_seat_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        """The address is the stored one rather than one typed, and the link would reach it all the same."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            before = await seed_an_open_ansprechperson_seat(database)
+            await database[Collection.SPERRLISTE].insert_one(ban_document(str(before["kontakte"]["ansprechperson"]["email"])))
+            with pytest.raises(WriteRefusalException) as failure:
+                await resend(database, "ansprechperson")
+
+            return failure.value.error_code, before, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+
+        code, before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert code == BEWERBUNG_KONTAKT_GESPERRT
+        assert after == before
+
+    def test_a_resend_to_an_address_the_ban_list_does_not_hold_still_mints(self, mongo_replica_set_url: str):
+        """The control: a check refusing every re-send would pass the case above."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
+            await seed_an_open_ansprechperson_seat(database)
+            await database[Collection.SPERRLISTE].insert_one(ban_document(CORRECTED_EMAIL))
+
+            return await resend(database, "ansprechperson")
+
+        assert on_a_league(mongo_replica_set_url, body).rollen == ["ansprechperson"]
 
     def test_a_correction_naming_a_banned_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:

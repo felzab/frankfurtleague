@@ -35,6 +35,7 @@ from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import drain, refuse_a_stalled_page
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_ERINNERUNG_TAGE
+from tests.config import build_test_config
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -562,7 +563,9 @@ class TestTheStampDropsTheCachedSeason:
                 saisons_collection=saisons,  # pyright: ignore[reportArgumentType]
                 teams_collection=_Collection("teams", [], database),  # pyright: ignore[reportArgumentType]
                 aktionen_collection=aktionen,  # pyright: ignore[reportArgumentType]
+                sperrliste_collection=_Collection("sperrliste", [], database),  # pyright: ignore[reportArgumentType]
                 db=_Db(),  # pyright: ignore[reportArgumentType]
+                config=build_test_config(),
                 today=TODAY,
                 germany_now=_NOW,
             )
@@ -625,7 +628,9 @@ class TestTheClocksDrain:
                 saisons_collection=saisons,  # pyright: ignore[reportArgumentType]
                 teams_collection=_Collection("teams", [], database, answers_reads=False),  # pyright: ignore[reportArgumentType]
                 aktionen_collection=aktionen,  # pyright: ignore[reportArgumentType]
+                sperrliste_collection=_Collection("sperrliste", [], database),  # pyright: ignore[reportArgumentType]
                 db=_Db(),  # pyright: ignore[reportArgumentType]
+                config=build_test_config(),
                 today=TODAY,
                 germany_now=_NOW,
             )

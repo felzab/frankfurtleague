@@ -177,7 +177,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   - the ban refusing a referee's link (`REQ-SCHIEDSRICHTER-007`), which falls on an administrator's
     write rather than on anything the person enters: the administrator sees the refusal and can lift
     the ban, and the ban's own mail already tells the barred person they cannot be entered as a
-    referee (`fl_frontend/src/core/sperrlisteEmail.ts :: EINLEITUNG`).
+    referee (`fl_frontend/src/core/sperrlisteEmail.ts :: EINLEITUNG`);
+  - the ban refusing an administrator's correction, reseat or re-send of an application's contact
+    seat (`REQ-BEWERBUNG-019`), which falls on that administrator's write in the same way.
 
   **One refusal a person's own entry meets is not named**: every box that stores an address refuses
   one whose part before the @ is not plain ASCII

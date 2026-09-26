@@ -717,3 +717,12 @@ def compose_erinnerung_update(*, token_hash: str, bestaetigung: Any, today: str)
             "bestaetigung.erinnert_am": today,
         }
     }
+
+
+def compose_erinnerung_withheld(*, today: str) -> Mapping[str, Any]:
+    """The stamp alone, for a registration whose address the ban list holds: no link, and it leaves the reminder's read.
+
+    Left due, a page of barred rows would fill every pass's share and `refuse_a_stalled_page` would stop the pass.
+    """
+
+    return {"$set": {"bestaetigung.erinnert_am": today}}

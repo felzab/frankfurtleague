@@ -127,6 +127,10 @@ export function mapEinwilligungErneutRefusal(error: unknown): string | null {
         reason: "Für diese Rolle steht keine Bestätigung mehr aus",
         repair: "Lade die Seite neu",
       });
+    // The repairs' own sentence: its remedy, another address through the pencil beside this control
+    // or the ban lifted, is the re-send's too.
+    case "REQ-BEWERBUNG-019":
+      return SPERRLISTE_ADRESSE_GESPERRT;
     default:
       return null;
   }

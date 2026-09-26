@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -36,10 +37,12 @@ from app.api.bewerbungen.sweep_router import (
     sweep_saison,
 )
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
+from app.api.sperrliste.services import adresse_hash, compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
@@ -51,6 +54,7 @@ from tests.worker import worker_database
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_bewerbung_sweep_test")
+CONFIG = build_test_config()
 
 SAISON_ID = "2026"
 NEXT_SAISON_ID = "2027"
@@ -201,7 +205,9 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
         aktionen_collection=database[Collection.AKTIONEN],
+        sperrliste_collection=database[Collection.SPERRLISTE],
         db=client,
+        config=CONFIG,
         today=TODAY,
         germany_now=NOW,
     )
@@ -367,7 +373,13 @@ class TestTheReminderClock:
                 if "trainer" in seat.rollen
             )
             frisch = await erneut_einwilligung(
-                bewerbung_id=REMIND_OID, seat="trainer", bewerbungen_collection=database[Collection.BEWERBUNGEN], today=TODAY
+                bewerbung_id=REMIND_OID,
+                seat="trainer",
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                saisons_collection=database[Collection.SAISONS],
+                sperrliste_collection=database[Collection.SPERRLISTE],
+                config=CONFIG,
+                today=TODAY,
             )
 
             # The reminder's shared link and BOTH first links, one of which is the mirrored seat's
@@ -655,6 +667,51 @@ class TestAnApplicationWhoseNoticeCannotArrive:
             return [(entry.email, [seat.rollen for seat in entry.seats]) for entry in response.erinnerungen]
 
         assert on_a_league(mongo_replica_set_url, body) == [("bramblewick@example.com", [["stellvertretung"]])]
+
+
+def ban_document(address: str) -> dict[str, Any]:
+    """One ban as the shipped write stores it, keyed under the suite's own settings and bounded from this season."""
+
+    return {
+        "_id": ObjectId(),
+        "adresse_hash": adresse_hash(address, schluessel=CONFIG.sperrliste_schluessel),
+        "schluessel_version": "sperrliste-v1",
+        "grund": "Falsches Geburtsdatum bei der Anmeldung",
+        "erstellt_von": "admin@frankfurtleague.de",
+        "erstellt_am": "2026-03-15",
+        "gesperrt_bis_saison_id": compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID),
+    }
+
+
+class TestABarredMailboxIsNotChased:
+    """No reminder carries a fresh link to an address the ban list holds: the seat is stamped, sent nothing, and logged."""
+
+    def test_the_barred_seat_is_stamped_with_no_link_and_the_other_mailbox_is_chased(self, mongo_replica_set_url: str, caplog):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPERRLISTE].insert_one(ban_document("bramblewick@example.com"))
+            with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
+                response = await sweep(database, client)
+            second = await sweep(database, client)
+
+            reminded = [
+                (entry.email, [seat.rollen for seat in entry.seats]) for entry in response.erinnerungen if entry.bewerbung_id == REMIND_OID
+            ]
+            return reminded, second.erinnerungen, await stored(database, REMIND_OID)
+
+        reminded, second, document = on_a_league(mongo_replica_set_url, body)
+
+        # The control beside the refusal: the unbarred mailbox on the same application is chased.
+        assert reminded == [("wraxlington@example.com", [["trainer", "ansprechperson"]])]
+        assert document is not None
+        stellvertretung = document["bestaetigungen"]["stellvertretung"]
+        # Stamped, so it leaves the read, and never handed a fresh hash nobody is sent.
+        assert stellvertretung["erinnert_am"] == TODAY
+        assert stellvertretung["token_hash"] == first_hashes(str(REMIND_OID))["stellvertretung"]
+        assert second == []
+
+        withheld = [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()]
+        assert withheld == [f"Reminder withheld from a barred address: application {REMIND_OID}, seats stellvertretung"]
+        assert not any("bramblewick" in record.getMessage() for record in caplog.records)
 
 
 # The Stellvertretung's stamp, the one seat nobody mirrors, each state the clocks' queries must read

@@ -2085,9 +2085,12 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-BEWERBUNG-019",
         status=HTTPStatus.CONFLICT,
-        operation="POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email · POST /bewerbungen/{bewerbung_id}/kontakte/{seat}",
+        operation=(
+            "POST /bewerbungen/{bewerbung_id}/kontakte/{seat}/email · POST /bewerbungen/{bewerbung_id}/kontakte/{seat}"
+            " · POST /bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut"
+        ),
         aggregate="Bewerbung",
-        summary="no confirmation link is minted for a corrected or reseated contact address the ban list still holds",
+        summary="no confirmation link is minted for a corrected, reseated or re-sent contact address the ban list still holds",
         implemented_by="app.api.bewerbungen.services.find_kontakt_gesperrt_refusal",
         tested_by="tests/api/test_bewerbung_triage_execution.py::TestABannedContactAddress",
     ),

@@ -611,8 +611,9 @@ is refused as its session would be created**, by a code or a passkey alike
 (`docs/frontend/spec.md :: I403`). **Beyond that the ban refuses the sign-ups that ask it and nothing
 else.** A pupil's registration asks it and is
 refused (`REQ-REGISTRIERUNG-009`), and so do an application naming the address on any seat
-(`REQ-BEWERBUNG-018`), an administrator's correction or reseat of a seat to it (`REQ-BEWERBUNG-019`)
-and every referee write that mints a link; every other
+(`REQ-BEWERBUNG-018`), an administrator's correction, reseat or re-send of a seat to it
+(`REQ-BEWERBUNG-019`) and every referee write that mints a link, and both sweeps withhold the
+reminder they would send it, logging the application's or registration's id; every other
 route consults the list nowhere
 ([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)), so a person reading the queue is
 still what keeps a barred address out of everything a sign-up does not cover. **What the address

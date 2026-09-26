@@ -268,7 +268,7 @@ class TestWhatAReminderWrites:
     """
 
     def test_the_stamp_the_fresh_hash_and_the_kept_hash_and_nothing_else(self):
-        update = compose_erinnerung_update(hashes={"trainer": "fresh"}, bestaetigungen=bestaetigungen(), today=TODAY)
+        update = compose_erinnerung_update(hashes={"trainer": "fresh"}, withheld=[], bestaetigungen=bestaetigungen(), today=TODAY)
 
         assert update == {
             "$set": {
@@ -279,7 +279,9 @@ class TestWhatAReminderWrites:
         }
 
     def test_two_seats_take_two_fresh_hashes(self):
-        update = compose_erinnerung_update(hashes={"trainer": "a", "stellvertretung": "b"}, bestaetigungen=bestaetigungen(), today=TODAY)
+        update = compose_erinnerung_update(
+            hashes={"trainer": "a", "stellvertretung": "b"}, withheld=[], bestaetigungen=bestaetigungen(), today=TODAY
+        )
 
         assert {key.split(".")[1] for key in update["$set"]} == {"trainer", "stellvertretung"}
         assert len(update["$set"]) == 6

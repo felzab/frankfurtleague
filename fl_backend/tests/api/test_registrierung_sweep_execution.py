@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import datetime
 from typing import Any
@@ -14,9 +15,11 @@ from app.api.bewerbungen.sweep_router import get_sweep_saisons
 from app.api.registrierungen import sweep_router as sweep_router_module
 from app.api.registrierungen.services import SWEEP_PAGE, build_erinnerung_filter, build_unconfirmed_filter, build_wiederholung_filter
 from app.api.registrierungen.sweep_router import REMINDERS_PER_PASS, sweep_registrierungen
+from app.api.sperrliste.services import adresse_hash, compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
+from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
@@ -150,7 +153,9 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
         aktionen_collection=database[Collection.AKTIONEN],
+        sperrliste_collection=database[Collection.SPERRLISTE],
         db=client,
+        config=build_test_config(),
         today=TODAY,
         germany_now=NOW,
     )
@@ -168,6 +173,20 @@ async def standing(database: AsyncDatabase) -> list[ObjectId]:
 
 async def log_rows_naming(database: AsyncDatabase, row_id: ObjectId) -> list[Mapping[str, Any]]:
     return await database[Collection.AKTIONEN].find({"collection": str(Collection.REGISTRIERUNGEN), "document_id": row_id}).to_list(length=None)
+
+
+def ban_document(address: str) -> dict[str, Any]:
+    """One ban as the shipped write stores it, keyed under the suite's own settings and bounded from this season."""
+
+    return {
+        "_id": ObjectId(),
+        "adresse_hash": adresse_hash(address, schluessel=build_test_config().sperrliste_schluessel),
+        "schluessel_version": "sperrliste-v1",
+        "grund": "Falsches Geburtsdatum bei der Anmeldung",
+        "erstellt_von": "admin@frankfurtleague.de",
+        "erstellt_am": "2026-03-15",
+        "gesperrt_bis_saison_id": compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID),
+    }
 
 
 class TestTheReminderClock:
@@ -241,6 +260,32 @@ class TestTheReminderClock:
         assert REMIND_OID not in chased
         # Not merely left out of the answer: a stamp without a message would spend the one chase.
         assert document["bestaetigung"]["erinnert_am"] is None
+
+    def test_a_registration_whose_address_the_ban_list_holds_is_stamped_with_no_link(self, mongo_replica_set_url: str, caplog):
+        """Stamped, unlike the refused address above: no query can leave the row out, the ban living in another collection.
+
+        A page of them left due would fill every pass's share.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPERRLISTE].insert_one(ban_document(f"{REMIND_OID}@example.com"))
+            with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
+                response = await sweep(database, client)
+            second = await sweep(database, client)
+
+            return [entry.registrierung_id for entry in response.erinnerungen], second.erinnerungen, await stored(database, REMIND_OID)
+
+        chased, second, document = on_a_league(mongo_replica_set_url, body)
+
+        # The control beside the refusal: the other registration at its mark is chased.
+        assert chased == [INSIDE_OID]
+        assert document is not None
+        assert document["bestaetigung"]["erinnert_am"] == TODAY
+        assert document["bestaetigung"]["token_hash"] == hash_token(f"first-{REMIND_OID}")
+        assert second == []
+
+        withheld = [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()]
+        assert withheld == [f"Reminder withheld from a barred address: registration {REMIND_OID}"]
 
 
 class TestTheDeadlineClock:

@@ -27,6 +27,7 @@ from app.api.bewerbungen.services import (
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, kontaktperson_document, team_document
 from tests.worker import worker_database
@@ -170,7 +171,15 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
 
 
 async def resend(database: AsyncDatabase, seat: str, bewerbung_id: ObjectId = BEWERBUNG_OID) -> Any:
-    return await erneut_einwilligung(bewerbung_id=bewerbung_id, seat=seat, bewerbungen_collection=database[Collection.BEWERBUNGEN], today=TODAY)
+    return await erneut_einwilligung(
+        bewerbung_id=bewerbung_id,
+        seat=seat,
+        bewerbungen_collection=database[Collection.BEWERBUNGEN],
+        saisons_collection=database[Collection.SAISONS],
+        sperrliste_collection=database[Collection.SPERRLISTE],
+        config=build_test_config(),
+        today=TODAY,
+    )
 
 
 async def stored(database: AsyncDatabase, bewerbung_id: ObjectId = BEWERBUNG_OID) -> Mapping[str, Any]:
