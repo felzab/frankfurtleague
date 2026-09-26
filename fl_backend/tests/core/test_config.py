@@ -438,6 +438,55 @@ class TestANameTheClassDoesNotDeclare:
         assert ConfigReadingNoDotenvFile(**WELL_FORMED).log_format == "json"
 
 
+class TestTheCheckoutRootsFile:
+    """`fastapi dev` runs from `fl_backend/`, and the keys both services hold once live in the directory above it."""
+
+    @staticmethod
+    def a_package_beside_a_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: bytes | None, package: bytes) -> None:
+        """A run from a package inside `tmp_path`, whose own `.env` is the root's.
+
+        The key the files carry leaves the process environment, which would otherwise outrank both.
+        """
+        (tmp_path / "fl_backend").mkdir()
+        (tmp_path / "fl_backend" / ".env").write_bytes(package)
+        if root is not None:
+            (tmp_path / ".env").write_bytes(root)
+        an_environment(monkeypatch, tmp_path / "fl_backend")
+        monkeypatch.delenv("INTERNAL_API_KEY_BASE")
+
+    def test_a_key_only_the_roots_file_holds_reaches_the_settings(self, monkeypatch, tmp_path):
+        key = a_key_the_boot_accepts("root")
+        self.a_package_beside_a_root(monkeypatch, tmp_path, f"INTERNAL_API_KEY_BASE={key}\n".encode(), b"")
+
+        assert get_config().internal_api_key_base.get_secret_value() == key
+
+    def test_the_roots_file_wins_a_name_both_files_hold(self, monkeypatch, tmp_path):
+        """Compose lists the root's file last and hands the container its value, so a run from the package agrees."""
+        root, package = a_key_the_boot_accepts("root"), a_key_the_boot_accepts("package")
+        self.a_package_beside_a_root(
+            monkeypatch, tmp_path, f"INTERNAL_API_KEY_BASE={root}\n".encode(), f"INTERNAL_API_KEY_BASE={package}\n".encode()
+        )
+
+        assert get_config().internal_api_key_base.get_secret_value() == root
+
+    def test_a_missing_roots_file_leaves_the_package_file_to_answer(self, monkeypatch, tmp_path):
+        """A container holds neither file; the run must not refuse for one it was never meant to have."""
+        key = a_key_the_boot_accepts("package")
+        self.a_package_beside_a_root(monkeypatch, tmp_path, None, f"INTERNAL_API_KEY_BASE={key}\n".encode())
+
+        assert get_config().internal_api_key_base.get_secret_value() == key
+
+    def test_a_name_the_class_does_not_declare_in_the_roots_file_fails_the_boot_naming_it(self, monkeypatch, tmp_path):
+        """The root's file is a dotenv source like the package's, so `extra="forbid"` reaches it: a frontend-only name there is a refusal."""
+        key = a_key_the_boot_accepts("root")
+        self.a_package_beside_a_root(monkeypatch, tmp_path, f"INTERNAL_API_KEY_BASE={key}\nAUTH_SECRET=x\n".encode(), b"")
+
+        with pytest.raises(EnvironmentValidationError) as raised:
+            get_config()
+
+        assert str(raised.value) == "Invalid environment variables: AUTH_SECRET"
+
+
 class TestTheStartupPing:
     def test_a_server_that_cannot_be_reached_names_the_variable_and_not_the_host(self, monkeypatch, tmp_path, caplog):
         """Driven through the environment, which `get_config` reads for the settings the boot builds its client from."""

@@ -159,7 +159,11 @@ class BackendConfig(BaseSettings):
     # `forbid`, because a class that drops a key cannot tell a typo from an omission, and the shipped
     # default serves production. Only the dotenv source hands this class an undeclared name, and it
     # drops one carrying no value (`docs/backend/spec.md` §1.5).
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="forbid")
+
+    # The checkout root's file last, as `docker-compose.yml` lists it, so a run from `fl_backend/`
+    # reads the names both services hold once (`docs/ops/spec.md :: I429`). A container has neither
+    # file: compose hands it both as variables.
+    model_config = SettingsConfigDict(env_file=(".env", "../.env"), env_file_encoding="utf-8", extra="forbid")
 
     @field_validator("log_level_app", "log_level_db", "log_format", mode="before")
     def normalize_logging_case(cls, value: object) -> object:
