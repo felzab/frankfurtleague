@@ -841,8 +841,12 @@ the last cache a passing run left, the cost of keeping a cache write out of ever
 
 **The aggregate `verify` job writes a wall-clock report** into its run summary on every push to
 main: per-job medians over the completed main runs already on record, against
-[`.github/gate-wall-clock.tsv`](../../.github/gate-wall-clock.tsv), which holds a reference figure and a floor per job where its population can cut them. The report reads main pushes, the population every row is cut from; a row whose population is too short to cut a floor carries `-` for its reference as well and is held by its budget alone. `scripts/checks/check_gate_budget.py` under `--window`
-writes it, and how a median is taken is at `:: _median`.
+[`.github/gate-wall-clock.tsv`](../../.github/gate-wall-clock.tsv), which pairs a reference figure
+with a floor for each job its stamped main runs can cut a floor for. A row whose population is too
+short carries `-` in both columns, is held by its budget alone, and is named in the report as
+measured rather than compared: a reference with no floor beside it is a median nothing can judge.
+`scripts/checks/check_gate_budget.py` under `--window` writes it, and how a median is taken is at
+`:: _median`.
 
 **The reference is carried forward, never recomputed from the recent past.** A report comparing a
 window against the window before it ratchets: each window silently becomes the next one's normal, so
@@ -852,7 +856,8 @@ so growth against it accumulates in the number rather than in the baseline.
 
 **A row appears only where that job's median has moved past that job's own floor**, and a report with
 nothing past a floor says so in one line. The floors are per job because one figure is wrong for most
-of them: resampled over whole runs of the population each floor in `.github/gate-wall-clock.tsv` was cut from -- the one its row's stamp counts, or, where that one is too short, the one the file names before it -- a 12-run median moves by a different amount on every job in that table, so a single global
+of them: resampled over whole runs of the population each row of `.github/gate-wall-clock.tsv`
+stamps, a 12-run median moves by a different amount on every job in that table, so a single global
 figure dismisses a real move on the quiet jobs and cries wolf on
 the noisy ones. Each floor in the table is that job's own p95, so a delta under it is a reshuffle.
 
@@ -880,9 +885,9 @@ being the layer cache's before it is the tree's — the table's header records t
 stamped runs show and declines to say which of them ran warm, and the Dockerfile change most worth
 catching is the one that empties that cache —
 so the median report is its only
-guard. `format` runs on every event, but its row is measured from pull-request runs and carries
-`-` where the report, cut from main runs, would read a reference, until main runs of `format` exist
-to cut its row from.
+guard. `format`'s budget is the cold job's — a runner starts without prettier's cache wherever the
+lockfile or a stylesheet moves — so it is cut from the widest cold run on record rather than from
+the stamped main runs alone, most of which restored the cache.
 **Raising a budget or a reference costs a measurement.** In a pull request's `docs` job,
 `scripts/checks/check_gate_budget.py` under `--base` holds the file against the pull request's base and refuses a
 figure that rose on an unchanged stamp, a stamp dated after today or before the one it replaces, or a

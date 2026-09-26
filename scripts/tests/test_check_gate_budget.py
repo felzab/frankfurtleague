@@ -439,6 +439,20 @@ def test_a_job_with_no_reference_is_named_rather_than_counted():
     assert "Measured with no reference to compare against: commits, newjob." in text
 
 
+def test_a_reference_beside_a_missing_floor_is_named_rather_than_judged():
+    """Read as zero, the `-` floor would call a one-second move a regression; the whole gate sums the paired rows alone."""
+    rows = budget.parse_reference(
+        table(row("backend", "37", "14", "60", STAMP), row("format", "27", "-", "70", STAMP), row("total", "64", "5", "-", "-"))
+    )
+
+    text, verdict = budget.report_window(rows, [ok("backend", 37), ok("format", 28)], 12, NAMED)
+
+    assert verdict == "clean"
+    assert "| `format` |" not in text
+    assert "the whole gate" not in text
+    assert "Measured with no reference to compare against: format." in text
+
+
 def test_a_reference_of_zero_is_named_rather_than_divided_by():
     """A zero in the seconds column is a hand edit left half done: named in the trailer, never a row."""
     rows = budget.parse_reference(

@@ -35,17 +35,18 @@
 # inside the population its stamp counts its widest run costs five times its narrowest, so the
 # number a ceiling would be set from says more about which layers were warm than about the tree. The
 # Dockerfile change most worth catching is the one that empties that cache, and the median report
-# is its only guard.
+# is the only guard a row like this has, so it has none while the row carries no reference.
 #
 # `docs`, `format`, `frontend`, the `frontend-units` shards, `images` and `scripts` are cut from the
 # main push runs their stamps count, every one of them carrying the backend's tier over workers and
 # the db scope's two suites started together. A population as short as theirs cannot be cut into two
 # windows of twelve, and drawn with replacement it reads its own smallness rather than the job --
-# five runs of `frontend` answered 5 percent that way -- so each of those floors keeps the figure
-# its row's earlier population gave it. `format` and the shards had no floor to keep, so their
-# references stay `-` as well: the report reads a missing floor as a floor of zero, and would name
-# every move of a row carrying a reference without one. Each is re-cut, floor and reference
-# included, once twelve such runs exist.
+# five runs of `frontend` answered 5 percent that way. A floor cut before these jobs took their
+# present shape measures a gate they are not, as the `ops` paragraph below says of a run from
+# before its merge, and a reference with no floor beside it is a median the report cannot judge. So
+# each of these rows carries `-` for both, is held by its budget alone where it has one, and is
+# listed by the report as measured rather than compared; its reference and floor are cut once
+# twelve runs of its population exist.
 #
 # `ops` answers to a shorter population than `backend` and `db`, counted in its own stamp.
 # `nginx/edge_test.sh` joined that scope partway through the window those two rows were cut from,
@@ -62,7 +63,7 @@
 #
 # `docs` gained two checks: `cell-prose` costs 0.05 s and `echo` 1.01 s over the whole corpus,
 # measured locally on 2026-09-02 with the file listing already warmed, so the figures are the
-# checks' own rather than the walk's. Their 1.06 s sits inside the floor the `docs` row carries.
+# checks' own rather than the walk's.
 #
 # `docs` gained a third check: `scheme-token` costs 0.034-0.057 s over nine interleaved rounds with
 # the file listing warmed, measured locally on 2026-09-05 on a sixteen-core machine carrying
@@ -70,8 +71,8 @@
 # as the check. The second
 # method resolves nothing and says so: the delta between a whole run carrying the check and one
 # without falls inside that run's own 0.2 s spread, which is what a check this small looks like
-# against a job this size. It sits inside the floor the `docs` row carries, and the ceiling it
-# answers to is that row's budget, the total row carrying none behind it.
+# against a job this size. The ceiling it answers to is the `docs` row's budget, the total row
+# carrying none behind it.
 #
 # `backend` gained a check: `check_test_estate.py` costs 1.90-1.96 s over six interleaved runs, each
 # returning exit 0, measured locally on 2026-09-03 on a sixteen-core machine carrying ten other
@@ -85,17 +86,15 @@
 # comment ceiling and the fork's standard behind the rule families. Measured whole rather than per
 # check: the docs checker over the fork's tree and the branch's tree, interleaved, five rounds after
 # one warm run each, on 2026-09-07 with nothing else running -- 7988 ms at the fork's median against
-# 9267 ms at the branch's, spreads 16 ms and 59 ms, a difference of 1.3 s. That sits inside the
-# floor the `docs` row carries; the figures are one machine's upper bound, and the runner's own
-# median is what the report compares.
+# 9267 ms at the branch's, spreads 16 ms and 59 ms, a difference of 1.3 s. The figures are one
+# machine's upper bound; the runner's own spans are what the `docs` row's budget holds.
 #
 # `docs` gained a check: `check_public_routes.py` costs 110-129 ms end to end, of which 73 ms is the
 # check rather than this interpreter's own start, over seven interleaved rounds after one warm run,
 # each returning exit 0. Measured locally on 2026-09-07 on a sixteen-core machine carrying a fleet
 # of concurrent agent sessions, so both ends are upper bounds reading that contention as much as
 # the check. It is pooled with the docs scope's other units, so the job pays that span only where
-# the pool cannot start them all at once, and either way it sits inside the floor the docs row
-# carries, so neither reference nor budget moves and neither takes a new stamp.
+# the pool cannot start them all at once.
 #
 # `db` gained a guard in front of the tier: a claim that refuses a second gate run rather
 # than letting it run beside the first. Measured locally on 2026-09-07 over five interleaved rounds
@@ -136,8 +135,7 @@
 # bounds reading that contention as much as the check. It opens two files and expands two
 # character classes, so its span follows neither the size of the tree nor that of the branch. It is
 # pooled with the docs scope's other units, so the job pays that span only where the pool cannot
-# start them all at once, and either way it sits inside the floor the docs row carries, so neither
-# reference nor budget moves and neither takes a new stamp.
+# start them all at once.
 #
 # `docs` gained a check: `section-reference` costs 95-103 ms over the whole corpus of 1045 files,
 # the upper end taken with the page cache cleared beside the check's own, over nine rounds
@@ -145,8 +143,7 @@
 # 2026-09-07 on a sixteen-core machine carrying a fleet of agent sessions, so both ends are upper
 # bounds reading that contention as much as the check, and the pages it resolves against are read
 # once a run by the checks beside it either way. The same run widened the prose corpus by this file,
-# 74 documents to 75. It sits inside the floor the `docs` row carries, so neither the reference nor
-# the budget moves and neither takes a new stamp.
+# 74 documents to 75.
 #
 # `scripts` gained six cases: `scripts/tests/test_unit_shards.py` drives the gate's two shard
 # refusals beside two cases reading the shard matrix, and `scripts/tests/test_regex_lead.py` lexes
@@ -155,8 +152,7 @@
 # carrying a fleet of agent sessions, so both ends read that contention as much as the cases. The
 # shard module is one chunk under `--dist loadfile` and the lexer's cases ride a module already
 # dispatched, so the job pays that span only where the pool cannot start them beside the
-# longest chunk; either way it sits inside the floor the `scripts` row carries, so neither the
-# reference nor the budget moves and neither takes a new stamp.
+# longest chunk.
 #
 # `frontend` gained forty test files rendering the editors through HeroUI on jsdom, and the five
 # completed main push runs after they landed, 2026-09-19 to 2026-09-20, spanned 243, 260, 264, 268
@@ -178,8 +174,7 @@
 # locally on 2026-09-23 on the sixteen-core Windows machine carrying a fleet of agent sessions:
 # 515.9-528.2 s of summed CPU in four runs without it, 443.6-494.2 s in four starting from an empty
 # cache, which is every CI run, and 425.4-460.7 s in four with it filled, the failing-case set
-# identical in each interleaved round. Neither the reference nor the budget moves and neither takes
-# a new stamp.
+# identical in each interleaved round. No budget moves and none takes a new stamp.
 #
 # `frontend-units` is one matrix job, and each of its instances is a row of its own under the name
 # the job's `name:` template spells, which is the name the runs API reports and both the report and
@@ -193,8 +188,8 @@
 # `needs` to every other job in the workflow, and drives that reader over a job left out of it. They
 # cost 0.546-0.593 ms a pass together over nine interleaved rounds in two runs, each case called
 # directly rather than through pytest. Measured locally on 2026-09-23 on a sixteen-core Windows
-# machine carrying a fleet of agent sessions, so both ends are upper bounds; neither the reference
-# nor the budget moves and neither takes a new stamp.
+# machine carrying a fleet of agent sessions, so both ends are upper bounds; the budget does not
+# move and takes no new stamp.
 #
 # `format` measured two ways of skipping the walk under `..`, which lists `fl_frontend/node_modules`
 # and `.git` because prettier's own exclusions do not match there, and rejected both on their
@@ -220,8 +215,7 @@
 # are upper bounds reading that contention as much as the rule. The walk and the byte read are the
 # checker's already, so that span is the whole marginal cost: one character-class scan answers a file
 # holding none, which is nearly every file, and only a file with a hit is walked character by
-# character. It sits far inside the floor the `docs` row carries, so neither the reference nor the
-# budget moves and neither takes a new stamp.
+# character.
 #
 # `frontend`'s unit tests were cut on 2026-09-22 by three changes to what each test file's process
 # loads, measured as the summed CPU of every file's process on the sixteen-core Windows machine
@@ -232,8 +226,7 @@
 # HeroUI or icon import loading only the names it takes, about 26 percent, a rendering file's
 # process loading 2081 modules where it loaded 4160. Per-component subpath imports hold that now,
 # loading the same modules within 40 in four of five sampled files; the fifth reaches
-# `useOverlayState`'s root import. The runner's own figures replace these on the pull request's
-# runs; no row moves until a population of them exists.
+# `useOverlayState`'s root import.
 #
 # `db` gained the frontend's db-tier files (`pnpm run test:db`, each starting its own replica set
 # through testcontainers) and the frontend toolchain step they need. Over the four files the branch
@@ -246,18 +239,18 @@
 # longer suite and not the sum. Beside other scopes it runs them one after the other: in a bare
 # gate run with every scope started together, the frontend's files took 129 s and six cases
 # overran the sign-in store's 3 s bounds. Measured locally on 2026-09-26 on a sixteen-core Windows
-# machine running nothing else. The `db` job ran 149 s against
-# its 125 s budget on the 2026-09-25 push that ran the suites one after the other; the overlap
-# takes off the shorter suite, about 40 s here, so the budget does not move and the first runs
-# carrying the pool show what a runner saves.
+# machine running nothing else. On a runner the `db` job spanned 140-149 s, median 144.5 s,
+# against its 125 s budget over the four pull-request runs of 2026-09-25 that ran the suites one
+# after the other, and 90-114 s, median 99 s, over the thirteen pull-request and main runs from
+# 2026-09-26 that start them together.
 #
 # `format`, `frontend`, the `frontend-units` shards and `db` gained a guard ahead of their
 # scopes: `fl_frontend/node_modules` must exist, so a run without the install refuses rather than
 # grading its absence. 58-60 microseconds a call over five interleaved rounds of two thousand calls
 # against an empty loop, measured locally on 2026-09-23 on a sixteen-core Windows machine carrying
 # a fleet of agent sessions, so an upper bound; it is paid once in each gate process those scopes
-# start. That is far inside every floor those rows carry, so no reference or budget moves and none
-# takes a new stamp.
+# start. That is far inside the `db` floor, and the main runs the other rows' budgets are cut from
+# already paid it.
 #
 # `scripts` gained ten cases and lost eleven. `scripts/tests/test_pre_commit.py` commits through
 # `.githooks/pre-commit` in fresh repositories, two on `main` and one on a branch, 1.26-1.34 s for the
@@ -269,7 +262,7 @@
 # called directly, on a sixteen-core Windows machine carrying a fleet of agent sessions, so every
 # figure is an upper bound. The eleven cut --
 # step 12's watchdog comparison, the two shard-matrix readers above and `job_names`' two samples --
-# started no gate run. Neither the reference nor the budget moves and neither takes a new stamp.
+# started no gate run. The budget does not move and takes no new stamp.
 #
 # `backend` gained a guard: `fl_backend/tests/tier.py :: TierGuard` watches every default-tier test
 # through the driver's command listener, wrappers around each test's setup, call and teardown and
@@ -301,8 +294,7 @@
 # functions behind a stand-in `docker`, 10.0-10.7 s over three runs of the module alone against
 # 5.8-6.0 s for `scripts/tests/test_deploy_streams.py` interleaved with it, measured locally on
 # 2026-09-25 on a sixteen-core Windows machine carrying a fleet of agent sessions, so an upper
-# bound. It is shorter than the pre-commit module above, so it sits inside the floor the `scripts`
-# row carries and no row moves. `ops` runs `nginx -t` over `nginx/prod/` mounted by directory, as
+# bound. It is shorter than the pre-commit module above. `ops` runs `nginx -t` over `nginx/prod/` mounted by directory, as
 # production mounts it; the edge test mounts each file of `nginx/local/` by name beside its stub.
 #
 # `ops` gained a second nginx in the edge test, serving `nginx/prod/` behind a certificate made for
@@ -319,8 +311,8 @@
 # `docker image inspect` ahead of `nginx -t`, 332-364 ms on a host holding the image, the pull it
 # guards being the one the parse paid before, each measured on 2026-09-25 in a window the fleet
 # left quiet. Together the scope's growth is about 6 s, past the 4.9 s floor the `ops` row carries
-# and far inside its 45 s budget, so the budget stands and the first main runs carrying the growth
-# decide whether the reference is re-stamped.
+# and far inside its 45 s budget. The first main runs carrying it spanned 22, 13 and 18 s, a median
+# of 18 s, inside the floor of the row's 17 s reference.
 #
 # `scripts` lost the comment classifier, its cases and its self-check step, and the cases that
 # listed a fixture branch or ran `verify.sh` over it. `scripts/tests/test_gate_pool.py`, whose
@@ -339,8 +331,7 @@
 # 5.39-28.79 s in the same rounds, the widest its first and cold, measured locally on 2026-09-24 on
 # a sixteen-core Windows machine carrying a fleet of agent sessions, so both ends are upper bounds.
 # It is pooled with tsc, eslint and the audit and ran shorter than tsc in every round, so the job
-# pays it only as contention; either way it sits inside the floor the `frontend` row carries, so
-# neither the reference nor the budget moves and neither takes a new stamp.
+# pays it only as contention.
 #
 # `backend` gained a check: deptry over `app/` (`scripts/gate/verify.sh :: do_backend_deps`) costs
 # 328-2045 ms end to end, of which 340-462 ms at the median is deptry rather than this
@@ -359,7 +350,7 @@
 # first step to last, against 155 s and 168 s on the same day's last run before the split, which
 # built and exported in one step. Which layers each runner found warm is unknown, so the three spans say only that the
 # split costs no more than the export already did. Every run the `images` row's stamp counts
-# carries the split, so its 13-14 s is inside the reference.
+# carries the split.
 #
 # `verify` gained a step: on a push to main it fails where a scope job was skipped. It is an `if:`
 # over the needs context and nothing else, so no development machine can run it to time; on every
@@ -370,8 +361,7 @@
 # `:: DOCKERFILES`, `:: COMPOSE_FILES` and `:: SCRIPT_IMAGES` name, and its cases run in 0.03-0.04 s
 # over two runs of the module alone, pytest's own figure, inside 0.6-1.4 s of wall clock. Measured
 # locally on 2026-09-25 on a sixteen-core Windows machine carrying a fleet of agent sessions, so the
-# upper end reads that load. It sits inside the floor the `scripts` row carries, so neither its
-# reference nor its budget moves.
+# upper end reads that load.
 #
 # `docs` lost its `diagram` and `header-see` checks and gained two reads:
 # `scripts/checks/docs_gate/reasons.py :: check_unenforced_reasons` resolves every address an
@@ -387,7 +377,7 @@
 # five interleaved rounds. It reads every declared row's prose rather than the reasons alone:
 # 100-134 ms a call against 2.4-6.9 ms, warm, two interleaved rounds of five calls each, both on
 # 2026-09-25 beside the fleet, so upper bounds. Every run the `docs` row's stamp counts carries both
-# reads, so the 3.6 s difference is inside the reference.
+# reads, and its budget is cut from those runs.
 #
 # `scripts` gained modules and cases, each module run alone three times unless a figure says
 # otherwise, measured locally on 2026-09-25 on a sixteen-core Windows machine carrying a fleet of
@@ -413,17 +403,16 @@
 # selected. The job's pytest unit, `scripts`' longest step, took 72.3-74.4 s in the gate's own form
 # at eight workers and 108.4-112.1 s at four, the width `auto` resolves to on a four-core runner,
 # five interleaved rounds, measured locally on 2026-09-26 on a sixteen-core Windows machine running
-# nothing else, against the 80 s the `scripts` row budgets for the whole job. The job passed that
-# budget on the 2026-09-25 push, so this machine, starting a shell, a git or a node in most of the
-# suite's cases, reads it slower than a runner does. The selection moves no row, the rows
-# being cut from pushes to main, which already ran every scope; whether the unit's growth moved the
-# job's span past its floor or its budget is for the first main runs carrying it to show.
+# nothing else, against the 60 s the `scripts` row budgets for the whole job. The first main runs
+# carrying the unit spanned 45, 41 and 40 s first step to last, so this machine, starting a shell,
+# a git or a node in most of the suite's cases, reads it slower than a runner does. The selection
+# moves no row, the rows being cut from pushes to main, which already ran every scope.
 #
 # `docs` gained, on a pull request alone, two steps reading the branch against its base: the
 # budget check, 0.26-0.29 s over five runs, and the line delta, 0.40-0.47 s over five runs of the
 # branch against `main`, measured locally on 2026-09-26 on a sixteen-core Windows machine running
-# nothing else. The row is cut from main runs, where neither step runs, so it moves nothing, and the
-# two together sit inside the floor it carries.
+# nothing else. The row is cut from main runs, where neither step runs, so they move nothing, and a
+# pull request's `docs` job pays both under the row's budget.
 #
 # `scripts` and `backend` gained a rule: ruff's `TID251` refuses an import its banned-api list
 # names. `ruff check --no-cache` took 185-842 ms with it against 187-1762 ms without over
@@ -437,8 +426,7 @@
 # over the real conftest, 0.08-0.11 s; and the frontend builder's excludes held to what its `deps`
 # stage copies, under 5 ms, three runs each, measured locally on 2026-09-25 on a
 # sixteen-core Windows machine carrying a fleet of agent sessions, so upper bounds. They ride a
-# module already dispatched and sit inside the floor the `scripts` row carries, so neither the
-# reference nor the budget moves and neither takes a new stamp.
+# module already dispatched.
 #
 # `backend` runs its default tier over workers (`scripts/gate/verify.sh :: do_backend_pytest`,
 # capped by `:: GATE_WIDTH_BACKEND_PYTEST`), where it ran in one process, and the call traces read
@@ -450,9 +438,12 @@
 # 19-20 s beside pyright's 13 s. The tier also gained two sweeps: the `Allow` header over every
 # documented path, 0.94-0.95 s, and every refusal's field against its operations' bodies, 0.18 s.
 # Five interleaved rounds each, measured locally on 2026-09-26 on a sixteen-core Windows machine
-# running nothing else. The `backend` job ran 66 s against its 60 s budget on the 2026-09-25 push,
-# the serial tier its longest unit, so the budget does not move and the first runs carrying the
-# workers show what a runner saves.
+# running nothing else. On a runner, over the four pull-request runs of 2026-09-25, the serial tier
+# took 53-81 s and the job 62-90 s against its 60 s budget; over the thirteen pull-request and main
+# runs from 2026-09-26, the tier over workers took 32-49 s, median 44 s, and the job 40-60 s, median
+# 52 s. The import index landed in the same runs, so the workers' own share is not separable from
+# it. Pyright, pooled beside the tier, went from 16-24 s to 23-41 s, median 32 s, its four workers
+# sharing the runner's four processors with it.
 #
 # `frontend-units` shards by position: cold, at a runner's width of three files, over five
 # interleaved rounds, shard 1 took 74.2-74.5 s, 2 54.6-55.4 s, 3 101.1-101.6 s and 4 53.2-53.3 s, on
@@ -474,15 +465,14 @@
 # ""` in `fl_frontend` (`scripts/gate/verify.sh :: pnpm_starts`), once in each gate process those
 # scopes start. It took 1.26 s a call over five rounds of ten calls against 0.06 s for `node -e ""`
 # alone, measured locally on 2026-09-26 on a sixteen-core Windows machine running nothing else, so
-# each of those jobs pays about 1.2 s. That sits inside the `frontend` and `db` floors; the `format`
-# and shard rows carry no floor, and the main runs their budgets are cut from already paid it.
+# each of those jobs pays about 1.2 s. That sits inside the `db` floor, and the main runs the other
+# rows' budgets are cut from already paid it.
 #
 # `frontend` gained the syntax bans, the `local/admin-link` rule and the date controls' prop rules
 # in `fl_frontend/eslint.config.mjs`. eslint over `fl_frontend` at a runner's four threads, with no
 # cache as a runner starts, took 19.4-19.5 s with them against 17.3-17.5 s without, five
 # interleaved rounds, measured locally on 2026-09-26 on a sixteen-core Windows machine running
-# nothing else. It is pooled with tsc and knip, and its 2 s sits inside the floor the `frontend` row
-# carries, so neither the reference nor the budget moves.
+# nothing else. It is pooled with tsc and knip.
 #
 # `scripts` gained `scripts/tests/test_commit_msg_hook.py`, which commits through
 # `.githooks/commit-msg` in throwaway repositories: 8.7-10.5 s alone, its five cases 1.1-2.0 s each.
@@ -491,7 +481,7 @@
 # cases holding the backend's db tier to the local stack's mongo and the edge's nginx to the Control
 # API's release, under 5 ms each, the module 0.62-0.64 s. Five runs each, measured locally on
 # 2026-09-26 on a sixteen-core Windows machine running nothing else. Each is a chunk far shorter
-# than the suite's longest, inside the floor the `scripts` row carries, so no row moves.
+# than the suite's longest.
 #
 # `format` restores prettier's cache on a runner, under a key carrying the lockfile, every frontend
 # stylesheet and the commit (`.github/workflows/verify.yml`, the format job). The scope took 21 s
@@ -499,9 +489,10 @@
 # warm check with 50 source files changed took 6.9-7.1 s, and with 400 changed 10.9-11.1 s. Three to
 # five interleaved rounds each, measured locally on 2026-09-26 on a sixteen-core Windows machine
 # running nothing else. A runner still starts cold wherever the lockfile or a stylesheet moves and on
-# a key's first run, so the budget is the cold job's: of the main runs its stamp counts, the first
-# found no cache and spanned 50 s against 27 s for the two that restored one, and the rule above
-# gives 65 s, over the 41-56 s six uncached pull-request runs spanned to 2026-09-26.
+# a key's first run, so the budget is the cold job's, cut from the widest cold run on record rather
+# than from the stamped runs alone: of the main runs its stamp counts, the first found no cache and
+# spanned 50 s against 27 s for the two that restored one, and six uncached pull-request runs to
+# 2026-09-26 spanned 41-56 s, which the rule above makes 70 s.
 #
 # The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
 # move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
@@ -510,14 +501,14 @@
 # job	seconds	floor	budget	measured
 backend	35	14	60	24@2026-09-07
 db	49	40	125	24@2026-09-07
-docs	30	10	40	3@2026-09-26
-format	-	-	65	3@2026-09-26
-frontend	77	10	145	3@2026-09-26
+docs	-	-	40	3@2026-09-26
+format	-	-	70	3@2026-09-26
+frontend	-	-	145	3@2026-09-26
 frontend-units (1)	-	-	150	3@2026-09-26
 frontend-units (2)	-	-	150	3@2026-09-26
 frontend-units (3)	-	-	150	3@2026-09-26
 frontend-units (4)	-	-	150	3@2026-09-26
-images	45	29	-	3@2026-09-26
+images	-	-	-	3@2026-09-26
 ops	17	29	45	13@2026-09-07
-scripts	41	16	60	3@2026-09-26
-total	294	10	-	-
+scripts	-	-	60	3@2026-09-26
+total	101	10	-	-
