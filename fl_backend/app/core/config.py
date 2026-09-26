@@ -26,10 +26,10 @@ ORIGIN = re.compile(r"https?://[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::\d{1
 # alone would refuse is a deployment already broken.
 INTERNAL_API_KEY_LENGTH: Final = 64
 
-# `security.py :: verify_api_key` compares a key with `secrets.compare_digest`, which RAISES for a
-# non-ASCII `str`: a key the length alone admits answers every internal request 500 rather than 401.
-# Pinned identically in `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` (`docs/ops/spec.md :: I11`).
-INTERNAL_API_KEY_CHARACTERS = re.compile(r"[\x21-\x7e]+")
+# ASCII, because `security.py :: verify_api_key`'s `secrets.compare_digest` RAISES on a non-ASCII
+# `str`; without `"` `#` `$` `'` `\` and the backtick, which some env-file reader alters
+# (`docs/ops/spec.md :: I11`). Pinned identically in `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY`.
+INTERNAL_API_KEY_CHARACTERS = re.compile(r"[\x21\x25\x26\x28-\x5b\x5d-\x5f\x61-\x7e]+")
 
 # The ban list's key is never rotated, every stored hash having been taken under it and no address
 # surviving to re-hash (`docs/ops/runbooks.md :: 5`), so the boot is the one place a weak one is
@@ -37,17 +37,17 @@ INTERNAL_API_KEY_CHARACTERS = re.compile(r"[\x21-\x7e]+")
 SPERRLISTE_KEY_MIN_LENGTH: Final = 64
 
 
-def _only_printable_ascii(key: SecretStr) -> SecretStr:
+def _only_key_characters(key: SecretStr) -> SecretStr:
     """A validator rather than `Field(pattern=)`, which pydantic refuses to apply to a `SecretStr`."""
     if INTERNAL_API_KEY_CHARACTERS.fullmatch(key.get_secret_value()) is None:
-        raise ValueError("every character must be printable ASCII, and none may be a space")
+        raise ValueError("printable ASCII only, with no space and none of \" # $ ' \\ or a backtick")
     return key
 
 
 InternalAPIKey = Annotated[
     SecretStr,
     Field(min_length=INTERNAL_API_KEY_LENGTH, max_length=INTERNAL_API_KEY_LENGTH),
-    AfterValidator(_only_printable_ascii),
+    AfterValidator(_only_key_characters),
 ]
 
 

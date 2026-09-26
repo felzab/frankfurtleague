@@ -46,9 +46,16 @@ afterEach(() => {
 });
 
 describe("the schema the three internal API keys share", () => {
-  it("takes a key of printable ASCII, the placeholder the runbook prints among them", () => {
-    for (const key of [pad("a"), "x".repeat(LENGTH), pad("!~-_.+/=")]) {
-      assert.equal(INTERNAL_API_KEY.safeParse(key).success, true, `refused ${String([...key].length)} printable characters`);
+  it("takes a key of every class character no env-file reader alters, the three generators' alphabets among them", () => {
+    // `openssl rand -hex`, base64 with its padding, and `secrets.token_urlsafe`, then each range edge.
+    for (const key of [pad("0123456789abcdef"), pad("AZaz09+/=="), pad("-_"), pad("!%&(["), pad("]^_a{|}~")]) {
+      assert.equal(INTERNAL_API_KEY.safeParse(key).success, true, `refused ${String([...key].length)} class characters`);
+    }
+  });
+
+  it("refuses a key carrying a character Compose, python-dotenv, @next/env or Node reads as syntax", () => {
+    for (const altered of ['"', "#", "$", "'", "\\", "`"]) {
+      assert.equal(INTERNAL_API_KEY.safeParse(pad(altered)).success, false, `accepted ${altered}`);
     }
   });
 

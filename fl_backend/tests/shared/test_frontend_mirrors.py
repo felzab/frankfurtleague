@@ -1311,9 +1311,10 @@ def test_the_two_ends_pin_an_internal_key_to_the_same_alphabet():
     assert found is not None, f"{record.module} no longer states {record.typescript}'s alphabet as one regular-expression literal"
     assert found["flags"] == "", f"{record.typescript} carries the flags '{found['flags']}', which this comparison does not model"
 
-    # A legal key, then a space, a tab, DEL just past the range's top, an umlaut, and the empty
-    # string the `+` refuses.
-    probes = ["Kf7", "Kf 7", "Kf\t7", "Kf\x7f7", "Kfö7", ""]
+    # Legal keys, one at each edge of the class's ranges; then a space, a tab, DEL, an umlaut, the
+    # empty string the `+` refuses, and each character an env-file reader alters.
+    legal = ["Kf7", "!%&(", "[]^_", "a{|}~", "+/=-."]
+    probes = [*legal, "Kf 7", "Kf\t7", "Kf\x7f7", "Kfö7", "", *(f"Kf{c}7" for c in "\"#$'\\`")]
     taken = {probe for probe in probes if INTERNAL_API_KEY_CHARACTERS.fullmatch(probe) is not None}
 
     assert taken, f"{record.python} takes none of {len(probes)} probes, so agreeing with it proves nothing"

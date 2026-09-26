@@ -1192,7 +1192,10 @@ Git Bash's `openssl` ends its line with a carriage return, which command substit
 
 **On the server the file holds production's three**, moved out of the two package files rather than
 regenerated, readable by the deploying user alone (`chmod 600 .env`), and kept in the password
-manager as an entry of its own. A key changed there reaches the containers only when they are
+manager as an entry of its own. **Where the deploy refuses naming an `INTERNAL_API_KEY_*`, that key
+carries a character outside the class** ([`spec.md`](spec.md) §1.5): generate all three again with
+the command above, run on the server, and update the password-manager entry. Both containers are
+recreated by the same deploy, so the new pair never meets the old. A key changed there reaches the containers only when they are
 recreated, which the next deploy does: `docker compose restart` re-reads no environment file.
 
 ## 17. Clearing an address's code lock

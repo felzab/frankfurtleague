@@ -479,29 +479,30 @@ bug and answers 500 `SRV-FAIL-001`
 Declared once as a pydantic-settings model (`fl_backend/app/core/config.py :: BackendConfig`);
 fields without a default are required at boot and the process refuses to start without them.
 
-| Variable                      | Constraint                                                                                                     | Default    |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------- |
-| `API_TRUSTED_HOSTS`           | comma-separated, each a hostname or a `*` wildcard                                                             | — required |
-| `API_CORS_ALLOWED_ORIGINS`    | comma-separated, each a scheme, host and port only; no `*`                                                     | — required |
-| `MONGODB_URI`                 | must start `mongodb://` or `mongodb+srv://`                                                                    | — required |
-| `DB_BASE_NAME`                | the characters MongoDB accepts in a database name                                                              | — required |
-| `DB_SERVER_SELECTION_TIMEOUT` | int, ms, above zero and at most 60000                                                                          | `15000`    |
-| `DB_MIN_CONNECTIONS`          | int, not negative and not above `DB_MAX_CONNECTIONS`                                                           | `5`        |
-| `DB_MAX_CONNECTIONS`          | int, at least one                                                                                              | `100`      |
-| `INTERNAL_API_KEY_*`          | `BASE` / `SYSTEM` / `ADMIN`, each a `SecretStr` of exactly 64 printable ASCII characters, none of them a space | — required |
-| `SPERRLISTE_SCHLUESSEL`       | a `SecretStr` of at least 64 characters; never rotated, and the length counts characters rather than entropy   | — required |
-| `LOG_LEVEL_APP`               | `DEBUG`…`CRITICAL`, case-normalised                                                                            | `INFO`     |
-| `LOG_LEVEL_DB`                | same vocabulary, for pymongo                                                                                   | `WARNING`  |
-| `LOG_FORMAT`                  | `json` \| `console`, case-normalised                                                                           | **`json`** |
+| Variable                      | Constraint                                                                                                                              | Default    |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `API_TRUSTED_HOSTS`           | comma-separated, each a hostname or a `*` wildcard                                                                                      | — required |
+| `API_CORS_ALLOWED_ORIGINS`    | comma-separated, each a scheme, host and port only; no `*`                                                                              | — required |
+| `MONGODB_URI`                 | must start `mongodb://` or `mongodb+srv://`                                                                                             | — required |
+| `DB_BASE_NAME`                | the characters MongoDB accepts in a database name                                                                                       | — required |
+| `DB_SERVER_SELECTION_TIMEOUT` | int, ms, above zero and at most 60000                                                                                                   | `15000`    |
+| `DB_MIN_CONNECTIONS`          | int, not negative and not above `DB_MAX_CONNECTIONS`                                                                                    | `5`        |
+| `DB_MAX_CONNECTIONS`          | int, at least one                                                                                                                       | `100`      |
+| `INTERNAL_API_KEY_*`          | `BASE` / `SYSTEM` / `ADMIN`, each a `SecretStr` of exactly 64 printable ASCII characters, none a space or one an env-file reader alters | — required |
+| `SPERRLISTE_SCHLUESSEL`       | a `SecretStr` of at least 64 characters; never rotated, and the length counts characters rather than entropy                            | — required |
+| `LOG_LEVEL_APP`               | `DEBUG`…`CRITICAL`, case-normalised                                                                                                     | `INFO`     |
+| `LOG_LEVEL_DB`                | same vocabulary, for pymongo                                                                                                            | `WARNING`  |
+| `LOG_FORMAT`                  | `json` \| `console`, case-normalised                                                                                                    | **`json`** |
 
 `API_CORS_ALLOWED_ORIGINS` refuses the bare `*` that `API_TRUSTED_HOSTS` accepts, and the refusal is
 deliberate: this API is reached server-side from the frontend's own origin, never from a browser at
 an origin we do not already name, and `Access-Control-Allow-Origin: *` is invalid for a credentialed
 request in any case. `fl_backend/tests/core/test_config.py :: TestCorsAllowedOrigins` pins it.
 
-**The internal keys' character class is what `secrets.compare_digest` can read**
-(`docs/ops/spec.md :: I11`): a key the length bound alone admits boots and then answers every
-internal request 500.
+**The internal keys' character class is what `secrets.compare_digest` can read, less what an
+env-file reader alters** (`docs/ops/spec.md :: I11`): a key the length bound alone admits boots and
+then answers every internal request 500, and a `$` or a `#` in one reaches the two sides as
+different keys ([`docs/ops/spec.md`](../ops/spec.md) §1.5 names the six).
 
 **`SPERRLISTE_SCHLUESSEL` is the one variable here that can never be replaced.** Every row of
 `sperrliste` holds an HMAC taken under it and no address survives to re-hash

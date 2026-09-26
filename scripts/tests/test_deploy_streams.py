@@ -373,6 +373,31 @@ def test_the_snippet_answers_3_naming_the_variables_and_never_a_rejected_value()
     assert "MONGODB_URI" in output, output
 
 
+# Two keys of the class and one carrying a `$`, which python-dotenv hands on as it stands and Compose
+# would interpolate. Fabricated, of `k` alone.
+KEY_OUTSIDE_THE_CLASS: Final = (
+    "printf 'INTERNAL_API_KEY_BASE=%s$%s\\nINTERNAL_API_KEY_SYSTEM=%s\\nINTERNAL_API_KEY_ADMIN=%s\\n' "
+    '"$(printf "k%.0s" {1..10})" "$(printf "k%.0s" {1..53})" "$(printf "k%.0s" {1..64})" "$(printf "k%.0s" {1..64})" '
+    "> fl_backend/.env\n"
+)
+
+
+def test_the_snippet_refuses_a_key_outside_the_class_naming_that_key_alone() -> None:
+    """The preflight judges a key with the pulled image's own validator, so the class reaches the deploy before any container sees it."""
+    code, output, _ = _run(KEY_OUTSIDE_THE_CLASS + SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix())
+
+    assert code == 0, output
+    # The import guard's own answer where the job's venv lacks the application, as the case above pins.
+    if "ModuleNotFoundError" in output:
+        assert "snippet=4" in output, output
+        return
+    assert "snippet=3" in output, output
+    assert "INTERNAL_API_KEY_BASE" in output, output
+    assert "INTERNAL_API_KEY_SYSTEM" not in output, output
+    assert "INTERNAL_API_KEY_ADMIN" not in output, output
+    assert "kkkkkkkkkk$" not in output, output
+
+
 def test_a_settings_module_the_snippet_cannot_import_answers_the_advisory_arm() -> None:
     """The import sits inside a guard of its own.
 

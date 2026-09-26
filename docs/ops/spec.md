@@ -403,6 +403,23 @@ The compose files interpolate nothing, and a `COMPOSE_*` line there reaches both
 variable, which the deploy's readers refuse, so a compose setting goes in the shell or on the
 command line instead.
 
+**A key carries none of `"`, `#`, `$`, `'`, `\` or the backtick** (I11), because some env-file reader
+alters each, so the two sides would hold different keys:
+
+- `$` is interpolated by compose and by Next's `@next/env`, and `${` by python-dotenv.
+- `#` ends the value wherever it stands for `@next/env` and for Node's `process.loadEnvFile`, which
+  `fl_frontend/next-dev.mjs` calls.
+- A leading `"` or `'` opens a quoted value for every reader, and a backtick does for `@next/env` and
+  Node alone.
+- `\` inside a quoted value is an escape to python-dotenv, and inside a double-quoted one to
+  compose, while `@next/env` and Node keep it.
+
+Every other printable ASCII character reaches each reader as written, bare or quoted, so a key from
+`openssl rand -hex`, base64 or `secrets.token_urlsafe` is always one of the class. **The deploy's
+preflight judges a key with the pulled backend image's own validator**, so a key outside the class
+refuses the deploy at exit 2 before anything is recreated; the remedy is a new key
+([`runbooks.md`](runbooks.md) §16).
+
 **The local stack points both application services at its own database through compose's
 `environment`**, so no `.env` is edited and no run is left aimed at the wrong cluster
 (`docker-compose.local.yml`, an override Compose merges over `docker-compose.yml`, whose invariant
@@ -1122,7 +1139,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I7   | Neither `:latest` tag moves until both packages hold the build under its `sha-` tag                                                                                           | `.github/workflows/publish.yml`'s last step moves both; `scripts/ops/deploy.sh :: compare_pulled_pair` refuses a `:latest` pair whose `version` labels differ or are absent before recreating, driven by `scripts/tests/test_deploy_pair.py`                                       |
 | I9   | Deploy recreates the application containers in place, leaving nginx running and reloading it                                                                                  | `deploy.sh`                                                                                                                                                                                                                                                                        |
 | I10  | Scripts use LF line endings and carry the git executable bit                                                                                                                  | `selfcheck.sh` (its LF and executable-bit checks)                                                                                                                                                                                                                                  |
-| I11  | The three API keys are 64 printable ASCII characters and match on both sides                                                                                                  | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: InternalAPIKey`; the class is what `secrets.compare_digest` accepts; one copy serves both sides (I429)                                                                                  |
+| I11  | The three API keys are 64 printable ASCII characters, none that an env-file reader alters (§1.5), and match on both sides                                                     | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS`, held equal by `fl_backend/tests/shared/test_frontend_mirrors.py`; one copy serves both sides (I429)                                                       |
 | I13  | Exactly one backend endpoint is reachable from the edge — `= /api/v0/system/is_live`, exact-match so nothing joins it, restating the whole `proxy_set_header` set (§1.3)      | partly — both stacks serve `nginx/shared/site.conf`'s one location set; `nginx -t` reads no location and no test requests a backend path                                                                                                                                           |
 | I14  | Every `limit_req` zone is PAIRED, one narrow key and one wide, the wide at a multiple of the narrow's rate and burst (§1.3)                                                   | `nginx/shared/http.conf`'s paired zones, each declared inside every limited location (§1.3); unenforced by the gate                                                                                                                                                                |
 | I15  | Every platform-conditional branch `scripts/checks/docs_gate/platform.py` reaches is a named module constant or an allowlist row carrying its reason (§1.6, PLAT-1 to PLAT-4)  | gate check `platform-branch`, over `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`; the effect a branch selects is proven by the `verify` workflow's Linux run alone                                                                                                      |

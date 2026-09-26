@@ -1,5 +1,7 @@
 import asyncio
+import base64
 import logging
+import secrets
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
@@ -214,7 +216,7 @@ class TestTheInternalKeys:
 
     @pytest.mark.parametrize("field", ["internal_api_key_base", "internal_api_key_system", "internal_api_key_admin"])
     @pytest.mark.parametrize("odd_character", ["ü", "\U0001f600", " "], ids=["non-ascii", "astral", "space"])
-    def test_a_key_of_the_right_length_carrying_anything_but_printable_ascii_fails_the_boot(self, field, odd_character):
+    def test_a_key_of_the_right_length_carrying_a_non_ascii_character_or_a_space_fails_the_boot(self, field, odd_character):
         """The three the length alone admits: `compare_digest` RAISES on the first two, and the astral one is also 65 units to the frontend."""
         key = odd_character + "k" * (INTERNAL_API_KEY_LENGTH - 1)
 
@@ -224,11 +226,35 @@ class TestTheInternalKeys:
             build(**{field: SecretStr(key)})
 
     @pytest.mark.parametrize("field", ["internal_api_key_base", "internal_api_key_system", "internal_api_key_admin"])
-    def test_the_placeholder_shape_the_runbook_prints_still_boots(self, field):
-        """`docs/ops/runbooks.md` §2 hands an operator 64 `x` for the constraint check, so a class refusing it would refuse the procedure."""
-        placeholder = "x" * INTERNAL_API_KEY_LENGTH
+    @pytest.mark.parametrize(
+        "altered", ['"', "#", "$", "'", "\\", "`"], ids=["double-quote", "hash", "dollar", "single-quote", "backslash", "backtick"]
+    )
+    def test_a_key_carrying_a_character_an_env_file_reader_alters_fails_the_boot(self, field, altered):
+        """Compose, python-dotenv, `@next/env` or Node reads each of these as syntax somewhere, so the two sides could hold different keys."""
+        key = "k" * 10 + altered + "k" * (INTERNAL_API_KEY_LENGTH - 11)
 
-        assert getattr(build(**{field: SecretStr(placeholder)}), field).get_secret_value() == placeholder
+        with pytest.raises(ValidationError):
+            build(**{field: SecretStr(key)})
+
+    @pytest.mark.parametrize("field", ["internal_api_key_base", "internal_api_key_system", "internal_api_key_admin"])
+    @pytest.mark.parametrize(
+        "generated",
+        [
+            secrets.token_hex(INTERNAL_API_KEY_LENGTH // 2),
+            base64.b64encode(secrets.token_bytes(47)).decode()[:INTERNAL_API_KEY_LENGTH],
+            base64.b64encode(secrets.token_bytes(46)).decode()[: INTERNAL_API_KEY_LENGTH - 2] + "==",
+            secrets.token_urlsafe(48),
+        ],
+        ids=["openssl-hex", "base64", "base64-padded", "token-urlsafe"],
+    )
+    def test_a_key_each_named_generator_makes_boots(self, field, generated):
+        """`openssl rand -hex 32` is `docs/ops/runbooks.md` §16's; base64 and `token_urlsafe` are the other two in reach.
+
+        The class refusing any of their characters would refuse a key none of the readers alters.
+        """
+        assert len(generated) == INTERNAL_API_KEY_LENGTH
+
+        assert getattr(build(**{field: SecretStr(generated)}), field).get_secret_value() == generated
 
 
 class TestTheBanListKey:
