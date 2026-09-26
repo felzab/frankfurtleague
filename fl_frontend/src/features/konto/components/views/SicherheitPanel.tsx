@@ -138,8 +138,14 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
       return "erledigt";
     });
 
-  const fuegeHinzu = (): Promise<void> =>
-    mitBestaetigung(async () => {
+  // Pressed again after a confirmation rather than run by it: the browser opens a second passkey
+  // prompt only on a fresh press, and the confirmation's own prompt spent the one that opened it.
+  const fuegeHinzu = async (): Promise<void> => {
+    if (!istBestaetigt()) {
+      setWartend(() => async () => "erledigt" as const);
+      return;
+    }
+    await (async () => {
       setIstBeschaeftigt(true);
       const held = await enrolmentHeld();
       setIstBeschaeftigt(false);
@@ -151,8 +157,8 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
       } else {
         appToast.failure("Passkey nicht hinzugefügt", held);
       }
-      return "erledigt";
-    });
+    })();
+  };
 
   const hinzufuegen = (
     <Hint
