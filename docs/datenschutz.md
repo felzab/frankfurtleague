@@ -61,7 +61,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   **No such flow exists for organisers or
   administrators:** an organiser is listed on their own word to me
   ([section 4](#4-what-is-published-and-on-what-basis)), and an administrator is an entry on the
-  allowlist `fl_frontend/src/core/auth.ts :: isUserAdmin` reads.
+  allowlist `fl_frontend/src/core/allowlist.ts :: isUserAdmin` reads.
 - **The minimum age is 16 for every role, and 18 for the two seats that sign for the school.**
   A registration below 16 is refused as `REQ-REGISTRIERUNG-007`, judged against the birthdate the
   pupil enters on their own confirmation page and before anything is written

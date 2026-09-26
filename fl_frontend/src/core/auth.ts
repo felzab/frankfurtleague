@@ -12,6 +12,7 @@ import { customSession } from "better-auth/plugins/custom-session";
 import { magicLink } from "better-auth/plugins/magic-link";
 import { MongoServerError } from "mongodb";
 
+import { isUserAdmin } from "./allowlist";
 import { buildAnmeldeLink } from "./anmeldeLink";
 import { ANMELDUNG_LINK, ANMELDUNG_TAG } from "./anmeldeTag";
 import { buildMagicLinkEmail, LINK_VALIDITY_MINUTES } from "./authEmail";
@@ -310,15 +311,6 @@ const sessionOptions = {
     authFactor: { type: "string", required: false, input: false },
   },
 } satisfies BetterAuthOptions["session"];
-
-function isUserAdmin(email?: string | null): boolean {
-  if (!email || !frontend_config.ALLOWED_ADMIN_EMAILS) return false;
-
-  // Folded here because the library folds only CASE, and only on the row it stores: the address a
-  // send is judged on arrives exactly as it was typed, and an allowlist entry is stored folded
-  // (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`).
-  return frontend_config.ALLOWED_ADMIN_EMAILS.includes(asSignInIdentifier(email));
-}
 
 const authOptions = {
   // The `Db` off the one client this process opens, never a second connection
