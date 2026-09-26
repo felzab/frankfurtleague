@@ -314,6 +314,14 @@
 # and far inside its 45 s budget. The first main runs carrying it spanned 22, 13 and 18 s, a median
 # of 18 s, inside the floor of the row's 17 s reference.
 #
+# `ops` gained two rules in `scripts/checks/check_compose_model.py`: the connector trust now reads
+# every file both edges mount, 2.9-4.5 ms a call against 0.28-0.38 ms for the one file it read
+# before, and `:: env_files` 0.17-0.26 ms a call, seven interleaved rounds of two hundred calls
+# each. `scripts` gained cases in the deploy and compose-model modules, eight of them spawning bash
+# or python, 2.1-2.4 s together over three runs. Both measured locally on 2026-09-27 on a
+# sixteen-core Windows machine carrying other agent sessions, so upper bounds. The `ops` cost sits
+# inside that row's floor and the `scripts` cost far inside its budget, and no row moves.
+#
 # `scripts` lost the comment classifier, its cases and its self-check step, and the cases that
 # listed a fixture branch or ran `verify.sh` over it. `scripts/tests/test_gate_pool.py`, whose
 # order case holds one unit open for a second, took 5.9-7.4 s against 4.9-10.4 s, three interleaved
