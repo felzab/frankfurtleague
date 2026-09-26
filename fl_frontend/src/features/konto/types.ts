@@ -27,6 +27,8 @@ export interface Sicherheit {
   readonly verwaltung: boolean;
   /** The holder's user id, which a confirmation's new session must carry before a waiting change runs. */
   readonly inhaberId: string;
+  /** The holder's sign-in address, where the code half mails its code. */
+  readonly inhaberAdresse: string;
   /** Until when the page's session counts as confirmed, in epoch milliseconds; `null` where it already does not. */
   readonly freshUntil: number | null;
   /** Until when it may add a passkey, the same way: a narrower window than every other change's. */

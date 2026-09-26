@@ -37,10 +37,11 @@ let asked = 0;
 let holder: () => Promise<boolean> = () => Promise.resolve(true);
 let confirmed = 0;
 
-function open(codeHalf: string | null = null) {
+function open(codeHalf: string | null = null, hasPasskey = true) {
   render(
     h(IdentityConfirmation, {
       hinweis: "Warum wir fragen.",
+      hasPasskey: hasPasskey,
       codeHalf: codeHalf,
       istInhaber: () => ((asked += 1), holder()),
       onConfirmed: () => void (confirmed += 1),
@@ -113,5 +114,14 @@ describe("the confirmation by passkey", () => {
     open("Code per E-Mail senden");
 
     assert.ok(screen.getByText("Code per E-Mail senden"));
+    assert.ok(screen.getByRole("button", { name: "Mit Passkey bestätigen" }));
+  });
+
+  /* A holder with no passkey would press a prompt no authenticator of theirs can answer. */
+  it("offers the code half alone to a holder holding no passkey", () => {
+    open("Code per E-Mail senden", false);
+
+    assert.ok(screen.getByText("Code per E-Mail senden"));
+    assert.ok(screen.queryByRole("button", { name: "Mit Passkey bestätigen" }) === null);
   });
 });

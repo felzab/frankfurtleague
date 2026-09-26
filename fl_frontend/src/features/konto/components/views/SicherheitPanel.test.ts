@@ -13,6 +13,7 @@ import { userEvent } from "@testing-library/user-event";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
+import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { Navigations } from "@/shared/testing/nextContexts.ts";
@@ -54,9 +55,10 @@ Reflect.set(globalThis, BUS, {
 const answers: Record<string, unknown> = {};
 
 const { calls, answerWith } = doubleActions({
-  modules: [/\/features\/passkeys\/actions\.ts$/, /\/features\/konto\/actions\.ts$/],
+  modules: [/\/features\/passkeys\/actions\.ts$/, /\/features\/konto\/actions\.ts$/, /\/features\/auth\/actions\.ts$/],
 });
 const { raised } = doubleToasts();
+const fetchMock = doubleFetch();
 
 const { SicherheitPanel } = await import("./SicherheitPanel.tsx");
 const { unansweredAction } = await import("@/shared/utils/actionError.ts");
@@ -65,6 +67,26 @@ const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
 const STEP_UP_REQUIRED = "Bestätige zuerst, dass Du es bist.";
 const STEP_UP_REFUSED = "Wir konnten Dich nicht mit einem Passkey bestätigen.";
+const CODE_STEP_UP_REFUSED = "Wir konnten Dich nicht mit dem Code bestätigen.";
+
+/** The holder's own address, where the code half mails its code. */
+const ADDRESS = "spielerin@example.org";
+
+/** The send's answer, as the sign-in's own action gives it. */
+const SENT = { success: true, message: "Falls zu dieser Adresse ein Zugang gehört, ist ein Anmeldecode unterwegs.", submittedEmail: ADDRESS };
+
+/** The code route's answer to one typed code, as `postPublicForm` reads it. */
+const answered = (body: unknown): Response =>
+  new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+
+/** Sends the code from the control in `scope` and types it; the route answers that it signed in. */
+async function confirmByCode(user: ReturnType<typeof userEvent.setup>, scope: { getByRole: typeof screen.getByRole }): Promise<void> {
+  answers.handleSignIn = SENT;
+  await user.click(scope.getByRole("button", { name: "Code per E-Mail senden" }));
+  const field = await screen.findByLabelText<HTMLInputElement>("Code aus der E-Mail");
+  fetchMock.mock.mockImplementationOnce(() => Promise.resolve(answered({ success: true })));
+  await user.type(field, "048213");
+}
 
 /** The spine's refusal for want of a recent sign-in, as the server sends it. */
 const STALE = { success: false, error: STEP_UP_REQUIRED, stepUp: true };
@@ -99,6 +121,7 @@ const sicherheit = (fields: Partial<Sicherheit> = {}): Sicherheit => ({
   ],
   verwaltung: false,
   inhaberId: "inhaber",
+  inhaberAdresse: ADDRESS,
   freshUntil: Date.now() + HOUR_MS,
   enrolmentUntil: Date.now() + 4 * MINUTE_MS,
   ...fields,
@@ -394,5 +417,84 @@ describe("adding a passkey", () => {
       [raised[0]?.title, raised[0]?.description, raised[0]?.options?.outcome],
       ["Passkey nicht hinzugefügt", unansweredAction().error, "unknown"],
     );
+  });
+});
+
+/* The code is a person's other way to a fresh sign-in, and the only one while they hold no passkey:
+   nobody is stuck behind the panel for want of an authenticator. */
+describe("confirming by a code mailed to the holder", () => {
+  it("sends the code to the holder's own address, then runs the change it waited for", async () => {
+    const user = userEvent.setup();
+    answers.pruefeInhaberAction = { success: true, gleich: true };
+    const seen = open({ freshUntil: null, enrolmentUntil: null });
+
+    await user.click(screen.getByRole("button", { name: "Abmelden" }));
+    await confirmByCode(user, await dialog());
+
+    await waitFor(() => assert.deepEqual(sent().at(-1), ["endAnmeldungAction", "andere"]));
+    assert.deepEqual(
+      sent().map(([action]) => action),
+      ["handleSignIn", "pruefeInhaberAction", "endAnmeldungAction"],
+    );
+    const [, init] = fetchMock.mock.calls[0]?.arguments ?? [];
+    assert.deepEqual(JSON.parse(String(init?.body)), { email: ADDRESS, code: "048213" });
+    assert.deepEqual(reached, [], "the code path ran a passkey ceremony");
+    assert.ok(seen.refresh >= 1, "the page kept what it drew off the session the code ended");
+  });
+
+  /* The holder check holds on this path too (`docs/frontend/spec.md :: I428`): a code whose sign-in is
+     another account's runs nothing, and the step is closed rather than left pending. */
+  it("runs nothing when the code signed another account in, and says so", async () => {
+    const user = userEvent.setup();
+    answers.pruefeInhaberAction = { success: true, gleich: false };
+    open({ freshUntil: null, enrolmentUntil: null });
+
+    await user.click(screen.getByRole("button", { name: "Abmelden" }));
+    await confirmByCode(user, await dialog());
+
+    const panel = await dialog();
+    await waitFor(() => assert.ok(panel.getByRole("alert").textContent?.includes(CODE_STEP_UP_REFUSED)));
+    assert.deepEqual(
+      sent().map(([action]) => action),
+      ["handleSignIn", "pruefeInhaberAction"],
+    );
+    assert.ok(panel.getByRole("button", { name: "Code per E-Mail senden" }), "the refused step left no way to try again");
+  });
+
+  /* Holding no passkey, the panel offers no prompt the person cannot answer. */
+  it("offers a person holding no passkey the code alone", async () => {
+    const user = userEvent.setup();
+    open({ passkeys: [], freshUntil: null, enrolmentUntil: null });
+
+    await user.click(screen.getByRole("button", { name: "Abmelden" }));
+
+    const panel = await dialog();
+    assert.ok(panel.getByRole("button", { name: "Code per E-Mail senden" }));
+    assert.ok(panel.queryByRole("button", { name: "Mit Passkey bestätigen" }) === null, "a person with no passkey is asked for one");
+  });
+
+  it("confirms a person holding no passkey by code, and the same control then sets one up", async () => {
+    const user = userEvent.setup();
+    answers.pruefeInhaberAction = { success: true, gleich: true };
+    open({ passkeys: [], freshUntil: null, enrolmentUntil: null });
+
+    assert.ok(screen.queryByRole("button", { name: "Mit Passkey bestätigen" }) === null);
+    await confirmByCode(user, screen);
+
+    await user.click(await screen.findByRole("button", { name: "Passkey einrichten" }));
+    await waitFor(() => assert.deepEqual(reached, ["addPasskey"]));
+  });
+
+  /* An administrator's confirmation is the passkey's alone (`docs/frontend/spec.md :: I422`). */
+  it("offers an administrator no code", async () => {
+    const user = userEvent.setup();
+    open({ verwaltung: true, freshUntil: null, enrolmentUntil: null });
+
+    await user.click(screen.getByRole("button", { name: "Abmelden" }));
+
+    const panel = await dialog();
+    assert.ok(panel.getByRole("button", { name: "Mit Passkey bestätigen" }));
+    assert.ok(panel.queryByRole("button", { name: "Code per E-Mail senden" }) === null, "an administrator is offered a code");
+    assert.ok(screen.queryAllByRole("button", { name: "Code per E-Mail senden" }).length === 0);
   });
 });

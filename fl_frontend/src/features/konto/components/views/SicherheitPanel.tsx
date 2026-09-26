@@ -28,6 +28,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { endAndereAnmeldungenAction, endAnmeldungAction, pruefeInhaberAction } from "../../actions";
 import { AndereAbmelden } from "../ui/AndereAbmelden";
 import { AnmeldungZeile } from "../ui/AnmeldungZeile";
+import { CodeConfirmation } from "../ui/CodeConfirmation";
 
 import type { ActionFailure } from "@/shared/types/types";
 import type { Sicherheit } from "../../types";
@@ -200,16 +201,27 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
   const hinzufuegen =
     sicherheit.kannHinzufuegen && enrolmentUntil === null ? (
       <div className="flex flex-col gap-2">
-        <Button
-          type="button"
-          variant="primary"
-          isPending={hinzufuegenStepUp.isPending}
-          onPress={() => void stepUpForEnrolment()}
-          className={formButton({ intent: "submit" })}>
-          {hinzufuegenStepUp.isPending ? STEP_UP_RUNNING : STEP_UP_LABEL}
-        </Button>
+        {passkeys.length > 0 && (
+          <Button
+            type="button"
+            variant="primary"
+            isPending={hinzufuegenStepUp.isPending}
+            onPress={() => void stepUpForEnrolment()}
+            className={formButton({ intent: "submit" })}>
+            {hinzufuegenStepUp.isPending ? STEP_UP_RUNNING : STEP_UP_LABEL}
+          </Button>
+        )}
         <p className="muted-hint text-pretty">{STEP_UP_HINT}</p>
         {hinzufuegenStepUp.refused && <StepUpRefusal />}
+        {/* A person's other way to a fresh sign-in, and their only one while they hold no passkey; an
+            administrator's confirmation is the passkey's alone (`docs/frontend/spec.md :: I422`). */}
+        {!verwaltung && (
+          <CodeConfirmation
+            address={sicherheit.inhaberAdresse}
+            istInhaber={istInhaber}
+            onConfirmed={confirmed}
+          />
+        )}
       </div>
     ) : (
       <Hint
@@ -303,8 +315,16 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
         size="confirm">
         <IdentityConfirmation
           hinweis={STEP_UP_HINT}
-          // The code half arrives with the code sign-in; until then a person confirms by passkey too.
-          codeHalf={null}
+          hasPasskey={passkeys.length > 0}
+          codeHalf={
+            verwaltung ? null : (
+              <CodeConfirmation
+                address={sicherheit.inhaberAdresse}
+                istInhaber={istInhaber}
+                onConfirmed={steppedUp}
+              />
+            )
+          }
           istInhaber={istInhaber}
           onConfirmed={steppedUp}
         />

@@ -163,6 +163,7 @@ const sicherheit = (fields: Partial<Sicherheit> = {}): Sicherheit => ({
   ],
   verwaltung: false,
   inhaberId: "inhaber",
+  inhaberAdresse: "pia@example.org",
   freshUntil: null,
   enrolmentUntil: null,
   ...fields,

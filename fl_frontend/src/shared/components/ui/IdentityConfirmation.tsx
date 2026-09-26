@@ -17,12 +17,15 @@ export const IDENTITY_CONFIRMATION_TITLE = "Bestätige, dass Du es bist";
 /** A caller re-reads whatever it drew off the session the confirmation ended before it acts. */
 export function IdentityConfirmation({
   hinweis,
+  hasPasskey,
   codeHalf,
   istInhaber,
   onConfirmed,
 }: {
   /** Why the surface asks, in its own words. */
   hinweis: string;
+  /** Whether the holder holds a passkey to confirm with; without one the code half is the whole panel. */
+  hasPasskey: boolean;
   /** The code-by-mail half, `null` where the holder may confirm by passkey alone. */
   codeHalf: ReactNode;
   /** Required: a confirmation of another account's is none of the holder's. */
@@ -35,14 +38,16 @@ export function IdentityConfirmation({
     <div className="flex flex-col gap-4">
       <p className="muted-hint text-pretty">{hinweis}</p>
 
-      <Button
-        type="button"
-        variant="primary"
-        isPending={isPending}
-        onPress={() => void stepUp().then((confirmed) => confirmed && onConfirmed())}
-        className={formButton({ intent: "submit", fullWidth: true })}>
-        {isPending ? STEP_UP_RUNNING : STEP_UP_LABEL}
-      </Button>
+      {hasPasskey && (
+        <Button
+          type="button"
+          variant="primary"
+          isPending={isPending}
+          onPress={() => void stepUp().then((confirmed) => confirmed && onConfirmed())}
+          className={formButton({ intent: "submit", fullWidth: true })}>
+          {isPending ? STEP_UP_RUNNING : STEP_UP_LABEL}
+        </Button>
+      )}
 
       {refused && <StepUpRefusal />}
 

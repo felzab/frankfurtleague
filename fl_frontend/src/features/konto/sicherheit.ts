@@ -57,6 +57,7 @@ export async function readSicherheit(served: KontoSession): Promise<Sicherheit> 
     anmeldungen: anmeldungenOf(rows, held, served),
     verwaltung: isUserAdmin(served.user.email),
     inhaberId: served.user.id,
+    inhaberAdresse: served.user.email,
     freshUntil: freshUntil(served),
     enrolmentUntil: enrolmentUntil(served),
   };
