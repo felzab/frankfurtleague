@@ -407,13 +407,14 @@
 # `--dist loadfile` hands each module to one worker; the pytest unit's cost is recorded whole below.
 #
 # Every job runs on every event, so a pull request pays every job where it paid those its paths
-# selected. The job's pytest unit, `scripts`' longest step, took 103.0-141.1 s over two runs in the
-# gate's own form at eight workers, measured locally on 2026-09-25 on a sixteen-core Windows machine
-# carrying a fleet of agent sessions, so an upper bound, against the 80 s the `scripts` row budgets
-# for the whole job; it lost the scope derivation's module, which took 14.0-18.4 s on its own. The
-# selection moves no row, the rows being cut from pushes to main, which already ran every scope;
-# whether the unit's growth above moved the job's span past its floor or its budget is for the
-# first main runs carrying it to show.
+# selected. The job's pytest unit, `scripts`' longest step, took 72.3-74.4 s in the gate's own form
+# at eight workers and 108.4-112.1 s at four, the width `auto` resolves to on a four-core runner,
+# five interleaved rounds, measured locally on 2026-09-26 on a sixteen-core Windows machine running
+# nothing else, against the 80 s the `scripts` row budgets for the whole job. The job passed that
+# budget on the 2026-09-25 push, so this machine, starting a shell, a git or a node in most of the
+# suite's cases, reads it slower than a runner does. The selection moves no row, the rows
+# being cut from pushes to main, which already ran every scope; whether the unit's growth moved the
+# job's span past its floor or its budget is for the first main runs carrying it to show.
 #
 # `docs` gained, on a pull request alone, two steps reading the branch against its base: the
 # budget check, 0.26-0.29 s over five runs, and the line delta, 0.40-0.47 s over five runs of the
