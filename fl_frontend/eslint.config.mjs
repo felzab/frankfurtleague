@@ -538,6 +538,19 @@ const LEADING_SLOT = String.raw`:matches(BinaryExpression[operator="+"] > .left,
 /** The panel's old prefix as a whole segment, so `/adminTable` and `/administration` stay free. */
 const STALE_ADMIN = String.raw`/^\x2Fadmin(?![A-Za-z0-9_-])/`;
 
+/** The same prefix behind an origin, anywhere in the text: a mailed or logged address spells one. */
+const STALE_ADMIN_URL = String.raw`/[a-z]+:\x2F\x2F[^\x2F\s]+\x2Fadmin(?![A-Za-z0-9_-])/`;
+
+/**
+ * Where a literal or a template opens, as `UNSEASONED_ADMIN_LINKS` reads one, or any text naming an
+ * origin: a backend path ending in `/admin` and a route handler under `/api/admin` open on neither.
+ */
+const STALE_ADMIN_BAN = {
+  selector: `:matches(Literal[value=${STALE_ADMIN}], TemplateLiteral:matches([quasis.0.value.raw=${STALE_ADMIN}], [quasis.0.value.raw=""][quasis.1.value.raw=${STALE_ADMIN}]), Literal[value=${STALE_ADMIN_URL}], TemplateElement[value.raw=${STALE_ADMIN_URL}])`,
+  message: "The admin panel moved off /admin, which answers 404: its pages are under /bereich/admin.",
+  tests: true,
+};
+
 // The literal is the carrier's FIRST argument, or names the parameter in its own query; a route
 // handed to `ShellNotFound` takes the season from the shell around it, which the admin shell keeps in
 // the query (`fl_frontend/src/features/admin/components/ui/AdminShell.test.ts`).
@@ -724,13 +737,7 @@ const SOURCE_BANS = [
     message: "The confirmation moved off /bestaetigung: mint the link through `bestaetigungsLink`.",
     tests: true,
   },
-  {
-    // Where a literal or a template opens, as `UNSEASONED_ADMIN_LINKS` reads one: a backend path
-    // ending in `/admin` and a route handler under `/api/admin` open on neither.
-    selector: `:matches(Literal[value=${STALE_ADMIN}], TemplateLiteral:matches([quasis.0.value.raw=${STALE_ADMIN}], [quasis.0.value.raw=""][quasis.1.value.raw=${STALE_ADMIN}]))`,
-    message: "The admin panel moved off /admin, which answers 404: its pages are under /bereich/admin.",
-    tests: true,
-  },
+  STALE_ADMIN_BAN,
   {
     // The target itself, or the text its leftmost operand opens on; one ancestor outside a leading slot,
     // a call's argument or a ternary's branch, takes the text out of the lead.
