@@ -667,11 +667,14 @@ still holds the staged text; a file staged in part keeps its working copy as the
 never stashes, hides or resets the working tree, and a commit it refuses leaves the index and the
 working tree as they were (I354). The hook is convenience and never the enforcement — a clone that
 has not pointed `core.hooksPath` at it has no hook at all, and this scope and CI are what bind. The
-formatter's own cache is keyed on content, and what it cannot see is a prettier plugin's own change,
-so a plugin bump warrants deleting that cache file — prettier's documented caveat, accepted on a
-development machine because a plugin moves only through the lockfile. **CI's format verdict never
-rests on a verdict another lockfile wrote**: the format job restores prettier's cache under a key
-carrying the lockfile's hash, so a plugin bump starts a runner from an empty cache. **What the cache spares is
+formatter's own cache is keyed on content, and what it cannot see is a prettier plugin's own change —
+prettier's documented caveat — or the contents of the Tailwind stylesheet `.prettierrc.json` names by
+path. A plugin bump, or a stylesheet edit that moves a class's sort order, warrants deleting that
+cache file; it is accepted on a development machine because the stale verdict there is a false green
+that CI's own run then fails. **CI's format verdict never rests on a verdict another lockfile or
+another stylesheet wrote**: the format job restores prettier's cache under a key carrying the
+lockfile's hash and that of every stylesheet under `fl_frontend/src`, so either change starts a
+runner from an empty cache. **What the cache spares is
 the parse and never the walk**: prettier lists every entry under `..`, `node_modules` and `.git`
 included, before it asks `.prettierignore` which files to read, so a tool cache that file does not
 name is read on every run.

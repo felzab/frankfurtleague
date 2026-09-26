@@ -170,13 +170,14 @@ jobs:
           # code, so the lockfile is in the key and the prefix alike: no runner reads a verdict
           # another lockfile's plugins wrote (`docs/ops/spec.md` §1.6).
 
-          # A plugin option naming a repository file, `tailwindStylesheet` among them, is a verdict
-          # input prettier's key misses: that file's hash joins the key and the prefix too.
-          key: prettier-${{ runner.os }}-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ github.sha }}
-          # The newest verdicts under this lockfile; the commit in the key makes each new tree save
-          # its own, where a lockfile-only key would freeze the first run's.
+          # `.prettierrc.json :: "tailwindStylesheet"` is a path, keyed by its name alone, so every
+          # stylesheet under `fl_frontend/src` joins the key and the prefix: the one it names imports a
+          # season scheme, and either can move a class's sort order.
+          key: prettier-${{ runner.os }}-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ hashFiles('fl_frontend/src/**/*.css') }}-${{ github.sha }}
+          # The newest verdicts under this lockfile and these stylesheets; the commit in the key makes
+          # each new tree save its own, where a key without it would freeze the first run's.
           restore-keys: |
-            prettier-${{ runner.os }}-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-
+            prettier-${{ runner.os }}-${{ hashFiles('fl_frontend/pnpm-lock.yaml') }}-${{ hashFiles('fl_frontend/src/**/*.css') }}-
       - name: Run the format scope
         run: ./scripts/gate/verify.sh --format
 
