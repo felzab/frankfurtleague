@@ -285,9 +285,9 @@ describe("who the seam answers for", () => {
     assert.equal((await getSubjectSession())?.subjekt.unbestaetigt, false);
   });
 
-  /* Passed through rather than judged here: what a barred address may still reach is the sign-in
-     gate's decision, and the records beside the flag are answered as they are. */
-  it("carries the lookup's ban flag as the lookup answered it, beside the records", async () => {
+  /* A session the ban's own ending missed, or one minted racing it, is refused on the request itself;
+     the guard then answers it as a visitor, and the sign-in gate refuses it the next sign-in. */
+  it("answers a barred subject no session, and records no actor for it", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
     nextAnswer = new Response(
@@ -295,10 +295,10 @@ describe("who the seam answers for", () => {
       { status: 200, headers: { "content-type": "application/json" } },
     );
 
-    const answer = await getSubjectSession();
+    const { answer, actor } = await guardInScope();
 
-    assert.equal(answer?.subjekt.gesperrt, true);
-    assert.deepEqual(answer?.subjekt.spieler, [PUPIL]);
+    assert.equal(answer, null);
+    assert.equal(actor, undefined);
   });
 
   /* The case the seam exists for. The link is seeded rather than sent, whether one reaches such an
