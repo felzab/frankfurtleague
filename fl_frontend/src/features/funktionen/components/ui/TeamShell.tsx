@@ -3,7 +3,7 @@
 import { signOutAction } from "@/features/auth/actions";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
 
-import { TEAM_SHELL_FALLBACK, TEAM_SIDEMENU_ICONS } from "../../constants";
+import { TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL, TEAM_SIDEMENU_ICONS } from "../../constants";
 import { teamHref } from "../../teamSeats";
 import { SaisonChipSlot } from "./SaisonChipSlot";
 
@@ -29,6 +29,10 @@ export function TeamShell({
   saison: { isLaufend: boolean } | null;
   children: React.ReactNode;
 }) {
+  // The fallback is what heads an address the structure claims no entry for, and with no seat held the
+  // structure is empty and the page is the forbidden panel, so the refusal's own words head it.
+  const fallback = saison === null ? TEAM_SHELL_REFUSAL : TEAM_SHELL_FALLBACK;
+
   return (
     <AppShell
       structure={structure}
@@ -45,8 +49,8 @@ export function TeamShell({
           />
         )
       }
-      fallbackTitle={TEAM_SHELL_FALLBACK.label}
-      fallbackHint={TEAM_SHELL_FALLBACK.hint}
+      fallbackTitle={fallback.label}
+      fallbackHint={fallback.hint}
       onSignOut={signOutAction}>
       {children}
     </AppShell>

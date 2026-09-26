@@ -87,6 +87,17 @@ export const TEAM_SHELL_FALLBACK = {
 } as const satisfies { label: string; hint: SidemenuHint };
 
 /**
+ * What the bar reads over the forbidden panel, at any address under a team and season the person holds
+ * no seat on: the area's name as above, and a hint saying why the page is refused rather than missing.
+ */
+export const TEAM_SHELL_REFUSAL = {
+  label: TEAM_SHELL_FALLBACK.label,
+  hint: {
+    lead: "Du bist in diesem Team nicht eingetragen.",
+  },
+} as const satisfies { label: string; hint: SidemenuHint };
+
+/**
  * Every entry the team shell can list, in the order it lists them. A page arriving later is a row here
  * and nothing more: every seat reaches every entry, so no row carries a seat rule.
  */
