@@ -452,6 +452,16 @@ def test_the_overlap_snippet_answers_3_naming_the_file_and_the_name_and_never_a_
     assert "value no case prints" not in output, output
 
 
+def test_the_held_once_check_runs_in_preflight_ahead_of_both_readers_and_before_the_recreate() -> None:
+    """Every case above drives the lifted function; this is the call the deploy itself makes."""
+    text = DEPLOY.read_text(encoding="utf-8")
+    held_once = text.index("\ncheck_env_names_held_once\n")
+    read = text.index("\ncheck_env_names\n")
+    recreated = text.index('step "Recreating the application containers"')
+
+    assert held_once < read < recreated, "scripts/ops/deploy.sh asks whether a name is held twice after a reader or not at all"
+
+
 def test_the_overlap_snippet_answers_0_where_no_name_repeats() -> None:
     code, output, _ = _run(OVERLAP.replace("SHARED_KEY=another", "OTHER_KEY=another"))
 

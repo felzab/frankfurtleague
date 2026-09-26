@@ -305,6 +305,21 @@ def test_both_edges_of_this_checkout_are_judged_and_trust_the_connector_alone():
     assert code == 0, said
 
 
+def test_main_judges_the_environment_files_of_both_models():
+    """The rule's own cases drive it directly; a service reading its package's file alone, in either model, fails the run."""
+    project = new_root("fl-compose-main-env-")
+    connector = {"networks": {"frankfurtleague-net": {"ipv4_address": CONNECTOR}}}
+    for broken in ("production", "local"):
+        production = rendered_stack(project, "nginx/prod", cloudflared=connector)
+        local = rendered_stack(project, "nginx/local")
+        ({"production": production, "local": local}[broken])["services"]["backend"] = env_file(project, "fl_backend/.env")
+
+        code, said = run_main(production, local, project)
+
+        assert code == 1, said
+        assert f"{broken}: backend reads env_file" in said, said
+
+
 # --- the environment files each application service reads ---------------------------------------------
 
 
