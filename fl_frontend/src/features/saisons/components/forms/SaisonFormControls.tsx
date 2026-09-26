@@ -121,7 +121,7 @@ export function SaisonCountSelect({
         {/* From the prop, not `Select.Value` — the collection can lag a render behind and would then
             show HeroUI's English placeholder. Same reasoning as `SaisonTiebreakSelect`'s trigger. */}
         <span>{String(value)}</span>
-        <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+        <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
       </Select.Trigger>
       {/* Not `RefusableSelect`, which carries neither a `name` nor this: a shape refusal names a
           payload path, and the box holding it is where the message has to land. */}
@@ -189,7 +189,7 @@ export function SaisonTiebreakSelect({
         {/* From the prop, not `Select.Value` — the collection can lag a render behind and would then
             show HeroUI's English placeholder. Same reasoning as `ClosedSetSelect`'s trigger. */}
         <span>{tiebreakLabel(value)}</span>
-        <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+        <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
       </Select.Trigger>
       <FieldError className={FIELD_ERROR_CLASSES} />
       {/* Standing under the closed picker rather than in a hint: which figure leads is the whole of
@@ -202,16 +202,16 @@ export function SaisonTiebreakSelect({
           <li
             key={rung.label}
             className="flex w-full flex-row items-start gap-x-2">
-            <span className={`${FIELD_MARKER_CLASSES} bg-muted text-foreground-muted fluid-xxs font-extrabold`}>{index + 1}</span>
+            <span className={`${FIELD_MARKER_CLASSES} bg-muted fluid-xxs font-extrabold text-foreground-muted`}>{index + 1}</span>
             <span className="flex flex-col gap-y-0.5 pt-0.5">
-              <span className="fluid-xxs text-foreground font-bold">{rung.label}</span>
-              {rung.caveat !== null && <span className="fluid-xxs text-foreground-muted font-medium">{rung.caveat}</span>}
+              <span className="fluid-xxs font-bold text-foreground">{rung.label}</span>
+              {rung.caveat !== null && <span className="fluid-xxs font-medium text-foreground-muted">{rung.caveat}</span>}
             </span>
           </li>
         ))}
       </ol>
       {/* Outside the list: the chain ENDS, and a fourth numbered rung would read as a fourth criterion. */}
-      <p className="fluid-xxs text-foreground-muted font-medium">{TIEBREAK_LADDER_TAIL}</p>
+      <p className="fluid-xxs font-medium text-foreground-muted">{TIEBREAK_LADDER_TAIL}</p>
       <Select.Popover className={SELECT_POPOVER_CLASSES}>
         <ListBox aria-label="Tiebreak auswählen">
           {TIEBREAK_ORDER_OPTIONS.map((option) => (

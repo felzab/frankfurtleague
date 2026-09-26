@@ -41,11 +41,11 @@ export function AppTopBar({
        dismiss layer the rest, so nothing here is a stop the reader can see (WCAG 2.4.11). */
     <header
       inert={isMobileOpen}
-      className="bg-surface border-border z-30 flex h-(--navbar-height) w-full shrink-0 flex-row items-stretch border-b">
+      className="z-30 flex h-(--navbar-height) w-full shrink-0 flex-row items-stretch border-b border-border bg-surface">
       {/* Exactly the rail's width, so the bar's `border-b` and the rail's `border-r` meet in a cross rather than a
           T. `transition-[width]` runs at the rail's own duration, or the bar snaps ahead of the panel. */}
       <div
-        className={`border-border flex shrink-0 flex-row items-center gap-x-3 px-4 transition-[width] duration-300 ease-in-out motion-reduce:transition-none lg:border-r ${
+        className={`flex shrink-0 flex-row items-center gap-x-3 border-border px-4 transition-[width] duration-300 ease-in-out motion-reduce:transition-none lg:border-r ${
           railWidth
         } ${isDesktopCollapsed ? "lg:justify-center lg:px-0" : ""}`}>
         {/* Opens the drawer and only opens it: the bar goes inert with `<main>` while the panel is open and
@@ -56,7 +56,7 @@ export function AppTopBar({
           aria-expanded={isMobileOpen}
           aria-controls="app-sidemenu"
           aria-label="Menü öffnen"
-          className="text-foreground hover:bg-hover -ml-2 shrink-0 rounded-md p-1.5 transition-colors lg:hidden">
+          className="-ml-2 shrink-0 rounded-md p-1.5 text-foreground transition-colors hover:bg-hover lg:hidden">
           <Bars
             className="size-6"
             aria-hidden="true"
@@ -76,10 +76,10 @@ export function AppTopBar({
           it on a narrow screen. From `lg` a border separates the two blocks, so each wants its own inset. */}
       <div className="flex min-w-0 flex-1 flex-row items-center gap-x-3 pe-4 lg:ps-4">
         {/* `truncate` and not wrap: the bar is a fixed height, so a wrapped title is clipped mid-letter. */}
-        <div className="fluid-base min-w-0 truncate">
+        <div className="min-w-0 truncate fluid-base">
           {/* The glyph beside the h1 and not inside it, or a screen reader names the page with the hint's label. Both
               inline in one block, whose size reaches `InfoHint`'s 1em icon on the title's line box (`docs/frontend/spec.md` I81). */}
-          <h1 className="text-foreground inline font-semibold tracking-wide">{title}</h1>
+          <h1 className="inline font-semibold tracking-wide text-foreground">{title}</h1>
           {/* `InfoHint` rather than `IconTooltip`: react-aria's tooltip never opens on tap, so a phone could not reach it. */}
           {hint && (
             <InfoHint label={`Was auf „${title}“ zu finden ist`}>

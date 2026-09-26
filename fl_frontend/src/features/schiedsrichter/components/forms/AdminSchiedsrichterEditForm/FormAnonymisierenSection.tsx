@@ -141,14 +141,14 @@ export function FormAnonymisierenSection({
 
             {/* No restore is named on purpose: nothing in the system holds the old values once the row
                 and the log have both gone. What goes is the readout directly above. */}
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
+            <p className="fluid-xxs leading-normal font-medium text-foreground">
               Zurückholen lässt sich das nicht. Der Eintrag verschwindet ganz; die Spiele dieser Person bleiben bestehen und zeigen „
               {SCHIEDSRICHTER_ANONYM_LABEL}“.
             </p>
 
             {/* The one consequence the readout above cannot show: a match still to be played comes out of
                 the press booked on a row nobody can officiate under. */}
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
+            <p className="fluid-xxs leading-normal font-medium text-foreground">
               Spiele ohne Ergebnis brauchen danach einen neuen Schiedsrichter.
             </p>
           </ConfirmReveal>

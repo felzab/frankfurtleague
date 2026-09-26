@@ -113,8 +113,8 @@ export function AdminSpieleActionRequiredView({
       {/* `Tabs.ListContainer` holds only the track: it injects a collection slot rather than
           wrapping, so a sibling passed to it is swallowed, and its chevrons are positioned against
           it — the track's edge only while it is the track. */}
-      <div className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8">
-        <div className="max-w-toolbar flex w-full flex-row items-center justify-center gap-x-2">
+      <div className="sticky top-0 z-20 flex w-full flex-col items-center bg-background px-4 py-4 sm:px-8 lg:py-8">
+        <div className="flex w-full max-w-toolbar flex-row items-center justify-center gap-x-2">
           {/* No `overflow-x-auto` on the list: the container's chevrons appear only while its
               `ScrollShadow` detects overflow, and a list that scrolls itself hides that. `w-max` is
               the half of HeroUI's floor that must stay — it is what the detection reads. */}
@@ -161,7 +161,7 @@ export function AdminSpieleActionRequiredView({
           key={section.category}
           id={section.category}
           className="flex w-full flex-col items-center px-4 pt-0 pb-4 outline-none sm:px-8">
-          <div className="max-w-page flex w-full flex-col items-center gap-y-6">
+          <div className="flex w-full max-w-page flex-col items-center gap-y-6">
             {section.spiele.length === 0 ? (
               <EmptyState
                 tone="positive"

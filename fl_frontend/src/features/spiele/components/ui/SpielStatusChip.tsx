@@ -72,7 +72,7 @@ export function SpielStatusChip({ spielStatus }: { spielStatus: FLSpielStatus })
     <Chip
       size="sm"
       className={`${PILL_RADIUS_CLASSES} border-none px-1.5 py-0.5 ${PILL_TINT_CLASSES[STATUS_TINT[spielStatus]]}`}>
-      <div className="fluid-xxs flex items-center gap-1 font-extrabold tracking-wide uppercase">
+      <div className="flex items-center gap-1 fluid-xxs font-extrabold tracking-wide uppercase">
         {STATUS_ICONS[spielStatus]}
         {STATUS_LABELS[spielStatus]}
       </div>

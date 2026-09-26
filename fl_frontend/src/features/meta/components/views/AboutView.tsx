@@ -55,7 +55,7 @@ export function AboutView() {
               className="size-5"
             />
           </span>
-          <p className="fluid-base text-foreground leading-relaxed font-medium text-pretty">
+          <p className="fluid-base leading-relaxed font-medium text-pretty text-foreground">
             Die Finanzierung unserer Abschlussfeiern und Abibälle. Wir organisieren dafür einen stadtweiten Ligabetrieb im Großfeldfußball.
             Jedes Spiel bringt durch Ticket- und Cateringverkäufe direkte Einnahmen für den ausrichtenden Jahrgang.
           </p>
@@ -73,14 +73,14 @@ export function AboutView() {
             {QA_QUESTIONS.map((item) => (
               <Accordion.Item
                 key={item.id}
-                className="border-border border-t first:border-t-0">
+                className="border-t border-border first:border-t-0">
                 <Accordion.Heading>
                   {/* `ring-inset`: HeroUI's focus ring draws outside the trigger's box, which the
                       clip above then takes, leaving a keyboard user no indicator at all. */}
-                  <Accordion.Trigger className="fluid-base text-foreground data-hovered:bg-hover flex w-full items-center justify-between gap-x-4 px-5 py-4 font-bold transition-colors ring-inset sm:px-6">
+                  <Accordion.Trigger className="flex w-full items-center justify-between gap-x-4 px-5 py-4 fluid-base font-bold text-foreground transition-colors ring-inset data-hovered:bg-hover sm:px-6">
                     <span>{item.q}</span>
 
-                    <Accordion.Indicator className="text-foreground-muted shrink-0">
+                    <Accordion.Indicator className="shrink-0 text-foreground-muted">
                       <ChevronsDownWide
                         aria-hidden="true"
                         className="size-5"
@@ -90,7 +90,7 @@ export function AboutView() {
                 </Accordion.Heading>
 
                 <Accordion.Panel>
-                  <Accordion.Body className="fluid-sm text-foreground px-5 pt-0 pb-5 leading-relaxed font-medium text-pretty sm:px-6">
+                  <Accordion.Body className="px-5 pt-0 pb-5 fluid-sm leading-relaxed font-medium text-pretty text-foreground sm:px-6">
                     {item.a}
                   </Accordion.Body>
                 </Accordion.Panel>

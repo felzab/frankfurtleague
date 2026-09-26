@@ -193,7 +193,7 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
     <div className={IDENTITY_ROW_CLASSES}>
       <GraduationCap
         aria-hidden="true"
-        className="text-foreground-muted size-4.5 shrink-0"
+        className="size-4.5 shrink-0 text-foreground-muted"
       />
       <div className={IDENTITY_STACK_CLASSES}>
         <div className={IDENTITY_HEAD_CLASSES}>
@@ -249,13 +249,13 @@ export const AdminBewerbungenList = memo(function AdminBewerbungenList({
 
           {/* Four tracks and the contact over two of them: the two graded facts read at a glance and
               the address does not, so an even split would clip the one fact nobody can guess. */}
-          <div className="border-border/50 grid grid-cols-1 gap-3 border-t pt-3 md:grid-cols-4 md:gap-x-4">
+          <div className="grid grid-cols-1 gap-3 border-t border-border/50 pt-3 md:grid-cols-4 md:gap-x-4">
             {renderFact("Eingereicht", renderEingereicht(bewerbung))}
             {renderFact("Bestätigungen", <div className="flex flex-row flex-wrap items-center gap-2">{renderBestaetigung(bewerbung)}</div>)}
             <div className="md:col-span-2">{renderKontakt(bewerbung)}</div>
           </div>
 
-          <div className="border-border/50 -mx-1 border-t pt-2 md:hidden">{renderActions(bewerbung)}</div>
+          <div className="-mx-1 border-t border-border/50 pt-2 md:hidden">{renderActions(bewerbung)}</div>
         </li>
       ))}
     </ul>

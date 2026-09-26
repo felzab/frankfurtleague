@@ -8,7 +8,7 @@ const emptyState = tv({
   slots: {
     // `max-w-page` on the panel rather than on each caller's wrapper: a view centring it in an
     // uncapped flex row otherwise gets a panel spanning the whole content area on a wide screen.
-    root: "border-border bg-surface max-w-page flex w-full flex-col items-center justify-center gap-2 rounded-2xl border p-10 text-center shadow-sm",
+    root: "flex w-full max-w-page flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-surface p-10 text-center shadow-sm",
     title: "fluid-base font-bold",
     hint: "muted-hint",
   },

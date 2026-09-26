@@ -81,10 +81,10 @@ export function KontaktView({ bewerbungSlot }: { bewerbungSlot?: ReactNode }) {
                     className={BRAND_TILE_CLASSES}>
                     {GLYPH[channel.id]}
                   </span>
-                  <span className="fluid-base text-foreground font-bold">{channel.name}</span>
+                  <span className="fluid-base font-bold text-foreground">{channel.name}</span>
                 </div>
 
-                <span className="fluid-sm text-foreground font-semibold break-words">{channel.value}</span>
+                <span className="fluid-sm font-semibold break-words text-foreground">{channel.value}</span>
               </div>
 
               <Link

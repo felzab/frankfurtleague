@@ -49,7 +49,7 @@ export function AdminSpielerEditView({
           chip: isRetired ? (
             <RetiredBadge since={spieler.inactive_since} />
           ) : saison.membership?.nummer ? (
-            <span className="bg-muted text-foreground flex h-10 min-w-10 items-center justify-center rounded-xl px-2 font-extrabold shadow-sm">
+            <span className="flex h-10 min-w-10 items-center justify-center rounded-xl bg-muted px-2 font-extrabold text-foreground shadow-sm">
               {saison.membership.nummer}
             </span>
           ) : undefined,

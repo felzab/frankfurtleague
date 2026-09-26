@@ -42,7 +42,7 @@ function SwapConnective({ first, second }: { first: SaisonSwapTeam | null; secon
   return (
     <div
       aria-hidden="true"
-      className="bg-muted text-foreground-muted fluid-xs flex h-10 shrink-0 items-center justify-center gap-x-2 justify-self-center rounded-full px-3 font-bold">
+      className="flex h-10 shrink-0 items-center justify-center gap-x-2 justify-self-center rounded-full bg-muted px-3 fluid-xs font-bold text-foreground-muted">
       {/* Vertical between two stacked pickers, horizontal once the grid puts them side by side. */}
       <ArrowRightArrowLeft
         aria-hidden="true"
@@ -265,7 +265,7 @@ export function FormGruppenSwapSection({
 
             {isConfirming && first !== null && second !== null && (
               <ConfirmReveal>
-                <p className="fluid-xxs text-foreground leading-normal font-medium">
+                <p className="fluid-xxs leading-normal font-medium text-foreground">
                   Rückgängig machst Du den Tausch, indem Du dieselben beiden Teams noch einmal tauschst.
                 </p>
               </ConfirmReveal>

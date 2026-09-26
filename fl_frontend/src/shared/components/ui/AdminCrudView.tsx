@@ -125,7 +125,7 @@ export function AdminCrudView<TItem extends { id: string }>({
           rows hold positioned boxes — HeroUI's table root, every `Button` — that paint over anything left in flow. */}
       <div
         aria-hidden="true"
-        className={`bg-background pointer-events-none relative opacity-(--admin-region-held) ${COVER_LAYER_CLASSES}`}>
+        className={`pointer-events-none relative bg-background opacity-(--admin-region-held) ${COVER_LAYER_CLASSES}`}>
         {/* The cover must draw what THIS resource's route drew: a second shape here, or a bar over a
             facet-less page, is the boundary crossing the whole cover exists to hide. */}
         <AdminCrudFallback

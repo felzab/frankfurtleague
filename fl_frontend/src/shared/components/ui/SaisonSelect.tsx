@@ -41,7 +41,7 @@ export function SaisonSelect({
       <Label className={FIELD_LABEL_CLASSES}>Saison</Label>
       <Select.Trigger className={`${FIELD_TRIGGER_CLASSES} w-full justify-between`}>
         <span>Saison {value}</span>
-        <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+        <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
       </Select.Trigger>
       <FieldError className={FIELD_ERROR_CLASSES} />
       <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>

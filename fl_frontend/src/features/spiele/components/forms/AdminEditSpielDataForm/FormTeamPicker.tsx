@@ -291,7 +291,7 @@ export function FormTeamPicker({
       <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
         {/* The name from the prop, never `Autocomplete.Value`, and `flex-1` as
             `.autocomplete__value` carries on every sibling trigger (`docs/frontend/spec.md` I30 and I61). */}
-        <span className={`fluid-sm min-w-0 flex-1 truncate ${teamPayload === null ? "text-foreground-muted" : ""}`}>
+        <span className={`min-w-0 flex-1 truncate fluid-sm ${teamPayload === null ? "text-foreground-muted" : ""}`}>
           {teamPayload?.name ?? PLACEHOLDER.slot}
         </span>
         {/* A SIBLING of the truncating span: the free space above parks it at the trailing edge,
@@ -317,7 +317,7 @@ export function FormTeamPicker({
             className="p-2">
             {/* The panel's own fill, not a recessed one: the border alone says "field", and
                 `--border-control` clears 1.4.11's 3:1 on `--bg-surface` and not on `--bg-muted`. */}
-            <SearchField.Group className="border-control bg-surface rounded-lg border px-2 py-1.5 transition-colors duration-200">
+            <SearchField.Group className="rounded-lg border border-control bg-surface px-2 py-1.5 transition-colors duration-200">
               <SearchField.SearchIcon />
               <SearchField.Input
                 placeholder="Team finden..."
@@ -334,7 +334,7 @@ export function FormTeamPicker({
             <ListBox.Item
               id={OPEN_SLOT_KEY}
               textValue={PLACEHOLDER.slot}
-              className="fluid-xs data-hovered:bg-hover text-foreground-muted cursor-pointer rounded-lg px-3 py-2 font-semibold italic">
+              className="cursor-pointer rounded-lg px-3 py-2 fluid-xs font-semibold text-foreground-muted italic data-hovered:bg-hover">
               {PLACEHOLDER.slot}
             </ListBox.Item>
 
@@ -361,7 +361,7 @@ export function FormTeamPicker({
                   key={item.id}
                   id={item.id}
                   textValue={chip === null ? item.name : `${item.name} (${chip.text})`}
-                  className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2 data-disabled:cursor-not-allowed data-disabled:opacity-60">
+                  className="flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2 fluid-xs data-disabled:cursor-not-allowed data-disabled:opacity-60 data-hovered:bg-hover">
                   <span className="min-w-0 truncate">{item.name}</span>
                   {/* Solid, never a tint: `globals.css` paints `--bg-hover` on the option a keyboard
                       reaches, so the chip a reader arrows onto is the one compositing against it. */}
@@ -402,7 +402,7 @@ export function FormTeamPicker({
           {/* From `choice`, NOT the collection: `Autocomplete.Value` renders the selected item's
               children verbatim and drops its className, so the chip would reappear here as unstyled
               inline text — and it is about a choice not yet made. */}
-          <Autocomplete.Value className="fluid-sm min-w-0 truncate">
+          <Autocomplete.Value className="min-w-0 truncate fluid-sm">
             {() => QUELLE_CHOICES.find((item) => item.key === choice)?.label ?? ""}
           </Autocomplete.Value>
           <Autocomplete.Indicator />
@@ -419,7 +419,7 @@ export function FormTeamPicker({
                   id={item.key}
                   // Also in `textValue`, so a screen reader reads the note the row carries too.
                   textValue={isRecommended ? `${item.label} (Empfohlen)` : item.label}
-                  className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
+                  className="flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2 fluid-xs data-hovered:bg-hover">
                   <span className="min-w-0 truncate">{item.label}</span>
                   {/* Success, not brand: brand on brand was the least readable chip here.
                       `ml-auto` like every list chip, or two lists park it in two places. */}
@@ -456,7 +456,7 @@ export function FormTeamPicker({
             }>
             <Label className={FIELD_LABEL_CLASSES}>Gruppe</Label>
             <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
-              <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
+              <Autocomplete.Value className="min-w-0 truncate fluid-sm" />
               <Autocomplete.Indicator />
             </Autocomplete.Trigger>
             <Autocomplete.Popover className={overlayPanel()}>
@@ -470,7 +470,7 @@ export function FormTeamPicker({
                       key={name}
                       id={name}
                       textValue={`Gruppe ${name}`}
-                      className="fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2">
+                      className="cursor-pointer rounded-lg px-3 py-2 fluid-xs data-hovered:bg-hover">
                       Gruppe {name}
                     </ListBox.Item>
                   ),
@@ -497,7 +497,7 @@ export function FormTeamPicker({
             }}>
             <Label className={FIELD_LABEL_CLASSES}>Platz</Label>
             <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
-              <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
+              <Autocomplete.Value className="min-w-0 truncate fluid-sm" />
               <Autocomplete.Indicator />
             </Autocomplete.Trigger>
             <Autocomplete.Popover className={overlayPanel()}>
@@ -517,7 +517,7 @@ export function FormTeamPicker({
                         key={platz}
                         id={String(platz)}
                         textValue={label}
-                        className="fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2">
+                        className="cursor-pointer rounded-lg px-3 py-2 fluid-xs data-hovered:bg-hover">
                         {label}
                       </ListBox.Item>
                     );
@@ -547,7 +547,7 @@ export function FormTeamPicker({
           <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
             {/* From the draft, not the collection: the default render would print the row's
                 chip, which belongs in the LIST only. */}
-            <Autocomplete.Value className="fluid-sm min-w-0 truncate">
+            <Autocomplete.Value className="min-w-0 truncate fluid-sm">
               {() => {
                 const selected = feederSpiele.find((spiel) => spiel.spiel_nr === quelle.spiel_nr);
                 return selected ? describeFeeder(selected) : "";
@@ -566,7 +566,7 @@ export function FormTeamPicker({
                     key={spiel.id}
                     id={String(spiel.spiel_nr)}
                     textValue={isDirectlyPrecedingRound(spiel, spielData) ? `${describeFeeder(spiel)}, empfohlen` : describeFeeder(spiel)}
-                    className="fluid-xs data-hovered:bg-hover flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2">
+                    className="flex cursor-pointer flex-row items-center gap-x-2 rounded-lg px-3 py-2 fluid-xs data-hovered:bg-hover">
                     <span className="min-w-0 truncate">{describeFeeder(spiel)}</span>
                     {isDirectlyPrecedingRound(spiel, spielData) && (
                       <span className={`${trackLabelBadge("success")} ml-auto shrink-0`}>Empfohlen</span>
@@ -608,11 +608,11 @@ export function FormTeamPicker({
         /* Read-only: the side is the resolution's until the "Manuell" choice above takes it back. */
         <div className="flex w-full flex-col gap-y-1">
           <span className={FIELD_LABEL_CLASSES}>{label}</span>
-          <div className={`${FIELD_INPUT_CLASSES} text-foreground-muted cursor-default`}>
+          <div className={`${FIELD_INPUT_CLASSES} cursor-default text-foreground-muted`}>
             <span className="fluid-sm">{occupantLabel}</span>
           </div>
           {/* The control above is labelled Herkunft, so the note names it rather than the machinery behind it. */}
-          <p className="fluid-xxs text-foreground-muted leading-normal font-medium">Folgt der Herkunft.</p>
+          <p className="fluid-xxs leading-normal font-medium text-foreground-muted">Folgt der Herkunft.</p>
         </div>
       )}
     </div>

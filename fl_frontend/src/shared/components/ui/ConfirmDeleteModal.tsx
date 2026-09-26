@@ -110,10 +110,10 @@ export function ConfirmDeleteModal({
       // A plain dialog is announced exactly like the create and edit ones, so the destructive framing would be silent.
       role="alertdialog"
       icon={
-        <div className="bg-danger/15 flex size-10 shrink-0 items-center justify-center rounded-xl">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-danger/15">
           <TrashBin
             aria-hidden="true"
-            className="text-danger-strong size-5"
+            className="size-5 text-danger-strong"
           />
         </div>
       }>
@@ -122,9 +122,9 @@ export function ConfirmDeleteModal({
       <div className="flex flex-col gap-y-6">
         <div className="flex min-h-[80px] flex-col justify-center gap-4 pt-2">
           {!isConfirming ? (
-            <p className="fluid-sm text-foreground-muted leading-relaxed">
+            <p className="fluid-sm leading-relaxed text-foreground-muted">
               Möchtest Du {entityLabel}
-              <span className="bg-surface text-foreground border-border mx-1.5 inline-block rounded-md border px-2 py-0.5 font-bold shadow-sm">
+              <span className="mx-1.5 inline-block rounded-md border border-border bg-surface px-2 py-0.5 font-bold text-foreground shadow-sm">
                 {entityName}
               </span>
               wirklich {RETIRE_INFINITIVE}?
@@ -135,14 +135,14 @@ export function ConfirmDeleteModal({
             <div
               role="alert"
               className={`${CONFIRM_DANGER_PANEL_CLASSES} flex flex-col gap-2`}>
-              <div className="text-danger-strong flex items-center gap-2 font-bold">
+              <div className="flex items-center gap-2 font-bold text-danger-strong">
                 <TriangleExclamation
                   className="size-4.5"
                   aria-hidden="true"
                 />
                 Bist Du Dir sicher?
               </div>
-              <p className="fluid-sm text-foreground-muted leading-relaxed">
+              <p className="fluid-sm leading-relaxed text-foreground-muted">
                 Der Eintrag lässt sich <strong className="text-foreground">jederzeit reaktivieren</strong>. {consequence}
               </p>
             </div>

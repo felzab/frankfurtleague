@@ -9,7 +9,7 @@ const callout = tv({
     root: "flex w-full flex-row items-start gap-x-3 rounded-xl border p-3",
     icon: "mt-0.5 size-5 shrink-0",
     title: "fluid-xs font-bold",
-    body: "fluid-xxs text-foreground leading-normal font-medium",
+    body: "fluid-xxs leading-normal font-medium text-foreground",
   },
   variants: {
     severity: {

@@ -33,7 +33,7 @@ export function StepFiveButton({
       tabIndex={-1}
       disabled={isDisabled}
       onClick={onStep}
-      className={`${slotClass} text-foreground-muted hover:text-foreground flex cursor-pointer items-center justify-center transition-colors disabled:cursor-default disabled:opacity-40`}>
+      className={`${slotClass} flex cursor-pointer items-center justify-center text-foreground-muted transition-colors hover:text-foreground disabled:cursor-default disabled:opacity-40`}>
       <Icon className="size-4" />
     </button>
   );

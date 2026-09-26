@@ -18,9 +18,9 @@ function SpielCardSkeleton() {
       <div className="flex w-full flex-row items-center justify-between">
         {/* No `gap-*`: the real stack has none, and a gap here is that much layout shift. */}
         <div className="relative flex flex-col">
-          <span className="fluid-sm invisible font-bold">&nbsp;</span>
-          <span className="fluid-xs invisible font-medium">&nbsp;</span>
-          <span className={`${skeletonBlock()} fluid-sm absolute top-1/2 left-0 w-24 -translate-y-1/2 rounded-md`}>&nbsp;</span>
+          <span className="invisible fluid-sm font-bold">&nbsp;</span>
+          <span className="invisible fluid-xs font-medium">&nbsp;</span>
+          <span className={`${skeletonBlock()} absolute top-1/2 left-0 w-24 -translate-y-1/2 rounded-md fluid-sm`}>&nbsp;</span>
         </div>
         <div className="flex w-full items-center justify-end gap-x-2">
           <span className={`${skeletonBlock()} size-9 rounded-xl`} />
@@ -30,15 +30,15 @@ function SpielCardSkeleton() {
       {/* One filled rectangle, not three bars in a tint. Its height is the taller of the score line and
           the name track, which reserves two lines on every card whatever its names measure. */}
       <div className={`${skeletonBlock()} flex w-full items-center rounded-xl p-2`}>
-        <span className={`fluid-xs lg:fluid-sm invisible font-bold ${TEAM_NAME_TRACK_CLASSES}`}>&nbsp;</span>
-        <span className="fluid-base invisible font-extrabold">&nbsp;</span>
+        <span className={`invisible fluid-xs font-bold lg:fluid-sm ${TEAM_NAME_TRACK_CLASSES}`}>&nbsp;</span>
+        <span className="invisible fluid-base font-extrabold">&nbsp;</span>
       </div>
 
       {/* The two chips collapse to one pill. Dropping their icons costs no height: the `fluid-xxs`
           line box already out-measures them, so the row is text-metric-bound either way. */}
       <div className="flex h-fit w-full flex-row items-center justify-center gap-x-2">
         <span className={`${skeletonBlock()} rounded-lg px-1.5 py-0.5`}>
-          <span className="fluid-xxs invisible block w-44 font-extrabold">&nbsp;</span>
+          <span className="invisible block w-44 fluid-xxs font-extrabold">&nbsp;</span>
         </span>
       </div>
     </div>

@@ -298,12 +298,12 @@ export function BewerbungForm({
           className={ergebnisPanel({ tone: "erfolg" })}>
           <CircleCheck
             aria-hidden="true"
-            className="text-success-strong size-10"
+            className="size-10 text-success-strong"
           />
-          <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Deine Bewerbung ist eingegangen</h2>
+          <h2 className="fluid-lg font-extrabold tracking-tight text-foreground">Deine Bewerbung ist eingegangen</h2>
           {/* No seat is named, each holding a link of its own: the reader is the one person who can
               chase the other two, which is why the panel asks rather than reassures. */}
-          <p className="muted-hint max-w-md">
+          <p className="max-w-md muted-hint">
             Jede Kontaktperson hat eine E-Mail mit einem eigenen Link zur Bestätigung bekommen. Vollständig ist Deine Bewerbung, sobald alle
             drei bestätigt haben; dann schauen wir sie uns an und melden uns bei allen drei Kontaktpersonen. Fehlt nach{" "}
             {String(BEWERBUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen eine Bestätigung, löschen wir die Bewerbung mit allen Angaben und sagen Dir

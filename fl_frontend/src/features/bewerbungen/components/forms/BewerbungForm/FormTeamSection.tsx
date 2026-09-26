@@ -124,7 +124,7 @@ export function FormTeamSection({
           }}
         />
 
-        <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
+        <div className="flex w-full flex-col gap-y-4 border-t border-border/60 pt-4">
           <h3 className={FORM_SECTION_HEADING_CLASSES}>Kader</h3>
 
           <div className={FIELD_PAIR_CLASSES}>
@@ -166,7 +166,7 @@ export function FormTeamSection({
           </div>
         </div>
 
-        <div className="border-border/60 flex w-full flex-col border-t pt-4">
+        <div className="flex w-full flex-col border-t border-border/60 pt-4">
           {/* A ComboBox and not the `Autocomplete` the school picker uses: that one submits a KEY, and
               a wish is free text. `allowsCustomValue` is what makes the list a set of suggestions
               rather than the answer — a school may name one that has not applied yet. */}

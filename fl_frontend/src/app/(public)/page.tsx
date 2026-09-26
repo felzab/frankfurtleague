@@ -18,10 +18,10 @@ import { ctaButton } from "@/shared/components/ui/formButtons";
 export default function LandingPage() {
   return (
     <>
-      <section className="max-w-page flex w-full flex-col gap-6 px-3 pt-4 pb-6 sm:px-6 lg:px-8 lg:pt-8">
+      <section className="flex w-full max-w-page flex-col gap-6 px-3 pt-4 pb-6 sm:px-6 lg:px-8 lg:pt-8">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          <div className="border-border bg-surface relative flex flex-col justify-between overflow-hidden rounded-3xl border px-4 py-6 shadow-sm sm:p-8 lg:col-span-7">
-            <div className="bg-brand-solid absolute top-0 left-0 z-10 h-1.5 w-full" />
+          <div className="relative flex flex-col justify-between overflow-hidden rounded-3xl border border-border bg-surface px-4 py-6 shadow-sm sm:p-8 lg:col-span-7">
+            <div className="absolute top-0 left-0 z-10 h-1.5 w-full bg-brand-solid" />
 
             <div className="relative z-10 flex flex-col gap-4">
               {/* The chip is inside the boundary rather than around it: between seasons there is no
@@ -42,12 +42,12 @@ export default function LandingPage() {
                 Frankfurts Oberstufenliga. Wer holt sich den <span className="text-brand">Titel</span>?
               </h1>
 
-              <p className="muted-hint max-w-xl">
+              <p className="max-w-xl muted-hint">
                 Sieh alle wichtigen Daten der Frankfurt League ein, verfolge Spieltage, Ergebnisse, Tabellen und mehr...
               </p>
             </div>
 
-            <div className="border-border relative z-10 mt-8 flex flex-wrap items-center gap-3 border-t pt-8">
+            <div className="relative z-10 mt-8 flex flex-wrap items-center gap-3 border-t border-border pt-8">
               <Link
                 href="/dashboard/spielplan#top"
                 prefetch={false}
@@ -69,10 +69,10 @@ export default function LandingPage() {
               prefetch={false}
               className={`${card({ interactive: true })} relative flex items-center justify-between overflow-hidden p-5`}>
               <div className="relative z-10 flex flex-col gap-1">
-                <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Schulen & Kader</span>
-                <span className="fluid-sm text-foreground font-extrabold">Alle Teams durchstöbern</span>
+                <span className="fluid-xxs font-extrabold tracking-widest text-brand uppercase">Schulen & Kader</span>
+                <span className="fluid-sm font-extrabold text-foreground">Alle Teams durchstöbern</span>
               </div>
-              <span className="fluid-sm text-brand relative z-10 font-bold">→</span>
+              <span className="relative z-10 fluid-sm font-bold text-brand">→</span>
             </Link>
 
             <Link
@@ -80,10 +80,10 @@ export default function LandingPage() {
               prefetch={false}
               className={`${card({ interactive: true })} relative flex items-center justify-between overflow-hidden p-5`}>
               <div className="relative z-10 flex flex-col gap-1">
-                <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Ranking</span>
-                <span className="fluid-sm text-foreground font-extrabold">Tabellenstand & Platzierungen</span>
+                <span className="fluid-xxs font-extrabold tracking-widest text-brand uppercase">Ranking</span>
+                <span className="fluid-sm font-extrabold text-foreground">Tabellenstand & Platzierungen</span>
               </div>
-              <span className="fluid-sm text-brand relative z-10 font-bold">→</span>
+              <span className="relative z-10 fluid-sm font-bold text-brand">→</span>
             </Link>
 
             <Link
@@ -91,10 +91,10 @@ export default function LandingPage() {
               prefetch={false}
               className={`${card({ interactive: true })} relative flex items-center justify-between overflow-hidden p-5`}>
               <div className="relative z-10 flex flex-col gap-1">
-                <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Matchday</span>
-                <span className="fluid-sm text-foreground font-extrabold">Ansetzungen & Ergebnisse</span>
+                <span className="fluid-xxs font-extrabold tracking-widest text-brand uppercase">Matchday</span>
+                <span className="fluid-sm font-extrabold text-foreground">Ansetzungen & Ergebnisse</span>
               </div>
-              <span className="fluid-sm text-brand relative z-10 font-bold">→</span>
+              <span className="relative z-10 fluid-sm font-bold text-brand">→</span>
             </Link>
           </div>
         </div>
@@ -107,7 +107,7 @@ export default function LandingPage() {
         </Suspense>
       </section>
 
-      <div className="max-w-page w-full px-4 py-8 sm:px-6 lg:px-8">
+      <div className="w-full max-w-page px-4 py-8 sm:px-6 lg:px-8">
         {/* A skeleton, not a spinner, so the page holds roughly its final height and the footer does not
             jump when the data lands. Under-reserving is the safe direction — see `VISIBILITY` there. */}
         <Suspense fallback={<RecentAndUpcomingSpieleGridSkeleton />}>

@@ -81,7 +81,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     );
 
   const renderHonorar = (schiedsrichter: FLSchiedsrichter) => (
-    <span className="bg-muted text-foreground font-numeric fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide tabular-nums">
+    <span className="inline-flex items-center rounded-md bg-muted px-3 py-1.5 font-numeric fluid-xs font-bold tracking-wide text-foreground tabular-nums">
       {formatEuro(schiedsrichter.default_payment)}
     </span>
   );
@@ -95,7 +95,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     <div className={IDENTITY_ROW_CLASSES}>
       <Person
         aria-hidden="true"
-        className="text-foreground-muted size-4.5 shrink-0"
+        className="size-4.5 shrink-0 text-foreground-muted"
       />
       <div className={IDENTITY_STACK_CLASSES}>
         <div className={IDENTITY_HEAD_CLASSES}>
@@ -198,7 +198,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
               <div className="min-w-0 flex-1">{renderIdentity(schiedsrichter)}</div>
               <span className="shrink-0">{renderHonorar(schiedsrichter)}</span>
             </div>
-            <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(schiedsrichter)}</div>
+            <div className="-mx-1 border-t border-border/50 pt-2">{renderActions(schiedsrichter)}</div>
           </div>
         ))}
       </div>
@@ -238,7 +238,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
                 {(schiedsrichter: FLSchiedsrichter) => (
                   <Table.Row
                     id={schiedsrichter.id}
-                    className="border-border/50 border-b last:border-b-0">
+                    className="border-b border-border/50 last:border-b-0">
                     <Table.Cell className={CELL_EDGE_CLASSES}>{renderIdentity(schiedsrichter)}</Table.Cell>
 
                     <Table.Cell className={CELL_INNER_CLASSES}>{renderHonorar(schiedsrichter)}</Table.Cell>

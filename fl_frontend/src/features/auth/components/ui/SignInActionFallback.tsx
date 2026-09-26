@@ -17,7 +17,7 @@ export function SignInActionFallback({ onRetry }: { onRetry: () => void }) {
       className="flex flex-col items-center gap-y-4 py-6 text-center">
       {/* A glyph here would answer what the sentence refuses to, whether the link went out: the two
           in this card both name a mailbox. */}
-      <h2 className="fluid-lg text-foreground font-extrabold tracking-tight text-pretty">Die Antwort auf Deine Anmeldung kam nicht von uns.</h2>
+      <h2 className="fluid-lg font-extrabold tracking-tight text-pretty text-foreground">Die Antwort auf Deine Anmeldung kam nicht von uns.</h2>
 
       <Button
         type="button"

@@ -37,7 +37,7 @@ export function CrashReportLink({ digest }: { digest?: string }) {
        human half, and a second public write path would guard nothing the ingest route does not. */
     <a
       href={reportHref}
-      className={`${textLink({ tone: "muted" })} fluid-xs mt-6`}>
+      className={`${textLink({ tone: "muted" })} mt-6 fluid-xs`}>
       Fehler per E-Mail melden. Die technischen Angaben sind schon ausgefüllt.
     </a>
   );

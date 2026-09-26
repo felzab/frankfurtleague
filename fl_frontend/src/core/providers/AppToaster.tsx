@@ -84,7 +84,7 @@ export function AppToaster() {
             {(isLoading || indicator) && (
               <Toast.Indicator
                 variant={variant}
-                className="text-foreground-muted flex size-5 shrink-0 items-center justify-center p-0">
+                className="flex size-5 shrink-0 items-center justify-center p-0 text-foreground-muted">
                 {isLoading ? (
                   <Spinner
                     color="current"
@@ -97,11 +97,11 @@ export function AppToaster() {
             )}
 
             <Toast.Content className="flex min-w-0 flex-1 flex-col items-start gap-1">
-              {!!title && <Toast.Title className="fluid-sm text-foreground font-semibold">{title}</Toast.Title>}
+              {!!title && <Toast.Title className="fluid-sm font-semibold text-foreground">{title}</Toast.Title>}
               {!!description && (
                 // Spelled out rather than `muted-meta`: this wants the recipe without its line-height,
                 // and a utility plus a `leading-*` undoing part of it would rest on emission order.
-                <Toast.Description className="fluid-xs text-foreground-muted leading-normal font-medium opacity-100">
+                <Toast.Description className="fluid-xs leading-normal font-medium text-foreground-muted opacity-100">
                   {description}
                 </Toast.Description>
               )}
@@ -111,7 +111,7 @@ export function AppToaster() {
                   variant="primary"
                   // A toast's one action is the way out of what it reported, so it takes the brand
                   // fill -- never a severity colour, which reads as "this button is the danger".
-                  className="bg-brand-solid text-brand-solid-foreground fluid-xs data-hovered:bg-brand-solid-hover h-8 rounded-lg px-3.5 font-semibold transition-colors">
+                  className="h-8 rounded-lg bg-brand-solid px-3.5 fluid-xs font-semibold text-brand-solid-foreground transition-colors data-hovered:bg-brand-solid-hover">
                   {actionProps.children}
                 </Toast.ActionButton>
               )}

@@ -26,7 +26,7 @@ export const ABSATZ_CLASSES = "fluid-sm text-foreground max-w-2xl leading-relaxe
  * the mail's end of the same rule.
  */
 export function Wert({ children }: { children: ReactNode }) {
-  return <strong className="text-foreground font-bold">{children}</strong>;
+  return <strong className="font-bold text-foreground">{children}</strong>;
 }
 
 /** The `{datenschutz}` slot's value, so the stored sentence and the rendered one read the same. */
@@ -141,7 +141,7 @@ export function FaktenBanner({ zeilen }: { zeilen: readonly Fakt[] }) {
   // Wrapping below `sm` alone: from there every fact fits one row, and a stack would spend the first
   // screen on them.
   return (
-    <dl className="bg-surface border-border flex w-full flex-row flex-wrap items-start gap-x-4 gap-y-2 rounded-lg border px-4 py-3 text-left sm:flex-nowrap sm:gap-x-6">
+    <dl className="flex w-full flex-row flex-wrap items-start gap-x-4 gap-y-2 rounded-lg border border-border bg-surface px-4 py-3 text-left sm:flex-nowrap sm:gap-x-6">
       {zeilen.map(({ label, wert, unbegrenzt = false }) => {
         const { zelle, wert: wertKlasse } = fakt({ unbegrenzt: unbegrenzt });
 

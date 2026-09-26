@@ -108,7 +108,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   );
 
   const renderGruppe = (team: AdminTeamRow) =>
-    team.selected ? <span className="fluid-sm text-foreground font-semibold">{team.selected.gruppe}</span> : null;
+    team.selected ? <span className="fluid-sm font-semibold text-foreground">{team.selected.gruppe}</span> : null;
 
   const renderActions = (team: AdminTeamRow) => (
     <RowActions>
@@ -151,7 +151,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
           label="Spieler anzeigen">
           <PersonPencil
             aria-hidden="true"
-            className="text-foreground-muted size-4"
+            className="size-4 text-foreground-muted"
           />
         </RowActionMenuItem>
         {/* `team` as `buildKontakteFacets` declares it, and the season rides along beside it: the seats
@@ -162,7 +162,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
           label="Kontakte anzeigen">
           <Envelope
             aria-hidden="true"
-            className="text-foreground-muted size-4"
+            className="size-4 text-foreground-muted"
           />
         </RowActionMenuItem>
         {/* `team` as `buildSpielFacets` declares it, and it reads both sides — so this finds the club's
@@ -173,7 +173,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
           label="Spiele anzeigen">
           <Magnifier
             aria-hidden="true"
-            className="text-foreground-muted size-4"
+            className="size-4 text-foreground-muted"
           />
         </RowActionMenuItem>
         {/* The public page's season rather than the selector's: that page withholds a planned season
@@ -186,7 +186,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
             label="Öffentliche Teamseite">
             <Globe
               aria-hidden="true"
-              className="text-foreground-muted size-4"
+              className="size-4 text-foreground-muted"
             />
           </RowActionMenuItem>
         )}
@@ -205,8 +205,8 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
             key={team.id}
             className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
             {renderIdentity(team)}
-            {team.selected && <span className="fluid-sm text-foreground shrink-0 font-semibold">Gruppe {team.selected.gruppe}</span>}
-            <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(team)}</div>
+            {team.selected && <span className="shrink-0 fluid-sm font-semibold text-foreground">Gruppe {team.selected.gruppe}</span>}
+            <div className="-mx-1 border-t border-border/50 pt-2">{renderActions(team)}</div>
           </div>
         ))}
       </div>
@@ -246,7 +246,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
                 {(team: AdminTeamRow) => (
                   <Table.Row
                     id={team.id}
-                    className="border-border/50 border-b last:border-b-0">
+                    className="border-b border-border/50 last:border-b-0">
                     <Table.Cell className={CELL_EDGE_CLASSES}>{renderIdentity(team)}</Table.Cell>
 
                     <Table.Cell className={CELL_INNER_CLASSES}>{renderGruppe(team)}</Table.Cell>

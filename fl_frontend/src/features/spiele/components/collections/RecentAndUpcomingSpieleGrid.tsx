@@ -20,7 +20,7 @@ import type { FLSpieleListResponse } from "../../schemas";
 function SectionHeader({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
     <div className="mb-6 flex flex-col gap-1">
-      <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">{eyebrow}</span>
+      <span className="fluid-xxs font-extrabold tracking-widest text-brand uppercase">{eyebrow}</span>
       <h2 className={`${DISPLAY_HEADING_CLASSES} fluid-2xl text-foreground`}>{title}</h2>
     </div>
   );

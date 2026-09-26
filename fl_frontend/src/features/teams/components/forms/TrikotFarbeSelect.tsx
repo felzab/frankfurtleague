@@ -27,7 +27,7 @@ function Swatch({ farbe }: { farbe: FLTrikotFarbe }) {
     <span
       aria-hidden="true"
       style={{ backgroundColor: trikotFarbeHex(farbe) }}
-      className="border-border size-4 shrink-0 rounded-full border shadow-sm"
+      className="size-4 shrink-0 rounded-full border border-border shadow-sm"
     />
   );
 }
@@ -95,9 +95,9 @@ export function TrikotFarbeSelect({
             show HeroUI's English placeholder. */}
         <span className="flex min-w-0 flex-row items-center gap-x-2">
           {value !== null && <Swatch farbe={value} />}
-          <span className={value ? "truncate" : "text-foreground-muted truncate"}>{value ? trikotFarbeLabel(value) : platzhalter}</span>
+          <span className={value ? "truncate" : "truncate text-foreground-muted"}>{value ? trikotFarbeLabel(value) : platzhalter}</span>
         </span>
-        <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+        <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
       </Select.Trigger>
       <FieldError className={FIELD_ERROR_CLASSES} />
       <Select.Popover className={`${overlayPanel()} mt-2 max-h-80 overflow-y-auto p-1.5`}>

@@ -205,7 +205,7 @@ export function FormRegelnSection({
               would name a control the reader cannot see. Only while the season still runs -- a
               finished one is answered by the standing banner this panel already carries. */}
           {isKnockoutStarted && !isFinishedSaison && (
-            <p className="fluid-xxs text-foreground-muted w-full font-medium">
+            <p className="w-full fluid-xxs font-medium text-foreground-muted">
               Nach dem Beginn der KO-Runde lässt sich der Tiebreak nicht mehr ändern.
             </p>
           )}
@@ -305,7 +305,7 @@ export function FormRegelnSection({
         />
 
         {/* Panel-local: on the rail it would describe controls the reader cannot see. */}
-        {isDrawnSaison && <p className="fluid-xxs text-foreground-muted w-full font-medium">{SHAPE_NOTE[spielplanWindow]}</p>}
+        {isDrawnSaison && <p className="w-full fluid-xxs font-medium text-foreground-muted">{SHAPE_NOTE[spielplanWindow]}</p>}
       </div>
     </section>
   );

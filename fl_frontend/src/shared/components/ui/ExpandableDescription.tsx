@@ -10,7 +10,7 @@ export function ExpandableDescription({ text }: { text: string }) {
   if (!text) return null;
 
   if (text.length < 120) {
-    return <p className="fluid-xs text-foreground font-medium text-pretty">{text}</p>;
+    return <p className="fluid-xs font-medium text-pretty text-foreground">{text}</p>;
   }
 
   // A pointer convenience: the button below toggles both directions, so this adds no capability a
@@ -25,7 +25,7 @@ export function ExpandableDescription({ text }: { text: string }) {
         }
       }}>
       <p
-        className={`fluid-xs text-pretty transition-colors duration-(--motion-base) ${!isExpanded ? "text-foreground-muted line-clamp-3" : "text-foreground"}`}>
+        className={`fluid-xs text-pretty transition-colors duration-(--motion-base) ${!isExpanded ? "line-clamp-3 text-foreground-muted" : "text-foreground"}`}>
         {text}
       </p>
 
@@ -36,7 +36,7 @@ export function ExpandableDescription({ text }: { text: string }) {
         aria-expanded={isExpanded}
         // `w-fit` because the enclosing column stretches its items: a stretched button centres its
         // label across the card and turns the whole row into its press target.
-        className={`${BRAND_INK_OUTSIDE_PROSE_CLASSES} fluid-xs w-fit cursor-pointer rounded border-none bg-transparent p-0 font-bold`}
+        className={`${BRAND_INK_OUTSIDE_PROSE_CLASSES} w-fit cursor-pointer rounded border-none bg-transparent p-0 fluid-xs font-bold`}
         onClick={() => {
           setIsExpanded(!isExpanded);
         }}>

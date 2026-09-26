@@ -15,7 +15,7 @@ function FooterSlotSkeleton({ width, label }: { width: string; label: string }) 
   return (
     <span
       role="status"
-      className={`${skeletonBlock()} fluid-xxs inline-block rounded ${width}`}>
+      className={`${skeletonBlock()} inline-block rounded fluid-xxs ${width}`}>
       {/* In the subtree rather than in `aria-label`: a live region announces its content and not its
           name, so a name is all a reader would not hear. */}
       <span className="sr-only">{label}</span>
@@ -57,7 +57,7 @@ function FooterNavColumn({ title, links }: { title: string; links: readonly { hr
             key={href}
             href={href}
             prefetch={false}
-            className="fluid-xs text-foreground-muted hover:text-brand transition-colors">
+            className="fluid-xs text-foreground-muted transition-colors hover:text-brand">
             {label}
           </Link>
         ))}
@@ -78,12 +78,12 @@ function FooterSocialLink({ href, label, mask }: { href: string; label: string; 
       target="_blank"
       rel="noopener noreferrer"
       aria-label={label}
-      className="hover:bg-hover -m-1.5 flex rounded-md p-1.5 transition-colors">
+      className="-m-1.5 flex rounded-md p-1.5 transition-colors hover:bg-hover">
       {/* `flex` on the link and `block` here are load-bearing: on a text line, the line's height rather than
           the 24px glyph sizes the hover fill. Each mask source must be a silhouette on a transparent ground. */}
       <span
         aria-hidden="true"
-        className={`bg-foreground block size-6 mask-contain mask-center mask-no-repeat ${mask}`}
+        className={`block size-6 bg-foreground mask-contain mask-center mask-no-repeat ${mask}`}
       />
     </Link>
   );
@@ -100,12 +100,12 @@ export function Footer({ serverStatusSlot }: { serverStatusSlot?: React.ReactNod
     // row; the floor keeps that look by stating it.
 
     // A `<div>`: `PublicShell` wraps this in the page's one `<footer>` landmark.
-    <div className="max-w-page mx-auto flex w-full grow flex-col justify-between px-4 pt-2 pb-2 sm:px-6">
+    <div className="mx-auto flex w-full max-w-page grow flex-col justify-between px-4 pt-2 pb-2 sm:px-6">
       {/* Five tracks for four columns: the brand takes two, so each list keeps a track of its own. */}
-      <div className="border-border grid grid-cols-1 gap-8 border-b py-6 md:grid-cols-5">
+      <div className="grid grid-cols-1 gap-8 border-b border-border py-6 md:grid-cols-5">
         <div className="flex flex-col items-start gap-y-3 md:col-span-2">
           <BrandLink />
-          <p className="fluid-xs text-foreground-muted max-w-sm">
+          <p className="max-w-sm fluid-xs text-foreground-muted">
             Die Frankfurter Oberstufenliga. Hier können Frankfurter Schulen gegeneinander antreten, um herauszufinden, welche die Beste ist.
           </p>
         </div>

@@ -215,7 +215,7 @@ function BestaetigungEntscheidung({
           down the page between the two presses it takes to send. */}
       {isConfirming && (
         <ConfirmReveal>
-          <p className="fluid-xxs text-foreground leading-normal font-medium">
+          <p className="fluid-xxs leading-normal font-medium text-foreground">
             Ohne Deine Bestätigung kann die Bewerbung nicht vollständig werden. Deine Angaben oben brauchen wir für einen Widerspruch nicht.
           </p>
           <WiderspruchFolge />

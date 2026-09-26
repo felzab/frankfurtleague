@@ -175,7 +175,7 @@ export function FormSchuleSection({
               onChange={(key: Key | null) => onAuswahlPicked(key === null ? null : key.toString())}>
               <Label className={FIELD_LABEL_CLASSES}>Deine Schule</Label>
               <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
-                <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
+                <Autocomplete.Value className="min-w-0 truncate fluid-sm" />
                 {/* `ms-2` rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
                     truncated name ends against this button (`docs/frontend/spec.md` I61). `hover: "css"`
                     because HeroUI renders this as a plain `<button>`. */}
@@ -195,7 +195,7 @@ export function FormSchuleSection({
                     className="p-2">
                     {/* The panel's own fill, not a recessed one: the border alone says "field", and
                         `--border-control` clears 1.4.11's 3:1 on `--bg-surface` and not on `--bg-muted`. */}
-                    <SearchField.Group className="border-control bg-surface rounded-lg border px-2 py-1.5 transition-colors duration-(--motion-base)">
+                    <SearchField.Group className="rounded-lg border border-control bg-surface px-2 py-1.5 transition-colors duration-(--motion-base)">
                       <SearchField.SearchIcon />
                       <SearchField.Input
                         placeholder="Schule finden..."
@@ -245,7 +245,7 @@ export function FormSchuleSection({
             {listeHinweis !== null && (
               <p
                 id={listeHinweisId}
-                className="fluid-xxs text-foreground-muted mt-1 font-medium">
+                className="mt-1 fluid-xxs font-medium text-foreground-muted">
                 {listeHinweis}
               </p>
             )}
@@ -275,7 +275,7 @@ export function FormSchuleSection({
         </div>
 
         {istNeueSchule(auswahl) && (
-          <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
+          <div className="flex w-full flex-col gap-y-4 border-t border-border/60 pt-4">
             <h3 className={FORM_SECTION_HEADING_CLASSES}>Neue Schule</h3>
 
             <div className={FIELD_PAIR_CLASSES}>
@@ -344,7 +344,7 @@ export function FormSchuleSection({
                 {kuerzelHinweis !== null && (
                   <p
                     id={kuerzelHinweisId}
-                    className="fluid-xxs text-foreground-muted font-medium">
+                    className="fluid-xxs font-medium text-foreground-muted">
                     {kuerzelHinweis}
                   </p>
                 )}
@@ -368,7 +368,7 @@ export function FormSchuleSection({
                   <span className={schule.schulform ? "" : "text-foreground-muted"}>
                     {schule.schulform ? schulformLabel(schule.schulform) : "Bitte auswählen"}
                   </span>
-                  <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+                  <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
                 </Select.Trigger>
                 <FieldError className={FIELD_ERROR_CLASSES} />
                 <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>
@@ -397,14 +397,14 @@ export function FormSchuleSection({
               onFieldLeft={() => onFieldLeft(["schule.website_url"])}
             />
 
-            <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
+            <div className="flex w-full flex-col gap-y-4 border-t border-border/60 pt-4">
               <h3 className={FORM_SECTION_HEADING_CLASSES}>Adresse der Schule</h3>
               {/* Not copy to trim: the address stays public, and the form says so where it is asked
                   for. The rule stands where the read serves it
                   (`fl_backend/app/api/teams/schemas.py :: _TeamWritable`). */}
               <p
                 id={adressHinweisId}
-                className="fluid-xxs text-foreground-muted leading-relaxed font-medium text-pretty">
+                className="fluid-xxs leading-relaxed font-medium text-pretty text-foreground-muted">
                 Die Adresse, die Du hier einträgst, steht nach der Aufnahme in die Liga öffentlich auf der Teamseite Deiner Schule.
               </p>
               {/* Neither `errors` nor `renderLabel`: the `<Form validationErrors>` above distributes by

@@ -177,7 +177,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
       aria-label={spieler.selected?.nummer ? undefined : "Keine Nummer"}
       // A fixed height rather than padding: `py-1.5` sizes the chip from its line box, and an empty
       // span has none, so the empty chip would collapse.
-      className={`font-numeric fluid-xs inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-extrabold tracking-wide tabular-nums ${
+      className={`inline-flex h-7 w-10 shrink-0 items-center justify-center rounded-md font-numeric fluid-xs font-extrabold tracking-wide tabular-nums ${
         spieler.selected?.nummer ? "bg-muted text-foreground" : "bg-muted/50"
       }`}>
       {spieler.selected?.nummer ?? ""}
@@ -196,7 +196,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     return (
       <Link
         href={withSaisonId(`/admin/teams?q=${encodeURIComponent(row.teamName)}&${TEAMS_ANY_SAISON_QUERY}`, selectedFromUrl)}
-        className={`${textLink({ tone: "muted" })} fluid-xs max-w-full min-w-0 truncate`}>
+        className={`${textLink({ tone: "muted" })} max-w-full min-w-0 truncate fluid-xs`}>
         {row.teamName}
       </Link>
     );
@@ -237,7 +237,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
             className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
             {renderIdentity(spieler)}
             {renderKaderMeta(spieler)}
-            <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(spieler)}</div>
+            <div className="-mx-1 border-t border-border/50 pt-2">{renderActions(spieler)}</div>
           </div>
         ))}
       </div>
@@ -278,18 +278,18 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
                 {(spieler: AdminSpielerRow) => (
                   <Table.Row
                     id={spieler.id}
-                    className="border-border/50 border-b last:border-b-0">
+                    className="border-b border-border/50 last:border-b-0">
                     <Table.Cell className={CELL_EDGE_CLASSES}>{renderIdentity(spieler)}</Table.Cell>
 
                     <Table.Cell className={CELL_INNER_CLASSES}>
                       {spieler.selected?.position ? (
-                        <span className="fluid-sm text-foreground font-semibold">{spieler.selected.position}</span>
+                        <span className="fluid-sm font-semibold text-foreground">{spieler.selected.position}</span>
                       ) : null}
                     </Table.Cell>
 
                     <Table.Cell className={CELL_INNER_CLASSES}>
                       {spieler.selected?.stufe ? (
-                        <span className="fluid-sm text-foreground font-semibold">{spieler.selected.stufe}</span>
+                        <span className="fluid-sm font-semibold text-foreground">{spieler.selected.stufe}</span>
                       ) : null}
                     </Table.Cell>
 

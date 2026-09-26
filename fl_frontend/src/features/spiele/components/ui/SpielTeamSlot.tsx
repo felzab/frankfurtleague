@@ -51,7 +51,7 @@ export function SpielTeamSlot({
         teamId={team.team_id}
         teamAustritt={team.austritt_type}
         saisonId={saisonId}>
-        <strong className={`${className} ${TEAM_NAME_WRAP_CLASSES} hover:text-brand transition-colors duration-(--motion-base)`}>{text}</strong>
+        <strong className={`${className} ${TEAM_NAME_WRAP_CLASSES} transition-colors duration-(--motion-base) hover:text-brand`}>{text}</strong>
       </TeamPopoverMenu>
     </span>
   );

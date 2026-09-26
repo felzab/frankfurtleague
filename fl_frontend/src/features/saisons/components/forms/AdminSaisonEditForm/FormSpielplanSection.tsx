@@ -450,7 +450,7 @@ export function FormSpielplanSection({
                       ))}
                     </dl>
                     {isShapeMoved && (
-                      <p className="fluid-xxs text-foreground leading-normal font-medium">
+                      <p className="fluid-xxs leading-normal font-medium text-foreground">
                         Diese Zahlen werden zusammen mit dem Spielplan gespeichert und sind danach die Regeln dieser Saison.
                       </p>
                     )}
@@ -470,7 +470,7 @@ export function FormSpielplanSection({
                         </dl>
                         {/* The fixture count is mirrored nowhere, and a second derivation of the draw is what
                             `buildSpielplanVorschau` exists to avoid. */}
-                        <p className="fluid-xs text-foreground font-medium">
+                        <p className="fluid-xs font-medium text-foreground">
                           Wie viele Spiele aus den neuen Zahlen entstehen, steht erst nach dem Anlegen fest.
                         </p>
                       </>
@@ -494,7 +494,7 @@ export function FormSpielplanSection({
               )}
             </div>
 
-            <p className="fluid-xxs text-foreground leading-normal font-medium">{describeSpielplanPermanenz({ holdsADraw, saisonStatus })}</p>
+            <p className="fluid-xxs leading-normal font-medium text-foreground">{describeSpielplanPermanenz({ holdsADraw, saisonStatus })}</p>
           </ConfirmReveal>
         )}
 

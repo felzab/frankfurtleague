@@ -37,7 +37,7 @@ function ErasureAnsichtBody({ ansicht }: { ansicht: ErasureAnsicht | null }) {
   }
 
   if (ansicht?.status === "refused") {
-    return <p className="fluid-xxs text-foreground leading-normal font-medium">{ohneUebersicht(ansicht.reason)}</p>;
+    return <p className="fluid-xxs leading-normal font-medium text-foreground">{ohneUebersicht(ansicht.reason)}</p>;
   }
 
   // The app's one „not yet here“ treatment rather than a sentence the names then replace: what
@@ -114,7 +114,7 @@ export function FormKontaktErasure({ email, fullName, isDirty }: { email: string
   // The seat's own sub-block rule, as the Kenntnisnahme block above it uses: one divider treatment per
   // depth. The destructive grading is the confirm reveal's and the button's, both recipes.
   return (
-    <div className="border-border/60 flex w-full flex-col gap-y-4 border-t pt-4">
+    <div className="flex w-full flex-col gap-y-4 border-t border-border/60 pt-4">
       <h4 className={FORM_SECTION_HEADING_CLASSES}>Kontaktperson löschen</h4>
 
       <p className="muted-hint">

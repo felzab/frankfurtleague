@@ -36,7 +36,7 @@ export function FormAdresseSection({
         : { "aria-disabled": true })}
       aria-label="Eingegebene Adresse auf Google Maps öffnen"
       className={`flex size-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
-        isSearchable ? "text-foreground-muted hover:bg-hover hover:text-brand cursor-pointer" : "text-foreground-muted/40 cursor-not-allowed"
+        isSearchable ? "cursor-pointer text-foreground-muted hover:bg-hover hover:text-brand" : "cursor-not-allowed text-foreground-muted/40"
       }`}>
       {/* The website field's glyph, so "opens elsewhere" has one icon on this page. */}
       <ArrowUpRightFromSquare

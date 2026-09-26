@@ -5,7 +5,7 @@ import { tv } from "tailwind-variants";
  * gets no bordered section panels**, which leave nothing but a hairline between concentric borders on one fill.
  */
 export const overlayPanel = tv({
-  base: "bg-surface border-border text-foreground rounded-xl border shadow-lg",
+  base: "rounded-xl border border-border bg-surface text-foreground shadow-lg",
 });
 
 /**

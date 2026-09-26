@@ -174,7 +174,7 @@ export function FormTeamErsatzSection({
               {/* `aria-hidden`, because it restates the two triggers and the callout below them. */}
               <div
                 aria-hidden="true"
-                className="bg-muted text-foreground-muted flex h-10 shrink-0 items-center justify-center justify-self-center rounded-full px-3">
+                className="flex h-10 shrink-0 items-center justify-center justify-self-center rounded-full bg-muted px-3 text-foreground-muted">
                 {/* Downwards between two stacked pickers, rightwards once the grid puts them side by side. */}
                 <ArrowRight
                   aria-hidden="true"
@@ -234,7 +234,7 @@ export function FormTeamErsatzSection({
                   </dl>
                 </div>
 
-                <p className="fluid-xxs text-foreground leading-normal font-medium">
+                <p className="fluid-xxs leading-normal font-medium text-foreground">
                   Der Wechsel gilt sofort und ist auf jeder Tabelle und jedem Spielplan dieser Saison zu sehen. Es gibt in der Verwaltung keinen
                   Weg zurück. {describeKaderAustragungDanach(outgoing.name)}
                 </p>

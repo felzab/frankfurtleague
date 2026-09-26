@@ -40,15 +40,15 @@ export function PasskeyEintragRow({
   const { isConfirming, press } = twoPress;
 
   return (
-    <li className="border-border flex flex-col gap-3 border-b py-4 last:border-b-0">
+    <li className="flex flex-col gap-3 border-b border-border py-4 last:border-b-0">
       <div className="flex min-w-0 flex-col gap-1">
-        <span className="fluid-sm text-foreground font-bold break-words">{eintrag.label ?? UNBEKANNT}</span>
+        <span className="fluid-sm font-bold break-words text-foreground">{eintrag.label ?? UNBEKANNT}</span>
         <span className="muted-hint">{STAMP.format(new Date(eintrag.createdAt))}</span>
       </div>
 
       {isConfirming && (
         <ConfirmReveal>
-          <p className="fluid-sm text-foreground text-pretty">{FOLGE}</p>
+          <p className="fluid-sm text-pretty text-foreground">{FOLGE}</p>
         </ConfirmReveal>
       )}
 

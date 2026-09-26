@@ -81,7 +81,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${anton.variable} ${raleway.variable} ${inter.variable} scrollbar-gutter-stable`}>
       {/* No containing-block trigger on either root (`docs/frontend/spec.md :: I29`): one would make
           the page the containing block for every portalled overlay. */}
-      <body className="bg-background text-foreground font-primary fluid-base flex min-h-dvh w-full flex-col antialiased">
+      <body className="flex min-h-dvh w-full flex-col bg-background font-primary fluid-base text-foreground antialiased">
         <RootProviders>{children}</RootProviders>
       </body>
     </html>

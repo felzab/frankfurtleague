@@ -120,7 +120,7 @@ export function FormLoeschenSection({
 
             {/* No restore is named, because none exists: the log keeps no image of an erased person,
                 an image being a fresh copy of what the erasure destroyed. */}
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
+            <p className="fluid-xxs leading-normal font-medium text-foreground">
               {fullName} verschwindet damit aus der Verwaltung und von jeder öffentlichen Seite, mitsamt allen Kadereinträgen und allen Angaben
               im Änderungsprotokoll. Zurückholen lässt sich das nicht.
             </p>

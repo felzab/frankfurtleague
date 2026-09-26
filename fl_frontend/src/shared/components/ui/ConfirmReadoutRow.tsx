@@ -5,8 +5,8 @@
 export function ConfirmReadoutRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-row items-baseline justify-between gap-x-3">
-      <dt className="fluid-xxs text-foreground-muted font-bold">{label}</dt>
-      <dd className="fluid-xs text-foreground min-w-0 text-right font-semibold">{value}</dd>
+      <dt className="fluid-xxs font-bold text-foreground-muted">{label}</dt>
+      <dd className="min-w-0 text-right fluid-xs font-semibold text-foreground">{value}</dd>
     </div>
   );
 }

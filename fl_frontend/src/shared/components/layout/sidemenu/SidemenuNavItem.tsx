@@ -35,7 +35,7 @@ export function SidemenuNavItem({
       // a wide rectangle in the nav beside neat squares in the footer.
       className={`flex h-9 items-center rounded-md transition-colors ${
         isDesktopCollapsed ? `w-9 justify-center ${RAIL_SQUARE_RING_CLASSES}` : "w-full justify-start gap-2 px-3"
-      } ${isActive ? "bg-brand/15 text-brand font-medium shadow-sm" : "text-foreground hover:bg-hover hover:text-foreground fluid-sm"}`}
+      } ${isActive ? "bg-brand/15 font-medium text-brand shadow-sm" : "fluid-sm text-foreground hover:bg-hover hover:text-foreground"}`}
       href={href}>
       {IconComponent && (
         <IconComponent
@@ -43,7 +43,7 @@ export function SidemenuNavItem({
           className={`size-4.5 shrink-0 ${isActive ? "text-brand opacity-100" : "opacity-70"}`}
         />
       )}
-      {!isDesktopCollapsed && <span className="fluid-sm truncate">{label}</span>}
+      {!isDesktopCollapsed && <span className="truncate fluid-sm">{label}</span>}
     </Link>
   );
 

@@ -51,7 +51,7 @@ function AbgesagteSpieleHint({ anzahl }: { anzahl: number }) {
         lead: "Diese Zahl zählt die abgesagten Spiele dieses Teams.",
         points: [{ text: "Rechne sie nicht zur Zahl daneben dazu." }],
       }}
-      trigger={<span className="fluid-xxs bg-danger/15 text-danger-strong rounded-md px-1 py-0.5 font-extrabold">{anzahl}</span>}
+      trigger={<span className="rounded-md bg-danger/15 px-1 py-0.5 fluid-xxs font-extrabold text-danger-strong">{anzahl}</span>}
     />
   );
 }
@@ -100,16 +100,16 @@ export function SaisontabelleView({
           <div
             role="listitem"
             key={gruppe}
-            className={`${card()} max-w-page mb-6 flex w-full flex-col items-start p-3 sm:p-6`}>
+            className={`${card()} mb-6 flex w-full max-w-page flex-col items-start p-3 sm:p-6`}>
             <div className="flex flex-col gap-1 pb-6">
-              <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">Saisontabelle</span>
+              <span className="fluid-xxs font-extrabold tracking-widest text-brand uppercase">Saisontabelle</span>
               <h2 className={`${DISPLAY_HEADING_CLASSES} fluid-xl text-foreground`}>Gruppe {gruppe}</h2>
               {/* Not decoration: a team's own page counts the playoffs too, so the two pages disagree
                   by design and only this line says why. */}
-              <p className="fluid-xxs text-foreground-muted font-medium">Gewertet werden nur Spiele der Gruppenphase.</p>
+              <p className="fluid-xxs font-medium text-foreground-muted">Gewertet werden nur Spiele der Gruppenphase.</p>
               {/* Only once something is marked: a legend for an absent highlight reads as a fault. */}
               {qualifying.size > 0 && (
-                <p className="fluid-xxs text-foreground-muted font-medium">{qualifiedLegend(qualifying.size, isFinishedSaison)}</p>
+                <p className="fluid-xxs font-medium text-foreground-muted">{qualifiedLegend(qualifying.size, isFinishedSaison)}</p>
               )}
             </div>
 
@@ -117,10 +117,10 @@ export function SaisontabelleView({
               variant="secondary"
               className="h-fit w-full text-left">
               <Table.Content aria-label={`Tabelle: Gruppe ${gruppe}`}>
-                <Table.Header className="fluid-xxs text-foreground-muted font-semibold uppercase">
+                <Table.Header className="fluid-xxs font-semibold text-foreground-muted uppercase">
                   <Table.Column
                     isRowHeader
-                    className="fluid-xs w-fit pt-1.5 pb-2 pl-2 font-extrabold lg:px-4">
+                    className="w-fit pt-1.5 pb-2 pl-2 fluid-xs font-extrabold lg:px-4">
                     #
                   </Table.Column>
                   <Table.Column className="px-1 lg:w-[25%] lg:px-4">Team</Table.Column>
@@ -148,12 +148,12 @@ export function SaisontabelleView({
                   {teamsData.map((teamData) => (
                     <Table.Row
                       key={teamData.id}
-                      className={`border-border border-b last:border-0 ${qualifying.has(teamData.id) ? "bg-brand/5" : ""}`}>
+                      className={`border-b border-border last:border-0 ${qualifying.has(teamData.id) ? "bg-brand/5" : ""}`}>
                       {/* A left rule on this cell, so the marker reads as an annotation on the
                           POSITION rather than as a highlight on the club. */}
                       <Table.Cell
-                        className={`font-numeric fluid-xs w-fit py-4 pl-2 font-bold tabular-nums lg:px-4 ${
-                          qualifying.has(teamData.id) ? "border-brand border-l-4" : "border-l-4 border-l-transparent"
+                        className={`w-fit py-4 pl-2 font-numeric fluid-xs font-bold tabular-nums lg:px-4 ${
+                          qualifying.has(teamData.id) ? "border-l-4 border-brand" : "border-l-4 border-l-transparent"
                         }`}>
                         {/* Colour is never the only carrier: a screen reader gets the same fact the
                             rule and the legend give, in the cell that states the place. */}
@@ -164,16 +164,16 @@ export function SaisontabelleView({
                       {/* `overflow-visible` stays — the Austritt badge is translated outside this
                           cell on purpose, so truncation has to live on the span below rather than
                           here. */}
-                      <Table.Cell className="fluid-xs overflow-visible px-1 py-4 lg:min-w-[200px] lg:px-4">
+                      <Table.Cell className="overflow-visible px-1 py-4 fluid-xs lg:min-w-[200px] lg:px-4">
                         <TeamPopoverMenu
                           teamName={teamData.name}
                           teamId={teamData.id}
                           teamAustritt={teamData.austritt_type}
                           saisonId={saisonId}>
-                          <span className="fluid-xs text-foreground hover:text-brand hidden max-w-full min-w-0 truncate font-medium transition-colors lg:block">
+                          <span className="hidden max-w-full min-w-0 truncate fluid-xs font-medium text-foreground transition-colors hover:text-brand lg:block">
                             {`${teamData.name} (${teamData.shorthand})`}
                           </span>
-                          <span className="fluid-sm text-foreground hover:text-brand block font-medium transition-colors lg:hidden">
+                          <span className="block fluid-sm font-medium text-foreground transition-colors hover:text-brand lg:hidden">
                             {teamData.shorthand}
                           </span>
                           {/* `PILL_SOLID_CLASSES` and not the tint: a qualifying row wears `bg-brand/5`, and
@@ -190,7 +190,7 @@ export function SaisontabelleView({
                         </TeamPopoverMenu>
                       </Table.Cell>
 
-                      <Table.Cell className="font-numeric text-foreground-muted px-1 py-4 text-center font-medium tabular-nums lg:px-2">
+                      <Table.Cell className="px-1 py-4 text-center font-numeric font-medium text-foreground-muted tabular-nums lg:px-2">
                         {/* A flex row, not two inline nodes: a badge on the text baseline would drag
                             the number off the cell's centre. */}
                         <span className="inline-flex items-center justify-center gap-x-1">
@@ -204,24 +204,24 @@ export function SaisontabelleView({
                       {/* `-strong`, not the plain accents: a figure this size is text and answers to
                           4.5:1, where the plain accents measure 3.15:1 to 4.73:1 on the card's ground
                           in the light theme. */}
-                      <Table.Cell className="font-numeric fluid-xs px-1 py-4 text-center font-medium tabular-nums lg:px-2">
-                        <span className="text-success-strong font-semibold">{teamData.statistik.siege}</span>-
-                        <span className="text-warning-strong font-semibold">{teamData.statistik.unentschieden}</span>-
-                        <span className="text-danger-strong font-semibold">{teamData.statistik.niederlagen}</span>
+                      <Table.Cell className="px-1 py-4 text-center font-numeric fluid-xs font-medium tabular-nums lg:px-2">
+                        <span className="font-semibold text-success-strong">{teamData.statistik.siege}</span>-
+                        <span className="font-semibold text-warning-strong">{teamData.statistik.unentschieden}</span>-
+                        <span className="font-semibold text-danger-strong">{teamData.statistik.niederlagen}</span>
                       </Table.Cell>
 
-                      <Table.Cell className="font-numeric muted-meta px-1 py-4 text-center tabular-nums lg:px-2">
+                      <Table.Cell className="px-1 py-4 text-center font-numeric muted-meta tabular-nums lg:px-2">
                         {teamData.statistik.tore_geschossen}
                       </Table.Cell>
 
-                      <Table.Cell className="font-numeric fluid-xs px-1 py-4 text-center font-bold tabular-nums lg:px-2">
+                      <Table.Cell className="px-1 py-4 text-center font-numeric fluid-xs font-bold tabular-nums lg:px-2">
                         <Tordifferenz
                           geschossen={teamData.statistik.tore_geschossen}
                           kassiert={teamData.statistik.tore_kassiert}
                         />
                       </Table.Cell>
 
-                      <Table.Cell className="font-numeric fluid-sm text-foreground px-1 py-4 text-center font-extrabold tabular-nums lg:px-2">
+                      <Table.Cell className="px-1 py-4 text-center font-numeric fluid-sm font-extrabold text-foreground tabular-nums lg:px-2">
                         {teamData.statistik.punkte}
                       </Table.Cell>
                     </Table.Row>

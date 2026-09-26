@@ -47,9 +47,9 @@ export function SidemenuNavLinks<TIcon extends string>({
           {isDesktopCollapsed ? (
             // The glyph's own width, `size-4.5` in `SidemenuNavItem`, rather than a fraction: the column this sits in is
             // narrower than the squares below it, so half of it is a rule half a glyph wide.
-            <Separator className="bg-border w-4.5 self-center" />
+            <Separator className="w-4.5 self-center bg-border" />
           ) : (
-            group.category_name !== "" && <span className="muted-hint px-2">{group.category_name}</span>
+            group.category_name !== "" && <span className="px-2 muted-hint">{group.category_name}</span>
           )}
 
           {/* `items-center` while collapsed, matching the footer's own container: the two must agree or the rail

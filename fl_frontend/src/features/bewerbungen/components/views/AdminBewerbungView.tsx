@@ -51,12 +51,12 @@ export function AdminBewerbungView({
 
   return (
     <div className={`${PAGE_RISE_CLASSES} w-full p-6 sm:p-8`}>
-      <div className="max-w-page mx-auto flex w-full flex-col">
+      <div className="mx-auto flex w-full max-w-page flex-col">
         <BackButton fallbackHref={saisonHref("/admin/bewerbungen")} />
 
         <header className="mb-6 flex w-full flex-row items-center gap-x-3">
           {/* `h2`, never `h1`: the shell's top bar owns the page's one heading. */}
-          <h2 className="fluid-2xl text-foreground min-w-0 truncate font-extrabold tracking-tight">
+          <h2 className="min-w-0 truncate fluid-2xl font-extrabold tracking-tight text-foreground">
             {teamName ?? `Bewerbung für die Saison ${bewerbung.saison_id}`}
           </h2>
           <span className="shrink-0">

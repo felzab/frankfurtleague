@@ -136,7 +136,7 @@ export function SaisonPhaseChip({ saisonPhase }: { saisonPhase: FLSaisonPhase })
     <Chip
       size="sm"
       className={`${PILL_RADIUS_CLASSES} border-none px-1.5 py-0.5 ${PILL_TINT_CLASSES[saisonPhase]}`}>
-      <div className="fluid-xxs flex items-center gap-1 font-extrabold tracking-wide uppercase">
+      <div className="flex items-center gap-1 fluid-xxs font-extrabold tracking-wide uppercase">
         {PHASE_ICONS[saisonPhase]}
         {PHASE_LABELS[saisonPhase]}
       </div>

@@ -41,7 +41,7 @@ export function AdminSperreAufhebenPanel({ sperreId, gesperrtAm }: { sperreId: s
     <div className="flex w-full flex-col gap-3">
       {isConfirming && (
         <ConfirmReveal>
-          <p className="fluid-xxs text-foreground leading-normal font-medium">{SPERRE_AUFHEBEN_CONSEQUENCE}</p>
+          <p className="fluid-xxs leading-normal font-medium text-foreground">{SPERRE_AUFHEBEN_CONSEQUENCE}</p>
         </ConfirmReveal>
       )}
 

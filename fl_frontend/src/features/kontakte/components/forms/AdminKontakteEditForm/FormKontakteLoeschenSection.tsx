@@ -117,7 +117,7 @@ export function FormKontakteLoeschenSection({
               </dl>
             </div>
 
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
+            <p className="fluid-xxs leading-normal font-medium text-foreground">
               Danach ist für die Saison {saisonId} niemand mehr hinterlegt. Die Zugehörigkeit des Teams zur Saison bleibt bestehen, und die
               Personen bleiben in jeder anderen Saison stehen.
             </p>

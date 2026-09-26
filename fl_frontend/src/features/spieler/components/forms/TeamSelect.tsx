@@ -68,7 +68,7 @@ export function TeamSelect({
         <span className={value ? "" : "text-foreground-muted"}>
           {value === null ? "Team wählen" : (selected?.name ?? "Team außerhalb dieser Saison")}
         </span>
-        <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+        <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
       </Select.Trigger>
       <FieldError className={FIELD_ERROR_CLASSES}>{error}</FieldError>
       <Select.Popover className={`${overlayPanel()} mt-2 max-h-80 overflow-y-auto p-1.5`}>

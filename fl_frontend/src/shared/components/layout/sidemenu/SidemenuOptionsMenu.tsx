@@ -48,7 +48,7 @@ export function SidemenuOptionsMenu({
             `scale-100` would not work: v4's standalone `scale` composes with `transform` rather than replacing it. */}
         <Dropdown.Trigger
           aria-label="Weitere Optionen"
-          className={`text-foreground-muted data-hovered:bg-hover data-hovered:text-foreground flex h-9 shrink-0 items-center rounded-md transition-colors data-[pressed=true]:transform-none ${
+          className={`flex h-9 shrink-0 items-center rounded-md text-foreground-muted transition-colors data-hovered:bg-hover data-hovered:text-foreground data-[pressed=true]:transform-none ${
             isDesktopCollapsed ? `w-9 justify-center p-0 ${RAIL_SQUARE_HEROUI_RING_CLASSES}` : "w-full justify-start gap-2 px-3"
           }`}>
           <Ellipsis
@@ -76,7 +76,7 @@ export function SidemenuOptionsMenu({
               textValue="Modus"
               shouldCloseOnSelect={false}
               className="flex w-full cursor-default items-center justify-between bg-transparent! px-2 py-1.5">
-              <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Modus</Label>
+              <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">Modus</Label>
               <ThemeSwitch compact />
             </Dropdown.Item>
           </Dropdown.Section>
@@ -93,10 +93,10 @@ export function SidemenuOptionsMenu({
                     textValue="Passkeys verwalten"
                     onAction={onManagePasskeys}
                     className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
-                    <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">Passkeys verwalten</Label>
+                    <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">Passkeys verwalten</Label>
                     <Key
                       aria-hidden="true"
-                      className="text-foreground-muted size-4 shrink-0"
+                      className="size-4 shrink-0 text-foreground-muted"
                     />
                   </Dropdown.Item>
                 )}
@@ -143,13 +143,13 @@ function SignOutItem({ onSignOut, isMenuOpen }: { onSignOut: () => Promise<FormS
         confirm.isConfirming ? "bg-danger/15!" : "bg-danger/10!"
       }`}>
       {/* Armed, the row is its question alone. The tint and the label both shift, so the state never rests on colour. */}
-      <Label className={`fluid-sm text-danger-strong min-w-0 flex-1 font-semibold ${confirm.isConfirming ? "text-center" : ""}`}>
+      <Label className={`min-w-0 flex-1 fluid-sm font-semibold text-danger-strong ${confirm.isConfirming ? "text-center" : ""}`}>
         {confirm.isPending ? "Meldet ab..." : confirm.isConfirming ? "Abmelden?" : "Abmelden"}
       </Label>
       {!confirm.isConfirming && (
         <ArrowRightFromSquare
           aria-hidden="true"
-          className="text-danger-strong size-4 shrink-0"
+          className="size-4 shrink-0 text-danger-strong"
         />
       )}
     </Dropdown.Item>

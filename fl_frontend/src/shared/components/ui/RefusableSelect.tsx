@@ -69,7 +69,7 @@ export function RefusableSelect({
         <span className={value ? "" : "text-foreground-muted"}>
           {value === null ? placeholder : value.meta === null ? value.name : `${value.name} (${value.meta})`}
         </span>
-        <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+        <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
       </Select.Trigger>
       <Select.Popover className={`${overlayPanel()} mt-2 max-h-72 overflow-y-auto p-1.5`}>
         <ListBox aria-label={label}>

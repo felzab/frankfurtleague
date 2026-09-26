@@ -121,8 +121,8 @@ function FilterPill<TItem>({
             `globals.css`'s base outline for a `[tabindex]` draws two pixels outside the clip. */}
         <Popover.Trigger
           aria-label={`${facet.label}: ${chosen.map((option) => option.label).join(", ")} ändern`}
-          className="hover:bg-hover flex h-full cursor-pointer flex-row items-center gap-x-2 pr-0.5 pl-3 whitespace-nowrap -outline-offset-3 transition-colors duration-(--motion-fast)">
-          <span className={`text-brand truncate ${VALUE_CAP_CLASSES}`}>{chosen[0]?.label ?? ""}</span>
+          className="flex h-full cursor-pointer flex-row items-center gap-x-2 pr-0.5 pl-3 whitespace-nowrap -outline-offset-3 transition-colors duration-(--motion-fast) hover:bg-hover">
+          <span className={`truncate text-brand ${VALUE_CAP_CLASSES}`}>{chosen[0]?.label ?? ""}</span>
           {chosen.length > 1 && <span className={`${countBadge("brandSolid")} shrink-0`}>+{chosen.length - 1}</span>}
         </Popover.Trigger>
         <Popover.Content
@@ -149,7 +149,7 @@ function FilterPill<TItem>({
         onPress={() => {
           onClear(facet.param);
         }}
-        className={`${CLEAR_FACE_CLASSES} text-foreground-muted data-hovered:bg-hover-danger data-hovered:text-danger-strong min-w-0 cursor-pointer transition-colors duration-(--motion-fast)`}>
+        className={`${CLEAR_FACE_CLASSES} min-w-0 cursor-pointer text-foreground-muted transition-colors duration-(--motion-fast) data-hovered:bg-hover-danger data-hovered:text-danger-strong`}>
         <Xmark
           aria-hidden="true"
           className="size-3.5 shrink-0"
@@ -216,7 +216,7 @@ function LeserichtungSelect({ richtung }: { richtung: Leserichtung }) {
                   key={option.value}
                   id={option.value}
                   textValue={option.label}
-                  className={`${PICKED_OPTION_CLASSES} text-foreground-muted data-hovered:bg-hover data-hovered:text-brand fluid-sm rounded-lg px-3 py-2.5 font-bold transition-colors duration-(--motion-fast)`}>
+                  className={`${PICKED_OPTION_CLASSES} rounded-lg px-3 py-2.5 fluid-sm font-bold text-foreground-muted transition-colors duration-(--motion-fast) data-hovered:bg-hover data-hovered:text-brand`}>
                   {option.label}
                 </ListBox.Item>
               ))}
@@ -314,7 +314,7 @@ function FilterRow<TItem>({
             type="button"
             disabled
             aria-label={ADD_HINT}
-            className={`${ICON_SHELL_CLASSES} text-foreground-muted cursor-not-allowed opacity-50`}>
+            className={`${ICON_SHELL_CLASSES} cursor-not-allowed text-foreground-muted opacity-50`}>
             {addFace}
           </button>
         ) : (

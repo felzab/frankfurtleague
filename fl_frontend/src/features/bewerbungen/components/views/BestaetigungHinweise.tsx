@@ -160,7 +160,7 @@ export function WiderspruchFolge() {
   // The reveal's body scale rather than `ABSATZ_CLASSES`: this paragraph is read inside an escalation panel
   // and beside the rest of that panel's copy.
   return (
-    <p className="fluid-xxs text-foreground leading-normal font-medium">
+    <p className="fluid-xxs leading-normal font-medium text-foreground">
       <Absatz
         schluessel="ablehnenFolge"
         werte={KONSTANTEN}

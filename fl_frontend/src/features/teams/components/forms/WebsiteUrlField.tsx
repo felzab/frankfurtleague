@@ -52,7 +52,7 @@ export function WebsiteUrlField({
       {...(isFollowable && value !== null ? { href: value, target: "_blank", rel: "noopener noreferrer" } : { "aria-disabled": true })}
       aria-label="Website in neuem Tab öffnen"
       className={`flex size-7 shrink-0 items-center justify-center rounded-md transition-colors ${
-        isFollowable ? "text-foreground-muted hover:text-brand cursor-pointer" : "text-foreground-muted/40 cursor-not-allowed"
+        isFollowable ? "cursor-pointer text-foreground-muted hover:text-brand" : "cursor-not-allowed text-foreground-muted/40"
       }`}>
       <ArrowUpRightFromSquare
         aria-hidden="true"
@@ -76,7 +76,7 @@ export function WebsiteUrlField({
           fullWidth
           className={`${FIELD_GROUP_CLASSES} min-w-0 flex-1`}>
           {/* Muted, because it is furniture: always there, never editable. */}
-          <InputGroup.Prefix className="text-foreground-muted fluid-sm border-border self-stretch border-r pr-2 select-none">
+          <InputGroup.Prefix className="self-stretch border-r border-border pr-2 fluid-sm text-foreground-muted select-none">
             {WEBSITE_URL_SCHEME}
           </InputGroup.Prefix>
           {/* `min-w-0` because HeroUI gives this input `flex: 1` and no floor of its own: its automatic
@@ -85,7 +85,7 @@ export function WebsiteUrlField({
           <InputGroup.Input
             maxLength={maxLength}
             placeholder="www.beispielverein.de"
-            className="fluid-sm min-w-0 ps-2"
+            className="min-w-0 ps-2 fluid-sm"
           />
         </InputGroup>
         {/* The pair `fl_frontend/src/shared/components/ui/RowActions.tsx :: RowActionDelete` splits, for its reason. */}

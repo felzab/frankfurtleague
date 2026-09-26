@@ -7,7 +7,7 @@ import { FLLogo } from "./FLLogo";
  */
 export function BrandHero({ title, lead }: { title: string; lead: string }) {
   return (
-    <header className="bg-brand-solid text-brand-solid-foreground border-brand-solid-foreground/15 relative flex w-full flex-row items-center gap-x-6 overflow-hidden rounded-3xl border px-4 py-6 shadow-sm sm:gap-x-8 sm:p-8 lg:p-10">
+    <header className="relative flex w-full flex-row items-center gap-x-6 overflow-hidden rounded-3xl border border-brand-solid-foreground/15 bg-brand-solid px-4 py-6 text-brand-solid-foreground shadow-sm sm:gap-x-8 sm:p-8 lg:p-10">
       <PitchTrace />
 
       <div className="relative flex min-w-0 flex-1 flex-col gap-y-3">
@@ -18,11 +18,11 @@ export function BrandHero({ title, lead }: { title: string; lead: string }) {
           Frankfurt League
         </span>
         <h1 className={`${DISPLAY_HEADING_CLASSES} fluid-4xl text-balance`}>{title}</h1>
-        <p className="fluid-lg text-brand-solid-foreground/85 max-w-2xl font-medium text-pretty">{lead}</p>
+        <p className="max-w-2xl fluid-lg font-medium text-pretty text-brand-solid-foreground/85">{lead}</p>
       </div>
 
       {/* `relative`, so the mark stacks over the trace rather than under it. */}
-      <FLLogo className="text-brand-solid-accent relative h-20 w-auto shrink-0 sm:h-28 lg:h-40" />
+      <FLLogo className="relative h-20 w-auto shrink-0 text-brand-solid-accent sm:h-28 lg:h-40" />
     </header>
   );
 }

@@ -51,8 +51,8 @@ const SCHON_BESTAETIGT_GRUND = "Diese Person hat ihren Eintrag schon bestätigt.
 function Angabe({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-y-0.5">
-      <dt className="fluid-xxs text-foreground-muted font-bold">{label}</dt>
-      <dd className="fluid-sm text-foreground min-w-0 font-medium break-words">{children}</dd>
+      <dt className="fluid-xxs font-bold text-foreground-muted">{label}</dt>
+      <dd className="min-w-0 fluid-sm font-medium break-words text-foreground">{children}</dd>
     </div>
   );
 }

@@ -153,7 +153,7 @@ export function AdminBewerbungAblehnenSection({
 
         {/* The count, not a progress bar: what a writer needs near the cap is the number of
             characters left, and the field is refused above it rather than truncated. */}
-        <p className="fluid-xxs text-foreground-muted font-medium">
+        <p className="fluid-xxs font-medium text-foreground-muted">
           {String(trimmedGrund.length)} von {String(BEWERBUNG_GRUND_MAX_LENGTH)} Zeichen
         </p>
 
@@ -175,11 +175,11 @@ export function AdminBewerbungAblehnenSection({
 
             {/* The reason stands unabridged: it is the one thing the message exists to hand over, and
                 a shortened preview would let a sentence go out that nobody read whole. */}
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
+            <p className="fluid-xxs leading-normal font-medium text-foreground">
               Diese Begründung geht so an die Kontaktpersonen: „{trimmedGrund}“
             </p>
 
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
+            <p className="fluid-xxs leading-normal font-medium text-foreground">
               Es gibt in der Verwaltung keinen Weg zurück. Über eine Bewerbung wird einmal entschieden, und die Absage geht sofort raus.
             </p>
           </ConfirmReveal>

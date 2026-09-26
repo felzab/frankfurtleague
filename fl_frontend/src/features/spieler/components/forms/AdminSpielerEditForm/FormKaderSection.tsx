@@ -205,7 +205,7 @@ export function FormKaderSection({
                     isDisabled={heldRollen[option.value] !== undefined && rolle !== option.value}
                     // The selected arm takes a hover of its own because the two plain arms tie at
                     // (0,2,0): without it the white label lands on grey, and source order decides.
-                    className="border-border bg-surface data-hovered:bg-hover fluid-sm data-selected:bg-brand-solid data-selected:text-brand-solid-foreground data-selected:data-hovered:bg-brand-solid-hover rounded-lg border px-3 py-2 font-medium transition-colors data-disabled:opacity-50">
+                    className="rounded-lg border border-border bg-surface px-3 py-2 fluid-sm font-medium transition-colors data-disabled:opacity-50 data-hovered:bg-hover data-selected:bg-brand-solid data-selected:text-brand-solid-foreground data-selected:data-hovered:bg-brand-solid-hover">
                     {option.label}
                   </ToggleButton>
                 ))}

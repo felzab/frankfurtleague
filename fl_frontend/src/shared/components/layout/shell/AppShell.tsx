@@ -140,7 +140,7 @@ export function AppShell<TIcon extends string>({
         <main
           id="main-content"
           inert={isMobileOpen}
-          className="bg-background relative flex min-w-0 flex-1 scrollbar-gutter-stable flex-col overflow-y-auto">
+          className="relative flex min-w-0 flex-1 scrollbar-gutter-stable flex-col overflow-y-auto bg-background">
           {children}
         </main>
       </div>

@@ -104,7 +104,7 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
           {label}
         </FieldLabel>
         <Autocomplete.Trigger className={FIELD_TRIGGER_CLASSES}>
-          <Autocomplete.Value className="fluid-sm min-w-0 truncate" />
+          <Autocomplete.Value className="min-w-0 truncate fluid-sm" />
           {/* `ms-2` rather than a gap on the trigger: `.autocomplete__value` is `flex-1`, so a
               truncated name ends against this button (`docs/frontend/spec.md` I61). `hover: "css"`
               because HeroUI renders this as a plain `<button>`. */}
@@ -125,7 +125,7 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
               className="p-2">
               {/* The panel's own fill, not a recessed one: the border alone says "field", and
                   `--border-control` clears 1.4.11's 3:1 on `--bg-surface` and not on `--bg-muted`. */}
-              <SearchField.Group className="border-control bg-surface rounded-lg border px-2 py-1.5 transition-colors duration-(--motion-base)">
+              <SearchField.Group className="rounded-lg border border-control bg-surface px-2 py-1.5 transition-colors duration-(--motion-base)">
                 <SearchField.SearchIcon />
                 <SearchField.Input
                   placeholder={`${label} finden...`}
@@ -158,7 +158,7 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
                   key={item.id}
                   id={item.id}
                   textValue={item.name}
-                  className="fluid-xs data-hovered:bg-hover cursor-pointer rounded-lg px-3 py-2">
+                  className="cursor-pointer rounded-lg px-3 py-2 fluid-xs data-hovered:bg-hover">
                   {item.name}
                   <ListBox.ItemIndicator />
                 </ListBox.Item>
@@ -167,11 +167,11 @@ export function PickOrCreateAutocomplete<TItem extends { id: string; name: strin
           </Autocomplete.Filter>
 
           {hasMatches && (
-            <div className="bg-muted border-border border-t p-2">
+            <div className="border-t border-border bg-muted p-2">
               <Button
                 type="button"
                 variant="secondary"
-                className="text-brand w-full justify-start font-bold"
+                className="w-full justify-start font-bold text-brand"
                 onPress={openCreateModal}>
                 <Plus
                   aria-hidden="true"

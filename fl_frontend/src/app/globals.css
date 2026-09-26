@@ -329,12 +329,12 @@ html:has([data-app-shell]) {
    prefix as a colour and drops the whole recipe when one is combined with it, where the
    spelled-out form loses only the colour. */
 @utility muted-hint {
-  @apply fluid-sm text-foreground-muted font-medium;
+  @apply fluid-sm font-medium text-foreground-muted;
 }
 
 /* Not `text-*` either: tailwind-merge's colour prefix, as above. */
 @utility muted-meta {
-  @apply fluid-xs text-foreground-muted font-medium;
+  @apply fluid-xs font-medium text-foreground-muted;
 }
 
 /* A rail card's badge cluster. Here rather than in `admin.css`, which alone loads under `/admin`:
@@ -797,11 +797,11 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   }
 
   .table__column {
-    @apply bg-background/90! text-foreground fluid-xxs;
+    @apply bg-background/90! fluid-xxs text-foreground;
   }
 
   [data-slot="table"] td {
-    @apply border-b-border! border-b-1!;
+    @apply border-b-1! border-b-border!;
   }
 
   [data-slot="table"] tr:last-child td {
@@ -823,7 +823,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
      for its whole life, so a blurred backdrop cost a full-surface re-rasterisation
      per frame and made a 3px bar drain in visible steps. */
   .toast {
-    @apply bg-surface border-border rounded-xl border p-3.5 shadow-lg;
+    @apply rounded-xl border border-border bg-surface p-3.5 shadow-lg;
     /* Never `overflow-hidden`: it clips HeroUI's `::after` hit area over the gap between expanded
        toasts, and the stack collapses under a pointer crossing it. `AppToaster` clips the timer bar. */
     @apply items-start gap-2 whitespace-normal;
@@ -958,11 +958,11 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   /* Today is OUTLINED where the chosen day is FILLED, because a red tint beside a red fill is two
      reds a reader has to rank. Bold too, so the marker does not rest on colour alone. */
   .calendar__cell[data-today="true"] {
-    @apply text-foreground bg-transparent;
+    @apply bg-transparent text-foreground;
   }
 
   .calendar__cell[data-today="true"]:not([data-selected="true"]) {
-    @apply border-brand border font-bold;
+    @apply border border-brand font-bold;
   }
 
   /* The chosen day, in the pair `StufenPicker` and the toast's action button already carry. */
@@ -997,7 +997,7 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   /* Takes `ClearFieldButton`'s geometry and hover, since the two share a field's suffix — not
      `dismissControl` itself, whose contract is a label naming what goes. */
   .date-picker__trigger {
-    @apply text-foreground-muted size-7 shrink-0 justify-center rounded-md p-0;
+    @apply size-7 shrink-0 justify-center rounded-md p-0 text-foreground-muted;
     /* HeroUI transitions this on `box-shadow` alone, so the fill would snap in beside a fading ×.
        `box-shadow` stays, since it is what the focus ring rides. */
     @apply transition-[color,background-color,box-shadow] duration-(--motion-fast);

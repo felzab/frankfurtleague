@@ -65,7 +65,7 @@ export function FormKontakteLinkSection({
             in the admin panel a glyph names a destination, and this one would name none. */}
         <Link
           href={href}
-          className={`${textLink()} fluid-sm w-fit font-bold`}>
+          className={`${textLink()} w-fit fluid-sm font-bold`}>
           {label}
         </Link>
       </div>

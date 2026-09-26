@@ -10,7 +10,7 @@ import { BrandLink } from "../../ui/BrandLink";
  */
 export function SidemenuDrawerHeader({ onClose }: { onClose: () => void }) {
   return (
-    <div className="border-border flex h-(--navbar-height) shrink-0 items-center justify-between border-b px-4 lg:hidden">
+    <div className="flex h-(--navbar-height) shrink-0 items-center justify-between border-b border-border px-4 lg:hidden">
       {/* Closes the drawer as it navigates, for the reason `SidemenuFooter`'s link to the same page gives. */}
       <BrandLink
         title="Zur öffentlichen Website"
@@ -19,7 +19,7 @@ export function SidemenuDrawerHeader({ onClose }: { onClose: () => void }) {
 
       <button
         onClick={onClose}
-        className="text-foreground-muted hover:bg-hover hover:text-foreground -mr-1 shrink-0 rounded-md p-1.5 transition-colors"
+        className="-mr-1 shrink-0 rounded-md p-1.5 text-foreground-muted transition-colors hover:bg-hover hover:text-foreground"
         aria-label="Menü schließen">
         <Xmark
           className="size-5"

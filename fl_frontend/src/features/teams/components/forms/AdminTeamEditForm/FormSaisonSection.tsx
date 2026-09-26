@@ -124,7 +124,7 @@ function GruppenTauschControl({
   };
 
   return (
-    <div className="border-border flex w-full flex-col gap-y-3 border-t pt-5">
+    <div className="flex w-full flex-col gap-y-3 border-t border-border pt-5">
       {/* A sub-group, not a panel of its own: it edits the row above it, and a second bordered box
           for one picker would read as a second subject. */}
       <h3 className={FORM_SECTION_HEADING_CLASSES}>Gruppe tauschen</h3>
@@ -172,7 +172,7 @@ function GruppenTauschControl({
 
             {/* Why an expected club is missing, answered where the picker raises it. A greyed row
             carries its own reason, so nothing here restates the refusal labels. */}
-            <p className="fluid-xxs text-foreground leading-normal font-medium">
+            <p className="fluid-xxs leading-normal font-medium text-foreground">
               Teams, die nicht in dieser Saison stehen, erscheinen hier nicht.
             </p>
           </div>
@@ -188,7 +188,7 @@ function GruppenTauschControl({
 
           {isConfirming && partner !== null && (
             <ConfirmReveal>
-              <p className="fluid-xxs text-foreground leading-normal font-medium">
+              <p className="fluid-xxs leading-normal font-medium text-foreground">
                 Der Tausch gilt unabhängig vom Speichern-Knopf unten. Rückgängig machst Du ihn, indem Du dieselben beiden Teams noch einmal
                 tauschst.
               </p>
@@ -332,10 +332,10 @@ export function FormSaisonSection({
             {gruppeLock.locked ? (
               <div className="flex w-full flex-col gap-y-1">
                 <FieldLabel<TeamFieldPath> path="gruppe">Gruppe</FieldLabel>
-                <div className="border-border bg-muted/40 text-foreground fluid-sm flex h-10 w-full items-center gap-x-2 rounded-lg border px-3 font-bold sm:max-w-60">
+                <div className="flex h-10 w-full items-center gap-x-2 rounded-lg border border-border bg-muted/40 px-3 fluid-sm font-bold text-foreground sm:max-w-60">
                   <LockFill
                     aria-hidden="true"
-                    className="text-foreground-muted size-3.5 shrink-0"
+                    className="size-3.5 shrink-0 text-foreground-muted"
                   />
                   {gruppe ? `Gruppe ${gruppe}` : "Keine Gruppe"}
                 </div>

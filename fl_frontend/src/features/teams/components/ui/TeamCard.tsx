@@ -41,7 +41,7 @@ export function TeamCard({ teamData }: { teamData: FLTeam }) {
             className={`fluid-base font-bold ${NAME_WRAP_CLASSES}`}>
             {teamData.name}
           </Card.Title>
-          <Card.Description className="fluid-xxs text-foreground-muted font-medium">{teamData.address.stadtteil}</Card.Description>
+          <Card.Description className="fluid-xxs font-medium text-foreground-muted">{teamData.address.stadtteil}</Card.Description>
         </div>
         <div className={`${DISPLAY_HEADING_CLASSES} ${BRAND_TILE_CLASSES}`}>{teamData.shorthand}</div>
       </Card.Header>

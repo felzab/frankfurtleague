@@ -60,9 +60,9 @@ export function BewerbungView({
   const zustand = isUnlesbar ? "unlesbar" : fensterZustand(fenster, today);
 
   return (
-    <section className="max-w-meta flex w-full flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8">
-      <header className="border-border bg-surface relative flex flex-col gap-4 overflow-hidden rounded-3xl border px-4 py-6 shadow-sm sm:p-8">
-        <div className="bg-brand-solid absolute top-0 left-0 h-1.5 w-full" />
+    <section className="flex w-full max-w-meta flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8">
+      <header className="relative flex flex-col gap-4 overflow-hidden rounded-3xl border border-border bg-surface px-4 py-6 shadow-sm sm:p-8">
+        <div className="absolute top-0 left-0 h-1.5 w-full bg-brand-solid" />
 
         {/* No dot: the page learns whether the season has ended and never whether it runs, so it cannot say the season is running. */}
         <SaisonChip isLaufend={false}>Saison {saisonId}</SaisonChip>
@@ -73,7 +73,7 @@ export function BewerbungView({
 
         {/* The invitation is the RUNNING state's alone: every other state renders no form, and „Trag
             Dein Team hier ein“ above a panel saying the window is shut is the page contradicting itself. */}
-        <p className="muted-hint max-w-xl">
+        <p className="max-w-xl muted-hint">
           Die Frankfurt League ist das Fußballturnier der Frankfurter Oberstufen.{" "}
           {zustand === "laeuft"
             ? "Trag Dein Team hier ein. Nach dem Abschicken bekommt jede Kontaktperson eine E-Mail mit einem Link, über den sie ihren Eintrag bestätigt."
@@ -87,13 +87,13 @@ export function BewerbungView({
           />
         )}
 
-        <nav className="border-border grid grid-cols-1 gap-x-3 gap-y-4 border-t pt-6 sm:grid-cols-3">
+        <nav className="grid grid-cols-1 gap-x-3 gap-y-4 border-t border-border pt-6 sm:grid-cols-3">
           {KOPF_LINKS.map(({ href, label, anlass, Icon }) => (
             <div
               key={href}
               className="flex flex-col gap-1">
               {/* The site's eyebrow, so the reason to press reads like every other label on the page. */}
-              <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">{anlass}</span>
+              <span className="fluid-xxs font-extrabold tracking-widest text-brand uppercase">{anlass}</span>
 
               <Link
                 href={href}
@@ -176,11 +176,11 @@ export function BewerbungView({
  */
 function FensterFakten({ saisonId, bis }: { saisonId: string; bis: string }) {
   return (
-    <dl className="bg-brand-solid text-brand-solid-foreground flex w-full flex-col gap-4 rounded-2xl p-4 shadow-md sm:flex-row sm:items-center sm:gap-6 sm:p-5">
+    <dl className="flex w-full flex-col gap-4 rounded-2xl bg-brand-solid p-4 text-brand-solid-foreground shadow-md sm:flex-row sm:items-center sm:gap-6 sm:p-5">
       <Fakt label="Wer mitspielen darf">Abi-Jahrgang {abiJahrgang(saisonId)}</Fakt>
 
       <div
-        className="bg-brand-solid-foreground/25 h-px w-full shrink-0 sm:h-10 sm:w-px"
+        className="h-px w-full shrink-0 bg-brand-solid-foreground/25 sm:h-10 sm:w-px"
         aria-hidden="true"
       />
 
@@ -195,7 +195,7 @@ function Fakt({ label, children }: { label: string; children: React.ReactNode })
     <div className="flex min-w-0 flex-col gap-y-0.5">
       {/* The site's eyebrow in the fill's paired foreground at 75%, which composites to 7.52:1 on it —
           `text-brand` is the TINT of this fill and would read as a smudge on it. */}
-      <dt className="fluid-xxs text-brand-solid-foreground/75 font-extrabold tracking-widest uppercase">{label}</dt>
+      <dt className="fluid-xxs font-extrabold tracking-widest text-brand-solid-foreground/75 uppercase">{label}</dt>
       <dd className="fluid-lg font-extrabold">{children}</dd>
     </div>
   );
@@ -210,8 +210,8 @@ function ZustandPanel({ titel, text, aktion }: { titel: string; text: string; ak
     /* The form's own panel, not a fourth spelling of it: this box says the same thing the sections around it
        say, and only its padding and its centring are its own. */
     <div className={`${formPanel().root()} items-start gap-y-4 p-6 sm:p-8`}>
-      <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">{titel}</h2>
-      <p className="muted-hint max-w-xl">{text}</p>
+      <h2 className="fluid-lg font-extrabold tracking-tight text-foreground">{titel}</h2>
+      <p className="max-w-xl muted-hint">{text}</p>
 
       {aktion !== undefined && (
         <Link

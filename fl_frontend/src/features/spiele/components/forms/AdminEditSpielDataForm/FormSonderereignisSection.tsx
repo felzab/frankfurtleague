@@ -108,10 +108,10 @@ export function FormSonderereignisSection({
               {/* From the prop rather than `Select.Value`, which resolves its label out of the
                   react-aria collection and shows HeroUI's English placeholder on a render where that
                   collection has not committed — `SaisonSelector`'s reason. */}
-              <span className={sonderereignis === null ? "text-foreground-muted" : "text-danger-strong font-bold"}>
+              <span className={sonderereignis === null ? "text-foreground-muted" : "font-bold text-danger-strong"}>
                 {sonderereignis === null ? "Sonderereignis wählen" : SONDEREREIGNIS_LABELS[sonderereignis]}
               </span>
-              <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+              <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
             </Select.Trigger>
 
             <Select.Popover className={`${overlayPanel()} mt-2 p-1.5`}>

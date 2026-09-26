@@ -47,7 +47,7 @@ export function FormKontaktReveal({
 
       {/* The log is cleared whether or not a seat matched: a person edited out of a row leaves an
           image behind, and „nichts gefunden“ over an empty list would read as „nichts passiert“. */}
-      <p className="fluid-xxs text-foreground leading-normal font-medium">
+      <p className="fluid-xxs leading-normal font-medium text-foreground">
         {sitze.length === 0
           ? "Im Änderungsprotokoll werden gesicherte Stände zu dieser Adresse trotzdem geleert."
           : "Alle aufgeführten Einträge werden geleert, und im Änderungsprotokoll bleibt dazu kein gesicherter Stand."}{" "}

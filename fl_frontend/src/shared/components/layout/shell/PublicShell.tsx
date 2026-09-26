@@ -13,7 +13,7 @@ export function PublicShell({ serverStatusSlot, children }: { serverStatusSlot: 
 
       {/* `box-content` is load-bearing: the height becomes --navbar-height plus the border, which
           the <nav> inside also uses. Under border-box the nav overflows it by the border. */}
-      <header className="bg-surface border-border z-10 box-content h-(--navbar-height) w-full border-b">
+      <header className="z-10 box-content h-(--navbar-height) w-full border-b border-border bg-surface">
         <TopNav />
       </header>
 
@@ -30,7 +30,7 @@ export function PublicShell({ serverStatusSlot, children }: { serverStatusSlot: 
           fill stops where the separator and the copyright row are still being drawn. */}
       {/* The page's one contentinfo landmark, so `Footer` inside it renders a plain box: a second
           `<footer>` nested here is invalid and announces the footer twice. */}
-      <footer className="bg-surface border-border z-10 flex w-full shrink-0 flex-col border-t lg:min-h-[220px]">
+      <footer className="z-10 flex w-full shrink-0 flex-col border-t border-border bg-surface lg:min-h-[220px]">
         <Footer serverStatusSlot={serverStatusSlot} />
       </footer>
     </>

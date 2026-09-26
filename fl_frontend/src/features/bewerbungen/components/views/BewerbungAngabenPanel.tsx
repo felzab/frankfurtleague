@@ -23,8 +23,8 @@ const NOT_RECORDED = "Nicht angegeben";
 function Angabe({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-y-0.5">
-      <dt className="fluid-xxs text-foreground-muted font-bold">{label}</dt>
-      <dd className="fluid-sm text-foreground min-w-0 font-medium break-words">{children}</dd>
+      <dt className="fluid-xxs font-bold text-foreground-muted">{label}</dt>
+      <dd className="min-w-0 fluid-sm font-medium break-words text-foreground">{children}</dd>
     </div>
   );
 }
@@ -252,7 +252,7 @@ export function BewerbungAngabenPanel({
                 <span
                   aria-hidden="true"
                   style={{ backgroundColor: trikotFarbeHex(trikot.wunschfarbe) }}
-                  className="border-border size-4 shrink-0 rounded-full border shadow-sm"
+                  className="size-4 shrink-0 rounded-full border border-border shadow-sm"
                 />
                 {trikotFarbeLabel(trikot.wunschfarbe)}
               </span>

@@ -93,9 +93,9 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
         <div className="flex min-w-0 flex-row items-center gap-3">
           <Person
             aria-hidden="true"
-            className="text-foreground-muted size-4.5 shrink-0"
+            className="size-4.5 shrink-0 text-foreground-muted"
           />
-          <span className="fluid-sm text-foreground min-w-0 truncate font-semibold">{aktion.actor.email}</span>
+          <span className="min-w-0 truncate fluid-sm font-semibold text-foreground">{aktion.actor.email}</span>
         </div>
       );
     }
@@ -122,8 +122,8 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
 
     return (
       <div className={IDENTITY_STACK_CLASSES}>
-        <div className="font-numeric flex flex-row flex-wrap items-baseline gap-x-2 tabular-nums">
-          <span className="fluid-sm text-foreground font-bold">{datum}</span>
+        <div className="flex flex-row flex-wrap items-baseline gap-x-2 font-numeric tabular-nums">
+          <span className="fluid-sm font-bold text-foreground">{datum}</span>
           {uhrzeit !== null && <span className="muted-meta">{uhrzeit} Uhr</span>}
         </div>
         {renderAkteur(aktion)}
@@ -143,7 +143,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
     aktion.request === null ? (
       <span className="fluid-xs text-foreground-muted italic">Ohne Aufruf</span>
     ) : (
-      <span className="fluid-xs text-foreground-muted flex flex-row flex-wrap gap-x-1 font-mono break-all">
+      <span className="flex flex-row flex-wrap gap-x-1 font-mono fluid-xs break-all text-foreground-muted">
         <span className="font-bold">{aktion.request.method}</span>
         <span>{aktion.request.path}</span>
       </span>
@@ -152,7 +152,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
   const renderDatensatz = (aktion: AdminAktionRow) => {
     const datensatz = describeAktionDatensatz(aktion);
 
-    if (datensatz.kind === "dokument") return <span className="fluid-xs text-foreground font-mono break-all">{datensatz.id}</span>;
+    if (datensatz.kind === "dokument") return <span className="font-mono fluid-xs break-all text-foreground">{datensatz.id}</span>;
     if (datensatz.kind === "ohne") return <span className="fluid-xs text-foreground-muted italic">Kein Datensatz benannt</span>;
 
     return (
@@ -160,7 +160,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
         {datensatz.filterPaare.map(([feld, wert]) => (
           <span
             key={feld}
-            className="fluid-xs flex flex-row flex-wrap gap-x-1 font-mono break-all">
+            className="flex flex-row flex-wrap gap-x-1 font-mono fluid-xs break-all">
             <span className="text-foreground-muted">{feld}</span>
             <span className="text-foreground">{wert}</span>
           </span>
@@ -168,7 +168,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
         {/* A readout rather than a sentence: "12 Datensätze" would have to agree with a count of one. */}
         {datensatz.betroffen !== null && (
           <span className="muted-meta">
-            Betroffen: <span className="text-foreground font-numeric font-bold tabular-nums">{datensatz.betroffen}</span>
+            Betroffen: <span className="font-numeric font-bold text-foreground tabular-nums">{datensatz.betroffen}</span>
           </span>
         )}
       </div>
@@ -246,7 +246,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
             className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
             {renderZeitpunkt(aktion)}
             {renderAenderung(aktion)}
-            <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(aktion)}</div>
+            <div className="-mx-1 border-t border-border/50 pt-2">{renderActions(aktion)}</div>
           </div>
         ))}
       </div>
@@ -284,7 +284,7 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
                 {(aktion: AdminAktionRow) => (
                   <Table.Row
                     id={aktion.id}
-                    className="border-border/50 border-b last:border-b-0">
+                    className="border-b border-border/50 last:border-b-0">
                     <Table.Cell className={CELL_EDGE_CLASSES}>{renderZeitpunkt(aktion)}</Table.Cell>
 
                     <Table.Cell className={CELL_INNER_CLASSES}>{renderAenderung(aktion)}</Table.Cell>

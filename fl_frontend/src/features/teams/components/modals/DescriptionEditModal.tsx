@@ -68,9 +68,9 @@ export function DescriptionEditModal({
             />
           </TextField>
           <div className="flex w-full flex-row items-baseline justify-between gap-x-3">
-            <p className="fluid-xxs text-foreground-muted font-medium">Erscheint auf der öffentlichen Teamseite.</p>
+            <p className="fluid-xxs font-medium text-foreground-muted">Erscheint auf der öffentlichen Teamseite.</p>
             <p
-              className={`fluid-xxs shrink-0 font-bold ${draft.length >= DESCRIPTION_MAX_LENGTH ? "text-danger-strong" : "text-foreground-muted"}`}>
+              className={`shrink-0 fluid-xxs font-bold ${draft.length >= DESCRIPTION_MAX_LENGTH ? "text-danger-strong" : "text-foreground-muted"}`}>
               {draft.length} / {DESCRIPTION_MAX_LENGTH}
             </p>
           </div>

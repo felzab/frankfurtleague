@@ -79,7 +79,7 @@ export const AdminKontakteList = memo(function AdminKontakteList({
   const renderSeat = (seat: AdminKontaktSeat) => (
     <div className="flex min-w-0 flex-col gap-1">
       <div className="flex flex-row flex-wrap items-center gap-2">
-        <span className="fluid-xxs text-foreground-muted font-extrabold tracking-widest uppercase">{seat.label}</span>
+        <span className="fluid-xxs font-extrabold tracking-widest text-foreground-muted uppercase">{seat.label}</span>
         {/* On the seat the claim POINTS AT: beside `Trainer` the badge would name that seat back at it. */}
         {seat.istTrainerZugleich && <span className={labelBadge("info")}>Zugleich Trainer</span>}
       </div>
@@ -88,9 +88,9 @@ export const AdminKontakteList = memo(function AdminKontakteList({
         <span className="fluid-sm text-foreground-muted">{EMPTY_SEAT}</span>
       ) : (
         <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="fluid-sm text-foreground truncate font-semibold">{`${seat.person.vorname} ${seat.person.nachname}`}</span>
-          <span className="fluid-xs text-foreground-muted truncate">{seat.person.email}</span>
-          <span className="font-numeric fluid-xs text-foreground-muted truncate tabular-nums">{seat.person.telefon}</span>
+          <span className="truncate fluid-sm font-semibold text-foreground">{`${seat.person.vorname} ${seat.person.nachname}`}</span>
+          <span className="truncate fluid-xs text-foreground-muted">{seat.person.email}</span>
+          <span className="truncate font-numeric fluid-xs text-foreground-muted tabular-nums">{seat.person.telefon}</span>
         </div>
       )}
     </div>
@@ -159,13 +159,13 @@ export const AdminKontakteList = memo(function AdminKontakteList({
 
           {/* Three equal columns from `md`, so one seat sits under itself down the page and a reader
               still scans a single role the way a column let them. */}
-          <div className="border-border/50 grid grid-cols-1 gap-3 border-t pt-3 md:grid-cols-3 md:gap-x-4">
+          <div className="grid grid-cols-1 gap-3 border-t border-border/50 pt-3 md:grid-cols-3 md:gap-x-4">
             {row.seats.map((seat) => (
               <div key={seat.rolle}>{renderSeat(seat)}</div>
             ))}
           </div>
 
-          <div className="border-border/50 -mx-1 border-t pt-2 md:hidden">{renderActions(row)}</div>
+          <div className="-mx-1 border-t border-border/50 pt-2 md:hidden">{renderActions(row)}</div>
         </li>
       ))}
     </ul>

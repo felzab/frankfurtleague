@@ -176,26 +176,26 @@ export function FormRolloverSection({
                 nothing about whether it matters. A finale without a result is a different decision
                 from four group games nobody waits on. */}
             {offene.length > 0 && (
-              <ul className="border-border divide-border/50 flex w-full flex-col divide-y rounded-xl border">
+              <ul className="flex w-full flex-col divide-y divide-border/50 rounded-xl border border-border">
                 {offene.slice(0, LISTED_OFFENE_SPIELE).map((spiel) => (
                   <li
                     key={spiel.id}
                     className="flex w-full flex-row items-center gap-x-3 px-3 py-2">
-                    <span className="bg-muted text-foreground-muted fluid-xxs flex h-6 min-w-8 shrink-0 items-center justify-center rounded-md font-extrabold">
+                    <span className="flex h-6 min-w-8 shrink-0 items-center justify-center rounded-md bg-muted fluid-xxs font-extrabold text-foreground-muted">
                       {spiel.spielNr}
                     </span>
-                    <span className="fluid-xs text-foreground min-w-0 flex-1 truncate font-semibold">{spiel.paarung}</span>
-                    <span className="fluid-xxs text-foreground-muted shrink-0">{formatSpielDatum(spiel.datum)}</span>
+                    <span className="min-w-0 flex-1 truncate fluid-xs font-semibold text-foreground">{spiel.paarung}</span>
+                    <span className="shrink-0 fluid-xxs text-foreground-muted">{formatSpielDatum(spiel.datum)}</span>
                     <Link
                       href={saisonHref(`/admin/spiele/${spiel.id}`)}
-                      className={`${BRAND_INK_OUTSIDE_PROSE_CLASSES} fluid-xxs shrink-0 font-bold`}>
+                      className={`${BRAND_INK_OUTSIDE_PROSE_CLASSES} shrink-0 fluid-xxs font-bold`}>
                       Öffnen
                     </Link>
                   </li>
                 ))}
                 {/* Singular and plural spelled out: a remainder of one makes "1 weitere" out of a fixed plural. */}
                 {offene.length > LISTED_OFFENE_SPIELE && (
-                  <li className="fluid-xxs text-foreground-muted px-3 py-2 font-medium">
+                  <li className="px-3 py-2 fluid-xxs font-medium text-foreground-muted">
                     {offene.length - LISTED_OFFENE_SPIELE === 1
                       ? "und ein weiteres."
                       : `und ${String(offene.length - LISTED_OFFENE_SPIELE)} weitere.`}{" "}
@@ -209,7 +209,7 @@ export function FormRolloverSection({
               <ConfirmReveal>
                 {/* The finality is said on the outgoing branch alone: with nothing active this press
                     closes no season, and closing one is what `REQ-ACTIVATE-002` then refuses to undo. */}
-                <p className="fluid-xxs text-foreground leading-normal font-medium">
+                <p className="fluid-xxs leading-normal font-medium text-foreground">
                   {outgoing === null
                     ? `Saison ${saisonId} wird sofort öffentlich als laufende Saison angezeigt.`
                     : `Saison ${outgoing} ist danach abgeschlossen, und ${saisonId} wird sofort öffentlich als laufende Saison angezeigt. Es gibt in der Verwaltung keinen Weg zurück.`}

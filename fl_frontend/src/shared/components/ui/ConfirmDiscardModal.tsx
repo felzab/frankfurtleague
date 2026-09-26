@@ -33,16 +33,16 @@ export function ConfirmDiscardModal({
       size="confirm"
       role="alertdialog"
       icon={
-        <div className="bg-warning/15 flex size-10 shrink-0 items-center justify-center rounded-xl">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-warning/15">
           <TriangleExclamation
             aria-hidden="true"
-            className="text-warning-strong size-5"
+            className="size-5 text-warning-strong"
           />
         </div>
       }>
       <div className="flex w-full min-w-0 flex-col gap-y-6 pt-1">
-        <p className="fluid-sm text-foreground-muted leading-relaxed text-pretty">
-          <span className="bg-warning/15 text-warning-strong rounded-md px-1.5 py-0.5 font-bold whitespace-nowrap">
+        <p className="fluid-sm leading-relaxed text-pretty text-foreground-muted">
+          <span className="rounded-md bg-warning/15 px-1.5 py-0.5 font-bold whitespace-nowrap text-warning-strong">
             {changeCount === 1 ? "1 Änderung" : `${changeCount} Änderungen`}
           </span>{" "}
           {changeCount === 1 ? "ist" : "sind"} noch nicht gespeichert und {changeCount === 1 ? "geht" : "gehen"} beim Verlassen der Seite

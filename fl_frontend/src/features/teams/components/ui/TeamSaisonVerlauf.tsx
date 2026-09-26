@@ -79,7 +79,7 @@ export function TeamSaisonVerlauf({ teamSpiele, teamId }: { teamSpiele: FLSpiel[
 
   return (
     <section className="flex flex-col gap-y-4">
-      <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Saisonverlauf</h2>
+      <h2 className="fluid-lg font-extrabold tracking-tight text-foreground">Saisonverlauf</h2>
 
       {verlauf.length === 0 ? (
         // Reached only where the team has no fixture at all, since the group phase always yields a
@@ -94,7 +94,7 @@ export function TeamSaisonVerlauf({ teamSpiele, teamId }: { teamSpiele: FLSpiel[
             <li key={phaseVerlauf.phase}>
               <Chip
                 size="sm"
-                className={`${PILL_RADIUS_CLASSES} fluid-xxs border-none px-2 py-1 font-bold ${PILL_TINT_CLASSES[chipTint(phaseVerlauf)]}`}>
+                className={`${PILL_RADIUS_CLASSES} border-none px-2 py-1 fluid-xxs font-bold ${PILL_TINT_CLASSES[chipTint(phaseVerlauf)]}`}>
                 {outcomeLabel(phaseVerlauf)}
               </Chip>
             </li>

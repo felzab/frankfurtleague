@@ -7,11 +7,11 @@ const dismissControlStyle = tv({
   // `size-7` is a floor rather than a taste call: WCAG 2.5.8 (Target Size, Minimum) puts the
   // smallest hit target at 24px.
   // Reduced motion drops `transform` alone and keeps the fades, which is the policy `globals.css` states.
-  base: "text-foreground-muted size-7 shrink-0 rounded-md border-0 bg-transparent transition-[color,background-color,transform,opacity] duration-(--motion-fast) motion-reduce:transition-[color,background-color,opacity] [&_svg]:size-4",
+  base: "size-7 shrink-0 rounded-md border-0 bg-transparent text-foreground-muted transition-[color,background-color,transform,opacity] duration-(--motion-fast) motion-reduce:transition-[color,background-color,opacity] [&_svg]:size-4",
   variants: {
     hover: {
-      aria: "data-hovered:text-foreground data-hovered:bg-hover",
-      css: "hover:text-foreground hover:bg-hover",
+      aria: "data-hovered:bg-hover data-hovered:text-foreground",
+      css: "hover:bg-hover hover:text-foreground",
     },
   },
   defaultVariants: { hover: "aria" },

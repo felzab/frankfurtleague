@@ -163,10 +163,10 @@ export function RegistrierungFormPanel({
       <BestaetigungErgebnis
         panelRef={eingereichtRef}
         tone="erfolg">
-        <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Deine Registrierung ist eingegangen</h2>
+        <h2 className="fluid-lg font-extrabold tracking-tight text-foreground">Deine Registrierung ist eingegangen</h2>
         {/* The recovery path in the answer page's own words: no administrator may edit a stored
             address, so registering again is the only route back from a typo. */}
-        <p className="muted-hint max-w-md">
+        <p className="max-w-md muted-hint">
           Wir haben Dir eine E-Mail mit einem Link geschickt. Erst wenn Du dort bestätigst, kann Dein Team Dich in den Kader aufnehmen.
           Bestätigst Du nicht innerhalb von {String(REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE)} Tagen, löschen wir die Registrierung wieder. Keine
           Mail bekommen? Prüfe die Adresse und registriere Dich einfach noch einmal.

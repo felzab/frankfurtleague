@@ -233,7 +233,7 @@ export function AppTimeField({
         ref={groupRef}
         tabIndex={clearLabel === undefined ? undefined : -1}
         className={FIELD_GROUP_CLASSES}>
-        <TimeField.Input className="fluid-sm w-full">
+        <TimeField.Input className="w-full fluid-sm">
           {(segment) => (
             <TimeField.Segment
               segment={segment}

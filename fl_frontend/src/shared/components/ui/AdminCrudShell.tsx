@@ -48,7 +48,7 @@ export function AdminCrudShell({
       {/* The placeholder's minimum runs here because this mounts when the page arrives, ahead of the rows the
           boundary below waits on, which mount too late to start it (`globals.css`). It paints nothing; the property
           it animates inherits to `children`. */}
-      <div className="animate-admin-placeholder-hold max-w-page mx-auto flex w-full flex-col gap-8">
+      <div className="mx-auto flex w-full max-w-page animate-admin-placeholder-hold flex-col gap-8">
         {/* Mounted only where a page asks for it: the provider renders no element, but it is a client
             island, and eight routes have no use for one. */}
         {privateQuery ? <AdminCrudPrivateQuery>{column}</AdminCrudPrivateQuery> : column}

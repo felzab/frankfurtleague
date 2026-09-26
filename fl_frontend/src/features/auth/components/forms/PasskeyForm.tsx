@@ -139,7 +139,7 @@ export function PasskeyForm({ step, address, next }: { step: Step; address: stri
 
         {/* The account this passkey belongs to, at the rung a person's own datum takes on a page
             (`docs/frontend/spec.md` §1.16). */}
-        <p className="fluid-sm text-foreground font-bold break-all">{address}</p>
+        <p className="fluid-sm font-bold break-all text-foreground">{address}</p>
 
         {/* `isPending` is the whole of the double-press guard: a second prompt aborts the first,
             which this card would then report as a refusal on a press made while it ran. */}

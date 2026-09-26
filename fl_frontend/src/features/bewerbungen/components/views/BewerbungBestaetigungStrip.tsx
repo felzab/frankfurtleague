@@ -287,14 +287,14 @@ function SitzZeile({
         <span className={`${labelBadge(ROLLEN_TINT)} ${STRIP_CHIP_CLASSES}`}>{sitz.label}</span>
         {sitz.zugleichTrainer && <span className={`${labelBadge("info")} ${STRIP_CHIP_CLASSES}`}>Zugleich Trainer</span>}
 
-        <span className="fluid-sm text-foreground min-w-0 font-medium">
+        <span className="min-w-0 fluid-sm font-medium text-foreground">
           {sitz.name === null ? <span className="text-foreground-muted italic">{sitz.nameSatz}</span> : sitz.nameSatz}
         </span>
 
         {/* The foreground grade rather than the queue's muted one: it is the value the pencil beside
             it edits and the thing the delivery chip is about. */}
         {sitz.name !== null && (
-          <span className="fluid-xs text-foreground max-w-full min-w-0 truncate font-medium">
+          <span className="max-w-full min-w-0 truncate fluid-xs font-medium text-foreground">
             {sitz.email ?? <span className="text-foreground-muted italic">{KEINE_EMAIL}</span>}
           </span>
         )}
@@ -511,7 +511,7 @@ function AdresseKorrigieren({
 
         guardSubmit({ korrektur: payload }, () => void schreibe());
       }}
-      className={`${PANEL_REVEAL_CLASSES} border-border bg-surface flex flex-col gap-4 rounded-xl border p-4 shadow-sm`}>
+      className={`${PANEL_REVEAL_CLASSES} flex flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm`}>
       <TextField
         type="email"
         name="email"
@@ -691,15 +691,15 @@ function SitzNeuBesetzen({
 
         guardSubmit({ neubesetzung: payload }, () => void schreibe());
       }}
-      className={`${PANEL_REVEAL_CLASSES} border-border bg-surface flex flex-col gap-4 rounded-xl border p-4 shadow-sm`}>
+      className={`${PANEL_REVEAL_CLASSES} flex flex-col gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm`}>
       {/* The seat is named here and not on the button: the row above says „Niemand mehr in der
           Bewerbung“, so the box has to say which of the three seats it is filling. */}
       <p className="fluid-xs text-foreground-muted">Neue Person für die Rolle {label}</p>
 
       {/* The confirmation page's words, never the application form's: those address the submitter,
           and the person this writes will only ever read the page. */}
-      <div className="border-border flex flex-col gap-y-2 rounded-lg border p-3">
-        <p className="fluid-xs text-foreground font-bold">Diese Person bekommt den Bestätigungslink und wird dort gefragt:</p>
+      <div className="flex flex-col gap-y-2 rounded-lg border border-border p-3">
+        <p className="fluid-xs font-bold text-foreground">Diese Person bekommt den Bestätigungslink und wird dort gefragt:</p>
         {SEITENANFANG.map((schluessel) => (
           <p
             key={schluessel}

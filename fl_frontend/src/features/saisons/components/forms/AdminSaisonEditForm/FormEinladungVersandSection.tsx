@@ -265,13 +265,13 @@ export function FormEinladungVersandSection({
                   {vorschau.map((zeile) => (
                     <li
                       key={zeile.team_id}
-                      className="fluid-xxs text-foreground flex flex-row items-baseline justify-between gap-x-3 leading-normal font-medium">
+                      className="flex flex-row items-baseline justify-between gap-x-3 fluid-xxs leading-normal font-medium text-foreground">
                       <span className="font-bold">{zeile.team_name}</span>
-                      <span className="text-foreground-muted min-w-0 text-right">
+                      <span className="min-w-0 text-right text-foreground-muted">
                         {zeile.uebersprungen === null ? (
                           <>
                             {zeile.empfaenger.map((seat) => seat.email).join(", ")}
-                            {zeile.ersetzt_link && <span className="text-warning-strong block font-bold">{ERSETZT_SATZ}</span>}
+                            {zeile.ersetzt_link && <span className="block font-bold text-warning-strong">{ERSETZT_SATZ}</span>}
                           </>
                         ) : (
                           UEBERSPRUNGEN_SATZ[zeile.uebersprungen]
@@ -290,14 +290,14 @@ export function FormEinladungVersandSection({
                   {ergebnis.map((zeile) => (
                     <li
                       key={zeile.team_id}
-                      className="fluid-xxs text-foreground flex flex-row items-baseline justify-between gap-x-3 leading-normal font-medium">
+                      className="flex flex-row items-baseline justify-between gap-x-3 fluid-xxs leading-normal font-medium text-foreground">
                       <span className="font-bold">{zeile.team_name}</span>
-                      <span className="text-foreground-muted min-w-0 text-right">
+                      <span className="min-w-0 text-right text-foreground-muted">
                         {/* Graded apart from the other skips: there the league failed the team
                             rather than passing it over. */}
                         {zeile.uebersprungen !== null && folgeSaetze(zeile).length > 0 ? (
                           <>
-                            <span className="text-danger-strong font-bold">{UEBERSPRUNGEN_SATZ[zeile.uebersprungen]}</span>
+                            <span className="font-bold text-danger-strong">{UEBERSPRUNGEN_SATZ[zeile.uebersprungen]}</span>
                             <span className="block">{folgeSaetze(zeile).join(" ")}</span>
                           </>
                         ) : zeile.uebersprungen !== null ? (
@@ -309,9 +309,9 @@ export function FormEinladungVersandSection({
                                 failed names nobody to write to by hand. A withheld one is dropped —
                                 nobody tried it, so there is nothing to write to by hand. */}
                             {nichtErreicht(zeile).length > 0 && (
-                              <span className="text-danger-strong block font-bold">Nicht erreicht: {nichtErreicht(zeile).join(", ")}</span>
+                              <span className="block font-bold text-danger-strong">Nicht erreicht: {nichtErreicht(zeile).join(", ")}</span>
                             )}
-                            {zeile.ersetzt_link && <span className="text-warning-strong block font-bold">{ERSETZT_VERGANGEN}</span>}
+                            {zeile.ersetzt_link && <span className="block font-bold text-warning-strong">{ERSETZT_VERGANGEN}</span>}
                           </>
                         )}
                       </span>
@@ -349,7 +349,7 @@ export function FormEinladungVersandSection({
                     alone: the armed step is the last thing read before the write. */}
                 {/* The count stays in the readout above and out of the sentence: a numeral written
                     before a plural noun reads wrong at one, and the recast keeps both readings. */}
-                <p className="fluid-xxs text-foreground leading-normal font-medium">
+                <p className="fluid-xxs leading-normal font-medium text-foreground">
                   {ersetzteLinks > 0
                     ? "Jedes dieser Teams bekommt einen frischen Link. Bei den Teams, die ihren Link verlieren, funktioniert der bisherige danach nicht mehr. Zurückholen lässt sich eine E-Mail nicht."
                     : "Jedes dieser Teams bekommt einen frischen Link. Zurückholen lässt sich eine E-Mail nicht."}

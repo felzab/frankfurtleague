@@ -78,7 +78,7 @@ export function PlayoffsView({
             <div
               key={playoffsSpieltag.id}
               className={`${columnWidth} flex shrink-0 snap-center flex-col items-center`}>
-              <h2 className="bg-surface border-border text-foreground fluid-sm my-4 w-fit rounded-xl border px-6 py-2 font-bold tracking-wide uppercase shadow-sm">
+              <h2 className="my-4 w-fit rounded-xl border border-border bg-surface px-6 py-2 fluid-sm font-bold tracking-wide text-foreground uppercase shadow-sm">
                 {labels.get(playoffsSpieltag.id)?.label}
               </h2>
 
@@ -95,19 +95,19 @@ export function PlayoffsView({
                       key={spielData.id}
                       className="relative flex w-full flex-1 flex-col justify-center py-3">
                       {/* The inbound line, joining this match to the round it was fed from. */}
-                      {!isFirstRound && <div className="bg-border absolute top-[calc(50%-1px)] -left-4 h-[2px] w-4" />}
+                      {!isFirstRound && <div className="absolute top-[calc(50%-1px)] -left-4 h-[2px] w-4 bg-border" />}
 
                       {!isLastRound && (
                         <>
                           {isTopNode && hasPartner && (
-                            <div className="border-border absolute top-[calc(50%-1px)] -right-4 h-[calc(50%+1px)] w-4 rounded-tr-xl border-t-2 border-r-2" />
+                            <div className="absolute top-[calc(50%-1px)] -right-4 h-[calc(50%+1px)] w-4 rounded-tr-xl border-t-2 border-r-2 border-border" />
                           )}
 
                           {isBottomNode && (
-                            <div className="border-border absolute -right-4 bottom-[calc(50%-1px)] h-[calc(50%+1px)] w-4 rounded-br-xl border-r-2 border-b-2" />
+                            <div className="absolute -right-4 bottom-[calc(50%-1px)] h-[calc(50%+1px)] w-4 rounded-br-xl border-r-2 border-b-2 border-border" />
                           )}
 
-                          {isTopNode && !hasPartner && <div className="bg-border absolute top-[calc(50%-1px)] -right-4 h-[2px] w-4" />}
+                          {isTopNode && !hasPartner && <div className="absolute top-[calc(50%-1px)] -right-4 h-[2px] w-4 bg-border" />}
                         </>
                       )}
 

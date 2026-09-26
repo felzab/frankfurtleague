@@ -112,9 +112,9 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
         role="status"
         className="flex flex-col items-center gap-y-3 py-6 text-center">
         <span className="text-4xl">📬</span>
-        <p className="fluid-lg text-foreground font-extrabold tracking-tight">Prüfe Dein Postfach</p>
+        <p className="fluid-lg font-extrabold tracking-tight text-foreground">Prüfe Dein Postfach</p>
 
-        {state?.submittedEmail && <p className="fluid-sm text-foreground font-bold break-all">{state.submittedEmail}</p>}
+        {state?.submittedEmail && <p className="fluid-sm font-bold break-all text-foreground">{state.submittedEmail}</p>}
 
         <p className="muted-hint text-pretty">{state.message}</p>
         {/* The action does not navigate, so without this the only way back is a page reload. */}
@@ -168,11 +168,11 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
             // Read-only rather than disabled while the link sends: a disabled field drops the focus of
             // the visitor who pressed `Enter` in it to the page.
             isReadOnly={isPending}>
-            <Label className="fluid-xs text-foreground font-bold tracking-wider uppercase">E-Mail-Adresse</Label>
+            <Label className="fluid-xs font-bold tracking-wider text-foreground uppercase">E-Mail-Adresse</Label>
             {/* No `required`: `aria` drops react-aria's own, and a hand-written one would put the
                 browser's bubble back on the very blur this mode exists to keep quiet. */}
             <Input
-              className="border-control bg-surface text-foreground placeholder:text-foreground-muted fluid-xs sm:fluid-sm w-full rounded-xl border px-4 py-3 transition-colors duration-(--motion-base) outline-none"
+              className="w-full rounded-xl border border-control bg-surface px-4 py-3 fluid-xs text-foreground transition-colors duration-(--motion-base) outline-none placeholder:text-foreground-muted sm:fluid-sm"
               placeholder="z.B. name@beispiel.de"
               type="email"
             />
@@ -199,11 +199,11 @@ function SignInPanel({ email, onEmailChange }: { email: string; onEmailChange: (
             className="flex w-full flex-col gap-y-2"
             name="email"
             type="email">
-            <Label className="fluid-xs text-foreground-muted font-bold tracking-wider uppercase">E-Mail-Adresse</Label>
+            <Label className="fluid-xs font-bold tracking-wider text-foreground-muted uppercase">E-Mail-Adresse</Label>
             {/* Left under the decoration grade rather than taking `border-control`: WCAG 1.4.11 exempts
                 an inactive component, and a box that reads as reachable offers a sign-in nothing serves. */}
             <Input
-              className="border-border/60 bg-surface/50 text-foreground-muted placeholder:text-foreground-muted fluid-xs sm:fluid-sm w-full cursor-not-allowed rounded-xl border px-4 py-3 outline-none"
+              className="w-full cursor-not-allowed rounded-xl border border-border/60 bg-surface/50 px-4 py-3 fluid-xs text-foreground-muted outline-none placeholder:text-foreground-muted sm:fluid-sm"
               placeholder="Noch nicht verfügbar"
               disabled
             />

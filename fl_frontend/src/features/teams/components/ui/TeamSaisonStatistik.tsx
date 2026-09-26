@@ -18,8 +18,8 @@ export function TeamSaisonStatistik({ statistik }: { statistik: FLTeamStatistik 
   return (
     <section className="flex flex-col gap-y-4">
       <div className="flex flex-col gap-y-1">
-        <h2 className="fluid-lg text-foreground font-extrabold tracking-tight">Saisonstatistik</h2>
-        <p className="fluid-xxs text-foreground-muted font-medium">
+        <h2 className="fluid-lg font-extrabold tracking-tight text-foreground">Saisonstatistik</h2>
+        <p className="fluid-xxs font-medium text-foreground-muted">
           Alle Spiele der Saison, inklusive Playoffs. Die Saisontabelle zählt nur die Gruppenphase.
         </p>
       </div>
@@ -53,10 +53,10 @@ export function TeamSaisonStatistik({ statistik }: { statistik: FLTeamStatistik 
               // prettier's Tailwind plugin trims class strings, so the classes would glue together.
               className={`${card()} ${stat.isSummary ? "@min-[20rem]:col-span-2 @min-[51.5rem]:col-span-1" : ""}`}>
               <Card.Content className="py-4 text-center">
-                <p className="fluid-xxs text-foreground-muted mb-1 font-bold tracking-wider uppercase">{stat.label}</p>
+                <p className="mb-1 fluid-xxs font-bold tracking-wider text-foreground-muted uppercase">{stat.label}</p>
                 {/* „15 / 10 / 12“ broken at a slash reads as two figures; the steps above never force a break. */}
                 <p
-                  className={`font-numeric text-foreground font-extrabold whitespace-nowrap tabular-nums ${stat.isSummary ? "fluid-xl" : "fluid-lg"}`}>
+                  className={`font-numeric font-extrabold whitespace-nowrap text-foreground tabular-nums ${stat.isSummary ? "fluid-xl" : "fluid-lg"}`}>
                   {stat.value}
                 </p>
               </Card.Content>

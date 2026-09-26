@@ -111,17 +111,17 @@ export function SpielsucheView({
     <div className="relative flex w-full flex-1 flex-col items-center">
       {/* One sticky band: both narrow the same list, so a reader
            scrolling a long result set keeps both within reach. */}
-      <div className="bg-background sticky top-0 z-20 flex w-full flex-col items-center gap-3 px-4 py-4 sm:px-8 lg:py-8">
+      <div className="sticky top-0 z-20 flex w-full flex-col items-center gap-3 bg-background px-4 py-4 sm:px-8 lg:py-8">
         <SearchBar
           label="Spiele suchen"
           placeholder="z.B. Sportpark Nord oder 14.03."
           value={inputValue}
           onChange={setInputValue}
-          className="max-w-toolbar w-full"
+          className="w-full max-w-toolbar"
         />
         {/* Counted over the whole season, so an option says what it would leave rather
             than what the current query already left. */}
-        <div className="max-w-toolbar flex w-full flex-row justify-start">
+        <div className="flex w-full max-w-toolbar flex-row justify-start">
           <FilterLeiste
             facets={facets}
             items={processedSpiele}
@@ -130,7 +130,7 @@ export function SpielsucheView({
       </div>
 
       <div className="flex w-full flex-col items-center px-4 pb-4 sm:px-8">
-        {message !== null && <p className="fluid-sm text-foreground-muted mt-10 font-bold tracking-wide italic">{message}</p>}
+        {message !== null && <p className="mt-10 fluid-sm font-bold tracking-wide text-foreground-muted italic">{message}</p>}
 
         {/* ALWAYS mounted, an empty grid being a zero-height box. A third branch beside the two
             messages is rebuilt whenever a query crosses "nothing found" to "something found",

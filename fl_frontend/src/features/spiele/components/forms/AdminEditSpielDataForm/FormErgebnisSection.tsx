@@ -261,7 +261,7 @@ export function FormErgebnisSection({
           {team1Tore === null || team2Tore === null ? (
             <p className="muted-meta italic">Noch kein Ergebnis</p>
           ) : (
-            <p className="fluid-sm text-brand font-extrabold tracking-wide">
+            <p className="fluid-sm font-extrabold tracking-wide text-brand">
               {team1Tore === team2Tore &&
                 `Unentschieden${elfmeterSiegerName === null ? "" : `, ${elfmeterSiegerName} gewinnt im Elfmeterschießen`}`}
               {team1Tore > team2Tore && `Sieg für ${team1Name}`}

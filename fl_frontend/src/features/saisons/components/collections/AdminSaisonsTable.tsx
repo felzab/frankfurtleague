@@ -70,10 +70,10 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
    * (`fl_frontend/eslint.config.mjs :: SOURCE_BANS`).
    */
   const renderZeitraum = (saison: AdminSaisonRow) => (
-    <span className="font-numeric flex flex-row items-baseline gap-x-1 tabular-nums">
-      <span className="fluid-sm text-foreground font-bold">{formatSpielDatum(saison.start_date)}</span>
+    <span className="flex flex-row items-baseline gap-x-1 font-numeric tabular-nums">
+      <span className="fluid-sm font-bold text-foreground">{formatSpielDatum(saison.start_date)}</span>
       <span className="muted-meta">–</span>
-      <span className="fluid-sm text-foreground font-bold">{formatSpielDatum(saison.end_date)}</span>
+      <span className="fluid-sm font-bold text-foreground">{formatSpielDatum(saison.end_date)}</span>
     </span>
   );
 
@@ -97,7 +97,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
           label="Spieltage">
           <Calendar
             aria-hidden="true"
-            className="text-foreground-muted size-4"
+            className="size-4 text-foreground-muted"
           />
         </RowActionMenuItem>
         <RowActionMenuItem
@@ -106,7 +106,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
           label="Teams">
           <Persons
             aria-hidden="true"
-            className="text-foreground-muted size-4"
+            className="size-4 text-foreground-muted"
           />
         </RowActionMenuItem>
       </RowActionMenu>
@@ -130,7 +130,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
               {renderStatusBadge(saison)}
             </div>
             {renderZeitraum(saison)}
-            <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(saison)}</div>
+            <div className="-mx-1 border-t border-border/50 pt-2">{renderActions(saison)}</div>
           </div>
         ))}
       </div>
@@ -169,7 +169,7 @@ export const AdminSaisonsTable = memo(function AdminSaisonsTable({
                 {(saison: AdminSaisonRow) => (
                   <Table.Row
                     id={saison.id}
-                    className="border-border/50 border-b last:border-b-0">
+                    className="border-b border-border/50 last:border-b-0">
                     <Table.Cell className={CELL_EDGE_CLASSES}>
                       <span className={ID_CHIP_CLASSES}>{saison.id}</span>
                     </Table.Cell>

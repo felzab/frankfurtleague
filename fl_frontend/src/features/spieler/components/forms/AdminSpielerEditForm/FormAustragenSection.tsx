@@ -161,7 +161,7 @@ export function FormAustragenSection({
                   "Kadereintrag nicht ausgetragen",
                 )
               }
-              className="border-danger/40 bg-surface text-danger-strong data-hovered:bg-hover-danger fluid-sm flex h-10 w-fit items-center rounded-lg border px-4 font-bold shadow-sm transition-colors">
+              className="flex h-10 w-fit items-center rounded-lg border border-danger/40 bg-surface px-4 fluid-sm font-bold text-danger-strong shadow-sm transition-colors data-hovered:bg-hover-danger">
               {isPending ? "Trägt aus..." : `Aus Kader ${saisonId} austragen`}
             </Button>
           </>

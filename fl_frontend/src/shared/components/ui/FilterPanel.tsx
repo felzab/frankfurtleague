@@ -90,13 +90,13 @@ function FacetCell<TItem>({
       {/* Fixed height and `shrink-0`: the reset appears only once something is picked and is taller than the label,
           so an intrinsic header grew on the first selection and the popover jumped while in use. */}
       <div className="flex h-6 shrink-0 flex-row items-center justify-between gap-x-2 px-1.5">
-        <span className="fluid-xxs text-foreground-muted font-bold tracking-widest uppercase">{facet.label}</span>
+        <span className="fluid-xxs font-bold tracking-widest text-foreground-muted uppercase">{facet.label}</span>
         {picked.length > 0 && (
           <Button
             variant="ghost"
             aria-label={`${facet.label} zurücksetzen`}
             onPress={onClear}
-            className="fluid-xxs text-foreground-muted data-hovered:text-foreground h-full shrink-0 cursor-pointer leading-none font-bold transition-colors duration-(--motion-fast)">
+            className="h-full shrink-0 cursor-pointer fluid-xxs leading-none font-bold text-foreground-muted transition-colors duration-(--motion-fast) data-hovered:text-foreground">
             Zurücksetzen
           </Button>
         )}
@@ -109,11 +109,11 @@ function FacetCell<TItem>({
           value={query}
           onChange={setQuery}
           className="shrink-0 px-1.5">
-          <SearchField.Group className="bg-surface border-control flex h-8 w-full items-center gap-2 rounded-lg border px-2 transition-colors duration-(--motion-fast)">
-            <SearchField.SearchIcon className="text-foreground-muted size-3.5 shrink-0" />
+          <SearchField.Group className="flex h-8 w-full items-center gap-2 rounded-lg border border-control bg-surface px-2 transition-colors duration-(--motion-fast)">
+            <SearchField.SearchIcon className="size-3.5 shrink-0 text-foreground-muted" />
             <SearchField.Input
               placeholder={firstOption === undefined ? "" : `z.B. ${firstOption.label}`}
-              className="fluid-xs w-full min-w-0 bg-transparent outline-none"
+              className="w-full min-w-0 bg-transparent fluid-xs outline-none"
             />
             {/* Named for the facet: every cell is open at once, so a bare label would repeat across each wide one. */}
             <SearchField.ClearButton {...dismissControl({ label: `${facet.label}-Suche zurücksetzen` })} />
@@ -128,7 +128,7 @@ function FacetCell<TItem>({
         // without it the list refuses to shrink and the cell overflows.
         className="scrollbar-line min-h-0 overflow-x-hidden overflow-y-auto"
         selectedKeys={picked}
-        renderEmptyState={() => <p className="fluid-xs text-foreground-muted px-3 py-2 font-bold italic">Keine Optionen</p>}
+        renderEmptyState={() => <p className="px-3 py-2 fluid-xs font-bold text-foreground-muted italic">Keine Optionen</p>}
         // `"all"` is only reachable by passing `selectedKeys="all"`, which this never does — hence a map, not a cast.
         onSelectionChange={(keys: Selection) => {
           onSelect(keys === "all" ? [] : [...keys].map(String));
@@ -148,7 +148,7 @@ function FacetCell<TItem>({
               // `bg-hover` is the token `globals.css`'s keyboard indicator paints, and the two must stay one
               // colour. A selected row overrides the hover ink below at two variants, because brand ink on
               // that fill measures 3.31:1.
-              className={`${PICKED_OPTION_CLASSES} fluid-sm data-hovered:bg-hover data-hovered:text-brand flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg py-1.5 ps-3 pe-8 font-bold transition-colors duration-(--motion-fast) ${
+              className={`${PICKED_OPTION_CLASSES} flex cursor-pointer flex-row items-center justify-between gap-x-3 rounded-lg py-1.5 ps-3 pe-8 fluid-sm font-bold transition-colors duration-(--motion-fast) data-hovered:bg-hover data-hovered:text-brand ${
                 count === 0 ? "text-foreground-muted" : "text-foreground"
               }`}>
               <span className="min-w-0 truncate">{option.label}</span>

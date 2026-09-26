@@ -43,8 +43,8 @@ export function MetaOrganisationView() {
                 </span>
 
                 <div className="flex flex-col gap-y-1">
-                  <span className="fluid-base text-foreground font-bold">{member.name}</span>
-                  <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">{member.role}</span>
+                  <span className="fluid-base font-bold text-foreground">{member.name}</span>
+                  <span className="fluid-xxs font-extrabold tracking-widest text-brand uppercase">{member.role}</span>
                 </div>
 
                 <p className="muted-meta">{member.desc}</p>

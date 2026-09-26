@@ -57,7 +57,7 @@ export function Error({
         /* `motion-safe:` rather than the global shortening: a glyph this large pulsing behind text
            must stop entirely, not run fast. */
         <span
-          className={`${DISPLAY_HEADING_CLASSES} text-foreground/20 sm:text-foreground/5 text-[5.5rem] leading-none motion-safe:animate-pulse sm:text-[10rem] md:text-[18rem] lg:text-[25rem]`}>
+          className={`${DISPLAY_HEADING_CLASSES} text-[5.5rem] leading-none text-foreground/20 motion-safe:animate-pulse sm:text-[10rem] sm:text-foreground/5 md:text-[18rem] lg:text-[25rem]`}>
           Fehler
         </span>
       }>

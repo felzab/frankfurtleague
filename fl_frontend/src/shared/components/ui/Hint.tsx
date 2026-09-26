@@ -270,7 +270,7 @@ function RefusalOverlay({
         <HintPanel
           isOpenedByHover={isOpenedByHover}
           panelRef={captureDialog}
-          className={`${HINT_SURFACE_CLASSES} text-foreground leading-normal font-medium`}>
+          className={`${HINT_SURFACE_CLASSES} leading-normal font-medium text-foreground`}>
           {reason}
         </HintPanel>
       </Popover.Content>

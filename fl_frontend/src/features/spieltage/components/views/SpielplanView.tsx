@@ -43,8 +43,8 @@ export function SpielplanView({
     <Tabs className={`${PAGE_RISE_CLASSES} relative flex w-full flex-1 flex-col items-center`}>
       {/* `Tabs.ListContainer` sits inside the sticky bar holding only the track, which is what its
           chevron buttons position against. The fuller note is in `AdminSpieleActionRequiredView`. */}
-      <div className="bg-background sticky top-0 z-20 flex w-full flex-col items-center px-4 py-4 sm:px-8 lg:py-8">
-        <div className="max-w-toolbar flex w-full flex-row items-center justify-center">
+      <div className="sticky top-0 z-20 flex w-full flex-col items-center bg-background px-4 py-4 sm:px-8 lg:py-8">
+        <div className="flex w-full max-w-toolbar flex-row items-center justify-center">
           {/* **No `overflow-x-auto` or `scrollbar-hide` here.** The chevrons show only while the
               `ScrollShadow` reports the strip can scroll, detected by letting the list grow — a
               self-scrolling list hides that and no chevron appears. */}

@@ -3,14 +3,14 @@ import { tv } from "tailwind-variants";
 // A transition list says `scale`, never `transform`: v4 emits `scale-*` as the standalone `scale`
 // property, so a `transform` list interpolates nothing and the press snaps.
 const ctaButtonStyle = tv({
-  base: "fluid-sm flex h-12 transform-none items-center justify-center rounded-xl px-6 font-bold transition-[scale,background-color] duration-(--motion-base) active:scale-95",
+  base: "flex h-12 transform-none items-center justify-center rounded-xl px-6 fluid-sm font-bold transition-[scale,background-color] duration-(--motion-base) active:scale-95",
   variants: {
     intent: {
       primary: "bg-brand-solid text-brand-solid-foreground shadow-md",
-      outline: "border-border text-foreground border bg-transparent",
+      outline: "border border-border bg-transparent text-foreground",
     },
     /** The hero's two secondary CTAs, deliberately smaller than the primary pair beside them. */
-    size: { sm: "fluid-xs h-10 px-4" },
+    size: { sm: "h-10 px-4 fluid-xs" },
     hover: { aria: "", css: "" },
   },
   // The fill is per intent and the selector is per host, so the pair decides — one flat `hover`
@@ -47,27 +47,27 @@ export function ctaButton(options: {
 export const formButton = tv({
   // `active:scale-95` must stay spelled exactly that: `globals.css` names the class, unlayered, to escape
   // the press under `prefers-reduced-motion`, so a variant in front of it orphans that escape.
-  base: "fluid-sm flex h-12 transform-none items-center justify-center rounded-xl px-6 font-semibold transition-[scale,background-color,opacity] duration-(--motion-base) active:scale-95 disabled:pointer-events-none disabled:opacity-50",
+  base: "flex h-12 transform-none items-center justify-center rounded-xl px-6 fluid-sm font-semibold transition-[scale,background-color,opacity] duration-(--motion-base) active:scale-95 disabled:pointer-events-none disabled:opacity-50",
   variants: {
     intent: {
-      submit: "bg-brand-solid data-hovered:bg-brand-solid-hover text-brand-solid-foreground",
-      cancel: "border-border text-foreground data-hovered:bg-hover border bg-transparent",
+      submit: "bg-brand-solid text-brand-solid-foreground data-hovered:bg-brand-solid-hover",
+      cancel: "border border-border bg-transparent text-foreground data-hovered:bg-hover",
       /**
        * Page chrome, not the action bar's exit: a surface and a shadow where `cancel` is transparent. A recipe, not a
        * hand-spelled string, so it inherits the base — without that the vendored press scales the pill and the
        * reduced-motion escape misses it.
        */
-      nav: "border-border bg-surface text-foreground data-hovered:bg-hover fluid-xs border px-4 font-bold shadow-sm",
+      nav: "border border-border bg-surface px-4 fluid-xs font-bold text-foreground shadow-sm data-hovered:bg-hover",
       // `-solid` plus its paired foreground: `bg-danger` is a tint, and under `text-foreground` it falls
       // to 4.00:1 in the dark theme, where this pair clears 4.5:1 in both.
-      destructive: "bg-danger-solid data-hovered:bg-danger-solid-hover text-danger-solid-foreground",
+      destructive: "bg-danger-solid text-danger-solid-foreground data-hovered:bg-danger-solid-hover",
       /**
        * The CRUD header's create button. Its height mirrors `SearchBar`'s group at every breakpoint, since the
        * two share that row; below `sm` it continues the bar, with flattened left corners and its label for screen
        * readers alone.
        */
       trigger:
-        "bg-brand-solid data-hovered:bg-brand-solid-hover text-brand-solid-foreground shrink-0 gap-x-2 font-bold shadow-sm max-sm:rounded-l-none max-sm:px-4 lg:h-15",
+        "shrink-0 gap-x-2 bg-brand-solid font-bold text-brand-solid-foreground shadow-sm data-hovered:bg-brand-solid-hover max-sm:rounded-l-none max-sm:px-4 lg:h-15",
     },
     /** For forms whose submit is the only control — the sign-in tabs have no "Abbrechen" beside it. */
     fullWidth: { true: "w-full" },
@@ -84,7 +84,7 @@ export const formButton = tv({
      * badge's type step too: it stands in a row of `labelBadge` chips, where a taller control is
      * what makes the row read as ragged.
      */
-    size: { sm: "h-10", xs: "fluid-xxs h-7 px-3" },
+    size: { sm: "h-10", xs: "h-7 px-3 fluid-xxs" },
   },
   defaultVariants: { intent: "submit" },
 });

@@ -214,8 +214,8 @@ export function RowActionMenuItem({
       textValue={label}
       href={href}
       {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-      className="data-hovered:bg-hover flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
-      <Label className="fluid-sm text-foreground min-w-0 flex-1 font-semibold">{label}</Label>
+      className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors data-hovered:bg-hover">
+      <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">{label}</Label>
       {children}
     </Dropdown.Item>
   );

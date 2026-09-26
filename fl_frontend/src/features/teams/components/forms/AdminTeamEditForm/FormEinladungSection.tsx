@@ -341,7 +341,7 @@ export function FormEinladungSection({
 
                 {isConfirming && (
                   <ConfirmReveal>
-                    <p className="fluid-xxs text-foreground leading-normal font-medium">
+                    <p className="fluid-xxs leading-normal font-medium text-foreground">
                       {gewaehlt === "zurueckziehen"
                         ? "Danach steht für dieses Team kein Link mehr offen. Wer den bisherigen weitergegeben hat, muss die Empfängerinnen und Empfänger selbst benachrichtigen."
                         : "Der bisherige Link öffnet danach nichts mehr. Der neue muss an alle, die den alten haben, erneut weitergegeben werden."}

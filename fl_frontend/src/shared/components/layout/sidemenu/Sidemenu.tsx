@@ -63,7 +63,7 @@ export function Sidemenu<TIcon extends string>({
        no fade to keep, so what is left once the slide goes is an instant arrival. */
     <aside
       id="app-sidemenu"
-      className={`bg-surface border-border text-foreground fixed inset-y-0 left-0 z-50 flex h-dvh flex-col border-r transition-[width,translate,visibility] duration-300 ease-in-out motion-reduce:transition-none lg:visible lg:h-auto ${
+      className={`fixed inset-y-0 left-0 z-50 flex h-dvh flex-col border-r border-border bg-surface text-foreground transition-[width,translate,visibility] duration-300 ease-in-out motion-reduce:transition-none lg:visible lg:h-auto ${
         isMobileOpen ? "visible translate-x-0" : "invisible -translate-x-full"
       } lg:relative lg:z-0 lg:shrink-0 lg:translate-x-0 ${railWidth}`}>
       <SidemenuDrawerHeader onClose={onMobileClose} />

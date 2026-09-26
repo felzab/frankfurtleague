@@ -77,7 +77,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   };
 
   const renderMietpreis = (ort: FLSpielort) => (
-    <span className="bg-muted text-foreground font-numeric fluid-xs inline-flex items-center rounded-md px-3 py-1.5 font-bold tracking-wide tabular-nums">
+    <span className="inline-flex items-center rounded-md bg-muted px-3 py-1.5 font-numeric fluid-xs font-bold tracking-wide text-foreground tabular-nums">
       {formatEuro(ort.default_mietpreis)}
     </span>
   );
@@ -95,7 +95,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
     <div className={IDENTITY_ROW_CLASSES}>
       <MapPin
         aria-hidden="true"
-        className="text-foreground-muted size-4.5 shrink-0"
+        className="size-4.5 shrink-0 text-foreground-muted"
       />
       <div className={IDENTITY_STACK_CLASSES}>
         <div className={IDENTITY_HEAD_CLASSES}>
@@ -153,7 +153,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
           external>
           <Globe
             aria-hidden="true"
-            className="text-foreground-muted size-4"
+            className="size-4 text-foreground-muted"
           />
         </RowActionMenuItem>
         {/* `ort` as `buildSpielFacets` declares it, carrying the id its options are keyed by. A `q=`
@@ -164,7 +164,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
           label="Spiele anzeigen">
           <Magnifier
             aria-hidden="true"
-            className="text-foreground-muted size-4"
+            className="size-4 text-foreground-muted"
           />
         </RowActionMenuItem>
       </RowActionMenu>
@@ -184,7 +184,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
               <div className="min-w-0 flex-1">{renderIdentity(ort)}</div>
               <span className="shrink-0">{renderMietpreis(ort)}</span>
             </div>
-            <div className="border-border/50 -mx-1 border-t pt-2">{renderActions(ort)}</div>
+            <div className="-mx-1 border-t border-border/50 pt-2">{renderActions(ort)}</div>
           </div>
         ))}
       </div>
@@ -224,7 +224,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
                 {(ort: FLSpielort) => (
                   <Table.Row
                     id={ort.id}
-                    className="border-border/50 border-b last:border-b-0">
+                    className="border-b border-border/50 last:border-b-0">
                     <Table.Cell className={CELL_EDGE_CLASSES}>{renderIdentity(ort)}</Table.Cell>
 
                     <Table.Cell className={CELL_INNER_CLASSES}>{renderMietpreis(ort)}</Table.Cell>

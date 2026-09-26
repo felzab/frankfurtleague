@@ -23,9 +23,9 @@ export function MetaSection({
     <section className="flex w-full flex-col gap-y-4">
       <div className="flex flex-col gap-x-6 gap-y-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex flex-col gap-y-1">
-          <span className="fluid-xxs text-brand font-extrabold tracking-widest uppercase">{eyebrow}</span>
+          <span className="fluid-xxs font-extrabold tracking-widest text-brand uppercase">{eyebrow}</span>
           <h2 className={`${DISPLAY_HEADING_CLASSES} fluid-2xl text-foreground`}>{title}</h2>
-          {lead !== undefined && <p className="muted-hint max-w-2xl">{lead}</p>}
+          {lead !== undefined && <p className="max-w-2xl muted-hint">{lead}</p>}
         </div>
         {aside}
       </div>

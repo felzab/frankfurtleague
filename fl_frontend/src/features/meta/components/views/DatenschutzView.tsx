@@ -204,8 +204,8 @@ const FRISTEN = [
 function Angabe({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-y-0.5">
-      <dt className="fluid-xxs text-foreground-muted font-bold">{label}</dt>
-      <dd className="fluid-sm text-foreground min-w-0 font-medium break-words">{children}</dd>
+      <dt className="fluid-xxs font-bold text-foreground-muted">{label}</dt>
+      <dd className="min-w-0 fluid-sm font-medium break-words text-foreground">{children}</dd>
     </div>
   );
 }
@@ -451,8 +451,8 @@ export function DatenschutzView() {
               <div
                 role="listitem"
                 key={empfaenger.name}
-                className="border-border flex flex-col gap-y-3 rounded-xl border p-4">
-                <div className="fluid-sm text-foreground font-extrabold tracking-wide uppercase">{empfaenger.name}</div>
+                className="flex flex-col gap-y-3 rounded-xl border border-border p-4">
+                <div className="fluid-sm font-extrabold tracking-wide text-foreground uppercase">{empfaenger.name}</div>
                 <dl className="flex flex-col gap-y-2">
                   <Angabe label="Rolle">{empfaenger.rolle}</Angabe>
                   <Angabe label="Was dorthin gelangt">{empfaenger.inhalt}</Angabe>

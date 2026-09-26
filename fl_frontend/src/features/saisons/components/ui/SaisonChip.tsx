@@ -20,7 +20,7 @@ export function SaisonChip({
 }) {
   return (
     <div
-      className={`${PILL_TINT_CLASSES.brand} border-brand/30 fluid-xs inline-flex w-fit items-center gap-2 rounded-full border px-4 py-1.5 font-bold shadow-xs`}>
+      className={`${PILL_TINT_CLASSES.brand} inline-flex w-fit items-center gap-2 rounded-full border border-brand/30 px-4 py-1.5 fluid-xs font-bold shadow-xs`}>
       {isLaufend && <span className={laufendDot("xs")} />}
       {children}
     </div>

@@ -94,18 +94,18 @@ export function SaisonSelector({ saisons, defaultSaison }: { saisons: SaisonSele
           // No `aria-expanded:border-brand` here, and `border-control` at rest like every other field:
           // `globals.css`'s field-focus block already paints every field-shaped control, and a second
           // copy at one call site is how they diverge.
-          className={`border-control bg-surface/50 aria-expanded:bg-surface flex h-auto min-h-14 w-full flex-row items-center justify-between rounded-xl border px-4 py-2.5 shadow-xs transition-[background-color,border-color,opacity] duration-(--motion-base) ${
+          className={`flex h-auto min-h-14 w-full flex-row items-center justify-between rounded-xl border border-control bg-surface/50 px-4 py-2.5 shadow-xs transition-[background-color,border-color,opacity] duration-(--motion-base) aria-expanded:bg-surface ${
             isSwitching ? "opacity-60" : ""
           }`}>
           <div className="flex flex-col items-start gap-0.5 text-left">
             {/* Rendered from `activeSaisonId`, NOT from `Select.Value`, which resolves its label
                 out of the react-aria collection and shows HeroUI's English placeholder on a render
                 where the collection has not committed. */}
-            <span className="fluid-lg text-foreground font-extrabold tracking-tight">{`Saison ${activeSaisonId}`}</span>
-            <Description className="fluid-xxs text-foreground-muted font-bold tracking-wider uppercase">{timespan}</Description>
+            <span className="fluid-lg font-extrabold tracking-tight text-foreground">{`Saison ${activeSaisonId}`}</span>
+            <Description className="fluid-xxs font-bold tracking-wider text-foreground-muted uppercase">{timespan}</Description>
           </div>
 
-          <Select.Indicator className="text-foreground-muted shrink-0 opacity-70" />
+          <Select.Indicator className="shrink-0 text-foreground-muted opacity-70" />
         </Select.Trigger>
 
         <Select.Popover className={SELECT_POPOVER_CLASSES}>
