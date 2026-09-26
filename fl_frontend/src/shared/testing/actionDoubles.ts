@@ -241,6 +241,20 @@ async function administratorOf(session: AdminSessionDouble): Promise<unknown> {
 }
 
 /**
+ * The shape `fl_frontend/src/core/auth.ts :: getKontoSession` serves, signed in by passkey this moment:
+ * a caller reading `user.id` or `session` off the bare `{ user }` would read `undefined` and pass.
+ */
+const servedOf = (session: AdminSessionDouble): unknown => {
+  if (session === null || session instanceof Error) return session;
+  const now = new Date();
+
+  return {
+    user: { id: "doubled-user", email: session.user.email },
+    session: { id: "doubled-session", createdAt: now, updatedAt: now, authFactor: "passkey", passkeyCredentialId: "doubled-credential" },
+  };
+};
+
+/**
  * `url`'s module with `doubled` standing in for the exports it names, the real one opening the
  * database driver as it loads. Every other export throws where called, its name read off the real
  * module so an import links.
@@ -271,7 +285,7 @@ const signInStore = (url: string, answers: SignInAnswers): string =>
     new Map([
       ["getAdminSession", () => administratorOf(answers.session)],
       // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
-      ["getKontoSession", () => answering(answers.session)],
+      ["getKontoSession", () => answering(servedOf(answers.session))],
       ["getSignInDestination", () => Promise.resolve(answers.destination)],
       [
         "endSessionsOfAddress",

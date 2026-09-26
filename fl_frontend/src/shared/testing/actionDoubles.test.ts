@@ -24,7 +24,7 @@ doubleActions({ modules: ["/src/features/spielorte/mutations.ts"] });
 const { appToast, UNDO_TIMEOUT_MS } = await import("@/shared/utils/appToast.ts");
 const spieltage = await import("@/features/spieltage/actions.ts");
 const nextCache = await import("next/cache");
-const { getAdminSession, getSignInDestination } = await import("@/core/auth.ts");
+const { getAdminSession, getKontoSession, getSignInDestination } = await import("@/core/auth.ts");
 const { getSubjectSession } = await import("@/core/subject.ts");
 
 describe("the actions double", () => {
@@ -159,6 +159,20 @@ describe("the request double", () => {
   it("signs the next case in as the request's own session again", async () => {
     assert.deepEqual(await getAdminSession(), { user: { email: "vorstand@example.org" } });
     assert.equal(await getSignInDestination(), "/bereich/admin", "the previous case's destination outlived its case");
+  });
+
+  /* The account spine reads the served session's own fields: a bare `{ user }` would answer every
+     one of them `undefined`, and a check comparing two of them would pass on two undefineds. */
+  it("answers the account guard in the shape the real guard serves, and nobody as nobody", async () => {
+    const served = (await getKontoSession()) as { user: Record<string, unknown>; session: Record<string, unknown> };
+
+    assert.deepEqual(Object.keys(served.user).sort(), ["email", "id"]);
+    assert.equal(served.user.email, "vorstand@example.org");
+    assert.deepEqual(Object.keys(served.session).sort(), ["authFactor", "createdAt", "id", "passkeyCredentialId", "updatedAt"]);
+    assert.ok(served.session.createdAt instanceof Date);
+
+    setSession(null);
+    assert.equal(await getKontoSession(), null);
   });
 
   /* The real lookup reads the sign-in store this double replaces, so a page reaching it would crash
