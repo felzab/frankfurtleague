@@ -1,43 +1,30 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useId, useRef, useState } from "react";
+import { startTransition, useActionState, useEffect, useState } from "react";
 import { catchError } from "next/error";
 
 import { Button } from "@heroui/react/button";
 import { FieldError } from "@heroui/react/field-error";
 import { Input } from "@heroui/react/input";
-import { InputOTP, REGEXP_ONLY_DIGITS } from "@heroui/react/input-otp";
 import { Label } from "@heroui/react/label";
 
-import { SIGN_IN_CODE_LENGTH } from "@/core/signInCode";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
 import { Form } from "@/shared/components/ui/Form";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR_CLASSES } from "@/shared/components/ui/formFieldStyles";
-import { Hint } from "@/shared/components/ui/Hint";
 import { SignInCard } from "@/shared/components/ui/SignInCard";
 import { TextField } from "@/shared/components/ui/TextField";
 import { useDraftFieldErrors } from "@/shared/hooks/useDraftFieldErrors";
 import { hasFieldErrors } from "@/shared/hooks/useServerFieldErrors";
 import { appToast } from "@/shared/utils/appToast";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
-import { postPublicForm } from "@/shared/utils/publicSubmit";
 
 import { handleSignIn } from "../../actions";
-import { VERSUCHE_ES_ERNEUT } from "../../passkeyAnswers";
 import { SignInActionFallback } from "../ui/SignInActionFallback";
+import { CodeStep, LABEL_CLASSES } from "./CodeStep";
 
 import type { FormState } from "@/shared/types/types";
-import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 import type { ErrorInfo } from "next/error";
-
-/** The route handler a typed code is checked at (`fl_frontend/src/app/api/signin/code/route.ts`). */
-const CODE_ENDPOINT = "/api/signin/code";
-
-/** Long enough that a mail sent a moment ago can arrive before a second is asked for. */
-const RESEND_COOLDOWN_MS = 30_000;
-
-const LABEL_CLASSES = "fluid-xs font-bold tracking-wider text-foreground uppercase";
 
 /**
  * Next's own boundary rather than a hand-written class: a class catches every throw, a framework
@@ -129,14 +116,18 @@ function SignInPanel({ email, onEmailChange, next }: { email: string; onEmailCha
   };
 
   if (isSubmitted) {
+    const address = state.submittedEmail ?? "";
     return (
       <CodeStep
         key={sends}
-        answer={state}
+        address={address}
+        message={state.message ?? null}
         isSending={isPending}
-        onResend={send}
+        onResend={() => send(address)}
         onBack={() => setDismissedAt(state)}
-        next={next}
+        // A full document load and never a soft navigation: the session has just changed, so every
+        // payload the router holds was rendered for somebody signed out.
+        onSignedIn={() => leaveDocumentFor(next)}
       />
     );
   }
@@ -178,168 +169,5 @@ function SignInPanel({ email, onEmailChange, next }: { email: string; onEmailCha
         {isPending ? "Sendet..." : "Code senden"}
       </Button>
     </Form>
-  );
-}
-
-function CodeStep({
-  answer,
-  isSending,
-  onResend,
-  onBack,
-  next,
-}: {
-  answer: FormState;
-  isSending: boolean;
-  onResend: (address: string) => void;
-  onBack: () => void;
-  next: string;
-}) {
-  const address = answer?.submittedEmail ?? "";
-  const [code, setCode] = useState("");
-  const [refusal, setRefusal] = useState<string | null>(null);
-  const [isChecking, setIsChecking] = useState(false);
-  const [isCoolingDown, setIsCoolingDown] = useState(true);
-
-  const inputId = useId();
-  const hintId = useId();
-  const refusalId = useId();
-
-  useEffect(() => {
-    const cooled = setTimeout(() => setIsCoolingDown(false), RESEND_COOLDOWN_MS);
-    return () => clearTimeout(cooled);
-  }, []);
-
-  // Moved on mount rather than through `autoFocus`, which is banned for a load-time grab: the step
-  // replaced the button the visitor pressed, leaving a keyboard user on the document body.
-  const codeRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    codeRef.current?.focus();
-  }, []);
-
-  const check = async (typed: string) => {
-    // The sixth digit submits by itself, so a press of the button while that check runs is a second one.
-    if (isChecking || typed.length !== SIGN_IN_CODE_LENGTH) return;
-
-    setIsChecking(true);
-    setRefusal(null);
-
-    const checked = await postPublicForm<PublicEnvelope>(CODE_ENDPOINT, { email: address, code: typed });
-
-    if (!checked.answered) {
-      setIsChecking(false);
-      appToast.danger("Nicht angemeldet", { description: checked.error });
-      return;
-    }
-
-    if (checked.body.success) {
-      // A full document load and never a soft navigation: the session has just changed, so every
-      // payload the router holds was rendered for somebody signed out. Left pending while it goes.
-      leaveDocumentFor(next);
-      return;
-    }
-
-    // Emptied, so the next six digits submit by themselves again rather than waiting on a press.
-    setIsChecking(false);
-    setCode("");
-    setRefusal(checked.body.error ?? VERSUCHE_ES_ERNEUT);
-  };
-
-  return (
-    /* The confirmation is read off the answer rather than written here: the two arms of
-       `fl_frontend/src/features/auth/actions.ts :: handleSignIn` have to read identically. */
-    <div className="flex flex-col gap-y-4">
-      <div
-        role="status"
-        className="flex flex-col items-center gap-y-3 text-center">
-        <span className="text-4xl">📬</span>
-        <p className="fluid-lg font-extrabold tracking-tight text-foreground">Prüfe Dein Postfach</p>
-
-        {address !== "" && <p className="fluid-sm font-bold break-all text-foreground">{address}</p>}
-
-        <p className="muted-hint text-pretty">{answer?.success === true ? answer.message : null}</p>
-      </div>
-
-      <div className="flex flex-col gap-y-2">
-        <Label
-          htmlFor={inputId}
-          className={LABEL_CLASSES}>
-          Code aus der E-Mail
-        </Label>
-        <InputOTP
-          id={inputId}
-          name="code"
-          maxLength={SIGN_IN_CODE_LENGTH}
-          pattern={REGEXP_ONLY_DIGITS}
-          value={code}
-          onChange={setCode}
-          onComplete={(typed: string) => void check(typed)}
-          isInvalid={refusal !== null}
-          isDisabled={isChecking}
-          aria-describedby={refusal === null ? hintId : `${refusalId} ${hintId}`}
-          ref={codeRef}
-          // A script-free visitor has no step to reach: the address form posts through the page's own code.
-          noScriptCSSFallback={null}>
-          <InputOTP.Group className="w-full">
-            {Array.from({ length: SIGN_IN_CODE_LENGTH }, (_, index) => (
-              <InputOTP.Slot
-                key={index}
-                index={index}
-                // The slot's own entrance scales its digit up from 0.8, out of reach of the document's
-                // scale pin; this holds it to the fade the rest of the site arrives with.
-                className="h-12 rounded-xl border-control bg-surface fluid-lg [&_[data-slot=input-otp-slot-value]]:animate-in [&_[data-slot=input-otp-slot-value]]:fade-in"
-              />
-            ))}
-          </InputOTP.Group>
-        </InputOTP>
-
-        {refusal !== null && (
-          <p
-            id={refusalId}
-            role="alert"
-            className={FIELD_ERROR_CLASSES}>
-            {refusal}
-          </p>
-        )}
-
-        <Hint
-          mode="inline"
-          describes={hintId}
-          text="Kein Code angekommen? Schau im Spam-Ordner nach. Hast Du Dich gerade erst eingetragen, bestätige zuerst Deine Eintragung über den Link aus unserer E-Mail."
-        />
-      </div>
-
-      <Button
-        type="button"
-        variant="primary"
-        isPending={isChecking}
-        isDisabled={code.length !== SIGN_IN_CODE_LENGTH}
-        onPress={() => void check(code)}
-        className={formButton({ intent: "submit", fullWidth: true })}>
-        {isChecking ? "Meldet an..." : "Anmelden"}
-      </Button>
-
-      <div className="flex flex-col gap-y-3 sm:flex-row sm:justify-center sm:gap-x-3">
-        <Button
-          type="button"
-          variant="secondary"
-          isPending={isSending}
-          // Not before the cooldown: a new code goes out and voids the one before, so a second press a
-          // moment after the first kills the code the first mail is still carrying.
-          isDisabled={isCoolingDown || isChecking}
-          onPress={() => onResend(address)}
-          className={formButton({ intent: "cancel" })}>
-          Code erneut senden
-        </Button>
-        {/* The action does not navigate, so without this the only way back is a page reload. */}
-        <Button
-          type="button"
-          variant="secondary"
-          isDisabled={isChecking}
-          onPress={onBack}
-          className={formButton({ intent: "cancel" })}>
-          Andere E-Mail-Adresse verwenden
-        </Button>
-      </div>
-    </div>
   );
 }

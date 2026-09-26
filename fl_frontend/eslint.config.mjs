@@ -721,6 +721,7 @@ const SOURCE_BANS = [
       // sign-out and sends and checks the sign-in code.
       "src/shared/hooks/useSignOut.ts",
       "src/features/auth/components/forms/SignInForm.tsx",
+      "src/features/auth/components/forms/CodeStep.tsx",
       // An undo of unknown outcome, under the undo's own unclear title: `appToast.failure`'s speaks of a save.
       "src/shared/utils/undoDispatch.ts",
     ],

@@ -49,6 +49,7 @@ const left: string[] = [];
 Reflect.set(globalThis, LEFT, left);
 
 const { SignInForm } = await import("./SignInForm.tsx");
+const { CodeStep } = await import("./CodeStep.tsx");
 
 const ADDRESS = "vorstand@example.org";
 const LANDING = "/signin/weiter";
@@ -222,5 +223,28 @@ describe("the sign-in card's code step", () => {
     }
 
     assert.equal(calls.length - before, 2, "the open resend sent nothing");
+  });
+});
+
+/* The step on its own, as a page confirming a signed-in person mounts it: the caller decides what a
+   finished sign-in does, and an address that may not change is offered no way to change it. */
+describe("the code step mounted outside the sign-in card", () => {
+  it("hands a finished sign-in to its caller and leaves the document to it", async () => {
+    const user = userEvent.setup();
+    const signedIn = mock.fn();
+    render(h(CodeStep, { address: ADDRESS, message: NEUTRAL, isSending: false, onResend: () => undefined, onSignedIn: signedIn }));
+    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(answered({ success: true })));
+
+    await user.type(screen.getByLabelText("Code aus der E-Mail"), "048213");
+
+    await waitFor(() => assert.equal(signedIn.mock.callCount(), 1));
+    assert.deepEqual(left, [], "the step navigated on its own rather than leaving that to its caller");
+  });
+
+  it("offers no other address where its caller passes no way back", () => {
+    render(h(CodeStep, { address: ADDRESS, message: NEUTRAL, isSending: false, onResend: () => undefined, onSignedIn: () => undefined }));
+
+    assert.ok(screen.queryByRole("button", { name: "Andere E-Mail-Adresse verwenden" }) === null);
+    assert.ok(screen.getByRole("button", { name: "Code erneut senden" }));
   });
 });
