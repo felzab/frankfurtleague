@@ -165,6 +165,16 @@ describe("where the landing takes a person", () => {
     assert.deepEqual(await redirectsOf(PersoenlichStartPage), ["/bereich/spieler"]);
   });
 
+  /* An administrator whose verdict stands has come to `/bereich` for the other places they hold, so the
+     landing offers them rather than sending them back to the admin subtree they just left. */
+  it("offers an allowlisted address whose administrator verdict stands its own landing", async () => {
+    setSession({ user: { email: ALLOWLISTED } }, "/bereich/admin");
+    setSubject({ ...person({ spieler: [{ spieler_id: TEAM_A }] }, true), email: ALLOWLISTED });
+
+    assert.deepEqual(await redirectsOf(PersoenlichStartPage), [], "a standing administrator is sent away from the landing");
+    assert.deepEqual(await switchHrefs(), ["/bereich/spieler", "/bereich/admin"]);
+  });
+
   /* One address however many Funktionen lead there: a Trainer who is also the Ansprechperson, and two
      pupils sharing a mailbox, would otherwise be offered one page twice. */
   it("counts Funktionen leading to one address as one", async () => {
