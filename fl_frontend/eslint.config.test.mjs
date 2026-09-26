@@ -89,7 +89,7 @@ const BANS = [
 
 const keyOf = (message) => BANS.find(([, pattern]) => pattern.test(message))?.[0] ?? `UNKNOWN: ${message}`;
 
-/** Each plant, with the path under `src/` its first line says it is linted as: a ban's scope is a path. */
+/** Each plant, with the path under `src/`, or `next.config.ts`, its first line says it is linted as: a ban's scope is a path. */
 const plants = readdirSync(PLANTS)
   .filter((name) => name.endsWith(".txt"))
   .sort()
@@ -182,7 +182,7 @@ const exemptions = await Promise.all(
 describe("the lint bans, driven against planted source", () => {
   for (const plant of plants) {
     it(`${plant.name}: every mark is reported on its line with its ban, and nothing else is`, () => {
-      assert.ok(plant.lintedAs, `${plant.name} opens with no "// Linted as src/..." line`);
+      assert.ok(plant.lintedAs, `${plant.name} opens with no "// Linted as src/..." or "// Linted as next.config.ts." line`);
       assert.deepEqual(reports.get(plant.name).sort(), marksOf(plant.text).sort());
     });
   }
