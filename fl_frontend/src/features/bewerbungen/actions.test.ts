@@ -764,6 +764,15 @@ describe("a message that cannot be sent", () => {
 });
 
 describe("the re-sent confirmation link", () => {
+  /* The button carries no address box, so the repairs' „Trage eine andere Adresse ein“ would name a
+     field that is not there: the sentence names the correction control beside it instead. */
+  it("words a barred address with the control the administrator can use from the button", () => {
+    const answered = mapEinwilligungErneutRefusal(refusedOn(ERNEUT_OPERATION, "REQ-BEWERBUNG-019", 409));
+
+    assert.match(String(answered), /Adresse korrigieren/);
+    assert.doesNotMatch(String(answered), /Trage eine andere Adresse ein/);
+  });
+
   it("answers every code the re-send publishes through its own mapper", async () => {
     for (const code of publishedRefusals(ERNEUT_OPERATION)) {
       assert.notEqual(

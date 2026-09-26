@@ -108,6 +108,12 @@ export function mapTriageRefusal(error: unknown, herkunft: BewerbungHerkunft | n
   }
 }
 
+// GERMAN-PENDING: drafted for the coordinator's approval at landing.
+const ERNEUT_ADRESSE_GESPERRT = buildRefusal({
+  reason: "Die E-Mail-Adresse dieser Person steht auf der Sperrliste",
+  repair: "Korrigiere sie über „Adresse korrigieren“ oder hebe die Sperre unter /bereich/admin/sperrliste auf",
+});
+
 /** A re-send refusal as the message it should render, or `null` when the code is none of these. */
 export function mapEinwilligungErneutRefusal(error: unknown): string | null {
   if (!isRefusal(error)) return null;
@@ -127,10 +133,10 @@ export function mapEinwilligungErneutRefusal(error: unknown): string | null {
         reason: "Für diese Rolle steht keine Bestätigung mehr aus",
         repair: "Lade die Seite neu",
       });
-    // The repairs' own sentence: its remedy, another address through the pencil beside this control
-    // or the ban lifted, is the re-send's too.
+    // Not the repairs' sentence: this control has no address box to type another address into, so it
+    // names the correction beside it, whose label the strip shows.
     case "REQ-BEWERBUNG-019":
-      return SPERRLISTE_ADRESSE_GESPERRT;
+      return ERNEUT_ADRESSE_GESPERRT;
     default:
       return null;
   }
