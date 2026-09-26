@@ -54,6 +54,9 @@ const TEAM_PAGES = filesUnder(TEAM_DIR, (name) => name === "page.tsx", 1).filter
   (file) => !/^\[\.\.\..+\]$/.test(path.basename(path.dirname(file))),
 );
 
+/** Every layout under the team area, the area's own among them, which is the floor. */
+const TEAM_LAYOUTS = filesUnder(TEAM_DIR, (name) => name === "layout.tsx", 1);
+
 /** Team A's address this season, which the person below holds nothing on. */
 const HELD_BY_NOBODY = { params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526" }), searchParams: Promise.resolve({}) };
 
@@ -180,6 +183,27 @@ describe("what a person meets at an address they hold no seat on", () => {
       const markup = await renderPage(underNext(h(Page, HELD_BY_NOBODY)));
 
       assert.equal(markup, "", `${path.relative(TEAM_DIR, file)} renders at an address the person holds no seat on`);
+      assert.deepEqual(readsOf(steps), [], `${path.relative(TEAM_DIR, file)} reads before it checks the seat`);
+    }
+  });
+
+  /* Next runs a nested layout whatever the area's layout renders in its stead, as it runs a page: one
+     reading before it checks the seat puts that read's data in the payload beside the forbidden panel. */
+  it("reads nothing from any team layout at an address held by nobody there", async () => {
+    setSubject(person({ sitze: [sitz({ team_id: TEAM_B, team_name: "Lessing-Gymnasium" })] }));
+
+    for (const file of TEAM_LAYOUTS) {
+      const { default: Layout } = (await import(pathToFileURL(file).href)) as {
+        default: (props: { params: (typeof HELD_BY_NOBODY)["params"]; children: ReactNode }) => ReactNode;
+      };
+      clearSteps();
+      await renderPage(
+        underNext(h(Layout, { params: HELD_BY_NOBODY.params, children: null }), {
+          pathname: `/bereich/team/${TEAM_A}/2526`,
+          params: { team_id: TEAM_A, saison_id: "2526" },
+        }),
+      );
+
       assert.deepEqual(readsOf(steps), [], `${path.relative(TEAM_DIR, file)} reads before it checks the seat`);
     }
   });
