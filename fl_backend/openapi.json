@@ -6318,6 +6318,161 @@
         "x-fl-tier": "admin"
       }
     },
+    "/api/v0/berechtigungen": {
+      "get": {
+        "summary": "List who may enter the administration",
+        "description": "List every grant of access to the administration, by address: its tier, who granted it and when.\n\nUncapped, as few people hold one. `erteilt_von` is an administrator's address for a grant made here, and whatever the database\nedit wrote for one made there, so it says nothing about how the grant was made.",
+        "operationId": "get_berechtigungen_api_v0_berechtigungen_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBerechtigungenListResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      },
+      "post": {
+        "summary": "Grant access to the administration",
+        "description": "Grant an address access to the administration, as `administration`. No request grants `owner`.\n\nThe address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where the\naddress already holds a grant of either tier (`REQ-BERECHTIGUNG-001`), and where the ban list holds it (`REQ-BERECHTIGUNG-003`):\nlifting the ban comes first. The grant takes effect on the next request, and nobody is told of it by this call: the\nreconciliation at `POST /berechtigungen/abgleich` names it, with the administrator who made it.",
+        "operationId": "post_berechtigung_api_v0_berechtigungen_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPostBerechtigungPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLPostBerechtigungResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERECHTIGUNG-001.REQ-BERECHTIGUNG-003"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "admin"
+      }
+    },
+    "/api/v0/berechtigungen/{berechtigung_id}": {
+      "delete": {
+        "summary": "Revoke access to the administration",
+        "description": "Revoke one grant, removing the row. HARD, no soft form; the revoked address meets `REQ-AUTH-006` on its next request.\n\nRefused for an `owner` row (`REQ-BERECHTIGUNG-002`), which is changed in the database directly, and where fewer than two grants\nwould remain, any `owner` grant counted among them (`REQ-BERECHTIGUNG-004`). An administrator may revoke their own grant on the same\nterms. 404 where no grant has the id. The action log keeps the removed row, address included, and the reconciliation names the\nrevoke with the administrator who made it.",
+        "operationId": "delete_berechtigung_api_v0_berechtigungen__berechtigung_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "berechtigung_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Berechtigung Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBerechtigungWriteResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERECHTIGUNG-002.REQ-BERECHTIGUNG-004"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      }
+    },
     "/api/v0/bewerbungen/fenster": {
       "get": {
         "summary": "The Saison currently accepting applications",
@@ -7496,7 +7651,7 @@
     "/api/v0/identitaet/subjekt": {
       "post": {
         "summary": "Say which league records one mailbox holds",
-        "description": "Answer which confirmed contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /kontakte/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival\nand compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain\nasked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de`\nare two domains here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.\n\nA contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode --\nso both are read in two steps: the database narrows to the rows holding the identifier whatever the case of its letters, and the\nfold decides on each candidate's own stored value.\n\nNeither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by\nevery writer that touches either.\n\nA record is answered only once its own person has confirmed it -- a seat's `einwilligung.bestaetigt_am`, judged per seat, and the\nsame stamp on a pupil's and a referee's consent record, an empty stamp confirming nothing -- and only while its row is live: a\nretired pupil or referee is answered nothing, and so is the placeholder every erased referee's fixtures name. A seat on a season\nits team withdrew from, by disqualification or withdrawal alike, is answered nothing either; its seats on other seasons stand.\nA seat on a `past` season is still answered, carrying its `saison_status`: which seasons grant a panel is each caller's to decide.\n\n`unbestaetigt` is true exactly where the mailbox holds records that could grant a panel -- a live pupil or referee row, or a seat\non an `active` or `future` season -- and none of them is confirmed, so an unconfirmed person is told apart from one the league\nholds nothing for. A seat on a `past` season counts toward neither answer: confirming it would open nothing.\n\n`gesperrt` says whether the address is on the ban list, judged as a sign-up is: the address in any spelling that folds to the same\nmailbox, and a ban only while the running season is within its bound. It narrows none of the records beside it.\n\nEach list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.\nAn address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.",
+        "description": "Answer which confirmed contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /kontakte/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival\nand compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain\nasked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de`\nare two domains here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.\n\nA contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode --\nso both are read in two steps: the database narrows to the rows holding the identifier whatever the case of its letters, and the\nfold decides on each candidate's own stored value.\n\nNeither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by\nevery writer that touches either.\n\nA record is answered only once its own person has confirmed it -- a seat's `einwilligung.bestaetigt_am`, judged per seat, and the\nsame stamp on a pupil's and a referee's consent record, an empty stamp confirming nothing -- and only while its row is live: a\nretired pupil or referee is answered nothing, and so is the placeholder every erased referee's fixtures name. A seat on a season\nits team withdrew from, by disqualification or withdrawal alike, is answered nothing either; its seats on other seasons stand.\nA seat on a `past` season is still answered, carrying its `saison_status`: which seasons grant a panel is each caller's to decide.\n\n`unbestaetigt` is true exactly where the mailbox holds records that could grant a panel -- a live pupil or referee row, or a seat\non an `active` or `future` season -- and none of them is confirmed, so an unconfirmed person is told apart from one the league\nholds nothing for. A seat on a `past` season counts toward neither answer: confirming it would open nothing.\n\n`gesperrt` says whether the address is on the ban list, judged as a sign-up is: the address in any spelling that folds to the same\nmailbox, and a ban only while the running season is within its bound. It narrows none of the records beside it.\n\n`verwaltung` is the grant the mailbox holds in `berechtigungen` -- `owner`, `administration`, or null for none -- matched on the\nfolded identifier alone, the one spelling a grant is stored in. It is the one stored answer here: whether a person is an\nadministrator is decided by a grant rather than derived from a league record, and it narrows none of the records beside it.\n\nEach list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.\nAn address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.",
         "operationId": "get_subjekt_api_v0_identitaet_subjekt_post",
         "requestBody": {
           "content": {
@@ -7542,6 +7697,91 @@
         ],
         "x-fl-tier": "system",
         "x-fl-stores-nothing": true
+      }
+    },
+    "/api/v0/berechtigungen/abgleich": {
+      "post": {
+        "summary": "Say how the grants differ from what was last announced",
+        "description": "Answer every grant whose state differs from what every administrator was last told, and who to tell. Stores nothing.\n\nA grant added, removed or changed by any route counts, a change made in the database directly included: the comparison is with\nthe announced record rather than with the log, so a grant deleted by hand, which leaves nothing behind in `berechtigungen`, is\nstill found. Each change carries the administrator whose recorded write made it, or null where no recorded write did -- a\nchange made in the database directly, or one older than the log's twelve months. `gesperrt` says whether the address a grant\nnow names is on the ban list, which only a change made outside the application can leave true.\n\n`empfaenger` is every address holding a grant now; a removed address is on none, so it is read off its own change. Nothing is\nmarked as told here: the caller mails, then hands back what it announced to `POST /berechtigungen/abgleich/angekuendigt`, so a\nsend that failed is found again by the next call. Answers an empty list where nothing changed.",
+        "operationId": "post_berechtigungen_abgleich_api_v0_berechtigungen_abgleich_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBerechtigungAbgleichResponse"
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system",
+        "x-fl-stores-nothing": true
+      }
+    },
+    "/api/v0/berechtigungen/abgleich/angekuendigt": {
+      "post": {
+        "summary": "Record which grant changes were announced",
+        "description": "Record each change the caller announced as the state it announced, and nothing else.\n\nEach entry names a grant and the state the mail told everyone of, or null for a removal; the record takes exactly that, whatever\nthe grant holds by now, so a change made since is found by the next call to `POST /berechtigungen/abgleich`. Repeating a call\nrecords the same state again. One transaction, recorded under the system actor, so an announcement of a change made in the\ndatabase directly leaves a log row too. `angekuendigt` is how many entries were recorded.",
+        "operationId": "post_berechtigungen_angekuendigt_api_v0_berechtigungen_abgleich_angekuendigt_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLBerechtigungAngekuendigtPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBerechtigungAngekuendigtResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-003"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "x-fl-tier": "system"
       }
     },
     "/": {
@@ -8363,6 +8603,319 @@
         ],
         "title": "FLAustritt",
         "description": "How a team came to be out of one season, why, and from when.\n\n`grund` is FREE TEXT and PUBLIC -- it appears on the team's page, and this league publishes no\ndisciplinary code an enum could cite."
+      },
+      "FLBerechtigung": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "adresse": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Adresse"
+          },
+          "verwaltung": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "administration"
+            ],
+            "title": "Verwaltung"
+          },
+          "erteilt_von": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Erteilt Von"
+          },
+          "erteilt_am": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Erteilt Am"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "adresse",
+          "verwaltung",
+          "erteilt_von",
+          "erteilt_am"
+        ],
+        "title": "FLBerechtigung",
+        "description": "One grant, as the collection stores it and the list serves it."
+      },
+      "FLBerechtigungAbgleichResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "aenderungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLBerechtigungAenderung"
+            },
+            "type": "array",
+            "title": "Aenderungen"
+          },
+          "empfaenger": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Empfaenger"
+          }
+        },
+        "type": "object",
+        "required": [
+          "aenderungen",
+          "empfaenger"
+        ],
+        "title": "FLBerechtigungAbgleichResponse"
+      },
+      "FLBerechtigungAenderung": {
+        "properties": {
+          "berechtigung_id": {
+            "type": "string",
+            "title": "Berechtigung Id"
+          },
+          "art": {
+            "type": "string",
+            "enum": [
+              "erteilt",
+              "entzogen",
+              "geaendert"
+            ],
+            "title": "Art"
+          },
+          "jetzt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBerechtigungEintrag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "vorher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBerechtigungEintrag"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "geaendert_von": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geaendert Von"
+          },
+          "geaendert_am": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geaendert Am"
+          },
+          "gesperrt": {
+            "type": "boolean",
+            "title": "Gesperrt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "berechtigung_id",
+          "art",
+          "jetzt",
+          "vorher",
+          "geaendert_von",
+          "geaendert_am",
+          "gesperrt"
+        ],
+        "title": "FLBerechtigungAenderung",
+        "description": "One change to announce: what the grant is now, what everyone was last told, and who made it."
+      },
+      "FLBerechtigungAngekuendigtPayload": {
+        "properties": {
+          "aenderungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLBerechtigungAnkuendigung"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Aenderungen"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "aenderungen"
+        ],
+        "title": "FLBerechtigungAngekuendigtPayload"
+      },
+      "FLBerechtigungAngekuendigtResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "angekuendigt": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Angekuendigt"
+          }
+        },
+        "type": "object",
+        "required": [
+          "angekuendigt"
+        ],
+        "title": "FLBerechtigungAngekuendigtResponse"
+      },
+      "FLBerechtigungAnkuendigung": {
+        "properties": {
+          "berechtigung_id": {
+            "type": "string",
+            "title": "Berechtigung Id"
+          },
+          "jetzt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FLBerechtigungEintragPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "berechtigung_id",
+          "jetzt"
+        ],
+        "title": "FLBerechtigungAnkuendigung",
+        "description": "One change the caller has mailed, handed back as the state it announced."
+      },
+      "FLBerechtigungEintrag": {
+        "properties": {
+          "adresse": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Adresse"
+          },
+          "verwaltung": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "administration"
+            ],
+            "title": "Verwaltung"
+          }
+        },
+        "type": "object",
+        "required": [
+          "adresse",
+          "verwaltung"
+        ],
+        "title": "FLBerechtigungEintrag",
+        "description": "One grant's address and tier, as it stands or as it was last announced."
+      },
+      "FLBerechtigungEintragPayload": {
+        "properties": {
+          "adresse": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Adresse"
+          },
+          "verwaltung": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "administration"
+            ],
+            "title": "Verwaltung"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "adresse",
+          "verwaltung"
+        ],
+        "title": "FLBerechtigungEintragPayload"
+      },
+      "FLBerechtigungWriteResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "berechtigung_id": {
+            "type": "string",
+            "title": "Berechtigung Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "berechtigung_id"
+        ],
+        "title": "FLBerechtigungWriteResponse",
+        "description": "The removal is hard, so the id is all there is to answer with."
+      },
+      "FLBerechtigungenListResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "berechtigungen": {
+            "items": {
+              "$ref": "#/components/schemas/FLBerechtigung"
+            },
+            "type": "array",
+            "title": "Berechtigungen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "berechtigungen"
+        ],
+        "title": "FLBerechtigungenListResponse",
+        "description": "Every grant, uncapped: a list the floor of two is judged over is never served in part."
       },
       "FLBewerbung": {
         "properties": {
@@ -13022,6 +13575,44 @@
           "fanned_out_to_saison_teams"
         ],
         "title": "FLPatchTeamResponse"
+      },
+      "FLPostBerechtigungPayload": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "title": "Email"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "FLPostBerechtigungPayload"
+      },
+      "FLPostBerechtigungResponse": {
+        "properties": {
+          "acknowledged": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Acknowledged",
+            "default": 1
+          },
+          "created_id": {
+            "type": "string",
+            "title": "Created Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "created_id"
+        ],
+        "title": "FLPostBerechtigungResponse"
       },
       "FLPostBewerbungPayload": {
         "properties": {
@@ -18003,6 +18594,21 @@
           "gesperrt": {
             "type": "boolean",
             "title": "Gesperrt"
+          },
+          "verwaltung": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "owner",
+                  "administration"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verwaltung"
           }
         },
         "type": "object",
@@ -18011,7 +18617,8 @@
           "spieler",
           "schiedsrichter",
           "unbestaetigt",
-          "gesperrt"
+          "gesperrt",
+          "verwaltung"
         ],
         "title": "FLSubjektResponse",
         "description": "Which confirmed, live records one mailbox matches, and whether the address is on the ban list.\n\nThe ban narrows none of the records: whether a barred person signs in is the sign-in gate's to decide."
@@ -19476,6 +20083,56 @@
                       "enum": [
                         "DB-COMMON-002",
                         "REQ-ANONYMISE-004"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.DB-COMMON-002.REQ-BERECHTIGUNG-001.REQ-BERECHTIGUNG-003": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-BERECHTIGUNG-001",
+                        "REQ-BERECHTIGUNG-003"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.DB-COMMON-002.REQ-BERECHTIGUNG-002.REQ-BERECHTIGUNG-004": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-BERECHTIGUNG-002",
+                        "REQ-BERECHTIGUNG-004"
                       ]
                     }
                   }
