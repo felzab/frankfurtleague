@@ -19,7 +19,9 @@ export function TeamForbiddenPanel({ funktionen }: { funktionen: readonly Funkti
   const sitze = zieleOf(funktionen.filter((funktion) => funktion.art === "kontakt")).flatMap(({ href, funktionen: [erste] }) =>
     erste.art === "kontakt" ? [{ href: href, label: `${erste.team_name}, Saison ${erste.saison_id}` }] : [],
   );
-  const links = sitze.length === 0 ? [BEREICH] : sitze;
+  // A player's, a referee's or the administration's page is reached through the person's own area, so
+  // every Funktion the person holds stays one press away from the refusal.
+  const links = sitze.length === 0 || funktionen.some((funktion) => funktion.art !== "kontakt") ? [...sitze, BEREICH] : sitze;
 
   // A sole way out at its own width and in the brand fill, as every other panel under a shell shows
   // one; several are peers, in a peer's outline grade and stacked at the panel's width.

@@ -54,6 +54,14 @@ describe("where the forbidden panel sends the person", () => {
     assert.deepEqual(addressesOf([seat()]), [GOETHE]);
   });
 
+  /* A player's, a referee's and the administration's pages open through the person's own area, so each
+     beside a seat adds the way there, and every Funktion stays reachable from the refusal. */
+  it("adds the way to the person's own area beside the seats for every Funktion that is no seat", () => {
+    for (const other of [SPIELER, SCHIEDSRICHTER, ADMINISTRATION]) {
+      assert.deepEqual(addressesOf([seat(), other]), [GOETHE, BEREICH], `a ${other.art} Funktion beside a seat is left unreachable`);
+    }
+  });
+
   it("sends a person holding no seat to their own area alone", () => {
     for (const funktionen of [[], [SPIELER], [SCHIEDSRICHTER], [ADMINISTRATION]]) {
       assert.deepEqual(addressesOf(funktionen), [BEREICH]);
