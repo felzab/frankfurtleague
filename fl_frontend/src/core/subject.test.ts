@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { after, describe, it } from "node:test";
+import { registerHooks } from "node:module";
+import { after, beforeEach, describe, it } from "node:test";
 
 import {
   ADMIN_EMAIL,
@@ -11,6 +12,7 @@ import {
   registerAuthDoubles,
   seedLink,
 } from "./authDoubles.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "./cacheScope.ts";
 
 const STORE = "__flSubjectStore";
 const REQUEST_HEADERS = "__flSubjectRequestHeaders";
@@ -33,7 +35,13 @@ const CONFIG_DOUBLE = configDouble({
   INTERNAL_API_KEY_ADMIN: "fabricated-admin-not-a-credential",
 });
 
-const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};`;
+const HEADER_READS = "__flSubjectHeaderReads";
+
+/** Counts each arrival at the session read, which every uncached pass through the guard makes. */
+const HEADERS_DOUBLE = `export const headers = async () => {
+  globalThis.${HEADER_READS} = (globalThis.${HEADER_READS} ?? 0) + 1;
+  return globalThis.${REQUEST_HEADERS};
+};`;
 
 registerAuthDoubles({
   core: { config: CONFIG_DOUBLE },
@@ -114,6 +122,22 @@ after(() => {
   globalThis.fetch = ORIGINAL_FETCH;
 });
 
+// The server build for `subject.ts` alone, as Next renders it: the client build's `cache` passes
+// through, so a guard that lost its memo would read the same under every case here.
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === "react" && context.parentURL?.endsWith("/src/core/subject.ts") === true)
+      return { url: SERVER_REACT_URL, shortCircuit: true };
+    return nextResolve(specifier, context);
+  },
+});
+
+// Every case is a request of its own, and a memo carried across two would answer one case with
+// another's session.
+beforeEach(() => {
+  beginRenderPass();
+});
+
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so neither the doubles nor the `next/headers` extension would be in place yet.
 const { auth, getSignInDestination } = await import("./auth.ts");
@@ -162,6 +186,9 @@ async function guardInScope(): Promise<{ answer: Awaited<ReturnType<typeof getSu
     return { answer: answer, actor: getRequestActor() };
   });
 }
+
+/** Zero before any case has reached the session read, so a case run alone still counts. */
+const headerReads = (): number => Number(globals[HEADER_READS] ?? 0);
 
 const lastSent = (): Sent => {
   const call = sent.at(-1);
@@ -214,15 +241,28 @@ describe("who the seam answers for", () => {
   });
 
   /* The envelope stops here: `acknowledged` says a write landed, which is nothing a panel reading
-     three lists of records can act on. */
-  it("answers the three lists alone, carrying no transport envelope", async () => {
+     records can act on. */
+  it("answers the three lists and the pending flag alone, carrying no transport envelope", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
     arriveAs(cookie);
 
     const answer = await getSubjectSession();
 
     assert.ok(answer);
-    assert.deepEqual(Object.keys(answer.subjekt).sort(), ["schiedsrichter", "sitze", "spieler"]);
+    assert.deepEqual(Object.keys(answer.subjekt).sort(), ["schiedsrichter", "sitze", "spieler", "unbestaetigt"]);
+  });
+
+  /* Raised on a body carrying no record, which is the only shape the lookup sets it on: the landing
+     tells that person to confirm rather than that the league holds nothing of theirs. */
+  it("carries the lookup's pending flag as the lookup answered it", async () => {
+    const { cookie } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie);
+    nextAnswer = new Response(JSON.stringify({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+
+    assert.equal((await getSubjectSession())?.subjekt.unbestaetigt, true);
   });
 
   /* The case the seam exists for: no link reaches such an address while the allowlist gates the
@@ -354,6 +394,8 @@ describe("a session the store cannot answer for", () => {
     arriveAs(cookie);
 
     for (const blank of ["", "   "]) {
+      // A request each: the second would otherwise be answered from the first one's memo.
+      beginRenderPass();
       const before = sent.length;
 
       user.email = blank;
@@ -416,5 +458,35 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
 
     assert.ok(await getSubjectSession());
     assert.equal(await getSignInDestination(), "/");
+  });
+});
+
+describe("the guard across one render pass", () => {
+  /* First, so a scope that failed to take fails here rather than under the count below. */
+  itOpensAScopeThatMemoizes();
+
+  /* A layout, a guard and a page each asking inside one render pass. */
+  it("reads the session and asks the backend once for every guard of one render pass", async () => {
+    const { cookie } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie);
+    const readsBefore = headerReads();
+    const sentBefore = sent.length;
+
+    const answers = await runWithRequestScope({ traceId: "0".repeat(31) + "1", spanId: "0".repeat(15) + "1" }, () =>
+      Promise.all([getSubjectSession(), getSubjectSession(), getSubjectSession()]),
+    );
+
+    assert.ok(
+      answers.every((answer) => answer?.email === PERSON_EMAIL),
+      "a guard was refused, so the counts below count refusals",
+    );
+    assert.equal(headerReads() - readsBefore, 1, "the guards of one render pass each read the session");
+    assert.equal(sent.length - sentBefore, 1, "the guards of one render pass each asked the backend");
+
+    // The control: the next request is a new pass and reads again, so the counters count reads.
+    beginRenderPass();
+    await getSubjectSession();
+    assert.equal(headerReads() - readsBefore, 2, "a second request was answered from the first one's read");
+    assert.equal(sent.length - sentBefore, 2, "a second request was answered from the first one's lookup");
   });
 });
