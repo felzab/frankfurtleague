@@ -1,5 +1,6 @@
+import asyncio
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from bson import ObjectId
@@ -504,3 +505,22 @@ class TestTheRetirementNarrowing:
         """Its null address and its retirement keep it out as written; the seed gives it neither, so its id is what this pins."""
 
         assert answered(seeded_league, GEIST).schiedsrichter == []
+
+
+@pytest.mark.parametrize("identifier", ["", " 　﻿"], ids=["empty", "blank"])
+def test_an_identifier_folding_to_nothing_is_refused_before_any_read(identifier: str):
+    """A bare object stands in for every handle, so a lookup that went ahead would raise an attribute error rather than this."""
+
+    unreachable = cast(Any, object())
+
+    with pytest.raises(ValueError, match="empty identifier"):
+        asyncio.run(
+            funktionen_of(
+                identifier,
+                saison_teams_collection=unreachable,
+                saisons_collection=unreachable,
+                spieler_collection=unreachable,
+                schiedsrichter_collection=unreachable,
+                session=unreachable,
+            )
+        )

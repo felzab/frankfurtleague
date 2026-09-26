@@ -123,10 +123,18 @@ async def funktionen_of(
     Narrowed here and not in the lookup, each caller narrowing for itself (`docs/backend/spec.md :: I375`).
     """
 
+    # Folded whatever arrived: a header spelled otherwise than the store would otherwise authorise
+    # nothing, the fold judging each stored address against this exact spelling.
+    folded = sign_in_identifier(identifier)
+
+    # Raised rather than answered: a person's binder refuses a malformed actor before any handler
+    # runs, so an empty one here is a caller's bug, and it would match a hand-edited empty stored
+    # address (`docs/backend/spec.md :: I388`).
+    if folded == "":
+        raise ValueError("funktionen_of was asked about an empty identifier")
+
     subjekt = await find_subjekt(
-        # Folded whatever arrived: a header spelled otherwise than the store would otherwise
-        # authorise nothing, the fold judging each stored address against this exact spelling.
-        sign_in_identifier(identifier),
+        folded,
         saison_teams_collection=saison_teams_collection,
         saisons_collection=saisons_collection,
         spieler_collection=spieler_collection,
