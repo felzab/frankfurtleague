@@ -696,7 +696,7 @@ export async function getSignInDestination(): Promise<SignInDestination> {
     if (isAdminSession(served)) return "/bereich/admin";
 
     // Past either figure the session is spent, and an administrator asks for a fresh link rather
-    // than being sent to the public root with no way back.
+    // than being sent to a person's landing with no way to the step they owe.
     return isAdminWithinWindow(served) ? "/signin/passkey" : "/signin";
   }
 

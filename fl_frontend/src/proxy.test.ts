@@ -142,7 +142,7 @@ describe("where the admin proxy sends a signed-in request", () => {
   });
 
   /* To the landing and never the public root: the landing is the one place that decides, and it
-     sends a removed address to `/` while sending the administrator below one step further on. */
+     sends a removed address to `/bereich` while sending the administrator below one step further on. */
   it("sends a session whose address has left the allowlist to the landing", async () => {
     assert.equal(redirectedTo(await arriveAtAdmin({ cookie: removed.cookie })), "/signin/weiter");
   });

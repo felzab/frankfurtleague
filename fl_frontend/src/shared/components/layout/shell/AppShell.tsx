@@ -52,7 +52,7 @@ export function AppShell<TIcon extends string>({
    * reads as "this page has nothing to explain", which is a claim about the page rather than about the navigation.
    */
   fallbackHint: SidemenuHint;
-  /** Passed to the bar's options menu; only the admin shell supplies one. */
+  /** Passed to the bar's options menu; a shell for the public dashboard supplies none. */
   onSignOut?: () => Promise<FormState>;
   /**
    * Opens the shell's own passkey dialog, which that shell renders outside this tree: the menu item

@@ -14,7 +14,7 @@ type UndoOutcome = { success: true; message: string; warn: boolean } | { success
 const TURNED_AWAY = {
   signedOut: { destination: "/signin", description: `Melde Dich neu an. ${AENDERUNG_STEHT_WEITERHIN}` },
   // No repair: signing in again is refused to an address the allowlist does not hold.
-  withoutAdminRole: { destination: "/", description: `Deine Sitzung hat keine Administratorrechte. ${AENDERUNG_STEHT_WEITERHIN}` },
+  withoutAdminRole: { destination: "/signin/weiter", description: `Deine Sitzung hat keine Administratorrechte. ${AENDERUNG_STEHT_WEITERHIN}` },
 } as const;
 
 type TurnedAway = (typeof TURNED_AWAY)[keyof typeof TURNED_AWAY];

@@ -157,8 +157,8 @@ describe("who the undo spine answers before it does any work", () => {
     }
   });
 
-  /* The line `fl_frontend/src/proxy.ts` draws: a session the allowlist does not carry is sent to `/`
-     rather than to sign in again, where that same allowlist would refuse it once more. */
+  /* The line `fl_frontend/src/proxy.ts` draws: a session the allowlist does not carry is sent to the
+     person's own `/bereich` rather than to sign in again, where that same allowlist would refuse it once more. */
   it("answers a session outside the allowlist apart from a missing one, and still does no work for it", async () => {
     bus.__flUndoRouteSession = { user: { email: "ehemalig@example.de" }, session: { authFactor: "passkey" } };
     let restored = 0;
@@ -181,7 +181,7 @@ describe("who the undo spine answers before it does any work", () => {
   });
 
   /* The other half of the split: an administrator who has followed the link and not yet presented
-     the passkey is 401, which sends them somewhere they can finish, rather than 403 to the root. */
+     the passkey is 401, which sends them somewhere they can finish, rather than 403 to a person's landing. */
   it("answers an allowlisted session short of the second factor the way it answers a missing one", async () => {
     bus.__flUndoRouteSession = { user: { email: "admin@example.de" }, session: { authFactor: "link" } };
     let restored = 0;
@@ -192,7 +192,7 @@ describe("who the undo spine answers before it does any work", () => {
         return {};
       });
 
-      assert.equal(status, 401, "an administrator short of the factor is sent to the public root with no way back");
+      assert.equal(status, 401, "an administrator short of the factor is sent to a person's landing with no way to the step");
       assert.equal(restored, 0, "the undo restores for a session short of the second factor");
       assert.deepEqual(invalidated, [], "the caches are cleared for a caller nobody has authorized");
     } finally {

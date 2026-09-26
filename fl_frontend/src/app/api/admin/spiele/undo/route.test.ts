@@ -217,7 +217,7 @@ describe("the undo route, driven", () => {
     assert.equal(calls.length, 0);
   });
 
-  /* The two are not one refusal: the dispatch sends a 401 to sign in and a 403 to the public root,
+  /* The two are not one refusal: the dispatch sends a 401 to sign in and a 403 to the sign-in landing,
      so a person's live session answered 401 would loop them through a sign-in they already hold. */
   it("answers a session that is live but not an administrator's 403", async () => {
     setSession(null, "/bereich");
@@ -230,7 +230,7 @@ describe("the undo route, driven", () => {
   });
 
   /* An administrator past a lifetime or short of the second factor: a live session, and 401 rather
-     than 403, because the way back is a sign-in rather than the public root. */
+     than 403, because the way back is a sign-in rather than a person's landing. */
   it("answers an administrator whose session no longer satisfies the guard 401", async () => {
     setSession(null, "/signin/passkey");
 
