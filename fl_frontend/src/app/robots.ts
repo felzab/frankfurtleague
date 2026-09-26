@@ -26,9 +26,9 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        // Turns a crawler back BEFORE the fetch, where a page's noindex is read only after one: every
-        // mailed URL among these carries a live token in its query, `/bestaetigung` standing as the
-        // prefix over its whole segment, and `/bereich` without its slash reaches the landing itself.
+        // Turns a crawler back BEFORE the fetch; a page's noindex is read only after one. Each mailed
+        // URL here carries a live token in its query, and `/bestaetigung` and `/bereich` stand
+        // unslashed, prefixes over their whole segments.
         disallow: ["/api/", "/bereich", "/bestaetigung", "/signin/bestaetigen", "/registrierung"],
       },
       ...aiBots.map((bot) => ({

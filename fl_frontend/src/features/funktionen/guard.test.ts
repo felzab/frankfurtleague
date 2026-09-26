@@ -246,9 +246,8 @@ const PERSON_PAGES = [
 ].filter((file) => !CATCH_ALL.test(path.basename(path.dirname(file))));
 
 describe("every person page's subject", () => {
-  /* A layout does not rerun on a soft navigation, so a page is where a lapsed session meets its
-     redirect. Each page is called alone: the harness walks a page only if its layout returns it,
-     which Next does not wait for. */
+  /* A layout does not rerun on a soft navigation, so a lapsed session meets its redirect in the page.
+     Called alone: the harness walks a page only where its layout returns it, which Next does not. */
   it("sends a request with no person's session to sign in from the page itself", async () => {
     setSubject(null);
 

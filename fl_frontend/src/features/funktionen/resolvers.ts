@@ -9,9 +9,9 @@ import type { SubjectSession } from "@/core/subject";
 import type { TeamSeat } from "./teamSeats";
 
 /**
- * The signed-in person, or a redirect to sign in: every person and team page reads its subject here
- * (`docs/frontend/spec.md :: I377`). A layout's guard does not rerun on a soft navigation, so a page
- * reading `getSubjectSession` itself renders empty for a lapsed session rather than sending it on.
+ * The signed-in person, or a redirect to sign in (`docs/frontend/spec.md :: I377`). A layout's guard
+ * does not rerun on a soft navigation, so a page reading `getSubjectSession` itself renders empty for
+ * a lapsed session.
  */
 export async function requireSubjectSession(): Promise<SubjectSession> {
   const subject = await getSubjectSession();
@@ -21,9 +21,9 @@ export async function requireSubjectSession(): Promise<SubjectSession> {
 }
 
 /**
- * The seats the person holds at a team page's own address, `null` where none stands: such a page
- * renders and reads nothing (`docs/frontend/spec.md :: I380`). Called by every team page before any
- * read, since Next runs a page whatever its layout renders in its stead.
+ * The seats held at a team page's own address, `null` where none stands and the page renders nothing
+ * (`docs/frontend/spec.md :: I380`). Next runs a page whatever its layout renders in its stead, so
+ * every team page calls this first.
  */
 export async function requireTeamSeats(
   params: Promise<{ team_id: string; saison_id: string }>,

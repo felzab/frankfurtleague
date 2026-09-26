@@ -12,9 +12,9 @@ export default async function PersoenlichStartPage() {
   await connection();
   const subject = await requireSubjectSession();
 
-  // An allowlisted address past the administrator's window, or short of the passkey, is no person:
-  // the admin subtree's proxy takes it through the step it owes (`docs/frontend/spec.md :: I386`).
-  // eslint-disable-next-line local/admin-link -- the proxy turns this request away before any season is read
+  // An allowlisted address past the administrator's window or short of the passkey owes the admin
+  // subtree's step, not a person's landing (`docs/frontend/spec.md :: I386`).
+  // eslint-disable-next-line local/admin-link -- the proxy turns it away before any season is read
   if (!subject.admin && (await getSignInDestination()) !== "/bereich") redirect("/bereich/admin");
 
   const { funktionen, unbestaetigt } = funktionenOf(subject);
