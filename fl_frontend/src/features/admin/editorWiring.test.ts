@@ -363,14 +363,9 @@ const EDITORS: Record<string, Editor> = {
   },
   "saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx": {
     render: async () => {
-      const { AdminSaisonEditForm } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx");
+      const { AdminSaisonEditView } = await import("@/features/saisons/components/views/AdminSaisonEditView.tsx");
 
-      return renderEditor(
-        h(AdminSaisonEditForm, {
-          ...saisonProps(),
-          pageHeader: { title: "Saison 2026" },
-        }),
-      );
+      return renderEditor(h(AdminSaisonEditView, saisonProps()));
     },
     change: async (_user, container) => pick(container, "rules.tiebreak_order", "direkter_vergleich"),
     refuse: (user) => typeInto(user, box("Maximale Kadergröße"), ""),
@@ -943,9 +938,9 @@ const RECORD_MOVES: Record<string, RecordMove> = {
   },
   "the season's rollover, beside a redraw's moved shape": {
     render: async () => {
-      const { AdminSaisonEditForm } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx");
+      const { AdminSaisonEditView } = await import("@/features/saisons/components/views/AdminSaisonEditView.tsx");
 
-      return renderEditor(h(AdminSaisonEditForm, { ...saisonProps({ drawn: true }), pageHeader: { title: "Saison 2026" } }));
+      return renderEditor(h(AdminSaisonEditView, saisonProps({ drawn: true })));
     },
     // The redraw's own boxes, outside the season's draft: the save bar never sends a `shape.` path.
     type: async (user, container) => {
@@ -997,4 +992,167 @@ describe("a press whose write moves the record the page keys its editor by", () 
       );
     });
   }
+});
+
+/** Four clubs in each of the season's two groups, so a redraw stands open. */
+const FULL_GROUPS = (["A", "B"] as const).flatMap((gruppe) =>
+  [1, 2, 3, 4].map((platz) => ({
+    teamId: `68c1f0a2b3c4d5e6f7a8b${gruppe === "A" ? "a" : "b"}0${String(platz)}`,
+    name: `Schule ${gruppe}${String(platz)}`,
+    gruppe: gruppe,
+    spiele: 3,
+    gespielteSpiele: 0,
+    hasAustritt: false,
+    isVerwaist: false,
+  })),
+);
+
+/** The season page as its route renders it: the view holding the redraw's typing above the editor it keys. */
+async function renderSaisonPage(): Promise<{ container: HTMLElement; rerenderSaved: () => Promise<void> }> {
+  const { AdminSaisonEditView } = await import("@/features/saisons/components/views/AdminSaisonEditView.tsx");
+  const page = (saved: boolean): ReactNode => {
+    const props = { ...saisonProps({ drawn: true }), ersatz: { rows: FULL_GROUPS, candidates: [] } };
+    const saison = saved ? { ...props.saison, rules: { ...props.saison.rules, tiebreak_order: "direkter_vergleich" as const } } : props.saison;
+
+    return underNext(h(AdminSaisonEditView, { ...props, saison: saison }), { router, search: "saison_id=2026" });
+  };
+  const { container, rerender } = render(page(false));
+
+  // What the save's refresh hands the page: the stored record moved, which re-keys the editor under the view.
+  return { container, rerenderSaved: () => act(async () => void rerender(page(true))) };
+}
+
+/** A redraw's shape moved: the replace picked, and one of its boxes off the stored three. */
+async function moveShape(user: UserEvent, container: HTMLElement): Promise<void> {
+  await user.click(screen.getByRole("radio", { name: "Neu anlegen" }));
+  pick(container, "shape.qualifiers_per_group", "1");
+}
+
+const shapeValue = (container: HTMLElement): string | undefined =>
+  container.querySelector<HTMLSelectElement>('select[name="shape.qualifiers_per_group"]')?.value;
+
+/** Whether the page's leave prompt would stop a reload now. */
+function leavePromptAsks(): boolean {
+  const unload = new Event("beforeunload", { cancelable: true });
+  window.dispatchEvent(unload);
+  return unload.defaultPrevented;
+}
+
+const discardDialog = (): HTMLElement | null => screen.queryByRole("alertdialog", { name: "Änderungen verwerfen?" });
+
+const departures = (): number => seen.back + seen.pushed.length;
+
+describe("a season page holding a redraw's moved shape", () => {
+  /* The shape is typing the save never sends, and every way off the page drops it: counted apart from the draft, a
+     save, a cancel or a reload would take it without a word. */
+  it("counts the shape as unsaved, so the leave prompt asks over it alone", async () => {
+    const user = userEvent.setup();
+    const { container } = await renderSaisonPage();
+    assert.equal(leavePromptAsks(), false, "the clean page already asks, so nothing below is judged");
+
+    await moveShape(user, container);
+
+    assert.equal(leavePromptAsks(), true, "a moved shape left the page free to unload");
+  });
+
+  it("asks on Abbrechen instead of leaving, and leaves on Verwerfen", async () => {
+    const user = userEvent.setup();
+    const { container } = await renderSaisonPage();
+    await moveShape(user, container);
+    seen.back = 0;
+    seen.pushed.length = 0;
+
+    await user.click(screen.getByRole("button", { name: "Abbrechen" }));
+
+    assert.equal(departures(), 0, "Abbrechen left over the moved shape");
+    assert.match(discardDialog()?.textContent ?? "", /1 Änderung ist noch nicht gespeichert/);
+
+    await user.click(screen.getByRole("button", { name: "Verwerfen" }));
+    assert.equal(departures(), 1, "Verwerfen did not leave");
+  });
+
+  /* The save's refresh remounts the editor on the stored record, so a dialog or a shape the editor held itself would
+     go with it; the case hands the page that refresh. */
+  it("asks on Speichern's exit, and keeps the shape through the refresh that re-keys the editor", async () => {
+    answerWith(() => Promise.resolve({ success: true, message: "Gespeichert." }));
+    try {
+      const user = userEvent.setup();
+      const { container, rerenderSaved } = await renderSaisonPage();
+      pick(container, "rules.tiebreak_order", "direkter_vergleich");
+      await moveShape(user, container);
+      seen.back = 0;
+      seen.pushed.length = 0;
+      calls.length = 0;
+
+      await saveThrough(user);
+      await rerenderSaved();
+
+      assert.deepEqual(written(), ["patchSaisonAction"], "the save did not write, so its exit is not judged");
+      assert.equal(departures(), 0, "the save left over the moved shape");
+      assert.match(discardDialog()?.textContent ?? "", /1 Änderung ist noch nicht gespeichert/);
+
+      await user.click(screen.getByRole("button", { name: "Weiter bearbeiten" }));
+
+      assert.ok(discardDialog() === null, "Weiter bearbeiten left the dialog open");
+      assert.equal(shapeValue(container), "1", "the shape did not survive the save");
+      assert.equal(departures(), 0);
+    } finally {
+      answerWith(REFUSED);
+    }
+  });
+
+  /* The draw is made from the shape, so counted with the draft its own guard would refuse every redraw that moves one. */
+  it("arms the redraw over its own shape, and refuses it over the draft alone", async () => {
+    const user = userEvent.setup();
+    const { container } = await renderSaisonPage();
+    await moveShape(user, container);
+    raised.length = 0;
+
+    await user.click(screen.getByRole("button", { name: "Spielplan neu anlegen" }));
+
+    assert.equal(raised.length, 0, "the redraw refused over the shape it is made from");
+    assert.ok(screen.queryByRole("button", { name: "Ja, löschen und neu anlegen" }) !== null, "the redraw did not arm");
+
+    cleanup();
+    const again = await renderSaisonPage();
+    await moveShape(user, again.container);
+    pick(again.container, "rules.tiebreak_order", "direkter_vergleich");
+    raised.length = 0;
+
+    await user.click(screen.getByRole("button", { name: "Spielplan neu anlegen" }));
+
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.title, toast.description]),
+      [["warning", "Erst speichern", "Der Spielplan entsteht aus den gespeicherten Regeln, nicht aus den getippten."]],
+    );
+  });
+
+  /* The shape's counting may not reach a page with none: a page that asked over nothing would train the dialog away. */
+  it("stays as it was with no shape typed, or with one the pick hides", async () => {
+    answerWith(() => Promise.resolve({ success: true, message: "Gespeichert." }));
+    try {
+      const user = userEvent.setup();
+      const { container } = await renderSaisonPage();
+      await moveShape(user, container);
+      await user.click(screen.getByRole("radio", { name: "Zurücknehmen" }));
+      assert.equal(leavePromptAsks(), false, "a shape the pick hides counts as typing");
+
+      pick(container, "rules.tiebreak_order", "direkter_vergleich");
+      seen.back = 0;
+      seen.pushed.length = 0;
+      await saveThrough(user);
+      assert.equal(departures(), 1, "the save over the draft alone did not leave");
+      assert.ok(discardDialog() === null, "the save over the draft alone asked");
+
+      cleanup();
+      await renderSaisonPage();
+      seen.back = 0;
+      seen.pushed.length = 0;
+      await user.click(screen.getByRole("button", { name: "Abbrechen" }));
+      assert.equal(departures(), 1, "Abbrechen over a clean page did not leave");
+      assert.ok(discardDialog() === null, "Abbrechen over a clean page asked");
+    } finally {
+      answerWith(REFUSED);
+    }
+  });
 });

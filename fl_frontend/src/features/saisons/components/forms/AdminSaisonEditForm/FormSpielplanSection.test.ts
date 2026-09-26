@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { beforeEach, describe, it, mock } from "node:test";
 
-import { createElement as h } from "react";
+import { createElement as h, useState } from "react";
 
 import { act, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -23,6 +23,10 @@ import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
+import { startingRedraw } from "./spielplanShape.ts";
+
+import type { ReactNode } from "react";
+
 /** A write nobody has answered yet, which is how each action answers unless a case says otherwise. */
 const running = (): Promise<never> => new Promise(() => undefined);
 
@@ -35,7 +39,8 @@ const { raised } = doubleToasts();
 
 const { FormSpielplanSection } = await import("./FormSpielplanSection.tsx");
 
-type SpielplanProps = Parameters<typeof FormSpielplanSection>[0];
+/** The panel's props but its pick and boxes, which `Held` keeps as the season's view does. */
+type SpielplanProps = Omit<Parameters<typeof FormSpielplanSection>[0], "redraw" | "onRedrawChange">;
 
 /** A planned season before its first draw: two full groups of four, a bracket, and a span holding its five matchdays. */
 const UNDRAWN: SpielplanProps = {
@@ -65,7 +70,6 @@ const UNDRAWN: SpielplanProps = {
   bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
   hasDrawnSpiele: false,
   onBeforeWrite: () => true,
-  onShapeMovedChange: () => undefined,
 };
 
 /** The same season drawn with nothing entered, where both writes stand open. */
@@ -80,7 +84,14 @@ const DRAWN: SpielplanProps = {
 /** The shape the redraw case picks: four groups of four, which the four full groups fit. */
 const MOVED_SHAPE = { number_of_groups: 4, teams_per_group: 4, qualifiers_per_group: 2 };
 
-const panel = (props: SpielplanProps) => underNext(h(FormSpielplanSection, props));
+/** The panel under state of its own for the pick and the boxes, which the season's view holds on the page. */
+function Held(props: SpielplanProps): ReactNode {
+  const [redraw, setRedraw] = useState(() => startingRedraw(props.rules));
+
+  return h(FormSpielplanSection, { ...props, redraw: redraw, onRedrawChange: setRedraw });
+}
+
+const panel = (props: SpielplanProps) => underNext(h(Held, props));
 
 beforeEach(() => {
   calls.length = 0;

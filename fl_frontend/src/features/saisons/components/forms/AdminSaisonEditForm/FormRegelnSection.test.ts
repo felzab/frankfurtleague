@@ -22,7 +22,7 @@ import type { FLSaisonRules } from "@/features/saisons/schemas.ts";
 doubleEveryAction();
 
 const { FormRegelnSection } = await import("./FormRegelnSection.tsx");
-const { AdminSaisonEditForm } = await import("./AdminSaisonEditForm.tsx");
+const { AdminSaisonEditView } = await import("@/features/saisons/components/views/AdminSaisonEditView.tsx");
 const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 
 type RegelnProps = Parameters<typeof FormRegelnSection>[0];
@@ -269,7 +269,7 @@ describe("the season editor's one reading of the season, handed to its panels", 
   it("freezes the tiebreak where the swap closes, and states the window the undraw is closed by", () => {
     render(
       underNext(
-        h(AdminSaisonEditForm, {
+        h(AdminSaisonEditView, {
           saison: {
             id: "2026",
             status: "future",
@@ -294,7 +294,6 @@ describe("the season editor's one reading of the season, handed to its panels", 
           },
           hasDrawnSpiele: true,
           spieltagBound: { startMax: null, endMin: null },
-          pageHeader: { title: "Saison 2026" },
         }),
         { search: "saison_id=2026" },
       ),

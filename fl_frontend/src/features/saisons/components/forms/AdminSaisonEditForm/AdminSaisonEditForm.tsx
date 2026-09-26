@@ -38,6 +38,7 @@ import { FormRolloverSection } from "./FormRolloverSection";
 import { FormSpielplanSection } from "./FormSpielplanSection";
 import { FormTeamErsatzSection } from "./FormTeamErsatzSection";
 import { FormZeitraumSection } from "./FormZeitraumSection";
+import { movedShapeCount, startingRedraw } from "./spielplanShape";
 
 import type { SaisonFieldPath } from "@/features/saisons/saisonDraftStatus";
 import type { FLPatchSaisonPayload, FLSaisonBewerbung, FLSaisonRegistrierung, FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
@@ -56,6 +57,7 @@ import type { BlockingBanners } from "@/shared/components/ui/railBanner";
 import type { CalendarDate } from "@internationalized/date";
 import type { UndrawControlInput } from "./blockedReasons";
 import type { SpielplanWindowState } from "./FormRegelnSection";
+import type { RedrawDraft, SpielplanPanelSeason } from "./spielplanShape";
 
 /**
  * **One save bar over ONE endpoint**: `PATCH /saisons/{saison_id}` replaces the dates and all of
@@ -71,6 +73,10 @@ export function AdminSaisonEditForm({
   hasDrawnSpiele,
   spieltagBound,
   pageHeader,
+  redraw,
+  onRedrawChange,
+  isSaveExitAsked,
+  onSaveExitAskedChange,
 }: {
   saison: { id: string; status: FLSaisonStatus } & Omit<SaisonDraftFields, "rules"> & { rules: FLSaisonRules };
   rollover: SaisonRolloverContext;
@@ -85,6 +91,14 @@ export function AdminSaisonEditForm({
   /** The span the dated matchdays already occupy, which the date pickers may not shrink past. */
   spieltagBound: SaisonSpieltagBound;
   pageHeader: EditPageHeaderContent;
+  /**
+   * The Spielplan panel's typing and the save's pending exit, both held above the key a save re-keys this editor
+   * by, so the refresh the save ends on keeps them (`docs/frontend/spec.md` §1.3).
+   */
+  redraw: RedrawDraft;
+  onRedrawChange: (next: RedrawDraft) => void;
+  isSaveExitAsked: boolean;
+  onSaveExitAskedChange: (asked: boolean) => void;
 }) {
   const router = useRouter();
   const saisonHref = useSaisonHref();
@@ -98,8 +112,6 @@ export function AdminSaisonEditForm({
   // The whole block or `null`, never a boolean beside a span: `null` is the season that takes no
   // applications, and the panel is what turns one into the other.
   const [bewerbung, setBewerbung] = useState<FLSaisonBewerbung | null>(saison.bewerbung);
-  // The redraw's shape, typed outside the draft: the rollover's write re-keys the page over it as over the draft.
-  const [shapeMoved, setShapeMoved] = useState(false);
   // Its own state beside the window above, never one pair for both: the two windows are saved
   // together and decided apart.
   const [registrierung, setRegistrierung] = useState<FLSaisonRegistrierung | null>(saison.registrierung);
@@ -141,7 +153,28 @@ export function AdminSaisonEditForm({
   };
 
   const status = deriveSaisonDraftStatus({ stored: storedFields, draft: draftFields, fieldErrors });
-  const isDirty = status.isDirty && !hasSaved;
+  // What the save writes, apart from the redraw's typing: the draw is refused over this alone, being made from the other.
+  const isDraftDirty = status.isDirty && !hasSaved;
+
+  /**
+   * ONE count for both panels, off `ersatz.rows` rather than a prop: those rows ARE the junction the
+   * endpoints count, and a second copy in the Flight payload could close different rows on each panel.
+   */
+  const gruppenOccupancy = buildGruppenOccupancy(ersatz.rows);
+
+  // The STORED season throughout: the panel is decided from what the draw would read, never from the draft.
+  const spielplanSeason: SpielplanPanelSeason = {
+    saisonStatus: saison.status,
+    rules: saison.rules,
+    startDate: saison.start_date,
+    endDate: saison.end_date,
+    gruppenOccupancy,
+    hasDrawnSpiele,
+    ...spielplan,
+  };
+  const shapeChangeCount = movedShapeCount(spielplanSeason, redraw);
+  // A moved redraw shape is unsaved typing like the draft's: every way off the page asks before dropping it.
+  const isDirty = isDraftDirty || shapeChangeCount > 0;
 
   // The latch's job ends the moment the revalidated season arrives and the two agree; left latched,
   // every later edit on a restored tree read as not-dirty.
@@ -212,12 +245,6 @@ export function AdminSaisonEditForm({
   const spielplanWindow: SpielplanWindowState =
     spielplanUndrawBlockedReason(undrawInput) === null ? "open" : saison.status === "future" ? "recorded" : "closed";
 
-  /**
-   * ONE count for both panels, off `ersatz.rows` rather than a prop: those rows ARE the junction the
-   * endpoints count, and a second copy in the Flight payload could close different rows on each panel.
-   */
-  const gruppenOccupancy = buildGruppenOccupancy(ersatz.rows);
-
   const resetDraftToStored = () => {
     setStartDate(parseDate(saison.start_date));
     setEndDate(parseDate(saison.end_date));
@@ -231,10 +258,17 @@ export function AdminSaisonEditForm({
   const { isLeaving, leavePage, isConfirmingDiscard, closeDiscard, hasLeftViaDiscard, requestLeave, discardAndLeave } = useEditorExit({
     fallbackHref: saisonHref("/admin/saisons"),
     isDirty,
-    resetDraftToStored,
+    // The redraw too: it is left, like the draft, on a tree the router keeps.
+    resetDraftToStored: () => {
+      resetDraftToStored();
+      onRedrawChange(startingRedraw(saison.rules));
+    },
   });
 
-  useSaveShortcut(formRef, !isPending && !isConfirmingDiscard && confirmingBanners === null && isDirty);
+  const isDiscardOpen = isConfirmingDiscard || isSaveExitAsked;
+
+  // The draft alone: a moved redraw shape leaves the save nothing to write.
+  useSaveShortcut(formRef, !isPending && !isDiscardOpen && confirmingBanners === null && isDraftDirty);
 
   const requestSave = () => {
     // The banners go to the gate and are never resolved here, where the dialog would open ahead of the block
@@ -295,7 +329,10 @@ export function AdminSaisonEditForm({
         // AFTER the undo payload is built: typed values left in state let a save-then-undo reopen on
         // values the season does not hold.
         resetDraftToStored();
-        leavePage();
+        // Asked rather than left over a moved redraw shape, and held above this editor's key: the refresh this
+        // save ends on remounts the editor, which would close a dialog of its own.
+        if (shapeChangeCount > 0) onSaveExitAskedChange(true);
+        else leavePage();
       });
     });
   };
@@ -402,8 +439,11 @@ export function AdminSaisonEditForm({
             hasDrawnSpiele={hasDrawnSpiele}
             // One sentence for both writes: the draw runs on the saved rules and the rücknahme reopens
             // them, so neither may run over a draft, and both end on the refresh that would drop it.
-            onBeforeWrite={() => guardAgainstDraft(isDirty, "Der Spielplan entsteht aus den gespeicherten Regeln, nicht aus den getippten.")}
-            onShapeMovedChange={setShapeMoved}
+            onBeforeWrite={() =>
+              guardAgainstDraft(isDraftDirty, "Der Spielplan entsteht aus den gespeicherten Regeln, nicht aus den getippten.")
+            }
+            redraw={redraw}
+            onRedrawChange={onRedrawChange}
           />
 
           {/* Last on the page, the position the club editor's Austritt panel holds: the one
@@ -414,7 +454,7 @@ export function AdminSaisonEditForm({
             saisonStatus={saison.status}
             rollover={rollover}
             hasDrawnSpiele={hasDrawnSpiele}
-            onBeforeActivate={() => guardAgainstDraft(isDirty || shapeMoved, DRAFT_DISCARDED)}
+            onBeforeActivate={() => guardAgainstDraft(isDirty, DRAFT_DISCARDED)}
             banners={banners}
           />
         </EditFormLayout>
@@ -428,10 +468,16 @@ export function AdminSaisonEditForm({
 
       {!hasLeftViaDiscard && (
         <ConfirmDiscardModal
-          isOpen={isConfirmingDiscard}
-          onClose={closeDiscard}
-          onDiscard={discardAndLeave}
-          changeCount={status.changed.length}
+          isOpen={isDiscardOpen}
+          onClose={() => {
+            closeDiscard();
+            onSaveExitAskedChange(false);
+          }}
+          onDiscard={() => {
+            onSaveExitAskedChange(false);
+            discardAndLeave();
+          }}
+          changeCount={(isDraftDirty ? status.changed.length : 0) + shapeChangeCount}
         />
       )}
 

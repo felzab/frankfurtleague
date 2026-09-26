@@ -413,9 +413,9 @@ const FORMS: Record<string, FormCase> = {
   "the season editor": {
     module: "features/saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx",
     marks: async () => {
-      const { AdminSaisonEditForm } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/AdminSaisonEditForm.tsx");
+      const { AdminSaisonEditView } = await import("@/features/saisons/components/views/AdminSaisonEditView.tsx");
       return marksOf(
-        h(AdminSaisonEditForm, {
+        h(AdminSaisonEditView, {
           saison: {
             id: "2026",
             status: "future",
@@ -440,7 +440,6 @@ const FORMS: Record<string, FormCase> = {
           },
           hasDrawnSpiele: false,
           spieltagBound: { startMax: null, endMin: null },
-          pageHeader: { title: "Saison 2026" },
         } as never),
       );
     },

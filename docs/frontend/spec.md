@@ -171,12 +171,19 @@ editor's save, and a panel's own typed box on such a page, the decline's reason,
 strip's correction and reseat, and a redraw's shape among them. A record moved under the unwritten
 entry, by half of a two-part save or by another writer, re-keys the subtree and drops it.
 `fl_frontend/src/features/admin/editorWiring.test.ts :: "an editor's write whose action rejected"`
-holds every editor to it. A press writing no typed entry reads the page again, a reload after its
+holds every editor to it. **A redraw's moved shape is the season editor's unsaved typing, though its
+save never sends it**: the leave prompt and the discard dialog ask over it, a save standing beside
+one ends on that dialog rather than leaving, and
+`fl_frontend/src/features/saisons/components/views/AdminSaisonEditView.tsx` holds it above the key
+the save re-keys the editor by, so only the stored shape moving drops it. The draw alone refuses
+over the draft without it, being made from it;
+`fl_frontend/src/features/admin/editorWiring.test.ts :: "a season page holding a redraw's moved shape"`
+holds the page to it. A press writing no typed entry reads the page again, a reload after its
 rejection dropping no more than its success would. **On a page keyed by its record, such a press
 refuses while another of the page's panels holds unsaved typing**, since its landing re-keys the page
 and drops that typing unasked. Beside a page-owned editor these are the header's reactivation, a
 club's season entry and group swap, a squad row's removal and return, a referee's invitation, and a
-season's rollover, which refuses over a redraw's moved shape as well. On an application they are both
+season's rollover. On an application they are both
 decisions and the confirmation strip's re-send, correction and reseat, each refusing over the others'
 typing. Each says `fl_frontend/src/shared/utils/draftGuard.ts :: DRAFT_DISCARDED`, the one sentence of
 every guard over typing its control would discard;
@@ -2079,7 +2086,6 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | The render-prop rule I13 states is checked for the facets shape alone, and reviewed elsewhere                                                        | Accepted — `fl_frontend/eslint.config.mjs :: SCOPED_BANS` covers `fl_frontend/src/app/` and every admin view's own file; a server-render harness is refused                                 |
 | `fl_frontend/src/app/layout.tsx`'s chrome colour keys on `prefers-color-scheme`, the page's theme on `data-theme`                                    | Accepted — Next offers no other key, so a visitor whose stored theme differs from the operating system's sees a mismatched bar                                                              |
 | A signed-out save on an editor holding unsaved changes leaves its button pending once the browser's leave prompt is answered by staying              | Accepted — the prompt is what protects the draft, and the button settles at the next navigation (I251)                                                                                      |
-| A season's save drops a redraw shape moved but not yet drawn (§1.3)                                                                                  | Open — the draft guard's title tells the admin to save, so it cannot refuse the save itself                                                                                                 |
 | A matched address answers 200 on its 404 (I242), which is the price of the area chrome I232 asks for                                                 | Accepted — `cacheComponents` flushes a prerendered shell before any page runs, and a `proxy.ts` rewrite would drop its status; only a built response carries one                            |
 | A session a sign-in mints while a passkey removal runs outlives the removal (I313)                                                                   | Accepted — the sign-out deletes what its transaction's snapshot holds; closing it needs a session to record its authenticator, which the library does not                                   |
 | I356's ban misses a callback run from elsewhere, an update not called `set*`, an off-scheme start name, loops, `switch`, `?:`, `&&` and `.then`      | Accepted — the ban reads where a call sits in the syntax, not the order the code runs in; review holds the rest                                                                             |

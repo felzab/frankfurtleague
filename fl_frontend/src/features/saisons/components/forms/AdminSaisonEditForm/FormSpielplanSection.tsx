@@ -51,12 +51,12 @@ import { appToast } from "@/shared/utils/appToast";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { spielplanHoldsADraw, spielplanPress, spielplanReplacesDraw } from "./blockedReasons";
-import { describeShapeRows, readShape, SHAPE_FIELDS } from "./spielplanShape";
+import { buildSpielplanControlInput, describeShapeRows, readShape, SHAPE_FIELDS } from "./spielplanShape";
 
-import type { FLSaisonRules, FLSaisonStatus, FLSpielplanShape } from "@/features/saisons/schemas";
+import type { FLSaisonRules, FLSaisonStatus } from "@/features/saisons/schemas";
 import type { SaisonGruppenOccupancy, SaisonSpielplanContext } from "@/features/saisons/types";
 import type { Key } from "@heroui/react/rac";
-import type { SpielplanOperation } from "./blockedReasons";
+import type { RedrawDraft } from "./spielplanShape";
 
 /**
  * The season's fixture list, over `POST` and `DELETE /saisons/{saison_id}/spielplan`. **One panel and
@@ -80,7 +80,8 @@ export function FormSpielplanSection({
   bestand,
   hasDrawnSpiele,
   onBeforeWrite,
-  onShapeMovedChange,
+  redraw,
+  onRedrawChange,
 }: {
   saisonId: string;
   saisonStatus: FLSaisonStatus;
@@ -103,49 +104,42 @@ export function FormSpielplanSection({
   hasDrawnSpiele: boolean;
   /** Runs before either write; `false` cancels. The editor refuses while a draft is unsaved. */
   onBeforeWrite: () => boolean;
-  /** Told whether an offered shape stands moved off the stored rules, which the rollover re-keys the page over. */
-  onShapeMovedChange: (moved: boolean) => void;
+  /**
+   * The pick and the three boxes, held by the page above the key its save re-keys the editor by, so a save keeps
+   * them (`docs/frontend/spec.md` §1.3).
+   */
+  redraw: RedrawDraft;
+  onRedrawChange: (next: RedrawDraft) => void;
 } & SaisonSpielplanContext) {
   const twoPress = useTwoPressConfirm(onBeforeWrite);
   const router = useRouter();
   const { isConfirming, isPending: isWriting, press, cancel } = twoPress;
 
-  // The season's stored three, which a first draw keeps and a replace may move. Re-initialised by
-  // the remount `page.tsx`'s key forces once the draw has written new ones.
-  const [shape, setShape] = useState<FLSpielplanShape>(() => readShape(rules));
+  const { picked, shape } = redraw;
 
   const vorschau = buildSpielplanVorschau(schedule);
 
-  const controlInput = {
+  const controlInput = buildSpielplanControlInput({
     saisonStatus,
-    hasSpielplan: spielplan !== null,
-    hasDrawnSpiele,
-    spieltageCount,
-    erfassteSpieleCount: bestand.erfasst,
-    hasKoRunden: vorschau.koRunden.length > 0,
+    rules,
     startDate,
     endDate,
-    vorschauSpieltage: vorschau.spieltage,
-    gruppen: { groups: rules.number_of_groups, teams: rules.teams_per_group, occupancy: gruppenOccupancy },
-  };
+    gruppenOccupancy,
+    hasDrawnSpiele,
+    spielplan,
+    spieltageCount,
+    schedule,
+    bestand,
+  });
 
   const holdsADraw = spielplanHoldsADraw(controlInput);
   // Derived from the same input as the press below, so the sentence the admin agrees to and the
   // flag the request carries can never describe different operations.
   const replacesDraw = spielplanReplacesDraw(controlInput);
 
-  // Null until the admin picks: each write destroys the same rows, so a preselection would arm the
-  // operation nobody read.
-  const [picked, setPicked] = useState<SpielplanOperation | null>(null);
-
   // The standing reason is the closure the page stands in, which the body states as well as the control.
   const { bothOpen, operation, isUnchosen, standingReason, closedReason } = spielplanPress({ input: controlInput, picked, shape });
 
-  // From the handlers that move either, never an effect: a shape the pick hides is no typing a reader sees.
-  const meldeShape = (nextPicked: SpielplanOperation | null, nextShape: FLSpielplanShape) => {
-    const offered = replacesDraw && spielplanPress({ input: controlInput, picked: nextPicked, shape: nextShape }).operation === "anlegen";
-    onShapeMovedChange(offered && describeShapeRows(readShape(rules), nextShape).some((row) => row.isChanged));
-  };
   const isDrawing = operation === "anlegen";
 
   // The closure the callout below states as a rule, which is the whole of what a reader in this state
@@ -212,7 +206,7 @@ export function FormSpielplanSection({
       startTransition(() => {
         // Cleared with the write that consumed it: this operation is done, and a choice left standing
         // would preselect itself the next time both acts are open.
-        setPicked(null);
+        onRedrawChange({ picked: null, shape });
       });
     });
   };
@@ -296,9 +290,7 @@ export function FormSpielplanSection({
               // Disarms on every move: the reveal names one operation's losses, so a switch under an
               // armed panel would have the second press confirm what the first one never described.
               cancel();
-              const nextPicked = next === "anlegen" || next === "zuruecknehmen" ? next : null;
-              setPicked(nextPicked);
-              meldeShape(nextPicked, shape);
+              onRedrawChange({ picked: next === "anlegen" || next === "zuruecknehmen" ? next : null, shape });
             }}
             className={`flex w-full flex-row flex-wrap gap-2 ${TOGGLE_GROUP_ALIGN_CLASSES}`}>
             <ToggleButton
@@ -375,9 +367,7 @@ export function FormSpielplanSection({
                         // the press as a refusal.
                         onChange={(next) => {
                           if (next === null) return;
-                          const nextShape = { ...shape, [shapeKey]: next };
-                          setShape(nextShape);
-                          meldeShape(picked, nextShape);
+                          onRedrawChange({ picked, shape: { ...shape, [shapeKey]: next } });
                         }}
                       />
                     );
@@ -408,9 +398,7 @@ export function FormSpielplanSection({
                       }
                       value={shape[shapeKey]}
                       onChange={(next) => {
-                        const nextShape = { ...shape, [shapeKey]: next };
-                        setShape(nextShape);
-                        meldeShape(picked, nextShape);
+                        onRedrawChange({ picked, shape: { ...shape, [shapeKey]: next } });
                       }}
                     />
                   );

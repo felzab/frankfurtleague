@@ -8,7 +8,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { createElement as h } from "react";
+import { createElement as h, useState } from "react";
 
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -100,7 +100,6 @@ const UNDRAWN = {
   bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
   hasDrawnSpiele: false,
   onBeforeWrite: () => true,
-  onShapeMovedChange: () => undefined,
 };
 const DRAWN = {
   ...UNDRAWN,
@@ -109,6 +108,13 @@ const DRAWN = {
   bestand: { spiele: 15, erfasst: 0, angesetzt: 4 },
   hasDrawnSpiele: true,
 };
+
+/** The Spielplan panel under state of its own for the pick and the boxes, which the season's view holds on the page. */
+function HeldSpielplan(props: object): ReactNode {
+  const [redraw, setRedraw] = useState({ picked: null, shape: { number_of_groups: 2, teams_per_group: 4, qualifiers_per_group: 2 } });
+
+  return el(C.spielplan, { ...props, redraw: redraw, onRedrawChange: setRedraw });
+}
 
 const TEAM_ID = "a".repeat(24);
 const LIVE_EINLADUNG = {
@@ -301,9 +307,9 @@ const PANELS: Record<string, Arming[]> = {
     },
   ],
   [M.spielplan]: [
-    { render: () => underNext(el(C.spielplan, UNDRAWN)), resting: "Spielplan anlegen" },
+    { render: () => underNext(h(HeldSpielplan, UNDRAWN)), resting: "Spielplan anlegen" },
     {
-      render: () => underNext(el(C.spielplan, DRAWN)),
+      render: () => underNext(h(HeldSpielplan, DRAWN)),
       reach: (user) => user.click(screen.getByRole("radio", { name: "Zurücknehmen" })),
       resting: "Spielplan zurücknehmen",
     },

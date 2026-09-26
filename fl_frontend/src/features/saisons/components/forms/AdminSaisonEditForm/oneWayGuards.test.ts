@@ -61,7 +61,9 @@ const PANELS: Panel[] = [
         bestand: { spiele: 0, erfasst: 0, angesetzt: 0 },
         hasDrawnSpiele: false,
         onBeforeWrite: guard,
-        onShapeMovedChange: () => undefined,
+        // A first draw offers no boxes, so nothing here moves the redraw.
+        redraw: { picked: null, shape: { number_of_groups: 2, teams_per_group: 4, qualifiers_per_group: 2 } },
+        onRedrawChange: () => undefined,
       }),
     resting: "Spielplan anlegen",
     armed: "Ja, Spielplan anlegen",

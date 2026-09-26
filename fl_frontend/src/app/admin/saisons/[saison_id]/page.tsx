@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 
 import { buildReplacementContext } from "@/features/saisons/components/forms/AdminSaisonEditForm/replacementOffer";
+import { readShape } from "@/features/saisons/components/forms/AdminSaisonEditForm/spielplanShape";
 import { AdminSaisonEditView } from "@/features/saisons/components/views/AdminSaisonEditView";
 import { getAdminSaisons } from "@/features/saisons/queries";
 import { resolveSaisonIdParam } from "@/features/saisons/resolvers";
@@ -136,9 +137,10 @@ async function AdminSaisonEditContent({ params }: { params: NextPageProps<{ sais
   const spieltagBound = buildSpieltagBound(spieltageRes.spieltage);
 
   return (
-    // Keyed by the state the drafts mirror (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
+    // Keyed by the stored three the redraw's typing starts from, which the view holds across a save; the view keys the
+    // editor by the rest (`docs/frontend/spec.md :: The editor's subtree is keyed by the fixture's stored state`).
     <AdminSaisonEditView
-      key={JSON.stringify(saison)}
+      key={JSON.stringify({ id: saison.id, shape: readShape(saison.rules) })}
       saison={{
         id: saison.id,
         status: saison.status,
