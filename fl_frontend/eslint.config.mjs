@@ -536,8 +536,8 @@ const RELATIVE_TEXT = String.raw`:matches(Literal[value=/^(?!\x2F|[a-z]+:)/], Te
 const LEADING_SLOT = String.raw`:matches(BinaryExpression[operator="+"] > .left, :matches(TSAsExpression, TSSatisfiesExpression, TSNonNullExpression) > .expression, MemberExpression[property.name="concat"] > .object, CallExpression > MemberExpression.callee[property.name="concat"])`;
 
 // The literal is the carrier's FIRST argument, or names the parameter in its own query; a route
-// handed to `ShellNotFound` is carried by that component, which `fl_frontend/src/app/notFound.test.ts`
-// renders under a season.
+// handed to `ShellNotFound` takes the season from the shell around it, which the admin shell keeps in
+// the query (`fl_frontend/src/features/admin/components/ui/AdminShell.test.ts`).
 /** The panel's old prefix as a whole segment, so `/adminTable` and `/administration` stay free. */
 const STALE_ADMIN = String.raw`/^\x2Fadmin(?![A-Za-z0-9_-])/`;
 
