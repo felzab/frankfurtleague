@@ -6,7 +6,7 @@ import { createRequire, registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import { Component, createElement as h } from "react";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { cleanup, render } from "@testing-library/react";
 
@@ -63,6 +63,13 @@ const NO_PROPS = { params: Promise.resolve({}), searchParams: Promise.resolve({}
 const OUTAGE = new Error("die Anmeldung ist nicht erreichbar");
 
 const Redirecting = (): never => redirect("/signin");
+const Missing = (): never => notFound();
+
+/** Next's two answers a boundary must hand on, each with the digest Next acts on. */
+const NAVIGATIONS = [
+  { child: Redirecting, digest: "NEXT_REDIRECT;replace;/signin;307;" },
+  { child: Missing, digest: "NEXT_HTTP_ERROR_FALLBACK;404" },
+];
 
 /** Next's own boundary above the area's, recording what reached it rather than rendering it. */
 class Above extends Component<{ caught: unknown[]; children?: ReactNode }, { failed: boolean }> {
@@ -159,24 +166,26 @@ describe("a read failing in an area's layout", () => {
 
   /* The guard's own answer to a missing session is a redirect, which is Next's to act on: caught here,
      a lapsed session would read as an outage rather than reach sign-in. */
-  it("lets the guard's redirect through to Next", () => {
+  it("lets a redirect and a not-found through to Next", () => {
     for (const area of AREAS) {
-      const caught: unknown[] = [];
-      const { container } = render(
-        underNext(h(Above, { caught }, h(area.boundary, null, h(Redirecting))), {
-          pathname: area.pathname,
-          ...(area.params === null ? {} : { params: area.params }),
-        }),
-      );
-      try {
-        assert.deepEqual(
-          caught.map((error) => (error as { digest?: unknown }).digest),
-          ["NEXT_REDIRECT;replace;/signin;307;"],
-          `${area.name}'s boundary keeps the guard's redirect from Next`,
+      for (const { child, digest } of NAVIGATIONS) {
+        const caught: unknown[] = [];
+        const { container } = render(
+          underNext(h(Above, { caught }, h(area.boundary, null, h(child))), {
+            pathname: area.pathname,
+            ...(area.params === null ? {} : { params: area.params }),
+          }),
         );
-        assert.ok(!container.textContent.includes("Spielunterbrechung"), `${area.name} answers a redirect with its error panel`);
-      } finally {
-        cleanup();
+        try {
+          assert.deepEqual(
+            caught.map((error) => (error as { digest?: unknown }).digest),
+            [digest],
+            `${area.name}'s boundary keeps ${digest} from Next`,
+          );
+          assert.ok(!container.textContent.includes("Spielunterbrechung"), `${area.name} answers ${digest} with its error panel`);
+        } finally {
+          cleanup();
+        }
       }
     }
   });
