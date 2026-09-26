@@ -4,6 +4,9 @@ import { beforeEach, describe, it } from "node:test";
 
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
+
+import type { SentMail } from "@/shared/testing/mailDouble.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real mailer a provider. */
@@ -18,21 +21,12 @@ const calls = doubleApiClient(({ endpoint }, schema) =>
 );
 /* The provider rather than the fan-out: what this handler is judged on is whether a message is
    composed at all, and the real fan-out is what composes it. */
-const MAIL = `export const sendMail = async (mail) => {
-  globalThis.__flBewMails.push({ to: mail.to, subject: mail.subject, text: mail.text, tags: mail.tags, idempotencyKey: mail.idempotencyKey });
-  return { id: "msg-1" };
-};
-export class MailWithheldError extends Error {}
-export class MailRecipientError extends Error {}`;
+const { sent: mails } = doubleSendMail();
 const QUERIES = `export const getBewerbungSchulen = async () => ({ acknowledged: 1, schulen: [] });`;
 
-type Mail = { to: string; subject: string; text: string; tags?: Record<string, string>; idempotencyKey?: string };
-
 const recorders = globalThis as unknown as Record<string, unknown>;
-const mails: Mail[] = [];
 /** Every line the handler's logger was handed, serialised whole. */
 const logs: string[] = [];
-recorders.__flBewMails = mails;
 recorders.__flBewLogs = logs;
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
@@ -54,7 +48,6 @@ registerHooks({
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
-    if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL, shortCircuit: true };
     if (url.endsWith("/src/features/bewerbungen/queries.ts")) return { format: "module", source: QUERIES, shortCircuit: true };
     return nextLoad(url, context);
   },
@@ -141,7 +134,6 @@ const writes = () => calls.filter((call) => call.endpoint === "/bewerbungen");
 
 beforeEach(() => {
   calls.length = 0;
-  mails.length = 0;
   logs.length = 0;
   schreibAntwort = () => GESCHRIEBEN;
 });
@@ -273,7 +265,7 @@ describe("the application handler's consent label", () => {
 });
 
 /** The messages one anlass sent, by the tag every message of the workflow carries. */
-const sentFor = (anlass: string): Mail[] => mails.filter((mail) => mail.tags?.anlass === anlass);
+const sentFor = (anlass: string): SentMail[] => mails.filter((mail) => mail.tags?.anlass === anlass);
 
 /** `BODY` with the Trainer declared the Stellvertretung too, the seat filled from the Trainer as the form fills it. */
 const MIRRORED = { ...BODY, kontakte: { ...BODY.kontakte, stellvertretung: BODY.kontakte.trainer, trainer_ist_zugleich: "stellvertretung" } };

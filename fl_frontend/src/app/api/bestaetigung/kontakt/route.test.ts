@@ -4,6 +4,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
+import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -16,21 +17,12 @@ export const logger = { info: line, warn: line, error: line };`;
 const ORIGIN = "http://localhost:3000";
 const CONFIG = `export const frontend_config = { AUTH_URL: "${ORIGIN}", APP_ENV: "test" };`;
 /* The provider rather than the fan-out, which is what composes the message a case reads. */
-const MAIL = `export const sendMail = async (mail) => {
-  globalThis.__flSeatMails.push({ to: mail.to, subject: mail.subject, text: mail.text, tags: mail.tags, idempotencyKey: mail.idempotencyKey });
-  return { id: "msg-1" };
-};
-export class MailWithheldError extends Error {}
-export class MailRecipientError extends Error {}`;
+const { sent: mails } = doubleSendMail();
 const { calls } = doubleApiAnswers(async (call) => antwortFuer(call));
 
-type Mail = { to: string; subject: string; text: string; tags?: Record<string, string>; idempotencyKey?: string };
-
 const recorders = globalThis as unknown as Record<string, unknown>;
-const mails: Mail[] = [];
 /** Every line the handler's logger was handed, serialised whole. */
 const logs: string[] = [];
-recorders.__flSeatMails = mails;
 recorders.__flSeatLogs = logs;
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
@@ -51,7 +43,6 @@ registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
-    if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL, shortCircuit: true };
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
     return nextLoad(url, context);
   },
@@ -135,7 +126,6 @@ const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<strin
   (await POST(request)) as unknown as Record<string, unknown>;
 
 beforeEach(() => {
-  mails.length = 0;
   logs.length = 0;
   schreibAntwort = () => GESCHRIEBEN;
   ansichtAntwort = () => ANSICHT;

@@ -3,14 +3,16 @@ import { registerHooks } from "node:module";
 import { beforeEach, describe, it, mock } from "node:test";
 
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
+
+import type { SentMail } from "@/shared/testing/mailDouble.ts";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
 /** One thing that happened, in the order it happened: the two orderings this slice owes are orderings between the two kinds. */
 type SweepEvent =
-  | { kind: "api"; endpoint: string; method: string; params?: Record<string, string>; body?: string }
-  | { kind: "mail"; to: string; subject: string; text: string; tags?: Record<string, string>; idempotencyKey?: string };
+  { kind: "api"; endpoint: string; method: string; params?: Record<string, string>; body?: string } | ({ kind: "mail" } & SentMail);
 
 const events: SweepEvent[] = [];
 /** Addresses the doubled provider refuses, so a deletion notice can fail for one application alone. */
@@ -23,8 +25,6 @@ const logs: SweepLog[] = [];
 
 const recorders = globalThis as unknown as Record<string, unknown>;
 recorders.__flSweepLogs = logs;
-recorders.__flSweepEvents = events;
-recorders.__flSweepRefused = refused;
 recorders.__flSweepSwitch = "on";
 
 let apiAnswer: (call: ApiEvent) => unknown = () => ({});
@@ -40,15 +40,7 @@ doubleApiClient(({ endpoint, method, params, body }, schema) => {
   return schema.parse(apiAnswer(call));
 });
 
-// The real error classes beside the doubled transport: the fan-out this sweep drives tells a
-// withheld send from a refused one with `instanceof`, which a look-alike passes only by accident.
-const MAIL_DOUBLE = `export { MailRecipientError, MailWithheldError } from "./mail.ts?real";
-
-export const sendMail = async (mail) => {
-  globalThis.__flSweepEvents.push({ kind: "mail", to: mail.to, subject: mail.subject, text: mail.text, tags: mail.tags, idempotencyKey: mail.idempotencyKey });
-  if (globalThis.__flSweepRefused.has(mail.to)) throw new Error("the provider refused the message");
-  return { id: "56761188-7520-42d8-8898-ff6fc54ce618" };
-};`;
+const mail = doubleSendMail();
 
 // The error arm records: which EVENT a failure is filed under is what tells an operator which half
 // of a season's pass stopped, and that is a line rather than a call the transport shows.
@@ -73,7 +65,6 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL_DOUBLE, shortCircuit: true };
     if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING_DOUBLE, shortCircuit: true };
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
     return nextLoad(url, context);
@@ -186,6 +177,11 @@ beforeEach(() => {
   events.length = 0;
   logs.length = 0;
   refused.clear();
+  // Appended as the send happens, so a send and the calls around it stay in the order they ran.
+  mail.answerWith((sent) => {
+    events.push({ kind: "mail", ...sent });
+    return refused.has(sent.to) ? "refused" : "accepted";
+  });
   recorders.__flSweepSwitch = "on";
   sweepAnswers({});
 });

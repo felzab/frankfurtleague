@@ -4,6 +4,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
+import { doubleSendMail } from "@/shared/testing/mailDouble.ts";
 
 /* Replaced at the module boundary rather than the action being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real mailer a provider. */
@@ -11,17 +12,14 @@ const calls = doubleApiClient(({ endpoint }) => {
   throw missing(endpoint);
 });
 const CONFIG = `export const frontend_config = { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" };`;
-const MAIL = `export const sendMail = async () => ({ id: null });
-export class MailWithheldError extends Error {}
-export class MailRecipientError extends Error {}`;
 
 doubleActionRequest();
+const mail = doubleSendMail();
 
 registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
-    if (url.endsWith("/src/core/mail.ts")) return { format: "module", source: MAIL, shortCircuit: true };
     return nextLoad(url, context);
   },
 });
@@ -77,6 +75,7 @@ describe("the reseat's consent label", () => {
 
     assert.deepEqual(answer, { success: false, error: BEWERBUNG_VERALTET });
     assert.deepEqual(calls, []);
+    assert.deepEqual(mail.sent, []);
   });
 
   it("refuses an older label the running build still resolves, reading and writing nothing", async () => {
@@ -84,5 +83,6 @@ describe("the reseat's consent label", () => {
 
     assert.deepEqual(answer, { success: false, error: BEWERBUNG_VERALTET });
     assert.deepEqual(calls, []);
+    assert.deepEqual(mail.sent, []);
   });
 });
