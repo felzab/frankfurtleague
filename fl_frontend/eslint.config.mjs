@@ -535,12 +535,12 @@ const RELATIVE_TEXT = String.raw`:matches(Literal[value=/^(?!\x2F|[a-z]+:)/], Te
 /** Where a target keeps the text it opens on: a `+`'s left, a type assertion's operand, a `concat`'s receiver. */
 const LEADING_SLOT = String.raw`:matches(BinaryExpression[operator="+"] > .left, :matches(TSAsExpression, TSSatisfiesExpression, TSNonNullExpression) > .expression, MemberExpression[property.name="concat"] > .object, CallExpression > MemberExpression.callee[property.name="concat"])`;
 
-// The literal is the carrier's FIRST argument, or names the parameter in its own query; a route
-// handed to `ShellNotFound` takes the season from the shell around it, which the admin shell keeps in
-// the query (`fl_frontend/src/features/admin/components/ui/AdminShell.test.ts`).
 /** The panel's old prefix as a whole segment, so `/adminTable` and `/administration` stay free. */
 const STALE_ADMIN = String.raw`/^\x2Fadmin(?![A-Za-z0-9_-])/`;
 
+// The literal is the carrier's FIRST argument, or names the parameter in its own query; a route
+// handed to `ShellNotFound` takes the season from the shell around it, which the admin shell keeps in
+// the query (`fl_frontend/src/features/admin/components/ui/AdminShell.test.ts`).
 const UNSEASONED_ADMIN_LINKS = [
   String.raw`Literal[value=/^\x2Fbereich\x2Fadmin(?![^#]*[?&]saison_id=)/]:not(TSLiteralType > Literal):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > Literal.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > Literal)`,
   String.raw`TemplateLiteral:matches([quasis.0.value.raw=/^\x2Fbereich\x2Fadmin/], [quasis.0.value.raw=""][quasis.1.value.raw=/^\x2Fbereich\x2Fadmin/]):not(:has(> TemplateElement[value.raw=/[?&]saison_id=/])):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > TemplateLiteral.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > JSXExpressionContainer > TemplateLiteral)`,
