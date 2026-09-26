@@ -27,6 +27,7 @@ import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./pas
 import { ENROLMENT_CONFLICT, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
 import { setRequestActor } from "./requestScope";
 import { ADMIN_LIFETIME, ADMIN_WINDOW_MS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS } from "./sessionLifetimes";
+import { mayReceiveSignIn } from "./signInGate";
 
 import type { BetterAuthOptions, DBTransactionAdapter } from "better-auth";
 import type { PasskeyEmail } from "./passkeyEmail";
@@ -430,19 +431,19 @@ const authOptions = {
   },
 
   plugins: [
-    // `disableSignUp` stays off: every administrator's row is written at their first verification,
-    // so set it the first correct link dies.
+    // `disableSignUp` stays off: every person's row is written at their first verification, so set
+    // it the first correct link dies, and the gate below is the only barrier.
 
-    // What bounds who holds a redeemable token is the allowlist below, and the hash at rest.
+    // What bounds who holds a redeemable token is the gate below, and the hash at rest.
     magicLink({
       expiresIn: LINK_VALIDITY_SECONDS,
       // At rest as `fl_backend/app/api/bewerbungen/services.py :: hash_token` holds every other
       // token this league mints; the raw one still reaches the send below.
       storeToken: "hashed",
       async sendMagicLink({ email, token }) {
-        // The refusal, whole: an address the allowlist does not carry is mailed nothing and this
-        // returns as though it had, so both branches are one answer.
-        if (!isUserAdmin(email)) return;
+        // The refusal, whole: an address the gate refuses, for whatever reason, is mailed nothing
+        // and this returns as though it had, so every branch is one answer.
+        if ((await mayReceiveSignIn(email)) !== "admitted") return;
 
         // The plugin's own `url` is discarded: a mail gateway spends a link that acts on a GET, so
         // what is mailed is the page whose button completes the sign-in.

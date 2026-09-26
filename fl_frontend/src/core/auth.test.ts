@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { createHash, generateKeyPairSync, sign } from "node:crypto";
-import { beforeEach, describe, it } from "node:test";
+import { after, afterEach, beforeEach, describe, it } from "node:test";
 
 import {
   ADMIN_EMAIL,
   asDataUrl,
+  configDouble,
   cookieHeader,
   lastMailedToken,
   MEMORY_ADAPTER_URL,
@@ -46,12 +47,50 @@ export const mongodbAdapter = (db, config) => {
   return memoryAdapter(globalThis.${STORE});
 };`;
 
+const API_ORIGIN = "http://backend.test";
+
 /* The link is caught on its way out rather than off the store: `storeToken: "hashed"` means the
-   stored identifier is not the token, and a `sendMagicLink` double would replace the allowlist
-   gate this file is checking with itself. */
+   stored identifier is not the token, and a `sendMagicLink` double would replace the send gate
+   this file is checking with itself. */
 const { sent } = registerAuthDoubles({
-  core: { db: DB_DOUBLE, logging: LOGGING_DOUBLE },
+  core: {
+    db: DB_DOUBLE,
+    logging: LOGGING_DOUBLE,
+    // Where the send gate's backend read goes, answered by the `fetch` below rather than a server.
+    config: configDouble({ API_URL: API_ORIGIN, API_VERSION: 0, INTERNAL_API_KEY_SYSTEM: "fabricated-system-not-a-credential" }),
+  },
   specifiers: { "next/headers": asDataUrl(HEADERS_DOUBLE), "@better-auth/mongo-adapter": asDataUrl(ADAPTER_DOUBLE) },
+});
+
+/** What the backend's one read answers an address, or that it throws for it or refuses it as a payload. */
+type Backend = Record<string, unknown> | "throws" | "refuses";
+
+const NOTHING_HELD = { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false };
+const A_SEAT = { saison_id: "2026", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" };
+
+/** Keyed by the folded address the gate posts; every address named nowhere is unbarred and holds nothing. */
+const BACKENDS = new Map<string, Backend>();
+
+/** Every read the gate put on the wire, by path. */
+const asked: string[] = [];
+
+const ORIGINAL_FETCH = globalThis.fetch;
+globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+  const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
+  asked.push(path);
+
+  const email = (JSON.parse(String(init?.body ?? "{}")) as { email?: string }).email ?? "";
+  const backend = BACKENDS.get(email) ?? NOTHING_HELD;
+  if (backend === "throws") throw new TypeError("fetch failed");
+  if (backend === "refuses") {
+    const refusal = { error_code: "REQ-VAL-001", trace_id: "0".repeat(32), fields: [] };
+    return new Response(JSON.stringify(refusal), { status: 422, headers: { "content-type": "application/json" } });
+  }
+
+  return new Response(JSON.stringify({ acknowledged: 1, ...backend }), { status: 200, headers: { "content-type": "application/json" } });
+}) as typeof globalThis.fetch;
+after(() => {
+  globalThis.fetch = ORIGINAL_FETCH;
 });
 
 type SessionRow = { token: string; userId: string; expiresAt: Date; createdAt: Date; updatedAt: Date; authFactor?: string };
@@ -1317,6 +1356,152 @@ describe("what the link costs an address the allowlist does not carry", () => {
     const window_ = Math.round((written.expiresAt.getTime() - requested) / 1000);
     assert.equal(window_, LINK_VALIDITY_MINUTES * 60, "the row the library wrote does not carry this module's window");
   });
+});
+
+describe("which addresses outside the allowlist the send gate mails", () => {
+  const SEATED_EMAIL = "trainerin@example.org";
+  const UNCONFIRMED_EMAIL = "unbestaetigte@example.org";
+  const BARRED_EMAIL = "gesperrte@example.org";
+  const PAST_SEATED_EMAIL = "ehemalige@example.org";
+
+  beforeEach(() => {
+    BACKENDS.clear();
+    asked.length = 0;
+  });
+  // Cleared after as well: a backend left throwing for the administrator would fail every later
+  // describe's sign-in for a reason none of them is about.
+  afterEach(() => BACKENDS.clear());
+
+  /** Asks the plugin's own endpoint for a link, answering what it answered and who was mailed. */
+  async function askFor(email: string): Promise<{ answer: unknown; mailed: string[] }> {
+    const before = sent.length;
+    const answer = await auth.api.signInMagicLink({ body: { email }, headers: new Headers(ORIGIN) });
+
+    return { answer, mailed: sent.slice(before).map((message) => message.to) };
+  }
+
+  it("mails an address holding a seat on a live season, after the one backend read", async () => {
+    BACKENDS.set(SEATED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+
+    assert.deepEqual((await askFor(SEATED_EMAIL)).mailed, [SEATED_EMAIL]);
+    assert.deepEqual(asked, ["/api/v0/identitaet/subjekt"]);
+  });
+
+  /* The lookup drops every unconfirmed record, so the lists of a pending mailbox are as empty as an
+     unknown one's: the flag is the only thing admitting it, and a gate reading the lists refuses it. */
+  it("mails an address whose records all await confirmation, answering it as it answers a refused one", async () => {
+    BACKENDS.set(UNCONFIRMED_EMAIL, { ...NOTHING_HELD, unbestaetigt: true });
+
+    const pending = await askFor(UNCONFIRMED_EMAIL);
+    const refused = await askFor(PERSON_EMAIL);
+
+    assert.deepEqual(pending.mailed, [UNCONFIRMED_EMAIL]);
+    assert.deepEqual(refused.mailed, [], "the unknown address was mailed, so the two answers compare two sends");
+    assert.deepEqual(pending.answer, refused.answer);
+  });
+
+  it("mails nothing to a barred address whose records await confirmation", async () => {
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, unbestaetigt: true, gesperrt: true });
+
+    assert.deepEqual((await askFor(BARRED_EMAIL)).mailed, []);
+  });
+
+  it("mails nothing to a barred address holding a live seat", async () => {
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+
+    assert.deepEqual((await askFor(BARRED_EMAIL)).mailed, []);
+  });
+
+  it("mails nothing to an address holding nothing at all", async () => {
+    assert.deepEqual((await askFor(PERSON_EMAIL)).mailed, []);
+    assert.equal(asked.length, 1, "the gate refused without asking the backend, so holding nothing decided nothing");
+  });
+
+  /* The lookup still answers a `past` season's seat, so a list that is merely non-empty would mail
+     a person whose every seat is over; only the derived Funktion refuses them. */
+  it("mails nothing to an address whose only seat is on a past season", async () => {
+    BACKENDS.set(PAST_SEATED_EMAIL, { ...NOTHING_HELD, sitze: [{ ...A_SEAT, saison_status: "past" }] });
+
+    assert.deepEqual((await askFor(PAST_SEATED_EMAIL)).mailed, []);
+    assert.equal(asked.length, 1, "the gate refused without asking the backend, so the past seat decided nothing");
+  });
+
+  /* The order is the subject: the allowlist in process ahead of the read is what keeps an
+     administrator's link from depending on a backend call. */
+  it("mails an allowlisted address while the backend read throws, asking nothing", async () => {
+    BACKENDS.set(ADMIN_EMAIL, "throws");
+
+    assert.deepEqual((await askFor(ADMIN_EMAIL)).mailed, [ADMIN_EMAIL]);
+    assert.deepEqual(asked, []);
+  });
+
+  it("mails nothing to an address outside the allowlist while the read throws, and logs the failure by name alone", async () => {
+    BACKENDS.set(PERSON_EMAIL, "throws");
+    const loggedBefore = logged.length;
+
+    assert.deepEqual((await askFor(PERSON_EMAIL)).mailed, []);
+
+    const lines = logged.slice(loggedBefore);
+    assert.deepEqual(
+      lines.map((line) => [line.message, line.meta]),
+      [["auth.link_gate_failed", { error_code: "FE-AUTH-002", name: "APINetworkError" }]],
+    );
+  });
+
+  /* A refused payload is the backend answering, so its line says so rather than reading as an outage. */
+  it("mails nothing to an address the backend refuses as a payload, and logs the refusal apart from a failure", async () => {
+    BACKENDS.set(PERSON_EMAIL, "refuses");
+    const loggedBefore = logged.length;
+
+    assert.deepEqual((await askFor(PERSON_EMAIL)).mailed, []);
+    assert.deepEqual(
+      logged.slice(loggedBefore).map((line) => [line.message, line.meta]),
+      [["auth.link_gate_address_refused", { error_code: "FE-AUTH-002", name: "APIBadStatusError" }]],
+    );
+  });
+
+  /* The three refusals are three reasons to the gate and one answer to the person asking: which of
+     them held is what the sign-in exists not to say. */
+  it("answers a barred address, one holding nothing and one whose read failed with one body, mailing none", async () => {
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+    BACKENDS.set(PAST_SEATED_EMAIL, "throws");
+
+    const refusals = [await askFor(BARRED_EMAIL), await askFor(PERSON_EMAIL), await askFor(PAST_SEATED_EMAIL)];
+
+    assert.deepEqual(
+      refusals.flatMap((refusal) => refusal.mailed),
+      [],
+    );
+    assert.deepEqual(refusals[1]?.answer, refusals[0]?.answer);
+    assert.deepEqual(refusals[2]?.answer, refusals[0]?.answer);
+  });
+
+  /* Asked directly, as a sender other than the plugin's callback asks it: that sender words the
+     reason, so each is answered as itself, and a failed read as a verdict rather than a throw. */
+  const VERDICTS: readonly (readonly [string, string, Backend | undefined, string])[] = [
+    ["an allowlisted address, the read throwing", ADMIN_EMAIL, "throws", "admitted"],
+    ["an address holding a live seat", SEATED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] }, "admitted"],
+    ["an address whose records all await confirmation", UNCONFIRMED_EMAIL, { ...NOTHING_HELD, unbestaetigt: true }, "admitted"],
+    ["a barred address holding a live seat", BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true }, "barred"],
+    ["an address holding nothing", PERSON_EMAIL, undefined, "holds-nothing"],
+    [
+      "an address whose only seat is on a past season",
+      PAST_SEATED_EMAIL,
+      { ...NOTHING_HELD, sitze: [{ ...A_SEAT, saison_status: "past" }] },
+      "holds-nothing",
+    ],
+    ["an address whose read throws", PERSON_EMAIL, "throws", "failed"],
+    ["an address the backend refuses as a payload", PERSON_EMAIL, "refuses", "failed"],
+  ];
+
+  for (const [who, email, backend, verdict] of VERDICTS) {
+    it(`answers ${who} \`${verdict}\``, async () => {
+      const { mayReceiveSignIn } = await import("./signInGate.ts");
+      if (backend !== undefined) BACKENDS.set(email, backend);
+
+      assert.equal(await mayReceiveSignIn(email), verdict);
+    });
+  }
 });
 
 describe("which spelling of an administrator a write is attributed to", () => {

@@ -319,15 +319,17 @@ Every ruling below is the sign-up flow as it stands for the next season.
   exists to say who did what; the asymmetry is deliberate and is stated at the invariant once it
   leaves here (`docs/backend/spec.md :: I42` is the redaction it sits beside, and `:: I48` what a
   removal records).
-- **An administrator's erasure includes the sign-in store.** The `auth` database holding
-  administrators' addresses, sessions, sign-in tokens and passkeys is inside the erasure, and it is
-  reached by hand: `fl_frontend/src/core/auth.ts` is where that store is configured, and
+- **The erasure of anybody who has signed in includes the sign-in store.** The `auth` database
+  holds the address, sessions and sign-in tokens of everyone who has followed a sign-in link — an
+  administrator, and a person the send gate offered one (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`) — and an
+  administrator's passkeys. It is inside the erasure, and it is reached by hand:
+  `fl_frontend/src/core/auth.ts` is where that store is configured, and
   [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
-  is what names it as the place an administrator's own data sits. Its collections are `user`,
+  is what names it as the place a signed-in person's own data sits. Its collections are `user`,
   `session`, `account`, `verification` and `passkey`. The last holds a credential's public key, its
   identifier and the counters the browser reports, and never a secret the person holds, the private
-  key staying on their own device; a `session` row holds the administrator it belongs to, its own
-  expiry and which factor made it, and neither the address nor the browser the sign-in came from. A `user` row's `updatedAt` records when that administrator's account, or any of their passkeys, last
+  key staying on their own device; a `session` row holds the account it belongs to, its own
+  expiry and which factor made it, and neither the address nor the browser the sign-in came from. A `user` row's `updatedAt` records when that account, or any of its passkeys, last
   changed, a removal included (`fl_frontend/src/core/auth.ts :: claimAccount`). **A session and a sign-in token each carry an expiry set at that
   configuration, and the expiry bounds the credential rather than the row**: the library drops a
   session row when its holder presents the stale cookie and leaves it standing where nobody comes
@@ -335,13 +337,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
   nobody follows is deleted by nothing. Neither collection is swept by the application; the
   retention index each needs is a console step
   ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-two-expiry-indexes)).
-- **The sign-in store holds more than administrators.** The sign-in send is public and the library
-  writes its `verification` row before the allowlist is consulted, so the address of anyone who
-  submits the form is held there — an allowlisted administrator's and a stranger's alike — until
-  that retention index removes it
+- **The sign-in store holds more than the people it signs in.** The sign-in send is public and the
+  library writes its `verification` row before the send gate is consulted, so the address of anyone
+  who submits the form is held there — a person the gate admits and a stranger alike — until that
+  retention index removes it
   ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-two-expiry-indexes)). Nothing else is
-  recorded of such a person: no `user` row is written until a link is followed
-  (`fl_frontend/src/core/auth.ts`).
+  recorded of such a person: no `user` row is written until a link is followed, and a link is mailed
+  only to an administrator or to an address the league holds records for (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`).
 - **No log row names a person as the one who wrote it today, and a person's own write is
   recorded under a pseudonym rather than their address.** `fl_frontend/src/core/subject.ts :: getSubjectSession`
   already folds the address of whoever opens a panel into the request's actor, and

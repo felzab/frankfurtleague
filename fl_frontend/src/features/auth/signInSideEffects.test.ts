@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { ADMIN_EMAIL, asDataUrl, memoryAdapterDouble, ORIGIN, registerAuthDoubles } from "@/core/authDoubles.ts";
+import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 
+import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 import type { FormState } from "@/shared/types/types.ts";
 
 const STORE = "__flSignInStore";
@@ -13,6 +15,46 @@ const DEFERRED = "__flSignInDeferredWork";
 const ALLOWLISTED = ADMIN_EMAIL;
 /** Absent from the config double's allowlist, so the gate inside the send is what refuses it. */
 const REJECTED = "fremde@example.org";
+
+/** Three addresses the allowlist does not carry, each refused by a later check of the gate. */
+const BARRED = "gesperrte@example.org";
+const PAST_SEATED = "ehemalige@example.org";
+const UNREACHED = "unerreichte@example.org";
+/** The two addresses outside the allowlist the gate admits, so the refusals above are the gate's rather than the harness's. */
+const SEATED = "trainerin@example.org";
+const UNCONFIRMED = "unbestaetigte@example.org";
+
+/** What the backend's one read answers an address with, or that it threw. */
+type Backend = Record<string, unknown> | "throws";
+
+const NOTHING_HELD = { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false };
+const A_SEAT = {
+  saison_id: "2026",
+  team_id: "0123456789abcdef01234567",
+  rolle: "trainer",
+  team_name: "Goethe-Gymnasium",
+  saison_status: "active",
+};
+
+const BACKENDS: Readonly<Record<string, Backend>> = {
+  [BARRED]: { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true },
+  [PAST_SEATED]: { ...NOTHING_HELD, sitze: [{ ...A_SEAT, saison_status: "past" }] },
+  [UNREACHED]: "throws",
+  [UNCONFIRMED]: { ...NOTHING_HELD, unbestaetigt: true },
+  [SEATED]: { ...NOTHING_HELD, sitze: [A_SEAT] },
+};
+
+/** Answers the backend read for the address its body names; an address named nowhere holds nothing. */
+function answerFromTheBackend(call: ApiCall): Promise<unknown> {
+  const asked = (JSON.parse(call.body ?? "{}") as { email?: string }).email ?? "";
+  const backend = BACKENDS[asked] ?? NOTHING_HELD;
+  if (backend === "throws") return Promise.reject(new Error("the backend answered nothing"));
+
+  return Promise.resolve({ acknowledged: 1, ...backend });
+}
+
+// Registered ahead of the imports below, whose graph reaches the real client through the gate.
+const { calls: asked } = doubleApiAnswers(answerFromTheBackend);
 
 /**
  * `headers()` feeds the trace scope and the endpoint's own `requireHeaders`. `cookies()` hands back
@@ -81,6 +123,9 @@ interface Attempt {
   /** Verification rows the store gained while the caller was still waiting. */
   readonly writtenWhileAnswering: number;
   readonly writtenAfter: number;
+  /** Backend reads the gate had made while the caller was still waiting, and once the deferred work ran. */
+  readonly askedWhileAnswering: number;
+  readonly askedAfter: number;
   readonly scheduled: number;
   readonly result: FormState;
 }
@@ -105,6 +150,7 @@ async function signInWith(email: string): Promise<Attempt> {
 
   const mailedBefore = sent.length;
   const storedBefore = store.verification.length;
+  const askedBefore = asked.length;
   deferred.length = 0;
 
   // Settled before the headers are read: an object literal evaluates its properties in order, so a
@@ -113,6 +159,7 @@ async function signInWith(email: string): Promise<Attempt> {
   const setCookie = response.headers.getSetCookie();
   const mailedWhileAnswering = sent.slice(mailedBefore).map((message) => message.to);
   const writtenWhileAnswering = store.verification.length - storedBefore;
+  const askedWhileAnswering = asked.length - askedBefore;
 
   const scheduled = deferred.splice(0);
   for (const task of scheduled) await task();
@@ -124,6 +171,8 @@ async function signInWith(email: string): Promise<Attempt> {
     mailed: sent.slice(mailedBefore).map((message) => message.to),
     writtenWhileAnswering,
     writtenAfter: store.verification.length - storedBefore,
+    askedWhileAnswering,
+    askedAfter: asked.length - askedBefore,
     scheduled: scheduled.length,
     result,
   };
@@ -154,6 +203,15 @@ function bodyWithoutEcho(result: FormState): Record<string, unknown> {
 
 const allowlisted = await signInWith(ALLOWLISTED);
 const rejected = await signInWith(REJECTED);
+const admittedByTheGate = {
+  "a person holding a live seat": { attempt: await signInWith(SEATED), address: SEATED },
+  "a person whose records all await confirmation": { attempt: await signInWith(UNCONFIRMED), address: UNCONFIRMED },
+};
+const refusedByTheGate = {
+  "a barred address holding a seat": await signInWith(BARRED),
+  "an address whose only seat is on a past season": await signInWith(PAST_SEATED),
+  "an address whose backend read throws": await signInWith(UNREACHED),
+};
 
 describe("what a sign-in leaves behind on the response", () => {
   /* First, because every comparison below holds trivially of two attempts that both got nowhere:
@@ -198,6 +256,38 @@ describe("what a sign-in leaves behind on the response", () => {
     assert.equal(allowlisted.writtenAfter, 1);
     assert.equal(rejected.writtenAfter, 1, "the two branches differ in what the store gained, which is an oracle to anyone who can read it");
   });
+});
+
+/** Everything a caller could time or read before the answer arrives, which no branch may differ in. */
+function assertNothingAheadOfTheAnswer(attempt: Attempt): void {
+  assert.equal(attempt.askedWhileAnswering, 0, "the caller waited on a backend read");
+  assert.deepEqual([...attempt.mailedWhileAnswering], []);
+  assert.equal(attempt.writtenWhileAnswering, 0, "the caller waited on a store write");
+  assert.deepEqual([...attempt.setCookie], []);
+  assert.deepEqual([...attempt.writes], []);
+  assert.equal(attempt.scheduled, 1, "the branch deferred other than the one task every branch defers");
+  assert.deepEqual(bodyWithoutEcho(attempt.result), bodyWithoutEcho(allowlisted.result));
+}
+
+describe("what the gate's backend read leaves on the response", () => {
+  /* The floor: addresses outside the allowlist that the gate admits, so the three refusals below
+     are the read deciding rather than every non-administrator being refused alike. */
+  for (const [branch, { attempt, address }] of Object.entries(admittedByTheGate)) {
+    it(`mails ${branch} only after the answer, which only the backend read can decide`, () => {
+      assertNothingAheadOfTheAnswer(attempt);
+      assert.deepEqual([...attempt.mailed], [address]);
+      assert.equal(attempt.askedAfter, 1, "the gate made other than its one read for a person");
+    });
+  }
+
+  for (const [branch, attempt] of Object.entries(refusedByTheGate)) {
+    it(`refuses ${branch} with nothing done ahead of the answer and nothing mailed after it`, () => {
+      assertNothingAheadOfTheAnswer(attempt);
+      // Floored, so a gate that asked nothing is not mistaken for one that asked and refused.
+      assert.ok(attempt.askedAfter > 0, "the gate never reached the backend, so the refusal is not the read's");
+      assert.deepEqual([...attempt.mailed], []);
+    });
+  }
 });
 
 describe("what the press under the mailed link leaves in the cookie store", () => {

@@ -22,6 +22,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [12. Deleting this season's player records and resetting the action log](#12-deleting-this-seasons-player-records-and-resetting-the-action-log) | Its two halves, the referee drop, and what is lost with them   |
 | [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                                      | Who is re-erased, and what the restore took the record of      |
 | [14. The `auth` database's two expiry indexes](#14-the-auth-databases-two-expiry-indexes)                                                       | Which collections grow without one, and what creates it        |
+| [15. When a sign-in link does not arrive](#15-when-a-sign-in-link-does-not-arrive)                                                              | What the person cannot tell apart, and the line that can       |
 
 ---
 
@@ -458,6 +459,10 @@ One person can hold several — a referee is a pupil, and a contact person can b
 | Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on                                                 |
 | Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in tokens and the passkey — plus `sperrliste.erstellt_von` on every ban they entered, which no erasure reaches |
 | Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                          |
+
+**A pupil, referee or contact person who has followed a sign-in link is in the sign-in store too**:
+the link writes their `user` row and a session in the `auth` database, read by hand as an
+administrator's is.
 
 `/bereich/admin/aktionen` answers what was written about them and by whom, and is the only place that
 question is answered at all. **Two populations sit in that collection and only one has an expiry**:
@@ -1059,14 +1064,38 @@ stored value is itself the deletion time.
 
 `verification` is the one that matters. The sign-in action is public, it is reachable by a POST to
 any URL on the site rather than to `/signin` alone, and the library writes the row before the
-allowlist is consulted — so every address anyone submits is kept, with no path in the running system
+send gate is consulted — so every address anyone submits is kept, with no path in the running system
 that removes it.
 
-`session` is smaller and the index is defence in depth: a row for an administrator who closed the
-browser is held for the library's full `expiresIn` otherwise, and with the index the store stops
+`session` is smaller and the index is defence in depth: a row for anybody who signed in and closed
+the browser is held for the library's full `expiresIn` otherwise, and with the index the store stops
 serving what the guards in `fl_frontend/src/core/auth.ts` would refuse anyway.
 
 **Nothing in this repository reports a missing one.** Neither index is created by the adapter and no
 configuration option asks for one, and `app.core.constraints --check` (§2) reads the backend's own
 declared indexes, which these are not — so the console is where both are made and where their
 presence is read.
+
+## 15. When a sign-in link does not arrive
+
+**To the person, every reason a link does not arrive looks alike**: the page answers one sentence
+whether a link went or not, so the frontend's log is the only record, and no line on this path
+carries the address. Ask when they tried and read that window
+([`../logging/error-codes.md`](../logging/error-codes.md) for each code):
+
+- `auth.link_gate_failed` under `FE-AUTH-002`: the send gate could not read what the backend holds
+  for the address, its ban included, so it sent nothing — the backend unreachable, failing, or
+  answering unreadably.
+- `auth.link_gate_address_refused` under `FE-AUTH-002`: the backend refused the address as none its
+  own rule accepts, though the sign-in form took it; the two address rules disagree.
+- `auth.link_send_failed` or `auth.sign_in_failed` under `FE-AUTH-002`: the gate admitted the
+  address, and the send or the library call around it failed; `FE-MAIL-001` under the same trace id
+  is the provider refusing the message.
+- `mail.withheld`: a stack that is not production mails nothing, and the message is in its sink.
+
+**A refusal by the gate writes no line.** It refuses an address that is barred, that holds nothing
+live, or whose only seat is on a `past` season; an address whose records all await confirmation is
+mailed, to be told so once signed in, unless it is barred. So a quiet window means a refusal, or a
+message the provider accepted and the mailbox never showed, whose bounce the delivery webhook
+reports (§10). The allowlist is read before the backend call (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`), so an
+administrator on it is mailed whether or not the backend answers.

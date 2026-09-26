@@ -50,8 +50,11 @@ registerHooks({
 
 const { handleSignIn } = await import("./actions.ts");
 
-/** The answer to one press, with the work scheduled behind the response run once it is in hand. */
-async function signInAnswering(outcome: () => Promise<void>): Promise<FormState> {
+/**
+ * The answer to one press, with the work scheduled behind the response run once it is in hand, and
+ * how many sign-ins had run by the moment the answer arrived.
+ */
+async function signInAnswering(outcome: () => Promise<void>): Promise<{ answer: FormState; reachedWhileAnswering: number }> {
   Reflect.set(globalThis, SIGN_IN, () => {
     signIns += 1;
     return outcome();
@@ -59,10 +62,13 @@ async function signInAnswering(outcome: () => Promise<void>): Promise<FormState>
   const submitted = new FormData();
   submitted.set("email", "vorstand@example.org");
 
+  const before = signIns;
   const answer = await handleSignIn(undefined, submitted);
+  // Read before the deferred work runs, which is the order a caller timing the answer sees.
+  const reachedWhileAnswering = signIns - before;
   for (const task of deferred.splice(0)) await task();
 
-  return answer;
+  return { answer, reachedWhileAnswering };
 }
 
 /*
@@ -79,9 +85,26 @@ describe("handleSignIn's answer", () => {
 
     // Floored first: three answers that never reached the sign-in agree on everything.
     assert.equal(signIns, 3, "a press never reached the sign-in, so the answers below are compared over nothing");
-    assert.deepEqual(sent, { success: true, message: NEUTRAL_ANSWER, submittedEmail: "vorstand@example.org" });
-    assert.deepEqual(refused, sent, "a refused sign-in answers otherwise than a sent one");
-    assert.deepEqual(thrown, sent, "a failed sign-in answers otherwise than a sent one");
+    assert.deepEqual(sent.answer, { success: true, message: NEUTRAL_ANSWER, submittedEmail: "vorstand@example.org" });
+    assert.deepEqual(refused.answer, sent.answer, "a refused sign-in answers otherwise than a sent one");
+    assert.deepEqual(thrown.answer, sent.answer, "a failed sign-in answers otherwise than a sent one");
+  });
+
+  /* The ORDER rather than a duration: the library call, and every check the send gate makes inside
+     it, runs after the answer. This file doubles `auth.ts` and sees the call alone; which branch the
+     gate takes is `signInSideEffects.test.ts`'s subject. */
+  it("answers before the sign-in runs at all, on every outcome", async () => {
+    const outcomes = [
+      await signInAnswering(() => Promise.resolve()),
+      await signInAnswering(() => Promise.reject(new APIError("BAD_REQUEST"))),
+      await signInAnswering(() => Promise.reject(new Error("the store answered nothing"))),
+    ];
+
+    assert.deepEqual(
+      outcomes.map((outcome) => outcome.reachedWhileAnswering),
+      [0, 0, 0],
+      "the sign-in ran before the caller was answered",
+    );
   });
 });
 

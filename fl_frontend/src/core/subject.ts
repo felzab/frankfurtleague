@@ -3,13 +3,12 @@ import "server-only";
 import { cache } from "react";
 import { headers } from "next/headers";
 
-import { apiClient } from "./api";
 import { auth, isAdminSession, isWithinPersonLifetime } from "./auth";
 import { asSignInIdentifier } from "./emailAddress";
 import { setRequestActor } from "./requestScope";
-import { FLSubjektResponseSchema } from "./schemas";
+import { lookUpSubjekt } from "./signInGate";
 
-import type { FLSubjektPayload, FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler } from "./schemas";
+import type { FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler } from "./schemas";
 
 /** Read-only to the depth a panel reaches: what the league holds is the endpoint's to change. */
 type SubjectRecords = {
@@ -56,27 +55,6 @@ export const getSubjectSession = cache(async (): Promise<SubjectSession | null> 
   // second actor throws (`docs/frontend/spec.md :: I272`).
   setRequestActor(email);
 
-  const payload: FLSubjektPayload = { email: email };
-  // In the body and on no query parameter: a URL carrying an address reaches the edge's access
-  // line, which nothing downstream un-logs (`docs/logging/spec.md :: L11`).
-  const subjekt = await apiClient("/identitaet/subjekt", FLSubjektResponseSchema, {
-    method: "POST",
-    readOnly: true,
-    authType: "system",
-    body: JSON.stringify(payload),
-  });
-
-  // The records and the two flags, never the parsed body: `acknowledged` is the transport saying
-  // a write landed, which a panel reading records has nothing to do with.
-  return {
-    email: email,
-    admin: isAdminSession(served),
-    subjekt: {
-      sitze: subjekt.sitze,
-      spieler: subjekt.spieler,
-      schiedsrichter: subjekt.schiedsrichter,
-      unbestaetigt: subjekt.unbestaetigt,
-      gesperrt: subjekt.gesperrt,
-    },
-  };
+  // The records and the two flags, never the parsed body (`fl_frontend/src/core/signInGate.ts :: lookUpSubjekt`).
+  return { email: email, admin: isAdminSession(served), subjekt: await lookUpSubjekt(email) };
 });

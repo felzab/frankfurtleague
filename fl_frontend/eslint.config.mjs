@@ -834,7 +834,7 @@ const SCOPED_BANS = [
       selector: loadOf(selectorPattern(LAYER_BOUNDARY.core.regex)),
       message: "An `import()` in core is an import: core must not depend on shared or features.",
     },
-    { files: ["src/core/auth.ts", "src/core/mail.ts"], ...LOGGED_ERROR },
+    { files: ["src/core/auth.ts", "src/core/mail.ts", "src/core/signInGate.ts"], ...LOGGED_ERROR },
   ],
   [
     {

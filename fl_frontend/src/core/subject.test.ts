@@ -301,9 +301,9 @@ describe("who the seam answers for", () => {
     assert.deepEqual(answer?.subjekt.spieler, [PUPIL]);
   });
 
-  /* The case the seam exists for: no link reaches such an address while the allowlist gates the
-     sign-in, so the row a link would have written is seeded and the library's own verification
-     mints the session over it. */
+  /* The case the seam exists for. The link is seeded rather than sent, whether one reaches such an
+     address being the send gate's question and `fl_frontend/src/core/auth.test.ts`'s subject, and
+     the library's own verification mints the session over it. */
   it("answers an address the allowlist refuses, unmarked, with the records it names", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
