@@ -61,7 +61,8 @@ const { raised } = doubleToasts();
 const { SicherheitPanel } = await import("./SicherheitPanel.tsx");
 const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 
-const HOUR_MS = 60 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
 const STEP_UP_REQUIRED = "Bestätige zuerst, dass Du es bist.";
 const STEP_UP_REFUSED = "Wir konnten Dich nicht mit einem Passkey bestätigen.";
 
@@ -99,6 +100,7 @@ const sicherheit = (fields: Partial<Sicherheit> = {}): Sicherheit => ({
   verwaltung: false,
   inhaberId: "inhaber",
   freshUntil: Date.now() + HOUR_MS,
+  enrolmentUntil: Date.now() + 4 * MINUTE_MS,
   ...fields,
 });
 
@@ -126,7 +128,7 @@ describe("a change past the step-up window", () => {
   it("asks for a confirmation, then runs the change it waited for", async () => {
     const user = userEvent.setup();
     answers.pruefeInhaberAction = { success: true, gleich: true };
-    const seen = open({ freshUntil: null });
+    const seen = open({ freshUntil: null, enrolmentUntil: null });
 
     await user.click(screen.getByRole("button", { name: "Abmelden" }));
     assert.deepEqual(sent(), [], "a change was sent before the confirmation");
@@ -149,7 +151,7 @@ describe("a change past the step-up window", () => {
   it("runs nothing when the confirmation signed another account in, and says so", async () => {
     const user = userEvent.setup();
     answers.pruefeInhaberAction = { success: true, gleich: false };
-    open({ freshUntil: null });
+    open({ freshUntil: null, enrolmentUntil: null });
 
     await user.click(screen.getByRole("button", { name: "Abmelden" }));
     await user.click((await dialog()).getByRole("button", { name: "Mit Passkey bestätigen" }));
@@ -162,7 +164,7 @@ describe("a change past the step-up window", () => {
   it("says a failed confirmation and runs nothing", async () => {
     const user = userEvent.setup();
     ceremony.signInPasskey = refused(400, "ERROR_CEREMONY_ABORTED");
-    open({ freshUntil: null });
+    open({ freshUntil: null, enrolmentUntil: null });
 
     await user.click(screen.getByRole("button", { name: "Abmelden" }));
     await user.click((await dialog()).getByRole("button", { name: "Mit Passkey bestätigen" }));
@@ -189,7 +191,7 @@ describe("a change past the step-up window", () => {
   it("closes the rename form once a rename it waited for lands", async () => {
     const user = userEvent.setup();
     answers.pruefeInhaberAction = { success: true, gleich: true };
-    open({ freshUntil: null });
+    open({ freshUntil: null, enrolmentUntil: null });
 
     await user.click(screen.getByRole("button", { name: "Umbenennen" }));
     await user.clear(screen.getByRole("textbox", { name: "Name" }));
@@ -198,7 +200,7 @@ describe("a change past the step-up window", () => {
     await user.click((await dialog()).getByRole("button", { name: "Mit Passkey bestätigen" }));
 
     await waitFor(() => assert.deepEqual(sent().at(-1), ["renamePasskeyAction", "eins"]));
-    await waitFor(() => assert.equal(screen.queryByRole("textbox", { name: "Name" }), null, "the form stayed open over a stored name"));
+    await waitFor(() => assert.ok(screen.queryByRole("textbox", { name: "Name" }) === null, "the form stayed open over a stored name"));
   });
 
   it("keeps the rename form open when the rename is refused", async () => {
@@ -255,9 +257,9 @@ describe("adding a passkey", () => {
   it("confirms first past the window, then adds on the next press of the same control", async () => {
     const user = userEvent.setup();
     answers.pruefeInhaberAction = { success: true, gleich: true };
-    open({ freshUntil: null });
+    open({ freshUntil: null, enrolmentUntil: null });
 
-    assert.equal(screen.queryByRole("button", { name: "Passkey hinzufügen" }), null, "a stale session is offered the enrolment");
+    assert.ok(screen.queryByRole("button", { name: "Passkey hinzufügen" }) === null, "a stale session is offered the enrolment");
     await user.click(screen.getByRole("button", { name: "Mit Passkey bestätigen" }));
 
     await screen.findByRole("button", { name: "Passkey hinzufügen" });
@@ -267,6 +269,30 @@ describe("adding a passkey", () => {
 
     await waitFor(() => assert.deepEqual(reached, ["signInPasskey", "addPasskey"]));
     await waitFor(() => assert.deepEqual(toasts(), [["success", "Passkey hinzugefügt", "Du kannst Dich jetzt auch damit anmelden."]]));
+  });
+
+  /* Adding asks a sign-in of the last five minutes, every other change one of the last two hours: a
+     session between the two changes a name at once and still confirms before it adds. */
+  it("confirms before adding past the enrolment window, while every other change still runs at once", async () => {
+    const user = userEvent.setup();
+    open({ enrolmentUntil: null });
+
+    assert.ok(screen.queryByRole("button", { name: "Passkey hinzufügen" }) === null, "the add control skipped the narrower window");
+    assert.ok(screen.getByRole("button", { name: "Mit Passkey bestätigen" }));
+
+    await user.click(screen.getByRole("button", { name: "Abmelden" }));
+
+    await waitFor(() => assert.deepEqual(sent(), [["endAnmeldungAction", "andere"]]));
+    assert.ok(screen.queryByRole("dialog") === null, "a change inside the two hours asked for a confirmation");
+  });
+
+  /* The window closes while the page stands: the control turns back into the confirmation unpressed. */
+  // Real timers and a window a fifth of a second long: mocked ones would also stop the waiting below.
+  it("turns the add control back into the confirmation when the enrolment window closes", async () => {
+    open({ enrolmentUntil: Date.now() + 200 });
+    assert.ok(screen.getByRole("button", { name: "Passkey hinzufügen" }));
+
+    await screen.findByRole("button", { name: "Mit Passkey bestätigen" });
   });
 
   it("adds on the first press inside the window", async () => {
@@ -282,21 +308,20 @@ describe("adding a passkey", () => {
   it("stays the confirmation, and says why, when the confirmation fails", async () => {
     const user = userEvent.setup();
     ceremony.signInPasskey = refused(400, "ERROR_CEREMONY_ABORTED");
-    open({ freshUntil: null });
+    open({ freshUntil: null, enrolmentUntil: null });
 
     await user.click(screen.getByRole("button", { name: "Mit Passkey bestätigen" }));
 
     await waitFor(() => assert.ok(screen.getByRole("alert").textContent?.includes(STEP_UP_REFUSED)));
-    assert.equal(screen.queryByRole("button", { name: "Passkey hinzufügen" }), null);
+    assert.ok(screen.queryByRole("button", { name: "Passkey hinzufügen" }) === null);
   });
 
   it("closes the add control at the cap, whatever the window", () => {
-    open({ kannHinzufuegen: false, freshUntil: null });
+    open({ kannHinzufuegen: false, freshUntil: null, enrolmentUntil: null });
 
     closedControl("Passkey hinzufügen", "Mehr Passkeys gehen nicht. Lösche zuerst einen.");
-    assert.equal(
-      screen.queryByRole("button", { name: "Mit Passkey bestätigen" }),
-      null,
+    assert.ok(
+      screen.queryByRole("button", { name: "Mit Passkey bestätigen" }) === null,
       "a confirmation is offered for an add the cap refuses",
     );
   });

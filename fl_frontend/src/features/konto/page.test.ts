@@ -107,6 +107,7 @@ const SHELLS = {
         saisonId: "2526",
         structure: [],
         saison: null,
+        isRefused: false,
         orte: [],
         children: h("p", null, "Seite"),
       }),
@@ -163,6 +164,7 @@ const sicherheit = (fields: Partial<Sicherheit> = {}): Sicherheit => ({
   verwaltung: false,
   inhaberId: "inhaber",
   freshUntil: null,
+  enrolmentUntil: null,
   ...fields,
 });
 
@@ -185,7 +187,7 @@ const shown = (fields: Partial<Sicherheit>): string =>
 
 describe("what the security section tells its reader", () => {
   it("offers a person holding no passkey the sign-in without a code", () => {
-    const text = shown({ freshUntil: Date.now() + HOUR_MS });
+    const text = shown({ freshUntil: Date.now() + HOUR_MS, enrolmentUntil: Date.now() + HOUR_MS / 20 });
 
     assert.ok(text.includes("Melde Dich ohne Code an"));
     assert.ok(text.includes("Passkey einrichten"));

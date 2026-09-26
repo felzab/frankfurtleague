@@ -29,4 +29,6 @@ export interface Sicherheit {
   readonly inhaberId: string;
   /** Until when the page's session counts as confirmed, in epoch milliseconds; `null` where it already does not. */
   readonly freshUntil: number | null;
+  /** Until when it may add a passkey, the same way: a narrower window than every other change's. */
+  readonly enrolmentUntil: number | null;
 }

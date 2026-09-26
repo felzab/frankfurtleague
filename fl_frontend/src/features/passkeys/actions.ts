@@ -6,7 +6,7 @@ import { isAPIError } from "better-auth/api";
 
 import { auth, notifyPasskeyRemoved, PASSKEY_LIMIT, removePasskey } from "@/core/auth";
 import { recordWriteSent } from "@/core/requestScope";
-import { runKontoMutation } from "@/shared/utils/kontoMutation";
+import { enrolmentUntil, runKontoMutation, stepUpRequired } from "@/shared/utils/kontoMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
@@ -82,11 +82,13 @@ export async function renamePasskeyAction(id: string, name: string): Promise<Act
 
 /**
  * What the page reads after an enrolment the server refused 404, which answers the cap, a stale sign-in
- * and a duplicate authenticator alike: the spine's step-up refusal names the second, the count the
- * first (`docs/frontend/spec.md :: I453`).
+ * and a duplicate authenticator alike: the step-up refusal names the second, judged by the enrolment's
+ * own window, and the count the first (`docs/frontend/spec.md :: I453`).
  */
 export async function readPasskeyStandAction(): Promise<QueryResult<{ kannHinzufuegen: boolean }>> {
-  return runKontoMutation("readPasskeyStandAction", async () => {
+  return runKontoMutation("readPasskeyStandAction", async (served) => {
+    if (enrolmentUntil(served) === null) return stepUpRequired();
+
     const held = await auth.api.listPasskeys({ headers: await headers() });
 
     return { success: true, kannHinzufuegen: held.length < PASSKEY_LIMIT };

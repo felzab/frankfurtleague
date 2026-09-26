@@ -9,7 +9,7 @@ import { Button } from "@heroui/react/button";
 
 import { authClient } from "@/core/authClient";
 import { ENROLMENT_CONFLICT } from "@/core/passkeyRefusal";
-import { STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
+import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
 import { readPasskeyStandAction, removePasskeyAction, renamePasskeyAction } from "@/features/passkeys/actions";
 import { LETZTER_PASSKEY, PasskeyKarteView } from "@/features/passkeys/components/ui/PasskeyKarteView";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -69,19 +69,27 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
   const panel = formPanel();
   const { passkeys, anmeldungen, verwaltung } = sicherheit;
 
-  // Moved by a confirmation made on this page, which the server's figure lags until the refresh lands.
+  // Both moved by a confirmation made on this page, which the server's figures lag until the refresh lands.
   const [freshUntil, setFreshUntil] = useState(sicherheit.freshUntil);
+  const [enrolmentUntil, setEnrolmentUntil] = useState(sicherheit.enrolmentUntil);
   const [wartend, setWartend] = useState<Aenderung | null>(null);
   const [istBeschaeftigt, setIstBeschaeftigt] = useState(false);
 
-  // The add control reads its label off the window, so the window's end redraws it without a press.
+  // The add control reads its label off the enrolment window, so its end redraws the control without a press.
   useEffect(() => {
-    if (freshUntil === null) return;
-    const lapse = setTimeout(() => setFreshUntil(null), Math.max(0, freshUntil - Date.now()));
+    if (enrolmentUntil === null) return;
+    const lapse = setTimeout(() => setEnrolmentUntil(null), Math.max(0, enrolmentUntil - Date.now()));
     return () => clearTimeout(lapse);
-  }, [freshUntil]);
+  }, [enrolmentUntil]);
 
   const isFresh = (): boolean => freshUntil !== null && Date.now() < freshUntil;
+  const mayEnrol = (): boolean => enrolmentUntil !== null && Date.now() < enrolmentUntil;
+
+  /** Whatever the page knew of either window, forgotten: the server wants a confirmation first. */
+  const stale = (): void => {
+    setFreshUntil(null);
+    setEnrolmentUntil(null);
+  };
 
   const istInhaber = async (): Promise<boolean> => {
     const answer = await pruefeInhaberAction(sicherheit.inhaberId);
@@ -90,6 +98,7 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
 
   const confirmed = (): void => {
     setFreshUntil(Date.now() + STEP_UP_WINDOW_MS);
+    setEnrolmentUntil(Date.now() + ENROLMENT_WINDOW_MS);
     // The confirmation minted a new session and ended this page's: what the page drew off the old one,
     // „Dieses Gerät“ among it, is read again.
     router.refresh();
@@ -98,7 +107,7 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
   /** Runs `change` now if the page's session counts as confirmed, and after the panel's confirmation otherwise. */
   const withStepUp = async (change: Aenderung): Promise<void> => {
     if (isFresh() && (await change()) === "erledigt") return;
-    setFreshUntil(null);
+    stale();
     setWartend(() => change);
   };
 
@@ -167,8 +176,8 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
   };
 
   const fuegeHinzu = async (): Promise<void> => {
-    if (!isFresh()) {
-      setFreshUntil(null);
+    if (!mayEnrol()) {
+      setEnrolmentUntil(null);
       return;
     }
     setIstBeschaeftigt(true);
@@ -181,14 +190,14 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
       appToast.success("Passkey hinzugefügt", { description: "Du kannst Dich jetzt auch damit anmelden." });
       return;
     }
-    if (held.stale === true) setFreshUntil(null);
+    if (held.stale === true) setEnrolmentUntil(null);
     appToast.failure("Passkey nicht hinzugefügt", held);
   };
 
   // One control, confirm first and then add, as a sudo prompt returns to its action: the browser opens
   // its own passkey prompt only on a fresh press, and the confirmation's prompt spent the first one.
   const hinzufuegen =
-    sicherheit.kannHinzufuegen && freshUntil === null ? (
+    sicherheit.kannHinzufuegen && enrolmentUntil === null ? (
       <div className="flex flex-col gap-2">
         <Button
           type="button"

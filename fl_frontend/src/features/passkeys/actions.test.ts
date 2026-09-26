@@ -81,7 +81,8 @@ globals[STORE] = store;
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so none of the doubles would be in place yet.
 const { auth, getAdminSession } = await import("@/core/auth");
-const { removePasskeyAction, renamePasskeyAction } = await import("./actions.ts");
+const { readPasskeyStandAction, removePasskeyAction, renamePasskeyAction } = await import("./actions.ts");
+const { ENROLMENT_WINDOW_MS } = await import("@/core/sessionLifetimes");
 const { KONTO_FORBIDDEN } = await import("@/shared/utils/kontoMutation");
 const { PASSKEY_NAME_MAX } = await import("./schemas.ts");
 
@@ -409,5 +410,33 @@ describe("what a rename writes", () => {
 
     assert.equal((await renamePasskeyAction(theirs.id, "Übernommen")).success, false);
     assert.equal(Reflect.get(theirs, "name"), undefined);
+  });
+});
+
+/* The page reads this after the enrolment guard answered 404, which it answers alike for the cap, a
+   closed window and an authenticator already held (`docs/frontend/spec.md :: I453`). */
+describe("what the page reads after a refused enrolment", () => {
+  /* Judged by the enrolment's own window, narrower than every other change's: inside the two hours
+     and past the five minutes, the guard refused the enrolment for the window. */
+  it("answers the step-up refusal past the enrolment window, inside every other change's", async () => {
+    const { cookie, row } = await signedInWith(PERSON_EMAIL, "fabricated-credential-eins", ENROLMENT_WINDOW_MS + 60_000);
+    seedPasskey(row.userId, "eins");
+    arriveAs(cookie);
+
+    const answer = await readPasskeyStandAction();
+
+    assert.equal(answer.success, false);
+    assert.equal(Reflect.get(answer, "stepUp"), true, "a closed enrolment window read as the cap or a held authenticator");
+  });
+
+  it("answers whether the cap is reached inside the window", async () => {
+    const { cookie, row } = await signedInWith(PERSON_EMAIL, "fabricated-credential-eins");
+    for (const label of ["eins", "zwei", "drei", "vier"]) seedPasskey(row.userId, label);
+    arriveAs(cookie);
+
+    assert.deepEqual(await readPasskeyStandAction(), { success: true, kannHinzufuegen: true });
+
+    seedPasskey(row.userId, "fuenf");
+    assert.deepEqual(await readPasskeyStandAction(), { success: true, kannHinzufuegen: false });
   });
 });

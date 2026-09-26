@@ -1,5 +1,5 @@
 import { getKontoSession, isFreshlySignedIn } from "@/core/auth";
-import { STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
+import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
 
 import { runGuardedMutation } from "./adminMutation";
 
@@ -20,9 +20,23 @@ export type KontoSession = NonNullable<Awaited<ReturnType<typeof getKontoSession
  */
 export type StepUpRequired = ActionFailure & { readonly stepUp: true };
 
+/** The step-up refusal, for an action judging a window of its own inside the spine's. */
+export function stepUpRequired(): StepUpRequired {
+  return { success: false, error: STEP_UP_REQUIRED, stepUp: true };
+}
+
 /** Until when the served session counts as confirmed, as epoch milliseconds, or `null` where it already does not. */
 export function freshUntil(served: KontoSession): number | null {
   return isFreshlySignedIn(served) ? new Date(served.session.createdAt).getTime() + STEP_UP_WINDOW_MS : null;
+}
+
+/**
+ * Until when the served session may add a passkey, or `null` where it already may not: the enrolment
+ * guard's narrower window, inside the confirmation every change takes (`docs/frontend/spec.md :: I411`).
+ */
+export function enrolmentUntil(served: KontoSession): number | null {
+  const until = new Date(served.session.createdAt).getTime() + ENROLMENT_WINDOW_MS;
+  return isFreshlySignedIn(served) && Date.now() < until ? until : null;
 }
 
 /**
@@ -34,6 +48,6 @@ export async function runKontoMutation<T extends { success: boolean }>(
   fn: (served: KontoSession) => Promise<T>,
 ): Promise<T | ActionFailure | StepUpRequired> {
   return runGuardedMutation(mutationName, { lane: "Account", resolve: getKontoSession, forbidden: KONTO_FORBIDDEN }, async (served) =>
-    isFreshlySignedIn(served) ? fn(served) : ({ success: false, error: STEP_UP_REQUIRED, stepUp: true } satisfies StepUpRequired),
+    isFreshlySignedIn(served) ? fn(served) : stepUpRequired(),
   );
 }
