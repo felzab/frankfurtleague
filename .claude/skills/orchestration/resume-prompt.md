@@ -48,14 +48,21 @@ Resume this session. Do not continue any work until you have finished this proto
        its whole context and re-reads nothing. Treat the resume as a new dispatch: check that its
        files are still free before it continues, and treat nothing it claims as done until the
        acceptance evidence is on disk.
-       Where this harness has no send tool at all, or the resume fails, re-brief
-       it from its last provable state: the files it owns as they stand committed, plus the
-       checklist items whose acceptance evidence exists. An item with no evidence is not done.
-       The fresh dispatch forks from your `HEAD`, which holds none of the dead agent's work, so
-       first: land only its commits whose acceptance evidence exists, judged as its report would
-       have been; save what it left uncommitted -- `git -C <path> diff`, its untracked files and
-       any stash entry "On <branch>" -- to the scratch path and name it in the fresh brief; and
-       keep its worktree row open until the fresh work lands, nothing there being yours to discard.
+       Where this harness has no send tool at all, or the resume fails, brief a successor
+       from its saved brief, its `<NAME>-messages.md` (`SKILL.md` §3 item 7) and a digest of its
+       transcript, and from its last provable state: the files it owns as they stand committed,
+       plus the checklist items whose acceptance evidence exists. An item with no evidence is not
+       done. Two of your tools, in the programme's `tools` directory, build the rest:
+       `handover.py` digests the predecessor's transcript, and `all_instructions.py` rebuilds
+       every instruction the session sent it, which catches a message the messages file missed.
+       Run each one's proof command, in its own header, before trusting its output. The fresh
+       dispatch forks from your `HEAD`, which holds none of the dead agent's work, so first: land
+       only its commits whose acceptance evidence exists, judged as its report would have been;
+       judge every edit it left uncommitted as intended work or an unrestored plant, and save the
+       work --
+       `git -C <path> diff`, its untracked files and any stash entry "On <branch>" -- to the
+       scratch path and name it in the successor's brief; and keep its worktree row open until the
+       fresh work lands, nothing there being yours to discard.
 
 4. PARTIAL WORK. Run `git worktree list` and match every entry to the register's worktree table.
    For each, `git log --format='%h %s' $(git merge-base HEAD <branch>)..<branch>`, the landing's

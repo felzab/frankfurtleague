@@ -93,6 +93,11 @@ worktree is yours, so you may plant in any file of it; no other agent's run can 
   the smaller, and add the check holding them in order.
 - One purpose per shell command. A deny rule matching any one command of a compound line refuses the
   whole line, and every other command in it goes unrun.
+- A command whose file operand is a variable guards the empty case and reads no stdin
+  (`< /dev/null`): with the variable empty, `grep` reads stdin instead, and one such shell waited
+  72 minutes with nothing to show it had not finished.
+- Never poll a ref or a file in a sleep loop for something the coordinator is to land: the
+  coordinator messages you when it has.
 - The worktree isolation guard refuses a Bash line it cannot show keeps git inside your worktree: a
   `$(…)` substitution on a line holding a git command, a timer such as `s=$(date +%s)` included, and
   a loop handing a computed value to a command have each been refused. Run each git command as a

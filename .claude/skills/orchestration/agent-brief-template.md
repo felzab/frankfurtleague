@@ -119,7 +119,8 @@ introduced and which predate it.
 For a **re-audit**, the subject is the fixes and their blast radius rather than the original work,
 and the agent must not have written the fixes. For a **document or plan re-audit**, add one step:
 take the previous audit's findings one at a time and report, for each, closed or open, with the
-evidence.
+evidence. A chain of plan audits each read the plan afresh, and none confirmed the previous one's
+findings had closed.
 
 ```
 1  OWNERSHIP.   You write nothing, having no tool that writes. Your report is your final

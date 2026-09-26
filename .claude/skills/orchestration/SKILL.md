@@ -57,7 +57,7 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
 
 1. **A commit lands in the turn its report is judged**, from the register's commit table, and its
    audit is dispatched in the same action: a cycle that ends on a commit has skipped its last step.
-   Neither waits for the wave boundary. **Land it in your own checkout with
+   **Land it in your own checkout with
    `git cherry-pick -n $(git merge-base HEAD <branch>)..<branch>`, then `git commit -F <msg>`**:
    it runs `.githooks/pre-commit` and `commit-msg`, where a plain cherry-pick runs neither, and one
    reason spread over two agents' branches is one `-n` over both ranges. On a conflict, `--abort`;
@@ -78,11 +78,14 @@ sitting where the cut falls, so re-read them at `.claude/skills/orchestration/`.
    `git -C <worktree> status --porcelain` is empty: the agent's checks read files its commits lack.
 5. **At the boundary, reconcile mechanically** ([resume-prompt.md](resume-prompt.md) step 4): your
    checkout is clean, and every `git worktree list` entry is a live agent's or a branch the commit
-   table has landed. Remove a landed one and delete its branch, which is your routine work and
-   never the owner's question ([register-template.md](register-template.md)).
+   table has landed. Remove a landed one and delete its branch, never the owner's question
+   ([register-template.md](register-template.md)).
 6. **Push once per wave; the bare gate is the ending's** (item 4, §7, CLAUDE.md §2). The local
    stack runs in your checkout, which holds landed work only, so it never waits for the fleet (§4),
    and it still holds port 3000 against the next build.
+7. **A rejected, refused or interrupted command is presumed partly run until `git` says otherwise,
+   and a refused commit's index is read before the next commit**
+   ([register-template.md](register-template.md)).
 
 ## 7. Ending the session
 
@@ -92,9 +95,8 @@ ending below, start nothing new.
 
 The ending, in order:
 
-1. Assemble the last wave (§5). Its last commit dispatches its own audit in the same action, so the
-   ending still holds a whole round — that audit, and the fix the cycle ends on (§6). **Count both
-   in the floor above**, which an ending enumerated without them under-counts.
+1. Assemble the last wave (§5). **The audit its last commit dispatches, and the fix the cycle ends
+   on (§6), are a whole round the ending still holds: count both in the floor above.**
 2. **Run §2's enumeration again here**, against the branch this time: a slice nobody dispatched and
    a slice deliberately deferred are indistinguishable until someone asks. Then run
    `./scripts/gate/verify.sh`, every scope, over a tree that has stopped moving. **The branch is
@@ -104,12 +106,11 @@ The ending, in order:
    in the same action, which is its moment**: the checks then run for as long as the handoff takes
    to write, audit and fix.
 4. **Write the handoff ([handoff-template.md](handoff-template.md)) and the next session's starter
-   (`START-<session>.md`, [USAGE.md](USAGE.md)) once each, from the register**, which was the draft
-   all along. **Once is the rule and step 3 only the moment that serves it**: begun while anything
-   in it can still move, a handoff gets refreshed instead, and the refresh is the waste. The pull
-   request's link and its checks' conclusions are the only facts that cannot be in it yet — a gap to
-   fill as they land, never a reason to start later. Audited by an agent that has seen none of the
-   work, then fixed.
+   (`START-<session>.md`, [USAGE.md](USAGE.md)) once each, from the register**. **Once is the rule
+   and step 3 only the moment that serves it**: begun while anything in it can still move, a
+   handoff gets refreshed instead, and the refresh is the waste. The pull request's link and its
+   checks' conclusions are the only facts that cannot be in it yet — a gap to fill as they land,
+   never a reason to start later. Audited by an agent that has seen none of the work, then fixed.
 
 **Where a programme plan's handoff instructions differ from this skill's, this skill wins; where
 this skill differs from `.claude/CLAUDE.md`, this skill is wrong and is fixed here.**
@@ -144,8 +145,11 @@ Run it for every agent, the fifteenth as much as the first.
    question that reads no repository.
 6. **Omit the Agent tool's `model` parameter unless the owner names another model for that work**:
    the parameter outranks every default, and its alias `opus` has resolved to an older Opus.
-7. **Record the dispatch in the register before it runs. An agent that writes the repository or
-   plants runs in a worktree of its own** — its definition's `isolation: worktree`, which branches
+7. **Record the dispatch in the register and save its brief to the scratch path, both before it
+   runs; every later message to the agent is appended, in the same action as the send, to
+   `<NAME>-messages.md` beside the brief, never to the brief**, and a successor is briefed from both
+   ([resume-prompt.md](resume-prompt.md) step 3). **An agent that writes the repository or plants
+   runs in a worktree of its own** — its definition's `isolation: worktree`, which branches
    from your `HEAD` only under `worktree.baseRef: "head"`, and the call's own
    `isolation: "worktree"`, without which a named call launches as a teammate while agent teams are
    on (documented, not driven) — so commit what it needs first; a reader stays in yours. A
@@ -210,8 +214,7 @@ rather than the change (`.claude/agents/implementer.md` section 12).
 ### Machine and refs are shared
 
 - **A guard, a hook registration or a manifest changes what every other agent may do once it lands**
-  (`.claude/agents/implementer.md` section 10) — hooks run from your checkout, and a lockfile
-  obliges every later worktree to reinstall — so it lands in an exclusive window even at one line,
+  (`.claude/agents/implementer.md` section 10), so it lands in an exclusive window even at one line,
   and **two agents reporting one out-of-scope failure is one such change rather than two
   findings.**
 
@@ -223,9 +226,8 @@ defeats having audited. The re-audit's subject is [the brief](agent-brief-templa
 lightening floor and its discriminator [register-template.md](register-template.md)'s. Beyond them:
 
 - **The re-audit's agent wrote none of the fixes.**
-- **A document is audited once, cold, and its fix is read by you**; where one is re-audited anyway
-  it walks the previous audit's findings one at a time ([the brief](agent-brief-template.md)), a
-  chain of plan audits having each read the plan afresh with none confirming the previous had closed.
+- **A document is audited once, cold, and its fix is read by you**; a re-audit of one anyway is
+  [the brief](agent-brief-template.md)'s.
 - **Allocate the audits to the seams, never one per slice** — across blocks, across commits, and the
   one or two artefacts where a wrong claim is expensive and invisible. A defect living between the
   pieces is in no piece's diff, so a slice several agents built in parallel is audited whole.
@@ -242,15 +244,15 @@ lightening floor and its discriminator [register-template.md](register-template.
   a handoff's list disagrees, the list is withdrawn.
 - **At many slices the lightening is the normal allocation and the full cycle the exception**
   ([register-template.md](register-template.md)).
+- **A ruling's register row closes only when the tree matches the ruling's words, and a brief never
+  asks for a ruling's number in a tracked file** ([register-template.md](register-template.md)).
 - **Audits are bought by blast radius, not by agent count.** One cold auditor per seam takes every
   slice that seam crosses; one driving re-auditor takes every fix landed since the last, across
   seams ([the brief](agent-brief-template.md)); a follow-up found by one audit rides the next
   re-audit's walk list. **A cold audit's subject is a captured diff, so it goes out the moment its
   own files stop moving** — as its implementer's report lands, ahead of the commit and of the rest of
-  the wave. Write the diff over the seam's paths to the scratch path and name that file in the brief;
-  the tree moving under the auditor costs nothing, its read rule ([the
-  brief](agent-brief-template.md) section 2) refusing the tree anyway. **A driving re-audit plants
-  in a worktree of its own** at the commit it audits.
+  the wave. Write the diff over the seam's paths to the scratch path and name that file in the
+  brief. **A driving re-audit plants in a worktree of its own** at the commit it audits.
 
 ## 2. Before the first dispatch
 
@@ -263,11 +265,10 @@ Do these in this order. None is skippable.
    the corpus's largest page, while every slice truthfully reported itself complete. Measure across
    the whole set in the same pass, duplication above all (§6).
 3. **Build the file-ownership map, not a task list**, from every file each unit of work writes. A
-   file two or more units write is a **hub**: its units share it by region, each brief naming the
-   others', where their regions stay apart ([the brief](agent-brief-template.md) section 1), and
-   one agent owns it otherwise — a plan cut into ten units ran almost serially because six wrote one
-   file. Everything else is a **leaf** and goes out at once. **Cut agents by file and audits by unit of
-   work.**
+   file two or more units write is a **hub**, shared by region where the regions stay apart (§3
+   item 2) and owned by one agent otherwise — a plan cut into ten units ran almost serially because
+   six wrote one file. Everything else is a **leaf** and goes out at once. **Cut agents by file and
+   audits by unit of work.**
 4. **Name the couplings that are not file edges** — a script that parses another, a library several
    files source, a rule and the check enforcing it, and every **shared contract**: a message string,
    an exit code, a flag name that one file emits and another asserts; two agents took opposite sides
@@ -277,8 +278,8 @@ Do these in this order. None is skippable.
 5. **The ownership map is the commit plan.** Fill the register's commit table now, its ordering
    constraints (§5) included, which survive a coordinator change only in writing. A contract two
    agents build against lands before the second forks, since neither sees the other's worktree.
-   **One session, one branch, one pull request**: a finding that seems to want its own branch is
-   fixed here, or put to the owner — an entry only where the owner says so.
+   **One session, one branch, one pull request**, a finding that seems to want its own branch
+   included (CLAUDE.md §3).
 6. **Decide each slice's cycle now (§6)**, with its reason. Never decide it while reading findings.
 7. **Enumerate the ending (§7)** so the dispatch floor has something to count.
 8. **Write the register ([register-template.md](register-template.md)) before the first agent

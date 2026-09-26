@@ -88,6 +88,12 @@ notice on a message it lets through. Read the notice in the turn the commit land
 `git reset --soft HEAD~1` and a second `git commit -F`, never `--amend`, which the hook reads as the
 amend's delta alone.
 
+**A rejected, refused, interrupted or timed-out command is presumed to have run in part** until
+`git log` and `git status` say what it did: a landing rejected mid-run had already committed five
+items, one with a fixup squashed into it, and staged a sixth. **After a refused commit, read
+`git diff --cached --stat` before the next one**: the refusal leaves its files staged, and the next
+commit sweeps them in under its own message.
+
 **Landing is stock git, in your own checkout** (`SKILL.md` §5), which no agent writes, so its index
 and tree hold exactly what you staged:
 
@@ -235,10 +241,14 @@ found it undone with the commit's trailer already written against it.
 **This table is the single home of every ruling taken this session**, dated and in the owner's
 words: every other site cites the row by its number here and never copies the text, a second copy
 diverging silently, and a number taken from a transcript rather than from this table is checkable
-by nobody. A ruling that binds the repository beyond this programme is recorded in the tree as the
-constraint itself -- a rules clause, a CLAUDE.md line, an invariant, a comment at the line -- so
-the tree never depends on this file surviving; one that binds how the owner works in every
-repository goes to their own `~/.claude/CLAUDE.md`.
+by nobody. **No tracked file carries that number, so no brief asks an agent to write one**: this
+file sits outside the public repository, and COR-1 and INC-6 refuse a citation its reader cannot
+resolve. **A row closes only when the tree matches the ruling's own words**, read at `HEAD`, never
+when a commit naming it lands: one was counted landed while a test still did by hand what the
+ruling had moved into shared code. A ruling that binds the repository beyond this programme is
+recorded in the tree as the constraint itself -- a rules clause, a CLAUDE.md line, an invariant, a
+comment at the line -- so the tree never depends on this file surviving; one that binds how the
+owner works in every repository goes to their own `~/.claude/CLAUDE.md`.
 
 ## Open, awaiting the owner
 
