@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { createRequire, registerHooks } from "node:module";
 import path from "node:path";
-import { describe, it } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
@@ -18,7 +18,10 @@ import type { SubjectSession } from "@/core/subject.ts";
 import type * as NextError from "next/error";
 import type { ReactNode } from "react";
 
-const { setSubject, subjectReads } = doubleActionRequest();
+const { setSession, setSubject, subjectReads } = doubleActionRequest();
+// The sign-in store as a person's session answers it: no administrator's verdict, and the person's
+// landing. A case naming an administrator, or one whose verdict lapsed, says so itself.
+beforeEach(() => setSession(null, "/bereich"));
 // The shells hand a sign-out action to the bar, whose real module reaches `next/server` past the harness.
 doubleEveryAction();
 
@@ -127,8 +130,21 @@ describe("where the landing takes a person", () => {
     ];
 
     for (const [subject, destination] of cases) {
+      // An administrator's session is one the sign-in store sends to the admin subtree.
+      if (subject.admin) setSession({ user: { email: subject.email } }, "/bereich/admin");
       setSubject(subject);
       assert.deepEqual(await redirectsOf(PersoenlichStartPage), [destination]);
+    }
+  });
+
+  /* The allowlist is what makes an address an administrator's, so one whose verdict lapsed, past its
+     window or short of the passkey, owes the admin subtree's step rather than a person's landing. */
+  it("sends an allowlisted address whose administrator verdict lapsed to the admin subtree", async () => {
+    setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }));
+
+    for (const destination of ["/signin/passkey", "/signin"]) {
+      setSession(null, destination);
+      assert.deepEqual(await redirectsOf(PersoenlichStartPage), ["/bereich/admin"], `a session the sign-in store sends to ${destination}`);
     }
   });
 
@@ -288,6 +304,7 @@ describe("an admin render's subject reads", () => {
   /* The guard sits in the person's layouts only, so an administrator's request runs `getAdminSession`
      alone. A real admin page under every layout above it, which is where a guard added too high lands. */
   it("is none", async () => {
+    setSession({ user: { email: "pia@example.org" } }, "/bereich/admin");
     setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }, true));
 
     assert.equal(await readsUnder(path.join(APP_DIR, "bereich", "admin", "sperrliste")), 0);
