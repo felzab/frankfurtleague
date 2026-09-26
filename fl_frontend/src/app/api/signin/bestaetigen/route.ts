@@ -4,8 +4,9 @@ import { NextResponse } from "next/server";
 import { isAPIError } from "better-auth/api";
 
 import { ANMELDE_BESTAETIGEN_PATH } from "@/core/anmeldeLink";
-import { auth, SIGN_IN_LANDING } from "@/core/auth";
+import { auth } from "@/core/auth";
 import { frontend_config } from "@/core/config";
+import { SIGN_IN_LANDING } from "@/core/signInLanding";
 
 import type { NextRequest } from "next/server";
 

@@ -264,9 +264,6 @@ export async function notifyPasskeyRemoved(email: string): Promise<void> {
   await notify(buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(), origin: MAIL_ORIGIN }), email);
 }
 
-/** Where every finished sign-in step lands: the one page that decides where a session goes next. */
-export const SIGN_IN_LANDING = "/signin/weiter";
-
 // Matched on the OPENING of the library's own message, because each of these ends in the value it
 // rejected.
 

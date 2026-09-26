@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
-import { getPasskeyStep, SIGN_IN_LANDING } from "@/core/auth";
+import { getPasskeyStep } from "@/core/auth";
+import { SIGN_IN_LANDING } from "@/core/signInLanding";
 import { PasskeyForm } from "@/features/auth/components/forms/PasskeyForm";
 import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { openGraphFor } from "@/shared/utils/metadata";

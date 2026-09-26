@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { auth, isAdminSession, SIGN_IN_LANDING } from "./core/auth";
+import { auth, isAdminSession } from "./core/auth";
+import { SIGN_IN_LANDING } from "./core/signInLanding";
 
 import type { NextRequest } from "next/server";
 

@@ -1,3 +1,5 @@
+import { SIGN_IN_LANDING } from "@/core/signInLanding";
+
 import { AENDERUNG_STEHT_WEITERHIN, RUECKNAHME_UNKLAR } from "./actionError";
 import { appToast, UNDO_TIMEOUT_MS } from "./appToast";
 
@@ -14,7 +16,7 @@ type UndoOutcome = { success: true; message: string; warn: boolean } | { success
 const TURNED_AWAY = {
   signedOut: { destination: "/signin", description: `Melde Dich neu an. ${AENDERUNG_STEHT_WEITERHIN}` },
   // No repair: signing in again is refused to an address the allowlist does not hold.
-  withoutAdminRole: { destination: "/signin/weiter", description: `Deine Sitzung hat keine Administratorrechte. ${AENDERUNG_STEHT_WEITERHIN}` },
+  withoutAdminRole: { destination: SIGN_IN_LANDING, description: `Deine Sitzung hat keine Administratorrechte. ${AENDERUNG_STEHT_WEITERHIN}` },
 } as const;
 
 type TurnedAway = (typeof TURNED_AWAY)[keyof typeof TURNED_AWAY];
