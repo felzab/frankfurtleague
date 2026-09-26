@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from "react";
-
+import { KONTO_HREF } from "@/core/kontoHref";
 import { signOutAction } from "@/features/auth/actions";
-import { PasskeyModal } from "@/features/passkeys/components/modals/PasskeyModal";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
 
 import { ADMIN_SHELL_FALLBACK, ADMIN_SHELL_UNLISTED_SECTIONS, ADMIN_SIDEMENU_ICONS, ADMIN_SIDEMENU_STRUCTURE } from "../../constants";
@@ -25,32 +23,21 @@ export function AdminShell({
   funktionSwitcher: React.ReactNode;
   children: React.ReactNode;
 }) {
-  const [isPasskeyModalOpen, setIsPasskeyModalOpen] = useState(false);
-
   return (
-    <>
-      <AppShell
-        structure={ADMIN_SIDEMENU_STRUCTURE}
-        // eslint-disable-next-line local/admin-link -- the sidemenu's link prefix; SidemenuNavLinksWithSaisonQuery appends the season to each entry it builds
-        linkPrefix="/bereich/admin"
-        keepsSaisonQuery
-        iconDictionary={ADMIN_SIDEMENU_ICONS}
-        saisonMetadataDisplay={saisonMetadataDisplay}
-        funktionSwitcher={funktionSwitcher}
-        unlistedSections={ADMIN_SHELL_UNLISTED_SECTIONS}
-        fallbackTitle={ADMIN_SHELL_FALLBACK.label}
-        fallbackHint={ADMIN_SHELL_FALLBACK.hint}
-        onSignOut={signOutAction}
-        onManagePasskeys={() => setIsPasskeyModalOpen(true)}>
-        {children}
-      </AppShell>
-
-      {/* Outside `AppShell` rather than in the menu that opens it: the drop-up's popover portals and
-          unmounts on close, taking any overlay declared inside it with the press that opened one. */}
-      <PasskeyModal
-        isOpen={isPasskeyModalOpen}
-        onClose={() => setIsPasskeyModalOpen(false)}
-      />
-    </>
+    <AppShell
+      structure={ADMIN_SIDEMENU_STRUCTURE}
+      // eslint-disable-next-line local/admin-link -- the sidemenu's link prefix; SidemenuNavLinksWithSaisonQuery appends the season to each entry it builds
+      linkPrefix="/bereich/admin"
+      keepsSaisonQuery
+      iconDictionary={ADMIN_SIDEMENU_ICONS}
+      saisonMetadataDisplay={saisonMetadataDisplay}
+      funktionSwitcher={funktionSwitcher}
+      unlistedSections={ADMIN_SHELL_UNLISTED_SECTIONS}
+      fallbackTitle={ADMIN_SHELL_FALLBACK.label}
+      fallbackHint={ADMIN_SHELL_FALLBACK.hint}
+      kontoHref={KONTO_HREF}
+      onSignOut={signOutAction}>
+      {children}
+    </AppShell>
   );
 }

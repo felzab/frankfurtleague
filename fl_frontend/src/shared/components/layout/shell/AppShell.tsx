@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { SkipToContentLink } from "../../ui/SkipToContentLink";
 import { Sidemenu } from "../sidemenu/Sidemenu";
 import { AppTopBar } from "./AppTopBar";
+import { KONTO_SECTION } from "./kontoSection";
 import { ShellSaisonQueryProvider } from "./ShellSaisonQuery";
 
 import type { FormState, SidemenuHint, SidemenuStructure, SidemenuStructureSubOption } from "@/shared/types/types";
@@ -27,8 +28,8 @@ export function AppShell<TIcon extends string>({
   unlistedSections = {},
   fallbackTitle,
   fallbackHint,
+  kontoHref,
   onSignOut,
-  onManagePasskeys,
   children,
 }: {
   structure: SidemenuStructure<TIcon>;
@@ -58,13 +59,13 @@ export function AppShell<TIcon extends string>({
    * reads as "this page has nothing to explain", which is a claim about the page rather than about the navigation.
    */
   fallbackHint: SidemenuHint;
+  /**
+   * The person's account page, which the bar links and heads „Konto“; `null` in a shell no session
+   * stands behind. Required for `keepsSaisonQuery`'s reason: a default is the forgotten declaration.
+   */
+  kontoHref: string | null;
   /** Passed to the bar's options menu; a shell for the public dashboard supplies none. */
   onSignOut?: () => Promise<FormState>;
-  /**
-   * Opens the shell's own passkey dialog, which that shell renders outside this tree: the menu item
-   * sits inside a popover that unmounts on close, so the overlay cannot live there.
-   */
-  onManagePasskeys?: () => void;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -105,7 +106,12 @@ export function AppShell<TIcon extends string>({
   // `hasOwn`, never `in` or a bare index: the segment is whatever the address bar holds, and `/bereich/admin/constructor`
   // would otherwise select a prototype member and head the page with nothing at all.
   const unlistedSection = baseSegment !== undefined && Object.hasOwn(unlistedSections, baseSegment) ? unlistedSections[baseSegment] : undefined;
-  const section: ShellSection = activeOption ?? unlistedSection ?? { label: fallbackTitle, hint: fallbackHint };
+  // Matched whole and ahead of the first segment, so the one address is headed alike in whichever shell
+  // declares it, and no shell lists it as an entry of its own.
+  const section: ShellSection =
+    kontoHref !== null && pathname === kontoHref
+      ? KONTO_SECTION
+      : (activeOption ?? unlistedSection ?? { label: fallbackTitle, hint: fallbackHint });
 
   return (
     /* `data-app-shell` is read by one rule in `globals.css`, which releases the viewport's reserved scrollbar
@@ -122,6 +128,8 @@ export function AppShell<TIcon extends string>({
           isMobileOpen={isMobileOpen}
           onToggleMobileMenu={() => setIsMobileOpen(!isMobileOpen)}
           isDesktopCollapsed={isDesktopCollapsed}
+          kontoHref={kontoHref}
+          isOnKonto={section === KONTO_SECTION}
           onSignOut={onSignOut}
         />
 
@@ -144,7 +152,7 @@ export function AppShell<TIcon extends string>({
             saisonMetadataDisplay={saisonMetadataDisplay}
             funktionSwitcher={funktionSwitcher}
             onSignOut={onSignOut}
-            onManagePasskeys={onManagePasskeys}
+            kontoHref={kontoHref}
             pathname={pathname}
             isMobileOpen={isMobileOpen}
             onMobileClose={() => setIsMobileOpen(false)}

@@ -164,8 +164,11 @@ beforeEach(async () => {
   await authDb().dropDatabase();
 });
 
-/** The administrator the dialog acts as, the passkey having made the session just now. */
-async function steppedUpAdmin(): Promise<{ cookie: string; userId: string }> {
+/**
+ * The administrator the account page acts as, signed in just now by the passkey `credentialID` names:
+ * the stamp its assertion writes, set on the session this call minted and on no earlier one.
+ */
+async function steppedUpAdmin(credentialID = "fl-passkey-db-eigener"): Promise<{ cookie: string; userId: string }> {
   await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
   const verified = await auth.api.magicLinkVerify({
     query: { token: lastMailedToken(sent, ADMIN_EMAIL) ?? assert.fail(`nothing was mailed to ${ADMIN_EMAIL}`) },
@@ -176,15 +179,18 @@ async function steppedUpAdmin(): Promise<{ cookie: string; userId: string }> {
 
   await authDb()
     .collection("session")
-    .updateMany({}, { $set: { authFactor: "passkey", createdAt: new Date() } });
+    .updateMany(
+      { passkeyCredentialId: { $exists: false } },
+      { $set: { authFactor: "passkey", passkeyCredentialId: credentialID, createdAt: new Date() } },
+    );
 
   const [user] = await authDb().collection("user").find({}).toArray();
   assert.ok(user, "the verification wrote no user row");
   return { cookie, userId: String(user._id) };
 }
 
-/** Rows written through the adapter, so they carry the shape the plugin's own writes give them. */
-async function seedPasskeys(userId: string, count: number): Promise<string[]> {
+/** Rows written through the adapter, so they carry the shape the plugin's own writes give them; `credentialIDs` names the first ones. */
+async function seedPasskeys(userId: string, count: number, credentialIDs: readonly string[] = []): Promise<string[]> {
   const { adapter } = await auth.$context;
   const ids: string[] = [];
   for (let index = 0; index < count; index += 1) {
@@ -192,7 +198,7 @@ async function seedPasskeys(userId: string, count: number): Promise<string[]> {
       model: "passkey",
       data: {
         userId: userId,
-        credentialID: `fl-passkey-db-${randomUUID()}`,
+        credentialID: credentialIDs[index] ?? `fl-passkey-db-${randomUUID()}`,
         publicKey: "fabricated-public-key",
         counter: 0,
         deviceType: "singleDevice",
@@ -280,13 +286,16 @@ describe("two removals by one administrator at once, against a real database (`d
   });
 });
 
-describe("the other sessions a removal ends, against a real database", () => {
+/** The passkey a removal below takes away, and the device it signed in; the acting device signed in with another. */
+const REMOVED = "fl-passkey-db-entfernt";
+
+describe("the sessions a removal ends, against a real database (`docs/frontend/spec.md :: I313`)", () => {
   const opens = async (cookie: string) => (await auth.api.getSession({ headers: new Headers({ ...ORIGIN, cookie }) })) !== null;
 
-  it("ends every other session of the administrator and keeps the one the removal ran in", async () => {
-    const other = await steppedUpAdmin();
+  it("ends the session the removed passkey made and keeps the one another passkey made", async () => {
+    const other = await steppedUpAdmin(REMOVED);
     const own = await steppedUpAdmin();
-    const [first] = await seedPasskeys(own.userId, 2);
+    const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
     assert.ok(first);
     globals[REQUEST_HEADERS] = new Headers({ ...ORIGIN, cookie: own.cookie });
 
@@ -297,9 +306,9 @@ describe("the other sessions a removal ends, against a real database", () => {
   /* Another device's hourly `updatedAt` refresh, landing while the sign-out runs: the sign-out's own
      write meets it, and the delete before it rolls back with it rather than standing alone. */
   it("answers the conflict and keeps both rows where another session is written during the sign-out", async () => {
-    const other = await steppedUpAdmin();
+    const other = await steppedUpAdmin(REMOVED);
     const own = await steppedUpAdmin();
-    const [first] = await seedPasskeys(own.userId, 2);
+    const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
     assert.ok(first);
     globals[REQUEST_HEADERS] = new Headers({ ...ORIGIN, cookie: own.cookie });
     signingOut = () =>
@@ -328,9 +337,9 @@ describe("the other sessions a removal ends, against a real database", () => {
   /* A stepped-down primary or a lost connection carries the transient label a write conflict does,
      and is not another change to these passkeys: the code decides, and the label never. */
   it("answers a transient failure that is not a write conflict as the generic failure", async () => {
-    const other = await steppedUpAdmin();
+    const other = await steppedUpAdmin(REMOVED);
     const own = await steppedUpAdmin();
-    const [first] = await seedPasskeys(own.userId, 2);
+    const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
     assert.ok(first);
     globals[REQUEST_HEADERS] = new Headers({ ...ORIGIN, cookie: own.cookie });
     signingOut = async () => {
@@ -359,9 +368,9 @@ describe("the other sessions a removal ends, against a real database", () => {
   // Any other failure at the sign-out rolls back the same way, and is not answered as the conflict:
   // the removal tests the server's code, never the mere fact that its transaction threw.
   it("rolls back and answers the generic failure where the sign-out fails for another reason", async () => {
-    const other = await steppedUpAdmin();
+    const other = await steppedUpAdmin(REMOVED);
     const own = await steppedUpAdmin();
-    const [first] = await seedPasskeys(own.userId, 2);
+    const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
     assert.ok(first);
     globals[REQUEST_HEADERS] = new Headers({ ...ORIGIN, cookie: own.cookie });
     signingOut = async () => {
@@ -384,9 +393,9 @@ describe("the other sessions a removal ends, against a real database", () => {
   /* The commit landed and its answer did not: the rows say the removal stands, and nobody can tell
      that from the throw, so a failure's title would send the administrator to remove it again. */
   it("answers the outcome as unknown where the commit's own answer is lost, the removal standing", async () => {
-    const other = await steppedUpAdmin();
+    const other = await steppedUpAdmin(REMOVED);
     const own = await steppedUpAdmin();
-    const [first] = await seedPasskeys(own.userId, 2);
+    const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
     assert.ok(first);
     globals[REQUEST_HEADERS] = new Headers({ ...ORIGIN, cookie: own.cookie });
     committed = async () => {

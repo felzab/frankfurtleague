@@ -1,0 +1,52 @@
+"use client";
+
+import { useTransition } from "react";
+
+import ArrowRightFromSquare from "@gravity-ui/icons/ArrowRightFromSquare";
+
+import { Button } from "@heroui/react/button";
+
+import { labelBadge } from "@/shared/components/ui/badges";
+import { formButton } from "@/shared/components/ui/formButtons";
+
+import type { Anmeldung } from "../../types";
+
+// `timeZone` for the reason `fl_frontend/src/features/passkeys/components/ui/PasskeyKarteView.tsx :: DATUM` gives.
+const ZEITPUNKT = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", dateStyle: "long", timeStyle: "short" });
+
+const zeit = (iso: string): string => ZEITPUNKT.format(new Date(iso));
+
+/** One live sign-in: when it began and was last active, when it ends at the latest, and what made it. */
+export function AnmeldungZeile({ anmeldung, onEnd }: { anmeldung: Anmeldung; onEnd: (id: string) => Promise<void> }) {
+  const [isPending, startEnding] = useTransition();
+
+  return (
+    <li className="flex flex-col gap-3 border-b border-border py-4 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex min-w-0 flex-col gap-1">
+        <span className="fluid-sm font-bold break-words text-foreground">
+          {anmeldung.faktor.art === "passkey" ? `Mit Passkey · ${anmeldung.faktor.name}` : "Mit Code per E-Mail"}
+        </span>
+        {anmeldung.diesesGeraet && <span className={`${labelBadge("brand")} self-start`}>Dieses Gerät</span>}
+        <span className="muted-hint">Angemeldet am {zeit(anmeldung.angemeldetAm)}</span>
+        <span className="muted-hint">Zuletzt aktiv am {zeit(anmeldung.zuletztAktivAm)}</span>
+        <span className="muted-hint">Endet spätestens am {zeit(anmeldung.endetSpaetestensAm)}</span>
+      </div>
+
+      {/* None on this device's row: the bar's own control ends it and clears the cookie with it. */}
+      {!anmeldung.diesesGeraet && (
+        <Button
+          type="button"
+          variant="secondary"
+          isPending={isPending}
+          onPress={() => startEnding(() => onEnd(anmeldung.id))}
+          className={formButton({ intent: "cancel" })}>
+          <ArrowRightFromSquare
+            aria-hidden="true"
+            className="size-4.5 shrink-0"
+          />
+          {isPending ? "Meldet ab..." : "Abmelden"}
+        </Button>
+      )}
+    </li>
+  );
+}

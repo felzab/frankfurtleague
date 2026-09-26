@@ -17,14 +17,14 @@ export function SidemenuFooter({
   onToggleDesktopMenu,
   onMobileNavigate,
   onSignOut,
-  onManagePasskeys,
+  kontoHref,
 }: {
   isDesktopCollapsed: boolean;
   onToggleDesktopMenu: () => void;
   /** Required, not optional: `Sidemenu` is the only caller and it always owns the drawer's state. */
   onMobileNavigate: () => void;
   onSignOut?: () => Promise<FormState>;
-  onManagePasskeys?: () => void;
+  kontoHref: string | null;
 }) {
   // Hoisted out of the class template for the reason `AppTopBar` gives.
   const railGutter = RAIL_GUTTER_CLASSES[isDesktopCollapsed ? "collapsed" : "expanded"];
@@ -38,7 +38,7 @@ export function SidemenuFooter({
       <SidemenuOptionsMenu
         isDesktopCollapsed={isDesktopCollapsed}
         onSignOut={onSignOut}
-        onManagePasskeys={onManagePasskeys}
+        kontoHref={kontoHref}
       />
 
       <IconTooltip

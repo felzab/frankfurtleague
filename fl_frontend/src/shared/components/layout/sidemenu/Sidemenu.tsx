@@ -24,7 +24,7 @@ export function Sidemenu<TIcon extends string>({
   funktionSwitcher,
   iconDictionary,
   onSignOut,
-  onManagePasskeys,
+  kontoHref,
   pathname,
   isMobileOpen,
   onMobileClose,
@@ -39,8 +39,8 @@ export function Sidemenu<TIcon extends string>({
   iconDictionary: Record<TIcon, React.ElementType>;
   /** Forwarded to the footer's options menu; the bar carries the same control. */
   onSignOut?: () => Promise<FormState>;
-  /** Forwarded to that same menu, where the bar carries no counterpart at all. */
-  onManagePasskeys?: () => void;
+  /** Forwarded to that same menu, which is where a phone reaches the account page the bar links from `lg`. */
+  kontoHref: string | null;
   pathname: string;
   isMobileOpen: boolean;
   onMobileClose: () => void;
@@ -115,7 +115,7 @@ export function Sidemenu<TIcon extends string>({
         onToggleDesktopMenu={onToggleDesktopMenu}
         onMobileNavigate={onMobileClose}
         onSignOut={onSignOut}
-        onManagePasskeys={onManagePasskeys}
+        kontoHref={kontoHref}
       />
     </aside>
   );

@@ -515,6 +515,39 @@ const FORMS: Record<string, FormCase> = {
       "open aria INPUT:Mietpreis",
     ],
   },
+  "a passkey card's rename": {
+    module: "features/passkeys/components/ui/PasskeyKarteView.tsx",
+    marks: async () => {
+      const { PasskeyKarteView } = await import("@/features/passkeys/components/ui/PasskeyKarteView.tsx");
+      const RENAME = () => Promise.resolve(true);
+      return marksOf(
+        h(
+          "ul",
+          null,
+          h(PasskeyKarteView, {
+            karte: {
+              id: "p1",
+              name: null,
+              anbieter: null,
+              eingerichtetAm: "2026-09-01T08:00:00.000Z",
+              zuletztVerwendetAm: null,
+              diesesGeraet: false,
+            },
+            reason: null,
+            istLetzter: false,
+            onRemove: () => Promise.resolve(),
+            onRename: RENAME,
+          }),
+        ),
+        async (into) => {
+          await userEvent.setup().click(screen.getByRole("button", { name: "Umbenennen" }));
+          await settle();
+          marksOn(into);
+        },
+      );
+    },
+    expected: ["name name", "star Name suppressed"],
+  },
   "the sign-in card": {
     module: "features/auth/components/forms/SignInForm.tsx",
     marks: async () => {

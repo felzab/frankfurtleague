@@ -24,8 +24,8 @@ export type PasskeyEmail = { subject: string; html: string; text: string };
  */
 const ZEITZONE = "Europe/Berlin";
 
-/** The administrator's own surface, which is the only place either event can be acted on. */
-const ZIEL_LABEL = "Zur Verwaltung";
+/** The reader's own account page, which is the only place either event can be acted on. */
+const ZIEL_LABEL = "Zu Deinem Konto";
 
 /**
  * What a reader does with the notice, and the whole of why it is sent: an enrolment they did not
@@ -53,46 +53,50 @@ const HINZUGEFUEGT: Ereignis = {
 const GELOESCHT: Ereignis = {
   ueberschrift: "Passkey gelöscht",
   betreff: `Passkey für Deinen Zugang zur ${BRAND_NAME} gelöscht`,
-  satz: (zeit) => `Von Deinem Zugang wurde am ${zeit} ein Passkey gelöscht. Alle anderen Geräte wurden dabei abgemeldet.`,
+  // Only the devices that passkey signed in: a removal ends the sessions carrying its credential and
+  // leaves every other standing (`fl_frontend/src/core/auth.ts :: removePasskey`).
+  satz: (zeit) => `Von Deinem Zugang wurde am ${zeit} ein Passkey gelöscht. Geräte, die damit angemeldet waren, wurden abgemeldet.`,
 };
 
-function aktionen(origin: string): readonly Aktion[] {
-  // eslint-disable-next-line local/admin-link -- a link inside a message, followed from an inbox days later; no season is in scope at composing time
-  return [{ href: `${origin}/bereich/admin`, label: ZIEL_LABEL, ton: "primary" }];
+function aktionen(origin: string, konto: string): readonly Aktion[] {
+  return [{ href: `${origin}${konto}`, label: ZIEL_LABEL, ton: "primary" }];
 }
 
-function renderHtml(ereignis: Ereignis, zeit: string, origin: string): string {
+function renderHtml(ereignis: Ereignis, zeit: string, origin: string, konto: string): string {
   return renderKarte({
     titel: `${BRAND_NAME}: ${ereignis.ueberschrift}`,
     ueberschrift: escapeHtml(ereignis.ueberschrift),
     bloecke: [paragraph(ereignis.satz(strong(escapeHtml(zeit)))), paragraph(WARNSATZ, "0", ASIDE_TEXT)],
-    aktionen: aktionen(origin),
+    aktionen: aktionen(origin, konto),
     fuss: ANTWORT_SATZ_HTML,
     origin: origin,
   });
 }
 
-function renderText(ereignis: Ereignis, zeit: string, origin: string): string {
-  const oben = [`${BRAND_NAME}: ${ereignis.ueberschrift}`, "", ereignis.satz(zeit), "", `${ZIEL_LABEL}: ${origin}/bereich/admin`, "", WARNSATZ];
+function renderText(ereignis: Ereignis, zeit: string, origin: string, konto: string): string {
+  const oben = [`${BRAND_NAME}: ${ereignis.ueberschrift}`, "", ereignis.satz(zeit), "", `${ZIEL_LABEL}: ${origin}${konto}`, "", WARNSATZ];
 
   return [stuffSignatureDelimiter(oben.join("\n")), ...textFooter(origin, [ANTWORT_SATZ_TEXT])].join("\n");
 }
 
-function build(ereignis: Ereignis, zeitpunkt: Date, origin: string): PasskeyEmail {
+/** What a builder is handed; `konto` is a path on `origin`, one area's account page (`fl_frontend/src/core/kontoHref.ts`). */
+type Anlass = { zeitpunkt: Date; origin: string; konto: string };
+
+function build(ereignis: Ereignis, { zeitpunkt, origin, konto }: Anlass): PasskeyEmail {
   const site = mailOrigin(origin);
   const zeit = zeitText(zeitpunkt);
 
-  return { subject: ereignis.betreff, html: renderHtml(ereignis, zeit, site), text: renderText(ereignis, zeit, site) };
+  return { subject: ereignis.betreff, html: renderHtml(ereignis, zeit, site, konto), text: renderText(ereignis, zeit, site, konto) };
 }
 
 /**
  * **The two parts state the same facts**, as in the application messages
  * (`fl_frontend/src/core/bewerbungEmail.ts :: buildBewerbungZusageEmail`).
  */
-export function buildPasskeyHinzugefuegtEmail({ zeitpunkt, origin }: { zeitpunkt: Date; origin: string }): PasskeyEmail {
-  return build(HINZUGEFUEGT, zeitpunkt, origin);
+export function buildPasskeyHinzugefuegtEmail(anlass: Anlass): PasskeyEmail {
+  return build(HINZUGEFUEGT, anlass);
 }
 
-export function buildPasskeyGeloeschtEmail({ zeitpunkt, origin }: { zeitpunkt: Date; origin: string }): PasskeyEmail {
-  return build(GELOESCHT, zeitpunkt, origin);
+export function buildPasskeyGeloeschtEmail(anlass: Anlass): PasskeyEmail {
+  return build(GELOESCHT, anlass);
 }

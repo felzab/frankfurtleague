@@ -717,9 +717,8 @@ const SOURCE_BANS = [
   {
     ...FAILURE_BY_HAND,
     exempt: [
-      // Failures no FastAPI write words, so none carries an unknown outcome: the passkey list reads
-      // the sign-in store, and Better Auth answers the sign-out and mints the sign-in link.
-      "src/features/passkeys/components/modals/PasskeyModal.tsx",
+      // Failures no FastAPI write words, so none carries an unknown outcome: Better Auth answers the
+      // sign-out and mints the sign-in link.
       "src/shared/hooks/useSignOut.ts",
       "src/features/auth/components/forms/SignInForm.tsx",
       // An undo of unknown outcome, under the undo's own unclear title: `appToast.failure`'s speaks of a save.

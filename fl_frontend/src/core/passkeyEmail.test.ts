@@ -21,9 +21,12 @@ const ORIGIN = "http://localhost:3000";
    would answer the same string in summer and this case would then prove nothing. */
 const ZEITPUNKT = new Date("2026-01-15T22:30:00Z");
 
+/** The account page the builder is handed, which no fixed administration link would reach. */
+const KONTO = "/bereich/konto";
+
 const BEIDE = [
-  { name: "buildPasskeyHinzugefuegtEmail", mail: buildPasskeyHinzugefuegtEmail({ zeitpunkt: ZEITPUNKT, origin: ORIGIN }) },
-  { name: "buildPasskeyGeloeschtEmail", mail: buildPasskeyGeloeschtEmail({ zeitpunkt: ZEITPUNKT, origin: ORIGIN }) },
+  { name: "buildPasskeyHinzugefuegtEmail", mail: buildPasskeyHinzugefuegtEmail({ zeitpunkt: ZEITPUNKT, origin: ORIGIN, konto: KONTO }) },
+  { name: "buildPasskeyGeloeschtEmail", mail: buildPasskeyGeloeschtEmail({ zeitpunkt: ZEITPUNKT, origin: ORIGIN, konto: KONTO }) },
 ];
 
 describe("the notice each passkey change sends", () => {
@@ -39,18 +42,24 @@ describe("the notice each passkey change sends", () => {
 
   /* Two separate builders, because one message reporting either event would have to word both in a
      sentence that names neither: a reader acts on the notice or does not. */
-  it("tells the two events apart, and says in the removal that the other devices went with it", () => {
+  it("tells the two events apart, and says in the removal which devices went with it", () => {
     assert.ok(BEIDE[0]?.mail.subject !== BEIDE[1]?.mail.subject, "both events arrive under one subject");
     assert.ok(BEIDE[0]?.mail.text.includes("hinzugefügt"), "the addition does not name what happened");
-    assert.ok(BEIDE[1]?.mail.text.includes("abgemeldet"), "the removal does not say the other devices were signed out");
+    // The devices that passkey signed in, and never every other one: a removal leaves the rest signed in.
+    assert.ok(
+      BEIDE[1]?.mail.text.includes("Geräte, die damit angemeldet waren, wurden abgemeldet."),
+      "the removal does not say which devices were signed out",
+    );
+    assert.ok(!BEIDE[1]?.mail.text.includes("Alle anderen Geräte"), "the removal claims every other device was signed out");
   });
 
   /* The reader has to be able to act, and the notice is the only place they learn of an enrolment
-     somebody else made. One control, at the surface where a passkey can be taken away again. */
-  it("offers the administrator's own surface and no other destination", () => {
+     somebody else made. One control, at the account page where a passkey can be taken away again. */
+  it("offers the account page it is handed and no other destination", () => {
     for (const { name, mail } of BEIDE) {
-      assert.ok(mail.html.includes(`href="${ORIGIN}/bereich/admin"`), `${name} does not link the administration`);
-      assert.ok(mail.text.includes(`${ORIGIN}/bereich/admin`), `${name}'s text branch offers no way back`);
+      assert.ok(mail.html.includes(`href="${ORIGIN}${KONTO}"`), `${name} does not link the account page`);
+      assert.ok(mail.text.includes(`Zu Deinem Konto: ${ORIGIN}${KONTO}`), `${name}'s text branch offers no way back`);
+      assert.ok(!mail.html.includes("Zur Verwaltung"), `${name} still sends a person to the administration`);
       assert.ok(mail.html.includes("melde Dich sofort bei uns"), `${name} says nothing about a change the reader did not make`);
     }
   });

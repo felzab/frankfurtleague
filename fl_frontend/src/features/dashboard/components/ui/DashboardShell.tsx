@@ -7,7 +7,7 @@ import type React from "react";
 
 /**
  * No `onSignOut`, and that absence is the switch: these routes are behind no session, so the
- * footer's options menu renders the theme control and nothing else.
+ * footer's options menu renders the theme control and nothing else, and no account page stands.
  */
 export function DashboardShell({ saisonMetadataDisplay, children }: { saisonMetadataDisplay: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -20,7 +20,8 @@ export function DashboardShell({ saisonMetadataDisplay, children }: { saisonMeta
       // Behind no session, so no person and no Funktion to switch between.
       funktionSwitcher={null}
       fallbackTitle={DASHBOARD_SHELL_FALLBACK.label}
-      fallbackHint={DASHBOARD_SHELL_FALLBACK.hint}>
+      fallbackHint={DASHBOARD_SHELL_FALLBACK.hint}
+      kontoHref={null}>
       {children}
     </AppShell>
   );

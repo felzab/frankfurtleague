@@ -178,8 +178,10 @@ const FIXTURES: Record<string, (origin: string) => { html: string; text: string 
       link: `${ORIGIN}/registrierung?token=beispiel-fuenf`,
     }),
   buildMagicLinkEmail: (origin) => buildMagicLinkEmail("https://frankfurtleague.de/api/auth/callback/resend?token=abc&email=a%40b.de", origin),
-  buildPasskeyHinzugefuegtEmail: (origin) => buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date("2026-01-15T22:30:00Z"), origin: origin }),
-  buildPasskeyGeloeschtEmail: (origin) => buildPasskeyGeloeschtEmail({ zeitpunkt: new Date("2026-01-15T22:30:00Z"), origin: origin }),
+  buildPasskeyHinzugefuegtEmail: (origin) =>
+    buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date("2026-01-15T22:30:00Z"), origin: origin, konto: "/bereich/konto" }),
+  buildPasskeyGeloeschtEmail: (origin) =>
+    buildPasskeyGeloeschtEmail({ zeitpunkt: new Date("2026-01-15T22:30:00Z"), origin: origin, konto: "/bereich/konto" }),
   buildRegistrierungBestaetigungEmail: (origin) =>
     buildRegistrierungBestaetigungEmail({
       vorname: "Mira",

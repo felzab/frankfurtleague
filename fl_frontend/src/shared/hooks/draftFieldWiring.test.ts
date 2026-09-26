@@ -142,6 +142,39 @@ describe("a public or single-purpose form's press over a draft its schema refuse
     );
   });
 
+  it("a passkey card's rename sends no name for an emptied box", async () => {
+    const user = userEvent.setup();
+    const { PasskeyKarteView } = await import("@/features/passkeys/components/ui/PasskeyKarteView.tsx");
+    const RENAME = mock.fn(async (_id: string, _name: string) => true);
+    render(
+      h(
+        "ul",
+        null,
+        h(PasskeyKarteView, {
+          karte: {
+            id: "p1",
+            name: null,
+            anbieter: null,
+            eingerichtetAm: "2026-09-01T08:00:00.000Z",
+            zuletztVerwendetAm: null,
+            diesesGeraet: false,
+          },
+          reason: null,
+          istLetzter: false,
+          onRemove: () => Promise.resolve(),
+          onRename: RENAME,
+        }),
+      ),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Umbenennen" }));
+    await user.clear(screen.getByRole("textbox", { name: "Name" }));
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+
+    assert.equal(RENAME.mock.callCount(), 0, "the emptied name was sent");
+  });
+
   it("the contact's confirmation panel sends no confirmation without a birth date", async () => {
     const user = userEvent.setup();
     const { BestaetigungFormPanel } = await import("@/features/bewerbungen/components/views/BestaetigungFormPanel.tsx");
@@ -264,6 +297,7 @@ const OTHER_FORMS = [
   "features/bewerbungen/components/forms/BewerbungForm/BewerbungForm.tsx",
   "features/bewerbungen/components/views/BestaetigungFormPanel.tsx",
   "features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx",
+  "features/passkeys/components/ui/PasskeyKarteView.tsx",
   "features/registrierungen/components/views/RegistrierungFormPanel.tsx",
   "features/registrierungen/components/views/SpielerBestaetigungView.tsx",
   "features/schiedsrichter/components/views/SchiedsrichterBestaetigungView.tsx",

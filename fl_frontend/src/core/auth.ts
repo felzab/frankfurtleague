@@ -21,6 +21,7 @@ import { client } from "./db";
 import { asSignInIdentifier } from "./emailAddress";
 import { BRAND_NAME } from "./emailShell";
 import { RolledBackError } from "./errors";
+import { KONTO_HREF } from "./kontoHref";
 import { logger } from "./logging";
 import { sendMail } from "./mail";
 import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
@@ -368,7 +369,7 @@ async function notify(message: PasskeyEmail, email: string): Promise<void> {
 
 /** Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens. */
 export async function notifyPasskeyRemoved(email: string): Promise<void> {
-  await notify(buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(), origin: MAIL_ORIGIN }), email);
+  await notify(buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(), origin: MAIL_ORIGIN, konto: KONTO_HREF }), email);
 }
 
 // Matched on the OPENING of the library's own message, because each of these ends in the value it
@@ -552,7 +553,9 @@ const authOptions = {
       // would name an enrolment a later refusal never made.
       if (ctx.path === PASSKEY_REGISTRATION_PATH) {
         const enrolled = await getSessionFromCtx(ctx);
-        if (enrolled !== null) await notify(buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date(), origin: MAIL_ORIGIN }), enrolled.user.email);
+        if (enrolled !== null) {
+          await notify(buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date(), origin: MAIL_ORIGIN, konto: KONTO_HREF }), enrolled.user.email);
+        }
       }
 
       // The browser client reads nothing off either body but whether it is there
@@ -699,8 +702,11 @@ type PasskeyRemoval = "removed" | "last" | "absent" | "conflict";
  * from two rows would otherwise each see a second row and leave none (`docs/frontend/spec.md :: I312`).
  * Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens.
  */
-export async function removePasskey(userId: string, id: string, keptSessionId: string): Promise<PasskeyRemoval> {
+export async function removePasskey(holder: { id: string; email: string }, id: string): Promise<PasskeyRemoval> {
   const { adapter } = await auth.$context;
+  // Judged here rather than by the caller: an administrator's last passkey is their only way into
+  // the administration, while a person holding none signs in by code again.
+  const keepsLast = isUserAdmin(holder.email);
 
   // Set once the callback has returned. A throw before that aborted a transaction that never
   // committed, so nothing was written; one after it came from the commit, whose outcome may be unknown.
@@ -717,8 +723,8 @@ export async function removePasskey(userId: string, id: string, keptSessionId: s
     // ending its own session meets the sign-out above the same way.
     if (!isWriteConflict(failed)) throw committing ? failed : new RolledBackError(failed);
 
-    // The line is the record: the administrator is refused, and nothing else notes that the removal
-    // met a change to this administrator's passkeys or sessions.
+    // The line is the record: the holder is refused, and nothing else notes that the removal met a
+    // change to their passkeys or sessions.
     logger.warn("auth.passkey_removal_conflict", { error_code: "FE-AUTH-005" });
     return "conflict";
   }
@@ -730,32 +736,43 @@ export async function removePasskey(userId: string, id: string, keptSessionId: s
     // conflicts with nothing: refused rather than admitted unguarded, as the enrolment is.
     if (held === adapter) throw new RemovalOutsideTransaction();
 
-    const rows = await held.findMany<{ id: string }>({
+    const rows = await held.findMany<{ id: string; credentialID: string }>({
       model: "passkey",
-      where: [{ field: "userId", value: userId }],
+      where: [{ field: "userId", value: holder.id }],
       limit: PASSKEY_LIMIT + 1,
     });
 
-    // Read off the caller's own rows, so another account's identifier is absent rather than taken.
-    if (!rows.some((row) => row.id === id)) return "absent";
-    if (rows.length <= 1) return "last";
+    // Read off the holder's own rows, so another account's identifier is absent rather than taken.
+    const removed = rows.find((row) => row.id === id);
+    if (removed === undefined) return "absent";
+    if (keepsLast && rows.length <= 1) return "last";
 
-    await claimAccount(held, userId);
+    await claimAccount(held, holder.id);
     await held.delete({ model: "passkey", where: [{ field: "id", value: id }] });
-    // In the delete's transaction, so a refusal above signs nobody out. A session minted after the
-    // transaction's snapshot survives it: closing that needs a session to record its authenticator,
-    // which the library does not.
+    // In the delete's transaction, so a refusal above signs nobody out; by the credential the session
+    // recorded, so the devices other passkeys or a code signed in stay (`docs/frontend/spec.md :: I313`).
     await held.deleteMany({
       model: "session",
       where: [
-        // Every other session, since a session row names no authenticator: the one signed in with
-        // the removed passkey is among them.
-        { field: "userId", value: userId },
-        { field: "id", operator: "ne", value: keptSessionId },
+        { field: "userId", value: holder.id },
+        { field: "passkeyCredentialId", value: removed.credentialID },
       ],
     });
     return "removed";
   }
+}
+
+/**
+ * The figures the holder's own lane gives every session of theirs, whichever factor made it. Exported
+ * for `fl_frontend/src/features/konto/sicherheit.ts`, which lists rows rather than judging the served one.
+ */
+export function ownLifetime(email: string): Lifetime {
+  return isUserAdmin(email) ? ADMIN_LIFETIME : PERSON_LIFETIME;
+}
+
+/** A listed row judged as the guards judge the served session, so an ended one is never shown as live. */
+export function isWithinOwnLifetime(email: string, session: { createdAt: Date; updatedAt: Date }): boolean {
+  return withinLifetime(session, ownLifetime(email));
 }
 
 /** What every guard below is handed; no HTTP route serves it, `/get-session` being disabled. */

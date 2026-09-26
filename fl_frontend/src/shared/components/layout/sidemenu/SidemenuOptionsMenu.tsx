@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import ArrowRightFromSquare from "@gravity-ui/icons/ArrowRightFromSquare";
 import Ellipsis from "@gravity-ui/icons/Ellipsis";
-import Key from "@gravity-ui/icons/Key";
+import PersonGear from "@gravity-ui/icons/PersonGear";
 
 import { Dropdown } from "@heroui/react/dropdown";
 import { Label } from "@heroui/react/label";
@@ -15,6 +15,7 @@ import { useSignOut } from "@/shared/hooks/useSignOut";
 
 import { IconTooltip } from "../../ui/IconTooltip";
 import { ThemeSwitch } from "../../ui/ThemeSwitch";
+import { KONTO_SECTION } from "../shell/kontoSection";
 import { RAIL_SQUARE_HEROUI_RING_CLASSES } from "./railGutter";
 
 import type { FormState } from "@/shared/types/types";
@@ -26,13 +27,13 @@ import type { FormState } from "@/shared/types/types";
 export function SidemenuOptionsMenu({
   isDesktopCollapsed,
   onSignOut,
-  onManagePasskeys,
+  kontoHref,
 }: {
   isDesktopCollapsed: boolean;
   /** Injected by the shell that has a session to end, and its presence is the gate — `shared` cannot import from `features`. */
   onSignOut?: () => Promise<FormState>;
-  /** Injected the same way, and gated on its own presence: the dialog it opens is the shell's to render. */
-  onManagePasskeys?: () => void;
+  /** The person's account page, the same address the bar links from `lg`; `null` in a shell no session stands behind. */
+  kontoHref: string | null;
 }) {
   const { isOpen, setIsOpen } = useNavigationClosedOverlay();
 
@@ -85,16 +86,16 @@ export function SidemenuOptionsMenu({
             <>
               <Separator className="my-1" />
               <Dropdown.Section aria-label="Konto">
-                {onManagePasskeys && (
-                  /* Closes on select, unlike the two items above it: the dialog it opens is rendered
-                     outside this `Dropdown.Popover`, which portals and unmounts on close. */
+                {kontoHref !== null && (
+                  /* A link through react-aria's router, which the root providers hand Next's: the menu closes
+                     on the route change `useNavigationClosedOverlay` watches. */
                   <Dropdown.Item
-                    id="passkeys"
-                    textValue="Passkeys verwalten"
-                    onAction={onManagePasskeys}
+                    id="konto"
+                    textValue={KONTO_SECTION.label}
+                    href={kontoHref}
                     className="flex w-full items-center justify-between rounded-md px-2 py-1.5 transition-colors">
-                    <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">Passkeys verwalten</Label>
-                    <Key
+                    <Label className="min-w-0 flex-1 fluid-sm font-semibold text-foreground">{KONTO_SECTION.label}</Label>
+                    <PersonGear
                       aria-hidden="true"
                       className="size-4 shrink-0 text-foreground-muted"
                     />

@@ -1,5 +1,6 @@
 "use client";
 
+import { KONTO_HREF } from "@/core/kontoHref";
 import { signOutAction } from "@/features/auth/actions";
 import { AppShell } from "@/shared/components/layout/shell/AppShell";
 import { FunktionSwitcher } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
@@ -68,6 +69,7 @@ export function TeamShell({
       }
       fallbackTitle={fallback.label}
       fallbackHint={fallback.hint}
+      kontoHref={KONTO_HREF}
       onSignOut={signOutAction}>
       {children}
     </AppShell>

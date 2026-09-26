@@ -39,20 +39,27 @@ export function refusalResult(refusal: { error?: string; fieldErrors?: FieldErro
  */
 export type Guarded<T> = { forbidden: true } | { forbidden: false; answer: T | ActionFailure };
 
+/** Which caller a spine admits, and what its log lines are filed under. */
+type Guard<S> = { readonly lane: string; readonly resolve: () => Promise<S | null> };
+
+const ADMIN_GUARD: Guard<AdminSession> = { lane: "Admin", resolve: getAdminSession };
+
 /**
  * Seeds the request scope with the edge-minted trace id, and converts a thrown API error into the caller's result
  * — without which Next redacts the throw to a digest and an ordinary 409 replaces the admin's toast with the error page.
  */
-async function runGuarded<T extends { success: boolean }>(
+async function runGuarded<S, T extends { success: boolean }>(
   mutationName: string,
-  fn: (session: AdminSession) => Promise<T>,
+  guard: Guard<S>,
+  fn: (session: S) => Promise<T>,
 ): Promise<{ forbidden: true } | { forbidden: false; answer: T | ActionFailure; wrote: boolean }> {
   return runWithIncomingTrace(async () => {
     let answer: T | ActionFailure;
     try {
-      // Ahead of the body rather than inside each one, so no admin write reaches its payload or the
-      // backend unguarded: the proxy's matcher is the first layer, and this the second (`docs/frontend/spec.md :: I7`).
-      const session = await getAdminSession();
+      // Ahead of the body rather than inside each one, so no guarded write reaches its payload or the
+      // backend unguarded: for an admin write the proxy's matcher is the first layer, and this the second
+      // (`docs/frontend/spec.md :: I7`).
+      const session = await guard.resolve();
       if (session === null) return { forbidden: true };
 
       answer = await fn(session);
@@ -61,7 +68,7 @@ async function runGuarded<T extends { success: boolean }>(
       unstable_rethrow(error);
 
       const typed = error instanceof APIBadStatusError || error instanceof APINetworkError || error instanceof APIMalformedDataError;
-      logger.error(`Admin mutation failed: ${mutationName}`, error, {
+      logger.error(`${guard.lane} mutation failed: ${mutationName}`, error, {
         error_code: typed || error instanceof ApiUnsentError ? error.code : "FE-ACT-001",
         server_error_code: error instanceof APIBadStatusError ? error.serverErrorCode : undefined,
         status: error instanceof APIBadStatusError || error instanceof APIMalformedDataError ? error.statusCode : undefined,
@@ -76,7 +83,7 @@ async function runGuarded<T extends { success: boolean }>(
 
     // Whatever the action made of it: part of the write may stand.
     if (writeOutcomeUnknown()) {
-      logger.error(`Admin mutation of unknown outcome: ${mutationName}`, undefined, { error_code: "FE-NET-001" });
+      logger.error(`${guard.lane} mutation of unknown outcome: ${mutationName}`, undefined, { error_code: "FE-NET-001" });
 
       return { forbidden: false, answer: unansweredAction(), wrote: wrote };
     }
@@ -85,13 +92,17 @@ async function runGuarded<T extends { success: boolean }>(
   });
 }
 
-/** A server action's spine; a route handler's write takes `runAdminRouteWrite`. */
-export async function runAdminMutation<T extends { success: boolean }>(
+/**
+ * The spine under any guard: `forbidden` is what a caller the guard turns away is answered.
+ * `runAdminMutation` is this over the administrator's guard.
+ */
+export async function runGuardedMutation<S, T extends { success: boolean }>(
   mutationName: string,
-  fn: (session: AdminSession) => Promise<T>,
+  guard: Guard<S> & { readonly forbidden: string },
+  fn: (session: S) => Promise<T>,
 ): Promise<T | ActionFailure> {
-  const guarded = await runGuarded(mutationName, fn);
-  if (guarded.forbidden) return { success: false, error: ADMIN_FORBIDDEN };
+  const guarded = await runGuarded(mutationName, guard, fn);
+  if (guarded.forbidden) return { success: false, error: guard.forbidden };
 
   const { answer, wrote } = guarded;
   // Here, where no action can forget it (`docs/frontend/spec.md :: I233`). Never on a refusal, left to its
@@ -100,6 +111,14 @@ export async function runAdminMutation<T extends { success: boolean }>(
   if (wrote && (answer.success || ("outcome" in answer && answer.outcome === "unknown"))) refresh();
 
   return answer;
+}
+
+/** A server action's spine; a route handler's write takes `runAdminRouteWrite`. */
+export async function runAdminMutation<T extends { success: boolean }>(
+  mutationName: string,
+  fn: (session: AdminSession) => Promise<T>,
+): Promise<T | ActionFailure> {
+  return runGuardedMutation(mutationName, { ...ADMIN_GUARD, forbidden: ADMIN_FORBIDDEN }, fn);
 }
 
 /**
@@ -111,7 +130,7 @@ export async function runAdminRouteWrite<T extends { success: boolean }>(
   mutationName: string,
   fn: (session: AdminSession) => Promise<T>,
 ): Promise<Guarded<T>> {
-  const guarded = await runGuarded(mutationName, fn);
+  const guarded = await runGuarded(mutationName, ADMIN_GUARD, fn);
 
   return guarded.forbidden ? guarded : { forbidden: false, answer: guarded.answer };
 }
