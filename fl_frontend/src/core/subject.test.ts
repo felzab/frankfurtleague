@@ -209,9 +209,9 @@ describe("who the seam answers for", () => {
 
   /* `admin` is the administrator's whole verdict, so a page may gate an administrator-only control
      on it: the allowlist alone answers `true` for sessions that lane refuses. */
-  it("answers an allowlisted session its seat, and marks a link-borne one no administrator", async () => {
+  it("answers an allowlisted session its seat, and marks a code-borne one no administrator", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    assert.equal(row.authFactor, "link", "the link's own verification did not stamp the factor");
+    assert.equal(row.authFactor, "code", "the mailbox factor's own verification did not stamp it");
     arriveAs(cookie);
 
     const answer = await getSubjectSession();
@@ -461,9 +461,9 @@ describe("a session the store cannot answer for", () => {
 });
 
 describe("the person's two lifetimes, compared in this guard as well as the other", () => {
-  it("answers nothing for a session thirty-one days idle, and sends the same session to the sign-in", async () => {
+  it("answers nothing for a session fifteen days idle, and sends the same session to the sign-in", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
-    ageRow(row, { created: 31 * DAY_MS, idle: 31 * DAY_MS });
+    ageRow(row, { created: 15 * DAY_MS, idle: 15 * DAY_MS });
     arriveAs(cookie);
 
     const { answer, actor } = await guardInScope();
@@ -475,9 +475,9 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
 
   /* The case that fails first if the absolute cap is dropped as redundant: a session kept sliding
      never reaches the idle window at all. */
-  it("answers nothing for a session ninety-one days old however recently it was used", async () => {
+  it("answers nothing for a session thirty-one days old however recently it was used", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
-    ageRow(row, { created: 91 * DAY_MS });
+    ageRow(row, { created: 31 * DAY_MS });
     arriveAs(cookie);
 
     const { answer, actor } = await guardInScope();
@@ -487,9 +487,9 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
     assert.equal(await getSignInDestination(), "/signin", "the two copies of the absolute figure answer differently");
   });
 
-  it("serves a session twenty-nine days idle, so the two cases above are the windows and not the harness", async () => {
+  it("serves a session thirteen days idle and twenty-nine old, so the two cases above are the windows and not the harness", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
-    ageRow(row, { created: 29 * DAY_MS, idle: 29 * DAY_MS });
+    ageRow(row, { created: 29 * DAY_MS, idle: 13 * DAY_MS });
     arriveAs(cookie);
 
     assert.ok(await getSubjectSession());

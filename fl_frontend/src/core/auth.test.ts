@@ -13,6 +13,7 @@ import {
   registerAuthDoubles,
   seedLink,
 } from "./authDoubles.ts";
+import { STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
 
 const STORE = "__flAuthStore";
 const ADAPTER_CALLS = "__flAuthAdapterCalls";
@@ -93,7 +94,16 @@ after(() => {
   globalThis.fetch = ORIGINAL_FETCH;
 });
 
-type SessionRow = { token: string; userId: string; expiresAt: Date; createdAt: Date; updatedAt: Date; authFactor?: string };
+type SessionRow = {
+  id: string;
+  token: string;
+  userId: string;
+  expiresAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  authFactor?: string;
+  passkeyCredentialId?: string;
+};
 
 type Store = {
   user: { id: string; email: string }[];
@@ -132,7 +142,8 @@ globals[ADAPTER_CALLS] = adapterCalls;
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so neither the doubles nor the `next/server` extension would be in place yet.
 const { toNextJsHandler } = await import("better-auth/next-js");
-const { auth, getAdminSession, getPasskeyStep, getSignInDestination, isAdminSession, PASSKEY_LIMIT } = await import("./auth.ts");
+const { auth, getAdminSession, getPasskeyStep, getSignInDestination, isAdminSession, isFreshlySignedIn, PASSKEY_LIMIT } =
+  await import("./auth.ts");
 const { buildMagicLinkEmail, LINK_VALIDITY_MINUTES } = await import("./authEmail.ts");
 const { proxy } = await import("../proxy.ts");
 const { NextRequest } = await import("next/server");
@@ -198,6 +209,14 @@ describe("where the cookie integration sits among the plugins", () => {
      `/get-session` alone, which is disabled here. */
   it("keeps the cookie integration last, where the library says it belongs", () => {
     assert.equal(auth.options.plugins?.at(-1)?.id, "next-cookies");
+  });
+
+  /* A browser refuses a `Secure` cookie over plain http, so the local stack keeps the library's own
+     name; the https arm is `fl_frontend/src/core/authCookie.test.ts`'s. */
+  it("keeps the library's own cookie name over http, where no `__Host-` cookie could be set", async () => {
+    const { cookie } = await signIn(PERSON_EMAIL);
+
+    assert.match(cookie, /^better-auth\.session_token=/);
   });
 });
 
@@ -300,14 +319,14 @@ describe("what the mounted HTTP surface answers", () => {
 
   // The id beside them is the row the passkey removal keeps, and it opens nothing, where the token
   // would be the cookie's own value.
-  it("still gives the guards in process the address, the two stamps they compare and the row's id, and nothing else", async () => {
+  it("still gives the guards in process the account, the stamps they compare and the row's id, and nothing else", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
 
     const body = await served(cookie);
     assert.ok(body);
     assert.deepEqual(Object.keys(body).sort(), ["session", "user"]);
-    assert.deepEqual(Object.keys(body.user).sort(), ["email"]);
-    assert.deepEqual(Object.keys(body.session).sort(), ["authFactor", "createdAt", "id", "updatedAt"]);
+    assert.deepEqual(Object.keys(body.user).sort(), ["email", "id"]);
+    assert.deepEqual(Object.keys(body.session).sort(), ["authFactor", "createdAt", "id", "passkeyCredentialId", "updatedAt"]);
     assert.ok(!JSON.stringify(body).includes(row.token), "the served session carries the cookie's own value");
   });
 
@@ -388,8 +407,11 @@ describe("what the mounted HTTP surface answers", () => {
 
     assert.equal((await overHttp("/update-session", { method: "POST", cookie, body: { authFactor: "passkey" } })).status, 404);
     await assert.rejects(() => auth.api.updateSession({ body: { authFactor: "passkey" }, headers }));
+    // The credential id beside it, which would let a code session name a passkey's sessions as its own.
+    await assert.rejects(() => auth.api.updateSession({ body: { passkeyCredentialId: CREDENTIAL_ID }, headers }));
+    assert.equal(row.passkeyCredentialId, undefined, "the request wrote a credential id onto a code session");
 
-    assert.equal(row.authFactor, "link", "the request rewrote the factor, so every guard below proves nothing");
+    assert.equal(row.authFactor, "code", "the request rewrote the factor, so every guard below proves nothing");
   });
 
   /* Default deny is only as good as the classification behind it: an upgrade that mounts a path
@@ -464,19 +486,19 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
 
   /* The case that fails first if the absolute cap is dropped as redundant: no `expiresIn` supplies
      it, and a session kept sliding never reaches the idle window at all. */
-  it("refuses a person's session ninety-one days old however recently it was used", async () => {
+  it("refuses a person's session thirty-one days old however recently it was used", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
-    ageRow(row, { created: 91 * DAY_MS });
+    ageRow(row, { created: 31 * DAY_MS });
     arriveAs(cookie);
 
     assert.equal(await getSignInDestination(), "/signin");
   });
 
-  /* The person's arm alone: an administrator at thirty-one days is refused by a forty-eight-hour
-     cap whatever the idle figure says, so that arm would pass with the idle comparison deleted. */
-  it("refuses a person's session thirty-one days idle", async () => {
+  /* The person's arm alone: an administrator at fifteen days is refused by a forty-eight-hour cap
+     whatever the idle figure says, so that arm would pass with the idle comparison deleted. */
+  it("refuses a person's session fifteen days idle", async () => {
     const person = await signIn(PERSON_EMAIL);
-    ageRow(person.row, { created: 31 * DAY_MS, idle: 31 * DAY_MS });
+    ageRow(person.row, { created: 15 * DAY_MS, idle: 15 * DAY_MS });
     arriveAs(person.cookie);
 
     assert.equal(await getSignInDestination(), "/signin");
@@ -494,9 +516,9 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     assert.equal(await getSignInDestination(), "/signin");
   });
 
-  it("serves a person's session twenty-nine days idle, so the case above is the window and not the harness", async () => {
+  it("serves a person's session thirteen days idle, so the case above is the window and not the harness", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
-    ageRow(row, { created: 29 * DAY_MS, idle: 29 * DAY_MS });
+    ageRow(row, { created: 29 * DAY_MS, idle: 13 * DAY_MS });
     arriveAs(cookie);
 
     assert.equal(await getSignInDestination(), "/bereich");
@@ -514,9 +536,9 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
 });
 
 describe("the second factor, judged at the same guard", () => {
-  it("refuses an allowlisted session the mailed link alone made, and sends it to the passkey page", async () => {
+  it("refuses an allowlisted session the mailbox alone made, and sends it to the passkey page", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    assert.equal(row.authFactor, "link", "the link's own verification did not stamp the factor");
+    assert.equal(row.authFactor, "code", "the mailbox factor's own verification did not stamp it");
     arriveAs(cookie);
 
     assert.equal(await getAdminSession(), null);
@@ -570,12 +592,54 @@ describe("the second factor, judged at the same guard", () => {
     assert.equal(await getPasskeyStep(), null);
   });
 
-  it("asks an address outside the allowlist for no passkey at all", async () => {
+  it("offers a person signed in by the mailbox a passkey, on the page an administrator's card stands on", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie);
+
+    assert.deepEqual(await getPasskeyStep(), { step: "offer", email: PERSON_EMAIL });
+    assert.equal(await getSignInDestination(), "/signin/passkey");
+  });
+
+  it("offers a person no passkey once they hold one, or once the passkey made the session", async () => {
+    const holding = await signIn(PERSON_EMAIL);
+    store.passkey.push(aPasskeyFor(holding.row.userId));
+    arriveAs(holding.cookie);
+
+    assert.equal(await getPasskeyStep(), null);
+    assert.equal(await getSignInDestination(), "/bereich");
+
+    store.passkey.length = 0;
+    holding.row.authFactor = "passkey";
+
+    assert.equal(await getPasskeyStep(), null, "a session the passkey made was offered one");
+    assert.equal(await getSignInDestination(), "/bereich");
+  });
+
+  /* The library refuses an enrolment past the step-up window, so a card offered there is a press the
+     server refuses: the landing and the page have to agree on where it stops. */
+  it("stops offering a person the passkey where the enrolment would be refused, and never sends them round", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    ageRow(row, { created: STEP_UP_WINDOW_MS + 60_000 });
     arriveAs(cookie);
 
     assert.equal(await getPasskeyStep(), null);
     assert.equal(await getSignInDestination(), "/bereich");
+  });
+
+  /* Past the window an administrator holding none has no card the server would honour: sent to the
+     passkey page, that page would send them back to the landing and round again. */
+  it("sends an administrator whose code session is too old to enrol back to sign in, and asserts one who holds a passkey", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    ageRow(row, { created: STEP_UP_WINDOW_MS + 60_000 });
+    arriveAs(cookie);
+
+    assert.equal(await getPasskeyStep(), null);
+    assert.equal(await getSignInDestination(), "/signin");
+
+    store.passkey.push(aPasskeyFor(row.userId));
+
+    assert.deepEqual(await getPasskeyStep(), { step: "assert", email: ADMIN_EMAIL });
+    assert.equal(await getSignInDestination(), "/signin/passkey");
   });
 
   it("asks nothing of a visitor carrying no session", async () => {
@@ -594,7 +658,7 @@ describe("the second factor, judged at the same guard", () => {
     assert.ok(withFactor);
     assert.equal(isAdminSession(withFactor), true);
 
-    row.authFactor = "link";
+    row.authFactor = "code";
     const withoutFactor = await served(cookie);
     assert.ok(withoutFactor);
     assert.equal(isAdminSession(withoutFactor), false);
@@ -605,7 +669,7 @@ describe("the second factor, judged at the same guard", () => {
   it("sends to `/bereich/admin` exactly the sessions the guard admits, over the same seeded rows", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
 
-    for (const factor of ["link", "passkey"]) {
+    for (const factor of ["code", "passkey"]) {
       for (const created of [HOUR_MS, 49 * HOUR_MS]) {
         row.authFactor = factor;
         ageRow(row, { created });
@@ -626,11 +690,11 @@ describe("the second factor, judged at the same guard", () => {
 });
 
 describe("the window the library lets an enrolment happen inside", () => {
-  /* `freshAge` gates passkey REGISTRATION from `createdAt` and defaults to a day: left there, the
-     page offers the step for another twenty-four hours and every press is refused. */
-  it("still generates registration options for an administrator forty-seven hours old", async () => {
+  /* `freshAge` gates passkey REGISTRATION from `createdAt` and defaults to a day: left there, a stolen
+     cookie enrols its own authenticator for a day where every other step-up asks again at the window. */
+  it("still generates registration options for a code session a minute inside the step-up window", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    ageRow(row, { created: 47 * HOUR_MS });
+    ageRow(row, { created: STEP_UP_WINDOW_MS - 60_000 });
 
     const answer = await overHttp("/passkey/generate-register-options", { cookie });
     assert.equal(answer.status, 200, `the enrolment the page offers was refused: ${JSON.stringify(logged)}`);
@@ -642,11 +706,18 @@ describe("the window the library lets an enrolment happen inside", () => {
     assert.equal(options.rp.id, "localhost", "the relying party is not the origin this stack serves");
   });
 
-  it("refuses them past the administrator's own window, which is where the page stops offering the step", async () => {
+  it("refuses them a minute past it, which is where the page stops offering the step", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    ageRow(row, { created: 49 * HOUR_MS });
+    ageRow(row, { created: STEP_UP_WINDOW_MS + 60_000 });
 
-    assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 403);
+    // The hook's own refusal, ahead of the library's freshness gate, which answers 403.
+    assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
+  });
+
+  /* Two hours, GitHub's re-authentication window: the figure every step-up here is judged by. */
+  it("holds the step-up window at two hours, the figure chosen rather than derived", () => {
+    assert.equal(STEP_UP_WINDOW_MS, 2 * HOUR_MS);
+    assert.equal(auth.options.session.freshAge, STEP_UP_WINDOW_MS / 1000, "the library's freshness gate and the step-up disagree");
   });
 });
 
@@ -832,6 +903,7 @@ describe("what the passkey ceremony has to prove before it mints anything", () =
     assert.equal(refused.status, 400);
     assert.equal(((await refused.json()) as { code?: string }).code, "USER_VERIFICATION_REQUIRED");
     assert.equal(store.session.length, sessions, "a refused assertion still minted a session");
+    assert.ok(store.session.includes(row), "a refused assertion signed its caller out");
   });
 
   /* The registration half of the same requirement, which the card's first step runs: 1.7.5 hardcodes
@@ -912,7 +984,7 @@ describe("which relying party and which origin a ceremony is judged against", ()
 describe("which sessions may enrol a passkey, and how many rows they may leave", () => {
   /* The bootstrap, driven whole rather than sampled at the options call: the refusals below mean
      nothing unless the step they leave open really writes a row. */
-  it("enrols the first passkey for a link-borne session, and leaves that session link-borne", async () => {
+  it("enrols the first passkey for a code-borne session, and leaves that session code-borne", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     const sessions = store.session.length;
 
@@ -922,15 +994,15 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     assert.equal(store.passkey.length, 1);
     assert.equal(store.passkey[0]?.userId, row.userId);
     assert.equal(store.session.length, sessions, "the enrolment minted a session of its own");
-    assert.equal(row.authFactor, "link", "enrolling a passkey re-stamped the session that did it");
+    assert.equal(row.authFactor, "code", "enrolling a passkey re-stamped the session that did it");
 
     arriveAs(cookie);
     assert.deepEqual(await getPasskeyStep(), { step: "assert", email: ADMIN_EMAIL });
   });
 
-  /* The hole the second factor would otherwise leave open: a mailbox alone reaches a link-borne
+  /* The hole the second factor would otherwise leave open: a mailbox alone reaches a code-borne
      session, and the plugin gates both enrolment paths on freshness and nothing else. */
-  it("refuses both enrolment paths to a link-borne session that already holds one, writing no second row", async () => {
+  it("refuses both enrolment paths to a code-borne administrator who already holds one, writing no second row", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     const held = aPasskeyFor(row.userId);
     store.passkey.push(held);
@@ -955,20 +1027,20 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     assert.equal(store.passkey.length, 2);
   });
 
-  /* The whole of what the step-up buys: at `HEAD` the library's freshness gate is the administrator's
-     own window, so a stolen cookie could enrol for as long as it was valid at all. */
-  it("refuses a further passkey to a passkey-made session whose assertion is an hour old", async () => {
+  /* The whole of what the step-up buys: without it a stolen cookie could enrol for as long as it was
+     valid at all. */
+  it("refuses a further passkey to a passkey-made session whose assertion is past the step-up window", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     steppedUp(row);
-    ageRow(row, { created: HOUR_MS });
+    ageRow(row, { created: STEP_UP_WINDOW_MS + 60_000 });
     store.passkey.push(aPasskeyFor(row.userId));
 
     assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
     assert.equal(store.passkey.length, 1);
   });
 
-  /* The `auth.api` arm of the same condition, which the hook returns early for: without the callback
-     any in-process caller reaching the plugin would enrol on a session that never asserted. */
+  /* The `auth.api` arm, which the hook returns early for: the library's freshness gate stands at the
+     same window and answers first, so the callback behind it is driven by a case further down. */
   it("refuses that same stale session where the hook never runs", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     steppedUp(row);
@@ -981,7 +1053,7 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     const held = aPasskeyFor(row.userId);
     store.passkey.push(held);
     // Aged after the options call, which the library gates on `freshAge` and would refuse first.
-    ageRow(row, { created: HOUR_MS });
+    ageRow(row, { created: STEP_UP_WINDOW_MS + 60_000 });
 
     await assert.rejects(
       () =>
@@ -989,23 +1061,46 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
           body: { response: registrationFor(challenge, true, SECOND_RAW_ID) },
           headers: new Headers({ ...ORIGIN, cookie: `${cookie}; ${minted}`, origin: "http://localhost:3000" }),
         }),
-      // The default-deny net's own answer, named rather than taken for any rejection at all: a body
-      // the plugin refused for its own reasons answers `BAD_REQUEST` and would pass this case.
-      (raised: unknown) => Reflect.get(raised as object, "status") === "NOT_FOUND",
+      // The freshness gate's own answer, named rather than taken for any rejection at all: a body the
+      // plugin refused for its own reasons answers `BAD_REQUEST` and would pass this case.
+      (raised: unknown) => Reflect.get(raised as object, "status") === "FORBIDDEN",
     );
 
     assert.deepEqual(store.passkey, [held], "the callback let a stale session write a row");
   });
 
-  /* The allowlist inside the predicate. Without it "the passkey made it" is the whole
-     rule, and Programme 2's person-tier sessions would satisfy it the day they ship. */
-  it("refuses a further passkey to a passkey-made session whose address the allowlist does not carry", async () => {
+  /* A person's passkey is optional, so a fresh sign-in by either factor enrols: the mailbox is the
+     account whatever the person holds. */
+  it("enrols a person's passkey from a fresh code session, and a further one", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
-    steppedUp(row);
-    store.passkey.push(aPasskeyFor(row.userId));
+
+    assert.equal((await enrolPasskey(cookie)).status, 200);
+    assert.equal((await enrolPasskey(cookie, {}, true, SECOND_RAW_ID)).status, 200, "a code session was refused a second passkey");
+    assert.deepEqual(
+      store.passkey.map((held) => held.userId),
+      [row.userId, row.userId],
+    );
+  });
+
+  it("refuses a person's passkey past the step-up window, whatever made the session", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+
+    for (const factor of ["code", "passkey"]) {
+      row.authFactor = factor;
+      ageRow(row, { created: STEP_UP_WINDOW_MS + 60_000 });
+
+      assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404, `${factor} enrolled when stale`);
+    }
+    assert.deepEqual(store.passkey, []);
+  });
+
+  it("refuses the enrolment that would take a person past the cap", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    for (let index = 0; index < PASSKEY_LIMIT; index += 1)
+      store.passkey.push({ ...aPasskeyFor(row.userId), id: `ein-passkey-${String(index)}` });
 
     assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
-    assert.equal(store.passkey.length, 1);
+    assert.equal(store.passkey.length, PASSKEY_LIMIT);
   });
 
   /* Driven at `HEAD` of the design: one stepped-up session wrote twenty-one rows with nothing
@@ -1137,19 +1232,24 @@ describe("which sessions may enrol a passkey, and how many rows they may leave",
     assert.equal(await answer.text(), "", "the refusal is the library switch's rather than the net's");
   });
 
-  /* Mounted by the plugin's own body schema and wanted by nothing here: left open it swaps the
-     caller's session for one this application never asked the library to mint. */
-  it("refuses a registration that asks for a session, before the passkey is written", async () => {
-    const { cookie } = await signIn(ADMIN_EMAIL);
-    const sessions = store.session.length;
+  /* A registration whose posted id is not the attested one: the verifier compares neither, so the
+     session it mints would name whichever passkey its caller chose. */
+  it("refuses a registration whose declared credential is not the one the authenticator attested", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    const offered = await overHttp("/passkey/generate-register-options", { cookie });
+    const { challenge } = (await offered.json()) as { challenge: string };
 
-    // The whole ceremony, challenge and all: posted without one the plugin answers the same 400 for
-    // its missing challenge, and the refusal this case is about is never reached.
-    const asked = await enrolPasskey(cookie, { createSession: true });
+    const response = registrationFor(challenge, true);
+    const forged = { ...response, id: SECOND_RAW_ID.toString("base64url"), rawId: SECOND_RAW_ID.toString("base64url") };
+    const answer = await overHttp("/passkey/verify-registration", {
+      method: "POST",
+      cookie: `${cookie}; ${cookieHeader(offered)}`,
+      body: { response: forged, createSession: true },
+    });
 
-    assert.equal(asked.status, 400);
+    assert.equal(answer.status, 400);
     assert.deepEqual(store.passkey, []);
-    assert.equal(store.session.length, sessions, "the enrolment minted the session it asked for");
+    assert.ok(store.session.includes(row), "a refused enrolment signed its caller out");
   });
 });
 
@@ -1216,6 +1316,180 @@ describe("what a session row keeps about the request that made it", () => {
     assert.ok(row !== undefined);
     assert.equal(Reflect.get(row, "ipAddress"), "");
     assert.equal(Reflect.get(row, "userAgent"), "");
+  });
+});
+
+/** The rows written since `before` was taken: the store keeps every earlier case's sessions. */
+const writtenSince = (before: readonly SessionRow[]) => store.session.filter((session) => !before.includes(session));
+
+describe("what a session records about the sign-in that made it", () => {
+  it("stamps a mailbox session with its factor and no credential", async () => {
+    const { row } = await signIn(PERSON_EMAIL);
+
+    assert.equal(row.authFactor, "code");
+    assert.equal(row.passkeyCredentialId, undefined);
+  });
+
+  /* The removal of one passkey ends the sessions carrying its credential id and no other, so the id
+     stamped is the one the ceremony proved, never one the body names. */
+  it("stamps an assertion's session with the credential the signature was verified against", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+
+    assert.equal((await assertPasskey(cookie, true)).status, 200);
+
+    const minted = store.session.at(-1);
+    assert.equal(minted?.authFactor, "passkey");
+    assert.equal(minted?.passkeyCredentialId, CREDENTIAL_ID);
+  });
+
+  /* Setting a passkey up signs in with it: the enrolment mints the passkey's own session inside the
+     transaction that writes the row, and the code's session ends. */
+  it("signs in with a passkey the moment it is set up, stamping the attested credential and ending the code's session", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    const mailed = sent.length;
+    const before = [...store.session];
+
+    const enrolled = await enrolPasskey(cookie, { createSession: true });
+    assert.equal(enrolled.status, 200, await enrolled.clone().text());
+    assert.deepEqual(await enrolled.clone().json(), { status: true }, "the enrolment's answer carried the session it minted");
+
+    const [minted, ...others] = writtenSince(before);
+    assert.deepEqual(others, []);
+    assert.ok(!store.session.includes(row), "the code's session outlived the sign-in that replaced it");
+    assert.equal(minted?.authFactor, "passkey");
+    assert.equal(minted?.passkeyCredentialId, CREDENTIAL_ID);
+    assert.equal(sent.length, mailed + 1, "the enrolment that signed in mailed no notice");
+
+    arriveAs(cookieHeader(enrolled));
+    assert.ok(await getAdminSession(), "the session the enrolment minted does not open the admin surface");
+  });
+
+  it("leaves the caller signed in, and mints nothing, where the setup is refused", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    const before = [...store.session];
+
+    const refused = await enrolPasskey(cookie, { createSession: true }, false);
+
+    assert.equal(refused.status, 400);
+    assert.deepEqual(store.passkey, []);
+    assert.deepEqual(writtenSince(before), [], "a refused setup signed its caller in");
+    assert.ok(store.session.includes(row), "a refused setup signed its caller out");
+  });
+
+  /* A session no listed endpoint made is no sign-in this league offers: a path a release adds, or a
+     mint in process, fails closed rather than handing out a session no guard has classified. */
+  it("refuses a session no listed sign-in made, writing no row", async () => {
+    const { row } = await signIn(ADMIN_EMAIL);
+    const { internalAdapter } = await auth.$context;
+    const sessions = store.session.length;
+
+    await assert.rejects(
+      () => internalAdapter.createSession(row.userId),
+      (raised: unknown) => raised instanceof Error && raised.name === "SessionFromUnlistedPath",
+    );
+    assert.equal(store.session.length, sessions);
+  });
+});
+
+describe("which session a new sign-in replaces", () => {
+  /* A step-up is a sign-in, and every one left the session it replaced alive beside the new one:
+     one device, two live cookies' worth of rows. */
+  it("ends the session a step-up replaced, leaving the device one", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+
+    const before = [...store.session];
+
+    const first = await assertPasskey(cookie, true);
+    const second = await assertPasskey(cookieHeader(first), true);
+    assert.equal(second.status, 200);
+
+    const left = writtenSince(before);
+    assert.equal(left.length, 1, "a step-up left the session it replaced");
+    assert.ok(!store.session.includes(row), "the first sign-in's session outlived the step-up");
+    arriveAs(cookieHeader(second));
+    assert.equal((await getAdminSession())?.session.id, left[0]?.id);
+  });
+
+  /* The in-process arm, which is how the code's own route signs in: the hook reads the endpoint's
+     context there too, or no in-process sign-in would mint at all. */
+  it("ends the replaced session on an in-process sign-in as well", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+    const headers = { ...ORIGIN, origin: "http://localhost:3000" };
+    const before = [...store.session];
+
+    const offered = await auth.api.generatePasskeyAuthenticationOptions({ headers: new Headers({ ...headers, cookie }), returnHeaders: true });
+    const challenge = (offered.response as { challenge: string }).challenge;
+
+    await auth.api.verifyPasskeyAuthentication({
+      body: { response: assertionFor(challenge, true) },
+      headers: new Headers({ ...headers, cookie: `${cookie}; ${cookieHeader(offered)}` }),
+    });
+
+    assert.equal(writtenSince(before).length, 1);
+    assert.ok(!store.session.includes(row), "the in-process sign-in left the session it replaced");
+  });
+
+  it("ends the replaced session on a mailbox sign-in too, whoever's it was", async () => {
+    const person = await signIn(PERSON_EMAIL);
+
+    await auth.api.signInMagicLink({ body: { email: ADMIN_EMAIL }, headers: new Headers(ORIGIN) });
+    const token = lastMailedToken(sent, ADMIN_EMAIL);
+    assert.ok(token !== null);
+    await auth.api.magicLinkVerify({ query: { token }, headers: new Headers({ ...ORIGIN, cookie: person.cookie }), returnHeaders: true });
+
+    assert.ok(!store.session.includes(person.row), "the browser's previous session outlived the sign-in that replaced it");
+  });
+
+  /* The new session has committed by then, and failing the sign-in would strand it without its
+     cookie while the replaced one stayed alive anyway. */
+  it("signs in and records the failure where the replaced session cannot be ended", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+    const { internalAdapter } = await auth.$context;
+    const deleteSession = internalAdapter.deleteSession;
+    const before = [...store.session];
+    logged.length = 0;
+
+    internalAdapter.deleteSession = () => Promise.reject(new Error("the store answered nothing"));
+    try {
+      assert.equal((await assertPasskey(cookie, true)).status, 200);
+    } finally {
+      internalAdapter.deleteSession = deleteSession;
+    }
+
+    assert.deepEqual(
+      logged.map((line) => [line.message, line.meta]),
+      [["auth.session_rotation_failed", { error_code: "FE-AUTH-006", name: "Error" }]],
+    );
+    assert.equal(writtenSince(before).length, 1, "the sign-in did not mint its session");
+    assert.ok(store.session.includes(row));
+  });
+});
+
+describe("the step-up every change to passkeys and sign-ins asks for", () => {
+  const judged = (email: string, authFactor: string, age: number) =>
+    isFreshlySignedIn({ user: { email }, session: { createdAt: new Date(Date.now() - age), authFactor } });
+
+  it("admits a person signed in by either factor inside the window, and neither past it", () => {
+    for (const factor of ["code", "passkey"]) {
+      assert.equal(judged(PERSON_EMAIL, factor, STEP_UP_WINDOW_MS - 60_000), true, `${factor} inside the window`);
+      assert.equal(judged(PERSON_EMAIL, factor, STEP_UP_WINDOW_MS + 60_000), false, `${factor} past the window`);
+    }
+  });
+
+  /* The administrator's step-up is the passkey's: a mailbox alone must not manage the passkeys that
+     guard the admin surface. */
+  it("admits an administrator inside the window by the passkey alone", () => {
+    assert.equal(judged(ADMIN_EMAIL, "passkey", STEP_UP_WINDOW_MS - 60_000), true);
+    assert.equal(judged(ADMIN_EMAIL, "code", 0), false);
+    assert.equal(judged(ADMIN_EMAIL, "passkey", STEP_UP_WINDOW_MS + 60_000), false);
+  });
+
+  it("takes a stamp it cannot read for no step-up at all", () => {
+    assert.equal(isFreshlySignedIn({ user: { email: PERSON_EMAIL }, session: { createdAt: "kein Datum", authFactor: "passkey" } }), false);
   });
 });
 

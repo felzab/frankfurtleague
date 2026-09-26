@@ -112,9 +112,8 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
   // 200 for every answer but a turned-away caller's, the body carrying it: the dispatch reads any other
   // non-2xx as a transport failure (`docs/frontend/spec.md` §1.3).
   if (guarded.forbidden) {
-    // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: only a person's live
-    // session is 403, and an administrator past a lifetime or short of the factor is 401, which sends them
-    // somewhere they can get back in.
+    // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: a session the landing
+    // sends to `/bereich` is 403, and any other is 401, which sends it somewhere it gets further.
     const status = (await getSignInDestination()) === "/bereich" ? 403 : 401;
     return NextResponse.json({ success: false, error: ADMIN_FORBIDDEN }, { status });
   }

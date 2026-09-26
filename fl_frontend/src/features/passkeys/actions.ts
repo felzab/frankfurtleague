@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 
 import { getAuthenticatorName } from "@better-auth/passkey";
 
-import { auth, isRecentlyAsserted, notifyPasskeyRemoved, PASSKEY_LIMIT, removePasskey } from "@/core/auth";
+import { auth, isFreshlySignedIn, notifyPasskeyRemoved, PASSKEY_LIMIT, removePasskey } from "@/core/auth";
 import { recordWriteSent } from "@/core/requestScope";
 import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
@@ -66,7 +66,7 @@ export async function removePasskeyAction(id: string): Promise<ActionResult> {
 
     // A cookie alone may not remove: the dialog re-runs the assertion ceremony first, which mints a
     // session whose `createdAt` is now and which an authenticator this account never enrolled cannot.
-    if (!isRecentlyAsserted(served.session.createdAt)) {
+    if (!isFreshlySignedIn(served)) {
       return { success: false, error: BESTAETIGUNG_ABGELAUFEN };
     }
 

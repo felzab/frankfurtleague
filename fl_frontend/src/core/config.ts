@@ -87,9 +87,9 @@ const server = {
 
   MONGODB_URI: z.string().regex(/^(mongodb(?:\+srv)?):\/\/.+/, "MongoDB URI must start with 'mongodb://' or 'mongodb+srv://'"),
 
-  // A stray http:// here ships an admin cookie in plaintext: the library reads this value's SCHEME
-  // and gives the session cookie the `__Secure-` name prefix and the `secure` attribute together or
-  // neither (`docs/frontend/spec.md` §1.7).
+  // A stray http:// here ships a session cookie in plaintext: `fl_frontend/src/core/auth.ts` reads this
+  // value's SCHEME and gives the cookie the `__Host-` name prefix and the `secure` attribute together
+  // or neither (`docs/frontend/spec.md` §1.7).
 
   // Gated on the host, not NODE_ENV: the local stack sets it to production too.
   AUTH_URL: z.url().refine((raw) => {

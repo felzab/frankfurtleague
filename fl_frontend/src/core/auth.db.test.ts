@@ -227,12 +227,16 @@ async function offer(cookie: string): Promise<Offered> {
   return { cookie: `${cookie}; ${cookieHeader(offered)}`, challenge };
 }
 
-function verify(offered: Offered, rawId: Buffer): Promise<Response> {
+function verify(offered: Offered, rawId: Buffer, extra: Record<string, unknown> = {}): Promise<Response> {
   return overHttp("/passkey/verify-registration", {
     method: "POST",
     cookie: offered.cookie,
-    body: { response: registrationFor(offered.challenge, rawId) },
+    body: { response: registrationFor(offered.challenge, rawId), ...extra },
   });
+}
+
+async function sessionRows(): Promise<Record<string, unknown>[]> {
+  return authDb().collection("session").find({}).toArray();
 }
 
 async function passkeyRows(): Promise<Record<string, unknown>[]> {
@@ -392,5 +396,43 @@ describe("two enrolments of one administrator at once, against a real database (
     const answer = await verify(offered, AUTHENTICATOR_A);
 
     assert.deepEqual({ status: answer.status, rows: (await passkeyRows()).length }, { status: 500, rows: 0 });
+  });
+});
+
+/* The session a setup mints is written inside the transaction the patched plugin opens around the
+   registration, so a setup the database refuses signs nobody in and nobody out
+   (`docs/frontend/spec.md :: I399`). */
+describe("a passkey setup that signs in, against a real database", () => {
+  it("replaces the code's session with the passkey's, the credential stamped", async () => {
+    const offered = await offer(await signIn(ADMIN_EMAIL));
+
+    const enrolled = await verify(offered, AUTHENTICATOR_A, { createSession: true });
+    assert.equal(enrolled.status, 200, await enrolled.clone().text());
+
+    const sessions = await sessionRows();
+    assert.deepEqual(
+      sessions.map(({ authFactor, passkeyCredentialId }) => [authFactor, passkeyCredentialId]),
+      [["passkey", AUTHENTICATOR_A.toString("base64url")]],
+      "the code's session outlived the setup, or the passkey's was never written",
+    );
+  });
+
+  it("mints one session for the winner of two setups at once, and leaves the loser signed in by code", async () => {
+    const a = await offer(await signIn(ADMIN_EMAIL));
+    const b = await offer(await signIn(ADMIN_EMAIL));
+    const mailedBefore = sent.length;
+
+    barrier.arm(2);
+    const responses = await Promise.all([
+      verify(a, AUTHENTICATOR_A, { createSession: true }),
+      verify(b, AUTHENTICATOR_B, { createSession: true }),
+    ]);
+    barrier.disarm();
+    assert.ok(await barrier.filled, "the setups were not both held at their first write, so no race was run");
+
+    assert.deepEqual(responses.map((response) => response.status).sort(), [200, 409]);
+    assert.equal(sent.length - mailedBefore, 1);
+    const factors = (await sessionRows()).map(({ authFactor }) => authFactor).sort();
+    assert.deepEqual(factors, ["code", "passkey"], "the refused setup minted a session or ended its caller's");
   });
 });

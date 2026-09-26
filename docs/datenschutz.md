@@ -329,7 +329,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   `session`, `account`, `verification` and `passkey`. The last holds a credential's public key, its
   identifier and the counters the browser reports, and never a secret the person holds, the private
   key staying on their own device; a `session` row holds the account it belongs to, its own
-  expiry and which factor made it, and neither the address nor the browser the sign-in came from. A `user` row's `updatedAt` records when that account, or any of its passkeys, last
+  expiry, which factor made it and, where a passkey did, that passkey's credential identifier, and
+  neither the address nor the browser the sign-in came from. A `user` row's `updatedAt` records when that account, or any of its passkeys, last
   changed, a removal included (`fl_frontend/src/core/auth.ts :: claimAccount`). **A session and a sign-in token each carry an expiry set at that
   configuration, and the expiry bounds the credential rather than the row**: the library drops a
   session row when its holder presents the stale cookie and leaves it standing where nobody comes

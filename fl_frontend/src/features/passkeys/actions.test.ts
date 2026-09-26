@@ -55,7 +55,7 @@ const { auth, getAdminSession, PASSKEY_LIMIT } = await import("@/core/auth");
 const { readPasskeysAction, removePasskeyAction } = await import("./actions.ts");
 const { ADMIN_FORBIDDEN } = await import("@/shared/utils/adminMutation");
 
-const HOUR_MS = 60 * 60 * 1000;
+const { STEP_UP_WINDOW_MS } = await import("@/core/sessionLifetimes.ts");
 
 beforeEach(() => {
   globals[PASS_THROUGH] = false;
@@ -213,10 +213,10 @@ describe("what a removal costs, and what it refuses", () => {
   });
 
   /* The step-up, which is the whole of what a stolen cookie cannot do: the dialog re-runs the
-     assertion ceremony before it calls this, and an hour-old session has not. */
-  it("refuses a removal from a session whose assertion is an hour old", async () => {
+     assertion ceremony before it calls this, and a session past the step-up window has not. */
+  it("refuses a removal from a session whose assertion is past the step-up window", async () => {
     const { cookie, row } = await steppedUpAdmin();
-    row.createdAt = new Date(Date.now() - HOUR_MS);
+    row.createdAt = new Date(Date.now() - STEP_UP_WINDOW_MS - 60_000);
     const held = seedPasskey(row.userId, "eins");
     seedPasskey(row.userId, "zwei");
     arriveAs(cookie);
