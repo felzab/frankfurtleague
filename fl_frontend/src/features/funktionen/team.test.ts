@@ -124,6 +124,18 @@ describe("what a seat holder meets at their team's address", () => {
 });
 
 describe("what a person meets at an address they hold no seat on", () => {
+  /* The page alone, as Next runs it whatever the layout renders in its stead: the seat check is the
+     page's own, before any read, or the page's data reaches the payload beside the forbidden panel. */
+  it("renders nothing from the page itself, which checks the seat on its own", async () => {
+    const page = (teamId: string) =>
+      h(TeamStartPage, { params: Promise.resolve({ team_id: teamId, saison_id: "2526" }), searchParams: Promise.resolve({}) });
+    setSubject(person({ sitze: [sitz()] }));
+
+    // The control: at the held address the same page renders the team, so the empty answer is the check's.
+    assert.ok((await renderPage(underNext(page(TEAM_A)))).includes("Goethe-Gymnasium"), "the page renders nothing even where a seat stands");
+    assert.equal(await renderPage(underNext(page(TEAM_B))), "", "the page renders for an address the person holds no seat on");
+  });
+
   /* Inside the shell, so the person meets their own navigation, and naming nothing of the address: no
      entry, no season, no role, nothing about who holds a seat there or whether the team exists. */
   it("renders the forbidden panel inside the shell for another team, linking to the team the person holds", async () => {
