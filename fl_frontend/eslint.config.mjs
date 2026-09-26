@@ -538,6 +538,9 @@ const LEADING_SLOT = String.raw`:matches(BinaryExpression[operator="+"] > .left,
 // The literal is the carrier's FIRST argument, or names the parameter in its own query; a route
 // handed to `ShellNotFound` is carried by that component, which `fl_frontend/src/app/notFound.test.ts`
 // renders under a season.
+/** The panel's old prefix as a whole segment, so `/adminTable` and `/administration` stay free. */
+const STALE_ADMIN = String.raw`/^\x2Fadmin(?![A-Za-z0-9_-])/`;
+
 const UNSEASONED_ADMIN_LINKS = [
   String.raw`Literal[value=/^\x2Fbereich\x2Fadmin(?![^#]*[?&]saison_id=)/]:not(TSLiteralType > Literal):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > Literal.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > Literal)`,
   String.raw`TemplateLiteral:matches([quasis.0.value.raw=/^\x2Fbereich\x2Fadmin/], [quasis.0.value.raw=""][quasis.1.value.raw=/^\x2Fbereich\x2Fadmin/]):not(:has(> TemplateElement[value.raw=/[?&]saison_id=/])):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > TemplateLiteral.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > JSXExpressionContainer > TemplateLiteral)`,
@@ -719,6 +722,13 @@ const SOURCE_BANS = [
   {
     selector: `:matches(${inLiteral(String.raw`\x2Fbestaetigung\?`)}, ${inLiteral(String.raw`\x2Fapi\x2Fbestaetigung$`)})`,
     message: "The confirmation moved off /bestaetigung: mint the link through `bestaetigungsLink`.",
+    tests: true,
+  },
+  {
+    // Where a literal or a template opens, as `UNSEASONED_ADMIN_LINKS` reads one: a backend path
+    // ending in `/admin` and a route handler under `/api/admin` open on neither.
+    selector: `:matches(Literal[value=${STALE_ADMIN}], TemplateLiteral:matches([quasis.0.value.raw=${STALE_ADMIN}], [quasis.0.value.raw=""][quasis.1.value.raw=${STALE_ADMIN}]))`,
+    message: "The admin panel moved off /admin, which answers 404: its pages are under /bereich/admin.",
     tests: true,
   },
   {

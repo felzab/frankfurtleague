@@ -39,7 +39,7 @@ const store: Store = { user: [], session: [], account: [], verification: [], pas
 // registered, so neither the doubles nor the `next/server` extension would be in place yet.
 const { NextRequest } = await import("next/server");
 const { auth, getSignInDestination } = await import("./core/auth.ts");
-const { proxy } = await import("./proxy.ts");
+const { config, proxy } = await import("./proxy.ts");
 
 /** What the landing reads, for the cases that put its answer and this proxy's side by side. */
 function arriveAs(cookie: string | null): void {
@@ -184,6 +184,12 @@ describe("where the admin proxy sends a signed-in request", () => {
 });
 
 describe("which addresses under the matched prefix the admin proxy judges", () => {
+  // Every case here calls the proxy directly, so a misspelled matcher would pass them all while Next
+  // never ran the proxy on a single page.
+  it("is matched to the whole `/bereich` prefix and nothing else", () => {
+    assert.deepEqual(config.matcher, ["/bereich/:path*"]);
+  });
+
   // The person lane's words share the prefix, and the administrator's verdict turns every person away.
   it("lets every word outside the administrator's subtree through, whoever arrives", async () => {
     for (const url of [

@@ -9,8 +9,9 @@ import type { NextRequest } from "next/server";
  * the matcher stay scoped to `/bereich` — the session read is a Mongo round trip, never on a public load.
  */
 export async function proxy(req: NextRequest): Promise<NextResponse> {
-  // Every other word under `/bereich` is a person's, guarded by its own lane: judged here by the
-  // administrator's verdict, it would turn every person away.
+  // Every other word under `/bereich` is a person's, guarded by its own lane in the person and team
+  // layouts (`fl_frontend/src/features/funktionen/components/providers/FunktionenGuard.tsx`): judged
+  // here by the administrator's verdict, it would turn every person away.
   if (!inAdminArea(req.nextUrl.pathname)) {
     return NextResponse.next();
   }
