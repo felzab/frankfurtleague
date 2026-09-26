@@ -15,7 +15,10 @@ import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 import type { ReactElement, ReactNode } from "react";
 
 /** One step a page took against the backend or the request, in the order it took them. */
-export type PageStep = { kind: "connection" } | { kind: "read"; endpoint: string; params: Record<string, unknown> };
+export type PageStep =
+  | { kind: "connection" }
+  // `body` parsed, for a read sent as a POST: what it asks about rides there rather than in `params`.
+  | { kind: "read"; endpoint: string; params: Record<string, unknown>; body: unknown };
 
 /** A schema as the doubled client is handed it: enough of Zod's surface to build the emptiest answer. */
 export type AnswerSchema = {
@@ -215,10 +218,10 @@ export function answerReadsWith(respond: ReadAnswer, handingOver: HandOver = asP
   handOver = handingOver;
 }
 
-doubleApiClient(async ({ endpoint, method, params, readOnly }, handedSchema) => {
+doubleApiClient(async ({ endpoint, method, params, body: sent, readOnly }, handedSchema) => {
   const schema = handedSchema as z.ZodType & AnswerSchema;
   const asked = (params ?? {}) as Record<string, unknown>;
-  steps.push({ kind: "read", endpoint, params: asked });
+  steps.push({ kind: "read", endpoint, params: asked, body: sent === undefined ? undefined : (JSON.parse(sent) as unknown) });
   const body = await answerRead(endpoint, schema, asked);
 
   // The client's own check (`fl_frontend/src/core/api.ts :: apiClient`): a body its schema refuses

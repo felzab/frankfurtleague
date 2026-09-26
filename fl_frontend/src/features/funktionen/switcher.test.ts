@@ -12,7 +12,7 @@ import type { FLSubjektResponse, FLSubjektSitz } from "@/core/schemas.ts";
 import type { SubjectSession } from "@/core/subject.ts";
 import type * as NextError from "next/error";
 
-const { setSubject, subjectReads } = doubleActionRequest();
+const { setSession, setSubject, subjectReads } = doubleActionRequest();
 // The shells hand a sign-out action to the bar, whose real module reaches `next/server` past the harness.
 doubleEveryAction();
 
@@ -120,5 +120,17 @@ describe("the administrator's switcher", () => {
 
     assert.equal(lookups, 1, `the administrator's render looked the records up ${String(lookups)} times`);
     assert.equal(subjectReads(), 0, "the administrator's render ran the person lane's guard");
+  });
+
+  /* One spelling per person: the session keeps the address as it was typed, and a lookup keyed on that
+     spelling names a second mailbox to the join (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`). */
+  it("asks about the admin session's own address, folded", async () => {
+    setSession({ user: { email: "Vorstand@Example.org" } });
+    await adminAt({ sitze: [sitz()] });
+
+    assert.deepEqual(
+      steps.flatMap((step) => (step.kind === "read" && step.endpoint === "/identitaet/subjekt" ? [step.body] : [])),
+      [{ email: "vorstand@example.org" }],
+    );
   });
 });
