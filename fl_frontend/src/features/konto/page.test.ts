@@ -161,7 +161,7 @@ const sicherheit = (fields: Partial<Sicherheit> = {}): Sicherheit => ({
     },
   ],
   verwaltung: false,
-  bestaetigtBis: null,
+  freshUntil: null,
   ...fields,
 });
 

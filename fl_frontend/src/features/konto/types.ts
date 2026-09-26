@@ -26,5 +26,5 @@ export interface Sicherheit {
   /** An administrator's address, whose last passkey is kept and whose confirmation is a passkey's alone. */
   readonly verwaltung: boolean;
   /** Until when the page's session counts as confirmed, in epoch milliseconds; `null` where it already does not. */
-  readonly bestaetigtBis: number | null;
+  readonly freshUntil: number | null;
 }

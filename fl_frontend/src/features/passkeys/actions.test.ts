@@ -184,8 +184,8 @@ describe("the confirmation every change waits for", () => {
     const rename = await renamePasskeyAction(held.id, "Mein Schlüssel");
 
     assert.equal(removal.success, false);
-    assert.equal(Reflect.get(removal, "bestaetigen"), true, "the page is not told to ask for a confirmation");
-    assert.equal(Reflect.get(rename, "bestaetigen"), true, "the page is not told to ask for a confirmation");
+    assert.equal(Reflect.get(removal, "stepUp"), true, "the page is not told to ask for a confirmation");
+    assert.equal(Reflect.get(rename, "stepUp"), true, "the page is not told to ask for a confirmation");
     assert.equal(store.passkey.length, 2, "a session past the window removed a row");
     assert.equal(Reflect.get(held, "name"), undefined, "a session past the window renamed a row");
   });

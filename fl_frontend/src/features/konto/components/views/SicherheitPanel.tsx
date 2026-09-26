@@ -30,7 +30,7 @@ import type { ActionFailure } from "@/shared/types/types";
 import type { Sicherheit } from "../../types";
 
 /** Why the page asks before a change, said on the panel that asks. */
-const BESTAETIGUNG_HINWEIS = "Für Änderungen an Passkeys und Anmeldungen fragen wir kurz nach.";
+const STEP_UP_HINT = "Für Änderungen an Passkeys und Anmeldungen fragen wir kurz nach.";
 
 /** The cap's own sentence, which names the way forward rather than the number it refuses at. */
 const ZU_VIELE = "Mehr Passkeys gehen nicht. Lösche zuerst einen.";
@@ -47,10 +47,10 @@ const GLEICHZEITIG = "Gleichzeitig wurde ein anderer Passkey hinzugefügt oder g
 const SIGN_IN = "/signin";
 
 /** A change the page runs, which answers whether it still needs a confirmation the page did not get. */
-type Aenderung = () => Promise<"erledigt" | "bestaetigen">;
+type Aenderung = () => Promise<"erledigt" | "stepUp">;
 
 /** An action's refusal for want of a recent sign-in, which the page answers by asking rather than by a toast. */
-const verlangtBestaetigung = (result: { success: boolean }): boolean => !result.success && Reflect.get(result, "bestaetigen") === true;
+const wantsStepUp = (result: { success: boolean }): boolean => !result.success && Reflect.get(result, "stepUp") === true;
 
 /**
  * The „Sicherheit“ section: the passkeys, the sign-ins, and the one confirmation every change on it
@@ -62,22 +62,22 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
   const { passkeys, anmeldungen, verwaltung } = sicherheit;
 
   // Moved by a confirmation made on this page, which the server's figure lags until the refresh lands.
-  const [bestaetigtBis, setBestaetigtBis] = useState(sicherheit.bestaetigtBis);
+  const [freshUntil, setFreshUntil] = useState(sicherheit.freshUntil);
   const [wartend, setWartend] = useState<Aenderung | null>(null);
   const [istBeschaeftigt, setIstBeschaeftigt] = useState(false);
 
-  const istBestaetigt = (): boolean => bestaetigtBis !== null && Date.now() < bestaetigtBis;
+  const isFresh = (): boolean => freshUntil !== null && Date.now() < freshUntil;
 
   /** Runs `change` now if the page's session counts as confirmed, and after the panel's confirmation otherwise. */
-  const mitBestaetigung = async (change: Aenderung): Promise<void> => {
-    if (istBestaetigt() && (await change()) === "erledigt") return;
+  const withStepUp = async (change: Aenderung): Promise<void> => {
+    if (isFresh() && (await change()) === "erledigt") return;
     setWartend(() => change);
   };
 
-  const bestaetigt = (): void => {
+  const steppedUp = (): void => {
     const change = wartend;
     setWartend(null);
-    setBestaetigtBis(Date.now() + STEP_UP_WINDOW_MS);
+    setFreshUntil(Date.now() + STEP_UP_WINDOW_MS);
     // The confirmation minted a new session and ended this page's: what the page drew off the old one,
     // „Dieses Gerät“ among it, is read again.
     router.refresh();
@@ -85,10 +85,10 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
   };
 
   const entferne = (id: string): Promise<void> =>
-    mitBestaetigung(async () => {
+    withStepUp(async () => {
       // A rejected action may still have removed the row, and uncaught here it takes the page down with it.
       const result = await removePasskeyAction(id).catch(unansweredAction);
-      if (verlangtBestaetigung(result)) return "bestaetigen";
+      if (wantsStepUp(result)) return "stepUp";
 
       if (!result.success) {
         appToast.failure("Passkey nicht gelöscht", result);
@@ -103,9 +103,9 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
 
   const benenne = async (id: string, name: string): Promise<boolean> => {
     let gelandet = false;
-    await mitBestaetigung(async () => {
+    await withStepUp(async () => {
       const result = await renamePasskeyAction(id, name).catch(unansweredAction);
-      if (verlangtBestaetigung(result)) return "bestaetigen";
+      if (wantsStepUp(result)) return "stepUp";
 
       if (result.success) {
         gelandet = true;
@@ -119,9 +119,9 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
   };
 
   const beende = (id: string): Promise<void> =>
-    mitBestaetigung(async () => {
+    withStepUp(async () => {
       const result = await endAnmeldungAction(id).catch(unansweredAction);
-      if (verlangtBestaetigung(result)) return "bestaetigen";
+      if (wantsStepUp(result)) return "stepUp";
 
       if (result.success) appToast.success("Abgemeldet", { description: "Die Anmeldung ist beendet." });
       else appToast.failure("Nicht abgemeldet", result);
@@ -129,9 +129,9 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
     });
 
   const beendeAndere = (): Promise<void> =>
-    mitBestaetigung(async () => {
+    withStepUp(async () => {
       const result = await endAndereAnmeldungenAction().catch(unansweredAction);
-      if (verlangtBestaetigung(result)) return "bestaetigen";
+      if (wantsStepUp(result)) return "stepUp";
 
       if (result.success) appToast.success("Alle anderen abgemeldet");
       else appToast.failure("Nicht abgemeldet", result);
@@ -141,7 +141,7 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
   // Pressed again after a confirmation rather than run by it: the browser opens a second passkey
   // prompt only on a fresh press, and the confirmation's own prompt spent the one that opened it.
   const fuegeHinzu = async (): Promise<void> => {
-    if (!istBestaetigt()) {
+    if (!isFresh()) {
       setWartend(() => async () => "erledigt" as const);
       return;
     }
@@ -254,10 +254,10 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
         heading={IDENTITY_CONFIRMATION_TITLE}
         size="confirm">
         <IdentityConfirmation
-          hinweis={BESTAETIGUNG_HINWEIS}
+          hinweis={STEP_UP_HINT}
           // The code half arrives with the code sign-in; until then a person confirms by passkey too.
           codeHalf={null}
-          onConfirmed={bestaetigt}
+          onConfirmed={steppedUp}
         />
       </ModalShell>
     </section>

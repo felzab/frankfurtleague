@@ -14,7 +14,7 @@ import type { ReactNode } from "react";
 export const IDENTITY_CONFIRMATION_TITLE = "Bestätige, dass Du es bist";
 
 /** The one refusal a passkey half can meet: a cancelled prompt, an unknown authenticator and an unverified one read alike. */
-const NICHT_BESTAETIGT = "Wir konnten Dich nicht mit einem Passkey bestätigen.";
+const STEP_UP_REFUSED = "Wir konnten Dich nicht mit einem Passkey bestätigen.";
 
 // Props only, so any surface asking for a confirmation reuses this one: the code half is its
 // caller's, the code step living in a feature slice this layer may not import.
@@ -37,7 +37,7 @@ export function IdentityConfirmation({
   const [isPending, setIsPending] = useState(false);
   const [refused, setRefused] = useState(false);
 
-  const bestaetige = async (): Promise<void> => {
+  const stepUp = async (): Promise<void> => {
     setIsPending(true);
     setRefused(false);
     try {
@@ -63,7 +63,7 @@ export function IdentityConfirmation({
         type="button"
         variant="primary"
         isPending={isPending}
-        onPress={() => void bestaetige()}
+        onPress={() => void stepUp()}
         className={formButton({ intent: "submit", fullWidth: true })}>
         {isPending ? "Bestätigt..." : "Mit Passkey bestätigen"}
       </Button>
@@ -72,7 +72,7 @@ export function IdentityConfirmation({
         <p
           role="alert"
           className="fluid-sm text-pretty text-danger-strong">
-          {NICHT_BESTAETIGT}
+          {STEP_UP_REFUSED}
         </p>
       )}
 

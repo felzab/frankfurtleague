@@ -299,7 +299,7 @@ describe("ending one sign-in", () => {
 
     const answer = await endAnmeldungAction(other.row.id);
 
-    assert.equal(Reflect.get(answer, "bestaetigen"), true);
+    assert.equal(Reflect.get(answer, "stepUp"), true);
     assert.ok(
       store.session.some((entry) => entry.id === other.row.id),
       "a session past the window ended a sign-in",
@@ -325,7 +325,7 @@ describe("ending every other sign-in", () => {
     row.createdAt = new Date(Date.now() - 3 * HOUR_MS);
     arriveAs(cookie);
 
-    assert.equal(Reflect.get(await endAndereAnmeldungenAction(), "bestaetigen"), true);
+    assert.equal(Reflect.get(await endAndereAnmeldungenAction(), "stepUp"), true);
     assert.ok(store.session.some((entry) => entry.id === other.row.id));
   });
 
