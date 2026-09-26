@@ -62,7 +62,7 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
     // one to is the only spelling in which that person signs in at all.
     const email = asSignInIdentifier(validated.data.email);
 
-    // The whole call, behind the response: the code write, the mail cap, the gate and the send all
+    // The whole call, behind the response: the mail cap, the code write, the gate and the send all
     // sit in the branch-dependent half, so no branch does any of it before the caller is answered.
     after(async () => {
       try {

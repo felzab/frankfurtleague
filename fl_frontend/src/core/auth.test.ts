@@ -212,6 +212,16 @@ function codeRowOf(email: string): Store["verification"][number] | undefined {
   return store.verification.findLast((row) => row.identifier === `sign-in-otp-${email}`);
 }
 
+/**
+ * Moves every code row `email` holds a second back, so the next send's row is the newest by its stamp:
+ * two sends inside one millisecond tie, and the store then serves the older code as the live one.
+ */
+function ageCodeRows(email: string): void {
+  for (const row of store.verification) {
+    if (row.identifier === `sign-in-otp-${email}`) row.createdAt = new Date(row.createdAt.getTime() - 1000);
+  }
+}
+
 /** The rows counting failed codes, every address's. */
 function failureRows(): Store["verification"] {
   return store.verification.filter((row) => row.identifier.startsWith("sign-in-attempt-"));
@@ -1675,16 +1685,34 @@ describe("what the code costs an address the allowlist does not carry", () => {
     assert.ok(!JSON.stringify(store.verification).includes(otp), "the mailed code is in the store as sent");
   });
 
-  /* The reason the code is stored encrypted rather than hashed: a hashed code cannot be read back, so
-     the plugin mints a fresh one on every resend, and a code read in the first mail fails once the second arrives. */
-  it("mails the same code again when it is asked for again inside its window", async () => {
+  /* What „Code erneut senden“ does: the new mail's code signs in, and the one the first mail carried
+     does not. */
+  it("mails a new code on every send, and voids the one before it", async () => {
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
     const first = lastMailedCode(sent, ADMIN_EMAIL);
     const mailed = sent.length;
+    ageCodeRows(ADMIN_EMAIL);
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    const second = lastMailedCode(sent, ADMIN_EMAIL);
+    assert.ok(first !== null && second !== null);
+    assert.equal(sent.length, mailed + 1, "the second request mailed nothing, so there is nothing to compare");
+
+    assert.equal((await answerOf(ADMIN_EMAIL, first)).code, "INVALID_OTP", "the first mail's code still signs in");
+    assert.equal((await answerOf(ADMIN_EMAIL, second)).status, 200);
+  });
+
+  /* A code's ten minutes run from its own mail and no later request moves them: were a send to extend
+     the code standing, asking again every few minutes would keep a leaked code alive for good. */
+  it("never moves the expiry of a code already mailed", async () => {
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    const mailed = codeRowOf(ADMIN_EMAIL);
+    assert.ok(mailed !== undefined);
+    const lapsing = new Date(Date.now() + 60_000);
+    mailed.expiresAt = lapsing;
+
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
-    assert.equal(sent.length, mailed + 1, "the second request mailed nothing, so there is nothing to compare");
-    assert.equal(lastMailedCode(sent, ADMIN_EMAIL), first);
+    assert.equal(mailed.expiresAt.getTime(), lapsing.getTime(), "a later send moved the mailed code's expiry");
   });
 
   it("consumes the code on its first use, so a second entry of the same code is refused", async () => {
@@ -1836,8 +1864,7 @@ describe("the failures one address may spend, across every code it is sent (`doc
   /* The plugin bounds each CODE at three tries and starts every new one at zero, so a guesser asking
      for a new code after each third miss meets no bound of the plugin's at all. */
   it("counts every failure against the address, so a new code does not reset the bound", async () => {
-    // Two codes spent whole, four failures each: the fourth entry ends the exhausted code, which the
-    // next send then replaces rather than reuses.
+    // Two codes spent whole, four failures each: the fourth entry ends the exhausted code.
     for (let code = 0; code < 2; code += 1) {
       const wrong = wrongFor(await mailedCode());
       for (let attempt = 0; attempt < 3; attempt += 1) assert.equal((await answerOf(ADMIN_EMAIL, wrong)).code, "INVALID_OTP");
@@ -1950,6 +1977,22 @@ describe("the code mails one address may be sent in an hour (`docs/frontend/spec
     }
 
     assert.equal(store.verification.filter((row) => row.identifier.startsWith("sign-in-mail-")).length, 5);
+  });
+
+  /* The plugin writes a new code before its send callback runs, so a send capped there would void
+     the fifth mail's code and mail no other: the person would hold a dead code for the hour. */
+  it("leaves the last mailed code standing when a send is capped", async () => {
+    for (let send = 0; send < 5; send += 1) {
+      ageCodeRows(ADMIN_EMAIL);
+      await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    }
+    const fifth = lastMailedCode(sent, ADMIN_EMAIL);
+    assert.ok(fifth !== null);
+
+    ageCodeRows(ADMIN_EMAIL);
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+
+    assert.equal((await answerOf(ADMIN_EMAIL, fifth)).status, 200, "the capped send voided the code the person holds");
   });
 });
 

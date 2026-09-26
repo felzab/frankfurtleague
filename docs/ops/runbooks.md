@@ -1152,8 +1152,10 @@ carries the address. Ask when they tried and read that window
 - `auth.code_send_failed` or `auth.sign_in_failed` under `FE-AUTH-002`: the gate admitted the
   address, and the send or the library call around it failed; `FE-MAIL-001` under the same trace id
   is the provider refusing the message.
-- `auth.code_mail_capped`, an info line: the address had been sent five codes inside the hour, so
-  this one was sent nothing (`docs/frontend/spec.md :: I442`).
+- `auth.code_mail_capped`, an info line: five codes had been asked for the address inside the
+  hour, so this one was sent nothing (`docs/frontend/spec.md :: I442`). The five count every request,
+  a stranger's and one the gate refused included, so an address can be capped with nothing mailed;
+  retries during a backend outage spend a person's hour the same way.
 - `mail.withheld`: a stack that is not production mails nothing, and the message is in its sink.
 
 **A refusal by the gate writes no line.** It refuses an address that is barred, that holds nothing

@@ -325,8 +325,8 @@ function CodeStep({
           type="button"
           variant="secondary"
           isPending={isSending}
-          // Not before the cooldown: the same code goes out again, and a second press a moment after
-          // the first only fills the inbox the first mail is still on its way to.
+          // Not before the cooldown: a new code goes out and voids the one before, so a second press a
+          // moment after the first kills the code the first mail is still carrying.
           isDisabled={isCoolingDown || isChecking}
           onPress={() => onResend(address)}
           className={formButton({ intent: "cancel" })}>

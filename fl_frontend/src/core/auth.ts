@@ -56,6 +56,9 @@ const CODE_VALIDITY_SECONDS = CODE_VALIDITY_MINUTES * 60;
 /** The one path that spends a code, which `fl_frontend/src/app/api/signin/code/route.ts` calls in process. */
 const CODE_SIGN_IN_PATH = "/sign-in/email-otp";
 
+/** The one path that mails a code, which `fl_frontend/src/features/auth/actions.ts :: handleSignIn` calls in process. */
+const CODE_SEND_PATH = "/email-otp/send-verification-otp";
+
 const HOUR_MS = 60 * 60 * 1000;
 
 // Prefixes the plugin never writes, so these rows are told from its code rows by identifier alone,
@@ -378,6 +381,12 @@ async function settleCodeAttempt(context: BoundContext, address: string, returne
   if (newest !== undefined) await context.adapter.delete({ model: "verification", where: [{ field: "id", value: newest.id }] });
 }
 
+/** The address a sign-in code is asked for, or `null` for a send of any other type. */
+function codeSendAddress(body: unknown): string | null {
+  const type: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "type") : undefined;
+  return type === "sign-in" ? codeSignInAddress(body) : null;
+}
+
 /** The address a code sign-in names, or `null` where the body carries none the library would read. */
 function codeSignInAddress(body: unknown): string | null {
   const email: unknown = typeof body === "object" && body !== null ? Reflect.get(body, "email") : undefined;
@@ -409,7 +418,7 @@ const DISABLED_PATHS: readonly string[] = [
   "/email-otp/request-email-change",
   "/email-otp/request-password-reset",
   "/email-otp/reset-password",
-  "/email-otp/send-verification-otp",
+  CODE_SEND_PATH,
   "/email-otp/verify-email",
   "/error",
   "/forget-password/email-otp",
@@ -611,6 +620,19 @@ const authOptions = {
         throw new APIError("TOO_MANY_REQUESTS", { code: ADDRESS_ATTEMPTS_EXHAUSTED, message: "Too many failed codes for this address." });
       }
 
+      // Ahead of the plugin, which writes each new code before its send callback runs: capped there,
+      // a send voids the held code and mails none. Ahead of the gate, so the store's rows never tell a
+      // member from a stranger.
+      const recipient = ctx.path === CODE_SEND_PATH ? codeSendAddress(ctx.body) : null;
+      if (
+        recipient !== null &&
+        !(await withinBound(ctx.context, MAIL_ROW_PREFIX, recipient, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS))
+      ) {
+        logger.info("auth.code_mail_capped");
+        // The plugin's own answer to a send, so a capped one reads as a mailed one.
+        return ctx.json({ success: true });
+      }
+
       // An absent `ctx.request` is the library's own test for a call that did not arrive over HTTP,
       // taken by `originCheckMiddleware` and by `requestOnlySessionMiddleware`. Nothing in process
       // is filtered here: those callers are this repository's own code.
@@ -680,22 +702,17 @@ const authOptions = {
       otpLength: SIGN_IN_CODE_LENGTH,
       expiresIn: CODE_VALIDITY_SECONDS,
       allowedAttempts: 3,
-      // Encrypted rather than hashed: a hashed code cannot be read back, and the plugin then mints a
-      // new one on every resend, which breaks a code read in the first mail and typed after the second.
+      // Encrypted under the secret rather than hashed: an unkeyed hash of six digits is undone by
+      // trying all million of them.
       storeOTP: "encrypted",
-      // A resend inside the window mails the SAME code, restarting its window and keeping its tries.
-      resendStrategy: "reuse",
-      async sendVerificationOTP({ email, otp, type }, ctx) {
+      // Every send mints a new code, valid ten minutes from its own mail, and voids the one before.
+      // "reuse" moved a live code's expiry on every send, so a code asked for again every few minutes
+      // never lapsed.
+      resendStrategy: "rotate",
+      async sendVerificationOTP({ email, otp, type }) {
         // The one type this application asks for: every endpoint minting another is refused over
         // HTTP and never called in process.
         if (type !== "sign-in") return;
-
-        // Ahead of the gate, so the store gains the same rows whichever way the gate answers: a row
-        // written for a member alone tells anyone reading the store who is one.
-        if (ctx === undefined || !(await withinBound(ctx.context, MAIL_ROW_PREFIX, email, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS))) {
-          logger.info("auth.code_mail_capped");
-          return;
-        }
 
         // The refusal, whole: an address the gate refuses, for whatever reason, is mailed nothing
         // and this returns as though it had, so every branch is one answer.
