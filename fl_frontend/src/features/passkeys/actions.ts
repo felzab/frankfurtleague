@@ -24,14 +24,14 @@ import type { ActionResult } from "@/shared/types/types";
  */
 const LETZTER_PASSKEY = "Der letzte Passkey lässt sich nicht löschen.";
 
-/** A removal that met a change to the holder's passkeys or sessions (`docs/frontend/spec.md :: I312`). */
+/**
+ * A change that met another to the holder's passkeys or sessions (`docs/frontend/spec.md :: I312`), or
+ * addressed a row another change took away or that was never the holder's: a stale list either way.
+ */
 const GLEICHZEITIG_GEAENDERT = buildRefusal({
   reason: "Gleichzeitig wurde an Deinen Passkeys oder Anmeldungen etwas geändert",
   repair: "Lade die Seite neu",
 });
-
-/** A row that is gone, or another person's: both read to the holder as a list they hold a stale copy of. */
-const NICHT_GEFUNDEN = buildRefusal({ reason: "Der Passkey wurde nicht gefunden", repair: "Lade die Seite neu" });
 
 /** `diesesGeraet` says the removal ended the session the request came with, which the page then leaves. */
 export async function removePasskeyAction(id: string): Promise<ActionResult<{ diesesGeraet: boolean }>> {
@@ -50,8 +50,7 @@ export async function removePasskeyAction(id: string): Promise<ActionResult<{ di
     const removal = await removePasskey({ id: served.user.id, email: served.user.email }, id);
 
     if (removal === "last") return { success: false, error: LETZTER_PASSKEY };
-    if (removal === "absent") return { success: false, error: NICHT_GEFUNDEN };
-    if (removal === "conflict") return { success: false, error: GLEICHZEITIG_GEAENDERT };
+    if (removal === "absent" || removal === "conflict") return { success: false, error: GLEICHZEITIG_GEAENDERT };
 
     await notifyPasskeyRemoved(served.user.email);
 
@@ -73,7 +72,7 @@ export async function renamePasskeyAction(id: string, name: string): Promise<Act
     } catch (failed) {
       // The plugin refuses a row that is gone and a row that is another person's alike, both before it
       // writes: to the holder either is a stale list.
-      if (isAPIError(failed) && failed.statusCode < 500) return { success: false, error: NICHT_GEFUNDEN };
+      if (isAPIError(failed) && failed.statusCode < 500) return { success: false, error: GLEICHZEITIG_GEAENDERT };
       throw failed;
     }
 
