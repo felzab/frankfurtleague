@@ -22,6 +22,7 @@ from app.api.teams.schemas import (
 from app.api.teams.services import (
     KONTAKTE_MOVED_UNDER_THE_SAVE,
     UNCONFIRMED_HERKUNFT,
+    compose_kontakte_at_entry,
     compose_kontakte_herkunft,
     kontakte_stand_of,
 )
@@ -653,6 +654,19 @@ class TestTheCompositionDecidesFromItsArguments:
 
         assert composed is not None
         assert composed["trainer"]["einwilligung"] == {**RESAVED_AS_RENDERED["trainer"]["einwilligung"], **UNCONFIRMED_HERKUNFT}
+
+    def test_an_application_seat_stamped_with_an_empty_string_enters_undated_and_unconfirmed(self):
+        """The acceptance's arm: the stamped seat beside it keeps its date, so the stamp alone parts the two."""
+
+        entering = {
+            **PARTLY_CONFIRMED,
+            "ansprechperson": stored_person("Jonas", erfasst_von="person", bestaetigt_am=""),
+        }
+        composed = compose_kontakte_at_entry(kontakte=entering)
+
+        assert composed["ansprechperson"]["geburtsdatum"] is None
+        assert composed["ansprechperson"]["einwilligung"] == {**entering["ansprechperson"]["einwilligung"], **UNCONFIRMED_HERKUNFT}
+        assert composed["trainer"]["geburtsdatum"] == GEBURTSDATUM
 
     def test_a_null_slot_is_left_null(self):
         composed = compose_kontakte_herkunft(kontakte=ONE_SLOT_FILLED, stored=PARTLY_CONFIRMED)
