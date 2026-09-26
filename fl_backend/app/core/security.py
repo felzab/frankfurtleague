@@ -1,15 +1,19 @@
+import hashlib
+import hmac
 import re
 import secrets
-from collections.abc import AsyncIterator, Callable
-from typing import Annotated
+from collections.abc import AsyncIterator, Callable, Mapping
+from typing import Annotated, Final, TypeIs, get_args
 
 from fastapi import Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import SecretStr
 
 from app.core.config import BackendConfig, get_app_config
-from app.core.exceptions import MalformedRequestException, RequestAuthorizationException
-from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, actor_var, request_var
+from app.core.exceptions import ActorForbiddenException, MalformedRequestException, RequestAuthorizationException
+from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, AktorFunktion, PersonActor, actor_var, request_var
+from app.shared.folding import sign_in_identifier
+from app.shared.sub_keys import derive_sub_key
 
 # Named once, as `app/core/exceptions.py` names its codes, so a test asserts the core's code rather
 # than a copy a rename leaves behind.
@@ -68,13 +72,20 @@ def get_actor_email() -> str:
     The variable the log reads, so a decision and its `aktionen` row cannot name two people.
     """
 
+    actor = actor_var.get()
+    # Raised rather than answered with the pseudonym: a person's route has no administrator to
+    # store, and a hash written into an address field would read as one.
+    if isinstance(actor, PersonActor):
+        raise LookupError("a person's route is attributed to no administrator")
+
     # `bind_actor` fails closed on any write, so the default system actor cannot reach one.
-    return actor_var.get().email
+    return actor.email
 
 
 ACTOR_HEADER = "X-FL-Actor"
 
 MISSING_ACTOR = "REQ-AUTH-005"
+ACTOR_NOT_ADMIN = "REQ-AUTH-006"
 
 # Deliberately loose: this is a shape check on a value the frontend composed from its own session,
 # not an address validation. The bound is what stops an arbitrarily long header reaching the log.
@@ -89,6 +100,29 @@ ACTOR_MAX_LENGTH = 254
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
+def is_well_formed_actor(header_value: str | None) -> TypeIs[str]:
+    """One reading of a malformed header for every dependency here: `verify_actor_is_admin` passes exactly what `bind_actor` refuses."""
+
+    return header_value is not None and len(header_value) <= ACTOR_MAX_LENGTH and WELL_FORMED_ACTOR.fullmatch(header_value) is not None
+
+
+async def verify_actor_is_admin(request: Request, config: Annotated[BackendConfig, Depends(get_app_config)]) -> None:
+    """Refuse an actor an admin-tier route names who is not on the allowlist.
+
+    Its own dependency, the admin READ routers declaring no `bind_actor`. It demands no header: an
+    absent or malformed one passes, `bind_actor` refusing either on a write.
+    """
+
+    header_value = request.headers.get(ACTOR_HEADER)
+    if not is_well_formed_actor(header_value):
+        return
+
+    # Both sides folded, or a mixed-case header locks an administrator out of the panel.
+    if sign_in_identifier(header_value) not in config.allowed_admin_emails_list:
+        # The address stays out of the message, which reaches the log line.
+        raise ActorForbiddenException(error_code=ACTOR_NOT_ADMIN, message=f"the {ACTOR_HEADER} this request names is not an administrator")
+
+
 async def bind_actor(request: Request) -> AsyncIterator[None]:
     """Attribute every write this request makes to the administrator who made it.
 
@@ -98,9 +132,7 @@ async def bind_actor(request: Request) -> AsyncIterator[None]:
 
     header_value = request.headers.get(ACTOR_HEADER)
 
-    # Tested inline rather than through a boolean: the narrowing to `str` has to be one the type
-    # checker can follow into the `Actor` below.
-    if header_value is None or len(header_value) > ACTOR_MAX_LENGTH or WELL_FORMED_ACTOR.fullmatch(header_value) is None:
+    if not is_well_formed_actor(header_value):
         if request.method not in SAFE_METHODS:
             raise MalformedRequestException(error_code=MISSING_ACTOR, message=f"a write carries no well-formed {ACTOR_HEADER}")
 
@@ -120,6 +152,69 @@ async def bind_actor(request: Request) -> AsyncIterator[None]:
         # `TraceContextMiddleware` resets its own ids for.
         actor_var.reset(actor_token)
         request_var.reset(request_token)
+
+
+# The action log's label under `SPERRLISTE_SCHLUESSEL`, beside the ban list's
+# (`app/api/sperrliste/services.py :: SPERRLISTE_SCHLUESSEL_VERSION`); one label per purpose.
+AKTEUR_PSEUDONYM_VERSION: Final = "akteur-v1"
+
+
+def akteur_pseudonym(identifier: str, *, schluessel: SecretStr) -> str:
+    """What the log records for a signed-in person: a keyed hash of the folded identifier.
+
+    Never `adresse_hash`, whose label would make this EQUAL the person's ban-row digest and whose
+    address rule raises inside a binder.
+    """
+
+    return hmac.new(derive_sub_key(schluessel, AKTEUR_PSEUDONYM_VERSION), identifier.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def person_actor_binder(funktion: AktorFunktion) -> Callable[..., AsyncIterator[str]]:
+    """Build the binder a person's router declares, fixing the Funktion its writes are recorded under.
+
+    Never read off the request: the handler re-derives that the person holds it before writing, so
+    the record names what was checked.
+    """
+
+    async def bind_person(request: Request, config: Annotated[BackendConfig, Depends(get_app_config)]) -> AsyncIterator[str]:
+        """Attribute this request's writes to the signed-in person it names, and yield their folded identifier.
+
+        Refuses on EVERY method: a person's route serves nothing anonymous, so `bind_actor`'s
+        `SAFE_METHODS` exemption is not wanted here.
+        """
+
+        header_value = request.headers.get(ACTOR_HEADER)
+        if not is_well_formed_actor(header_value):
+            raise MalformedRequestException(
+                error_code=MISSING_ACTOR, message=f"a request to a person's route carries no well-formed {ACTOR_HEADER}"
+            )
+
+        # What the handler authorises against, so one mailbox's two spellings cannot hold two answers.
+        identifier = sign_in_identifier(header_value)
+
+        pseudonym = akteur_pseudonym(identifier, schluessel=config.sperrliste_schluessel)
+        actor_token = actor_var.set(PersonActor(pseudonym=pseudonym, funktion=funktion))
+        # The route's template, as `bind_actor` binds it and for the same reason.
+        route = request.scope.get("route")
+        request_token = request_var.set((request.method, getattr(route, "path", request.url.path)))
+
+        try:
+            # Yielded rather than set on a variable: a handler declaring this same binder is answered
+            # from this run, and a handler asking for the identifier cannot run unbound.
+            yield identifier
+        finally:
+            # Reset for `bind_actor`'s reason: the next request on this loop is somebody else's.
+            actor_var.reset(actor_token)
+            request_var.reset(request_token)
+
+    return bind_person
+
+
+# Module-level objects, as the three key guards are, so a router declares the same callable every
+# time and a test compares binders by identity.
+PERSON_ACTOR_BINDERS: Final[Mapping[AktorFunktion, Callable[..., AsyncIterator[str]]]] = {
+    funktion: person_actor_binder(funktion) for funktion in get_args(AktorFunktion)
+}
 
 
 async def bind_public_actor(request: Request) -> AsyncIterator[None]:

@@ -342,15 +342,16 @@ Every ruling below is the sign-up flow as it stands for the next season.
   ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-two-expiry-indexes)). Nothing else is
   recorded of such a person: no `user` row is written until a link is followed
   (`fl_frontend/src/core/auth.ts`).
-- **No log row names a person as the one who wrote it today, and a person's own write is to be
+- **No log row names a person as the one who wrote it today, and a person's own write is
   recorded under a pseudonym rather than their address.** `fl_frontend/src/core/subject.ts :: getSubjectSession`
   already folds the address of whoever opens a panel into the request's actor, and
   `fl_frontend/src/core/api.ts` sends that actor to the backend on admin-tier calls alone, so no
-  `aktionen` row's actor is a person. As the actor is recorded now, the first write a person makes
-  for themselves would file their address in `actor.email`, which the redaction above does not
-  reach — that exception was taken for administrators and for the reason administrators give. The
-  pseudonym is stable, a keyed hash of the folded address as the ban list takes one, and nothing
-  records it yet: it is built before the first person-tier write ships. Ruled 2026-09-21.
+  `aktionen` row's actor is a person. An address in `actor.email` would sit outside the redaction
+  above, an exception taken for administrators and for the reason administrators give, so a
+  person's actor carries none: the binder a person's router declares
+  (`fl_backend/app/core/security.py :: person_actor_binder`) records a stable pseudonym, a keyed hash
+  of the folded address as the ban list takes one, and the Funktion the write was authorised under.
+  No router declares it yet. Ruled 2026-09-21.
 - **Backups outlive an erasure by the snapshot window, and the person is told so.** The hosting
   keeps snapshots for about eight days, taken daily — a figure mirrored from the provider's own
   console, which moves without us, as it stood on 2026-09-01. An erased person is gone from the live

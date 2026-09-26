@@ -27,7 +27,7 @@ import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clip
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import { AKTION_HERKUNFT_LABELS, AKTION_OPERATION_LABELS, AKTION_OPERATION_TINTS, AKTIONEN_CRUD_COPY } from "../../constants";
-import { describeAktionDatensatz, formatAktionZeitpunkt, herkunftOfAktor, labelForCollection } from "../../utils";
+import { describeAktionDatensatz, formatAktionZeitpunkt, herkunftOfAktor, labelForCollection, personAkteurLabel } from "../../utils";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 import type { PillTone } from "@/shared/components/ui/badges";
@@ -84,10 +84,12 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
   };
 
   const renderAkteur = (aktion: AdminAktionRow) => {
-    const herkunft = herkunftOfAktor(aktion.actor);
+    const { actor } = aktion;
+    const herkunft = herkunftOfAktor(actor);
 
-    // The one origin whose stored address is a mailbox. Every other carries a sentinel there, so it is
-    // named by its origin instead -- printing `PUBLIC` would read as a person nobody can write to.
+    // The one origin naming somebody: an administrator by address, a signed-in person, who has none, by
+    // Funktion and pseudonym. Every other carries a sentinel -- printing `PUBLIC` would read as a person
+    // nobody can write to.
     if (herkunft === "person") {
       return (
         <div className="flex min-w-0 flex-row items-center gap-3">
@@ -95,7 +97,9 @@ export const AdminAktionenTable = memo(function AdminAktionenTable({
             aria-hidden="true"
             className="size-4.5 shrink-0 text-foreground-muted"
           />
-          <span className="min-w-0 truncate fluid-sm font-semibold text-foreground">{aktion.actor.email}</span>
+          <span className="min-w-0 truncate fluid-sm font-semibold text-foreground">
+            {actor.kind === "person_session" ? personAkteurLabel(actor) : actor.email}
+          </span>
         </div>
       );
     }

@@ -13,14 +13,14 @@ from app.core.crud import GERMAN_COLLATION, build_query, build_sort, pull_many_f
 from app.core.dependencies import SchiedsrichterCollection
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
-from app.core.security import verify_access_admin
+from app.core.security import verify_access_admin, verify_actor_is_admin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # Admin-guarded, not base: a referee is a pupil, so their contact details and school are admin-tier
 # (`READ-CONTACT-001`), as is the fee (`READ-MONEY-001`).
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/schiedsrichter",
-    dependencies=[Depends(verify_access_admin)],
+    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin)],
 )
 
 

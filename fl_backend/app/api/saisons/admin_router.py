@@ -93,12 +93,12 @@ from app.core.dependencies import (
 from app.core.exception_handlers import DATABASE_FAILED, DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.logging import fl_logger
-from app.core.security import bind_actor, get_actor_email, verify_access_admin
+from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/saisons",
-    dependencies=[Depends(verify_access_admin), Depends(bind_actor)],
+    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
 # No `tore`: goals belong to whoever scored them, and `has_taken_place` leaves none to move.

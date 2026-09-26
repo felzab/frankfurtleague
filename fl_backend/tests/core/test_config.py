@@ -51,6 +51,7 @@ REQUIRED = {
     "INTERNAL_API_KEY_SYSTEM": a_key_the_boot_accepts("system"),
     "INTERNAL_API_KEY_ADMIN": a_key_the_boot_accepts("admin"),
     "SPERRLISTE_SCHLUESSEL": BAN_LIST_KEY,
+    "ALLOWED_ADMIN_EMAILS": "admin@example.com",
 }
 
 
@@ -71,6 +72,7 @@ WELL_FORMED: dict[str, Any] = {
     "internal_api_key_system": SecretStr(a_key_the_boot_accepts("system")),
     "internal_api_key_admin": SecretStr(a_key_the_boot_accepts("admin")),
     "sperrliste_schluessel": SecretStr(BAN_LIST_KEY),
+    "allowed_admin_emails": "admin@example.com",
 }
 
 
@@ -138,6 +140,65 @@ class TestCorsAllowedOrigins:
             get_config()
 
         assert str(raised.value) == "Invalid environment variables: API_CORS_ALLOWED_ORIGINS"
+
+
+# The address rule's own ceiling, `app/shared/schemas/bounds.py :: KONTAKT_EMAIL_MAX_LENGTH` characters.
+AT_THE_CEILING = f"{'a' * 64}@{'b' * 63}.{'c' * 63}.{'d' * 58}.de"
+# One label character longer, so every part stays inside its own bound and the whole alone is refused.
+PAST_THE_CEILING = f"{'a' * 64}@{'b' * 63}.{'c' * 63}.{'d' * 59}.de"
+
+
+class TestAllowedAdminEmails:
+    @pytest.mark.parametrize(
+        ("value", "folded"),
+        [
+            pytest.param("admin@example.com", ["admin@example.com"], id="one address"),
+            pytest.param(
+                "Admin@Example.COM, zweite@frankfurtleague.de", ["admin@example.com", "zweite@frankfurtleague.de"], id="two, mixed case"
+            ),
+            pytest.param("anna@müller.de", ["anna@xn--mller-kva.de"], id="a Unicode domain"),
+            pytest.param(AT_THE_CEILING, [AT_THE_CEILING], id="at the length ceiling"),
+        ],
+    )
+    def test_each_entry_is_held_folded(self, value: str, folded: list[str]):
+        """Folded as the header it is compared with is, or an entry typed in capitals refuses its own administrator."""
+        assert build(allowed_admin_emails=value).allowed_admin_emails_list == folded
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            pytest.param("", id="empty"),
+            pytest.param("admin@example.com,", id="a trailing comma"),
+            pytest.param("admin@example.com;zweite@example.com", id="another separator"),
+            pytest.param("admin", id="no domain"),
+            pytest.param("jürgen@example.com", id="a Unicode local part"),
+            pytest.param(PAST_THE_CEILING, id="one past the length ceiling"),
+        ],
+    )
+    def test_an_entry_the_address_rule_refuses_fails_the_boot(self, value: str):
+        """The trailing comma is the load-bearing one: an empty entry is an administrator nobody can be, and the list reads as shorter."""
+        with pytest.raises(ValidationError):
+            build(allowed_admin_emails=value)
+
+    def test_an_environment_carrying_none_refuses_the_boot_naming_the_variable(self, monkeypatch, tmp_path):
+        """Required, so a deploy carrying the code and not the line is refused before anything is recreated."""
+        an_environment(monkeypatch, tmp_path)
+        monkeypatch.delenv("ALLOWED_ADMIN_EMAILS")
+
+        with pytest.raises(EnvironmentValidationError) as raised:
+            get_config()
+
+        assert str(raised.value) == "Invalid environment variables: ALLOWED_ADMIN_EMAILS"
+
+    def test_a_refused_entry_is_never_echoed_by_the_refusal(self, monkeypatch, tmp_path):
+        """An address reaching the container log is the exposure the names-only refusal exists against."""
+        an_environment(monkeypatch, tmp_path, ALLOWED_ADMIN_EMAILS="Zorbanax@example")
+
+        with pytest.raises(EnvironmentValidationError) as raised:
+            get_config()
+
+        assert str(raised.value) == "Invalid environment variables: ALLOWED_ADMIN_EMAILS"
+        assert "zorbanax" not in str(raised.value).lower()
 
 
 class TestDatabaseBaseName:

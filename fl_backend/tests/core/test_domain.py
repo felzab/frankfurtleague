@@ -32,7 +32,7 @@ from app.core.domain import (
 )
 from app.core.exception_handlers import BODY_UNREADABLE, METHOD_NOT_SERVED, NO_ROUTE, PAYLOAD_REFUSED
 from app.core.exceptions import WriteRefusal
-from app.core.security import MISSING_ACTOR, MISSING_TOKEN, WRONG_ADMIN_KEY, WRONG_BASE_KEY, WRONG_SYSTEM_KEY
+from app.core.security import ACTOR_NOT_ADMIN, MISSING_ACTOR, MISSING_TOKEN, WRONG_ADMIN_KEY, WRONG_BASE_KEY, WRONG_SYSTEM_KEY
 from app.main import create_app
 from tests.config import build_test_config
 from tests.core.app_source import Declaration, api_routes, declared, module_of, parsed, resolve_callee, scoped_calls
@@ -64,6 +64,7 @@ PROTOCOL_CODES = frozenset(
         WRONG_SYSTEM_KEY,
         WRONG_ADMIN_KEY,
         MISSING_ACTOR,
+        ACTOR_NOT_ADMIN,
         PAYLOAD_REFUSED,
         BODY_UNREADABLE,
         NO_ROUTE,

@@ -81,11 +81,14 @@ _BEWERBUNG_STATUS = ["eingereicht", "angenommen", "abgelehnt"]
 # Derived, not spelled: these ARE the collection names, and the log never records itself.
 _LOGGED_COLLECTIONS = [str(name) for name in Collection if name is not Collection.AKTIONEN]
 
-# Mirrors `app/core/recording.py :: Operation` and `:: Actor.kind`, hand-copied.
-# `tests/core/test_constraints.py` pins each against the recording literal too, so a member added to
-# one alone fails rather than reaching a stored row.
+# Mirrors `app/core/recording.py :: Operation`, `:: Actor.kind`, `:: PersonActor.kind` and
+# `:: AktorFunktion`, hand-copied. `tests/core/test_constraints.py` pins each against the recording
+# literal too, so a member added to one alone fails rather than reaching a stored row.
 _AKTION_OPERATIONS = ["insert", "insert_many", "patch_one", "patch_many", "delete_many", "erase_many"]
-_AKTOR_KINDS = ["admin_session", "system", "public"]
+_AKTOR_KINDS_MIT_ADRESSE = ["admin_session", "system", "public"]
+_AKTOR_KINDS_PERSON = ["person_session"]
+_AKTOR_KINDS = [*_AKTOR_KINDS_MIT_ADRESSE, *_AKTOR_KINDS_PERSON]
+_AKTOR_FUNKTIONEN = ["kontakt", "spieler", "schiedsrichter"]
 
 
 def _object(*, required: Sequence[str], properties: Mapping[str, Any], nullable: bool = False) -> Mapping[str, Any]:
@@ -117,13 +120,24 @@ _KONTAKT = _object(
     properties={"telefon": {"bsonType": _STRING_OR_NULL}, "email": {"bsonType": _STRING_OR_NULL}},
 )
 
-_AKTOR = _object(
-    required=("kind", "email"),
-    properties={
-        "kind": {"bsonType": "string", "enum": _AKTOR_KINDS},
-        "email": {"bsonType": "string"},
-    },
-)
+_AKTOR = {
+    **_object(
+        required=("kind",),
+        properties={
+            "kind": {"bsonType": "string", "enum": _AKTOR_KINDS},
+            "email": {"bsonType": "string"},
+            "pseudonym": {"bsonType": "string"},
+            "funktion": {"bsonType": "string", "enum": _AKTOR_FUNKTIONEN},
+        },
+    ),
+    # Required keys by `kind`, where `_SPIEL_QUELLE` requires its discriminator alone: an actor is
+    # stored from `app/core/recording.py :: PersonActor` with no model between, and an address on a
+    # person's row would outlive their erasure, so the database refuses it.
+    "oneOf": [
+        {"properties": {"kind": {"enum": _AKTOR_KINDS_MIT_ADRESSE}}, "required": ["email"]},
+        {"properties": {"kind": {"enum": _AKTOR_KINDS_PERSON}}, "required": ["pseudonym", "funktion"], "not": {"required": ["email"]}},
+    ],
+}
 
 _AKTION_REQUEST = _object(
     nullable=True,

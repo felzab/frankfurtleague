@@ -43,8 +43,17 @@ function row(id: string, actor: FLAktor): AdminAktionRow {
   };
 }
 
+/** A valid actor of each kind: a signed-in person carries a pseudonym and a Funktion where every other kind carries `email`. */
+function actorOf(kind: FLAktor["kind"]): FLAktor {
+  return kind === "person_session"
+    ? { kind: kind, pseudonym: "5e".repeat(32), funktion: "kontakt" }
+    : { kind: kind, email: `${kind}@beispiel.de` };
+}
+
 /** One row per kind the read model accepts, so a kind added there is swept without anyone listing it. */
-const ROWS = FLAktorSchema.shape.kind.options.map((kind, index) => row(`row-${String(index)}`, { kind: kind, email: `${kind}@beispiel.de` }));
+const ROWS = FLAktorSchema.options
+  .flatMap((variant) => variant.shape.kind.options)
+  .map((kind, index) => row(`row-${String(index)}`, actorOf(kind)));
 
 const PUBLIC_ROW = ROWS.find((entry) => entry.actor.kind === "public");
 

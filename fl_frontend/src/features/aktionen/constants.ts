@@ -1,5 +1,5 @@
 import type { PillTone } from "@/shared/components/ui/badges";
-import type { FLAktion, FLAktor } from "./schemas";
+import type { FLAktion, FLAktor, FLAktorPerson } from "./schemas";
 
 // Its own module: every export of a `"use client"` view becomes a client reference.
 export const AKTIONEN_CRUD_COPY = {
@@ -61,8 +61,8 @@ export const AKTION_OPERATION_TINTS: Record<FLAktion["operation"], PillTone> = {
 };
 
 /**
- * Where a recorded write came from, as the log FILES it. Not one value per actor kind: `person` is the
- * category a stronger sign-in scheme would record under too, which is why the filter offers it.
+ * Where a recorded write came from, as the log FILES it. Not one value per actor kind: `person` files an
+ * administrator's session and a signed-in person's alike, which is why the filter offers it.
  */
 export type AktionHerkunft = "person" | "system" | "public";
 
@@ -72,8 +72,16 @@ export type AktionHerkunft = "person" | "system" | "public";
  */
 export const AKTOR_HERKUNFT: Record<FLAktor["kind"], AktionHerkunft> = {
   admin_session: "person",
+  person_session: "person",
   system: "system",
   public: "public",
+};
+
+/** The word a signed-in person's row names the Funktion by, beside the start of their pseudonym. */
+export const AKTOR_FUNKTION_LABELS: Record<FLAktorPerson["funktion"], string> = {
+  kontakt: "Kontakt",
+  spieler: "Spieler",
+  schiedsrichter: "Schiedsrichter",
 };
 
 /**

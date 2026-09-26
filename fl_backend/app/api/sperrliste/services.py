@@ -15,6 +15,7 @@ from pydantic import SecretStr
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import canonical_address
 from app.shared.schemas.bounds import SAISON_ID_LENGTH, SPERRE_DAUER_SAISONS
+from app.shared.sub_keys import derive_sub_key
 
 # One code over two readers: each slice words it for its own, an administrator being told plainly
 # what a visitor is told neutrally (`.claude/rules/cross-surface.md`).
@@ -22,15 +23,10 @@ SPERRLISTE_ADRESSE_GESPERRT = "REQ-SPERRLISTE-001"
 
 SPERRLISTE_KEINE_SAISON = "REQ-SPERRLISTE-002"
 
-# One label per purpose: the same master keys a second corpus in a later programme, and a mistake
-# in one must not read the other. Not a rotation scheme (`docs/backend/spec.md :: 1.5`).
+# One label per purpose: the same master keys the action log's pseudonyms
+# (`app/core/security.py :: AKTEUR_PSEUDONYM_VERSION`), and a mistake in one must not read the other.
+# Not a rotation scheme (`docs/backend/spec.md :: 1.5`).
 SPERRLISTE_SCHLUESSEL_VERSION: Final = "sperrliste-v1"
-
-
-def _sub_key(master: SecretStr) -> bytes:
-    """Derived per call rather than memoised: a cache keyed on the master holds the secret in a module-level dict for the process's life."""
-
-    return hmac.new(master.get_secret_value().encode("utf-8"), SPERRLISTE_SCHLUESSEL_VERSION.encode("utf-8"), hashlib.sha256).digest()
 
 
 def adresse_hash(address: str, *, schluessel: SecretStr) -> str:
@@ -42,7 +38,9 @@ def adresse_hash(address: str, *, schluessel: SecretStr) -> str:
 
     # The rule every address payload runs too (`app/shared/schemas/kontakt.py :: CustomEmail`), so an
     # address a payload admitted keys a ban rather than answering 500.
-    return hmac.new(_sub_key(schluessel), canonical_address(address).encode("utf-8"), hashlib.sha256).hexdigest()
+    return hmac.new(
+        derive_sub_key(schluessel, SPERRLISTE_SCHLUESSEL_VERSION), canonical_address(address).encode("utf-8"), hashlib.sha256
+    ).hexdigest()
 
 
 def compose_gesperrt_bis_saison_id(*, massgebliche_saison_id: str) -> str:

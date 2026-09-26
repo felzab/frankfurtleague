@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { AKTION_HERKUNFT_LABELS, AKTOR_HERKUNFT } from "./constants.ts";
-import { FLAktorSchema } from "./schemas.ts";
-import { describeAktionDatensatz, formatAktionZeitpunkt, herkunftOfAktor, labelForCollection } from "./utils.ts";
+import { AKTION_HERKUNFT_LABELS, AKTOR_FUNKTION_LABELS, AKTOR_HERKUNFT } from "./constants.ts";
+import { FLAktorPersonSchema, FLAktorSchema } from "./schemas.ts";
+import { describeAktionDatensatz, formatAktionZeitpunkt, herkunftOfAktor, labelForCollection, personAkteurLabel } from "./utils.ts";
+
+import type { FLAktor } from "./schemas.ts";
 
 describe("formatAktionZeitpunkt", () => {
   it("renders a stored UTC instant in German local time", () => {
@@ -66,20 +68,28 @@ describe("describeAktionDatensatz", () => {
   });
 });
 
-/** Every kind the read model accepts, read off the mirror so a kind added there reaches the cases below. */
-const AKTOR_KINDS = FLAktorSchema.shape.kind.options;
+/** Every kind the read model accepts, read off both variants of the mirror so a kind added there reaches the cases below. */
+const AKTOR_KINDS = FLAktorSchema.options.flatMap((variant) => variant.shape.kind.options);
+
+/** A pseudonym's shape, whose first eight characters are what a row shows. */
+const PSEUDONYM = "3f9a07c2".padEnd(64, "0");
+
+/** A valid actor of each kind: a signed-in person carries a pseudonym and a Funktion where every other kind carries `email`. */
+function actorOf(kind: FLAktor["kind"]): FLAktor {
+  return kind === "person_session" ? { kind: kind, pseudonym: PSEUDONYM, funktion: "spieler" } : { kind: kind, email: "SENTINEL" };
+}
 
 describe("herkunftOfAktor", () => {
   /* First: a mirror the cut no longer finds would leave every sweep below iterating nothing and passing. */
   it("reads the kinds off the mirror at all", () => {
-    assert.deepEqual([...AKTOR_KINDS].sort(), ["admin_session", "public", "system"]);
+    assert.deepEqual([...AKTOR_KINDS].sort(), ["admin_session", "person_session", "public", "system"]);
   });
 
   /* The binary this replaced filed anything that was not `system` under the signed-in people. A kind
      nobody places would render as a person named by a sentinel and filter as one. */
   it("files every kind the read model accepts under a labelled origin", () => {
     for (const kind of AKTOR_KINDS) {
-      const herkunft = herkunftOfAktor({ kind: kind, email: "SENTINEL" });
+      const herkunft = herkunftOfAktor(actorOf(kind));
 
       assert.equal(herkunft, AKTOR_HERKUNFT[kind], `\`${kind}\` is read as something other than the origin it is filed under`);
       assert.ok(AKTION_HERKUNFT_LABELS[herkunft], `\`${kind}\` is filed under \`${herkunft}\`, which nothing names`);
@@ -101,5 +111,21 @@ describe("herkunftOfAktor", () => {
 
     assert.equal(new Set(labels).size, labels.length, "two origins are offered under one wording");
     for (const label of labels) assert.ok(!/^[A-Z]+$/.test(label), `\`${label}\` is a stored sentinel rather than a wording`);
+  });
+});
+
+describe("personAkteurLabel", () => {
+  it("names the Funktion and the start of the pseudonym", () => {
+    assert.equal(personAkteurLabel({ kind: "person_session", pseudonym: PSEUDONYM, funktion: "spieler" }), "Spieler · 3f9a07c2");
+  });
+
+  /* Read off the mirror, so a Funktion added there without a word fails here rather than rendering `undefined`. */
+  it("names every Funktion in its own word", () => {
+    const labels = FLAktorPersonSchema.shape.funktion.options.map((funktion) =>
+      personAkteurLabel({ kind: "person_session", pseudonym: PSEUDONYM, funktion: funktion }),
+    );
+
+    assert.deepEqual(labels, ["Kontakt · 3f9a07c2", "Spieler · 3f9a07c2", "Schiedsrichter · 3f9a07c2"]);
+    assert.equal(new Set(Object.values(AKTOR_FUNKTION_LABELS)).size, FLAktorPersonSchema.shape.funktion.options.length);
   });
 });

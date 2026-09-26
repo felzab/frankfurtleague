@@ -33,6 +33,10 @@ _KEY_ADMIN = "test-key-admin".ljust(INTERNAL_API_KEY_LENGTH, "0")
 # address hashes differently under two keys builds its own second key rather than reading this one.
 _SPERRLISTE_SCHLUESSEL = "test-sperrliste-key".ljust(SPERRLISTE_KEY_MIN_LENGTH, "0")
 
+# Every actor a suite names on an admin-tier route, or `app/core/security.py :: verify_actor_is_admin`
+# answers the request 403 before the case reaches what it is about.
+ALLOWED_ADMIN_EMAILS = "admin@example.com,admin@frankfurtleague.de,spielorte.admin@example.com,triage.quillhilde@example.com"
+
 # The header a request carries to reach each tier, built from the keys `build_test_config` configures
 # so that no suite spells one of its own: `compare_digest` answers a drifted key 401 and names no side.
 BASE_AUTH = {"Authorization": f"Bearer {_KEY_BASE}"}
@@ -67,4 +71,5 @@ def build_test_config() -> BackendConfig:
         internal_api_key_system=SecretStr(_KEY_SYSTEM),
         internal_api_key_admin=SecretStr(_KEY_ADMIN),
         sperrliste_schluessel=SecretStr(_SPERRLISTE_SCHLUESSEL),
+        allowed_admin_emails=ALLOWED_ADMIN_EMAILS,
     )

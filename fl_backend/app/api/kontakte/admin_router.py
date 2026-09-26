@@ -28,12 +28,12 @@ from app.core.crud import aggregate_many_from_db, patch_many_in_db, patch_one_in
 from app.core.dependencies import AktionenCollection, BewerbungenCollection, DBClient, SaisonTeamsCollection, get_germany_now
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
-from app.core.security import bind_actor, verify_access_admin
+from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
 from app.shared.folding import sign_in_identifier
 
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/kontakte",
-    dependencies=[Depends(verify_access_admin), Depends(bind_actor)],
+    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
 

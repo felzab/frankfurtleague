@@ -382,6 +382,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -644,6 +647,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -792,6 +798,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -847,6 +856,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1092,6 +1104,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -1322,6 +1337,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -1374,6 +1392,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1526,6 +1547,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1680,6 +1704,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -1766,6 +1793,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -1816,6 +1846,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1868,6 +1901,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -1935,6 +1971,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -1990,6 +2029,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2096,6 +2138,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -2146,6 +2191,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2198,6 +2246,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2265,6 +2316,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -2320,6 +2374,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2430,6 +2487,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2555,6 +2615,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2685,6 +2748,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -2928,6 +2994,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -2986,6 +3055,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -3038,6 +3110,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -3089,6 +3164,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -3122,6 +3200,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3348,6 +3429,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -3405,6 +3489,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3473,6 +3560,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3551,6 +3641,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -3627,6 +3720,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -3705,6 +3801,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -3772,6 +3871,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -3837,6 +3939,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -3895,6 +4000,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4022,6 +4130,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -4074,6 +4185,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -4102,6 +4216,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4159,6 +4276,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -4214,6 +4334,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -4268,6 +4391,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "409": {
             "$ref": "#/components/responses/409.REQ-PURGE-001"
@@ -4339,6 +4465,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4417,6 +4546,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -4481,6 +4613,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4548,6 +4683,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4650,6 +4788,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -4706,6 +4847,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4774,6 +4918,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -4840,6 +4987,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -4894,6 +5044,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -4955,6 +5108,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5023,6 +5179,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -5080,6 +5239,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5139,6 +5301,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -5197,6 +5362,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -5254,6 +5422,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5379,6 +5550,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -5430,6 +5604,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5499,6 +5676,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -5567,6 +5747,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -5633,6 +5816,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5711,6 +5897,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -5788,6 +5977,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -5832,6 +6024,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5890,6 +6085,9 @@
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
+          },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
           }
@@ -5923,6 +6121,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -5974,6 +6175,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -6034,6 +6238,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -7489,7 +7696,24 @@
             "title": "At"
           },
           "actor": {
-            "$ref": "#/components/schemas/FLAktor"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLAktorMitAdresse"
+              },
+              {
+                "$ref": "#/components/schemas/FLAktorPerson"
+              }
+            ],
+            "title": "Actor",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "admin_session": "#/components/schemas/FLAktorMitAdresse",
+                "person_session": "#/components/schemas/FLAktorPerson",
+                "public": "#/components/schemas/FLAktorMitAdresse",
+                "system": "#/components/schemas/FLAktorMitAdresse"
+              }
+            }
           },
           "trace_id": {
             "type": "string",
@@ -7602,7 +7826,24 @@
             "title": "At"
           },
           "actor": {
-            "$ref": "#/components/schemas/FLAktor"
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/FLAktorMitAdresse"
+              },
+              {
+                "$ref": "#/components/schemas/FLAktorPerson"
+              }
+            ],
+            "title": "Actor",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "admin_session": "#/components/schemas/FLAktorMitAdresse",
+                "person_session": "#/components/schemas/FLAktorPerson",
+                "public": "#/components/schemas/FLAktorMitAdresse",
+                "system": "#/components/schemas/FLAktorMitAdresse"
+              }
+            }
           },
           "trace_id": {
             "type": "string",
@@ -7817,7 +8058,7 @@
         ],
         "title": "FLAktionenListResponse"
       },
-      "FLAktor": {
+      "FLAktorMitAdresse": {
         "properties": {
           "kind": {
             "type": "string",
@@ -7838,8 +8079,38 @@
           "kind",
           "email"
         ],
-        "title": "FLAktor",
-        "description": "Who a write was attributed to. Mirrors `app/core/recording.py :: Actor`."
+        "title": "FLAktorMitAdresse",
+        "description": "An actor the row names by `email`: an administrator's address, or a sentinel. Mirrors `app/core/recording.py :: Actor`."
+      },
+      "FLAktorPerson": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "person_session",
+            "title": "Kind"
+          },
+          "pseudonym": {
+            "type": "string",
+            "title": "Pseudonym"
+          },
+          "funktion": {
+            "type": "string",
+            "enum": [
+              "kontakt",
+              "spieler",
+              "schiedsrichter"
+            ],
+            "title": "Funktion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "pseudonym",
+          "funktion"
+        ],
+        "title": "FLAktorPerson",
+        "description": "A signed-in person, named by a pseudonym and the Funktion the write was authorised under.\n\nMirrors `app/core/recording.py :: PersonActor`, and carries no address."
       },
       "FLAnnehmenBewerbungPayload": {
         "properties": {
@@ -18822,6 +19093,29 @@
                       "enum": [
                         "REQ-AUTH-001",
                         "REQ-AUTH-004"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "403.REQ-AUTH-006": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-AUTH-006"
                       ]
                     }
                   }

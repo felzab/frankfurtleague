@@ -339,6 +339,7 @@ class TestLoggingSettings:
             internal_api_key_system=SecretStr("s" * INTERNAL_API_KEY_LENGTH),
             internal_api_key_admin=SecretStr("a" * INTERNAL_API_KEY_LENGTH),
             sperrliste_schluessel=SecretStr("k" * SPERRLISTE_KEY_MIN_LENGTH),
+            allowed_admin_emails="admin@example.com",
             **overrides,
         )
 

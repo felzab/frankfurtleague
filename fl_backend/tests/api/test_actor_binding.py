@@ -1,23 +1,43 @@
 import asyncio
 import contextlib
 from collections import Counter
+from collections.abc import Mapping
+from typing import Any, cast, get_args
 
 import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
+from pymongo.asynchronous.collection import AsyncCollection
 from starlette.requests import Request
 
+from app.api.sperrliste.services import adresse_hash
+from app.core.collections import Collection
 from app.core.exceptions import NO_DATABASE_CLIENT, MalformedRequestException
-from app.core.recording import PUBLIC_ACTOR, PUBLIC_ACTOR_EMAIL, SYSTEM_ACTOR, Actor, actor_var, request_var
+from app.core.recording import (
+    PUBLIC_ACTOR,
+    PUBLIC_ACTOR_EMAIL,
+    SYSTEM_ACTOR,
+    Actor,
+    AktorFunktion,
+    PersonActor,
+    actor_var,
+    record_write,
+    request_var,
+)
 from app.core.security import (
     ACTOR_HEADER,
     ACTOR_MAX_LENGTH,
+    ACTOR_NOT_ADMIN,
     MISSING_ACTOR,
+    PERSON_ACTOR_BINDERS,
     SAFE_METHODS,
     WELL_FORMED_ACTOR,
+    akteur_pseudonym,
     bind_actor,
     bind_public_actor,
     bind_system_actor,
+    get_actor_email,
 )
 from app.main import create_app
 from tests.config import ADMIN_AUTH, build_test_config
@@ -27,7 +47,8 @@ from .conftest import MINIMUM_EXPECTED_MUTATIONS
 
 # Module level, as `tests/api/test_admin_guard.py` builds it: pytest resolves parametrisation during
 # collection, before a fixture could run.
-APP = create_app(build_test_config())
+CONFIG = build_test_config()
+APP = create_app(CONFIG)
 
 TEAM_ID = "6890a1b2c3d4e5f607182930"
 WRITE_PATH = f"/api/v0/teams/{TEAM_ID}"
@@ -79,7 +100,7 @@ def request_for(method: str, actor: str | None, *, url_path: str = WRITE_PATH, r
     )
 
 
-Bound = tuple[Actor, tuple[str, str] | None]
+Bound = tuple[Actor | PersonActor, tuple[str, str] | None]
 
 
 async def through_the_binder(request: Request) -> tuple[Bound, Bound]:
@@ -203,7 +224,7 @@ class TestWhatTheBindingLeavesBehind:
     def test_the_next_request_does_not_inherit_the_previous_actor(self):
         """The hazard the reset exists for: the loop hands the next request the same context, and its writes would carry the wrong name."""
 
-        async def _two_requests() -> Actor:
+        async def _two_requests() -> Actor | PersonActor:
             await through_the_binder(request_for("PATCH", ACTOR))
             during, _ = await through_the_binder(request_for("GET", None))
 
@@ -265,11 +286,16 @@ SYSTEM_WRITES = [
     ("/api/v0/identitaet/subjekt", "POST"),
 ]
 
+# The writes a signed-in person makes on the admin key, binding one of `PERSON_ACTOR_BINDERS` in
+# place of `bind_actor`: the header names a person, recorded under a pseudonym. Empty until a router
+# serving a person is mounted.
+PERSON_WRITES: list[tuple[str, str]] = []
+
 # Split by the constant the guard itself reads, so a method moved between the two tiers moves here too.
 MUTATIONS = sorted(
     operation
     for operation in ROUTES_BY_OPERATION
-    if operation[1] not in SAFE_METHODS and operation not in PUBLIC_WRITES and operation not in SYSTEM_WRITES
+    if operation[1] not in SAFE_METHODS and operation not in PUBLIC_WRITES and operation not in SYSTEM_WRITES and operation not in PERSON_WRITES
 )
 
 
@@ -376,6 +402,7 @@ def test_the_public_binder_ignores_a_forged_actor_header(forged: str):
     during, _ = asyncio.run(through_the_public_binder(request))
 
     assert during[0] == PUBLIC_ACTOR
+    assert isinstance(during[0], Actor)
     assert during[0].email == PUBLIC_ACTOR_EMAIL
 
 
@@ -415,3 +442,200 @@ def test_an_ordinary_address_is_still_admitted():
     """The control: a class that excluded too much would refuse every administrator instead."""
 
     assert WELL_FORMED_ACTOR.fullmatch(ACTOR) is not None
+
+
+# A second admin-tier read, on a router declaring the allowlist check and no `bind_actor`, so the check
+# is shown to reach a router the binder never did.
+READ_ROUTER_PATH = "/api/v0/spielorte"
+
+# Well-formed, and on no allowlist `build_test_config` configures.
+NOT_AN_ADMINISTRATOR = "schueler@example.com"
+
+
+class TestTheAllowlistOverAServedRequest:
+    """An actor named on an admin-tier route must be on the administrator allowlist, whatever the method."""
+
+    def test_an_allowlisted_address_binds_on_a_write(self):
+        """The control, reaching the database: every refusal below would pass on a check refusing everybody."""
+        response = client().delete(WRITE_PATH, headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR})
+
+        assert response.status_code == 503
+        assert response.json()["error_code"] == UNREACHED_DATABASE
+
+    @pytest.mark.parametrize(
+        ("method", "path"),
+        [
+            pytest.param("delete", WRITE_PATH, id="a write"),
+            pytest.param("get", EXEMPT_READ_PATH, id="a read beside the writes"),
+            pytest.param("get", READ_ROUTER_PATH, id="a read on a router binding no actor"),
+        ],
+    )
+    def test_an_address_off_the_list_is_refused_before_anything_is_reached(self, method: str, path: str):
+        """The case that goes red the day the check is dropped, and nothing else would.
+
+        403 where the control above answers 503: the database is the next thing reached, so nothing
+        was read or written.
+        """
+        response = getattr(client(), method)(path, headers={**ADMIN_AUTH, ACTOR_HEADER: NOT_AN_ADMINISTRATOR})
+
+        assert response.status_code == 403
+        assert response.json()["error_code"] == ACTOR_NOT_ADMIN
+        assert NOT_AN_ADMINISTRATOR not in response.text
+        # The key passed, so a challenge would name a credential that was valid.
+        assert "www-authenticate" not in response.headers
+
+    @pytest.mark.parametrize("path", [WRITE_PATH, READ_ROUTER_PATH])
+    def test_an_allowlisted_address_in_another_case_is_admitted(self, path: str):
+        """Both sides folded, or a session spelled in capitals locks its administrator out of the panel."""
+        method = "delete" if path == WRITE_PATH else "get"
+        response = getattr(client(), method)(path, headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR.upper()})
+
+        assert response.status_code == 503
+        assert response.json()["error_code"] == UNREACHED_DATABASE
+
+    def test_an_entry_spelled_in_another_case_admits_its_administrator(self):
+        """The list's side of the fold, where the case above drives the header's: an entry typed in capitals grants its session."""
+        typed_in_capitals = create_app(CONFIG.model_copy(update={"allowed_admin_emails": ACTOR.upper()}))
+        response = TestClient(typed_in_capitals, raise_server_exceptions=False).delete(WRITE_PATH, headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR})
+
+        assert response.status_code == 503
+        assert response.json()["error_code"] == UNREACHED_DATABASE
+
+    @pytest.mark.parametrize(
+        "headers",
+        [pytest.param({}, id="no actor"), pytest.param({ACTOR_HEADER: "not-an-address"}, id="a malformed actor")],
+    )
+    def test_a_read_naming_nobody_is_still_served(self, headers: Mapping[str, str]):
+        """The read exemption untouched: the rule refuses a present actor and demands none."""
+        response = client().get(READ_ROUTER_PATH, headers={**ADMIN_AUTH, **headers})
+
+        assert response.status_code == 503
+        assert response.json()["error_code"] == UNREACHED_DATABASE
+
+
+# Obviously fake, padded to the boot's floor, and the key the pseudonym below was computed under.
+KNOWN_MASTER = SecretStr("known-answer-key".ljust(64, "0"))
+KNOWN_IDENTIFIER = "anna@beispielschule.de"
+# The VALUE, computed outside this package with `hmac` and `hashlib` alone:
+# HMAC-SHA256(HMAC-SHA256(master, "akteur-v1"), identifier), nothing under `app/` imported.
+KNOWN_PSEUDONYM = "a34dad0e53a78bc549a6035faaa0dd5febf37bb83ca1585a8109fc0e626f8722"
+
+PERSON_ROUTE = "/api/v0/teams/{team_id}/kader"
+MIXED_CASE = "Anna@BeispielSchule.DE"
+
+
+# Any one of the three: the cases below are about what every person binder does alike.
+SPIELER: AktorFunktion = "spieler"
+
+
+async def through_the_person_binder(request: Request, funktion: AktorFunktion = SPIELER) -> tuple[str, Bound, Bound]:
+    """`through_the_binder` for a person's binder, which yields the folded identifier and reads the request's settings."""
+
+    binder = PERSON_ACTOR_BINDERS[funktion](request, CONFIG)
+    identifier = await anext(binder)
+    during = (actor_var.get(), request_var.get())
+
+    with contextlib.suppress(StopAsyncIteration):
+        await anext(binder)
+
+    return identifier, during, (actor_var.get(), request_var.get())
+
+
+def person_request(method: str, actor: str | None) -> Request:
+    return request_for(method, actor, url_path=PERSON_ROUTE.replace("{team_id}", TEAM_ID), route_path=PERSON_ROUTE)
+
+
+class _LogDouble:
+    """The log's collection as `record_write` reaches it: the target's own database handle, and one insert."""
+
+    def __init__(self) -> None:
+        self.name = str(Collection.TEAMS)
+        self.rows: list[Mapping[str, Any]] = []
+        self.database = {Collection.AKTIONEN: self}
+
+    async def insert_one(self, document: Mapping[str, Any], session: Any = None) -> None:
+        self.rows.append(document)
+
+
+class TestThePersonBinder:
+    @pytest.mark.parametrize("funktion", get_args(AktorFunktion))
+    def test_the_actor_bound_is_a_person_under_the_funktion_its_router_declares(self, funktion: AktorFunktion):
+        """Every Funktion has its binder, so a router serving one cannot record its writes under another."""
+        _, during, _ = asyncio.run(through_the_person_binder(person_request("PATCH", KNOWN_IDENTIFIER), funktion))
+
+        pseudonym = akteur_pseudonym(KNOWN_IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
+        assert during == (PersonActor(pseudonym=pseudonym, funktion=funktion), ("PATCH", PERSON_ROUTE))
+
+    @pytest.mark.parametrize("method", sorted(SAFE_METHODS))
+    def test_a_read_with_no_actor_is_refused(self, method: str):
+        """The sentence that separates this binder from `bind_actor`: a person's route serves nothing anonymous, so a read is no exemption."""
+        with pytest.raises(MalformedRequestException) as excinfo:
+            asyncio.run(through_the_person_binder(person_request(method, None)))
+
+        assert excinfo.value.error_code == MISSING_ACTOR
+
+    @pytest.mark.parametrize("actor", MALFORMED_ACTORS)
+    def test_a_malformed_actor_is_refused_on_a_read(self, actor: str):
+        with pytest.raises(MalformedRequestException) as excinfo:
+            asyncio.run(through_the_person_binder(person_request("GET", actor)))
+
+        assert excinfo.value.error_code == MISSING_ACTOR
+
+    def test_a_mixed_case_header_authorises_as_the_folded_string(self):
+        """What the handler is handed, so a Funktion check cannot name two spellings of one mailbox."""
+        identifier, during, _ = asyncio.run(through_the_person_binder(person_request("GET", MIXED_CASE)))
+        lower, lower_during, _ = asyncio.run(through_the_person_binder(person_request("GET", KNOWN_IDENTIFIER)))
+
+        assert identifier == KNOWN_IDENTIFIER == lower
+        assert during[0] == lower_during[0]
+
+    def test_the_log_row_carries_the_pseudonym_and_no_address(self):
+        """Driven through the variable the binder sets and the recorder reads, since no route declares the binder yet."""
+        log = _LogDouble()
+
+        async def _one_write() -> None:
+            binder = PERSON_ACTOR_BINDERS[SPIELER](person_request("PATCH", MIXED_CASE), CONFIG)
+            await anext(binder)
+            await record_write(collection=cast(AsyncCollection, log), operation="patch_one", document_id=TEAM_ID)
+            with contextlib.suppress(StopAsyncIteration):
+                await anext(binder)
+
+        asyncio.run(_one_write())
+
+        [row] = log.rows
+        pseudonym = akteur_pseudonym(KNOWN_IDENTIFIER, schluessel=CONFIG.sperrliste_schluessel)
+        # An equality, so an `email` beside the two is a failure rather than an extra key nobody reads.
+        assert row["actor"] == {"kind": "person_session", "pseudonym": pseudonym, "funktion": SPIELER}
+        assert row["request"] == {"method": "PATCH", "path": PERSON_ROUTE}
+        assert "@" not in str(row)
+        assert "beispielschule" not in str(row).lower()
+
+    def test_a_person_s_route_hands_no_administrator_to_a_field_storing_one(self):
+        """A handler asking for the administrator there has named the wrong field, and the pseudonym would read as an address."""
+
+        async def _asked() -> None:
+            binder = PERSON_ACTOR_BINDERS[SPIELER](person_request("PATCH", KNOWN_IDENTIFIER), CONFIG)
+            await anext(binder)
+            try:
+                get_actor_email()
+            finally:
+                with contextlib.suppress(StopAsyncIteration):
+                    await anext(binder)
+
+        with pytest.raises(LookupError):
+            asyncio.run(_asked())
+
+    def test_the_binding_is_cleared_once_the_request_has_finished(self):
+        _, _, after = asyncio.run(through_the_person_binder(person_request("PATCH", KNOWN_IDENTIFIER)))
+
+        assert after == (SYSTEM_ACTOR, None)
+
+
+class TestThePseudonym:
+    def test_it_is_the_value_computed_outside_this_package(self):
+        """The known answer: every other case compares the function with itself, so a construction swapped end for end passes them all."""
+        assert akteur_pseudonym(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER) == KNOWN_PSEUDONYM
+
+    def test_it_is_never_the_ban_rows_digest_of_the_same_address(self):
+        """One label per purpose under one master: a shared one would let the log say who the ban list holds."""
+        assert akteur_pseudonym(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER) != adresse_hash(KNOWN_IDENTIFIER, schluessel=KNOWN_MASTER)

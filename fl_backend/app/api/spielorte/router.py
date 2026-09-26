@@ -12,7 +12,7 @@ from app.core.crud import GERMAN_COLLATION, build_query, build_sort, pull_many_f
 from app.core.dependencies import SpielorteCollection
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
-from app.core.security import verify_access_admin
+from app.core.security import verify_access_admin, verify_actor_is_admin
 from app.shared.schemas.custom import CustomRouteObjectId
 
 # Admin-guarded, not base. `default_mietpreis` is money (`READ-MONEY-001`) and the only field
@@ -20,7 +20,7 @@ from app.shared.schemas.custom import CustomRouteObjectId
 # `maps_link` publishes the address whole (`READ-ADDRESS-001`).
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/spielorte",
-    dependencies=[Depends(verify_access_admin)],
+    dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin)],
 )
 
 

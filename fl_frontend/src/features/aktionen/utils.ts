@@ -1,14 +1,22 @@
-import { AKTION_COLLECTION_LABELS, AKTOR_HERKUNFT } from "./constants";
+import { AKTION_COLLECTION_LABELS, AKTOR_FUNKTION_LABELS, AKTOR_HERKUNFT } from "./constants";
 
 import type { AktionHerkunft } from "./constants";
-import type { FLAktion, FLAktor } from "./schemas";
+import type { FLAktion, FLAktor, FLAktorPerson } from "./schemas";
 
 /**
- * Where the write behind a row came from. Read through the map and never off `email`, which holds a
- * sentinel for two of the three kinds -- `SYSTEM` and `PUBLIC` are spellings of "nobody", not mailboxes.
+ * Where the write behind a row came from. Read through the map and never off the actor's fields: `SYSTEM`
+ * and `PUBLIC` are spellings of "nobody", and a signed-in person carries no address at all.
  */
 export function herkunftOfAktor(actor: FLAktor): AktionHerkunft {
   return AKTOR_HERKUNFT[actor.kind];
+}
+
+/** Enough of the pseudonym to tell two people's rows apart on one page, and no more than a reader compares by eye. */
+const PSEUDONYM_SHOWN = 8;
+
+/** How a signed-in person's row names them: the Funktion the write was authorised under and the start of their pseudonym. */
+export function personAkteurLabel(actor: FLAktorPerson): string {
+  return `${AKTOR_FUNKTION_LABELS[actor.funktion]} · ${actor.pseudonym.slice(0, PSEUDONYM_SHOWN)}`;
 }
 
 /** Falls back to the stored name, so a collection the backend adds lists as itself rather than as an empty cell. */

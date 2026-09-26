@@ -3,8 +3,9 @@ TESTS · the refusals a dependency answers before any handler, probed on every o
 
 `app/main.py :: DEPENDENCY_REFUSALS` publishes each dependency's code on the operations running it,
 so the table is held against what a request actually meets: every operation is asked without a key,
-with a wrong one, with its own and no actor, and with its own and an actor, against an application
-holding no database, where each dependency answers before the handler runs.
+with a wrong one, with its own and no actor, with its own and an administrator, and with its own and
+an actor who is none, against an application holding no database, where each dependency answers
+before the handler runs.
 """
 
 import ast
@@ -17,7 +18,7 @@ from typing import Any
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from app.core.exceptions import DatabaseUnavailableException, MalformedRequestException, RequestAuthorizationException
+from app.core.exceptions import ActorForbiddenException, DatabaseUnavailableException, MalformedRequestException, RequestAuthorizationException
 from app.core.security import ACTOR_HEADER, verify_access_admin, verify_access_base, verify_access_system
 from app.main import DEPENDENCY_REFUSALS, create_app, dependency_refusals
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
@@ -28,22 +29,29 @@ APP = create_app(build_test_config())
 TIER_KEYS: Mapping[Any, Mapping[str, str]] = {verify_access_base: BASE_AUTH, verify_access_admin: ADMIN_AUTH, verify_access_system: SYSTEM_AUTH}
 WRONG_KEY = {"Authorization": "Bearer wrong"}
 ACTOR = {ACTOR_HEADER: "admin@example.com"}
+# Well-formed and on no allowlist `build_test_config` configures.
+NOT_AN_ADMINISTRATOR = {ACTOR_HEADER: "schueler@example.com"}
 
 # What a path parameter is filled with: an id the `objectid` convertor matches, and a word for anything else.
 _PARAMETER = re.compile(r"\{(\w+)(?::(\w+))?\}")
 AN_OBJECT_ID = "0" * 23 + "1"
 
 # Spelled here rather than read off the table, which a status moved in it alone would move too. A
-# bodiless probe meets no other 400, 401 or 503: an absent body is a 422, and the handler never runs.
-PROBED_STATUSES = frozenset({HTTPStatus.BAD_REQUEST, HTTPStatus.UNAUTHORIZED, HTTPStatus.SERVICE_UNAVAILABLE})
+# bodiless probe meets no other 400, 401, 403 or 503: an absent body is a 422, and the handler never runs.
+PROBED_STATUSES = frozenset({HTTPStatus.BAD_REQUEST, HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN, HTTPStatus.SERVICE_UNAVAILABLE})
 
 # The operations a dependency refused on the tree this was written against, so an equality over two
 # maps that both went empty still fails.
 PROBED_OPERATIONS_FLOOR = 100
 
-# Raised by these alone: a raise of either anywhere else answers a code the table never publishes.
+# Raised by these alone: a raise of any of them anywhere else answers a code the table never publishes.
 PROTOCOL_EXCEPTIONS = frozenset(
-    {RequestAuthorizationException.__name__, MalformedRequestException.__name__, DatabaseUnavailableException.__name__}
+    {
+        RequestAuthorizationException.__name__,
+        MalformedRequestException.__name__,
+        ActorForbiddenException.__name__,
+        DatabaseUnavailableException.__name__,
+    }
 )
 
 
@@ -67,7 +75,7 @@ def _observed() -> dict[tuple[str, str], set[tuple[HTTPStatus, str]]]:
         own = _guard_key(route)
         for method in sorted(route.methods or ()):
             answers = found.setdefault((route.path_format, method.lower()), set())
-            for headers in ({}, WRONG_KEY, own, {**own, **ACTOR}):
+            for headers in ({}, WRONG_KEY, own, {**own, **ACTOR}, {**own, **NOT_AN_ADMINISTRATOR}):
                 response = client.request(method, _url(route), headers=headers)
                 if response.status_code in PROBED_STATUSES:
                     answers.add((HTTPStatus(response.status_code), response.json()["error_code"]))

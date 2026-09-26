@@ -133,13 +133,13 @@ docker run --rm --network <compose-network> \
   <backend-image> python -m app.core.constraints --check
 ```
 
-**Eight variables are required and the environment file is what supplies them.** `BackendConfig`
-declares eight fields with no default, so a run reaching none of them exits 1 on a validation error
-naming all eight; the settings class reads its file from the image's own working directory
+**Nine variables are required and the environment file is what supplies them.** `BackendConfig`
+declares nine fields with no default, so a run reaching none of them exits 1 on a validation error
+naming all nine; the settings class reads its file from the image's own working directory
 (`fl_backend/app/core/config.py :: model_config`), which is what the second mount lands it at.
-**Mounted rather than retyped, because the URI carries the cluster's credential**: passing the eight
+**Mounted rather than retyped, because the URI carries the cluster's credential**: passing the nine
 as `-e` values instead puts that one in the shell's history and in the process list, and sends the
-operator looking up six values `--check` never reads — the run touches `MONGODB_URI` and
+operator looking up seven values `--check` never reads — the run touches `MONGODB_URI` and
 `DB_BASE_NAME` and nothing else the settings class requires. It is the same mount
 `scripts/ops/deploy.sh :: read_env_names` makes of the same file for the same image (§1).
 
@@ -320,8 +320,13 @@ a perfectly good name, and a row missing its name can name a club that exists.
 
 ## 3. Granting or revoking admin access
 
-Editing `ALLOWED_ADMIN_EMAILS` and restarting is the whole procedure; why a restart is needed and how `role`
-is re-derived afterwards are [`spec.md`](spec.md) §4. Two things follow that are easy to get wrong:
+Editing `ALLOWED_ADMIN_EMAILS` in both `fl_frontend/.env` and `fl_backend/.env` and restarting both
+processes is the whole procedure; why a restart is needed and how `role` is re-derived afterwards are
+[`spec.md`](spec.md) §4. Each of these is easy to get wrong:
+
+- **One list, in two files.** An address granted in the frontend's file alone signs in and then meets
+  `REQ-AUTH-006` on every admin page's request; one revoked there alone is turned away by the
+  frontend while the backend would still admit it, so the two files are edited together.
 
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.

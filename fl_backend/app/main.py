@@ -64,8 +64,10 @@ from app.core.logging import setup_custom_logger
 from app.core.middlewares import TraceContextMiddleware
 from app.core.routing import ObjectIdConvertor
 from app.core.security import (
+    ACTOR_NOT_ADMIN,
     MISSING_ACTOR,
     MISSING_TOKEN,
+    PERSON_ACTOR_BINDERS,
     SAFE_METHODS,
     WRONG_ADMIN_KEY,
     WRONG_BASE_KEY,
@@ -75,6 +77,7 @@ from app.core.security import (
     verify_access_admin,
     verify_access_base,
     verify_access_system,
+    verify_actor_is_admin,
 )
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
@@ -138,6 +141,9 @@ DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
     verify_access_admin: (HTTPStatus.UNAUTHORIZED, WRONG_ADMIN_KEY),
     verify_access_system: (HTTPStatus.UNAUTHORIZED, WRONG_SYSTEM_KEY),
     bind_actor: (HTTPStatus.BAD_REQUEST, MISSING_ACTOR),
+    # Every method: a header present on a read is judged as on a write (`app/core/security.py :: verify_actor_is_admin`).
+    verify_actor_is_admin: (HTTPStatus.FORBIDDEN, ACTOR_NOT_ADMIN),
+    **{binder: (HTTPStatus.BAD_REQUEST, MISSING_ACTOR) for binder in PERSON_ACTOR_BINDERS.values()},
     get_db_client: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
     get_database: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
 }
