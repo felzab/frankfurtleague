@@ -71,12 +71,11 @@ export function funktionOrteOf(funktionen: readonly Funktion[]): FunktionOrt[] {
 }
 
 /**
- * The person shell's entries for these Funktionen. The landing is left out exactly where it sends
- * the person straight on, so the entry is never a press that lands back where it started.
+ * The landing is listed whatever is held: for a person whose one place is a team or the
+ * administration, „Übersicht“ is the account page's way back (`docs/frontend/spec.md :: I463`).
  */
 export function personEintraegeOf(funktionen: readonly Funktion[]): ReadonlySet<PersonEintrag> {
-  const eintraege = new Set<PersonEintrag>();
-  if (zieleOf(funktionen).length !== 1) eintraege.add("landing");
+  const eintraege = new Set<PersonEintrag>(["landing"]);
   if (funktionen.some((funktion) => funktion.art === "spieler")) eintraege.add("spieler");
   if (funktionen.some((funktion) => funktion.art === "schiedsrichter")) eintraege.add("schiedsrichter");
 

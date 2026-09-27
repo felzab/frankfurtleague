@@ -61,21 +61,32 @@ function heading(html: string): string {
 describe("what the person shell lists", () => {
   /* A listed page the person may not open is a link the page turns away. */
   it("lists the person-lane pages a person holds and no other", () => {
-    assert.deepEqual(listedFor([SPIELER]), [PERSON_SIDEMENU_ENTRIES.spieler.label]);
-    assert.deepEqual(listedFor([SCHIEDSRICHTER]), [PERSON_SIDEMENU_ENTRIES.schiedsrichter.label]);
-  });
-
-  /* Listed where it offers a choice or is the only page there is, and never where it would send the
-     person straight back to the page they pressed it from. */
-  it("lists the landing exactly where it is a page of its own", () => {
     const landing = PERSON_SIDEMENU_ENTRIES.landing.label;
 
-    assert.ok(!listedFor([SPIELER]).includes(landing), "one Funktion's holder is offered a landing that sends them back");
+    assert.deepEqual(listedFor([SPIELER]), [landing, PERSON_SIDEMENU_ENTRIES.spieler.label]);
+    assert.deepEqual(listedFor([SCHIEDSRICHTER]), [landing, PERSON_SIDEMENU_ENTRIES.schiedsrichter.label]);
+  });
+
+  /* Every person lands on „Übersicht“, and on the account page it is the way back for a person whose
+     one place is a team or the administration, which no entry of this shell's names. */
+  it("lists the landing whatever the person holds", () => {
+    const landing = PERSON_SIDEMENU_ENTRIES.landing.label;
+    const TEAM: Funktion = {
+      art: "kontakt",
+      rolle: "ansprechperson",
+      team_id: "6890a1b2c3d4e5f607250011",
+      saison_id: "2526",
+      team_name: "Goethe-Gymnasium",
+      saison_status: "active",
+    };
+
     assert.deepEqual(listedFor([SPIELER, SCHIEDSRICHTER]), [
       landing,
       PERSON_SIDEMENU_ENTRIES.spieler.label,
       PERSON_SIDEMENU_ENTRIES.schiedsrichter.label,
     ]);
+    assert.deepEqual(listedFor([TEAM]), [landing]);
+    assert.deepEqual(listedFor([{ art: "administration" }]), [landing]);
     assert.deepEqual(listedFor([]), [landing]);
   });
 });

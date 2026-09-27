@@ -118,9 +118,9 @@ describe("the guard over the person area", () => {
   /* The control for the cases above: a live session passes the layout and reaches the page under it,
      whose own answer is what comes back. */
   it("lets a person's session through to the page", async () => {
-    setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }));
+    setSubject(person({ sitze: [sitz()] }));
 
-    assert.deepEqual(await redirectsOf(landingUnderItsLayout), ["/bereich/spieler"]);
+    assert.deepEqual(await redirectsOf(landingUnderItsLayout), [`/bereich/team/${TEAM_A}/2526`]);
   });
 });
 
@@ -146,11 +146,11 @@ describe("where the landing takes a person", () => {
     assert.ok(!markup.includes("nirgends eingetragen"), "the pending person is told they are entered nowhere");
   });
 
-  it("sends a person holding one Funktion straight to it", async () => {
+  /* A team's own landing is „Übersicht“ too, and the administration is the administrator's, so one
+     of those alone is where the person goes. */
+  it("sends a person holding one team or the administration alone straight there", async () => {
     const cases: [SubjectSession, string][] = [
       [person({ sitze: [sitz()] }), `/bereich/team/${TEAM_A}/2526`],
-      [person({ spieler: [{ spieler_id: TEAM_A }] }), "/bereich/spieler"],
-      [person({ schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }), "/bereich/schiedsrichter"],
       [person({}, true), "/bereich/admin"],
     ];
 
@@ -162,6 +162,21 @@ describe("where the landing takes a person", () => {
     }
   });
 
+  /* Every person lands on a page named „Übersicht“: a lone player or referee meets this one, holding
+     the one card, rather than their own page. */
+  it("keeps a lone player or referee on the landing, with the one card", async () => {
+    const cases: [SubjectSession, string][] = [
+      [person({ spieler: [{ spieler_id: TEAM_A }] }), "/bereich/spieler"],
+      [person({ schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }), "/bereich/schiedsrichter"],
+    ];
+
+    for (const [subject, card] of cases) {
+      setSubject(subject);
+      assert.deepEqual(await redirectsOf(PersoenlichStartPage), [], `the landing sends a lone holder on to ${card}`);
+      assert.deepEqual(await switchHrefs(), [card]);
+    }
+  });
+
   /* The grant is what makes an address an administrator's, so one whose verdict lapsed, past its
      window or short of the passkey, owes the admin subtree's step rather than a person's landing. */
   it("sends an address holding a grant whose administrator verdict lapsed to the admin subtree", async () => {
@@ -170,7 +185,7 @@ describe("where the landing takes a person", () => {
 
     // The control: the same records on an address holding no grant are a person's.
     setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }));
-    assert.deepEqual(await redirectsOf(PersoenlichStartPage), ["/bereich/spieler"]);
+    assert.deepEqual(await redirectsOf(PersoenlichStartPage), []);
   });
 
   /* An administrator whose verdict stands has come to `/bereich` for the other places they hold, so the
@@ -190,7 +205,7 @@ describe("where the landing takes a person", () => {
     assert.deepEqual(await redirectsOf(PersoenlichStartPage), [`/bereich/team/${TEAM_A}/2526`]);
 
     setSubject(person({ spieler: [{ spieler_id: TEAM_A }, { spieler_id: TEAM_B }] }));
-    assert.deepEqual(await redirectsOf(PersoenlichStartPage), ["/bereich/spieler"]);
+    assert.deepEqual(await switchHrefs(), ["/bereich/spieler"]);
   });
 
   it("offers a link per team for seats on two teams", async () => {
@@ -221,6 +236,35 @@ describe("where the landing takes a person", () => {
     setSubject(person({ sitze: [sitz(), sitz({ saison_id: "2627", saison_status: "future" })] }));
 
     assert.deepEqual(await switchHrefs(), [`/bereich/team/${TEAM_A}/2526`, `/bereich/team/${TEAM_A}/2627`]);
+  });
+});
+
+describe("the way back from the account page", () => {
+  /* Every shell links to the account page, which the person shell heads, and the switcher shows only
+     from two places: holding one team or the administration alone, „Übersicht“ is the way back. */
+  it("offers „Übersicht“ there whatever the person holds", async () => {
+    const holders: [string, SubjectSession][] = [
+      ["the administration alone", person({}, true)],
+      ["one team", person({ sitze: [sitz()] })],
+      ["one player row", person({ spieler: [{ spieler_id: TEAM_A }] })],
+      ["nothing", person()],
+    ];
+
+    for (const [name, subject] of holders) {
+      setSubject(subject);
+      clearSteps();
+      const markup = await renderPage(underNext(h(PersoenlichLayout, { children: null }), { pathname: "/bereich/konto" }));
+      const links = [...markup.matchAll(/<a\b[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g)].map(([, href, inner]) => ({
+        href: href!,
+        text: textOf(inner!, " ").replace(/\s+/g, " ").trim(),
+      }));
+
+      assert.deepEqual(readsOf(steps), [], `the account page's shell reads past the session for ${name}`);
+      assert.ok(
+        links.some((link) => link.href === "/bereich" && link.text.includes("Übersicht")),
+        `a person holding ${name} has no way back from the account page`,
+      );
+    }
   });
 });
 
