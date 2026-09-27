@@ -577,20 +577,22 @@ describe("the code mails one address may be sent, against a real database", () =
 });
 
 /* The set-up that signs in mints inside the registration's transaction, so the gate refusing that mint
-   takes the passkey row back with it (`docs/frontend/spec.md :: I403`). */
+   takes the passkey row back with it (`docs/frontend/spec.md :: I403`); the enrolment refuses a barred
+   person before any mint (`:: I406`). */
 describe("a set-up the gate refuses, against a real database", () => {
-  it("writes no passkey for a person barred after signing in, and leaves them signed in by code", async () => {
-    const email = "gesperrt-spaeter@example.org";
+  it("writes no passkey for a person holding nothing by the set-up, and leaves them signed in by code", async () => {
+    const email = "ohne-sitz-spaeter@example.org";
 
     gateAnswer = { sitze: [LIVE_SEAT], gesperrt: false };
     const cookie = cookieHeader(await signInByCode(auth, email));
     assert.equal((await sessionRows()).length, 1, "the seated person was not signed in, so the case below proves nothing");
 
     const offered = await offer(cookie);
-    gateAnswer = { sitze: [LIVE_SEAT], gesperrt: true };
+    gateAnswer = { sitze: [], gesperrt: false };
     const refused = await verify(offered, AUTHENTICATOR_A, { createSession: true });
 
     assert.equal(refused.status, 403, await refused.clone().text());
+    assert.equal(((await refused.clone().json()) as { code?: string }).code, "SIGN_IN_HOLDS_NOTHING");
     assert.deepEqual(await passkeyRows(), [], "the refused set-up left its passkey behind");
     assert.deepEqual(
       (await sessionRows()).map(({ authFactor }) => authFactor),
