@@ -136,29 +136,31 @@ validator.
 own:
 
 ```bash
-docker run --rm --network <compose-network> \
+docker run --rm --network <compose-network> --user 0:0 \
   -v "$PWD/fl_backend/app:/app/app:ro" \
   -v "$PWD/fl_backend/.env:/app/.env:ro" \
   -v "$PWD/.env:/.env:ro" \
   <backend-image> python -m app.core.constraints --check
 ```
 
-**Nine variables are required and the two environment files are what supply them.** `BackendConfig`
-declares nine fields with no default, so a run reaching none of them exits 1 on a validation error
-naming all nine; the settings class reads the package's file from the image's own working directory
+**`--user 0:0` is not optional.** The image runs as `uid=100 fl_api_user`, and the root `.env` is
+mode 600 and owned by the deploying user (§16), so without it the run cannot read that file and
+exits on a permission error before it checks anything. Root inside the container reads it; `--check`
+writes nothing either way.
+
+**Every variable the settings class gives no default is required, and the two environment files are
+what supply them.** A run reaching none of them exits 1 on a validation error naming each; the
+settings class reads the package's file from the image's own working directory
 and the checkout root's from the directory above it
 (`fl_backend/app/core/config.py :: model_config`), which is where the second and third mounts land
 them.
-**Mounted rather than retyped, because the URI carries the cluster's credential**: passing the nine
-as `-e` values instead puts that one in the shell's history and in the process list, and sends the
-operator looking up seven values `--check` never reads — the run touches `MONGODB_URI` and
-`DB_BASE_NAME` and nothing else the settings class requires. They are the two files
+**Mounted rather than retyped, because the URI carries the cluster's credential**: passing them as
+`-e` values instead puts that one in the shell's history and in the process list, and sends the
+operator looking up values `--check` never reads — the run touches `MONGODB_URI` and `DB_BASE_NAME`
+and nothing else the settings class requires. They are the two files
 `scripts/ops/deploy.sh :: read_env_names` joins for the same image (§1).
 
-Three caveats, untested against the server itself: the image runs as `uid=100 fl_api_user`, so every
-mounted path must be readable by that uid — `--user 0:0` before the image name is the way past a
-permission error, `--check` writing nothing either way — and an SELinux host needs `:z` on each
-mount.
+One caveat, untested against the server itself: an SELinux host needs `:z` on each mount.
 
 **Counting a key's presence is not a substitute for the run.** The report reads each validator back as a
 query, so it fails a document whose key is there with the wrong BSON type; a `$exists` count passes that
