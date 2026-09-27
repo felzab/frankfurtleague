@@ -132,6 +132,38 @@ def networks(model: dict[str, Any], name: str) -> list[Finding]:
     return findings
 
 
+def _declared_file(declared: object, project: Path) -> str:
+    """A top-level secret's or config's `file`, relative to the rendered project where it sits inside it."""
+    source_file = Path(str((declared.get("file") if isinstance(declared, dict) else None) or ""))
+    return source_file.relative_to(project).as_posix() if source_file.is_relative_to(project) else source_file.as_posix()
+
+
+def secrets_directory(model: dict[str, Any], name: str, project: Path) -> list[Finding]:
+    """No bind mount and no config reaches into `SIGNING_KEY_FILE`'s directory, nor mounts one holding it.
+
+    A secret is the one route a file there takes, so each reaches only the service naming it (I472).
+    """
+    directory = project / Path(SIGNING_KEY_FILE).parent
+    findings: list[Finding] = []
+    for service, definition in sorted(services(model, name).items()):
+        for volume in definition.get("volumes") or []:
+            if not isinstance(volume, dict):
+                raise ValueError(f"{name}: {service} has a volume Compose did not expand, so this is not its rendered model")
+            source = Path(str(volume.get("source")))
+            if volume.get("type") == "bind" and (source.is_relative_to(directory) or directory.is_relative_to(source)):
+                findings.append(
+                    Finding(
+                        "fail",
+                        f"{name}: {service} bind-mounts {source} at {volume.get('target')}, which reaches {directory.name}/\n"
+                        f"{CONTINUATION}a file there reaches a service as a Compose secret naming it, and no other way (I472)",
+                    )
+                )
+    for config, declared in sorted((model.get("configs") or {}).items()):
+        if (project / _declared_file(declared, project)).is_relative_to(directory):
+            findings.append(Finding("fail", f"{name}: the config {config} is read from {directory.name}/, where only secrets are (I472)"))
+    return findings
+
+
 def signing_key(model: dict[str, Any], name: str, project: Path) -> list[Finding]:
     """The frontend alone holds the signing key, at `SIGNING_KEY_TARGET`, read from `SIGNING_KEY_FILE`.
 
@@ -139,10 +171,17 @@ def signing_key(model: dict[str, Any], name: str, project: Path) -> list[Finding
     """
     findings: list[Finding] = []
     holders: list[str] = []
+    declared_secrets = model.get("secrets") or {}
+    # A second secret name reading the file is the key under an alias, which a check on the name passes by.
+    key_names = {SIGNING_KEY} | {
+        secret for secret, declared in declared_secrets.items() if _declared_file(declared, project) == SIGNING_KEY_FILE
+    }
+    for alias in sorted(key_names - {SIGNING_KEY}):
+        findings.append(Finding("fail", f"{name}: the secret {alias} is read from {SIGNING_KEY_FILE}, which only {SIGNING_KEY} may be (I472)"))
     for service, definition in sorted(services(model, name).items()):
         for entry in definition.get("secrets") or []:
             source = entry.get("source") if isinstance(entry, dict) else entry
-            if source != SIGNING_KEY:
+            if source not in key_names:
                 continue
             holders.append(service)
             target = str((entry.get("target") if isinstance(entry, dict) else None) or source)
@@ -152,9 +191,7 @@ def signing_key(model: dict[str, Any], name: str, project: Path) -> list[Finding
                 findings.append(Finding("fail", f"{name}: {service} mounts {SIGNING_KEY} at {mounted}, not {SIGNING_KEY_TARGET} (I472)"))
     if holders != [SIGNING_KEY_HOLDER]:
         findings.append(Finding("fail", f"{name}: {holders or 'nothing'} holds {SIGNING_KEY}, not {SIGNING_KEY_HOLDER} alone (I472)"))
-    declared = (model.get("secrets") or {}).get(SIGNING_KEY) or {}
-    source_file = Path(str(declared.get("file") or ""))
-    read = source_file.relative_to(project).as_posix() if source_file.is_relative_to(project) else source_file.as_posix()
+    read = _declared_file(declared_secrets.get(SIGNING_KEY), project)
     if read != SIGNING_KEY_FILE:
         findings.append(Finding("fail", f"{name}: {SIGNING_KEY} is read from {read!r}, not {SIGNING_KEY_FILE} (I472)"))
     return findings
@@ -456,6 +493,8 @@ def main() -> int:
         findings += networks(prod_model, "production") + networks(local_model, "local")
         findings += signing_key(prod_model, "production", Path(args.production).resolve().parent)
         findings += signing_key(local_model, "local", Path(args.local).resolve().parent)
+        findings += secrets_directory(prod_model, "production", Path(args.production).resolve().parent)
+        findings += secrets_directory(local_model, "local", Path(args.local).resolve().parent)
         socket = deploy_socket(DEPLOY)
         findings += control_socket(prod_model, "production", socket) + control_socket(local_model, "local", socket)
         # Production's address for both: the local stack starts no connector, and an edge trusting
@@ -476,6 +515,7 @@ def main() -> int:
         print("      each application service reads its package's environment file, then the checkout's")
         print(f"      the connector shares a network with {EDGE_SERVICE} alone, and the application pair with {EDGE_SERVICE} alone")
         print(f"      {SIGNING_KEY_HOLDER} alone holds the actor token's signing key, read from {SIGNING_KEY_FILE}")
+        print(f"      no service mounts {Path(SIGNING_KEY_FILE).parent.as_posix()}/ but through a secret naming its file")
     return code
 
 

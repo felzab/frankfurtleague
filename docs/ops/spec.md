@@ -906,7 +906,8 @@ address alone and to declaring the real-address header and recursion once (I18).
 application service to reading its package's `.env`, then the root's, and no other, judged off the
 environment Compose resolves from the stand-ins the gate writes in place of the three files (I429),
 and every service to exactly its networks, so only nginx shares one with the connector or with the
-application pair (I471), and the actor token's signing key to the frontend alone (I472). A model it
+application pair (I471), and the actor token's signing key to the frontend alone, no bind mount or
+config reaching `secrets/` beside it (I472). A model it
 cannot read, a short-syntax port or volume among them, is a refusal rather than a verdict
 (§1.7).
 
@@ -1205,7 +1206,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I429 | The internal API keys are written once, in the checkout root's `.env`, which both application services list last and both dev commands read                                   | `scripts/lib/_lib.sh :: check_root_env` for what it holds; `scripts/checks/check_compose_model.py :: env_files`; `fl_backend/tests/core/test_config.py :: TestTheCheckoutRootsFile`; `fl_frontend/scripts/dev-script.test.mjs`                                                                     |
 | I430 | No package's `.env` repeats a name the checkout root's holds, in any letter case: the backend folds case, and compose hands the container both                                | `scripts/ops/deploy.sh :: check_env_names_held_once`, driven by `scripts/tests/test_deploy_streams.py`, the snippet run for real; the local stack and dev mode unenforced                                                                                                                          |
 | I471 | Only nginx shares a network with the connector, and only nginx with the application pair, in both stacks                                                                      | `scripts/checks/check_compose_model.py :: networks`, over the models `docker compose config` renders                                                                                                                                                                                               |
-| I472 | The actor token's signing key reaches the frontend alone, at `/run/secrets/fl_actor_signing_key`, read from `./secrets/fl_actor_signing_key`                                  | `scripts/checks/check_compose_model.py :: signing_key`, over the models `docker compose config` renders                                                                                                                                                                                            |
+| I472 | The actor token's signing key reaches the frontend alone, at `/run/secrets/fl_actor_signing_key`, read from `./secrets/fl_actor_signing_key`                                  | `scripts/checks/check_compose_model.py :: signing_key` and `:: secrets_directory`, over the models `docker compose config` renders                                                                                                                                                                 |
 | I473 | Before containers start, deploy and local stack refuse a signing key the frontend cannot read or whose public half does not match, printing no value                          | `scripts/lib/_lib.sh :: check_actor_key`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh`; `scripts/tests/test_deploy_streams.py` runs its snippet for real                                                                                                                           |
 
 ## 3. Violation → remedy

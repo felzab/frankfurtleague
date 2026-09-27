@@ -559,6 +559,73 @@ def test_the_key_read_from_another_file_fails():
     assert "keys/signing.pem" in found[0].detail
 
 
+def test_the_key_file_under_a_second_secret_name_fails_and_counts_its_holder():
+    """An alias is the key by another name: every check keyed on the name would pass its holder by."""
+    aliased = declared_key(RENDER) | {
+        "secrets": {
+            checker.SIGNING_KEY: {"file": str(RENDER / checker.SIGNING_KEY_FILE)},
+            "copy": {"file": str(RENDER / checker.SIGNING_KEY_FILE)},
+        }
+    }
+    found = checker.signing_key(model(frontend=HOLDS_THE_KEY, backend={"secrets": [{"source": "copy"}]}) | aliased, "p", RENDER)
+
+    assert any("the secret copy is read from" in finding.detail for finding in found), found
+    assert any("['backend', 'frontend'] holds" in finding.detail for finding in found), found
+
+
+def _bound(source: Path, target: str = "/mnt/x") -> dict[str, Any]:
+    return {"volumes": [{"type": "bind", "source": str(source), "target": target}]}
+
+
+@pytest.mark.parametrize(
+    ("service", "source"),
+    [
+        pytest.param("backend", RENDER / "secrets", id="the-directory-into-the-backend"),
+        pytest.param("nginx", RENDER / checker.SIGNING_KEY_FILE, id="the-key-file-into-the-edge"),
+        pytest.param("backend", RENDER, id="the-checkout-holding-it"),
+        pytest.param("frontend", RENDER / "secrets", id="the-directory-into-the-frontend-beside-its-secret"),
+    ],
+)
+def test_a_bind_mount_reaching_the_secrets_directory_fails(service: str, source: Path):
+    """A bind is a second route to the key, past the one mount I472 names, and the tunnel token beside it."""
+    found = checker.secrets_directory(model(**{service: _bound(source)}), "p", RENDER)
+
+    assert len(found) == 1, found
+    assert f"p: {service} bind-mounts" in found[0].detail
+
+
+def test_a_bind_mount_beside_the_secrets_directory_and_a_named_volume_are_clean():
+    """`nginx/prod` shares the checkout with `secrets/` and reaches none of it; a named volume is no host path."""
+    assert (
+        checker.secrets_directory(
+            model(nginx=_bound(RENDER / "nginx/prod"), mongo={"volumes": [{"type": "volume", "source": "mongo-data", "target": "/data/db"}]}),
+            "p",
+            RENDER,
+        )
+        == []
+    )
+
+
+def test_a_config_read_from_the_secrets_directory_fails():
+    """A config mounts its file into whichever service names it, so it is a bind by another spelling."""
+    configs = {"configs": {"leak": {"file": str(RENDER / checker.SIGNING_KEY_FILE)}}}
+
+    assert len(checker.secrets_directory(model() | configs, "p", RENDER)) == 1
+
+
+def test_main_judges_the_secrets_directory_of_both_models():
+    project = new_root("fl-compose-main-secrets-")
+    for broken in ("production", "local"):
+        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
+        local = rendered_stack(project, "nginx/local")
+        ({"production": production, "local": local}[broken])["services"]["backend"] |= _bound(project / "secrets")
+
+        code, said = run_main(production, local, project)
+
+        assert code == 1, said
+        assert f"{broken}: backend bind-mounts" in said, said
+
+
 def test_main_judges_the_signing_key_of_both_models():
     project = new_root("fl-compose-main-key-")
     for broken in ("production", "local"):
