@@ -14,6 +14,8 @@ and a write shaped like one of those would escape the log.
 
 import re
 from collections.abc import Mapping, Sequence, Set
+from contextvars import ContextVar
+from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel
@@ -34,6 +36,35 @@ from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 # binary default puts each after „Z“. Per read rather than a default: a collated operation cannot
 # use a simple-collation index on a string bound.
 GERMAN_COLLATION: Mapping[str, Any] = {"locale": "de"}
+
+
+@dataclass
+class WritesSent:
+    """Whether this request has handed the driver a write, which is what may leave one standing after its answer is lost."""
+
+    sent: bool = False
+
+
+# A RECORD rather than a flag: a task started inside the request copies this context, and marking a
+# shared record reaches the request where rebinding a flag would not. Bound per request by
+# `app/core/middlewares.py :: TraceContextMiddleware`.
+writes_sent_var: ContextVar[WritesSent | None] = ContextVar("writes_sent", default=None)
+
+
+def a_write_may_stand() -> bool:
+    """Whether a write this request sent may stand, the judgement `DB-FAIL-002` is answered on (`docs/backend/spec.md :: I321`)."""
+
+    record = writes_sent_var.get()
+    # Unbound is outside any request, where nothing says what was sent: unknown is the answer that
+    # never sends a person to repeat a write already standing.
+    return record is None or record.sent
+
+
+def _sending_a_write() -> None:
+    # Marked BEFORE the driver call: a write whose answer the deadline cut may have landed.
+    record = writes_sent_var.get()
+    if record is not None:
+        record.sent = True
 
 
 async def pull_one_from_db(
@@ -89,6 +120,7 @@ async def patch_one_in_db(
     the state the write just replaced.
     """
 
+    _sending_a_write()
     # `BEFORE` whatever the caller asked for: `find_one_and_update` yields one image, and only the
     # update's own is taken with the write (`docs/backend/spec.md :: I39`).
     before = await collection.find_one_and_update(filter=db_filter, update=update, session=session, return_document=ReturnDocument.BEFORE)
@@ -125,6 +157,7 @@ async def patch_many_in_db(
     One log row with the filter and the count, never pre-images (`docs/backend/spec.md :: I40`).
     """
 
+    _sending_a_write()
     result = await collection.update_many(filter=db_filter, update=update, session=session)
 
     await record_write(
@@ -146,6 +179,7 @@ async def post_one_to_db(
 ) -> InsertOneResult:
     """The driver's result, unwrapped: every create answers with `inserted_id` and `acknowledged`."""
 
+    _sending_a_write()
     result = await collection.insert_one(document=document, session=session)
 
     # No `before`: a create replaced nothing, and a null there is what tells the page this row offers
@@ -167,6 +201,7 @@ async def post_many_to_db(
     and a row per document would bury it.
     """
 
+    _sending_a_write()
     try:
         result = await collection.insert_many(documents=documents, session=session)
     except BulkWriteError as failure:
@@ -229,6 +264,7 @@ async def delete_many_from_db(
     # document this call never removed.
     before = await collection.find(filter=db_filter, session=session).to_list(length=None)
 
+    _sending_a_write()
     result = await collection.delete_many(filter=db_filter, session=session)
 
     if result.deleted_count != len(before):
@@ -263,6 +299,7 @@ async def erase_many_from_db(
     preserve what this call destroys (`docs/backend/spec.md :: I48`).
     """
 
+    _sending_a_write()
     # `session` carries no default here for its own reason: an erasure is one transaction over the
     # person, their squad rows and the log, and any one of the three alone leaves it defeated.
     result = await collection.delete_many(filter=db_filter, session=session)

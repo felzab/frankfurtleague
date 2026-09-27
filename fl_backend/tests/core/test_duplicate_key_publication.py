@@ -37,6 +37,7 @@ from tests.core.app_source import (
     APP_ROOT,
     BACKEND_ROOT,
     COLLECTION_ARGUMENT_SUFFIX,
+    DRIVER_WRITES,
     WRITE_HELPERS,
     Declaration,
     api_routes,
@@ -52,23 +53,6 @@ from tests.database import a_clean_database_sync
 from tests.worker import worker_database
 
 CRUD = APP_ROOT / "core" / "crud.py"
-
-# The driver's own writes, on a collection a module holds rather than through `app/core/crud.py`.
-DRIVER_WRITES = frozenset(
-    {
-        "bulk_write",
-        "delete_many",
-        "delete_one",
-        "find_one_and_delete",
-        "find_one_and_replace",
-        "find_one_and_update",
-        "insert_many",
-        "insert_one",
-        "replace_one",
-        "update_many",
-        "update_one",
-    }
-)
 
 BULK_INSERT = "post_many_to_db"
 KEY_WRITES = WRITE_HELPERS | {

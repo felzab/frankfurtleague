@@ -7,6 +7,7 @@ import pymongo
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
+from app.core.crud import WritesSent, writes_sent_var
 from app.core.logging import fl_logger, span_id_var, trace_id_var
 
 # W3C Trace Context, version 00 alone: a malformed header is attacker-chosen log text. Anchored
@@ -47,6 +48,9 @@ class TraceContextMiddleware(BaseHTTPMiddleware):
 
         trace_token = trace_id_var.set(trace_id)
         span_token = span_id_var.set(span_id)
+        # Fresh per request, as the ids are: a record inherited from the context this runs in would
+        # answer another request's write as this one's.
+        writes_token = writes_sent_var.set(WritesSent())
         started = time.perf_counter()
 
         try:
@@ -68,6 +72,7 @@ class TraceContextMiddleware(BaseHTTPMiddleware):
             raise
         finally:
             # Reset, or the ids bleed onto the log lines of whichever request the loop runs next.
+            writes_sent_var.reset(writes_token)
             span_id_var.reset(span_token)
             trace_id_var.reset(trace_token)
 

@@ -1,14 +1,16 @@
+import ast
 import asyncio
 import logging
 import re
 import time
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from typing import Any
 
 import pytest
 from bson import ObjectId
-from fastapi import Depends, Request
+from fastapi import Request
 from httpx2 import ASGITransport, AsyncClient, Response  # noqa: TID251
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import (
@@ -21,10 +23,17 @@ from pymongo.errors import (
 )
 
 from app.api.bewerbungen.services import hash_token
-from app.api.spiele.admin_router import previewing
 from app.core import middlewares
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.crud import (
+    delete_many_from_db,
+    erase_many_from_db,
+    patch_many_in_db,
+    patch_one_in_db,
+    post_many_to_db,
+    post_one_to_db,
+)
 from app.core.db import get_einladungen_collection
 from app.core.exception_handlers import (
     DATABASE_FAILED,
@@ -40,7 +49,7 @@ from app.main import STORES_NOTHING_EXTENSION, create_app
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, ADMINISTRATORS, TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
-from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes
+from tests.core.app_source import APP_ROOT, BACKEND_ROOT, DRIVER_WRITES, api_routes, app_calls, callee, parsed
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_team_document
 from tests.openapi_document import build_document
@@ -58,6 +67,8 @@ SHORT_DEADLINE_S = 0.5
 ANSWERED_WITHIN_S = SHORT_DEADLINE_S + 10
 
 FAILED = DATABASE_FAILED
+
+CRUD_MODULE = "app/core/crud.py"
 
 ADMIN_HEADERS = SignedActor("admin@frankfurtleague.de", ADMIN_KEY)
 
@@ -116,21 +127,25 @@ def _grants_list_answered(method: str) -> tuple[Response, float]:
 
 class TestAnUnreachableServerIsAnsweredWithinTheDeadline:
     def test_the_route_answers_the_deadline_rather_than_retrying(self, monkeypatch: pytest.MonkeyPatch):
-        """Unknown rather than failed, the erasure being a write the deadline cut."""
+        """Failed rather than unknown: the erasure's transaction opens on a read, so the deadline cut it before any write was sent."""
 
         monkeypatch.setattr(middlewares, "REQUEST_DEADLINE_S", SHORT_DEADLINE_S)
 
         response, elapsed = _erasure_answered()
 
-        assert (response.status_code, response.json()["error_code"]) == (500, UNKNOWN_OUTCOME)
+        assert (response.status_code, response.json()["error_code"]) == (500, FAILED)
         assert elapsed < ANSWERED_WITHIN_S
 
-    def test_the_actor_check_s_own_read_is_held_to_the_deadline(self, monkeypatch: pytest.MonkeyPatch):
-        """The grant read runs as a dependency ahead of every handler, the case above answering it from a set."""
+    @pytest.mark.parametrize("method", ["GET", "POST"])
+    def test_the_actor_check_s_own_read_is_held_to_the_deadline(self, monkeypatch: pytest.MonkeyPatch, method: str):
+        """The grant read runs as a dependency ahead of every handler, the case above answering it from a set.
+
+        The `POST` is the load-bearing one: a grant's route, cut before its handler sent anything, has written nothing.
+        """
 
         monkeypatch.setattr(middlewares, "REQUEST_DEADLINE_S", SHORT_DEADLINE_S)
 
-        response, elapsed = _grants_list_answered("GET")
+        response, elapsed = _grants_list_answered(method)
 
         assert (response.status_code, response.json()["error_code"]) == (500, FAILED)
         assert elapsed < ANSWERED_WITHIN_S
@@ -148,7 +163,8 @@ def _transacted(url: str, *, outlives: bool) -> tuple[int, str | None, int]:
             written = database[Collection.AKTIONEN]
 
             async def write_then_wait(session: AsyncClientSession) -> None:
-                await written.insert_one({"_id": ObjectId()}, session=session)
+                # Through the helper every route writes through, which is what marks the request as having sent one.
+                await post_one_to_db(collection=written, document={"_id": ObjectId()}, session=session)
                 if outlives:
                     await asyncio.sleep(SHORT_DEADLINE_S * 2)
 
@@ -403,7 +419,7 @@ DEADLINE_ERRORS = [
 ]
 
 
-def _raised_through_the_app(error: Exception, method: str = "GET", *, declaring: Callable[..., Any] | None = None, query: str = "") -> Response:
+def _raised_through_the_app(error: Exception, method: str = "GET") -> Response:
     """The error raised from a route of the real app, so the handler Starlette picks is the one resolved from the class's own MRO."""
 
     async def _answered() -> Response:
@@ -412,10 +428,10 @@ def _raised_through_the_app(error: Exception, method: str = "GET", *, declaring:
         async def raising() -> None:
             raise error
 
-        served.add_api_route("/raising", raising, methods=[method], dependencies=None if declaring is None else [Depends(declaring)])
+        served.add_api_route("/raising", raising, methods=[method])
         transport = ASGITransport(app=served, raise_app_exceptions=False)
         async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-            return await http.request(method, f"/raising{query}")
+            return await http.request(method, "/raising")
 
     return asyncio.run(_answered())
 
@@ -442,23 +458,14 @@ class TestADeadlineCuttingARequestThatStoresNothingIsAFailure:
 
         assert (response.status_code, response.json()["error_code"]) == (500, UNHANDLED_CRASH)
 
+    @pytest.mark.parametrize("method", ["POST", "PATCH", "DELETE"])
     @pytest.mark.parametrize("error", DEADLINE_ERRORS)
-    def test_a_write_method_declaring_it_stores_nothing_is_a_failure_too(self, error: PyMongoError):
-        """Declared, because the method alone would tell the page a read may have saved something."""
+    def test_a_write_method_that_sent_nothing_is_a_failure_too(self, error: PyMongoError, method: str):
+        """The method is not the judgement: a write route cut before its first write, in its actor check say, stored nothing."""
 
-        response = _raised_through_the_app(error, "POST", declaring=stores_nothing)
+        response = _raised_through_the_app(error, method)
 
         assert (response.status_code, response.json()["error_code"]) == (500, FAILED)
-
-    @pytest.mark.parametrize(
-        ("query", "answered"), [("?dry_run=true", FAILED), ("?dry_run=false", UNKNOWN_OUTCOME)], ids=["a preview", "the save"]
-    )
-    def test_the_match_editors_preview_stores_nothing_and_its_save_may_have_written(self, query: str, answered: str):
-        """`PATCH /spiele/{spiel_id}` declares it through `previewing`, whose flag is the one the editor's preview sends."""
-
-        response = _raised_through_the_app(NetworkTimeout("timed out"), "PATCH", declaring=previewing, query=query)
-
-        assert (response.status_code, response.json()["error_code"]) == (500, answered)
 
     def test_the_line_names_the_deadline_rather_than_a_crash(self, caplog: pytest.LogCaptureFixture):
         _handled_directly(caplog, NetworkTimeout("timed out"))
@@ -528,19 +535,106 @@ class TestACommitOfUnknownOutcomeIsNotCalledFailed:
         assert [getattr(record, "error_code", None) for record in caplog.records if getattr(record, "error_code", None)] == [UNKNOWN_OUTCOME]
 
 
+class _NoDocuments:
+    async def to_list(self, length: int | None = None) -> list[Any]:
+        return []
+
+
+class _EveryWriteRaises:
+    """A collection whose every driver write raises `error` once handed to it; its one read, a removal's image, finds nothing."""
+
+    name = Collection.TEAMS
+
+    def __init__(self, error: Exception) -> None:
+        self._error = error
+
+    def find(self, *args: Any, **kwargs: Any) -> _NoDocuments:
+        return _NoDocuments()
+
+    def __getattr__(self, name: str) -> Any:
+        if name not in DRIVER_WRITES:
+            raise AttributeError(name)
+
+        async def raising(*args: Any, **kwargs: Any) -> Any:
+            raise self._error
+
+        return raising
+
+
+# Required by the removal helpers' signatures and read by nothing the collection above answers.
+NO_SESSION: Any = None
+
+# One call per `app/core/crud.py` helper reaching the driver's writes, each as a route makes it.
+WRITE_CALLS: dict[str, Callable[[Any], Awaitable[Any]]] = {
+    "patch_one_in_db": lambda collection: patch_one_in_db(
+        collection=collection, db_filter={"_id": 1}, update={"$set": {"name": "Adler"}}, return_document=ReturnDocument.BEFORE
+    ),
+    "patch_many_in_db": lambda collection: patch_many_in_db(collection=collection, db_filter={"_id": 1}, update={"$set": {"name": "Adler"}}),
+    "post_one_to_db": lambda collection: post_one_to_db(collection=collection, document={"name": "Adler"}),
+    "post_many_to_db": lambda collection: post_many_to_db(collection=collection, documents=[{"name": "Adler"}]),
+    "delete_many_from_db": lambda collection: delete_many_from_db(collection=collection, db_filter={"_id": 1}, session=NO_SESSION),
+    "erase_many_from_db": lambda collection: erase_many_from_db(collection=collection, db_filter={"_id": 1}, session=NO_SESSION),
+}
+
+
+def _crud_functions_reaching_a_driver_write() -> set[str]:
+    """Read off `app/core/crud.py` itself, so a helper added there is driven below or fails the listing's comparison."""
+
+    return {
+        node.name
+        for node in parsed(BACKEND_ROOT / CRUD_MODULE).body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        if any(isinstance(call, ast.Call) and callee(call) in DRIVER_WRITES for call in ast.walk(node))
+    }
+
+
+def _written_through_the_app(helper: str, error: Exception, method: str = "POST") -> Response:
+    """A route of the real app handing one helper a collection whose write raises `error`, as a write the deadline cut does."""
+
+    async def _answered() -> Response:
+        served = create_app(build_test_config())
+
+        async def writing() -> None:
+            await WRITE_CALLS[helper](_EveryWriteRaises(error))
+
+        served.add_api_route("/writing", writing, methods=[method])
+        transport = ASGITransport(app=served, raise_app_exceptions=False)
+        async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+            return await http.request(method, "/writing")
+
+    return asyncio.run(_answered())
+
+
 class TestAWriteTheDeadlineCutIsNotCalledFailed:
-    @pytest.mark.parametrize("method", ["POST", "PATCH", "DELETE"])
+    @pytest.mark.parametrize("helper", sorted(WRITE_CALLS))
     @pytest.mark.parametrize("error", DEADLINE_ERRORS)
-    def test_its_outcome_is_unknown(self, error: PyMongoError, method: str):
+    def test_its_outcome_is_unknown(self, error: PyMongoError, helper: str):
         """A write outside a transaction carries no label, and may have landed before its answer was lost."""
 
-        response = _raised_through_the_app(error, method)
+        response = _written_through_the_app(helper, error)
+
+        assert (response.status_code, response.json()["error_code"]) == (500, UNKNOWN_OUTCOME)
+
+    def test_every_helper_reaching_the_driver_s_writes_is_driven(self):
+        assert _crud_functions_reaching_a_driver_write() == set(WRITE_CALLS)
+
+    def test_no_write_reaches_the_driver_past_those_helpers(self):
+        """The log's own row aside, which follows a helper's write: a write sent past them is cut unmarked and called failed."""
+
+        outside = {f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) in DRIVER_WRITES}
+
+        assert {site for site in outside if not site.startswith(f"{CRUD_MODULE} :: ")} == {"app/core/recording.py :: record_write"}
+
+    def test_the_method_does_not_decide_it(self):
+        """A `GET` that sent a write may have left it standing as surely as a `POST` does."""
+
+        response = _written_through_the_app("patch_many_in_db", NetworkTimeout("timed out"), "GET")
 
         assert (response.status_code, response.json()["error_code"]) == (500, UNKNOWN_OUTCOME)
 
     def test_a_write_failing_without_the_deadline_stays_failed(self):
-        """The control: without it, a handler answering every write's database error unknown would pass the case above."""
+        """The control: without it, a handler answering every sent write's database error unknown would pass the cases above."""
 
-        response = _raised_through_the_app(OperationFailure("refused", 2, {"ok": 0, "code": 2}), "POST")
+        response = _written_through_the_app("post_one_to_db", OperationFailure("refused", 2, {"ok": 0, "code": 2}))
 
         assert (response.status_code, response.json()["error_code"]) == (500, FAILED)

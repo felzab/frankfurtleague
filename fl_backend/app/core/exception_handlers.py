@@ -13,9 +13,9 @@ from pymongo.errors import DuplicateKeyError, PyMongoError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.routing import Match
 
+from app.core.crud import a_write_may_stand
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DUPLICATE_KEY, BaseAPIException
 from app.core.logging import fl_logger, trace_id_var
-from app.core.security import SAFE_METHODS
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
 NO_DATA_TEXT = "//- No Data -//"
@@ -214,16 +214,15 @@ DUPLICATE_KEY_RESPONSE: Final = refusal_response(HTTPStatus.CONFLICT, {DUPLICATE
 DOCUMENT_NOT_FOUND_RESPONSE: Final = refusal_response(HTTPStatus.NOT_FOUND, {DOCUMENT_NOT_FOUND})
 
 
-def stores_nothing(request: Request) -> None:
-    """Declared by an operation storing nothing whatever its method.
+def stores_nothing() -> None:
+    """Declared by an operation storing nothing whatever its method, so the published document marks it (`docs/backend/spec.md :: I327`).
 
-    A deadline cutting it then answers a failed read rather than a write that may stand.
+    The declaration decides no answer here: a deadline's is judged on the writes the request sent.
     """
-    request.state.stores_nothing = True
 
 
-# Each dependency that calls `stores_nothing` itself once its boolean query flag is true, keyed to
-# that flag, so the condition is published (`app/main.py :: publish_stores_nothing`) rather than kept.
+# Each dependency whose boolean query flag, set, makes its operation store nothing, keyed to that
+# flag, so the condition is published (`app/main.py :: publish_stores_nothing`) rather than kept.
 STORES_NOTHING_WHEN: dict[Callable[..., Any], str] = {}
 
 
@@ -235,14 +234,11 @@ def stores_nothing_when[Dependency: Callable[..., Any]](flag: str) -> Callable[[
     return register
 
 
-def _may_have_written(request: Request) -> bool:
-    return request.method not in SAFE_METHODS and not getattr(request.state, "stores_nothing", False)
-
-
 async def db_exception_handler(request: Request, exc: PyMongoError):
-    # Unknown where a write may stand: a commit the driver labels so, or any write request the
-    # deadline cut, a write outside a transaction carrying no label (`docs/backend/spec.md :: I321`).
-    unknown = exc.has_error_label("UnknownTransactionCommitResult") or (exc.timeout and _may_have_written(request))
+    # Judged on what the request SENT, never on its method: a write route the deadline cut in its
+    # actor check has written nothing, and a write outside a transaction carries no label
+    # (`docs/backend/spec.md :: I321`).
+    unknown = exc.has_error_label("UnknownTransactionCommitResult") or (exc.timeout and a_write_may_stand())
     error_code = UNKNOWN_OUTCOME if unknown else DATABASE_FAILED
     what = "Database deadline passed" if exc.timeout else "Database crash"
 
