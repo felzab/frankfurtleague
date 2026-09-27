@@ -210,6 +210,29 @@ def test_a_realip_setting_a_server_or_location_overrides_fails(added: str):
     assert len(checker.trusted_connector(conf() + added, CONNECTOR, "c")) == 1
 
 
+@pytest.mark.parametrize(
+    "statement",
+    ["set_real_ip_from 0.0.0.0/0;", "real_ip_header X-Forwarded-For;", "real_ip_recursive on;"],
+    ids=["trust", "header", "recursive"],
+)
+def test_a_realip_directive_inside_a_one_line_block_fails(statement: str):
+    """nginx reads statements, not lines: a directive after the `{` on the block's own line takes effect all the same."""
+    one_line = f"location = /probe {{ {statement} return 204; }}\n"
+
+    assert len(checker.trusted_connector(conf() + one_line, CONNECTOR, "c")) == 1
+
+
+def test_a_realip_directive_commented_out_or_quoted_is_no_statement():
+    """A `#` comment is nothing to nginx, and a quoted `;` or brace is data inside one value."""
+    inert = '# set_real_ip_from 0.0.0.0/0;\nlog_format probe "{ set_real_ip_from 0.0.0.0/0; }";\n'
+
+    assert checker.trusted_connector(conf() + inert, CONNECTOR, "c") == []
+
+
+def test_a_one_line_geo_block_marking_another_address_fails():
+    assert len(checker.trusted_connector(conf() + "geo $realip_fallback { default 0; 10.0.0.1/32 1; }\n", CONNECTOR, "c")) == 1
+
+
 def test_a_realip_header_declared_nowhere_fails():
     """nginx's default is X-Real-IP, which the connector never sends, so every visitor would read as the connector."""
     assert len(checker.trusted_connector(conf().replace("real_ip_header CF-Connecting-IP;\n", ""), CONNECTOR, "c")) == 1

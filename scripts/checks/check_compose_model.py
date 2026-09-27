@@ -237,16 +237,77 @@ def edge_configuration(pairs: list[tuple[str, str]], checkout: Path) -> str:
     return "\n".join(file.read_bytes().decode() for directory in directories for file in sorted(directory.iterdir()) if file.is_file())
 
 
+def statements(conf: str) -> list[tuple[str, list[str]]]:
+    """nginx's statements in order, each with its words, comments dropped and quotes respected.
+
+    Never by line: nginx takes a whole `location { … }` on one line, where a line-anchored pattern
+    sees nothing.
+    """
+    found: list[tuple[str, list[str]]] = []
+    words: list[str] = []
+    word = ""
+    quote = ""
+    index = 0
+    while index < len(conf):
+        char = conf[index]
+        if quote:
+            word += char
+            if char == "\\" and index + 1 < len(conf):
+                word += conf[index + 1]
+                index += 1
+            elif char == quote:
+                quote = ""
+        elif char in "\"'":
+            quote = char
+            word += char
+        elif char == "#":
+            newline = conf.find("\n", index)
+            index = len(conf) if newline < 0 else newline
+            continue
+        elif char in ";{}" or char.isspace():
+            if word:
+                words.append(word)
+                word = ""
+            if not char.isspace():
+                found.append(({";": "statement", "{": "open", "}": "close"}[char], words))
+                words = []
+        else:
+            word += char
+        index += 1
+    return found
+
+
+def geo_arms(parsed: list[tuple[str, list[str]]], variable: str) -> tuple[int, list[tuple[str, ...]]]:
+    """How many `geo` blocks set `variable`, and every arm they hold."""
+    blocks = 0
+    arms: list[tuple[str, ...]] = []
+    depth = 0
+    for kind, words in parsed:
+        if depth:
+            depth += {"open": 1, "close": -1}.get(kind, 0)
+            if depth == 1 and kind == "statement" and words:
+                arms.append(tuple(words))
+        elif kind == "open" and words == ["geo", variable]:
+            blocks += 1
+            depth = 1
+    return blocks, arms
+
+
 def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
     """`set_real_ip_from` and the geo arm marking the fallback each name the connector's address, and nothing else.
 
     Another address leaves every visitor keyed to the connector's; a wider one lets any host on it name a visitor.
     """
-    trusted = re.findall(r"^\s*set_real_ip_from\s+([^;\s]+)\s*;", conf, re.MULTILINE)
-    blocks = re.findall(r"^geo \$realip_fallback \{(.*?)^\}", conf, re.MULTILINE | re.DOTALL)
+    parsed = statements(conf)
+    declared: dict[str, list[str]] = {}
+    for kind, words in parsed:
+        if kind == "statement" and len(words) >= 2:
+            declared.setdefault(words[0], []).append(" ".join(words[1:]))
+    trusted = declared.get("set_real_ip_from", [])
+    blocks, marked = geo_arms(parsed, "$realip_fallback")
     if not blocks:
         raise ValueError(f"{name} declares no `geo $realip_fallback` block, so the fallback's marker was not compared")
-    arms = [tuple(arm) for block in blocks for arm in re.findall(r"^\s*([^\s;]+)\s+([^\s;]+)\s*;", block, re.MULTILINE) if arm[0] != "default"]
+    arms = [arm for arm in marked if arm[0] != "default"]
     findings: list[Finding] = []
     if trusted != [address]:
         findings.append(
@@ -265,12 +326,12 @@ def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
             )
         )
     for directive, expected in REALIP_SETTINGS.items():
-        declared = re.findall(rf"^\s*{directive}\s+([^;\s]+)\s*;", conf, re.MULTILINE)
-        if declared != [expected]:
+        values = declared.get(directive, [])
+        if values != [expected]:
             findings.append(
                 Finding(
                     "fail",
-                    f"{name} declares {directive} {declared or 'nowhere'}, not once as {expected}\n"
+                    f"{name} declares {directive} {values or 'nowhere'}, not once as {expected}\n"
                     f"{CONTINUATION}a second one, in a server or a location, replaces the shared one there (I18)",
                 )
             )
