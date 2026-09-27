@@ -37,6 +37,20 @@ describe("the shared form", () => {
 
     assert.match(opening, /\bmethod="post"/, `the form a browser submits before hydration sends a GET: ${opening}`);
   });
+
+  /* An Enter submits through the form's default button, its first submit button; disabled, the browser
+     ignores the Enter, and the page's own handler takes over once it runs (`docs/frontend/spec.md :: I461`). */
+  it("renders a disabled default button before hydration, and none once the page runs", () => {
+    const tree = h(Form, { onSubmit: () => undefined, wiring: formWiring() }, h("button", { type: "submit" }, "Senden"));
+    const markup = renderToStaticMarkup(tree);
+    const firstSubmit = /<button\b[^>]*type="submit"[^>]*>/.exec(markup)?.[0] ?? "";
+    assert.match(firstSubmit, /\bdisabled=""/, `the form's default button before hydration is live: ${firstSubmit}`);
+
+    const { container } = render(tree);
+    const submits = container.querySelectorAll('button[type="submit"]');
+    assert.equal(submits.length, 1, "the disabled default button outlived hydration");
+    assert.equal(submits[0]?.hasAttribute("disabled"), false);
+  });
 });
 
 /* Held by tsc as the `action` refusal below is: a form taking `method` again could hand a GET back. */

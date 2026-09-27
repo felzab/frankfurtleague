@@ -1103,10 +1103,12 @@ stayed invisible until a dialog held the page open.
 hydration, on a slow connection, submits the server-rendered form as the browser would any other.
 Without a method that is a GET, every field appended to the URL, which put a person's address into
 `/signin?email=…` and so into history, the address bar and every log that keeps a query string. The
-shared form therefore fixes its method to POST (I461): the fields travel in the body to the page's
-own URL, which answers with the page again, and nothing is sent until the reader submits once the
-page has hydrated. Every form goes through it, a native `<form>` being linted out, so the one
-attribute covers the sign-in address, the application form and every administrator editor alike.
+shared form closes it twice (I461). **Until hydration its first child is a hidden, disabled submit
+button**, the form's default button, so the browser ignores an Enter outright; and **its method is
+POST**, so a press on a visible button before hydration still sends the fields in the body, to the
+page's own URL, which answers with the page again and sends nothing. Every form goes through it, a
+native `<form>` being linted out, so the two cover the sign-in address, the application form and
+every administrator editor alike.
 
 #### The draft may hold what the wire refuses
 
