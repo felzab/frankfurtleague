@@ -8,7 +8,7 @@
 
 # Matched by shape rather than inventory: a rule holds whether or not anything matches it now,
 # because a credential inside an image is a failure nobody sees until it ships. The containers
-# take their environment from compose's env_file at run time.
+# take their variables and secrets from compose when run.
 **/.env
 **/.env.*
 **/*.pem

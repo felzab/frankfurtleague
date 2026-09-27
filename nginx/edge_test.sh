@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
 # OPS · the running edge: what its logs CONTAIN, which headers it sends, and which it hands upstream.
 #
-# `nginx -t` is a parse and sees neither a log line nor a response, so a redaction failing open and a
-# location dropping a header both pass it. This serves the checkout's own files, never a copy — a
-# copy proves the copy — and grades what nginx wrote, sent and answered: `nginx/local/` for every
-# location and the Control API the deploy reloads through, started as `docker-compose.yml` starts
-# it, and `nginx/prod/` behind a throwaway certificate for the block production alone serves. Which
-# locations the edge makes reachable (`docs/ops/spec.md` I13) is a question this answers nothing
-# about.
+# `nginx -t` parses, seeing no log line and no response, so a redaction failing open and a location
+# dropping a header both pass it. This serves the checkout's own files, never a copy — a copy proves
+# the copy — and grades what nginx wrote, sent and answered: `nginx/local/` for every location and
+# the Control API the deploy reloads through, started as `docker-compose.yml` starts it, and
+# `nginx/prod/` behind a throwaway certificate for the block production alone serves. It answers
+# nothing about which locations the edge makes reachable (`docs/ops/spec.md` I13).
 #
 # Invariants:
 # - `docs/logging/spec.md` L11, and the edge's half of L12, the span every line carries.
 # - `docs/logging/spec.md` L7 and L10, on every location proxying to the frontend.
 # - `docs/ops/spec.md` I2, each security header sent once, as written, on every location's response.
-# - `docs/ops/spec.md` I352, no visitor named in the container's own streams.#
+# - `docs/ops/spec.md` I352, no visitor named in the container's own streams.
+# - `docs/ops/spec.md` I507, and §1.3's server-action pair.
+#
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
 #   ./nginx/edge_test.sh --help
 

@@ -218,7 +218,8 @@ fi
 section "preflight"
 
 step "Files the containers read"
-require_file "fl_frontend/.env" "The frontend container reads it via env_file. Copy it from your password manager."
+require_file "fl_frontend/.env" "The frontend container reads it via env_file. Write this machine's own with the variables
+docs/frontend/spec.md §1.7 lists; it holds no credential, each being a file under secrets/."
 require_file "fl_backend/.env"  "The backend container reads it via env_file."
 check_env_spellings "fl_frontend/.env"
 check_env_spellings "fl_backend/.env"
