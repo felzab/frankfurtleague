@@ -128,6 +128,12 @@ const TEST_ONLY = [
     message: "exportingModule builds a module double's source: a *.test.ts(x) file may import it, production code may not.",
   },
   {
+    // In core for `mailDouble.ts`'s reason: the passkey suites beside `auth.ts` post as it.
+    group: ["**/testAuthenticator.ts", "**/testAuthenticator"],
+    message:
+      "testAuthenticator holds a key pair minted at import and signs passkey ceremonies with it: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
     // In core for `mailDouble.ts`'s reason: a core guard's memo is proven by a core suite.
     group: ["**/cacheScope.ts", "**/cacheScope"],
     message:
