@@ -117,7 +117,10 @@ globalThis.fetch = ((input: string | URL | Request, init?: RequestInit) => {
   const url = input instanceof Request ? input.url : String(input);
   if (!url.startsWith(GATE_BACKEND_CONFIG.API_URL)) return ORIGINAL_FETCH(input, init);
 
-  const body = { acknowledged: 1, spieler: [], schiedsrichter: [], unbestaetigt: false, ...gateAnswer };
+  // The grant is what makes `ADMIN_EMAIL` an administrator's; every other address holds none.
+  const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
+  const verwaltung = email === ADMIN_EMAIL ? "administration" : null;
+  const body = { acknowledged: 1, spieler: [], schiedsrichter: [], unbestaetigt: false, verwaltung, ...gateAnswer };
   return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
 }) as typeof globalThis.fetch;
 
