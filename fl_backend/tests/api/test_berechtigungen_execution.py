@@ -1318,7 +1318,7 @@ class TestTheMountedRouteReadsTheGrants:
             await told(database, client)
             async with app_client(mongo_replica_set_url, config=CONFIG) as http:
                 response = await http.patch(
-                    f"/api/v{API_VERSION}/berechtigungen/{ANNA_ID}", headers={**ADMIN_AUTH, ACTOR_HEADER: OWNER}, json={"verwaltung": "owner"}
+                    f"/api/v{API_VERSION}/berechtigungen/{ANNA_ID}", headers=SignedActor(OWNER, ADMIN_KEY), json={"verwaltung": "owner"}
                 )
             [queued_row] = await queued(database)
 
