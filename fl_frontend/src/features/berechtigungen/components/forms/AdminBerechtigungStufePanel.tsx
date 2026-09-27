@@ -60,8 +60,7 @@ export function AdminBerechtigungStufePanel({
     <div className="flex w-full flex-col gap-3">
       {isConfirming && (
         <ConfirmReveal>
-          {/* `break-words`, as the card's „Erteilt von“ line: the sentence can open on a whole address. */}
-          <p className="fluid-xxs leading-normal font-medium break-words text-foreground">{folge}</p>
+          <p className="fluid-xxs leading-normal font-medium text-foreground">{folge}</p>
         </ConfirmReveal>
       )}
 

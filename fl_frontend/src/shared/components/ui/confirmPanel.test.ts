@@ -301,4 +301,25 @@ describe("the readout row", () => {
   it("renders its label and value as a description pair", () => {
     assert.match(READOUT, /<dt[^>]*>Saison<\/dt><dd[^>]*>2026\/27<\/dd>/, "the readout is two strings sharing a line");
   });
+
+  /* Either side may hold a name somebody typed, a team's in „Austritt von {Team}“, a person's as a value:
+     each is a flex item that keeps its longest word as its floor unless it may shrink and break it. */
+  it("lets either side break a word wider than the reveal", () => {
+    const classesOf = (tag: string): string[] => (/\sclass="([^"]*)"/.exec(tag)?.[1] ?? "").split(" ");
+
+    for (const side of ["dt", "dd"]) {
+      const worn = classesOf(new RegExp(`<${side}\\b[^>]*>`).exec(READOUT)?.[0] ?? "");
+      for (const token of ["min-w-0", ...NAME_WRAP_CLASSES.split(" ")]) {
+        assert.ok(worn.includes(token), `the readout's ${side} is missing ${token}, so a long name runs past the reveal`);
+      }
+    }
+  });
+});
+
+describe("the danger box both escalations stand in", () => {
+  /* Inherited by every sentence the box holds, the panel's own and the delete dialog's: a sentence may
+     name an address or a team, one word wider than the box on a phone. */
+  it("breaks a word wider than the box inside it", () => {
+    assert.ok(rootClasses(REVEAL).includes("wrap-break-word"), "a sentence in the reveal runs a long word past its edge");
+  });
 });

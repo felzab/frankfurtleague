@@ -15,6 +15,7 @@ import { appToast } from "@/shared/utils/appToast";
 import { CONFIRM_DANGER_PANEL_CLASSES } from "./ConfirmReveal";
 import { formButton, MODAL_FOOTER_ROW_CLASSES } from "./formButtons";
 import { ModalShell } from "./ModalShell";
+import { NAME_WRAP_CLASSES } from "./nameWrap";
 
 import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import type { ActionResult } from "@/shared/types/types";
@@ -124,7 +125,10 @@ export function ConfirmDeleteModal({
           {!isConfirming ? (
             <p className="fluid-sm leading-relaxed text-foreground-muted">
               Möchtest Du {entityLabel}
-              <span className="mx-1.5 inline-block rounded-md border border-border bg-surface px-2 py-0.5 font-bold text-foreground shadow-sm">
+              {/* The entity's name, which the page does not write: an inline-block sizes to its longest word
+                  unless capped, and the dialog clips what passes its edge. */}
+              <span
+                className={`mx-1.5 inline-block rounded-md border border-border bg-surface px-2 py-0.5 font-bold text-foreground shadow-sm ${NAME_WRAP_CLASSES}`}>
                 {entityName}
               </span>
               wirklich {RETIRE_INFINITIVE}?
