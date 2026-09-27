@@ -7,6 +7,7 @@ import {
   configDouble,
   cookieHeader,
   GATE_BACKEND_CONFIG,
+  madeByPasskey,
   memoryAdapterDouble,
   ORIGIN,
   registerAuthDoubles,
@@ -70,7 +71,7 @@ async function arriveSignedIn(email: string, { byPasskey = false } = {}): Promis
 
   const row = store.session.at(-1);
   assert.ok(row !== undefined, "the verification wrote no session row");
-  if (byPasskey) row.authFactor = "passkey";
+  if (byPasskey) madeByPasskey(store, row);
 
   requestHeaders = new Headers({ ...ORIGIN, cookie });
   return row.userId;

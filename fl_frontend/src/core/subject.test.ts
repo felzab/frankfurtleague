@@ -10,6 +10,7 @@ import {
   asDataUrl,
   configDouble,
   cookieHeader,
+  madeByPasskey,
   memoryAdapterDouble,
   ORIGIN,
   registerAuthDoubles,
@@ -245,15 +246,26 @@ describe("who the seam answers for", () => {
 
   it("marks the same address an administrator once the passkey made the session", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
     arriveAs(cookie);
 
     assert.equal((await getSubjectSession())?.admin, true);
   });
 
+  /* A sign-in racing its passkey's removal leaves a session naming a credential no row holds
+     (`docs/frontend/spec.md :: I313`): the person lane serves it no more than the administrator's does. */
+  it("answers no subject for a session whose passkey no row holds any more", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    madeByPasskey(store, row);
+    store.passkey.length = 0;
+    arriveAs(cookie);
+
+    assert.equal(await getSubjectSession(), null);
+  });
+
   it("drops that mark past the administrator's window, which this lane's own lifetime outlasts", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
     ageRow(row, { created: 49 * HOUR_MS });
     arriveAs(cookie);
 
@@ -338,7 +350,7 @@ describe("who the seam answers for", () => {
   it("answers an address holding no grant, unmarked, with the records it names", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     // Made by a passkey, as a person's may be: a code-borne session is unmarked whatever the grant says.
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
     arriveAs(cookie);
 
     const { answer, actor } = await guardInScope();
@@ -637,7 +649,7 @@ describe("the guard across one render pass", () => {
      records, and the lookup is what they share: without its memo an admin render asks three times. */
   it("asks the backend once for the admin guard, the switcher and the page of one render pass", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
     arriveAs(cookie);
     const sentBefore = sent.length;
 

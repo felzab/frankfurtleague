@@ -1094,7 +1094,7 @@ export async function removePasskey(holder: { id: string; email: string }, id: s
  * administrator's passkeys.
  */
 export const getKontoSession = cache(async (): Promise<JudgedSession | null> => {
-  const served = await auth.api.getSession({ headers: await headers() });
+  const served = await readServedSession(await headers());
   if (served === null) return null;
 
   // An unread grant throws rather than falling to the person's lane, which takes a mailed code. The
@@ -1112,6 +1112,29 @@ export const getKontoSession = cache(async (): Promise<JudgedSession | null> => 
 
 /** What every guard below is handed; no HTTP route serves it, `/get-session` being disabled. */
 type ServedSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
+
+/**
+ * The session every guard serves, `null` where a passkey no row holds made it: a sign-in racing that
+ * passkey's removal inserts its session after the removal's sign-out ran (`docs/frontend/spec.md :: I313`).
+ */
+export async function readServedSession(requestHeaders: Headers): Promise<ServedSession | null> {
+  const served = await auth.api.getSession({ headers: requestHeaders });
+  if (served === null || served.session.authFactor !== PASSKEY_FACTOR) return served;
+
+  const credentialID: unknown = served.session.passkeyCredentialId;
+  if (typeof credentialID !== "string" || credentialID === "") return null;
+
+  const { adapter } = await auth.$context;
+  const held = await adapter.findOne<{ id: string }>({
+    model: "passkey",
+    where: [
+      { field: "credentialID", value: credentialID },
+      { field: "userId", value: served.user.id },
+    ],
+  });
+
+  return held === null ? null : served;
+}
 
 /**
  * A served session beside the grant this request read for its address, which a step-up judges it by.
@@ -1163,7 +1186,7 @@ export type AdminRefusal = "signIn" | "noGrant" | "grantGone" | "unread";
 // and the proxy each read theirs.
 const readAdminRequest = cache(
   async (): Promise<{ readonly session: JudgedSession; readonly actor: RequestActor } | { readonly refused: AdminRefusal }> => {
-    const served = await auth.api.getSession({ headers: await headers() });
+    const served = await readServedSession(await headers());
     if (!served) return { refused: "signIn" };
 
     // An unread grant admits nobody, so the administration is shut while the backend is.
@@ -1210,7 +1233,7 @@ export type SignInDestination = "/bereich/admin" | "/signin/passkey" | "/bereich
 
 export async function getSignInDestination(): Promise<SignInDestination> {
   const requestHeaders = await headers();
-  return signInDestinationOf(await auth.api.getSession({ headers: requestHeaders }), requestHeaders);
+  return signInDestinationOf(await readServedSession(requestHeaders), requestHeaders);
 }
 
 /**
@@ -1219,7 +1242,7 @@ export async function getSignInDestination(): Promise<SignInDestination> {
  */
 export async function getSignedInAddress(): Promise<string | null> {
   const requestHeaders = await headers();
-  const served = await auth.api.getSession({ headers: requestHeaders });
+  const served = await readServedSession(requestHeaders);
   if ((await signInDestinationOf(served, requestHeaders)) === "/signin" || served === null) return null;
 
   return asSignInIdentifier(served.user.email);
@@ -1284,7 +1307,7 @@ async function passkeyStepOf(served: ServedSession, admin: boolean, requestHeade
 export async function getPasskeyStep(): Promise<PasskeyStep | null> {
   const requestHeaders = await headers();
 
-  const served = await auth.api.getSession({ headers: requestHeaders });
+  const served = await readServedSession(requestHeaders);
   if (!served) return null;
 
   // An unread read offers no card, for the landing's reason; a barred subject none either, its

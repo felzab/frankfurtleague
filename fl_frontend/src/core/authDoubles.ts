@@ -230,6 +230,29 @@ export function seatEveryAddress(granted: readonly string[] = [ADMIN_EMAIL]): vo
 }
 
 /**
+ * Stamps a stored session a passkey's and seeds the passkey row its credential names: every guard
+ * reads a passkey session whose passkey no row holds as no session (`docs/frontend/spec.md :: I313`).
+ */
+export function madeByPasskey(store: { passkey: unknown[] }, row: { userId: string; authFactor?: string; passkeyCredentialId?: string }): void {
+  const credentialID = `fabricated-credential-of-${row.userId}`;
+  row.authFactor = "passkey";
+  row.passkeyCredentialId = credentialID;
+
+  if (store.passkey.some((held) => typeof held === "object" && held !== null && Reflect.get(held, "credentialID") === credentialID)) return;
+  store.passkey.push({
+    id: `ein-passkey-of-${row.userId}`,
+    userId: row.userId,
+    credentialID: credentialID,
+    publicKey: "fabricated-public-key",
+    counter: 0,
+    deviceType: "singleDevice",
+    backedUp: false,
+    transports: "internal",
+    createdAt: new Date(),
+  });
+}
+
+/**
  * The code out of the last message mailed to `email`, or `null` where none was. Read off the send
  * rather than the store: `storeOTP: "encrypted"` means the stored value is not the code.
  */

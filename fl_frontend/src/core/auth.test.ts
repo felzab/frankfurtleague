@@ -15,6 +15,7 @@ import {
   configDouble,
   cookieHeader,
   lastMailedCode,
+  madeByPasskey,
   ORIGIN,
   registerAuthDoubles,
   signInByCode,
@@ -549,7 +550,7 @@ describe("what the mounted HTTP surface answers", () => {
 describe("what the narrowed session still gives the guards", () => {
   it("keeps the address the admin verdict is derived from, so narrowing cannot fail admin open or shut", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
     arriveAs(cookie);
 
     assert.equal((await getAdminSession())?.user.email, ADMIN_EMAIL);
@@ -557,14 +558,14 @@ describe("what the narrowed session still gives the guards", () => {
 
   it("keeps the session token out of the copy the proxy inspects, which the read widens rather than filters", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
 
     assert.ok(!JSON.stringify(await served(cookie)).includes(row.token), "the cookie's value reaches the object the proxy inspects");
   });
 
   it("gives the proxy the same verdict the page guard reaches", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
     arriveAs(cookie);
 
     const answer = await proxy(new NextRequest("http://localhost:3000/bereich/admin/spiele", { headers: { cookie } }));
@@ -610,7 +611,7 @@ describe("whom `/signin` greets rather than offering a sign-in", () => {
 describe("the three lifetimes, judged in the guard rather than in the store", () => {
   it("refuses a session forty-nine hours old for an address holding a grant, and serves it for anyone else", async () => {
     const admin = await signIn(ADMIN_EMAIL);
-    admin.row.authFactor = "passkey";
+    madeByPasskey(store, admin.row);
     ageRow(admin.row, { created: 49 * HOUR_MS });
     arriveAs(admin.cookie);
 
@@ -648,7 +649,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
      did not deserialise into a `Date` reaches the comparison as a string. */
   it("takes a stamp it cannot read for no session at all, rather than for an unbounded one", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
     Reflect.set(row, "createdAt", "kein Datum");
     arriveAs(cookie);
 
@@ -666,7 +667,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
 
   it("serves an administrator's session forty-seven hours old, for the same reason", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
     ageRow(row, { created: 47 * HOUR_MS, idle: 47 * HOUR_MS });
     arriveAs(cookie);
 
@@ -682,7 +683,7 @@ describe("a grant the backend cannot answer for", () => {
      person area's outage panel, never to a sign-in that mails no code. */
   it("admits no administrator, offers no passkey card and sends the session to the outage panel", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
     arriveAs(cookie);
     BACKENDS.set(ADMIN_EMAIL, "throws");
     const loggedBefore = logged.length;
@@ -774,7 +775,7 @@ describe("a grant on a barred address", () => {
      them nowhere rather than into a shell whose every read fails. */
   it("admits no administrator, however the session was made", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
     arriveAs(cookie);
     BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, gesperrt: true });
 
@@ -796,7 +797,7 @@ describe("the second factor, judged at the same guard", () => {
 
   it("admits the same address once the session was made by the passkey", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
     arriveAs(cookie);
 
     assert.ok(await getAdminSession());
@@ -835,7 +836,7 @@ describe("the second factor, judged at the same guard", () => {
 
   it("asks a session the passkey already made for neither half of that page", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
     arriveAs(cookie);
 
     assert.equal(await getPasskeyStep(), null);
@@ -858,7 +859,7 @@ describe("the second factor, judged at the same guard", () => {
     assert.equal(await getSignInDestination(), "/bereich");
 
     store.passkey.length = 0;
-    holding.row.authFactor = "passkey";
+    madeByPasskey(store, holding.row);
 
     assert.equal(await getPasskeyStep(), null, "a session the passkey made was offered one");
     assert.equal(await getSignInDestination(), "/bereich");
@@ -902,7 +903,7 @@ describe("the second factor, judged at the same guard", () => {
   it("turns on the factor alone, over one session the store serves twice", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
 
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
     const withFactor = await served(cookie);
     assert.ok(withFactor);
     assert.equal(isAdminSession(withFactor, true), true);
@@ -920,7 +921,8 @@ describe("the second factor, judged at the same guard", () => {
 
     for (const factor of ["code", "passkey"]) {
       for (const created of [HOUR_MS, 49 * HOUR_MS]) {
-        row.authFactor = factor;
+        if (factor === "passkey") madeByPasskey(store, row);
+        else row.authFactor = factor;
         ageRow(row, { created });
         arriveAs(cookie);
 
@@ -935,6 +937,49 @@ describe("the second factor, judged at the same guard", () => {
         );
       }
     }
+  });
+});
+
+/* A sign-in racing its passkey's removal inserts its session after the removal's sign-out ran, naming a
+   credential no passkey holds (`docs/frontend/spec.md :: I313`): the state the race leaves, driven directly. */
+describe("a passkey session whose passkey is gone", () => {
+  it("serves an administrator's no guard, the proxy and the landing included, and serves it again with its row", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    madeByPasskey(store, row);
+    store.passkey.length = 0;
+    arriveAs(cookie);
+
+    assert.equal(await getAdminSession(), null);
+    assert.equal(await getKontoSession(), null);
+    assert.equal(await getSignInDestination(), "/signin");
+    assert.equal(await getPasskeyStep(), null);
+    const turned = await proxy(new NextRequest("http://localhost:3000/bereich/admin/spiele", { headers: { cookie } }));
+    assert.ok(turned.headers.get("location")?.endsWith("/signin"), "the proxy let a session through whose passkey is gone");
+
+    // The control: the same session with its passkey's row standing.
+    madeByPasskey(store, row);
+    assert.ok(await getAdminSession());
+    assert.ok(await getKontoSession());
+  });
+
+  it("serves a person's account guard no such session", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    madeByPasskey(store, row);
+    store.passkey.length = 0;
+    arriveAs(cookie);
+
+    assert.equal(await getKontoSession(), null);
+    assert.equal(await getSignInDestination(), "/signin");
+  });
+
+  /* Another account's row under the same credential id is none of the session's own. */
+  it("reads the row by the session's own account", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    madeByPasskey(store, row);
+    for (const held of store.passkey) Reflect.set(held, "userId", "ein-anderes-konto");
+    arriveAs(cookie);
+
+    assert.equal(await getAdminSession(), null);
   });
 });
 
@@ -2654,7 +2699,7 @@ describe("which spelling of an administrator a write is attributed to", () => {
   it("records the folded identifier, which is the spelling the grant itself is looked up by", async () => {
     const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
 
     const held = store.user.find((user) => user.email === ADMIN_EMAIL);
     assert.ok(held, "the sign-in wrote no user row for the granted address");

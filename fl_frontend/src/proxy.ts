@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { auth, PASSKEY_FACTOR } from "./core/auth";
+import { PASSKEY_FACTOR, readServedSession } from "./core/auth";
 import { SIGN_IN_LANDING } from "./core/signInLanding";
 
 import type { NextRequest } from "next/server";
@@ -12,7 +12,7 @@ import type { NextRequest } from "next/server";
 export async function proxy(req: NextRequest): Promise<NextResponse> {
   // A server action's POST takes the checks below too: an action writing a cookie makes Next render
   // the tree at the POSTed URL into its answer, admin layout and all (`docs/frontend/spec.md :: I243`).
-  const session = await auth.api.getSession({ headers: req.headers });
+  const session = await readServedSession(req.headers);
 
   // No return destination carried across: honouring one needs it checked against an allowlist first.
   if (!session) {

@@ -7,6 +7,7 @@ import {
   configDouble,
   cookieHeader,
   GATE_BACKEND_CONFIG,
+  madeByPasskey,
   memoryAdapterDouble,
   ORIGIN,
   registerAuthDoubles,
@@ -182,7 +183,7 @@ describe("what the sign-in list hands the page", () => {
     older.row.createdAt = new Date(Date.now() - 3 * DAY_MS);
     older.row.updatedAt = new Date(Date.now() - DAY_MS);
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
 
     const { anmeldungen } = await sicherheitAs(cookie);
 
@@ -208,7 +209,7 @@ describe("what the sign-in list hands the page", () => {
       createdAt: new Date(),
     });
     const byPasskey = await signIn(PERSON_EMAIL);
-    byPasskey.row.authFactor = "passkey";
+    madeByPasskey(store, byPasskey.row);
     byPasskey.row.passkeyCredentialId = "fabricated-credential";
 
     const { anmeldungen } = await sicherheitAs(cookie);

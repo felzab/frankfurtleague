@@ -7,6 +7,7 @@ import {
   configDouble,
   cookieHeader,
   GATE_BACKEND_CONFIG,
+  madeByPasskey,
   memoryAdapterDouble,
   ORIGIN,
   registerAuthDoubles,
@@ -39,7 +40,7 @@ registerAuthDoubles({
   },
 });
 
-type SessionRow = { token: string; userId: string; authFactor?: string };
+type SessionRow = { token: string; userId: string; authFactor?: string; passkeyCredentialId?: string };
 
 type Store = {
   user: unknown[];
@@ -78,10 +79,10 @@ async function signIn(email: string): Promise<{ cookie: string; row: SessionRow 
 const admin = await signIn(ADMIN_EMAIL);
 // Stamped, because an administrator who has only followed the link is turned away by design and
 // every "let through" case below would then pass for the wrong reason.
-admin.row.authFactor = "passkey";
+madeByPasskey(store, admin.row);
 
 const removed = await signIn(REMOVED_EMAIL);
-removed.row.authFactor = "passkey";
+madeByPasskey(store, removed.row);
 
 const ADMIN_URL = "http://localhost:3000/bereich/admin/spiele";
 
