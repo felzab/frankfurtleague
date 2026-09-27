@@ -193,8 +193,17 @@ const { toNextJsHandler } = await import("better-auth/next-js");
 const { runWithEndpointContext } = (await import(
   pathToFileURL(createRequire(import.meta.resolve("better-auth")).resolve("@better-auth/core/context")).href
 )) as { runWithEndpointContext: <T>(context: object, run: () => Promise<T>) => Promise<T> };
-const { auth, endSessionsOfAddress, getAdminSession, getPasskeyStep, getSignInDestination, isAdminSession, isFreshlySignedIn, PASSKEY_LIMIT } =
-  await import("./auth.ts");
+const {
+  auth,
+  endSessionsOfAddress,
+  getAdminSession,
+  getKontoSession,
+  getPasskeyStep,
+  getSignInDestination,
+  isAdminSession,
+  isFreshlySignedIn,
+  PASSKEY_LIMIT,
+} = await import("./auth.ts");
 const { buildCodeEmail, CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
 const { proxy } = await import("../proxy.ts");
 const { NextRequest } = await import("next/server");
@@ -668,6 +677,23 @@ describe("a grant the backend cannot answer for", () => {
     BACKENDS.set(ADMIN_EMAIL, "throws");
 
     assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 503);
+  });
+});
+
+/* A session a ban's ending missed, a race or a failed sign-out, manages no passkeys and no sign-ins:
+   the account page's guard reads the ban on every request, as the person guard does. */
+describe("the account page's guard on a barred address", () => {
+  afterEach(() => BACKENDS.delete(PERSON_EMAIL));
+
+  it("answers no session once the address is barred, and the same session before", async () => {
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    const { cookie } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie);
+    assert.ok(await getKontoSession(), "the seated person's session was refused, so the case below proves nothing");
+
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+
+    assert.equal(await getKontoSession(), null);
   });
 });
 

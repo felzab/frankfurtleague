@@ -29,7 +29,7 @@ import { ENROLMENT_CONFLICT, SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFIC
 import { setRequestActor } from "./requestScope";
 import { ADMIN_LIFETIME, ENROLMENT_WINDOW_MS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS, STEP_UP_WINDOW_MS } from "./sessionLifetimes";
 import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "./signInCode";
-import { mayReceiveSignIn } from "./signInGate";
+import { lookUpSubjekt, mayReceiveSignIn } from "./signInGate";
 import { verwaltungOf } from "./verwaltung";
 
 import type { AuthContext, BetterAuthOptions, DBTransactionAdapter, GenericEndpointContext } from "better-auth";
@@ -989,8 +989,14 @@ export const getKontoSession = cache(async (): Promise<JudgedSession | null> => 
   const served = await auth.api.getSession({ headers: await headers() });
   if (served === null) return null;
 
-  // An unread grant throws rather than falling to the person's lane, which takes a mailed code.
-  const judged = { ...served, verwaltung: (await verwaltungOf(served.user.email)) !== null };
+  // An unread grant throws rather than falling to the person's lane, which takes a mailed code. The
+  // lookup `verwaltungOf` reads, memoised per render, so the ban costs no second read.
+  const subjekt = await lookUpSubjekt(asSignInIdentifier(served.user.email));
+
+  // On every request, as the person guard's: a session its ban's ending missed is no session here (`:: I406`).
+  if (subjekt.gesperrt) return null;
+
+  const judged = { ...served, verwaltung: subjekt.verwaltung !== null };
   if (judged.verwaltung) return isAdminSession(served, true) ? judged : null;
 
   return isWithinPersonLifetime(served.session) ? judged : null;

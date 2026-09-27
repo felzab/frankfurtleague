@@ -21,7 +21,7 @@ const STORE = "__flKontoStore";
 /** What the request a case arrives as carries. */
 let requestHeaders: Headers | undefined;
 
-/** Allowlisted by nothing: the person lane. */
+/** Holding no grant: the person lane. */
 const PERSON_EMAIL = "spielerin@example.org";
 
 /** A second person, whose sign-ins no call made with the first one's session may reach. */
