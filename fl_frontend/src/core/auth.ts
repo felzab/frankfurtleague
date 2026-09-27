@@ -37,7 +37,7 @@ import {
   STEP_UP_WINDOW_MS,
 } from "./sessionLifetimes";
 import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "./signInCode";
-import { lookUpSubjekt, mayReceiveSignIn } from "./signInGate";
+import { lookUpSubjekt, mayReceiveSignIn, signInVerdictOf } from "./signInGate";
 import { verwaltungOf } from "./verwaltung";
 
 import type { AuthContext, BetterAuthOptions, DBTransactionAdapter, GenericEndpointContext } from "better-auth";
@@ -212,6 +212,30 @@ function enrolmentGrant(subjekt: SubjectRecords): boolean {
   return subjekt.verwaltung !== null;
 }
 
+/**
+ * The caller's records, read in the registration's before hook and carried on the endpoint's context
+ * into its transaction, whose checks then decide without a backend round trip holding it open.
+ */
+type EnrolmentRead = { readonly userId: string; readonly subjekt: SubjectRecords };
+
+/** The context key the carried read travels under; a string, the library merging no symbol key. */
+const ENROLMENT_READ = "flEnrolmentRead";
+
+/** The read the before hook carried for `userId`, or `undefined` where it carried none for them. */
+function carriedEnrolmentRead(ctx: object | undefined, userId: string): SubjectRecords | undefined {
+  const read: unknown = ctx === undefined ? undefined : Reflect.get(ctx, ENROLMENT_READ);
+  if (typeof read !== "object" || read === null) return undefined;
+
+  return Reflect.get(read, "userId") === userId ? (Reflect.get(read, "subjekt") as SubjectRecords) : undefined;
+}
+
+/** The carried read, or the default-deny net's refusal where the hook carried none for this caller. */
+function carriedOrRefuse(ctx: object, userId: string): SubjectRecords {
+  const read = carriedEnrolmentRead(ctx, userId);
+  if (read === undefined) throw APIError.fromStatus("NOT_FOUND");
+  return read;
+}
+
 /** The records where an unread read offers nothing: `null` where the backend could not say. */
 async function subjektOrNull(email: string): Promise<SubjectRecords | null> {
   try {
@@ -360,7 +384,14 @@ async function endReplacedSession(ctx: GenericEndpointContext, mintedToken: stri
  */
 async function refuseUnadmitted(ctx: GenericEndpointContext, userId: string): Promise<void> {
   const account = await ctx.context.internalAdapter.findUserById(userId);
-  const verdict = account === null ? "failed" : await mayReceiveSignIn(account.email);
+  // Inside a registration's transaction the before hook's read decides, never a second round trip.
+  const carried = carriedEnrolmentRead(ctx, userId);
+  const verdict =
+    account === null
+      ? "failed"
+      : carried === undefined
+        ? await mayReceiveSignIn(account.email)
+        : signInVerdictOf(asSignInIdentifier(account.email), carried);
   if (verdict === "admitted") return;
 
   // Worded where the ceremony starts (`fl_frontend/src/features/auth/passkeyAnswers.ts`); a failed
@@ -755,17 +786,24 @@ const authOptions = {
         return ctx.json({ success: true });
       }
 
+      // Above the in-process return, so both arms carry it: the registration's transaction opens later,
+      // and a backend round trip inside it would hold it open (`docs/frontend/spec.md :: I462`).
+      const enrolling = ctx.path === PASSKEY_REGISTRATION_PATH ? await getSessionFromCtx(ctx) : null;
+      const enrolmentRead: EnrolmentRead | undefined =
+        enrolling === null ? undefined : { userId: enrolling.user.id, subjekt: await enrolmentSubjekt(enrolling.user.email) };
+      const carried = enrolmentRead === undefined ? undefined : { context: { [ENROLMENT_READ]: enrolmentRead } };
+
       // An absent `ctx.request` is the library's own test for a call that did not arrive over HTTP,
       // taken by `originCheckMiddleware` and by `requestOnlySessionMiddleware`. Nothing in process
       // is filtered here: those callers are this repository's own code.
-      if (ctx.request === undefined) return;
+      if (ctx.request === undefined) return carried;
 
       // The switch above is a denylist, so an endpoint the next upgrade mounts arrives open; this
       // is the default-deny net behind it, over `ctx.path`, the endpoint's own declared route
       // rather than a string derived from the URL a caller sent.
       if (!BROWSER_PATHS.has(ctx.path)) throw APIError.fromStatus("NOT_FOUND");
 
-      if (!ENROLMENT_PATHS.has(ctx.path)) return;
+      if (!ENROLMENT_PATHS.has(ctx.path)) return carried;
 
       // Refused rather than dropped: a caller who read the plugin's own body schema is answered,
       // and a request reshaped behind its back is how the next reader believes the field works.
@@ -778,7 +816,7 @@ const authOptions = {
       }
 
       // The plugin gates both halves on `freshAge` alone, which a code-borne session is inside.
-      const caller = await getSessionFromCtx(ctx);
+      const caller = enrolling ?? (await getSessionFromCtx(ctx));
 
       // Refused rather than left to the plugin's `freshSessionMiddleware`, which is mounted only
       // while `registration.requireSession` keeps its default: this arm judges nothing about a
@@ -788,8 +826,10 @@ const authOptions = {
       await refuseEnrolment(
         ctx.context.adapter,
         caller.user.id,
-        asStepUpCaller(caller, enrolmentGrant(await enrolmentSubjekt(caller.user.email))),
+        asStepUpCaller(caller, enrolmentGrant(enrolmentRead?.subjekt ?? (await enrolmentSubjekt(caller.user.email)))),
       );
+
+      return carried;
     }),
 
     // The `Set-Cookie` the endpoint wrote is untouched: `runAfterHooks` merges this hook's own
@@ -909,8 +949,8 @@ const authOptions = {
           const adapter = await getCurrentAdapter(ctx.context.adapter);
           if (adapter === ctx.context.adapter) throw new EnrolmentOutsideTransaction();
 
-          // Asked again here rather than trusted from the hook: this is the last point before the
-          // row is written, and it is reached by an `auth.api` call the hook lets through.
+          // Judged again here, the last point before the row is written, and reached by an `auth.api`
+          // call the hook lets through; off the hook's carried read, and nothing where it carried none.
 
           // `ctx.context.session` is put there by the plugin's own `freshSessionMiddleware`, which it
           // mounts only while `registration.requireSession` keeps its default: unset it and this arm
@@ -919,7 +959,7 @@ const authOptions = {
           await refuseEnrolment(
             adapter,
             user.id,
-            enrolling === null ? null : asStepUpCaller(enrolling, enrolmentGrant(await enrolmentSubjekt(enrolling.user.email))),
+            enrolling === null ? null : asStepUpCaller(enrolling, enrolmentGrant(carriedOrRefuse(ctx, enrolling.user.id))),
             verification.registrationInfo?.credential.id,
           );
 

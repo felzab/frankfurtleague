@@ -2603,6 +2603,31 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
     assert.deepEqual(await getPasskeyStep(), { step: "offer", email: BARRED_EMAIL });
   });
 
+  /* The registration's transaction opens after the before hook: a backend round trip inside it would
+     hold it open, and widen the window another change to the account's passkeys conflicts in
+     (`docs/frontend/spec.md :: I462`). The one read is the before hook's. */
+  it("reads the subject once for a set-up that signs in, ahead of the registration's transaction", async () => {
+    const { cookie } = await signIn(PERSON_EMAIL);
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    const offered = await overHttp("/passkey/generate-register-options", { cookie });
+    const { challenge } = (await offered.json()) as { challenge: string };
+    asked.length = 0;
+
+    const answer = await overHttp("/passkey/verify-registration", {
+      method: "POST",
+      cookie: `${cookie}; ${cookieHeader(offered)}`,
+      body: { response: registrationFor(challenge, true), createSession: true },
+    });
+
+    assert.equal(answer.status, 200, await answer.clone().text());
+    assert.equal(store.passkey.length, 1, "the set-up wrote no passkey");
+    assert.equal(
+      asked.filter((path) => path.endsWith("/identitaet/subjekt")).length,
+      1,
+      "the registration read the subject again inside its transaction",
+    );
+  });
+
   it("admits an administrator's passkey on the grant alone, holding no league record", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });

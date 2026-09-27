@@ -73,6 +73,14 @@ export async function mayReceiveSignIn(identifier: string): Promise<SignInVerdic
     return "failed";
   }
 
+  return signInVerdictOf(email, subjekt);
+}
+
+/**
+ * The gate over records already read, for a caller that read them where no round trip may run: the
+ * registration's transaction (`fl_frontend/src/core/auth.ts :: refuseUnadmitted`). `email` is folded.
+ */
+export function signInVerdictOf(email: string, subjekt: SubjectSession["subjekt"]): Exclude<SignInVerdict, "failed"> {
   // Ahead of every record and the grant: a barred address still holding a seat, awaiting a
   // confirmation or holding a grant written in the database directly is offered nothing.
   if (subjekt.gesperrt) return "barred";
