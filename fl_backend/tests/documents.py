@@ -162,8 +162,8 @@ def kontaktperson_document(vorname: str, *, bestaetigt_am: str | None = None, **
 def ban_document(address: str, *, bis: str, **fields: Any) -> dict[str, Any]:
     """One ban as the shipped write stores it, keyed under the suite's own settings.
 
-    `bis`, the last season it covers, has no default: read against the running season it decides
-    whether the ban stands, so each case says which it seeds.
+    `bis` has no default: read against the running season, it decides whether the ban stands, so each
+    case names the bound it seeds.
     """
 
     return {
