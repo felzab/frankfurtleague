@@ -258,14 +258,31 @@ describe("what a pass leaves for the next", () => {
     );
   });
 
-  /* A stack that mails nothing counts the change as told, or it would claim the same rows forever. */
-  it("counts a withheld send and a refused mailbox as told", async () => {
+  /* A stack that mails nothing counts the change as told, or it would claim the same rows forever; the
+     mailer has logged it, so the pass adds no line. A domain with no ASCII form fails that address alone. */
+  it("counts a withheld send and an address no send can reach as told", async () => {
     claim = claimOf([aenderung()]);
-    mail.answerWith((sent) => (sent.to === "inhaber@schule.de" ? "withheld" : { refused: 422, providerErrorName: "validation_error" }));
+    mail.answerWith((sent) => (sent.to === "inhaber@schule.de" ? "withheld" : sent.to === "neu@schule.de" ? "recipient" : "accepted"));
 
     await runBerechtigungenAbgleich();
 
     assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+    assert.deepEqual(
+      lines.map((line) => [line.level, line.event, line.fields]),
+      [["ERROR", "berechtigung.notice_failed", { error_code: "FE-MAIL-009", name: "MailRecipientError" }]],
+    );
+  });
+
+  /* A refusal of the key, the domain, the sender or the request refuses every send alike, and the
+     provider names none that concerns one address: stamped, the change would be told to nobody. */
+  it("leaves a change the provider refused for good, and logs each refusal", async () => {
+    claim = claimOf([aenderung()]);
+    mail.answerWith(() => ({ refused: 403, providerErrorName: "validation_error" }));
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(stamps(), []);
+    assert.ok(lines.length > 0 && lines.every((line) => line.level === "ERROR" && line.event === "berechtigung.notice_failed"));
   });
 
   it("stamps nothing and mails nothing where the claim holds no change", async () => {

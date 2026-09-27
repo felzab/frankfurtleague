@@ -2,7 +2,6 @@ import "server-only";
 
 import { buildBerechtigungEmail } from "@/core/berechtigungEmail";
 import { frontend_config } from "@/core/config";
-import { MailSendError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { MailRecipientError, MailWithheldError, sendMail } from "@/core/mail";
 import { mailIdempotencyKey } from "@/core/mailIdempotencyKey";
@@ -103,7 +102,10 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
       // provider's day; the body depends on the row alone, which the provider needs to collapse it.
       await sendMail({ to: adresse, subject, html, text, idempotencyKey: mailIdempotencyKey(["berechtigung", aenderung.id], adresse) });
     } catch (error) {
-      if (!erledigt(error)) alleErledigt = false;
+      // Logged by the mailer itself, and as told: a stack that mails nothing would claim the same rows forever.
+      if (error instanceof MailWithheldError) continue;
+
+      if (!(error instanceof MailRecipientError)) alleErledigt = false;
       // The name alone: a failure on this path routinely carries the address.
       logger.error("berechtigung.notice_failed", undefined, {
         error_code: "FE-MAIL-009",
@@ -112,17 +114,9 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
     }
   }
 
+  // Every other failure keeps the row, a provider's refusal included: the provider names none that
+  // concerns one address alone, and a key, a domain or a sender it refuses refuses every send.
   return alleErledigt;
-}
-
-/**
- * Whether a failed send is as settled as it will get: a deployment that mails nothing, a mailbox the
- * provider refuses for good. A retry that could land leaves the change unstamped.
- */
-function erledigt(error: unknown): boolean {
-  if (error instanceof MailWithheldError || error instanceof MailRecipientError) return true;
-  // A broken connection, a spent deadline and anything unforeseen may yet land on a later pass.
-  return error instanceof MailSendError && !error.isTransient;
 }
 
 /**
