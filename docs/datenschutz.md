@@ -579,6 +579,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   copy or a deletion of that person's data is asked for by mail to the league's contact address,
   and the league confirms the request by a mail to the barred address, which cannot sign in to ask.
   Ruled 2026-09-27.
+- **A grant of access to the Verwaltung is kept until it is revoked, and the notice of a change to one
+  only until it is sent.** A revoke removes the grant and the announced record of it in one
+  transaction (`fl_backend/app/api/berechtigungen/admin_router.py :: delete_berechtigung`), and the
+  pass that mails a change removes its outbox row once it is sent or given up
+  (`fl_backend/app/api/berechtigungen/sweep_router.py :: post_berechtigungen_angekuendigt`,
+  `docs/backend/spec.md :: I480`). The announced record and the outbox row leave no image in the log
+  (`docs/backend/spec.md :: I465`), while a revoked grant keeps its own under the log's twelve
+  months. The published notice tabulates it (`DatenschutzView.tsx :: FRISTEN`). Ruled 2026-09-28.
 - **No open tracking and no click tracking is subscribed, and none is read.** The mail provider
   reports what became of a message's DELIVERY and nothing about what its recipient did with it: the
   six delivery events are subscribed and `email.opened` and `email.clicked` are not
