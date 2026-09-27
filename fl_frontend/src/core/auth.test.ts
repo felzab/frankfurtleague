@@ -606,6 +606,25 @@ describe("whom `/signin` greets rather than offering a sign-in", () => {
 
     assert.equal(await getSignedInAddress(), null);
   });
+
+  /* A session its ban's ending missed: every guard behind `/bereich` refuses it, so a landing there
+     sends it straight back to a page that would greet it as signed in (`docs/frontend/spec.md :: I406`). */
+  it("greets no barred person, and lands them on the sign-in rather than in the person area", async () => {
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    try {
+      const { cookie } = await signIn(PERSON_EMAIL);
+      arriveAs(cookie);
+      assert.notEqual(await getSignInDestination(), "/signin", "the seated person was not landed, so the case below proves nothing");
+      assert.equal(await getSignedInAddress(), PERSON_EMAIL);
+
+      BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+
+      assert.equal(await getSignInDestination(), "/signin");
+      assert.equal(await getSignedInAddress(), null);
+    } finally {
+      BACKENDS.delete(PERSON_EMAIL);
+    }
+  });
 });
 
 describe("the three lifetimes, judged in the guard rather than in the store", () => {
@@ -792,8 +811,8 @@ describe("a grant on a barred address", () => {
     BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, gesperrt: true });
 
     assert.equal(await getAdminSession(), null);
-    // A person's landing, where the person guard answers a barred subject no session.
-    assert.equal(await getSignInDestination(), "/bereich");
+    assert.equal(await getSignInDestination(), "/signin");
+    assert.equal(await getSignedInAddress(), null);
   });
 });
 

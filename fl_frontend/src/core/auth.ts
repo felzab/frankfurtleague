@@ -1275,12 +1275,16 @@ export async function getSignedInAddress(): Promise<string | null> {
 async function signInDestinationOf(served: ServedSession | null, requestHeaders: Headers): Promise<SignInDestination> {
   if (!served) return "/signin";
 
-  // An unread grant is the backend down: `/bereich` answers it with the person area's outage panel, its
+  // An unread lookup is the backend down: `/bereich` answers it with the person area's outage panel, its
   // own lookup failing, where `/signin` would mail no code and say nothing (`docs/frontend/spec.md :: I121`).
-  const verwaltung = await verwaltungOrNull(served.user.email);
-  if (verwaltung === null) return isWithinPersonLifetime(served.session) ? "/bereich" : "/signin";
+  const subjekt = await subjektOrNull(served.user.email);
+  if (subjekt === null) return isWithinPersonLifetime(served.session) ? "/bereich" : "/signin";
 
-  if (verwaltung) {
+  // The ban itself, never read through the grant: every guard behind `/bereich` refuses a barred
+  // session, so any other answer sends it round and has `/signin` greet it (`docs/frontend/spec.md :: I406`).
+  if (subjekt.gesperrt) return "/signin";
+
+  if (subjekt.verwaltung !== null) {
     // The guard's own verdict rather than a second spelling of it: a condition added there has to
     // move this landing with it, or `/bereich/admin` is offered to somebody the proxy bounces.
 
