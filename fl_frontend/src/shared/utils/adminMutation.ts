@@ -8,6 +8,7 @@ import { requestWriteSent } from "@/core/requestScope";
 import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
 
 import { unansweredAction, ZUGANG_WEG } from "./actionError";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "./refusal";
 import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
 import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
@@ -28,7 +29,7 @@ export const BERECHTIGUNG_UNGELESEN = "Deine Berechtigung ließ sich gerade nich
 
 /** What an admin write answers where the guard could not read the grant. */
 // GERMAN-PENDING: new German, not yet approved.
-const BERECHTIGUNG_UNGELESEN_ERNEUT = `${BERECHTIGUNG_UNGELESEN} Versuche es erneut.`;
+const BERECHTIGUNG_UNGELESEN_ERNEUT = `${BERECHTIGUNG_UNGELESEN} ${VERSUCHE_ES_ERNEUT_SATZ}`;
 
 /** The administrator a guarded body runs for, as the guard resolved them. */
 export type AdminSession = NonNullable<Awaited<ReturnType<typeof getAdminSession>>>;

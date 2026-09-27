@@ -6,7 +6,7 @@ import { endSessionsOfAddress } from "@/core/auth";
 import { logger } from "@/core/logging";
 import { runOutsideRequestScope } from "@/core/requestScope";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { runBerechtigungenAbgleich } from "./abgleich";
@@ -72,7 +72,7 @@ export async function postBerechtigungAction(rawPayload: FLPostBerechtigungPaylo
     }
 
     if (!postOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Zugang wurde nicht erteilt", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Zugang wurde nicht erteilt", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     // After the write is acknowledged, so nobody is signed out by a grant that then failed.
@@ -102,7 +102,7 @@ export async function deleteBerechtigungAction(rawPayload: FLBerechtigungKeyPayl
     }
 
     if (!deleteOperation.acknowledged) {
-      return { success: false, error: buildRefusal({ reason: "Der Zugang wurde nicht entzogen", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Der Zugang wurde nicht entzogen", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     ankuendigenNachDerAntwort();
@@ -134,7 +134,7 @@ export async function patchBerechtigungAction(rawPayload: FLPatchBerechtigungPay
 
     if (!patchOperation.acknowledged) {
       // GERMAN-PENDING: new German, not yet approved.
-      return { success: false, error: buildRefusal({ reason: "Die Stufe wurde nicht geändert", repair: "Versuche es erneut" }) };
+      return { success: false, error: buildRefusal({ reason: "Die Stufe wurde nicht geändert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 
     ankuendigenNachDerAntwort();
