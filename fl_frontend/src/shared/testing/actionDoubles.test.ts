@@ -18,6 +18,8 @@ const { calls, answerWith, answerPending, leavePending } = doubleActions({ modul
 const { setSession, setSubject, subjectReads } = doubleActionRequest();
 // A module a real action writes through, which the double refuses rather than stands in for.
 doubleActions({ modules: ["/src/features/spielorte/mutations.ts"] });
+// A module the case below writes, whose one export's name holds a dollar sign.
+doubleActions({ modules: ["/dollarNamed.mjs"] });
 
 /* `await import`, never a static import beside the doubles: each hook is registered as its call
    above evaluates, and a static import would have resolved the real module before then. */
@@ -45,6 +47,22 @@ describe("the actions double", () => {
     await spieltage.patchSpieltagAction(payload);
 
     assert.deepEqual(calls, [{ action: "patchSpieltagAction", payload }]);
+  });
+
+  /* A name cut at its dollar sign is a double exporting an action the module never had, and the
+     import of the real name then fails to link. */
+  it("carries an action whose name holds a dollar sign under its whole name", async () => {
+    const scratch = mkdtempSync(path.join(tmpdir(), "fl-dollar-"));
+    const file = path.join(scratch, "dollarNamed.mjs");
+    writeFileSync(file, "export const save$Entwurf = async () => undefined;\n");
+
+    try {
+      const doubled = (await import(pathToFileURL(file).href)) as Record<string, unknown>;
+
+      assert.deepEqual(Object.keys(doubled), ["save$Entwurf"]);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
   });
 
   it("answers as landed until a case says otherwise, and then as that case says", async () => {

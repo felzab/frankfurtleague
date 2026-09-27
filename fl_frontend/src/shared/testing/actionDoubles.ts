@@ -84,7 +84,7 @@ export function doubleActions({
       }
 
       const real = blankComments(readFileSync(fileURLToPath(url), "utf8"));
-      const names = [...real.matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)].map(([, name = ""]) => name);
+      const names = [...real.matchAll(/^export (?:async )?(?:function|const) ([\w$]+)/gm)].map(([, name = ""]) => name);
       const source = exportingModule(Object.fromEntries(names.map((name) => [name, act(name)])));
 
       return { format: "module", source, shortCircuit: true };
@@ -254,7 +254,7 @@ function administratorServed(session: AdminSessionDouble): unknown {
  * module so an import links.
  */
 function sessionModule(url: string, what: string, doubled: ReadonlyMap<string, (...args: unknown[]) => unknown>): string {
-  const names = [...readFileSync(fileURLToPath(url), "utf8").matchAll(/^export (?:async )?(?:function|const) (\w+)/gm)].map(
+  const names = [...readFileSync(fileURLToPath(url), "utf8").matchAll(/^export (?:async )?(?:function|const) ([\w$]+)/gm)].map(
     ([, name = ""]) => name,
   );
 
@@ -406,7 +406,7 @@ function toastMembers(): string[] {
   const from = source.indexOf("export const appToast = {");
   if (from === -1) throw new Error("appToast.ts declares no appToast object for the double to mirror");
 
-  return [...source.slice(from, source.indexOf("\n};", from)).matchAll(/^ {2}(\w+):/gm)].map(([, name]) => name ?? "");
+  return [...source.slice(from, source.indexOf("\n};", from)).matchAll(/^ {2}([\w$]+):/gm)].map(([, name]) => name ?? "");
 }
 
 /**
