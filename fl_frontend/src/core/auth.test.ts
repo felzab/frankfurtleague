@@ -2775,7 +2775,7 @@ describe("which spelling of an administrator a write is attributed to", () => {
   it("signs the session's user, row, factor and age under the administrator's lane", async () => {
     const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
     arriveAs(cookie);
 
     const actor = await runWithRequestScope({ traceId: `${"0".repeat(31)}1`, spanId: `${"0".repeat(15)}1` }, async () => {

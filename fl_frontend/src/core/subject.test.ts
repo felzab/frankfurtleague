@@ -605,7 +605,7 @@ describe("the guard across one render pass", () => {
      sent from; that read is answered from the memo and must still name the administrator. */
   it("records the administrator's actor in a scope opened after the admin guard's memo was filled", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
     arriveAs(cookie);
     const readsBefore = headerReads();
 
