@@ -29,6 +29,15 @@ import type { FormState } from "@/shared/types/types";
 import type { ErrorInfo } from "next/error";
 
 /**
+ * The spam folder alone: whether an address is sent a code at all is the gate's, and a line naming one
+ * reason a person is refused would be wrong for every other.
+ */
+// GERMAN-PENDING: new German, not yet approved.
+const KEIN_CODE = "Kein Code angekommen? Schau im Spam-Ordner nach.";
+
+const ANMELDEN = { rest: "Anmelden", pending: "Meldet an..." };
+
+/**
  * Next's own boundary rather than a hand-written class: a class catches every throw, a framework
  * navigation included, so this card's retry panel would answer one — and would go on standing after
  * the route had changed under it.
@@ -124,6 +133,8 @@ function SignInPanel({ email, onEmailChange, next }: { email: string; onEmailCha
         key={sends}
         address={address}
         message={state.message ?? null}
+        hint={KEIN_CODE}
+        submitLabel={ANMELDEN}
         isSending={isPending}
         onResend={() => send(address)}
         onBack={() => setDismissedAt(state)}

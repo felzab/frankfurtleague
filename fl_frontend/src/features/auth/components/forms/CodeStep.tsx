@@ -31,6 +31,8 @@ export const LABEL_CLASSES = "fluid-xs font-bold tracking-wider text-foreground 
 export function CodeStep({
   address,
   message,
+  hint,
+  submitLabel,
   isSending,
   onResend,
   onBack,
@@ -38,6 +40,10 @@ export function CodeStep({
 }: {
   address: string;
   message: string | null;
+  /** The caller's own: a sign-in and a confirmation of somebody signed in owe the reader different help. */
+  hint: string;
+  /** The check's button at rest and while it runs, which names what a right code does on this page. */
+  submitLabel: { rest: string; pending: string };
   isSending: boolean;
   onResend: () => void;
   onBack?: () => void;
@@ -151,7 +157,7 @@ export function CodeStep({
         <Hint
           mode="inline"
           describes={hintId}
-          text="Kein Code angekommen? Schau im Spam-Ordner nach. Hast Du Dich gerade erst eingetragen, bestätige zuerst Deine Eintragung über den Link aus unserer E-Mail."
+          text={hint}
         />
       </div>
 
@@ -162,7 +168,7 @@ export function CodeStep({
         isDisabled={code.length !== SIGN_IN_CODE_LENGTH}
         onPress={() => void check(code)}
         className={formButton({ intent: "submit", fullWidth: true })}>
-        {isChecking ? "Meldet an..." : "Anmelden"}
+        {isChecking ? submitLabel.pending : submitLabel.rest}
       </Button>
 
       <div className="flex flex-col gap-y-3 sm:flex-row sm:justify-center sm:gap-x-3">

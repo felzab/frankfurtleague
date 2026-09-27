@@ -140,7 +140,8 @@ describe("the sign-in card's code step", () => {
     assert.ok(document.activeElement === field, "the step replaced the pressed button and left the focus on the document");
 
     const hint = document.getElementById(field.getAttribute("aria-describedby") ?? "");
-    assert.match(hint?.textContent ?? "", /^Kein Code angekommen\?/);
+    // The spam folder alone: whether an address is sent a code at all is the gate's.
+    assert.equal(hint?.textContent, "Kein Code angekommen? Schau im Spam-Ordner nach.");
   });
 
   /* The sixth digit is the submit: a press after it is a press the reader should not have to make. */
@@ -236,11 +237,21 @@ describe("the sign-in card's code step", () => {
 
 /* The step on its own, as a page confirming a signed-in person mounts it: the caller decides what a
    finished sign-in does, and an address that may not change is offered no way to change it. */
+/** A caller other than the sign-in card, with words of its own. */
+const ELSEWHERE = {
+  address: ADDRESS,
+  message: NEUTRAL,
+  hint: "Ein Hinweis dieser Seite.",
+  submitLabel: { rest: "Weiter", pending: "Läuft..." },
+  isSending: false,
+  onResend: () => undefined,
+};
+
 describe("the code step mounted outside the sign-in card", () => {
   it("hands a finished sign-in to its caller and leaves the document to it", async () => {
     const user = userEvent.setup();
     const signedIn = mock.fn();
-    render(h(CodeStep, { address: ADDRESS, message: NEUTRAL, isSending: false, onResend: () => undefined, onSignedIn: signedIn }));
+    render(h(CodeStep, { ...ELSEWHERE, onSignedIn: signedIn }));
     fetchMock.mock.mockImplementationOnce(() => Promise.resolve(answered({ success: true })));
 
     await user.type(screen.getByLabelText("Code aus der E-Mail"), "048213");
@@ -250,9 +261,19 @@ describe("the code step mounted outside the sign-in card", () => {
   });
 
   it("offers no other address where its caller passes no way back", () => {
-    render(h(CodeStep, { address: ADDRESS, message: NEUTRAL, isSending: false, onResend: () => undefined, onSignedIn: () => undefined }));
+    render(h(CodeStep, { ...ELSEWHERE, onSignedIn: () => undefined }));
 
     assert.ok(screen.queryByRole("button", { name: "Andere E-Mail-Adresse verwenden" }) === null);
     assert.ok(screen.getByRole("button", { name: "Code erneut senden" }));
+  });
+
+  /* A signed-in reader confirming a change is owed neither the sign-in's help nor its verb. */
+  it("carries its caller's own hint and button words", () => {
+    render(h(CodeStep, { ...ELSEWHERE, onSignedIn: () => undefined }));
+
+    const field = screen.getByLabelText<HTMLInputElement>("Code aus der E-Mail");
+    assert.equal(document.getElementById(field.getAttribute("aria-describedby") ?? "")?.textContent, ELSEWHERE.hint);
+    assert.ok(screen.getByRole("button", { name: ELSEWHERE.submitLabel.rest }));
+    assert.ok(screen.queryByRole("button", { name: "Anmelden" }) === null, "the sign-in's verb stands on another page's step");
   });
 });

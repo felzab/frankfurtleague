@@ -12,6 +12,14 @@ import { appToast } from "@/shared/utils/appToast";
 
 import type { FormState } from "@/shared/types/types";
 
+/** Nothing about registering: the reader is signed in already and asks for a code to their own address. */
+// GERMAN-PENDING: new German, not yet approved.
+const KEIN_CODE = "Kein Code angekommen? Schau im Spam-Ordner nach.";
+
+/** What a right code does here: it confirms the reader, who is already signed in. */
+// GERMAN-PENDING: new German, not yet approved.
+const BESTAETIGEN = { rest: "Bestätigen", pending: "Wird geprüft..." };
+
 /** The code half's own refusal: a code that signed in an account other than the page's. */
 const CODE_STEP_UP_REFUSED = "Wir konnten Dich nicht mit dem Code bestätigen.";
 
@@ -67,6 +75,8 @@ export function CodeConfirmation({
         key={sends}
         address={address}
         message={state.message ?? null}
+        hint={KEIN_CODE}
+        submitLabel={BESTAETIGEN}
         isSending={isSending}
         onResend={send}
         onSignedIn={() => void signedIn()}
