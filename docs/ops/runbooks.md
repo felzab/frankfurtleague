@@ -339,8 +339,10 @@ gate and its guards share. A grant or a revoke takes hold on the next request of
 restarts ([`spec.md`](spec.md) §4). A backend that cannot answer admits nobody, so the
 administration is shut while it is down. Each of these is easy to get wrong:
 
-- **An `owner` grant, and any grant no page offers yet, is written in MongoDB Playground, against
-  the application database** (`DB_BASE_NAME`, which `fl_backend/.env` names): no route writes an
+- **An `administration` grant is made on the „Administratoren“ page, and only an `owner` is offered
+  its revoke there** (`docs/frontend/spec.md :: I459`). Both ask a passkey confirmation of the last
+  five minutes, a grant outliving the session making it (`docs/frontend/spec.md :: I458`).
+- **An `owner` grant is written in MongoDB Playground, against the application database** (`DB_BASE_NAME`, which `fl_backend/.env` names): no route writes an
   owner at all (`docs/backend/spec.md :: I436`). The address goes in FOLDED — trimmed, the letters
   of both halves lower-case, the domain in punycode — or it admits nobody, the validator refusing no
   spelling; the boot counts such a row as `SRV-BOOT-007` and never names its address. Every field

@@ -85,7 +85,9 @@ authorization check. Application data goes through FastAPI without exception.
 through `fl_frontend/src/core/verwaltung.ts :: verwaltungOf`, and the backend reads it on every
 admin-tier request and refuses one naming an actor who holds none
 ([`../backend/spec.md`](../backend/spec.md) I383). A backend that cannot answer admits nobody
-([`spec.md`](spec.md) I121). `getAdminSession()` is the gate `runAdminMutation` opens every admin server action on ([`spec.md`](spec.md) I7), and its
+([`spec.md`](spec.md) I121). Grants are made on `/bereich/admin/administratoren`, and every change to
+them, one made in the database included, is mailed to every holder by a pass this process runs
+([`spec.md`](spec.md) I455). `getAdminSession()` is the gate `runAdminMutation` opens every admin server action on ([`spec.md`](spec.md) I7), and its
 return value has to be checked — [`spec.md`](spec.md) I8 says what happens when it is not.
 
 **Route protection is layered**: `fl_frontend/src/proxy.ts` matches `/bereich/:path*` and turns

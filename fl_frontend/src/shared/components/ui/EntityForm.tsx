@@ -17,6 +17,7 @@ import { StepUpRefused } from "./StepUpRefused";
 import type { ActionResult } from "@/shared/types/types";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { ZodType } from "zod";
+import type { StepUpDemand } from "./stepUp";
 
 /**
  * The create and edit form skeleton, once. A call site guarding its own result does so to narrow a
@@ -62,7 +63,7 @@ export function EntityForm<TDraft, TPayload = TDraft>({
    */
   marksRequired?: boolean;
   /** The create is a step-up write: nothing reverses it, or it mints a link (`docs/frontend/spec.md :: I432`). */
-  stepUp?: boolean;
+  stepUp?: StepUpDemand;
 }) {
   const [isPending, startSaving] = useTransition();
   const stepUp = useStepUp();

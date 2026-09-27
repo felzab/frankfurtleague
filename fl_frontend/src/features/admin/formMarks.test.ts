@@ -837,6 +837,14 @@ const FORMS: Record<string, FormCase> = {
       "star Standard-Honorar drawn",
     ],
   },
+  "the grant dialog": {
+    module: "features/berechtigungen/components/forms/AdminCreateBerechtigungForm.tsx",
+    marks: async () => {
+      const { AdminCreateBerechtigungForm } = await import("@/features/berechtigungen/components/forms/AdminCreateBerechtigungForm.tsx");
+      return marksOf(h(AdminCreateBerechtigungForm, { onClose: () => undefined }));
+    },
+    expected: ["name email", "star E-Mail drawn"],
+  },
   "the block dialog": {
     module: "features/sperrliste/components/forms/AdminCreateSperreForm.tsx",
     marks: async () => {

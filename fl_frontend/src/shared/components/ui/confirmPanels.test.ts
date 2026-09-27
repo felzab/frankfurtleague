@@ -153,6 +153,7 @@ const M = {
   teamErsatz: "features/saisons/components/forms/AdminSaisonEditForm/FormTeamErsatzSection.tsx",
   anonymisieren: "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx",
   sperre: "features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx",
+  zugangEntziehen: "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx",
   spielerLoeschen: "features/spieler/components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx",
   einladung: "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx",
   saison: "features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx",
@@ -173,6 +174,7 @@ const C = {
   teamErsatz: await component(M.teamErsatz, "FormTeamErsatzSection"),
   anonymisieren: await component(M.anonymisieren, "FormAnonymisierenSection"),
   sperre: await component(M.sperre, "AdminSperreAufhebenPanel"),
+  zugangEntziehen: await component(M.zugangEntziehen, "AdminBerechtigungEntziehenPanel"),
   spielerLoeschen: await component(M.spielerLoeschen, "FormLoeschenSection"),
   einladung: await component(M.einladung, "FormEinladungSection"),
   saison: await component(M.saison, "FormSaisonSection"),
@@ -395,6 +397,12 @@ const PANELS: Record<string, Arming[]> = {
     {
       render: () => underNext(el(C.sperre, { sperreId: "6890a1b2c3d4e5f607190001", gesperrtAm: "12.03.2026" })),
       resting: "Sperre vom 12.03.2026 aufheben",
+    },
+  ],
+  [M.zugangEntziehen]: [
+    {
+      render: () => underNext(el(C.zugangEntziehen, { berechtigungId: "6890a1b2c3d4e5f607190002" })),
+      resting: "Zugang entziehen",
     },
   ],
   [M.spielerLoeschen]: [

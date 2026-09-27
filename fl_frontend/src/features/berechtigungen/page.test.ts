@@ -1,0 +1,117 @@
+import assert from "node:assert/strict";
+import { beforeEach, describe, it } from "node:test";
+
+import { createElement as h } from "react";
+
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { underNext } from "@/shared/testing/nextContexts.ts";
+import { answer, answerReadsWith, EMPTIEST_ANSWER, renderPage } from "@/shared/testing/pageHarness.ts";
+import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
+
+import type { ReactElement } from "react";
+
+const { setSession } = doubleActionRequest();
+
+/* Reached with `await import` and never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
+const { default: AdminAdministratorenPage } = await import("@/app/bereich/admin/administratoren/page.tsx");
+const { AdminCrudShell } = await import("@/shared/components/ui/AdminCrudShell.tsx");
+
+const INHABER = {
+  id: "6890a1b2c3d4e5f6071b0001",
+  adresse: "inhaber@schule.de",
+  gesperrt: false,
+  verwaltung: "owner",
+  erteilt_von: "PLAYGROUND",
+  erteilt_am: "2026-09-27T01:00:00Z",
+};
+const VORSTAND = {
+  id: "6890a1b2c3d4e5f6071b0002",
+  adresse: "vorstand@schule.de",
+  gesperrt: false,
+  verwaltung: "administration",
+  erteilt_von: "inhaber@schule.de",
+  erteilt_am: "2026-09-27T02:00:00Z",
+};
+const GESPERRT = {
+  id: "6890a1b2c3d4e5f6071b0003",
+  adresse: null,
+  gesperrt: true,
+  verwaltung: "administration",
+  erteilt_von: "PLAYGROUND",
+  erteilt_am: "2026-09-27T03:00:00Z",
+};
+
+/** The tier the lookup answers the signed-in administrator, until a case names another. */
+let eigeneVerwaltung: "owner" | "administration" = "administration";
+
+answerReadsWith((endpoint, schema, params) => {
+  if (endpoint === "/berechtigungen") return answer(schema, endpoint, { berechtigungen: [INHABER, VORSTAND, GESPERRT], uebersprungen: 0 });
+  if (endpoint === "/identitaet/subjekt") return answer(schema, endpoint, { verwaltung: eigeneVerwaltung });
+  return EMPTIEST_ANSWER(endpoint, schema, params);
+});
+
+beforeEach(() => {
+  eigeneVerwaltung = "administration";
+  setSession({ user: { email: "vorstand@schule.de" } });
+});
+
+const PAGE = underNext(h(AdminAdministratorenPage, {}), { pathname: "/bereich/admin/administratoren" });
+
+/** The words on each button the page renders. */
+const buttonNames = (html: string): string[] =>
+  [...html.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/g)].map((hit) =>
+    textOf(hit[1] ?? "", " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
+
+describe("the page the administrators stand on", () => {
+  it("raises no heading the shell already owns", async () => {
+    const markup = await renderPage(PAGE);
+
+    assert.ok(markup.includes(VORSTAND.adresse), "the list renders no grant, so the absence below proves nothing");
+    assert.ok(!markup.includes("<h1"), "the page raises an h1 the shell already owns");
+  });
+
+  /* The box takes an address, and a `?q=` is a request line the edge logs. */
+  it("asks the shell to hold the typed query instead of writing it", () => {
+    const shell = AdminAdministratorenPage() as ReactElement<{ privateQuery?: boolean }>;
+
+    assert.equal(shell.type, AdminCrudShell);
+    assert.equal(shell.props.privateQuery, true);
+  });
+
+  it("renders its chrome before the list resolves", () => {
+    const markup = renderTree(PAGE);
+
+    assert.ok(markup.includes('role="status"'), "no fallback stands where the list will resolve");
+    assert.ok(markup.includes('type="search"'), "the page's bar waits on the list");
+  });
+
+  /* A barred address is answered on no route, so the row names the state and never an address. */
+  it("names a barred grant by its state, and badges the `owner` grant", async () => {
+    const text = textOf(await renderPage(PAGE), " ");
+
+    assert.ok(text.includes("Gesperrte Adresse"));
+    assert.ok(text.includes("Inhaber"));
+  });
+});
+
+describe("who is offered the revoke", () => {
+  /* Only an `owner` grant revokes, and the backend refuses everybody else: a control there could only be refused. */
+  it("offers an administrator holding no `owner` grant no revoke at all", async () => {
+    const markup = await renderPage(PAGE);
+
+    assert.ok(!buttonNames(markup).includes("Zugang entziehen"), "an administrator is offered a revoke the backend refuses");
+  });
+
+  /* No request changes an `owner` grant, so its row carries no control even for an owner. */
+  it("offers an owner a revoke on every grant but an `owner` one", async () => {
+    eigeneVerwaltung = "owner";
+    setSession({ user: { email: INHABER.adresse } });
+
+    const names = buttonNames(await renderPage(PAGE));
+
+    assert.equal(names.filter((name) => name === "Zugang entziehen").length, 2, "the owner is not offered one revoke per other grant");
+  });
+});

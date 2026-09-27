@@ -5,12 +5,14 @@ import { getAdminSession, isFreshlySignedIn } from "@/core/auth";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestWriteSent } from "@/core/requestScope";
+import { ENROLMENT_WINDOW_MS } from "@/core/sessionLifetimes";
 
 import { unansweredAction } from "./actionError";
 import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
 import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
 
+import type { StepUpDemand } from "@/shared/components/ui/stepUp";
 import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "./validation";
 
@@ -40,12 +42,15 @@ export function stepUpRequired(): StepUpRequired {
 }
 
 /**
- * A step-up write's refusal from a session past the step-up window, or `null`. The refresh re-reads
- * the page's own figure, so its next press asks rather than being refused again
+ * A step-up write's refusal from a session past the window `demand` names, or `null`. The refresh
+ * re-reads the page's own figures, so its next press asks rather than being refused again
  * (`docs/frontend/spec.md :: I433`).
  */
-export function refuseUnconfirmed(session: AdminSession): StepUpRequired | null {
-  if (isFreshlySignedIn(session)) return null;
+export function refuseUnconfirmed(session: AdminSession, demand: Exclude<StepUpDemand, false> = true): StepUpRequired | null {
+  // Inside the step-up window as well: the narrow window is a stricter reading of the same confirmation.
+  const confirmed =
+    isFreshlySignedIn(session) && (demand !== "enrolment" || Date.now() < new Date(session.session.createdAt).getTime() + ENROLMENT_WINDOW_MS);
+  if (confirmed) return null;
 
   refresh();
   return stepUpRequired();
@@ -144,8 +149,8 @@ export async function runGuardedMutation<S, T extends { success: boolean }>(
 /** A guarded action's body, handed the administrator the guard resolved. */
 type AdminBody<T> = (session: AdminSession) => Promise<T>;
 
-/** What an action declares about its write beside its body: `stepUp` for a step-up write. */
-type AdminWrite = { readonly stepUp: boolean };
+/** What an action declares about its write beside its body: `stepUp` for a step-up write, and which window it is held to. */
+type AdminWrite = { readonly stepUp: StepUpDemand };
 
 /**
  * A server action's spine; a route handler's write takes `runAdminRouteWrite`. A write declaring
@@ -168,7 +173,7 @@ export async function runAdminMutation<T extends { success: boolean }>(
     { ...ADMIN_GUARD, forbidden: ADMIN_FORBIDDEN },
     async (session) =>
       // Ahead of the body, so a stale session's step-up write reaches neither its payload nor the backend.
-      (stepUp ? refuseUnconfirmed(session) : null) ?? fn(session),
+      (stepUp === false ? null : refuseUnconfirmed(session, stepUp)) ?? fn(session),
   );
 }
 

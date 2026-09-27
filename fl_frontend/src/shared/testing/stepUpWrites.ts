@@ -27,6 +27,8 @@ export const STEP_UP_WRITES: Readonly<Record<string, string>> = {
   reactivateSchiedsrichterAction: "schiedsrichter",
   anonymiseSchiedsrichterAction: "schiedsrichter",
   deleteSperreAction: "sperrliste",
+  postBerechtigungAction: "berechtigungen",
+  deleteBerechtigungAction: "berechtigungen",
   eraseSpielerAction: "spieler",
 };
 
@@ -86,6 +88,8 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
   },
   "features/schiedsrichter/components/views/AdminSchiedsrichterEditView.tsx": { reactivateSchiedsrichterAction: "one-press" },
   "features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx": { deleteSperreAction: "two-press" },
+  "features/berechtigungen/components/forms/AdminCreateBerechtigungForm.tsx": { postBerechtigungAction: "create" },
+  "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx": { deleteBerechtigungAction: "two-press" },
   "features/spieler/components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx": { eraseSpielerAction: "two-press" },
   "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx": {
     postEinladungAction: "two-press",

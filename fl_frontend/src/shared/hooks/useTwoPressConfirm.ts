@@ -4,6 +4,8 @@ import { useRef, useState, useTransition } from "react";
 
 import { useStepUp } from "./useStepUp";
 
+import type { StepUpDemand } from "@/shared/components/ui/stepUp";
+
 // Windows ships 500 ms as its double-click threshold and browsers pair a dblclick at about the
 // same distance, so anything under it is one motor action rather than two read decisions.
 export const DOUBLE_PRESS_MS = 500;
@@ -32,7 +34,7 @@ type TwoPressOptions = {
    * The write the armed press sends is one the server refuses from a session past the step-up window.
    * Read at each press, so a panel offering two writes declares the one it is armed on.
    */
-  stepUp?: boolean;
+  stepUp?: StepUpDemand;
 };
 
 /**

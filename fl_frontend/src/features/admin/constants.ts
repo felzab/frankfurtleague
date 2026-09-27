@@ -3,6 +3,7 @@ import Calendar from "@gravity-ui/icons/Calendar";
 import ClockArrowRotateLeft from "@gravity-ui/icons/ClockArrowRotateLeft";
 import Envelope from "@gravity-ui/icons/Envelope";
 import ExclamationShape from "@gravity-ui/icons/ExclamationShape";
+import Key from "@gravity-ui/icons/Key";
 import Magnifier from "@gravity-ui/icons/Magnifier";
 import MapPin from "@gravity-ui/icons/MapPin";
 import Medal from "@gravity-ui/icons/Medal";
@@ -35,6 +36,8 @@ export const ADMIN_SIDEMENU_ICONS = {
   Calendar,
   ClockArrowRotateLeft,
   Ban,
+  // Access to the administration itself, beside the ban list's refusal of it.
+  Key,
 } as const satisfies Record<string, React.ElementType>;
 
 export type AdminIconName = keyof typeof ADMIN_SIDEMENU_ICONS;
@@ -211,9 +214,9 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
     ],
   },
 
-  // Its own group rather than a row under „Ansetzung“ or „Protokoll“: neither a fixture nor a record
-  // of what an administrator did, and a group of one is what keeps the other two answering for
-  // themselves.
+  // Its own group rather than rows under „Ansetzung“ or „Protokoll“: who may enter is neither a fixture
+  // nor a record of what an administrator did, and a group of its own keeps the other two answering
+  // for themselves.
   {
     category_name: "Zugang",
     sub_options: [
@@ -228,6 +231,16 @@ export const ADMIN_SIDEMENU_STRUCTURE: SidemenuStructure<AdminIconName> = [
           points: [{ term: "Die Adresse selbst", detail: "steht in keiner Zeile und lässt sich hier nicht suchen." }],
           // Both ways a row goes, since an admin reading the list takes a missing ban for a lifted one.
           note: "Eine Sperre endet nach fünf vollen Saisons von selbst, oder wenn sie hier aufgehoben wird.",
+        },
+      },
+      {
+        id: "administratoren",
+        label: "Administratoren",
+        iconName: "Key",
+        hint: {
+          lead: "Wer die Verwaltung der Liga betreten darf.",
+          // What every change costs, a change made in the database directly included.
+          note: "Jede Änderung geht per Mail an alle mit Zugang.",
         },
       },
     ],

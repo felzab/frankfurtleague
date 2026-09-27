@@ -3,7 +3,7 @@
 import { startTransition, useMemo, useState } from "react";
 
 import { authClient } from "@/core/authClient";
-import { STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
+import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
 import { StepUpContext } from "@/shared/components/ui/stepUp";
 
 import { pruefeAdministratorAction } from "../../actions";
@@ -20,25 +20,29 @@ export function AdminStepUpProvider({
   children,
 }: {
   /**
-   * Epoch milliseconds, on the server's clock, the session stays confirmed until; `null` where it is
-   * not. Wrapped so each server render hands over a new object, even carrying the same figure.
+   * Epoch milliseconds, on the server's clock, the session stays confirmed until for either window;
+   * `null` where it is not. Wrapped so each server render hands over a new object, even carrying the
+   * same figures.
    */
-  served: { readonly confirmedUntil: number | null; readonly inhaberId: string };
+  served: { readonly confirmedUntil: number | null; readonly enrolmentUntil: number | null; readonly inhaberId: string };
   children: ReactNode;
 }) {
   // A confirmation made here stands until the next server render, whose figure then wins even where it
   // is the same: a refused write's refresh is such a render (`docs/frontend/spec.md :: I433`).
   const [seen, setSeen] = useState(served);
-  const [until, setUntil] = useState(served.confirmedUntil);
+  const [until, setUntil] = useState({ standing: served.confirmedUntil, enrolment: served.enrolmentUntil });
   if (served !== seen) {
     setSeen(served);
-    setUntil(served.confirmedUntil);
+    setUntil({ standing: served.confirmedUntil, enrolment: served.enrolmentUntil });
   }
 
   // Memoised by hand: the React Compiler is deliberately off, and every armed control reads this.
   const stepUp = useMemo<StepUp>(
     () => ({
-      isStale: (now) => until === null || now >= until,
+      isStale: (now, demand = true) => {
+        const confirmedUntil = demand === "enrolment" ? until.enrolment : until.standing;
+        return confirmedUntil === null || now >= confirmedUntil;
+      },
       confirm: async () => {
         try {
           const { error } = await authClient.signIn.passkey();
@@ -54,8 +58,10 @@ export function AdminStepUpProvider({
         }
         // Wrapped: the press awaits this inside its transition, and React leaves an update after an
         // `await` outside it.
+        // Both windows from this moment: the assertion minted a new session, which is what each is measured from.
         startTransition(() => {
-          setUntil(Date.now() + STEP_UP_WINDOW_MS);
+          const now = Date.now();
+          setUntil({ standing: now + STEP_UP_WINDOW_MS, enrolment: now + ENROLMENT_WINDOW_MS });
         });
         return true;
       },

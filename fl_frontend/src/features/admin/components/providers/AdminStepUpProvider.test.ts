@@ -11,7 +11,7 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { exportingModule } from "@/core/exportingModule.ts";
-import { STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes.ts";
+import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes.ts";
 import { STEP_UP_LABEL, STEP_UP_REFUSED, STEP_UP_RUNNING } from "@/shared/components/ui/stepUp.ts";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
@@ -44,7 +44,7 @@ function prompt(): Promise<unknown> {
 let heldBy = true;
 
 const { calls } = doubleActions({
-  modules: [/\/features\/sperrliste\/actions\.ts$/, /\/features\/admin\/actions\.ts$/],
+  modules: [/\/features\/sperrliste\/actions\.ts$/, /\/features\/berechtigungen\/actions\.ts$/, /\/features\/admin\/actions\.ts$/],
   // One answer for the write and the holder check: each reads its own field of it.
   answer: () => Promise.resolve({ success: true, message: "Gespeichert.", gleich: heldBy }),
 });
@@ -56,6 +56,7 @@ doubleToasts();
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { AdminStepUpProvider } = await import("./AdminStepUpProvider.tsx");
 const { AdminSperreAufhebenPanel } = await import("@/features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx");
+const { AdminBerechtigungEntziehenPanel } = await import("@/features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx");
 
 const RESTING = "Sperre vom 12.03.2026 aufheben";
 const ARMED = "Ja, Sperre vom 12.03.2026 endgültig aufheben";
@@ -64,7 +65,7 @@ const ARMED = "Ja, Sperre vom 12.03.2026 endgültig aufheben";
 const page = (confirmedUntil: number | null) =>
   underNext(
     h(AdminStepUpProvider, {
-      served: { confirmedUntil, inhaberId: "administrator" },
+      served: { confirmedUntil, enrolmentUntil: null, inhaberId: "administrator" },
       children: h(AdminSperreAufhebenPanel, { sperreId: "6890a1b2c3d4e5f607190001", gesperrtAm: "12.03.2026" }),
     }),
   );
@@ -236,6 +237,39 @@ describe("the administrator's step-up window", () => {
     await user.click(screen.getByRole("button", { name: STEP_UP_LABEL }));
 
     assert.ok(await screen.findByText(STEP_UP_REFUSED));
+    unmount();
+  });
+});
+
+describe("the narrow window a grant's revoke is held to", () => {
+  const revokeUnder = (confirmedUntil: number, enrolmentUntil: number) =>
+    underNext(
+      h(AdminStepUpProvider, {
+        served: { confirmedUntil, enrolmentUntil, inhaberId: "administrator" },
+        children: h(AdminBerechtigungEntziehenPanel, { berechtigungId: "6890a1b2c3d4e5f6071b0002" }),
+      }),
+    );
+
+  /* The step-up window still holds here, which is what makes the case about the narrow one: armed on the
+     standing figure alone, the press would be refused by the server and asked again unasked. */
+  it("asks once the five minutes have passed, while the two hours still hold", async (t) => {
+    const user = userEvent.setup();
+    t.mock.timers.enable({ apis: ["Date"], now: 7_000_000 });
+    const { unmount } = render(revokeUnder(7_000_000 + STEP_UP_WINDOW_MS, 7_000_000 - 1));
+
+    await user.click(screen.getByRole("button", { name: "Zugang entziehen" }));
+    assert.ok(await screen.findByRole("button", { name: STEP_UP_LABEL }), "the revoke armed on the standing window alone");
+    unmount();
+  });
+
+  /* A confirmation opens both windows from its own moment, the assertion having minted a new session. */
+  it("asks nothing inside the five minutes a confirmation opens", async (t) => {
+    const user = userEvent.setup();
+    t.mock.timers.enable({ apis: ["Date"], now: 8_000_000 });
+    const { unmount } = render(revokeUnder(8_000_000 + STEP_UP_WINDOW_MS, 8_000_000 + ENROLMENT_WINDOW_MS));
+
+    await user.click(screen.getByRole("button", { name: "Zugang entziehen" }));
+    assert.ok(await screen.findByRole("button", { name: "Ja, Zugang endgültig entziehen" }), "a revoke inside the window asked");
     unmount();
   });
 });

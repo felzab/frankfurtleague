@@ -30,8 +30,9 @@ const SRC = path.resolve(import.meta.dirname, "..", "..");
    asks of the create, `fl_frontend/src/shared/components/ui/EntityForm.test.ts` driving the real one. */
 const declaredToTheCreateForm: boolean[] = [];
 const RECORDING_FORM = exportingModule({
-  EntityForm: (props: { stepUp?: boolean }): null => {
-    declaredToTheCreateForm.push(props.stepUp === true);
+  EntityForm: (props: { stepUp?: boolean | "enrolment" }): null => {
+    // Either window: which one a create is held to is the action's, and the form reads it whole.
+    declaredToTheCreateForm.push(props.stepUp !== undefined && props.stepUp !== false);
     return null;
   },
 });

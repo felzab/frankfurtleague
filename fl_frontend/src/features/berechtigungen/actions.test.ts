@@ -1,0 +1,131 @@
+import assert from "node:assert/strict";
+import { registerHooks } from "node:module";
+import { beforeEach, describe, it } from "node:test";
+
+import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
+import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
+import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
+
+import { mapEntziehenRefusal, mapErteilenRefusal } from "./refusals.ts";
+
+/** Work the real `after` would run behind the response, collected rather than run: no case here has a response. */
+const deferred: (() => unknown)[] = [];
+const DEFERRED = "__flBerechtigungDeferred";
+(globalThis as unknown as Record<string, unknown>)[DEFERRED] = deferred;
+
+/* `refresh()` throws outside a request Next itself is rendering; `after` is collected. */
+const NEXT_CACHE_DOUBLE = "export const refresh = () => undefined;";
+const NEXT_SERVER_DOUBLE = `export const after = (task) => { globalThis.${DEFERRED}.push(task); };`;
+
+/* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
+const { setSession, setFresh } = doubleActionRequest();
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === "next/cache") return { url: `data:text/javascript,${encodeURIComponent(NEXT_CACHE_DOUBLE)}`, shortCircuit: true };
+    if (specifier === "next/server") return { url: `data:text/javascript,${encodeURIComponent(NEXT_SERVER_DOUBLE)}`, shortCircuit: true };
+    return nextResolve(specifier, context);
+  },
+});
+
+const GRANT_ID = "6890a1b2c3d4e5f6071b0001";
+
+const client = doubleApiAnswers(({ method }) =>
+  Promise.resolve(method === "DELETE" ? { acknowledged: 1, berechtigung_id: GRANT_ID } : { acknowledged: 1, created_id: GRANT_ID }),
+);
+
+const { deleteBerechtigungAction, postBerechtigungAction } = await import("./actions.ts");
+
+const MINUTE_MS = 60 * 1000;
+
+beforeEach(() => {
+  deferred.length = 0;
+  setFresh(true);
+});
+
+describe("the grant", () => {
+  it("sends the address as typed and schedules the announcement behind the answer", async () => {
+    const result = await postBerechtigungAction({ email: "Neu@Schule.de" });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(
+      requestsOf(client.calls).map(({ endpoint, method, body }) => [method, endpoint, body]),
+      [["POST", "/berechtigungen", { email: "Neu@Schule.de" }]],
+    );
+    // Scheduled and not run: announcing inside the press would hold the answer on a claim and every mail.
+    assert.equal(deferred.length, 1, "the grant scheduled no announcement, or more than one");
+  });
+
+  it("answers every refusal the grant publishes through its mapper, and announces nothing", async () => {
+    await assertEachAnswered({
+      operation: "POST /berechtigungen",
+      refuseWith: client.answerWith,
+      act: () => postBerechtigungAction({ email: "neu@schule.de" }),
+      mapped: mapErteilenRefusal,
+    });
+    assert.deepEqual(deferred, [], "a refused grant scheduled an announcement");
+  });
+
+  /* The sign-in library's own rule, which the address box's is wider than: a grant past it admits nobody. */
+  it("sends no grant to an address the sign-in library would refuse", async () => {
+    const result = await postBerechtigungAction({ email: "a!b@schule.de" });
+
+    assert.equal(result.success, false);
+    assert.deepEqual(client.calls, []);
+  });
+});
+
+describe("the revoke", () => {
+  it("removes the grant by its id and schedules the announcement behind the answer", async () => {
+    const result = await deleteBerechtigungAction({ id: GRANT_ID });
+
+    assert.equal(result.success, true);
+    assert.deepEqual(
+      requestsOf(client.calls).map(({ endpoint, method }) => [method, endpoint]),
+      [["DELETE", `/berechtigungen/${GRANT_ID}`]],
+    );
+    assert.equal(deferred.length, 1);
+  });
+
+  it("answers every refusal the revoke publishes through its mapper, and announces nothing", async () => {
+    await assertEachAnswered({
+      operation: "DELETE /berechtigungen/{berechtigung_id}",
+      refuseWith: client.answerWith,
+      act: () => deleteBerechtigungAction({ id: GRANT_ID }),
+      mapped: mapEntziehenRefusal,
+    });
+    assert.deepEqual(deferred, []);
+  });
+});
+
+describe("the window both are held to", () => {
+  /* Five minutes, not the step-up's two hours (`docs/frontend/spec.md :: I458`). The standing window
+     still holds here, which is what makes the case about the narrow one. */
+  it("refuses both from a session confirmed six minutes ago, sending nothing", async (t) => {
+    t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
+    setSession({ user: { email: "vorstand@example.org" } });
+    // The doubled store stamps the session as it first serves it, which is now.
+    assert.equal((await postBerechtigungAction({ email: "neu@schule.de" })).success, true);
+    client.calls.length = 0;
+
+    t.mock.timers.tick(6 * MINUTE_MS);
+    const erteilt = await postBerechtigungAction({ email: "neu@schule.de" });
+    const entzogen = await deleteBerechtigungAction({ id: GRANT_ID });
+
+    for (const refused of [erteilt, entzogen]) {
+      assert.equal(refused.success, false);
+      assert.equal("stepUp" in refused && refused.stepUp, true, "the refusal does not ask the page to confirm");
+    }
+    assert.deepEqual(client.calls, [], "a stale session reached the backend");
+  });
+
+  it("sends both from a session confirmed four minutes ago", async (t) => {
+    t.mock.timers.enable({ apis: ["Date"], now: 2_000_000 });
+    setSession({ user: { email: "vorstand@example.org" } });
+    assert.equal((await postBerechtigungAction({ email: "neu@schule.de" })).success, true);
+
+    t.mock.timers.tick(4 * MINUTE_MS);
+
+    assert.equal((await deleteBerechtigungAction({ id: GRANT_ID })).success, true);
+  });
+});

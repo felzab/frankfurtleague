@@ -15,6 +15,7 @@ doubleEveryAction();
 
 /* Reached with `await import` and never a static import beside the harness: the JSX compile step is
    registered as `renderTest` evaluates, and a static import resolves before that. */
+const { AdminCreateBerechtigungModal } = await import("@/features/berechtigungen/components/modals/AdminCreateBerechtigungModal.tsx");
 const { AdminCreateSaisonModal } = await import("@/features/saisons/components/modals/AdminCreateSaisonModal.tsx");
 const { AdminCreateSchiedsrichterModal } = await import("@/features/schiedsrichter/components/modals/AdminCreateSchiedsrichterModal.tsx");
 const { AdminCreateSperreModal } = await import("@/features/sperrliste/components/modals/AdminCreateSperreModal.tsx");
@@ -25,6 +26,7 @@ const markup = (modal: ReactNode): string => renderTree(underNext(modal));
 
 /** Each trigger's rendered markup and the name it owes, keyed by the component's own module name. */
 const TRIGGERS: Record<string, { name: string; html: string }> = {
+  AdminCreateBerechtigungModal: { name: "Zugang erteilen", html: markup(h(AdminCreateBerechtigungModal)) },
   AdminCreateSaisonModal: { name: "Neue Saison anlegen", html: markup(h(AdminCreateSaisonModal)) },
   AdminCreateSchiedsrichterModal: { name: "Neuen Schiedsrichter anlegen", html: markup(h(AdminCreateSchiedsrichterModal)) },
   AdminCreateSperreModal: { name: "Adresse sperren", html: markup(h(AdminCreateSperreModal)) },

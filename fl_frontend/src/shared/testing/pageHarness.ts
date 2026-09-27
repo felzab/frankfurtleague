@@ -43,7 +43,8 @@ const PACKAGE_DOUBLES: Readonly<Record<string, string>> = {
   // Never `server-only`: this module's `data:` answer is an ES module, which Next's own CommonJS
   // `require` of it reads as a path. `renderTest.ts` resolves it to the package's empty build instead.
   ...Object.fromEntries(Object.entries(REQUEST_PACKAGES).filter(([specifier]) => specifier !== "server-only")),
-  "next/server": exportingModule({ connection: () => Promise.resolve(void steps.push({ kind: "connection" })) }),
+  // `after` links an action module a page's form imports, and runs nothing: no render schedules an action's afterwork.
+  "next/server": exportingModule({ connection: () => Promise.resolve(void steps.push({ kind: "connection" })), after: () => {} }),
 };
 
 const asModule = (source: string): string => `data:text/javascript,${encodeURIComponent(source)}`;
