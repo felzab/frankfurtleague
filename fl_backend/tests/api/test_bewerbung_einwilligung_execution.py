@@ -26,12 +26,13 @@ from app.api.bewerbungen.services import (
     compose_bestaetigungen,
     hash_token,
 )
+from app.api.saisons.cache import invalidate_saison_cache
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, ban_document, kontaktperson_document, team_document
+from tests.documents import ADDRESS, ban_document, kontaktperson_document, saison_document, team_document
 from tests.worker import worker_database
 
 # Module level, as the submission suite marks its own: every test below reaches a real mongod.
@@ -753,6 +754,17 @@ async def ban(database: AsyncDatabase, address: str) -> None:
     await database[Collection.SPERRLISTE].insert_one(ban_document(address, bis=STANDING))
 
 
+# The season before the running one, so a ban naming it as its last has lapsed.
+LAPSED = f"{int(SAISON_ID) - 1}"
+
+
+async def ban_under_a_running_season(database: AsyncDatabase, address: str, *, bis: str) -> None:
+    """A ban's bound is read against the running season only where one runs; with none, every row bars."""
+    await database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
+    invalidate_saison_cache()
+    await database[Collection.SPERRLISTE].insert_one(ban_document(address, bis=bis))
+
+
 def decline(database: AsyncDatabase, client: AsyncMongoClient, seat: str) -> Any:
     return answer(database, client, RAW[seat], antwort="abgelehnt", geburtsdatum=None, whatsapp=False)
 
@@ -810,6 +822,29 @@ class TestALinkToABarredAddress:
             return await answer(database, client, RAW["stellvertretung"])
 
         assert on_a_league(mongo_replica_set_url, body).ergebnis == "bestaetigt"
+
+    def test_a_ban_past_its_last_season_bars_nothing(self, mongo_replica_set_url: str):
+        """The running season is what the bound is read against: asked without it, the lapsed row would still bar."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ban_under_a_running_season(database, address_of("stellvertretung"), bis=LAPSED)
+
+            return await answer(database, client, RAW["stellvertretung"])
+
+        assert on_a_league(mongo_replica_set_url, body).ergebnis == "bestaetigt"
+
+    def test_a_standing_ban_still_bars_while_a_season_runs(self, mongo_replica_set_url: str):
+        """The other half of the case above: without it, that case passes for a check asking nothing once a season runs."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            await ban_under_a_running_season(database, address_of("stellvertretung"), bis=STANDING)
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW["stellvertretung"])
+
+            return refused.value.error_code
+
+        assert on_a_league(mongo_replica_set_url, body) == BEWERBUNG_EINWILLIGUNG_GESPERRT
 
     def test_a_pair_is_refused_on_either_seats_address(self, mongo_replica_set_url: str):
         """One press writes both seats, so each address it would confirm is asked: only a hand edit parts a pair's two."""
@@ -885,6 +920,19 @@ class TestTheViewOfALinkToABarredAddress:
             return barred, (await ansicht(database, RAW["stellvertretung"])).zustand
 
         assert on_a_league(mongo_replica_set_url, body) == ("gesperrt", "gueltig")
+
+    @pytest.mark.parametrize(
+        ("bis", "zustand"), [pytest.param(STANDING, "gesperrt", id="standing, the control"), pytest.param(LAPSED, "gueltig", id="lapsed")]
+    )
+    def test_a_ban_is_read_against_the_running_season(self, mongo_replica_set_url: str, bis: str, zustand: str):
+        """Read as the press reads it: asked without the season, the lapsed row would bar the view alone."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
+            await ban_under_a_running_season(database, address_of("stellvertretung"), bis=bis)
+
+            return (await ansicht(database, RAW["stellvertretung"])).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == zustand
 
     def test_a_pairs_view_is_barred_on_either_seats_address(self, mongo_replica_set_url: str):
         """The addresses the press asks, and no fewer: a view asking its own seat alone would offer a form the press refuses."""

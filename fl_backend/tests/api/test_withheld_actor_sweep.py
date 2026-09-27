@@ -98,10 +98,12 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
 STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
+# The season before the running one, so a ban naming it as its last has lapsed.
+LAPSED = f"{int(SAISON_ID) - 1}"
 
 
-def _seed(url: str, *, barred: bool) -> None:
-    """One row per read, each written by `BARRED` while they held a grant; `barred` revokes and bans them afterwards."""
+def _seed(url: str, *, ban_until: str | None) -> None:
+    """One row per read, each written by `BARRED` while they held a grant; `ban_until` bans them afterwards, through that season."""
 
     client: MongoClient = MongoClient(url)
     try:
@@ -121,7 +123,7 @@ def _seed(url: str, *, barred: bool) -> None:
         database[Collection.SPERRLISTE].insert_many(
             [
                 ban_document(OTHER, bis=STANDING, erstellt_von=BARRED),
-                *([ban_document(BARRED, bis=STANDING, erstellt_von=OWNER)] if barred else []),
+                *([] if ban_until is None else [ban_document(BARRED, bis=ban_until, erstellt_von=OWNER)]),
             ]
         )
         database[Collection.EINLADUNGEN].insert_one(
@@ -188,7 +190,7 @@ def _answers(url: str) -> dict[str, tuple[int, str]]:
 
 @pytest.fixture(scope="module")
 def unbarred(mongo_url: str) -> Iterator[dict[str, tuple[int, str]]]:
-    _seed(mongo_url, barred=False)
+    _seed(mongo_url, ban_until=None)
 
     yield _answers(mongo_url)
 
@@ -197,7 +199,16 @@ def unbarred(mongo_url: str) -> Iterator[dict[str, tuple[int, str]]]:
 def barred(mongo_url: str, unbarred: dict[str, tuple[int, str]]) -> Iterator[dict[str, tuple[int, str]]]:
     """Seeded after `unbarred` has read, since both write the one database."""
 
-    _seed(mongo_url, barred=True)
+    _seed(mongo_url, ban_until=STANDING)
+
+    yield _answers(mongo_url)
+
+
+@pytest.fixture(scope="module")
+def lapsed(mongo_url: str, barred: dict[str, tuple[int, str]]) -> Iterator[dict[str, tuple[int, str]]]:
+    """Seeded after `barred` has read, for the same reason."""
+
+    _seed(mongo_url, ban_until=LAPSED)
 
     yield _answers(mongo_url)
 
@@ -229,3 +240,14 @@ def test_a_barred_administrator_is_withheld_beside_a_flag(barred: dict[str, tupl
     assert status == 200, text
     assert BARRED not in text.lower()
     assert _flags_set(json.loads(text)) != [], "the address is gone and nothing says it was withheld"
+
+
+@pytest.mark.parametrize("route", sorted(NAMES_AN_ADMINISTRATOR))
+def test_an_administrator_whose_ban_has_lapsed_is_served_by_address(lapsed: dict[str, tuple[int, str]], route: str):
+    """The running season is what the bound is read against: asked without it, the lapsed row would still withhold."""
+
+    status, text = lapsed[route]
+
+    assert status == 200, text
+    assert BARRED in text.lower()
+    assert _flags_set(json.loads(text)) == []

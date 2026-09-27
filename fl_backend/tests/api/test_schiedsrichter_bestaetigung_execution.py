@@ -64,6 +64,8 @@ DATABASE_NAME = worker_database("fl_schiedsrichter_bestaetigung_test")
 CONFIG = build_test_config()
 
 SAISON_ID = "2026"
+# The season before the running one, so a ban naming it as its last has lapsed.
+LAPSED = f"{int(SAISON_ID) - 1}"
 TODAY = "2026-04-01"
 # One day past the deadline a link minted on `TODAY` carries, so the expiry case needs no second mint.
 AFTER_THE_DEADLINE = "2026-04-16"
@@ -1022,6 +1024,21 @@ class TestALinkToABarredAddress:
 
         assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["bestaetigt_am"] == TODAY
 
+    def test_a_ban_past_its_last_season_bars_nothing(self, mongo_replica_set_url: str):
+        """The running season is what the bound is read against: asked without it, the lapsed row would still bar.
+
+        Seeded by hand, the route entering a standing ban alone; the cases above are its control.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(EMAIL, bis=LAPSED))
+            await confirm(database, client, minted.bestaetigung.token)
+
+            return await stored(database)
+
+        assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["bestaetigt_am"] == TODAY
+
     def test_an_entry_confirmed_before_the_ban_answers_the_stamp_rather_than_the_ban(self, mongo_replica_set_url: str):
         """The order: the answer given before the ban stands until an administrator acts, so a second press is refused as confirmed."""
 
@@ -1085,6 +1102,17 @@ class TestTheViewOfALinkToABarredAddress:
             return barred, (await ansicht(database, minted.bestaetigung.token)).zustand
 
         assert on_a_league(mongo_replica_set_url, body) == ("gesperrt", "gueltig")
+
+    def test_a_ban_past_its_last_season_leaves_the_view_open(self, mongo_replica_set_url: str):
+        """Read against the running season as the press reads it: asked without it, the lapsed row would bar the view alone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            minted = await resend(database, client)
+            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(EMAIL, bis=LAPSED))
+
+            return (await ansicht(database, minted.bestaetigung.token)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == "gueltig"
 
     def test_an_entry_confirmed_before_the_ban_reopens_on_the_ban(self, mongo_replica_set_url: str):
         """The ban outranks the stamp here, where the press ranks it below: the page shows a barred referee nothing else."""
