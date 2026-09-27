@@ -1,17 +1,14 @@
 "use client";
 
-import { catchError } from "next/error";
 import { useParams } from "next/navigation";
 
-import { DashboardErrorBoundary } from "@/features/dashboard/components/ui/DashboardErrorBoundary";
-import { asCaughtError } from "@/shared/utils/caughtError";
+import { areaBoundary } from "@/features/dashboard/components/providers/areaBoundary";
 
 import { TeamShell } from "../ui/TeamShell";
 
-import type { ErrorInfo } from "next/error";
+import type { ReactNode } from "react";
 
-/** `PersonAreaBoundary`'s answer for the team area (`docs/frontend/spec.md :: I385`). */
-function TeamAreaFallback(_props: object, { error, reset }: ErrorInfo) {
+function TeamCrashShell({ children }: { children: ReactNode }) {
   // Off the address, since the layout that reads its params is what failed.
   const { team_id, saison_id } = useParams<{ team_id: string; saison_id: string }>();
 
@@ -24,12 +21,9 @@ function TeamAreaFallback(_props: object, { error, reset }: ErrorInfo) {
       saison={null}
       isRefused={false}
       orte={[]}>
-      <DashboardErrorBoundary
-        error={asCaughtError(error)}
-        reset={reset}
-      />
+      {children}
     </TeamShell>
   );
 }
 
-export const TeamAreaBoundary = catchError(TeamAreaFallback);
+export const TeamAreaBoundary = areaBoundary(TeamCrashShell);

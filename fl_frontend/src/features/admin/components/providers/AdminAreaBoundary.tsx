@@ -1,31 +1,24 @@
 "use client";
 
-import { catchError } from "next/error";
-
-import { DashboardErrorBoundary } from "@/features/dashboard/components/ui/DashboardErrorBoundary";
-import { asCaughtError } from "@/shared/utils/caughtError";
+import { areaBoundary } from "@/features/dashboard/components/providers/areaBoundary";
 
 import { AdminShell } from "../ui/AdminShell";
 
-import type { ErrorInfo } from "next/error";
+import type { ReactNode } from "react";
 
 /**
- * A failing read in the admin layout — the session guard's, the season slot's, or a defect in the
- * switcher's, whose lookup answers its own failure — which `fl_frontend/src/app/bereich/admin/error.tsx`
- * cannot catch: Next nests it inside the layout (`docs/frontend/spec.md :: I385`).
+ * The admin layout's failing read is the session guard's, the season slot's, or a defect in the
+ * switcher's, whose lookup answers its own failure.
  */
-function AdminAreaFallback(_props: object, { error, reset }: ErrorInfo) {
+function AdminCrashShell({ children }: { children: ReactNode }) {
   return (
     // No season slot and no switcher: either read may be what failed.
     <AdminShell
       saisonMetadataDisplay={null}
       funktionSwitcher={null}>
-      <DashboardErrorBoundary
-        error={asCaughtError(error)}
-        reset={reset}
-      />
+      {children}
     </AdminShell>
   );
 }
 
-export const AdminAreaBoundary = catchError(AdminAreaFallback);
+export const AdminAreaBoundary = areaBoundary(AdminCrashShell);

@@ -1,31 +1,20 @@
 "use client";
 
-import { catchError } from "next/error";
-
-import { DashboardErrorBoundary } from "@/features/dashboard/components/ui/DashboardErrorBoundary";
-import { asCaughtError } from "@/shared/utils/caughtError";
+import { areaBoundary } from "@/features/dashboard/components/providers/areaBoundary";
 
 import { PersonShell } from "../ui/PersonShell";
 
-import type { ErrorInfo } from "next/error";
+import type { ReactNode } from "react";
 
-/**
- * A failing read in the person layout, which the area's own `error.tsx` cannot catch: Next nests
- * that boundary inside the layout. Answered inside the shell, so sign-out stays in reach
- * (`docs/frontend/spec.md :: I385`).
- */
-function PersonAreaFallback(_props: object, { error, reset }: ErrorInfo) {
+function PersonCrashShell({ children }: { children: ReactNode }) {
   return (
     // No entry and no switcher: which pages the person holds is what the failing read would have said.
     <PersonShell
       structure={[]}
       orte={[]}>
-      <DashboardErrorBoundary
-        error={asCaughtError(error)}
-        reset={reset}
-      />
+      {children}
     </PersonShell>
   );
 }
 
-export const PersonAreaBoundary = catchError(PersonAreaFallback);
+export const PersonAreaBoundary = areaBoundary(PersonCrashShell);
