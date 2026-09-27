@@ -371,14 +371,8 @@ def test_the_snippet_answers_3_naming_the_variables_and_never_a_rejected_value()
     code, output, _ = _run(SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix())
 
     assert code == 0, output
-    # The CI job running this scope installs the backend's dev group alone
-    # (`.github/workflows/verify.yml`), so the import guard answers there: a real ending of the
-    # deploy, pinned rather than passed over.
-    if "ModuleNotFoundError" in output:
-        assert "snippet=4" in output, output
-        assert "Traceback" not in output, output
-        return
-
+    # The application is installed wherever this scope runs, CI's job included, so an import failure
+    # here is the case failing, never the advisory arm the case below pins.
     assert "snippet=3" in output, output
     assert "A_NAME_NOTHING_DECLARES" in output, output
     assert "a value no case reads" not in output, output
@@ -401,10 +395,6 @@ def test_the_snippet_refuses_a_key_outside_the_class_naming_that_key_alone() -> 
     code, output, _ = _run(KEY_OUTSIDE_THE_CLASS + SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix())
 
     assert code == 0, output
-    # The import guard's own answer where the job's venv lacks the application, as the case above pins.
-    if "ModuleNotFoundError" in output:
-        assert "snippet=4" in output, output
-        return
     assert "snippet=3" in output, output
     assert "INTERNAL_API_KEY_BASE" in output, output
     assert "INTERNAL_API_KEY_SYSTEM" not in output, output
@@ -479,12 +469,6 @@ def test_the_overlap_snippet_answers_3_naming_the_file_and_the_name_and_never_a_
     code, output, _ = _run(OVERLAP)
 
     assert code == 0, output
-    # python-dotenv reaches a dev-group-only venv through testcontainers alone, so the import guard
-    # is pinned where it answers rather than passed over.
-    if "ModuleNotFoundError" in output:
-        assert "snippet=4" in output, output
-        assert "Traceback" not in output, output
-        return
     assert "snippet=3" in output, output
     assert "fl_frontend/.env and .env both hold: SHARED_KEY" in output, output
     assert "fl_backend/.env and" not in output, output
@@ -506,9 +490,6 @@ def test_the_overlap_snippet_refuses_a_package_name_differing_from_the_roots_in_
     code, output, _ = _run(OVERLAP.replace("SHARED_KEY=another", "shared_key=another"))
 
     assert code == 0, output
-    if "ModuleNotFoundError" in output:
-        assert "snippet=4" in output, output
-        return
     assert "snippet=3" in output, output
     assert "fl_frontend/.env and .env both hold: shared_key" in output, output
 
@@ -517,9 +498,7 @@ def test_the_overlap_snippet_answers_0_where_no_name_repeats() -> None:
     code, output, _ = _run(OVERLAP.replace("SHARED_KEY=another", "OTHER_KEY=another"))
 
     assert code == 0, output
-    # The guard's own answer, for the reason the case above pins it.
-    if "ModuleNotFoundError" not in output:
-        assert "snippet=0" in output, output
+    assert "snippet=0" in output, output
 
 
 # --- the checkout root's `.env`, judged as text before compose or any reader ---------------------------

@@ -46,11 +46,11 @@ jobs:
           # a letter; at depth 1 there is only the merge commit, and its form is that by chance.
           fetch-depth: 20
       # The venv carries the repository's own ruff, pyright and pytest for the python under scripts/,
-      # and the markdown-it-py the documentation gate reads with. The dev group alone: no checker
-      # and no case imports the application.
+      # and the markdown-it-py the documentation gate reads with. The application too: the deploy's
+      # preflight snippets run for real in `scripts/tests/test_deploy_streams.py`, and one imports it.
       - uses: ./.github/actions/backend-toolchain
         with:
-          application: false
+          application: true
       - name: Install the shellcheck the gate pins
         # The runner image ships its own shellcheck, and selfcheck.sh prefers a binary on PATH over
         # the image it pins -- so without this CI lints the branch against a different rule set from
