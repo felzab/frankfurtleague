@@ -164,7 +164,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
     contact person's Widerspruch goes by mail to the address it names
     (`docs/frontend/spec.md :: I516`); the notice's „eine
     E-Mail-Adresse, die gesperrt ist“ names no route, so it covers all four, and the ban's own mail
-    tells the person the sign-in is barred.
+    tells a person whose address holds an account that the sign-in is barred.
 
   What the review can change is bounded by the rule each refusal applies: a person reads the case
   and answers, a mistyped date is corrected through the same link, an administrator can lift a ban
@@ -180,8 +180,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
     lists;
   - the ban refusing a referee's link (`REQ-SCHIEDSRICHTER-007`), which falls on an administrator's
     write rather than on anything the person enters: the administrator sees the refusal and can lift
-    the ban, and the ban's own mail already tells the barred person they cannot be entered as a
-    referee (`fl_frontend/src/core/sperrlisteEmail.ts :: EINLEITUNG`);
+    the ban, and the ban's own mail tells a barred person whose address holds an account that they
+    cannot be entered as a referee (`fl_frontend/src/core/sperrlisteEmail.ts :: EINLEITUNG`), an
+    address holding none being mailed nothing;
   - the ban refusing an administrator's correction, reseat or re-send of an application's contact
     seat (`REQ-BEWERBUNG-019`), which falls on that administrator's write in the same way.
 
@@ -567,13 +568,15 @@ Every ruling below is the sign-up flow as it stands for the next season.
   new one replaces the whole block, the delivery state of the message the old link went out in
   included (`fl_backend/app/api/schiedsrichter/services.py :: compose_mint_update`).
 - **A ban on an email address is kept for five full seasons after the one it was entered under, and
-  the person it bars is told so at the moment it is entered.** The row records the last season it
+  the person it bars is told so at the moment it is entered where the address holds an account; an
+  address holding none is mailed nothing** (`docs/frontend/spec.md :: I517`). Ruled 2026-09-27. The
+  row records the last season it
   covers and the activation of the season after that removes it
   (`docs/backend/spec.md :: I273`); nothing is counted in days, the bound being the thing the
   ban exists for — somebody too young for the league stays barred until they are too old for it. The
   message sent at the ban names that season, the reason, what is kept and how to object
-  (`fl_frontend/src/core/sperrlisteEmail.ts`); the address it is sent to is used for that one send
-  and for ending the address's live sign-ins, and the ban's row keeps only a check value of it, so
+  (`fl_frontend/src/core/sperrlisteEmail.ts`); the typed address is used for that one send and for
+  ending the address's live sign-ins, and the ban's row keeps only a check value of it, so
   no second message can ever be sent about the row. Ruled 2026-09-21. **The account the address
   signs in to keeps it**, frozen until the ban ends, and the message and the notice both say so; a
   copy or a deletion of that person's data is asked for by mail to the league's contact address,

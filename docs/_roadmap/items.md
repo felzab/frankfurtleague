@@ -825,8 +825,9 @@ asserted there, and the harness and every page case calling it are deleted —
 `/bereich` lists the places a person's Funktionen lead to
 (`fl_frontend/src/features/funktionen/components/views/FunktionenView.tsx`), and a team's landing names
 the team and the person's seats there (`TeamStartView.tsx` beside it). Neither shows what the person
-acts on next: the coming fixture, an answer awaited, a registration waiting for approval. The
-administrator lands on the triage page, whose name and view stay as they are.
+acts on next: the coming fixture, an answer awaited, a registration waiting for approval. An
+administrator signs in to `/bereich` as well, „Verwaltung“ one click away; the administration's own
+landing, the triage page, keeps its name and view.
 
 Ordered on 2026-09-26: "maybe the Übersicht should be an actual overview or like a custom dashboard?
 If the custom dashboard and admins also havin a Übersicht page is too much to do right now, please
