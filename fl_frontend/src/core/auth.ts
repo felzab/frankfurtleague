@@ -772,6 +772,10 @@ const authOptions = {
     ...(AUTH_ORIGIN.protocol === "https:" ? { useSecureCookies: false, cookiePrefix: `__Host-${MONGO_DB_NAME}` } : {}),
   },
 
+  // Never "hashed": the hook below matches a code row by its plain prefix, and each bound writes through
+  // the library but counts through the raw adapter, so hashing would stamp no code and count nothing.
+  verification: { storeIdentifier: "plain" },
+
   databaseHooks: {
     verification: {
       create: {
