@@ -401,8 +401,16 @@ const PANELS: Record<string, Arming[]> = {
   ],
   [M.zugangEntziehen]: [
     {
-      render: () => underNext(el(C.zugangEntziehen, { berechtigungId: "6890a1b2c3d4e5f607190002" })),
-      resting: "Zugang entziehen",
+      render: () =>
+        underNext(
+          el(C.zugangEntziehen, {
+            berechtigungId: "6890a1b2c3d4e5f607190002",
+            adresse: "vorstand@schule.de",
+            erteiltAm: "27.09.2026",
+            darfEntziehen: true,
+          }),
+        ),
+      resting: "Zugang von vorstand@schule.de entziehen",
     },
   ],
   [M.spielerLoeschen]: [

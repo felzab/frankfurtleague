@@ -1,5 +1,7 @@
 import { isRefusal, ZUGANG_WEG } from "@/shared/utils/actionError";
 
+import { NUR_INHABER_ENTZIEHT } from "./constants";
+
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /** Both the rule and the unique index, which answers the same grant where two administrators press together. */
@@ -30,7 +32,7 @@ export function mapEntziehenRefusal(error: unknown): { error?: string } | null {
 
   switch (error.serverErrorCode) {
     case "REQ-BERECHTIGUNG-005":
-      return { error: "Den Zugang entziehen kann nur der Inhaber." };
+      return { error: NUR_INHABER_ENTZIEHT };
     case "REQ-BERECHTIGUNG-002":
       return { error: "Der Zugang des Inhabers lässt sich hier nicht ändern." };
     case "REQ-BERECHTIGUNG-004":

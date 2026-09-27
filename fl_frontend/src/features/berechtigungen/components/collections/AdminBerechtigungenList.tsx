@@ -98,10 +98,15 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
             </div>
           </div>
 
-          {/* No control on an `owner` grant, which no request changes: a press there could only be refused. */}
-          {darfEntziehen && berechtigung.verwaltung !== "owner" && (
+          {/* No control on an `owner` grant, which no request changes; closed with its reason for a non-owner. */}
+          {berechtigung.verwaltung !== "owner" && (
             <div className="-mx-1 border-t border-border/50 pt-2">
-              <AdminBerechtigungEntziehenPanel berechtigungId={berechtigung.id} />
+              <AdminBerechtigungEntziehenPanel
+                berechtigungId={berechtigung.id}
+                adresse={berechtigung.adresse}
+                erteiltAm={erteiltTag(berechtigung.erteilt_am)}
+                darfEntziehen={darfEntziehen}
+              />
             </div>
           )}
         </li>

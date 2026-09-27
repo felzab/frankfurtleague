@@ -35,6 +35,18 @@ export const ERTEILT_AM_LABEL = "Erteilt am";
 /** What a CLEAN grant answers, beside the form's title only where the two differ. */
 export const ZUGANG_ERTEILT = "Zugang erteilt";
 
+/** Why the revoke is closed to an administrator holding no `owner` grant, and the backend's `-005` in the same words. */
+export const NUR_INHABER_ENTZIEHT = "Den Zugang entziehen kann nur der Inhaber.";
+
+/**
+ * Each row's revoke, named by what its card shows: the address, or the grant's day where the address is
+ * withheld, as the ban list names each removal by its day. GERMAN-PENDING
+ */
+export function entziehenLabels(adresse: string | null, erteiltAm: string): { resting: string; armed: string } {
+  const wessen = adresse === null ? `vom ${erteiltAm}` : `von ${adresse}`;
+  return { resting: `Zugang ${wessen} entziehen`, armed: `Ja, Zugang ${wessen} endgültig entziehen` };
+}
+
 /** What the revoke costs, in its armed state: the person is out at once, and everybody is told. */
 export const ZUGANG_ENTZIEHEN_CONSEQUENCE =
   "Die Adresse kann die Verwaltung ab sofort nicht mehr betreten. Alle mit Zugang erhalten eine E-Mail.";

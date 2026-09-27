@@ -247,7 +247,12 @@ describe("the narrow window a grant's revoke is held to", () => {
     underNext(
       h(AdminStepUpProvider, {
         served: { confirmedUntil, enrolmentUntil, inhaberId: "administrator" },
-        children: h(AdminBerechtigungEntziehenPanel, { berechtigungId: "6890a1b2c3d4e5f6071b0002" }),
+        children: h(AdminBerechtigungEntziehenPanel, {
+          berechtigungId: "6890a1b2c3d4e5f6071b0002",
+          adresse: "vorstand@schule.de",
+          erteiltAm: "27.09.2026",
+          darfEntziehen: true,
+        }),
       }),
     );
 
@@ -258,7 +263,7 @@ describe("the narrow window a grant's revoke is held to", () => {
     t.mock.timers.enable({ apis: ["Date"], now: 7_000_000 });
     const { unmount } = render(revokeUnder(7_000_000 + STEP_UP_WINDOW_MS, 7_000_000 - 1));
 
-    await user.click(screen.getByRole("button", { name: "Zugang entziehen" }));
+    await user.click(screen.getByRole("button", { name: "Zugang von vorstand@schule.de entziehen" }));
     assert.ok(await screen.findByRole("button", { name: STEP_UP_LABEL }), "the revoke armed on the standing window alone");
     unmount();
   });
@@ -269,8 +274,11 @@ describe("the narrow window a grant's revoke is held to", () => {
     t.mock.timers.enable({ apis: ["Date"], now: 8_000_000 });
     const { unmount } = render(revokeUnder(8_000_000 + STEP_UP_WINDOW_MS, 8_000_000 + ENROLMENT_WINDOW_MS));
 
-    await user.click(screen.getByRole("button", { name: "Zugang entziehen" }));
-    assert.ok(await screen.findByRole("button", { name: "Ja, Zugang endgültig entziehen" }), "a revoke inside the window asked");
+    await user.click(screen.getByRole("button", { name: "Zugang von vorstand@schule.de entziehen" }));
+    assert.ok(
+      await screen.findByRole("button", { name: "Ja, Zugang von vorstand@schule.de endgültig entziehen" }),
+      "a revoke inside the window asked",
+    );
     unmount();
   });
 });

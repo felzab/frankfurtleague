@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import TrashBin from "@gravity-ui/icons/TrashBin";
 
 import { deleteBerechtigungAction } from "@/features/berechtigungen/actions";
-import { ZUGANG_ENTZIEHEN_CONSEQUENCE } from "@/features/berechtigungen/constants";
+import { entziehenLabels, NUR_INHABER_ENTZIEHT, ZUGANG_ENTZIEHEN_CONSEQUENCE } from "@/features/berechtigungen/constants";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
@@ -15,9 +15,22 @@ import { appToast } from "@/shared/utils/appToast";
 
 /**
  * One grant's revoke, escalated where the row stands, as the ban list's removal is: a revoke keeps
- * nothing to restore, which `ConfirmDeleteModal`'s retirement wording would promise.
+ * nothing to restore, which `ConfirmDeleteModal`'s retirement wording would promise. Closed, with its
+ * reason, to an administrator holding no `owner` grant.
  */
-export function AdminBerechtigungEntziehenPanel({ berechtigungId }: { berechtigungId: string }) {
+export function AdminBerechtigungEntziehenPanel({
+  berechtigungId,
+  adresse,
+  erteiltAm,
+  darfEntziehen,
+}: {
+  berechtigungId: string;
+  /** `null` where the address is withheld, the grant's day then naming the row. */
+  adresse: string | null;
+  erteiltAm: string;
+  darfEntziehen: boolean;
+}) {
+  const { resting, armed } = entziehenLabels(adresse, erteiltAm);
   // The enrolment's window, as the action's: the prompt asks before a press the server would refuse.
   const twoPress = useTwoPressConfirm({ stepUp: "enrolment" });
   const router = useRouter();
@@ -46,12 +59,12 @@ export function AdminBerechtigungEntziehenPanel({ berechtigungId }: { berechtigu
       )}
 
       <ConfirmActionRow confirm={twoPress}>
-        {/* The card prints the address directly above this control, so its name does not read it out again. */}
+        {/* Named by its row, so each control in the list is one a screen reader can tell from the next. */}
         <ConfirmPressButton
           confirm={twoPress}
-          reason={null}
-          resting="Zugang entziehen"
-          armed="Ja, Zugang endgültig entziehen"
+          reason={darfEntziehen ? null : NUR_INHABER_ENTZIEHT}
+          resting={resting}
+          armed={armed}
           running="Entzieht..."
           icon={
             <TrashBin

@@ -113,11 +113,19 @@ describe("the page the administrators stand on", () => {
 });
 
 describe("who is offered the revoke", () => {
-  /* Only an `owner` grant revokes, and the backend refuses everybody else: a control there could only be refused. */
-  it("offers an administrator holding no `owner` grant no revoke at all", async () => {
+  /* Only an `owner` grant revokes, and the backend refuses everybody else: the control stands closed, saying why. */
+  it("shows an administrator holding no `owner` grant every revoke closed, with the reason", async () => {
     const markup = await renderPage(PAGE);
+    const revokes = [...markup.matchAll(/<button\b[^>]*>(?:(?!<\/button>)[\s\S])*?entziehen(?:(?!<\/button>)[\s\S])*?<\/button>/g)].map(
+      ([tag]) => tag,
+    );
 
-    assert.ok(!buttonNames(markup).includes("Zugang entziehen"), "an administrator is offered a revoke the backend refuses");
+    assert.equal(revokes.length, 2, "not one revoke per grant but the owner's");
+    assert.ok(
+      revokes.every((tag) => /\bdisabled\b/.test(tag)),
+      "a revoke the backend refuses is open to press",
+    );
+    assert.ok(textOf(markup, " ").includes("Den Zugang entziehen kann nur der Inhaber."), "the closed revoke says not why");
   });
 
   /* No request changes an `owner` grant, so its row carries no control even for an owner. */
@@ -125,8 +133,14 @@ describe("who is offered the revoke", () => {
     eigeneVerwaltung = "owner";
     setSession({ user: { email: INHABER.adresse } });
 
-    const names = buttonNames(await renderPage(PAGE));
+    const markup = await renderPage(PAGE);
+    const names = buttonNames(markup);
 
-    assert.equal(names.filter((name) => name === "Zugang entziehen").length, 2, "the owner is not offered one revoke per other grant");
+    // Each named by its row, the withheld address by its day, so a screen reader tells one from the next.
+    assert.deepEqual(
+      names.filter((name) => name.endsWith("entziehen")),
+      ["Zugang von vorstand@schule.de entziehen", "Zugang vom 27.09.2026 entziehen"],
+    );
+    assert.ok(!textOf(markup, " ").includes("Den Zugang entziehen kann nur der Inhaber."), "the owner's revoke is closed");
   });
 });
