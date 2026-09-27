@@ -120,9 +120,10 @@ the machine is outside the repository. What it does tell you:
   the tag the rollback names — until a good build is published. Nothing is put back where the pull left
   `:latest` naming the images that were already running: restoring them would restore the build that
   just failed, and the script says so instead ([`spec.md`](spec.md) §4). **A deploy by tag to a build
-  from before the secret files, or before the root `.env` and the actor token, is refused by this
-  checkout** once the lines it reads are gone, and §16 carries the steps that roll back across
-  either release.
+  from before the secret files is refused by this checkout whatever the environment files hold**,
+  before either tag moves (`scripts/ops/deploy.sh :: check_pin_reads_secret_files`), and a rollback
+  restoring such a build names §16's steps rather than its tag: that build is deployed from its own
+  commit.
 - After the health wait, what `deploy.sh` checks is the **running stack rather than the checkout alone**:
   that nginx is running, reloaded and holding the checkout's configuration, the security headers as they
   are actually served, and the liveness probe through the edge. `./scripts/ops/deploy.sh --status` reads the
@@ -1354,11 +1355,13 @@ not its public half. Each refusal names the fault and never a value. The remedy 
 above again, or, where the refusal names `ACTOR_SIGNING_KEY_FILE`, to delete that line from
 `fl_frontend/.env`.
 
-**A deploy by tag to a build from before the secret files is refused by this checkout** once the
-moved lines are gone: that build's settings require them, so its own preflight refuses the files
-that lack them. The rollback a failed health wait makes is unaffected while the lines are still
-there, since it restores images and reads no environment file. To roll back across that release by
-hand, on the server at the checkout root:
+**A deploy by tag to a build from before the secret files is refused by this checkout**, whatever
+the environment files hold and before either tag moves: that build was released with another
+compose file, edge and preflight than this checkout's, and runs under these only as the automatic
+rollback's accepted limit. The rollback a failed health wait makes is unaffected while the moved
+lines are still there, since it restores images and reads no environment file, and it names these
+steps rather than the restored build's tag. To roll back across that release by hand, on the server
+at the checkout root:
 
 1. `git checkout <commit>`, the older build's own commit, so the deploy script, the compose file and
    nginx's configuration are the ones that build was released with.
@@ -1371,12 +1374,10 @@ hand, on the server at the checkout root:
 Rolling forward undoes each step before deploying: check out the newer commit, then deploy, and
 delete the lines again once it runs healthy.
 
-**A deploy by tag to a build from before the root `.env` and the actor token is refused by this
-checkout** too, however `fl_backend/.env` is left: that backend's settings forbid a name they do not
-declare, so its preflight refuses `ACTOR_TOKEN_PUBLIC_KEY`, and without the line the key pair check
-refuses instead. Rolling back that far is the steps above from a commit older still, with two more:
-turn the `ACTOR_TOKEN_PUBLIC_KEY` line in `fl_backend/.env` into a comment by putting `#` in front of
-it, and put the three `INTERNAL_API_KEY_*` lines into both package files rather than the root's,
+**A build from before the root `.env` and the actor token takes two steps more**, and every build
+published before the secret files is one, the three arriving in one release. Its backend's settings
+forbid a name they do not declare, so its own preflight refuses `ACTOR_TOKEN_PUBLIC_KEY`: turn that
+line in `fl_backend/.env` into a comment by putting `#` in front of it, and put the three `INTERNAL_API_KEY_*` lines into both package files rather than the root's,
 since that build's compose file reads each package's file alone; its frontend also requires the
 `ALLOWED_ADMIN_EMAILS` line §3 keeps in `fl_frontend/.env`. Rolling forward deletes the copied keys
 from both package files, which the deploy otherwise refuses as a name held twice (I430), and
