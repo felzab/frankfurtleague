@@ -727,7 +727,6 @@ deploy's rollback read.
 | `API_VERSION`                                                                                                          | integer                                                                                                                                |
 | `AUTH_URL`                                                                                                             | URL; **must be https** unless it points at localhost                                                                                   |
 | `ACTOR_SIGNING_KEY_FILE`                                                                                               | PEM path of the actor's Ed25519 PKCS#8 signing key; `/run/secrets/fl_actor_signing_key` by default; unreadable at boot, `FE-BOOT-003`  |
-| `SECRETS_DIR`                                                                                                          | the directory each secret file below is read from; `/run/secrets` by default; a path, never a secret                                   |
 | `MONGODB_URI`, `AUTH_SECRET`, `AUTH_RESEND_KEY`, `RESEND_WEBHOOK_SECRET`, `INTERNAL_API_KEY_*`, `ALLOWED_ADMIN_EMAILS` | retired, declared so a rollback's file still passes; read by nothing, and a boot finding one set warns `FE-BOOT-002`                   |
 | `LOG_FORMAT`                                                                                                           | `json` \| `console`, case-normalised                                                                                                   |
 | `LOG_LEVEL`                                                                                                            | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR`, case-normalised, `INFO` where the server sets nothing; `CRITICAL` is refused                |
@@ -749,8 +748,10 @@ missing file nor wins over a present one. A missing file is the schema's to judg
 cannot read — a directory at its path, bytes that are not UTF-8, a `SECRETS_DIR` that is no
 directory — refuses the boot as `Unreadable secret files: <PATH> (<ERRNO>)`, and a value the schema
 refuses is named by its file as `Invalid secret files: <FILES>`, both `FE-BOOT-004` and worded as
-the backend words them. The `dev` script names the checkout's `secrets/`
-(`fl_frontend/package.json :: dev`); the build, `typegen` and the unit tier name
+the backend words them. The directory is the one `SECRETS_DIR` names, `/run/secrets` where nothing
+sets it, read off the process before the schema runs and declared by no schema, so a `SECRETS_DIR`
+line in `fl_frontend/.env` is refused by the deploy as undeclared. The `dev` script names the
+checkout's `secrets/` (`fl_frontend/package.json :: dev`); the build, `typegen` and the unit tier name
 `fl_frontend/placeholder-secrets/`, which holds the database URI's placeholder and nothing else,
 because `fl_frontend/src/core/db.ts` builds its client while the module loads.
 
