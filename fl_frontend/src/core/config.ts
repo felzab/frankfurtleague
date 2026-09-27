@@ -42,15 +42,6 @@ type SecretKey = keyof typeof SECRET_FILES;
 
 const isSecretKey = (name: string): name is SecretKey => Object.hasOwn(SECRET_FILES, name);
 
-// Python's `str.strip()` set, never `trim()`, which also takes U+FEFF and leaves U+001C-U+001F and
-// U+0085: a key both services read is one key only if both strip alike. Copied from Python 3.14's
-// `str.isspace`, read 2026-09-27; it moves with Unicode.
-const SURROUNDING_WHITESPACE =
-  /^[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+|[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+$/g;
-
-/** A file's value without the whitespace around it, as `fl_backend/app/core/config.py :: BackendSecrets` reads its copy. */
-export const stripLikeTheBackend = (value: string): string => value.replace(SURROUNDING_WHITESPACE, "");
-
 // Fatal, as the backend's read is: a lenient decode turns a byte that is not UTF-8 into U+FFFD and
 // hands the schema a value nobody wrote.
 const UTF8 = new TextDecoder("utf-8", { fatal: true });
@@ -81,7 +72,10 @@ export function readSecretFiles(directory: string): { values: Partial<Record<Sec
   for (const [key, file] of Object.entries(SECRET_FILES) as [SecretKey, string][]) {
     const path = join(directory, file);
     try {
-      values[key] = stripLikeTheBackend(UTF8.decode(readFileSync(path)));
+      // `trim()`, and the backend Python's `strip()`: the two part at U+FEFF, U+001C-U+001F and
+      // U+0085, and a shared key's alphabet refuses each on the side keeping it, so the services
+      // never hold two keys in silence (`docs/frontend/spec.md :: I504`).
+      values[key] = UTF8.decode(readFileSync(path)).trim();
     } catch (error) {
       if (failureName(error) !== "ENOENT") unreadable.push(`${path} (${failureName(error)})`);
     }

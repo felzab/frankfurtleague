@@ -32,7 +32,6 @@ const {
   REQUIRED_SECRET_FILES,
   RETIRED_ENVIRONMENT_NAMES,
   retiredVariablesSet,
-  stripLikeTheBackend,
 } = await import("./config.ts");
 
 const LENGTH = 64;
@@ -362,13 +361,12 @@ describe("the secret files the frontend reads", () => {
     assert.equal((await bootWith({}, { resend_webhook_secret: "whsec_probe\r\n" }))["RESEND_WEBHOOK_SECRET"], "whsec_probe");
   });
 
-  /* Python's `str.strip()` set, which the backend strips its copy with: a shared key read two ways is
-     two keys, so the edges where the two languages' whitespace disagree are the cases. */
-  it("strips exactly what the backend strips, and nothing else", () => {
-    assert.equal(stripLikeTheBackend("\t key \r\n"), "key");
-    assert.equal(stripLikeTheBackend("\u001ckey\u0085"), "key");
-    assert.equal(stripLikeTheBackend("\ufeffkey"), "\ufeffkey");
-    assert.equal(stripLikeTheBackend("a key"), "a key");
+  /* `trim()` parts from the backend's Python `strip()` at U+FEFF, U+001C-U+001F and U+0085. A shared
+     key keeping one here is refused, never read as a key the backend lacks; the backend's alphabet
+     refuses the U+FEFF it keeps. */
+  it("refuses a shared key the two languages strip apart, naming its file", async () => {
+    assert.equal(await refusedFiles({ internal_api_key_base: `${"b".repeat(LENGTH)}\u0085` }), "internal_api_key_base");
+    assert.equal(await refusedFiles({ internal_api_key_base: `\u001c${"b".repeat(LENGTH)}` }), "internal_api_key_base");
   });
 
   it("leaves out a file that does not exist, for the schema to judge", () => {
