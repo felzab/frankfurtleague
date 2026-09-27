@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
@@ -43,6 +44,18 @@ const SEITE = worte(MARKUP);
 
 const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
 
+/**
+ * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
+ * has been misled by any edit that left the date standing.
+ */
+const FASSUNG = { stand: "27. September 2026", digest: "33322c4f75a3b3b2eb60026fe6adccb9ea7e4ead11e51c9e2971b505760a43e5" } as const;
+
+/** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
+const wortlautDigest = (): string =>
+  createHash("sha256")
+    .update(SEITE.replace(/Stand: \d{1,2}\. \p{L}+ \d{4}/u, ""), "utf8")
+    .digest("hex");
+
 /* German writes a small count in words, so the notice states its clocks in words. This table is the
    case's own, never the view's, so a wrong word in the view's table fails rather than agreeing with itself. */
 const ZAHLWORT: Readonly<Record<number, string>> = { 3: "drei", 5: "fünf", 7: "sieben", 10: "zehn", 14: "vierzehn" };
@@ -72,7 +85,12 @@ describe("the privacy notice's account of the association", () => {
   /* The „Stand“ is what a reader compares against the version they last read, so it moves with any
      change to this page and a stale one tells them there was none. */
   it("dates the notice to the day this wording landed", () => {
-    rendert("Stand: 27. September 2026");
+    rendert(`Stand: ${FASSUNG.stand}`);
+    assert.equal(
+      wortlautDigest(),
+      FASSUNG.digest,
+      "the notice's words changed: move DatenschutzView.tsx :: STAND to the day they land, then FASSUNG to that day and this digest",
+    );
   });
 });
 
