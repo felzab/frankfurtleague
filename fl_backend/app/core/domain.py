@@ -287,13 +287,14 @@ AGGREGATES: tuple[Aggregate, ...] = (
         boundary=(
             "The whole list is the boundary, not one row: the floor of two is a rule over every grant at once, so every "
             "transaction judging it writes every row of it, and two revokes or a grant beside a ban conflict instead of "
-            "both committing (`docs/backend/spec.md :: I53`). The announced record and the outbox join it because a grant "
-            "or a revoke made here moves all three in one transaction: the change, the record accounting for it, and the "
+            "both committing (`docs/backend/spec.md :: I53`). The announced record and the outbox join it because a grant, "
+            "a revoke or a tier change made here moves all three in one transaction: the change, the record accounting for it, and the "
             "notice announcing it, so the comparison finds only what the database was edited to (`docs/backend/spec.md :: "
             "I451`). A row names an address rather than a person record, as a ban does, so it is in no boundary with "
             "`spieler`, a seat or a referee. The ban list is held apart by refusal in both directions rather than by "
-            "membership, each write reading the other collection inside its own transaction. `owner` rows are written by "
-            "no route at all. Anonymous it is not: `adresse` and `erteilt_von` are administrators' addresses in plain, "
+            "membership, each write reading the other collection inside its own transaction. A grant is always "
+            "`administration`: an owner's tier change is the one route that makes or unmakes an `owner`, so the first "
+            "owner is written in the database. Anonymous it is not: `adresse` and `erteilt_von` are administrators' addresses in plain, "
             "served to every administrator, and the outbox holds them until a pass has mailed them."
         ),
     ),

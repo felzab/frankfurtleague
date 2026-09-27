@@ -19,11 +19,11 @@ def as_utc(moment: datetime) -> datetime:
 FLUtcInstant = Annotated[datetime, AfterValidator(as_utc)]
 
 # Closed, and mirrored by `app/core/constraints.py :: _VERWALTUNG`. `owner` holds every power
-# `administration` does and is written by no route (`docs/backend/spec.md :: 1.1`).
+# `administration` does and is reached only by an owner's tier change, never by a grant (`docs/backend/spec.md :: I436`).
 FLVerwaltung = Literal["owner", "administration"]
 
-# What happened to one grant: added, removed, or its tier changed in place, which only a database
-# edit does. An address changed in place is a removal and a grant, never `geaendert`.
+# What happened to one grant: added, removed, or its tier changed in place, by the tier change or by
+# a database edit. An address changed in place is a removal and a grant, never `geaendert`.
 FLBerechtigungAenderungArt = Literal["erteilt", "entzogen", "geaendert"]
 
 # Who made a queued change: an administrator through the application, or an edit in the database.
