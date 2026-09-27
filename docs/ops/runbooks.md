@@ -696,8 +696,8 @@ is refused as its session would be created**, by a code or a passkey alike
 administration.** A pupil's registration asks it and is refused (`REQ-REGISTRIERUNG-009`), and so do
 an application naming the address on any seat (`REQ-BEWERBUNG-018`), an administrator's correction,
 reseat or re-send of a seat to it (`REQ-BEWERBUNG-019`) and every referee write that mints a link,
-and both sweeps withhold the reminder they would send it, logging the application's or
-registration's id. A grant of the address is refused (`REQ-BERECHTIGUNG-003`), a grant the Playground
+and both sweeps withhold the reminder they would send it, logging per season how many they held
+back and never which; nothing marks the row, so each pass counts it again until its deadline. A grant of the address is refused (`REQ-BERECHTIGUNG-003`), a grant the Playground
 wrote onto it admits nobody, and no admin read shows it as a grant's holder or as the author of a
 grant, a ban, an invitation, a decision or a log row: each reads „Gesperrte Adresse“ there instead
 (`docs/backend/spec.md :: I452`). **Every confirmation link
