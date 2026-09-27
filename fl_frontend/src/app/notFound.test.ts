@@ -266,6 +266,47 @@ describe("where each area's 404 lives", () => {
   });
 });
 
+/* Next's own router, installed: the order it tries dynamic routes in and the pattern each matches. */
+const { sortPages } = await import("next/dist/shared/lib/router/utils/sortable-routes.js");
+const { normalizeAppPath } = await import("next/dist/shared/lib/router/utils/app-paths.js");
+const { getRouteRegex } = await import("next/dist/shared/lib/router/utils/route-regex.js");
+const { isDynamicRoute } = await import("next/dist/shared/lib/router/utils/is-dynamic.js");
+
+/** Every file Next serves an address from, by the route it serves: its pages and its route handlers. */
+const SERVED = new Map(
+  [...PAGES, ...filesUnder(APP_DIR, named("route.ts"), 8)].map((file) => [
+    normalizeAppPath(`/${path.relative(APP_DIR, file).split(path.sep).join("/")}`.replace(/\.tsx?$/, "")),
+    file,
+  ]),
+);
+
+/** The file Next answers `address` from: a static route by its name, else the first dynamic one in Next's own order. */
+function servedBy(address: string): string | undefined {
+  const named = SERVED.get(address);
+  if (named !== undefined && !isDynamicRoute(address)) return named;
+
+  const route = sortPages([...SERVED.keys()]).find((candidate) => isDynamicRoute(candidate) && getRouteRegex(candidate).re.test(address));
+  return route === undefined ? undefined : SERVED.get(route);
+}
+
+describe("where an address short of a team's season lands", () => {
+  const TEAM_ID = "6780e194677bfbfb5ea8396c";
+  const PERSON_CATCH_ALL = path.join(APP_DIR, "bereich", "(persoenlich)", "[...unmatched]", "page.tsx");
+
+  /* The control: a matcher answering every address from one catch-all would pass the case below. */
+  it("serves a team's own address from the team area's page", () => {
+    assert.equal(servedBy(`/bereich/team/${TEAM_ID}/${SAISON}`), path.join(APP_DIR, "bereich", "team", "[team_id]", "[saison_id]", "page.tsx"));
+  });
+
+  /* No page stands at either address, so the person area's catch-all answers it under the person shell.
+     A page added at either takes the address from that 404 and should be meant. */
+  it("hands the team prefix, and a team named without a season, to the person area's catch-all", () => {
+    for (const address of ["/bereich/team", `/bereich/team/${TEAM_ID}`]) {
+      assert.equal(servedBy(address), PERSON_CATCH_ALL, `${address} is not answered by the person area's 404`);
+    }
+  });
+});
+
 describe("what every 404 is built from", () => {
   /* Read as marks rather than as a structure: hand-rolled markup carries a heading, a paragraph and
      a link like any other, so nothing structural separates one from a panel. */
