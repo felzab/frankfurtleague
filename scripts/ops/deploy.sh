@@ -158,14 +158,15 @@ Compose's own output is above."
   ok "this host holds the images ${EDGE_IMAGE_SERVICES[*]} run"
 }
 
-# `get_config`, never `BackendConfig()`: pydantic renders `input_value=` on its own ValidationError,
-# and everything below reaches this script's output. The names alone are what an operator needs.
+# `read_environment`, never `BackendEnvironment()`: pydantic renders `input_value=` on its own
+# ValidationError, and everything below reaches this script's output. The environment half alone:
+# this caller's uid reads no secret file (`scripts/lib/_lib.sh :: check_backend_boot_config` does).
 ENV_NAME_CHECK='
 import os
 import sys
 
 try:
-    from app.core.config import EnvironmentValidationError, get_config
+    from app.core.config import EnvironmentValidationError, read_environment
 except Exception as unavailable:
     # Guarded apart, and never inside the block below: an except clause naming a class the import
     # never bound raises a NameError of its own, which is the traceback this arm exists to prevent.
@@ -176,7 +177,7 @@ try:
     # Imported from the image working directory, then read from the one the union was joined in:
     # the settings class takes its file from wherever it is built.
     os.chdir(sys.argv[1])
-    get_config()
+    read_environment()
 except EnvironmentValidationError as refusal:
     print(refusal, file=sys.stderr)
     raise SystemExit(3)

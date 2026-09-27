@@ -332,7 +332,7 @@ do_unit_tests() {
 # The build's placeholders, for `fl_frontend/Dockerfile`'s reason; on this command alone. The type
 # pass is skipped because this scope's tsc, run after typegen, has just checked this working tree.
 do_next_build() {
-  ( cd fl_frontend && SKIP_ENV_VALIDATION=true MONGODB_URI=mongodb://localhost:27017/placeholder \
+  ( cd fl_frontend && SKIP_ENV_VALIDATION=true SECRETS_DIR=placeholder-secrets \
       NEXT_TELEMETRY_DISABLED=1 SKIP_BUILD_TYPE_CHECK=true pnpm build )
 }
 

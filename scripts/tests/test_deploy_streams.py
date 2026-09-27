@@ -358,11 +358,11 @@ def test_a_half_the_join_cannot_read_ends_it_as_a_read_failure_before_any_reader
 
 
 def test_the_snippet_reaches_its_refusal_through_the_names_only_path() -> None:
-    """`BackendConfig()` renders `input_value=` on its own error, so a snippet that constructed it directly would publish the rejected value."""
+    """`BackendEnvironment()` renders `input_value=` on its own error, so a snippet constructing it would publish the rejected value."""
     snippet = _assignment("ENV_NAME_CHECK")
 
-    assert "get_config()" in snippet, snippet
-    assert "BackendConfig(" not in snippet, snippet
+    assert "read_environment()" in snippet, snippet
+    assert "BackendEnvironment(" not in snippet, snippet
     # The other arm prints a class name and never the exception, whose message quotes what a source
     # could not read.
     assert "type(unexpected).__name__" in snippet, snippet
@@ -390,27 +390,33 @@ def test_the_snippet_answers_3_naming_the_variables_and_never_a_rejected_value()
     assert "a value no case reads" not in output, output
     # The fixture's file declares nothing the backend requires either, so a missing required variable
     # reaches exit 3 beside the undeclared name -- both remedies the deploy's refusal words.
-    assert "MONGODB_URI" in output, output
+    assert "DB_BASE_NAME" in output, output
 
 
-# Two keys of the class and one carrying a `$`, which python-dotenv hands on as it stands and Compose
-# would interpolate. Fabricated, of `k` alone.
-KEY_OUTSIDE_THE_CLASS: Final = (
-    "printf 'INTERNAL_API_KEY_BASE=%s$%s\\nINTERNAL_API_KEY_SYSTEM=%s\\nINTERNAL_API_KEY_ADMIN=%s\\n' "
-    '"$(printf "k%.0s" {1..10})" "$(printf "k%.0s" {1..53})" "$(printf "k%.0s" {1..64})" "$(printf "k%.0s" {1..64})" '
-    "> fl_backend/.env\n"
-)
+# A backend environment the settings accept, its public key a pair's of the case's own, and the five
+# secret files, two keys of the class and one carrying a `$`. Fabricated, of `k` alone.
+KEY_OUTSIDE_THE_CLASS: Final = """node -e "$PAIR_JS" ed25519 fl_backend/key.pem fl_backend/public.env
+printf 'API_TRUSTED_HOSTS=localhost\\nAPI_CORS_ALLOWED_ORIGINS=http://localhost:3000\\n' > fl_backend/.env
+{ printf 'DB_BASE_NAME=league\\n'; cat fl_backend/public.env; } >> fl_backend/.env
+mkdir -p fl_backend/run-secrets
+printf 'mongodb://localhost:27017/?directConnection=true' > fl_backend/run-secrets/backend_mongodb_uri
+printf 'k%.0s' {1..64} > fl_backend/run-secrets/sperrliste_schluessel
+printf '%s$%s' "$(printf 'k%.0s' {1..10})" "$(printf 'k%.0s' {1..53})" > fl_backend/run-secrets/internal_api_key_base
+printf 'k%.0s' {1..64} > fl_backend/run-secrets/internal_api_key_system
+printf 'k%.0s' {1..64} > fl_backend/run-secrets/internal_api_key_admin
+export SECRETS_DIR=run-secrets
+"""
 
 
-def test_the_snippet_refuses_a_key_outside_the_class_naming_that_key_alone() -> None:
-    """The preflight judges a key with the pulled image's own validator, so the class reaches the deploy before any container sees it."""
-    code, output, _ = _run(KEY_OUTSIDE_THE_CLASS + SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix())
+def test_the_boot_build_refuses_a_key_file_outside_the_class_naming_that_file_alone() -> None:
+    """The preflight judges a key with the pulled image's own validator, in its container, so the class reaches the deploy first."""
+    code, output, _ = _run(KEY_OUTSIDE_THE_CLASS + BOOT_SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix(), PAIR_JS=PAIR)
 
     assert code == 0, output
-    assert "snippet=3" in output, output
-    assert "INTERNAL_API_KEY_BASE" in output, output
-    assert "INTERNAL_API_KEY_SYSTEM" not in output, output
-    assert "INTERNAL_API_KEY_ADMIN" not in output, output
+    assert "boot=3" in output, output
+    assert "internal_api_key_base" in output, output
+    assert "internal_api_key_system" not in output, output
+    assert "internal_api_key_admin" not in output, output
     assert "kkkkkkkkkk$" not in output, output
 
 
