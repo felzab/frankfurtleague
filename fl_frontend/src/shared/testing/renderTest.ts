@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { createRequire, registerHooks } from "node:module";
+import { createRequire, registerHooks, setSourceMapsSupport } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -91,6 +91,11 @@ export { face as Anton, face as Inter, face as Raleway };`)}`;
  link here until it is named.
 */
 const NEXT_ERROR = `data:text/javascript,${encodeURIComponent(exportingModule({ catchError: (requireHere("next/error") as typeof NextError).catchError }))}`;
+
+// Here, not in every test process: the hook below compiles the only code carrying maps, and Node maps
+// only modules loaded after the call. `node_modules` stays unmapped for its CPU cost
+// (`.github/gate-wall-clock.tsv`).
+setSourceMapsSupport(true, { nodeModules: false });
 
 /*
  Registered as this module evaluates, which is why a component under test is reached with
