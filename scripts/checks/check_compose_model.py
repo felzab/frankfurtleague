@@ -1,9 +1,8 @@
 """SCRIPTS · the models Compose renders, against each stack's rules and the files that must agree.
 
-`docker compose config` merges the files, applies the profiles and expands every short-syntax port
-and volume into its long form, so this reads the model the engine is handed rather than parsing
-YAML again. The gate writes the two models with `--format json --no-env-resolution` beside the
-compose files it renders them from, and passes their paths.
+`docker compose config` merges the files, applies the profiles, expands every short-syntax port and
+volume and resolves each service's environment, so this reads the model the engine is handed rather
+than parsing YAML again.
 
 Invariants:
 - Production publishes nothing and declares exactly the services `PRODUCTION_SERVICES` names, so a
@@ -15,6 +14,8 @@ Invariants:
   mode 700.
 - Either edge trusts the connector's rendered address alone, in `set_real_ip_from` and in the geo
   arm marking the fallback (`docs/ops/spec.md :: I18`).
+- Each application service reads its package's environment file, then the root's, and no other
+  (`docs/ops/spec.md :: I429`).
 """
 
 from __future__ import annotations
@@ -338,12 +339,16 @@ def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
     return findings
 
 
-# Each application service's `env_file`, in order, relative to the checkout: its package's file, then
-# the root's, which holds the names the two must hold equal (`docs/ops/spec.md :: I429`).
+# Each application service's environment files, in order, relative to the checkout: its package's
+# file, then the root's, which holds the names the two must hold equal (`docs/ops/spec.md :: I429`).
 ENV_FILES: Final = {"frontend": ("fl_frontend/.env", ".env"), "backend": ("fl_backend/.env", ".env")}
+# The names the gate's stand-in environment files carry, each valued with that file's path: a
+# `STAND_IN_READ` name of each file's own, and `STAND_IN_LAST`, which every stand-in sets.
+STAND_IN_READ: Final = "FL_STAND_IN_READ_"
+STAND_IN_LAST: Final = "FL_STAND_IN_LAST"
 
 
-def env_files(model: dict[str, Any], name: str, project: Path) -> list[Finding]:
+def env_files(model: dict[str, Any], name: str) -> list[Finding]:
     """Each service reads its package's file, then the checkout root's, and no other.
 
     `scripts/ops/deploy.sh :: ENV_UNION_BUILD` joins exactly that pair, so any other list passes the
@@ -352,20 +357,20 @@ def env_files(model: dict[str, Any], name: str, project: Path) -> list[Finding]:
     findings: list[Finding] = []
     declared = services(model, name)
     for service, expected in ENV_FILES.items():
-        entries = (declared.get(service) or {}).get("env_file") or []
-        read: list[str] = []
-        for entry in [entries] if isinstance(entries, str) else entries:
-            path = entry.get("path") if isinstance(entry, dict) else entry
-            if not isinstance(path, str):
-                raise ValueError(f"{name}: {service} has an env_file entry Compose did not render as a path, so this is not its rendered model")
-            source = Path(path)
-            # Resolved against the directory the model was rendered beside, as `edge_mounts` resolves a mount.
-            read.append(source.relative_to(project).as_posix() if source.is_relative_to(project) else source.as_posix())
-        if tuple(read) != expected:
+        # Never the rendered `env_file`: Compose 2.38's `config` drops it even under
+        # `--no-env-resolution`, and later releases keep it unresolved, so only what the stand-ins
+        # resolved to reads the same on both.
+        environment = (declared.get(service) or {}).get("environment") or {}
+        if not isinstance(environment, dict):
+            raise ValueError(f"{name}: {service} has an environment Compose did not render as a mapping, so this is not its rendered model")
+        read = sorted(str(value) for key, value in environment.items() if key.startswith(STAND_IN_READ))
+        last = environment.get(STAND_IN_LAST)
+        # Exactly the two, the root's read last: with two, that is the order, the last file read winning.
+        if read != sorted(expected) or last != expected[-1]:
             findings.append(
                 Finding(
                     "fail",
-                    f"{name}: {service} reads env_file {read}, not {list(expected)}\n"
+                    f"{name}: {service} reads the environment files {read}, {last} last, not {list(expected)} in that order\n"
                     f"{CONTINUATION}the deploy judges the package's file joined to the checkout's, in that order (I429)",
                 )
             )
@@ -384,8 +389,7 @@ def main() -> int:
         prod_pairs, prod_mounts = edge_mounts(prod_model, "production", Path(args.production).resolve().parent, REPO_ROOT)
         local_pairs, local_mounts = edge_mounts(local_model, "local", Path(args.local).resolve().parent, REPO_ROOT)
         findings += prod_mounts + local_mounts + compared(prod_pairs, deploy_pairs(DEPLOY), "production")
-        findings += env_files(prod_model, "production", Path(args.production).resolve().parent)
-        findings += env_files(local_model, "local", Path(args.local).resolve().parent)
+        findings += env_files(prod_model, "production") + env_files(local_model, "local")
         socket = deploy_socket(DEPLOY)
         findings += control_socket(prod_model, "production", socket) + control_socket(local_model, "local", socket)
         # Production's address for both: the local stack starts no connector, and an edge trusting

@@ -305,9 +305,16 @@ def test_a_mounted_directory_the_checkout_lacks_is_left_to_the_mount_check():
     assert checker.trusted_connector(checker.edge_configuration(missing, root), CONNECTOR, "c") == []
 
 
-def env_file(project: Path, *paths: str) -> dict[str, Any]:
-    """A service's `env_file` as `--no-env-resolution` leaves it: each entry a mapping, its path absolute."""
-    return {"env_file": [{"path": str(project / path), "required": True} for path in paths]}
+def env_file(*paths: str) -> dict[str, Any]:
+    """A service's environment as Compose resolves it from the gate's stand-ins for `paths`, read in that order.
+
+    Each stand-in's own name is suffixed by its position here; the checker reads only the values.
+    """
+    environment: dict[str, str] = {}
+    for position, path in enumerate(paths, start=1):
+        environment[f"{checker.STAND_IN_READ}{position}"] = path
+        environment[checker.STAND_IN_LAST] = path
+    return {"environment": environment}
 
 
 def rendered_stack(project: Path, conf_dir: str, **extra: dict[str, Any]) -> dict[str, Any]:
@@ -317,8 +324,8 @@ def rendered_stack(project: Path, conf_dir: str, **extra: dict[str, Any]) -> dic
         {"type": "bind", "source": str(project / "nginx/shared"), "target": "/etc/nginx/shared"},
     ]
     nginx = {"volumes": edge_volumes, "command": LISTENING, "tmpfs": ["/run/nginx-control:mode=700"]}
-    frontend = env_file(project, "fl_frontend/.env", ".env")
-    backend = env_file(project, "fl_backend/.env", ".env")
+    frontend = env_file("fl_frontend/.env", ".env")
+    backend = env_file("fl_backend/.env", ".env")
     return model(nginx=nginx, frontend=frontend, backend=backend, **extra)
 
 
@@ -356,46 +363,56 @@ def test_main_judges_the_environment_files_of_both_models():
     for broken in ("production", "local"):
         production = rendered_stack(project, "nginx/prod", cloudflared=connector)
         local = rendered_stack(project, "nginx/local")
-        ({"production": production, "local": local}[broken])["services"]["backend"] = env_file(project, "fl_backend/.env")
+        ({"production": production, "local": local}[broken])["services"]["backend"] = env_file("fl_backend/.env")
 
         code, said = run_main(production, local, project)
 
         assert code == 1, said
-        assert f"{broken}: backend reads env_file" in said, said
+        assert f"{broken}: backend reads the environment files" in said, said
 
 
 # --- the environment files each application service reads ---------------------------------------------
 
 
 def test_each_service_reading_its_package_file_then_the_checkouts_is_clean():
-    project = Path("/render")
-    rendered = model(frontend=env_file(project, "fl_frontend/.env", ".env"), backend=env_file(project, "fl_backend/.env", ".env"))
+    rendered = model(frontend=env_file("fl_frontend/.env", ".env"), backend=env_file("fl_backend/.env", ".env"))
 
-    assert checker.env_files(rendered, "p", project) == []
+    assert checker.env_files(rendered, "p") == []
 
 
 def test_the_checkouts_file_listed_first_fails():
     """Compose would then hand a name both carry the package's value, and the deploy's readers judge the other."""
-    project = Path("/render")
-    rendered = model(frontend=env_file(project, ".env", "fl_frontend/.env"), backend=env_file(project, "fl_backend/.env", ".env"))
+    rendered = model(frontend=env_file(".env", "fl_frontend/.env"), backend=env_file("fl_backend/.env", ".env"))
 
-    assert len(checker.env_files(rendered, "p", project)) == 1
+    assert len(checker.env_files(rendered, "p")) == 1
 
 
 def test_a_service_without_the_checkouts_file_fails():
     """Its container starts without the keys the deploy's reader found in the union, and the boot gate refuses after the recreate."""
-    project = Path("/render")
-    rendered = model(frontend=env_file(project, "fl_frontend/.env", ".env"), backend=env_file(project, "fl_backend/.env"))
+    rendered = model(frontend=env_file("fl_frontend/.env", ".env"), backend=env_file("fl_backend/.env"))
 
-    assert len(checker.env_files(rendered, "p", project)) == 1
+    assert len(checker.env_files(rendered, "p")) == 1
 
 
-def test_an_entry_that_is_no_path_refuses():
-    try:
-        checker.env_files(model(frontend={"env_file": [{"required": True}]}, backend={}), "p", Path("/render"))
-    except ValueError:
-        return
-    raise AssertionError("an env_file entry carrying no path was judged")
+def test_a_third_file_between_the_two_fails():
+    """The root's still read last, so only the count of files read catches the one the deploy never joins."""
+    rendered = model(frontend=env_file("fl_frontend/.env", "fl_backend/.env", ".env"), backend=env_file("fl_backend/.env", ".env"))
+
+    assert len(checker.env_files(rendered, "p")) == 1
+
+
+def test_a_model_whose_environment_compose_left_unresolved_fails():
+    """A render keeping `env_file` and resolving nothing, as later releases do under `--no-env-resolution`, is no evidence either way."""
+    kept = {"env_file": [{"path": "/render/fl_backend/.env", "required": True}, {"path": "/render/.env", "required": True}]}
+    rendered = model(frontend=kept, backend=kept)
+
+    assert len(checker.env_files(rendered, "p")) == 2
+
+
+def test_an_environment_that_is_no_mapping_refuses():
+    """Compose renders `environment` as a mapping; a list is a model written some other way, whose names this cannot read."""
+    with pytest.raises(ValueError, match="not its rendered model"):
+        checker.env_files(model(frontend={"environment": [f"{checker.STAND_IN_LAST}=.env"]}, backend={}), "p")
 
 
 def test_a_connector_without_one_static_address_refuses():

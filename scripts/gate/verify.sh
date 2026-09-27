@@ -1147,17 +1147,22 @@ written at the rule, never suppressed at this call site." \
   OPS_SCRATCH="$(mktemp -d)"
   mkdir -p "${OPS_SCRATCH}/fl_backend" "${OPS_SCRATCH}/fl_frontend"
   cp docker-compose.yml docker-compose.local.yml "${OPS_SCRATCH}/"
-  : > "${OPS_SCRATCH}/fl_backend/.env"
-  : > "${OPS_SCRATCH}/fl_frontend/.env"
-  : > "${OPS_SCRATCH}/.env"
+  # Each stand-in names itself (`scripts/checks/check_compose_model.py :: STAND_IN_READ`), so the
+  # environment Compose resolves says which files a service read and which it read last.
+  stand_in=0
+  for env_file in fl_backend/.env fl_frontend/.env .env; do
+    stand_in=$(( stand_in + 1 ))
+    printf 'FL_STAND_IN_READ_%s=%s\nFL_STAND_IN_LAST=%s\n' "$stand_in" "$env_file" "$env_file" \
+      > "${OPS_SCRATCH}/${env_file}"
+  done
   # The local stack is the merge `scripts/ops/local.sh` runs, never docker-compose.local.yml alone,
   # which is an override and no stack at all. `--output` rather than a redirect, so no text-mode
-  # stream writes the model; `--no-env-resolution` keeps every env_file's values out of it.
-  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.yml" config --format json --no-env-resolution \
+  # stream writes the model.
+  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.yml" config --format json \
     --output "${OPS_SCRATCH}/production.json" \
     || die "docker-compose.yml does not parse."
   quietly docker compose -f "${OPS_SCRATCH}/docker-compose.yml" -f "${OPS_SCRATCH}/docker-compose.local.yml" \
-    config --format json --no-env-resolution --output "${OPS_SCRATCH}/local.json" \
+    config --format json --output "${OPS_SCRATCH}/local.json" \
     || die "docker-compose.local.yml does not merge over docker-compose.yml."
   ok "both stacks parse"
 
