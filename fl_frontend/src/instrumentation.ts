@@ -18,9 +18,9 @@ export async function onRequestError(...args: Parameters<typeof logRequestErrorI
  * silently stop running in the container.
  */
 export async function register() {
-  // Excludes Edge rather than requiring Node: the build writes each runtime's name over the
-  // variable, but the suite runs this source where nothing does, so a `!== "nodejs"` test would
-  // boot nothing there.
+  // Excludes Edge rather than requiring Node, one of the two shapes Next's instrumentation reference
+  // gives; the build writes each runtime's name over the variable, so both compile alike, and this one
+  // also boots under the suite, where nothing writes it.
   if (process.env.NEXT_RUNTIME === "edge") return;
 
   // Every Node API stays in that module: the Edge compile still reads this file, and flags one
