@@ -7,7 +7,7 @@ import { after, describe, it } from "node:test";
 import { loadRootEnv, ROOT_ENV_FILE } from "./next-dev.mjs";
 
 const HERE = import.meta.dirname;
-// Files this suite writes itself, of dummy names: nothing here reads or names a real environment file.
+// Plain `.txt` files of dummy names: nothing here reads, writes or names an environment file.
 const SCRATCH = mkdtempSync(path.join(tmpdir(), "fl-next-dev-"));
 after(() => rmSync(SCRATCH, { recursive: true, force: true }));
 
@@ -25,7 +25,7 @@ function withVariable(name, value, run) {
 }
 
 function envFile(contents) {
-  const file = path.join(SCRATCH, `case-${String(process.hrtime.bigint())}.env`);
+  const file = path.join(SCRATCH, `case-${String(process.hrtime.bigint())}.txt`);
   writeFileSync(file, contents);
   return file;
 }
@@ -57,6 +57,6 @@ describe("the dev launcher's root file", () => {
   });
 
   it("starts on a machine with no root file, the boot gate naming whatever is then missing", () => {
-    assert.doesNotThrow(() => loadRootEnv(path.join(SCRATCH, "absent.env")));
+    assert.doesNotThrow(() => loadRootEnv(path.join(SCRATCH, "absent.txt")));
   });
 });
