@@ -155,6 +155,8 @@ export async function mintRequestActor(source: ActorSource, lane: ActorLane): Pr
   const claims = actorClaimsOf(source, lane);
   if (claims === null) return null;
 
+  // One reading of the clock for both stamps: the backend refuses a token whose `exp` lies more than
+  // sixty seconds past its `iat`.
   const token = await mintActorToken(await actorSigningKey(), claims, Math.floor(Date.now() / 1000));
 
   return { email: claims.email, lane: lane, token: token };

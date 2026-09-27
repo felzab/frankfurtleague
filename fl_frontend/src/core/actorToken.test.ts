@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
-import { createHash, generateKeyPairSync } from "node:crypto";
+import { createHash, createPrivateKey, generateKeyPairSync } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, describe, it } from "node:test";
 
-import { decodeJwt, decodeProtectedHeader, jwtVerify } from "jose";
+import { CompactSign, decodeJwt, decodeProtectedHeader, jwtVerify } from "jose";
 
 import { ACTOR_KEY_FILE as KEY_FILE, ACTOR_KEY_PAIR as PAIR } from "./authDoubles.ts";
 import { exportingModule } from "./exportingModule.ts";
@@ -156,6 +156,29 @@ describe("the key file", () => {
     assert.equal(signing.kid, thumbprintOf(PAIR.publicKey));
   });
 
+  /* RFC 8037's key and vectors, Appendix A.1, A.3 and A.4, read on 2026-09-27. The backend verifies
+     with another library, so the published vectors are what both halves agree to; Ed25519 makes the
+     A.4 signature deterministic. */
+  it("reads RFC 8037's example key to the RFC's thumbprint, and signs its example to the RFC's JWS", async () => {
+    const file = path.join(DIRECTORY, "rfc8037.pem");
+    const rfcKey = createPrivateKey({
+      key: { kty: "OKP", crv: "Ed25519", d: "nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A", x: "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo" },
+      format: "jwk",
+    });
+    writeFileSync(file, rfcKey.export({ type: "pkcs8", format: "pem" }));
+
+    const signing = await loadSigningKey(file);
+    const jws = await new CompactSign(new TextEncoder().encode("Example of Ed25519 signing"))
+      .setProtectedHeader({ alg: "EdDSA" })
+      .sign(signing.key);
+
+    assert.equal(signing.kid, "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k");
+    assert.equal(
+      jws,
+      "eyJhbGciOiJFZERTQSJ9.RXhhbXBsZSBvZiBFZDI1NTE5IHNpZ25pbmc.hgyY0il_MGCjP0JzlnLWG1PPOt7-09PGcvMg3AIbQR6dWbhijcNR4ki4iylGjg5BhVsPt9g7sVvpAr_MuM0KAg",
+    );
+  });
+
   /* The refusal is read on a boot line and in a crash report: it names where to look and never what
      the file holds. */
   it("refuses a file that is missing, naming its path", async () => {
@@ -216,6 +239,20 @@ describe("the actor a guard records", () => {
     assert.equal(actor.lane, "admin");
     const { payload } = await jwtVerify(actor.token, PAIR.publicKey, { algorithms: ["EdDSA"], typ: "fl-actor+jwt" });
     assert.equal(payload.exp, Number(payload.iat) + 60);
+  });
+
+  /* The backend refuses a token living longer than sixty seconds, so both stamps come from one reading
+     of the clock: a second reading across a second's edge would issue one living sixty-one. */
+  it("stamps issue and expiry off one reading of the clock, even across a second's edge", async (t) => {
+    const readings = [1790000000999, 1790000001000, 1790000001001];
+    t.mock.method(Date, "now", () => readings.shift() ?? 1790000001002);
+
+    const actor = await mintRequestActor(SOURCE, "admin");
+    assert.ok(actor);
+    const { iat, exp } = decodeJwt(actor.token);
+
+    assert.equal(iat, 1790000000);
+    assert.equal(exp, 1790000060);
   });
 
   it("is none where the claims refuse the session", async () => {
