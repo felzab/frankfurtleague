@@ -10,10 +10,11 @@ version: 2
 #
 # Invariants:
 # - Security updates arrive from Dependabot alerts, not from here, and ignore this schedule
-#   (`docs/_git/spec.md`, Repository settings); for `github-actions` there are no such alerts.
+#   (`docs/_git/spec.md`, Repository settings); `github-actions`, `docker` and `docker-compose` get
+#   none.
 # - Every ecosystem sets the same cooldown, so a release compromised at publication can be yanked
 #   before a pull request proposes it. A security update is exempt from the cooldown — except under
-#   `github-actions`, where that exemption is empty for the reason above.
+#   those three, where that exemption is empty.
 # - Each ecosystem sets a commit prefix, so messages keep docs/_git/templates.md's shape.
 # - No ecosystem below reads an image a script or a test names in a string, so these are kept by
 #   hand: shellcheck and actionlint in `scripts/gate/selfcheck.sh`, mongo in
@@ -109,6 +110,9 @@ updates:
   # It moves the tag alone, so its pull request for a new Node, or for a Python outside the series
   # `fl_backend/.python-version` names, stays red until that pin moves on the same branch
   # (`docs/ops/spec.md :: I511`, `:: I513`).
+
+  # No security update reaches this ecosystem, so a Node or Python security release waits for this
+  # schedule and its cooldown (`docs/ops/spec.md` §4).
   - package-ecosystem: docker
     directory: /fl_frontend
     schedule:
