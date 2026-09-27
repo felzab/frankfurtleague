@@ -158,10 +158,13 @@ describe("what the sign-in list hands the page", () => {
   });
 
   /* Judged as the guards judge the served session: a row the next request would refuse is no device
-     still signed in, however long the store keeps it. */
+     still signed in, however long the store keeps it. A minute either side of the idle window, so a
+     narrower window than the guard's fails here too. */
   it("leaves out a sign-in past its idle window, one past the library's expiry, and one no factor this league mints made", async () => {
+    const inside = await signIn(PERSON_EMAIL);
+    inside.row.updatedAt = new Date(Date.now() - PERSON_LIFETIME.idle + 60_000);
     const idle = await signIn(PERSON_EMAIL);
-    idle.row.updatedAt = new Date(Date.now() - 400 * DAY_MS);
+    idle.row.updatedAt = new Date(Date.now() - PERSON_LIFETIME.idle - 60_000);
     const expired = await signIn(PERSON_EMAIL);
     expired.row.expiresAt = new Date(Date.now() - 1000);
     const byOldLink = await signIn(PERSON_EMAIL);
@@ -172,7 +175,7 @@ describe("what the sign-in list hands the page", () => {
 
     assert.deepEqual(
       anmeldungen.map((anmeldung) => anmeldung.id),
-      [row.id],
+      [row.id, inside.row.id],
     );
   });
 
