@@ -1,9 +1,12 @@
 """
-API · no admin-tier read answers a barred administrator's address in plain
+API · no admin-tier read answers a barred administrator's address in plain, a logged image apart
 
 Every admin-tier read is named here once: with the request showing it a row a barred administrator
 wrote, or with why no answer of it names an administrator. The two listings agree with the mounted
-routes, so a new read fails until someone says which it is (`docs/backend/spec.md :: I452`).
+routes, so a new read fails until someone says which it is (`docs/backend/spec.md :: I452`). The
+image `GET /aktionen/{aktion_id}` serves is the document as the write replaced it, barred addresses
+included, since a restore starts from it (`docs/backend/spec.md :: I514`): the seeded log row
+carries none, and one holding the barred address would fail this sweep by design.
 """
 
 import asyncio
