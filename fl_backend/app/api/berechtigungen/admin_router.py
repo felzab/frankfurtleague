@@ -322,9 +322,9 @@ async def patch_berechtigung(
     verwaltung = berechtigung_data.verwaltung
 
     async def judge_and_change(session: AsyncClientSession) -> None:
-        """Anchor and read the list, judge the actor and the row against it, then move the tier, its announced row and queue its notice."""
+        """Read the list, judge the actor and the row against it, then anchor and move the tier, its announced row and queue its notice."""
 
-        grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
+        grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
         refuse(find_nur_inhaber_refusal(akteur=akteur, grants=grants))
 
         live = lebendige(grants)
@@ -333,8 +333,13 @@ async def patch_berechtigung(
         if grant is None:
             raise DocumentNotFoundException(filter={"_id": berechtigung_id}, error_code=DOCUMENT_NOT_FOUND)
 
+        # Ahead of the anchor, so the tier already held writes nothing, not even an `aktionen` row: an
+        # answer that writes nothing is a snapshot no rival can make wrong.
         if grant["verwaltung"] == verwaltung:
             return
+
+        # Rereads this snapshot's rows and writes each, so a rival judging the list conflicts (`docs/backend/spec.md :: I438`).
+        await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
 
         barred = await gesperrte_adressen(
             [str(row["adresse"]) for row in live],

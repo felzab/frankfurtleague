@@ -656,16 +656,23 @@ class TestAnOwnerChangesATier:
         assert on_a_league(mongo_replica_set_url, body) == {OWNER: "administration", ANNA: "owner", BERND: "administration"}
 
     def test_the_tier_already_held_changes_and_queues_nothing(self, mongo_replica_set_url: str):
-        """A second press of the same control is harmless: no write, no notice."""
+        """A second press of the same control writes nothing at all: no notice, no anchor on the grants, no `aktionen` row."""
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[dict[str, str], list[Mapping[str, Any]]]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[dict[str, str], list[Mapping[str, Any]], bool, int]:
             await told(database, client)
+            before = [row async for row in database[Collection.BERECHTIGUNGEN].find()]
+            logged = await database[Collection.AKTIONEN].count_documents({})
             await change(database, client, BERND_ID, "administration")
             await change(database, client, OWNER_ID, "owner")
 
-            return await tiers(database), await queued(database)
+            return (
+                await tiers(database),
+                await queued(database),
+                [row async for row in database[Collection.BERECHTIGUNGEN].find()] == before,
+                await database[Collection.AKTIONEN].count_documents({}) - logged,
+            )
 
-        assert on_a_league(mongo_replica_set_url, body) == ({OWNER: "owner", ANNA: "administration", BERND: "administration"}, [])
+        assert on_a_league(mongo_replica_set_url, body) == ({OWNER: "owner", ANNA: "administration", BERND: "administration"}, [], True, 0)
 
     def test_an_administrator_changes_no_tier_and_is_told_so_before_the_target_is_looked_up(self, mongo_replica_set_url: str):
         """`REQ-BERECHTIGUNG-005`: making oneself an owner included, and an unknown id refused as the administrator's."""
