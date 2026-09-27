@@ -15,7 +15,6 @@ import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
 import { IDENTITY_HEAD_CLASSES, IDENTITY_NAME_CLASSES, IDENTITY_ROW_CLASSES, IDENTITY_STACK_CLASSES } from "@/shared/components/ui/adminTable";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
-import { formatSpielDatum } from "@/shared/utils/format";
 
 import { AdminBerechtigungEntziehenPanel } from "../forms/AdminBerechtigungEntziehenPanel";
 
@@ -28,6 +27,18 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
   filtered: BERECHTIGUNGEN_CRUD_COPY.emptyForQuery,
   none: BERECHTIGUNGEN_CRUD_COPY.emptyOverall,
 };
+
+// Europe/Berlin, as every other date in this app is rendered: a grant made after 22:00 in summer is
+// already the next day's in UTC.
+const ERTEILT_TAG = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" });
+
+/** The Berlin day of `erteilt_am`, which the backend serialises without an offset where the store's UTC holds it. */
+function erteiltTag(stamp: string): string {
+  const instant = new Date(/(?:Z|[+-]\d{2}:\d{2})$/i.test(stamp) ? stamp : `${stamp}Z`);
+
+  // A Playground paste writes what it likes, and `Intl.format` throws on an invalid date.
+  return Number.isNaN(instant.getTime()) ? stamp : ERTEILT_TAG.format(instant);
+}
 
 /** The eyebrow naming the fact at the fact, as the ban list's cards carry it. */
 const FACT_LABEL_CLASSES = "fluid-xxs font-extrabold tracking-widest text-foreground-muted uppercase";
@@ -78,9 +89,7 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
             </div>
             <div className="flex min-w-0 flex-col gap-1">
               <span className={FACT_LABEL_CLASSES}>{ERTEILT_AM_LABEL}</span>
-              <p className="font-numeric fluid-sm font-medium text-foreground tabular-nums">
-                {formatSpielDatum(berechtigung.erteilt_am.slice(0, 10))}
-              </p>
+              <p className="font-numeric fluid-sm font-medium text-foreground tabular-nums">{erteiltTag(berechtigung.erteilt_am)}</p>
             </div>
           </div>
 

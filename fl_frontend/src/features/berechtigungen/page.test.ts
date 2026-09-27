@@ -30,7 +30,8 @@ const VORSTAND = {
   gesperrt: false,
   verwaltung: "administration",
   erteilt_von: "inhaber@schule.de",
-  erteilt_am: "2026-09-27T02:00:00Z",
+  // Naive, as the backend serialises the store's UTC, and past 22:00: already the 28th in Berlin.
+  erteilt_am: "2026-09-27T22:30:00",
 };
 const GESPERRT = {
   id: "6890a1b2c3d4e5f6071b0003",
@@ -86,6 +87,12 @@ describe("the page the administrators stand on", () => {
 
     assert.ok(markup.includes('role="status"'), "no fallback stands where the list will resolve");
     assert.ok(markup.includes('type="search"'), "the page's bar waits on the list");
+  });
+
+  it("dates a grant by the Berlin day it was made on", async () => {
+    const text = textOf(await renderPage(PAGE), " ");
+
+    assert.ok(text.includes("28.09.2026"), "the grant is dated by its UTC day");
   });
 
   /* A barred address is answered on no route, so the row names the state and never an address. */
