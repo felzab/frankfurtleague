@@ -161,6 +161,9 @@ async def ansicht(database: AsyncDatabase, token: str) -> Any:
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         teams_collection=database[Collection.TEAMS],
         spieler_collection=database[Collection.SPIELER],
+        saisons_collection=database[Collection.SAISONS],
+        sperrliste_collection=database[Collection.SPERRLISTE],
+        config=build_test_config(),
         today=TODAY,
     )
 
@@ -644,7 +647,7 @@ class TestALinkToABarredAddress:
         assert on_a_league(mongo_replica_set_url, body).ergebnis == "bestaetigt"
 
     def test_a_confirmed_registration_answers_the_stamp_rather_than_the_ban(self, mongo_replica_set_url: str):
-        """The order: a pupil who answered before the ban is told their answer stands, which it does until an administrator acts."""
+        """The order: a pupil's answer given before the ban stands until an administrator acts, so a second press is refused as confirmed."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             await answer(database, client, RAW)
@@ -669,3 +672,60 @@ class TestALinkToABarredAddress:
             return refused.value.error_code
 
         assert on_a_league(mongo_replica_set_url, body) == REGISTRIERUNG_BESTAETIGUNG_GESPERRT
+
+
+class TestTheViewOfALinkToABarredAddress:
+    """`docs/backend/spec.md :: I515`: the page reads the ban off the view, so it never offers a barred pupil the form."""
+
+    def test_the_view_answers_gesperrt(self, mongo_replica_set_url: str):
+        """Barred in the folded spelling while the row stores the typed one, as the press's own case bars it."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
+            await ban(database, FOLDED_EMAIL)
+
+            return (await ansicht(database, RAW)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == "gesperrt"
+
+    def test_a_ban_on_another_address_leaves_the_view_open(self, mongo_replica_set_url: str):
+        """The other half of the pair: without it the case above passes for a view answering `gesperrt` to everyone."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
+            await ban(database, "somebody-else@example.com")
+
+            return (await ansicht(database, RAW)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == "gueltig"
+
+    def test_the_view_opens_again_once_the_ban_is_lifted(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> tuple[str, str]:
+            await ban(database, FOLDED_EMAIL)
+            barred = (await ansicht(database, RAW)).zustand
+            await database[Collection.SPERRLISTE].delete_many({})
+
+            return barred, (await ansicht(database, RAW)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == ("gesperrt", "gueltig")
+
+    def test_a_ban_past_its_last_season_leaves_the_view_open(self, mongo_replica_set_url: str):
+        """Read against the running season as the press reads it: asked without it, the lapsed row would bar the view alone."""
+
+        async def body(database: AsyncDatabase, _: AsyncMongoClient) -> str:
+            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
+            invalidate_saison_cache()
+            await ban(database, FOLDED_EMAIL, bis=f"{int(SAISON_ID) - 1}")
+
+            return (await ansicht(database, RAW)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == "gueltig"
+
+    def test_a_confirmed_registration_reopened_after_the_ban_shows_the_ban(self, mongo_replica_set_url: str):
+        """The ban outranks the stamp here, where the press ranks it below: the page shows a barred pupil nothing else."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            await answer(database, client, RAW)
+            await ban(database, FOLDED_EMAIL)
+
+            return (await ansicht(database, RAW)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == "gesperrt"

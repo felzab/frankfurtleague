@@ -71,6 +71,9 @@ async def get_bestaetigung_ansicht(
     registrierungen_collection: RegistrierungenCollection,
     teams_collection: TeamsCollection,
     spieler_collection: SpielerCollection,
+    saisons_collection: SaisonsCollection,
+    sperrliste_collection: SperrlisteCollection,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
 ) -> FLRegistrierungBestaetigungAnsichtResponse:
     """
@@ -86,7 +89,9 @@ async def get_bestaetigung_ansicht(
 
     A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
     registration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather
-    than refused, so a reopened link shows what became of it.
+    than refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever
+    the ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred
+    pupil nothing to press.
     """
 
     token_hash = hash_token(ansicht_data.token)
@@ -120,8 +125,15 @@ async def get_bestaetigung_ansicht(
     shown_back = answers_shown_back(registrierung_raw=raw, spieler_raw=sole_person(named))
     einwilligung = shown_back.get("einwilligung") or {}
 
+    gesperrt = await gesperrte_adressen(
+        [str(raw.get("email") or "")],
+        sperrliste_collection=sperrliste_collection,
+        schluessel=config.sperrliste_schluessel,
+        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection=saisons_collection),
+    )
+
     return FLRegistrierungBestaetigungAnsichtResponse(
-        zustand=zustand_of(registrierung_raw=raw, today=today),
+        zustand=zustand_of(registrierung_raw=raw, today=today, gesperrt=bool(gesperrt)),
         team=str(team_raw["name"]),
         schule=str(team_raw["full_name"]),
         saison_id=str(raw["saison_id"]),

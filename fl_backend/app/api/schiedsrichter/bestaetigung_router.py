@@ -55,6 +55,9 @@ router = APIRouter(
 async def get_bestaetigung_ansicht(
     ansicht_data: Annotated[FLSchiedsrichterBestaetigungAnsichtPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
+    saisons_collection: SaisonsCollection,
+    sperrliste_collection: SperrlisteCollection,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterBestaetigungAnsichtResponse:
     """
@@ -65,7 +68,9 @@ async def get_bestaetigung_ansicht(
     token travels in a body and never in a second URL.
 
     Refuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link
-    is SERVED in that state rather than refused, so a reopened link shows what became of it.
+    is SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `gesperrt`,
+    ahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`),
+    so the page offers a barred referee nothing to press.
     """
 
     token_hash = hash_token(ansicht_data.token)
@@ -82,8 +87,15 @@ async def get_bestaetigung_ansicht(
 
     einwilligung = raw.get(EINWILLIGUNG_FELD)
 
+    gesperrt = await gesperrte_adressen(
+        [str((raw.get("kontakt") or {}).get("email") or "")],
+        sperrliste_collection=sperrliste_collection,
+        schluessel=config.sperrliste_schluessel,
+        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection=saisons_collection),
+    )
+
     return FLSchiedsrichterBestaetigungAnsichtResponse(
-        zustand=zustand_of(einwilligung=einwilligung, bestaetigung=bestaetigung, today=today),
+        zustand=zustand_of(einwilligung=einwilligung, bestaetigung=bestaetigung, today=today, gesperrt=bool(gesperrt)),
         vorname=vorname_of(raw.get("name")),
         text_version=None if not isinstance(einwilligung, dict) else einwilligung.get("text_version"),
         # Served rather than retyped on the page: the floor the write is judged by is the one the

@@ -224,7 +224,7 @@ export type FLSchiedsrichterBestaetigungAnsichtPayload = z.infer<typeof FLSchied
 export const FLSchiedsrichterBestaetigungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   // The link's own standing, answered rather than refused: a spent or lapsed link stays readable, so
   // only an unknown token has nothing to answer with and reaches the page as a 409.
-  zustand: z.enum(["gueltig", "bestaetigt", "abgelaufen"]),
+  zustand: z.enum(["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]),
   // Null on a row a hand-write left nameless, which is why the page names nobody outside `gueltig`.
   vorname: z.string().nullable(),
   text_version: z.string().nullable(),

@@ -2,7 +2,7 @@ import { apiClient } from "@/core/api";
 import { isRecordMissing } from "@/core/errors";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { runAdminRead } from "@/shared/utils/adminRead";
-import { ANTWORT_NEU_OEFFNEN, LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { runWithIncomingTrace } from "@/shared/utils/traceScope";
 
 import { alterAusserhalb } from "./constants";
@@ -101,8 +101,9 @@ export async function mapSchiedsrichterBestaetigungRefusal(
       return { zustand: "abgelaufen" };
     case "REQ-SCHIEDSRICHTER-004":
       return { zustand: "bestaetigt" };
+    // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
     case "REQ-SCHIEDSRICHTER-009":
-      return { error: LINK_ADRESSE_GESPERRT };
+      return { zustand: "gesperrt" };
     // The one refusal that spends nothing, so it lands on the field and the typed date survives it;
     // a `zustand` here would swap a live form for a dead-link panel.
     case "REQ-SCHIEDSRICHTER-005": {

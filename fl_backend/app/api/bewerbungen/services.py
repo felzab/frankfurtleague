@@ -541,7 +541,9 @@ def _per_seat(block: str, *fields: str) -> dict[str, int]:
 # (`docs/backend/spec.md :: READ-CONTACT-001`). Both hashes, which `seat_holding` compares.
 EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     **_per_seat("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am"),
-    **_per_seat("kontakte", "vorname", "einwilligung.bestaetigt_am", "einwilligung.text_version"),
+    # The address for the ban list alone, as the answer's read takes it: the response model declares
+    # no field to carry it.
+    **_per_seat("kontakte", "vorname", "email", "einwilligung.bestaetigt_am", "einwilligung.text_version"),
     # A declaration naming a seat, holding nobody's details: `paired_seat` reads it, and the view
     # serves only the pair it resolves for this link's own seat.
     "kontakte.trainer_ist_zugleich": 1,
@@ -705,8 +707,14 @@ def find_alter_refusal(*, geburtsdatum: str, today: str, mindestalter: int) -> W
     return None
 
 
-def zustand_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str) -> FLBewerbungEinwilligungZustand:
-    """What a reopened link shows. A stamp outranks everything: a confirmed seat on an accepted application reads as confirmed."""
+def zustand_of(*, bewerbung_raw: Mapping[str, Any], seat: str, today: str, gesperrt: bool) -> FLBewerbungEinwilligungZustand:
+    """What a reopened link shows: the ban first (`docs/backend/spec.md :: I515`), then a stamp.
+
+    A confirmed seat on an accepted application reads as confirmed.
+    """
+
+    if gesperrt:
+        return "gesperrt"
 
     if _seat_is_confirmed(bewerbung_raw.get("kontakte"), seat):
         return "bestaetigt"
@@ -768,6 +776,18 @@ def paired_seat(*, kontakte: Any, bestaetigungen: Any, seat: str) -> FLKontaktRo
     # An emptied seat is nobody's: a dotted `$set` under its null slot or its null entry is
     # `PathNotViable`, and the abort takes the answer for the seat that IS this person's with it.
     return other if other is not None and seat_stands(kontakte=kontakte, bestaetigungen=bestaetigungen, seat=other) else None
+
+
+def seat_adressen(*, kontakte: Any, seats: Iterable[str]) -> set[str]:
+    """The stored address of each of these seats that still holds one.
+
+    One helper for the consent and the view, so the page shows the ban for exactly the addresses a
+    press would be refused on (`docs/backend/spec.md :: I515`).
+    """
+
+    slots = [kontakte.get(seat) for seat in seats] if isinstance(kontakte, Mapping) else []
+
+    return {str(slot["email"]) for slot in slots if isinstance(slot, Mapping) and slot.get("email")}
 
 
 def seat_vorname(*, kontakte: Any, seat: str) -> str:

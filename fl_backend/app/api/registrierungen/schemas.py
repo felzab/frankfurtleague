@@ -228,7 +228,8 @@ FLRegistrierungUmfang = Literal["kader_oeffentlich", "intern"]
 
 # What a reopened link shows. The page's own `ungueltig` and `unlesbar` are not here: a token
 # nothing opens is a refusal rather than a state, and an unreadable one never reached the backend.
-FLRegistrierungBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen"]
+# `gesperrt` ranks first (`docs/backend/spec.md :: I515`).
+FLRegistrierungBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]
 
 
 class FLRegistrierungBestaetigungAnsichtPayload(BaseModel):

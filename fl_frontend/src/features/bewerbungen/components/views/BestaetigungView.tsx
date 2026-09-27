@@ -11,7 +11,16 @@ import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { BestaetigungFormPanel } from "./BestaetigungFormPanel";
-import { ABSATZ_CLASSES, BestaetigungErgebnis, FaktenBanner, FrageStellen, GespeicherteAngaben, Wert, ZurLiga } from "./BestaetigungPanels";
+import {
+  ABSATZ_CLASSES,
+  AdresseGesperrt,
+  BestaetigungErgebnis,
+  FaktenBanner,
+  FrageStellen,
+  GespeicherteAngaben,
+  Wert,
+  ZurLiga,
+} from "./BestaetigungPanels";
 
 import type { EinwilligungGeoeffnet, LinkZustand } from "@/features/bewerbungen/types";
 import type { BestaetigungAbschluss } from "./BestaetigungFormPanel";
@@ -27,8 +36,8 @@ type Stand =
   | { zustand: "erfolg"; ansicht: EinwilligungGeoeffnet; geburtsdatum: string | null; whatsapp: boolean }
   | { zustand: "widersprochen-neu"; ansicht: EinwilligungGeoeffnet };
 
-/** One heading per state, uppercased by the page rather than typed so, as the application page does it. */
-const TITEL: Record<Stand["zustand"], string> = {
+/** One heading per state, uppercased by the page rather than typed so, as the application page does it. A barred link's page has none. */
+const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   gueltig: "Eintrag bestätigen",
   erfolg: "Eintrag bestätigt",
   "widersprochen-neu": "Widerspruch gespeichert",
@@ -84,6 +93,14 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
   useEffect(() => {
     if (hatGeantwortet) ergebnisRef.current?.focus();
   }, [hatGeantwortet]);
+
+  if (stand.zustand === "gesperrt") {
+    return (
+      <section className={SEITE_CLASSES}>
+        <AdresseGesperrt panelRef={ergebnisRef} />
+      </section>
+    );
+  }
 
   const saison = saisonVon(stand);
 

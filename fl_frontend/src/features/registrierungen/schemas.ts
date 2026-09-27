@@ -116,7 +116,7 @@ export type FLEinwilligungUmfang = z.infer<typeof FLEinwilligungUmfangSchema>;
  * three stored answers are null for a first registration.
  */
 export const FLRegistrierungBestaetigungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
-  zustand: z.enum(["gueltig", "bestaetigt", "abgelaufen"]),
+  zustand: z.enum(["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]),
   team: z.string(),
   schule: z.string(),
   saison_id: z.string(),

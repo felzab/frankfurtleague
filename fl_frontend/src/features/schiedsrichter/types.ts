@@ -6,7 +6,7 @@ import type {
 } from "./schemas";
 
 /** Every state the referee's link can be in but open. „ungueltig“ is this side's, for a token the read refused. */
-export type SchiedsrichterLinkZustand = "bestaetigt" | "abgelaufen" | "ungueltig";
+export type SchiedsrichterLinkZustand = "bestaetigt" | "abgelaufen" | "ungueltig" | "gesperrt";
 
 /** A link still open, and so a row that still holds the person the page is about to name. */
 export type SchiedsrichterAnsichtGeoeffnet = FLSchiedsrichterBestaetigungAnsichtResponse & { vorname: string };

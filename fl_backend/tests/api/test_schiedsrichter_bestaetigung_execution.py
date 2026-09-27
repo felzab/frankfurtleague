@@ -219,6 +219,9 @@ async def ansicht(database: AsyncDatabase, token: str, *, today: str = TODAY) ->
     return await get_bestaetigung_ansicht(
         ansicht_data=FLSchiedsrichterBestaetigungAnsichtPayload(token=token),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        saisons_collection=database[Collection.SAISONS],
+        sperrliste_collection=database[Collection.SPERRLISTE],
+        config=CONFIG,
         today=today,
     )
 
@@ -1020,7 +1023,7 @@ class TestALinkToABarredAddress:
         assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["bestaetigt_am"] == TODAY
 
     def test_an_entry_confirmed_before_the_ban_answers_the_stamp_rather_than_the_ban(self, mongo_replica_set_url: str):
-        """The order: the answer given before the ban stands until an administrator acts, and the person is told so."""
+        """The order: the answer given before the ban stands until an administrator acts, so a second press is refused as confirmed."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             minted = await resend(database, client)
@@ -1047,3 +1050,50 @@ class TestALinkToABarredAddress:
             return refused.value
 
         assert on_a_league(mongo_replica_set_url, body).error_code == SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT
+
+
+class TestTheViewOfALinkToABarredAddress:
+    """`docs/backend/spec.md :: I515`: the page reads the ban off the view, so it never offers a barred referee the form."""
+
+    def test_the_view_answers_gesperrt(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            minted = await resend(database, client)
+            await ban(database, client, email=EMAIL)
+
+            return (await ansicht(database, minted.bestaetigung.token)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == "gesperrt"
+
+    def test_a_ban_on_another_address_leaves_the_view_open(self, mongo_replica_set_url: str):
+        """The other half of the pair: without it the case above passes for a view answering `gesperrt` to everyone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            minted = await resend(database, client)
+            await ban(database, client, email=BANNED_EMAIL)
+
+            return (await ansicht(database, minted.bestaetigung.token)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == "gueltig"
+
+    def test_the_view_opens_again_once_the_ban_is_lifted(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, str]:
+            minted = await resend(database, client)
+            await ban(database, client, email=EMAIL)
+            barred = (await ansicht(database, minted.bestaetigung.token)).zustand
+            await database[Collection.SPERRLISTE].delete_many({})
+
+            return barred, (await ansicht(database, minted.bestaetigung.token)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == ("gesperrt", "gueltig")
+
+    def test_an_entry_confirmed_before_the_ban_reopens_on_the_ban(self, mongo_replica_set_url: str):
+        """The ban outranks the stamp here, where the press ranks it below: the page shows a barred referee nothing else."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            minted = await resend(database, client)
+            await confirm(database, client, minted.bestaetigung.token)
+            await ban(database, client, email=EMAIL)
+
+            return (await ansicht(database, minted.bestaetigung.token)).zustand
+
+        assert on_a_league(mongo_replica_set_url, body) == "gesperrt"

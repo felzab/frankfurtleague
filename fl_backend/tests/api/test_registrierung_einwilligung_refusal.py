@@ -332,9 +332,13 @@ class TestWhatAReopenedLinkShows:
         ],
     )
     def test_each_state_reads_as_the_page_expects(self, stored: Mapping[str, Any], zustand: str):
-        """The last case is the ordering: a stamp outranks everything, so a pupil who answered is never shown an expired link."""
+        """The last case is the ordering: a stamp outranks the deadline, so a pupil who answered is never shown an expired link.
 
-        assert zustand_of(registrierung_raw=stored, today=TODAY) == zustand
+        The ban outranks both: a barred pupil's page shows nothing else.
+        """
+
+        assert zustand_of(registrierung_raw=stored, today=TODAY, gesperrt=False) == zustand
+        assert zustand_of(registrierung_raw=stored, today=TODAY, gesperrt=True) == "gesperrt"
 
 
 class TestWhoseAnswersThePagePresents:

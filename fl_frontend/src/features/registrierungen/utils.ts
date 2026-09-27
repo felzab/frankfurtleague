@@ -3,7 +3,7 @@ import { isRecordMissing } from "@/core/errors";
 import { nummerPayload } from "@/features/spieler/utils";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal } from "@/shared/utils/refusal";
-import { ANTWORT_NEU_OEFFNEN, LINK_ADRESSE_GESPERRT, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
+import { ANTWORT_NEU_OEFFNEN, REGISTRIERUNG_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import { alterAusserhalb, REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "./constants";
 
@@ -158,8 +158,9 @@ export async function mapBestaetigungRefusal(error: unknown, mindestalter: () =>
       return { zustand: "abgelaufen" };
     case "REQ-REGISTRIERUNG-006":
       return { zustand: "bestaetigt" };
+    // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no form either.
     case "REQ-REGISTRIERUNG-012":
-      return { error: LINK_ADRESSE_GESPERRT };
+      return { zustand: "gesperrt" };
     // The one refusal that spends no token, so it lands on the field and the typed date survives it;
     // a `zustand` here would swap a live form for a dead-link panel.
     case "REQ-REGISTRIERUNG-007": {

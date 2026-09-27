@@ -144,11 +144,11 @@ class TestWhatALeakedLinkLearns:
 
     @pytest.mark.parametrize(
         ("projection", "asked_of_the_ban_list"),
-        [(BESTAETIGUNG_ANSICHT_FIELDS, set()), (BESTAETIGUNG_ANTWORT_FIELDS, {"kontakt.email"})],
+        [(BESTAETIGUNG_ANSICHT_FIELDS, {"kontakt.email"}), (BESTAETIGUNG_ANTWORT_FIELDS, {"kontakt.email"})],
         ids=["ansicht", "antwort"],
     )
     def test_neither_projection_reaches_a_field_behind_the_contact_rule(self, projection: Mapping[str, int], asked_of_the_ban_list: set[str]):
-        """The press reads the address for the ban list alone; `test_neither_base_tier_answer_carries_the_mint` keeps it off both answers."""
+        """Both read the address for the ban list alone; `test_neither_base_tier_answer_carries_the_mint` keeps it off both answers."""
 
         withheld = {"schule", "kontakt", "default_payment", "geburtsdatum", "inactive_since"}
         read = {key for key, kept in projection.items() if kept}
@@ -215,7 +215,10 @@ class TestWhatAReopenedLinkShows:
         ids=["live", "over", "answered", "answered-then-over", "empty-stamp"],
     )
     def test_each_state_reads_as_the_page_expects(self, einwilligung: Any, bestaetigung: Any, zustand: str):
-        assert zustand_of(einwilligung=einwilligung, bestaetigung=bestaetigung, today=TODAY) == zustand
+        """The ban outranks every one of them: a barred referee's page shows the ban and nothing else."""
+
+        assert zustand_of(einwilligung=einwilligung, bestaetigung=bestaetigung, today=TODAY, gesperrt=False) == zustand
+        assert zustand_of(einwilligung=einwilligung, bestaetigung=bestaetigung, today=TODAY, gesperrt=True) == "gesperrt"
 
 
 class TestABlockWithNoReadableDeadline:
@@ -323,7 +326,7 @@ class TestAnEntryAlreadyConfirmed:
 
         assert find_already_confirmed_refusal(einwilligung=confirmed()) is not None
         assert find_expired_token_refusal(frist=frist_of(over), today=TODAY) is not None
-        assert zustand_of(einwilligung=confirmed(), bestaetigung=over, today=TODAY) == "bestaetigt"
+        assert zustand_of(einwilligung=confirmed(), bestaetigung=over, today=TODAY, gesperrt=False) == "bestaetigt"
 
     def test_the_re_send_reads_the_stamp_it_judges(self):
         """A confirmed referee takes no fresh link: minting one would replace a live block with a credential the confirmation always refuses."""

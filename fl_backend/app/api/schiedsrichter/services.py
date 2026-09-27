@@ -267,8 +267,14 @@ def frist_of(bestaetigung: Any) -> Any:
     return bestaetigung.get("frist") if isinstance(bestaetigung, Mapping) else None
 
 
-def zustand_of(*, einwilligung: Any, bestaetigung: Any, today: str) -> FLSchiedsrichterBestaetigungZustand:
-    """What a reopened link shows. A stamp outranks the deadline: a person who answered on the last valid day is shown that they did."""
+def zustand_of(*, einwilligung: Any, bestaetigung: Any, today: str, gesperrt: bool) -> FLSchiedsrichterBestaetigungZustand:
+    """What a reopened link shows: the ban first (`docs/backend/spec.md :: I515`), then a stamp over the deadline.
+
+    A person who answered on the last valid day is shown that they did.
+    """
+
+    if gesperrt:
+        return "gesperrt"
 
     if is_confirmed(einwilligung=einwilligung):
         return "bestaetigt"
@@ -481,6 +487,9 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     f"{EINWILLIGUNG_FELD}.bestaetigt_am": 1,
     f"{EINWILLIGUNG_FELD}.text_version": 1,
     f"{BESTAETIGUNG_FELD}.frist": 1,
+    # For the ban list alone, as the answer's read takes it: the response model declares no field to
+    # carry it.
+    "kontakt.email": 1,
     # Suppressed here alone: this endpoint stores nothing, so it needs no key to patch on.
     "_id": 0,
 }

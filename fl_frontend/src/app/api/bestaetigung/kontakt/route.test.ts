@@ -52,7 +52,7 @@ registerHooks({
 
 const { POST } = await import("./route.ts");
 const { BESTAETIGUNG_KENNTNISNAHME } = await import("@/core/einwilligung.ts");
-const { ANTWORT_NEU_OEFFNEN, LINK_ADRESSE_GESPERRT } = await import("@/shared/utils/reopenLink.ts");
+const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { alterAusserhalb } = await import("@/features/bewerbungen/constants.ts");
 const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
@@ -166,14 +166,14 @@ describe("the contact seat's confirmation handler", () => {
     assert.deepEqual(answer.body, { success: false, fieldErrors: { geburtsdatum: alterAusserhalb(18) } });
   });
 
-  /* A sentence and never a panel: the form has to stay, because its Widerspruch is still taken
-     from a barred address. */
-  it("answers a barred address with the ban's sentence, keeping the form", async () => {
+  /* The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
+     form and no Widerspruch button behind. */
+  it("answers a barred address with the barred panel, in place of the form", async () => {
     schreibAntwort = () => aRefusal("REQ-BEWERBUNG-020");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
-    assert.deepEqual(answer.body, { success: false, error: LINK_ADRESSE_GESPERRT });
+    assert.deepEqual(answer.body, { success: false, zustand: "gesperrt" });
   });
 
   /* A body the running API refuses on a box the page renders is marked there, and one it renders

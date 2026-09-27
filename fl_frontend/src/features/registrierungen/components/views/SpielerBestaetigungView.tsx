@@ -15,6 +15,7 @@ import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 import { KONTAKT_EMAIL } from "@/core/brand";
 import {
   ABSATZ_CLASSES,
+  AdresseGesperrt,
   BestaetigungAbschnitt,
   BestaetigungErgebnis,
   FaktenBanner,
@@ -67,8 +68,8 @@ import type {
 
 type Stand = SpielerBestaetigungStart | { zustand: "erfolg"; ansicht: SpielerBestaetigungGeoeffnet; gespeichert: SpielerBestaetigungDraft };
 
-/** One heading per state, uppercased by the page rather than typed so, as the application page does it. */
-const TITEL: Record<Stand["zustand"], string> = {
+/** One heading per state, uppercased by the page rather than typed so, as the application page does it. A barred link's page has none. */
+const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   gueltig: "Registrierung bestätigen",
   erfolg: "Registrierung bestätigt",
   bestaetigt: "Schon erledigt",
@@ -205,6 +206,14 @@ export function SpielerBestaetigungView({ start, fassung }: { start: SpielerBest
   useEffect(() => {
     if (hatGeantwortet) ergebnisRef.current?.focus();
   }, [hatGeantwortet]);
+
+  if (stand.zustand === "gesperrt") {
+    return (
+      <section className={SEITE_CLASSES}>
+        <AdresseGesperrt panelRef={ergebnisRef} />
+      </section>
+    );
+  }
 
   // Off the CURRENT state and never the one the page opened on: a link the write found dead is
   // answered by a panel that names nobody, and the banner beside it would name the team anyway.

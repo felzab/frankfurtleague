@@ -415,7 +415,7 @@ class TestTheAgeAtConfirmation:
 
 
 class TestWhatAReopenedLinkShows:
-    """`zustand`: a stamp outranks a decline, which outranks the deadline, which outranks nothing."""
+    """`zustand`: the ban outranks a stamp, which outranks a decline, which outranks the deadline, which outranks nothing."""
 
     @pytest.mark.parametrize(
         ("stored", "zustand"),
@@ -447,7 +447,9 @@ class TestWhatAReopenedLinkShows:
         ],
     )
     def test_each_state_reads_as_the_page_expects(self, stored: Mapping[str, Any], zustand: str):
-        assert zustand_of(bewerbung_raw=stored, seat="trainer", today=TODAY) == zustand
+        assert zustand_of(bewerbung_raw=stored, seat="trainer", today=TODAY, gesperrt=False) == zustand
+        # Whatever became of the link, a barred person's page shows the ban and nothing else.
+        assert zustand_of(bewerbung_raw=stored, seat="trainer", today=TODAY, gesperrt=True) == "gesperrt"
 
 
 class TestTheSeatsStillOpen:
@@ -481,7 +483,7 @@ class TestAnEmptyStampConfirmsNothing:
         assert find_already_answered_refusal(kontakte=EMPTY_STAMP, bestaetigungen=BESTAETIGUNGEN, seat="trainer") is None
 
     def test_a_reopened_link_reads_open(self):
-        assert zustand_of(bewerbung_raw=application(kontakte=EMPTY_STAMP), seat="trainer", today=TODAY) == "gueltig"
+        assert zustand_of(bewerbung_raw=application(kontakte=EMPTY_STAMP), seat="trainer", today=TODAY, gesperrt=False) == "gueltig"
 
     def test_the_application_is_not_yet_one_the_league_may_accept(self):
         """The acceptance's own refusal, with the two other seats confirmed so the empty stamp is all that holds it."""

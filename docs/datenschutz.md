@@ -160,7 +160,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
     by any route, refused as its session would be created
     (`fl_frontend/src/core/auth.ts :: refuseUnadmitted`), and for the confirmation on a person's own
     page, however long ago its link was mailed (`REQ-REGISTRIERUNG-012`, `REQ-SCHIEDSRICHTER-009`,
-    `REQ-BEWERBUNG-020`), a contact person's Widerspruch still being taken; the notice's „eine
+    `REQ-BEWERBUNG-020`), the link's page showing that person the refusal and nothing else, so a
+    contact person's Widerspruch goes by mail to the address it names
+    (`docs/frontend/spec.md :: I516`); the notice's „eine
     E-Mail-Adresse, die gesperrt ist“ names no route, so it covers all four, and the ban's own mail
     tells the person the sign-in is barred.
 

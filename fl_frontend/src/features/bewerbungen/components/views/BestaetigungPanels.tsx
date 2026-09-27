@@ -11,6 +11,7 @@ import { formPanel } from "@/shared/components/ui/formPanel";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { textLink } from "@/shared/components/ui/textLink";
+import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink";
 
 import type { ReactNode, RefObject } from "react";
 
@@ -228,6 +229,21 @@ export function BestaetigungErgebnis({
       />
       {children}
     </section>
+  );
+}
+
+/**
+ * **The whole page a barred link opens on, on all three confirmation pages**: the sentence and
+ * nothing else (`docs/frontend/spec.md :: I516`). A Widerspruch or any other request goes by mail to
+ * the address it names.
+ */
+export function AdresseGesperrt({ panelRef }: { panelRef?: RefObject<HTMLElement | null> }) {
+  return (
+    <BestaetigungErgebnis
+      panelRef={panelRef}
+      tone="hinweis">
+      <p className={ABSATZ_CLASSES}>{LINK_ADRESSE_GESPERRT}</p>
+    </BestaetigungErgebnis>
   );
 }
 

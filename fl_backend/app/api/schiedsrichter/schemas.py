@@ -28,8 +28,9 @@ from app.shared.schemas.responses import BaseAPIResponse
 FLSchiedsrichterUmfang = Literal["kader_oeffentlich", "intern"]
 
 # What a reopened link shows. `abgelaufen` outranks nothing: a stamp is read first, so a referee who
-# confirmed on the last valid day still sees that they did.
-FLSchiedsrichterBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen"]
+# confirmed on the last valid day still sees that they did. `gesperrt` ranks first
+# (`docs/backend/spec.md :: I515`).
+FLSchiedsrichterBestaetigungZustand = Literal["gueltig", "bestaetigt", "abgelaufen", "gesperrt"]
 
 # The raw token as it arrives on the two base-tier endpoints. `BEWERBUNG_TOKEN_MAX_LENGTH` and not a
 # referee's own: one `mint_token` spells every confirmation link this application hands out.

@@ -720,7 +720,7 @@ export type FLBewerbungEinwilligungAnsichtPayload = z.infer<typeof FLBewerbungEi
 export const FLBewerbungEinwilligungAnsichtResponseSchema = BaseAPIResponseSchema.extend({
   // The link's own standing, answered rather than refused: a spent link stays readable, so only an
   // unknown token has nothing to answer with and reaches the page as a 409.
-  zustand: z.enum(["gueltig", "bestaetigt", "abgelehnt", "abgelaufen"]),
+  zustand: z.enum(["gueltig", "bestaetigt", "abgelehnt", "abgelaufen", "gesperrt"]),
   saison_id: z.string(),
   schule: z.string(),
   rolle: FLKontaktRolleSchema,

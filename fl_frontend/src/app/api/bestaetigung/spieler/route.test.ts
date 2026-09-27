@@ -42,7 +42,7 @@ registerHooks({
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { SPIELER_EINWILLIGUNG } = await import("@/core/einwilligung.ts");
-const { ANTWORT_NEU_OEFFNEN, LINK_ADRESSE_GESPERRT } = await import("@/shared/utils/reopenLink.ts");
+const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
 
 const TOKEN = "abc123";
 
@@ -180,14 +180,14 @@ describe("the pupil's confirmation handler", () => {
     assert.equal(ansichten(), 1, "the floor was not read off the link's own view");
   });
 
-  /* A sentence and never a panel: nothing about the link is over, and a lifted ban lets the same
-     press through. */
-  it("answers a barred address with the ban's sentence, keeping the form", async () => {
+  /* The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
+     form behind. */
+  it("answers a barred address with the barred panel, in place of the form", async () => {
     schreibAntwort = () => aRefusal(403, "REQ-REGISTRIERUNG-012");
 
     const answer = await bodyOf(aRequest(gueltigerKoerper));
 
-    assert.deepEqual(answer.body, { success: false, error: LINK_ADRESSE_GESPERRT });
+    assert.deepEqual(answer.body, { success: false, zustand: "gesperrt" });
     assert.equal(ansichten(), 0);
   });
 

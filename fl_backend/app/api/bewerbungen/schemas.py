@@ -748,8 +748,9 @@ class FLPostBewerbungResponse(BaseAPIResponse):
 CustomBewerbungToken = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=BEWERBUNG_TOKEN_MAX_LENGTH)]
 
 # What a reopened link shows. `abgelaufen` covers the deadline having passed AND the application
-# having been decided: either way the link is spent, and the page says so in one way.
-FLBewerbungEinwilligungZustand = Literal["gueltig", "bestaetigt", "abgelehnt", "abgelaufen"]
+# having been decided: either way the link is spent, and the page says so in one way. `gesperrt`
+# ranks first (`docs/backend/spec.md :: I515`).
+FLBewerbungEinwilligungZustand = Literal["gueltig", "bestaetigt", "abgelehnt", "abgelaufen", "gesperrt"]
 
 
 class FLBewerbungEinwilligungAnsichtPayload(BaseModel):

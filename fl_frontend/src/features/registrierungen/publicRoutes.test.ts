@@ -18,6 +18,7 @@ import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
+import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import { REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE } from "./constants.ts";
 import { MAIL_ABGEWIESEN } from "./utils.ts";
@@ -773,5 +774,43 @@ describe("the media switch, offered from the media age alone", () => {
       false,
       "the yes given at the older date was sent for the younger one",
     );
+  });
+});
+
+describe("what a link to a barred address opens on", () => {
+  /* The page is the sentence and nothing else: a question or a deletion goes by mail to the address
+     the sentence names, so no heading, form, press or link stands beside it. */
+  it("shows the approved sentence and nothing else", () => {
+    const html = renderMarkup(SpielerBestaetigungView, { start: { zustand: "gesperrt" }, fassung: FASSUNG });
+
+    assert.equal(textOf(html, " ").replace(/\s+/g, " ").trim(), LINK_ADRESSE_GESPERRT);
+    assert.doesNotMatch(html, /<(h[1-6]|form|button|a|input)\b/, "the barred page renders something beside the sentence");
+    assert.match(html, /role="status"/, "the barred page is announced to nobody");
+  });
+
+  /* A ban entered while the form stood open: the refused press swaps the form for the same page
+     rather than raising the sentence as a toast over the form. */
+  it("swaps an open form for that page when the press is refused on the ban", async () => {
+    raised.length = 0;
+    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({ success: false, zustand: "gesperrt" }))));
+    const user = userEvent.setup();
+    const { unmount } = render(
+      h(SpielerBestaetigungView, { start: { zustand: "gueltig", ansicht: GEOEFFNET, token: "kein-echtes-token" }, fassung: FASSUNG }),
+    );
+
+    await user.click(screen.getByRole("radio", { name: FASSUNG.bedienelemente.intern }));
+    const [tag] = screen.getAllByRole("spinbutton");
+    await user.click(tag!);
+    await user.keyboard(getippt(geborenVor(MIN_ALTER + 1)));
+    await user.click(screen.getByRole("button", { name: /Registrierung bestätigen/ }));
+
+    const shown = await screen.findByText(LINK_ADRESSE_GESPERRT);
+    const buttons = screen.queryAllByRole("button").length;
+    const toasts = raised.length;
+    unmount();
+
+    assert.ok(shown, "the page kept the form the press cannot use again");
+    assert.equal(buttons, 0, "a press stands beside the barred sentence");
+    assert.equal(toasts, 0, "the ban was raised as a toast over the form");
   });
 });

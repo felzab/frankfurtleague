@@ -16,6 +16,7 @@ import { KONTAKT_EMAIL } from "@/core/brand";
 import { SCHIEDSRICHTER_EINWILLIGUNG } from "@/core/einwilligung";
 import {
   ABSATZ_CLASSES,
+  AdresseGesperrt,
   BestaetigungAbschnitt,
   BestaetigungErgebnis,
   FrageStellen,
@@ -71,8 +72,8 @@ type Gespeichert = { vorname: string; geburtsdatum: string; umfang: FLSchiedsric
 
 type Stand = SchiedsrichterBestaetigungStart | ({ zustand: "erfolg" } & Gespeichert);
 
-/** One heading per state, in the contact page's own words: one workflow's two ends read alike. */
-const TITEL: Record<Stand["zustand"], string> = {
+/** One heading per state, in the contact page's own words: one workflow's two ends read alike. A barred link's page has none. */
+const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   gueltig: "Eintrag bestätigen",
   erfolg: "Eintrag bestätigt",
   bestaetigt: "Schon erledigt",
@@ -503,6 +504,14 @@ export function SchiedsrichterBestaetigungView({ start }: { start: Schiedsrichte
   useEffect(() => {
     if (hatGeantwortet) ergebnisRef.current?.focus();
   }, [hatGeantwortet]);
+
+  if (stand.zustand === "gesperrt") {
+    return (
+      <section className={SEITE_CLASSES}>
+        <AdresseGesperrt panelRef={ergebnisRef} />
+      </section>
+    );
+  }
 
   return (
     <section className={SEITE_CLASSES}>

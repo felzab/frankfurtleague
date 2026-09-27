@@ -28,6 +28,7 @@ from app.api.bewerbungen.services import (
     hash_token,
     mindestalter_for,
     paired_seat,
+    seat_adressen,
     seat_holding,
     seat_vorname,
     zustand_of,
@@ -83,6 +84,9 @@ async def get_einwilligung_ansicht(
     ansicht_data: Annotated[FLBewerbungEinwilligungAnsichtPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
+    saisons_collection: SaisonsCollection,
+    sperrliste_collection: SperrlisteCollection,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungEinwilligungAnsichtResponse:
     """
@@ -94,7 +98,9 @@ async def get_einwilligung_ansicht(
     exactly the dates the answer will take.
     A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
     seat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,
-    so a reopened link shows what became of it.
+    so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever the ban list
+    holds an address a consent on this link would be refused for (`REQ-BEWERBUNG-020`), so the page offers a barred
+    person nothing to press.
     """
 
     token_hash = hash_token(ansicht_data.token)
@@ -112,16 +118,24 @@ async def get_einwilligung_ansicht(
     # The answer's own resolution, so the page names exactly the seats a press will write and states
     # the floor that press will be judged by.
     zugleich = paired_seat(kontakte=bewerbung_raw.get("kontakte"), bestaetigungen=bewerbung_raw.get("bestaetigungen"), seat=seat)
+    seats = (seat,) if zugleich is None else (seat, zugleich)
+
+    gesperrt = await gesperrte_adressen(
+        seat_adressen(kontakte=bewerbung_raw.get("kontakte"), seats=seats),
+        sperrliste_collection=sperrliste_collection,
+        schluessel=config.sperrliste_schluessel,
+        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection=saisons_collection),
+    )
 
     return FLBewerbungEinwilligungAnsichtResponse(
-        zustand=zustand_of(bewerbung_raw=bewerbung_raw, seat=seat, today=today),
+        zustand=zustand_of(bewerbung_raw=bewerbung_raw, seat=seat, today=today, gesperrt=bool(gesperrt)),
         saison_id=str(bewerbung_raw["saison_id"]),
         schule=await _schule_name(bewerbung_raw=bewerbung_raw, teams_collection=teams_collection),
         rolle=seat,
         zugleich_rolle=zugleich,
         vorname=str(slot["vorname"]) if isinstance(slot, Mapping) else None,
         text_version=str(einwilligung["text_version"]) if isinstance(einwilligung, Mapping) else None,
-        mindestalter=mindestalter_for((seat,) if zugleich is None else (seat, zugleich)),
+        mindestalter=mindestalter_for(seats),
     )
 
 
@@ -206,9 +220,8 @@ async def post_einwilligung(
 
             # Asked at the press rather than only at the mint, so a ban entered after the link went out
             # stops it here. Never of the decline below: a barred person asking to be removed is not refused.
-            slots = [kontakte.get(held) for held in seats] if isinstance(kontakte, Mapping) else []
             gesperrt = await gesperrte_adressen(
-                {str(slot["email"]) for slot in slots if isinstance(slot, Mapping) and slot.get("email")},
+                seat_adressen(kontakte=kontakte, seats=seats),
                 sperrliste_collection=sperrliste_collection,
                 schluessel=config.sperrliste_schluessel,
                 massgebliche_saison_id=massgebliche_saison_id,

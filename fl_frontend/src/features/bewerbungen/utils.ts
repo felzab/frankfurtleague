@@ -5,7 +5,7 @@ import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { isRecordMissing } from "@/core/errors";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
 import { buildRefusal, LADE_NEU_UND_VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
-import { ANTWORT_NEU_OEFFNEN, LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink";
+import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
 import { alterAusserhalb, BEWERBUNG_MAX_ALTER, KUERZEL_LAENGE, SCHULE_NICHT_IN_LISTE } from "./constants";
@@ -251,9 +251,10 @@ export function mapEinwilligungRefusal(error: unknown, mindestalter: number): Ei
     // a `zustand` here would swap a live form for a dead-link panel.
     case "REQ-BEWERBUNG-012":
       return { fieldErrors: { geburtsdatum: alterAusserhalb(mindestalter) } };
-    // A message and never a panel: the form stays, because its Widerspruch is still taken from this address.
+    // The panel the view opens a barred link on, so a ban entered while the form stood open leaves no
+    // form either: the page offers no Widerspruch to a barred address (`docs/frontend/spec.md :: I516`).
     case "REQ-BEWERBUNG-020":
-      return { error: LINK_ADRESSE_GESPERRT };
+      return { zustand: "gesperrt" };
     default:
       return null;
   }

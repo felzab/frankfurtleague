@@ -26,6 +26,7 @@ import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
+import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import type { SchiedsrichterBestaetigungStart } from "./SchiedsrichterBestaetigungView.tsx";
 
@@ -312,6 +313,36 @@ describe("what the press sends", () => {
     await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
 
     assert.deepEqual(sent, [{ token: TOKEN, geburtsdatum: "1990-01-01", umfang: "intern", medien: false, text_version: FASSUNG }]);
+  });
+});
+
+describe("what a link to a barred address opens on", () => {
+  /* The page is the sentence and nothing else: a question or a deletion goes by mail to the address
+     the sentence names, so no heading, form, press or link stands beside it. */
+  it("shows the approved sentence and nothing else", () => {
+    const html = markup({ zustand: "gesperrt" });
+
+    assert.equal(words(html), LINK_ADRESSE_GESPERRT);
+    assert.doesNotMatch(html, /<(h[1-6]|form|button|a|input)\b/, "the barred page renders something beside the sentence");
+    assert.match(html, /role="status"/, "the barred page is announced to nobody");
+  });
+
+  /* A ban entered while the form stood open: the refused press swaps the form for the same page
+     rather than raising the sentence as a toast over the form. */
+  it("swaps an open form for that page when the press is refused on the ban", async () => {
+    answerEveryFetch({ success: false, zustand: "gesperrt" });
+
+    render(h(SchiedsrichterBestaetigungView, { start: OFFEN }));
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("spinbutton", { name: /Tag/ }));
+    await user.keyboard("01011990");
+    await user.click(screen.getByRole("radio", { name: SCHIEDSRICHTER_UMFANG_OPTIONS[1]?.label ?? "" }));
+    await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+
+    assert.ok(await screen.findByText(LINK_ADRESSE_GESPERRT), "the page kept the form the press cannot use again");
+    assert.equal(screen.queryAllByRole("button").length, 0, "a press stands beside the barred sentence");
+    assert.deepEqual(toasts, [], "the ban was raised as a toast over the form");
   });
 });
 

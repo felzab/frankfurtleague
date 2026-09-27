@@ -25,6 +25,7 @@ import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
+import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
 
 import { bestaetigungsLink } from "./bestaetigungLink.ts";
 import { BEWERBUNG_MIN_ALTER, VERTRETUNG_MIN_ALTER } from "./constants.ts";
@@ -906,7 +907,7 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
   const STAMPED = new Set(Object.values(BESTAETIGUNG_ABSAETZE).map((text) => fuelleFassung(text, SLOTS)));
 
   const VALID_PAGE = renderMarkup(BestaetigungView, { start: { zustand: "gueltig", ansicht: OPENED_LINK, token: "kein-echtes-token" } });
-  const STATE_PAGES = (["bestaetigt", "abgelehnt", "abgelaufen", "ungueltig", "unlesbar"] as const).map((zustand) => ({
+  const STATE_PAGES = (["bestaetigt", "abgelehnt", "abgelaufen", "ungueltig", "unlesbar", "gesperrt"] as const).map((zustand) => ({
     zustand: zustand,
     html: renderMarkup(BestaetigungView, { start: { zustand: zustand } }),
   }));
@@ -1336,5 +1337,52 @@ describe("what a decline may carry", () => {
       "the refusal lands somewhere other than the switch",
     );
     assert.equal(FLBewerbungEinwilligungAntwortPayloadSchema.safeParse({ ...abgelehnt, whatsapp: false }).success, true);
+  });
+});
+
+describe("what a link to a barred address opens on", () => {
+  const OFFEN = {
+    acknowledged: 1,
+    zustand: "gueltig",
+    saison_id: "2026",
+    schule: "Lessing-Kolleg",
+    rolle: "ansprechperson",
+    zugleich_rolle: null,
+    vorname: "Mira",
+    text_version: BESTAETIGUNG_KENNTNISNAHME.textVersion,
+    mindestalter: BEWERBUNG_MIN_ALTER,
+  } as const;
+
+  /* The page is the sentence and nothing else: a Widerspruch or a question goes by mail to the
+     address the sentence names, so no heading, form, press or link stands beside it. */
+  it("shows the approved sentence and nothing else", () => {
+    const html = renderMarkup(BestaetigungView, { start: { zustand: "gesperrt" } });
+
+    assert.equal(textOf(html, " ").replace(/\s+/g, " ").trim(), LINK_ADRESSE_GESPERRT);
+    assert.doesNotMatch(html, /<(h[1-6]|form|button|a|input)\b/, "the barred page renders something beside the sentence");
+    assert.match(html, /role="status"/, "the barred page is announced to nobody");
+  });
+
+  /* A ban entered while the form stood open: the refused press swaps the form for the same page
+     rather than raising the sentence as a toast over a form and a Widerspruch button. */
+  it("swaps an open form for that page when the press is refused on the ban", async () => {
+    raised.length = 0;
+    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({ success: false, zustand: "gesperrt" }))));
+    const user = userEvent.setup();
+    const { unmount } = render(h(BestaetigungView, { start: { zustand: "gueltig", ansicht: OFFEN, token: "kein-echtes-token" } }));
+
+    const [jahr = "", monat = "", tag = ""] = parseDate(getGermanTodayStr()).subtract({ years: 30 }).toString().split("-");
+    await user.click(within(screen.getByRole("group", { name: "Dein Geburtsdatum" })).getAllByRole("spinbutton")[0]!);
+    await user.keyboard(`${tag}${monat}${jahr}`);
+    await user.click(screen.getByRole("button", { name: "Eintrag bestätigen" }));
+
+    const shown = await screen.findByText(LINK_ADRESSE_GESPERRT);
+    const buttons = screen.queryAllByRole("button").length;
+    const toasts = raised.length;
+    unmount();
+
+    assert.ok(shown, "the page kept the form the press cannot use again");
+    assert.equal(buttons, 0, "a press — a Widerspruch among them — stands beside the barred sentence");
+    assert.equal(toasts, 0, "the ban was raised as a toast over the form");
   });
 });

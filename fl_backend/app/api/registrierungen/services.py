@@ -377,8 +377,14 @@ def link_is_over(*, bestaetigung: Any, status: Any, today: str) -> bool:
     return not isinstance(frist, str) or frist < today
 
 
-def zustand_of(*, registrierung_raw: Mapping[str, Any], today: str) -> FLRegistrierungBestaetigungZustand:
-    """What a reopened link shows. A stamp outranks the deadline, so a pupil who answered on the last valid day is shown that they did."""
+def zustand_of(*, registrierung_raw: Mapping[str, Any], today: str, gesperrt: bool) -> FLRegistrierungBestaetigungZustand:
+    """What a reopened link shows: the ban first (`docs/backend/spec.md :: I515`), then a stamp over the deadline.
+
+    A pupil who answered on the last valid day is shown that they did.
+    """
+
+    if gesperrt:
+        return "gesperrt"
 
     if registrierung_ist_bestaetigt(einwilligung=registrierung_raw.get("einwilligung")):
         return "bestaetigt"
