@@ -143,7 +143,7 @@ after(() => {
 });
 
 /** The two modules whose `cache` this suite counts through, each built as Next renders it. */
-const MEMOIZED = ["/src/core/subject.ts", "/src/core/signInGate.ts"];
+const MEMOIZED = ["/src/core/subject.ts", "/src/core/signInGate.ts", "/src/core/auth.ts"];
 
 // The server build for these alone: the client build's `cache` passes through, so a guard or a
 // lookup that lost its memo would read the same under every case here.
@@ -586,6 +586,25 @@ describe("the guard across one render pass", () => {
     const { actor } = await guardInScope();
 
     assert.equal(actor?.email, PERSON_EMAIL, "the memo answered, and the scope names nobody");
+    assert.equal(headerReads() - readsBefore, 1, "the second call read the session again rather than the memo");
+  });
+
+  /* The admin shell's guard runs in its layout before any read opens the scope an admin-tier call is
+     sent from; that read is answered from the memo and must still name the administrator. */
+  it("records the administrator's actor in a scope opened after the admin guard's memo was filled", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    row.authFactor = "passkey";
+    arriveAs(cookie);
+    const readsBefore = headerReads();
+
+    assert.ok(await getAdminSession(), "the guard refused, so the scope below is asked about nothing");
+    const actor = await runWithRequestScope({ traceId: "0".repeat(31) + "1", spanId: "0".repeat(15) + "1" }, async () => {
+      await getAdminSession();
+      return getRequestActor();
+    });
+
+    assert.equal(actor?.email, ADMIN_EMAIL, "the memo answered, and the scope names nobody");
+    assert.equal(actor?.lane, "admin");
     assert.equal(headerReads() - readsBefore, 1, "the second call read the session again rather than the memo");
   });
 
