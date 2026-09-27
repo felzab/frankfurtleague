@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from typing import Any
 
 import pymongo
@@ -15,7 +15,7 @@ from app.core.exceptions import DOCUMENT_NOT_FOUND
 from app.core.security import WRONG_ADMIN_KEY, WRONG_BASE_KEY
 from tests import documents
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
+from tests.config import ADMIN_AUTH, ADMINISTRATORS, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
 from tests.database import a_clean_database_sync
 
 from .conftest import unwritten
@@ -73,9 +73,9 @@ def junction_row() -> dict[str, Any]:
     return documents.saison_team_document(SAISON_ID, AWAY, "Beta", "BE", austritt=dict(AUSTRITT))
 
 
-def answered(uri: str, path: str, headers: Mapping[str, str]) -> Response:
+def answered(uri: str, path: str, headers: Mapping[str, str], *, admitting: Iterable[str] | None = None) -> Response:
     async def _answered() -> Response:
-        async with app_client(uri) as http:
+        async with app_client(uri, admitting=admitting) as http:
             with pymongo.timeout(UNANSWERED_DEADLINE_S if uri == UNANSWERED_URI else None):
                 return await http.get(path, headers=dict(headers))
 
@@ -131,7 +131,9 @@ REACHING_CASES = [
 def test_the_matching_key_clears_the_guard_and_reaches_the_database(path: str, headers: Mapping[str, str]):
     """The control for the pair above: without it, a refusal from a route that does not exist would read as the guard's."""
 
-    response = answered(UNANSWERED_URI, path, headers)
+    # The actor check answered from the set, so the admin path's 500 is the handler's own read:
+    # against the unreachable grants, the check's read would answer it before the handler ran.
+    response = answered(UNANSWERED_URI, path, headers, admitting=ADMINISTRATORS)
 
     assert response.status_code == 500
     assert response.json()["error_code"] == UNREACHED_DATABASE
