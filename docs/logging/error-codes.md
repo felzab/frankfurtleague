@@ -188,7 +188,7 @@ names `fl_backend/app/core/config.py :: get_config` prints.
 | `SRV-BOOT-005` | A warning, and the boot goes on: `berechtigungen` holds no live grant, so nobody can enter the administration                                                                 |
 | `SRV-BOOT-006` | A warning, and the boot goes on: no live grant is an `owner` grant, so every grant is within an administrator's reach                                                         |
 | `SRV-BOOT-007` | A warning, and the boot goes on: grants whose address is empty, unfolded or refused by the address rule admit nobody; the line counts them and names none                     |
-| `SRV-BOOT-008` | A warning, and the boot goes on: `ALLOWED_ADMIN_EMAILS` is retired and still set; the line names the variable and never its value                                             |
+| `SRV-BOOT-008` | A warning, and the boot goes on: `ALLOWED_ADMIN_EMAILS` is retired and still set in a development machine's backend file; the line names the variable and never its value     |
 | `FE-BOOT-001`  | A frontend environment variable failed validation; the line names the variables and no value                                                                                  |
 | `FE-BOOT-002`  | A warning, and the boot goes on: `ALLOWED_ADMIN_EMAILS` is retired and still set in the frontend's file, which nothing reads; the line names the variable and never its value |
 

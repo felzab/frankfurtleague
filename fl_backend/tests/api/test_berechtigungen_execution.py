@@ -1054,11 +1054,10 @@ class TestTheMountedRouteReadsTheGrants:
         assert on_a_league(mongo_replica_set_url, body) == [200, 200, 403]
 
     def test_a_grant_made_over_http_is_attributed_to_the_header_s_administrator_everywhere(self, mongo_replica_set_url: str):
-        """The actor header in capitals: the grant, its notice and its log row each name the administrator the header names.
+        """The only grant case reaching `get_actor_email`: every other hands the handler its actor.
 
-        Every other grant case hands the handler its actor, so only this one reaches `get_actor_email`. The
-        grant and the log keep the header's spelling, as every stored actor field does; the notice keeps
-        the fold a later ban matches it by.
+        The grant and the log keep the header's spelling, as every stored actor field does; the notice
+        keeps the fold a later ban matches it by.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, Any, Any, Any]:

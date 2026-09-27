@@ -366,7 +366,7 @@ class TestANameTheClassDoesNotDeclare:
         assert str(raised.value) == "Invalid environment variables: LOG_FORMAT_"
 
     def test_the_retired_admin_list_in_the_environment_file_still_boots(self, monkeypatch, tmp_path):
-        """One file serves this image and the one a rollback restores, which requires the line (`docs/backend/spec.md` §1.5)."""
+        """A development machine's file may still carry the line, and must boot (`docs/backend/spec.md` §1.5)."""
         (tmp_path / ".env").write_bytes(b"ALLOWED_ADMIN_EMAILS=admin@example.com\n")
         an_environment(monkeypatch, tmp_path)
         # The file's line alone: a process variable of the name would outrank it and prove nothing.

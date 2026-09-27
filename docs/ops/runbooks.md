@@ -365,10 +365,11 @@ administration is shut while it is down. Each of these is easy to get wrong:
   boot creates the validator and the unique index; a paste before it creates the collection with
   neither, and a duplicate address in it then fails the next boot's index build (`SRV-BOOT-004`).
   Admin pages answer `REQ-AUTH-006` until the paste lands, and the public site is untouched.
-- **`ALLOWED_ADMIN_EMAILS` is read by nothing in either file, and each boot names it while it
-  stands**: `SRV-BOOT-008` for `fl_backend/.env`, `FE-BOOT-002` for `fl_frontend/.env`. It is declared
-  for one release, so a rollback to the image before still finds the line it requires; delete it from
-  both once that release is settled.
+- **`ALLOWED_ADMIN_EMAILS` is read by nothing, and each boot names it while it stands**:
+  `FE-BOOT-002` for `fl_frontend/.env`, `SRV-BOOT-008` for `fl_backend/.env`. It stays in
+  `fl_frontend/.env` alone, so a rollback to the frontend before still finds the line it requires;
+  never add it to the server's `fl_backend/.env`, which the backend before refuses to boot with.
+  Delete it from the frontend's once this release is settled.
 
 - **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer
   (`docs/backend/spec.md :: I435`), and the Playground refuses nothing: the boot warns with
@@ -505,13 +506,13 @@ record, and the action log records the writes you make rather than the request t
 **Establish who is asking and in which role, because the data sits somewhere different for each.**
 One person can hold several — a referee is a pupil, and a contact person can be both.
 
-| Role           | Where their data is read                                                                                                                                                                           |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Pupil          | `/bereich/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                                                                        |
-| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                                  |
-| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on                                                |
-| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus `sperrliste.erstellt_von` on every ban they entered, which no erasure reaches |
-| Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                         |
+| Role           | Where their data is read                                                                                                                                                                                                                                                                                                                                                                        |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pupil          | `/bereich/admin/spieler/{spieler_id}`, and the squad rows under each season                                                                                                                                                                                                                                                                                                                     |
+| Referee        | `/bereich/admin/schiedsrichter/{schiedsrichter_id}`, plus every past fixture that embeds the name                                                                                                                                                                                                                                                                                               |
+| Contact person | `/bereich/admin/kontakte/{team_id}` for the season's block, and `/bereich/admin/bewerbungen/{bewerbung_id}` for the application it was collected on                                                                                                                                                                                                                                             |
+| Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus `sperrliste.erstellt_von` on every ban they entered, which no erasure reaches, and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `erteilt_von` on every grant they made, and each queued notice naming them in `berechtigungen_postausgang` |
+| Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                                                                                                                                                                                                                      |
 
 **A pupil, referee or contact person who has signed in is in the sign-in store too**: their first
 code writes their `user` row and a session in the `auth` database, read by hand as an
@@ -663,15 +664,16 @@ account and passkeys for the day the ban ends (`docs/frontend/spec.md :: I402`);
 page says so too, and the sessions stay in the store until their own expiry while every person page
 refuses them as no session at all (`docs/frontend/spec.md :: I406`). **Every later sign-in of the address
 is refused as its session would be created**, by a code or a passkey alike
-(`docs/frontend/spec.md :: I403`). **Beyond that the ban refuses the sign-ups that ask it and nothing
-else.** A pupil's registration asks it and is
-refused (`REQ-REGISTRIERUNG-009`), and so do an application naming the address on any seat
-(`REQ-BEWERBUNG-018`), an administrator's correction, reseat or re-send of a seat to it
-(`REQ-BEWERBUNG-019`) and every referee write that mints a link, and both sweeps withhold the
-reminder they would send it, logging the application's or registration's id; every other
-route consults the list nowhere
-([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)), so a person reading the queue is
-still what keeps a barred address out of everything a sign-up does not cover. **What the address
+(`docs/frontend/spec.md :: I403`). **Beyond that the ban refuses the sign-ups that ask it and the
+administration.** A pupil's registration asks it and is refused (`REQ-REGISTRIERUNG-009`), and so do
+an application naming the address on any seat (`REQ-BEWERBUNG-018`), an administrator's correction,
+reseat or re-send of a seat to it (`REQ-BEWERBUNG-019`) and every referee write that mints a link,
+and both sweeps withhold the reminder they would send it, logging the application's or
+registration's id. A grant of the address is refused (`REQ-BERECHTIGUNG-003`), a grant the Playground
+wrote onto it admits nobody, and the grants' routes show the address nowhere
+([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)). No other route asks the list,
+so a person reading the queue is still what keeps a barred address out of everything a sign-up
+does not cover. **What the address
 already holds stays until you take it away**, and the ban names none of it:
 
 - a referee still booked on an unplayed fixture: reassign those fixtures first, then retire the
