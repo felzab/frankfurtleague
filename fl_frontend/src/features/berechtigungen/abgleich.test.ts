@@ -232,6 +232,28 @@ describe("one pass over the claimed changes", () => {
     assert.ok(mail.sent.every((sent) => sent.text.includes("vorstand@schule.de ist jetzt Inhaber der Verwaltung.")));
   });
 
+  /* An owner's tier change made on the grants page: the address keeps its access, and the acting owner who made
+     the change is named, never „direkt in der Datenbank“. */
+  it("tells a demotion made in the application as the tier the address leaves, naming the owner who made it", async () => {
+    claim = claimOf([
+      aenderung({
+        art: "geaendert",
+        jetzt: { adresse: "vorstand@schule.de", verwaltung: "administration" },
+        vorher: { adresse: "vorstand@schule.de", verwaltung: "owner" },
+        geaendert_von: "inhaber@schule.de",
+      }),
+    ]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
+    for (const { text } of mail.sent) {
+      assert.ok(text.includes("vorstand@schule.de ist nicht mehr Inhaber der Verwaltung und behält den Zugang."));
+      assert.ok(text.includes("Geändert von inhaber@schule.de"));
+      assert.ok(!text.includes("direkt in der Datenbank"));
+    }
+  });
+
   /* The case round 3 split out: a null actor on a change made in the application is a barred administrator. */
   it("tells a barred administrator's change as theirs, never as a database edit", async () => {
     claim = claimOf([aenderung({ geaendert_von: null, geaendert_von_gesperrt: true, gesperrt: true })]);

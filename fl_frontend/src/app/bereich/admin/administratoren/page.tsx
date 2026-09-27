@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 
 import { getAdminSession } from "@/core/auth";
+import { asSignInIdentifier } from "@/core/emailAddress";
 import { verwaltungOf } from "@/core/verwaltung";
 import { AdminCreateBerechtigungModal } from "@/features/berechtigungen/components/modals/AdminCreateBerechtigungModal";
 import { AdminBerechtigungenView } from "@/features/berechtigungen/components/views/AdminBerechtigungenView";
@@ -41,23 +42,25 @@ export default function AdminAdministratorenPage() {
 async function Berechtigungen() {
   await connection();
 
-  const [berechtigungenRes, darfEntziehen] = await Promise.all([getBerechtigungen(), darfEntziehenOf()]);
+  const [berechtigungenRes, inhaberAdresse] = await Promise.all([getBerechtigungen(), inhaberAdresseOf()]);
 
   return (
     <AdminBerechtigungenView
       berechtigungen={berechtigungenRes.berechtigungen}
       uebersprungen={berechtigungenRes.uebersprungen}
-      darfEntziehen={darfEntziehen}
+      inhaberAdresse={inhaberAdresse}
     />
   );
 }
 
 /**
- * Whether the signed-in administrator may revoke, which only an `owner` grant may: off the lookup the guard's own
- * verdict was read from, memoised per render, so it costs no second read.
+ * The signed-in administrator's address where their grant is `owner`, which alone revokes and changes a tier: off
+ * the lookup the guard's own verdict was read from, memoised per render, so it costs no second read.
  */
-async function darfEntziehenOf(): Promise<boolean> {
+async function inhaberAdresseOf(): Promise<string | null> {
   const served = await getAdminSession();
+  if (served === null || (await verwaltungOf(served.user.email)) !== "owner") return null;
 
-  return served !== null && (await verwaltungOf(served.user.email)) === "owner";
+  // Folded, as every grant is stored: the session keeps the spelling it signed in with, and the own row is found by it.
+  return asSignInIdentifier(served.user.email);
 }

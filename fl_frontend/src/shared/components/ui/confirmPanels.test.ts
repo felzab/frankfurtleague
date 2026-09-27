@@ -154,6 +154,7 @@ const M = {
   anonymisieren: "features/schiedsrichter/components/forms/AdminSchiedsrichterEditForm/FormAnonymisierenSection.tsx",
   sperre: "features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx",
   zugangEntziehen: "features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx",
+  zugangStufe: "features/berechtigungen/components/forms/AdminBerechtigungStufePanel.tsx",
   spielerLoeschen: "features/spieler/components/forms/AdminSpielerEditForm/FormLoeschenSection.tsx",
   einladung: "features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx",
   saison: "features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx",
@@ -175,6 +176,7 @@ const C = {
   anonymisieren: await component(M.anonymisieren, "FormAnonymisierenSection"),
   sperre: await component(M.sperre, "AdminSperreAufhebenPanel"),
   zugangEntziehen: await component(M.zugangEntziehen, "AdminBerechtigungEntziehenPanel"),
+  zugangStufe: await component(M.zugangStufe, "AdminBerechtigungStufePanel"),
   spielerLoeschen: await component(M.spielerLoeschen, "FormLoeschenSection"),
   einladung: await component(M.einladung, "FormEinladungSection"),
   saison: await component(M.saison, "FormSaisonSection"),
@@ -412,6 +414,34 @@ const PANELS: Record<string, Arming[]> = {
           }),
         ),
       resting: "Zugang von vorstand@schule.de entziehen",
+    },
+  ],
+  [M.zugangStufe]: [
+    {
+      render: () =>
+        underNext(
+          el(C.zugangStufe, {
+            berechtigungId: "6890a1b2c3d4e5f607190002",
+            adresse: "vorstand@schule.de",
+            erteiltAm: "27.09.2026",
+            verwaltung: "administration",
+            eigene: false,
+          }),
+        ),
+      resting: "vorstand@schule.de zum Inhaber ernennen",
+    },
+    {
+      render: () =>
+        underNext(
+          el(C.zugangStufe, {
+            berechtigungId: "6890a1b2c3d4e5f607190001",
+            adresse: "inhaber@schule.de",
+            erteiltAm: "27.09.2026",
+            verwaltung: "owner",
+            eigene: true,
+          }),
+        ),
+      resting: "Mich zur Verwaltung herabstufen",
     },
   ],
   [M.spielerLoeschen]: [

@@ -45,17 +45,23 @@ const GESPERRT = {
   erteilt_am: "2026-09-27T03:00:00Z",
 };
 
+const ZWEITER_INHABER = { ...VORSTAND, id: "6890a1b2c3d4e5f6071b0004", adresse: "kasse@schule.de", verwaltung: "owner" };
+
 /** The tier the lookup answers the signed-in administrator, until a case names another. */
 let eigeneVerwaltung: "owner" | "administration" = "administration";
 
+/** The grants the list answers, until a case names others. */
+let zeilen: object[] = [INHABER, VORSTAND, GESPERRT];
+
 answerReadsWith((endpoint, schema, params) => {
-  if (endpoint === "/berechtigungen") return answer(schema, endpoint, { berechtigungen: [INHABER, VORSTAND, GESPERRT], uebersprungen: 0 });
+  if (endpoint === "/berechtigungen") return answer(schema, endpoint, { berechtigungen: zeilen, uebersprungen: 0 });
   if (endpoint === "/identitaet/subjekt") return answer(schema, endpoint, { verwaltung: eigeneVerwaltung });
   return EMPTIEST_ANSWER(endpoint, schema, params);
 });
 
 beforeEach(() => {
   eigeneVerwaltung = "administration";
+  zeilen = [INHABER, VORSTAND, GESPERRT];
   setSession({ user: { email: "vorstand@schule.de" } });
 });
 
@@ -152,5 +158,48 @@ describe("who is offered the revoke", () => {
       ["Zugang von vorstand@schule.de entziehen", "Zugang vom 27.09.2026 entziehen"],
     );
     assert.ok(!textOf(markup, " ").includes("Den Zugang entziehen kann nur der Inhaber."), "the owner's revoke is closed");
+  });
+});
+
+describe("who is offered the tier change", () => {
+  const stufenNamen = (html: string): string[] => buttonNames(html).filter((name) => /ernennen$|herabstufen$/.test(name));
+
+  /* An owner's control alone: shown closed to anybody else, it would offer a change nothing on the page can make. */
+  it("shows an administrator holding no `owner` grant no tier change at all", async () => {
+    assert.deepEqual(stufenNamen(await renderPage(PAGE)), []);
+  });
+
+  /* Each named by its row and the tier it moves to, the signed-in row as the administrator's own; a session
+     spelling its address in capitals still finds that row, every grant being stored folded. */
+  it("offers an owner a promotion on each administrator's grant and a step-down on their own", async () => {
+    eigeneVerwaltung = "owner";
+    setSession({ user: { email: "Inhaber@Schule.de" } });
+
+    const markup = await renderPage(PAGE);
+
+    assert.deepEqual(stufenNamen(markup), [
+      "Mich zur Verwaltung herabstufen",
+      "vorstand@schule.de zum Inhaber ernennen",
+      "Die gesperrte Adresse vom 27.09.2026 zum Inhaber ernennen",
+    ]);
+    // A barred address is made an owner by no request: its promotion stands closed, saying why.
+    const gesperrt = [...markup.matchAll(/<button\b[^>]*>(?:(?!<\/button>)[\s\S])*?<\/button>/g)]
+      .map(([tag]) => tag)
+      .find((tag) => textOf(tag, " ").includes("gesperrte Adresse vom 27.09.2026 zum Inhaber"));
+    assert.ok(gesperrt !== undefined && /\bdisabled\b/.test(gesperrt), "a promotion the backend refuses is open to press");
+    assert.ok(textOf(markup, " ").includes("Diese Adresse ist gesperrt."), "the closed promotion says not why");
+  });
+
+  it("offers an owner the demotion of another owner, and no revoke of either `owner` grant", async () => {
+    eigeneVerwaltung = "owner";
+    setSession({ user: { email: INHABER.adresse } });
+    zeilen = [INHABER, ZWEITER_INHABER];
+
+    const names = buttonNames(await renderPage(PAGE));
+
+    assert.deepEqual(
+      names.filter((name) => /ernennen$|herabstufen$|entziehen$/.test(name)),
+      ["Mich zur Verwaltung herabstufen", "kasse@schule.de zur Verwaltung herabstufen"],
+    );
   });
 });

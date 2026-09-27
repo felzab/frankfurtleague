@@ -19,6 +19,7 @@ import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
 
 import { AdminBerechtigungEntziehenPanel } from "../forms/AdminBerechtigungEntziehenPanel";
+import { AdminBerechtigungStufePanel } from "../forms/AdminBerechtigungStufePanel";
 
 import type { FLBerechtigungZeile } from "@/features/berechtigungen/schemas";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
@@ -59,12 +60,15 @@ const FACT_LABEL_CLASSES = "fluid-xxs font-extrabold tracking-widest text-foregr
 export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
   filteredBerechtigungen,
   emptiness,
-  darfEntziehen,
+  inhaberAdresse,
 }: {
   filteredBerechtigungen: FLBerechtigungZeile[];
   emptiness: CrudEmptiness;
-  /** Whether the signed-in administrator may revoke, which only an `owner` grant may: everybody else is shown no control. */
-  darfEntziehen: boolean;
+  /**
+   * The signed-in administrator's own folded address where their grant is `owner`, else `null`: only an
+   * owner revokes or changes a tier, and their own row is the one they step down from.
+   */
+  inhaberAdresse: string | null;
 }) {
   if (filteredBerechtigungen.length === 0) return <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />;
 
@@ -102,15 +106,27 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
             </div>
           </div>
 
-          {/* No control on an `owner` grant, which no request changes; closed with its reason for a non-owner. */}
-          {berechtigung.verwaltung !== "owner" && (
-            <div className="-mx-1 border-t border-border/50 pt-2">
-              <AdminBerechtigungEntziehenPanel
-                berechtigungId={berechtigung.id}
-                adresse={berechtigung.adresse}
-                erteiltAm={erteiltTag(berechtigung.erteilt_am)}
-                darfEntziehen={darfEntziehen}
-              />
+          {/* The tier change an owner's alone and shown to nobody else; the revoke on every grant but an `owner`
+              one, which is demoted first, closed with its reason for a non-owner. */}
+          {(inhaberAdresse !== null || berechtigung.verwaltung !== "owner") && (
+            <div className="-mx-1 flex flex-col gap-3 border-t border-border/50 pt-2">
+              {inhaberAdresse !== null && (
+                <AdminBerechtigungStufePanel
+                  berechtigungId={berechtigung.id}
+                  adresse={berechtigung.adresse}
+                  erteiltAm={erteiltTag(berechtigung.erteilt_am)}
+                  verwaltung={berechtigung.verwaltung}
+                  eigene={berechtigung.adresse === inhaberAdresse}
+                />
+              )}
+              {berechtigung.verwaltung !== "owner" && (
+                <AdminBerechtigungEntziehenPanel
+                  berechtigungId={berechtigung.id}
+                  adresse={berechtigung.adresse}
+                  erteiltAm={erteiltTag(berechtigung.erteilt_am)}
+                  darfEntziehen={inhaberAdresse !== null}
+                />
+              )}
             </div>
           )}
         </li>

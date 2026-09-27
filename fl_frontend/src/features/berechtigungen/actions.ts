@@ -10,17 +10,17 @@ import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { runBerechtigungenAbgleich } from "./abgleich";
-import { ZUGANG_ENTZOGEN_MESSAGE, ZUGANG_ERTEILT } from "./constants";
-import { deleteBerechtigung, postBerechtigung } from "./mutations";
-import { mapEntziehenRefusal, mapErteilenRefusal } from "./refusals";
-import { FLBerechtigungKeyPayloadSchema, FLPostBerechtigungPayloadSchema } from "./schemas";
+import { STUFE_GEAENDERT_MESSAGE, ZUGANG_ENTZOGEN_MESSAGE, ZUGANG_ERTEILT } from "./constants";
+import { deleteBerechtigung, patchBerechtigung, postBerechtigung } from "./mutations";
+import { mapEntziehenRefusal, mapErteilenRefusal, mapStufeRefusal } from "./refusals";
+import { FLBerechtigungKeyPayloadSchema, FLPatchBerechtigungPayloadSchema, FLPostBerechtigungPayloadSchema } from "./schemas";
 
 import type { ActionResult } from "@/shared/types/types";
-import type { FLBerechtigungKeyPayload, FLPostBerechtigungPayload } from "./schemas";
+import type { FLBerechtigungKeyPayload, FLPatchBerechtigungPayload, FLPostBerechtigungPayload } from "./schemas";
 
 /**
  * The enrolment's five-minute window rather than the step-up's (`docs/frontend/spec.md :: I458`): a
- * grant outlives the session making it, and a revoke is the lockout lever.
+ * grant and a promotion outlive the session making them, and a revoke is the lockout lever.
  */
 const ZUGANG_STEP_UP = { stepUp: "enrolment" } as const;
 
@@ -108,5 +108,38 @@ export async function deleteBerechtigungAction(rawPayload: FLBerechtigungKeyPayl
     ankuendigenNachDerAntwort();
 
     return { success: true, message: ZUGANG_ENTZOGEN_MESSAGE };
+  });
+}
+
+/**
+ * An owner's promotion, demotion or step-down. Ends no session: the tier is read on every request
+ * (`docs/frontend/spec.md :: I121`), so the next one already holds the new tier.
+ */
+export async function patchBerechtigungAction(rawPayload: FLPatchBerechtigungPayload): Promise<ActionResult> {
+  return runAdminMutation("patchBerechtigungAction", ZUGANG_STEP_UP, async () => {
+    const validated = FLPatchBerechtigungPayloadSchema.safeParse(rawPayload);
+
+    if (!validated.success) {
+      return { success: false, error: VALIDATION_FAILED, fieldErrors: toFieldErrors(validated.error) };
+    }
+
+    let patchOperation;
+    try {
+      patchOperation = await patchBerechtigung(validated.data);
+    } catch (error) {
+      const refusal = mapStufeRefusal(error);
+      if (refusal) return refusalResult(refusal);
+      throw error;
+    }
+
+    if (!patchOperation.acknowledged) {
+      // GERMAN-PENDING: new German, not yet approved.
+      return { success: false, error: buildRefusal({ reason: "Die Stufe wurde nicht geändert", repair: "Versuche es erneut" }) };
+    }
+
+    ankuendigenNachDerAntwort();
+
+    // Done whether it moved the tier or found it there: a repeated press names the tier the grant holds.
+    return { success: true, message: STUFE_GEAENDERT_MESSAGE[validated.data.verwaltung] };
   });
 }

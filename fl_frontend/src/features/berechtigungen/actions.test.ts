@@ -8,7 +8,7 @@ import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
 
-import { mapEntziehenRefusal, mapErteilenRefusal } from "./refusals.ts";
+import { mapEntziehenRefusal, mapErteilenRefusal, mapStufeRefusal } from "./refusals.ts";
 
 /** Work the real `after` would run behind the response, collected rather than run: no case here has a response. */
 const deferred: (() => unknown)[] = [];
@@ -39,10 +39,10 @@ const NOTHING_CLAIMED = { acknowledged: 1, beanspruchung: null, beansprucht_bis:
 const client = doubleApiAnswers(({ endpoint, method }) => {
   traces.push({ endpoint, trace: getRequestTraceId() });
   if (endpoint === "/berechtigungen/abgleich") return Promise.resolve(NOTHING_CLAIMED);
-  return Promise.resolve(method === "DELETE" ? { acknowledged: 1, berechtigung_id: GRANT_ID } : { acknowledged: 1, created_id: GRANT_ID });
+  return Promise.resolve(method === "POST" ? { acknowledged: 1, created_id: GRANT_ID } : { acknowledged: 1, berechtigung_id: GRANT_ID });
 });
 
-const { deleteBerechtigungAction, postBerechtigungAction } = await import("./actions.ts");
+const { deleteBerechtigungAction, patchBerechtigungAction, postBerechtigungAction } = await import("./actions.ts");
 const { getRequestTraceId } = await import("@/core/requestScope.ts");
 
 const MINUTE_MS = 60 * 1000;
@@ -111,6 +111,7 @@ describe("the announcement a change schedules", () => {
   for (const [name, act] of [
     ["grant", () => postBerechtigungAction({ email: "neu@schule.de" })],
     ["revoke", () => deleteBerechtigungAction({ id: GRANT_ID })],
+    ["tier change", () => patchBerechtigungAction({ id: GRANT_ID, verwaltung: "owner" })],
   ] as const) {
     it(`runs the claim behind the ${name}'s answer, outside the action's request`, async () => {
       assert.equal((await act()).success, true);
@@ -147,10 +148,58 @@ describe("the revoke", () => {
   });
 });
 
-describe("the window both are held to", () => {
+describe("the tier change", () => {
+  it("sends the tier alone to the grant's path and schedules the announcement behind the answer", async () => {
+    const result = await patchBerechtigungAction({ id: GRANT_ID, verwaltung: "owner" });
+
+    assert.deepEqual(result, { success: true, message: "Diese Adresse ist jetzt Inhaber der Verwaltung." });
+    assert.deepEqual(
+      requestsOf(client.calls).map(({ endpoint, method, body }) => [method, endpoint, body]),
+      [["PATCH", `/berechtigungen/${GRANT_ID}`, { verwaltung: "owner" }]],
+    );
+    assert.equal(deferred.length, 1, "the tier change scheduled no announcement, or more than one");
+  });
+
+  /* The backend answers a press naming the tier the grant holds as done, so a second press after an
+     answer that never arrived reads as the success it is rather than as an error. */
+  it("answers a press repeated on a tier already held as done, in the tier's own words", async () => {
+    for (let press = 1; press <= 2; press += 1) {
+      assert.deepEqual(await patchBerechtigungAction({ id: GRANT_ID, verwaltung: "administration" }), {
+        success: true,
+        message: "Diese Adresse ist nicht mehr Inhaber der Verwaltung und behält den Zugang.",
+      });
+    }
+  });
+
+  /* The tier is read on every request, so nobody's session needs ending for the next request to hold it. */
+  it("ends no session", async () => {
+    await patchBerechtigungAction({ id: GRANT_ID, verwaltung: "owner" });
+
+    assert.deepEqual(signedOut(), []);
+  });
+
+  it("answers every refusal the tier change publishes through its mapper, and announces nothing", async () => {
+    await assertEachAnswered({
+      operation: "PATCH /berechtigungen/{berechtigung_id}",
+      refuseWith: client.answerWith,
+      act: () => patchBerechtigungAction({ id: GRANT_ID, verwaltung: "administration" }),
+      mapped: mapStufeRefusal,
+    });
+    assert.deepEqual(deferred, []);
+  });
+
+  it("sends nothing for a tier the grant cannot hold", async () => {
+    const result = await patchBerechtigungAction({ id: GRANT_ID, verwaltung: "vorstand" as "owner" });
+
+    assert.equal(result.success, false);
+    assert.deepEqual(client.calls, []);
+  });
+});
+
+describe("the window all three are held to", () => {
   /* Five minutes, not the step-up's two hours (`docs/frontend/spec.md :: I458`). The standing window
      still holds here, which is what makes the case about the narrow one. */
-  it("refuses both from a session confirmed six minutes ago, sending nothing", async (t) => {
+  it("refuses each from a session confirmed six minutes ago, sending nothing", async (t) => {
     t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });
     setSession({ user: { email: "vorstand@example.org" } });
     // The doubled store stamps the session as it first serves it, which is now.
@@ -160,15 +209,16 @@ describe("the window both are held to", () => {
     t.mock.timers.tick(6 * MINUTE_MS);
     const erteilt = await postBerechtigungAction({ email: "neu@schule.de" });
     const entzogen = await deleteBerechtigungAction({ id: GRANT_ID });
+    const geaendert = await patchBerechtigungAction({ id: GRANT_ID, verwaltung: "owner" });
 
-    for (const refused of [erteilt, entzogen]) {
+    for (const refused of [erteilt, entzogen, geaendert]) {
       assert.equal(refused.success, false);
       assert.equal("stepUp" in refused && refused.stepUp, true, "the refusal does not ask the page to confirm");
     }
     assert.deepEqual(client.calls, [], "a stale session reached the backend");
   });
 
-  it("sends both from a session confirmed four minutes ago", async (t) => {
+  it("sends each from a session confirmed four minutes ago", async (t) => {
     t.mock.timers.enable({ apis: ["Date"], now: 2_000_000 });
     setSession({ user: { email: "vorstand@example.org" } });
     assert.equal((await postBerechtigungAction({ email: "neu@schule.de" })).success, true);
@@ -176,5 +226,6 @@ describe("the window both are held to", () => {
     t.mock.timers.tick(4 * MINUTE_MS);
 
     assert.equal((await deleteBerechtigungAction({ id: GRANT_ID })).success, true);
+    assert.equal((await patchBerechtigungAction({ id: GRANT_ID, verwaltung: "owner" })).success, true);
   });
 });

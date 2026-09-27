@@ -48,6 +48,7 @@ const SHARED_READER: Mapper = () => null;
 const ANSWERED_BY: Readonly<Record<string, Mapper>> = {
   "POST /berechtigungen": berechtigungen.mapErteilenRefusal,
   "DELETE /berechtigungen/{berechtigung_id}": berechtigungen.mapEntziehenRefusal,
+  "PATCH /berechtigungen/{berechtigung_id}": berechtigungen.mapStufeRefusal,
   "POST /bewerbungen": bewerbungUtils.mapBewerbungSubmitRefusal,
   "POST /bewerbungen/einwilligung": (error) => bewerbungUtils.mapEinwilligungRefusal(error, BEWERBUNG_MIN_ALTER),
   "POST /bewerbungen/einwilligung/ansicht": bewerbungUtils.mapEinwilligungAnsichtRefusal,

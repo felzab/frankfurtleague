@@ -13,6 +13,7 @@ import type {
   FLBerechtigungAngekuendigtResponse,
   FLBerechtigungKeyPayload,
   FLBerechtigungWriteResponse,
+  FLPatchBerechtigungPayload,
   FLPostBerechtigungPayload,
   FLPostBerechtigungResponse,
 } from "./schemas";
@@ -30,6 +31,14 @@ export async function deleteBerechtigung({ id }: FLBerechtigungKeyPayload): Prom
   return apiClient<FLBerechtigungWriteResponse>(`/berechtigungen/${id}`, FLBerechtigungWriteResponseSchema, {
     method: "DELETE",
     authType: "admin",
+  });
+}
+
+export async function patchBerechtigung({ id, ...fields }: FLPatchBerechtigungPayload): Promise<FLBerechtigungWriteResponse> {
+  return apiClient<FLBerechtigungWriteResponse>(`/berechtigungen/${id}`, FLBerechtigungWriteResponseSchema, {
+    method: "PATCH",
+    authType: "admin",
+    body: JSON.stringify(fields),
   });
 }
 

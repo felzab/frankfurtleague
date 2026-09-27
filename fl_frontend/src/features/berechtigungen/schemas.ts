@@ -5,7 +5,7 @@ import { BaseAPIResponseSchema } from "@/core/schemas";
 import { ANKUENDIGUNGEN_MAX } from "@/features/berechtigungen/constants";
 import { CustomObjectIdStringSchema, KontaktEmailSchema } from "@/shared/schemas";
 
-/** The two tiers a grant holds; `owner` holds every power `administration` does and no request writes it. */
+/** The two tiers a grant holds; `owner` holds every power `administration` does, and only an owner's tier change writes it. */
 export const FLVerwaltungSchema = z.enum(["owner", "administration"]);
 export type FLVerwaltung = z.infer<typeof FLVerwaltungSchema>;
 
@@ -55,7 +55,17 @@ export const FLBerechtigungKeyPayloadSchema = z.object({
 });
 export type FLBerechtigungKeyPayload = z.infer<typeof FLBerechtigungKeyPayloadSchema>;
 
-/** The revoke is hard, so the id is all there is to answer with. */
+/**
+ * The tier change, the tier alone travelling. Naming the tier the grant already holds changes nothing and
+ * answers as done, so a repeated press is no refusal.
+ */
+export const FLPatchBerechtigungPayloadSchema = z.object({
+  id: CustomObjectIdStringSchema,
+  verwaltung: FLVerwaltungSchema,
+});
+export type FLPatchBerechtigungPayload = z.infer<typeof FLPatchBerechtigungPayloadSchema>;
+
+/** The revoke is hard, so the id is all there is to answer with; the tier change answers the same. */
 export const FLBerechtigungWriteResponseSchema = BaseAPIResponseSchema.extend({
   berechtigung_id: CustomObjectIdStringSchema,
 });

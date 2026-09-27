@@ -15,11 +15,11 @@ const SEARCH_KEYS = ["adresse", "erteilt_von"] as const;
 export function AdminBerechtigungenView({
   berechtigungen,
   uebersprungen,
-  darfEntziehen,
+  inhaberAdresse,
 }: {
   berechtigungen: FLBerechtigungZeile[];
   uebersprungen: number;
-  darfEntziehen: boolean;
+  inhaberAdresse: string | null;
 }) {
   return (
     <div className="flex flex-col gap-4">
@@ -40,7 +40,7 @@ export function AdminBerechtigungenView({
           <AdminBerechtigungenList
             filteredBerechtigungen={filteredItems}
             emptiness={emptiness}
-            darfEntziehen={darfEntziehen}
+            inhaberAdresse={inhaberAdresse}
           />
         )}
       />

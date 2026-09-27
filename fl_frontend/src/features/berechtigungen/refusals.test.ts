@@ -3,10 +3,11 @@ import { describe, it } from "node:test";
 
 import { answerShown, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
 
-import { mapEntziehenRefusal, mapErteilenRefusal } from "./refusals.ts";
+import { mapEntziehenRefusal, mapErteilenRefusal, mapStufeRefusal } from "./refusals.ts";
 
 const GRANT = "POST /berechtigungen";
 const REVOKE = "DELETE /berechtigungen/{berechtigung_id}";
+const TIER = "PATCH /berechtigungen/{berechtigung_id}";
 
 describe("the grant's refusals", () => {
   /* Both spellings of one grant: the rule refuses a second, and the unique index refuses it again where
@@ -44,7 +45,7 @@ describe("the revoke's refusals", () => {
       error: "Den Zugang entziehen kann nur der Inhaber.",
     });
     assert.deepEqual(mapEntziehenRefusal(refusedOn(REVOKE, "REQ-BERECHTIGUNG-002", 409)), {
-      error: "Der Zugang des Inhabers lässt sich hier nicht ändern.",
+      error: "Einem Inhaber lässt sich der Zugang nicht entziehen. Stufe ihn zuerst zur Verwaltung herab.",
     });
     assert.deepEqual(mapEntziehenRefusal(refusedOn(REVOKE, "REQ-BERECHTIGUNG-004", 409)), {
       error: "Die Verwaltung braucht mindestens zwei Personen mit Zugang. Füge zuerst eine weitere hinzu.",
@@ -63,6 +64,31 @@ describe("the revoke's refusals", () => {
   });
 });
 
+describe("the tier change's refusals", () => {
+  it("names each reason a tier change is refused in its own sentence", () => {
+    assert.deepEqual(mapStufeRefusal(refusedOn(TIER, "REQ-BERECHTIGUNG-005", 403)), {
+      error: "Die Stufe eines Zugangs ändern kann nur der Inhaber.",
+    });
+    assert.deepEqual(mapStufeRefusal(refusedOn(TIER, "REQ-BERECHTIGUNG-003", 409)), {
+      error: "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Zugang zur Verwaltung erhalten soll.",
+    });
+    assert.deepEqual(mapStufeRefusal(refusedOn(TIER, "REQ-BERECHTIGUNG-007", 409)), {
+      error: "Die Verwaltung braucht mindestens einen Inhaber. Ernenne zuerst eine weitere Person zum Inhaber.",
+    });
+  });
+
+  /* A grant revoked while the page stood is a reload, which the shared reader words. */
+  it("leaves a tier change of a grant already gone to the shared reader", () => {
+    assert.equal(mapStufeRefusal(refusedOn(TIER, "DB-COMMON-001", 404)), null);
+  });
+
+  it("answers every refusal the tier change publishes", () => {
+    for (const code of publishedRefusals(TIER)) {
+      assert.notEqual(answerShown(TIER, code, mapStufeRefusal), null, `${code} reaches the admin as an unhandled refusal`);
+    }
+  });
+});
+
 describe("what neither mapper answers", () => {
   it("reads the code and never the status", () => {
     assert.deepEqual(
@@ -74,5 +100,6 @@ describe("what neither mapper answers", () => {
   it("leaves an error that never came from the API alone", () => {
     assert.equal(mapErteilenRefusal(new Error("the network went away")), null);
     assert.equal(mapEntziehenRefusal(null), null);
+    assert.equal(mapStufeRefusal(undefined), null);
   });
 });

@@ -1,13 +1,11 @@
 import { isRefusal, ZUGANG_WEG } from "@/shared/utils/actionError";
 
-import { NUR_INHABER_ENTZIEHT } from "./constants";
+import { ADRESSE_GESPERRT, NUR_INHABER_ENTZIEHT } from "./constants";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
 /** Both the rule and the unique index, which answers the same grant where two administrators press together. */
 const SCHON_ZUGANG = "Diese Adresse hat bereits Zugang zur Verwaltung.";
-
-const GESPERRT = "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Zugang zur Verwaltung erhalten soll.";
 
 /** `null` where the refusal is something else. The address box carries what the typed address caused. */
 export function mapErteilenRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
@@ -18,7 +16,7 @@ export function mapErteilenRefusal(error: unknown): { error?: string; fieldError
     return { fieldErrors: { email: SCHON_ZUGANG } };
   }
 
-  if (error.serverErrorCode === "REQ-BERECHTIGUNG-003") return { fieldErrors: { email: GESPERRT } };
+  if (error.serverErrorCode === "REQ-BERECHTIGUNG-003") return { fieldErrors: { email: ADRESSE_GESPERRT } };
 
   // The acting administrator's own grant went while the page stood; no box repairs that.
   if (error.serverErrorCode === "REQ-BERECHTIGUNG-006") return { error: ZUGANG_WEG };
@@ -33,10 +31,29 @@ export function mapEntziehenRefusal(error: unknown): { error?: string } | null {
   switch (error.serverErrorCode) {
     case "REQ-BERECHTIGUNG-005":
       return { error: NUR_INHABER_ENTZIEHT };
+    // An owner is demoted first and revoked after, which the repair names.
     case "REQ-BERECHTIGUNG-002":
-      return { error: "Der Zugang des Inhabers lässt sich hier nicht ändern." };
+      return { error: "Einem Inhaber lässt sich der Zugang nicht entziehen. Stufe ihn zuerst zur Verwaltung herab." };
     case "REQ-BERECHTIGUNG-004":
       return { error: "Die Verwaltung braucht mindestens zwei Personen mit Zugang. Füge zuerst eine weitere hinzu." };
+    default:
+      return null;
+  }
+}
+
+/** `null` where the refusal is something else; the tier change has no box either. */
+export function mapStufeRefusal(error: unknown): { error?: string } | null {
+  if (!isRefusal(error)) return null;
+
+  switch (error.serverErrorCode) {
+    // The acting owner was demoted while the page stood, another owner's demotion among the ways.
+    case "REQ-BERECHTIGUNG-005":
+      return { error: "Die Stufe eines Zugangs ändern kann nur der Inhaber." };
+    case "REQ-BERECHTIGUNG-003":
+      return { error: ADRESSE_GESPERRT };
+    // The last owner's demotion, their own step-down included.
+    case "REQ-BERECHTIGUNG-007":
+      return { error: "Die Verwaltung braucht mindestens einen Inhaber. Ernenne zuerst eine weitere Person zum Inhaber." };
     default:
       return null;
   }
