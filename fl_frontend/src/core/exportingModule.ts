@@ -105,8 +105,7 @@ function exportedBy(statement: ts.Statement, file: string): string[] {
 
 /**
  * Every name the module at `file` exports at run time, read off TypeScript's syntax tree: a pattern
- * over its text reads a name out of a comment, stops at a letter outside ASCII, and misses a
- * declaration of a shape it does not spell.
+ * over the text reads names out of comments, cuts one at an umlaut, and misses shapes it does not spell.
  */
 export function exportedNames(file: string): string[] {
   const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, false);
@@ -114,10 +113,9 @@ export function exportedNames(file: string): string[] {
 }
 
 /**
- * A module standing in for the real one at `realUrl` without evaluating it: every export the real
- * module has, `doubled` answering for those it names and every other throwing where called. A name
- * the code under test starts importing then links, where a double listing names by hand fails its
- * whole suite with a SyntaxError.
+ * Stands in for the real module at `realUrl` without evaluating it, exporting every name it has: a
+ * double listing names by hand fails its whole suite with a SyntaxError the day the code under test
+ * imports one more.
  */
 export function replacingModule(realUrl: string, what: string, doubled: Readonly<Record<string, unknown>>): string {
   const notDoubled = (name: string) => (): never => {

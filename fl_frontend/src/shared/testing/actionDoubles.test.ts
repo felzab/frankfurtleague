@@ -58,8 +58,8 @@ describe("the actions double", () => {
     assert.deepEqual(calls, [{ action: "patchSpieltagAction", payload }]);
   });
 
-  /* A name cut at its dollar sign or at an umlaut is a double exporting an action the module never
-     had, and the import of the real name then fails to link; a name inside a comment it never had either. */
+  /* A name cut at its dollar sign or an umlaut, or read out of a comment, is an action the module
+     never had, and the import of the real name fails to link. */
   it("carries every action under its whole name, and none a comment names", async () => {
     const scratch = mkdtempSync(path.join(tmpdir(), "fl-dollar-"));
     const file = path.join(scratch, "dollarNamed.mjs");
