@@ -72,7 +72,7 @@ export function funktionOrteOf(funktionen: readonly Funktion[]): FunktionOrt[] {
   return orte.map(({ ziel, titel, detail }) => {
     const [erste] = ziel.funktionen;
     // One team in two seasons is two places under one title, which a screen reader would name alike
-    // (`docs/frontend/spec.md :: I465`).
+    // (`docs/frontend/spec.md :: I469`).
     const geteilt = erste.art === "kontakt" && orte.some((ort) => ort.ziel !== ziel && ort.titel === titel);
     // GERMAN-PENDING: a draft awaiting approval.
     const name = geteilt ? `${titel}, Saison ${erste.saison_id}` : titel;
@@ -83,7 +83,7 @@ export function funktionOrteOf(funktionen: readonly Funktion[]): FunktionOrt[] {
 
 /**
  * The landing is listed whatever is held: for a person whose one place is a team or the
- * administration, „Übersicht“ is the account page's way back (`docs/frontend/spec.md :: I463`).
+ * administration, „Übersicht“ is the account page's way back (`docs/frontend/spec.md :: I467`).
  */
 export function personEintraegeOf(funktionen: readonly Funktion[]): ReadonlySet<PersonEintrag> {
   const eintraege = new Set<PersonEintrag>(["landing"]);

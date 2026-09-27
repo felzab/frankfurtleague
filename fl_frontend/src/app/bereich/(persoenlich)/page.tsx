@@ -22,7 +22,7 @@ export default async function PersoenlichStartPage() {
 
   if (erstes === undefined) return <FunktionenView zustand={unbestaetigt ? "unbestaetigt" : "leer"} />;
 
-  // Every person lands on a page named „Übersicht“ (`docs/frontend/spec.md :: I462`): a team's own
+  // Every person lands on a page named „Übersicht“ (`docs/frontend/spec.md :: I466`): a team's own
   // landing is one, and the administration is the administrator's, so only those go straight on; a lone
   // player's or referee's page is one card here.
   const [{ art }] = erstes.funktionen;
