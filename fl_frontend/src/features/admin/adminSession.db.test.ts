@@ -75,13 +75,37 @@ client.on("commandStarted", (event) => {
   if (event.commandName === "aggregate" && event.command.aggregate === "session") sessionReads.push(event);
 });
 
-/** Signs the administrator in, and makes the session one the passkey minted, which the guard admits. */
+/** The passkey the administrator signs in with. */
+const CREDENTIAL_ID = "fl-admin-session-db";
+
+/**
+ * Signs the administrator in, and makes the session one a passkey its row still holds minted, which
+ * alone the guard admits (`docs/frontend/spec.md :: I313`).
+ */
 async function signInAsAdministrator(): Promise<Headers> {
   const verified = await signInByCode(auth, ADMIN_EMAIL);
   await client
     .db("auth")
     .collection("session")
-    .updateMany({}, { $set: { authFactor: "passkey", createdAt: new Date() } });
+    .updateMany({}, { $set: { authFactor: "passkey", passkeyCredentialId: CREDENTIAL_ID, createdAt: new Date() } });
+
+  const [user] = await client.db("auth").collection("user").find({}).toArray();
+  assert.ok(user, "the sign-in wrote no user row");
+  // Written through the library's adapter, so the row is in the shape the plugin's own writes give it.
+  const { adapter } = await auth.$context;
+  await adapter.create({
+    model: "passkey",
+    data: {
+      userId: String(user._id),
+      credentialID: CREDENTIAL_ID,
+      publicKey: "fabricated-public-key",
+      counter: 0,
+      deviceType: "singleDevice",
+      backedUp: false,
+      transports: "internal",
+      createdAt: new Date(),
+    },
+  });
 
   return new Headers({ ...ORIGIN, cookie: cookieHeader(verified) });
 }
