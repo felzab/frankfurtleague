@@ -148,35 +148,46 @@ describe("the pass announcing each change to who administers", () => {
 });
 
 describe("the boot reading the actor's signing key", () => {
-  /** The boot's refusal under `file`: what it threw, and every chunk it wrote to stdout. */
-  async function refusedBoot(t: TestContext, file: string): Promise<{ thrown: unknown; written: string }> {
+  /**
+   * The boot under `file`: what it threw, what it wrote, and the code it would have exited with. The
+   * exit is recorded rather than taken, so the runner's own process lives.
+   */
+  async function refusedBoot(t: TestContext, file: string): Promise<{ thrown: unknown; written: string; exited: number | undefined }> {
     const chunks: string[] = [];
-    t.mock.method(process.stdout, "write", (chunk: unknown) => {
+    let exited: number | undefined;
+    t.mock.method(process.stdout, "write", (chunk: unknown, ...rest: unknown[]) => {
+      // Refused past the exit: a line written after it would never reach the stream.
+      assert.equal(exited, undefined, "a line was written after the process ended");
       chunks.push(String(chunk));
+      const done = rest.at(-1);
+      if (typeof done === "function") (done as () => void)();
       return true;
+    });
+    t.mock.method(process, "exit", () => {
+      exited = Number(process.exitCode ?? 0);
     });
     keyFile = file;
     try {
-      return {
-        thrown: await register().then(
-          () => undefined,
-          (error: unknown) => error,
-        ),
-        written: chunks.join(""),
-      };
+      const thrown = await register().then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+      return { thrown: thrown, written: chunks.join(""), exited: exited };
     } finally {
       keyFile = ACTOR_KEY_FILE;
+      process.exitCode = undefined;
       t.mock.restoreAll();
     }
   }
 
   /* Refused before anything is served: past the boot, every signed-in page would fail its guard. */
-  it("refuses to boot without the file, naming its path on a CRITICAL line", async (t) => {
+  it("refuses to boot without the file, naming its path on a CRITICAL line and then ending the process", async (t) => {
     const missing = path.join(KEY_DIRECTORY, "absent.pem");
 
-    const { thrown, written } = await refusedBoot(t, missing);
+    const { thrown, written, exited } = await refusedBoot(t, missing);
 
     assert.ok(thrown instanceof Error && thrown.message.includes(missing), "the boot went on, or its error named no path");
+    assert.equal(exited, 1, "the process was left serving rather than ended non-zero");
     assert.match(written, /CRITICAL/);
     assert.match(written, /FE-BOOT-003/);
     assert.ok(written.includes(missing), "the line named no path");
@@ -189,17 +200,19 @@ describe("the boot reading the actor's signing key", () => {
     const file = path.join(KEY_DIRECTORY, "garbage.pem");
     writeFileSync(file, held);
 
-    const { thrown, written } = await refusedBoot(t, file);
+    const { thrown, written, exited } = await refusedBoot(t, file);
 
     assert.ok(thrown instanceof Error, "the boot went on over a file holding no key");
+    assert.equal(exited, 1, "the process was left serving rather than ended non-zero");
     assert.match(written, /FE-BOOT-003/);
     assert.ok(!written.includes(mark) && !String(thrown.stack).includes(mark), "the refusal quoted the file");
   });
 
-  it("boots on a readable Ed25519 key, writing nothing", async (t) => {
-    const { thrown, written } = await refusedBoot(t, ACTOR_KEY_FILE);
+  it("boots on a readable Ed25519 key, writing nothing and ending nothing", async (t) => {
+    const { thrown, written, exited } = await refusedBoot(t, ACTOR_KEY_FILE);
 
     assert.equal(thrown, undefined);
     assert.equal(written, "");
+    assert.equal(exited, undefined);
   });
 });
