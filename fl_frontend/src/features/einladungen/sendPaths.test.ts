@@ -67,6 +67,7 @@ registerHooks({
 
 const { mailEinladungAction, postEinladungVersandAction } = await import("./actions.ts");
 const { ZURUECKGEHALTEN } = await import("./meldungen.ts");
+const { unansweredAction } = await import("@/shared/utils/actionError.ts");
 
 const SAISON_ID = "2627";
 const EINLADUNG_ID = "b".repeat(24);
@@ -179,6 +180,18 @@ describe("what the single invite press answers", () => {
 
     assert.equal(res.success, false);
     assert.match(sentence(res), /Die E-Mail konnte nicht gesendet werden/);
+  });
+
+  /* A message is the press's only write, and one whose connection broke may have reached the provider:
+     the spine can call the send unclear only where the mailer records that it sent. */
+  it("answers a fan-out whose every connection broke off as of unknown outcome", async () => {
+    const teamId = "7a".repeat(12);
+    sendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
+    sendWith(() => "lost");
+
+    const res = await press(teamId);
+
+    assert.deepEqual(res, unansweredAction());
   });
 
   /* The spine leaves a refusal standing, and a refused address is still written to the delivery record
