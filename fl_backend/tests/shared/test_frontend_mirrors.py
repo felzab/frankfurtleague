@@ -85,6 +85,7 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/teams/constants.ts", "EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH", "EINWILLIGUNG_TEXT_VERSION_MAX_LENGTH"),
     Mirror("features/spiele/constants.ts", "NOTIZ_MAX_LENGTH", "SPIEL_NOTIZ_MAX_LENGTH"),
     Mirror("features/spiele/constants.ts", "PAARUNGEN_MAX", "LIST_LIMIT_DEFAULT"),
+    Mirror("features/berechtigungen/constants.ts", "ANKUENDIGUNGEN_MAX", "LIST_LIMIT_DEFAULT"),
     Mirror("features/saisons/constants.ts", "SAISON_ID_LENGTH", "SAISON_ID_LENGTH"),
     Mirror("features/bewerbungen/constants.ts", "BEWERBUNG_TOKEN_MAX_LENGTH", "BEWERBUNG_TOKEN_MAX_LENGTH"),
     Mirror("features/sperrliste/constants.ts", "SPERRLISTE_GRUND_MAX_LENGTH", "SPERRLISTE_GRUND_MAX_LENGTH"),
