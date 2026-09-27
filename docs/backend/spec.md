@@ -193,9 +193,9 @@ an application's seat (I414) and by its re-send (I416), by the four referee writ
 the save, the re-send and the reactivation — and by the subject read `POST /identitaet/subjekt`,
 which answers it as `gesperrt` (I389), each passing the season the ban is judged against. **The two
 sweeps' reminders withhold rather than refuse** (I417): they ask
-`fl_backend/app/api/sperrliste/crud.py :: gesperrte_hashes` once a page. A barred seat is recorded in
-`erinnerung_gesperrt_am` rather than as reminded and asked again on a later day, a barred registration
-is stamped, and each is sent nothing and logged, so the pass never fails on it. A stored address the
+`fl_backend/app/api/sperrliste/crud.py :: gesperrte_hashes` once a page. A barred seat or registration is recorded
+in `erinnerung_gesperrt_am` rather than as reminded, sent nothing and logged, and asked again on a later
+day, so the pass never fails on it. A stored address the
 rule refuses is barred by none (`fl_backend/app/api/sperrliste/services.py :: stored_adresse_hash`).
 
 **There is no `DELETE /saisons/{saison_id}`**, and none on `/teams/{team_id}/saisons/{saison_id}` or on

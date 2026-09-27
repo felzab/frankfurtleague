@@ -23,6 +23,7 @@ from app.api.registrierungen.services import (
     build_unconfirmed_filter,
     build_undecided_filter,
     compose_erinnerung_update,
+    compose_erinnerung_withheld,
     compose_sweep_stamp,
     decline_erasure_is_due,
     erinnerung_is_due,
@@ -151,6 +152,15 @@ class TestTheReminderMark:
         assert link_is_unreachable(bestaetigung=stored["bestaetigung"])
         assert not erinnerung_is_due(registrierung_raw=stored, today=TODAY)
 
+    def test_a_registration_withheld_for_a_ban_today_is_not_owed_again_until_a_later_day(self):
+        """The ban is asked once a day: withheld today leaves the read, and a later day asks again."""
+
+        today = registrierung(bestaetigung=bestaetigung(erinnerung_gesperrt_am=TODAY))
+        yesterday = registrierung(bestaetigung=bestaetigung(erinnerung_gesperrt_am=YESTERDAY))
+
+        assert not erinnerung_is_due(registrierung_raw=today, today=TODAY)
+        assert erinnerung_is_due(registrierung_raw=yesterday, today=TODAY)
+
     @pytest.mark.parametrize("stand", ["angenommen", "zugestellt", "verzoegert"])
     def test_an_address_a_later_message_may_still_reach_is_chased(self, stand: str):
         """A delayed message still arrives, and a delivered one arrived: neither is a reason to skip the chase."""
@@ -252,6 +262,11 @@ class TestWhatAReminderWrites:
             }
         }
 
+    def test_a_withheld_registration_is_recorded_apart_from_a_reminder(self):
+        """Nothing reached the pupil, so `erinnert_am` stays empty and no fresh hash is written."""
+
+        assert compose_erinnerung_withheld(today=TODAY) == {"$set": {"bestaetigung.erinnerung_gesperrt_am": TODAY}}
+
     def test_a_row_carrying_no_block_keeps_a_null_where_the_first_hash_would_stand(self):
         """The validator declares the field nullable, so the reminder writes a null rather than aborting a pass on a row stored without one."""
 
@@ -317,6 +332,7 @@ class TestWhatEachClockReads:
             "status": "eingereicht",
             "einwilligung.bestaetigt_am": {"$in": [None, ""]},
             "bestaetigung.erinnert_am": None,
+            "bestaetigung.erinnerung_gesperrt_am": {"$ne": TODAY},
             "bestaetigung.frist": {"$gte": TODAY},
             "bestaetigung.verschickt_am": {"$lte": THE_MARK},
             "bestaetigung.zustellung.stand": {"$nin": sorted(ZUSTELLUNG_ABGEWIESEN)},

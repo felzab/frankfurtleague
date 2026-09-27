@@ -146,7 +146,7 @@ def on_a_league(url: str, body: Body, *, status: str = "active") -> Any:
     return on_the_seed_loop(_run())
 
 
-async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str = SAISON_ID) -> Any:
+async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: str = SAISON_ID, today: str = TODAY) -> Any:
     return await sweep_registrierungen(
         saison_id=saison_id,
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
@@ -156,7 +156,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
         sperrliste_collection=database[Collection.SPERRLISTE],
         db=client,
         config=build_test_config(),
-        today=TODAY,
+        today=today,
         germany_now=NOW,
     )
 
@@ -272,31 +272,63 @@ class TestTheReminderClock:
 
         assert REMIND_OID in on_a_league(mongo_replica_set_url, body)
 
-    def test_a_registration_whose_address_the_ban_list_holds_is_stamped_with_no_link(self, mongo_replica_set_url: str, caplog):
-        """Stamped, unlike the refused address above: no query can leave the row out, the ban living in another collection.
+    def test_a_registration_whose_address_the_ban_list_holds_is_recorded_as_withheld(self, mongo_replica_set_url: str, caplog):
+        """Recorded, unlike the refused address above: no query can leave the row out, the ban living in another collection.
 
-        A page of them left due would fill every pass's share.
+        A page of them left due would fill every pass's share, so the record takes it out of today's read.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPERRLISTE].insert_one(ban_document(f"{REMIND_OID}@example.com"))
             with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
                 response = await sweep(database, client)
+            still_read = await database[Collection.REGISTRIERUNGEN].find_one(
+                {"_id": REMIND_OID, **build_erinnerung_filter(saison_id=SAISON_ID, today=TODAY)}
+            )
             second = await sweep(database, client)
 
-            return [entry.registrierung_id for entry in response.erinnerungen], second.erinnerungen, await stored(database, REMIND_OID)
+            return (
+                [entry.registrierung_id for entry in response.erinnerungen],
+                second.erinnerungen,
+                await stored(database, REMIND_OID),
+                still_read,
+            )
 
-        chased, second, document = on_a_league(mongo_replica_set_url, body)
+        chased, second, document, still_read = on_a_league(mongo_replica_set_url, body)
 
         # The control beside the refusal: the other registration at its mark is chased.
         assert chased == [INSIDE_OID]
         assert document is not None
-        assert document["bestaetigung"]["erinnert_am"] == TODAY
+        assert still_read is None
+        # Never `erinnert_am`: nothing reached the pupil, and a later day asks the ban again.
+        assert (document["bestaetigung"]["erinnert_am"], document["bestaetigung"]["erinnerung_gesperrt_am"]) == (None, TODAY)
         assert document["bestaetigung"]["token_hash"] == hash_token(f"first-{REMIND_OID}")
         assert second == []
 
         withheld = [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()]
         assert withheld == [f"Reminder withheld from a barred address: registration {REMIND_OID}"]
+
+    def test_a_later_day_asks_the_ban_again_and_a_lifted_one_lets_the_reminder_go(self, mongo_replica_set_url: str):
+        """Withheld once more while the ban stands, and chased on the first pass after it is lifted."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SPERRLISTE].insert_one(ban_document(f"{REMIND_OID}@example.com"))
+            await sweep(database, client)
+            still_barred = await sweep(database, client, today="2026-04-02")
+            await database[Collection.SPERRLISTE].delete_many({})
+            lifted = await sweep(database, client, today="2026-04-03")
+
+            def chased(response: Any) -> list[Any]:
+                return [entry.registrierung_id for entry in response.erinnerungen]
+
+            return chased(still_barred), chased(lifted), await stored(database, REMIND_OID)
+
+        still_barred, lifted, document = on_a_league(mongo_replica_set_url, body)
+
+        assert REMIND_OID not in still_barred
+        assert REMIND_OID in lifted
+        assert document is not None
+        assert document["bestaetigung"]["erinnert_am"] == "2026-04-03"
 
 
 class TestTheDeadlineClock:

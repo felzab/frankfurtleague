@@ -51,6 +51,9 @@ class FLRegistrierungBestaetigung(BaseModel):
 
     verschickt_am: CustomDateString
     erinnert_am: CustomOptionalDateString
+    # The day a sweep last withheld the reminder, the address being on the ban list: never `erinnert_am`,
+    # nothing having reached the pupil, and a later day asks the ban again.
+    erinnerung_gesperrt_am: CustomOptionalDateString = None
     # Stored beside the send rather than derived from it: raising the bound would otherwise move the
     # deadline of every link already in somebody's inbox.
     frist: CustomDateString
