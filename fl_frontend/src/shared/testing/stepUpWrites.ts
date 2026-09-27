@@ -1,48 +1,57 @@
-/**
- * Every administrator action the server holds to the step-up window, by export against its slice
- * (`docs/frontend/spec.md :: I432`). `fl_frontend/src/shared/utils/adminStepUp.test.ts` holds this list
- * to what the actions themselves refuse, both ways.
- */
-export const STEP_UP_WRITES: Readonly<Record<string, string>> = {
-  ablehnenBewerbungAction: "bewerbungen",
-  annehmenBewerbungAction: "bewerbungen",
-  einwilligungErneutSendenAction: "bewerbungen",
-  kontaktEmailKorrigierenAction: "bewerbungen",
-  besetzeKontaktSitzAction: "bewerbungen",
-  patchSaisonTeamKontakteAction: "kontakte",
-  eraseKontaktpersonAction: "kontakte",
-  postEinladungVersandAction: "einladungen",
-  postEinladungAction: "einladungen",
-  mailEinladungAction: "einladungen",
-  deleteEinladungAction: "einladungen",
-  postSaisonAction: "saisons",
-  activateSaisonAction: "saisons",
-  generateSpielplanAction: "saisons",
-  undrawSpielplanAction: "saisons",
-  postSaisonTeamAction: "teams",
-  replaceSaisonTeamAction: "teams",
-  postSchiedsrichterAction: "schiedsrichter",
-  patchSchiedsrichterAction: "schiedsrichter",
-  einladeSchiedsrichterAction: "schiedsrichter",
-  reactivateSchiedsrichterAction: "schiedsrichter",
-  anonymiseSchiedsrichterAction: "schiedsrichter",
-  deleteSperreAction: "sperrliste",
-  postBerechtigungAction: "berechtigungen",
-  deleteBerechtigungAction: "berechtigungen",
-  eraseSpielerAction: "spieler",
-};
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+import ts from "typescript";
+
+import { filesUnder } from "@/core/treeWalk.ts";
+
+const SLICES = path.resolve(import.meta.dirname, "..", "..", "features");
+
+/** How an exported action declares its step-up: before its body, inside it, or not at all. */
+function declarationOf(body: ts.Node): "declared" | "conditional" | null {
+  let found: "declared" | "conditional" | null = null;
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+      // The spine's three-argument form is the declared one; a `{ stepUp: false }` spelled out declares nothing.
+      const [, declared] = node.arguments;
+      const spine = node.expression.text === "runAdminMutation" && node.arguments.length === 3;
+      const disowned =
+        declared !== undefined &&
+        ts.isObjectLiteralExpression(declared) &&
+        declared.properties.some((property) => ts.isPropertyAssignment(property) && property.initializer.kind === ts.SyntaxKind.FalseKeyword);
+      if (spine && !disowned) found = "declared";
+      else if (node.expression.text === "refuseUnconfirmed" && found === null) found = "conditional";
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(body);
+  return found;
+}
+
+/** Every exported action of every slice and how it declares its step-up, read off each `actions.ts`'s syntax tree. */
+const DECLARED = filesUnder(SLICES, (name) => name === "actions.ts", 10).flatMap((file) => {
+  const slice = path.basename(path.dirname(file));
+  const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
+
+  return source.statements.flatMap((statement) => {
+    const exported = ts.canHaveModifiers(statement) && ts.getModifiers(statement)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
+    if (!exported || !ts.isFunctionDeclaration(statement) || statement.name === undefined || statement.body === undefined) return [];
+    const declaration = declarationOf(statement.body);
+    return declaration === null ? [] : [{ name: statement.name.text, slice, declaration }];
+  });
+});
 
 /**
- * Refused from a stale session on some calls alone: clearing a club's contacts, a mint over a standing
- * link, a replacing draw, a referee's save or return minting a link.
+ * Every administrator action the server holds to the step-up window, by export against its slice
+ * (`docs/frontend/spec.md :: I432`), read off its declaration. `fl_frontend/src/shared/utils/adminStepUp.test.ts`
+ * holds it to what the actions refuse and to the callers registered below.
  */
-export const CONDITIONALLY_STEPPED_UP: ReadonlySet<string> = new Set([
-  "patchSaisonTeamKontakteAction",
-  "postEinladungAction",
-  "generateSpielplanAction",
-  "patchSchiedsrichterAction",
-  "reactivateSchiedsrichterAction",
-]);
+export const STEP_UP_WRITES: Readonly<Record<string, string>> = Object.fromEntries(DECLARED.map(({ name, slice }) => [name, slice]));
+
+/** Refused from a stale session on some calls alone, the action judging its own payload before `refuseUnconfirmed`. */
+export const CONDITIONALLY_STEPPED_UP: ReadonlySet<string> = new Set(
+  DECLARED.filter(({ declaration }) => declaration === "conditional").map(({ name }) => name),
+);
 
 /**
  * How a caller's press asks: on its armed press, on its only one, through the create form it declares

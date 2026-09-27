@@ -7,7 +7,7 @@ import { pathToFileURL } from "node:url";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
-import { CONDITIONALLY_STEPPED_UP, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
+import { CONDITIONALLY_STEPPED_UP, STEP_UP_CALLERS, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -117,6 +117,14 @@ beforeEach(() => {
 });
 
 describe("an administrator write the server holds to the step-up window", () => {
+  /* The list is read off the declarations, so an action dropping its own falls out of it silently: the
+     callers' map, kept by hand for how each press asks, is what still names it. */
+  it("declares its step-up wherever a caller was registered as sending one, and has a caller", () => {
+    const registered = new Set(Object.values(STEP_UP_CALLERS).flatMap((writes) => Object.keys(writes)));
+
+    assert.deepEqual([...registered].sort(), Object.keys(STEP_UP_WRITES).sort());
+  });
+
   /* Two listings by different routes: every export called bare from a stale session, against the list.
      An action declaring the step-up and missing from the list escapes every sweep of its callers. */
   it("is refused before its body exactly where the list names it", async () => {
