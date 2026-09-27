@@ -75,6 +75,9 @@ let claim: unknown = claimOf([]);
 /** Resolves the claim a case holds open, so a second pass can start beside the first. */
 let holdClaim: Promise<void> | null = null;
 
+/** What the stamp throws, where a case says the backend refused it. */
+let stampFails: Error | null = null;
+
 const calls = doubleApiClient((call: ApiCall, schema) => {
   if (call.endpoint === "/berechtigungen/abgleich") {
     return (holdClaim ?? Promise.resolve()).then(() => {
@@ -83,6 +86,7 @@ const calls = doubleApiClient((call: ApiCall, schema) => {
     });
   }
 
+  if (stampFails !== null) return Promise.reject(stampFails);
   const ids = (JSON.parse(call.body ?? "{}") as { ids: string[] }).ids;
   return schema.parse({ acknowledged: 1, angekuendigt: ids.length, ignoriert: 0 });
 });
@@ -104,6 +108,7 @@ beforeEach(() => {
   lines.length = 0;
   claim = claimOf([]);
   holdClaim = null;
+  stampFails = null;
 });
 
 describe("one pass over the claimed changes", () => {
@@ -302,6 +307,21 @@ describe("what a pass leaves for the next", () => {
     assert.deepEqual(
       lines.map((line) => [line.event, line.fields]),
       [["berechtigung.abgleich_failed", { error_code: "FE-SWEEP-002", name: "Error" }]],
+    );
+  });
+
+  /* The rows stay held until the lease lapses and are mailed again under the same keys: the pass says so
+     and settles, since nothing awaits it to catch a throw. */
+  it("settles where the stamp fails, logging the name alone", async () => {
+    claim = claimOf([aenderung()]);
+    stampFails = new TypeError("fetch failed");
+
+    await runBerechtigungenAbgleich();
+
+    assert.ok(mail.sent.length > 0, "nothing was mailed, so no stamp was asked for");
+    assert.deepEqual(
+      lines.map((line) => [line.event, line.fields]),
+      [["berechtigung.stempel_failed", { error_code: "FE-SWEEP-002", name: "TypeError" }]],
     );
   });
 

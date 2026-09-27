@@ -709,7 +709,8 @@ describe("a grant on a barred address", () => {
     BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, gesperrt: true });
 
     assert.equal(await getAdminSession(), null);
-    assert.notEqual(await getSignInDestination(), "/bereich/admin");
+    // A person's landing, where the person guard answers a barred subject no session.
+    assert.equal(await getSignInDestination(), "/bereich");
   });
 });
 
