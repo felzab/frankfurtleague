@@ -1,7 +1,9 @@
 import asyncio
-from typing import Annotated, get_args
+from collections.abc import Mapping, Sequence
+from typing import Annotated, Any, get_args
 
 from fastapi import APIRouter, Depends, Query
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.schemas import (
     FLBewerbung,
@@ -19,10 +21,14 @@ from app.api.bewerbungen.services import (
     build_bewerbungen_status_term,
     build_dubletten_pipeline,
     dubletten_schluessel_of,
+    entscheider_adressen,
+    mit_vorenthaltener_entscheidung,
 )
-from app.core.config import API_VERSION
+from app.api.saisons.crud import pull_massgebliche_saison_id
+from app.api.sperrliste.crud import gesperrte_adressen
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
-from app.core.dependencies import BewerbungenCollection
+from app.core.dependencies import BewerbungenCollection, SaisonsCollection, SperrlisteCollection
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
@@ -43,16 +49,34 @@ router = APIRouter(
 FLBewerbungenFilters = Annotated[FLBewerbungenFilterParams, Query()]
 
 
+async def _as_served(
+    rows: Sequence[Mapping[str, Any]], *, sperrliste_collection: AsyncCollection, saisons_collection: AsyncCollection, config: BackendConfig
+) -> list[dict[str, Any]]:
+    barred = await gesperrte_adressen(
+        entscheider_adressen(rows),
+        sperrliste_collection=sperrliste_collection,
+        schluessel=config.sperrliste_schluessel,
+        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection),
+    )
+
+    return [mit_vorenthaltener_entscheidung(row, barred) for row in rows]
+
+
 @router.get("", response_model=FLBewerbungenListResponse, summary="List Bewerbungen")
 async def get_bewerbungen(
     bewerbungen_collection: BewerbungenCollection,
+    sperrliste_collection: SperrlisteCollection,
+    saisons_collection: SaisonsCollection,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     filters: FLBewerbungenFilters,
 ) -> FLBewerbungenListResponse:
     """
     Every application, newest first, narrowable by season and by any number of the three statuses.
 
     Decided ones stay listed: what the league turned down, and why, is the record the decision was
-    taken against. `vollstaendig` is false where more rows exist than one read serves.
+    taken against. `vollstaendig` is false where more rows exist than one read serves. A decision's
+    administrator is `null` beside `entscheidung.von_gesperrt` where the ban list holds that
+    address, as no barred address is served in plain.
 
     `saisonbezug` says which side of `saison_id` this read covers — `diese_saison` for that season,
     `andere_saison` for every other one — and is ignored without a `saison_id` to stand against.
@@ -111,7 +135,9 @@ async def get_bewerbungen(
     # would hand whoever writes them the power to 500 this page. Answering short leaves the
     # administrator a usable list, and `vollstaendig` reports the cut.
     return FLBewerbungenListResponse(
-        bewerbungen=FLBewerbungListAdapter.validate_python(served),
+        bewerbungen=FLBewerbungListAdapter.validate_python(
+            await _as_served(served, sperrliste_collection=sperrliste_collection, saisons_collection=saisons_collection, config=config)
+        ),
         vollstaendig=len(read) <= filters.limit,
         anzahl_je_status=dict(zip(get_args(FLBewerbungStatus), counted, strict=True)),
         anzahl_je_saisonbezug=dict(zip(saisonbezug_terms, bezogen, strict=True)),
@@ -125,9 +151,15 @@ async def get_bewerbungen(
 async def get_bewerbung_by_id(
     bewerbung_id: CustomRouteObjectId,
     bewerbungen_collection: BewerbungenCollection,
+    sperrliste_collection: SperrlisteCollection,
+    saisons_collection: SaisonsCollection,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> FLBewerbungSingleResponse:
-    """One application in full, which is what the triage decides against."""
+    """One application in full, which is what the triage decides against; its decision's administrator is withheld as the list withholds it."""
 
     bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=WITHOUT_TOKEN_HASHES)
+    [served] = await _as_served(
+        [bewerbung_raw], sperrliste_collection=sperrliste_collection, saisons_collection=saisons_collection, config=config
+    )
 
-    return FLBewerbungSingleResponse(bewerbung=FLBewerbung(**bewerbung_raw))
+    return FLBewerbungSingleResponse(bewerbung=FLBewerbung(**served))

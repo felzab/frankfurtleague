@@ -2400,7 +2400,7 @@
     "/api/v0/bewerbungen": {
       "get": {
         "summary": "List Bewerbungen",
-        "description": "Every application, newest first, narrowable by season and by any number of the three statuses.\n\nDecided ones stay listed: what the league turned down, and why, is the record the decision was\ntaken against. `vollstaendig` is false where more rows exist than one read serves.\n\n`saisonbezug` says which side of `saison_id` this read covers — `diese_saison` for that season,\n`andere_saison` for every other one — and is ignored without a `saison_id` to stand against.\nBoth values is every season, as omitting the parameter is; `saison_id` alone is that season.\n\n`anzahl_je_status` counts every status over the seasons this request selected and never over the\nstatuses it named, and `anzahl_je_saisonbezug` counts each side of the season relation over those\nstatuses and never over the relation, so a caller narrowed to one of either still knows what\nasking for the other would fetch. Repeating a parameter and comma-joining its values are one\nrequest; omitting one is every value, and sending it empty is too.\n\n`dubletten_schluessel` names every key two or more OPEN applications share, over every season the\nrequest selected rather than over the rows served, so a colliding pair the cap parted is named at\nboth ends; a key carries its own season, so no selection can part one. A key\nis the season and the club id, or the season and the upper-cased Kürzel, parted by the word\n`team` or `kuerzel`; a caller composes a served row's own key and marks the row where the two\nmatch.",
+        "description": "Every application, newest first, narrowable by season and by any number of the three statuses.\n\nDecided ones stay listed: what the league turned down, and why, is the record the decision was\ntaken against. `vollstaendig` is false where more rows exist than one read serves. A decision's\nadministrator is `null` beside `entscheidung.von_gesperrt` where the ban list holds that\naddress, as no barred address is served in plain.\n\n`saisonbezug` says which side of `saison_id` this read covers — `diese_saison` for that season,\n`andere_saison` for every other one — and is ignored without a `saison_id` to stand against.\nBoth values is every season, as omitting the parameter is; `saison_id` alone is that season.\n\n`anzahl_je_status` counts every status over the seasons this request selected and never over the\nstatuses it named, and `anzahl_je_saisonbezug` counts each side of the season relation over those\nstatuses and never over the relation, so a caller narrowed to one of either still knows what\nasking for the other would fetch. Repeating a parameter and comma-joining its values are one\nrequest; omitting one is every value, and sending it empty is too.\n\n`dubletten_schluessel` names every key two or more OPEN applications share, over every season the\nrequest selected rather than over the rows served, so a colliding pair the cap parted is named at\nboth ends; a key carries its own season, so no selection can part one. A key\nis the season and the club id, or the season and the upper-cased Kürzel, parted by the word\n`team` or `kuerzel`; a caller composes a served row's own key and marks the row where the two\nmatch.",
         "operationId": "get_bewerbungen_api_v0_bewerbungen_get",
         "security": [
           {
@@ -2592,7 +2592,7 @@
     "/api/v0/bewerbungen/{bewerbung_id}": {
       "get": {
         "summary": "One Bewerbung",
-        "description": "One application in full, which is what the triage decides against.",
+        "description": "One application in full, which is what the triage decides against; its decision's administrator is withheld as the list withholds it.",
         "operationId": "get_bewerbung_by_id_api_v0_bewerbungen__bewerbung_id__get",
         "security": [
           {
@@ -2650,7 +2650,7 @@
     "/api/v0/registrierungen": {
       "get": {
         "summary": "List Registrierungen",
-        "description": "Every pending registration, newest first, narrowable by season, by team and by status.\n\n`bestaetigt` says whether the pupil answered their own confirmation link, composed here rather\nthan left to the reader: an admission is offered on no registration lacking it.\n`vollstaendig` is false where more rows exist than one read serves.",
+        "description": "Every pending registration, newest first, narrowable by season, by team and by status.\n\n`bestaetigt` says whether the pupil answered their own confirmation link, composed here rather\nthan left to the reader: an admission is offered on no registration lacking it.\n`vollstaendig` is false where more rows exist than one read serves. A decision's author is `null`\nbeside `entscheidung.von_gesperrt` where the ban list holds that address, as no barred address is\nserved in plain.",
         "operationId": "get_registrierungen_api_v0_registrierungen_get",
         "security": [
           {
@@ -5496,7 +5496,7 @@
     "/api/v0/aktionen": {
       "get": {
         "summary": "List recorded admin actions",
-        "description": "List what administrators changed, newest first; `vollstaendig` is false on a cut answer.\n\nAdmin-tier twice over: every recorded write across every collection is here, public or not,\nand each row names the administrator behind it.\n\n`collection`, `operation` and `herkunft` each take a comma-joined selection, or the parameter\nrepeated, and all three narrow this read. `herkunft` names no stored field: it is the category the\nactor's kind is filed under, `person` covering every kind that authenticates somebody.\n\n`anzahl_je_collection`, `anzahl_je_operation` and `anzahl_je_herkunft` count every row `trace_id`\nand `document_id` leave, with the other two facets applied and their own ignored, so a caller\nnarrowed to one area still knows what asking for another would fetch; a value nothing was recorded\nunder is absent rather than zero. While either of those two terms is in force the counts are that\ntrace's or that document's and not the log's.\n\n`trace_id` selects one request's whole fan-out, which this read serves under the same cap as any\nother; a write made outside a request carries the sentinel `SYSTEM` there, which gathers every\nsuch write rather than one (`docs/glossary.md :: Vorgangsnummer`).",
+        "description": "List what administrators changed, newest first; `vollstaendig` is false on a cut answer.\n\nAdmin-tier twice over: every recorded write across every collection is here, public or not,\nand each row names the administrator behind it — `null` beside `actor.email_gesperrt` where the\nban list holds that address, as no barred address is served in plain.\n\n`collection`, `operation` and `herkunft` each take a comma-joined selection, or the parameter\nrepeated, and all three narrow this read. `herkunft` names no stored field: it is the category the\nactor's kind is filed under, `person` covering every kind that authenticates somebody.\n\n`anzahl_je_collection`, `anzahl_je_operation` and `anzahl_je_herkunft` count every row `trace_id`\nand `document_id` leave, with the other two facets applied and their own ignored, so a caller\nnarrowed to one area still knows what asking for another would fetch; a value nothing was recorded\nunder is absent rather than zero. While either of those two terms is in force the counts are that\ntrace's or that document's and not the log's.\n\n`trace_id` selects one request's whole fan-out, which this read serves under the same cap as any\nother; a write made outside a request carries the sentinel `SYSTEM` there, which gathers every\nsuch write rather than one (`docs/glossary.md :: Vorgangsnummer`).",
         "operationId": "get_aktionen_api_v0_aktionen_get",
         "security": [
           {
@@ -5626,7 +5626,7 @@
     "/api/v0/aktionen/{aktion_id}": {
       "get": {
         "summary": "One recorded admin action",
-        "description": "One row with the document its write replaced, which the list withholds.\n\nThe read a restore of one write would start from.",
+        "description": "One row with the document its write replaced, which the list withholds.\n\nThe read a restore of one write would start from, so the image is served as recorded, every\naddress in it included; the actor is withheld as the list withholds it.",
         "operationId": "get_aktion_by_id_api_v0_aktionen__aktion_id__get",
         "security": [
           {
@@ -8087,7 +8087,7 @@
           "actor": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/FLAktorMitAdresse"
+                "$ref": "#/components/schemas/FLAktorMitAdresseZeile"
               },
               {
                 "$ref": "#/components/schemas/FLAktorPerson"
@@ -8097,10 +8097,10 @@
             "discriminator": {
               "propertyName": "kind",
               "mapping": {
-                "admin_session": "#/components/schemas/FLAktorMitAdresse",
+                "admin_session": "#/components/schemas/FLAktorMitAdresseZeile",
                 "person_session": "#/components/schemas/FLAktorPerson",
-                "public": "#/components/schemas/FLAktorMitAdresse",
-                "system": "#/components/schemas/FLAktorMitAdresse"
+                "public": "#/components/schemas/FLAktorMitAdresseZeile",
+                "system": "#/components/schemas/FLAktorMitAdresseZeile"
               }
             }
           },
@@ -8217,7 +8217,7 @@
           "actor": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/FLAktorMitAdresse"
+                "$ref": "#/components/schemas/FLAktorMitAdresseZeile"
               },
               {
                 "$ref": "#/components/schemas/FLAktorPerson"
@@ -8227,10 +8227,10 @@
             "discriminator": {
               "propertyName": "kind",
               "mapping": {
-                "admin_session": "#/components/schemas/FLAktorMitAdresse",
+                "admin_session": "#/components/schemas/FLAktorMitAdresseZeile",
                 "person_session": "#/components/schemas/FLAktorPerson",
-                "public": "#/components/schemas/FLAktorMitAdresse",
-                "system": "#/components/schemas/FLAktorMitAdresse"
+                "public": "#/components/schemas/FLAktorMitAdresseZeile",
+                "system": "#/components/schemas/FLAktorMitAdresseZeile"
               }
             }
           },
@@ -8447,7 +8447,7 @@
         ],
         "title": "FLAktionenListResponse"
       },
-      "FLAktorMitAdresse": {
+      "FLAktorMitAdresseZeile": {
         "properties": {
           "kind": {
             "type": "string",
@@ -8459,17 +8459,29 @@
             "title": "Kind"
           },
           "email": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Email"
+          },
+          "email_gesperrt": {
+            "type": "boolean",
+            "title": "Email Gesperrt"
           }
         },
         "type": "object",
         "required": [
           "kind",
-          "email"
+          "email",
+          "email_gesperrt"
         ],
-        "title": "FLAktorMitAdresse",
-        "description": "An actor the row names by `email`: an administrator's address, or a sentinel. Mirrors `app/core/recording.py :: Actor`."
+        "title": "FLAktorMitAdresseZeile",
+        "description": "An actor named by `email` as both reads serve one: the stored actor, its address withheld where the ban list holds it."
       },
       "FLAktorPerson": {
         "properties": {
@@ -9129,7 +9141,7 @@
           "entscheidung": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLBewerbungEntscheidung"
+                "$ref": "#/components/schemas/FLBewerbungEntscheidungZeile"
               },
               {
                 "type": "null"
@@ -9173,7 +9185,7 @@
           "entscheidung"
         ],
         "title": "FLBewerbung",
-        "description": "One school's application to play one season, as it is stored.\n\nThe submission is never rewritten: `status`, `entscheidung` and `team_id` move through the\ntriage, and a contact seat through the two administrative repairs in\n`app/api/bewerbungen/admin_router.py`."
+        "description": "One school's application to play one season, as stored, its decision as served.\n\nThe submission is never rewritten: `status`, `entscheidung` and `team_id` move through the\ntriage, and a contact seat through the two administrative repairs in\n`app/api/bewerbungen/admin_router.py`."
       },
       "FLBewerbungAddressPayload": {
         "properties": {
@@ -9693,7 +9705,7 @@
         "title": "FLBewerbungEinwilligungPayload",
         "description": "What the applicant agreed to, and nothing about how the record of it is composed.\n\n`umfang`, `erfasst_von` and `datum` are the SERVER's: a client offered them could claim an\nadministrative transcription, or backdate a record."
       },
-      "FLBewerbungEntscheidung": {
+      "FLBewerbungEntscheidungZeile": {
         "properties": {
           "getroffen_am": {
             "type": "string",
@@ -9701,7 +9713,14 @@
             "title": "Getroffen Am"
           },
           "von": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Von"
           },
           "grund": {
@@ -9714,16 +9733,21 @@
               }
             ],
             "title": "Grund"
+          },
+          "von_gesperrt": {
+            "type": "boolean",
+            "title": "Von Gesperrt"
           }
         },
         "type": "object",
         "required": [
           "getroffen_am",
           "von",
-          "grund"
+          "grund",
+          "von_gesperrt"
         ],
-        "title": "FLBewerbungEntscheidung",
-        "description": "Who decided this application, when, and -- on a decline -- why.\n\n`von` is the administrator the request was attributed to, so a decision and the `aktionen` row\nrecording it can never name two different people."
+        "title": "FLBewerbungEntscheidungZeile",
+        "description": "A decision as every read serves it: the stored one, its administrator withheld where the ban list holds that address."
       },
       "FLBewerbungFensterResponse": {
         "properties": {
@@ -14711,7 +14735,7 @@
           "entscheidung": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/FLRegistrierungEntscheidung"
+                "$ref": "#/components/schemas/FLRegistrierungEntscheidungZeile"
               },
               {
                 "type": "null"
@@ -14744,7 +14768,7 @@
           "bestaetigt"
         ],
         "title": "FLRegistrierung",
-        "description": "One pupil's registration for one team's season, as it is stored.\n\nThe submission is never rewritten: the pupil's own confirmation fills `geburtsdatum` and\n`einwilligung`, and a decline writes `status` and `entscheidung`."
+        "description": "One pupil's registration for one team's season, as stored, its decision as served.\n\nThe submission is never rewritten: the pupil's own confirmation fills `geburtsdatum` and\n`einwilligung`, and a decline writes `status` and `entscheidung`."
       },
       "FLRegistrierungBestaetigung": {
         "properties": {
@@ -15009,7 +15033,7 @@
         "title": "FLRegistrierungBestaetigungResponse",
         "description": "What the pupil just recorded, echoed so the answer panel states it rather than opening the link a second time."
       },
-      "FLRegistrierungEntscheidung": {
+      "FLRegistrierungEntscheidungZeile": {
         "properties": {
           "getroffen_am": {
             "type": "string",
@@ -15017,8 +15041,15 @@
             "title": "Getroffen Am"
           },
           "von": {
-            "type": "string",
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Von"
           },
           "grund": {
@@ -15031,16 +15062,21 @@
               }
             ],
             "title": "Grund"
+          },
+          "von_gesperrt": {
+            "type": "boolean",
+            "title": "Von Gesperrt"
           }
         },
         "type": "object",
         "required": [
           "getroffen_am",
           "von",
-          "grund"
+          "grund",
+          "von_gesperrt"
         ],
-        "title": "FLRegistrierungEntscheidung",
-        "description": "Who declined this registration, when, and why.\n\nIts own model beside the application's: one shape over both would let a field either flow adds\nreach the other, where a pupil's record and a school's are decided by different surfaces."
+        "title": "FLRegistrierungEntscheidungZeile",
+        "description": "A decision as the list serves it: the stored one, its decider withheld where the ban list holds that address."
       },
       "FLRegistrierungSweepBenachrichtigung": {
         "properties": {

@@ -1201,7 +1201,13 @@ class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheConfirmationFields:
 
         async def body(database: AsyncDatabase) -> Any:
             created = await database[Collection.BEWERBUNGEN].insert_one(_application_before_the_confirmation_fields())
-            response = await get_bewerbung_by_id(bewerbung_id=created.inserted_id, bewerbungen_collection=database[Collection.BEWERBUNGEN])
+            response = await get_bewerbung_by_id(
+                bewerbung_id=created.inserted_id,
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                sperrliste_collection=database[Collection.SPERRLISTE],
+                saisons_collection=database[Collection.SAISONS],
+                config=build_test_config(),
+            )
 
             return response.bewerbung.kontakte.trainer
 

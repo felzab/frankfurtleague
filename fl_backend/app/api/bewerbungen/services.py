@@ -1,14 +1,21 @@
 import hashlib
 import json
 import secrets
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from datetime import date, timedelta
 from http import HTTPStatus
 from typing import Any, Final, cast, get_args
 
 from pydantic import BaseModel, ValidationError
 
-from app.api.bewerbungen.schemas import FLBewerbungEinwilligungZustand, FLBewerbungSaisonbezug, FLKontaktRolle, refuse_age_outside_the_bounds
+from app.api.berechtigungen.services import withheld_actor
+from app.api.bewerbungen.schemas import (
+    FLBewerbungEinwilligungZustand,
+    FLBewerbungEntscheidung,
+    FLBewerbungSaisonbezug,
+    FLKontaktRolle,
+    refuse_age_outside_the_bounds,
+)
 from app.api.teams.schemas import FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
@@ -1519,3 +1526,26 @@ def dubletten_schluessel_of(cells: Sequence[Mapping[str, Any]]) -> list[str]:
 
     # Sorted, so an unchanged queue answers the same list twice.
     return sorted(schluessel for schluessel, anzahl in gehalten.items() if anzahl > 1)
+
+
+def entscheider_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:
+    """Every administrator these stored applications name as their decider, folded as the ban list is asked."""
+
+    return [
+        sign_in_identifier(FLBewerbungEntscheidung.model_validate(row["entscheidung"]).von)
+        for row in rows
+        if row.get("entscheidung") is not None
+    ]
+
+
+def mit_vorenthaltener_entscheidung(row: Mapping[str, Any], gesperrt: Collection[str]) -> dict[str, Any]:
+    """A stored application with its decision as every read serves it (`docs/backend/spec.md :: I452`)."""
+
+    if row.get("entscheidung") is None:
+        return dict(row)
+
+    # As stored first, so a decision the stored shape refuses fails rather than being served withheld.
+    entscheidung = FLBewerbungEntscheidung.model_validate(row["entscheidung"])
+    von = withheld_actor(entscheidung.von, gesperrt)
+
+    return {**row, "entscheidung": {**entscheidung.model_dump(), "von": von, "von_gesperrt": von is None}}

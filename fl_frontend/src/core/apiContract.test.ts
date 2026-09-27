@@ -41,7 +41,7 @@ const BACKEND_ONLY: Record<string, string> = {
   FLRegistrierungenListResponse: "GET /registrierungen is the administrator's read of pending registrations; no page consumes it",
   FLRegistrierung: "the row of that read, which no page consumes",
   FLRegistrierungBestaetigung: "that row's confirmation block, which no page consumes",
-  FLRegistrierungEntscheidung: "that row's decision block, which no page consumes",
+  FLRegistrierungEntscheidungZeile: "that row's decision block, which no page consumes",
 };
 
 /**

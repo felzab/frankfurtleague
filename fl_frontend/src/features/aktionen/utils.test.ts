@@ -76,7 +76,9 @@ const PSEUDONYM = "3f9a07c2".padEnd(64, "0");
 
 /** A valid actor of each kind: a signed-in person carries a pseudonym and a Funktion where every other kind carries `email`. */
 function actorOf(kind: FLAktor["kind"]): FLAktor {
-  return kind === "person_session" ? { kind: kind, pseudonym: PSEUDONYM, funktion: "spieler" } : { kind: kind, email: "SENTINEL" };
+  return kind === "person_session"
+    ? { kind: kind, pseudonym: PSEUDONYM, funktion: "spieler" }
+    : { kind: kind, email: "SENTINEL", email_gesperrt: false };
 }
 
 describe("herkunftOfAktor", () => {
@@ -99,9 +101,15 @@ describe("herkunftOfAktor", () => {
   /* Its own value and not the people's: nobody signed in for a public submission, and nobody is named
      by the `PUBLIC` its `email` holds. */
   it("keeps a public submission off both of the origins it is not", () => {
-    assert.equal(herkunftOfAktor({ kind: "public", email: "PUBLIC" }), "public");
-    assert.notEqual(herkunftOfAktor({ kind: "public", email: "PUBLIC" }), herkunftOfAktor({ kind: "admin_session", email: "a@b.de" }));
-    assert.notEqual(herkunftOfAktor({ kind: "public", email: "PUBLIC" }), herkunftOfAktor({ kind: "system", email: "SYSTEM" }));
+    assert.equal(herkunftOfAktor({ kind: "public", email: "PUBLIC", email_gesperrt: false }), "public");
+    assert.notEqual(
+      herkunftOfAktor({ kind: "public", email: "PUBLIC", email_gesperrt: false }),
+      herkunftOfAktor({ kind: "admin_session", email: "a@b.de", email_gesperrt: false }),
+    );
+    assert.notEqual(
+      herkunftOfAktor({ kind: "public", email: "PUBLIC", email_gesperrt: false }),
+      herkunftOfAktor({ kind: "system", email: "SYSTEM", email_gesperrt: false }),
+    );
   });
 
   /* An origin is a category and a label is what a reader sees, so two origins sharing one wording would

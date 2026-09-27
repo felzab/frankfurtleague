@@ -47,6 +47,15 @@ class FLAktorMitAdresse(BaseModel):
     email: str
 
 
+class FLAktorMitAdresseZeile(FLAktorMitAdresse):
+    """An actor named by `email` as both reads serve one: the stored actor, its address withheld where the ban list holds it."""
+
+    # Null exactly where `email_gesperrt` is set, as the grants list withholds its actors
+    # (`docs/backend/spec.md :: I452`).
+    email: str | None
+    email_gesperrt: bool
+
+
 def _served_prefix(pseudonym: str) -> str:
     return pseudonym[:AKTEUR_PSEUDONYM_SHOWN]
 
@@ -65,6 +74,12 @@ class FLAktorPerson(BaseModel):
 # On `kind`, so a person's row can never be read as carrying an address, nor an administrator's as
 # carrying none.
 FLAktor = Annotated[FLAktorMitAdresse | FLAktorPerson, Field(discriminator="kind")]
+
+# The stored actor, judged before its address is withheld: a row the stored shape refuses fails
+# rather than being served withheld.
+FLAktorAdapter = TypeAdapter(FLAktor)
+
+FLAktorZeile = Annotated[FLAktorMitAdresseZeile | FLAktorPerson, Field(discriminator="kind")]
 
 
 def herkunft_of_kind(kind: FLAktorKind) -> FLAktionHerkunft:
@@ -103,7 +118,9 @@ class FLAktion(BaseModel):
 
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     at: str
-    actor: FLAktor
+    # As served, so a row reaches the wire only through
+    # `app/api/aktionen/services.py :: mit_vorenthaltenem_akteur`.
+    actor: FLAktorZeile
     trace_id: str
     request: FLAktionRequest | None
     collection: str

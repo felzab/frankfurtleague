@@ -90,14 +90,16 @@ export const FLBewerbungKaderSchema = z.object({
 });
 export type FLBewerbungKader = z.infer<typeof FLBewerbungKaderSchema>;
 
-/** Mirrors `FLBewerbungEntscheidung` — who decided, when, and on a decline why. */
-export const FLBewerbungEntscheidungSchema = z.object({
+/** Mirrors `FLBewerbungEntscheidungZeile` — who decided, when, and on a decline why. */
+export const FLBewerbungEntscheidungZeileSchema = z.object({
   getroffen_am: CustomDateStringSchema,
-  von: z.string(),
+  // Null exactly where `von_gesperrt` holds, as the grants list withholds a barred actor.
+  von: z.string().nullable(),
+  von_gesperrt: z.boolean(),
   // Null on an acceptance: what an acceptance did is the club and the junction row it wrote.
   grund: z.string().nullable(),
 });
-export type FLBewerbungEntscheidung = z.infer<typeof FLBewerbungEntscheidungSchema>;
+export type FLBewerbungEntscheidungZeile = z.infer<typeof FLBewerbungEntscheidungZeileSchema>;
 
 /**
  * Mirrors `FLBewerbungZustellstand`. **Orthogonal to `Stand`**, which is what the PERSON did: a seat
@@ -168,7 +170,7 @@ export const FLBewerbungSchema = z.object({
   // A FREE STRING and never a club id: a school may name an applicant the league has not accepted,
   // so nothing here resolves against the roster.
   wunschgegner: z.string().nullable(),
-  entscheidung: FLBewerbungEntscheidungSchema.nullable(),
+  entscheidung: FLBewerbungEntscheidungZeileSchema.nullable(),
   // Null on an application stored before the confirmation flow shipped, which is what keeps such an
   // application acceptable: an absent block is "nothing to confirm" rather than three open seats.
   bestaetigungen: FLBewerbungBestaetigungenSchema.nullable(),

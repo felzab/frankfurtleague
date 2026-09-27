@@ -1036,6 +1036,9 @@ class TestTheQueueTheTriageIsWorkedDown:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await get_bewerbungen(
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                sperrliste_collection=database[Collection.SPERRLISTE],
+                saisons_collection=database[Collection.SAISONS],
+                config=build_test_config(),
                 filters=FLBewerbungenFilterParams(),
             )
 

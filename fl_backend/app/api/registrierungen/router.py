@@ -3,10 +3,18 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Query
 
 from app.api.registrierungen.schemas import FLRegistrierungenFilterParams, FLRegistrierungenListResponse, FLRegistrierungListAdapter
-from app.api.registrierungen.services import WITHOUT_TOKEN_HASHES, build_registrierungen_sort, registrierung_ist_bestaetigt
-from app.core.config import API_VERSION
+from app.api.registrierungen.services import (
+    WITHOUT_TOKEN_HASHES,
+    build_registrierungen_sort,
+    entscheider_adressen,
+    mit_vorenthaltener_entscheidung,
+    registrierung_ist_bestaetigt,
+)
+from app.api.saisons.crud import pull_massgebliche_saison_id
+from app.api.sperrliste.crud import gesperrte_adressen
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import pull_many_from_db
-from app.core.dependencies import RegistrierungenCollection
+from app.core.dependencies import RegistrierungenCollection, SaisonsCollection, SperrlisteCollection
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
 
 # Admin-guarded, not base, as the application's own list is: a registration holds a pupil's name,
@@ -25,6 +33,9 @@ FLRegistrierungenFilters = Annotated[FLRegistrierungenFilterParams, Query()]
 @router.get("", response_model=FLRegistrierungenListResponse, summary="List Registrierungen")
 async def get_registrierungen(
     registrierungen_collection: RegistrierungenCollection,
+    sperrliste_collection: SperrlisteCollection,
+    saisons_collection: SaisonsCollection,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     filters: FLRegistrierungenFilters,
 ) -> FLRegistrierungenListResponse:
     """
@@ -32,7 +43,9 @@ async def get_registrierungen(
 
     `bestaetigt` says whether the pupil answered their own confirmation link, composed here rather
     than left to the reader: an admission is offered on no registration lacking it.
-    `vollstaendig` is false where more rows exist than one read serves.
+    `vollstaendig` is false where more rows exist than one read serves. A decision's author is `null`
+    beside `entscheidung.von_gesperrt` where the ban list holds that address, as no barred address is
+    served in plain.
     """
 
     # Each term omitted where the request names nothing, so an absent parameter reads as every value
@@ -58,10 +71,22 @@ async def get_registrierungen(
 
     # Sliced before validation, so the probe row is never parsed and never reaches the wire.
     served = read[: filters.limit]
+    barred = await gesperrte_adressen(
+        entscheider_adressen(served),
+        sperrliste_collection=sperrliste_collection,
+        schluessel=config.sperrliste_schluessel,
+        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection),
+    )
 
     return FLRegistrierungenListResponse(
         registrierungen=FLRegistrierungListAdapter.validate_python(
-            [{**row, "bestaetigt": registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung"))} for row in served]
+            [
+                {
+                    **mit_vorenthaltener_entscheidung(row, barred),
+                    "bestaetigt": registrierung_ist_bestaetigt(einwilligung=row.get("einwilligung")),
+                }
+                for row in served
+            ]
         ),
         vollstaendig=len(read) <= filters.limit,
     )

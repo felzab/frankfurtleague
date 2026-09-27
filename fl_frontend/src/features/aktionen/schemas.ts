@@ -3,11 +3,13 @@ import z from "zod";
 import { BaseAPIResponseSchema } from "@/core/schemas";
 import { CustomObjectIdStringSchema } from "@/shared/schemas";
 
-export const FLAktorMitAdresseSchema = z.object({
+export const FLAktorMitAdresseZeileSchema = z.object({
   // `public` is a visitor with no session at all — the application form's own write. `email` is a
   // mailbox for `admin_session` alone, and a sentinel for the other two.
   kind: z.enum(["admin_session", "system", "public"]),
-  email: z.string(),
+  // Null exactly where `email_gesperrt` holds, as the grants list withholds a barred actor.
+  email: z.string().nullable(),
+  email_gesperrt: z.boolean(),
 });
 
 /** A signed-in person, named by a pseudonym and the Funktion the write was authorised under, and never by an address. */
@@ -19,7 +21,7 @@ export const FLAktorPersonSchema = z.object({
 export type FLAktorPerson = z.infer<typeof FLAktorPersonSchema>;
 
 /** On `kind`, so a person's row can never be read as carrying an address. */
-export const FLAktorSchema = z.discriminatedUnion("kind", [FLAktorMitAdresseSchema, FLAktorPersonSchema]);
+export const FLAktorSchema = z.discriminatedUnion("kind", [FLAktorMitAdresseZeileSchema, FLAktorPersonSchema]);
 export type FLAktor = z.infer<typeof FLAktorSchema>;
 
 export const FLAktionRequestSchema = z.object({

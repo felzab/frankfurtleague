@@ -209,8 +209,17 @@ class FLBewerbungEntscheidung(BaseModel):
     grund: str | None
 
 
+class FLBewerbungEntscheidungZeile(FLBewerbungEntscheidung):
+    """A decision as every read serves it: the stored one, its administrator withheld where the ban list holds that address."""
+
+    # Null exactly where `von_gesperrt` is set, as the grants list withholds its actors
+    # (`docs/backend/spec.md :: I452`).
+    von: str | None
+    von_gesperrt: bool
+
+
 class FLBewerbung(BaseModel):
-    """One school's application to play one season, as it is stored.
+    """One school's application to play one season, as stored, its decision as served.
 
     The submission is never rewritten: `status`, `entscheidung` and `team_id` move through the
     triage, and a contact seat through the two administrative repairs in
@@ -235,7 +244,9 @@ class FLBewerbung(BaseModel):
     # accepted yet, and a picker over the accepted ones would give a LATER applicant the longer list.
     # Defaulted for `app/api/teams/schemas.py :: FLTeam`'s reason.
     wunschgegner: str | None = None
-    entscheidung: FLBewerbungEntscheidung | None
+    # As served, so a row reaches the wire only through
+    # `app/api/bewerbungen/services.py :: mit_vorenthaltener_entscheidung`.
+    entscheidung: FLBewerbungEntscheidungZeile | None
     # The day an unconfirmed application is deleted and its links expire. NOT the season's
     # `Bewerbungsfrist`, which is the window the form is open in. Defaulted for `wunschgegner`'s
     # reason, as is the block below.

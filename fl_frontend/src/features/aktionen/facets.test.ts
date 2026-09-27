@@ -47,7 +47,7 @@ function row(id: string, actor: FLAktor): AdminAktionRow {
 function actorOf(kind: FLAktor["kind"]): FLAktor {
   return kind === "person_session"
     ? { kind: kind, pseudonym: "5e".repeat(32), funktion: "kontakt" }
-    : { kind: kind, email: `${kind}@beispiel.de` };
+    : { kind: kind, email: `${kind}@beispiel.de`, email_gesperrt: false };
 }
 
 /** One row per kind the read model accepts, so a kind added there is swept without anyone listing it. */
@@ -231,9 +231,9 @@ describe("the counts the area facet is told", () => {
 
 /** Two areas, each written by one kind of actor alone, so picking an origin empties one of them outright. */
 const MIXED_LOG: AdminAktionRow[] = [
-  { ...row("system-1", { kind: "system", email: "SYSTEM" }), collection: "teams" },
-  { ...row("system-2", { kind: "system", email: "SYSTEM" }), collection: "teams" },
-  { ...row("person-1", { kind: "admin_session", email: "eine.person@beispiel.de" }), collection: "spielorte" },
+  { ...row("system-1", { kind: "system", email: "SYSTEM", email_gesperrt: false }), collection: "teams" },
+  { ...row("system-2", { kind: "system", email: "SYSTEM", email_gesperrt: false }), collection: "teams" },
+  { ...row("person-1", { kind: "admin_session", email: "eine.person@beispiel.de", email_gesperrt: false }), collection: "spielorte" },
 ];
 
 /**

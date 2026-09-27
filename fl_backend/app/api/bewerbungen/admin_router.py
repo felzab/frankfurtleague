@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Annotated, Any
+from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
@@ -35,6 +35,7 @@ from app.api.bewerbungen.services import (
     find_triage_refusal,
     find_unconfirmed_kontakte_refusal,
     mint_token,
+    mit_vorenthaltener_entscheidung,
     paired_seat,
     parse_new_club,
     seat_named,
@@ -73,6 +74,11 @@ def _entscheidung(*, today: str, von: str, grund: str | None) -> dict[str, Any]:
     """The decision block both endpoints write, so the two cannot spell one field differently."""
 
     return {"getroffen_am": today, "von": von, "grund": grund}
+
+
+# What a decision's own answer withholds: the actor check admits no barred holder
+# (`docs/backend/spec.md :: I463`), so the administrator it just wrote is served as written.
+_KEIN_ENTSCHEIDER_GESPERRT: Final[frozenset[str]] = frozenset()
 
 
 @router.post(
@@ -212,7 +218,7 @@ async def annehmen_bewerbung(
         )
 
         return FLAnnehmenBewerbungResponse(
-            updated_document=FLBewerbung(**updated_raw),
+            updated_document=FLBewerbung(**mit_vorenthaltener_entscheidung(updated_raw, _KEIN_ENTSCHEIDER_GESPERRT)),
             team_id=team_id,
             created_team=schule is not None,
             saison_id=saison_id,
@@ -273,7 +279,7 @@ async def ablehnen_bewerbung(
 
         raise
 
-    return FLAblehnenBewerbungResponse(updated_document=FLBewerbung(**updated_raw))
+    return FLAblehnenBewerbungResponse(updated_document=FLBewerbung(**mit_vorenthaltener_entscheidung(updated_raw, _KEIN_ENTSCHEIDER_GESPERRT)))
 
 
 @router.post(

@@ -368,11 +368,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
   grant: the revoke is the route, and an `owner` grant is made an administrator's first
   (`docs/backend/spec.md :: I436`). **The granter's address outlives both**: `erteilt_von` keeps it on
   every grant they made, through their own revoke and their erasure, served to every administrator
-  while those grants stand.
+  while those grants stand and the ban list does not hold it (`docs/backend/spec.md :: I452`).
 - **The administrator's own email on every log row stays, outside every redaction.** The log
   exists to say who did what; the asymmetry is deliberate and is stated at the invariant once it
   leaves here (`docs/backend/spec.md :: I42` is the redaction it sits beside, and `:: I48` what a
-  removal records).
+  removal records). The stored row keeps it through a ban too; the log's reads serve it withheld
+  while the ban list holds it, as every admin read serves an author (`docs/backend/spec.md :: I452`).
 - **The erasure of anybody who has signed in includes the sign-in store.** The `auth` database
   holds the address, sessions and sign-in codes of everyone who has signed in — an
   administrator, and a person the send gate offered one (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`) — and the

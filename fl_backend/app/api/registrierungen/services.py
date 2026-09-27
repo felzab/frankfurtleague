@@ -6,9 +6,11 @@ so a refusal is judged against what the submission's own transaction can see
 (`fl_backend/tests/core/test_write_shapes.py :: TestEveryServiceModuleDecidesFromItsArguments`).
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final
+
+from app.api.berechtigungen.services import withheld_actor
 
 # The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
 # month and read a provider's verdict the same way, and a second spelling would drift from it.
@@ -25,12 +27,12 @@ from app.api.bewerbungen.services import (
 # every `laeuft` a link is shown with and this flow's refusal, so a link and the write it opens
 # cannot disagree.
 from app.api.einladungen.services import registrierungsfenster_laeuft
-from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand
+from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand, FLRegistrierungEntscheidung
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between
 from app.shared.einwilligung import UNCONFIRMED_STAMP, is_confirmed
-from app.shared.folding import person_name_key
+from app.shared.folding import person_name_key, sign_in_identifier
 from app.shared.schemas.bounds import (
     BEWERBUNG_KONTAKT_MAX_AGE_YEARS,
     LIST_LIMIT_MAX,
@@ -734,3 +736,26 @@ def compose_erinnerung_update(*, token_hash: str, bestaetigung: Any, today: str)
             "bestaetigung.erinnert_am": today,
         }
     }
+
+
+def entscheider_adressen(rows: Iterable[Mapping[str, Any]]) -> list[str]:
+    """Every decider these stored registrations name, folded as the ban list is asked."""
+
+    return [
+        sign_in_identifier(FLRegistrierungEntscheidung.model_validate(row["entscheidung"]).von)
+        for row in rows
+        if row.get("entscheidung") is not None
+    ]
+
+
+def mit_vorenthaltener_entscheidung(row: Mapping[str, Any], gesperrt: Collection[str]) -> dict[str, Any]:
+    """A stored registration with its decision as the list serves it (`docs/backend/spec.md :: I452`)."""
+
+    if row.get("entscheidung") is None:
+        return dict(row)
+
+    # As stored first, so a decision the stored shape refuses fails rather than being served withheld.
+    entscheidung = FLRegistrierungEntscheidung.model_validate(row["entscheidung"])
+    von = withheld_actor(entscheidung.von, gesperrt)
+
+    return {**row, "entscheidung": {**entscheidung.model_dump(), "von": von, "von_gesperrt": von is None}}

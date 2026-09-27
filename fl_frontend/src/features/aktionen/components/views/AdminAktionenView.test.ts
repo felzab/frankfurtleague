@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { GESPERRTE_ADRESSE } from "@/features/berechtigungen/constants.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -21,7 +22,7 @@ type ViewProps = Parameters<typeof AdminAktionenView>[0];
 const ROW: AdminAktionRow = {
   id: "68c1f0a2b3c4d5e6f7a8b9c0",
   at: "2026-08-20T14:23:05+00:00",
-  actor: { kind: "admin_session", email: "eine.person@beispiel.de" },
+  actor: { kind: "admin_session", email: "eine.person@beispiel.de", email_gesperrt: false },
   trace_id: "8f14e45fceea167a",
   request: { method: "PATCH", path: "/api/v1/teams/68c1f0a2b3c4d5e6f7a8b9c0" },
   collection: "teams",
@@ -232,5 +233,13 @@ describe("who a row names", () => {
 
   it("names an administrator by the address", () => {
     assert.match(textOf(view()), /eine\.person@beispiel\.de/);
+  });
+
+  /* The read serves a barred administrator as `null` beside the flag, so the row names that state in the
+     grants list's words rather than an empty line (`docs/frontend/spec.md :: I492`). */
+  it("names an administrator the ban list holds by that state", () => {
+    const gesperrt: AdminAktionRow = { ...ROW, actor: { kind: "admin_session", email: null, email_gesperrt: true } };
+
+    assert.match(textOf(view({ aktionen: [gesperrt] })), new RegExp(GESPERRTE_ADRESSE));
   });
 });

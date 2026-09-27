@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { vonOderGesperrt } from "@/features/berechtigungen/constants";
 import { BEWERBUNG_HERKUNFT_LABELS } from "@/features/bewerbungen/constants";
 import { bewerbungHerkunft } from "@/features/bewerbungen/utils";
 import { einwilligungHerkunftLabel, KONTAKT_ROLLEN, schulformLabel, trikotFarbeHex, trikotFarbeLabel } from "@/features/teams/constants";
@@ -273,7 +274,7 @@ export function BewerbungAngabenPanel({
         <Panel title="Entscheidung">
           <dl className={ANGABEN_GRID_CLASSES}>
             <Angabe label="Getroffen am">{formatSpielDatum(entscheidung.getroffen_am)}</Angabe>
-            <Angabe label="Von">{entscheidung.von === "" ? "System" : entscheidung.von}</Angabe>
+            <Angabe label="Von">{entscheidung.von === "" ? "System" : vonOderGesperrt(entscheidung.von, entscheidung.von_gesperrt)}</Angabe>
             {/* Absent on an acceptance rather than filled in with „angenommen“: what an acceptance
                 did is the club and the season entry it wrote. */}
             {entscheidung.grund !== null && <Angabe label="Grund">{entscheidung.grund}</Angabe>}

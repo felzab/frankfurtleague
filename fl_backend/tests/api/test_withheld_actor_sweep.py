@@ -1,0 +1,233 @@
+"""
+API · no admin-tier read answers a barred administrator's address in plain
+
+Every admin-tier read is named here once: with the request showing it a row a barred administrator
+wrote, or with why no answer of it names an administrator. The two listings agree with the mounted
+routes, so a new read fails until someone says which it is (`docs/backend/spec.md :: I452`).
+"""
+
+import asyncio
+import json
+from collections.abc import Iterator
+from datetime import UTC, datetime
+from typing import Any
+
+import pytest
+from bson import ObjectId
+from fastapi.routing import APIRoute
+from pymongo import MongoClient
+
+from app.api.einladungen.services import compose_einladung
+from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
+from app.core.collections import Collection
+from app.core.security import verify_access_admin
+from app.main import create_app
+from tests.actor_tokens import SignedActor
+from tests.app_client import app_client
+from tests.config import ADMIN_KEY, build_test_config, grants_for_the_suite
+from tests.core.app_source import api_routes
+from tests.database import a_clean_database_sync
+from tests.documents import saison_document
+from tests.worker import worker_database
+
+from .conftest import config_for
+from .test_bewerbungen_read import bewerbung_document
+from .test_registrierung_read import registrierung_document
+
+pytestmark = pytest.mark.db
+
+DATABASE_NAME = worker_database("fl_withheld_actor_test")
+
+CONFIG = config_for(DATABASE_NAME)
+
+# Distinctive, so a hit anywhere in an answer could not be coincidence.
+BARRED = "zorbanax.verwalter@beispielschule.de"
+# The address the barred administrator banned while they held a grant.
+OTHER = "quillhilde@beispielschule.de"
+OWNER = grants_for_the_suite()[0]["adresse"]
+
+SAISON_ID = "2026"
+TEAM_OID = ObjectId("6890a1b2c3d4e5f607510001")
+AKTION_OID = ObjectId("6890a1b2c3d4e5f607510002")
+REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f607510003")
+BEWERBUNG_OID = ObjectId(bewerbung_document(1)["_id"])
+
+# The mounted spelling, convertors included, and never a list: a read added later is swept without an edit here.
+ADMIN_READS = sorted(
+    route.path
+    for route in api_routes(create_app(build_test_config()))
+    if isinstance(route, APIRoute)
+    and route.include_in_schema
+    and "GET" in (route.methods or ())
+    and verify_access_admin in {dependency.call for dependency in route.dependant.dependencies}
+)
+
+# Each read an administrator's address can reach, and the request showing it the barred one's rows.
+NAMES_AN_ADMINISTRATOR: dict[str, str] = {
+    "/api/v0/aktionen": "/api/v0/aktionen",
+    "/api/v0/aktionen/{aktion_id:objectid}": f"/api/v0/aktionen/{AKTION_OID}",
+    "/api/v0/berechtigungen": "/api/v0/berechtigungen",
+    "/api/v0/bewerbungen": "/api/v0/bewerbungen",
+    "/api/v0/bewerbungen/{bewerbung_id:objectid}": f"/api/v0/bewerbungen/{BEWERBUNG_OID}",
+    "/api/v0/registrierungen": "/api/v0/registrierungen",
+    "/api/v0/sperrliste": "/api/v0/sperrliste",
+    "/api/v0/teams/{team_id:objectid}/saisons/{saison_id}/einladung": f"/api/v0/teams/{TEAM_OID}/saisons/{SAISON_ID}/einladung",
+}
+
+_PERSON_RECORDS = "a person's own record, whose address a ban withholds nowhere: the administrator takes it away by hand"
+
+# Each read no answer of which names an administrator, and what it serves instead.
+NAMES_NO_ADMINISTRATOR: dict[str, str] = {
+    "/api/v0/saisons/list/admin": "seasons and their rules",
+    "/api/v0/saisons/{saison_id}/einladungen/versand/vorschau": f"the teams a mailing would reach, their seats being {_PERSON_RECORDS}",
+    "/api/v0/schiedsrichter": f"referees, {_PERSON_RECORDS}",
+    "/api/v0/schiedsrichter/{schiedsrichter_id:objectid}": f"one referee, {_PERSON_RECORDS}",
+    "/api/v0/spiele/action_required": "fixtures",
+    "/api/v0/spiele/list/admin": "fixtures",
+    "/api/v0/spiele/{spiel_id:objectid}/admin": "one fixture",
+    "/api/v0/spieler/memberships": f"players and their squad rows, {_PERSON_RECORDS}",
+    "/api/v0/spieler/nachnominierung/{saison_id}": "a season's late-entry window",
+    "/api/v0/spieltage/list/admin": "matchdays",
+    "/api/v0/spieltage/{spieltag_id:objectid}/admin": "one matchday",
+    "/api/v0/spielorte": "venues",
+    "/api/v0/spielorte/{spielort_id:objectid}": "one venue",
+    "/api/v0/teams/list/admin": f"clubs and their contact seats, {_PERSON_RECORDS}",
+    "/api/v0/teams/memberships": "clubs and their seasons",
+}
+
+
+def _ban(address: str, *, von: str) -> dict[str, Any]:
+    return {
+        "adresse_hash": adresse_hash(address, schluessel=CONFIG.sperrliste_schluessel),
+        "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
+        "grund": "Falsches Geburtsdatum bei der Anmeldung",
+        "erstellt_von": von,
+        "erstellt_am": "2026-04-01",
+        "gesperrt_bis_saison_id": "2031",
+    }
+
+
+def _seed(url: str, *, barred: bool) -> None:
+    """One row per read, each written by `BARRED` while they held a grant; `barred` revokes and bans them afterwards."""
+
+    client: MongoClient = MongoClient(url)
+    try:
+        database = a_clean_database_sync(client, url, DATABASE_NAME)
+        database[Collection.SAISONS].insert_one(saison_document(SAISON_ID, "active"))
+        database[Collection.BERECHTIGUNGEN].insert_many(
+            [
+                *grants_for_the_suite(),
+                {
+                    "adresse": "neu.verwalterin@beispielschule.de",
+                    "verwaltung": "administration",
+                    "erteilt_von": BARRED,
+                    "erteilt_am": datetime(2026, 4, 1, tzinfo=UTC),
+                },
+            ]
+        )
+        database[Collection.SPERRLISTE].insert_many([_ban(OTHER, von=BARRED), *([_ban(BARRED, von=OWNER)] if barred else [])])
+        database[Collection.EINLADUNGEN].insert_one(
+            compose_einladung(saison_id=SAISON_ID, team_id=TEAM_OID, token_hash="a" * 64, erstellt_von=BARRED, today="2026-04-01")
+        )
+        database[Collection.BEWERBUNGEN].insert_one(
+            {**bewerbung_document(1, status="abgelehnt"), "entscheidung": {"getroffen_am": "2026-04-02", "von": BARRED, "grund": "Kein Platz"}}
+        )
+        database[Collection.REGISTRIERUNGEN].insert_one(
+            {
+                **registrierung_document(REGISTRIERUNG_OID, vorname="Thessaly"),
+                "status": "abgelehnt",
+                "entscheidung": {"getroffen_am": "2026-04-03", "von": BARRED, "grund": None},
+            }
+        )
+        database[Collection.AKTIONEN].insert_one(
+            {
+                "_id": AKTION_OID,
+                "at": "2026-04-01T09:30:00+00:00",
+                "at_date": datetime(2026, 4, 1, 9, 30, tzinfo=UTC),
+                "actor": {"kind": "admin_session", "email": BARRED},
+                "trace_id": "0123456789abcdef",
+                "request": {"method": "POST", "path": "/api/v0/sperrliste"},
+                "collection": "sperrliste",
+                "operation": "insert",
+                "document_id": ObjectId(),
+                "db_filter": None,
+                "before": None,
+                "modified_count": None,
+                "redacted_at": None,
+            }
+        )
+    finally:
+        client.close()
+
+
+def _flags_set(value: Any) -> list[str]:
+    """Every `…gesperrt` key holding `true`, at any depth: a withheld address is flagged rather than dropped."""
+
+    if isinstance(value, list):
+        return [key for item in value for key in _flags_set(item)]
+    if not isinstance(value, dict):
+        return []
+
+    return [key for key, held in value.items() if key.endswith("gesperrt") and held is True] + [
+        key for held in value.values() for key in _flags_set(held)
+    ]
+
+
+def _answers(url: str) -> dict[str, tuple[int, str]]:
+    """Every read naming an administrator, asked by the owner through the mounted app."""
+
+    async def _asked() -> dict[str, tuple[int, str]]:
+        answered: dict[str, tuple[int, str]] = {}
+        async with app_client(url, config=CONFIG) as http:
+            for route, request in NAMES_AN_ADMINISTRATOR.items():
+                response = await http.get(request, headers=SignedActor(OWNER, ADMIN_KEY))
+                answered[route] = (response.status_code, response.text)
+
+        return answered
+
+    return asyncio.run(_asked())
+
+
+@pytest.fixture(scope="module")
+def unbarred(mongo_url: str) -> Iterator[dict[str, tuple[int, str]]]:
+    _seed(mongo_url, barred=False)
+
+    yield _answers(mongo_url)
+
+
+@pytest.fixture(scope="module")
+def barred(mongo_url: str, unbarred: dict[str, tuple[int, str]]) -> Iterator[dict[str, tuple[int, str]]]:
+    """Seeded after `unbarred` has read, since both write the one database."""
+
+    _seed(mongo_url, barred=True)
+
+    yield _answers(mongo_url)
+
+
+def test_every_admin_tier_read_is_named_once():
+    """Two listings reached by different routes, this module's and the mounted app's, required to agree."""
+
+    named = [*NAMES_AN_ADMINISTRATOR, *NAMES_NO_ADMINISTRATOR]
+
+    assert sorted(named) == ADMIN_READS, "an admin-tier read neither listing names, or a listing naming a read nothing mounts"
+    assert len(set(named)) == len(named), "a read named in both listings"
+
+
+@pytest.mark.parametrize("route", sorted(NAMES_AN_ADMINISTRATOR))
+def test_an_unbarred_administrator_is_served_by_address(unbarred: dict[str, tuple[int, str]], route: str):
+    """The control: a read the seed never reached would pass the case below having served nothing."""
+
+    status, text = unbarred[route]
+
+    assert status == 200, text
+    assert BARRED in text.lower()
+    assert _flags_set(json.loads(text)) == []
+
+
+@pytest.mark.parametrize("route", sorted(NAMES_AN_ADMINISTRATOR))
+def test_a_barred_administrator_is_withheld_beside_a_flag(barred: dict[str, tuple[int, str]], route: str):
+    status, text = barred[route]
+
+    assert status == 200, text
+    assert BARRED not in text.lower()
+    assert _flags_set(json.loads(text)) != [], "the address is gone and nothing says it was withheld"

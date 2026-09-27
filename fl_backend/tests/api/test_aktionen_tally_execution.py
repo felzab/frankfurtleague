@@ -8,6 +8,7 @@ from app.api.aktionen.schemas import FLAktionenFilterParams, FLAktionenListRespo
 from app.core.collections import Collection
 from app.core.recording import PUBLIC_ACTOR_EMAIL, SYSTEM_ACTOR_EMAIL
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -156,6 +157,9 @@ def answered(mongo_url: str, **filters: Any) -> FLAktionenListResponse:
 
             return await get_aktionen(
                 aktionen_collection=database[Collection.AKTIONEN],
+                sperrliste_collection=database[Collection.SPERRLISTE],
+                saisons_collection=database[Collection.SAISONS],
+                config=build_test_config(),
                 filters=FLAktionenFilterParams.model_validate(filters),
             )
 

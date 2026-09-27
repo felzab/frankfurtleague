@@ -16,6 +16,7 @@ from app.api.bewerbungen.schemas import FLBewerbungenFilterParams
 from app.api.bewerbungen.services import dubletten_schluessel_of
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
+from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS
 from tests.worker import worker_database
@@ -185,12 +186,31 @@ class _Cells:
         return self.cells if length is None else self.cells[:length]
 
 
+class _NothingStored:
+    """The ban list and the seasons, holding nothing: the archive's own double answers what these cases are about."""
+
+    def find(self, filter: Any, projection: Any = None, collation: Any = None, session: Any = None) -> _NothingStored:
+        return self
+
+    def limit(self, count: int) -> _NothingStored:
+        return self
+
+    async def to_list(self, length: int | None = None) -> list[dict[str, Any]]:
+        return []
+
+    async def find_one(self, filter: Any, projection: Any = None, session: Any = None) -> None:
+        return None
+
+
 def run_list(collection: _ArchiveCollection, **filters: Any) -> Any:
     """`asyncio.run`, as the rest of the suite drives an async function; no event-loop plugin is configured."""
 
     return asyncio.run(
         get_bewerbungen(
             bewerbungen_collection=cast(AsyncCollection, collection),
+            sperrliste_collection=cast(AsyncCollection, _NothingStored()),
+            saisons_collection=cast(AsyncCollection, _NothingStored()),
+            config=build_test_config(),
             filters=FLBewerbungenFilterParams.model_validate(filters),
         )
     )
@@ -551,6 +571,9 @@ class TestTheCollisionSurvivesTheReadsCap:
 
                 return await get_bewerbungen(
                     bewerbungen_collection=collection,
+                    sperrliste_collection=database[Collection.SPERRLISTE],
+                    saisons_collection=database[Collection.SAISONS],
+                    config=build_test_config(),
                     filters=FLBewerbungenFilterParams.model_validate({}),
                 )
 

@@ -640,8 +640,20 @@ class TestNoHashReachesAnAdminRead:
         reminded["bestaetigungen"]["trainer"] |= {"token_hash_zuvor": erinnert_hash, "erinnert_am": TODAY}
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
-            one = await get_bewerbung_by_id(bewerbung_id=BEWERBUNG_OID, bewerbungen_collection=database[Collection.BEWERBUNGEN])
-            many = await get_bewerbungen(bewerbungen_collection=database[Collection.BEWERBUNGEN], filters=FLBewerbungenFilterParams())
+            one = await get_bewerbung_by_id(
+                bewerbung_id=BEWERBUNG_OID,
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                sperrliste_collection=database[Collection.SPERRLISTE],
+                saisons_collection=database[Collection.SAISONS],
+                config=build_test_config(),
+            )
+            many = await get_bewerbungen(
+                bewerbungen_collection=database[Collection.BEWERBUNGEN],
+                sperrliste_collection=database[Collection.SPERRLISTE],
+                saisons_collection=database[Collection.SAISONS],
+                config=build_test_config(),
+                filters=FLBewerbungenFilterParams(),
+            )
 
             return one.model_dump_json(), many.model_dump_json(), await stored(database)
 
