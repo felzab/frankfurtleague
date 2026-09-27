@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { buildRefusal, UNKNOWN_REFUSAL, VERSUCHE_ES_ERNEUT } from "./refusal.ts";
+import { buildRefusal, UNHANDLED_FIELD_REFUSAL, UNKNOWN_REFUSAL, VERSUCHE_ES_NOCH_EINMAL, VERSUCHE_ES_NOCH_EINMAL_SATZ } from "./refusal.ts";
 
 describe("buildRefusal", () => {
   it("writes the reason first and the way out second, each its own sentence", () => {
@@ -59,8 +59,14 @@ describe("UNKNOWN_REFUSAL", () => {
 
 /* Spelled out once here; every reader's own case compares against the constant, so a reader that
    keeps a copy of its own fails there the day the two drift. */
-describe("VERSUCHE_ES_ERNEUT", () => {
-  it("is the approved retry sentence", () => {
-    assert.equal(VERSUCHE_ES_ERNEUT, "Versuche es noch einmal.");
+describe("VERSUCHE_ES_NOCH_EINMAL", () => {
+  it("is the approved retry, as a repair and as a sentence", () => {
+    assert.equal(VERSUCHE_ES_NOCH_EINMAL, "Versuche es noch einmal");
+    assert.equal(VERSUCHE_ES_NOCH_EINMAL_SATZ, "Versuche es noch einmal.");
+  });
+
+  // A repair re-typing the words instead drifts from the sentence the day either is reworded.
+  it("ends the refusal no input shows as the same words", () => {
+    assert.ok(UNHANDLED_FIELD_REFUSAL.endsWith(` ${VERSUCHE_ES_NOCH_EINMAL_SATZ}`));
   });
 });

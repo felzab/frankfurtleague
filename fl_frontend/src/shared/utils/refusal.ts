@@ -34,10 +34,16 @@ export function buildRefusal({ reason, repair, where }: RefusalParts): string {
 export const UNKNOWN_REFUSAL = "Lade die Seite neu und versuche es erneut.";
 
 /**
+ * The retry as a `repair`, where the same press may pass: period-free, since `buildRefusal` closes the
+ * sentence it ends.
+ */
+export const VERSUCHE_ES_NOCH_EINMAL = "Versuche es noch einmal";
+
+/**
  * The way out alone, under a title already saying which step did not happen, where the same press may
  * pass: every sign-in, passkey and account refusal with no sentence of its own says this.
  */
-export const VERSUCHE_ES_ERNEUT = "Versuche es noch einmal.";
+export const VERSUCHE_ES_NOCH_EINMAL_SATZ = `${VERSUCHE_ES_NOCH_EINMAL}.`;
 
 // Every form meeting a refusal no input shows, with no sentence of its own, says this. Here rather than in
 // the client hook raising it: a route handler receives a client module's exports as references, not strings.
@@ -50,4 +56,4 @@ export const UNSHOWN_COST =
   "Nichts wurde gespeichert, aber Deine Eingaben stehen unverändert im Formular";
 
 // Never a reload: it would discard the entries the reason has just promised are intact.
-export const UNHANDLED_FIELD_REFUSAL = buildRefusal({ reason: UNSHOWN_COST, repair: "Versuche es noch einmal" });
+export const UNHANDLED_FIELD_REFUSAL = buildRefusal({ reason: UNSHOWN_COST, repair: VERSUCHE_ES_NOCH_EINMAL });

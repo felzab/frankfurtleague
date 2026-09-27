@@ -25,7 +25,7 @@ import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { usePasskeyStepUp } from "@/shared/hooks/usePasskeyStepUp";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
-import { VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
+import { VERSUCHE_ES_NOCH_EINMAL_SATZ } from "@/shared/utils/refusal";
 
 import { endAndereAnmeldungenAction, endAnmeldungAction, pruefeInhaberAction } from "../../actions";
 import { AndereAbmelden } from "../ui/AndereAbmelden";
@@ -341,7 +341,7 @@ async function enrolmentHeld(): Promise<EnrolmentHeld | null> {
 
     // Read off the body rather than the type: a server's refusal arrives on the branch that declares
     // no `code`, and its body has one.
-    if (Reflect.get(error, "code") === ENROLMENT_CONFLICT) return { error: `${GLEICHZEITIG} ${VERSUCHE_ES_ERNEUT}` };
+    if (Reflect.get(error, "code") === ENROLMENT_CONFLICT) return { error: `${GLEICHZEITIG} ${VERSUCHE_ES_NOCH_EINMAL_SATZ}` };
 
     if (error.status === 404) return enrolmentRefused();
 
@@ -349,11 +349,11 @@ async function enrolmentHeld(): Promise<EnrolmentHeld | null> {
     // either may follow a stored passkey (`docs/frontend/spec.md :: I326`); the browser's refusals are 400s.
     if (error.status >= 500) return { error: unansweredAction().error, outcome: "unknown" };
 
-    return { error: VERSUCHE_ES_ERNEUT };
+    return { error: VERSUCHE_ES_NOCH_EINMAL_SATZ };
   } catch {
     // Thrown only by the options request, ahead of the ceremony: the plugin's client answers every
     // later failure on `error` (`@better-auth/passkey` 1.7.5, read 2026-09-24).
-    return { error: VERSUCHE_ES_ERNEUT };
+    return { error: VERSUCHE_ES_NOCH_EINMAL_SATZ };
   }
 }
 
@@ -366,5 +366,5 @@ async function enrolmentRefused(): Promise<EnrolmentHeld> {
 
   if (wantsStepUp(stand)) return { error: stand.error, stale: true };
   if (!stand.success) return { error: stand.error };
-  return { error: stand.kannHinzufuegen ? VERSUCHE_ES_ERNEUT : ZU_VIELE };
+  return { error: stand.kannHinzufuegen ? VERSUCHE_ES_NOCH_EINMAL_SATZ : ZU_VIELE };
 }

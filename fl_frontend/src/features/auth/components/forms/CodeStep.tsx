@@ -12,7 +12,7 @@ import { FIELD_ERROR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";
 import { appToast } from "@/shared/utils/appToast";
 import { postPublicForm } from "@/shared/utils/publicSubmit";
-import { VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
+import { VERSUCHE_ES_NOCH_EINMAL_SATZ } from "@/shared/utils/refusal";
 
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 
@@ -98,7 +98,7 @@ export function CodeStep({
     // Emptied, so the next six digits submit by themselves again rather than waiting on a press.
     setIsChecking(false);
     setCode("");
-    setRefusal(checked.body.error ?? VERSUCHE_ES_ERNEUT);
+    setRefusal(checked.body.error ?? VERSUCHE_ES_NOCH_EINMAL_SATZ);
   };
 
   return (

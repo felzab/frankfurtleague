@@ -11,7 +11,7 @@ import { trikotFarbeLabel } from "@/features/teams/constants";
 import { getTeamMemberships } from "@/features/teams/queries";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { formatSpielDatum } from "@/shared/utils/format";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, VERSUCHE_ES_NOCH_EINMAL } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
 
 import { bestaetigungsLink } from "./bestaetigungLink";
@@ -269,7 +269,7 @@ const KEIN_TEAM = buildRefusal({ reason: "Diese Bewerbung nennt kein Team", repa
 /** What the press cost where no message went out: the mint voided the seat's previous link on its way. */
 const KEIN_LINK_VERSCHICKT = buildRefusal({
   reason: "Der alte Link gilt nicht mehr, und die E-Mail mit dem neuen ging nicht raus",
-  repair: "Versuche es noch einmal",
+  repair: VERSUCHE_ES_NOCH_EINMAL,
 });
 
 /**
