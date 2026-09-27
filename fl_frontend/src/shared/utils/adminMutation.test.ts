@@ -53,6 +53,34 @@ describe("the session guard every admin write runs behind", () => {
     assert.deepEqual(answer, { success: false, error: "Dein Zugang zur Verwaltung besteht nicht mehr." });
   });
 
+  /* The backend did not answer the grant lookup: a sign-in would meet the same unread grant, and the
+     session holds whatever administration it held, so the remedy is the retry and never the sign-in. */
+  it("tells a caller whose grant the backend left unread to try again, rather than to sign in", async () => {
+    setSession(null);
+    setRefusal("unread");
+    let ran = 0;
+
+    const answer = await runAdminMutation("probeAction", () => {
+      ran += 1;
+      return Promise.resolve({ success: true });
+    });
+
+    assert.deepEqual(answer, { success: false, error: "Deine Berechtigung ließ sich gerade nicht prüfen. Versuche es erneut." });
+    assert.equal(ran, 0, "the body ran behind a grant nobody read");
+  });
+
+  /* A signed-in address holding no grant: no sign-in grants one, and the sentence is the one the proxy's
+     own turn-away would leave the caller with. */
+  it("tells a caller whose address holds no grant that the session carries no administration", async () => {
+    setSession(null);
+    setRefusal("noGrant");
+
+    assert.deepEqual(await runAdminMutation("probeAction", () => Promise.resolve({ success: true })), {
+      success: false,
+      error: ADMIN_FORBIDDEN,
+    });
+  });
+
   it("turns one away from a route handler's write too", async () => {
     setSession(null);
     let ran = 0;

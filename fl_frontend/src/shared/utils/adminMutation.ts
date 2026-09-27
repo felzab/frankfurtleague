@@ -23,6 +23,13 @@ import type { FieldErrors } from "./validation";
  */
 export const ADMIN_FORBIDDEN = "Deine Sitzung hat keine Administratorrechte. Melde Dich neu an.";
 
+/** A grant the backend did not answer: nothing ran, and a sign-in would meet the same unread grant. */
+export const BERECHTIGUNG_UNGELESEN = "Deine Berechtigung ließ sich gerade nicht prüfen.";
+
+/** What an admin write answers where the guard could not read the grant. */
+// GERMAN-PENDING: new German, not yet approved.
+const BERECHTIGUNG_UNGELESEN_ERNEUT = `${BERECHTIGUNG_UNGELESEN} Versuche es erneut.`;
+
 /** The administrator a guarded body runs for, as the guard resolved them. */
 export type AdminSession = NonNullable<Awaited<ReturnType<typeof getAdminSession>>>;
 
@@ -160,6 +167,14 @@ function judgingGuard(): { readonly guard: Guard<AdminSession>; readonly verdict
   return { guard: { lane: "Admin", resolve }, verdict };
 }
 
+/** Each reason the guard turns an admin write away for, in the words of its remedy; a record, so a reason added to the guard is worded here. */
+const FORBIDDEN_BY_REFUSAL: Readonly<Record<AdminRefusal, string>> = {
+  signIn: ADMIN_FORBIDDEN,
+  noGrant: ADMIN_FORBIDDEN,
+  grantGone: ZUGANG_WEG,
+  unread: BERECHTIGUNG_UNGELESEN_ERNEUT,
+};
+
 /** A guarded action's body, handed the administrator the guard resolved. */
 type AdminBody<T> = (session: AdminSession) => Promise<T>;
 
@@ -182,8 +197,9 @@ export async function runAdminMutation<T extends { success: boolean }>(
 ): Promise<T | ActionFailure> {
   const [{ stepUp }, fn] = rest.length === 1 ? [{ stepUp: false }, rest[0]] : rest;
   const { guard, verdict } = judgingGuard();
-  // The refusal in the words naming its remedy: a grant that is gone is not repaired by a sign-in.
-  const forbidden = () => Promise.resolve(verdict.refused === "grantGone" ? ZUGANG_WEG : ADMIN_FORBIDDEN);
+  // The refusal in the words naming its remedy: neither a grant that is gone nor one the backend left
+  // unread is repaired by a sign-in.
+  const forbidden = () => Promise.resolve(FORBIDDEN_BY_REFUSAL[verdict.refused]);
 
   return runGuardedMutation(
     mutationName,

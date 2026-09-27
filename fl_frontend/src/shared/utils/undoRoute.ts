@@ -4,7 +4,7 @@ import { isFreshlySignedIn } from "@/core/auth";
 import { logger } from "@/core/logging";
 
 import { AENDERUNG_STEHT_WEITERHIN, isRefusal, RUECKNAHME_UNKLAR } from "./actionError";
-import { ADMIN_FORBIDDEN, runAdminRouteWrite, stepUpRequired } from "./adminMutation";
+import { ADMIN_FORBIDDEN, BERECHTIGUNG_UNGELESEN, runAdminRouteWrite, stepUpRequired } from "./adminMutation";
 import { buildRefusal } from "./refusal";
 
 import type { NextRequest } from "next/server";
@@ -19,8 +19,7 @@ const FREMDE_HERKUNFT = `Diese Anfrage kam nicht von dieser Seite. Lade die Seit
 
 const UNDO_RESTORED = "Die Änderung wurde zurückgenommen.";
 
-/** A grant the backend did not answer: nothing ran, and signing in again reads the same grant. */
-const BERECHTIGUNG_UNGELESEN = `Deine Berechtigung ließ sich gerade nicht prüfen. ${AENDERUNG_STEHT_WEITERHIN}`;
+const UNDO_BERECHTIGUNG_UNGELESEN = `${BERECHTIGUNG_UNGELESEN} ${AENDERUNG_STEHT_WEITERHIN}`;
 const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausgeführt", repair: "Lade die Seite neu" });
 
 /**
@@ -125,7 +124,7 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
   if (guarded.forbidden) {
     // Answered as a refusal rather than turned away: sent to sign in, an administrator would sign in
     // again into the same unread grant.
-    if (guarded.refused === "unread") return NextResponse.json({ success: false, error: BERECHTIGUNG_UNGELESEN });
+    if (guarded.refused === "unread") return NextResponse.json({ success: false, error: UNDO_BERECHTIGUNG_UNGELESEN });
 
     // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: a session a
     // sign-in repairs is 401, and one whose address holds no grant 403, since no sign-in grants one.
