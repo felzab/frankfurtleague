@@ -29,7 +29,7 @@ const ABSATZ_CLASSES = "fluid-sm leading-relaxed font-medium text-pretty text-fo
  * Hand-set, the way `fl_frontend/src/app/sitemap.ts :: CONTENT_LAST_MODIFIED` is: a live `new Date()`
  * is a dynamic read, which would take this page off the static shell.
  */
-const STAND = "26. September 2026";
+const STAND = "27. September 2026";
 
 /**
  * German writes a count from one to twelve in words, and a fortnight as „vierzehn Tage“; a larger count
@@ -686,7 +686,9 @@ export function DatenschutzView() {
             Änderungsprotokolls stehen, die ihre eigenen Änderungen festhalten, auch nach einer Löschung. Das Protokoll hat nur dann einen Sinn,
             wenn nachvollziehbar bleibt, wer eine Änderung vorgenommen hat. Diese Zeilen werden wie alle anderen gelöscht. Außerdem bleibt ihre
             E-Mail-Adresse bei jedem Registrierungslink eines Teams stehen, den sie angelegt haben; dieser Eintrag wird nicht gelöscht
-            (Abschnitt 13).
+            (Abschnitt 13). Wer einer Person Zugang zur Verwaltung erteilt hat, bleibt mit seiner E-Mail-Adresse an diesem Zugang vermerkt, auch
+            nachdem der eigene Zugang entzogen oder die eigenen Daten gelöscht wurden; alle Personen mit Zugang zur Verwaltung sehen diesen
+            Vermerk, solange der erteilte Zugang besteht.
           </p>
           <p className={ABSATZ_CLASSES}>
             {/* GERMAN-PENDING: new German, not yet approved. */}

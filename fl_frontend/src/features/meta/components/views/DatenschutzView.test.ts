@@ -72,7 +72,7 @@ describe("the privacy notice's account of the association", () => {
   /* The „Stand“ is what a reader compares against the version they last read, so it moves with any
      change to this page and a stale one tells them there was none. */
   it("dates the notice to the day this wording landed", () => {
-    rendert("Stand: 26. September 2026");
+    rendert("Stand: 27. September 2026");
   });
 });
 
@@ -483,6 +483,20 @@ describe("the privacy notice's publication and retention rows keep their ruled b
         "nach der Prüfung bei der Zurückweisung, weil die Liga jede Rolle erst ab ihrem Mindestalter vergibt. Eine Sperre kann die " +
         "Verwaltung nach der Prüfung aufheben. Ist der Kader eines Teams voll, nimmt er keine weitere Registrierung an; das ist " +
         "eine Grenze des Kaders und keine Entscheidung über Dich. Profiling findet nicht statt.",
+    );
+  });
+
+  /* The granter's address on each grant outlives their own revoke and erasure (docs/datenschutz.md,
+     section 5), so the notice names it where it names what else an administrator's erasure leaves. */
+  it("keeps the granter's address on a grant past their own revoke and erasure, among the administrators' limits", () => {
+    rendert(
+      "Eine Einschränkung gilt für Administratorinnen und Administratoren der Liga: Ihre E-Mail-Adresse bleibt in den Zeilen des " +
+        "Änderungsprotokolls stehen, die ihre eigenen Änderungen festhalten, auch nach einer Löschung. Das Protokoll hat nur dann " +
+        "einen Sinn, wenn nachvollziehbar bleibt, wer eine Änderung vorgenommen hat. Diese Zeilen werden wie alle anderen gelöscht. " +
+        "Außerdem bleibt ihre E-Mail-Adresse bei jedem Registrierungslink eines Teams stehen, den sie angelegt haben; dieser Eintrag " +
+        "wird nicht gelöscht (Abschnitt 13). Wer einer Person Zugang zur Verwaltung erteilt hat, bleibt mit seiner E-Mail-Adresse an " +
+        "diesem Zugang vermerkt, auch nachdem der eigene Zugang entzogen oder die eigenen Daten gelöscht wurden; alle Personen mit " +
+        "Zugang zur Verwaltung sehen diesen Vermerk, solange der erteilte Zugang besteht.",
     );
   });
 
