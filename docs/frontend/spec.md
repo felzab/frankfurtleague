@@ -537,19 +537,24 @@ the other refuses.
 | `deleteBerechtigungAction`        | berechtigungen | **nothing** — no cached read holds a grant                                                     |
 | `renamePasskeyAction`             | passkeys       | **nothing** — no cached read holds a passkey                                                   |
 | `removePasskeyAction`             | passkeys       | **nothing** — no cached read holds a passkey                                                   |
+| `readPasskeyStandAction`          | passkeys       | **nothing** — it writes nothing                                                                |
 | `endAnmeldungAction`              | konto          | **nothing** — no cached read holds a session                                                   |
 | `endAndereAnmeldungenAction`      | konto          | **nothing** — no cached read holds a session                                                   |
+| `pruefeInhaberAction`             | konto          | **nothing** — it writes nothing                                                                |
+| `pruefeAdministratorAction`       | admin          | **nothing** — it writes nothing                                                                |
 | `handleSignIn`                    | auth           | —                                                                                              |
 | `signOutAction`                   | auth           | —                                                                                              |
 
 What the table cannot carry:
 
 - **The public application form's create is absent by rule**: every row but the `auth` pair and the
-  account page's four is an admin mutation, which a write that authorizes nobody can never be, and it
+  account page's six is an admin mutation, which a write that authorizes nobody can never be, and it
   invalidates nothing — no cached read holds an application (§1.2).
-- **The account page's four run under `fl_frontend/src/shared/utils/kontoMutation.ts ::
-runKontoMutation`**, the admin spine over a guard admitting either lane (I422): an administrator's
-  session by the administrator's own verdict, a person's by the person lifetime.
+- **The account page's six run under `fl_frontend/src/shared/utils/kontoMutation.ts ::
+runKontoMutation`** — `renamePasskeyAction`, `removePasskeyAction`, `readPasskeyStandAction`,
+  `endAnmeldungAction`, `endAndereAnmeldungenAction` and `pruefeInhaberAction` — the admin spine
+  over a guard admitting either lane (I422): an administrator's session by the administrator's own
+  verdict, a person's by the person lifetime.
 - **The venue, referee and team patch actions invalidate `spiele` because the backend fans a rename
   out into the match documents embedding it.** The team patch stays on base tags alone: a rename
   reaches every season that is not `past` ([`docs/backend/spec.md`](../backend/spec.md) I13), and
