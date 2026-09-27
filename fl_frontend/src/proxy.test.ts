@@ -13,12 +13,14 @@ import {
   seatEveryAddress,
   signInByCode,
 } from "./core/authDoubles.ts";
+import { exportingModule } from "./core/exportingModule.ts";
 
 const STORE = "__flProxyStore";
-const REQUEST_HEADERS = "__flProxyRequestHeaders";
+/** What the request a case arrives as carries, which `arriveAs` sets. */
+let requestHeaders: Headers | undefined;
 
 /** The landing reads the request off this, where the proxy is handed its own `NextRequest`. */
-const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};`;
+const HEADERS_DOUBLE = exportingModule({ headers: () => Promise.resolve(requestHeaders) });
 
 /** An address the config double's allowlist does not carry, whose session the verdict is what refuses. */
 const REMOVED_EMAIL = "ehemalig@example.org";
@@ -58,7 +60,7 @@ const { config, proxy } = await import("./proxy.ts");
 
 /** What the landing reads, for the cases that put its answer and this proxy's side by side. */
 function arriveAs(cookie: string | null): void {
-  (globalThis as unknown as Record<string, unknown>)[REQUEST_HEADERS] = new Headers(cookie === null ? ORIGIN : { ...ORIGIN, cookie });
+  requestHeaders = new Headers(cookie === null ? ORIGIN : { ...ORIGIN, cookie });
 }
 
 arriveAs(null);

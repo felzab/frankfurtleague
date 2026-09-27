@@ -7,16 +7,19 @@ import {
   configDouble,
   cookieHeader,
   GATE_BACKEND_CONFIG,
-  MEMORY_ADAPTER_URL,
+  memoryAdapterDouble,
   ORIGIN,
   registerAuthDoubles,
   seatEveryAddress,
   signInByCode,
 } from "@/core/authDoubles.ts";
+import { exportingModule } from "@/core/exportingModule.ts";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 const STORE = "__flKontoStore";
-const REQUEST_HEADERS = "__flKontoRequestHeaders";
+
+/** What the request a case arrives as carries. */
+let requestHeaders: Headers | undefined;
 
 /** Allowlisted by nothing: the person lane. */
 const PERSON_EMAIL = "spielerin@example.org";
@@ -24,12 +27,9 @@ const PERSON_EMAIL = "spielerin@example.org";
 /** A second person, whose sign-ins no call made with the first one's session may reach. */
 const OTHER_EMAIL = "schiedsrichter@example.org";
 
-const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};`;
+const HEADERS_DOUBLE = exportingModule({ headers: () => Promise.resolve(requestHeaders) });
 
 const LOGGING_DOUBLE = `export const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };`;
-
-const ADAPTER_DOUBLE = `import { memoryAdapter } from ${JSON.stringify(MEMORY_ADAPTER_URL)};
-export const mongodbAdapter = () => memoryAdapter(globalThis.${STORE});`;
 
 // Every address this file signs in is seated: the gate at session creation is not its subject.
 seatEveryAddress();
@@ -39,7 +39,7 @@ registerAuthDoubles({
   specifiers: {
     "next/headers": asDataUrl(HEADERS_DOUBLE),
     "next/cache": asDataUrl(NEXT_CACHE_DOUBLE),
-    "@better-auth/mongo-adapter": asDataUrl(ADAPTER_DOUBLE),
+    "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),
   },
 });
 
@@ -93,7 +93,7 @@ async function signIn(email: string): Promise<{ cookie: string; row: SessionRow 
 }
 
 function arriveAs(cookie: string): void {
-  globals[REQUEST_HEADERS] = new Headers({ ...ORIGIN, cookie });
+  requestHeaders = new Headers({ ...ORIGIN, cookie });
 }
 
 /** The section's read as the page makes it, for the session the request carries. */

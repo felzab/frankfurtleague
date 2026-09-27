@@ -10,6 +10,7 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pageBody } from "@/shared/testing/pageHarness.ts";
@@ -55,24 +56,24 @@ const { AdminSpielerTable } = await import("./components/collections/AdminSpiele
 const { TeamSelect } = await import("./components/forms/TeamSelect.tsx");
 
 /** What the editor page's doubled reads answer, set by the case that renders it. */
-const PAGE_READS = "__flSpielerEditorLesungen";
+let pageAnswers: { memberships?: unknown; saisons?: unknown; teams?: unknown; asked?: string[]; nachnominierung?: boolean } = {};
+
+const getSaisons = () => Promise.resolve(pageAnswers.saisons);
 
 /* The page's own reads, each double answering only the fields the page reads. */
 const PAGE_DOUBLES: [string, string][] = [
   [
     "/src/features/spieler/queries.ts",
-    `export const getSpielerMemberships = async () => globalThis.${PAGE_READS}.memberships;
-export const getSpielerNachnominierung = async (saison_id) => {
-  globalThis.${PAGE_READS}.asked?.push(saison_id);
-  return { saison_id, nachnominierung: globalThis.${PAGE_READS}.nachnominierung ?? false };
-};`,
+    exportingModule({
+      getSpielerMemberships: () => Promise.resolve(pageAnswers.memberships),
+      getSpielerNachnominierung: (saison_id: string) => {
+        pageAnswers.asked?.push(saison_id);
+        return Promise.resolve({ saison_id, nachnominierung: pageAnswers.nachnominierung ?? false });
+      },
+    }),
   ],
-  [
-    "/src/features/saisons/queries.ts",
-    `export const getAdminSaisons = async () => globalThis.${PAGE_READS}.saisons;
-export const getSaisons = async () => globalThis.${PAGE_READS}.saisons;`,
-  ],
-  ["/src/features/teams/queries.ts", `export const getTeamMemberships = async () => globalThis.${PAGE_READS}.teams;`],
+  ["/src/features/saisons/queries.ts", exportingModule({ getAdminSaisons: getSaisons, getSaisons })],
+  ["/src/features/teams/queries.ts", exportingModule({ getTeamMemberships: () => Promise.resolve(pageAnswers.teams) })],
 ];
 
 registerHooks({
@@ -313,7 +314,7 @@ describe("the erasure's gate and its exit", () => {
     });
     const saison = (id: string, status: string) => ({ id, status, rules: { erlaubte_stufen: ["Q1"], max_kadergroesse: 20 } });
 
-    (globalThis as unknown as Record<string, unknown>)[PAGE_READS] = {
+    pageAnswers = {
       memberships: {
         spieler: [
           {
@@ -353,7 +354,7 @@ const THIRD_ID = "68c1f0a2b3c4d5e6f7a8b9d1";
 const EARLIER = "2025";
 
 type PageReads = { asked: string[]; nachnominierung: boolean };
-const pageReads = (): PageReads => (globalThis as unknown as Record<string, PageReads>)[PAGE_READS]!;
+const pageReads = (): PageReads => pageAnswers as PageReads;
 
 /** A player holding one live squad row per entry. */
 function person(id: string, vorname: string, rows: { saison_id: string; team_id: string; rolle?: FLSpielerRolle }[]) {
@@ -388,7 +389,7 @@ function answerPages(spieler: ReturnType<typeof person>[]): void {
     memberships: [{ saison_id: EARLIER }, { saison_id: SAISON_ID }],
   });
 
-  (globalThis as unknown as Record<string, unknown>)[PAGE_READS] = {
+  pageAnswers = {
     memberships: { spieler },
     saisons: {
       saisons: [

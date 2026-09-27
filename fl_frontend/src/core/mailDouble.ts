@@ -1,6 +1,10 @@
 import { registerHooks } from "node:module";
 import { beforeEach } from "node:test";
 
+import { APINetworkError, MailSendError } from "./errors.ts";
+import { exportingModule } from "./exportingModule.ts";
+import { recordWriteSent } from "./requestScope.ts";
+
 /** One message handed to the mailer, as `fl_frontend/src/core/mail.ts :: OutboundMail` carries it. */
 export type SentMail = { to: string; subject: string; html: string; text: string; tags?: Record<string, string>; idempotencyKey?: string };
 
@@ -23,7 +27,30 @@ export type MailOutcome =
 
 type MailAnswer = (mail: SentMail) => MailOutcome | Promise<MailOutcome>;
 
-let registered = 0;
+const PROVIDER = "https://provider.invalid/emails";
+
+// The three classes the real module declares, with its names and sentences; the two the double
+// throws from `errors.ts` are the real ones, which the fan-outs sort a failure by.
+class MailWithheldError extends Error {
+  constructor() {
+    super("This deployment does not send mail.");
+    this.name = "MailWithheldError";
+  }
+}
+
+class MailRecipientError extends Error {
+  constructor() {
+    super("The recipient's domain cannot be written in ASCII.");
+    this.name = "MailRecipientError";
+  }
+}
+
+class MailUnsentError extends Error {
+  constructor() {
+    super("The request's deadline had passed before the message was sent.");
+    this.name = "MailUnsentError";
+  }
+}
 
 /**
  * Stands in for `fl_frontend/src/core/mail.ts` alone: the real fan-outs send through it, so the write
@@ -33,39 +60,37 @@ export function doubleSendMail(): { sent: SentMail[]; answerWith: (next: MailAns
   const sent: SentMail[] = [];
   const accepted: MailAnswer = () => "accepted";
   let answering = accepted;
-  // Through a global: the replaced module is compiled from source and shares nothing with this scope.
-  const bus = `__flMailDouble${String((registered += 1))}`;
-  Reflect.set(globalThis, bus, { sent, answer: (mail: SentMail) => answering(mail) });
 
-  // The three classes the real module declares, with its names and sentences; the two it imports
-  // from `errors.ts` are the real ones, which the fan-outs sort a failure by.
-  const source = `import { APINetworkError, MailSendError } from "@/core/errors";
-import { recordWriteSent } from "@/core/requestScope";
-const PROVIDER = "https://provider.invalid/emails";
-export class MailWithheldError extends Error {
-  constructor() { super("This deployment does not send mail."); this.name = "MailWithheldError"; }
-}
-export class MailRecipientError extends Error {
-  constructor() { super("The recipient's domain cannot be written in ASCII."); this.name = "MailRecipientError"; }
-}
-export class MailUnsentError extends Error {
-  constructor() { super("The request's deadline had passed before the message was sent."); this.name = "MailUnsentError"; }
-}
-export const sendMail = async (mail) => {
-  const bus = globalThis.${bus};
-  bus.sent.push(mail);
-  const outcome = await bus.answer(mail);
-  if (outcome === "withheld") throw new MailWithheldError();
-  if (outcome === "recipient") throw new MailRecipientError();
-  if (outcome === "unsent") throw new MailUnsentError();
-  recordWriteSent();
-  const refusal = outcome === "refused" ? { refused: 422 } : outcome;
-  if (typeof refusal === "object" && "refused" in refusal) {
-    throw new MailSendError({ message: "The mail provider refused the message.", url: PROVIDER, statusCode: refusal.refused, providerErrorName: refusal.providerErrorName, traceId: "0" });
-  }
-  if (outcome === "lost") throw new APINetworkError({ message: "Mail request failed.", url: PROVIDER, method: "POST", readOnly: false, traceId: "0", isTimeout: false });
-  return { id: typeof outcome === "object" ? outcome.accepted : "msg-" + String(bus.sent.length) };
-};`;
+  const sendMail = async (mail: SentMail): Promise<{ id: string | null }> => {
+    sent.push(mail);
+    const outcome = await answering(mail);
+    if (outcome === "withheld") throw new MailWithheldError();
+    if (outcome === "recipient") throw new MailRecipientError();
+    if (outcome === "unsent") throw new MailUnsentError();
+    recordWriteSent();
+    const refusal = outcome === "refused" ? { refused: 422 } : outcome;
+    if (typeof refusal === "object" && "refused" in refusal) {
+      throw new MailSendError({
+        message: "The mail provider refused the message.",
+        url: PROVIDER,
+        statusCode: refusal.refused,
+        providerErrorName: "providerErrorName" in refusal ? refusal.providerErrorName : undefined,
+        traceId: "0",
+      });
+    }
+    if (outcome === "lost") {
+      throw new APINetworkError({
+        message: "Mail request failed.",
+        url: PROVIDER,
+        method: "POST",
+        readOnly: false,
+        traceId: "0",
+        isTimeout: false,
+      });
+    }
+    return { id: typeof outcome === "object" && "accepted" in outcome ? outcome.accepted : `msg-${String(sent.length)}` };
+  };
+  const source = exportingModule({ MailWithheldError, MailRecipientError, MailUnsentError, sendMail });
 
   registerHooks({
     load(url, context, nextLoad) {

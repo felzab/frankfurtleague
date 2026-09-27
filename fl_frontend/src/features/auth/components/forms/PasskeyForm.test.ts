@@ -11,21 +11,22 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
+import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 
-const BUS = "__flPasskeyCeremonies";
-
 /* The browser's own credential calls, replaced at the module boundary: this runner has no
    `navigator.credentials`, and a test-only prop would be a seam in production code. */
-const CLIENT_DOUBLE = `export const authClient = {
-  passkey: { addPasskey: (options) => globalThis.${BUS}.run("addPasskey", options) },
-  signIn: { passkey: () => globalThis.${BUS}.run("signInPasskey") },
-};`;
+const CLIENT_DOUBLE = exportingModule({
+  authClient: {
+    passkey: { addPasskey: (options: unknown) => run("addPasskey", options) },
+    signIn: { passkey: () => run("signInPasskey") },
+  },
+});
 
 /* A full document navigation, which jsdom does not implement and whose `location` no test can
    replace: recorded at the same module boundary the credential calls are. */
-const NAVIGATION_DOUBLE = `export function leaveDocumentFor(path) { globalThis.${BUS}.left.push(path); }`;
+const NAVIGATION_DOUBLE = exportingModule({ leaveDocumentFor: (path: string) => void left.push(path) });
 
 registerHooks({
   load(url, context, nextLoad) {
@@ -38,7 +39,7 @@ registerHooks({
 
 const { raised } = doubleToasts();
 
-/** Which ceremony the card reached for, in order; the double reads this through the global. */
+/** Which ceremony the card reached for, in order. */
 const reached: string[] = [];
 
 /** What each enrolment asked the library for. */
@@ -50,14 +51,11 @@ let answer: () => Promise<unknown> = () => Promise.resolve({ data: {}, error: nu
 /** Every path the card left the document for. */
 const left: string[] = [];
 
-Reflect.set(globalThis, BUS, {
-  left: left,
-  run: (name: string, options?: unknown) => {
-    reached.push(name);
-    if (name === "addPasskey") asked.push(options);
-    return answer();
-  },
-});
+function run(name: string, options?: unknown): Promise<unknown> {
+  reached.push(name);
+  if (name === "addPasskey") asked.push(options);
+  return answer();
+}
 
 const { PasskeyForm } = await import("./PasskeyForm.tsx");
 

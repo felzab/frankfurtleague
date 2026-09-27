@@ -40,8 +40,6 @@ export function configDouble(overrides: Readonly<Record<string, unknown>> = {}):
    rather than fail at once. */
 const DB_DOUBLE = `export const client = { db: () => ({}) };`;
 
-export const MEMORY_ADAPTER_URL = import.meta.resolve("better-auth/adapters/memory");
-
 /**
  * The Mongo adapter reaches a real server through aggregation pipelines, so the store under the real
  * `auth.ts` is the library's own in-memory one, over the object held at `globalThis[store]`.

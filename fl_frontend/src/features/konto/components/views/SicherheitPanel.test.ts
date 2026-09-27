@@ -10,6 +10,7 @@ import { createElement as h } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
@@ -19,14 +20,11 @@ import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import type { Navigations } from "@/shared/testing/nextContexts.ts";
 import type { Sicherheit } from "../../types.ts";
 
-const BUS = "__flSicherheitCeremonies";
-
 /* The browser's own credential calls, replaced at the module boundary: this runner has no
    `navigator.credentials`, and a test-only prop would be a seam in production code. */
-const CLIENT_DOUBLE = `export const authClient = {
-  passkey: { addPasskey: () => globalThis.${BUS}.run("addPasskey") },
-  signIn: { passkey: () => globalThis.${BUS}.run("signInPasskey") },
-};`;
+const CLIENT_DOUBLE = exportingModule({
+  authClient: { passkey: { addPasskey: () => run("addPasskey") }, signIn: { passkey: () => run("signInPasskey") } },
+});
 
 registerHooks({
   load(url, context, nextLoad) {
@@ -44,12 +42,10 @@ const ceremony: Record<string, () => Promise<unknown>> = {};
 
 const SUCCEEDED = () => Promise.resolve({ data: {}, error: null });
 
-Reflect.set(globalThis, BUS, {
-  run: (name: string) => {
-    reached.push(name);
-    return (ceremony[name] ?? SUCCEEDED)();
-  },
-});
+function run(name: string): Promise<unknown> {
+  reached.push(name);
+  return (ceremony[name] ?? SUCCEEDED)();
+}
 
 /** Each action's answer, by name; one not named answers a plain success. */
 const answers: Record<string, unknown> = {};

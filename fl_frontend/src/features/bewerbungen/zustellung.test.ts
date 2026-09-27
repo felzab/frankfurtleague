@@ -4,43 +4,55 @@ import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 import { inspect } from "node:util";
 
+import { exportingModule } from "@/core/exportingModule.ts";
+
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
-
-const recorders = globalThis as unknown as Record<string, unknown>;
 
 /**
  * Its own throwaway, minted per run and never a real one: this file signs the fixtures it verifies,
  * so nothing outside the process has to agree with it.
  */
-recorders.__flWebhookSecret = `whsec_${randomBytes(24).toString("base64")}`;
+const webhookSecret = `whsec_${randomBytes(24).toString("base64")}`;
 
-// A getter, so the double reads the value above rather than a copy taken at module evaluation.
-const CONFIG_DOUBLE = `export const frontend_config = {
-  get RESEND_WEBHOOK_SECRET() { return globalThis.__flWebhookSecret; },
-};`;
+const CONFIG_DOUBLE = exportingModule({ frontend_config: { RESEND_WEBHOOK_SECRET: webhookSecret } });
 
-const LOG_RECORDER = "__flZustellungLogs";
+type LoggedLine = { level: string; message: string; error?: unknown; meta?: Record<string, unknown> };
 
-const LOGGER_DOUBLE = `export const logger = {
-  info: (message, meta) => globalThis.${LOG_RECORDER}.push({ level: "info", message, meta }),
-  warn: (message, meta) => globalThis.${LOG_RECORDER}.push({ level: "warn", message, meta }),
-  error: (message, error, meta) => globalThis.${LOG_RECORDER}.push({ level: "error", message, error, meta }),
-};`;
+const logs: LoggedLine[] = [];
 
-// Replaced at the module boundary rather than the route being reshaped to admit a seam: the real
-// client reaches a backend no test process runs.
-const MUTATIONS_DOUBLE = `export const meldeZustellEreignis = async (payload) => {
-  globalThis.__flZustellungCalls.push(payload);
-  return globalThis.__flZustellungAnswer(payload);
-};`;
+const LOGGER_DOUBLE = exportingModule({
+  logger: {
+    info: (message: string, meta?: Record<string, unknown>) => void logs.push({ level: "info", message, meta }),
+    warn: (message: string, meta?: Record<string, unknown>) => void logs.push({ level: "warn", message, meta }),
+    error: (message: string, error: unknown, meta?: Record<string, unknown>) => void logs.push({ level: "error", message, error, meta }),
+  },
+});
+
+/** What the backend answers a reported event, or throws for it; a case names another for itself. */
+type Answer = (payload: Record<string, unknown>) => unknown;
+
+const calls: Record<string, unknown>[] = [];
+let zustellungAnswer: Answer = () => ({ acknowledged: 1, angewendet: ["ansprechperson"] });
 
 // Its own recorder rather than the one above: a shared array would let a case asserting the
 // application was reached pass on a call the route made to the other endpoint.
-const ZIEL_MUTATIONS_DOUBLE = `export const meldeZielZustellEreignis = async (payload) => {
-  globalThis.__flZielZustellungCalls.push(payload);
-  return globalThis.__flZielZustellungAnswer(payload);
-};`;
+const zielCalls: Record<string, unknown>[] = [];
+let zielZustellungAnswer: Answer = () => ({ acknowledged: 1, angewendet: true });
+
+/** A write the doubled client makes: recorded, then answered as the case names, a throw included. */
+const reporting =
+  (recorded: Record<string, unknown>[], answer: () => Answer) =>
+  async (payload: Record<string, unknown>): Promise<unknown> => {
+    recorded.push(payload);
+    return answer()(payload);
+  };
+
+// Replaced at the module boundary rather than the route being reshaped to admit a seam: the real
+// client reaches a backend no test process runs.
+const MUTATIONS_DOUBLE = exportingModule({ meldeZustellEreignis: reporting(calls, () => zustellungAnswer) });
+
+const ZIEL_MUTATIONS_DOUBLE = exportingModule({ meldeZielZustellEreignis: reporting(zielCalls, () => zielZustellungAnswer) });
 
 // `next/headers` is request-only and throws outside one, so the real scope cannot run here.
 const TRACE_DOUBLE = `export const runWithIncomingTrace = async (fn) => fn();`;
@@ -60,19 +72,6 @@ registerHooks({
     return nextLoad(url, context);
   },
 });
-
-type LoggedLine = { level: string; message: string; error?: unknown; meta?: Record<string, unknown> };
-
-const logs: LoggedLine[] = [];
-recorders[LOG_RECORDER] = logs;
-
-const calls: Record<string, unknown>[] = [];
-recorders.__flZustellungCalls = calls;
-recorders.__flZustellungAnswer = () => ({ acknowledged: 1, angewendet: ["ansprechperson"] });
-
-const zielCalls: Record<string, unknown>[] = [];
-recorders.__flZielZustellungCalls = zielCalls;
-recorders.__flZielZustellungAnswer = () => ({ acknowledged: 1, angewendet: true });
 
 const {
   hatUnerreichbarenSitz,
@@ -129,7 +128,7 @@ function eventFor(type: string, data: Record<string, unknown> = {}): Record<stri
 function signed(payload: string, { alter = 0, headers = {} }: { alter?: number; headers?: Record<string, string> } = {}) {
   const stamp = new Date(Date.now() - alter);
   const id = "msg_2xyzABC";
-  const signature = new Webhook(String(recorders.__flWebhookSecret)).sign(id, stamp, payload);
+  const signature = new Webhook(webhookSecret).sign(id, stamp, payload);
 
   return new NextRequest("http://localhost/api/mail/zustellung", {
     method: "POST",
@@ -154,8 +153,8 @@ beforeEach(() => {
   logs.length = 0;
   calls.length = 0;
   zielCalls.length = 0;
-  recorders.__flZustellungAnswer = () => ({ acknowledged: 1, angewendet: ["ansprechperson"] });
-  recorders.__flZielZustellungAnswer = () => ({ acknowledged: 1, angewendet: true });
+  zustellungAnswer = () => ({ acknowledged: 1, angewendet: ["ansprechperson"] });
+  zielZustellungAnswer = () => ({ acknowledged: 1, angewendet: true });
 });
 
 describe("what one delivery event says about a seat", () => {
@@ -520,7 +519,7 @@ describe("POST /api/mail/zustellung", () => {
   });
 
   it("answers 200 where the backend applied the tagged event to no record", async () => {
-    recorders.__flZielZustellungAnswer = () => ({ acknowledged: 1, angewendet: false });
+    zielZustellungAnswer = () => ({ acknowledged: 1, angewendet: false });
 
     const tagged = eventFor("email.delivered", { tags: { ziel: "schiedsrichter", ziel_id: ZIEL_ID, anlass: "eingang" } });
 
@@ -601,7 +600,7 @@ describe("POST /api/mail/zustellung", () => {
   });
 
   it("answers 200 where the backend applied the event to no seat", async () => {
-    recorders.__flZustellungAnswer = () => ({ acknowledged: 1, angewendet: [] });
+    zustellungAnswer = () => ({ acknowledged: 1, angewendet: [] });
 
     const { status, body } = await answerTo(signed(JSON.stringify(eventFor("email.delivered"))));
 
@@ -612,7 +611,7 @@ describe("POST /api/mail/zustellung", () => {
   /* The retention sweep erases an application while its last message's events are still in flight.
      Retrying those spends the endpoint's standing with the provider on a record that is gone. */
   it("answers 200 where the application no longer exists", async () => {
-    recorders.__flZustellungAnswer = () => {
+    zustellungAnswer = () => {
       throw new APIBadStatusError({
         message: "API returned a bad status.",
         url: "http://backend:8000",
@@ -634,7 +633,7 @@ describe("POST /api/mail/zustellung", () => {
      body it does not take would each lose the event, where the provider's retry lands later. */
   it("settles an event only on the record's own answer, and has every other 4xx sent again", async () => {
     const answered = (statusCode: number, serverErrorCode: string | undefined) => async () => {
-      recorders.__flZustellungAnswer = () => {
+      zustellungAnswer = () => {
         throw new APIBadStatusError({
           message: "API returned a bad status.",
           url: "http://backend:8000",
@@ -665,7 +664,7 @@ describe("POST /api/mail/zustellung", () => {
   /* The one case a retry repairs. A 200 here tells the provider the event is settled and the state
      is lost for good, which reads on the page exactly like a message that arrived. */
   it("answers 503 where the backend could not be reached", async () => {
-    recorders.__flZustellungAnswer = () => {
+    zustellungAnswer = () => {
       throw new APINetworkError({
         message: "Request failed.",
         url: "http://backend:8000",
@@ -684,7 +683,7 @@ describe("POST /api/mail/zustellung", () => {
 
   /* Kept from the backend by the request's deadline rather than by the network, and as unwritten. */
   it("answers 503 where the deadline refused the write before it was sent", async () => {
-    recorders.__flZustellungAnswer = () => {
+    zustellungAnswer = () => {
       throw new ApiUnsentError("POST");
     };
 
@@ -695,7 +694,7 @@ describe("POST /api/mail/zustellung", () => {
   });
 
   it("answers 503 where the backend answered a server error", async () => {
-    recorders.__flZustellungAnswer = () => {
+    zustellungAnswer = () => {
       throw new APIBadStatusError({
         message: "API returned a bad status.",
         url: "http://backend:8000",
@@ -713,7 +712,7 @@ describe("POST /api/mail/zustellung", () => {
   /* `docs/logging/spec.md :: L9`, and the tag block carries the application id besides. Asserted over
      the whole line, so a field added later cannot reopen it. */
   it("names no recipient and no application on any line it writes", async () => {
-    recorders.__flZustellungAnswer = () => {
+    zustellungAnswer = () => {
       throw new APINetworkError({
         message: "Request failed.",
         url: "http://backend:8000",

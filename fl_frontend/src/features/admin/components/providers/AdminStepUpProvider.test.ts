@@ -10,6 +10,7 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes.ts";
 import { STEP_UP_LABEL, STEP_UP_REFUSED, STEP_UP_RUNNING } from "@/shared/components/ui/stepUp.ts";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
@@ -18,11 +19,9 @@ import { underNext } from "@/shared/testing/nextContexts.ts";
 
 import type { TestContext } from "node:test";
 
-const BUS = "__flStepUpPrompts";
-
 /* The browser's credential call, replaced at the module boundary: this runner has no
    `navigator.credentials`, and a test-only prop would be a seam in production code. */
-const CLIENT_DOUBLE = `export const authClient = { signIn: { passkey: () => globalThis.${BUS}.run() } };`;
+const CLIENT_DOUBLE = exportingModule({ authClient: { signIn: { passkey: () => prompt() } } });
 
 registerHooks({
   load(url, context, nextLoad) {
@@ -36,12 +35,10 @@ let prompts = 0;
 /** What the next prompt answers. Better Auth reports a cancelled prompt on `error`, never by throwing. */
 let promptAnswer: () => Promise<unknown> = () => Promise.resolve({ data: {}, error: null });
 
-Reflect.set(globalThis, BUS, {
-  run: () => {
-    prompts += 1;
-    return promptAnswer();
-  },
-});
+function prompt(): Promise<unknown> {
+  prompts += 1;
+  return promptAnswer();
+}
 
 /** Whether the session a confirmation mints is the asking administrator's, as the holder check answers it. */
 let heldBy = true;

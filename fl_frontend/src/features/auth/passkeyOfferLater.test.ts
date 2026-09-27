@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { answerReadsWith, callPage, EMPTIEST_ANSWER, pageBody, redirectTarget } from "@/shared/testing/pageHarness.ts";
 
 import { asDataUrl, cookieHeader, memoryAdapterDouble, ORIGIN, registerAuthDoubles, signInByCode } from "../../core/authDoubles.ts";
 
 const STORE = "__flOfferLaterStore";
-const REQUEST_HEADERS = "__flOfferLaterRequestHeaders";
+/** What the request a case arrives as carries. */
+let requestHeaders: Headers | undefined;
 
 /** Allowlisted by nothing: the person the offer is made to. */
 const PERSON_EMAIL = "spielerin@example.org";
@@ -20,7 +22,7 @@ globals[STORE] = store;
    empty one: the real sign-in store judges the session the cookie names. */
 registerAuthDoubles({
   specifiers: {
-    "next/headers": asDataUrl(`export const headers = async () => globalThis.${REQUEST_HEADERS};`),
+    "next/headers": asDataUrl(exportingModule({ headers: () => Promise.resolve(requestHeaders) })),
     "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),
   },
 });
@@ -57,7 +59,7 @@ async function redirectsOf(Page: (props: typeof NO_PROPS) => unknown): Promise<s
 describe("where „Später“ on the passkey offer leads", () => {
   it("reaches the person's own page from inside the offer window, by no route back to the offer", async () => {
     const verified = await signInByCode(auth, PERSON_EMAIL, ORIGIN);
-    globals[REQUEST_HEADERS] = new Headers({ ...ORIGIN, cookie: cookieHeader(verified) });
+    requestHeaders = new Headers({ ...ORIGIN, cookie: cookieHeader(verified) });
 
     // Inside the window: the landing offers the passkey, and the page shows the offer.
     assert.equal(await getSignInDestination(), "/signin/passkey");

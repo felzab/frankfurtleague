@@ -13,9 +13,9 @@ import {
   signInByCode,
 } from "./authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "./cacheScope.ts";
+import { exportingModule } from "./exportingModule.ts";
 
 const STORE = "__flSubjectStore";
-const REQUEST_HEADERS = "__flSubjectRequestHeaders";
 
 /** Allowlisted by nothing, which is the case this seam exists for. */
 const PERSON_EMAIL = "spielerin@example.org";
@@ -35,13 +35,18 @@ const CONFIG_DOUBLE = configDouble({
   INTERNAL_API_KEY_ADMIN: "fabricated-admin-not-a-credential",
 });
 
-const HEADER_READS = "__flSubjectHeaderReads";
+/** Each arrival at the session read, which every uncached pass through the guard makes. */
+let headerReadCount = 0;
 
-/** Counts each arrival at the session read, which every uncached pass through the guard makes. */
-const HEADERS_DOUBLE = `export const headers = async () => {
-  globalThis.${HEADER_READS} = (globalThis.${HEADER_READS} ?? 0) + 1;
-  return globalThis.${REQUEST_HEADERS};
-};`;
+/** What the request a case arrives as carries, which `arriveAs` sets. */
+let requestHeaders: Headers | undefined;
+
+const HEADERS_DOUBLE = exportingModule({
+  headers: () => {
+    headerReadCount += 1;
+    return Promise.resolve(requestHeaders);
+  },
+});
 
 registerAuthDoubles({
   core: { config: CONFIG_DOUBLE },
@@ -161,7 +166,7 @@ async function signIn(email: string): Promise<{ cookie: string; row: SessionRow 
 
 /** Answers the guard as one request would: the cookie it reads off `headers()`. */
 function arriveAs(cookie: string | null): void {
-  globals[REQUEST_HEADERS] = new Headers(cookie === null ? ORIGIN : { ...ORIGIN, cookie });
+  requestHeaders = new Headers(cookie === null ? ORIGIN : { ...ORIGIN, cookie });
 }
 
 function ageRow(row: SessionRow, { created = 0, idle = 0 }: { created?: number; idle?: number }): void {
@@ -184,7 +189,7 @@ async function guardInScope(): Promise<{ answer: Awaited<ReturnType<typeof getSu
 }
 
 /** Zero before any case has reached the session read, so a case run alone still counts. */
-const headerReads = (): number => Number(globals[HEADER_READS] ?? 0);
+const headerReads = (): number => headerReadCount;
 
 const lastSent = (): Sent => {
   const call = sent.at(-1);

@@ -2,38 +2,46 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 /** Stands in for `next/headers`, whose real `headers()` throws outside a request scope. */
 const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
-const CALLS = "__flCodeRouteCalls";
-const OUTCOME = "__flCodeRouteOutcome";
-const SERVED = "__flCodeRouteServed";
-
 /** What the real sign-in answers: the session's own cookie value among its fields. */
 const MINTED = "fabricated-session-token";
+
+/** Every body the sign-in was handed, in order. */
+const calls: { email: string; otp: string }[] = [];
+
+/** How the next sign-in ends: `signed-in`, `broken`, or the code of the refusal it raises. */
+let outcome = "signed-in";
+
+/** The session the caller's own cookie names, which `holding` sets. */
+let served: unknown = null;
 
 /* The sign-in replaced at the module boundary: which answer it reaches for which address is
    `fl_frontend/src/core/auth.test.ts`'s subject, and this file asks what the route makes of each. A
    refusal is shaped as the library raises one. */
-const AUTH_DOUBLE = `export const ADDRESS_ATTEMPTS_EXHAUSTED = "ADDRESS_ATTEMPTS_EXHAUSTED";
-export const auth = {
-  api: {
-    signInEmailOTP: async ({ body }) => {
-      globalThis.${CALLS}.push(body);
-      const outcome = globalThis.${OUTCOME};
-      if (outcome === "signed-in") return { token: ${JSON.stringify(MINTED)}, user: {} };
-      if (outcome === "broken") throw new Error("the store answered nothing");
-      const refusal = new Error(outcome);
-      refusal.name = "APIError";
-      // A status-only refusal, as \`APIError.fromStatus\` raises one, carries no code.
-      refusal.body = outcome === "SERVICE_UNAVAILABLE" ? undefined : { code: outcome, message: outcome };
-      throw refusal;
+const AUTH_DOUBLE = exportingModule({
+  ADDRESS_ATTEMPTS_EXHAUSTED: "ADDRESS_ATTEMPTS_EXHAUSTED",
+  auth: {
+    api: {
+      signInEmailOTP: ({ body }: { body: { email: string; otp: string } }) => {
+        calls.push(body);
+        if (outcome === "signed-in") return Promise.resolve({ token: MINTED, user: {} });
+        if (outcome === "broken") return Promise.reject(new Error("the store answered nothing"));
+        const refusal = Object.assign(new Error(outcome), {
+          name: "APIError",
+          // A status-only refusal, as `APIError.fromStatus` raises one, carries no code.
+          body: outcome === "SERVICE_UNAVAILABLE" ? undefined : { code: outcome, message: outcome },
+        });
+        return Promise.reject(refusal);
+      },
+      getSession: () => Promise.resolve(served),
     },
-    getSession: async () => globalThis.${SERVED},
   },
-};`;
+});
 
 /* The one module of the route's that would import the real mail shell for a figure. */
 const AUTH_EMAIL_DOUBLE = "export const CODE_VALIDITY_MINUTES = 10;";
@@ -53,11 +61,6 @@ registerHooks({
     return nextLoad(url, context);
   },
 });
-
-/** Every body the sign-in was handed, in order; the double reads it through the global. */
-const calls: { email: string; otp: string }[] = [];
-const globals = globalThis as unknown as Record<string, unknown>;
-globals[CALLS] = calls;
 
 const handler = await import("./route.ts");
 const { NextRequest } = await import("next/server");
@@ -79,13 +82,13 @@ const postUnlabelled = (payload: unknown, headers: Record<string, string> = {}) 
 
 /** The session the caller's own cookie names, as the guard reads it. */
 function holding(email: string, madeMsAgo: number): void {
-  globals[SERVED] = { user: { email }, session: { createdAt: new Date(Date.now() - madeMsAgo) } };
+  served = { user: { email }, session: { createdAt: new Date(Date.now() - madeMsAgo) } };
 }
 
 beforeEach(() => {
   calls.length = 0;
-  globals[OUTCOME] = "signed-in";
-  globals[SERVED] = null;
+  outcome = "signed-in";
+  served = null;
 });
 
 describe("the route a typed code is checked at", () => {
@@ -125,7 +128,7 @@ describe("the route a typed code is checked at", () => {
     ];
 
     for (const [code, sentence] of expected) {
-      globals[OUTCOME] = code;
+      outcome = code;
       const answer = await handler.POST(post({ email: ADDRESS, code: CODE }));
 
       assert.equal(answer.status, 200, `${code} was answered at another status`);
@@ -136,7 +139,7 @@ describe("the route a typed code is checked at", () => {
   /* A second tab of one sign-in meets a code the first already spent: the reader is signed in, so
      the tab is sent on rather than told the code was wrong. */
   it("sends on a wrong code from a caller the code already signed in, minutes ago, at this address", async () => {
-    globals[OUTCOME] = "INVALID_OTP";
+    outcome = "INVALID_OTP";
     holding(ADDRESS, 60 * 1000);
 
     assert.deepEqual(await (await handler.POST(post({ email: ADDRESS, code: CODE }))).json(), { success: true });
@@ -145,7 +148,7 @@ describe("the route a typed code is checked at", () => {
   /* The window is the code's own: a confirmation asked of an older session is never answered by the
      session it confirms, and another address's session is no evidence at all. */
   it("refuses that wrong code where the session is older than a code's window, or another address's", async () => {
-    globals[OUTCOME] = "INVALID_OTP";
+    outcome = "INVALID_OTP";
 
     for (const [email, age] of [
       [ADDRESS, 11 * 60 * 1000],
@@ -158,7 +161,7 @@ describe("the route a typed code is checked at", () => {
 
   /* Only a wrong code: an expired or exhausted one is refused whatever the caller holds. */
   it("refuses an expired code even from a caller signed in minutes ago", async () => {
-    globals[OUTCOME] = "OTP_EXPIRED";
+    outcome = "OTP_EXPIRED";
     holding(ADDRESS, 60 * 1000);
 
     assert.equal(((await (await handler.POST(post({ email: ADDRESS, code: CODE }))).json()) as { success: boolean }).success, false);
@@ -166,7 +169,7 @@ describe("the route a typed code is checked at", () => {
 
   /* A failure that is this application's never reads to the reader as a wrong code. */
   it("throws a failure the library did not raise rather than wording it", async () => {
-    globals[OUTCOME] = "broken";
+    outcome = "broken";
     await assert.rejects(() => handler.POST(post({ email: ADDRESS, code: CODE })));
   });
 

@@ -6,29 +6,38 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 import { inspect } from "node:util";
 
+import { exportingModule } from "./exportingModule.ts";
+
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
-const LOG_RECORDER = "__flMailLogLines";
-
-const APP_ENV_SWITCH = "__flMailAppEnv";
-const RESEND_KEY_SWITCH = "__flMailResendKey";
+/** The environment the guard reads, which each case sets. */
+let appEnv: string | undefined;
+let resendKey: string | undefined;
 
 // Replaced at the module boundary rather than the transport reshaped to admit a seam: the real key
 // is a credential no test run holds.
 
 // Getters, not fixed values: the guard reads both names on every send, and a case moving
 // `process.env` would decide every case after it in this one process.
-const CONFIG_DOUBLE = `export const frontend_config = {
-  get APP_ENV() { return globalThis.${APP_ENV_SWITCH}; },
-  get AUTH_RESEND_KEY() { return globalThis.${RESEND_KEY_SWITCH}; },
-};`;
+const CONFIG_DOUBLE = exportingModule({
+  frontend_config: {
+    get APP_ENV() {
+      return appEnv;
+    },
+    get AUTH_RESEND_KEY() {
+      return resendKey;
+    },
+  },
+});
 
-const LOGGER_DOUBLE = `export const logger = {
-  info: (message, meta) => globalThis.${LOG_RECORDER}.push({ message, meta }),
-  warn: (message, meta) => globalThis.${LOG_RECORDER}.push({ message, meta }),
-  error: (message, error, meta) => globalThis.${LOG_RECORDER}.push({ message, error, meta }),
-};`;
+const LOGGER_DOUBLE = exportingModule({
+  logger: {
+    info: (message: string, meta?: Record<string, unknown>) => void logs.push({ message, meta }),
+    warn: (message: string, meta?: Record<string, unknown>) => void logs.push({ message, meta }),
+    error: (message: string, error: unknown, meta?: Record<string, unknown>) => void logs.push({ message, error, meta }),
+  },
+});
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -47,13 +56,10 @@ registerHooks({
 type RecordedLine = { message: string; error?: unknown; meta?: Record<string, unknown> };
 
 const logs: RecordedLine[] = [];
-(globalThis as unknown as Record<string, RecordedLine[]>)[LOG_RECORDER] = logs;
 
 const { sendMail, MailRecipientError, MailUnsentError, MailWithheldError } = await import("./mail.ts");
 const { APINetworkError, MailSendError } = await import("./errors.ts");
 const { REQUEST_DEADLINE_MS, requestOutcomeUnknown, requestWriteSent, runWithRequestScope } = await import("./requestScope.ts");
-
-const switches = globalThis as unknown as Record<string, string | undefined>;
 
 const MAIL_MODULE = path.join(import.meta.dirname, "mail.ts");
 const PROVIDER_ENDPOINT = "https://api.resend.com/emails";
@@ -135,8 +141,8 @@ function assertHidesRecipient(subject: unknown, where: string): void {
 // A deployment that mails, since that is what every case below the withheld ones is about: a default
 // of anything else would grade the whole transport against a guard that stops it before the fetch.
 function resetTransport(): void {
-  switches[APP_ENV_SWITCH] = "production";
-  switches[RESEND_KEY_SWITCH] = "resend-key-double";
+  appEnv = "production";
+  resendKey = "resend-key-double";
   sends.length = 0;
   logs.length = 0;
   respond = async () => jsonResponse({ id: "01HZ" }, 200);
@@ -339,7 +345,7 @@ describe("the send a deployment that does not mail withholds", () => {
   /* The incident this guard exists for: an acceptance on a stack seeded from production, where every
      address in the database reaches one of the league's real contact people. */
   it("draws no request at all where the environment is not production", async () => {
-    switches[APP_ENV_SWITCH] = "local";
+    appEnv = "local";
 
     await assert.rejects(sendMail(MESSAGE), (error: Error) => error instanceof MailWithheldError);
     assert.equal(sends.length, 0, "a message left a stack that is not production");
@@ -355,14 +361,14 @@ describe("the send a deployment that does not mail withholds", () => {
   /* The second half of the same guard. `Bearer undefined` is what a template literal renders for an
      absent key, and neither the type checker nor the provider's 401 stops it being sent. */
   it("withholds the send where the environment carries no key, whatever it calls itself", async () => {
-    switches[RESEND_KEY_SWITCH] = undefined;
+    resendKey = undefined;
 
     await assert.rejects(sendMail(MESSAGE), (error: Error) => error instanceof MailWithheldError);
     assert.equal(sends.length, 0, "a message went out with no key to authorise it");
   });
 
   it("logs which message stayed behind, under its own code", async () => {
-    switches[APP_ENV_SWITCH] = "local";
+    appEnv = "local";
 
     await assert.rejects(sendMail({ ...MESSAGE, tags: { bewerbung_id: "abc", rollen: "trainer" } }));
 
@@ -377,7 +383,7 @@ describe("the send a deployment that does not mail withholds", () => {
   /* The withheld line names a message nobody sent, and `docs/logging/spec.md :: L9` binds it exactly
      as it binds the provider's refusal above. */
   it("names no recipient on the line, nor in what it throws", async () => {
-    switches[APP_ENV_SWITCH] = "local";
+    appEnv = "local";
 
     const error = await sendMail(MESSAGE).then(
       () => assert.fail("the withheld send resolved"),
@@ -395,7 +401,7 @@ describe("the sink a deployment that does not mail writes instead", () => {
   /* The whole point of the sink: without it a Zusage, an Absage, a reminder and a deletion notice
      render nowhere but in a real recipient's inbox. */
   it("writes the message to a file where the environment is not production, and draws no request", async () => {
-    switches[APP_ENV_SWITCH] = "local";
+    appEnv = "local";
 
     await assert.rejects(sendMail(MESSAGE));
 
@@ -417,7 +423,7 @@ describe("the sink a deployment that does not mail writes instead", () => {
   /* Production's own withheld arm, reached where `SKIP_ENV_VALIDATION` stood the key's requirement
      down. It is still production, so a file here would leave a live sign-in code on the host. */
   it("writes no file where production is the deployment and holds no key", async () => {
-    switches[RESEND_KEY_SWITCH] = undefined;
+    resendKey = undefined;
     const before = sinkNames();
 
     await assert.rejects(sendMail(MESSAGE), (error: Error) => error instanceof MailWithheldError);
@@ -429,7 +435,7 @@ describe("the sink a deployment that does not mail writes instead", () => {
      that answered the accepted shape would tell an administrator „Die Zusage ging an 3
      Kontaktpersonen" for three messages nobody sent. */
   it("refuses the send to its caller although the message is on disk", async () => {
-    switches[APP_ENV_SWITCH] = "local";
+    appEnv = "local";
 
     const error = await sendMail(MESSAGE).then(
       () => assert.fail("the withheld send resolved once its message was written"),
@@ -441,7 +447,7 @@ describe("the sink a deployment that does not mail writes instead", () => {
   });
 
   it("carries the recipient, the subject and both bodies into the file", async () => {
-    switches[APP_ENV_SWITCH] = "local";
+    appEnv = "local";
 
     await assert.rejects(sendMail({ ...MESSAGE, tags: { bewerbung_id: "abc" } }));
     const written = readFileSync(path.join(sinkDir(), sinkFileNamedOn(logs[0]!)), "utf8");
@@ -456,7 +462,7 @@ describe("the sink a deployment that does not mail writes instead", () => {
   /* The name is what a developer reads to find which message was withheld, and `ß` is the one German
      letter the fold above leaves for the separator run to eat — „Größe“ arriving as `gro-e`. */
   it("names the file for a subject carrying an Eszett rather than breaking at it", async () => {
-    switches[APP_ENV_SWITCH] = "local";
+    appEnv = "local";
 
     await assert.rejects(sendMail({ ...MESSAGE, subject: "Große Fußball-Saison" }));
 
@@ -466,7 +472,7 @@ describe("the sink a deployment that does not mail writes instead", () => {
   /* A Windows text-mode stream turns every `\n` into `\r\n`, and a message whose newlines flipped is
      a message that renders differently from the one the provider would have been given. */
   it("writes the newlines the message has, never the host's", async () => {
-    switches[APP_ENV_SWITCH] = "local";
+    appEnv = "local";
 
     await assert.rejects(sendMail({ ...MESSAGE, html: "<p>eins</p>\n<p>zwei</p>", text: "eins\nzwei" }));
 
@@ -476,7 +482,7 @@ describe("the sink a deployment that does not mail writes instead", () => {
   /* One application's three contact people are three messages inside one millisecond, and a name
      collision would report two of them as never rendered. */
   it("gives each of a fan-out's messages a file of its own", async () => {
-    switches[APP_ENV_SWITCH] = "local";
+    appEnv = "local";
     mock.timers.enable({ apis: ["Date"] });
 
     try {

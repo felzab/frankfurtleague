@@ -11,18 +11,15 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
+import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
-
-const BUS = "__flPasskeySignIn";
 
 /* The browser's own credential calls, replaced at the module boundary: this runner has no
    `navigator.credentials`, and a test-only prop would be a seam in production code. */
-const CLIENT_DOUBLE = `export const authClient = {
-  signIn: { passkey: (options) => globalThis.${BUS}.run(options) },
-};`;
+const CLIENT_DOUBLE = exportingModule({ authClient: { signIn: { passkey: (options: unknown) => run(options) } } });
 
 /* A full document navigation, which jsdom does not implement. */
-const NAVIGATION_DOUBLE = `export function leaveDocumentFor(path) { globalThis.${BUS}.left.push(path); }`;
+const NAVIGATION_DOUBLE = exportingModule({ leaveDocumentFor: (path: string) => void left.push(path) });
 
 registerHooks({
   load(url, context, nextLoad) {
@@ -42,13 +39,10 @@ const answers: (() => Promise<unknown>)[] = [];
 
 const left: string[] = [];
 
-Reflect.set(globalThis, BUS, {
-  left: left,
-  run: (options: unknown) => {
-    calls.push(options);
-    return (answers.shift() ?? (() => new Promise(() => undefined)))();
-  },
-});
+function run(options: unknown): Promise<unknown> {
+  calls.push(options);
+  return (answers.shift() ?? (() => new Promise(() => undefined)))();
+}
 
 /** Whether the browser offers passkeys in an address field; jsdom has no `PublicKeyCredential` at all. */
 let autofill = true;

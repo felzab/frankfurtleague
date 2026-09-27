@@ -10,11 +10,11 @@ import { createElement as h } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-const BUS = "__flIdentityConfirmationCeremony";
+import { exportingModule } from "@/core/exportingModule.ts";
 
 /* The browser's own credential call, replaced at the module boundary: this runner has no
    `navigator.credentials`, and a test-only prop would be a seam in production code. */
-const CLIENT_DOUBLE = `export const authClient = { signIn: { passkey: () => globalThis.${BUS}.run() } };`;
+const CLIENT_DOUBLE = exportingModule({ authClient: { signIn: { passkey: () => ceremony() } } });
 
 registerHooks({
   load(url, context, nextLoad) {
@@ -26,7 +26,6 @@ registerHooks({
 
 /** What the assertion answers. Better Auth reports a failed ceremony on `error`, never by throwing. */
 let ceremony: () => Promise<unknown> = () => Promise.resolve({ data: {}, error: null });
-Reflect.set(globalThis, BUS, { run: () => ceremony() });
 
 const { IdentityConfirmation } = await import("./IdentityConfirmation.tsx");
 

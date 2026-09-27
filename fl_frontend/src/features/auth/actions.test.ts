@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 
 import { APIError } from "better-auth/api";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -12,19 +13,21 @@ import type { FormState } from "@/shared/types/types.ts";
 /** The sentence the action answers with whether or not the address is allowlisted. */
 const NEUTRAL_ANSWER = "Falls zu dieser Adresse ein Zugang gehört, ist ein Anmeldecode unterwegs.";
 
-const SIGN_IN = "__flSignInActionOutcome";
-const DEFERRED = "__flSignInActionDeferred";
 const deferred: (() => Promise<void>)[] = [];
 let signIns = 0;
-Reflect.set(globalThis, DEFERRED, deferred);
+
+/** How the library's send ends for the press a case makes, which `signInAnswering` sets. */
+let signingIn: () => Promise<void> = () => Promise.resolve();
 
 const asModule = (source: string): string => `data:text/javascript,${encodeURIComponent(source)}`;
 
 const PACKAGE_DOUBLES: Readonly<Record<string, string>> = {
   ...REQUEST_PACKAGES,
   // Collected rather than run, so a case runs the work behind the response only once it holds the answer.
-  "next/server": `export const after = (task) => { globalThis.${DEFERRED}.push(task); };`,
+  "next/server": exportingModule({ after: (task: () => Promise<void>) => void deferred.push(task) }),
 };
+
+const AUTH_DOUBLE = exportingModule({ auth: { api: { sendVerificationOTP: () => signingIn() } } });
 
 /* The sign-in store replaced whole: which outcome the library reaches for an address is
    `fl_frontend/src/features/auth/signInSideEffects.test.ts`'s subject, and this file asks only that
@@ -36,10 +39,7 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/auth.ts")) {
-      const source = `export const auth = { api: { sendVerificationOTP: async () => globalThis.${SIGN_IN}() } };`;
-      return { format: "module", source, shortCircuit: true };
-    }
+    if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH_DOUBLE, shortCircuit: true };
     if (url.endsWith("/src/core/logging.ts")) {
       const source = "const inert = () => undefined; export const logger = { debug: inert, info: inert, warn: inert, error: inert };";
       return { format: "module", source, shortCircuit: true };
@@ -55,10 +55,10 @@ const { handleSignIn } = await import("./actions.ts");
  * how many sign-ins had run by the moment the answer arrived.
  */
 async function signInAnswering(outcome: () => Promise<void>): Promise<{ answer: FormState; reachedWhileAnswering: number }> {
-  Reflect.set(globalThis, SIGN_IN, () => {
+  signingIn = () => {
     signIns += 1;
     return outcome();
-  });
+  };
   const submitted = new FormData();
   submitted.set("email", "vorstand@example.org");
 
