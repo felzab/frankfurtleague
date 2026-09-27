@@ -24,6 +24,7 @@ import { RolledBackError } from "./errors";
 import { KONTO_HREF } from "./kontoHref";
 import { logger } from "./logging";
 import { sendMail } from "./mail";
+import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "./passkeyCeremony";
 import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
 import { passkeyLastUse } from "./passkeyLastUse";
 import { ENROLMENT_CONFLICT, SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
@@ -88,10 +89,6 @@ const CODE_MAIL_TOTAL_LIMIT = 100;
 
 /** The refusal the route words as the address being locked, whatever code the request carried. */
 export const ADDRESS_ATTEMPTS_EXHAUSTED = "ADDRESS_ATTEMPTS_EXHAUSTED";
-
-// The assertion's session-creating path, read off `@better-auth/passkey` 1.7.5 on 2026-09-20: its
-// `signIn.passkey` is a client helper over two endpoints rather than a route.
-const PASSKEY_ASSERTION_PATH = "/passkey/verify-authentication";
 
 const PASSKEY_REGISTRATION_PATH = "/passkey/verify-registration";
 
@@ -336,12 +333,6 @@ async function claimAccount(adapter: Pick<DBTransactionAdapter, "update">, userI
 /** Named for the same reason as `EnrolmentOutsideTransaction`. */
 class CeremonyNamedNoCredential extends Error {
   override name = "CeremonyNamedNoCredential";
-}
-
-/** `ctx.body.response.id` read without trusting the body's shape, which is whatever the caller posted. */
-function declaredCredentialId(ctx: Pick<GenericEndpointContext, "body">): unknown {
-  const response: unknown = typeof ctx.body === "object" && ctx.body !== null ? Reflect.get(ctx.body, "response") : undefined;
-  return typeof response === "object" && response !== null ? Reflect.get(response, "id") : undefined;
 }
 
 /**

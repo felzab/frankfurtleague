@@ -3,12 +3,9 @@ import "server-only";
 import { createAuthMiddleware, isAPIError } from "better-auth/api";
 
 import { logger } from "./logging";
+import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "./passkeyCeremony";
 
 import type { BetterAuthPlugin } from "better-auth";
-
-// The plugin's own spelling of the assertion's verify route, which is the only path whose success is
-// a use: the options call before it proves nothing.
-const ASSERTION_PATH = "/passkey/verify-authentication";
 
 /**
  * When each passkey last signed its holder in, which the passkey plugin does not store: its row
@@ -28,12 +25,13 @@ export const passkeyLastUse = () =>
     hooks: {
       after: [
         {
-          matcher: (ctx) => ctx.path === ASSERTION_PATH,
+          // The verify route alone is a use: the options call before it proves nothing.
+          matcher: (ctx) => ctx.path === PASSKEY_ASSERTION_PATH,
           handler: createAuthMiddleware(async (ctx) => {
             // A refused assertion is no use, and one the authenticator did not verify is refused.
             if (isAPIError(ctx.context.returned)) return;
 
-            const credentialID: unknown = Reflect.get(Reflect.get(ctx.body ?? {}, "response") ?? {}, "id");
+            const credentialID = declaredCredentialId(ctx);
             if (typeof credentialID !== "string" || credentialID === "") return;
 
             try {
