@@ -102,6 +102,18 @@ def _erasure_answered() -> tuple[Response, float]:
     return asyncio.run(_answered())
 
 
+def _grants_list_answered(method: str) -> tuple[Response, float]:
+    """An admin-tier request against a server nothing answers, the actor check's grant read left real, and so its first."""
+
+    async def _answered() -> tuple[Response, float]:
+        async with app_client(UNANSWERED_URI) as http:
+            started = time.monotonic()
+            response = await http.request(method, f"/api/v{API_VERSION}/berechtigungen", headers=ADMIN_HEADERS)
+            return response, time.monotonic() - started
+
+    return asyncio.run(_answered())
+
+
 class TestAnUnreachableServerIsAnsweredWithinTheDeadline:
     def test_the_route_answers_the_deadline_rather_than_retrying(self, monkeypatch: pytest.MonkeyPatch):
         """Unknown rather than failed, the erasure being a write the deadline cut."""
@@ -111,6 +123,16 @@ class TestAnUnreachableServerIsAnsweredWithinTheDeadline:
         response, elapsed = _erasure_answered()
 
         assert (response.status_code, response.json()["error_code"]) == (500, UNKNOWN_OUTCOME)
+        assert elapsed < ANSWERED_WITHIN_S
+
+    def test_the_actor_check_s_own_read_is_held_to_the_deadline(self, monkeypatch: pytest.MonkeyPatch):
+        """The grant read runs as a dependency ahead of every handler, the case above answering it from a set."""
+
+        monkeypatch.setattr(middlewares, "REQUEST_DEADLINE_S", SHORT_DEADLINE_S)
+
+        response, elapsed = _grants_list_answered("GET")
+
+        assert (response.status_code, response.json()["error_code"]) == (500, FAILED)
         assert elapsed < ANSWERED_WITHIN_S
 
 
