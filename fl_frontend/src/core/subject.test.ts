@@ -344,9 +344,9 @@ describe("who the seam answers for", () => {
     assert.equal(actor, undefined);
   });
 
-  /* The case the seam exists for. The link is seeded rather than sent, whether one reaches such an
-     address being the send gate's question and `fl_frontend/src/core/auth.test.ts`'s subject, and
-     the library's own verification mints the session over it. */
+  /* The case the seam exists for. The code is created in process rather than mailed, whether one
+     reaches such an address being the send gate's question and `fl_frontend/src/core/auth.test.ts`'s
+     subject, and the library's own verification mints the session over it. */
   it("answers an address holding no grant, unmarked, with the records it names", async () => {
     const { cookie, row } = await signIn(PERSON_EMAIL);
     // Made by a passkey, as a person's may be: a code-borne session is unmarked whatever the grant says.
