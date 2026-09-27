@@ -1223,11 +1223,6 @@ the command above, run on the server, and update the password-manager entry. Bot
 recreated by the same deploy, so the new pair never meets the old. A key changed there reaches the containers only when they are
 recreated, which the next deploy does: `docker compose restart` re-reads no environment file.
 
-**A leaked `INTERNAL_API_KEY_ADMIN` can have minted a grant**, credited to any administrator it
-named (`docs/backend/spec.md` §4). Rotating it after a suspected leak is not finished until
-`berechtigungen` holds only grants somebody can account for, and `aktionen` has been read for every
-`berechtigungen` write since the leak; revoke the rest in the Playground.
-
 **Each machine also has its own actor token key pair** ([`spec.md`](spec.md) I472): an Ed25519
 private key the frontend signs with, and its public half the backend verifies with. In Git Bash on a
 development machine, or in a shell on the server, at the checkout root, this writes the private half
@@ -1252,6 +1247,10 @@ public half is the key's last 32 bytes in DER form, which is the raw Ed25519 key
 - **Rotating** means generating a new pair and deploying. Delete the old `ACTOR_TOKEN_PUBLIC_KEY`
   line first. A token lives sixty seconds, and the deploy recreates both containers together. The pair
   is kept nowhere else: a lost key is replaced by generating a new pair.
+- **After a suspected leak of the signing key together with `INTERNAL_API_KEY_ADMIN`**, the two can
+  have minted a grant credited to any administrator, which neither can alone. Rotating both is not
+  finished until `aktionen` has been read for every `berechtigungen` write since the leak, and every
+  grant nobody can account for is revoked in the Playground.
 
 `deploy.sh` and `local.sh` refuse a missing key file before anything starts. They then have the
 frontend image, as its own user, judge the pair: a key it cannot read, a key that is not Ed25519, or
