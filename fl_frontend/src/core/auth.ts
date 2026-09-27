@@ -690,7 +690,18 @@ const authOptions = {
     // headers into the response's rather than replacing them, so the credential still travels.
     after: createAuthMiddleware(async (ctx) => {
       const attempted = ctx.path === CODE_SIGN_IN_PATH ? codeSignInAddress(ctx.body) : null;
-      if (attempted !== null) await settleCodeAttempt(ctx.context, attempted, ctx.context.returned);
+      if (attempted !== null) {
+        try {
+          await settleCodeAttempt(ctx.context, attempted, ctx.context.returned);
+        } catch (failed) {
+          // Logged and left: by now the rotation has ended the browser's old session, so a throw here
+          // answers a right code with a 500 and no cookie. A count left standing expires on its own.
+          logger.warn("auth.code_attempt_unsettled", {
+            error_code: "FE-AUTH-009",
+            name: failed instanceof Error ? failed.name : "unknown",
+          });
+        }
+      }
 
       if (!CEREMONY_VERIFY_PATHS.has(ctx.path)) return undefined;
 

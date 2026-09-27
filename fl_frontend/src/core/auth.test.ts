@@ -78,6 +78,7 @@ const ADAPTER_DOUBLE = exportingModule({
           }
           return (...args: unknown[]) => {
             adapterCalls.operations?.push(operationOf(key, args));
+            if (adapterCalls.refusing?.(key, args) === true) return Promise.reject(new Error("the store refused"));
             return (value as (...rest: unknown[]) => unknown).apply(target, args);
           };
         },
@@ -174,6 +175,8 @@ const adapterCalls = {
   pairs: [] as { db: unknown; config?: { client?: unknown } }[],
   operations: undefined as string[] | undefined,
   counts: new Barrier(),
+  /** Set by a case to make the store refuse the operations it names. */
+  refusing: undefined as ((key: string, args: unknown[]) => boolean) | undefined,
 };
 
 // Imported here rather than at the top: a static import resolves before the hooks above are
@@ -1916,6 +1919,31 @@ describe("the failures one address may spend, across every code it is sent (`doc
     await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true });
 
     assert.equal(failureRows().length, 0);
+  });
+
+  /* The clearing runs after the rotation has ended the browser's old session: a throw from it would
+     answer the right code with a 500 and send the person away holding no session at all. */
+  it("signs in with the right code even where clearing the address's failures fails", async () => {
+    const held = await signIn(ADMIN_EMAIL);
+    const otp = await mailedCode();
+    await answerOf(ADMIN_EMAIL, wrongFor(otp));
+
+    adapterCalls.refusing = (key, args) =>
+      key === "deleteMany" && JSON.stringify((args[0] as { where?: unknown } | undefined)?.where ?? []).includes("sign-in-attempt-");
+    try {
+      const answer = await auth.api.signInEmailOTP({
+        body: { email: ADMIN_EMAIL, otp },
+        headers: new Headers({ ...ORIGIN, cookie: held.cookie }),
+        returnHeaders: true,
+      });
+
+      assert.ok(answer.headers.get("set-cookie")?.includes("session_token"), "the right code set no session cookie");
+      assert.ok(!store.session.includes(held.row), "the old session outlived the sign-in that replaced it");
+      // The wrong code's row and the right one's own, which the refused clearing left standing.
+      assert.equal(failureRows().length, 2, "the refused clearing was not the one this case drove");
+    } finally {
+      adapterCalls.refusing = undefined;
+    }
   });
 
   /* The mint refuses only a code that verified, so none of its refusals is a guess: counted, a ban or
