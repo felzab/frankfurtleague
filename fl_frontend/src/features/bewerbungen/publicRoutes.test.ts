@@ -1358,7 +1358,12 @@ describe("what a link to a barred address opens on", () => {
   it("shows the approved sentence and nothing else", () => {
     const html = renderMarkup(BestaetigungView, { start: { zustand: "gesperrt" } });
 
-    assert.equal(textOf(html, " ").replace(/\s+/g, " ").trim(), LINK_ADRESSE_GESPERRT);
+    // Written out here, once: every other barred-link case compares with the constant, which a
+    // rewording of the constant alone would carry along with it.
+    assert.equal(
+      textOf(html, " ").replace(/\s+/g, " ").trim(),
+      "Deine E-Mail-Adresse ist gesperrt. Wenn Du das für einen Fehler hältst, schreib uns an kontakt@frankfurtleague.de.",
+    );
     assert.doesNotMatch(html, /<(h[1-6]|form|button|a|input)\b/, "the barred page renders something beside the sentence");
     assert.match(html, /role="status"/, "the barred page is announced to nobody");
   });
