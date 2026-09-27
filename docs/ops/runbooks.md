@@ -609,7 +609,10 @@ you are in is decided by that seat's own link, not by the person's role:
   page the link opens, empties the seat at once and tells the submitter so the school can name
   somebody else (`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung`).
   Send them the link again rather than erasing for them; the record then says the person refused
-  rather than that an administrator removed them. Once the school has named a replacement, seat them
+  rather than that an administrator removed them. **An address the ban list holds takes no second
+  link** (`REQ-BEWERBUNG-019`): the one it already holds still takes its Widerspruch until its
+  deadline, and a withdrawal it sends to the league's mailbox instead is performed by hand, through
+  `POST /kontakte/erasure`. Once the school has named a replacement, seat them
   from „Neu besetzen“ on that seat's row of the application's Bestätigungen panel, which sends the
   new person their own link and restarts the confirmation deadline for the whole application; it is
   acceptable again once they confirm within that new deadline. An ERASED seat offers no such control,
