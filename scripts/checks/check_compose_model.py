@@ -47,7 +47,7 @@ DEPLOY: Final = REPO_ROOT / "scripts" / "ops" / "deploy.sh"
 CONNECTOR_SERVICE: Final = "cloudflared"
 
 # Every service's networks, exactly: the connector shares one with nginx alone, and the application
-# pair and the local database share the other with nginx (`docs/ops/spec.md :: I462`).
+# pair and the local database share the other with nginx (`docs/ops/spec.md :: I471`).
 EDGE_NETWORK: Final = "frankfurtleague-net"
 APP_NETWORK: Final = "frankfurtleague-app"
 SERVICE_NETWORKS: Final = {
@@ -59,7 +59,7 @@ SERVICE_NETWORKS: Final = {
 }
 
 # The actor token's signing key: the one service holding it, where that service's config reads it by
-# default, and the checkout file the deploy's preflight judges (`docs/ops/spec.md :: I463`).
+# default, and the checkout file the deploy's preflight judges (`docs/ops/spec.md :: I472`).
 SIGNING_KEY: Final = "fl_actor_signing_key"
 SIGNING_KEY_HOLDER: Final = "frontend"
 SIGNING_KEY_TARGET: Final = f"/run/secrets/{SIGNING_KEY}"
@@ -119,14 +119,14 @@ def networks(model: dict[str, Any], name: str) -> list[Finding]:
         expected = SERVICE_NETWORKS.get(service)
         if expected is None:
             findings.append(
-                Finding("fail", f"{name}: {service} is on no list of who joins which network\n{CONTINUATION}add it to SERVICE_NETWORKS (I462)")
+                Finding("fail", f"{name}: {service} is on no list of who joins which network\n{CONTINUATION}add it to SERVICE_NETWORKS (I471)")
             )
         elif frozenset(joined) != expected:
             findings.append(
                 Finding(
                     "fail",
                     f"{name}: {service} joins {sorted(joined)}, not {sorted(expected)}\n"
-                    f"{CONTINUATION}the connector reaches nginx alone, and the application reaches nothing but through nginx (I462)",
+                    f"{CONTINUATION}the connector reaches nginx alone, and the application reaches nothing but through nginx (I471)",
                 )
             )
     return findings
@@ -149,14 +149,14 @@ def signing_key(model: dict[str, Any], name: str, project: Path) -> list[Finding
             # A relative target is a name under `/run/secrets` (https://docs.docker.com/reference/compose-file/services/#secrets).
             mounted = target if target.startswith("/") else f"/run/secrets/{target}"
             if mounted != SIGNING_KEY_TARGET:
-                findings.append(Finding("fail", f"{name}: {service} mounts {SIGNING_KEY} at {mounted}, not {SIGNING_KEY_TARGET} (I463)"))
+                findings.append(Finding("fail", f"{name}: {service} mounts {SIGNING_KEY} at {mounted}, not {SIGNING_KEY_TARGET} (I472)"))
     if holders != [SIGNING_KEY_HOLDER]:
-        findings.append(Finding("fail", f"{name}: {holders or 'nothing'} holds {SIGNING_KEY}, not {SIGNING_KEY_HOLDER} alone (I463)"))
+        findings.append(Finding("fail", f"{name}: {holders or 'nothing'} holds {SIGNING_KEY}, not {SIGNING_KEY_HOLDER} alone (I472)"))
     declared = (model.get("secrets") or {}).get(SIGNING_KEY) or {}
     source_file = Path(str(declared.get("file") or ""))
     read = source_file.relative_to(project).as_posix() if source_file.is_relative_to(project) else source_file.as_posix()
     if read != SIGNING_KEY_FILE:
-        findings.append(Finding("fail", f"{name}: {SIGNING_KEY} is read from {read!r}, not {SIGNING_KEY_FILE} (I463)"))
+        findings.append(Finding("fail", f"{name}: {SIGNING_KEY} is read from {read!r}, not {SIGNING_KEY_FILE} (I472)"))
     return findings
 
 

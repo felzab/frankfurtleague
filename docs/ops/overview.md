@@ -38,7 +38,7 @@ graph TB
 
 **The diagram is production's** — the local stack adds its own database service to the application
 network and points both application services at it ([`spec.md`](spec.md) §1.5). **nginx alone
-joins both networks** ([`spec.md`](spec.md) I462), so the connector reaches nothing else.
+joins both networks** ([`spec.md`](spec.md) I471), so the connector reaches nothing else.
 
 **The host publishes no port at all** ([`spec.md`](spec.md) I1): the connector dials out, so nginx's
 routing table is the whole of what the internet can address on this host, and there is no address to

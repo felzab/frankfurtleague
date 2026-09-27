@@ -37,7 +37,7 @@ services:
     image: ghcr.io/felzab/frankfurtleague-frontend:latest
     restart: unless-stopped
     # The actor token's signing key, handed over as the connector's credential is, to this service
-    # alone: a holder of it mints any actor the backend trusts (`docs/ops/spec.md :: I463`).
+    # alone: a holder of it mints any actor the backend trusts (`docs/ops/spec.md :: I472`).
     secrets:
       - fl_actor_signing_key
     networks:
@@ -203,7 +203,7 @@ secrets:
   fl_actor_signing_key:
     file: ./secrets/fl_actor_signing_key
 
-# Two user-defined bridges, joined by nginx alone (`docs/ops/spec.md :: I462`). Containers resolve each
+# Two user-defined bridges, joined by nginx alone (`docs/ops/spec.md :: I471`). Containers resolve each
 # other by service name on a network they share -- `http://backend:8000` and `http://frontend:3000` in
 # nginx/shared/site.conf are these names, not hosts.
 networks:

@@ -1228,7 +1228,7 @@ named (`docs/backend/spec.md` §4). Rotating it after a suspected leak is not fi
 `berechtigungen` holds only grants somebody can account for, and `aktionen` has been read for every
 `berechtigungen` write since the leak; revoke the rest in the Playground.
 
-**Each machine also has its own actor token key pair** ([`spec.md`](spec.md) I463): an Ed25519
+**Each machine also has its own actor token key pair** ([`spec.md`](spec.md) I472): an Ed25519
 private key the frontend signs with, and its public half the backend verifies with. In Git Bash on a
 development machine, or in a shell on the server, at the checkout root, this writes the private half
 to `./secrets/fl_actor_signing_key` and appends the public half to `fl_backend/.env`, printing

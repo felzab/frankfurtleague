@@ -812,7 +812,7 @@ It holds the three internal keys and nothing else (docs/ops/runbooks.md §16)."
 }
 
 # The actor token's signing key: where the host holds it, and where compose mounts it for the frontend
-# (`docs/ops/spec.md :: I463`). The file is read by the scripts that source this one.
+# (`docs/ops/spec.md :: I472`). The file is read by the scripts that source this one.
 # shellcheck disable=SC2034
 SIGNING_KEY_FILE="secrets/fl_actor_signing_key"
 SIGNING_KEY_MOUNT="/run/secrets/fl_actor_signing_key"
