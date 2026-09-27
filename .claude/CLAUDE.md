@@ -147,6 +147,9 @@ is unverified: say so in the same answer.
 | **Ruff**                | [ruff/llms.txt](https://docs.astral.sh/ruff/llms.txt)                               | — (index only)                                                             |
 | **uv**                  | [uv/llms.txt](https://docs.astral.sh/uv/llms.txt)                                   | — (index only)                                                             |
 
+- **Next.js ships its docs inside the installed package**, at
+  `fl_frontend/node_modules/next/dist/docs/`, matched to the version that runs: grep them first, and
+  the `llms.txt` above only where they are silent, since it tracks the newest release.
 - A reference is authoritative only while it is official and current — the project's own domain,
   with the installed version in it as a documented release. Where either fails, use the prose docs
   plus the installed typings in `node_modules`, and say which you used. For HeroUI use the `react/`
