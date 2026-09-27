@@ -41,6 +41,15 @@ export function armBerechtigungenAbgleich(): void {
 let laeuft = false;
 let nochmal = false;
 
+/**
+ * Passes a row may be claimed before it is given up: about four hours of lapsed leases, inside the
+ * provider's day, so the recipients it did reach are mailed nothing twice.
+ */
+const VERSUCHE_HOECHSTENS = 24;
+
+/** Per outbox row this instance still holds unstamped: the recipients already told, and the passes spent on it. */
+const offen = new Map<string, { erreicht: Set<string>; versuche: number }>();
+
 /** The dead rows last warned of: a count that stands is warned once, not at every pass while nobody repairs it. */
 let gewarntUebersprungen = 0;
 
@@ -80,6 +89,10 @@ async function abgleichen(): Promise<void> {
   }
   // Down as well as up, so a row repaired and another made dead later is warned of again.
   gewarntUebersprungen = claim.uebersprungen;
+  // A row this claim does not hold is another instance's or stamped already: kept, it would only grow.
+  const gehalten = new Set(claim.aenderungen.map((aenderung) => aenderung.id));
+  for (const id of offen.keys()) if (!gehalten.has(id)) offen.delete(id);
+
   if (claim.beanspruchung === null || claim.aenderungen.length === 0) return;
 
   const angekuendigt: string[] = [];
@@ -98,16 +111,18 @@ async function abgleichen(): Promise<void> {
 }
 
 /**
- * Mails one change to every current holder and to the address the change names, where the answer
- * names it: a barred address is withheld, and so never mailed. Answers whether every send settled.
+ * Mails one change to every current holder and to the address the change names, where the answer names
+ * it: a barred address is withheld, and never mailed. Answers whether the row is done: all settled, or given up.
  */
 async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: readonly string[]): Promise<boolean> {
   const genannt = [aenderung.jetzt?.adresse, aenderung.vorher?.adresse].filter((adresse) => adresse !== null && adresse !== undefined);
   const adressen = [...new Set([...empfaenger, ...genannt])];
   const { subject, html, text } = buildBerechtigungEmail(zugangsaenderung(aenderung), urheber(aenderung), frontend_config.AUTH_URL);
+  const stand = offen.get(aenderung.id) ?? { erreicht: new Set<string>(), versuche: 0 };
 
   let alleErledigt = true;
-  for (const adresse of adressen) {
+  // A recipient an earlier pass told is not mailed again: past the provider's day its key collapses nothing.
+  for (const adresse of adressen.filter((adresse) => !stand.erreicht.has(adresse))) {
     try {
       // Keyed on the outbox row, so a lapsed claim mailing it again reaches nobody twice inside the
       // provider's day; the body depends on the row alone, which the provider needs to collapse it.
@@ -120,6 +135,7 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
         tags: { [BERECHTIGUNG_TAG]: BERECHTIGUNG_HINWEIS },
         idempotencyKey: mailIdempotencyKey(["berechtigung", aenderung.id], adresse),
       });
+      stand.erreicht.add(adresse);
     } catch (error) {
       // Logged by the mailer itself, and as told: a stack that mails nothing would claim the same rows forever.
       if (error instanceof MailWithheldError) continue;
@@ -135,7 +151,26 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
 
   // Every other failure keeps the row, a provider's refusal included: the provider names none that
   // concerns one address alone, and a key, a domain or a sender it refuses refuses every send.
-  return alleErledigt;
+  if (alleErledigt) {
+    offen.delete(aenderung.id);
+    return true;
+  }
+
+  stand.versuche += 1;
+  if (stand.versuche < VERSUCHE_HOECHSTENS) {
+    offen.set(aenderung.id, stand);
+    return false;
+  }
+
+  // Given up rather than claimed for ever: the stamp takes it out of the outbox, and this line is all
+  // that says who was never told. Counts, never an address.
+  offen.delete(aenderung.id);
+  logger.error("berechtigung.notice_abandoned", undefined, {
+    error_code: "FE-MAIL-011",
+    versuche: stand.versuche,
+    nicht_erreicht: adressen.length - stand.erreicht.size,
+  });
+  return true;
 }
 
 /**

@@ -264,6 +264,47 @@ describe("what a pass leaves for the next", () => {
     );
   });
 
+  /* The next claim mails the row again, and only to whom the last pass missed: past the provider's day
+     its keys collapse nothing, and a holder told twice learns nothing but noise. */
+  it("mails a later pass's row only to the recipients an earlier pass missed", async () => {
+    claim = claimOf([aenderung()]);
+    const lost: MailOutcome = "lost";
+    mail.answerWith((sent) => (sent.to === "vorstand@schule.de" ? lost : "accepted"));
+    await runBerechtigungenAbgleich();
+    assert.deepEqual(stamps(), [], "a row with a send that may yet land was stamped");
+
+    mail.sent.length = 0;
+    mail.answerWith(() => "accepted");
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(
+      mail.sent.map((sent) => sent.to),
+      ["vorstand@schule.de"],
+    );
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+  });
+
+  /* A row no pass can finish is claimed every lease for ever: past the cap it is stamped out of the outbox
+     and the line says, by count alone, how many were never told. */
+  it("gives a row up after 24 passes, stamping it under a louder line", async () => {
+    const AUFGEGEBEN = "6890a1b2c3d4e5f6071a00ff";
+    claim = claimOf([aenderung({ id: AUFGEGEBEN })]);
+    const lost: MailOutcome = "lost";
+    mail.answerWith((sent) => (sent.to === "vorstand@schule.de" ? lost : "accepted"));
+
+    for (let pass = 1; pass < 24; pass += 1) await runBerechtigungenAbgleich();
+    assert.deepEqual(stamps(), [], "the row was given up before its cap");
+    assert.equal(mail.sent.filter((sent) => sent.to === "inhaber@schule.de").length, 1, "a recipient told once was mailed again");
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [AUFGEGEBEN] }]);
+    assert.deepEqual(
+      lines.filter((line) => line.event === "berechtigung.notice_abandoned").map((line) => [line.level, line.fields]),
+      [["ERROR", { error_code: "FE-MAIL-011", versuche: 24, nicht_erreicht: 1 }]],
+    );
+  });
+
   /* A stack that mails nothing counts the change as told, or it would claim the same rows forever; the
      mailer has logged it, so the pass adds no line. A domain with no ASCII form fails that address alone. */
   it("counts a withheld send and an address no send can reach as told", async () => {
