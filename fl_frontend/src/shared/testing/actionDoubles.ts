@@ -177,7 +177,8 @@ export const REQUEST_PACKAGES: Readonly<Record<string, string>> = {
 };
 
 /** Every refusal an action logs would otherwise reach the run's output as an error line. */
-const SILENT_LOGGER = "const inert = () => undefined; export const logger = { debug: inert, info: inert, warn: inert, error: inert };";
+const inert = (): undefined => undefined;
+const SILENT_LOGGER = { logger: { debug: inert, info: inert, warn: inert, error: inert } };
 
 /** What the doubled sign-in store's `getAdminSession` answers: an administrator, nobody signed in, or a store that threw this. */
 type AdminSessionDouble = { user: { email: string } } | null | Error;
@@ -352,7 +353,8 @@ export function doubleActionRequest({
       // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
       if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: signInStore(url, answers), shortCircuit: true };
       if (url.endsWith("/src/core/subject.ts")) return { format: "module", source: subjectLookup(url, answers), shortCircuit: true };
-      if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: SILENT_LOGGER, shortCircuit: true };
+      if (url.endsWith("/src/core/logging.ts"))
+        return { format: "module", source: replacingModule(url, "the logger", SILENT_LOGGER), shortCircuit: true };
       return nextLoad(url, context);
     },
   });
@@ -415,14 +417,14 @@ export function doubleToasts(): { raised: RaisedToast[] } {
 
   // `close` and `clear` raise nothing, and recording them would shift every index `raised` is read by.
   const members = toastMembers().map((name) => [name, name === "close" || name === "clear" ? inert : name === "failure" ? fail : raise(name)]);
-  const source = exportingModule({ UNDO_TIMEOUT_MS: 1, appToast: Object.fromEntries(members) });
+  const doubled = { UNDO_TIMEOUT_MS: 1, appToast: Object.fromEntries(members) };
 
   registerHooks({
     load(url, context, nextLoad) {
       // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
       if (!url.endsWith(TOAST_MODULE)) return nextLoad(url, context);
 
-      return { format: "module", source, shortCircuit: true };
+      return { format: "module", source: replacingModule(url, "the toast module", doubled), shortCircuit: true };
     },
   });
 

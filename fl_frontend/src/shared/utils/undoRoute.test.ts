@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 
 import z from "zod";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 import type { UndoReport } from "./undoRoute.ts";
@@ -36,7 +36,9 @@ const through = (): boolean => {
 /** Whether the backend leaves the grant unanswered for the rest of a case. */
 let grantUnread = false;
 
-const AUTH = exportingModule({
+/* Replaced whole, its export names read off the real module: a name the spine starts importing then
+   links, where a hand-kept list failed this suite before its first case. */
+const AUTH = {
   getAdminSession: async () => (through() && !grantUnread ? session() : null),
   isFreshlySignedIn: () => true,
   judgeAdminRequest: async () => {
@@ -51,8 +53,9 @@ const AUTH = exportingModule({
   getSignInDestination: async () => {
     throw new Error("the undo spine read the landing for a status its guard already judged");
   },
-});
-const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
+};
+const inert = (): undefined => undefined;
+const LOGGING = { logger: { debug: inert, info: inert, warn: inert, error: inert } };
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 
@@ -63,8 +66,10 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH, shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
+    if (url.endsWith("/src/core/auth.ts"))
+      return { format: "module", source: replacingModule(url, "the sign-in store", AUTH), shortCircuit: true };
+    if (url.endsWith("/src/core/logging.ts"))
+      return { format: "module", source: replacingModule(url, "the logger", LOGGING), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

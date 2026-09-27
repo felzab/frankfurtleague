@@ -3,7 +3,7 @@ import { registerHooks } from "node:module";
 import { afterEach, beforeEach } from "node:test";
 
 import { dispatchRequest, sentRequestOf } from "@/core/apiDispatch.ts";
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 
 /** One request a module handed the backend client: the path, and what it went with. */
 export type ApiCall = {
@@ -45,12 +45,12 @@ export function doubleApiClient(answer: (call: ApiCall, schema: ApiSchema) => un
       return answer(call, schema);
     });
   };
-  const source = exportingModule({ apiClient });
-
   registerHooks({
     load(url, context, nextLoad) {
       // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-      return url.endsWith("/src/core/api.ts") ? { format: "module", source, shortCircuit: true } : nextLoad(url, context);
+      if (!url.endsWith("/src/core/api.ts")) return nextLoad(url, context);
+
+      return { format: "module", source: replacingModule(url, "the backend client", { apiClient }), shortCircuit: true };
     },
   });
 

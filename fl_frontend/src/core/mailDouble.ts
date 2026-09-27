@@ -2,7 +2,7 @@ import { registerHooks } from "node:module";
 import { beforeEach } from "node:test";
 
 import { APINetworkError, MailSendError } from "./errors.ts";
-import { exportingModule } from "./exportingModule.ts";
+import { replacingModule } from "./exportingModule.ts";
 import { recordWriteSent } from "./requestScope.ts";
 
 /** One message handed to the mailer, as `fl_frontend/src/core/mail.ts :: OutboundMail` carries it. */
@@ -90,12 +90,14 @@ export function doubleSendMail(): { sent: SentMail[]; answerWith: (next: MailAns
     }
     return { id: typeof outcome === "object" && "accepted" in outcome ? outcome.accepted : `msg-${String(sent.length)}` };
   };
-  const source = exportingModule({ MailWithheldError, MailRecipientError, MailUnsentError, sendMail });
+  const doubled = { MailWithheldError, MailRecipientError, MailUnsentError, sendMail };
 
   registerHooks({
     load(url, context, nextLoad) {
       // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-      return url.endsWith("/src/core/mail.ts") ? { format: "module", source, shortCircuit: true } : nextLoad(url, context);
+      if (!url.endsWith("/src/core/mail.ts")) return nextLoad(url, context);
+
+      return { format: "module", source: replacingModule(url, "the mailer", doubled), shortCircuit: true };
     },
   });
 

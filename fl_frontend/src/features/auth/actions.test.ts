@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 
 import { APIError } from "better-auth/api";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { exportingModule, replacingModule } from "@/core/exportingModule.ts";
 import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -27,7 +27,8 @@ const PACKAGE_DOUBLES: Readonly<Record<string, string>> = {
   "next/server": exportingModule({ after: (task: () => Promise<void>) => void deferred.push(task) }),
 };
 
-const AUTH_DOUBLE = exportingModule({ auth: { api: { sendVerificationOTP: () => signingIn() } } });
+const AUTH_DOUBLE = { auth: { api: { sendVerificationOTP: () => signingIn() } } };
+const inert = (): undefined => undefined;
 
 /* The sign-in store replaced whole: which outcome the library reaches for an address is
    `fl_frontend/src/features/auth/signInSideEffects.test.ts`'s subject, and this file asks only that
@@ -39,9 +40,11 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH_DOUBLE, shortCircuit: true };
+    // Their export names read off the real modules, so a name the action starts importing links.
+    if (url.endsWith("/src/core/auth.ts"))
+      return { format: "module", source: replacingModule(url, "the sign-in store", AUTH_DOUBLE), shortCircuit: true };
     if (url.endsWith("/src/core/logging.ts")) {
-      const source = "const inert = () => undefined; export const logger = { debug: inert, info: inert, warn: inert, error: inert };";
+      const source = replacingModule(url, "the logger", { logger: { debug: inert, info: inert, warn: inert, error: inert } });
       return { format: "module", source, shortCircuit: true };
     }
     return nextLoad(url, context);

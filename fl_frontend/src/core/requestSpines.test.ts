@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { replacingModule } from "./exportingModule.ts";
 import { doubleSendMail } from "./mailDouble.ts";
 import { filesUnder } from "./treeWalk.ts";
 
@@ -26,19 +27,29 @@ export const connection = async () => undefined;`,
   "next/navigation": "export const unstable_rethrow = () => undefined;",
 };
 
-const unreached = (name: string) => `() => { throw new Error("${name} is past the guard and not doubled"); }`;
+const inert = (): undefined => undefined;
+const ADMINISTRATOR = { user: { email: "vorstand@example.org" } };
 
-const MODULE_DOUBLES: Record<string, string> = {
-  "/src/core/api.ts": `export const apiClient = ${unreached("the backend")};`,
-  "/src/core/logging.ts": "const inert = () => undefined; export const logger = { debug: inert, info: inert, warn: inert, error: inert };",
-  "/src/core/config.ts": `export const frontend_config = { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" };`,
+/**
+ * Each module replaced whole, its export names read off the real one: a route importing a name a
+ * double left out fails to link, and the sweep's worker then exits without reporting a case.
+ */
+const MODULE_DOUBLES: Record<string, (url: string) => string> = {
+  // No export doubled: each throws where called, as a request past the guard reaching the backend would.
+  "/src/core/api.ts": (url) => replacingModule(url, "the backend", {}),
+  "/src/core/logging.ts": (url) => replacingModule(url, "the logger", { logger: { debug: inert, info: inert, warn: inert, error: inert } }),
+  "/src/core/config.ts": (url) =>
+    replacingModule(url, "the config", { frontend_config: { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" } }),
   // Signed in, so the undo spine's session check lets a request through to the body it reads.
-  "/src/core/auth.ts": `export const auth = { handler: async (request) => new Response(request.url), api: {} };
-export const ADDRESS_ATTEMPTS_EXHAUSTED = "ADDRESS_ATTEMPTS_EXHAUSTED";
-export const forgiveCodeAttempt = async () => undefined;
-export const getAdminSession = async () => ({ user: { email: "vorstand@example.org" } });
-export const judgeAdminRequest = async () => ({ session: { user: { email: "vorstand@example.org" } } });
-export const isFreshlySignedIn = () => true;`,
+  "/src/core/auth.ts": (url) =>
+    replacingModule(url, "the sign-in store", {
+      auth: { handler: async (request: Request) => new Response(request.url), api: {} },
+      ADDRESS_ATTEMPTS_EXHAUSTED: "ADDRESS_ATTEMPTS_EXHAUSTED",
+      forgiveCodeAttempt: async () => undefined,
+      getAdminSession: async () => ADMINISTRATOR,
+      judgeAdminRequest: async () => ({ session: ADMINISTRATOR }),
+      isFreshlySignedIn: () => true,
+    }),
 };
 const mail = doubleSendMail();
 
@@ -52,7 +63,7 @@ registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     const double = Object.entries(MODULE_DOUBLES).find(([ending]) => url.endsWith(ending))?.[1];
-    return double === undefined ? nextLoad(url, context) : { format: "module", source: double, shortCircuit: true };
+    return double === undefined ? nextLoad(url, context) : { format: "module", source: double(url), shortCircuit: true };
   },
 });
 

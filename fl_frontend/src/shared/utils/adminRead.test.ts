@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 
 import type { RequestActor } from "@/core/requestScope.ts";
@@ -12,7 +12,7 @@ const ADMINISTRATOR: RequestActor = { email: "vorstand@example.org", lane: "admi
 /* Its own sign-in double rather than `doubleActionRequest`'s, so a case can count the reads. It records
    the actor on every call, as the real guard does: into whichever scope is open, or none. */
 const store: { session: { user: { email: string } } | null; reads: number } = { session: null, reads: 0 };
-const AUTH = exportingModule({
+const AUTH = {
   getAdminSession: async () => {
     store.reads += 1;
     if (store.session !== null) {
@@ -21,7 +21,7 @@ const AUTH = exportingModule({
     }
     return store.session;
   },
-});
+};
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -32,7 +32,9 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH, shortCircuit: true };
+    // Its export names read off the real module, so a name the spine starts importing links.
+    if (url.endsWith("/src/core/auth.ts"))
+      return { format: "module", source: replacingModule(url, "the sign-in store", AUTH), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

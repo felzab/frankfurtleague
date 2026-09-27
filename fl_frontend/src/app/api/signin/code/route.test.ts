@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 /** Stands in for `next/headers`, whose real `headers()` throws outside a request scope. */
@@ -26,7 +26,7 @@ let served: unknown = null;
 /* The sign-in replaced at the module boundary: which answer it reaches for which address is
    `fl_frontend/src/core/auth.test.ts`'s subject, and this file asks what the route makes of each. A
    refusal is shaped as the library raises one. */
-const AUTH_DOUBLE = exportingModule({
+const AUTH_DOUBLE = {
   ADDRESS_ATTEMPTS_EXHAUSTED: "ADDRESS_ATTEMPTS_EXHAUSTED",
   forgiveCodeAttempt: (body: object) => {
     forgiven.push(body);
@@ -49,12 +49,12 @@ const AUTH_DOUBLE = exportingModule({
       getSession: () => Promise.resolve(served),
     },
   },
-});
+};
 
 /* The one module of the route's that would import the real mail shell for a figure. */
-const AUTH_EMAIL_DOUBLE = "export const CODE_VALIDITY_MINUTES = 10;";
+const AUTH_EMAIL_DOUBLE = { CODE_VALIDITY_MINUTES: 10 };
 
-const CONFIG_DOUBLE = `export const frontend_config = { AUTH_URL: "http://localhost:3000" };`;
+const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: "http://localhost:3000" } };
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -63,9 +63,14 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/auth.ts")) return { format: "module", source: AUTH_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/authEmail.ts")) return { format: "module", source: AUTH_EMAIL_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
+    // Each export name read off the real module, so a name the route starts importing links.
+    if (url.endsWith("/src/core/auth.ts"))
+      return { format: "module", source: replacingModule(url, "the sign-in store", AUTH_DOUBLE), shortCircuit: true };
+    if (url.endsWith("/src/core/authEmail.ts")) {
+      return { format: "module", source: replacingModule(url, "the mail shell", AUTH_EMAIL_DOUBLE), shortCircuit: true };
+    }
+    if (url.endsWith("/src/core/config.ts"))
+      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
     return nextLoad(url, context);
   },
 });
