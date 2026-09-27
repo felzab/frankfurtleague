@@ -43,12 +43,17 @@ class BaseAPIException(HTTPException):
         error_code: str,
         message: str,
         headers: dict[str, str] | None = None,
+        *,
+        jti: str | None = None,
     ):
         # A real attribute, not only a key inside `detail`: every handler logs `exc.error_code` and
         # the response body carries it, so a code reachable only through the detail dict is one
         # every log line silently replaces with a fallback.
         self.error_code = error_code
         self.error_detail = {"error_code": error_code, "message": message}
+        # The actor token a refusal is about, named by its id alone: the token is a credential for the
+        # minute it lives, and the id is what a later line about the same token repeats.
+        self.jti = jti
         # A refused payload's `fields`, which a 422 alone publishes; `None` keeps them off every other body.
         self.fields: list[dict[str, Any]] | None = None
         super().__init__(status_code=status_code, detail=self.error_detail, headers=headers)
@@ -87,13 +92,14 @@ ACTOR_TOKEN_CHALLENGE = "FL-Actor"
 class ActorTokenRefusedException(BaseAPIException):
     """The key passed, and the actor token beside it failed verification: a credential present and not accepted, RFC 9110's 401."""
 
-    def __init__(self, error_code: str, reason: str):
+    def __init__(self, error_code: str, reason: str, *, jti: str | None):
         super().__init__(
             status_code=status.HTTP_401_UNAUTHORIZED,
             error_code=error_code,
             # `reason` is `app/core/actor_token.py :: ActorTokenRefusal`'s fixed phrase: the token never reaches the log.
             message=f"the actor token was refused: {reason}",
             headers={"WWW-Authenticate": ACTOR_TOKEN_CHALLENGE},
+            jti=jti,
         )
 
 
@@ -104,8 +110,8 @@ class ActorForbiddenException(BaseAPIException):
     domain rule's and refuses no read.
     """
 
-    def __init__(self, error_code: str, message: str):
-        super().__init__(status_code=status.HTTP_403_FORBIDDEN, error_code=error_code, message=message)
+    def __init__(self, error_code: str, message: str, *, jti: str):
+        super().__init__(status_code=status.HTTP_403_FORBIDDEN, error_code=error_code, message=message, jti=jti)
 
 
 class DatabaseUnavailableException(BaseAPIException):

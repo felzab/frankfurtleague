@@ -119,7 +119,9 @@ as an enum (`fl_frontend/src/core/config.ts :: LOG_FORMAT`). Both normalise case
 | `error`      | `{name, message, stack}` when an exception is attached, last       |
 
 Per-surface extras sit between `message` and `error`: the backend adds `module`/`line` directly
-after `message` and the access-line fields (`method`, `path`, `status`, `duration_ms`); nginx adds
+after `message`, the access-line fields (`method`, `path`, `status`, `duration_ms`), and `jti` on a
+refusal of an actor token the configured key signed — the token's id, never the token, which is a
+credential for the minute it lives (`fl_backend/app/core/actor_token.py :: _signed_jti`); nginx adds
 the rest of the `fl_json` `log_format`; the frontend adds whatever a call site passes (`digest`,
 `route`, `fetch_trace_id`, `cache_fill`).
 

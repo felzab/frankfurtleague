@@ -62,7 +62,7 @@ def error_response(
 async def base_api_exception_handler(request: Request, exc: BaseAPIException):
     fl_logger.warning(
         f"API Exception ({exc.status_code}): {exc.error_detail['message']}",
-        extra={"error_code": exc.error_code},
+        extra={"error_code": exc.error_code, "jti": exc.jti},
     )
 
     return error_response(exc.status_code, exc.error_code, headers=exc.headers, fields=exc.fields)

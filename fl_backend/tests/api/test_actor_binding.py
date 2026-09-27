@@ -46,7 +46,7 @@ from app.core.security import (
     verify_person_actor,
 )
 from app.main import create_app
-from tests.actor_tokens import FOREIGN_SIGNING_KEY, SignedActor, actor_claims, actor_token, sign
+from tests.actor_tokens import FOREIGN_SIGNING_KEY, SignedActor, actor_claims, actor_token, protected_header, sign
 from tests.config import ADMIN_KEY, build_test_config
 from tests.core.app_source import api_routes
 from tests.grants import admit
@@ -234,28 +234,53 @@ class TestTheGuardExemptsNoMethod:
         assert excinfo.value.error_code == MISSING_ACTOR
 
 
-def _expired() -> tuple[str, str]:
+Refused = tuple[str, str, str | None]
+
+
+def _expired() -> Refused:
     now = int(time.time())
-    return sign({**actor_claims(ACTOR), "iat": now - 600, "exp": now - 540}), "expired"
+    claims = {**actor_claims(ACTOR), "iat": now - 600, "exp": now - 540}
+    return sign(claims), "expired", claims["jti"]
 
 
-def _foreign() -> tuple[str, str]:
-    return sign(actor_claims(ACTOR), private_key=FOREIGN_SIGNING_KEY), "unknown kid"
+def _foreign() -> Refused:
+    return sign(actor_claims(ACTOR), private_key=FOREIGN_SIGNING_KEY), "unknown kid", None
 
 
-@pytest.mark.parametrize("refused", [_expired, _foreign], ids=("expired", "signed by another key"))
-def test_a_refused_token_logs_its_reason_and_never_the_token(refused: Callable[[], tuple[str, str]], caplog: pytest.LogCaptureFixture):
-    """A signed value is a credential for the minute it lives, and PyJWT's own message is no phrase this module chose."""
-    token, reason = refused()
+def _forged_under_our_kid() -> Refused:
+    """Naming the configured key's `kid` and signed by another: its `jti` is a stranger's text, which no line may carry."""
+    return sign(actor_claims(ACTOR), private_key=FOREIGN_SIGNING_KEY, header=protected_header()), "signature does not verify", None
+
+
+@pytest.mark.parametrize("refused", [_expired, _foreign, _forged_under_our_kid], ids=("expired", "signed by another key", "forged"))
+def test_a_refused_token_logs_its_reason_and_never_the_token(refused: Callable[[], Refused], caplog: pytest.LogCaptureFixture):
+    """A signed value is a credential for the minute it lives, and PyJWT's own message is no phrase this module chose.
+
+    Its `jti` stands beside the reason exactly where the configured key signed it.
+    """
+    token, reason, jti = refused()
     with caplog.at_level(logging.WARNING, logger=FL_LOGGER_NAME):
         client().delete(WRITE_PATH, headers={**ADMIN_KEY, ACTOR_HEADER: token})
 
-    lines = [record.getMessage() for record in caplog.records]
+    [line] = [record for record in caplog.records if record.getMessage().endswith(f"the actor token was refused: {reason}")]
 
-    assert any(line.endswith(f"the actor token was refused: {reason}") for line in lines), lines
+    assert getattr(line, "jti", None) == jti
     # Each segment on its own, so a line carrying the payload alone is caught as well as the whole token.
+    lines = [record.getMessage() for record in caplog.records]
     assert not any(segment in line for segment in token.split(".") for line in lines)
     assert not any("Signature has expired" in line for line in lines)
+
+
+def test_an_actor_holding_no_grant_is_logged_by_the_token_s_jti(caplog: pytest.LogCaptureFixture):
+    """Refused past a verified token, so the id on its line is always one the frontend minted."""
+    claims = actor_claims("schueler@example.com")
+    with caplog.at_level(logging.WARNING, logger=FL_LOGGER_NAME):
+        response = client().delete(WRITE_PATH, headers={**ADMIN_KEY, ACTOR_HEADER: sign(claims)})
+
+    assert response.json()["error_code"] == ACTOR_NOT_ADMIN
+    assert [getattr(record, "jti", None) for record in caplog.records if getattr(record, "error_code", None) == ACTOR_NOT_ADMIN] == [
+        claims["jti"]
+    ]
 
 
 class TestWhatTheBindingLeavesBehind:

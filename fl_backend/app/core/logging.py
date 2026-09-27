@@ -30,7 +30,7 @@ span_id_var: ContextVar[str] = ContextVar("span_id", default=NO_REQUEST_SENTINEL
 
 # Listed once, so both formatters put the same set beside the message rather than inside it
 # (`docs/logging/spec.md :: L9`).
-STRUCTURED_EXTRAS = ("error_code", "method", "path", "status", "duration_ms")
+STRUCTURED_EXTRAS = ("error_code", "jti", "method", "path", "status", "duration_ms")
 
 # The code on a failure line no call site of ours wrote -- uvicorn's, pymongo's, the reloader's.
 FORWARDED_FAILURE_CODE = "SRV-LOG-001"

@@ -54,14 +54,15 @@ ED25519_PUBLIC_KEY_BYTES: Final = 32
 
 
 class ActorTokenRefusal(Exception):
-    """Why a token is refused, in a phrase of this module's own.
+    """Why a token is refused, in a phrase of this module's own, and the token's `jti` where its signature held.
 
-    It reaches the log line, where neither the token nor PyJWT's rendering of it may.
+    Both reach the log line, where neither the token nor PyJWT's rendering of it may.
     """
 
-    def __init__(self, reason: str):
+    def __init__(self, reason: str, *, jti: str | None = None):
         super().__init__(reason)
         self.reason = reason
+        self.jti = jti
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -189,6 +190,20 @@ def _claims_of(payload: dict[str, Any], lane: Lane) -> ActorClaims:
     )
 
 
+def _signed_jti(token: str, key: ActorTokenKey) -> str | None:
+    """The `jti` of a token the configured key signed, or `None`.
+
+    Verified afresh rather than read after a failure: an id nobody signed names no minted token, only a stranger's text.
+    """
+
+    try:
+        signed = jwt.PyJWS().decode_complete(token, key.jwk, algorithms=[ACTOR_TOKEN_ALGORITHM])
+        jti = json.loads(signed["payload"]).get("jti")
+    except jwt.PyJWTError, ValueError, AttributeError:
+        return None
+    return jti if _non_empty_string(jti) else None
+
+
 def verify_actor_token(token: str, key: ActorTokenKey, *, lane: Lane) -> ActorClaims:
     """The claims `token` carries, once its signature, header, registered claims and `lane` have held.
 
@@ -209,6 +224,14 @@ def verify_actor_token(token: str, key: ActorTokenKey, *, lane: Lane) -> ActorCl
     if header["kid"] != key.kid:
         raise ActorTokenRefusal("unknown kid")
 
+    try:
+        return _verified_claims(token, key, lane)
+    except ActorTokenRefusal as refusal:
+        # Asked only once a refusal is certain, so an admitted request verifies its signature once.
+        raise ActorTokenRefusal(refusal.reason, jti=_signed_jti(token, key)) from None
+
+
+def _verified_claims(token: str, key: ActorTokenKey, lane: Lane) -> ActorClaims:
     try:
         payload = jwt.decode(
             token,

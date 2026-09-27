@@ -128,7 +128,7 @@ def verify_admin_actor(
     try:
         return verify_actor_token(token, key, lane="admin")
     except ActorTokenRefusal as refusal:
-        raise ActorTokenRefusedException(error_code=ACTOR_TOKEN_REFUSED, reason=refusal.reason) from None
+        raise ActorTokenRefusedException(error_code=ACTOR_TOKEN_REFUSED, reason=refusal.reason, jti=refusal.jti) from None
 
 
 def verify_person_actor(
@@ -139,7 +139,7 @@ def verify_person_actor(
     try:
         return verify_actor_token(token, key, lane="person")
     except ActorTokenRefusal as refusal:
-        raise ActorTokenRefusedException(error_code=ACTOR_TOKEN_REFUSED, reason=refusal.reason) from None
+        raise ActorTokenRefusedException(error_code=ACTOR_TOKEN_REFUSED, reason=refusal.reason, jti=refusal.jti) from None
 
 
 # Whether a folded identifier holds a live grant: the one question the actor check asks.
@@ -177,7 +177,9 @@ async def verify_actor_is_admin(
     # panel. Either tier admits: `owner` holds every power `administration` does.
     if not await holds_a_live_grant(sign_in_identifier(actor.email)):
         # The address stays out of the message, which reaches the log line.
-        raise ActorForbiddenException(error_code=ACTOR_NOT_ADMIN, message=f"the {ACTOR_HEADER} this request names is not an administrator")
+        raise ActorForbiddenException(
+            error_code=ACTOR_NOT_ADMIN, message=f"the {ACTOR_HEADER} this request names is not an administrator", jti=actor.jti
+        )
 
 
 async def bind_actor(request: Request, actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> AsyncIterator[None]:
