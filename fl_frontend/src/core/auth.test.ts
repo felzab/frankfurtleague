@@ -717,11 +717,23 @@ describe("why the admin guard refused", () => {
     arriveAs(cookie);
     assert.deepEqual(await judgeAdminRequest(), { refused: "signIn" }, "a code-borne session was told its grant is gone");
 
-    row.authFactor = "passkey";
+    madeByPasskey(store, row);
     BACKENDS.set(ADMIN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
 
     assert.equal(await getAdminSession(), null, "the guard admitted a session holding no grant");
     assert.deepEqual(await judgeAdminRequest(), { refused: "grantGone" });
+  });
+
+  /* A session whose passkey is gone is no session (`docs/frontend/spec.md :: I313`), which a new
+     sign-in repairs, whatever its address holds. */
+  it("tells a session whose passkey is gone to sign in, never that its grant is gone", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    madeByPasskey(store, row);
+    store.passkey.length = 0;
+    BACKENDS.set(ADMIN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    arriveAs(cookie);
+
+    assert.deepEqual(await judgeAdminRequest(), { refused: "signIn" });
   });
 });
 
@@ -758,7 +770,7 @@ describe("why the administrator's guard turns a request away", () => {
     arriveAs(admin.cookie);
     assert.deepEqual(await judgeAdminRequest(), { refused: "signIn" }, "a code-made session is refused as something a sign-in cannot repair");
 
-    admin.row.authFactor = "passkey";
+    madeByPasskey(store, admin.row);
     const judged = await judgeAdminRequest();
     assert.ok("session" in judged, "the administrator's passkey session was refused");
     assert.equal(judged.session.user.email, ADMIN_EMAIL);
