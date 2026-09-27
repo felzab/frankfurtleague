@@ -276,10 +276,7 @@ describe("the narrow window a grant's revoke is held to", () => {
     const { unmount } = render(revokeUnder(8_000_000 + STEP_UP_WINDOW_MS, 8_000_000 + ENROLMENT_WINDOW_MS));
 
     await user.click(screen.getByRole("button", { name: "Zugang von vorstand@schule.de entziehen" }));
-    assert.ok(
-      await screen.findByRole("button", { name: "Ja, Zugang von vorstand@schule.de endgültig entziehen" }),
-      "a revoke inside the window asked",
-    );
+    assert.ok(await screen.findByRole("button", { name: "Ja, Zugang endgültig entziehen" }), "a revoke inside the window asked");
     unmount();
   });
 });
