@@ -414,7 +414,7 @@ const PANELS: Record<string, Arming[]> = {
             darfEntziehen: true,
           }),
         ),
-      resting: "Zugang von vorstand@schule.de entziehen",
+      resting: "Zugang entziehen: vorstand@schule.de",
     },
   ],
   [M.zugangStufe]: [
@@ -429,7 +429,7 @@ const PANELS: Record<string, Arming[]> = {
             eigene: false,
           }),
         ),
-      resting: "vorstand@schule.de zum Inhaber ernennen",
+      resting: "Zum Inhaber ernennen: vorstand@schule.de",
     },
     {
       render: () =>

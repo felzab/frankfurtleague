@@ -49,13 +49,15 @@ export const ZUGANG_ERTEILT = "Zugang erteilt";
 export const NUR_INHABER_ENTZIEHT = "Den Zugang entziehen kann nur der Inhaber.";
 
 /**
- * Each row's revoke: short words on the control, which an address would run past on a phone, and the row in
- * the name a screen reader hears — the address, or the grant's day where it is withheld.
+ * A row control's name: the words on it first, which speech input says, then the row a screen reader tells it
+ * apart by — the address, or the grant's day where the address is withheld.
  */
+const benannt = (worte: string, adresse: string | null, erteiltAm: string): string => `${worte}: ${adresse ?? `Zugang vom ${erteiltAm}`}`;
+
+/** Each row's revoke: short words on the control, which an address would run past on a phone. */
 export function entziehenLabels(adresse: string | null, erteiltAm: string): { resting: string; name: string; armed: string } {
-  const wessen = adresse === null ? `vom ${erteiltAm}` : `von ${adresse}`;
-  // GERMAN-PENDING: „Ja, Zugang endgültig entziehen“, a draft awaiting approval.
-  return { resting: "Zugang entziehen", name: `Zugang ${wessen} entziehen`, armed: "Ja, Zugang endgültig entziehen" };
+  const resting = "Zugang entziehen";
+  return { resting, name: benannt(resting, adresse, erteiltAm), armed: "Ja, Zugang endgültig entziehen" };
 }
 
 /** What the revoke costs, in its armed state: the person is out at once, and everybody is told. */
@@ -106,13 +108,11 @@ export function stufeWorte({
     };
   }
 
-  // GERMAN-PENDING: the withheld row's names and reveals, and the two short controls with their armed words.
-  const zeile = adresse ?? `Zugang vom ${erteiltAm}`;
   const wer = adresse ?? `Wer den Zugang vom ${erteiltAm} hat,`;
   return ziel === "owner"
     ? {
         resting: "Zum Inhaber ernennen",
-        name: `${zeile} zum Inhaber ernennen`,
+        name: benannt("Zum Inhaber ernennen", adresse, erteiltAm),
         armed: "Ja, zum Inhaber ernennen",
         running: "Ernennt...",
         // What an owner can do that an administrator cannot, the acting owner's own tier included.
@@ -120,7 +120,7 @@ export function stufeWorte({
       }
     : {
         resting: "Zur Verwaltung herabstufen",
-        name: `${zeile} zur Verwaltung herabstufen`,
+        name: benannt("Zur Verwaltung herabstufen", adresse, erteiltAm),
         armed: "Ja, zur Verwaltung herabstufen",
         running: "Stuft herab...",
         folge: `${wer} ist dann nicht mehr Inhaber der Verwaltung und behält den Zugang. ${mail}`,

@@ -153,12 +153,10 @@ describe("who is offered the revoke", () => {
     );
     assert.ok(textOf(markup, " ").includes("Den Zugang entziehen kann nur der Inhaber."), "the closed revoke says not why");
     // Every revoke closed at once is where one name per row matters most: the overlay is each one's only stop.
-    // Read off the overlay itself, not through `refusalWrappers`, which refuses this name: it parts the words on
-    // screen with the row. The name's wording is not yet decided.
-    const overlays = [...markup.matchAll(/<div\b[^>]*\sdata-slot="popover-trigger"[^>]*>/g)].map(
-      ([tag]) => /\saria-label="([^"]*)"/.exec(tag)?.[1],
+    assert.deepEqual(
+      refusalWrappers(markup).map(({ name }) => name),
+      ["Zugang entziehen: vorstand@schule.de", "Zugang entziehen: Zugang vom 27.09.2026"],
     );
-    assert.deepEqual(overlays, ["Zugang von vorstand@schule.de entziehen", "Zugang vom 27.09.2026 entziehen"]);
   });
 
   /* No request changes an `owner` grant, so its row carries no control even for an owner. */
@@ -171,15 +169,16 @@ describe("who is offered the revoke", () => {
 
     // Each named by its row, the withheld address by its day, so a screen reader tells one from the next.
     assert.deepEqual(
-      names.filter((name) => name.endsWith("entziehen")),
-      ["Zugang von vorstand@schule.de entziehen", "Zugang vom 27.09.2026 entziehen"],
+      names.filter((name) => name.startsWith("Zugang entziehen")),
+      ["Zugang entziehen: vorstand@schule.de", "Zugang entziehen: Zugang vom 27.09.2026"],
     );
     assert.ok(!textOf(markup, " ").includes("Den Zugang entziehen kann nur der Inhaber."), "the owner's revoke is closed");
   });
 });
 
 describe("who is offered the tier change", () => {
-  const stufenNamen = (html: string): string[] => buttonNames(html).filter((name) => /ernennen$|herabstufen$/.test(name));
+  const stufenNamen = (html: string): string[] =>
+    buttonNames(html).filter((name) => /^(Mich zur Verwaltung herabstufen|Zum Inhaber ernennen|Zur Verwaltung herabstufen)\b/.test(name));
 
   /* An owner's control alone: shown closed to anybody else, it would offer a change nothing on the page can make. */
   it("shows an administrator holding no `owner` grant no tier change at all", async () => {
@@ -196,18 +195,18 @@ describe("who is offered the tier change", () => {
 
     assert.deepEqual(stufenNamen(markup), [
       "Mich zur Verwaltung herabstufen",
-      "vorstand@schule.de zum Inhaber ernennen",
-      "Zugang vom 27.09.2026 zum Inhaber ernennen",
+      "Zum Inhaber ernennen: vorstand@schule.de",
+      "Zum Inhaber ernennen: Zugang vom 27.09.2026",
     ]);
     // A barred address is made an owner by no request: its promotion stands closed, saying why.
     const gesperrt = [...markup.matchAll(/<button\b[^>]*>(?:(?!<\/button>)[\s\S])*?<\/button>/g)]
       .map(([tag]) => tag)
-      .find((tag) => tag.includes('aria-label="Zugang vom 27.09.2026 zum Inhaber ernennen"'));
+      .find((tag) => tag.includes('aria-label="Zum Inhaber ernennen: Zugang vom 27.09.2026"'));
     assert.ok(gesperrt !== undefined && /\bdisabled\b/.test(gesperrt), "a promotion the backend refuses is open to press");
     assert.ok(textOf(markup, " ").includes("Diese Adresse ist gesperrt."), "the closed promotion says not why");
     assert.deepEqual(
       refusalWrappers(markup).map(({ name }) => name),
-      ["Zugang vom 27.09.2026 zum Inhaber ernennen"],
+      ["Zum Inhaber ernennen: Zugang vom 27.09.2026"],
       "the closed promotion's one stop names no row",
     );
   });
@@ -237,8 +236,8 @@ describe("who is offered the tier change", () => {
     const names = buttonNames(await renderPage(PAGE));
 
     assert.deepEqual(
-      names.filter((name) => /ernennen$|herabstufen$|entziehen$/.test(name)),
-      ["Mich zur Verwaltung herabstufen", "kasse@schule.de zur Verwaltung herabstufen"],
+      names.filter((name) => /ernennen|herabstufen|entziehen/.test(name)),
+      ["Mich zur Verwaltung herabstufen", "Zur Verwaltung herabstufen: kasse@schule.de"],
     );
   });
 });

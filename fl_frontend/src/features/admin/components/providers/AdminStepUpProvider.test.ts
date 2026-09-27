@@ -264,7 +264,7 @@ describe("the narrow window a grant's revoke is held to", () => {
     t.mock.timers.enable({ apis: ["Date"], now: 7_000_000 });
     const { unmount } = render(revokeUnder(7_000_000 + STEP_UP_WINDOW_MS, 7_000_000 - 1));
 
-    await user.click(screen.getByRole("button", { name: "Zugang von vorstand@schule.de entziehen" }));
+    await user.click(screen.getByRole("button", { name: "Zugang entziehen: vorstand@schule.de" }));
     assert.ok(await screen.findByRole("button", { name: STEP_UP_LABEL }), "the revoke armed on the standing window alone");
     unmount();
   });
@@ -275,7 +275,7 @@ describe("the narrow window a grant's revoke is held to", () => {
     t.mock.timers.enable({ apis: ["Date"], now: 8_000_000 });
     const { unmount } = render(revokeUnder(8_000_000 + STEP_UP_WINDOW_MS, 8_000_000 + ENROLMENT_WINDOW_MS));
 
-    await user.click(screen.getByRole("button", { name: "Zugang von vorstand@schule.de entziehen" }));
+    await user.click(screen.getByRole("button", { name: "Zugang entziehen: vorstand@schule.de" }));
     assert.ok(await screen.findByRole("button", { name: "Ja, Zugang endgültig entziehen" }), "a revoke inside the window asked");
     unmount();
   });
