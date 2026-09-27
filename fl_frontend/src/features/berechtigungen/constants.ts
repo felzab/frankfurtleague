@@ -49,12 +49,13 @@ export const ZUGANG_ERTEILT = "Zugang erteilt";
 export const NUR_INHABER_ENTZIEHT = "Den Zugang entziehen kann nur der Inhaber.";
 
 /**
- * Each row's revoke, named by what its card shows: the address, or the grant's day where the address is
- * withheld, as the ban list names each removal by its day.
+ * Each row's revoke: short words on the control, which an address would run past on a phone, and the row in
+ * the name a screen reader hears — the address, or the grant's day where it is withheld.
  */
-export function entziehenLabels(adresse: string | null, erteiltAm: string): { resting: string; armed: string } {
+export function entziehenLabels(adresse: string | null, erteiltAm: string): { resting: string; name: string; armed: string } {
   const wessen = adresse === null ? `vom ${erteiltAm}` : `von ${adresse}`;
-  return { resting: `Zugang ${wessen} entziehen`, armed: `Ja, Zugang ${wessen} endgültig entziehen` };
+  // GERMAN-PENDING: „Ja, Zugang endgültig entziehen“, a draft awaiting approval.
+  return { resting: "Zugang entziehen", name: `Zugang ${wessen} entziehen`, armed: "Ja, Zugang endgültig entziehen" };
 }
 
 /** What the revoke costs, in its armed state: the person is out at once, and everybody is told. */
@@ -73,12 +74,15 @@ export const ADRESSE_GESPERRT = "Diese Adresse ist gesperrt. Hebe zuerst die Spe
 /** A barred address already holds its grant here, so the sentence names what it would become. */
 export const INHABER_GESPERRT = "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Inhaber werden soll.";
 
-/** Each row's tier change in words: the control at rest and armed, its running label, and what the armed state costs. */
-type StufeWorte = { resting: string; armed: string; running: string; folge: string };
+/**
+ * Each row's tier change in words: the control at rest and armed, its running label, and what the armed state
+ * costs. `name` names the row where the words on the control repeat from row to row.
+ */
+type StufeWorte = { resting: string; name?: string; armed: string; running: string; folge: string };
 
 /**
- * Each row's tier change, named by what its card shows as the revoke is, and by the tier it moves to, so
- * the confirmation names both. The administrator's own row is named as theirs: stepping down is theirs alone.
+ * Each row's tier change, named as its revoke is and by the tier it moves to. The administrator's own row
+ * is named as theirs: stepping down is theirs alone.
  */
 export function stufeWorte({
   adresse,
@@ -102,22 +106,24 @@ export function stufeWorte({
     };
   }
 
-  // The sentence's opening and its middle, since an address keeps its own case wherever it stands.
-  const [Wen, wen] =
-    adresse === null ? [`Die gesperrte Adresse vom ${erteiltAm}`, `die gesperrte Adresse vom ${erteiltAm}`] : [adresse, adresse];
+  // GERMAN-PENDING: the withheld row's names and reveals, and the two short controls with their armed words.
+  const zeile = adresse ?? `Zugang vom ${erteiltAm}`;
+  const wer = adresse ?? `Wer den Zugang vom ${erteiltAm} hat,`;
   return ziel === "owner"
     ? {
-        resting: `${Wen} zum Inhaber ernennen`,
-        armed: `Ja, ${wen} zum Inhaber ernennen`,
+        resting: "Zum Inhaber ernennen",
+        name: `${zeile} zum Inhaber ernennen`,
+        armed: "Ja, zum Inhaber ernennen",
         running: "Ernennt...",
         // What an owner can do that an administrator cannot, the acting owner's own tier included.
-        folge: `${Wen} wird Inhaber der Verwaltung und kann dann Zugänge entziehen und jede Stufe ändern, auch Deine. ${mail}`,
+        folge: `${wer} wird Inhaber der Verwaltung und kann dann Zugänge entziehen und jede Stufe ändern, auch Deine. ${mail}`,
       }
     : {
-        resting: `${Wen} zur Verwaltung herabstufen`,
-        armed: `Ja, ${wen} zur Verwaltung herabstufen`,
+        resting: "Zur Verwaltung herabstufen",
+        name: `${zeile} zur Verwaltung herabstufen`,
+        armed: "Ja, zur Verwaltung herabstufen",
         running: "Stuft herab...",
-        folge: `${Wen} ist dann nicht mehr Inhaber der Verwaltung und behält den Zugang. ${mail}`,
+        folge: `${wer} ist dann nicht mehr Inhaber der Verwaltung und behält den Zugang. ${mail}`,
       };
 }
 

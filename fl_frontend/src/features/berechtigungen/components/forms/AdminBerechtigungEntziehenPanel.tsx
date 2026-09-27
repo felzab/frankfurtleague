@@ -30,7 +30,7 @@ export function AdminBerechtigungEntziehenPanel({
   erteiltAm: string;
   darfEntziehen: boolean;
 }) {
-  const { resting, armed } = entziehenLabels(adresse, erteiltAm);
+  const { resting, name, armed } = entziehenLabels(adresse, erteiltAm);
   // The enrolment's window, as the action's: the prompt asks before a press the server would refuse.
   const twoPress = useTwoPressConfirm({ stepUp: "enrolment" });
   const router = useRouter();
@@ -64,6 +64,7 @@ export function AdminBerechtigungEntziehenPanel({
           confirm={twoPress}
           reason={darfEntziehen ? null : NUR_INHABER_ENTZIEHT}
           resting={resting}
+          restingName={name}
           armed={armed}
           running="Entzieht..."
           icon={

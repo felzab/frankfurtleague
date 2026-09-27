@@ -68,12 +68,26 @@ beforeEach(() => {
 const PAGE = underNext(h(AdminAdministratorenPage, {}), { pathname: "/bereich/admin/administratoren" });
 
 /** The words on each button the page renders. */
-const buttonNames = (html: string): string[] =>
+const buttonWords = (html: string): string[] =>
   [...html.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/g)].map((hit) =>
     textOf(hit[1] ?? "", " ")
       .replace(/\s+/g, " ")
       .trim(),
   );
+
+/** The name a screen reader hears for each button: its `aria-label` where it has one, else its words. */
+const buttonNames = (html: string): string[] =>
+  [...html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].map(
+    (hit) =>
+      /\saria-label="([^"]*)"/.exec(hit[1] ?? "")?.[1] ??
+      textOf(hit[2] ?? "", " ")
+        .replace(/\s+/g, " ")
+        .trim(),
+  );
+
+/** The name of each refusal laid over a closed control, which stands in for that control as its one tab stop. */
+const refusalNames = (html: string): string[] =>
+  [...html.matchAll(/<div\b[^>]*\sdata-slot="popover-trigger"[^>]*>/g)].flatMap(([tag]) => /\saria-label="([^"]*)"/.exec(tag)?.[1] ?? []);
 
 describe("the page the administrators stand on", () => {
   it("raises no heading the shell already owns", async () => {
@@ -142,6 +156,8 @@ describe("who is offered the revoke", () => {
       "a revoke the backend refuses is open to press",
     );
     assert.ok(textOf(markup, " ").includes("Den Zugang entziehen kann nur der Inhaber."), "the closed revoke says not why");
+    // Every revoke closed at once is where one name per row matters most: the overlay is each one's only stop.
+    assert.deepEqual(refusalNames(markup), ["Zugang von vorstand@schule.de entziehen", "Zugang vom 27.09.2026 entziehen"]);
   });
 
   /* No request changes an `owner` grant, so its row carries no control even for an owner. */
@@ -180,14 +196,32 @@ describe("who is offered the tier change", () => {
     assert.deepEqual(stufenNamen(markup), [
       "Mich zur Verwaltung herabstufen",
       "vorstand@schule.de zum Inhaber ernennen",
-      "Die gesperrte Adresse vom 27.09.2026 zum Inhaber ernennen",
+      "Zugang vom 27.09.2026 zum Inhaber ernennen",
     ]);
     // A barred address is made an owner by no request: its promotion stands closed, saying why.
     const gesperrt = [...markup.matchAll(/<button\b[^>]*>(?:(?!<\/button>)[\s\S])*?<\/button>/g)]
       .map(([tag]) => tag)
-      .find((tag) => textOf(tag, " ").includes("gesperrte Adresse vom 27.09.2026 zum Inhaber"));
+      .find((tag) => tag.includes('aria-label="Zugang vom 27.09.2026 zum Inhaber ernennen"'));
     assert.ok(gesperrt !== undefined && /\bdisabled\b/.test(gesperrt), "a promotion the backend refuses is open to press");
     assert.ok(textOf(markup, " ").includes("Diese Adresse ist gesperrt."), "the closed promotion says not why");
+    assert.deepEqual(refusalNames(markup), ["Zugang vom 27.09.2026 zum Inhaber ernennen"], "the closed promotion's one stop names no row");
+  });
+
+  /* An address is one word a phone's width cannot seat beside a verb, so the words on a control stay short
+     and the row goes in the name a screen reader hears. */
+  it("keeps the words on each control short, the row in its name", async () => {
+    eigeneVerwaltung = "owner";
+    setSession({ user: { email: INHABER.adresse } });
+    zeilen = [INHABER, VORSTAND, GESPERRT, ZWEITER_INHABER];
+
+    const words = buttonWords(await renderPage(PAGE)).filter((word) => /ernennen$|herabstufen$|entziehen$/.test(word));
+
+    assert.deepEqual([...new Set(words)].sort(), [
+      "Mich zur Verwaltung herabstufen",
+      "Zugang entziehen",
+      "Zum Inhaber ernennen",
+      "Zur Verwaltung herabstufen",
+    ]);
   });
 
   it("offers an owner the demotion of another owner, and no revoke of either `owner` grant", async () => {

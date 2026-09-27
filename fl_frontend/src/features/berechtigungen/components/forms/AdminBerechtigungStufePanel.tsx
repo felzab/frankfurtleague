@@ -36,7 +36,7 @@ export function AdminBerechtigungStufePanel({
   eigene: boolean;
 }) {
   const ziel: FLVerwaltung = verwaltung === "owner" ? "administration" : "owner";
-  const { resting, armed, running, folge } = stufeWorte({ adresse, erteiltAm, ziel, eigene });
+  const { resting, name, armed, running, folge } = stufeWorte({ adresse, erteiltAm, ziel, eigene });
   // The enrolment's window, as the action's: the prompt asks before a press the server would refuse.
   const twoPress = useTwoPressConfirm({ stepUp: "enrolment" });
   const router = useRouter();
@@ -60,7 +60,8 @@ export function AdminBerechtigungStufePanel({
     <div className="flex w-full flex-col gap-3">
       {isConfirming && (
         <ConfirmReveal>
-          <p className="fluid-xxs leading-normal font-medium text-foreground">{folge}</p>
+          {/* `break-words`, as the card's „Erteilt von“ line: the sentence can open on a whole address. */}
+          <p className="fluid-xxs leading-normal font-medium break-words text-foreground">{folge}</p>
         </ConfirmReveal>
       )}
 
@@ -71,6 +72,7 @@ export function AdminBerechtigungStufePanel({
           // A barred address is made an owner by no request; its demotion stays open.
           reason={ziel === "owner" && adresse === null ? INHABER_GESPERRT : null}
           resting={resting}
+          restingName={name}
           armed={armed}
           running={running}
           icon={
