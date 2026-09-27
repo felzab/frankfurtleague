@@ -27,6 +27,9 @@ export const AKTION_COLLECTION_LABELS: Record<string, string> = {
   schiedsrichter: "Schiedsrichter",
   bewerbungen: "Bewerbungen",
   sperrliste: "Sperrliste",
+  berechtigungen: "Administratoren",
+  berechtigungen_angekuendigt: "Angekündigte Zugänge",
+  berechtigungen_postausgang: "Ausstehende Zugangsmeldungen",
   einladungen: "Registrierungslinks",
   registrierungen: "Registrierungen",
 };

@@ -119,6 +119,8 @@ const FRONTEND_ONLY: Record<string, string> = {
   FLSchiedsrichterUmfang: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLAnonymiseSchiedsrichterPayload: "the anonymisation POST takes its id from the path and has no request body",
   FLSperrlisteKeyPayload: "the ban's DELETE takes the id from the path and has no request body",
+  FLBerechtigungKeyPayload: "the grant's DELETE takes the id from the path and has no request body",
+  FLVerwaltung: "a Pydantic Literal alias, inlined as an enum at each use site",
   FLSpielortKeyPayload: "the venue's DELETE and reactivate take the id from the path, with no request body",
 
   // One form creates the row and its junction: without one the club is invisible (backend spec I11).
@@ -335,7 +337,7 @@ const pairs = Object.entries(components).flatMap(([component, node]) => {
 });
 
 // Pinned so a component quietly dropping out of the comparison is a failure rather than a smaller run.
-const EXPECTED_PAIRS = 234;
+const EXPECTED_PAIRS = 244;
 
 describe("the published document", () => {
   it("is present and carries both sections the comparison reads", () => {

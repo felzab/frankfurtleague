@@ -326,7 +326,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   whoever granted it.** `berechtigungen` holds the grant and `berechtigungen_angekuendigt` what the
   other administrators were told of it, and every administrator is served both addresses. The outbox
   `berechtigungen_postausgang` holds a changed grant's address until a pass has mailed it, and no
-  barred address at all (`docs/backend/spec.md :: I452`). A revoke removes the grant and its
+  barred address at all (`docs/backend/spec.md :: I452`). Each change is mailed to every holder and to
+  the address it names, carrying that address and the administrator who made it; a barred address
+  it names by its state alone (`docs/frontend/spec.md :: I455`). A revoke removes the grant and its
   announced row at once (`docs/backend/spec.md :: I451`); the log keeps each removed row's image, the address in it, for
   its twelve months, as it keeps every administrator's write. No erasure route reaches a grant: the revoke is the route, and
   an `owner` grant is removed in the database directly (`docs/backend/spec.md :: I436`).

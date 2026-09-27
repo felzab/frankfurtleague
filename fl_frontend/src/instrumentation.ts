@@ -44,4 +44,11 @@ export async function register() {
     const { armBewerbungSweep } = await import("./features/bewerbungen/sweep");
     armBewerbungSweep();
   }
+
+  // Never behind the sweep's switch, which a local stack sets off: a change to who administers is
+  // announced wherever a production build runs, and a stack that mails nothing counts it as told.
+  if (process.env.NODE_ENV === "production") {
+    const { armBerechtigungenAbgleich } = await import("./features/berechtigungen/abgleich");
+    armBerechtigungenAbgleich();
+  }
 }

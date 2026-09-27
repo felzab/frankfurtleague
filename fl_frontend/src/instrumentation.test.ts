@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import type { TestContext } from "node:test";
+
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
@@ -66,5 +68,40 @@ describe("the boot finding the retired administrator variable", () => {
     await register();
 
     assert.deepEqual(lines, []);
+  });
+});
+
+describe("the pass announcing each change to who administers", () => {
+  const MINUTE_MS = 60 * 1000;
+  const env = process.env as Record<string, string | undefined>;
+
+  /** One boot under `nodeEnv`, and the first pass's minute: the claim fails here, which is what shows it ran. */
+  async function bootAndWait(t: TestContext, nodeEnv: string): Promise<string[]> {
+    const before = env.NODE_ENV;
+    env.NODE_ENV = nodeEnv;
+    t.mock.timers.enable({ apis: ["setInterval", "setTimeout"] });
+    try {
+      await register();
+      t.mock.timers.tick(MINUTE_MS);
+      // The pass's claim and its failure settle on the queue behind the tick.
+      await new Promise((resolve) => setImmediate(resolve));
+      await new Promise((resolve) => setImmediate(resolve));
+    } finally {
+      t.mock.timers.reset();
+      if (before === undefined) delete env.NODE_ENV;
+      else env.NODE_ENV = before;
+    }
+
+    return lines.map(({ event }) => event);
+  }
+
+  /* Never behind the application sweep's switch, which this boot has off: a local stack sets it off, and
+     a change to who administers is announced wherever a production build runs. */
+  it("arms under a production build whatever the application sweep's switch says", async (t) => {
+    assert.ok((await bootAndWait(t, "production")).includes("berechtigung.abgleich_failed"), "no pass ran a minute after a production boot");
+  });
+
+  it("arms nothing under a development build", async (t) => {
+    assert.deepEqual(await bootAndWait(t, "development"), []);
   });
 });

@@ -29,9 +29,15 @@ let sweepSwitch: string | undefined = "on";
 
 let apiAnswer: (call: ApiEvent) => unknown = () => ({});
 
+/** The grants' claim with nothing to announce. */
+const NOTHING_CLAIMED = { acknowledged: 1, beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
+
 // Replaced at the module boundary rather than the sweep being reshaped to admit a seam: the real
 // client reaches a backend no test process runs, and the real transport posts on a key none holds.
 doubleApiClient(({ endpoint, method, params, body }, schema) => {
+  // The grants' pass is armed by the same boot and answers to its own suite
+  // (`fl_frontend/src/features/berechtigungen/abgleich.test.ts`): here it claims nothing and is not recorded.
+  if (endpoint.startsWith("/berechtigungen")) return schema.parse(NOTHING_CLAIMED);
   // Into the one ordered list the mail double appends to, so a read and a send stay in the order they ran.
   const call: ApiEvent = { kind: "api", endpoint, method: method ?? "GET", params: params as ApiEvent["params"], body };
   events.push(call);
