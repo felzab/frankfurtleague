@@ -359,7 +359,6 @@ administration is shut while it is down. Each of these is easy to get wrong:
   without naming it; `verwaltung`, `owner` or `administration`; `erteilt_von`, a marker naming the
   paste, such as `PLAYGROUND`; and `erteilt_am`, a date rather than a string. Removing the row by its
   folded address revokes it. The statement itself is kept off this public repository.
-
 - **Paste only into a database a boot of the release carrying `berechtigungen` has reached.** That
   boot creates the validator and the unique index; a paste before it creates the collection with
   neither, and a duplicate address in it then fails the next boot's index build (`SRV-BOOT-004`).
@@ -370,7 +369,6 @@ administration is shut while it is down. Each of these is easy to get wrong:
   `fl_frontend/.env` alone, so a rollback to the frontend before still finds the line it requires;
   never add it to the server's `fl_backend/.env`, which the backend before refuses to boot with.
   Delete it from the frontend's once this release is settled.
-
 - **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer
   (`docs/backend/spec.md :: I435`), the tier change to leave no owner
   (`docs/backend/spec.md :: I479`), and the Playground refuses nothing: the boot warns with
@@ -381,17 +379,16 @@ administration is shut while it is down. Each of these is easy to get wrong:
   Playground writes onto a barred address is refused by nothing and admits nobody, neither to the
   site (`docs/frontend/spec.md :: I409`) nor to the admin tier while the ban stands
   (`docs/backend/spec.md :: I463`), and the reconciliation flags it.
-- **Every change is announced, a Playground one naming no administrator** (`docs/backend/spec.md ::
-I439`). A Playground change undone again before the next claim is announced by nothing, and
-  deleting a row of `berechtigungen_angekuendigt` or `berechtigungen_postausgang` by hand announces
-  that grant again as new, or silences its notice.
+- **Every change is announced, a Playground one naming no administrator**
+  (`docs/backend/spec.md :: I439`). A Playground change undone again before the next claim is
+  announced by nothing, and deleting a row of `berechtigungen_angekuendigt` or
+  `berechtigungen_postausgang` by hand announces that grant again as new, or silences its notice.
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
 - **A grant to an address the sign-in library will not take admits nobody**: that person is mailed
   no code. The grant page refuses such an address (`docs/frontend/spec.md :: I316`); the Playground
-  refuses nothing. An umlaut before the
-  at sign is the case that turns up: the sign-in box takes no such address, so that person needs a
-  mailbox it will accept before a grant is worth writing. An umlaut domain is stored in punycode,
+  refuses nothing. An umlaut before the at sign is the case that turns up: the sign-in box takes no
+  such address, so that person needs a mailbox it will accept before a grant is worth writing. An umlaut domain is stored in punycode,
   which the sign-in box converts either spelling to.
 - **A grant admits every passkey the address already holds.** A person enrols passkeys with a mailed
   code, the same authority an administrator's first passkey rests on, so one enrolled before the grant
