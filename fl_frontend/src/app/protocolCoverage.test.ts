@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
+import z from "zod";
+
 import { keyTierOf } from "@/core/keyTiers.ts";
 import { publishedOperations } from "@/core/openapiDocument.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
@@ -21,6 +23,7 @@ const { refusedOn } = await import("@/shared/testing/publishedRefusals.ts");
 const { ZUGANG_WEG } = await import("@/shared/utils/actionError.ts");
 const { runAdminMutation, stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 const { handlePublicRequest } = await import("@/shared/utils/publicRoute.ts");
+const { handleUndoRequest } = await import("@/shared/utils/undoRoute.ts");
 
 /** The shared reader's words for a request the running API cannot take, which a slice's own mapper may word first. */
 const EINZELNE_ANGABEN_ABGELEHNT = "Einzelne Angaben wurden nicht übernommen. Lade die Seite neu.";
@@ -104,18 +107,36 @@ const READS = /^(?:GET|HEAD|OPTIONS) /;
 
 const errorOf = (answer: unknown): unknown => (typeof answer === "object" && answer !== null && "error" in answer ? answer.error : answer);
 
-/** What the write spine for `tier` answers the refusal with, its body throwing it as the API client raises it. */
-async function shownBySpine(tier: KeyTier | null, refusal: APIBadStatusError): Promise<unknown> {
-  if (tier === "admin") return errorOf(await runAdminMutation("protocolCoverage", () => Promise.reject(refusal)));
+/** A same-origin request to a route, carrying an empty body for a spine that parses one. */
+const routeRequest = (path: string) =>
+  new NextRequest(`http://localhost${path}`, { method: "POST", headers: { "sec-fetch-site": "same-origin" }, body: "{}" });
+
+/**
+ * What each of `tier`'s write spines answers the refusal with, its body throwing it as the API client
+ * raises it: an admin write is sent by an action and replayed by an undo route, each answering itself.
+ */
+async function shownBySpines(tier: KeyTier | null, refusal: APIBadStatusError): Promise<Readonly<Record<string, unknown>>> {
+  if (tier === "admin") {
+    const undone = await handleUndoRequest(routeRequest("/api/admin/protocolCoverage/undo"), {
+      mutationName: "protocolCoverage",
+      schema: z.object({}),
+      restore: () => Promise.reject(refusal),
+      invalidate: () => undefined,
+    });
+
+    return {
+      "the action spine": errorOf(await runAdminMutation("protocolCoverage", () => Promise.reject(refusal))),
+      "the undo spine": errorOf(await undone.json()),
+    };
+  }
 
   if (tier === "base") {
-    const request = new NextRequest("http://localhost/api/protocolCoverage", {
-      method: "POST",
-      headers: { "sec-fetch-site": "same-origin" },
+    const response = await handlePublicRequest(routeRequest("/api/protocolCoverage"), {
+      routeName: "protocolCoverage",
+      run: () => Promise.reject(refusal),
     });
-    const response = await handlePublicRequest(request, { routeName: "protocolCoverage", run: () => Promise.reject(refusal) });
 
-    return errorOf(await response.json());
+    return { "the public route spine": errorOf(await response.json()) };
   }
 
   throw new Error(`no write spine sends a ${String(tier)}-tier call; say who answers ${refusal.serverErrorCode ?? ""} there`);
@@ -151,8 +172,8 @@ describe("every published credential and request-validation code against the ans
     }
   });
 
-  /* Once per tier and status rather than per operation: an operation whose mapper leaves a code unworded
-     answers it as the spine does. The system tier's callers show a refusal to nobody, as
+  /* Once per tier and status on each of its spines, not per operation: an operation whose mapper leaves
+     a code unworded answers it as its spine does. System callers show nobody a refusal, as
      `fl_frontend/src/app/refusalCoverage.test.ts :: REFUSING` leaves them out. */
   it("answers each on every write spine that can meet it, as its entry says", async () => {
     const driven = new Set<string>();
@@ -163,9 +184,11 @@ describe("every published credential and request-validation code against the ans
       if (answer === undefined || answer.kind === "nobody" || tier === "system" || READS.test(operation) || asked.has(key)) continue;
       asked.add(key);
 
-      const shown = await shownBySpine(tier, refusedOn(operation, code, status));
-      const expected = answer.kind === "worded" ? answer.words : await shownBySpine(tier, refusedOn(operation, unclaimedBeside(code), status));
-      assert.equal(shown, expected, `${key}: ${answer.because}`);
+      const shown = await shownBySpines(tier, refusedOn(operation, code, status));
+      const unclaimed = answer.kind === "worded" ? null : await shownBySpines(tier, refusedOn(operation, unclaimedBeside(code), status));
+      for (const [spine, words] of Object.entries(shown)) {
+        assert.equal(words, answer.kind === "worded" ? answer.words : unclaimed?.[spine], `${key}, on ${spine}: ${answer.because}`);
+      }
       driven.add(code);
     }
 

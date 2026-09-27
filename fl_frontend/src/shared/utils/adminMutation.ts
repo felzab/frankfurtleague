@@ -209,18 +209,9 @@ export async function runAdminMutation<T extends { success: boolean }>(
     try {
       return await fn(session);
     } catch (error) {
-      if (!isConfirmationRefused(error)) throw error;
-
-      // The backend's own window refused a write this spine admitted: one declaring no step-up, or one
-      // sent at the window's edge. Answered as the refusal above, so the page's next press asks
-      // (`docs/frontend/spec.md :: I493`).
-      logger.error(`Admin mutation refused for want of a confirmation: ${mutationName}`, error, {
-        error_code: error.code,
-        server_error_code: error.serverErrorCode,
-        status: error.statusCode,
-      });
+      const refused = confirmationRefused(mutationName, error);
       refresh();
-      return stepUpRequired();
+      return refused;
     }
   });
 }
@@ -228,6 +219,22 @@ export async function runAdminMutation<T extends { success: boolean }>(
 /** The backend's refusal of a write for want of a passkey confirmation inside the window it holds that write to. */
 function isConfirmationRefused(error: unknown): error is APIBadStatusError {
   return error instanceof APIBadStatusError && error.serverErrorCode === "REQ-AUTH-009";
+}
+
+/**
+ * The backend's own window refused a write a spine admitted: one declaring no step-up, or one sent at
+ * the window's edge. Answered as the spine's own refusal, so the page's next press asks
+ * (`docs/frontend/spec.md :: I493`).
+ */
+function confirmationRefused(mutationName: string, error: unknown): StepUpRequired {
+  if (!isConfirmationRefused(error)) throw error;
+
+  logger.error(`Admin mutation refused for want of a confirmation: ${mutationName}`, error, {
+    error_code: error.code,
+    server_error_code: error.serverErrorCode,
+    status: error.statusCode,
+  });
+  return stepUpRequired();
 }
 
 /**
@@ -240,7 +247,13 @@ export async function runAdminRouteWrite<T extends { success: boolean }>(
   fn: (session: AdminSession) => Promise<T>,
 ): Promise<Guarded<T>> {
   const { guard, verdict } = judgingGuard();
-  const guarded = await runGuarded(mutationName, guard, fn);
+  const guarded = await runGuarded(mutationName, guard, async (session) => {
+    try {
+      return await fn(session);
+    } catch (error) {
+      return confirmationRefused(mutationName, error);
+    }
+  });
 
   return guarded.forbidden ? { forbidden: true, refused: verdict.refused } : { forbidden: false, answer: guarded.answer };
 }
