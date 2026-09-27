@@ -1154,13 +1154,27 @@ does not look erased, and each role's guard reads something the restore took awa
 - **Anybody who had signed in, whatever their role.** The `auth` database is on the same cluster
   ([`spec.md`](spec.md) I174), so a restore of the cluster brings back their `user`, `session`,
   `account` and `passkey` rows with everything else. Run section 5's hand step in the sign-in store
-  again for each of them, after the route's erasure above; for an administrator it is the whole of
-  their erasure there.
+  again for each of them, after the route's erasure above; for an administrator, after their
+  grant's revoke below.
 
 **The log's redactions came back as well**, so re-running each erasure is also what re-empties the
 images it had stamped ([`../backend/spec.md`](../backend/spec.md#2-invariants) I42, I212).
 
-**Two consequences that are not erasures.** The retention sweep repairs itself, its clocks being
+**Then re-run every grant and ban change made inside the window**, which the restore undid as it
+undid the erasures, and which nothing re-runs:
+
+- **A grant revoked, or a tier changed, after the snapshot is back as it was.** The grant and its
+  announced row return together, so the reconciliation mails nobody, and the grant admits its
+  holder again, an erased administrator among them. Revoke it again with
+  `DELETE /berechtigungen/{berechtigung_id}`, or repeat the tier change
+  ([section 3](#3-granting-or-revoking-admin-access)). A grant made after the snapshot is gone and
+  is made again. The record of each is the mail every change sent every administrator
+  (`docs/backend/spec.md :: I439`).
+- **A ban entered after the snapshot is gone, and one lifted after it is back.** Enter each again
+  at `/bereich/admin/sperrliste`, which mails the person again, and lift the others there; the mail
+  thread that asked for each is the record, the log having rolled back with it.
+
+**Two consequences more.** The retention sweep repairs itself, its clocks being
 stored dates — but a deletion notice already sent whose stamp the restore took back is sent a second
 time, that sweep mailing before it erases ([`../backend/spec.md`](../backend/spec.md#2-invariants)
 I151). And **an erasure with no mail thread behind it is reachable by nothing here**: the log cannot
