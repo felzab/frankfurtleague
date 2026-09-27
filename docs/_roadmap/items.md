@@ -798,8 +798,11 @@ with it.
   `.github/gate-wall-clock.tsv`.
 - **Its data is its own.** `./scripts/ops/local.sh --seed` restores a copy of production, which a CI
   runner never holds.
-- **The admin pages sit behind a mailed sign-in code**, and `.claude/CLAUDE.md` §3 refuses a
-  testing-only way past it in production code.
+- **The admin pages sit behind a stored grant and a passkey**: only a session a passkey made, for
+  an address holding a grant in `berechtigungen`, reaches them
+  (`fl_frontend/src/core/auth.ts :: isAdminSession`), and a session a mailed code made never does.
+  So the run seeds the grant and signs in with a passkey the browser under test holds, and
+  `.claude/CLAUDE.md` §3 refuses a testing-only way past either in production code.
 - **The `connection()` order's symptom is a failed image build**, the builder reaching no backend
   (`docs/frontend/spec.md :: I6`), and never anything a browser shows. Which run replaces the walk's
   is settled before that case goes.
