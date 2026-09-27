@@ -13,6 +13,9 @@ dependencies = [
     "pydantic>=2.13.4",
     "pydantic-core>=2.46.4",
     "pydantic-settings>=2.14.2",
+    # Imported as `jwt`. `[crypto]` because Ed25519 verification is `cryptography`'s: without the
+    # extra, a key for `EdDSA` raises `MissingCryptographyError` on the first actor token.
+    "pyjwt[crypto]>=2.15.0",
     # The driver, through `AsyncMongoClient`. Also the home of `bson`, which app/ imports under
     # that name.
     "pymongo>=4.17.0",
