@@ -3,7 +3,9 @@ import "@/shared/testing/pageHarness.ts";
 
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
+import path from "node:path";
 import { describe, it } from "node:test";
+import { pathToFileURL } from "node:url";
 
 import { Component, createElement as h } from "react";
 import { notFound, redirect } from "next/navigation";
@@ -12,6 +14,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { exportingModule } from "@/core/exportingModule.ts";
+import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
@@ -89,6 +92,10 @@ const Throwing = (): never => {
 
 type Area = {
   name: string;
+  /** The layout's file under `/bereich`, which is where the area begins. */
+  file: string;
+  /** What that file exports, which `layout` calls. */
+  Layout: unknown;
   /** The layout as Next mounts it, with a page slot standing in for whatever page is asked for. */
   layout: () => ReactElement<{ children?: ReactNode }>;
   boundary: ComponentType<{ children?: ReactNode }>;
@@ -101,6 +108,8 @@ type Area = {
 const AREAS: Area[] = [
   {
     name: "the person area",
+    file: "(persoenlich)/layout.tsx",
+    Layout: PersoenlichLayout,
     layout: () => PersoenlichLayout({ children: h("p", null, "Seite") }) as ReactElement<{ children?: ReactNode }>,
     boundary: PersonAreaBoundary,
     failRead: () => setSubject(OUTAGE),
@@ -109,6 +118,8 @@ const AREAS: Area[] = [
   },
   {
     name: "the team area",
+    file: "team/[team_id]/[saison_id]/layout.tsx",
+    Layout: TeamLayout,
     layout: () => TeamLayout({ params: Promise.resolve(TEAM), children: h("p", null, "Seite") }) as ReactElement<{ children?: ReactNode }>,
     boundary: TeamAreaBoundary,
     failRead: () => setSubject(OUTAGE),
@@ -117,6 +128,8 @@ const AREAS: Area[] = [
   },
   {
     name: "the admin area",
+    file: "admin/layout.tsx",
+    Layout: AdminLayout,
     layout: () => AdminLayout({ children: h("p", null, "Seite") }) as ReactElement<{ children?: ReactNode }>,
     boundary: AdminAreaBoundary,
     failRead: () => setSession(OUTAGE),
@@ -126,6 +139,25 @@ const AREAS: Area[] = [
 ];
 
 describe("a read failing in an area's layout", () => {
+  /* Held to the tree rather than trusted: a fourth area would read outside every boundary these cases
+     drive until listed here. A layout nested in an area needs none: the area's `error.tsx` wraps every
+     segment below the area's layout. */
+  it("drives every area layout under /bereich", async () => {
+    const walked = filesUnder(import.meta.dirname, (name) => name === "layout.tsx", 1).map((file) =>
+      path
+        .relative(import.meta.dirname, file)
+        .split(path.sep)
+        .join("/"),
+    );
+    const outermost = walked.filter((file) => !walked.some((other) => other !== file && file.startsWith(`${path.posix.dirname(other)}/`)));
+
+    assert.deepEqual(AREAS.map((area) => area.file).sort(), outermost.sort());
+    for (const area of AREAS) {
+      const { default: Layout } = (await import(pathToFileURL(path.join(import.meta.dirname, area.file)).href)) as { default: unknown };
+      assert.equal(area.Layout, Layout, `${area.name} drives a layout other than ${area.file}'s`);
+    }
+  });
+
   /* The area's `error.tsx` sits inside its layout, so a throw in the layout's guard or chrome reaches
      the root boundary, the visitor's chrome and all, unless the layout wraps it itself. */
   it("throws inside the boundary the layout wraps itself in", async () => {
