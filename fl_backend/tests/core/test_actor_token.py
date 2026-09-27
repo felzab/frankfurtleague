@@ -61,6 +61,7 @@ class TestWhatIsAdmitted:
             sid=issued["sid"],
             amr=("passkey",),
             auth_time=issued["auth_time"],
+            iat=issued["iat"],
             lane="admin",
             jti=issued["jti"],
         )

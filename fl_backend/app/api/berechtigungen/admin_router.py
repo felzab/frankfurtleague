@@ -50,7 +50,7 @@ from app.core.dependencies import (
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin
+from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_recent_confirmation
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
@@ -114,6 +114,7 @@ async def get_berechtigungen(
     status_code=201,
     summary="Grant access to the administration",
     responses={409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_recent_confirmation)],
 )
 async def post_berechtigung(
     berechtigung_data: Annotated[FLPostBerechtigungPayload, Body()],
@@ -134,7 +135,8 @@ async def post_berechtigung(
     grant already holds the address (`REQ-BERECHTIGUNG-001`) -- a dead row of another spelling blocks nothing -- where the ban list
     holds it (`REQ-BERECHTIGUNG-003`), and where the acting administrator's own grant has gone by the time the write is judged
     (`REQ-BERECHTIGUNG-006`). The grant takes effect on the next request, and its announcement is queued in the same transaction for
-    `POST /berechtigungen/abgleich` to hand out.
+    `POST /berechtigungen/abgleich` to hand out. Like a revoke and a tier change, it takes a passkey sign-in or confirmation no older than
+    `ENROLMENT_WINDOW_MINUTES` when the actor token was minted, refused `REQ-AUTH-009` otherwise.
     """
 
     adresse = sign_in_identifier(str(berechtigung_data.email))
@@ -197,6 +199,7 @@ async def post_berechtigung(
     # 409 `DB-COMMON-002` cannot occur here, and is published all the same: the trace behind it reads
     # a write by collection and never by field (`tests/core/test_duplicate_key_publication.py`).
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_recent_confirmation)],
 )
 async def delete_berechtigung(
     berechtigung_id: CustomRouteObjectId,
@@ -216,7 +219,8 @@ async def delete_berechtigung(
     Only an `owner` revokes (`REQ-BERECHTIGUNG-005`), judged on the actor's own grant inside the transaction, and before anything
     about the target is answered. 404 where no grant has the id. Refused for an `owner` row (`REQ-BERECHTIGUNG-002`), which is made an
     administrator first, and where fewer than two live, unbarred grants would remain (`REQ-BERECHTIGUNG-004`). The removal's
-    announcement is queued in the same transaction, after any change to the row made in the database and not yet announced.
+    announcement is queued in the same transaction, after any change to the row made in the database and not yet announced. A sign-in
+    or confirmation older than `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as the grant's is.
     """
 
     akteur = sign_in_identifier(entzogen_von)
@@ -294,6 +298,7 @@ async def delete_berechtigung(
     # 409 `DB-COMMON-002` cannot occur here, and is published all the same: the trace behind it reads
     # a write by collection and never by field (`tests/core/test_duplicate_key_publication.py`).
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_recent_confirmation)],
 )
 async def patch_berechtigung(
     berechtigung_id: CustomRouteObjectId,
@@ -315,7 +320,8 @@ async def patch_berechtigung(
     anything about the target is answered. 404 where no live grant has the id. A promotion of an address on the ban list is refused
     (`REQ-BERECHTIGUNG-003`), and so is a demotion leaving no live, unbarred owner (`REQ-BERECHTIGUNG-007`). Naming the tier the grant
     holds changes nothing and answers 200. The change takes effect on the next request; its announcement is queued in the same
-    transaction, after any change to the row made in the database and not yet announced.
+    transaction, after any change to the row made in the database and not yet announced. A sign-in or confirmation older than
+    `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as the grant's is.
     """
 
     akteur = sign_in_identifier(geaendert_von)

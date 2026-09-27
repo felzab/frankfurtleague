@@ -156,3 +156,7 @@ MEDIEN_MIN_AGE_YEARS: Final = 18
 # refuses an actor token whose sign-in is older: a looser backend honours a session the frontend
 # believes gone.
 ADMIN_WINDOW_HOURS: Final = 48
+
+# The frontend's enrolment window, which it holds a grant, a revoke and a tier change to as well: the
+# backend refuses those writes from a sign-in older than it, so one the page failed to step up still meets it.
+ENROLMENT_WINDOW_MINUTES: Final = 5

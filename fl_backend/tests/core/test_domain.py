@@ -35,6 +35,7 @@ from app.core.exceptions import WriteRefusal
 from app.core.security import (
     ACTOR_NOT_ADMIN,
     ACTOR_TOKEN_REFUSED,
+    CONFIRMATION_REQUIRED,
     MISSING_ACTOR,
     MISSING_TOKEN,
     PERSON_BARRED,
@@ -76,6 +77,7 @@ PROTOCOL_CODES = frozenset(
         ACTOR_NOT_ADMIN,
         ACTOR_TOKEN_REFUSED,
         PERSON_BARRED,
+        CONFIRMATION_REQUIRED,
         PAYLOAD_REFUSED,
         BODY_UNREADABLE,
         NO_ROUTE,

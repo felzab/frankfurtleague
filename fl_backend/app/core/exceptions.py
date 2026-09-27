@@ -103,6 +103,20 @@ class ActorTokenRefusedException(BaseAPIException):
         )
 
 
+class ActorConfirmationRequiredException(BaseAPIException):
+    """The actor may act, from a sign-in older than this write asks: RFC 9470's step-up challenge, a 401 remedied by signing in again."""
+
+    def __init__(self, error_code: str, max_age_s: int, *, jti: str):
+        super().__init__(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            error_code=error_code,
+            message=f"the actor's sign-in or confirmation is older than the {max_age_s} seconds this write asks for",
+            # RFC 9470 §3's error and parameter, under the actor's own scheme as every refusal of the token names it.
+            headers={"WWW-Authenticate": f'{ACTOR_TOKEN_CHALLENGE} error="insufficient_user_authentication", max_age="{max_age_s}"'},
+            jti=jti,
+        )
+
+
 class ActorForbiddenException(BaseAPIException):
     """The key passed and the actor it names may not act on its tier.
 

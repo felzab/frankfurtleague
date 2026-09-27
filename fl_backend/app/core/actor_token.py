@@ -73,6 +73,8 @@ class ActorClaims:
     sid: str
     amr: tuple[str, ...]
     auth_time: int
+    # When the frontend's guard read the session, which it judges its own windows after.
+    iat: int
     lane: Lane
     jti: str
 
@@ -185,6 +187,7 @@ def _claims_of(payload: dict[str, Any], lane: Lane) -> ActorClaims:
         sid=payload["sid"],
         amr=tuple(amr),
         auth_time=payload["auth_time"],
+        iat=payload["iat"],
         lane=payload["lane"],
         jti=payload["jti"],
     )

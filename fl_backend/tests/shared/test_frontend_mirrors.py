@@ -55,6 +55,9 @@ class Mirror(NamedTuple):
     module: str
     typescript: str
     python: str
+    # How many of the frontend's units one of the backend's is: a window the backend counts in minutes
+    # and the frontend's clock in milliseconds is one decision all the same.
+    scale: int = 1
 
 
 # Declared rather than matched by name: several of these pairs are spelled one way on the frontend and
@@ -105,6 +108,9 @@ MIRRORED_BOUNDS: Final = (
     # The frontend expires an administrator's session at this age and the backend refuses an actor
     # token older than it: a looser backend honours a session the frontend believes gone.
     Mirror("core/sessionLifetimes.ts", "ADMIN_WINDOW_HOURS", "ADMIN_WINDOW_HOURS"),
+    # The window a grant, a revoke and a tier change are asked for, which the backend refuses a sign-in
+    # older than: a tighter backend refuses a write its own page admitted.
+    Mirror("core/sessionLifetimes.ts", "ENROLMENT_WINDOW_MS", "ENROLMENT_WINDOW_MINUTES", scale=60 * 1000),
 )
 
 # Every integer `bounds.py` declares that no frontend module retypes, with why none does. A bound in
@@ -299,10 +305,13 @@ def test_every_declared_pair_names_a_bound_this_package_still_declares(mirror: M
 def test_every_declared_pair_agrees_on_the_number(mirror: Mirror):
     """Past the backend's ceiling a `REQ-VAL-001` marks the box with a generic sentence, so a looser mirror loses the bound's German."""
 
-    found = re.search(rf"^export const {mirror.typescript} = (\d+);$", _source(mirror.module), re.MULTILINE)
+    # A product of integer literals at most, the one arithmetic a unit conversion writes.
+    found = re.search(rf"^export const {mirror.typescript} = (\d+(?: \* \d+)*);$", _source(mirror.module), re.MULTILINE)
 
-    assert found is not None, f"{mirror.module} no longer exports {mirror.typescript} as a bare integer"
-    assert int(found[1]) == _declared_bounds()[mirror.python], f"{mirror.typescript} disagrees with {mirror.python}"
+    assert found is not None, f"{mirror.module} no longer exports {mirror.typescript} as an integer or a product of integers"
+    assert math.prod(int(factor) for factor in found[1].split(" * ")) == _declared_bounds()[mirror.python] * mirror.scale, (
+        f"{mirror.typescript} disagrees with {mirror.python}"
+    )
 
 
 def test_every_bound_this_package_declares_is_paired_or_named_unmirrored():

@@ -34,6 +34,7 @@ from app.core.security import (
     ACTOR_HEADER,
     ACTOR_NOT_ADMIN,
     ACTOR_TOKEN_REFUSED,
+    CONFIRMATION_REQUIRED,
     MISSING_ACTOR,
     PERSON_ACTOR_BINDERS,
     PERSON_BARRED,
@@ -50,6 +51,7 @@ from app.core.security import (
     verify_person_actor,
 )
 from app.main import create_app
+from app.shared.schemas.bounds import ENROLMENT_WINDOW_MINUTES
 from tests.actor_tokens import FOREIGN_SIGNING_KEY, SignedActor, actor_claims, actor_token, protected_header, sign
 from tests.config import ADMIN_KEY, build_test_config
 from tests.core.app_source import api_routes
@@ -583,6 +585,48 @@ class TestTheGrantsOverAServedRequest:
 
         assert response.status_code == 400
         assert response.json()["error_code"] == MISSING_ACTOR
+
+
+GRANT_ID = "6890a1b2c3d4e5f607910002"
+GRANT_WRITES = [
+    pytest.param("post", "/api/v0/berechtigungen", id="a grant"),
+    pytest.param("delete", f"/api/v0/berechtigungen/{GRANT_ID}", id="a revoke"),
+    pytest.param("patch", f"/api/v0/berechtigungen/{GRANT_ID}", id="a tier change"),
+]
+ENROLMENT_WINDOW_S = ENROLMENT_WINDOW_MINUTES * 60
+
+
+def signed_in_before(age_s: int) -> dict[str, str]:
+    """An administrator's token whose passkey sign-in or confirmation lies `age_s` before the guard read it."""
+
+    claims = actor_claims(ACTOR)
+    return {**ADMIN_KEY, ACTOR_HEADER: sign({**claims, "auth_time": claims["iat"] - age_s})}
+
+
+class TestTheStepUpOverAServedRequest:
+    """The grants' three writes are held to the enrolment window as the page holds them, and nothing else is."""
+
+    @pytest.mark.parametrize(("method", "path"), GRANT_WRITES)
+    def test_a_write_from_an_older_sign_in_is_refused_with_rfc_9470_s_challenge(self, method: str, path: str):
+        response = getattr(client(), method)(path, headers=signed_in_before(ENROLMENT_WINDOW_S + 1))
+
+        assert (response.status_code, response.json()["error_code"]) == (401, CONFIRMATION_REQUIRED)
+        assert response.headers["www-authenticate"] == (
+            f'{ACTOR_TOKEN_CHALLENGE} error="insufficient_user_authentication", max_age="{ENROLMENT_WINDOW_S}"'
+        )
+
+    @pytest.mark.parametrize(("method", "path"), GRANT_WRITES)
+    def test_a_write_at_the_window_s_edge_reaches_the_database(self, method: str, path: str):
+        """The control, and the edge the page admits: judged at the token's `iat`, so no write the page let through is refused here."""
+        response = getattr(client(), method)(path, headers=signed_in_before(ENROLMENT_WINDOW_S))
+
+        assert response.json()["error_code"] in {UNREACHED_DATABASE, "REQ-VAL-001"}
+
+    @pytest.mark.parametrize(("method", "path"), [pytest.param("get", "/api/v0/berechtigungen", id="the list"), *WRITES])
+    def test_a_route_the_page_does_not_step_up_takes_the_older_sign_in(self, method: str, path: str):
+        response = getattr(client(), method)(path, headers=signed_in_before(ENROLMENT_WINDOW_S + 1))
+
+        assert response.json()["error_code"] != CONFIRMATION_REQUIRED
 
 
 # Obviously fake, padded to the boot's floor, and the key the pseudonym below was computed under.

@@ -22,9 +22,16 @@ from app.core.actor_token import (
 )
 from app.core.config import BackendConfig, get_app_config
 from app.core.db import get_berechtigungen_collection, get_saisons_collection, get_sperrliste_collection
-from app.core.exceptions import ActorForbiddenException, ActorTokenRefusedException, MalformedRequestException, RequestAuthorizationException
+from app.core.exceptions import (
+    ActorConfirmationRequiredException,
+    ActorForbiddenException,
+    ActorTokenRefusedException,
+    MalformedRequestException,
+    RequestAuthorizationException,
+)
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, AktorFunktion, PersonActor, actor_var, request_var
 from app.shared.folding import sign_in_identifier
+from app.shared.schemas.bounds import ENROLMENT_WINDOW_MINUTES
 from app.shared.sub_keys import derive_sub_key
 
 # Named once, as `app/core/exceptions.py` names its codes, so a test asserts the core's code rather
@@ -100,6 +107,7 @@ MISSING_ACTOR = "REQ-AUTH-005"
 ACTOR_NOT_ADMIN = "REQ-AUTH-006"
 ACTOR_TOKEN_REFUSED = "REQ-AUTH-007"
 PERSON_BARRED = "REQ-AUTH-008"
+CONFIRMATION_REQUIRED = "REQ-AUTH-009"
 
 # The methods that record nothing (`app/core/exception_handlers.py` reads them).
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
@@ -183,6 +191,16 @@ async def verify_actor_is_admin(
         raise ActorForbiddenException(
             error_code=ACTOR_NOT_ADMIN, message=f"the {ACTOR_HEADER} this request names is not an administrator", jti=actor.jti
         )
+
+
+def verify_recent_confirmation(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> None:
+    """Refuse a write the page steps up to the enrolment window from an older sign-in or confirmation (`docs/backend/spec.md :: I489`)."""
+
+    window_s = ENROLMENT_WINDOW_MINUTES * 60
+    # Against `iat`, the instant the frontend's guard read the session ahead of its own check, so the two
+    # sides never disagree about a write the page admitted; the token's verified lifetime bounds the rest.
+    if actor.iat - actor.auth_time > window_s:
+        raise ActorConfirmationRequiredException(error_code=CONFIRMATION_REQUIRED, max_age_s=window_s, jti=actor.jti)
 
 
 # Whether a folded identifier is on the ban list: what a person's route asks beside the token.

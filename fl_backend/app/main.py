@@ -69,6 +69,7 @@ from app.core.routing import ObjectIdConvertor
 from app.core.security import (
     ACTOR_NOT_ADMIN,
     ACTOR_TOKEN_REFUSED,
+    CONFIRMATION_REQUIRED,
     MISSING_ACTOR,
     MISSING_TOKEN,
     PERSON_BARRED,
@@ -84,6 +85,7 @@ from app.core.security import (
     verify_admin_actor,
     verify_person_actor,
     verify_person_is_unbarred,
+    verify_recent_confirmation,
 )
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
@@ -155,6 +157,7 @@ DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
     verify_person_actor: (HTTPStatus.UNAUTHORIZED, ACTOR_TOKEN_REFUSED),
     verify_actor_is_admin: (HTTPStatus.FORBIDDEN, ACTOR_NOT_ADMIN),
     verify_person_is_unbarred: (HTTPStatus.FORBIDDEN, PERSON_BARRED),
+    verify_recent_confirmation: (HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
     get_db_client: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
     get_database: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
 }
