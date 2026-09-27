@@ -62,8 +62,10 @@ services:
       - ALL
     healthcheck:
       # A static asset, not a page: it proves the server is answering without rendering a route or
-      # touching the backend. `--spider` issues a HEAD, so nothing is downloaded.
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/favicon.ico"]
+      # touching the backend. The image's own Node asks, with a HEAD so nothing is downloaded: the
+      # Debian slim base ships no wget or curl, and a probe installing one adds a tool to the image.
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/favicon.ico',{method:'HEAD'}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3

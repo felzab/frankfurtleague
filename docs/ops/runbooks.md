@@ -960,7 +960,7 @@ whatever closed the host's inbound 80 and 443 is opened.
 **One call answers it**, on the system key, from inside the frontend container: the backend publishes
 no port on the host, and the container holds the key, so it never passes through your shell.
 
-    docker compose exec frontend sh -c 'wget -qO- --header "Authorization: Bearer $(cat /run/secrets/internal_api_key_system)" http://backend:8000/api/v0/bewerbungen/sweep'
+    docker compose exec frontend node -e "fetch('http://backend:8000/api/v0/bewerbungen/sweep',{headers:{Authorization:'Bearer '+require('fs').readFileSync('/run/secrets/internal_api_key_system','utf8').trim()}}).then(r=>r.text()).then(console.log)"
 
 **`sweep_gelaufen_am` and `registrierung_sweep_gelaufen_am` are the days those two passes last ran,
 and both are today or yesterday on a healthy stack.** A pass that reminds nobody and deletes nothing
