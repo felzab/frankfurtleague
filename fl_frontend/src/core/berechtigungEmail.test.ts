@@ -23,7 +23,11 @@ const WARNSATZ = "Wenn Du diese Änderung nicht erwartet hast, melde Dich sofort
 
 describe("the notice a change to who administers sends", () => {
   it("names a grant, who made it and when, in the reader's own zone, in both parts", () => {
-    const mail = buildBerechtigungEmail({ art: "erteilt", adresse: "neu@schule.de" }, { von: "vorstand@schule.de", am: AM }, ORIGIN);
+    const mail = buildBerechtigungEmail(
+      { art: "erteilt", adresse: "neu@schule.de", inhaber: false },
+      { von: "vorstand@schule.de", am: AM },
+      ORIGIN,
+    );
 
     assert.equal(mail.subject, "Änderung beim Zugang zur Verwaltung der Frankfurt League");
     for (const part of [mail.text, mail.html]) {
@@ -49,10 +53,21 @@ describe("the notice a change to who administers sends", () => {
 
   /* A barred address leaves the ban list on no route, the notice included. */
   it("names no address for a barred one, in either part", () => {
-    const mail = buildBerechtigungEmail({ art: "erteilt", adresse: null }, null, ORIGIN);
+    const mail = buildBerechtigungEmail({ art: "erteilt", adresse: null, inhaber: false }, null, ORIGIN);
 
     assert.ok(mail.text.includes("Eine gesperrte Adresse hat jetzt Zugang zur Verwaltung."));
     assert.ok(mail.html.includes("Eine gesperrte Adresse hat jetzt Zugang zur Verwaltung."));
+  });
+
+  /* The application grants no `owner`, so one is a change in the database, and the one a holder most
+     needs told as such. */
+  it("names an `owner` grant as the owner's, barred or not", () => {
+    const benannt = buildBerechtigungEmail({ art: "erteilt", adresse: "neu@schule.de", inhaber: true }, null, ORIGIN);
+    const gesperrt = buildBerechtigungEmail({ art: "erteilt", adresse: null, inhaber: true }, null, ORIGIN);
+
+    for (const part of [benannt.text, benannt.html]) assert.ok(part.includes("hat jetzt Zugang zur Verwaltung als Inhaber."));
+    assert.ok(benannt.text.includes("neu@schule.de hat jetzt Zugang zur Verwaltung als Inhaber."));
+    assert.ok(gesperrt.text.includes("Eine gesperrte Adresse hat jetzt Zugang zur Verwaltung als Inhaber."));
   });
 
   it("names the tier a change in the database moved, either way", () => {
@@ -66,7 +81,7 @@ describe("the notice a change to who administers sends", () => {
   /* The provider collapses a repeat under one key only where the body is the same byte for byte, so a
      body carrying the moment of its send would be refused as a changed request on the second pass. */
   it("composes the same message for the same change whenever it is built", async (t) => {
-    const aenderung = { art: "erteilt", adresse: "neu@schule.de" } as const;
+    const aenderung = { art: "erteilt", adresse: "neu@schule.de", inhaber: false } as const;
     const urheber = { von: "vorstand@schule.de", am: AM };
 
     t.mock.timers.enable({ apis: ["Date"], now: 0 });
@@ -78,7 +93,7 @@ describe("the notice a change to who administers sends", () => {
   });
 
   it("escapes an address in the markup", () => {
-    const mail = buildBerechtigungEmail({ art: "erteilt", adresse: "<b>@schule.de" }, { von: "a&b@schule.de", am: AM }, ORIGIN);
+    const mail = buildBerechtigungEmail({ art: "erteilt", adresse: "<b>@schule.de", inhaber: false }, { von: "a&b@schule.de", am: AM }, ORIGIN);
 
     assert.ok(!mail.html.includes("<b>@schule.de"), "the markup carries the address unescaped");
     assert.ok(mail.html.includes("&lt;b&gt;@schule.de"));

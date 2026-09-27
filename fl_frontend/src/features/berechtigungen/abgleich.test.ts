@@ -144,6 +144,76 @@ describe("one pass over the claimed changes", () => {
     assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
+  it("mails the holders alone for a revoke of a barred address, and names it to nobody", async () => {
+    claim = claimOf([aenderung({ art: "entzogen", jetzt: null, vorher: { adresse: null, verwaltung: "administration" }, gesperrt: true })]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
+    assert.ok(mail.sent.every((sent) => sent.text.includes("Eine gesperrte Adresse hat keinen Zugang zur Verwaltung mehr.")));
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
+  });
+
+  /* The takeover a holder of the database's credentials would make: one grant's address edited from A
+     to B. The claim answers it as A's removal and B's grant, B now among the holders, and each change
+     is told as itself: every holder learns both, and A its own loss. */
+  it("tells an address repointed in the database as the old address's loss and the new one's grant", async () => {
+    const DATENBANK = { geaendert_von: null, geaendert_am: null };
+    claim = claimOf(
+      [
+        aenderung({ art: "entzogen", jetzt: null, vorher: { adresse: "opfer@schule.de", verwaltung: "administration" }, ...DATENBANK }),
+        aenderung({ id: OUTBOX_B, jetzt: { adresse: "angreifer@schule.de", verwaltung: "administration" }, ...DATENBANK }),
+      ],
+      { empfaenger: [...HOLDERS, "angreifer@schule.de"] },
+    );
+
+    await runBerechtigungenAbgleich();
+
+    const texte = (an: string): string[] => mail.sent.filter((sent) => sent.to === an).map((sent) => sent.text);
+    const VERLUST = "opfer@schule.de hat keinen Zugang zur Verwaltung mehr.";
+    const ZUGANG = "angreifer@schule.de hat jetzt Zugang zur Verwaltung.";
+    for (const an of ["angreifer@schule.de", ...HOLDERS]) {
+      const [verlust, zugang] = texte(an);
+      assert.ok(verlust?.includes(VERLUST), `${an} was not told who lost access`);
+      assert.ok(zugang?.includes(ZUGANG), `${an} was not told who gained it`);
+    }
+    assert.deepEqual(
+      texte("opfer@schule.de").map((text) => text.includes(VERLUST)),
+      [true],
+    );
+    assert.ok(
+      mail.sent.every((sent) => !sent.text.includes("Inhaber")),
+      "a repoint was told as a change of tier",
+    );
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A, OUTBOX_B] }]);
+  });
+
+  it("tells an `owner` grant made in the database as the owner's", async () => {
+    claim = claimOf([aenderung({ jetzt: { adresse: "neu@schule.de", verwaltung: "owner" }, geaendert_von: null, geaendert_am: null })]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.ok(mail.sent.length > 0);
+    assert.ok(mail.sent.every((sent) => sent.text.includes("neu@schule.de hat jetzt Zugang zur Verwaltung als Inhaber.")));
+  });
+
+  it("tells a change of tier as the tier the address now holds", async () => {
+    claim = claimOf([
+      aenderung({
+        art: "geaendert",
+        jetzt: { adresse: "vorstand@schule.de", verwaltung: "owner" },
+        vorher: { adresse: "vorstand@schule.de", verwaltung: "administration" },
+        geaendert_von: null,
+        geaendert_am: null,
+      }),
+    ]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
+    assert.ok(mail.sent.every((sent) => sent.text.includes("vorstand@schule.de ist jetzt Inhaber der Verwaltung.")));
+  });
+
   /* One key per row and recipient: a lapsed claim mailing a row again reaches nobody twice inside
      the provider's day, and two recipients never share one. */
   it("keys each send on its outbox row and its recipient", async () => {

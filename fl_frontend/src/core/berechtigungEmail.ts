@@ -34,8 +34,8 @@ const WARNSATZ = "Wenn Du diese Änderung nicht erwartet hast, melde Dich sofort
 
 /** One change as the notice states it; `adresse` null is a barred address, which the notice never names. */
 export type Zugangsaenderung =
-  | { readonly art: "erteilt" | "entzogen"; readonly adresse: string | null }
-  | { readonly art: "geaendert"; readonly adresse: string | null; readonly inhaber: boolean };
+  | { readonly art: "erteilt" | "geaendert"; readonly adresse: string | null; readonly inhaber: boolean }
+  | { readonly art: "entzogen"; readonly adresse: string | null };
 
 /** Who made the change and when, or `null` where it was made in the database directly. */
 export type Urheber = { readonly von: string; readonly am: string } | null;
@@ -49,8 +49,11 @@ function aenderungsSatz(aenderung: Zugangsaenderung, wer: (adresse: string) => s
   const { adresse } = aenderung;
 
   switch (aenderung.art) {
-    case "erteilt":
-      return adresse === null ? "Eine gesperrte Adresse hat jetzt Zugang zur Verwaltung." : `${wer(adresse)} hat jetzt Zugang zur Verwaltung.`;
+    case "erteilt": {
+      // An `owner` grant says so: the application grants none, so one is always a change made in the database.
+      const zugang = aenderung.inhaber ? "hat jetzt Zugang zur Verwaltung als Inhaber." : "hat jetzt Zugang zur Verwaltung.";
+      return `${adresse === null ? "Eine gesperrte Adresse" : wer(adresse)} ${zugang}`;
+    }
     case "entzogen":
       return adresse === null
         ? "Eine gesperrte Adresse hat keinen Zugang zur Verwaltung mehr."

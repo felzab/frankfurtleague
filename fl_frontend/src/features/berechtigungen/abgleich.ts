@@ -125,13 +125,14 @@ function erledigt(error: unknown): boolean {
   return error instanceof MailSendError && !error.isTransient;
 }
 
+/**
+ * A change as the notice words it. An address repointed under one id reaches here as two changes, its
+ * removal and the new address's grant, so a `geaendert` is a change of tier alone.
+ */
 function zugangsaenderung(aenderung: FLBerechtigungAenderung): Zugangsaenderung {
-  if (aenderung.art === "geaendert") {
-    return { art: "geaendert", adresse: aenderung.jetzt?.adresse ?? null, inhaber: aenderung.jetzt?.verwaltung === "owner" };
-  }
+  if (aenderung.art === "entzogen") return { art: "entzogen", adresse: aenderung.vorher?.adresse ?? null };
 
-  const seite = aenderung.art === "erteilt" ? aenderung.jetzt : aenderung.vorher;
-  return { art: aenderung.art, adresse: seite?.adresse ?? null };
+  return { art: aenderung.art, adresse: aenderung.jetzt?.adresse ?? null, inhaber: aenderung.jetzt?.verwaltung === "owner" };
 }
 
 function urheber(aenderung: FLBerechtigungAenderung): Urheber {
