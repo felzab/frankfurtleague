@@ -105,7 +105,7 @@ export const TEAM_SHELL_FALLBACK = {
 export const TEAM_SHELL_REFUSAL = {
   label: TEAM_SHELL_FALLBACK.label,
   hint: {
-    lead: "Du bist in diesem Team nicht eingetragen.",
+    lead: "Du bist in dieser Saison nicht in diesem Team eingetragen.",
   },
 } as const satisfies { label: string; hint: SidemenuHint };
 
