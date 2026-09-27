@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import { describe, it } from "node:test";
+import { beforeEach, describe, it } from "node:test";
+import { pathToFileURL } from "node:url";
 
+import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/core/cacheScope.ts";
 import { doubleActionRequest, NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 
@@ -15,12 +17,20 @@ const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADE
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
 doubleActionRequest();
 
+/** The module under test, whose `react` import the server build must answer. */
+const FEATURE_URL = `${pathToFileURL(import.meta.dirname).href}/`;
+
 registerHooks({
   resolve(specifier, context, nextResolve) {
+    // Only for the module under test: Next's client runtime is in this process and needs the client build.
+    if (specifier === "react" && context.parentURL?.startsWith(FEATURE_URL) === true) return { url: SERVER_REACT_URL, shortCircuit: true };
     if (specifier === "next/headers") return { url: HEADERS_DOUBLE_URL, shortCircuit: true };
     return nextResolve(specifier, context);
   },
 });
+
+// Each case its own request, as each page load is: a memoised read would otherwise answer one case from the case before it.
+beforeEach(beginRenderPass);
 
 const { calls } = doubleApiAnswers(({ endpoint }) =>
   Promise.resolve(
@@ -54,5 +64,37 @@ describe("the invite slice's reads", () => {
     await getEinladung(TEAM_ID, SAISON_ID);
 
     assert.deepEqual(requestsOf(calls), [{ endpoint: `/teams/${TEAM_ID}/saisons/${SAISON_ID}/einladung`, method: undefined, body: undefined }]);
+  });
+});
+
+const OTHER_TEAM_ID = "b".repeat(24);
+
+const endpointsSince = (before: number): string[] => calls.slice(before).map((call) => call.endpoint);
+
+describe("one team's invite across a render pass", () => {
+  /* First, so a scope that failed to take fails here rather than under every count below. */
+  itOpensAScopeThatMemoizes();
+
+  it("goes to the backend once per team and season in one pass", async () => {
+    const before = calls.length;
+
+    await Promise.all([getEinladung(TEAM_ID, SAISON_ID), getEinladung(TEAM_ID, SAISON_ID), getEinladung(OTHER_TEAM_ID, SAISON_ID)]);
+
+    assert.deepEqual(endpointsSince(before).sort(), [
+      `/teams/${TEAM_ID}/saisons/${SAISON_ID}/einladung`,
+      `/teams/${OTHER_TEAM_ID}/saisons/${SAISON_ID}/einladung`,
+    ]);
+  });
+
+  /* 0 would be the cross-request leak `"use cache"` opens, reporting an open window after it shut. */
+  it("is fetched again in the next pass, so no request is served another's copy", async () => {
+    await getEinladung(TEAM_ID, SAISON_ID);
+    const before = calls.length;
+
+    beginRenderPass();
+    await getEinladung(TEAM_ID, SAISON_ID);
+    await getEinladung(TEAM_ID, SAISON_ID);
+
+    assert.deepEqual(endpointsSince(before), [`/teams/${TEAM_ID}/saisons/${SAISON_ID}/einladung`]);
   });
 });

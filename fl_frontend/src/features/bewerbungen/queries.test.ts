@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import { describe, it } from "node:test";
+import { beforeEach, describe, it } from "node:test";
+import { pathToFileURL } from "node:url";
 
+import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/core/cacheScope.ts";
 import { APIBadStatusError } from "@/core/errors";
 import { doubleActionRequest, NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -21,12 +23,20 @@ const calls = doubleApiClient(() => {
   return {};
 });
 
+/** The module under test, whose `react` import the server build must answer. */
+const FEATURE_URL = `${pathToFileURL(import.meta.dirname).href}/`;
+
 registerHooks({
   resolve(specifier, context, nextResolve) {
+    // Only for the module under test: Next's client runtime is in this process and needs the client build.
+    if (specifier === "react" && context.parentURL?.startsWith(FEATURE_URL) === true) return { url: SERVER_REACT_URL, shortCircuit: true };
     if (specifier === "next/headers") return { url: HEADERS_DOUBLE_URL, shortCircuit: true };
     return nextResolve(specifier, context);
   },
 });
+
+// Each case its own request, as each page load is: a memoised read would otherwise answer one case from the case before it.
+beforeEach(beginRenderPass);
 
 const { getBewerbungById, getBewerbungen, getBewerbungFenster, getBewerbungKuerzel, getBewerbungSchulen, getOffenesBewerbungFenster } =
   await import("./queries.ts");
@@ -48,6 +58,7 @@ async function failing<T>(error: unknown, read: () => Promise<T>): Promise<T> {
 }
 
 const ONE_ID = "0123456789abcdef01234567";
+const OTHER_ID = "0123456789abcdef01234568";
 
 describe("the two admin-tier triage reads", () => {
   /* First, so a double that never ran fails here rather than under every assertion below. */
@@ -127,5 +138,41 @@ describe("the one path segment a caller interpolates", () => {
       // Restored because the harness case above asserts the WHOLE recorded array, not a membership.
       calls.length = before;
     }
+  });
+});
+
+const endpointsSince = (before: number): string[] => calls.slice(before).map((call) => call.endpoint);
+
+describe("the two memoised reads across a render pass", () => {
+  /* First, so a scope that failed to take fails here rather than under every count below. */
+  itOpensAScopeThatMemoizes();
+
+  /* The window page's metadata and body each read the window, and a triage decision reads the application its page read. */
+  it("goes to the backend once per application and once per window in one pass", async () => {
+    const before = calls.length;
+
+    await Promise.all([getBewerbungById(ONE_ID), getBewerbungById(ONE_ID), getBewerbungById(OTHER_ID)]);
+    await Promise.all([getBewerbungFenster("2627"), getBewerbungFenster("2627"), getBewerbungFenster("2728")]);
+
+    assert.deepEqual(endpointsSince(before).sort(), [
+      `/bewerbungen/${ONE_ID}`,
+      `/bewerbungen/${OTHER_ID}`,
+      "/bewerbungen/fenster/2627",
+      "/bewerbungen/fenster/2728",
+    ]);
+  });
+
+  /* 0 would be the cross-request leak `"use cache"` opens: another request's personal data, and a
+     window's `laeuft` judged against a day that has passed. */
+  it("is fetched again in the next pass, so no request is served another's copy", async () => {
+    await getBewerbungById(ONE_ID);
+    await getBewerbungFenster("2627");
+    const before = calls.length;
+
+    beginRenderPass();
+    await Promise.all([getBewerbungById(ONE_ID), getBewerbungFenster("2627")]);
+    await Promise.all([getBewerbungById(ONE_ID), getBewerbungFenster("2627")]);
+
+    assert.deepEqual(endpointsSince(before).sort(), [`/bewerbungen/${ONE_ID}`, "/bewerbungen/fenster/2627"]);
   });
 });
