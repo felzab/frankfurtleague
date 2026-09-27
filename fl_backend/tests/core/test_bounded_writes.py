@@ -4,9 +4,10 @@ CORE · the source sweeps holding a rule judged on a read to the write that clos
 A snapshot re-validates no read, so a rule decided on one is held only where every writer that
 judges it also WRITES the document that read is scoped by: the season a count is taken in, or the
 club, the venue or the referee a retirement stamps. The helpers below do that, and what this module
-proves is that no site can reach one of those rules past its helper, and that no caller can reach a
-helper without the transaction's session: the parameter is required, so an omission is a `TypeError`
-at the call rather than a race under a rule that reads as held.
+proves is that every function writing the anchor is one of them, that no site can reach one of those
+rules past its helper, and that no caller can reach a helper without the transaction's session: the
+parameter is required, so an omission is a `TypeError` at the call rather than a race under a rule
+that reads as held.
 
 `tests/api/test_capacity_isolation.py`, `tests/api/test_reference_isolation.py` and
 `tests/api/test_sperrliste_isolation.py` drive the conflicts themselves against a replica set.
@@ -14,7 +15,7 @@ at the call rather than a race under a rule that reads as held.
 
 import ast
 import inspect
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import Any
 
 import pytest
@@ -28,13 +29,17 @@ from app.api.spieler.admin_router import _refuse_a_full_squad
 from app.api.spieltage.admin_router import _refuse_an_out_of_order_beginn
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from tests.core.app_source import (
+    APP_ROOT,
+    BACKEND_ROOT,
     WRITE_HELPERS,
+    Declaration,
     app_calls,
     callee,
     calls_in,
     carries_session,
     declared,
     module_of,
+    parsed,
     session_handoffs,
     transactional_callbacks,
 )
@@ -165,6 +170,40 @@ JUDGED_BESIDE_THE_ANCHOR: dict[str, frozenset[str]] = {
 }
 
 
+def _own_nodes(declaration: Declaration) -> Iterator[ast.AST]:
+    """Every node of one function's body but those of a function nested in it, which answers for its own."""
+
+    pending = list(ast.iter_child_nodes(declaration))
+    while pending:
+        node = pending.pop()
+        yield node
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            pending.extend(ast.iter_child_nodes(node))
+
+
+def _names_the_anchor_field(node: ast.AST) -> bool:
+    return isinstance(node, ast.Constant) and node.value == ANCHOR_FIELD
+
+
+def _functions_naming_the_anchor_field() -> tuple[set[str], int]:
+    """By the field alone, never off the registry below: a helper anchoring outside the registry is found whatever shape its write takes."""
+
+    sites: set[str] = set()
+    spelled_in_a_function = 0
+    spelled_anywhere = 0
+    for path in sorted(APP_ROOT.rglob("*.py")):
+        tree = parsed(path)
+        spelled_anywhere += sum(1 for node in ast.walk(tree) if _names_the_anchor_field(node))
+        for declaration in ast.walk(tree):
+            if isinstance(declaration, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                spelled = sum(1 for node in _own_nodes(declaration) if _names_the_anchor_field(node))
+                spelled_in_a_function += spelled
+                if spelled:
+                    sites.add(f"{path.relative_to(BACKEND_ROOT).as_posix()} :: {declaration.name}")
+
+    return sites, spelled_anywhere - spelled_in_a_function
+
+
 def _app_callers_of(called: str) -> set[str]:
     """Every scope under `app/` calling `called`, the module before the innermost function around it."""
 
@@ -179,6 +218,19 @@ def _anchor_calls(function: Callable[..., Any]) -> list[ast.Call]:
 
 def _keyword(call: ast.Call, name: str) -> ast.expr | None:
     return next((keyword.value for keyword in call.keywords if keyword.arg == name), None)
+
+
+def test_every_function_writing_the_anchor_is_registered():
+    """What holds the two registries complete: a helper absent from both is held by no clause below.
+
+    A `$set`, or a filter on more than one document, would then pass unseen.
+    """
+
+    sites, outside_every_function = _functions_naming_the_anchor_field()
+
+    assert outside_every_function == 0, f"`{ANCHOR_FIELD}` is spelled outside any function, where no anchor this sweep finds can be named"
+    assert {f"{module_of(function).relative_to(BACKEND_ROOT).as_posix()} :: {function.__name__}" for function in ANCHORING_FUNCTIONS} == sites
+    assert set(CALLERS) == {function.__name__ for function in ANCHORING_FUNCTIONS}
 
 
 @pytest.mark.parametrize("function", ANCHORING_FUNCTIONS, ids=lambda function: function.__name__)
