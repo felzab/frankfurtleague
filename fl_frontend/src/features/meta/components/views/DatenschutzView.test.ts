@@ -89,7 +89,7 @@ describe("the privacy notice's account of the association", () => {
     assert.equal(
       wortlautDigest(),
       FASSUNG.digest,
-      "the notice's words changed: move DatenschutzView.tsx :: STAND to the day they land, then FASSUNG to that day and this digest",
+      "the notice's words changed: move constants.ts :: DATENSCHUTZ_STAND to the day they land, then FASSUNG to that day and this digest",
     );
   });
 });

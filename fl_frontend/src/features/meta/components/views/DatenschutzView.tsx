@@ -18,6 +18,7 @@ import { DISPLAY_HEADING_CLASSES } from "@/shared/components/ui/displayType";
 import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { textLink } from "@/shared/components/ui/textLink";
 
+import { DATENSCHUTZ_STAND } from "../../constants";
 import { LegalSection } from "../ui/LegalSection";
 
 import type { ReactNode } from "react";
@@ -25,11 +26,10 @@ import type { ReactNode } from "react";
 /** One legal paragraph. Spelled once because the page is nothing but paragraphs, and a copy per section drifts. */
 const ABSATZ_CLASSES = "fluid-sm leading-relaxed font-medium text-pretty text-foreground";
 
-/**
- * Hand-set, the way `fl_frontend/src/app/sitemap.ts :: CONTENT_LAST_MODIFIED` is: a live `new Date()`
- * is a dynamic read, which would take this page off the static shell.
- */
-const STAND = "27. September 2026";
+// Midday UTC holds the same calendar day in every zone Berlin's day could differ from.
+const STAND = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "numeric", month: "long", year: "numeric" }).format(
+  new Date(`${DATENSCHUTZ_STAND}T12:00:00Z`),
+);
 
 /**
  * German writes a count from one to twelve in words, and a fortnight as „vierzehn Tage“; a larger count

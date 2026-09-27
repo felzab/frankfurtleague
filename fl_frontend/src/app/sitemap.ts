@@ -1,83 +1,79 @@
 import { SITE_URL } from "@/core/brand";
+import { DATENSCHUTZ_STAND } from "@/features/meta/constants";
 
 import type { MetadataRoute } from "next";
 
-// A live `new Date()` is a dynamic read under cacheComponents, which would make this a dynamic
-// route. Any change to a public page's content moves it, since a stale date tells a crawler
-// there is nothing new to fetch.
-const CONTENT_LAST_MODIFIED = new Date("2026-09-24");
+/**
+ * The day each page's words took effect, for a page holding no league data. Hand-set, since a live
+ * `new Date()` is a dynamic read, which would make this a dynamic route; each is tied to its words by
+ * `fl_frontend/src/app/sitemapDates.test.ts`.
+ */
+const WORDING_TOOK_EFFECT = { impressum: "2026-09-24", organisation: "2026-09-24", datenschutz: DATENSCHUTZ_STAND } as const;
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  // An entry with no `lastModified` shows league data, whose last change no date set at build time
+  // can follow: a crawler trusts a sitemap's dates only while every one of them is true.
   return [
     {
       url: `${SITE_URL}/`,
-      lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "daily",
       priority: 1,
     },
     {
       url: `${SITE_URL}/dashboard/spielsuche`,
-      lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "daily",
       priority: 0.8,
     },
     {
       url: `${SITE_URL}/dashboard/spielplan`,
-      lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "daily",
       priority: 0.9,
     },
     {
       url: `${SITE_URL}/dashboard/saisontabelle`,
-      lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "daily",
       priority: 0.9,
     },
     {
       url: `${SITE_URL}/dashboard/spieler`,
-      lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "daily",
       priority: 0.7,
     },
     {
       url: `${SITE_URL}/dashboard/teams`,
-      lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "daily",
       priority: 0.7,
     },
     {
       url: `${SITE_URL}/dashboard/playoffs`,
-      lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "daily",
       priority: 0.7,
     },
     {
       url: `${SITE_URL}/about`,
-      lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "monthly",
       priority: 0.4,
     },
     {
       url: `${SITE_URL}/organisation`,
-      lastModified: CONTENT_LAST_MODIFIED,
+      lastModified: WORDING_TOOK_EFFECT.organisation,
       changeFrequency: "monthly",
       priority: 0.4,
     },
     {
       url: `${SITE_URL}/kontakt`,
-      lastModified: CONTENT_LAST_MODIFIED,
       changeFrequency: "monthly",
       priority: 0.4,
     },
     {
       url: `${SITE_URL}/impressum`,
-      lastModified: CONTENT_LAST_MODIFIED,
+      lastModified: WORDING_TOOK_EFFECT.impressum,
       changeFrequency: "monthly",
       priority: 0.2,
     },
     {
       url: `${SITE_URL}/datenschutz`,
-      lastModified: CONTENT_LAST_MODIFIED,
+      lastModified: WORDING_TOOK_EFFECT.datenschutz,
       changeFrequency: "monthly",
       priority: 0.2,
     },
