@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { ADMIN_WINDOW_HOURS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS } from "@/core/sessionLifetimes.ts";
 import { CODE_FAILURE_WINDOW_HOURS } from "@/core/signInCode.ts";
+import { ADMIN_SIDEMENU_STRUCTURE } from "@/features/admin/constants.ts";
 import {
   BEWERBUNG_BESTAETIGUNG_FRIST_TAGE,
   BEWERBUNG_ERINNERUNG_TAGE,
@@ -376,10 +377,13 @@ describe("the privacy notice states the registration, referee-link and ban clock
     assert.ok(SEITE.includes(`bis die Sperre nach ${saisons} vollen Saisons endet`));
   });
 
-  // Held here because this file owns the count words: the create form's hint states the same
-  // length in a word too, and nothing else ties that word to the number.
-  it("gives the ban list's create form the same seasons, in the same word", () => {
+  // Held here because this file owns the count words: the create form's hint and the ban list's
+  // sidemenu note state the same length in a word too, and nothing else ties that word to the number.
+  it("gives the ban list's create form and its sidemenu note the same seasons, in the same word", () => {
     assert.ok(SPERRE_DAUER_HINWEIS.startsWith(`Die Sperre endet nach ${inWorten(SPERRE_DAUER_SAISONS)} vollen Saisons von selbst.`));
+
+    const sperrliste = ADMIN_SIDEMENU_STRUCTURE.flatMap((group) => group.sub_options).find((option) => option.id === "sperrliste");
+    assert.ok(sperrliste?.hint.note?.startsWith(`Eine Sperre endet nach ${inWorten(SPERRE_DAUER_SAISONS)} vollen Saisons von selbst`));
   });
 });
 
