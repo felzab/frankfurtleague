@@ -811,7 +811,7 @@ const authOptions = {
       if (ctx.path === PASSKEY_ASSERTION_PATH) await refuseAnotherAccountsPasskey(ctx);
 
       // Above the in-process return, so both arms carry it: the registration's transaction opens later,
-      // and a backend round trip inside it would hold it open (`docs/frontend/spec.md :: I462`).
+      // and a backend round trip inside it would hold it open (`docs/frontend/spec.md :: I471`).
       const enrolling = ctx.path === PASSKEY_REGISTRATION_PATH ? await getSessionFromCtx(ctx) : null;
       const enrolmentRead: EnrolmentRead | undefined =
         enrolling === null ? undefined : { userId: enrolling.user.id, subjekt: await enrolmentSubjekt(enrolling.user.email) };
