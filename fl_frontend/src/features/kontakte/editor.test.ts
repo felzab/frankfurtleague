@@ -901,7 +901,7 @@ describe("how the editor clears a season's contact block", () => {
     );
     assert.match(
       nobodyHeld,
-      /<button[^>]*\sdisabled=""[^>]*>(?:(?!<button)[\s\S])*?Kontakte löschen<\/button>/,
+      /<button[^>]*\sdisabled=""[^>]*>(?:(?!<button)[\s\S])*?Kontakte löschen(?:<\/span>)?<\/button>/,
       "the deletion is open over nobody",
     );
     assert.match(nobodyHeld, /<button[^>]*type="submit"[^>]*\sdisabled=""/, "a row holding nobody opens with a change to save");
