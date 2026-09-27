@@ -36,9 +36,10 @@ the machine is outside the repository. What it does tell you:
 - `deploy.sh` refuses to run anywhere but Linux, and runs from a **checkout of this repository on the
   server** — so putting a merge live is `git pull && ./scripts/ops/deploy.sh`, the pull being what brings the
   compose file, `nginx/prod/` and `nginx/shared/` up to date before the containers are recreated.
-- `fl_frontend/.env`, `fl_backend/.env`, `./.env`, `./nginx/prod/`, `./nginx/shared/`, `./secrets/tunnel_token`
-  and `./certs/` must all exist beside the compose file — preflight checks each before anything is
-  pulled. What the root's `.env` holds, and how it is made, is §16.
+- `fl_frontend/.env`, `fl_backend/.env`, `./.env`, `./nginx/prod/`, `./nginx/shared/`, `./secrets/tunnel_token`,
+  `./secrets/fl_actor_signing_key` and `./certs/` must all exist beside the compose file — preflight
+  checks each before anything is pulled. What the root's `.env` holds, how it is made, and how the
+  actor token's key pair is made, is §16.
 - **Compose is asked whether it can parse its own configuration before anything is pulled**
   (`scripts/ops/deploy.sh :: check_compose_config`). **It refuses at exit 2 with nothing pulled or
   recreated**, and names the compose file and the three environment files without printing what compose
@@ -1226,6 +1227,36 @@ recreated, which the next deploy does: `docker compose restart` re-reads no envi
 named (`docs/backend/spec.md` §4). Rotating it after a suspected leak is not finished until
 `berechtigungen` holds only grants somebody can account for, and `aktionen` has been read for every
 `berechtigungen` write since the leak; revoke the rest in the Playground.
+
+**Each machine also has its own actor token key pair** ([`spec.md`](spec.md) I463): an Ed25519
+private key the frontend signs with, and its public half the backend verifies with. In Git Bash on a
+development machine, or in a shell on the server, at the checkout root, this writes the private half
+to `./secrets/fl_actor_signing_key` and appends the public half to `fl_backend/.env`, printing
+nothing:
+
+```bash
+mkdir -p secrets && openssl genpkey -algorithm ed25519 | tr -d '\r' > secrets/fl_actor_signing_key && printf '\nACTOR_TOKEN_PUBLIC_KEY=%s\n' "$(openssl pkey -in secrets/fl_actor_signing_key -pubout -outform DER | tail -c 32 | basenc --base64url | tr -d '=\r\n')" >> fl_backend/.env
+```
+
+The `tr` calls are there because Git Bash's `openssl` ends each line with a carriage return. The
+public half is the key's last 32 bytes in DER form, which is the raw Ed25519 key that
+`ACTOR_TOKEN_PUBLIC_KEY` holds. The newline before it keeps it off a last line that has none.
+
+- **On the server**, give the private half to the frontend's user once the command has run:
+  `sudo chown 1001:1001 secrets/fl_actor_signing_key && sudo chmod 400 secrets/fl_actor_signing_key`.
+  Compose hands a file secret over with the host's owner and mode, and the frontend runs as uid 1001
+  ([`spec.md`](spec.md) §1.2).
+- **For `pnpm dev`**, name the file in `fl_frontend/.env`:
+  `ACTOR_SIGNING_KEY_FILE=../secrets/fl_actor_signing_key`. The dev server runs in `fl_frontend/`,
+  and the default path is the container's.
+- **Rotating** means generating a new pair and deploying. Delete the old `ACTOR_TOKEN_PUBLIC_KEY`
+  line first. A token lives sixty seconds, and the deploy recreates both containers together. The pair
+  is kept nowhere else: a lost key is replaced by generating a new pair.
+
+`deploy.sh` and `local.sh` refuse a missing key file before anything starts. They then have the
+frontend image, as its own user, judge the pair: a key it cannot read, a key that is not Ed25519, or
+an `ACTOR_TOKEN_PUBLIC_KEY` that is missing, malformed or not its public half. Each refusal names
+the fault and never a value. The remedy each time is to run the command above again.
 
 ## 17. Clearing an address's code lock
 

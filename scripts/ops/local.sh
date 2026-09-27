@@ -208,7 +208,8 @@ section "preflight"
 step "Files the containers read"
 require_file "fl_frontend/.env" "The frontend container reads it via env_file. Copy it from your password manager."
 require_file "fl_backend/.env"  "The backend container reads it via env_file."
-ok "the three .env files are in place"
+require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate this machine's pair: docs/ops/runbooks.md §16."
+ok "the three .env files and the actor token's signing key are in place"
 
 step "Anything holding the build's files open"
 # A running `next dev` holds .next open and makes the build fail with EBUSY on Windows. Never
@@ -244,6 +245,10 @@ section "build"
 step "Building images from source"
 docker compose build || die "The image build failed — its own output is above."
 ok "images built"
+
+step "The actor token's key pair"
+# Through compose, so the key is mounted as the stack will mount it, owner and mode included.
+check_actor_key "NOTHING has been started." docker compose run --rm --no-deps -T frontend
 
 # Before `start`, not inside it: a page rendered against an empty database caches that read for
 # days. The copy comes before the database container as well, for the reason at `fetch_copy`.

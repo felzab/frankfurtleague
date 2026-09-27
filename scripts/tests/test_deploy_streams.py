@@ -555,6 +555,148 @@ def test_the_root_file_is_judged_before_the_first_compose_call(script: Path, fir
     assert text.index("\ncheck_root_env ") < text.index(first_compose), script.name
 
 
+# --- the actor token's key pair ---------------------------------------------------------------------------
+
+# A pair of the case's own, generated with the node the check itself runs on and never committed:
+# `$1` the key type, `$2` where the private half goes, `$3` a file naming the public half as
+# `fl_backend/.env` does.
+PAIR: Final = """
+const { generateKeyPairSync } = require("node:crypto");
+const { writeFileSync } = require("node:fs");
+const [type, pem, env] = process.argv.slice(1);
+const { privateKey, publicKey } = generateKeyPairSync(type);
+writeFileSync(pem, privateKey.export({ type: "pkcs8", format: "pem" }));
+writeFileSync(env, `ACTOR_TOKEN_PUBLIC_KEY=${publicKey.export({ format: "jwk" }).x}\\n`);
+"""
+
+# The check as the frontend image runs it, its key at `$1` and the environment file on stdin.
+CHECK: Final = """check_rc=0
+node -e "$ACTOR_KEY_CHECK" "$1" < "$2" || check_rc=$?
+printf 'check=%s\\n' "$check_rc"
+"""
+
+
+def _judged(setup: str, key: str, env: str) -> str:
+    """The check's printed answer over files `setup` wrote, with the exit code on its last line."""
+    code, output, _ = _run(f"{setup}\nset -- {key} {env}\n{CHECK}", PAIR_JS=PAIR)
+
+    assert code == 0, output
+    # Neither half of any pair is ever printed: the PEM's armour, the public half's name with its value.
+    assert "PRIVATE KEY" not in output, output
+    assert re.search(r"[A-Za-z0-9_-]{43}", output) is None, output
+    return output
+
+
+def test_the_runbooks_command_writes_a_pair_the_check_passes() -> None:
+    """Run as the runbook prints it, over the fixture's own `fl_backend/.env`: Git Bash's `openssl` is the carriage-return case."""
+    command = next(line for line in RUNBOOKS.read_text(encoding="utf-8").splitlines() if line.startswith("mkdir -p secrets && openssl genpkey"))
+    output = _judged(command, "secrets/fl_actor_signing_key", "fl_backend/.env")
+
+    assert "check=0" in output, output
+
+
+def test_a_matching_pair_passes() -> None:
+    output = _judged('node -e "$PAIR_JS" ed25519 key.pem env.txt', "key.pem", "env.txt")
+
+    assert "check=0" in output, output
+
+
+@pytest.mark.parametrize(
+    ("setup", "key", "said"),
+    [
+        pytest.param(
+            'node -e "$PAIR_JS" ed25519 key.pem mine.txt\nnode -e "$PAIR_JS" ed25519 other.pem env.txt',
+            "key.pem",
+            "ACTOR_TOKEN_PUBLIC_KEY is not the public half of the signing key",
+            id="another-pairs-public-half",
+        ),
+        pytest.param(
+            "node -e \"$PAIR_JS\" ed25519 key.pem mine.txt\nprintf 'ACTOR_TOKEN_PUBLIC_KEY=short\\n' > env.txt",
+            "key.pem",
+            "ACTOR_TOKEN_PUBLIC_KEY is not the base64url of 32 bytes",
+            id="malformed-public-half",
+        ),
+        pytest.param(
+            "node -e \"$PAIR_JS\" ed25519 key.pem mine.txt\nprintf 'OTHER=1\\n' > env.txt",
+            "key.pem",
+            "ACTOR_TOKEN_PUBLIC_KEY is missing from fl_backend/.env",
+            id="no-public-half",
+        ),
+        pytest.param(
+            'node -e "$PAIR_JS" ed25519 other.pem env.txt',
+            "absent.pem",
+            "the signing key could not be read by the frontend user (ENOENT)",
+            id="unreadable-key",
+        ),
+        pytest.param(
+            "node -e \"$PAIR_JS\" ed25519 other.pem env.txt\nprintf 'not a key\\n' > key.pem",
+            "key.pem",
+            "the signing key file holds no private key in PEM",
+            id="no-key-in-the-file",
+        ),
+        pytest.param(
+            'node -e "$PAIR_JS" x25519 key.pem env.txt',
+            "key.pem",
+            "the signing key is x25519, not Ed25519",
+            id="not-a-signing-key",
+        ),
+    ],
+)
+def test_a_pair_that_would_not_work_answers_3_naming_what_is_wrong(setup: str, key: str, said: str) -> None:
+    """3 is every reader's refusal; each line says which half to fix and prints neither."""
+    output = _judged(setup, key, "env.txt")
+
+    assert "check=3" in output, output
+    assert said in output, output
+
+
+KEY_CHECK: Final = 'check_actor_key "NOTHING has been recreated." docker run --rm -i --network none frontend-image'
+
+
+def test_a_refused_pair_stops_the_run_with_its_remedy() -> None:
+    code, output, _ = _run(KEY_CHECK, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS="ACTOR_TOKEN_PUBLIC_KEY is missing from fl_backend/.env")
+
+    assert code == 2, output
+    assert "ACTOR_TOKEN_PUBLIC_KEY is missing from fl_backend/.env" in output, output
+    assert "docs/ops/runbooks.md §16" in output, output
+    assert "NOTHING has been recreated." in output, output
+
+
+def test_a_pair_check_that_could_not_be_made_is_an_advisory() -> None:
+    code, output, _ = _run(KEY_CHECK, FL_DEPLOY_RUN_RC="125", FL_DEPLOY_RUN_SAYS="Error")
+
+    assert code == 0, output
+    assert "(exit 125)" in output, output
+
+
+def test_the_deploy_runs_the_check_as_the_frontend_user_with_the_key_mounted_where_compose_mounts_it() -> None:
+    """No `--user`: the key is owned by the image's own user, whom the caller's uid is not."""
+    call = DEPLOY.read_text(encoding="utf-8").split("\ncheck_actor_key ", 1)[1].split("\n\n", 1)[0]
+    code, output, fixture = _run("check_actor_key " + call)
+    argv = fixture.argv.read_text(encoding="utf-8").splitlines()
+
+    assert code == 0, output
+    assert "--user" not in argv, argv
+    assert ["--network", "none"] == argv[argv.index("--network") : argv.index("--network") + 2], argv
+    assert argv[argv.index("-v") + 1].endswith("/checkout/secrets/fl_actor_signing_key:/run/secrets/fl_actor_signing_key:ro"), argv
+    assert argv[argv.index("-e") - 1 : argv.index("-e") + 1] == ["node", "-e"], argv
+    assert argv[-1] == "/run/secrets/fl_actor_signing_key", argv
+
+
+@pytest.mark.parametrize(
+    ("script", "after", "before"),
+    [
+        (DEPLOY, "\ncheck_frontend_env_names\n", 'step "Recreating the application containers"'),
+        (LOCAL, 'ok "images built"', 'section "start"'),
+    ],
+)
+def test_the_pair_is_judged_after_the_build_it_runs_in_and_before_anything_starts(script: Path, after: str, before: str) -> None:
+    text = script.read_text(encoding="utf-8")
+
+    assert text.index(after) < text.index("\ncheck_actor_key ") < text.index(before), script.name
+    assert text.index('\nrequire_file "$SIGNING_KEY_FILE"') < text.index("\ncheck_actor_key "), script.name
+
+
 # --- the configuration compose reads, before anything is pulled ---------------------------------------
 
 CONFIG: Final = "check_compose_config"

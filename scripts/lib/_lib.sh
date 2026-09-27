@@ -811,6 +811,51 @@ It holds the three internal keys and nothing else (docs/ops/runbooks.md §16)."
   fi
 }
 
+# The actor token's signing key: where the host holds it, and where compose mounts it for the frontend
+# (`docs/ops/spec.md :: I463`). The file is read by the scripts that source this one.
+# shellcheck disable=SC2034
+SIGNING_KEY_FILE="secrets/fl_actor_signing_key"
+SIGNING_KEY_MOUNT="/run/secrets/fl_actor_signing_key"
+
+# Run by the frontend image as its own user, who alone reads the key (uid 1001, mode 400), with
+# `fl_backend/.env` on stdin. Exit 3 names the fault, never a value.
+# shellcheck disable=SC2016  # node's template literals
+ACTOR_KEY_CHECK='
+process.on("uncaughtException", (error) => { console.error(error.name); process.exit(4); });
+const { readFileSync } = require("node:fs");
+const { createPrivateKey, createPublicKey } = require("node:crypto");
+const { parseEnv } = require("node:util");
+const refuse = (line) => { console.error(line); process.exit(3); };
+let pem;
+try { pem = readFileSync(process.argv[1]); } catch (error) { refuse(`the signing key could not be read by the frontend user (${error.code})`); }
+let key;
+try { key = createPrivateKey(pem); } catch { refuse("the signing key file holds no private key in PEM"); }
+if (key.asymmetricKeyType !== "ed25519") refuse(`the signing key is ${key.asymmetricKeyType}, not Ed25519`);
+const published = parseEnv(readFileSync(0, "utf8")).ACTOR_TOKEN_PUBLIC_KEY;
+if (published === undefined) refuse("ACTOR_TOKEN_PUBLIC_KEY is missing from fl_backend/.env");
+if (!/^[A-Za-z0-9_-]{43}$/.test(published) || Buffer.from(published, "base64url").length !== 32) refuse("ACTOR_TOKEN_PUBLIC_KEY is not the base64url of 32 bytes");
+if (createPublicKey(key).export({ format: "jwk" }).x !== published) refuse("ACTOR_TOKEN_PUBLIC_KEY is not the public half of the signing key");
+'
+
+# Before any container is replaced: a failing pair starts a build whose every admin and person call
+# the backend refuses. `$1` is what stands at the refusal; the rest runs a frontend image container.
+check_actor_key() {
+  local standing="$1" rc=0 said=""; shift
+  said="$("$@" node -e "$ACTOR_KEY_CHECK" "$SIGNING_KEY_MOUNT" < fl_backend/.env 2>&1)" || rc=$?
+  if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
+  if (( rc == 3 )); then
+    refuse "the actor token's key pair would not work, and the line above says why. Generate the pair
+again and put each half where docs/ops/runbooks.md §16 says.
+${standing}"
+  elif (( rc )); then
+    # An advisory, as each environment reader's is: the running stack never runs this check.
+    warn "the frontend image could not be asked to judge the actor token's key pair (exit ${rc}), so
+nothing here says whether the frontend can sign with it or the backend verify it. Its own answer is above."
+  else
+    ok "the frontend can read the actor token's signing key, and fl_backend/.env's ACTOR_TOKEN_PUBLIC_KEY is its public half"
+  fi
+}
+
 # --- Redaction -------------------------------------------------------------------------------------
 
 # A filter for anything a CONTAINER's log is printed through. `mongodb-connection-string-url` throws
