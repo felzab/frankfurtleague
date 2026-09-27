@@ -1073,10 +1073,10 @@ export async function getSignInDestination(): Promise<SignInDestination> {
   const served = await auth.api.getSession({ headers: requestHeaders });
   if (!served) return "/signin";
 
-  // An unread grant sends the session to sign in afresh, never to a person's landing: that would
-  // hand an administrator's code-borne session the person's lane while the backend is down.
+  // An unread grant is the backend down: `/bereich` answers it with the person area's outage panel, its
+  // own lookup failing, where `/signin` would mail no code and say nothing (`docs/frontend/spec.md :: I121`).
   const verwaltung = await verwaltungOrNull(served.user.email);
-  if (verwaltung === null) return "/signin";
+  if (verwaltung === null) return isWithinPersonLifetime(served.session) ? "/bereich" : "/signin";
 
   if (verwaltung) {
     // The guard's own verdict rather than a second spelling of it: a condition added there has to

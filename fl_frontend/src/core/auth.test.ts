@@ -643,9 +643,10 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
 describe("a grant the backend cannot answer for", () => {
   afterEach(() => BACKENDS.delete(ADMIN_EMAIL));
 
-  /* The administration is shut while the backend is: an unread grant admits nobody, and never falls
-     to the person's lane, where an administrator's mailbox session would manage their passkeys. */
-  it("admits no administrator, offers no passkey card and sends the session to sign in afresh", async () => {
+  /* The administration is shut while the backend is: an unread grant admits nobody. The landing sends
+     the session to the person area, whose own lookup fails into its outage panel, never to a sign-in
+     that mails no code while the backend is down. */
+  it("admits no administrator, offers no passkey card and sends the session to the outage panel", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     row.authFactor = "passkey";
     arriveAs(cookie);
@@ -653,7 +654,7 @@ describe("a grant the backend cannot answer for", () => {
     const loggedBefore = logged.length;
 
     assert.equal(await getAdminSession(), null);
-    assert.equal(await getSignInDestination(), "/signin");
+    assert.equal(await getSignInDestination(), "/bereich");
     assert.equal(await getPasskeyStep(), null);
     assert.deepEqual(
       logged.slice(loggedBefore).map((line) => [line.message, line.meta]),
