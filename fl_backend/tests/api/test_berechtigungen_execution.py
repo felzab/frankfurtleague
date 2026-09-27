@@ -8,16 +8,22 @@ class goes through it.
 
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 import pytest
 from bson import ObjectId
 from pymongo import AsyncMongoClient
+from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.berechtigungen.admin_router import delete_berechtigung, get_berechtigungen, post_berechtigung
-from app.api.berechtigungen.schemas import FLBerechtigungAbgleichResponse, FLBerechtigungAngekuendigtPayload, FLPostBerechtigungPayload
+from app.api.berechtigungen.schemas import (
+    FLBerechtigungAbgleichResponse,
+    FLBerechtigungAngekuendigtPayload,
+    FLBerechtigungStand,
+    FLPostBerechtigungPayload,
+)
 from app.api.berechtigungen.services import (
     BEANSPRUCHUNG_DAUER,
     BERECHTIGUNG_GESPERRT,
@@ -26,6 +32,7 @@ from app.api.berechtigungen.services import (
     BERECHTIGUNG_NUR_INHABER,
     BERECHTIGUNG_OHNE_ZUGANG,
     BERECHTIGUNG_VORHANDEN,
+    compose_postausgang,
 )
 from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich, post_berechtigungen_angekuendigt
 from app.api.sperrliste.admin_router import delete_sperrliste_eintrag, post_sperrliste_eintrag
@@ -36,6 +43,7 @@ from app.core.config import API_VERSION
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.recording import SYSTEM_ACTOR, Actor, actor_var
 from app.core.security import ACTOR_HEADER, ACTOR_NOT_ADMIN, get_grant_lookup
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
@@ -63,6 +71,9 @@ DEAD_ID = ObjectId("6890a1b2c3d4e5f607910004")
 OWNER = "inhaberin@frankfurtleague.de"
 ANNA = "anna.admin@frankfurtleague.de"
 BERND = "bernd.admin@frankfurtleague.de"
+
+# Folded and equal to itself, and refused by the address rule: a row no request can match.
+DEAD_OWNER = "jürgen@frankfurtleague.de"
 
 # An address the league grants in the cases below, in a spelling the fold changes.
 NEU_TYPED = "Nora.Neu@Beispielschule.de"
@@ -173,20 +184,49 @@ async def revoke(
     await acting(Actor(kind="admin_session", email=als), call)
 
 
-async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str = NEU_TYPED, *, berechtigungen: Any = None) -> Any:
+async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str = NEU_TYPED, *, als: str = ANNA, berechtigungen: Any = None) -> Any:
     async def call() -> Any:
         return await post_sperrliste_eintrag(
             sperrliste_data=FLPostSperrlistePayload(email=email, grund=GRUND),
             sperrliste_collection=database[Collection.SPERRLISTE],
             saisons_collection=database[Collection.SAISONS],
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
+            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
             db=client,
             config=CONFIG,
-            erstellt_von=ANNA,
+            erstellt_von=als,
             today=TODAY,
         )
 
-    return await acting(Actor(kind="admin_session", email=ANNA), call)
+    return await acting(Actor(kind="admin_session", email=als), call)
+
+
+async def queued(database: AsyncDatabase) -> list[Mapping[str, Any]]:
+    """The outbox as stored, which is what a later stamp copies into the log."""
+
+    return [row async for row in database[Collection.BERECHTIGUNGEN_POSTAUSGANG].find({}, {"_id": 0}).sort("erfasst_am", 1)]
+
+
+class Aborting:
+    """A collection whose named method runs, then raises: the transaction around it aborts after that write.
+
+    Not a subclass: the driver builds a collection off a database handle, so every other call delegates.
+    """
+
+    def __init__(self, inner: Any, method: str) -> None:
+        self._inner = inner
+        self._method = method
+
+    def __getattr__(self, name: str) -> Any:
+        attribute = getattr(self._inner, name)
+        if name != self._method:
+            return attribute
+
+        async def wrapped(*args: Any, **kwargs: Any) -> Any:
+            await attribute(*args, **kwargs)
+            raise RuntimeError("aborted after the write")
+
+        return wrapped
 
 
 async def addresses(database: AsyncDatabase) -> list[str]:
@@ -299,6 +339,68 @@ class TestWhatAGrantStoresAndQueues:
         assert on_a_league(mongo_replica_set_url, body) == sorted([OWNER, ANNA, BERND])
 
 
+class TestTheOutboxMovesWithItsChange:
+    """`docs/backend/spec.md :: I451`: a notice written outside its change's transaction survives the change's abort."""
+
+    def test_a_grant_that_aborts_after_its_notice_leaves_neither(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
+            async def call() -> Any:
+                return await post_berechtigung(
+                    berechtigung_data=FLPostBerechtigungPayload(email=NEU_TYPED),
+                    berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+                    berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+                    berechtigungen_postausgang_collection=cast(
+                        AsyncCollection, Aborting(database[Collection.BERECHTIGUNGEN_POSTAUSGANG], "insert_one")
+                    ),
+                    sperrliste_collection=database[Collection.SPERRLISTE],
+                    saisons_collection=database[Collection.SAISONS],
+                    db=client,
+                    config=CONFIG,
+                    erteilt_von=ANNA,
+                    now=NOW,
+                )
+
+            with pytest.raises(RuntimeError):
+                await acting(Actor(kind="admin_session", email=ANNA), call)
+
+            return (
+                await database[Collection.BERECHTIGUNGEN].count_documents({"adresse": NEU}),
+                await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].count_documents({}),
+            )
+
+        assert on_a_league(mongo_replica_set_url, body) == (0, 0)
+
+    def test_a_revoke_that_aborts_at_its_last_write_leaves_the_grant_and_no_notice(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
+            await told(database, client)
+
+            async def call() -> Any:
+                return await delete_berechtigung(
+                    berechtigung_id=BERND_ID,
+                    berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+                    berechtigungen_angekuendigt_collection=cast(
+                        AsyncCollection, Aborting(database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT], "delete_many")
+                    ),
+                    berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+                    sperrliste_collection=database[Collection.SPERRLISTE],
+                    saisons_collection=database[Collection.SAISONS],
+                    db=client,
+                    config=CONFIG,
+                    entzogen_von=OWNER,
+                    now=NOW,
+                )
+
+            with pytest.raises(RuntimeError):
+                await acting(Actor(kind="admin_session", email=OWNER), call)
+
+            return (
+                await database[Collection.BERECHTIGUNGEN].count_documents({"_id": BERND_ID}),
+                await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].count_documents({}),
+            )
+
+        assert on_a_league(mongo_replica_set_url, body) == (1, 0)
+
+
 class TestTheListServesLiveGrantsAlone:
     def test_a_dead_row_is_counted_and_a_barred_address_is_withheld(self, mongo_replica_set_url: str):
         """Both on one list: the three live rows, one of them barred by a ban the Playground grant predates."""
@@ -320,6 +422,46 @@ class TestTheListServesLiveGrantsAlone:
             [(ANNA, False, "administration"), (None, True, "administration"), (OWNER, False, "owner")],
             1,
         )
+
+    def test_a_live_grant_with_an_empty_erteilt_von_is_served(self, mongo_replica_set_url: str):
+        """A field no reader decides anything from hides no grant, whatever a paste left in it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str | None, str | None]]:
+            listed = await get_berechtigungen(
+                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+                sperrliste_collection=database[Collection.SPERRLISTE],
+                saisons_collection=database[Collection.SAISONS],
+                config=CONFIG,
+            )
+
+            return [(row.adresse, row.erteilt_von) for row in listed.berechtigungen]
+
+        grants = [*the_three_grants(), {**grant_document(DEAD_ID, NEU, "administration"), "erteilt_von": ""}]
+
+        assert on_a_league(mongo_replica_set_url, body, grants=grants) == [
+            (ANNA, "PLAYGROUND"),
+            (BERND, "PLAYGROUND"),
+            (OWNER, "PLAYGROUND"),
+            (NEU, ""),
+        ]
+
+    def test_a_barred_granting_administrator_is_withheld_as_erteilt_von(self, mongo_replica_set_url: str):
+        """The actor field takes the same withholding as the address (`docs/backend/spec.md :: I452`)."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str | None, str | None]]:
+            await grant(database, client, als=ANNA)
+            await revoke(database, client, ANNA_ID)
+            await database[Collection.SPERRLISTE].insert_one(a_ban_row(ANNA))
+            listed = await get_berechtigungen(
+                berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+                sperrliste_collection=database[Collection.SPERRLISTE],
+                saisons_collection=database[Collection.SAISONS],
+                config=CONFIG,
+            )
+
+            return [(row.adresse, row.erteilt_von) for row in listed.berechtigungen]
+
+        assert on_a_league(mongo_replica_set_url, body) == [(BERND, "PLAYGROUND"), (OWNER, "PLAYGROUND"), (NEU, None)]
 
 
 class TestASecondGrantOfOneAddress:
@@ -369,14 +511,27 @@ class TestOnlyAnOwnerRevokes:
         assert on_a_league(mongo_replica_set_url, body) == (BERECHTIGUNG_NUR_INHABER, BERECHTIGUNG_NUR_INHABER, sorted([OWNER, ANNA]))
 
     def test_an_owner_row_that_is_dead_revokes_nothing(self, mongo_replica_set_url: str):
-        """An owner spelled so no request matches it is no owner, the one reading every reader takes."""
+        """Folded and equal to its own actor, and refused by the address rule: an owner in name that the one reading reads as none."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
-            return await refusal_of(revoke(database, client, BERND_ID, als="Inhaberin@Frankfurtleague.de"))
+            return await refusal_of(revoke(database, client, BERND_ID, als=DEAD_OWNER))
 
-        grants = [grant_document(OWNER_ID, "Inhaberin@Frankfurtleague.de", "owner"), *the_three_grants()[1:]]
+        grants = [grant_document(OWNER_ID, DEAD_OWNER, "owner"), *the_three_grants()[1:]]
 
         assert on_a_league(mongo_replica_set_url, body, grants=grants) == BERECHTIGUNG_NUR_INHABER
+
+    def test_an_owner_demoted_after_the_first_read_revokes_nothing(self, mongo_replica_set_url: str):
+        """The owner's own grant is judged on the read the retry makes inside the transaction, not on the one before it."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, list[str]]:
+            async def demote() -> None:
+                await database[Collection.BERECHTIGUNGEN].update_one({"_id": OWNER_ID}, {"$set": {"verwaltung": "administration"}})
+
+            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], demote)
+
+            return await outcome_of(revoke(database, client, BERND_ID, berechtigungen=racing)), await addresses(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == (BERECHTIGUNG_NUR_INHABER, sorted([OWNER, ANNA, BERND]))
 
 
 class TestAnActorRevokedMidRequest:
@@ -390,6 +545,15 @@ class TestAnActorRevokedMidRequest:
             return racing.rival_outcome, outcome, await addresses(database)
 
         assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, BERECHTIGUNG_OHNE_ZUGANG, sorted([OWNER, BERND]))
+
+    def test_a_ban_whose_actor_is_revoked_after_the_check_is_refused_and_stores_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, int]:
+            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: revoke(database, client, ANNA_ID))
+            outcome = await outcome_of(ban(database, client, als=ANNA, berechtigungen=racing))
+
+            return racing.rival_outcome, outcome, await database[Collection.SPERRLISTE].count_documents({})
+
+        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, BERECHTIGUNG_OHNE_ZUGANG, 0)
 
 
 class TestTheOwnersRow:
@@ -632,18 +796,114 @@ class TestTheClaim:
 
         assert on_a_league(mongo_replica_set_url, body) == ([(None, True)], sorted([OWNER, ANNA, BERND]))
 
-    def test_a_dead_row_is_queued_as_no_grant_and_counted(self, mongo_replica_set_url: str):
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[Any], int]:
+    def test_a_dead_row_is_queued_as_no_grant_counted_and_mailed_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[Any], int, list[str]]:
             answer = await claimed(database, client)
 
-            return summary(answer), answer.uebersprungen
+            return summary(answer), answer.uebersprungen, answer.empfaenger
 
         grants = [*the_three_grants(), grant_document(DEAD_ID, "", "administration")]
 
         assert on_a_league(mongo_replica_set_url, body, grants=grants) == (
             [("erteilt", OWNER, None), ("erteilt", ANNA, None), ("erteilt", BERND, None)],
             1,
+            sorted([OWNER, ANNA, BERND]),
         )
+
+    def test_an_address_banned_in_the_database_after_it_was_queued_is_withheld_at_the_claim(self, mongo_replica_set_url: str):
+        """A ban no route entered withholds nothing when it lands, so the claim's own ban read is the one guard."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str | None, str | None, bool, str]]:
+            await told(database, client)
+            created = await grant(database, client)
+            await revoke(database, client, created)
+            await database[Collection.SPERRLISTE].insert_one(a_ban_row(NEU))
+
+            return [
+                (
+                    change.jetzt.adresse if change.jetzt else None,
+                    change.vorher.adresse if change.vorher else None,
+                    change.gesperrt,
+                    change.quelle,
+                )
+                for change in (await claimed(database, client)).aenderungen
+            ]
+
+        assert on_a_league(mongo_replica_set_url, body) == [(None, None, True, "anwendung"), (None, None, True, "anwendung")]
+
+    def test_a_ban_entered_here_withholds_the_address_in_every_queued_notice(self, mongo_replica_set_url: str):
+        """Granted, revoked, then banned through the route: the stored rows, which a stamp copies into the log, hold no address."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Mapping[str, Any]]:
+            await told(database, client)
+            created = await grant(database, client)
+            await revoke(database, client, created)
+            await ban(database, client, NEU)
+
+            return await queued(database)
+
+        rows = on_a_league(mongo_replica_set_url, body)
+
+        assert [row["vorenthalten"] for row in rows] == ["gesperrt", "gesperrt"]
+        assert all(NEU not in str(row) for row in rows)
+
+    def test_a_ban_withholds_the_address_past_one_page_of_queued_notices(self, mongo_replica_set_url: str):
+        """More notices name the address than one read returns, and none keeps it (`docs/backend/spec.md :: I455`)."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Mapping[str, Any]]:
+            await told(database, client)
+            await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].insert_many(
+                [
+                    compose_postausgang(
+                        berechtigung_id=ObjectId(),
+                        art="erteilt",
+                        jetzt=FLBerechtigungStand(adresse=NEU, verwaltung="administration"),
+                        vorher=None,
+                        geaendert_von=ANNA,
+                        now=NOW,
+                        gesperrt=(),
+                    )
+                    for _ in range(LIST_LIMIT_DEFAULT + 1)
+                ]
+            )
+            await ban(database, client, NEU)
+
+            return await queued(database)
+
+        rows = on_a_league(mongo_replica_set_url, body)
+
+        assert len(rows) == LIST_LIMIT_DEFAULT + 1
+        assert all(NEU not in str(row) for row in rows)
+
+    def test_a_barred_grant_revoked_here_is_queued_with_no_address(self, mongo_replica_set_url: str):
+        """The revoke withholds as it queues, before any claim reads the row."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Mapping[str, Any]]:
+            await database[Collection.SPERRLISTE].insert_one(a_ban_row(NEU))
+            await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(DEAD_ID, NEU, "administration"))
+            await told(database, client)
+            await revoke(database, client, DEAD_ID)
+
+            return await queued(database)
+
+        rows = on_a_league(mongo_replica_set_url, body)
+
+        assert rows and all(NEU not in str(row) for row in rows)
+
+    def test_a_barred_acting_administrator_is_withheld_while_the_change_stays_the_applications(self, mongo_replica_set_url: str):
+        """`geaendert_von` null beside `quelle` `anwendung`: the frontend never reads a barred actor as a database edit."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str, str | None, str, bool]]:
+            await told(database, client)
+            await grant(database, client, als=ANNA)
+            await revoke(database, client, ANNA_ID)
+            await database[Collection.SPERRLISTE].insert_one(a_ban_row(ANNA))
+
+            return [
+                (change.art, change.geaendert_von, change.quelle, change.gesperrt) for change in (await claimed(database, client)).aenderungen
+            ]
+
+        assert on_a_league(mongo_replica_set_url, body) == [("erteilt", None, "anwendung", True), ("entzogen", OWNER, "anwendung", True)]
 
 
 class TestTheMountedRouteReadsTheGrants:
@@ -678,11 +938,26 @@ class TestTheMountedRouteReadsTheGrants:
 
         assert on_a_league(mongo_replica_set_url, body) == [200, 200, 403]
 
+    def test_a_barred_grant_holder_is_no_administrator(self, mongo_replica_set_url: str):
+        """A barred holder holds no floor, so it acts on nothing either (`docs/backend/spec.md :: I456`)."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[int]:
+            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+                before = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers={**ADMIN_AUTH, ACTOR_HEADER: BERND})
+                await database[Collection.SPERRLISTE].insert_one(a_ban_row(BERND))
+                after = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers={**ADMIN_AUTH, ACTOR_HEADER: BERND})
+
+            return [before.status_code, after.status_code]
+
+        assert on_a_league(mongo_replica_set_url, body) == [200, 403]
+
     def test_the_lookup_admits_a_live_row_and_no_dead_one_of_the_same_equality(self, mongo_replica_set_url: str):
         """A folded row the address rule refuses equals its own header and still admits nobody (`docs/backend/spec.md :: I453`)."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[bool]:
-            holds_a_live_grant = get_grant_lookup(database[Collection.BERECHTIGUNGEN])
+            holds_a_live_grant = get_grant_lookup(
+                database[Collection.BERECHTIGUNGEN], database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG
+            )
 
             return [await holds_a_live_grant(ANNA), await holds_a_live_grant("jürgen@frankfurtleague.de")]
 

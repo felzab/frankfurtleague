@@ -6,7 +6,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.berechtigungen.crud import gesperrte_adressen, read_berechtigungen, read_the_announced, read_the_claimable
+from app.api.berechtigungen.crud import gesperrte_adressen, pull_the_list_to_judge, read_the_announced, read_the_claimable
 from app.api.berechtigungen.schemas import (
     FLBerechtigungAbgleichResponse,
     FLBerechtigungAenderung,
@@ -21,6 +21,7 @@ from app.api.berechtigungen.services import (
     compose_postausgang,
     lebendige,
     withheld,
+    withheld_actor,
 )
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import delete_many_from_db, patch_many_in_db, post_many_to_db
@@ -33,6 +34,7 @@ from app.core.dependencies import (
     SperrlisteCollection,
     get_germany_now,
 )
+from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.security import bind_system_actor, verify_access_system
 
 # System tier and the system actor, as the application sweep's own router is: the pass holds no
@@ -47,6 +49,8 @@ router = APIRouter(
     "",
     response_model=FLBerechtigungAbgleichResponse,
     summary="Claim the grant changes still to be announced",
+    # Published by collection, the trace reading the anchor's write on the grants (`tests/core/test_duplicate_key_publication.py`).
+    responses={409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_berechtigungen_abgleich(
     berechtigungen_collection: BerechtigungenCollection,
@@ -72,14 +76,18 @@ async def post_berechtigungen_abgleich(
     mailed, with `beanspruchung`, to `POST /berechtigungen/abgleich/angekuendigt`. Where a lease lapses before that, the next call
     claims those changes again. `beanspruchung` and `beansprucht_bis` are null exactly where nothing was claimed.
 
-    No barred address is answered in plain: wherever one would stand -- `jetzt`, `vorher`, `empfaenger` -- it is `null` or left out,
-    and the change carries `gesperrt`. `empfaenger` is every live, unbarred grant holder now; a removed address is read off its change.
+    `quelle` says where each change came from: `anwendung` for one made through the application, `datenbank` for one found here.
+    No barred address is answered in plain: wherever one would stand -- `jetzt`, `vorher`, `geaendert_von`, `empfaenger` -- it is
+    `null` or left out, and the change carries `gesperrt`. So `geaendert_von` null beside `quelle` `anwendung` is a barred
+    administrator. `empfaenger` is every live, unbarred grant holder now; a removed address is read off its change.
     """
 
     async def queue_and_claim(session: AsyncClientSession) -> tuple[list[dict[str, Any]], list[str], int, str | None]:
         """Read the grants, the record and the ban list, queue what differs, then claim, each on this transaction's session."""
 
-        grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
+        # Anchored, so a ban withholding pending rows and this claim queueing new ones never both
+        # commit unseen by the other (`docs/backend/spec.md :: I455`).
+        grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
         live = lebendige(grants)
         announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
         changes = compare(grants=grants, announced=announced)
@@ -140,7 +148,7 @@ async def post_berechtigungen_abgleich(
             for row in claimable
             for stand in (row.get("jetzt"), row.get("vorher"))
             if stand is not None and (adresse := stand.get("adresse")) is not None
-        }
+        } | {str(row["geaendert_von"]) for row in claimable if row.get("geaendert_von") is not None}
         barred |= await gesperrte_adressen(
             claimed_addresses - stored,
             sperrliste_collection=sperrliste_collection,
@@ -170,17 +178,20 @@ def _answered(row: Mapping[str, Any], barred: set[str]) -> dict[str, Any]:
 
     zeile = FLBerechtigungPostausgangZeile.model_validate(row)
     jetzt, vorher = withheld(zeile.jetzt, barred), withheld(zeile.vorher, barred)
+    geaendert_von = withheld_actor(zeile.geaendert_von, barred)
+    withheld_now = (jetzt, vorher, geaendert_von) != (zeile.jetzt, zeile.vorher, zeile.geaendert_von)
 
     return {
         "id": zeile.id,
         "berechtigung_id": zeile.berechtigung_id,
         "art": zeile.art,
+        "quelle": zeile.quelle,
         "jetzt": jetzt,
         "vorher": vorher,
-        "geaendert_von": zeile.geaendert_von,
+        "geaendert_von": geaendert_von,
         "geaendert_am": zeile.geaendert_am,
-        # Set where a stored address was withheld when queued, or is withheld now.
-        "gesperrt": any(stand is not None and stand.adresse is None for stand in (jetzt, vorher)),
+        # The stored reason, or a ban entered since the row was queued; never read off a null address.
+        "gesperrt": zeile.vorenthalten == "gesperrt" or withheld_now,
     }
 
 

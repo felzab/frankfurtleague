@@ -27,6 +27,7 @@ from app.api.berechtigungen.services import (
     lebendige,
     lebendige_adresse,
     stand_of,
+    withheld_actor,
 )
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import address_is_gesperrt
@@ -70,14 +71,15 @@ async def get_berechtigungen(
 
     Uncapped, as few people hold one. A row whose address no request can match -- empty, unfolded or refused by the address rule --
     admits nobody and is left out, counted in `uebersprungen`. An address on the ban list is answered as `null` beside `gesperrt`,
-    never in plain. `erteilt_von` is an administrator's address for a grant made here, and whatever the database edit wrote for one
-    made there.
+    never in plain, and so is a barred `erteilt_von`, which is otherwise an administrator's address for a grant made here and
+    whatever the database edit wrote for one made there.
     """
 
     rows = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection)
     live = lebendige(rows)
+    grants = [FLBerechtigung.model_validate(row) for row in live]
     barred = await gesperrte_adressen(
-        [str(row["adresse"]) for row in live],
+        [grant.adresse for grant in grants] + [sign_in_identifier(grant.erteilt_von) for grant in grants],
         sperrliste_collection=sperrliste_collection,
         saisons_collection=saisons_collection,
         schluessel=config.sperrliste_schluessel,
@@ -85,8 +87,7 @@ async def get_berechtigungen(
     )
 
     served = []
-    for row in live:
-        grant = FLBerechtigung.model_validate(row)
+    for grant in grants:
         gesperrt = grant.adresse in barred
         served.append(
             FLBerechtigungZeile(
@@ -94,7 +95,7 @@ async def get_berechtigungen(
                 adresse=None if gesperrt else grant.adresse,
                 gesperrt=gesperrt,
                 verwaltung=grant.verwaltung,
-                erteilt_von=grant.erteilt_von,
+                erteilt_von=withheld_actor(grant.erteilt_von, barred),
                 erteilt_am=grant.erteilt_am,
             )
         )

@@ -51,7 +51,7 @@ from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from tests import documents
-from tests.config import build_test_config
+from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -147,6 +147,8 @@ def on_a_league(url: str, body: Body, *, referees: list[dict[str, Any]] | None =
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+            # The ban re-judges its actor's grant inside its transaction (`docs/backend/spec.md :: I450`).
+            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(saison_document())
             seeded = [referee_document()] if referees is None else referees
             if seeded:
@@ -204,6 +206,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str) 
         sperrliste_collection=database[Collection.SPERRLISTE],
         saisons_collection=database[Collection.SAISONS],
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
         db=client,
         config=CONFIG,
         erstellt_von="admin@frankfurtleague.de",

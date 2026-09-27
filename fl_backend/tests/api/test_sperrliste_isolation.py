@@ -22,7 +22,7 @@ from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from tests import documents
-from tests.config import build_test_config
+from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -113,6 +113,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, saisons: Any
             sperrliste_collection=database[Collection.SPERRLISTE],
             saisons_collection=saisons if saisons is not None else database[Collection.SAISONS],
             berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
             db=client,
             config=CONFIG,
             erstellt_von=ADMIN,
@@ -138,6 +139,8 @@ def on_a_league(url: str, body: Callable[[AsyncDatabase, AsyncMongoClient], Awai
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+            # The ban re-judges its actor's grant inside its transaction (`docs/backend/spec.md :: I450`).
+            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             # Already counted, as a running season is once anything anchored it: `$inc` on a missing
             # field creates it, so an anchor that rewrites nothing would still conflict here without it.
             running = {**saison_document(RUNNING, "active"), "bounded_writes": 3}

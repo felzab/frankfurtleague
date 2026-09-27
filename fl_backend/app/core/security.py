@@ -10,12 +10,12 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import SecretStr
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.berechtigungen.crud import holds_a_live_unbarred_grant
 from app.core.config import BackendConfig, get_app_config
-from app.core.crud import pull_many_from_db
-from app.core.db import get_berechtigungen_collection
+from app.core.db import get_berechtigungen_collection, get_saisons_collection, get_sperrliste_collection
 from app.core.exceptions import ActorForbiddenException, MalformedRequestException, RequestAuthorizationException
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, AktorFunktion, PersonActor, actor_var, request_var
-from app.shared.folding import is_stored_identifier, sign_in_identifier
+from app.shared.folding import sign_in_identifier
 from app.shared.sub_keys import derive_sub_key
 
 # Named once, as `app/core/exceptions.py` names its codes, so a test asserts the core's code rather
@@ -112,15 +112,22 @@ def is_well_formed_actor(header_value: str | None) -> TypeIs[str]:
 GrantLookup = Callable[[str], Awaitable[bool]]
 
 
-def get_grant_lookup(berechtigungen_collection: Annotated[AsyncCollection, Depends(get_berechtigungen_collection)]) -> GrantLookup:
-    """The actor check's read, one equality `uniq_berechtigung_adresse` serves, a dead row admitting nobody (`docs/backend/spec.md :: I453`)."""
+def get_grant_lookup(
+    berechtigungen_collection: Annotated[AsyncCollection, Depends(get_berechtigungen_collection)],
+    sperrliste_collection: Annotated[AsyncCollection, Depends(get_sperrliste_collection)],
+    saisons_collection: Annotated[AsyncCollection, Depends(get_saisons_collection)],
+    config: Annotated[BackendConfig, Depends(get_app_config)],
+) -> GrantLookup:
+    """The actor check's read: a live grant, and no ban on its address (`docs/backend/spec.md :: I453`, `:: I456`)."""
 
     async def holds_a_live_grant(identifier: str) -> bool:
-        found = await pull_many_from_db(
-            collection=berechtigungen_collection, db_filter={"adresse": identifier}, limit=1, projection=["adresse"]
+        return await holds_a_live_unbarred_grant(
+            identifier,
+            berechtigungen_collection=berechtigungen_collection,
+            sperrliste_collection=sperrliste_collection,
+            saisons_collection=saisons_collection,
+            schluessel=config.sperrliste_schluessel,
         )
-
-        return bool(found) and is_stored_identifier(found[0].get("adresse"))
 
     return holds_a_live_grant
 

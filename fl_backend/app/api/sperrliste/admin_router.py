@@ -5,8 +5,8 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
-from app.api.berechtigungen.crud import pull_the_list_to_judge
-from app.api.berechtigungen.services import lebendige
+from app.api.berechtigungen.crud import pull_the_list_to_judge, withhold_in_the_outbox
+from app.api.berechtigungen.services import find_ohne_zugang_refusal, lebendige
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
@@ -28,10 +28,18 @@ from app.api.sperrliste.services import (
 )
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import delete_many_from_db, patch_many_in_db, post_one_to_db, pull_one_from_db, refuse
-from app.core.dependencies import BerechtigungenCollection, DBClient, SaisonsCollection, SperrlisteCollection, get_german_date_str
+from app.core.dependencies import (
+    BerechtigungenCollection,
+    BerechtigungenPostausgangCollection,
+    DBClient,
+    SaisonsCollection,
+    SperrlisteCollection,
+    get_german_date_str,
+)
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
 
@@ -99,6 +107,7 @@ async def post_sperrliste_eintrag(
     sperrliste_collection: SperrlisteCollection,
     saisons_collection: SaisonsCollection,
     berechtigungen_collection: BerechtigungenCollection,
+    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     erstellt_von: str = Depends(get_actor_email),
@@ -109,9 +118,11 @@ async def post_sperrliste_eintrag(
 
     Refused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is
     running, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and
-    where the address is an administrator's (`REQ-SPERRLISTE-003`). The ban covers the fifth season
-    after the one running now — the last one it covers is answered as `gesperrt_bis_saison_id` — and
-    it survives that person's erasure.
+    where the address is an administrator's (`REQ-SPERRLISTE-003`), and where the administrator
+    entering it holds no grant by the time it is judged (`REQ-BERECHTIGUNG-006`). The ban covers the
+    fifth season after the one running now — the last one it covers is answered as
+    `gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still queued
+    for the address loses the address in the same transaction.
     """
 
     gehasht = adresse_hash(str(sperrliste_data.email), schluessel=config.sperrliste_schluessel)
@@ -122,6 +133,9 @@ async def post_sperrliste_eintrag(
         # Through the grants' anchor: a grant of this address committing beside this ban writes the
         # same rows, so one of the two retries and meets the other's refusal (`docs/backend/spec.md :: I53`).
         grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
+        # Re-judged inside the anchor: the actor check ran before this transaction, and an
+        # administrator revoked since has no ban left to enter (`docs/backend/spec.md :: I450`).
+        refuse(find_ohne_zugang_refusal(akteur=sign_in_identifier(erstellt_von), grants=grants))
         refuse(
             find_verwaltung_refusal(
                 gehasht=gehasht,
@@ -153,6 +167,14 @@ async def post_sperrliste_eintrag(
             # INCLUSIVE: the season named here is still barred, and „bis“ alone does not say so.
             "gesperrt_bis_saison_id": gesperrt_bis_saison_id,
         }
+
+        # Every notice still queued loses the address in this transaction, so neither the outbox nor a
+        # later stamp's log image holds it in plain (`docs/backend/spec.md :: I455`).
+        await withhold_in_the_outbox(
+            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
+            adresse=sign_in_identifier(str(sperrliste_data.email)),
+            session=session,
+        )
 
         # A LAPSED row for this hash passes the check above and is refused HERE on the index, which
         # reads no bound. No route leaves one: the activation that lapses a ban removes it.

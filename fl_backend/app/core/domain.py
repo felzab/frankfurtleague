@@ -2186,9 +2186,9 @@ RULES: tuple[Rule, ...] = (
     Rule(
         code="REQ-BERECHTIGUNG-006",
         status=HTTPStatus.FORBIDDEN,
-        operation="POST /berechtigungen",
+        operation="POST /berechtigungen · POST /sperrliste",
         aggregate="Berechtigung",
-        summary="a grant is made only by an actor whose own live grant still stands inside the transaction",
+        summary="a grant or a ban is made only by an actor whose own live grant still stands inside the transaction",
         implemented_by="app.api.berechtigungen.services.find_ohne_zugang_refusal",
         tested_by="tests/api/test_berechtigungen_execution.py::TestAnActorRevokedMidRequest",
     ),

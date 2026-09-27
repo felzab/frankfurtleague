@@ -16,7 +16,9 @@ from app.api.berechtigungen.schemas import (
     FLBerechtigungAenderungArt,
     FLBerechtigungAngekuendigt,
     FLBerechtigungPostausgangZeile,
+    FLBerechtigungQuelle,
     FLBerechtigungStand,
+    FLBerechtigungVorenthalten,
     FLVerwaltung,
 )
 from app.api.bewerbungen.schemas import (
@@ -399,6 +401,8 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     (Collection.BERECHTIGUNGEN, (), "verwaltung", get_args(FLVerwaltung), False),
     (Collection.BERECHTIGUNGEN_ANGEKUENDIGT, (), "verwaltung", get_args(FLVerwaltung), False),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), "art", get_args(FLBerechtigungAenderungArt), False),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), "quelle", get_args(FLBerechtigungQuelle), False),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), "vorenthalten", get_args(FLBerechtigungVorenthalten), True),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("jetzt",), "verwaltung", get_args(FLVerwaltung), False),
     (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("vorher",), "verwaltung", get_args(FLVerwaltung), False),
     # Nullable for the reason a squad row's two are: a registration is filled in over time, and the

@@ -66,6 +66,8 @@ def on_a_clean_list(url: str, body: Body) -> Any:
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+            # The ban re-judges its actor's grant inside its transaction (`docs/backend/spec.md :: I450`).
+            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             await database[Collection.SAISONS].insert_one(dict(SAISON_DOCUMENT))
 
             return await body(database, client)
@@ -79,6 +81,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str =
         sperrliste_collection=database[Collection.SPERRLISTE],
         saisons_collection=database[Collection.SAISONS],
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
         db=client,
         config=CONFIG,
         erstellt_von=von,
@@ -226,11 +229,7 @@ class TestABanOfAnAdministratorsAddress:
 
     def test_it_is_refused_and_nothing_is_stored_while_another_address_is_banned(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
-            # `administration` rather than `owner`, the suite's first row, so the refusal is shown to read
-            # every grant and not an `owner` grant alone.
-            await database[Collection.BERECHTIGUNGEN].insert_many(
-                [grant for grant in grants_for_the_suite() if grant["adresse"] in (ADMIN, "admin@example.com")]
-            )
+            # `ADMIN` holds `administration` rather than `owner`, so the refusal reads every grant.
             with pytest.raises(WriteRefusalException) as raised:
                 await ban(database, client, email=ADMIN.upper())
             refused = await database[Collection.SPERRLISTE].count_documents({})

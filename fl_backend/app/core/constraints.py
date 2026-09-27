@@ -375,6 +375,8 @@ _REGISTRIERUNG_STATUS = ["eingereicht", "abgelehnt"]
 # validator is the one check that paste meets.
 _VERWALTUNG = ["owner", "administration"]
 _BERECHTIGUNG_AENDERUNGEN = ["erteilt", "entzogen", "geaendert"]
+_BERECHTIGUNG_QUELLEN = ["anwendung", "datenbank"]
+_BERECHTIGUNG_VORENTHALTEN = ["gesperrt"]
 
 # One grant's state in an outbox row; the address null where it was barred when queued.
 _BERECHTIGUNG_STAND = _object(
@@ -989,10 +991,12 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "_id",
                 "berechtigung_id",
                 "art",
+                "quelle",
                 "jetzt",
                 "vorher",
                 "geaendert_von",
                 "geaendert_am",
+                "vorenthalten",
                 "erfasst_am",
                 "beansprucht_bis",
                 "beanspruchung",
@@ -1001,10 +1005,13 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "_id": {"bsonType": "objectId"},
                 "berechtigung_id": {"bsonType": "objectId"},
                 "art": {"bsonType": "string", "enum": _BERECHTIGUNG_AENDERUNGEN},
+                "quelle": {"bsonType": "string", "enum": _BERECHTIGUNG_QUELLEN},
                 "jetzt": _BERECHTIGUNG_STAND,
                 "vorher": _BERECHTIGUNG_STAND,
                 "geaendert_von": {"bsonType": _STRING_OR_NULL},
                 "geaendert_am": {"bsonType": ["date", "null"]},
+                # Why the row's addresses are withheld; a null address never says it by itself.
+                "vorenthalten": {"bsonType": _STRING_OR_NULL, "enum": [*_BERECHTIGUNG_VORENTHALTEN, None]},
                 "erfasst_am": {"bsonType": "date"},
                 # Required as keys and null until a pass claims the row: the claim asks for a null
                 # lease, which a missing key would satisfy too and a mistyped one would hide.

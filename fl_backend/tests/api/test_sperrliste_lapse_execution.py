@@ -24,7 +24,7 @@ from app.api.sperrliste.services import SPERRLISTE_KEINE_SAISON, SPERRLISTE_SCHL
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from tests import documents
-from tests.config import build_test_config
+from tests.config import build_test_config, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -87,6 +87,8 @@ def on_a_league(url: str, seasons: list[dict[str, Any]], body: Body) -> Any:
 
     async def _run() -> Any:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
+            # The ban re-judges its actor's grant inside its transaction (`docs/backend/spec.md :: I450`).
+            await database[Collection.BERECHTIGUNGEN].insert_many(grants_for_the_suite())
             if seasons:
                 await database[Collection.SAISONS].insert_many(seasons)
 
@@ -101,6 +103,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str =
         sperrliste_collection=database[Collection.SPERRLISTE],
         saisons_collection=database[Collection.SAISONS],
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+        berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
         db=client,
         config=CONFIG,
         erstellt_von=ADMIN,

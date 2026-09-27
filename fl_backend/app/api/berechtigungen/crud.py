@@ -58,13 +58,72 @@ async def pull_the_list_to_judge(
 
 
 async def verwaltung_of(*, berechtigungen_collection: AsyncCollection, adresse: str) -> FLVerwaltung | None:
-    """The tier this folded address holds, or `None`: one equality `uniq_berechtigung_adresse` serves, a dead row answering `None`."""
+    """The tier this folded address holds, or `None`: one equality `uniq_berechtigung_adresse` serves.
 
-    found = await pull_many_from_db(
-        collection=berechtigungen_collection, db_filter={"adresse": adresse}, limit=1, projection=["adresse", "verwaltung"]
+    No dead-row check: its one caller folds an address the address rule admitted, and a row equal to
+    that is live (`docs/backend/spec.md :: I453`).
+    """
+
+    found = await pull_many_from_db(collection=berechtigungen_collection, db_filter={"adresse": adresse}, limit=1, projection=["verwaltung"])
+
+    return found[0]["verwaltung"] if found else None
+
+
+async def holds_a_live_unbarred_grant(
+    identifier: str,
+    *,
+    berechtigungen_collection: AsyncCollection,
+    sperrliste_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
+    schluessel: SecretStr,
+) -> bool:
+    """The actor check's question: one equality on the grants, then one on the ban list by the identifier's hash.
+
+    A barred holder is no administrator, the reason a barred grant holds no floor
+    (`docs/backend/spec.md :: I456`).
+    """
+
+    found = await pull_many_from_db(collection=berechtigungen_collection, db_filter={"adresse": identifier}, limit=1, projection=["adresse"])
+    if not found or lebendige_adresse(found[0]) is None:
+        return False
+
+    return not await gesperrte_adressen(
+        [identifier], sperrliste_collection=sperrliste_collection, saisons_collection=saisons_collection, schluessel=schluessel, session=None
     )
 
-    return found[0]["verwaltung"] if found and lebendige_adresse(found[0]) is not None else None
+
+async def withhold_in_the_outbox(*, berechtigungen_postausgang_collection: AsyncCollection, adresse: str, session: AsyncClientSession) -> None:
+    """Every queued row naming this folded address, as a grant's address or as its actor, withheld in place (`docs/backend/spec.md :: I455`).
+
+    Read, then written by id: a write filtered on the address copies it into the log's filter text.
+    """
+
+    # A page at a time until none is left: a row once withheld fails the filter, so each read meets the rest.
+    while rows := await pull_many_from_db(
+        collection=berechtigungen_postausgang_collection,
+        db_filter={"$or": [{"jetzt.adresse": adresse}, {"vorher.adresse": adresse}, {"geaendert_von": adresse}]},
+        limit=LIST_LIMIT_DEFAULT,
+        projection=["jetzt", "vorher", "geaendert_von"],
+        session=session,
+    ):
+        for field in ("jetzt", "vorher"):
+            ids = [row["_id"] for row in rows if (row.get(field) or {}).get("adresse") == adresse]
+            if ids:
+                await patch_many_in_db(
+                    collection=berechtigungen_postausgang_collection,
+                    db_filter={"_id": {"$in": ids}},
+                    update={"$set": {f"{field}.adresse": None, "vorenthalten": "gesperrt"}},
+                    session=session,
+                )
+
+        ids = [row["_id"] for row in rows if row.get("geaendert_von") == adresse]
+        if ids:
+            await patch_many_in_db(
+                collection=berechtigungen_postausgang_collection,
+                db_filter={"_id": {"$in": ids}},
+                update={"$set": {"geaendert_von": None, "vorenthalten": "gesperrt"}},
+                session=session,
+            )
 
 
 async def read_the_announced(
@@ -102,7 +161,7 @@ async def gesperrte_adressen(
     schluessel: SecretStr,
     session: AsyncClientSession | None,
 ) -> set[str]:
-    """Which of these live addresses the ban list bars, in one read, judged as a sign-up is."""
+    """Which of these addresses the ban list bars, in one read, judged as a sign-up is; one no ban can key is barred by none."""
 
     keyed = {adresse: stored_adresse_hash(adresse, schluessel=schluessel) for adresse in set(adressen)}
     hashes = {adresse: gehasht for adresse, gehasht in keyed.items() if gehasht is not None}

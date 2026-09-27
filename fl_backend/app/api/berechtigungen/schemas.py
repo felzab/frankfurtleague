@@ -15,6 +15,14 @@ FLVerwaltung = Literal["owner", "administration"]
 # What happened to one grant: added, removed, or changed in place, which only a database edit does.
 FLBerechtigungAenderungArt = Literal["erteilt", "entzogen", "geaendert"]
 
+# Where a queued change came from, stated rather than read off a null actor, which also stands for
+# an actor whose address is withheld (`docs/backend/spec.md :: I452`).
+FLBerechtigungQuelle = Literal["anwendung", "datenbank"]
+
+# Why a queued row's addresses are withheld. Closed on the one reason there is today; an erasure
+# joins as a second member rather than reusing this one.
+FLBerechtigungVorenthalten = Literal["gesperrt"]
+
 
 class FLBerechtigung(BaseModel):
     """One grant as the collection stores it, read only once `app/shared/folding.py :: is_stored_identifier` has passed its address."""
@@ -22,9 +30,9 @@ class FLBerechtigung(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     adresse: CustomNonEmptyString
     verwaltung: FLVerwaltung
-    # An administrator's address for a grant made here; whatever the paste wrote for one made in the
-    # Playground, which is why no reader decides anything from it.
-    erteilt_von: CustomNonEmptyString
+    # An administrator's address for a grant made here; whatever the paste wrote, an empty string
+    # included, for one made in the Playground. No bound on it: that would hide a live grant.
+    erteilt_von: str
     erteilt_am: datetime
 
 
@@ -37,7 +45,8 @@ class FLBerechtigungZeile(BaseModel):
     adresse: str | None
     gesperrt: bool
     verwaltung: FLVerwaltung
-    erteilt_von: CustomNonEmptyString
+    # Null where the granting administrator's address is barred, the one way it is ever null.
+    erteilt_von: str | None
     erteilt_am: datetime
 
 
@@ -90,12 +99,15 @@ class FLBerechtigungPostausgangZeile(BaseModel):
     id: CustomObjectId = Field(validation_alias="_id", serialization_alias="id")
     berechtigung_id: CustomObjectId
     art: FLBerechtigungAenderungArt
+    quelle: FLBerechtigungQuelle
     jetzt: FLBerechtigungStand | None
     vorher: FLBerechtigungStand | None
-    # The administrator whose write made the change; null for one found in the database, and
-    # `geaendert_am` is null with it, nobody knowing when that edit was made.
+    # The administrator whose write made the change, null for one found in the database and for one
+    # whose address a ban has withheld; `quelle` tells the two apart.
     geaendert_von: str | None
+    # Null where the change was found in the database, nobody knowing when that edit was made.
     geaendert_am: datetime | None
+    vorenthalten: FLBerechtigungVorenthalten | None
     erfasst_am: datetime
     beansprucht_bis: datetime | None
     beanspruchung: str | None
@@ -107,11 +119,12 @@ class FLBerechtigungAenderung(BaseModel):
     id: CustomObjectId
     berechtigung_id: CustomObjectId
     art: FLBerechtigungAenderungArt
+    quelle: FLBerechtigungQuelle
     jetzt: FLBerechtigungStand | None
     vorher: FLBerechtigungStand | None
     geaendert_von: str | None
     geaendert_am: datetime | None
-    # Set where an address of this change is barred, which is then null wherever it would stand.
+    # Set where an address of this change, the actor's included, is barred and withheld wherever it would stand.
     gesperrt: bool
 
 

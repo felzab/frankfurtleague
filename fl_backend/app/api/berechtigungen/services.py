@@ -14,7 +14,7 @@ from bson import ObjectId
 
 from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungStand
 from app.core.exceptions import WriteRefusal
-from app.shared.folding import is_stored_identifier
+from app.shared.folding import is_stored_identifier, sign_in_identifier
 
 BERECHTIGUNG_VORHANDEN = "REQ-BERECHTIGUNG-001"
 
@@ -195,6 +195,15 @@ def withheld(stand: FLBerechtigungStand | None, gesperrt: Collection[str]) -> FL
     return stand.model_copy(update={"adresse": None})
 
 
+def withheld_actor(actor: str | None, gesperrt: Collection[str]) -> str | None:
+    """An actor field with a barred address withheld, compared on the fold the barred set holds (`docs/backend/spec.md :: I452`)."""
+
+    if actor is None or sign_in_identifier(actor) in gesperrt:
+        return None
+
+    return actor
+
+
 def compose_postausgang(
     *,
     berechtigung_id: ObjectId,
@@ -205,15 +214,25 @@ def compose_postausgang(
     now: datetime,
     gesperrt: Collection[str],
 ) -> dict[str, Any]:
-    """One outbox row, its addresses withheld where barred as it is written. `geaendert_von` null is a change found in the database."""
+    """One outbox row, every barred address in it withheld as it is written; `geaendert_von` null is a change found in the database.
+
+    The actor stored folded, the spelling a later ban matches pending rows by (`docs/backend/spec.md :: I455`).
+    """
+
+    rows = (withheld(jetzt, gesperrt), withheld(vorher, gesperrt))
+    actor = None if geaendert_von is None else sign_in_identifier(geaendert_von)
+    stored_actor = withheld_actor(actor, gesperrt)
+    withholds = any(stand is not None and stand.adresse is None for stand in rows) or stored_actor != actor
 
     return {
         "berechtigung_id": berechtigung_id,
         "art": art,
-        "jetzt": None if (stand := withheld(jetzt, gesperrt)) is None else stand.model_dump(),
-        "vorher": None if (stand := withheld(vorher, gesperrt)) is None else stand.model_dump(),
-        "geaendert_von": geaendert_von,
+        "quelle": "datenbank" if geaendert_von is None else "anwendung",
+        "jetzt": None if rows[0] is None else rows[0].model_dump(),
+        "vorher": None if rows[1] is None else rows[1].model_dump(),
+        "geaendert_von": stored_actor,
         "geaendert_am": None if geaendert_von is None else now,
+        "vorenthalten": "gesperrt" if withholds else None,
         "erfasst_am": now,
         "beansprucht_bis": None,
         "beanspruchung": None,
