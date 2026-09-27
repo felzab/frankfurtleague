@@ -1,3 +1,5 @@
+import { MongoError } from "mongodb";
+
 export type LogLevel = "DEBUG" | "INFO" | "WARNING" | "ERROR" | "CRITICAL";
 
 // The levels a threshold may name: `logging.ts :: logger` exposes a writer for each, and CRITICAL
@@ -39,7 +41,39 @@ const RESET = "\x1b[0m";
 // other writes bare.
 const NEEDS_QUOTING = /[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff='"]/u;
 
-function serializeError(error: unknown): unknown {
+/**
+ * The store's error as a line may carry it, its class and the server's code alone: a duplicate-key
+ * refusal quotes the stored value in its message, its stack and the fields the driver copies onto it
+ * (`docs/frontend/spec.md :: I500`).
+ */
+export function withoutStoredValues(error: unknown): unknown {
+  if (error instanceof MongoError) {
+    const codeName: unknown = Reflect.get(error, "codeName");
+    const surrogate = new Error(`code ${String(error.code ?? "none")}${typeof codeName === "string" ? ` (${codeName})` : ""}`);
+    surrogate.name = error.name;
+    // The frames below the message and never a line matched as one: a stored value can hold a newline.
+    const header = `${error.name}: ${error.message}`;
+    const frames = error.stack?.startsWith(header) === true ? error.stack.slice(header.length) : "";
+    surrogate.stack = `${surrogate.name}: ${surrogate.message}${frames}`;
+    return surrogate;
+  }
+
+  // Node's inspection prints a cause under its error, so one wrapping the store's is rebuilt around it.
+  if (error instanceof Error && error.cause !== undefined) {
+    const cause = withoutStoredValues(error.cause);
+    if (cause === error.cause) return error;
+
+    const rebuilt = new Error(error.message, { cause: cause });
+    rebuilt.name = error.name;
+    rebuilt.stack = error.stack;
+    return rebuilt;
+  }
+
+  return error;
+}
+
+function serializeError(attached: unknown): unknown {
+  const error = withoutStoredValues(attached);
   if (error instanceof Error) {
     return { name: error.name, message: error.message, stack: error.stack };
   }
@@ -66,7 +100,8 @@ function renderValue(value: unknown): string {
 
 // The frontend's own stack, or the two fields every attached error has: a line with neither would
 // leave an ERROR line saying an exception was attached and showing nothing of it.
-function renderError(error: unknown): string {
+function renderError(attached: unknown): string {
+  const error = withoutStoredValues(attached);
   if (error instanceof Error) return error.stack ?? `${error.name}: ${error.message}`;
 
   return JSON.stringify(error) ?? "undefined";

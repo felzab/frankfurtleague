@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { afterEach, describe, it } from "node:test";
 
+import { MongoServerError } from "mongodb";
+
 import { replacingModule } from "./exportingModule.ts";
 import { writtenBy } from "./stdoutCapture.ts";
 
@@ -154,6 +156,33 @@ describe("installConsoleShim", () => {
     const { raw } = writtenBy(() => console.log('{"already":"json"}'));
 
     assert.deepEqual(raw, ['{"already":"json"}\n']);
+  });
+
+  /* Next hands the thrown value itself to `console.error`, and Node's inspection prints every field the
+     driver copied onto it, a cause's included. */
+  it("prints a store error, alone or as a cause, by its class and code and never by what the server quoted", () => {
+    installConsoleShim();
+    const duplicate = () =>
+      new MongoServerError({
+        message: 'E11000 duplicate key error collection: auth.user index: user_email_uidx dup key: { email: "vorstand@example.org" }',
+        code: 11000,
+        codeName: "DuplicateKey",
+        keyValue: { email: "vorstand@example.org" },
+      });
+
+    const calls: [string, () => void][] = [
+      ["error", () => console.error("⨯", duplicate())],
+      ["cause", () => console.error(new Error("the sign-in failed", { cause: duplicate() }))],
+      ["dir", () => console.dir(duplicate())],
+    ];
+
+    for (const [method, call] of calls) {
+      const { documents } = writtenBy(call);
+      assert.equal(documents.length, 1, method);
+      // Node's inspection writes the class beside the constructor it was built with: `Error [MongoServerError]: …`.
+      assert.match(String(documents[0]?.message), /MongoServerError\]?: code 11000 \(DuplicateKey\)/, method);
+      assert.ok(!JSON.stringify(documents).includes("@"), `${method} quoted the address the refusal named`);
+    }
   });
 
   // Next's own `⨯ Error` dump is several lines through one `console.error`.
