@@ -1207,15 +1207,34 @@ export const getKontoSession = cache(async (): Promise<JudgedSession | null> => 
   return isWithinPersonLifetime(served.session) ? judged : null;
 });
 
+/** The library's own read of the session a request's cookie names, before any guard has judged it. */
+type LibrarySession = Awaited<ReturnType<typeof auth.api.getSession>>;
+
 /** What every guard below is handed; no HTTP route serves it, `/get-session` being disabled. */
-type ServedSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
+type ServedSession = NonNullable<LibrarySession>;
 
 /**
- * The session every guard serves, `null` where a passkey no row holds made it: a sign-in racing that
- * passkey's removal inserts its session after the removal's sign-out ran (`docs/frontend/spec.md :: I313`).
+ * The session every guard serves. It never slides the session: a page render cannot write the
+ * cookie, so a refresh here would carry the row past the cookie the browser holds (`docs/frontend/spec.md :: I496`).
  */
 export async function readServedSession(requestHeaders: Headers): Promise<ServedSession | null> {
-  const served = await auth.api.getSession({ headers: requestHeaders });
+  return servedSessionOf(await auth.api.getSession({ headers: requestHeaders, query: { disableRefresh: true } }));
+}
+
+/**
+ * The proxy's read: the proxy runs ahead of the render and can still write a cookie, so the library's
+ * refresh past `updateAge` lands whole, `nextCookies()` carrying its cookie onto the proxy's answer
+ * (`docs/frontend/spec.md :: I495`).
+ */
+export async function slideSession(requestHeaders: Headers): Promise<LibrarySession> {
+  return auth.api.getSession({ headers: requestHeaders });
+}
+
+/**
+ * `null` where a passkey no row holds made the session: a sign-in racing that passkey's removal
+ * inserts its session after the removal's sign-out ran (`docs/frontend/spec.md :: I313`).
+ */
+export async function servedSessionOf(served: LibrarySession): Promise<ServedSession | null> {
   if (served === null || served.session.authFactor !== PASSKEY_FACTOR) return served;
 
   const credentialID: unknown = served.session.passkeyCredentialId;

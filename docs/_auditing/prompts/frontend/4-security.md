@@ -11,7 +11,7 @@ authorization table (S1), and the per-segment protected-route table (S3). Every 
 concrete exploit sentence.
 
 CONTEXT — derive, do not assume: auth is Better Auth via `src/core/auth.ts` with a proxy matcher on
-`/bereich/admin/:path*`, checking the session and its passkey factor alone, **plus** an
+`/bereich` and `/signin`, checking the session and its passkey factor under `/bereich/admin` alone, **plus** an
 in-layout `getAdminSession()` guard that reads the grant (defence in depth — verify both still exist rather than
 assuming either); the frontend holds tiered internal API keys used by
 `src/core/api.ts`. Ratified postures to check conformance against, not to re-litigate — each is a

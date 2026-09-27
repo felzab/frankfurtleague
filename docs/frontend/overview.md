@@ -90,9 +90,10 @@ them, one made in the database included, is mailed to every holder by a pass thi
 ([`spec.md`](spec.md) I455). `getAdminSession()` is the gate `runAdminMutation` opens every admin server action on ([`spec.md`](spec.md) I7), and its
 return value has to be checked — [`spec.md`](spec.md) I8 says what happens when it is not.
 
-**Route protection is layered**: `fl_frontend/src/proxy.ts` matches `/bereich/admin/:path*` and
-turns away a request with no session or one no passkey made, reading nothing but the session, as
-Next's own guidance has a proxy check; the admin guard,
+**Route protection is layered**: `fl_frontend/src/proxy.ts` runs on every page a session serves,
+where it slides the session a person only reads ([`spec.md`](spec.md) I495), and under
+`/bereich/admin/:path*` it turns away a request with no session or one no passkey made, reading
+nothing but the session, as Next's own guidance has a proxy check; the admin guard,
 `fl_frontend/src/features/admin/components/providers/AdminAuthGuard.tsx :: AdminAuthGuard`, rendered
 inside the admin layout's `Suspense` boundary so the shell still prerenders, reads the grant and
 refuses the rest, so rendering fails closed even if the matcher stops matching. A revoke ends no session: the grant

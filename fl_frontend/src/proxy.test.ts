@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+// First, as Next's server loads it: its request stores take this global at their own load, and the
+// adapter `visit` runs needs real ones.
+import "next/dist/server/node-environment-baseline.js";
+
 import {
   ADMIN_EMAIL,
   asDataUrl,
@@ -40,7 +44,15 @@ registerAuthDoubles({
   },
 });
 
-type SessionRow = { token: string; userId: string; authFactor?: string; passkeyCredentialId?: string };
+type SessionRow = {
+  token: string;
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  expiresAt: Date;
+  authFactor?: string;
+  passkeyCredentialId?: string;
+};
 
 type Store = {
   user: unknown[];
@@ -56,8 +68,10 @@ const store: Store = { user: [], session: [], account: [], verification: [], pas
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so neither the doubles nor the `next/server` extension would be in place yet.
 const { NextRequest } = await import("next/server");
-const { auth, getAdminSession, getSignInDestination } = await import("./core/auth.ts");
+const { auth, getAdminSession, getKontoSession, getSignInDestination } = await import("./core/auth.ts");
+const { getSubjectSession } = await import("./core/subject.ts");
 const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
+const { adapter } = await import("next/dist/server/web/adapter.js");
 const { config, proxy } = await import("./proxy.ts");
 
 /** What the landing reads, for the cases that put its answer and this proxy's side by side. */
@@ -207,7 +221,10 @@ describe("where the admin proxy sends a signed-in request", () => {
  * Whether Next runs the proxy for `url`: its server tries the raw path and then its decoded spelling
  * (`next/dist/server/lib/router-utils/resolve-routes.js`), which the testing helper does not, so both are asked.
  */
-function matched(url: string): boolean {
+function matched(
+  url: string,
+  { matcher = config.matcher, headers = {} }: { matcher?: typeof config.matcher; headers?: Record<string, string> } = {},
+): boolean {
   const { pathname } = new URL(url);
   let spelled = pathname;
   try {
@@ -216,34 +233,217 @@ function matched(url: string): boolean {
     // Left as written, as Next leaves an escape it cannot decode.
   }
 
-  return [pathname, spelled].some((path) => unstable_doesMiddlewareMatch({ config, url: new URL(path, url).href }));
+  return [pathname, spelled].some((path) =>
+    // A copy each time: the helper writes a `host` into the object it is handed.
+    unstable_doesMiddlewareMatch({ config: { matcher }, url: new URL(path, url).href, headers: { ...headers } }),
+  );
 }
 
-describe("which addresses the admin proxy is run on", () => {
-  // The person lane's words share the prefix and run no proxy: each person layout guards its own lane.
-  it("runs on the administrator's subtree alone, its root and an escaped spelling included", () => {
+/** What Next's router sends on a prefetch, which carries no page a person asked for. */
+const PREFETCH = { "next-router-prefetch": "1" };
+
+describe("which addresses the proxy is run on", () => {
+  it("runs on every page a session serves, and on no public page or route handler", () => {
     for (const url of [
+      "http://localhost:3000/bereich",
+      "http://localhost:3000/bereich/konto",
+      "http://localhost:3000/bereich/team/6890a1b2c3d4e5f607190001/2026",
       "http://localhost:3000/bereich/admin",
-      "http://localhost:3000/bereich/admin/spiele",
       "http://localhost:3000/bereich/%61dmin/spiele",
+      "http://localhost:3000/signin",
+      "http://localhost:3000/signin/weiter",
     ]) {
       assert.equal(matched(url), true, `${url} runs no proxy`);
     }
-    for (const url of [
-      "http://localhost:3000/bereich",
-      "http://localhost:3000/bereich/team/6890a1b2c3d4e5f607190001",
-      "http://localhost:3000/bereich/administration",
-      // A malformed escape the decoding cannot read, which must not take the request down with it.
-      "http://localhost:3000/bereich/team/%E0%A4%A",
-    ]) {
-      assert.equal(matched(url), false, `${url} runs the administrator's proxy`);
+    // The route handlers write their own cookies, and a public page reads no session.
+    for (const url of ["http://localhost:3000/", "http://localhost:3000/api/signin/code", "http://localhost:3000/api/admin/spiele/undo"]) {
+      assert.equal(matched(url), false, `${url} runs the proxy`);
     }
   });
 
-  it("judges each spelling it runs on alike, turning a signed-out request away", async () => {
-    for (const url of ["http://localhost:3000/bereich/admin", "http://localhost:3000/bereich/%61dmin/spiele"]) {
-      assert.equal(redirectedTo(await arriveAtAdmin({ url })), "/signin", `${url} let a signed-out request through`);
+  // The administrator's subtree keeps its turn-away on a prefetch too, as it had with the admin entry alone.
+  it("skips a prefetch everywhere but the administrator's subtree", () => {
+    for (const url of ["http://localhost:3000/bereich/konto", "http://localhost:3000/signin"]) {
+      assert.equal(matched(url, { headers: PREFETCH }), false, `${url} runs the proxy on a prefetch`);
     }
+    assert.equal(matched("http://localhost:3000/bereich/admin/spiele", { headers: PREFETCH }), true);
+  });
+
+  /* The prefix test inside the proxy is a second reading of the admin entry: a spelling that entry
+     admits and the test misses reaches the panel with the layout's guard alone. */
+  it("judges exactly the spellings the administrator's own entry admits", async () => {
+    // The first entry, which names the subtree and nothing else.
+    const adminEntry = config.matcher.slice(0, 1);
+    for (const url of [
+      "http://localhost:3000/bereich/admin",
+      "http://localhost:3000/bereich/admin/",
+      "http://localhost:3000/bereich/admin/spiele",
+      "http://localhost:3000/bereich/%61dmin/spiele",
+      "http://localhost:3000/bereich/ADMIN/spiele",
+      "http://localhost:3000/bereich//admin/spiele",
+      "http://localhost:3000/bereich/administration",
+      "http://localhost:3000/bereich/team/6890a1b2c3d4e5f607190001",
+      // A malformed escape the decoding cannot read, which must not take the request down with it.
+      "http://localhost:3000/bereich/team/%E0%A4%A",
+    ]) {
+      const judged = redirectedTo(await arriveAtAdmin({ url })) === "/signin";
+      assert.equal(judged, matched(url, { matcher: adminEntry }), `${url} is judged otherwise than the admin entry matches it`);
+    }
+  });
+
+  // The person lane's words share the prefix, and the administrator's checks would turn every person away.
+  it("lets every page outside the administrator's subtree through, whoever arrives", async () => {
+    for (const url of ["http://localhost:3000/bereich/konto", "http://localhost:3000/bereich/administration", "http://localhost:3000/signin"]) {
+      for (const cookie of [undefined, removed.cookie]) {
+        const answer = await arriveAtAdmin({ url, cookie });
+
+        assert.equal(answer.headers.get("x-middleware-next"), "1", `${url} was judged by the administrator's checks`);
+      }
+    }
+  });
+});
+
+const EXPIRES_IN_MS = (auth.options.session?.expiresIn ?? Number.NaN) * 1000;
+const UPDATE_AGE_MS = (auth.options.session?.updateAge ?? Number.NaN) * 1000;
+const MINUTE_MS = 60 * 1000;
+
+const PERSON_URL = "http://localhost:3000/bereich/konto";
+
+/** Leaves `row` as the library's own refresh `ago` milliseconds back would have left it. */
+function refreshedAgo(row: SessionRow, ago: number): void {
+  row.updatedAt = new Date(Date.now() - ago);
+  row.expiresAt = new Date(row.updatedAt.getTime() + EXPIRES_IN_MS);
+}
+
+/**
+ * The proxy as Next's server runs it, through Next's own adapter: a direct call shows neither the
+ * router's headers stripped from what `nextCookies()` reads nor the cookie it sets landing on the answer.
+ */
+async function visit(url: string, cookie: string | undefined, load: "document" | "navigation" = "navigation"): Promise<Response> {
+  const headers: Record<string, string> = { host: "localhost:3000" };
+  // What the router sends on a client navigation: a render reading these skips the refresh.
+  if (load === "navigation") Object.assign(headers, { rsc: "1", "next-router-state-tree": "%5B%22%22%5D" });
+  if (cookie !== undefined) headers.cookie = cookie;
+
+  const { response } = await adapter({
+    handler: proxy,
+    page: "/src/proxy",
+    request: { url, method: "GET", headers, nextConfig: {}, signal: new AbortController().signal },
+  });
+  return response;
+}
+
+/** The session cookie an answer sets: its value and its `Max-Age` in seconds, or `undefined` where it sets none. */
+function setSessionCookie(answer: Response, held: string): { value: string; maxAge: number } | undefined {
+  const [name] = held.split("=");
+  const line = answer.headers.getSetCookie().find((set) => set.startsWith(`${name}=`));
+  if (line === undefined) return undefined;
+
+  const [pair = "", ...attributes] = line.split(";").map((part) => part.trim());
+  const maxAge = attributes.find((attribute) => /^max-age=/i.test(attribute))?.split("=")[1];
+  return { value: decodeURIComponent(pair.slice(`${name}=`.length)), maxAge: Number(maxAge) };
+}
+
+const heldValue = (cookie: string): string => decodeURIComponent(cookie.slice(cookie.indexOf("=") + 1).split(";")[0] ?? "");
+
+/** The stamps that say when a row was last used and when it lapses. */
+const stampsOf = (row: SessionRow) => ({ updatedAt: row.updatedAt.getTime(), expiresAt: row.expiresAt.getTime() });
+
+describe("where a session that is only read slides (`docs/frontend/spec.md :: I495`)", () => {
+  it("slides a person's row and cookie once past `updateAge`, on a document load and a client navigation alike", async () => {
+    for (const load of ["document", "navigation"] as const) {
+      const { cookie, row } = await signIn("leserin@example.org");
+      refreshedAgo(row, UPDATE_AGE_MS + MINUTE_MS);
+      const before = Date.now();
+
+      const set = setSessionCookie(await visit(PERSON_URL, cookie, load), cookie);
+
+      assert.ok(row.updatedAt.getTime() >= before, `a ${load} left the row's use where it was`);
+      assert.ok(row.expiresAt.getTime() >= before + EXPIRES_IN_MS, `a ${load} left the row's expiry where it was`);
+      assert.deepEqual(set, { value: heldValue(cookie), maxAge: EXPIRES_IN_MS / 1000 }, `a ${load} slid the row and not the cookie`);
+    }
+  });
+
+  it("writes neither a minute short of `updateAge`, nor a second time inside it", async () => {
+    const { cookie, row } = await signIn("leserin@example.org");
+
+    refreshedAgo(row, UPDATE_AGE_MS - MINUTE_MS);
+    const early = stampsOf(row);
+    assert.equal(setSessionCookie(await visit(PERSON_URL, cookie), cookie), undefined);
+    assert.deepEqual(stampsOf(row), early, "a read inside `updateAge` wrote the row");
+
+    refreshedAgo(row, UPDATE_AGE_MS + MINUTE_MS);
+    assert.ok(
+      setSessionCookie(await visit(PERSON_URL, cookie), cookie),
+      "the read past `updateAge` slid nothing, so the case below proves nothing",
+    );
+    const slid = stampsOf(row);
+    assert.equal(setSessionCookie(await visit(PERSON_URL, cookie), cookie), undefined);
+    assert.deepEqual(stampsOf(row), slid, "the next read wrote the row again");
+  });
+
+  // Written there, the row would outlive the cookie the browser holds, which no later read inside `updateAge` repairs.
+  it("never slides a session a page render reads, which could not carry the cookie", async () => {
+    const { cookie, row } = await signIn("leserin@example.org");
+    // Past the window a passkey is offered in, so the landing asks the plugin nothing.
+    row.createdAt = new Date(Date.now() - 24 * 60 * MINUTE_MS);
+    refreshedAgo(row, UPDATE_AGE_MS + MINUTE_MS);
+    const due = stampsOf(row);
+
+    arriveAs(cookie);
+    assert.equal(await getSignInDestination(), "/bereich", "the render read no live session, so the case proves nothing");
+
+    assert.deepEqual(stampsOf(row), due);
+  });
+
+  it("revives no ended session: no row is written, and the cookie is not extended", async () => {
+    for (const ending of ["deleted", "lapsed"] as const) {
+      const { cookie, row } = await signIn("leserin@example.org");
+      if (ending === "deleted") store.session.splice(store.session.indexOf(row), 1);
+      else row.expiresAt = new Date(Date.now() - MINUTE_MS);
+
+      const set = setSessionCookie(await visit(PERSON_URL, cookie), cookie);
+
+      assert.equal(
+        store.session.some(({ token }) => token === row.token),
+        false,
+        `a ${ending} session has a row again`,
+      );
+      assert.ok(set === undefined || set.maxAge === 0, `a ${ending} session's cookie was extended`);
+    }
+  });
+
+  // The slide reads no ban, which is the backend's: what keeps a barred session out is every guard's own read.
+  it("leaves a barred person refused by the landing, the person guard and the account guard once their session slid", async (t) => {
+    const { cookie, row } = await signIn("gesperrt@example.org");
+    refreshedAgo(row, UPDATE_AGE_MS + MINUTE_MS);
+    t.mock.method(globalThis, "fetch", () =>
+      Promise.resolve(
+        Response.json({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: true, verwaltung: null }),
+      ),
+    );
+
+    assert.ok(setSessionCookie(await visit(PERSON_URL, cookie), cookie), "nothing slid, so the case proves nothing");
+
+    arriveAs(cookie);
+    assert.equal(await getSignInDestination(), "/signin");
+    assert.equal(await getSubjectSession(), null);
+    assert.equal(await getKontoSession(), null);
+  });
+
+  it("leaves an administrator's forty-eight-hour cap, and the step-up window, where the sign-in set them", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    madeByPasskey(store, row);
+    const signedIn = new Date(Date.now() - 49 * 60 * MINUTE_MS);
+    row.createdAt = signedIn;
+    refreshedAgo(row, UPDATE_AGE_MS + MINUTE_MS);
+
+    const answer = await visit(ADMIN_URL, cookie);
+
+    assert.ok(setSessionCookie(answer, cookie), "the administrator's session did not slide, so the case proves nothing");
+    assert.equal(row.createdAt.getTime(), signedIn.getTime(), "the slide moved the stamp both the cap and the step-up are judged from");
+    arriveAs(cookie);
+    assert.equal(await getAdminSession(), null, "a slid session outlived the administrator's cap");
   });
 });
 

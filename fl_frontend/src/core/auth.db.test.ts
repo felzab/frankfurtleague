@@ -690,3 +690,32 @@ describe("a code sign-in through the mint, against a real database", () => {
     assert.deepEqual(await sessionRows(), before, "a refused code sign-in minted a session or ended the held one");
   });
 });
+
+/* The slide's write is the Mongo adapter's update by token, which the memory store's plain objects
+   never test: an update matching nothing signs the reader out instead. */
+describe("a session only read, against a real database (`docs/frontend/spec.md :: I495`, `:: I496`)", () => {
+  it("slides the stored row once past `updateAge` at the proxy, and never at a guard's read", async () => {
+    const { readServedSession } = await import("./auth.ts");
+    const { proxy } = await import("../proxy.ts");
+    const { NextRequest } = await import("next/server");
+
+    gateAnswer = { sitze: [LIVE_SEAT], gesperrt: false };
+    const cookie = await signIn("leserin-mit-code@example.org");
+    const expiresIn = (auth.options.session?.expiresIn ?? Number.NaN) * 1000;
+    const updatedAt = new Date(Date.now() - (auth.options.session?.updateAge ?? Number.NaN) * 1000 - 60_000);
+    await authDb()
+      .collection("session")
+      .updateMany({}, { $set: { updatedAt: updatedAt, expiresAt: new Date(updatedAt.getTime() + expiresIn) } });
+    const stamps = async () => (await sessionRows()).map((row) => [(row.updatedAt as Date).getTime(), (row.expiresAt as Date).getTime()]);
+    const due = await stamps();
+
+    assert.ok(await readServedSession(new Headers({ ...ORIGIN, cookie })), "the guard read no session, so the case proves nothing");
+    assert.deepEqual(await stamps(), due, "a guard's read wrote the row");
+
+    const before = Date.now();
+    await proxy(new NextRequest("http://localhost:3000/bereich/konto", { headers: { ...ORIGIN, cookie } }));
+
+    const [[slidAt = 0, lapsesAt = 0] = []] = await stamps();
+    assert.ok(slidAt >= before && lapsesAt >= before + expiresIn, "the proxy's read left the stored row where it was");
+  });
+});
