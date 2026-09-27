@@ -263,10 +263,10 @@ async def sweep_saison(
 
         return len(rows), result.deleted_count, redacted
 
-    async def remind(session: AsyncClientSession) -> tuple[list[FLBewerbungSweepErinnerung], list[tuple[Any, list[str]]]]:
+    async def remind(session: AsyncClientSession) -> tuple[list[FLBewerbungSweepErinnerung], int]:
         """Stamp, mint, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges.
 
-        Also answers every application and its seats whose reminder a ban withheld, for the log line.
+        Also answers how many mailboxes on the page a ban kept from their reminder, for the log line.
         """
 
         rows = await pull_many_from_db(
@@ -278,13 +278,6 @@ async def sweep_saison(
             sort_by=[("bestaetigungsfrist", ASCENDING), ("_id", ASCENDING)],
             session=session,
         )
-        # The rows past the share stay due and unstamped, so the next pass takes them: a stamped
-        # seat leaves the filter, so a full page is drained by the passes that follow.
-        due = [(row, reminder_seats(bewerbung_raw=row, today=today)) for row in rows]
-        taken = [(row, seats) for row, seats in due if seats][:REMINDERS_PER_PASS]
-        refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
-        club_names = await _club_names(teams_collection=teams_collection, rows=[row for row, _ in taken], session=session)
-
         per_row = [
             (
                 row,
@@ -293,21 +286,29 @@ async def sweep_saison(
                     for email, held in group_seats_by_mailbox(kontakte=row.get("kontakte"), seats=seats)
                 ],
             )
-            for row, seats in taken
+            for row in rows
+            if (seats := reminder_seats(bewerbung_raw=row, today=today))
         ]
+        # Asked over the whole page before the share is cut: nothing of a ban is stored, so a barred row
+        # stays due, and a share cut first would fill with the same barred rows on every pass.
         gesperrt = await gesperrte_adressen(
-            [email for _, per_mailbox in per_row for email, _ in per_mailbox],
+            [email for _, mailboxes in per_row for email, _ in mailboxes],
             sperrliste_collection=sperrliste_collection,
             schluessel=config.sperrliste_schluessel,
             massgebliche_saison_id=massgebliche_saison_id,
             session=session,
         )
+        withheld = sum(1 for _, mailboxes in per_row for email, _ in mailboxes if email in gesperrt)
+        reachable = [(row, [(email, gruppen) for email, gruppen in mailboxes if email not in gesperrt]) for row, mailboxes in per_row]
+
+        # The rows past the share stay due and unstamped, so the next pass takes them: a stamped
+        # seat leaves the filter, so a full page is drained by the passes that follow.
+        taken = [(row, mailboxes) for row, mailboxes in reachable if mailboxes][:REMINDERS_PER_PASS]
+        refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
+        club_names = await _club_names(teams_collection=teams_collection, rows=[row for row, _ in taken], session=session)
 
         erinnerungen: list[FLBewerbungSweepErinnerung] = []
-        withheld: list[tuple[Any, list[str]]] = []
-        for row, all_mailboxes in per_row:
-            per_mailbox = [(email, gruppen) for email, gruppen in all_mailboxes if email not in gesperrt]
-            gesperrte_sitze = [seat for email, gruppen in all_mailboxes if email in gesperrt for gruppe in gruppen for seat in gruppe]
+        for row, per_mailbox in taken:
             gruppen_alle = [gruppe for _, gruppen in per_mailbox for gruppe in gruppen]
             # Minted per LINK rather than per seat: a token for a seat riding another's link is a
             # credential nobody is sent, live on the wire and in the document until the deadline.
@@ -320,15 +321,12 @@ async def sweep_saison(
                 db_filter={"_id": row["_id"]},
                 update=compose_erinnerung_update(
                     hashes={seat: minted[gruppe[0]][1] for gruppe in gruppen_alle for seat in gruppe},
-                    withheld=gesperrte_sitze,
                     bestaetigungen=row.get("bestaetigungen"),
                     today=today,
                 ),
                 session=session,
                 return_document=ReturnDocument.BEFORE,
             )
-            if gesperrte_sitze:
-                withheld.append((row["_id"], gesperrte_sitze))
             for email, gruppen in per_mailbox:
                 erinnerungen.append(
                     FLBewerbungSweepErinnerung(
@@ -496,10 +494,10 @@ async def sweep_saison(
         async with db.start_session() as session:
             erinnerungen, withheld = await session.with_transaction(remind)
 
-    # After the commit, so a retried transaction writes no second line. The id and the seats only: the
-    # address is what the ban protects.
-    for bewerbung_id, rollen in withheld:
-        fl_logger.info(f"Reminder withheld from a barred address: application {bewerbung_id}, seats {', '.join(rollen)}")
+    # After the commit, so a retried transaction writes no second line. A count and never an id: a
+    # line naming the application would tie it to the ban for as long as the log is kept.
+    if withheld:
+        fl_logger.info(f"Reminders withheld from barred addresses in season {saison_id}: {withheld} mailbox(es)")
 
     return FLBewerbungSweepResponse(
         saison_id=saison_id,

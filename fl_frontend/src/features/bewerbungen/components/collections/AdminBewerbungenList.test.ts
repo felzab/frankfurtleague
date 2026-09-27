@@ -37,7 +37,6 @@ function person(vorname: string, nachname: string, email: string, bestaetigtAm: 
 const UNZUSTELLBAR: FLBewerbungBestaetigung = {
   verschickt_am: "2026-05-01",
   erinnert_am: null,
-  erinnerung_gesperrt_am: null,
   abgelehnt_am: null,
   zustellung: { nachricht_id: "msg-1", stand: "unzustellbar", grund: "NoEmail", am: "2026-05-01T09:00:00Z" },
 };
@@ -45,7 +44,6 @@ const UNZUSTELLBAR: FLBewerbungBestaetigung = {
 const VERSCHICKT: FLBewerbungBestaetigung = {
   verschickt_am: "2026-05-01",
   erinnert_am: null,
-  erinnerung_gesperrt_am: null,
   abgelehnt_am: null,
   zustellung: null,
 };

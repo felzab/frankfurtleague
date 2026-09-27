@@ -604,8 +604,6 @@ def build_erinnerung_filter(*, saison_id: str, today: str) -> Mapping[str, Any]:
         "status": SUBMITTED,
         **_UNBESTAETIGT,
         "bestaetigung.erinnert_am": None,
-        # Withheld today for a ban: out of today's read, and asked again on a later day.
-        "bestaetigung.erinnerung_gesperrt_am": {"$ne": today},
         "bestaetigung.frist": {"$gte": today},
         # The mark counted backwards from today, which is the same comparison the predicate makes
         # forwards from the send.
@@ -651,10 +649,6 @@ def erinnerung_is_due(*, registrierung_raw: Mapping[str, Any], today: str) -> bo
 
     bestaetigung = registrierung_raw.get("bestaetigung")
     if not isinstance(bestaetigung, Mapping) or bestaetigung.get("erinnert_am") is not None:
-        return False
-
-    # Withheld today for a ban, and asked again on a later day, so a pupil unbanned since is chased.
-    if bestaetigung.get("erinnerung_gesperrt_am") == today:
         return False
 
     verschickt_am, frist = bestaetigung.get("verschickt_am"), bestaetigung.get("frist")
@@ -723,12 +717,3 @@ def compose_erinnerung_update(*, token_hash: str, bestaetigung: Any, today: str)
             "bestaetigung.erinnert_am": today,
         }
     }
-
-
-def compose_erinnerung_withheld(*, today: str) -> Mapping[str, Any]:
-    """For a registration whose address the ban list holds: no link and no `erinnert_am`, and it leaves today's read.
-
-    Left due, a page of barred rows would fill every pass's share and `refuse_a_stalled_page` would stop the pass.
-    """
-
-    return {"$set": {"bestaetigung.erinnerung_gesperrt_am": today}}

@@ -17,7 +17,6 @@ from app.api.registrierungen.services import (
     build_unconfirmed_filter,
     build_undecided_filter,
     compose_erinnerung_update,
-    compose_erinnerung_withheld,
     compose_sweep_stamp,
     decline_erasure_is_due,
     erinnerung_is_due,
@@ -252,10 +251,10 @@ async def sweep_registrierungen(
 
         return len(rows), result.deleted_count, redacted
 
-    async def remind(session: AsyncClientSession) -> tuple[list[FLRegistrierungSweepErinnerung], list[Any]]:
+    async def remind(session: AsyncClientSession) -> tuple[list[FLRegistrierungSweepErinnerung], int]:
         """Stamp, mint, stamp the run, then hand back, as the pass's last transaction. Read in-session, so a retry re-judges.
 
-        Also answers every registration whose reminder a ban withheld, for the log line.
+        Also answers how many registrations on the page a ban kept from their reminder, for the log line.
         """
 
         rows = await pull_many_from_db(
@@ -268,33 +267,27 @@ async def sweep_registrierungen(
             sort_by=[("bestaetigung.frist", ASCENDING), ("_id", ASCENDING)],
             session=session,
         )
-        # The rows past the share stay due and unstamped, so the next pass takes them: a reminded row
-        # leaves the filter, so a full page is drained by the passes that follow.
-        taken = [row for row in rows if erinnerung_is_due(registrierung_raw=row, today=today)][:REMINDERS_PER_PASS]
-        refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
-        team_names = await _team_names(teams_collection=teams_collection, rows=taken, session=session)
+        due = [row for row in rows if erinnerung_is_due(registrierung_raw=row, today=today)]
+        # Asked over the whole page before the share is cut: nothing of a ban is stored, so a barred row
+        # stays due, and a share cut first would fill with the same barred rows on every pass.
         gesperrt = await gesperrte_adressen(
-            [str(row["email"]) for row in taken if row.get("email")],
+            [str(row["email"]) for row in due if row.get("email")],
             sperrliste_collection=sperrliste_collection,
             schluessel=config.sperrliste_schluessel,
             massgebliche_saison_id=massgebliche_saison_id,
             session=session,
         )
+        reachable = [row for row in due if not (row.get("email") and str(row["email"]) in gesperrt)]
+        withheld = len(due) - len(reachable)
+
+        # The rows past the share stay due and unstamped, so the next pass takes them: a reminded row
+        # leaves the filter, so a full page is drained by the passes that follow.
+        taken = reachable[:REMINDERS_PER_PASS]
+        refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
+        team_names = await _team_names(teams_collection=teams_collection, rows=taken, session=session)
 
         erinnerungen: list[FLRegistrierungSweepErinnerung] = []
-        withheld: list[Any] = []
         for row in taken:
-            if row.get("email") and str(row["email"]) in gesperrt:
-                await patch_one_in_db(
-                    collection=registrierungen_collection,
-                    db_filter={"_id": row["_id"]},
-                    update=compose_erinnerung_withheld(today=today),
-                    session=session,
-                    return_document=ReturnDocument.BEFORE,
-                )
-                withheld.append(row["_id"])
-                continue
-
             raw, token_hash = mint_token()
             # The stamp lands before the caller can mail: a crash between the two costs one reminder,
             # where the other order would repeat it every day until the address worked.
@@ -376,10 +369,10 @@ async def sweep_registrierungen(
             async with db.start_session() as session:
                 erinnerungen, withheld = await session.with_transaction(remind)
 
-            # After the commit, so a retried transaction writes no second line; the id alone, the
-            # address being what the ban protects.
-            for registrierung_id in withheld:
-                fl_logger.info(f"Reminder withheld from a barred address: registration {registrierung_id}")
+            # After the commit, so a retried transaction writes no second line. A count and never an id:
+            # a line naming the registration would tie it to the ban for as long as the log is kept.
+            if withheld:
+                fl_logger.info(f"Reminders withheld from barred addresses in season {saison_id}: {withheld} registration(s)")
 
     return FLRegistrierungSweepResponse(
         saison_id=saison_id,

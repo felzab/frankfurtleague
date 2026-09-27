@@ -272,11 +272,8 @@ class TestTheReminderClock:
 
         assert REMIND_OID in on_a_league(mongo_replica_set_url, body)
 
-    def test_a_registration_whose_address_the_ban_list_holds_is_recorded_as_withheld(self, mongo_replica_set_url: str, caplog):
-        """Recorded, unlike the refused address above: no query can leave the row out, the ban living in another collection.
-
-        A page of them left due would fill every pass's share, so the record takes it out of today's read.
-        """
+    def test_a_registration_whose_address_the_ban_list_holds_is_sent_nothing_and_stores_nothing(self, mongo_replica_set_url: str, caplog):
+        """Skipped in the pass and nothing written: the next pass reads it again and asks the ban again."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPERRLISTE].insert_one(ban_document(f"{REMIND_OID}@example.com"))
@@ -299,14 +296,30 @@ class TestTheReminderClock:
         # The control beside the refusal: the other registration at its mark is chased.
         assert chased == [INSIDE_OID]
         assert document is not None
-        assert still_read is None
-        # Never `erinnert_am`: nothing reached the pupil, and a later day asks the ban again.
-        assert (document["bestaetigung"]["erinnert_am"], document["bestaetigung"]["erinnerung_gesperrt_am"]) == (None, TODAY)
+        assert still_read is not None
+        # No `erinnert_am` for a reminder that never went out, and no key recording the ban.
+        assert document["bestaetigung"]["erinnert_am"] is None
+        assert "erinnerung_gesperrt_am" not in document["bestaetigung"]
         assert document["bestaetigung"]["token_hash"] == hash_token(f"first-{REMIND_OID}")
         assert second == []
 
         withheld = [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()]
-        assert withheld == [f"Reminder withheld from a barred address: registration {REMIND_OID}"]
+        # A count, never an id: a line naming the registration would tie it to the ban.
+        assert withheld == [f"Reminders withheld from barred addresses in season {SAISON_ID}: 1 registration(s)"]
+        assert not any(str(REMIND_OID) in record.getMessage() for record in caplog.records if "withheld" in record.getMessage())
+
+    def test_a_barred_registration_takes_no_place_in_the_share(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch):
+        """Skipped before the share is cut: it stays due, so taken first it would fill the share on every pass."""
+
+        monkeypatch.setattr(sweep_router_module, "REMINDERS_PER_PASS", 1)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            # Its deadline, today, comes before the other registration at its mark.
+            await database[Collection.SPERRLISTE].insert_one(ban_document(f"{INSIDE_OID}@example.com"))
+
+            return [entry.registrierung_id for entry in (await sweep(database, client)).erinnerungen]
+
+        assert on_a_league(mongo_replica_set_url, body) == [REMIND_OID]
 
     def test_a_later_day_asks_the_ban_again_and_a_lifted_one_lets_the_reminder_go(self, mongo_replica_set_url: str):
         """Withheld once more while the ban stands, and chased on the first pass after it is lifted."""

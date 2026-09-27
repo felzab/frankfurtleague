@@ -128,8 +128,6 @@ export type FLBewerbungZustellung = z.infer<typeof FLBewerbungZustellungSchema>;
 export const FLBewerbungBestaetigungSchema = z.object({
   verschickt_am: CustomDateStringSchema,
   erinnert_am: CustomDateStringSchema.nullable(),
-  // The day a sweep last withheld the reminder for a ban: nothing reached the person, so never `erinnert_am`.
-  erinnerung_gesperrt_am: CustomDateStringSchema.nullable(),
   abgelehnt_am: CustomDateStringSchema.nullable(),
   // Null on a seat no message has been accepted for, which is every seat stored before this block
   // shipped: an absent state is "nothing is known", never "delivered".

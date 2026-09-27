@@ -10,6 +10,7 @@ from bson import ObjectId
 from pymongo import AsyncMongoClient, MongoClient, ReturnDocument, monitoring
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.api.bewerbungen import sweep_router as sweep_router_module
 from app.api.bewerbungen.admin_router import erneut_einwilligung
 from app.api.bewerbungen.einwilligung_router import get_einwilligung_ansicht
 from app.api.bewerbungen.schemas import (
@@ -76,6 +77,7 @@ DELETE_OID = ObjectId("6890a1b2c3d4e5f607960002")
 DECLINED_OID = ObjectId("6890a1b2c3d4e5f607960003")
 ACCEPTED_OID = ObjectId("6890a1b2c3d4e5f607960004")
 OTHER_SEASON_OID = ObjectId("6890a1b2c3d4e5f607960005")
+BARRED_OID = ObjectId("6890a1b2c3d4e5f607960006")
 CLUB_OID = ObjectId("6890a1b2c3d4e5f607960011")
 JUNCTION_OID = ObjectId("6890a1b2c3d4e5f607960021")
 
@@ -708,8 +710,7 @@ class TestABarredMailboxIsNotChased:
             await database[Collection.SPERRLISTE].insert_one(ban_document("bramblewick@example.com"))
             with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
                 response = await sweep(database, client)
-            # Out of today's read, and not merely judged not due once read: a page of withheld seats
-            # left in it would fill every pass's share.
+            # Still in the read: nothing of the ban is stored, so the next pass asks it again.
             still_read = await database[Collection.BEWERBUNGEN].find_one(
                 {"_id": REMIND_OID, **build_erinnerung_filter(saison_id=SAISON_ID, today=TODAY)}
             )
@@ -722,21 +723,40 @@ class TestABarredMailboxIsNotChased:
 
         reminded, second, document, still_read = on_a_league(mongo_replica_set_url, body)
 
-        assert still_read is None
+        assert still_read is not None
 
         # The control beside the refusal: the unbarred mailbox on the same application is chased.
         assert reminded == [("wraxlington@example.com", [["trainer", "ansprechperson"]])]
         assert document is not None
         stellvertretung = document["bestaetigungen"]["stellvertretung"]
-        # Recorded as withheld, so it leaves today's read, and never handed a fresh hash nobody is
-        # sent. Never `erinnert_am`: nothing reached the person, which the admin view says.
-        assert (stellvertretung["erinnert_am"], stellvertretung["erinnerung_gesperrt_am"]) == (None, TODAY)
+        # Nothing written: no fresh hash nobody is sent, no `erinnert_am` for a reminder that never
+        # went out, and no key recording the ban beside the person's address.
+        assert stellvertretung["erinnert_am"] is None
+        assert "erinnerung_gesperrt_am" not in stellvertretung
         assert stellvertretung["token_hash"] == first_hashes(str(REMIND_OID))["stellvertretung"]
         assert second == []
 
         withheld = [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()]
-        assert withheld == [f"Reminder withheld from a barred address: application {REMIND_OID}, seats stellvertretung"]
-        assert not any("bramblewick" in record.getMessage() for record in caplog.records)
+        # A count, never an id: a line naming the application would tie it to the ban.
+        assert withheld == [f"Reminders withheld from barred addresses in season {SAISON_ID}: 1 mailbox(es)"]
+        assert not any("bramblewick" in record.getMessage() or str(REMIND_OID) in record.getMessage() for record in caplog.records)
+
+    def test_a_barred_application_takes_no_place_in_the_share(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch):
+        """Skipped before the share is cut: it stays due, so taken first it would fill the share on every pass."""
+
+        monkeypatch.setattr(sweep_router_module, "REMINDERS_PER_PASS", 1)
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            # Due first, its deadline the earlier, and every seat at one barred address.
+            barred = {seat: person("Quorral") for seat in ("trainer", "ansprechperson", "stellvertretung")}
+            await database[Collection.BEWERBUNGEN].insert_one(
+                application(BARRED_OID, bestaetigungsfrist="2026-04-05", kontakte={**barred, "trainer_ist_zugleich": None})
+            )
+            await database[Collection.SPERRLISTE].insert_one(ban_document("quorral@example.com"))
+
+            return {entry.bewerbung_id for entry in (await sweep(database, client)).erinnerungen}
+
+        assert on_a_league(mongo_replica_set_url, body) == {REMIND_OID}
 
     def test_a_later_day_asks_the_ban_again_and_a_lifted_one_lets_the_reminder_go(self, mongo_replica_set_url: str):
         """Withheld once more while the ban stands, and chased on the first pass after it is lifted."""

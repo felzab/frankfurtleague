@@ -224,7 +224,7 @@ describe("a public or single-purpose form's press over a draft its schema refuse
     const user = userEvent.setup();
     const { bestaetigungsStand } = await import("@/features/bewerbungen/bestaetigungStand.ts");
     const { BewerbungBestaetigungStrip } = await import("@/features/bewerbungen/components/views/BewerbungBestaetigungStrip.tsx");
-    const offen = { verschickt_am: "2026-09-01", erinnert_am: null, erinnerung_gesperrt_am: null, abgelehnt_am: null, zustellung: null };
+    const offen = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
     // Clara stepped out of the Trainer seat, which leaves it to be seated again.
     const staende =
       bestaetigungsStand({
