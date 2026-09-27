@@ -91,7 +91,8 @@ describe("what the switcher's trigger names", () => {
   /* Two clubs sharing a long name's opening words are told apart only by the rest, which a truncated
      line hides on a phone: the name wraps, as the landing's cards and the forbidden panel wrap it. */
   it("wraps a club's name on the trigger and in the list rather than cutting it", async () => {
-    const lang: FunktionOrt = { ...GOETHE, titel: "Städtisches Gymnasium Nord mit bilingualem Zweig" };
+    const titel = "Städtisches Gymnasium Nord mit bilingualem Zweig";
+    const lang: FunktionOrt = { ...GOETHE, titel: titel, name: titel };
     switcherAt(GOETHE.href, { orte: [lang, SPIELER] });
     const trigger = screen.getByRole("button", { name: `${lang.titel}, Funktion wechseln` });
     const [item] = await openMenu(`${lang.titel}, Funktion wechseln`);
@@ -192,6 +193,15 @@ describe("what the switcher lists", () => {
     for (const ort of [zuvor, jetzt]) {
       assert.equal(screen.getByRole("menuitemradio", { name: ort.name }).getAttribute("href"), ort.href, `${ort.name} names no item`);
     }
+  });
+
+  /* The trigger shows the title and announces the name, so standing in either season says which. */
+  it("names the trigger by the place's name where two places share a title", () => {
+    const zuvor = { ...GOETHE, name: "Goethe-Gymnasium, Saison 2526" };
+    const jetzt = { ...GOETHE, href: "/bereich/team/t1/2627", detail: "Saison 2627 · Trainer", name: "Goethe-Gymnasium, Saison 2627" };
+    switcherAt(`${jetzt.href}/kader`, { orte: [zuvor, jetzt, SPIELER] });
+
+    assert.ok(screen.getByRole("button", { name: "Goethe-Gymnasium, Saison 2627, Funktion wechseln" }));
   });
 
   /* Each press leaves the shell, and the router hides the departing tree rather than unmounting it. */

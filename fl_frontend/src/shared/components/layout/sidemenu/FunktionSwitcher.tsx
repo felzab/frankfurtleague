@@ -56,6 +56,8 @@ export function FunktionSwitcher({
 
   const aktuell = ortAt(orte, pathname);
   const titel = aktuell?.titel ?? ohneOrt;
+  // Announced by the place's name, so the trigger tells apart two places sharing the title it shows.
+  const name = aktuell?.name ?? ohneOrt;
 
   return (
     <Dropdown
@@ -68,7 +70,7 @@ export function FunktionSwitcher({
         {/* The options row's own shape, so the rail's two menus read as one kind of control; expanded, its height
             is a floor, as a club's name wraps rather than hiding the words that tell two clubs apart. */}
         <Dropdown.Trigger
-          aria-label={isDesktopCollapsed ? "Funktion wechseln" : `${titel}, Funktion wechseln`}
+          aria-label={isDesktopCollapsed ? "Funktion wechseln" : `${name}, Funktion wechseln`}
           className={`flex shrink-0 items-center rounded-md text-foreground transition-colors data-hovered:bg-hover data-[pressed=true]:transform-none ${
             isDesktopCollapsed
               ? `h-9 w-9 justify-center p-0 ${RAIL_SQUARE_HEROUI_RING_CLASSES}`

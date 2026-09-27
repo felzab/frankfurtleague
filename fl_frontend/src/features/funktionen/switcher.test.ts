@@ -75,6 +75,15 @@ describe("the switcher each signed-in shell heads its sidemenu with", () => {
     assert.equal(triggerIn(markup), "Goethe-Gymnasium, Funktion wechseln");
   });
 
+  /* One team in two seasons shares one title, so the trigger announces the season the address holds. */
+  it("names the season too where the person holds the team in two seasons", async () => {
+    setSubject(person({ sitze: [sitz(), sitz({ saison_id: "2627", saison_status: "future" })] }));
+    const { markup, reads } = await teamAt(`/bereich/team/${TEAM_A}/2526`);
+
+    assert.deepEqual(reads, [], "the team shell reads past the session its switcher is drawn from");
+    assert.equal(triggerIn(markup), "Goethe-Gymnasium, Saison 2526, Funktion wechseln");
+  });
+
   /* Two seats at one team and season are one place, which is no choice to offer. */
   it("shows none to a person whose seats all lead to the one team and season", async () => {
     setSubject(person({ sitze: [sitz({ rolle: "trainer" }), sitz()] }));
