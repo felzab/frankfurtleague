@@ -176,7 +176,8 @@ async def sweep_saison(
     The reminder clock stamps `erinnert_am` and mints a fresh link per seat BEFORE answering, so a failed mail costs one
     person one reminder and never a repeat; the first link stays valid beside the fresh one. A seat whose last message the
     mail provider refused is not chased at all, its one reminder buying nothing. A seat whose address the ban list holds is
-    stamped and sent nothing, the pass logging the application and its seats. The fourteen-day clock only
+    sent nothing and has nothing written: it stays due, so every pass asks the ban list for it again until its deadline, and
+    reminds it once a lift comes first; each pass logs how many mailboxes it withheld, never which. The fourteen-day clock only
     LISTS its candidates here, each saying whether its notice has already gone out -- the caller mails the rest, stamps the
     delivered ones through `/angekuendigt` and erases every announced one through `/loeschen`. An application whose
     Ansprechperson the provider refuses is listed by neither: it is held past its deadline for an administrator to
@@ -190,8 +191,8 @@ async def sweep_saison(
     first; the rest stay due and the calls after it take them. The reminders are committed by the call's LAST transaction, so no later step
     of the same call can answer an error in their place.
 
-    404 where no season has the id. Idempotent per day once every share has been taken: a run after that finds nothing
-    left to do.
+    404 where no season has the id. Idempotent per day once every share has been taken: a run after that writes nothing,
+    though it logs the count of withheld seats again.
 
     A season whose id is not a four-digit year fails the whole pass rather than running the four clocks that do not need a
     successor: the accepted clock and the contact block read the season after this one, and a pass that skipped them quietly

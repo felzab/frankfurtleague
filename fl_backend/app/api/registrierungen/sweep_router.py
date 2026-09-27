@@ -132,14 +132,15 @@ async def sweep_registrierungen(
     `erinnert_am` stamped BEFORE this answers, so a failed send costs one pupil one reminder and never a repeat, and the link already
     in that inbox stays valid beside the fresh one. One call reminds a bounded share of the registrations due; the rest stay due and
     the calls after it remind them. A registration whose last message the mail provider refused is not chased at all, and one whose
-    address the ban list holds is stamped and sent nothing, the pass logging its id. Every removal
+    address the ban list holds is sent nothing and has nothing written: it stays due, so every pass asks the ban list for it again
+    until its deadline, and reminds it once a lift comes first; each pass logs how many it withheld, never which. Every removal
     names this season alone, is made inside a transaction and takes its log rows with it.
 
     Whatever a call answers in `erinnerungen` and `benachrichtigt` was committed by its last transaction, so no later step of the same
     call can answer an error in their place.
 
-    404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that finds
-    nothing left to do.
+    404 where no season has the id. Idempotent per day once every due reminder and notice has gone out: a run after that writes
+    nothing, though it logs the count of withheld registrations again.
 
     One thing here reaches past this season: the day is stamped on every season not already carrying it, and `GET /bewerbungen/sweep`
     answers it beside the application pass's own day. So a day's first call records the day and the rest of that day's calls record
