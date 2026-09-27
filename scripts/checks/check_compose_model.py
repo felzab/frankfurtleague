@@ -58,12 +58,58 @@ SERVICE_NETWORKS: Final = {
     "mongo": frozenset({APP_NETWORK}),
 }
 
-# The actor token's signing key: the one service holding it, where that service's config reads it by
-# default, and the checkout file the deploy's preflight judges (`docs/ops/spec.md :: I472`).
-SIGNING_KEY: Final = "fl_actor_signing_key"
-SIGNING_KEY_HOLDER: Final = "frontend"
-SIGNING_KEY_TARGET: Final = f"/run/secrets/{SIGNING_KEY}"
-SIGNING_KEY_FILE: Final = f"secrets/{SIGNING_KEY}"
+# The checkout directory every credential file sits in, reached by nothing but a secret naming its file.
+SECRETS_DIRECTORY: Final = "secrets"
+# The one database URI both of the local stack's logins read, tracked: it names that stack's own database.
+LOCAL_DATABASE_URI: Final = "local-stack/mongodb_uri"
+
+_FRONTEND: Final = frozenset({"frontend"})
+_BACKEND: Final = frozenset({"backend"})
+# The three internal keys: one file each, read by both services (`docs/ops/spec.md :: I11`).
+_BOTH: Final = frozenset({"frontend", "backend"})
+_EITHER_STACK: Final = {
+    # A holder of it mints any actor the backend trusts (I472).
+    "fl_actor_signing_key": _FRONTEND,
+    "auth_secret": _FRONTEND,
+    "resend_webhook_secret": _FRONTEND,
+    "sperrliste_schluessel": _BACKEND,
+    "internal_api_key_base": _BOTH,
+    "internal_api_key_system": _BOTH,
+    "internal_api_key_admin": _BOTH,
+}
+
+# Every secret each stack declares, as (its holders, the checkout file it is read from): a holder that
+# does not read it is one more place it leaks from, and a reader lacking it refuses its boot (I492).
+SECRET_HOLDERS: Final[dict[str, dict[str, tuple[frozenset[str], str]]]] = {
+    "production": {
+        **{secret: (holders, f"{SECRETS_DIRECTORY}/{secret}") for secret, holders in _EITHER_STACK.items()},
+        "tunnel_token": (frozenset({"cloudflared"}), f"{SECRETS_DIRECTORY}/tunnel_token"),
+        "auth_resend_key": (_FRONTEND, f"{SECRETS_DIRECTORY}/auth_resend_key"),
+        "frontend_mongodb_uri": (_FRONTEND, f"{SECRETS_DIRECTORY}/frontend_mongodb_uri"),
+        "backend_mongodb_uri": (_BACKEND, f"{SECRETS_DIRECTORY}/backend_mongodb_uri"),
+    },
+    # No connector and no mail; both logins the stack's own database, so no machine copies production's.
+    "local": {
+        **{secret: (holders, f"{SECRETS_DIRECTORY}/{secret}") for secret, holders in _EITHER_STACK.items()},
+        "frontend_mongodb_uri": (_FRONTEND, LOCAL_DATABASE_URI),
+        "backend_mongodb_uri": (_BACKEND, LOCAL_DATABASE_URI),
+    },
+}
+
+# The environment names those files replace (`scripts/lib/_lib.sh :: MOVED_ENV_NAMES`): one in a
+# service's `environment:` is a second copy of a credential beside its file (I493).
+MOVED_ENV_NAMES: Final = frozenset(
+    {
+        "MONGODB_URI",
+        "SPERRLISTE_SCHLUESSEL",
+        "AUTH_SECRET",
+        "AUTH_RESEND_KEY",
+        "RESEND_WEBHOOK_SECRET",
+        "INTERNAL_API_KEY_BASE",
+        "INTERNAL_API_KEY_SYSTEM",
+        "INTERNAL_API_KEY_ADMIN",
+    }
+)
 
 # The header the visitor's address is taken from, and which element of it: Cloudflare's
 # single-address header, the last element of a chain a client can prepend to (`nginx/shared/http.conf`).
@@ -139,7 +185,7 @@ CAPABILITIES_ADDED: Final = {EDGE_SERVICE: frozenset({"CHOWN", "SETUID", "SETGID
 NO_NEW_PRIVILEGES: Final = frozenset({"no-new-privileges", "no-new-privileges:true", "no-new-privileges=true"})
 
 
-def _capabilities(listed: object) -> frozenset[str]:
+def _capabilities(listed: list[Any] | None) -> frozenset[str]:
     """Capability names as the kernel's list spells them, a `CAP_` prefix Docker also accepts dropped."""
     return frozenset(str(name).upper().removeprefix("CAP_") for name in listed or [])
 
@@ -172,11 +218,11 @@ def _declared_file(declared: object, project: Path) -> str:
 
 
 def secrets_directory(model: dict[str, Any], name: str, project: Path) -> list[Finding]:
-    """No bind mount and no config reaches into `SIGNING_KEY_FILE`'s directory, nor mounts one holding it.
+    """No bind mount and no config reaches into `SECRETS_DIRECTORY`, nor mounts one holding it.
 
-    A secret is the one route a file there takes, so each reaches only the service naming it (I472).
+    A secret is the one route a file there takes, so each reaches only the service naming it (I472, I492).
     """
-    directory = project / Path(SIGNING_KEY_FILE).parent
+    directory = project / SECRETS_DIRECTORY
     findings: list[Finding] = []
     for service, definition in sorted(services(model, name).items()):
         for volume in definition.get("volumes") or []:
@@ -197,36 +243,59 @@ def secrets_directory(model: dict[str, Any], name: str, project: Path) -> list[F
     return findings
 
 
-def signing_key(model: dict[str, Any], name: str, project: Path) -> list[Finding]:
-    """The frontend alone holds the signing key, at `SIGNING_KEY_TARGET`, read from `SIGNING_KEY_FILE`.
+def secret_holders(model: dict[str, Any], name: str, project: Path, stack: str) -> list[Finding]:
+    """Exactly `SECRET_HOLDERS[stack]`: each declared, read from its file, and held by its services alone at `/run/secrets/<name>`.
 
-    Any other holder mints actors the backend trusts, and another source is a file the preflight never read.
+    A second name reading one file is that credential under an alias, so an undeclared name is a finding too (I472, I492).
     """
+    expected = SECRET_HOLDERS[stack]
+    declared = model.get("secrets") or {}
     findings: list[Finding] = []
-    holders: list[str] = []
-    declared_secrets = model.get("secrets") or {}
-    # A second secret name reading the file is the key under an alias, which a check on the name passes by.
-    key_names = {SIGNING_KEY} | {
-        secret for secret, declared in declared_secrets.items() if _declared_file(declared, project) == SIGNING_KEY_FILE
-    }
-    for alias in sorted(key_names - {SIGNING_KEY}):
-        findings.append(Finding("fail", f"{name}: the secret {alias} is read from {SIGNING_KEY_FILE}, which only {SIGNING_KEY} may be (I472)"))
+    for secret in sorted(set(declared) - set(expected)):
+        findings.append(Finding("fail", f"{name}: the secret {secret} is declared and SECRET_HOLDERS lists no such secret (I492)"))
+    held: dict[str, list[str]] = {secret: [] for secret in expected}
     for service, definition in sorted(services(model, name).items()):
         for entry in definition.get("secrets") or []:
-            source = entry.get("source") if isinstance(entry, dict) else entry
-            if source not in key_names:
+            source = str(entry.get("source") if isinstance(entry, dict) else entry)
+            if source not in held:
                 continue
-            holders.append(service)
+            held[source].append(service)
             target = str((entry.get("target") if isinstance(entry, dict) else None) or source)
             # A relative target is a name under `/run/secrets` (https://docs.docker.com/reference/compose-file/services/#secrets).
             mounted = target if target.startswith("/") else f"/run/secrets/{target}"
-            if mounted != SIGNING_KEY_TARGET:
-                findings.append(Finding("fail", f"{name}: {service} mounts {SIGNING_KEY} at {mounted}, not {SIGNING_KEY_TARGET} (I472)"))
-    if holders != [SIGNING_KEY_HOLDER]:
-        findings.append(Finding("fail", f"{name}: {holders or 'nothing'} holds {SIGNING_KEY}, not {SIGNING_KEY_HOLDER} alone (I472)"))
-    read = _declared_file(declared_secrets.get(SIGNING_KEY), project)
-    if read != SIGNING_KEY_FILE:
-        findings.append(Finding("fail", f"{name}: {SIGNING_KEY} is read from {read!r}, not {SIGNING_KEY_FILE} (I472)"))
+            if mounted != f"/run/secrets/{source}":
+                findings.append(Finding("fail", f"{name}: {service} mounts {source} at {mounted}, not /run/secrets/{source} (I492)"))
+    for secret, (holders, source_file) in sorted(expected.items()):
+        if secret not in declared:
+            findings.append(Finding("fail", f"{name}: the secret {secret} is not declared, and {sorted(holders)} read it (I492)"))
+            continue
+        read = _declared_file(declared[secret], project)
+        if read != source_file:
+            findings.append(Finding("fail", f"{name}: {secret} is read from {read!r}, not {source_file} (I492)"))
+        if sorted(held[secret]) != sorted(holders):
+            findings.append(Finding("fail", f"{name}: {held[secret] or 'nothing'} holds {secret}, not {sorted(holders)} (I492)"))
+    return findings
+
+
+def moved_names(model: dict[str, Any], name: str) -> list[Finding]:
+    """No service is handed a name in `MOVED_ENV_NAMES` through `environment:`, in any letter case (I493).
+
+    The backend folds case, so a lower-cased copy is the same credential again.
+    """
+    findings: list[Finding] = []
+    for service, definition in sorted(services(model, name).items()):
+        environment = definition.get("environment") or {}
+        if not isinstance(environment, dict):
+            raise ValueError(f"{name}: {service} has an environment Compose did not render as a mapping, so this is not its rendered model")
+        for variable in sorted(environment):
+            if str(variable).upper() in MOVED_ENV_NAMES:
+                findings.append(
+                    Finding(
+                        "fail",
+                        f"{name}: {service} is handed {variable} in its environment\n"
+                        f"{CONTINUATION}its value is a secret file's, which the service reads from /run/secrets (I493)",
+                    )
+                )
     return findings
 
 
@@ -525,8 +594,9 @@ def main() -> int:
         findings += env_files(prod_model, "production") + env_files(local_model, "local")
         findings += networks(prod_model, "production") + networks(local_model, "local")
         findings += privileges(prod_model, "production") + privileges(local_model, "local")
-        findings += signing_key(prod_model, "production", Path(args.production).resolve().parent)
-        findings += signing_key(local_model, "local", Path(args.local).resolve().parent)
+        findings += secret_holders(prod_model, "production", Path(args.production).resolve().parent, "production")
+        findings += secret_holders(local_model, "local", Path(args.local).resolve().parent, "local")
+        findings += moved_names(prod_model, "production") + moved_names(local_model, "local")
         findings += secrets_directory(prod_model, "production", Path(args.production).resolve().parent)
         findings += secrets_directory(local_model, "local", Path(args.local).resolve().parent)
         socket = deploy_socket(DEPLOY)
@@ -549,8 +619,9 @@ def main() -> int:
         print("      each application service reads its package's environment file, then the checkout's")
         print(f"      the connector shares a network with {EDGE_SERVICE} alone, and the application pair with {EDGE_SERVICE} alone")
         print(f"      every service drops every capability and gains no privilege, {EDGE_SERVICE} adding back its master's four")
-        print(f"      {SIGNING_KEY_HOLDER} alone holds the actor token's signing key, read from {SIGNING_KEY_FILE}")
-        print(f"      no service mounts {Path(SIGNING_KEY_FILE).parent.as_posix()}/ but through a secret naming its file")
+        print("      each secret is held by the services SECRET_HOLDERS names alone, read from its own file, in both stacks")
+        print("      no service is handed a moved credential's name in its environment")
+        print(f"      no service mounts {SECRETS_DIRECTORY}/ but through a secret naming its file")
     return code
 
 

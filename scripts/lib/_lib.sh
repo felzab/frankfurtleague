@@ -770,13 +770,13 @@ $2}"; }
 require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
 
-# The whole of what the checkout root's `.env` may hold (`docs/ops/spec.md :: I429`): the names both
-# application services must hold equal, and no name that is one service's alone.
+# The whole of what the checkout root's `.env` may hold (`docs/ops/spec.md :: I429`): the internal
+# keys, which an image from before the secret files reads there, or nothing at all.
 ROOT_ENV_NAMES=(INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN)
 
 # Read as text before any compose call or reader, since compose takes a `COMPOSE_*` line there as its
-# own setting (`docs/ops/spec.md` §1.5). Values are the keys' alphabet's (I11), which each service's
-# validator holds. Prints names, never a value.
+# own setting (`docs/ops/spec.md` §1.5). All three keys or none, a rollback's image reading the three
+# together. Prints names, never a value.
 check_root_env() { # $1 the file
   local line name number=0 IFS=' '
   local -A seen=()
@@ -801,13 +801,15 @@ check_root_env() { # $1 the file
       seen[$name]="$number"
     fi
   done < "$1"
-  for name in "${ROOT_ENV_NAMES[@]}"; do
-    [[ -n "${seen[$name]:-}" ]] || wrong+=("${name} is missing")
-  done
+  if (( ${#seen[@]} )); then
+    for name in "${ROOT_ENV_NAMES[@]}"; do
+      [[ -n "${seen[$name]:-}" ]] || wrong+=("${name} is missing, beside the key(s) the file does hold")
+    done
+  fi
   if (( ${#wrong[@]} )); then
     refuse "$1 holds what nothing here may read, so nothing was asked of compose or of either service:
 $(printf '  %s\n' "${wrong[@]}")
-It holds the three internal keys and nothing else (docs/ops/runbooks.md §16)."
+It holds the three internal keys or nothing, emptied rather than deleted (docs/ops/runbooks.md §16)."
   fi
 }
 
@@ -904,6 +906,135 @@ nothing here says whether the frontend can sign with it or the backend verify it
   else
     ok "the frontend can read the actor token's signing key, and fl_backend/.env's ACTOR_TOKEN_PUBLIC_KEY is its public half"
   fi
+}
+
+# --- The secret files ---------------------------------------------------------------------------------
+
+# What each application service reads under its secrets directory, named alike under `secrets/`
+# (`docs/ops/spec.md :: I492`) and held to `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`.
+# The signing key and the tunnel token have checks of their own.
+
+# shellcheck disable=SC2034  # read by name, through `check_secret_files`
+FRONTEND_SECRETS=(frontend_mongodb_uri auth_secret auth_resend_key resend_webhook_secret internal_api_key_base internal_api_key_system internal_api_key_admin)
+# shellcheck disable=SC2034
+BACKEND_SECRETS=(backend_mongodb_uri sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
+# The local stack sends no mail, so its frontend is handed no key to the provider
+# (`docker-compose.local.yml :: frontend`).
+# shellcheck disable=SC2034
+LOCAL_FRONTEND_SECRETS=(frontend_mongodb_uri auth_secret resend_webhook_secret internal_api_key_base internal_api_key_system internal_api_key_admin)
+
+# The environment names those files replace. An image from before the files still reads them, so a
+# host keeps them until the release after the files runs healthy (`docs/ops/runbooks.md` §16).
+MOVED_ENV_NAMES=(MONGODB_URI SPERRLISTE_SCHLUESSEL AUTH_SECRET AUTH_RESEND_KEY RESEND_WEBHOOK_SECRET INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN)
+
+# POSIX sh, so one program serves both images, run as the service's own user with its mounts and
+# `group_add`. A value is tested for a non-blank character and never printed; exit 3 names each file.
+
+# shellcheck disable=SC2016  # the container's sh expands them
+SECRET_FILES_CHECK='
+dir="${SECRETS_DIR:-/run/secrets}"
+found=0
+for name do
+  file="$dir/$name"
+  if [ ! -e "$file" ]; then echo "$name: missing from $dir" >&2; found=1
+  elif [ ! -f "$file" ]; then echo "$name: not a file" >&2; found=1
+  elif [ ! -r "$file" ]; then echo "$name: unreadable by uid $(id -u) in groups $(id -G)" >&2; found=1
+  elif ! grep -q "[^[:space:]]" "$file"; then echo "$name: empty or blank" >&2; found=1
+  fi
+done
+exit $((found * 3))
+'
+
+# Before any container is replaced, as `check_actor_key` is. `$3` names the array of files; the rest
+# runs the service's container as the stack starts it, the service's name and the program appended.
+check_secret_files() { # $1 what stands at the refusal, $2 the service, $3 the array of its files
+  local standing="$1" service="$2" rc=0 said=""
+  local -n files="$3"
+  shift 3
+  said="$("$@" "$service" sh -c "$SECRET_FILES_CHECK" sh "${files[@]}" 2>&1)" || rc=$?
+  if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
+  if (( rc == 3 )); then
+    refuse "the ${service} container cannot use the secret files named above. Each is secrets/<name> on this
+host, owned and moded as docs/ops/runbooks.md §16 says: a missing one is written there, an unreadable
+one given its owner and mode, a blank one written again.
+${standing}"
+  elif (( rc )); then
+    # An advisory, as `check_actor_key`'s is: the running stack never runs this check.
+    warn "the ${service} image could not be asked to read its secret files (exit ${rc}), so nothing here says
+whether it can. Its own answer is above."
+  else
+    ok "the ${service} container reads each of its ${#files[@]} secret files, and none is blank"
+  fi
+}
+
+# The backend's settings as its boot builds them, from its container's variables and secret files:
+# the files' values reach no other reader before the recreate. `get_config`, never the class, for
+# `scripts/ops/deploy.sh :: ENV_NAME_CHECK`'s reason: its refusal names, never quotes.
+BACKEND_BOOT_CHECK='
+import sys
+
+try:
+    from app.core.config import EnvironmentValidationError, get_config
+except Exception as unavailable:
+    print(type(unavailable).__name__, file=sys.stderr)
+    raise SystemExit(4)
+
+try:
+    get_config()
+except EnvironmentValidationError as refusal:
+    print(refusal, file=sys.stderr)
+    raise SystemExit(3)
+except Exception as unexpected:
+    print(type(unexpected).__name__, file=sys.stderr)
+    raise SystemExit(4)
+'
+
+# `check_secret_files`'s shape, the backend's program in place of the file test.
+check_backend_boot_config() { # $1 what stands at the refusal, the rest runs the backend's container
+  local standing="$1" rc=0 said=""
+  shift
+  said="$("$@" backend python -c "$BACKEND_BOOT_CHECK" 2>&1)" || rc=$?
+  if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
+  if (( rc == 3 )); then
+    refuse "the backend refuses the settings its container would boot with, and the line above names what:
+a variable to correct in fl_backend/.env, or a file to write again under secrets/. No value is printed.
+${standing}"
+  elif (( rc )); then
+    warn "the backend image could not be asked to build its settings (exit ${rc}), so nothing here says
+whether it would boot. Its own answer is above."
+  else
+    ok "the backend builds its settings from its container's variables and secret files"
+  fi
+}
+
+# A moved name still in an environment file is read by nothing this release runs. The deploy warns,
+# a rollback's image reading the line; the local stack, restoring nothing, refuses. Names only, case
+# folded as the backend folds them.
+check_moved_names() { # $1 warn or refuse, $2.. the environment files
+  local verb="$1" file line name moved
+  local -a held found=()
+  shift
+  for file in "$@"; do
+    held=()
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ "${line%$'\r'}" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*= ]] || continue
+      name="${BASH_REMATCH[2]}"
+      for moved in "${MOVED_ENV_NAMES[@]}"; do
+        if [[ "${name^^}" == "$moved" ]]; then held+=("$name"); fi
+      done
+    done < "$file"
+    if (( ${#held[@]} )); then found+=("${file}: ${held[*]}"); fi
+  done
+  (( ${#found[@]} )) || return 0
+  if [[ "$verb" == refuse ]]; then
+    refuse "these lines name a value this stack reads from secrets/ instead, and nothing reads them here:
+$(printf '  %s\n' "${found[@]}")
+Delete them (docs/ops/runbooks.md §16). NOTHING was asked of compose or of either service."
+  fi
+  warn "these lines name a value this release reads from secrets/ instead:
+$(printf '  %s\n' "${found[@]}")
+Keep them until this release runs healthy, for the image a rollback restores; then delete them
+(docs/ops/runbooks.md §16)."
 }
 
 # --- The rendered compose models ----------------------------------------------------------------------

@@ -94,7 +94,7 @@ require_platform linux
 require_docker
 require_file "$COMPOSE"
 # Before `--status` too, whose compose calls would otherwise honour a `COMPOSE_*` line in it.
-require_file "$SHARED_ENV" "Both application services read it last, for the names they must hold equal (docs/ops/runbooks.md §16)."
+require_file "$SHARED_ENV" "Both application services list it last: the internal keys, or empty (docs/ops/runbooks.md §16)."
 check_root_env "$SHARED_ENV"
 check_env_spellings "$SHARED_ENV"
 
@@ -818,6 +818,11 @@ require_file "nginx/shared/security_headers.conf" "nginx/shared/site.conf includ
 require_file "secrets/tunnel_token" "The connector reads it with --token-file and registers no tunnel without it, which leaves the site with no route in at all."
 require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate the pair: docs/ops/runbooks.md §16."
 signing_key_mode_advisory
+# Each file once, the two services sharing the internal keys.
+for secret_file in $(printf '%s\n' "${FRONTEND_SECRETS[@]}" "${BACKEND_SECRETS[@]}" | sort -u); do
+  require_file "secrets/${secret_file}" "A service reads it at /run/secrets/${secret_file}. Write it as docs/ops/runbooks.md §16 says."
+done
+check_moved_names warn fl_frontend/.env fl_backend/.env "$SHARED_ENV"
 require_dir  "certs"            "nginx mounts this read-only for the TLS certificate and key."
 ok "all present"
 
@@ -1075,6 +1080,16 @@ check_frontend_env_names
 check_actor_key "NOTHING has been recreated, and the site is untouched." \
   docker compose -f "$COMPOSE" run --rm --no-deps -T frontend
 
+step "The secret files, read by the containers about to run"
+# Each service's own container, for the key check's reason: only it runs as the user, and in the
+# group, the files are handed over to (`docs/ops/spec.md :: I494`).
+check_secret_files "NOTHING has been recreated, and the site is untouched." frontend FRONTEND_SECRETS \
+  docker compose -f "$COMPOSE" run --rm --no-deps -T
+check_secret_files "NOTHING has been recreated, and the site is untouched." backend BACKEND_SECRETS \
+  docker compose -f "$COMPOSE" run --rm --no-deps -T
+check_backend_boot_config "NOTHING has been recreated, and the site is untouched." \
+  docker compose -f "$COMPOSE" run --rm --no-deps -T
+
 # --- the streams the recreate destroys, copied off first ---------------------------------------------
 
 section "logs"
@@ -1245,10 +1260,11 @@ else
          "names the env file to fix." \
          "A backend line opening 'The environment could not be read:' is that same gate on a file it" \
          "could not parse at all, naming the failure's type where it has no variable to name." \
-         "A line opening 'MONGODB_URI:' is the backend's other refusal, and its continuation says" \
+         "A line naming the database URI is the backend's other refusal, and its continuation says" \
          "which of three: the value yielded no server to connect to, the server refused to" \
          "authenticate it, or the server could not be reached." \
-         "Neither gate prints a value, so the .env file is what to read and the log is not."
+         "Neither gate prints a value, so the .env file, or the file under secrets/ the line names," \
+         "is what to read, and the log is not."
   if (( SAME_BUILD )); then
     detail "" "This deploy pulled the images that were ALREADY running, so there is nothing to put" \
               "back: a rollback would restore the build that just failed and cost a second outage" \

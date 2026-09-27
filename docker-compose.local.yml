@@ -37,13 +37,20 @@ services:
       # holds `console` for `pnpm dev` -- overridden so the stack always writes the production
       # stream (docs/logging/spec.md).
       - LOG_FORMAT=json
-      # The sign-in store sits in the same cluster, so leaving this one alone would sign the local
-      # stack in against production while every other read came from the container below.
-      - MONGODB_URI=mongodb://mongo:27017/?directConnection=true
       # This stack runs the production build, so nothing but this line holds the sweep off. An armed
       # pass deletes applications and stamps rows in the copy below; APP_ENV withholds every notice
       # it raises.
       - BEWERBUNG_SWEEP=off
+    # Production's list without `auth_resend_key`: `APP_ENV=local` sends no mail, so a machine holds
+    # no key to the provider.
+    secrets: !override
+      - fl_actor_signing_key
+      - frontend_mongodb_uri
+      - auth_secret
+      - resend_webhook_secret
+      - internal_api_key_base
+      - internal_api_key_system
+      - internal_api_key_admin
     volumes:
       # The mail sink a withheld send writes into, in the checkout so the developer opens the file
       # rather than copying it out. Without it the sink has nowhere to write: `/app` is root-owned
@@ -62,10 +69,6 @@ services:
       # Same reason as the frontend's override above: the stack shows the production stream even
       # when the developer's .env selects the console format for `fastapi dev`.
       - LOG_FORMAT=json
-      # The whole point of the mongo service: `env_file` carries the production cluster, and
-      # compose's `environment` overrides it, so the local stack stops writing to the live database
-      # without fl_backend/.env being touched at all.
-      - MONGODB_URI=mongodb://mongo:27017/?directConnection=true
     depends_on:
       # Healthy, not started: the lifespan applies every validator before it yields and refuses the
       # boot if it cannot, so a backend reaching an unelected node fails the whole start.
@@ -145,11 +148,28 @@ services:
     # resolve, and a service that never starts needs none.
     secrets: !reset []
 
-# The signing key alone: this stack's frontend mints the actor token as production's does, from a
-# key pair of this machine's own (`docs/ops/runbooks.md` §16).
+# This machine's own files (`docs/ops/runbooks.md` §16), and none for the connector, which never
+# starts. Both database logins read the tracked URI of the database below, so the stack needs no copy
+# of production's login.
 secrets: !override
   fl_actor_signing_key:
     file: ./secrets/fl_actor_signing_key
+  frontend_mongodb_uri:
+    file: ./local-stack/mongodb_uri
+  backend_mongodb_uri:
+    file: ./local-stack/mongodb_uri
+  auth_secret:
+    file: ./secrets/auth_secret
+  resend_webhook_secret:
+    file: ./secrets/resend_webhook_secret
+  sperrliste_schluessel:
+    file: ./secrets/sperrliste_schluessel
+  internal_api_key_base:
+    file: ./secrets/internal_api_key_base
+  internal_api_key_system:
+    file: ./secrets/internal_api_key_system
+  internal_api_key_admin:
+    file: ./secrets/internal_api_key_admin
 
 # A named volume rather than a bind mount: mongod's storage engine wants POSIX file locking, which
 # a Windows host directory does not give it.

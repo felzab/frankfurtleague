@@ -71,29 +71,39 @@ DUMP_LOG="${REPO_ROOT}/.local-db/copy.log"
 # leaves one behind that a directory test would read as finished.
 DUMP_MARK="${REPO_ROOT}/.local-db/complete"
 
+# The copy's login: a read-only one, on the application database alone. No development machine
+# holds production's write login, so the stack's own URI is `local-stack/mongodb_uri`
+# (`docs/ops/runbooks.md` §16).
+DUMP_URI_FILE="secrets/dump_mongodb_uri"
+
 # Two containers, never one: only the credential-bearing invocation is handed a mongodump command,
 # and `restore_dump` is handed no credential at all. A discipline, not a boundary -- the image
 # carries both tools.
 take_dump() {
   # Into a gitignored file, never a terminal and never partly filtered: a failed mongodump quotes
-  # the connection string back in shapes no pattern could be trusted to cover. --env-file keeps it
-  # out of the process list too.
+  # the connection string back in shapes no pattern could be trusted to cover. A mounted file keeps
+  # it out of the host's process list.
+  local base=""
+  # The database's name alone out of the backend's file, which is no credential: the file is not
+  # handed over whole.
+  base="$(sed -n -E 's/^[[:space:]]*DB_BASE_NAME[[:space:]]*=[[:space:]]*//p' fl_backend/.env | tail -n 1)"
 
   # The local stack's mongo to the digest (`docker-compose.local.yml`, `docs/ops/spec.md` §1.1), so the
   # copy and the server it restores into are one build.
-  MSYS_NO_PATHCONV=1 docker run --rm -i \
-    --env-file fl_backend/.env \
+  DB_BASE_NAME="$base" MSYS_NO_PATHCONV=1 docker run --rm -i \
+    -e DB_BASE_NAME \
+    -v "/${REPO_ROOT}/${DUMP_URI_FILE}:/run/secrets/dump_mongodb_uri:ro" \
     -v "/${REPO_ROOT}/.local-db/dump:/dump" \
     mongo:8.3.11@sha256:5d7043a4ffe02b9ed1b6e0bab057546981af5ca0a79107e9c461e49bc44c0a7b sh -s >"$DUMP_LOG" 2>&1 <<'CONTAINER'
 set -e
-# docker --env-file strips neither the quotes a dotenv value may carry nor the CR a Windows editor
-# leaves on it, and mongodump answers a URI holding either with a parse error.
+# Neither the file nor the dotenv line has its quotes or a Windows editor's CR stripped on the way
+# in, and mongodump answers a URI holding either with a parse error.
 q=$(printf '"\047')
 clean() { printf '%s' "$1" | tr -d '\r\n' | sed -e "s/^[$q]//" -e "s/[$q]\$//"; }
-uri=$(clean "$MONGODB_URI")
+uri=$(clean "$(cat /run/secrets/dump_mongodb_uri)")
 base=$(clean "$DB_BASE_NAME")
-# The application database alone: the Flex tier denies `admin`, and this credential cannot read the
-# sign-in store beside it -- least privilege working. One collection at a time stays under the
+# The application database alone: the Flex tier denies `admin`, and this login reads no other
+# database -- least privilege working. One collection at a time stays under the
 # tier's rate cap.
 mongodump --uri="$uri" --db="$base" --numParallelCollections=1 --out=/dump
 CONTAINER
@@ -131,6 +141,7 @@ fetch_copy() {
   # The marker and not the directory: an interrupted copy leaves a directory behind.
   if (( REFRESH_DB )) || [[ ! -f "$DUMP_MARK" ]]; then
     info "copying from production, one collection at a time — the Flex tier throttles past 500 ops/s"
+    require_file "$DUMP_URI_FILE" "The copy is taken with a read-only login's URI, and only that one: docs/ops/runbooks.md §16."
     clear_dump || refuse ".local-db could not be cleared for a new copy — the line above names the entry
 that refused — so nothing was copied: a copy written over the remains of the old one would be two
 vintages under one marker."
@@ -177,7 +188,7 @@ require_docker
 require_file "docker-compose.yml"
 require_file "docker-compose.local.yml"
 # Before `--down` too, whose compose call would otherwise honour a `COMPOSE_*` line in it.
-require_file ".env" "Both containers read it via env_file, last. Generate its keys for this machine: docs/ops/runbooks.md §16."
+require_file ".env" "Both containers read it via env_file, last, and it may be empty: docs/ops/runbooks.md §16."
 check_root_env ".env"
 check_env_spellings ".env"
 
@@ -211,8 +222,14 @@ require_file "fl_frontend/.env" "The frontend container reads it via env_file. C
 require_file "fl_backend/.env"  "The backend container reads it via env_file."
 check_env_spellings "fl_frontend/.env"
 check_env_spellings "fl_backend/.env"
+# Nothing here restores an older image, so a line kept for a rollback is a line to delete.
+check_moved_names refuse fl_frontend/.env fl_backend/.env .env
 require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate this machine's pair: docs/ops/runbooks.md §16."
-ok "the three .env files and the actor token's signing key are in place"
+# The stack's database URI is tracked, and it sends no mail: the rest are this machine's own.
+for secret_file in $(printf '%s\n' "${LOCAL_FRONTEND_SECRETS[@]}" "${BACKEND_SECRETS[@]}" | grep -v '_mongodb_uri$' | sort -u); do
+  require_file "secrets/${secret_file}" "The stack mounts it at /run/secrets/${secret_file}. Make this machine's own: docs/ops/runbooks.md §16."
+done
+ok "the three .env files, the actor token's signing key and this machine's secret files are in place"
 
 step "Anything holding the build's files open"
 # A running `next dev` holds .next open and makes the build fail with EBUSY on Windows. Never
@@ -253,6 +270,12 @@ step "The actor token's key pair"
 # Through compose, so the key is mounted as the stack will mount it, owner and mode included, and
 # read at the path the frontend's environment files name.
 check_actor_key "NOTHING has been started." docker compose run --rm --no-deps -T frontend
+
+step "The secret files"
+# For the key check's reason: each container reads its files as the stack mounts them.
+check_secret_files "NOTHING has been started." frontend LOCAL_FRONTEND_SECRETS docker compose run --rm --no-deps -T
+check_secret_files "NOTHING has been started." backend BACKEND_SECRETS docker compose run --rm --no-deps -T
+check_backend_boot_config "NOTHING has been started." docker compose run --rm --no-deps -T
 
 # Before `start`, not inside it: a page rendered against an empty database caches that read for
 # days. The copy comes before the database container as well, for the reason at `fetch_copy`.
@@ -322,9 +345,9 @@ else
   fail "The stack came up unhealthy."
   detail "If you see 'Invalid environment variables', fix those names in the .env files — that is" \
          "the startup gate doing its job." \
-         "A line opening 'MONGODB_URI:' is the backend's other refusal, and its continuation says" \
+         "A line naming the database URI is the backend's other refusal, and its continuation says" \
          "which: the value yielded no server, the server refused to authenticate it, or nothing" \
-         "answered. Neither refusal prints a value, so the file is what to read." \
+         "answered. Neither refusal prints a value, so the file it names is what to read." \
          "Stop what is left:  ./scripts/ops/local.sh --down"
   finish
 fi

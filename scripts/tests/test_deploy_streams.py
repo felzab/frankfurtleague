@@ -942,3 +942,221 @@ def test_the_local_stacks_health_read_names_no_file_and_leaves_the_choice_to_com
 
     assert code == 0, output
     assert argv[:3] == ["compose", "ps", "-q"], argv
+
+
+# --- the secret files, read by each service's own container ---------------------------------------------
+
+RUNNER: Final = 'docker compose -f "$COMPOSE" run --rm --no-deps -T'
+FILES_CHECK: Final = f'check_secret_files "NOTHING has been recreated." frontend FRONTEND_SECRETS {RUNNER}'
+BOOT_CHECK: Final = f'check_backend_boot_config "NOTHING has been recreated." {RUNNER}'
+
+
+def _lib_array(name: str) -> list[str]:
+    return lift_assignment(LIB, name).split("=", 1)[1].strip("()").split()
+
+
+def test_a_file_the_container_cannot_use_refuses_with_nothing_recreated() -> None:
+    """Exit 3 is the program's own answer, and the remedy names where each file is written."""
+    code, output, _ = _run(FILES_CHECK, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS="auth_secret: missing from /run/secrets")
+
+    assert code == 2, output
+    assert "auth_secret: missing from /run/secrets" in output, output
+    assert "docs/ops/runbooks.md §16" in output, output
+    assert "NOTHING has been recreated." in output, output
+
+
+def test_a_file_check_that_could_not_be_made_is_an_advisory() -> None:
+    """The running stack never runs it, so a check that could not run leaves the deploy where it stood."""
+    code, output, _ = _run(FILES_CHECK, FL_DEPLOY_RUN_RC="125", FL_DEPLOY_RUN_SAYS="Error")
+
+    assert code == 0, output
+    assert "(exit 125)" in output, output
+
+
+def test_the_file_check_runs_in_the_service_with_its_list_and_no_user_of_its_own() -> None:
+    """The service's own user, mounts and groups are the whole of what the answer is about, so no `--user` overrides them."""
+    code, output, fixture = _run(FILES_CHECK)
+    argv = fixture.argv.read_text(encoding="utf-8").splitlines()
+
+    assert code == 0, output
+    run = argv.index("run")
+    assert argv[run : run + 8] == ["run", "--rm", "--no-deps", "-T", "frontend", "sh", "-c", ""], argv
+    assert "--user" not in argv, argv
+    files = _lib_array("FRONTEND_SECRETS")
+    assert argv[-len(files) - 1 :] == ["sh", *files], argv
+
+
+# Each case's own files, placeholders of `x` alone, read by the program as the container's sh would.
+FILES_FIXTURE: Final = """mkdir -p run-secrets/adir
+printf 'xxxx\\n' > run-secrets/good
+printf '  \\n\\n' > run-secrets/blank
+: > run-secrets/empty
+files_rc=0
+SECRETS_DIR=run-secrets sh -c "$SECRET_FILES_CHECK" sh good blank empty adir absent || files_rc=$?
+printf 'files=%s\\n' "$files_rc"
+"""
+
+
+def test_the_program_names_each_file_and_its_fault_and_never_its_bytes() -> None:
+    """Run for real: a stub proves the argv and nothing about what the program answers. An unreadable file is the docker run's to drive."""
+    code, output, _ = _run(FILES_FIXTURE)
+
+    assert code == 0, output
+    assert "files=3" in output, output
+    for line in ("blank: empty or blank", "empty: empty or blank", "adir: not a file", "absent: missing from run-secrets"):
+        assert line in output, output
+    assert "good:" not in output, output
+    assert "xxxx" not in output, output
+
+
+def test_the_program_answers_0_over_files_it_can_use() -> None:
+    code, output, _ = _run(FILES_FIXTURE.replace("sh good blank empty adir absent", "sh good"))
+
+    assert code == 0, output
+    assert "files=0" in output, output
+
+
+def test_settings_the_backend_refuses_stop_the_run_with_nothing_recreated() -> None:
+    code, output, fixture = _run(BOOT_CHECK, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS="Invalid environment variables: SPERRLISTE_SCHLUESSEL")
+    argv = fixture.argv.read_text(encoding="utf-8").splitlines()
+
+    assert code == 2, output
+    assert "SPERRLISTE_SCHLUESSEL" in output, output
+    assert "NOTHING has been recreated." in output, output
+    run = argv.index("run")
+    assert argv[run : run + 7] == ["run", "--rm", "--no-deps", "-T", "backend", "python", "-c"], argv
+
+
+def test_a_settings_check_that_could_not_be_made_is_an_advisory() -> None:
+    code, output, _ = _run(BOOT_CHECK, FL_DEPLOY_RUN_RC="4", FL_DEPLOY_RUN_SAYS="ModuleNotFoundError")
+
+    assert code == 0, output
+    assert "(exit 4)" in output, output
+
+
+BOOT_SNIPPET: Final = """boot_rc=0
+( cd fl_backend && "$(venv_python)" -c "$BACKEND_BOOT_CHECK" ) || boot_rc=$?
+printf 'boot=%s\\n' "$boot_rc"
+"""
+
+
+def test_the_settings_program_answers_3_naming_what_it_refuses_and_never_a_value() -> None:
+    """Run for real, over the fixture's file of an undeclared name and nothing the backend requires."""
+    code, output, _ = _run(BOOT_SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix())
+
+    assert code == 0, output
+    assert "boot=3" in output, output
+    assert "a value no case reads" not in output, output
+
+
+@pytest.mark.parametrize(
+    ("script", "after", "before"),
+    [
+        (DEPLOY, "\ncheck_actor_key ", 'step "Recreating the application containers"'),
+        (LOCAL, "\ncheck_actor_key ", 'section "start"'),
+    ],
+)
+def test_the_files_are_judged_after_the_key_and_before_anything_starts(script: Path, after: str, before: str) -> None:
+    text = script.read_text(encoding="utf-8")
+
+    for call in ("\ncheck_secret_files ", "\ncheck_backend_boot_config "):
+        assert text.index(after) < text.index(call) < text.index(before), (script.name, call)
+
+
+@pytest.mark.parametrize(("script", "frontend"), [(DEPLOY, "FRONTEND_SECRETS"), (LOCAL, "LOCAL_FRONTEND_SECRETS")])
+def test_each_script_hands_each_service_its_own_list(script: Path, frontend: str) -> None:
+    """The local stack sends no mail, so its frontend holds no provider key and is asked for none."""
+    text = script.read_text(encoding="utf-8")
+
+    assert f" frontend {frontend} " in text, script.name
+    assert " backend BACKEND_SECRETS " in text, script.name
+
+
+# --- a line the secret files replace, still in an environment file ----------------------------------------
+
+MOVED: Final = """printf 'LOG_FORMAT=json\\nmongodb_uri=a value no case reads\\n' > fl_backend/.env
+printf 'INTERNAL_API_KEY_BASE=a value no case reads\\n' > .env
+check_moved_names {verb} fl_backend/.env .env
+echo moved-names-passed
+"""
+
+
+def test_the_deploy_warns_naming_every_moved_line_in_any_case_and_goes_on() -> None:
+    """The image a rollback restores reads these lines, so the release running the files keeps them."""
+    code, output, _ = _run(MOVED.format(verb="warn"))
+
+    assert code == 0, output
+    assert "moved-names-passed" in output, output
+    assert "fl_backend/.env: mongodb_uri" in output, output
+    assert ".env: INTERNAL_API_KEY_BASE" in output, output
+    assert "LOG_FORMAT" not in output, output
+    assert "a value no case reads" not in output, output
+
+
+def test_the_local_stack_refuses_them_restoring_no_older_image() -> None:
+    code, output, _ = _run(MOVED.format(verb="refuse"))
+
+    assert code == 2, output
+    assert "moved-names-passed" not in output, output
+    assert "Delete them" in output, output
+
+
+def test_a_file_holding_no_moved_line_passes_in_silence() -> None:
+    code, output, _ = _run(MOVED.format(verb="refuse").replace("mongodb_uri=", "DB_BASE_NAME=").replace("INTERNAL_API_KEY_BASE=", "# "))
+
+    assert code == 0, output
+    assert "moved-names-passed" in output, output
+    assert "!!" not in output, output
+
+
+def test_the_moved_names_are_the_secret_files_names() -> None:
+    """Each moved name is a file's under the same name upper-cased, the two database logins sharing one."""
+    files = {name.upper() for name in _lib_array("FRONTEND_SECRETS") + _lib_array("BACKEND_SECRETS")}
+    renamed = {name.replace("FRONTEND_", "").replace("BACKEND_", "") for name in files}
+
+    assert set(_lib_array("MOVED_ENV_NAMES")) == renamed
+
+
+# --- the checkout root's `.env` while the secret files replace it -----------------------------------------
+
+
+@pytest.mark.parametrize("text", ["", "# emptied\n\n"], ids=["empty", "comments-alone"])
+def test_a_root_file_holding_no_key_is_clean(text: str) -> None:
+    """The host empties it once the release reading the files runs healthy, and compose still lists it."""
+    code, output = _root_env(text)
+
+    assert code == 0, output
+    assert "judged-clean" in output, output
+
+
+def test_a_root_file_holding_some_keys_refuses_naming_the_rest() -> None:
+    """A rollback's image reads the three together, so a part of the set is a deploy that restores nothing working."""
+    code, output = _root_env(f"INTERNAL_API_KEY_BASE={'k' * 64}\n")
+
+    assert code == 2, output
+    assert "INTERNAL_API_KEY_SYSTEM is missing, beside the key(s) the file does hold" in output, output
+    assert "INTERNAL_API_KEY_ADMIN is missing" in output, output
+
+
+# --- the copy of production a development machine takes -----------------------------------------------
+
+DUMP: Final = (
+    "printf 'DB_BASE_NAME=league\\nA_NAME=a value no case reads\\n' > fl_backend/.env\n"
+    f"{lift_assignment(LOCAL, 'DUMP_URI_FILE')}\n"
+    'DUMP_LOG="dump.log"\n'
+    f"{lift_function(LOCAL, 'take_dump')}\n"
+    "take_dump\n"
+)
+
+
+def test_the_copy_is_handed_the_read_only_login_s_file_and_the_database_s_name_alone() -> None:
+    """No development machine holds production's write login, so the copy reads `secrets/dump_mongodb_uri` and no environment file whole."""
+    code, output, fixture = _run(DUMP)
+    argv = fixture.argv.read_text(encoding="utf-8").splitlines()
+
+    assert code == 0, output
+    assert "--env-file" not in argv, argv
+    assert argv[argv.index("-e") + 1] == "DB_BASE_NAME", argv
+    mounts = [argv[i + 1] for i, arg in enumerate(argv) if arg == "-v"]
+    assert [mount for mount in mounts if mount.endswith(":/run/secrets/dump_mongodb_uri:ro")], mounts
+    assert not [mount for mount in mounts if "/secrets:" in mount or ".env" in mount], mounts

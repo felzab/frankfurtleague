@@ -25,9 +25,9 @@ x-logging: &default-logging
 
 services:
   frontend:
-    # The package's own file, then the checkout root's, which holds once the names both services must
-    # hold equal (`docs/ops/spec.md :: I429`). The deploy's readers join the two in this order
-    # (`scripts/ops/deploy.sh :: ENV_UNION_BUILD`).
+    # The package's own file, then the checkout root's, which holds the internal keys an image from
+    # before the secret files reads, or nothing (`docs/ops/spec.md :: I429`). The deploy's readers
+    # join the two in this order (`scripts/ops/deploy.sh :: ENV_UNION_BUILD`).
     env_file:
       - ./fl_frontend/.env
       - ./.env
@@ -36,10 +36,22 @@ services:
     # `:sha-<commit>` instead. Both packages are public, so neither pull needs credentials.
     image: ghcr.io/felzab/frankfurtleague-frontend:latest
     restart: unless-stopped
-    # The actor token's signing key, handed over as the connector's credential is, to this service
-    # alone: a holder of it mints any actor the backend trusts (`docs/ops/spec.md :: I472`).
+    # The signing key is this service's alone: a holder of it mints any actor the backend trusts
+    # (`docs/ops/spec.md :: I472`).
     secrets:
       - fl_actor_signing_key
+      - frontend_mongodb_uri
+      - auth_secret
+      - auth_resend_key
+      - resend_webhook_secret
+      - internal_api_key_base
+      - internal_api_key_system
+      - internal_api_key_admin
+    # The group owning the three internal keys, which the backend's user reads too: compose hands a
+    # file secret over with the host file's owner and mode and ignores `uid`, `gid` and `mode`
+    # (`docs/ops/spec.md` §1.2).
+    group_add:
+      - "1003"
     networks:
       - frankfurtleague-app
     logging: *default-logging
@@ -81,6 +93,15 @@ services:
       - ./.env
     image: ghcr.io/felzab/frankfurtleague-backend:latest
     restart: unless-stopped
+    # The frontend's reason, and its group for the three internal keys.
+    secrets:
+      - backend_mongodb_uri
+      - sperrliste_schluessel
+      - internal_api_key_base
+      - internal_api_key_system
+      - internal_api_key_admin
+    group_add:
+      - "1003"
     networks:
       - frankfurtleague-app
     logging: *default-logging
@@ -208,14 +229,32 @@ services:
     depends_on:
       - nginx
 
-# The connector's credential and the actor token's signing key, each a file the host provides, never
-# a value in this document. `.gitignore` already keeps `secrets/` uncommittable, and `deploy.sh`'s
-# preflight refuses the deploy by name where either file is missing.
+# Each a file the host provides, never a variable: `docker inspect` prints an environment and never a
+# mount's contents. One name on the host, at `/run/secrets/` and in development, so the two database
+# logins take two (`docs/ops/spec.md :: I492`).
 secrets:
   tunnel_token:
     file: ./secrets/tunnel_token
   fl_actor_signing_key:
     file: ./secrets/fl_actor_signing_key
+  frontend_mongodb_uri:
+    file: ./secrets/frontend_mongodb_uri
+  backend_mongodb_uri:
+    file: ./secrets/backend_mongodb_uri
+  auth_secret:
+    file: ./secrets/auth_secret
+  auth_resend_key:
+    file: ./secrets/auth_resend_key
+  resend_webhook_secret:
+    file: ./secrets/resend_webhook_secret
+  sperrliste_schluessel:
+    file: ./secrets/sperrliste_schluessel
+  internal_api_key_base:
+    file: ./secrets/internal_api_key_base
+  internal_api_key_system:
+    file: ./secrets/internal_api_key_system
+  internal_api_key_admin:
+    file: ./secrets/internal_api_key_admin
 
 # Two user-defined bridges, joined by nginx alone (`docs/ops/spec.md :: I471`). Containers resolve each
 # other by service name on a network they share -- `http://backend:8000` and `http://frontend:3000` in

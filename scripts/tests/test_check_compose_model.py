@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Final
 
 import pytest
-from conftest import BASH, base_env, import_scripts, new_root, run_shell, write_shell
+from conftest import BASH, base_env, import_scripts, lift_assignment, new_root, run_shell, write_shell
 
 [checker] = import_scripts("check_compose_model")
 
@@ -330,16 +330,21 @@ def env_file(*paths: str) -> dict[str, Any]:
 
 
 def rendered_stack(project: Path, conf_dir: str, **extra: dict[str, Any]) -> dict[str, Any]:
-    """A stack as the gate renders it beside `project`, its edge mounting `conf_dir` and `nginx/shared` of this checkout."""
+    """A stack as the gate renders it beside `project`, its edge mounting `conf_dir` and `nginx/shared` of this checkout.
+
+    `nginx/local` is the local stack's edge, and the stack's secrets follow from it.
+    """
+    stack_name = "local" if conf_dir == "nginx/local" else "production"
     edge_volumes = [
         {"type": "bind", "source": str(project / conf_dir), "target": "/etc/nginx/conf.d"},
         {"type": "bind", "source": str(project / "nginx/shared"), "target": "/etc/nginx/shared"},
     ]
     nginx = {"volumes": edge_volumes, "command": LISTENING, "tmpfs": ["/run/nginx-control:mode=700"], **joined(EDGE, APP)}
-    frontend = env_file("fl_frontend/.env", ".env") | joined(APP) | HOLDS_THE_KEY
+    frontend = env_file("fl_frontend/.env", ".env") | joined(APP)
     backend = env_file("fl_backend/.env", ".env") | joined(APP)
     stack = {"nginx": nginx, "frontend": frontend, "backend": backend, **extra}
-    return model(**{service: definition | hardened(service) for service, definition in stack.items()}) | declared_key(project)
+    rendered = {service: definition | hardened(service) | holding(stack_name, service) for service, definition in stack.items()}
+    return model(**rendered) | declared_secrets(project, stack_name)
 
 
 def hardened(service: str) -> dict[str, Any]:
@@ -348,12 +353,16 @@ def hardened(service: str) -> dict[str, Any]:
     return {"cap_drop": ["ALL"], "security_opt": ["no-new-privileges:true"]} | ({"cap_add": added} if added else {})
 
 
-# A service's secret as Compose renders the short syntax, and the top-level entry it names.
-HOLDS_THE_KEY: Final = {"secrets": [{"source": checker.SIGNING_KEY}]}
+def holding(stack: str, service: str) -> dict[str, Any]:
+    """A service's secrets as Compose renders the short syntax: each one `SECRET_HOLDERS` gives it."""
+    held = [{"source": secret} for secret, (holders, _) in sorted(checker.SECRET_HOLDERS[stack].items()) if service in holders]
+    return {"secrets": held} if held else {}
 
 
-def declared_key(project: Path, rel: str = checker.SIGNING_KEY_FILE) -> dict[str, Any]:
-    return {"secrets": {checker.SIGNING_KEY: {"file": str(project / rel)}}}
+def declared_secrets(project: Path, stack: str, **moved: str) -> dict[str, Any]:
+    """The top-level `secrets` as Compose renders them, each file absolute under `project`; `moved` re-points one."""
+    files: dict[str, str] = {secret: str(source) for secret, (_, source) in checker.SECRET_HOLDERS[stack].items()} | moved
+    return {"secrets": {secret: {"file": str(project / source)} for secret, source in files.items()}}
 
 
 def run_main(production: dict[str, Any], local: dict[str, Any], project: Path) -> tuple[int, str]:
@@ -531,7 +540,9 @@ def test_every_service_dropping_all_and_the_edge_adding_its_four_is_clean():
     assert checker.privileges(PRIVILEGED, "p") == []
 
 
-@pytest.mark.parametrize("spelled", [["cap_chown", "Cap_SetUid", "SETGID", "dac_override"], ["CAP_CHOWN", "CAP_SETUID", "CAP_SETGID", "CAP_DAC_OVERRIDE"]])
+@pytest.mark.parametrize(
+    "spelled", [["cap_chown", "Cap_SetUid", "SETGID", "dac_override"], ["CAP_CHOWN", "CAP_SETUID", "CAP_SETGID", "CAP_DAC_OVERRIDE"]]
+)
 def test_a_capability_spelled_as_docker_also_accepts_it_is_the_same_capability(spelled: list[str]):
     """Docker takes a name in any case and with or without `CAP_`, so a spelling alone is no finding."""
     rendered = model(**PRIVILEGED["services"] | {"nginx": hardened("nginx") | {"cap_add": spelled}})
@@ -542,7 +553,9 @@ def test_a_capability_spelled_as_docker_also_accepts_it_is_the_same_capability(s
 @pytest.mark.parametrize(
     ("service", "changed", "said"),
     [
-        pytest.param("nginx", {"cap_add": ["CHOWN", "SETUID", "SETGID", "DAC_OVERRIDE", "NET_RAW"]}, "nginx adds back", id="edge-keeps-net-raw"),
+        pytest.param(
+            "nginx", {"cap_add": ["CHOWN", "SETUID", "SETGID", "DAC_OVERRIDE", "NET_RAW"]}, "nginx adds back", id="edge-keeps-net-raw"
+        ),
         pytest.param("nginx", {"cap_drop": []}, "nginx drops nothing", id="edge-drops-nothing"),
         pytest.param("frontend", {"cap_add": ["NET_BIND_SERVICE"]}, "frontend adds back", id="frontend-adds-one"),
         pytest.param("backend", {"cap_drop": ["NET_RAW"]}, "backend drops ['NET_RAW'], not ALL", id="backend-drops-one"),
@@ -572,63 +585,170 @@ def test_main_judges_the_privileges_of_both_models():
         assert f"{broken}: nginx adds back ['ALL']" in said, said
 
 
-# --- the actor token's signing key ----------------------------------------------------------------------
+# --- which service holds which secret ---------------------------------------------------------------
 
 RENDER: Final = Path("/render")
+KEY: Final = "fl_actor_signing_key"
 
 
-def test_the_frontend_alone_holding_the_key_from_the_checkouts_file_is_clean():
-    assert checker.signing_key(model(frontend=HOLDS_THE_KEY, backend={}) | declared_key(RENDER), "p", RENDER) == []
+def stack_of(stack: str, **services: dict[str, Any]) -> dict[str, Any]:
+    """Every service of `stack` holding what the table gives it, `services` merged over them."""
+    names = {service for holders, _ in checker.SECRET_HOLDERS[stack].values() for service in holders}
+    held = {service: holding(stack, service) for service in names}
+    return model(**(held | services)) | declared_secrets(RENDER, stack)
 
 
-@pytest.mark.parametrize("target", [checker.SIGNING_KEY, checker.SIGNING_KEY_TARGET], ids=["relative", "absolute"])
+@pytest.mark.parametrize("stack", ["production", "local"])
+def test_each_stack_holding_exactly_its_table_is_clean(stack: str):
+    assert checker.secret_holders(stack_of(stack), "p", RENDER, stack) == []
+
+
+@pytest.mark.parametrize("target", [KEY, f"/run/secrets/{KEY}"], ids=["relative", "absolute"])
 def test_a_target_naming_the_default_path_either_way_is_clean(target: str):
-    held = {"secrets": [{"source": checker.SIGNING_KEY, "target": target}]}
+    frontend = holding("production", "frontend")["secrets"]
+    moved = [entry | {"target": target} if entry["source"] == KEY else entry for entry in frontend]
 
-    assert checker.signing_key(model(frontend=held) | declared_key(RENDER), "p", RENDER) == []
+    assert checker.secret_holders(stack_of("production", frontend={"secrets": moved}), "p", RENDER, "production") == []
 
 
 @pytest.mark.parametrize("holder", ["backend", "nginx", "cloudflared"])
-def test_a_second_holder_fails(holder: str):
+def test_a_second_holder_of_the_signing_key_fails(holder: str):
     """Whoever holds the key mints an actor the backend takes as the frontend's."""
-    found = checker.signing_key(model(frontend=HOLDS_THE_KEY, **{holder: HOLDS_THE_KEY}) | declared_key(RENDER), "p", RENDER)
+    rendered = stack_of("production")
+    rendered["services"][holder] = {"secrets": [*(rendered["services"].get(holder) or {}).get("secrets", []), {"source": KEY}]}
 
-    assert len(found) == 1
-    assert holder in found[0].detail
+    found = checker.secret_holders(rendered, "p", RENDER, "production")
 
-
-def test_a_frontend_without_the_key_fails():
-    """Its boot gate would refuse after the recreate, behind an edge answering 502."""
-    assert len(checker.signing_key(model(frontend={}) | declared_key(RENDER), "p", RENDER)) == 1
+    assert len(found) == 1, found
+    assert f"'{holder}'" in found[0].detail and KEY in found[0].detail, found
 
 
-def test_the_key_mounted_elsewhere_fails():
-    """The frontend's config reads the default path, so a key mounted anywhere else is no key to it."""
-    held = {"secrets": [{"source": checker.SIGNING_KEY, "target": "/etc/key"}]}
+@pytest.mark.parametrize(
+    ("secret", "service"),
+    [(KEY, "frontend"), ("auth_resend_key", "frontend"), ("internal_api_key_admin", "backend"), ("tunnel_token", "cloudflared")],
+)
+def test_a_reader_left_without_its_secret_fails(secret: str, service: str):
+    """Its boot refuses after the recreate, behind an edge answering 502; a shared key missing on one side refuses every call."""
+    rendered = stack_of("production")
+    kept = [entry for entry in rendered["services"][service]["secrets"] if entry["source"] != secret]
+    rendered["services"][service] = {"secrets": kept}
 
-    assert len(checker.signing_key(model(frontend=held) | declared_key(RENDER), "p", RENDER)) == 1
+    found = checker.secret_holders(rendered, "p", RENDER, "production")
+
+    assert len(found) == 1 and f"holds {secret}" in found[0].detail, found
 
 
-def test_the_key_read_from_another_file_fails():
-    """The preflight judges `secrets/fl_actor_signing_key`, so another source is a file nothing checked."""
-    found = checker.signing_key(model(frontend=HOLDS_THE_KEY) | declared_key(RENDER, "keys/signing.pem"), "p", RENDER)
+def test_a_secret_mounted_elsewhere_fails():
+    """Each reader takes the default path, so a file mounted anywhere else is no file to it."""
+    rendered = stack_of("production")
+    rendered["services"]["backend"]["secrets"] = [
+        entry | {"target": "/etc/key"} if entry["source"] == "sperrliste_schluessel" else entry
+        for entry in rendered["services"]["backend"]["secrets"]
+    ]
 
-    assert len(found) == 1
-    assert "keys/signing.pem" in found[0].detail
+    found = checker.secret_holders(rendered, "p", RENDER, "production")
+
+    assert len(found) == 1 and "/etc/key" in found[0].detail, found
 
 
-def test_the_key_file_under_a_second_secret_name_fails_and_counts_its_holder():
+def test_a_secret_read_from_another_file_fails():
+    """The preflight judges `secrets/<name>`, so another source is a file nothing checked."""
+    rendered = stack_of("production") | declared_secrets(RENDER, "production", **{KEY: "keys/signing.pem"})
+
+    found = checker.secret_holders(rendered, "p", RENDER, "production")
+
+    assert len(found) == 1 and "keys/signing.pem" in found[0].detail, found
+
+
+def test_the_local_stack_reading_a_database_login_from_secrets_fails():
+    """The stack's URI is the tracked one, so no development machine holds production's login to point it at."""
+    rendered = stack_of("local") | declared_secrets(RENDER, "local", backend_mongodb_uri="secrets/backend_mongodb_uri")
+
+    found = checker.secret_holders(rendered, "p", RENDER, "local")
+
+    assert len(found) == 1 and checker.LOCAL_DATABASE_URI in found[0].detail, found
+
+
+def test_a_secret_the_table_lists_left_undeclared_fails():
+    rendered = stack_of("production")
+    del rendered["secrets"]["resend_webhook_secret"]
+
+    found = checker.secret_holders(rendered, "p", RENDER, "production")
+
+    assert len(found) == 1 and "resend_webhook_secret is not declared" in found[0].detail, found
+
+
+def test_the_key_file_under_a_second_secret_name_fails():
     """An alias is the key by another name: every check keyed on the name would pass its holder by."""
-    aliased = declared_key(RENDER) | {
-        "secrets": {
-            checker.SIGNING_KEY: {"file": str(RENDER / checker.SIGNING_KEY_FILE)},
-            "copy": {"file": str(RENDER / checker.SIGNING_KEY_FILE)},
-        }
-    }
-    found = checker.signing_key(model(frontend=HOLDS_THE_KEY, backend={"secrets": [{"source": "copy"}]}) | aliased, "p", RENDER)
+    rendered = stack_of("production", backend={"secrets": [*holding("production", "backend")["secrets"], {"source": "copy"}]})
+    rendered["secrets"]["copy"] = {"file": str(RENDER / "secrets" / KEY)}
 
-    assert any("the secret copy is read from" in finding.detail for finding in found), found
-    assert any("['backend', 'frontend'] holds" in finding.detail for finding in found), found
+    found = checker.secret_holders(rendered, "p", RENDER, "production")
+
+    assert [finding.detail.split("\n")[0] for finding in found] == [
+        "p: the secret copy is declared and SECRET_HOLDERS lists no such secret (I492)"
+    ]
+
+
+def test_main_judges_the_secret_holders_of_both_models():
+    project = new_root("fl-compose-main-key-")
+    for broken in ("production", "local"):
+        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
+        local = rendered_stack(project, "nginx/local")
+        ({"production": production, "local": local}[broken])["services"]["backend"]["secrets"].append({"source": KEY})
+
+        code, said = run_main(production, local, project)
+
+        assert code == 1, said
+        assert f"{broken}: ['backend', 'frontend'] holds {KEY}" in said, said
+
+
+def test_the_preflights_lists_are_the_tables():
+    """`_lib.sh`'s readers check the files each container is handed, so a list apart from compose's checks the wrong set."""
+    lib = Path(__file__).resolve().parents[1] / "lib" / "_lib.sh"
+
+    def listed(name: str) -> set[str]:
+        return set(lift_assignment(lib, name).split("=", 1)[1].strip("()").split())
+
+    def read_by(stack: str, service: str) -> set[str]:
+        return {secret for secret, (holders, _) in checker.SECRET_HOLDERS[stack].items() if service in holders} - {KEY}
+
+    assert listed("FRONTEND_SECRETS") == read_by("production", "frontend")
+    assert listed("BACKEND_SECRETS") == read_by("production", "backend") == read_by("local", "backend")
+    assert listed("LOCAL_FRONTEND_SECRETS") == read_by("local", "frontend")
+    assert listed("MOVED_ENV_NAMES") == checker.MOVED_ENV_NAMES
+
+
+# --- the names the secret files replace ----------------------------------------------------------------
+
+
+def test_the_stand_ins_alone_in_an_environment_are_clean():
+    rendered = model(
+        frontend=env_file("fl_frontend/.env", ".env"), backend=env_file("fl_backend/.env", ".env") | {"environment": {"LOG_FORMAT": "json"}}
+    )
+
+    assert checker.moved_names(rendered, "p") == []
+
+
+@pytest.mark.parametrize("variable", ["MONGODB_URI", "mongodb_uri", "INTERNAL_API_KEY_ADMIN", "AUTH_SECRET"])
+def test_a_moved_name_in_an_environment_fails_in_any_case(variable: str):
+    """The backend folds case, so the lower-cased copy is the credential again."""
+    found = checker.moved_names(model(backend={"environment": {variable: "x"}}), "p")
+
+    assert len(found) == 1 and f"p: backend is handed {variable}" in found[0].detail, found
+
+
+def test_main_judges_the_moved_names_of_both_models():
+    project = new_root("fl-compose-main-moved-")
+    for broken in ("production", "local"):
+        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
+        local = rendered_stack(project, "nginx/local")
+        ({"production": production, "local": local}[broken])["services"]["frontend"]["environment"]["MONGODB_URI"] = "x"
+
+        code, said = run_main(production, local, project)
+
+        assert code == 1, said
+        assert f"{broken}: frontend is handed MONGODB_URI" in said, said
 
 
 def _bound(source: Path, target: str = "/mnt/x") -> dict[str, Any]:
@@ -639,7 +759,7 @@ def _bound(source: Path, target: str = "/mnt/x") -> dict[str, Any]:
     ("service", "source"),
     [
         pytest.param("backend", RENDER / "secrets", id="the-directory-into-the-backend"),
-        pytest.param("nginx", RENDER / checker.SIGNING_KEY_FILE, id="the-key-file-into-the-edge"),
+        pytest.param("nginx", RENDER / "secrets" / KEY, id="the-key-file-into-the-edge"),
         pytest.param("backend", RENDER, id="the-checkout-holding-it"),
         pytest.param("frontend", RENDER / "secrets", id="the-directory-into-the-frontend-beside-its-secret"),
     ],
@@ -666,7 +786,7 @@ def test_a_bind_mount_beside_the_secrets_directory_and_a_named_volume_are_clean(
 
 def test_a_config_read_from_the_secrets_directory_fails():
     """A config mounts its file into whichever service names it, so it is a bind by another spelling."""
-    configs = {"configs": {"leak": {"file": str(RENDER / checker.SIGNING_KEY_FILE)}}}
+    configs = {"configs": {"leak": {"file": str(RENDER / "secrets" / KEY)}}}
 
     assert len(checker.secrets_directory(model() | configs, "p", RENDER)) == 1
 
@@ -682,19 +802,6 @@ def test_main_judges_the_secrets_directory_of_both_models():
 
         assert code == 1, said
         assert f"{broken}: backend bind-mounts" in said, said
-
-
-def test_main_judges_the_signing_key_of_both_models():
-    project = new_root("fl-compose-main-key-")
-    for broken in ("production", "local"):
-        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
-        local = rendered_stack(project, "nginx/local")
-        ({"production": production, "local": local}[broken])["services"]["backend"] |= HOLDS_THE_KEY
-
-        code, said = run_main(production, local, project)
-
-        assert code == 1, said
-        assert f"{broken}: ['backend', 'frontend'] holds" in said, said
 
 
 # --- the models the gate and the edge test render --------------------------------------------------------
