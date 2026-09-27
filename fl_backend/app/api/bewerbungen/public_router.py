@@ -43,7 +43,7 @@ from app.api.bewerbungen.services import (
     season_has_ended,
 )
 from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import address_is_gesperrt
+from app.api.sperrliste.crud import gesperrte_hashes
 from app.api.sperrliste.services import adresse_hash
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
@@ -262,15 +262,13 @@ async def get_trikotfarben(
 async def _any_gesperrt(
     *, sperrliste_collection: AsyncCollection, gehasht: Sequence[str], massgebliche_saison_id: str | None, session: AsyncClientSession
 ) -> bool:
-    """Whether the ban list holds any of the seats' addresses, asked in the caller's transaction."""
+    """Whether the ban list holds any of the seats' addresses, asked in the caller's transaction in one read."""
 
-    for adresse in gehasht:
-        if await address_is_gesperrt(
-            sperrliste_collection=sperrliste_collection, adresse_hash=adresse, massgebliche_saison_id=massgebliche_saison_id, session=session
-        ):
-            return True
-
-    return False
+    return bool(
+        await gesperrte_hashes(
+            sperrliste_collection=sperrliste_collection, adresse_hashes=gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session
+        )
+    )
 
 
 async def _answer_as_the_first(

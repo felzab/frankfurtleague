@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.results import InsertOneResult
 
-from app.api.berechtigungen.crud import gesperrte_adressen, pull_the_list_to_judge, read_berechtigungen
+from app.api.berechtigungen.crud import pull_the_list_to_judge, read_berechtigungen
 from app.api.berechtigungen.schemas import (
     FLBerechtigung,
     FLBerechtigungenListResponse,
@@ -30,7 +30,7 @@ from app.api.berechtigungen.services import (
     withheld_actor,
 )
 from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import address_is_gesperrt
+from app.api.sperrliste.crud import address_is_gesperrt, gesperrte_adressen
 from app.api.sperrliste.services import adresse_hash
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import delete_many_from_db, erase_many_from_db, post_one_to_db, pull_many_from_db, refuse
@@ -81,9 +81,8 @@ async def get_berechtigungen(
     barred = await gesperrte_adressen(
         [grant.adresse for grant in grants] + [sign_in_identifier(grant.erteilt_von) for grant in grants],
         sperrliste_collection=sperrliste_collection,
-        saisons_collection=saisons_collection,
         schluessel=config.sperrliste_schluessel,
-        session=None,
+        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection),
     )
 
     served = []
@@ -236,8 +235,8 @@ async def delete_berechtigung(
         barred = await gesperrte_adressen(
             [str(row["adresse"]) for row in live],
             sperrliste_collection=sperrliste_collection,
-            saisons_collection=saisons_collection,
             schluessel=config.sperrliste_schluessel,
+            massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection, session=session),
             session=session,
         )
         remaining = [row for row in live if row["_id"] != berechtigung_id and row["adresse"] not in barred]

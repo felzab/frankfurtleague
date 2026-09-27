@@ -45,8 +45,7 @@ from app.api.bewerbungen.services import (
 )
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import gesperrte_hashes
-from app.api.sperrliste.services import stored_adresse_hash
+from app.api.sperrliste.crud import gesperrte_adressen
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import erase_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
@@ -296,12 +295,10 @@ async def sweep_saison(
             )
             for row, seats in taken
         ]
-        hashed = {
-            email: stored_adresse_hash(email, schluessel=config.sperrliste_schluessel) for _, per_mailbox in per_row for email, _ in per_mailbox
-        }
-        gesperrt = await gesperrte_hashes(
+        gesperrt = await gesperrte_adressen(
+            [email for _, per_mailbox in per_row for email, _ in per_mailbox],
             sperrliste_collection=sperrliste_collection,
-            adresse_hashes=[gehasht for gehasht in hashed.values() if gehasht is not None],
+            schluessel=config.sperrliste_schluessel,
             massgebliche_saison_id=massgebliche_saison_id,
             session=session,
         )
@@ -309,8 +306,8 @@ async def sweep_saison(
         erinnerungen: list[FLBewerbungSweepErinnerung] = []
         withheld: list[tuple[Any, list[str]]] = []
         for row, all_mailboxes in per_row:
-            per_mailbox = [(email, gruppen) for email, gruppen in all_mailboxes if hashed[email] not in gesperrt]
-            gesperrte_sitze = [seat for email, gruppen in all_mailboxes if hashed[email] in gesperrt for gruppe in gruppen for seat in gruppe]
+            per_mailbox = [(email, gruppen) for email, gruppen in all_mailboxes if email not in gesperrt]
+            gesperrte_sitze = [seat for email, gruppen in all_mailboxes if email in gesperrt for gruppe in gruppen for seat in gruppe]
             gruppen_alle = [gruppe for _, gruppen in per_mailbox for gruppe in gruppen]
             # Minted per LINK rather than per seat: a token for a seat riding another's link is a
             # credential nobody is sent, live on the wire and in the document until the deadline.

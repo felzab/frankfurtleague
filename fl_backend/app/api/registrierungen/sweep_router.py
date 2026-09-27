@@ -26,8 +26,7 @@ from app.api.registrierungen.services import (
 )
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import gesperrte_hashes
-from app.api.sperrliste.services import stored_adresse_hash
+from app.api.sperrliste.crud import gesperrte_adressen
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import erase_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
@@ -274,12 +273,10 @@ async def sweep_registrierungen(
         taken = [row for row in rows if erinnerung_is_due(registrierung_raw=row, today=today)][:REMINDERS_PER_PASS]
         refuse_a_stalled_page(read=len(rows), moved=len(taken), page=SWEEP_PAGE, clock="reminder", saison_id=saison_id)
         team_names = await _team_names(teams_collection=teams_collection, rows=taken, session=session)
-        hashed = {
-            row["_id"]: stored_adresse_hash(str(row["email"]), schluessel=config.sperrliste_schluessel) for row in taken if row.get("email")
-        }
-        gesperrt = await gesperrte_hashes(
+        gesperrt = await gesperrte_adressen(
+            [str(row["email"]) for row in taken if row.get("email")],
             sperrliste_collection=sperrliste_collection,
-            adresse_hashes=[gehasht for gehasht in hashed.values() if gehasht is not None],
+            schluessel=config.sperrliste_schluessel,
             massgebliche_saison_id=massgebliche_saison_id,
             session=session,
         )
@@ -287,7 +284,7 @@ async def sweep_registrierungen(
         erinnerungen: list[FLRegistrierungSweepErinnerung] = []
         withheld: list[Any] = []
         for row in taken:
-            if hashed.get(row["_id"]) in gesperrt:
+            if row.get("email") and str(row["email"]) in gesperrt:
                 await patch_one_in_db(
                     collection=registrierungen_collection,
                     db_filter={"_id": row["_id"]},

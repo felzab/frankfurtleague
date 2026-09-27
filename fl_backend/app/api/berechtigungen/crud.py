@@ -5,7 +5,7 @@ The anchor lives here beside the read it protects, so no caller can judge the li
 every row of it (`docs/backend/spec.md :: I53`).
 """
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
@@ -17,8 +17,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.berechtigungen.schemas import FLVerwaltung
 from app.api.berechtigungen.services import lebendige_adresse
 from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import gesperrte_hashes
-from app.api.sperrliste.services import stored_adresse_hash
+from app.api.sperrliste.crud import gesperrte_adressen
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_from_db
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -88,7 +87,10 @@ async def holds_a_live_unbarred_grant(
         return False
 
     return not await gesperrte_adressen(
-        [identifier], sperrliste_collection=sperrliste_collection, saisons_collection=saisons_collection, schluessel=schluessel, session=None
+        [identifier],
+        sperrliste_collection=sperrliste_collection,
+        schluessel=schluessel,
+        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection),
     )
 
 
@@ -151,28 +153,3 @@ async def read_the_claimable(
         limit=LIST_LIMIT_DEFAULT,
         session=session,
     )
-
-
-async def gesperrte_adressen(
-    adressen: Iterable[str],
-    *,
-    sperrliste_collection: AsyncCollection,
-    saisons_collection: AsyncCollection,
-    schluessel: SecretStr,
-    session: AsyncClientSession | None,
-) -> set[str]:
-    """Which of these addresses the ban list bars, in one read, judged as a sign-up is; one no ban can key is barred by none."""
-
-    keyed = {adresse: stored_adresse_hash(adresse, schluessel=schluessel) for adresse in set(adressen)}
-    hashes = {adresse: gehasht for adresse, gehasht in keyed.items() if gehasht is not None}
-    if not hashes:
-        return set()
-
-    barred = await gesperrte_hashes(
-        sperrliste_collection=sperrliste_collection,
-        adresse_hashes=hashes.values(),
-        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection=saisons_collection, session=session),
-        session=session,
-    )
-
-    return {adresse for adresse, gehasht in hashes.items() if gehasht in barred}

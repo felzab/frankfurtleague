@@ -9,10 +9,12 @@ The router opens the collection and the client; what it does not do is compose a
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from pydantic import SecretStr
 from pymongo import DESCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.sperrliste.services import stored_adresse_hash
 from app.core.crud import aggregate_many_from_db, pull_many_from_db
 
 # What a served row may hold BEYOND `_id`, which the projection keeps unless something drops it. An
@@ -116,6 +118,31 @@ async def gesperrte_hashes(
     )
 
     return {str(row["adresse_hash"]) for row in found}
+
+
+async def gesperrte_adressen(
+    adressen: Iterable[str],
+    *,
+    sperrliste_collection: AsyncCollection,
+    schluessel: SecretStr,
+    massgebliche_saison_id: str | None,
+    session: AsyncClientSession | None = None,
+) -> set[str]:
+    """Which of these stored addresses a standing ban holds, in `gesperrte_hashes`' one read.
+
+    One today's rule refuses is barred by none, as no ban can key it
+    (`app/api/sperrliste/services.py :: stored_adresse_hash`).
+    """
+
+    hashes = {adresse: gehasht for adresse in set(adressen) if (gehasht := stored_adresse_hash(adresse, schluessel=schluessel)) is not None}
+    barred = await gesperrte_hashes(
+        sperrliste_collection=sperrliste_collection,
+        adresse_hashes=hashes.values(),
+        massgebliche_saison_id=massgebliche_saison_id,
+        session=session,
+    )
+
+    return {adresse for adresse, gehasht in hashes.items() if gehasht in barred}
 
 
 def _standing(massgebliche_saison_id: str | None) -> Mapping[str, Any]:

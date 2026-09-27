@@ -7,7 +7,6 @@ from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.berechtigungen.crud import (
-    gesperrte_adressen,
     pull_the_list_to_judge,
     read_berechtigungen,
     read_the_announced,
@@ -29,6 +28,8 @@ from app.api.berechtigungen.services import (
     withheld,
     withheld_actor,
 )
+from app.api.saisons.crud import pull_massgebliche_saison_id
+from app.api.sperrliste.crud import gesperrte_adressen
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import erase_many_from_db, patch_many_in_db, post_many_to_db, pull_many_from_db
 from app.core.dependencies import (
@@ -105,11 +106,12 @@ async def post_berechtigungen_abgleich(
         stored = {str(row["adresse"]) for row in live} | {
             stand.adresse for _, _, jetzt, vorher in changes for stand in (jetzt, vorher) if stand is not None and stand.adresse is not None
         }
+        massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection, session=session)
         barred = await gesperrte_adressen(
             stored,
             sperrliste_collection=sperrliste_collection,
-            saisons_collection=saisons_collection,
             schluessel=config.sperrliste_schluessel,
+            massgebliche_saison_id=massgebliche_saison_id,
             session=session,
         )
 
@@ -164,8 +166,8 @@ async def post_berechtigungen_abgleich(
         barred |= await gesperrte_adressen(
             claimed_addresses - stored,
             sperrliste_collection=sperrliste_collection,
-            saisons_collection=saisons_collection,
             schluessel=config.sperrliste_schluessel,
+            massgebliche_saison_id=massgebliche_saison_id,
             session=session,
         )
 
