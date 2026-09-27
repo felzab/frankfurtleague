@@ -686,7 +686,7 @@ def test_the_key_file_under_a_second_secret_name_fails():
     found = checker.secret_holders(rendered, "p", RENDER, "production")
 
     assert [finding.detail.split("\n")[0] for finding in found] == [
-        "p: the secret copy is declared and SECRET_HOLDERS lists no such secret (I492)"
+        "p: the secret copy is declared and SECRET_HOLDERS lists no such secret (I506)"
     ]
 
 

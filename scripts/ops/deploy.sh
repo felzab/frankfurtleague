@@ -1083,7 +1083,7 @@ check_actor_key "NOTHING has been recreated, and the site is untouched." \
 
 step "The secret files, read by the containers about to run"
 # Each service's own container, for the key check's reason: only it runs as the user, and in the
-# group, the files are handed over to (`docs/ops/spec.md :: I494`).
+# group, the files are handed over to (`docs/ops/spec.md :: I508`).
 check_secret_files "NOTHING has been recreated, and the site is untouched." frontend FRONTEND_SECRETS \
   docker compose -f "$COMPOSE" run --rm --no-deps -T
 check_secret_files "NOTHING has been recreated, and the site is untouched." backend BACKEND_SECRETS \

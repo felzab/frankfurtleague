@@ -911,7 +911,7 @@ nothing here says whether the frontend can sign with it or the backend verify it
 # --- The secret files ---------------------------------------------------------------------------------
 
 # What each application service reads under its secrets directory, named alike under `secrets/`
-# (`docs/ops/spec.md :: I492`) and held to `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`.
+# (`docs/ops/spec.md :: I506`) and held to `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`.
 # The signing key and the tunnel token have checks of their own.
 
 # shellcheck disable=SC2034  # read by name, through `check_secret_files`
