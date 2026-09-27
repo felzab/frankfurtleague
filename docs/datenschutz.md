@@ -327,7 +327,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   other administrators were told of it, and every administrator is served both addresses. The outbox
   `berechtigungen_postausgang` holds a changed grant's address, and the acting administrator's,
   until a pass has mailed it, and no barred address at all: a ban withholds it in every row still
-  queued (`docs/backend/spec.md :: I455`). Each change is mailed to every holder and to the address
+  queued (`docs/backend/spec.md :: I461`). Each change is mailed to every holder and to the address
   it names, carrying that address and the administrator who made it; a barred address it names by
   its state alone (`docs/frontend/spec.md :: I455`). A revoke removes the grant and its announced row
   at once (`docs/backend/spec.md :: I451`); the log keeps each removed row's image, the address in it, for

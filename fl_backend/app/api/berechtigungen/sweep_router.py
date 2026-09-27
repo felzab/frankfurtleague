@@ -86,7 +86,7 @@ async def post_berechtigungen_abgleich(
         """Read the grants, the record and the ban list, queue what differs, then claim, each on this transaction's session."""
 
         # Anchored, so a ban withholding pending rows and this claim queueing new ones never both
-        # commit unseen by the other (`docs/backend/spec.md :: I455`).
+        # commit unseen by the other (`docs/backend/spec.md :: I461`).
         grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
         live = lebendige(grants)
         announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)

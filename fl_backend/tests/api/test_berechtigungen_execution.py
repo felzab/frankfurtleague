@@ -870,7 +870,7 @@ class TestTheClaim:
         assert NEU not in answer.model_dump_json()
 
     def test_a_ban_withholds_the_address_past_one_page_of_queued_notices(self, mongo_replica_set_url: str):
-        """More notices name the address than one read returns, and none keeps it (`docs/backend/spec.md :: I455`)."""
+        """More notices name the address than one read returns, and none keeps it (`docs/backend/spec.md :: I461`)."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Mapping[str, Any]]:
             await told(database, client)
@@ -961,7 +961,7 @@ class TestTheMountedRouteReadsTheGrants:
         assert on_a_league(mongo_replica_set_url, body) == [200, 200, 403]
 
     def test_a_barred_grant_holder_is_no_administrator(self, mongo_replica_set_url: str):
-        """A barred holder holds no floor, so it acts on nothing either (`docs/backend/spec.md :: I456`)."""
+        """A barred holder holds no floor, so it acts on nothing either (`docs/backend/spec.md :: I462`)."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[int]:
             async with app_client(mongo_replica_set_url, config=CONFIG) as http:

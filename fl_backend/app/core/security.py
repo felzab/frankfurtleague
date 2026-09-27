@@ -118,7 +118,7 @@ def get_grant_lookup(
     saisons_collection: Annotated[AsyncCollection, Depends(get_saisons_collection)],
     config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> GrantLookup:
-    """The actor check's read: a live grant, and no ban on its address (`docs/backend/spec.md :: I453`, `:: I456`)."""
+    """The actor check's read: a live grant, and no ban on its address (`docs/backend/spec.md :: I453`, `:: I462`)."""
 
     async def holds_a_live_grant(identifier: str) -> bool:
         return await holds_a_live_unbarred_grant(
@@ -153,7 +153,7 @@ async def verify_actor_is_admin(request: Request, holds_a_live_grant: Annotated[
 async def bind_actor(request: Request) -> AsyncIterator[None]:
     """Attribute this request's writes to their administrator, and refuse a request naming nobody.
 
-    Every method, a read included: the allowlist judges who asks off this header. At router level, so
+    Every method, a read included: the grant check judges who asks off this header. At router level, so
     a later operation cannot miss it (`docs/backend/spec.md :: I41`).
     """
 
