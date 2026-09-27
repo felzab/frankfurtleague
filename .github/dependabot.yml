@@ -112,11 +112,11 @@ updates:
   # (`docs/ops/spec.md :: I511`, `:: I513`).
 
   # No security update reaches this ecosystem, so a Node or Python security release waits for this
-  # schedule and its cooldown (`docs/ops/spec.md` §4).
+  # schedule and its cooldown: weekly, so two weeks at worst (`docs/ops/spec.md` §4).
   - package-ecosystem: docker
     directory: /fl_frontend
     schedule:
-      interval: monthly
+      interval: weekly
     cooldown:
       default-days: 7
     commit-message:
@@ -129,7 +129,7 @@ updates:
   - package-ecosystem: docker
     directory: /fl_backend
     schedule:
-      interval: monthly
+      interval: weekly
     cooldown:
       default-days: 7
     commit-message:
@@ -150,7 +150,7 @@ updates:
   - package-ecosystem: docker-compose
     directory: /
     schedule:
-      interval: monthly
+      interval: weekly
     cooldown:
       default-days: 7
     commit-message:
