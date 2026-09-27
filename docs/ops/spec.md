@@ -477,7 +477,8 @@ anything**, the compose files' `start_interval` being what needs it
 `fl_backend/.env` joined to the root's `.env`**, which is the only place those files are read as
 files rather than handed to a container as variables (`scripts/ops/deploy.sh :: check_env_names`):
 the two are joined in the order compose lists them, inside a tmpfs of a throwaway container, so
-the join is that container's whole environment and never reaches the host's disk. A name the
+the join is that container's whole environment and is never a file on the host, though a tmpfs's
+pages can be swapped like any process memory. A name the
 backend does not declare, a value it will not accept and a required variable both files omit all
 refuse the deploy at exit 2 with nothing recreated, and a check that could not be made is an
 advisory (I181, [`runbooks.md`](runbooks.md) §1). **Before either read, a name both a package file

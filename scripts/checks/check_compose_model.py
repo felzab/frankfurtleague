@@ -226,8 +226,8 @@ def connector_address(model: dict[str, Any], name: str) -> str:
 def edge_configuration(pairs: list[tuple[str, str]], checkout: Path) -> str:
     """Every file in the checkout directories an edge mounts, joined.
 
-    Read whole rather than from the file holding the trust today: `set_real_ip_from` is valid in a
-    server and a location too, and each one adds to the set.
+    Read whole: a server or a location may hold realip directives too, and its own replace the
+    ones inherited from http level (nginx's `ngx_http_realip_merge_loc_conf`).
     """
     directories = [checkout / source for source, _ in sorted(pairs) if (checkout / source).is_dir()]
     return "\n".join(file.read_bytes().decode() for directory in directories for file in sorted(directory.iterdir()) if file.is_file())

@@ -247,7 +247,7 @@ def test_trust_in_the_shared_file_reaches_the_edge_mounting_it():
 
 
 def test_trust_an_entry_file_adds_beside_the_shared_one_fails():
-    """`set_real_ip_from` adds to the set wherever it is written, a server block included."""
+    """A server block's own `set_real_ip_from` replaces the shared list for that server, so any other address there is trusted."""
     widened = mounted("server {\n    set_real_ip_from 173.245.48.0/20;\n}\n", conf())
 
     assert len(checker.trusted_connector(checker.edge_configuration(PAIRS, widened), CONNECTOR, "c")) == 1

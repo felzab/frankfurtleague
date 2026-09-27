@@ -53,9 +53,9 @@ EDGE_IMAGE_SERVICES=(nginx cloudflared)
 # The file both application services list last in `docker-compose.yml`'s `env_file`, beside the
 # compose file: the names the two containers must hold equal, written once (`docs/ops/spec.md :: I429`).
 SHARED_ENV=".env"
-# Where a reader's throwaway container finds its service's two files, read-only, and the tmpfs it
-# joins them in, so the join never reaches the host's disk. A tmpfs takes Docker's default mode,
-# 1777, which the caller's uid can write.
+# A reader's two files, read-only, and the tmpfs it joins them in, so the join is never a file on
+# the host, though its pages can swap. A tmpfs takes Docker's default mode, 1777, which the
+# caller's uid can write.
 ENV_MOUNTS="/run/fl-env"
 ENV_UNION_DIR="/tmp"
 
