@@ -29,7 +29,6 @@ const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausge
  */
 const UNDO_TURNED_AWAY: Readonly<Record<Exclude<AdminRefusal, "signIn" | "unread">, string>> = {
   noGrant: `Deine Sitzung hat keine Administratorrechte. ${AENDERUNG_STEHT_WEITERHIN}`,
-  // GERMAN-PENDING: new German, not yet approved.
   grantGone: `${ZUGANG_WEG} ${AENDERUNG_STEHT_WEITERHIN}`,
 };
 
