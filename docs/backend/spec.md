@@ -543,7 +543,10 @@ is a Compose secret only the frontend mounts: the admin key names nobody, and an
 only as a token that key signed (I477). **The two halves move together**: one replaced alone
 answers every admin-tier request `REQ-AUTH-007`, its log line naming `unknown kid`, so a rotation
 replaces both and one deploy recreates both containers. A token lives a minute, so none outlives
-the deploy that retires its key.
+the deploy that retires its key. **It is also the variable a rollback past this release trips on**,
+as `ALLOWED_ADMIN_EMAILS` would be from the other side: an older backend image declares no such
+name and refuses to boot on a `fl_backend/.env` carrying it (`model_config`'s `extra="forbid"`,
+below), so that rollback takes the line out of the file first.
 
 **Who may act on the admin tier is stored rather than configured**: a grant in `berechtigungen`,
 read on every request (I383), so a grant or a revoke needs no redeploy. The frontend reads the same
