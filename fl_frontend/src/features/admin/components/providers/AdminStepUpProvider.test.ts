@@ -7,7 +7,7 @@ import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { exportingModule } from "@/core/exportingModule.ts";
@@ -57,6 +57,7 @@ doubleToasts();
 const { AdminStepUpProvider } = await import("./AdminStepUpProvider.tsx");
 const { AdminSperreAufhebenPanel } = await import("@/features/sperrliste/components/forms/AdminSperreAufhebenPanel.tsx");
 const { AdminBerechtigungEntziehenPanel } = await import("@/features/berechtigungen/components/forms/AdminBerechtigungEntziehenPanel.tsx");
+const { AdminCreateBerechtigungForm } = await import("@/features/berechtigungen/components/forms/AdminCreateBerechtigungForm.tsx");
 
 const RESTING = "Sperre vom 12.03.2026 aufheben";
 const ARMED = "Ja, Sperre vom 12.03.2026 endgültig aufheben";
@@ -270,6 +271,54 @@ describe("the narrow window a grant's revoke is held to", () => {
 
     await user.click(screen.getByRole("button", { name: "Zugang entziehen" }));
     assert.ok(await screen.findByRole("button", { name: "Ja, Zugang endgültig entziehen" }), "a revoke inside the window asked");
+    unmount();
+  });
+});
+
+describe("the narrow window a grant is held to", () => {
+  beforeEach(() => {
+    calls.length = 0;
+    prompts = 0;
+    promptAnswer = () => Promise.resolve({ data: {}, error: null });
+    heldBy = true;
+  });
+
+  const grantUnder = (confirmedUntil: number, enrolmentUntil: number) =>
+    underNext(
+      h(AdminStepUpProvider, {
+        served: { confirmedUntil, enrolmentUntil, inhaberId: "administrator" },
+        children: h(AdminCreateBerechtigungForm, { onClose: () => undefined }),
+      }),
+    );
+
+  /** Types an address and presses „Speichern“, answering once the grant has been sent. */
+  async function grant(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+    await user.type(screen.getByRole("textbox", { name: "E-Mail" }), "neu@schule.de");
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await waitFor(() => assert.deepEqual(writes(), ["postBerechtigungAction"]));
+  }
+
+  /* The form reads the window it declares, never the standing one: on the two hours alone, the server
+     would refuse the grant, the page refresh, and the form send it again without ever asking. */
+  it("asks for the passkey once the five minutes have passed, while the two hours still hold", async (t) => {
+    const user = userEvent.setup();
+    t.mock.timers.enable({ apis: ["Date"], now: 9_000_000 });
+    const { unmount } = render(grantUnder(9_000_000 + STEP_UP_WINDOW_MS, 9_000_000 - 1));
+
+    await grant(user);
+
+    assert.equal(prompts, 1, "the grant went out on the standing window alone");
+    unmount();
+  });
+
+  it("asks nothing inside the five minutes", async (t) => {
+    const user = userEvent.setup();
+    t.mock.timers.enable({ apis: ["Date"], now: 10_000_000 });
+    const { unmount } = render(grantUnder(10_000_000 + STEP_UP_WINDOW_MS, 10_000_000 + ENROLMENT_WINDOW_MS));
+
+    await grant(user);
+
+    assert.equal(prompts, 0);
     unmount();
   });
 });
