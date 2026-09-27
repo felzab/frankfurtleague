@@ -164,13 +164,15 @@ class TestTheRegisteredClaims:
             pytest.param("email", 7, "email is not a string", id="email a number"),
             pytest.param("sid", "", "sid is not a string", id="sid empty"),
             pytest.param("auth_time", True, "auth_time is not an integer", id="auth_time a boolean"),
-            pytest.param("exp", float(int(time.time()) + 30), "exp is not an integer", id="exp a float"),
+            # Stamped when the case runs, never at collection: a full tier outlasts the 30 seconds.
+            pytest.param("exp", lambda: float(int(time.time()) + 30), "exp is not an integer", id="exp a float"),
             pytest.param("amr", "passkey", "amr is not a list of factors", id="amr a string"),
             pytest.param("amr", [], "amr is not a list of factors", id="amr empty"),
             pytest.param("lane", "system", "unknown lane", id="an unknown lane"),
         ],
     )
     def test_a_claim_of_the_wrong_shape_is_refused(self, claim: str, value: Any, reason: str):
+        value = value() if callable(value) else value
         assert refusal(sign(claims(**{claim: value}))) == reason
 
 
