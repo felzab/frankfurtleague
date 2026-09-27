@@ -3,16 +3,10 @@ import { DATENSCHUTZ_STAND } from "@/features/meta/constants";
 
 import type { MetadataRoute } from "next";
 
-/**
- * The day each page's words took effect, for a page holding no league data. Hand-set, since a live
- * `new Date()` is a dynamic read, which would make this a dynamic route; each is tied to its words by
- * `fl_frontend/src/app/sitemapDates.test.ts`.
- */
-const WORDING_TOOK_EFFECT = { impressum: "2026-09-24", organisation: "2026-09-24", datenschutz: DATENSCHUTZ_STAND } as const;
-
 export default function sitemap(): MetadataRoute.Sitemap {
-  // An entry with no `lastModified` shows league data, whose last change no date set at build time
-  // can follow: a crawler trusts a sitemap's dates only while every one of them is true.
+  // Only the privacy notice is dated, by the „Stand“ it shows. Any other date is hand-set, `new Date()`
+  // making this route dynamic, and true only while someone moves it; a crawler meeting one wrong date
+  // trusts none.
   return [
     {
       url: `${SITE_URL}/`,
@@ -56,7 +50,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${SITE_URL}/organisation`,
-      lastModified: WORDING_TOOK_EFFECT.organisation,
       changeFrequency: "monthly",
       priority: 0.4,
     },
@@ -67,13 +60,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     {
       url: `${SITE_URL}/impressum`,
-      lastModified: WORDING_TOOK_EFFECT.impressum,
       changeFrequency: "monthly",
       priority: 0.2,
     },
     {
       url: `${SITE_URL}/datenschutz`,
-      lastModified: WORDING_TOOK_EFFECT.datenschutz,
+      lastModified: DATENSCHUTZ_STAND,
       changeFrequency: "monthly",
       priority: 0.2,
     },
