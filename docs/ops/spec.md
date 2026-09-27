@@ -87,7 +87,7 @@ service's but `nginx`'s** — it declares neither, which is recorded in §4 rath
 deliberate.
 
 **The frontend container is also what runs the retention sweep.**
-`fl_frontend/src/instrumentation.ts :: register` arms
+`fl_frontend/src/instrumentation-node.ts :: registerOnNode` arms
 `fl_frontend/src/features/bewerbungen/sweep.ts :: armBewerbungSweep` under a production build with
 `BEWERBUNG_SWEEP` on, and it then runs one pass a minute after start and then hourly, so every
 retention clock runs in the process that serves the site and stops when it stops. Production

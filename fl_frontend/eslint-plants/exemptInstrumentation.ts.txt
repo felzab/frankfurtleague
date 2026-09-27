@@ -1,4 +1,4 @@
-// Linted as src/instrumentation.ts.
+// Linted as src/instrumentation-node.ts.
 // The boot loads the actor's signing module at run time, and every other load ban still reaches it.
 import { mintRequestActor } from "./core/actorToken"; // expect: actor-signing
 

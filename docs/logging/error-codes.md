@@ -166,7 +166,7 @@ crash ([`spec.md`](spec.md#2-invariants) L6).
 
 Raised before either service serves anything — the backend's by `fl_backend/app/core/db.py :: lifespan`,
 the frontend's by `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment` and its one warning by
-`fl_frontend/src/instrumentation.ts :: register`. Each reaches a log line
+`fl_frontend/src/instrumentation-node.ts :: registerOnNode`. Each reaches a log line
 and no response, so it carries no status and its `trace_id` is `SYSTEM` — the
 code is the whole join key, which is why a boot failure gets one at all
 ([`spec.md`](spec.md#12-the-stream-contract) §1.2 makes `error_code` a field of every failure line).

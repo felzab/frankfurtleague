@@ -104,7 +104,7 @@ const server = {
 
   // Retired and read by nothing: the grant stored in `berechtigungen` decides who administers.
   // Declared for one release, so the preflight takes the file an image rolled back to still reads;
-  // a boot finding it set warns (`fl_frontend/src/instrumentation.ts :: register`).
+  // a boot finding it set warns (`fl_frontend/src/instrumentation-node.ts :: registerOnNode`).
   ALLOWED_ADMIN_EMAILS: z.string().optional(),
 
   // An enum over a normalised value, not a bare string: the json branch is selected by exact

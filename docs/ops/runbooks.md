@@ -968,7 +968,7 @@ one just as a failed registration call would.
 
 **Null means no pass of that kind has ever run against this database**, which on production is one
 of the ways [`spec.md`](spec.md) §1.1 lists: `BEWERBUNG_SWEEP` off,
-`fl_frontend/src/instrumentation.ts :: register` not reached, or a build that is not a production
+`fl_frontend/src/instrumentation-node.ts :: registerOnNode` not reached, or a build that is not a production
 one. One switch arms both passes, so two nulls point at the frontend container's environment and its
 startup rather than at the backend.
 

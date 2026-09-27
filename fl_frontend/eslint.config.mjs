@@ -186,12 +186,12 @@ const TEST_ONLY = [
 const ACTOR_SIGNING = {
   group: ["**/actorToken.ts", "**/actorToken"],
   message:
-    "actorToken signs the actor the backend believes: fl_frontend/src/core/auth.ts, fl_frontend/src/core/subject.ts and fl_frontend/src/instrumentation.ts load it, and a *.test.ts(x) file may; nothing else may.",
+    "actorToken signs the actor the backend believes: fl_frontend/src/core/auth.ts, fl_frontend/src/core/subject.ts and fl_frontend/src/instrumentation-node.ts load it, and a *.test.ts(x) file may; nothing else may.",
 };
 
 /** The two guards, which import `ACTOR_SIGNING` statically; the boot loads it by `import()`. */
 const ACTOR_SIGNING_GUARDS = ["src/core/auth.ts", "src/core/subject.ts"];
-const ACTOR_SIGNING_BOOT = "src/instrumentation.ts";
+const ACTOR_SIGNING_BOOT = "src/instrumentation-node.ts";
 
 const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
 
