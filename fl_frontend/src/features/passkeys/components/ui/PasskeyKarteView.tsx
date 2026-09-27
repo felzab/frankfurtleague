@@ -37,7 +37,6 @@ const DATUM = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", date
  */
 export const LETZTER_PASSKEY = "Der letzte Passkey lässt sich nicht löschen.";
 
-// GERMAN-PENDING (R698): the controls' names below are drafts awaiting approval.
 /**
  * The name a card's control goes by for a screen reader, which meets it once per card: the passkey's
  * own name, or its set-up date where it has none but the fallback (WCAG 2.4.6).

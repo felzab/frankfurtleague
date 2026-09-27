@@ -66,7 +66,7 @@ const STEP_UP_REQUIRED = "Bestätige zuerst, dass Du es bist.";
 const STEP_UP_REFUSED = "Wir konnten Dich nicht mit einem Passkey bestätigen.";
 const CODE_STEP_UP_REFUSED = "Wir konnten Dich nicht mit dem Code bestätigen.";
 
-/** The other device's sign-out and the card's two controls, as a screen reader names them (R698). */
+/** The other device's sign-out and the card's two controls, as a screen reader names them. */
 const ANDERE_ABMELDEN = "Anmeldung per Passkey „Laptop“ vom 25. September 2026, 10:00 abmelden";
 const LAPTOP_LOESCHEN = "Passkey „Laptop“ löschen";
 const LAPTOP_UMBENENNEN = "Passkey „Laptop“ umbenennen";

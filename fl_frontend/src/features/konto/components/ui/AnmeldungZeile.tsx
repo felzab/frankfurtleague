@@ -22,7 +22,6 @@ const TAG = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", dateSt
 
 const UHRZEIT = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", timeStyle: "short" });
 
-// GERMAN-PENDING (R698): a draft awaiting approval.
 /**
  * The sign-out's name for a screen reader, which meets one per row: the factor, the passkey's own name
  * and the sign-in's time, the only facts a row holds, no device being stored (WCAG 2.4.6).
