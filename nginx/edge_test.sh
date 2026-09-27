@@ -563,9 +563,11 @@ done
 action_request multipart -X POST -F "probe=1" "${BASE}/"
 action_request urlencoded -X POST --data "probe=1" "${BASE}/"
 action_request admin-prefix -X POST -H "Next-Action: ${ACTION_ID}" --data '[]' "${BASE}/api/admin/probe"
+action_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" --data '[]' "${BASE}/_next/static/chunk.js"
 # And each of these answers 200 only if the map leaves it out.
 action_request json-post -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/"
 action_request page-load "${BASE}/"
+action_request asset-load "${BASE}/_next/static/chunk.js"
 
 mapfile -t ACTION_STATUSES < <(curl "${ACTION_REQUESTS[@]}" || true)
 expect_action() { # $1 label, $2 the status every transfer of it must answer, or "some:<status>"
@@ -587,8 +589,10 @@ expect_action flood some:429
 expect_action multipart 429
 expect_action urlencoded 429
 expect_action admin-prefix 429
+expect_action static-prefix 429
 expect_action json-post 200
 expect_action page-load 200
+expect_action asset-load 200
 
 # --- the Control API the deploy reloads through ----------------------------------------------------
 

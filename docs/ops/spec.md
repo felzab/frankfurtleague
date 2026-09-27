@@ -171,7 +171,7 @@ Longest-prefix match. Order in the file is irrelevant; specificity decides.
 | `/api/admin/`                        | `frontend:3000` | The page-owned editors' undo handlers, and the server-action pair `zone=action burst=30` and `zone=action48 burst=300`                                                                               |
 | `= /api/v0/system/is_live`           | `backend:8000`  | The liveness probe, and the only backend endpoint the edge exposes — `Cache-Control: no-store` (I13, §3)                                                                                             |
 | `= /signin`                          | `frontend:3000` | Paired `limit_req` — `zone=signin burst=3` and `zone=signin48 burst=30`                                                                                                                              |
-| `/_next/static/`                     | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`                                                                                                                                                 |
+| `/_next/static/`                     | `frontend:3000` | `Cache-Control: public, max-age=31536000, immutable`, and the server-action pair, which meters no GET                                                                                                |
 | `/`                                  | `frontend:3000` | Catch-all — `limit_conn conn 50`, and the server-action pair, which meters nothing else                                                                                                              |
 
 **Every `/api/...` path but the liveness probe reaches Next** — some through a block naming it, the
@@ -268,7 +268,9 @@ as a connection. **Its one rate zone pair keys on server actions alone**, `actio
 `nginx/shared/http.conf :: $action_limit_key`: a POST carrying a `Next-Action` header or either
 form content type, which is every post Next 16.3.6 runs as an action. Every other request's key is
 empty, so no page load or asset is metered; the pair is rated above any administrator's run of
-saves, and `/api/admin/` carries it too, an action posted there reaching Next as well. **That
+saves. `/api/admin/` carries it too, an action posted there reaching Next as well, and so does
+`/_next/static/`, where a POST reaches no action (a 405 whose render fails as a 500, driven against
+Next 16.3.6 on 2026-09-27) but costs that render. **That
 makes one directive count differently on the two stacks**: `nginx/local/local.conf` serves HTTP/1.1, so
 the one line in `nginx/shared/site.conf` bounds whole connections locally.
 
