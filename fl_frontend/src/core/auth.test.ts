@@ -679,7 +679,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     arriveAs(cookie);
 
     assert.ok(await getAdminSession());
-    assert.equal(await getSignInDestination(), "/bereich/admin");
+    assert.equal(await getSignInDestination(), "/bereich");
   });
 });
 
@@ -820,7 +820,7 @@ describe("the second factor, judged at the same guard", () => {
     arriveAs(cookie);
 
     assert.ok(await getAdminSession());
-    assert.equal(await getSignInDestination(), "/bereich/admin");
+    assert.equal(await getSignInDestination(), "/bereich");
   });
 
   /* A passkey enrolled elsewhere leaves this mailbox session as it was, so holding one decides which
@@ -933,9 +933,9 @@ describe("the second factor, judged at the same guard", () => {
     assert.equal(isAdminSession(withoutFactor, true), false);
   });
 
-  /* The landing re-spelled the guard's conditions once, so a third one added to the guard would
-     send an administrator to an `/bereich/admin` the proxy bounces. */
-  it("sends to `/bereich/admin` exactly the sessions the guard admits, over the same seeded rows", async () => {
+  /* The landing re-spelled the guard's conditions once, so a third one added to the guard would land a
+     granted session on a `/bereich` that sends it on to an `/bereich/admin` the proxy bounces. */
+  it("lands a granted session on `/bereich` exactly where the guard admits it, over the same seeded rows", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
 
     for (const factor of ["code", "passkey"]) {
@@ -950,7 +950,7 @@ describe("the second factor, judged at the same guard", () => {
         const destination = await getSignInDestination();
 
         assert.equal(
-          destination === "/bereich/admin",
+          destination === "/bereich",
           isAdminSession(seen, true),
           `${factor} at ${String(created / HOUR_MS)}h landed on ${destination}`,
         );

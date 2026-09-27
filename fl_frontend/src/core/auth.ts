@@ -1366,7 +1366,7 @@ export async function getAdminSession(): Promise<JudgedSession | null> {
 }
 
 /** Where `/signin/weiter` sends the session it was handed. */
-export type SignInDestination = "/bereich/admin" | "/signin/passkey" | "/bereich" | "/signin";
+export type SignInDestination = "/signin/passkey" | "/bereich" | "/signin";
 
 export async function getSignInDestination(): Promise<SignInDestination> {
   const requestHeaders = await headers();
@@ -1398,11 +1398,9 @@ async function signInDestinationOf(served: ServedSession | null, requestHeaders:
   if (subjekt.gesperrt) return "/signin";
 
   if (subjekt.verwaltung !== null) {
-    // The guard's own verdict rather than a second spelling of it: a condition added there has to
-    // move this landing with it, or `/bereich/admin` is offered to somebody the proxy bounces.
-
-    // eslint-disable-next-line local/admin-link -- where a finished sign-in lands; no season is in scope at sign-in
-    if (isAdminSession(served, true)) return "/bereich/admin";
+    // The guard's own verdict rather than a second spelling of it: `/bereich` sends a granted session
+    // the guard refuses on to `/bereich/admin`, which the proxy bounces back here.
+    if (isAdminSession(served, true)) return "/bereich";
 
     // Where the passkey page has no step to offer, the session is spent, and an administrator signs in
     // afresh rather than being sent to a person's landing with no way to the step they owe.

@@ -197,21 +197,23 @@ describe("where the admin proxy sends a signed-in request", () => {
     assert.equal(await getSignInDestination(), "/signin/passkey", "the landing sends a code-borne administrator somewhere else");
   });
 
-  /* The landing's `/bereich/admin` answer is the guard's own verdict, so a session it sends there is one the
-     proxy lets through: the pair cannot bounce a caller between them. */
-  it("sends nobody back to `/bereich/admin` that this proxy would turn away again", async () => {
+  /* `/bereich` sends a granted session the admin guard refuses on to `/bereich/admin`, so the landing's
+     `/bereich` for one is the guard's own verdict: the pair cannot bounce a caller between them. */
+  it("lands no granted session on `/bereich` that this proxy would turn away from `/bereich/admin`", async () => {
     for (const { name, cookie } of [
       { name: "code-borne administrator", cookie: (await signIn(ADMIN_EMAIL)).cookie },
-      { name: "address holding no grant", cookie: removed.cookie },
-      { name: "no session at all", cookie: undefined },
+      { name: "administrator signed in by passkey", cookie: admin.cookie },
     ]) {
-      arriveAs(cookie ?? null);
+      arriveAs(cookie);
 
       const landing = await getSignInDestination();
       const turned = redirectedTo(await arriveAtAdmin({ cookie }));
 
-      assert.ok(landing !== "/bereich/admin" || turned === null, `${name} is bounced between the landing and the proxy`);
+      assert.ok(landing !== "/bereich" || turned === null, `${name} is bounced between the landing and the proxy`);
     }
+
+    arriveAs(admin.cookie);
+    assert.equal(await getSignInDestination(), "/bereich", "the administrator was not landed on `/bereich`, so the case proves nothing");
   });
 });
 
