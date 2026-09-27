@@ -518,6 +518,28 @@ describe("POST /api/mail/zustellung", () => {
     assert.deepEqual(logs, []);
   });
 
+  /* The notice telling every holder who administers: its outbox row is gone once stamped, so a holder it
+     missed is a line or nothing. */
+  it("writes one line for a grants notice that did not arrive, and none for one that did", async () => {
+    const hinweis = (type: string) =>
+      eventFor(type, { bounce: { type: "Permanent", subType: "Suppressed" }, tags: { berechtigung: "hinweis" } });
+
+    const zugestellt = await answerTo(signed(JSON.stringify(eventFor("email.delivered", { tags: { berechtigung: "hinweis" } }))));
+    assert.deepEqual(logs, [], "a delivered notice wrote a line");
+
+    const { status, body } = await answerTo(signed(JSON.stringify(hinweis("email.bounced"))));
+
+    assert.equal(zugestellt.status, 200);
+    assert.equal(status, 200);
+    assert.deepEqual(body, { angewendet: [] });
+    assert.deepEqual(calls, [], "the notice lane reached the application's endpoint");
+    assert.deepEqual(zielCalls, [], "the notice lane reached the generic endpoint");
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0]?.meta?.["error_code"], "FE-MAIL-010");
+    assert.equal(logs[0]?.meta?.["stand"], "unzustellbar");
+    assert.ok(!inspect(logs, { depth: null }).includes(ADDRESS), "the recipient reached the stream");
+  });
+
   it("answers 200 where the backend applied the tagged event to no record", async () => {
     zielZustellungAnswer = () => ({ acknowledged: 1, angewendet: false });
 

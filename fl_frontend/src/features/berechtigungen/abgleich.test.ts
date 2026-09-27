@@ -114,6 +114,8 @@ describe("one pass over the claimed changes", () => {
     await runBerechtigungenAbgleich();
 
     assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort(), "a holder named twice was mailed twice");
+    // The tag the delivery report reads, or a holder the notice missed would be recorded nowhere.
+    assert.ok(mail.sent.every((sent) => sent.tags?.["berechtigung"] === "hinweis"));
     assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
