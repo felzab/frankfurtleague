@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 import { createElement as h } from "react";
 
 import { fireEvent, render } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 import { formWiring } from "@/shared/testing/formWiring.ts";
 
@@ -27,7 +28,20 @@ describe("the shared form", () => {
     assert.equal(fireEvent.submit(form), false, "the browser's own submit went ahead");
     assert.equal(ran, 1, "the handler did not run exactly once");
   });
+
+  /* The markup a browser holds before hydration, when no handler catches an Enter: its own submit
+     then goes out by this method, and a GET puts every field in the URL (`docs/frontend/spec.md :: I461`). */
+  it("posts its fields in the server-rendered markup, never in a URL", () => {
+    const markup = renderToStaticMarkup(h(Form, { onSubmit: () => undefined, wiring: formWiring() }, h("input", { name: "email" })));
+    const opening = /<form\b[^>]*>/.exec(markup)?.[0] ?? "";
+
+    assert.match(opening, /\bmethod="post"/, `the form a browser submits before hydration sends a GET: ${opening}`);
+  });
 });
+
+/* Held by tsc as the `action` refusal below is: a form taking `method` again could hand a GET back. */
+// @ts-expect-error -- the refusal under test: the shared form fixes its own method.
+void h(Form, { onSubmit: () => undefined, wiring: formWiring(), method: "get" });
 
 /* Held by tsc rather than the runner, which strips types: a form taking `action` again leaves this
    directive unused, and the typecheck fails on it (`docs/frontend/spec.md :: I32`). */

@@ -14,7 +14,7 @@ export function Form({
   onSubmit,
   wiring: { ref, validationErrors, schemas },
   ...props
-}: Omit<FormProps, "validationBehavior" | "action" | "onSubmit" | "validationErrors" | "ref"> & {
+}: Omit<FormProps, "validationBehavior" | "action" | "method" | "onSubmit" | "validationErrors" | "ref"> & {
   // A handler, and no `action` at all: React resets a form whose `action` is a function, and
   // react-aria pushes each field's mount-time value back through its setter (`docs/frontend/spec.md :: I32`).
   onSubmit: () => void;
@@ -25,6 +25,9 @@ export function Form({
     <RequiredSchemas schemas={schemas}>
       <HeroUIForm
         {...props}
+        // For the submit no handler catches, an Enter before hydration: by default a GET, putting every
+        // field, an address among them, into the URL and each log keeping a query (`docs/frontend/spec.md :: I461`).
+        method="post"
         ref={ref}
         validationErrors={validationErrors}
         validationBehavior="aria"
