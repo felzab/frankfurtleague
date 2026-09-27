@@ -26,6 +26,7 @@ import check_pr_body
 import checker_kernel
 from checker_kernel import git
 
+from .action_table import check_action_table
 from .branch import (
     Branch,
     branch_additions,
@@ -2218,6 +2219,7 @@ def main() -> int:
     findings.extend(check_copy_rules())
     findings.extend(check_platform_branches())
     findings.extend(check_error_codes())
+    findings.extend(check_action_table())
     findings.extend(check_unenforced_reasons(existing_invariants, _check_citation))
     findings.extend(check_text_writes())
     findings.extend(check_scheme_tokens())

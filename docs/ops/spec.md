@@ -1001,9 +1001,10 @@ finding this scope raises need not be about a document at all. Its checks are re
 than prose** are `scripts/checks/docs_gate/platform.py` and
 `scripts/checks/docs_gate/error_codes.py`, below;
 `scripts/checks/docs_gate/copy_rules.py`, held by
-[frontend §1.12](../frontend/spec.md#112-the-copy-rules); and
+[frontend §1.12](../frontend/spec.md#112-the-copy-rules);
 `scripts/checks/docs_gate/scheme.py`, held by
-[frontend §1.17](../frontend/spec.md#117-colour-roles-and-the-brand-budget).
+[frontend §1.17](../frontend/spec.md#117-colour-roles-and-the-brand-budget); and
+`scripts/checks/docs_gate/action_table.py`, which is what `docs/frontend/spec.md :: I491` holds.
 
 **`scripts/checks/docs_gate/platform.py` is what I15 and I16 hold.** `platform-branch` holds four
 clauses. PLAT-1: a Python read of the platform is a module-level UPPER_CASE `Final`, or an

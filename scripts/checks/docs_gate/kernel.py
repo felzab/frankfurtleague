@@ -303,6 +303,7 @@ def claimed(*claims: str) -> frozenset[str]:
 # `enforced-by` holds the standard's claims and these to each other; `Finding` refuses a name
 # outside it.
 CHECKS: Final[dict[str, Check]] = {
+    "action-table": Check(FAIL, claimed("docs/frontend/spec.md :: I491")),
     "anchor": Check(FAIL, claimed("COR-6", "INC-6")),
     "bare-path": Check(FAIL, claimed("INC-6")),
     "binary-byte": Check(FAIL, claimed(".claude/CLAUDE.md :: 6. Repo-specific traps")),

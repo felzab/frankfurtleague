@@ -329,6 +329,16 @@ def _code_row(code: str, meaning: str) -> str:
 BACKEND_ROW: Final = _code_row(BACKEND_CODE, "The sample module refused a write")
 FRONTEND_ROW: Final = _code_row(FRONTEND_CODE, "The sample component could not read the answer")
 SECOND_FRONTEND_ROW: Final = _code_row(SECOND_FRONTEND_CODE, SECOND_FRONTEND_MEANING)
+
+# The frontend sheet's action table, and the one module a directive makes an action's home: named
+# so no reader keyed on the usual file name finds it, opening on a comment the directive is read past.
+ACTIONS_MODULE: Final = "fl_frontend/src/features/sample/writes.ts"
+ACTION_NAME: Final = "saveSampleAction"
+ACTION_HEAD: Final = "| Action | Slice | Invalidates |"
+ACTION_ROW: Final = "| `" + ACTION_NAME + "` | sample | nothing |"
+# A module spelling the directive inside a function alone, which makes that function an action and
+# leaves the module's other exports ordinary ones.
+INLINE_DIRECTIVE_MODULE: Final = "fl_frontend/src/features/sample/inline.ts"
 # One entry per status arm, so a plant breaking one leaves the others answering. They ascend as
 # the page's entries do.
 DEPENDS_ENTRY: Final = "bqxs-4dtn"
@@ -622,6 +632,10 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
             _heading(3, "1.1 The route"),
             "",
             "It renders one page.",
+            "",
+            ACTION_HEAD,
+            "| --- | --- | --- |",
+            ACTION_ROW,
             "",
             _heading(2, "2. Invariants"),
             "",
@@ -950,6 +964,17 @@ def _corpus(fragments: tuple[str, ...]) -> dict[str, str]:
         ),
         OPENAPI: '{"paths": {"/api/v0/sample": {"get": {}}}}\n',
         SAMPLE_PAGE: _page("export default function Page() {", "  return null;", "}"),
+        ACTIONS_MODULE: _page(
+            "/* The one module whose exports are server actions. */",
+            QUOTE + "use server" + QUOTE + ";",
+            "",
+            "export async function " + ACTION_NAME + "(): Promise<void> {}",
+        ),
+        INLINE_DIRECTIVE_MODULE: _page(
+            "export async function readSample(): Promise<void> {",
+            "  " + QUOTE + "use server" + QUOTE + ";",
+            "}",
+        ),
         SCHEME: _scheme_page(),
         APP_GLOBALS: _globals_page(),
         COPY_SAMPLE: _page(
@@ -1516,6 +1541,23 @@ def _plant_error_codes() -> None:
     _replace(ERROR_CODES, FRONTEND_ROW, FRONTEND_ROW + "\n" + _code_row(RULE_CODE, "The sample rule refused a write"))
 
 
+def _plant_action_table() -> None:
+    """Both directions, and an action found by its directive under a name no module listing would guess."""
+    # The table losing the row an exported action still needs.
+    _drop(FRONTEND_SPEC, ACTION_ROW)
+    # A row for an action no module exports.
+    _replace(
+        FRONTEND_SPEC,
+        ACTION_HEAD + NEWLINE + "| --- | --- | --- |",
+        ACTION_HEAD + NEWLINE + "| --- | --- | --- |" + NEWLINE + "| `goneAction` | sample | nothing |",
+    )
+    # A second directive module, its action exported as a constant: reached by what makes it an
+    # action rather than by its name.
+    rel = "fl_frontend/src/features/sample/more.ts"
+    write(_gate().root, rel, _page(QUOTE + "use server" + QUOTE + ";", "", "export const moreSampleAction = async (): Promise<void> => {};"))
+    git(_gate().root, "add", "--", rel)
+
+
 def _plant_segment_map() -> None:
     """Both producers: a tracked file no segment claims, and files two segments claim.
 
@@ -1872,6 +1914,7 @@ class Case:
 
 
 CASES: Final[tuple[Case, ...]] = (
+    Case("action-table", _fails("action-table", *[FRONTEND_SPEC] * 3), _plant_action_table),
     Case("anchor", _fails("anchor", NOTES, ROADMAP), _plant_anchors),
     Case(
         "bare-path",
