@@ -46,7 +46,7 @@ BEANSPRUCHUNG_DAUER: Final = timedelta(minutes=10)
 
 # The claims that hand a notice out before the next gives it up: at the lease above, four hours
 # of passes none of which stamped it. Counted on the row, so a restart resets nothing
-# (`docs/backend/spec.md :: I472`).
+# (`docs/backend/spec.md :: I481`).
 VERSUCHE_HOECHSTENS: Final = 24
 
 
@@ -168,7 +168,7 @@ def find_mindestzahl_refusal(*, remaining: int) -> WriteRefusal | None:
 
 
 def find_letzter_inhaber_refusal(*, remaining_owners: int) -> WriteRefusal | None:
-    """`REQ-BERECHTIGUNG-007`: a demotion leaves at least one live, unbarred `owner` (`docs/backend/spec.md :: I471`).
+    """`REQ-BERECHTIGUNG-007`: a demotion leaves at least one live, unbarred `owner` (`docs/backend/spec.md :: I480`).
 
     Counted as the floor of two is: a dead or barred `owner` row admits nobody, so it could demote
     nobody back and grant nothing.

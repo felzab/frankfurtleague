@@ -149,7 +149,7 @@ async def post_berechtigungen_abgleich(
             token = secrets.token_urlsafe(24)
             # Every claimed row written, so two overlapping calls conflict on the rows both read and
             # the retry sees them held (`docs/backend/spec.md :: I454`); the count rises in this write,
-            # so a retried claim counts once (`:: I472`).
+            # so a retried claim counts once (`:: I481`).
             await patch_many_in_db(
                 collection=berechtigungen_postausgang_collection,
                 db_filter={"_id": {"$in": [row["_id"] for row in claimable]}},
