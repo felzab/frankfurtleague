@@ -233,6 +233,16 @@ async function administratorOf({ session, served }: SignInAnswers): Promise<unkn
 }
 
 /**
+ * The guard's verdict with its reason. Nobody signed in is told apart by the landing the case named,
+ * as the real guard and landing judge one session: `/bereich` is a session whose address holds no grant.
+ */
+async function verdictOf(answers: SignInAnswers): Promise<unknown> {
+  if (answers.session === null) return { refused: answers.destination === "/bereich" ? "noGrant" : "signIn" };
+
+  return { session: await administratorOf(answers) };
+}
+
+/**
  * The shape `fl_frontend/src/core/auth.ts :: getKontoSession` serves, signed in by passkey this moment:
  * a caller reading `user.id` or `session` off the bare `{ user }` would read `undefined` and pass.
  */
@@ -276,6 +286,7 @@ const signInStore = (url: string, answers: SignInAnswers): string =>
     "the sign-in store",
     new Map<string, (...args: unknown[]) => unknown>([
       ["getAdminSession", () => administratorOf(answers)],
+      ["judgeAdminRequest", () => verdictOf(answers)],
       // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
       ["getKontoSession", () => answering(answers.served)],
       ["getSignInDestination", () => Promise.resolve(answers.destination)],

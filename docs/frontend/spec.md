@@ -406,8 +406,11 @@ the replay, and nothing else. **Both answer 200 with the outcome in the body for
 case but a caller with no admin session**, a non-2xx landing in the dispatch's rejection arm, which
 calls the undo unclear where the route has already said what became of it. **That caller is turned
 away where `fl_frontend/src/proxy.ts` would send it**, `/api/admin/*` being outside the proxy's
-matcher: a lapsed session answers 401 and leaves for `/signin` (I251), and a session without the
-admin role answers 403 and leaves for `/`. The dispatch reads both ahead of that arm and says the
+matcher: a lapsed session answers 401 and leaves for `/signin` (I251), and a session whose address
+holds no grant answers 403 and leaves for `fl_frontend/src/core/signInLanding.ts :: SIGN_IN_LANDING`,
+each read off the reason the guard itself refused for. A grant the backend left unread is turned away
+by neither, since a sign-in would meet the same unread grant: it is a reportable case, answered 200 with
+a refusal saying the change stands. The dispatch reads both turn-aways ahead of that arm and says the
 change still stands before leaving, a new sign-in landing on `/bereich/admin` rather than back on the change;
 the 403 counts only where it carries the route's envelope, an edge challenge answering 403 in markup.
 

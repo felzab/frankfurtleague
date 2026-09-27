@@ -33,15 +33,23 @@ const through = (): boolean => {
   const served = session();
   return served !== null && served.user.email === GRANTED && served.session.authFactor === "passkey";
 };
+/** Whether the backend leaves the grant unanswered for the rest of a case. */
+let grantUnread = false;
+
 const AUTH = exportingModule({
-  getAdminSession: async () => (through() ? session() : null),
+  getAdminSession: async () => (through() && !grantUnread ? session() : null),
   isFreshlySignedIn: () => true,
   adminRefusal: async () => "anmelden",
-  getSignInDestination: async () => {
+  judgeAdminRequest: async () => {
     const served = session();
-    if (served === null) return "/signin";
-    if (served.user.email !== GRANTED) return "/bereich";
-    return through() ? "/bereich/admin" : "/signin";
+    if (served === null) return { refused: "signIn" };
+    if (grantUnread) return { refused: "unread" };
+    if (served.user.email !== GRANTED) return { refused: "noGrant" };
+    return through() ? { session: served } : { refused: "signIn" };
+  },
+  // Answering where the spine asked the landing after its guard's own verdict: a second read of the session.
+  getSignInDestination: async () => {
+    throw new Error("the undo spine read the landing for a status its guard already judged");
   },
 });
 const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
@@ -65,6 +73,7 @@ const { handleUndoRequest, replayRefusal } = await import("./undoRoute.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { recordWriteSent } = await import("@/core/requestScope.ts");
 const { ADMIN_FORBIDDEN } = await import("./adminMutation.ts");
+const { AENDERUNG_STEHT_WEITERHIN } = await import("./actionError.ts");
 
 const PAYLOAD = { id: "68c1f0a2b3c4d5e6f7a8b9c0" };
 
@@ -203,6 +212,29 @@ describe("who the undo spine answers before it does any work", () => {
       assert.deepEqual(invalidated, [], "the caches are cleared for a caller nobody has authorized");
     } finally {
       undoRouteSession = undefined;
+    }
+  });
+
+  /* A 401 would send an administrator to sign in again into the same unread grant, and a 403 to a
+     person's landing: the undo did not run, which the route's own refusal says where the admin stands. */
+  it("answers a grant the backend left unread as a refusal, turning nobody away and doing no work", async () => {
+    grantUnread = true;
+    let restored = 0;
+
+    try {
+      const { answer, status, bodiesRead } = await undo(async () => {
+        restored += 1;
+        return {};
+      });
+
+      assert.equal(status, 200, "an unread grant turned the administrator away");
+      assert.equal(answer.success, false);
+      assert.ok(answer.error?.endsWith(AENDERUNG_STEHT_WEITERHIN), "the refusal does not say the change stands");
+      assert.notEqual(answer.error, ADMIN_FORBIDDEN, "an unread grant is told it holds no administration");
+      assert.equal(bodiesRead, 0, "the body is read for a caller nobody has authorized");
+      assert.equal(restored, 0, "the undo restores while the grant is unread");
+    } finally {
+      grantUnread = false;
     }
   });
 });

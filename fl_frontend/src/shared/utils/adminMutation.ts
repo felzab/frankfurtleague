@@ -1,7 +1,7 @@
 import { refresh } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
-import { adminRefusal, getAdminSession, isFreshlySignedIn } from "@/core/auth";
+import { adminRefusal, getAdminSession, isFreshlySignedIn, judgeAdminRequest } from "@/core/auth";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestWriteSent } from "@/core/requestScope";
@@ -12,6 +12,7 @@ import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
 import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
 
+import type { AdminRefusal } from "@/core/auth";
 import type { StepUpDemand } from "@/shared/components/ui/stepUp";
 import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "./validation";
@@ -69,7 +70,7 @@ export function refusalResult(refusal: { error?: string; fieldErrors?: FieldErro
  * What the spine answers: the caller turned away by the guard, or the body's own answer. A type rather than
  * `ADMIN_FORBIDDEN`'s words, so a route choosing its status on it cannot mistake a body's failure for the guard's.
  */
-export type Guarded<T> = { forbidden: true } | { forbidden: false; answer: T | ActionFailure };
+export type Guarded<T> = { forbidden: true; refused: AdminRefusal } | { forbidden: false; answer: T | ActionFailure };
 
 /** Which caller a spine admits, and what its log lines are filed under. */
 type Guard<S> = { readonly lane: string; readonly resolve: () => Promise<S | null> };
@@ -190,7 +191,19 @@ export async function runAdminRouteWrite<T extends { success: boolean }>(
   mutationName: string,
   fn: (session: AdminSession) => Promise<T>,
 ): Promise<Guarded<T>> {
-  const guarded = await runGuarded(mutationName, ADMIN_GUARD, fn);
+  // Kept off the guard's own call: a second read of the session to learn why is another round trip,
+  // and can answer differently from the one that refused.
+  const verdict: { refused: AdminRefusal } = { refused: "signIn" };
+  const guard: Guard<AdminSession> = {
+    lane: ADMIN_GUARD.lane,
+    resolve: async () => {
+      const judged = await judgeAdminRequest();
+      if ("session" in judged) return judged.session;
+      verdict.refused = judged.refused;
+      return null;
+    },
+  };
+  const guarded = await runGuarded(mutationName, guard, fn);
 
-  return guarded.forbidden ? guarded : { forbidden: false, answer: guarded.answer };
+  return guarded.forbidden ? { forbidden: true, refused: verdict.refused } : { forbidden: false, answer: guarded.answer };
 }

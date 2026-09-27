@@ -1055,22 +1055,42 @@ async function isAdminRequest(served: ServedSession): Promise<boolean> {
   return isAdminSession(served, (await verwaltungOrNull(served.user.email)) === true);
 }
 
+/**
+ * Why the administrator's guard turned a request away, by what repairs it: a sign-in for `signIn`,
+ * nothing a caller does for `noGrant`, and the backend for `unread`, whose grant read went unanswered.
+ */
+export type AdminRefusal = "signIn" | "noGrant" | "unread";
+
 // React's `cache`, never `"use cache"`, which would hand one request's session to another: one read
 // serves every guard of a render pass, and none outside it, where a server action and the proxy
 // each read their own.
 /**
- * Neither throws nor redirects — hence `get`, not `require` — so it guards nothing on its own line.
- * **Check the return value** (`docs/frontend/spec.md` I8).
+ * The administrator's guard with its reason, for a caller whose answer depends on why it refused; every
+ * other caller takes `getAdminSession`, over this same read.
  */
-export const getAdminSession = cache(async (): Promise<JudgedSession | null> => {
+export const judgeAdminRequest = cache(async (): Promise<{ readonly session: JudgedSession } | { readonly refused: AdminRefusal }> => {
   const served = await auth.api.getSession({ headers: await headers() });
-  if (!served || !(await isAdminRequest(served))) return null;
+  if (!served) return { refused: "signIn" };
+
+  const verwaltung = await verwaltungOrNull(served.user.email);
+  if (verwaltung === null) return { refused: "unread" };
+  if (!verwaltung) return { refused: "noGrant" };
+  if (!isAdminSession(served, true)) return { refused: "signIn" };
 
   // Recorded here rather than in `runAdminMutation`: a second resolution is another round trip to
   // the session store, and the ordering is load-bearing (`docs/frontend/spec.md` §1.3).
   setRequestActor(asSignInIdentifier(served.user.email));
 
-  return { ...served, verwaltung: true };
+  return { session: { ...served, verwaltung: true } };
+});
+
+/**
+ * Neither throws nor redirects — hence `get`, not `require` — so it guards nothing on its own line.
+ * **Check the return value** (`docs/frontend/spec.md` I8).
+ */
+export const getAdminSession = cache(async (): Promise<JudgedSession | null> => {
+  const judged = await judgeAdminRequest();
+  return "session" in judged ? judged.session : null;
 });
 
 /** Where `/signin/weiter` sends the session it was handed. */

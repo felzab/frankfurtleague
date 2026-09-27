@@ -203,6 +203,7 @@ const {
   getSignInDestination,
   isAdminSession,
   isFreshlySignedIn,
+  judgeAdminRequest,
   PASSKEY_LIMIT,
 } = await import("./auth.ts");
 const { buildCodeEmail, CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
@@ -713,6 +714,32 @@ describe("the account page's guard on a barred address", () => {
     BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
 
     assert.equal(await getKontoSession(), null);
+  });
+});
+
+describe("why the administrator's guard turns a request away", () => {
+  afterEach(() => BACKENDS.delete(ADMIN_EMAIL));
+
+  /* A route answers its status on this reason: a sign-in repairs `signIn`, none repairs `noGrant`,
+     and `unread` is the backend's, which neither a sign-in nor a person's landing repairs. */
+  it("names the one repair each refused session has, and serves the administrator's", async () => {
+    arriveAs(null);
+    assert.deepEqual(await judgeAdminRequest(), { refused: "signIn" });
+
+    arriveAs((await signIn(PERSON_EMAIL)).cookie);
+    assert.deepEqual(await judgeAdminRequest(), { refused: "noGrant" });
+
+    const admin = await signIn(ADMIN_EMAIL);
+    arriveAs(admin.cookie);
+    assert.deepEqual(await judgeAdminRequest(), { refused: "signIn" }, "a code-made session is refused as something a sign-in cannot repair");
+
+    admin.row.authFactor = "passkey";
+    const judged = await judgeAdminRequest();
+    assert.ok("session" in judged, "the administrator's passkey session was refused");
+    assert.equal(judged.session.user.email, ADMIN_EMAIL);
+
+    BACKENDS.set(ADMIN_EMAIL, "throws");
+    assert.deepEqual(await judgeAdminRequest(), { refused: "unread" });
   });
 });
 

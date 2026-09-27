@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getSignInDestination, isFreshlySignedIn } from "@/core/auth";
+import { isFreshlySignedIn } from "@/core/auth";
 import { logger } from "@/core/logging";
 
 import { AENDERUNG_STEHT_WEITERHIN, isRefusal, RUECKNAHME_UNKLAR } from "./actionError";
@@ -18,6 +18,10 @@ import type { ZodType } from "zod";
 const FREMDE_HERKUNFT = `Diese Anfrage kam nicht von dieser Seite. Lade die Seite neu und nimm sie dann erneut zurück. ${AENDERUNG_STEHT_WEITERHIN}`;
 
 const UNDO_RESTORED = "Die Änderung wurde zurückgenommen.";
+
+// GERMAN-PENDING: drafted for the coordinator's approval at landing.
+/** A grant the backend did not answer: nothing ran, and signing in again reads the same grant. */
+const BERECHTIGUNG_UNGELESEN = `Deine Berechtigung ließ sich gerade nicht prüfen. ${AENDERUNG_STEHT_WEITERHIN}`;
 const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausgeführt", repair: "Lade die Seite neu" });
 
 /**
@@ -121,10 +125,13 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
   // 200 for every answer but a turned-away caller's, the body carrying it: the dispatch reads any other
   // non-2xx as a transport failure (`docs/frontend/spec.md` §1.3).
   if (guarded.forbidden) {
-    // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: a session the landing
-    // sends to `/bereich` is 403, and any other is 401, which sends it somewhere it gets further.
-    const status = (await getSignInDestination()) === "/bereich" ? 403 : 401;
-    return NextResponse.json({ success: false, error: ADMIN_FORBIDDEN }, { status });
+    // Answered as a refusal rather than turned away: sent to sign in, an administrator would sign in
+    // again into the same unread grant.
+    if (guarded.refused === "unread") return NextResponse.json({ success: false, error: BERECHTIGUNG_UNGELESEN });
+
+    // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: an address
+    // holding no grant is 403, and any other session 401, which sends it where it gets further.
+    return NextResponse.json({ success: false, error: ADMIN_FORBIDDEN }, { status: guarded.refused === "noGrant" ? 403 : 401 });
   }
 
   const result = guarded.answer;

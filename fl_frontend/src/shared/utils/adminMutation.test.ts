@@ -63,8 +63,12 @@ describe("the session guard every admin write runs behind", () => {
     });
 
     // Typed rather than worded, so the route chooses its 401 or 403 on the guard's refusal and no other.
-    assert.deepEqual(answer, { forbidden: true });
+    assert.deepEqual(answer, { forbidden: true, refused: "signIn" });
     assert.equal(ran, 0, "the route's body ran for a caller nobody authorized");
+
+    // The reason is the guard's own, read off the call that refused rather than a second read.
+    setSession(null, "/bereich");
+    assert.deepEqual(await runAdminRouteWrite("probeRoute", () => Promise.resolve({ success: true })), { forbidden: true, refused: "noGrant" });
   });
 
   /* The body never ran, so nothing was written: an unclear answer would send the admin to check for a
