@@ -74,7 +74,6 @@ export function funktionOrteOf(funktionen: readonly Funktion[]): FunktionOrt[] {
     // One team in two seasons is two places under one title, which a screen reader would name alike
     // (`docs/frontend/spec.md :: I469`).
     const geteilt = erste.art === "kontakt" && orte.some((ort) => ort.ziel !== ziel && ort.titel === titel);
-    // GERMAN-PENDING: a draft awaiting approval.
     const name = geteilt ? `${titel}, Saison ${erste.saison_id}` : titel;
 
     return { href: ziel.href, titel: titel, detail: detail, name: name };

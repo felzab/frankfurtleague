@@ -28,7 +28,6 @@ export const PERSON_SHELL_FALLBACK = {
  * What the bar reads over the person area's crash panel wherever no listed entry heads the address:
  * the failed read is what would have said which pages the person holds, so none is called missing.
  */
-// GERMAN-PENDING: a draft awaiting approval.
 export const PERSON_SHELL_CRASH = {
   label: PERSON_SHELL_FALLBACK.label,
   hint: {
