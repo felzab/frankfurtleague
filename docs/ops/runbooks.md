@@ -610,9 +610,9 @@ you are in is decided by that seat's own link, not by the person's role:
   somebody else (`fl_backend/app/api/bewerbungen/einwilligung_router.py :: post_einwilligung`).
   Send them the link again rather than erasing for them; the record then says the person refused
   rather than that an administrator removed them. **An address the ban list holds takes no second
-  link** (`REQ-BEWERBUNG-019`): the one it already holds still takes its Widerspruch until its
-  deadline, and a withdrawal it sends to the league's mailbox instead is performed by hand, through
-  `POST /kontakte/erasure`. Once the school has named a replacement, seat them
+  link** (`REQ-BEWERBUNG-019`), and the link it already holds opens on the ban's sentence alone,
+  offering no Widerspruch (`docs/frontend/spec.md :: I516`): its withdrawal reaches the league's
+  mailbox and is performed by hand, through `POST /kontakte/erasure`. Once the school has named a replacement, seat them
   from „Neu besetzen“ on that seat's row of the application's Bestätigungen panel, which sends the
   new person their own link and restarts the confirmation deadline for the whole application; it is
   acceptable again once they confirm within that new deadline. An ERASED seat offers no such control,
@@ -694,14 +694,17 @@ an application naming the address on any seat (`REQ-BEWERBUNG-018`), an administ
 reseat or re-send of a seat to it (`REQ-BEWERBUNG-019`) and every referee write that mints a link,
 and both sweeps withhold the reminder they would send it, logging the application's or
 registration's id. A grant of the address is refused (`REQ-BERECHTIGUNG-003`), a grant the Playground
-wrote onto it admits nobody, and the grants' routes show the address nowhere
-([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)). **Every confirmation link
+wrote onto it admits nobody, and no admin read shows it as a grant's holder or as the author of a
+grant, a ban, an invitation, a decision or a log row: each reads „Gesperrte Adresse“ there instead
+(`docs/backend/spec.md :: I452`). **Every confirmation link
 already mailed to the address stops confirming at once**, however long ago it went out: a pupil's
 (`REQ-REGISTRIERUNG-012`), a referee's (`REQ-SCHIEDSRICHTER-009`) and a contact seat's
-(`REQ-BEWERBUNG-020`) press is refused on the page, while a contact seat's Widerspruch is still
-taken, since it removes the person. Nothing of the ban is written on those records, so lifting a
-mistaken ban lets a link still inside its deadline answer again. No other route asks the list, so a person reading the queue is still what
-keeps a barred address out of everything a sign-up does not cover. **What the address already
+(`REQ-BEWERBUNG-020`) link opens on the ban's sentence alone, with nothing to press, and a press
+already under way is refused (`docs/backend/spec.md :: I515`, `docs/frontend/spec.md :: I516`). A
+contact person's Widerspruch then reaches the league's mailbox, as the withdrawal bullet above says.
+Nothing of the ban is written on those records, so lifting a mistaken ban lets a link still inside
+its deadline open on its form again. Nothing else refuses on the list, so a person reading the
+queue is still what keeps a barred address out of everything a sign-up does not cover. **What the address already
 holds stays until you take it away** — a record it confirmed before the ban, and one it can no
 longer confirm alike — and the ban names none of it:
 
