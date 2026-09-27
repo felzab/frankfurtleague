@@ -16,7 +16,6 @@ import pytest
 from app.core.actor_token import (
     ACTOR_TOKEN_LIFETIME_S,
     CLOCK_LEEWAY_S,
-    REQUIRED_CLAIMS,
     ActorClaims,
     ActorTokenKey,
     ActorTokenRefusal,
@@ -31,6 +30,10 @@ KEY = ActorTokenKey.from_public_key(ACTOR_TOKEN_PUBLIC_KEY)
 ACTOR = "admin@example.com"
 # Past the leeway by a margin a slow machine cannot eat, and inside any other bound.
 BEYOND_LEEWAY_S = CLOCK_LEEWAY_S + 30
+
+# The contract's claims, spelled here rather than read off `REQUIRED_CLAIMS`: a claim dropped from
+# that tuple would drop its own case too, and the case missing it would never run.
+CONTRACT_CLAIMS = ("iss", "aud", "iat", "exp", "jti", "sub", "email", "sid", "amr", "auth_time", "lane")
 
 
 def refusal(token: str, *, lane: Lane = "admin") -> str:
@@ -148,7 +151,7 @@ class TestTheRegisteredClaims:
     def test_the_wrong_issuer_is_refused(self):
         assert refusal(sign(claims(iss="fl-something-else"))) == "wrong issuer"
 
-    @pytest.mark.parametrize("claim", REQUIRED_CLAIMS)
+    @pytest.mark.parametrize("claim", CONTRACT_CLAIMS)
     def test_every_required_claim_missing_is_refused(self, claim: str):
         issued = claims()
         del issued[claim]
