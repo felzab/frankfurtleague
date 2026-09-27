@@ -720,8 +720,41 @@ class TestTheAnchorClosesEachRace:
         assert (rival, outcome) == (COMMITTED, COMMITTED)
         assert rows and all(NEU not in str(row) for row in rows)
 
+    def test_a_revoke_landing_beside_a_claim_of_the_same_unannounced_grant_is_announced_once(self, mongo_replica_set_url: str):
+        """A pasted grant the pass is queueing is revoked between the pass's read and its write; its record ends on nothing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, list[Any], int, int]:
+            await told(database, client)
+            await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(DEAD_ID, NEU, "administration"))
+            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: revoke(database, client, DEAD_ID))
+            answer = await claimed(database, client, berechtigungen=racing)
+
+            return (
+                racing.rival_outcome,
+                summary(answer),
+                await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].count_documents({"_id": DEAD_ID}),
+                await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].count_documents({}),
+            )
+
+        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, [("erteilt", NEU, None), ("entzogen", NEU, OWNER)], 0, 2)
+
 
 class TestTheClaim:
+    def test_a_pass_with_nothing_to_queue_writes_no_anchor(self, mongo_replica_set_url: str):
+        """A pass runs every few minutes, and an anchor each time would fill the log with rows about nothing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, int]:
+            await told(database, client)
+            logged = {"collection": str(Collection.BERECHTIGUNGEN), "operation": "patch_many"}
+            before = await database[Collection.AKTIONEN].count_documents(logged)
+            await claimed(database, client)
+
+            return before, await database[Collection.AKTIONEN].count_documents(logged)
+
+        before, after = on_a_league(mongo_replica_set_url, body)
+
+        assert before == after
+
     def test_grants_the_paste_made_are_each_a_change_nobody_made_here(self, mongo_replica_set_url: str):
         """Nothing accounted for and no outbox row: every grant is found by the comparison, and none names an administrator."""
 

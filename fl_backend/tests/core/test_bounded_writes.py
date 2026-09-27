@@ -105,7 +105,7 @@ CALLERS: dict[str, frozenset[str]] = {
             "app/api/berechtigungen/admin_router.py :: judge_and_grant",
             "app/api/berechtigungen/admin_router.py :: judge_and_revoke",
             "app/api/sperrliste/admin_router.py :: judge_and_ban",
-            # The claim writes no grant; it anchors so a ban withholding queued rows conflicts with it.
+            # The claim writes no grant; it anchors where it queues, so a revoke or a ban conflicts with it.
             "app/api/berechtigungen/sweep_router.py :: queue_and_claim",
         }
     ),

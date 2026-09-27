@@ -6,7 +6,13 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.berechtigungen.crud import gesperrte_adressen, pull_the_list_to_judge, read_the_announced, read_the_claimable
+from app.api.berechtigungen.crud import (
+    gesperrte_adressen,
+    pull_the_list_to_judge,
+    read_berechtigungen,
+    read_the_announced,
+    read_the_claimable,
+)
 from app.api.berechtigungen.schemas import (
     FLBerechtigungAbgleichResponse,
     FLBerechtigungAenderung,
@@ -86,12 +92,15 @@ async def post_berechtigungen_abgleich(
     async def queue_and_claim(session: AsyncClientSession) -> tuple[list[dict[str, Any]], list[str], int, str | None]:
         """Read the grants, the record and the ban list, queue what differs, then claim, each on this transaction's session."""
 
-        # Anchored, so a ban withholding pending rows and this claim queueing new ones never both
-        # commit unseen by the other (`docs/backend/spec.md :: I461`).
-        grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
+        grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
         live = lebendige(grants)
         announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
         changes = compare(grants=grants, announced=announced)
+        if changes:
+            # Anchored before the pass writes, so a revoke or a ban judging these rows conflicts with it
+            # (`docs/backend/spec.md :: I461`). The read repeats this snapshot's, and a pass queueing
+            # nothing logs no anchor.
+            await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
 
         stored = {str(row["adresse"]) for row in live} | {
             stand.adresse for _, _, jetzt, vorher in changes for stand in (jetzt, vorher) if stand is not None and stand.adresse is not None
