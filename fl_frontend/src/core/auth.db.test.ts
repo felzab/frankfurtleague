@@ -101,7 +101,12 @@ const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
 });
 
 const LOGGING_DOUBLE = exportingModule({
-  logger: { debug: () => undefined, info: () => undefined, warn: (message: string) => void warnings.push(message), error: () => undefined },
+  logger: {
+    debug: () => undefined,
+    info: () => undefined,
+    warn: (message: string) => void warnings.push(message),
+    error: (message: string) => void errors.push(message),
+  },
 });
 
 const { sent } = registerAuthDoubles({
@@ -159,6 +164,7 @@ class Gate {
 }
 
 const warnings: string[] = [];
+const errors: string[] = [];
 const barrier = new Barrier();
 
 /** Where each bound's count waits, for a case that arms it. */
@@ -176,13 +182,13 @@ let consuming: () => Promise<unknown> = async () => undefined;
 // Imported after the hooks above are registered: a static import resolves before they exist.
 const { toNextJsHandler } = await import("better-auth/next-js");
 const { auth, endSessionsOfAddress, PASSKEY_LIMIT } = await import("./auth.ts");
+const { buildAuthIndexes } = await import("./authIndexes.ts");
 const { ENROLMENT_CONFLICT } = await import("./passkeyRefusal.ts");
 
 type Collection = {
   find: (filter: object) => { toArray: () => Promise<Record<string, unknown>[]> };
   updateMany: (filter: object, update: object) => Promise<unknown>;
   deleteMany: (filter: object) => Promise<unknown>;
-  createIndex: (spec: object, options: object) => Promise<unknown>;
 };
 type RealClient = {
   db: (name: string) => { dropDatabase: () => Promise<unknown>; collection: (name: string) => Collection };
@@ -205,6 +211,11 @@ beforeEach(async () => {
   warnings.length = 0;
   consuming = async () => undefined;
   await authDb().dropDatabase();
+
+  // Production's indexes under every case, so the library is driven over what it meets there.
+  errors.length = 0;
+  await buildAuthIndexes();
+  assert.deepEqual(errors, [], "an index of the sign-in store was left unbuilt");
 });
 
 const handler = toNextJsHandler(auth);
@@ -267,10 +278,6 @@ async function atOnce(
   return { statuses: responses.map((response) => response.status).sort(), codes, notices: sent.length - mailedBefore, warnings: [...warnings] };
 }
 
-// A hand-made unique index, named as `docs/ops/runbooks.md` asks: never a name a release could generate.
-const createCredentialIndex = () =>
-  authDb().collection("passkey").createIndex({ credentialID: 1 }, { unique: true, name: "credential_id_unique_by_hand" });
-
 const AUTHENTICATOR_A = Buffer.from("fl-auth-db-authenticator-a");
 const AUTHENTICATOR_B = Buffer.from("fl-auth-db-authenticator-b");
 
@@ -292,19 +299,6 @@ describe("two enrolments of one administrator at once, against a real database (
   // A stolen mailbox racing the administrator's own first enrolment: without the claim both rows
   // stand and neither side is refused.
   it("lets one of two code-borne sessions judged at zero rows enrol", async () => {
-    const a = await offer(await signIn(ADMIN_EMAIL));
-    const b = await offer(await signIn(ADMIN_EMAIL));
-
-    const raced = await atOnce([
-      [a, AUTHENTICATOR_A],
-      [b, AUTHENTICATOR_B],
-    ]);
-
-    assert.deepEqual({ ...raced, rows: (await passkeyRows()).length }, { ...ONE_WINS, rows: 1 });
-  });
-
-  it("lets one of two code-borne sessions enrol while the credential index stands", async () => {
-    await createCredentialIndex();
     const a = await offer(await signIn(ADMIN_EMAIL));
     const b = await offer(await signIn(ADMIN_EMAIL));
 
@@ -347,22 +341,9 @@ describe("two enrolments of one administrator at once, against a real database (
     }
   });
 
-  it("stores one authenticator enrolled twice at once as one row", async () => {
-    const a = await offer(await signIn(ADMIN_EMAIL));
-    const b = await offer(await signIn(ADMIN_EMAIL));
-
-    const raced = await atOnce([
-      [a, AUTHENTICATOR_A],
-      [b, AUTHENTICATOR_A],
-    ]);
-
-    assert.deepEqual({ ...raced, rows: (await passkeyRows()).length }, { ...ONE_WINS, rows: 1 });
-  });
-
-  // The index alone keeps one row here, and answers the loser with the plugin's own failure rather
-  // than a refusal the dialog can word.
-  it("answers the loser of one authenticator enrolled twice with the conflict while the credential index stands", async () => {
-    await createCredentialIndex();
+  // The credential index alone keeps one row here, and answers the loser with the plugin's own failure
+  // rather than a refusal the dialog can word.
+  it("stores one authenticator enrolled twice at once as one row, and answers the loser with the conflict", async () => {
     const a = await offer(await signIn(ADMIN_EMAIL));
     const b = await offer(await signIn(ADMIN_EMAIL));
 

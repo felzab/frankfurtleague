@@ -16,6 +16,7 @@ import { MongoServerError } from "mongodb";
 import { mintRequestActor } from "./actorToken";
 import { ANMELDUNG_CODE, ANMELDUNG_TAG } from "./anmeldeTag";
 import { buildCodeEmail, CODE_VALIDITY_MINUTES } from "./authEmail";
+import { MONGO_DB_NAME } from "./authIndexes";
 import { frontend_config } from "./config";
 import { client } from "./db";
 import { asSignInIdentifier } from "./emailAddress";
@@ -49,10 +50,6 @@ import type { SubjectSession } from "./subject";
 
 /** One mailbox's records, ban and grant, as the gate reads them. */
 type SubjectRecords = SubjectSession["subjekt"];
-
-// Named for what the database holds rather than for the library that writes it, so the next swap
-// inherits a name it does not have to migrate.
-const MONGO_DB_NAME = "auth";
 
 // A ceiling nothing else supplies: one session that passed the assertion can enrol without limit
 // (`docs/frontend/spec.md :: I311`).

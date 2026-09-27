@@ -121,7 +121,12 @@ const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
 const HEADERS_DOUBLE = exportingModule({ headers: () => Promise.resolve(requestHeaders) });
 
 const LOGGING_DOUBLE = exportingModule({
-  logger: { debug: () => undefined, info: () => undefined, warn: (message: string) => void warnings.push(message), error: () => undefined },
+  logger: {
+    debug: () => undefined,
+    info: () => undefined,
+    warn: (message: string) => void warnings.push(message),
+    error: (message: string) => void errors.push(message),
+  },
 });
 
 const { sent } = registerAuthDoubles({
@@ -163,6 +168,7 @@ class Gate {
 const OPEN_GATE = { arrive: async () => undefined };
 
 const warnings: string[] = [];
+const errors: string[] = [];
 const barrier = new Barrier();
 
 /** Where a removal's in-transaction read of the passkey rows waits: nowhere, unless a case holds it. */
@@ -176,6 +182,7 @@ let committed: () => Promise<unknown> = async () => undefined;
 
 // Imported after the hooks above are registered: a static import resolves before they exist.
 const { auth } = await import("@/core/auth");
+const { buildAuthIndexes } = await import("@/core/authIndexes");
 const { removePasskeyAction } = await import("./actions.ts");
 const { UNKNOWN_REFUSAL } = await import("@/shared/utils/refusal");
 
@@ -203,6 +210,11 @@ beforeEach(async () => {
   committed = async () => undefined;
   readGate = OPEN_GATE;
   await authDb().dropDatabase();
+
+  // Production's indexes under every case, so the library is driven over what it meets there.
+  errors.length = 0;
+  await buildAuthIndexes();
+  assert.deepEqual(errors, [], "an index of the sign-in store was left unbuilt");
 });
 
 /** The passkey the acting device signed in with, which `seedPasskeys` writes last unless a case names it. */

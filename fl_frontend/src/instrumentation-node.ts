@@ -28,6 +28,13 @@ export async function registerOnNode() {
     const { armBerechtigungenAbgleich } = await import("./features/berechtigungen/abgleich");
     armBerechtigungenAbgleich();
   }
+
+  // Unawaited: Next serves nothing until this hook returns, and the site serves without these
+  // indexes, where an outage of the store would otherwise hold every page (`docs/frontend/spec.md :: I498`).
+  if (process.env.NODE_ENV === "production") {
+    const { buildAuthIndexes } = await import("./core/authIndexes");
+    void buildAuthIndexes();
+  }
 }
 
 /** The two boot gates, each writing its own CRITICAL line before it throws: the environment, then the signing key. */

@@ -21,7 +21,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [11. A contact seat's birthdate that no confirmation stamped](#11-a-contact-seats-birthdate-that-no-confirmation-stamped)                       | What finds the rows, and why no save clears one                |
 | [12. Deleting this season's player records and resetting the action log](#12-deleting-this-seasons-player-records-and-resetting-the-action-log) | Its two halves, the referee drop, and what is lost with them   |
 | [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                                      | Who is re-erased, and what the restore took the record of      |
-| [14. The `auth` database's two expiry indexes](#14-the-auth-databases-two-expiry-indexes)                                                       | Which collections grow without one, and what creates it        |
+| [14. The `auth` database's indexes](#14-the-auth-databases-indexes)                                                                             | What builds them, and what a boot that could not leaves        |
 | [15. When a sign-in code does not arrive](#15-when-a-sign-in-code-does-not-arrive)                                                              | What the person cannot tell apart, and the line that can       |
 | [16. The checkout root's `.env`](#16-the-checkout-roots-env)                                                                                    | What it holds, and how each machine makes its own              |
 | [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                                       | Who meets it, when it lifts, and what clearing it costs        |
@@ -421,17 +421,6 @@ administration is shut while it is down. Each of these is easy to get wrong:
   which is the attack the second factor exists against.
 - **An admin ending their own session needs no restart at all**: the sidemenu's options menu carries a
   sign-out, which arms on the first press and ends the session on the second.
-- **A unique index on `credentialID` in the `auth` database's `passkey` collection is worth creating
-  by hand, and it is the only index that collection has.** The adapter resolves a model's indexes
-  from its schema's TABLE-level `indexes` alone, and the passkey plugin's schema declares none: its
-  `index: true` on `userId` and `credentialID` is read for name collisions and for nothing else, so
-  no `createIndex` is issued for that model on any write. Never on `userId`, which several passkeys
-  per administrator contradicts.
-- **Give a hand-made index a name of your own, and never one a release could generate.** Better
-  Auth documents no index behaviour for MongoDB at all — only that the schema needs no migration
-  there — so a release that starts declaring table-level indexes would ask for
-  `passkey_credentialID_uidx` on every create and inside the counter update every passkey sign-in
-  makes, and a hand-made index holding that name with a different spec would throw in both.
 
 ## 4. When the application queue has been flooded
 
@@ -1150,27 +1139,48 @@ I151). And **an erasure with no mail thread behind it is reachable by nothing he
 answer for it and no check finds it, so a request answered outside the mailbox is one this procedure
 misses.
 
-## 14. The `auth` database's two expiry indexes
+## 14. The `auth` database's indexes
 
-The sign-in library writes an `expiresAt` on every `verification` row and every `session` row, and
-it deletes neither on a schedule: a verification row is removed only by the caller that redeems it,
-and a session row only when its own cookie comes back. **Both collections therefore need a TTL index
-on `expiresAt`, created once in the Atlas console**, with an expiry-after of zero seconds so the
-stored value is itself the deletion time.
+**Every production boot of the frontend builds them, and serves the site whether or not each is
+built** (`fl_frontend/src/core/authIndexes.ts :: AUTH_INDEXES`, `docs/frontend/spec.md :: I498`). An
+index the boot could not build is one `FE-AUTH-011` line naming it, and nothing builds it again
+before the next boot, so read the frontend's log for that code after every deploy:
 
-`verification` is the one that matters. The sign-in action is public, it is reachable by a POST to
-any URL on the site rather than to `/signin` alone, and the library writes the row before the
-send gate is consulted — so every address anyone submits is kept, with no path in the running system
-that removes it.
+| The line's `code` | What stands                                                       | What to do                                                                                                                                                               |
+| ----------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `85`              | An index on the same key under another name, which keeps serving  | Give the list's entry the name the Atlas console shows, in a release                                                                                                     |
+| `11000`           | Rows sharing a value the index keeps unique; no index on that key | Group the collection on the key in the Atlas console to find them. Which row stays is a judgement about those accounts, and the next boot builds the index once one does |
+| `13`              | Nothing: the sign-in store's database user may not build an index | Grant that user `readWrite` on `auth` in the Atlas console, which carries `createIndex`, then restart the frontend container                                             |
+| none              | Nothing: the store did not answer the boot                        | Restart the frontend container (`docker compose restart frontend`, on the server) once it answers                                                                        |
 
-`session` is smaller and the index is defence in depth: a row for anybody who signed in and closed
-the browser is held for the library's full `expiresIn` otherwise, and with the index the store stops
-serving what the guards in `fl_frontend/src/core/auth.ts` would refuse anyway.
+**A name in the list is the one production's index carries.** Three of them — the `passkey`
+collection's unique `credentialID` and both expiry indexes — were made in the Atlas console before
+the frontend built any, and a same-key index under another name is the code-85 line above.
 
-**Nothing in this repository reports a missing one.** Neither index is created by the adapter and no
-configuration option asks for one, and `app.core.constraints --check` (§2) reads the backend's own
-declared indexes, which these are not — so the console is where both are made and where their
-presence is read.
+**For a release changing an index's key or options, drop the old one in the Atlas console as it
+deploys, then restart the frontend container**: `createIndex` refuses a name already held at other
+options and builds nothing in its place, so the old index would otherwise stand for good.
+
+**The two expiry indexes are the retention.** The library writes an `expiresAt` on every
+`verification` row and every `session` row and deletes neither on a schedule: an expired
+verification row goes when some later sign-in reads that collection, and a session row when its own
+cookie comes back. With an expiry-after of zero seconds the stored value is the deletion time.
+
+- **`verification` is the one that matters.** The sign-in action is public, reachable by a POST to
+  any URL on the site rather than to `/signin` alone, and the library writes the row before the send
+  gate is consulted, so the address of anyone who submits the form is held until the index removes
+  it.
+- **`session` is defence in depth**: a row for anybody who signed in and closed the browser is held
+  for the library's full `expiresIn` otherwise, and with the index the store stops serving what the
+  guards in `fl_frontend/src/core/auth.ts` would refuse anyway.
+
+**An index dropped by hand after a boot is reported by nothing until the next one**, and
+`app.core.constraints --check` (§2) reads the backend's own declared indexes, which these are not.
+
+**A Better Auth release that declares an index of its own on a key the list covers throws on every
+write to that collection**, its adapter building the library's name where the list's already
+stands. The frontend's sign-in db suites build the list before each case, so such an upgrade fails
+them before it ships; the repair is the list's entry taking the library's name.
 
 ## 15. When a sign-in code does not arrive
 

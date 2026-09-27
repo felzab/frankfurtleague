@@ -51,6 +51,17 @@ const CONFIG_DOUBLE = {
   },
 };
 
+/** How often a boot asked for the sign-in store's indexes. */
+let indexBuilds = 0;
+
+// A build that never settles, standing in for a store that never answers: a boot awaiting it never ends.
+const INDEXES_DOUBLE = {
+  buildAuthIndexes: () => {
+    indexBuilds += 1;
+    return new Promise(() => undefined);
+  },
+};
+
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
@@ -62,6 +73,8 @@ registerHooks({
       return { format: "module", source: replacingModule(url, "the logger", LOGGING_DOUBLE), shortCircuit: true };
     if (url.endsWith("/src/core/config.ts"))
       return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
+    if (url.endsWith("/src/core/authIndexes.ts"))
+      return { format: "module", source: replacingModule(url, "the index build", INDEXES_DOUBLE), shortCircuit: true };
     return nextLoad(url, context);
   },
 });
@@ -146,6 +159,36 @@ describe("the pass announcing each change to who administers", () => {
 
   it("arms nothing under a development build", async (t) => {
     assert.deepEqual(await bootAndStep(t, "development", [10 * MINUTE_MS]), [0]);
+  });
+});
+
+describe("the boot building the sign-in store's indexes (`docs/frontend/spec.md :: I498`)", () => {
+  const env = process.env as Record<string, string | undefined>;
+
+  /** One boot under `nodeEnv`: whether it finished while its build never settled, and the builds it asked for. */
+  async function boot(nodeEnv: string): Promise<{ booted: boolean; builds: number }> {
+    const before = env.NODE_ENV;
+    env.NODE_ENV = nodeEnv;
+    indexBuilds = 0;
+    try {
+      const outcome = await Promise.race([
+        register().then(() => "booted"),
+        new Promise((resolve) => setTimeout(resolve, 2000, "held").unref()),
+      ]);
+      return { booted: outcome === "booted", builds: indexBuilds };
+    } finally {
+      if (before === undefined) delete env.NODE_ENV;
+      else env.NODE_ENV = before;
+    }
+  }
+
+  it("asks for them under a production build and serves without waiting for them", async () => {
+    assert.deepEqual(await boot("production"), { booted: true, builds: 1 });
+  });
+
+  // `next dev` reaches a developer's own store, whose indexes are that developer's.
+  it("asks for nothing under a development build", async () => {
+    assert.deepEqual(await boot("development"), { booted: true, builds: 0 });
   });
 });
 

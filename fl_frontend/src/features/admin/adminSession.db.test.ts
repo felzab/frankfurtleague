@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import { after, describe, it } from "node:test";
+import { after, beforeEach, describe, it } from "node:test";
 
 import { MongoDBContainer } from "@testcontainers/mongodb";
 
@@ -30,10 +30,16 @@ let requestHeaders: Headers | undefined;
 // counted is the one `fl_frontend/src/core/db.ts` builds.
 const PRODUCTION_DB = `${import.meta.resolve("@/core/db.ts")}?production`;
 
+/** Each error line written, which the index build's failures are among. */
+const errors: string[] = [];
+
 registerAuthDoubles({
   core: {
     config: configDouble({ MONGODB_URI: `${mongod.getConnectionString()}/?directConnection=true` }),
     db: overridingModule(PRODUCTION_DB, {}),
+    logging: exportingModule({
+      logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: (message: string) => void errors.push(message) },
+    }),
   },
   specifiers: { "next/headers": asDataUrl(exportingModule({ headers: () => Promise.resolve(requestHeaders) })) },
 });
@@ -52,6 +58,14 @@ registerHooks({
 const { client } = (await import(PRODUCTION_DB)) as { client: MongoClient };
 opened.client = client;
 const { auth, getAdminSession } = await import("@/core/auth.ts");
+const { buildAuthIndexes } = await import("@/core/authIndexes.ts");
+
+// Production's indexes under every case, so the library is driven over what it meets there.
+beforeEach(async () => {
+  errors.length = 0;
+  await buildAuthIndexes();
+  assert.deepEqual(errors, [], "an index of the sign-in store was left unbuilt");
+});
 
 // Set before the first operation opens a connection, which is when the pool reads it; the option is
 // the client's own, left out of its published type.

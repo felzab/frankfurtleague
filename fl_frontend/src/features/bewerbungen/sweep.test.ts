@@ -73,6 +73,8 @@ const CONFIG_DOUBLE = {
   },
 };
 
+const INDEXES_DOUBLE = { buildAuthIndexes: () => Promise.resolve() };
+
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
@@ -84,6 +86,9 @@ registerHooks({
       return { format: "module", source: replacingModule(url, "the logger", LOGGING_DOUBLE), shortCircuit: true };
     if (url.endsWith("/src/core/config.ts"))
       return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
+    // A production boot builds the sign-in store's indexes too, over a client this suite never configures.
+    if (url.endsWith("/src/core/authIndexes.ts"))
+      return { format: "module", source: replacingModule(url, "the index build", INDEXES_DOUBLE), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

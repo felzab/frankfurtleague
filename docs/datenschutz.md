@@ -396,14 +396,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   failed codes for a day and requested codes for an hour, under a keyed hash of the address rather
   than the address (`fl_frontend/src/core/auth.ts :: boundIdentifier`); both are counted ahead of the
   send gate, so a stranger's address is counted as a member's is. One more row per code mailed counts
-  every address together for an hour, and carries no address and no hash of one. Neither collection
-  is swept by the application; the retention index each needs is a console step
-  ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-two-expiry-indexes)).
+  every address together for an hour, and carries no address and no hash of one. What deletes a
+  row of either collection at its expiry is an index the frontend builds at every production boot
+  ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-indexes)).
 - **The sign-in store holds more than the people it signs in.** The sign-in send is public and the
   library writes its `verification` row before the send gate is consulted, so the address of anyone
   who submits the form is held there — a person the gate admits and a stranger alike — until that
   retention index removes it
-  ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-two-expiry-indexes)). Such a
+  ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-indexes)). Such a
   person's typed address also leaves the keyed rows of the entry above, a count of the codes it
   asked for and, where a code was typed, of the codes that failed. No `user` row is written until a
   code is typed right, and a code is mailed only to an administrator or to an address the league
