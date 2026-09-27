@@ -10,6 +10,8 @@ from pydantic import SecretStr
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.crud import holds_a_live_unbarred_grant
+from app.api.saisons.crud import pull_massgebliche_saison_id
+from app.api.sperrliste.crud import gesperrte_adressen
 from app.core.actor_token import (
     ACTOR_TOKEN_MAX_LENGTH,
     COMPACT_JWS_PATTERN,
@@ -97,6 +99,7 @@ ACTOR_HEADER = "X-FL-Actor"
 MISSING_ACTOR = "REQ-AUTH-005"
 ACTOR_NOT_ADMIN = "REQ-AUTH-006"
 ACTOR_TOKEN_REFUSED = "REQ-AUTH-007"
+PERSON_BARRED = "REQ-AUTH-008"
 
 # The methods that record nothing (`app/core/exception_handlers.py` reads them).
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
@@ -182,6 +185,44 @@ async def verify_actor_is_admin(
         )
 
 
+# Whether a folded identifier is on the ban list: what a person's route asks beside the token.
+BanLookup = Callable[[str], Awaitable[bool]]
+
+
+def get_ban_lookup(
+    sperrliste_collection: Annotated[AsyncCollection, Depends(get_sperrliste_collection)],
+    saisons_collection: Annotated[AsyncCollection, Depends(get_saisons_collection)],
+    config: Annotated[BackendConfig, Depends(get_app_config)],
+) -> BanLookup:
+    """The person check's read, keyed as the grant check keys its own ban read (`docs/backend/spec.md :: I463`)."""
+
+    async def is_gesperrt(identifier: str) -> bool:
+        return bool(
+            await gesperrte_adressen(
+                [identifier],
+                sperrliste_collection=sperrliste_collection,
+                schluessel=config.sperrliste_schluessel,
+                massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection),
+            )
+        )
+
+    return is_gesperrt
+
+
+async def verify_person_is_unbarred(
+    # First, so an unverified token is refused before the ban read opens the database.
+    actor: Annotated[ActorClaims, Depends(verify_person_actor)],
+    is_gesperrt: Annotated[BanLookup, Depends(get_ban_lookup)],
+) -> ActorClaims:
+    """Refuse a verified person the ban list holds, read per request: the frontend's mint-time check misses a ban entered since."""
+
+    if await is_gesperrt(sign_in_identifier(actor.email)):
+        # The address stays out of the message, which reaches the log line.
+        raise ActorForbiddenException(error_code=PERSON_BARRED, message=f"the person the {ACTOR_HEADER} names is barred", jti=actor.jti)
+
+    return actor
+
+
 async def bind_actor(request: Request, actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> AsyncIterator[None]:
     """Attribute this request's writes to the administrator its verified actor token names.
 
@@ -231,7 +272,8 @@ def person_actor_binder(funktion: AktorFunktion) -> Callable[..., AsyncIterator[
     async def bind_person(
         request: Request,
         config: Annotated[BackendConfig, Depends(get_app_config)],
-        actor: Annotated[ActorClaims, Depends(verify_person_actor)],
+        # The ban check rides the binder, so a router declaring it cannot serve a barred person.
+        actor: Annotated[ActorClaims, Depends(verify_person_is_unbarred)],
     ) -> AsyncIterator[str]:
         """Attribute this request's writes to the signed-in person its verified actor token names, and yield their folded identifier.
 

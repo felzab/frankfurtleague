@@ -71,6 +71,7 @@ from app.core.security import (
     ACTOR_TOKEN_REFUSED,
     MISSING_ACTOR,
     MISSING_TOKEN,
+    PERSON_BARRED,
     WRONG_ADMIN_KEY,
     WRONG_BASE_KEY,
     WRONG_SYSTEM_KEY,
@@ -82,6 +83,7 @@ from app.core.security import (
     verify_actor_is_admin,
     verify_admin_actor,
     verify_person_actor,
+    verify_person_is_unbarred,
 )
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
@@ -152,6 +154,7 @@ DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
     verify_admin_actor: (HTTPStatus.UNAUTHORIZED, ACTOR_TOKEN_REFUSED),
     verify_person_actor: (HTTPStatus.UNAUTHORIZED, ACTOR_TOKEN_REFUSED),
     verify_actor_is_admin: (HTTPStatus.FORBIDDEN, ACTOR_NOT_ADMIN),
+    verify_person_is_unbarred: (HTTPStatus.FORBIDDEN, PERSON_BARRED),
     get_db_client: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
     get_database: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
 }

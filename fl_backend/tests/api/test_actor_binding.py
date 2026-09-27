@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator, Callable, Mapping
 from typing import Any, cast, get_args
 
 import pytest
+from fastapi import Depends
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
@@ -35,13 +36,16 @@ from app.core.security import (
     ACTOR_TOKEN_REFUSED,
     MISSING_ACTOR,
     PERSON_ACTOR_BINDERS,
+    PERSON_BARRED,
     SAFE_METHODS,
+    BanLookup,
     akteur_pseudonym,
     bind_actor,
     bind_public_actor,
     bind_system_actor,
     get_actor_email,
     get_actor_token,
+    get_ban_lookup,
     verify_admin_actor,
     verify_person_actor,
 )
@@ -716,6 +720,66 @@ class TestThePersonBinder:
         _, _, after = asyncio.run(through_the_person_binder(person_request("PATCH", KNOWN_IDENTIFIER)))
 
         assert after == (SYSTEM_ACTOR, None)
+
+
+PERSON_PROBE = "/api/v0/person-probe"
+BARRED_PERSON = "gesperrt@beispielschule.de"
+
+
+def _probe() -> dict[str, bool]:
+    return {"erreicht": True}
+
+
+def person_client(*, barred: frozenset[str] | None = frozenset({BARRED_PERSON})) -> TestClient:
+    """The real application and one route declaring a person's binder, which no router mounts yet.
+
+    The ban read is answered from `barred`, or left real where it is `None`, which reaches the missing database.
+    """
+
+    app = create_app(CONFIG)
+    app.add_api_route(PERSON_PROBE, _probe, methods=["GET"], dependencies=[Depends(PERSON_ACTOR_BINDERS[SPIELER])])
+    if barred is not None:
+
+        def answered_from_the_set() -> BanLookup:
+            async def is_gesperrt(identifier: str) -> bool:
+                return identifier in barred
+
+            return is_gesperrt
+
+        app.dependency_overrides[get_ban_lookup] = answered_from_the_set
+
+    return TestClient(app, raise_server_exceptions=False)
+
+
+class TestThePersonBinderOverAServedRequest:
+    """The ban check rides the binder, so a route declaring it asks the list whatever else it declares."""
+
+    def test_a_person_the_list_does_not_hold_is_served(self):
+        """The control: every refusal below would pass on a check refusing everybody."""
+        response = person_client().get(PERSON_PROBE, headers={ACTOR_HEADER: actor_token(KNOWN_IDENTIFIER, lane="person")})
+
+        assert (response.status_code, response.json()) == (200, {"erreicht": True})
+
+    @pytest.mark.parametrize("email", [BARRED_PERSON, BARRED_PERSON.upper()], ids=("as stored", "in another case"))
+    def test_a_barred_person_is_refused_before_the_route_runs(self, email: str):
+        """Folded before it is asked, as the grant check folds: one mailbox's two spellings cannot hold two answers."""
+        response = person_client().get(PERSON_PROBE, headers={ACTOR_HEADER: actor_token(email, lane="person")})
+
+        assert (response.status_code, response.json()["error_code"]) == (403, PERSON_BARRED)
+        assert BARRED_PERSON not in response.text.lower()
+        assert "www-authenticate" not in response.headers
+
+    def test_a_request_naming_nobody_is_refused_before_the_ban_read_opens_the_database(self):
+        """No database and the real read: a 503 here would mean the list was asked before the token was."""
+        response = person_client(barred=None).get(PERSON_PROBE)
+
+        assert (response.status_code, response.json()["error_code"]) == (400, MISSING_ACTOR)
+
+    def test_a_verified_person_meets_the_real_read(self):
+        """The same app with the real read, reaching the missing database: the ban list is asked on every request."""
+        response = person_client(barred=None).get(PERSON_PROBE, headers={ACTOR_HEADER: actor_token(KNOWN_IDENTIFIER, lane="person")})
+
+        assert (response.status_code, response.json()["error_code"]) == (503, UNREACHED_DATABASE)
 
 
 class TestThePseudonym:
