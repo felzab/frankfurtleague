@@ -35,8 +35,10 @@ const FASSUNG_DIGESTS: Readonly<Record<string, string>> = {
   "2026-09-bestaetigungsseite-6": "1227f765f47568c1ef105d9ccddeee88732e5bf37b768eaa285b2717f236c905",
   "2026-09-schiedsrichterseite": "21e9351ead79fce150e6dc1c822b0912ae630c493935fb901992a17948d893f0",
   "2026-09-schiedsrichterseite-2": "57f8835d93222b31f07fcc344d7e49825dff32e042d3f08203c26e4e5ea1acd2",
+  "2026-09-schiedsrichterseite-3": "42a7cb76d1b0c7f89fff39ed3c16431e1bae66463ce6a71572ddb684d4426807",
   "2026-09-spielerseite": "e3b95487516031a6f42bd6eba653ee1b3e7e32708a226d2cdf5067c2119b76d9",
   "2026-09-spielerseite-2": "eae0481230b89f7c1c21b53cca87acc81058bde375544b98b2907e880e16cdeb",
+  "2026-09-spielerseite-3": "08810bd6501bdde29d871b01a4878f77b2e25d2562bb63e5b8d6ef8d4db74a48",
 };
 
 // The controls are inside because a record cites its label and nothing else: a chip reworded under
@@ -244,6 +246,28 @@ describe("LIGA_KENNTNISNAHMEN", () => {
       absaetzeNachSchluessel.gespeichert.includes("und, falls angegeben, Deine Schule und Deine Telefonnummer"),
       `${textVersion} states an optional field as held`,
     );
+  });
+
+  /* Nothing else pins WHICH label is live: „Zugang“ names an administration grant alone, so a live
+     label saying it of the person's own account tells a pupil or a referee they hold one. */
+  it("points the two consent pages' live labels at „Konto“ for the person's account, and never at „Zugang“", () => {
+    for (const { textVersion, absaetze } of [SPIELER_EINWILLIGUNG, SCHIEDSRICHTER_EINWILLIGUNG]) {
+      const text = absaetze.join(" ");
+
+      assert.ok(!text.includes("Zugang"), `${textVersion} calls the person's account a grant`);
+      assert.ok(text.includes("in Deinem Konto"), `${textVersion} names no account the choices are changed in`);
+    }
+  });
+
+  /* Records stamped under these two labels cite „Zugang“, so the rename is a new label: rewording
+     them, even with their digests re-minted, leaves a record claiming words its person never saw. */
+  it("keeps each earlier consent label answering the „Zugang“ wording its records cite", () => {
+    for (const textVersion of ["2026-09-spielerseite-2", "2026-09-schiedsrichterseite-2"]) {
+      const fassung = einwilligungFassung(textVersion);
+
+      assert.ok(fassung !== null, `${textVersion} no longer resolves`);
+      assert.ok(fassung.absaetze.join(" ").includes("Dein Zugang zur Website"), `${textVersion} answers words its records were not shown`);
+    }
   });
 
   it("answers nothing for a label no record was ever made under", () => {
