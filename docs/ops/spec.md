@@ -881,9 +881,13 @@ exposure, so `scripts/checks/check_compose_model.py` reads the two models
 port and declares exactly `:: PRODUCTION_SERVICES`, and locally only nginx leaves loopback (I1,
 I174). It also holds every mount the edge takes from `nginx/` to a directory on both stacks,
 production's to the pairs `scripts/ops/deploy.sh :: EDGE_CONFIG_DIRS` compares (I355), and the
-edge's Control API socket and tmpfs to the deploy's, and `nginx/prod/prod.conf` to trusting the
-connector's rendered address alone (I18). A model it cannot read, a short-syntax port or volume
-among them, is a refusal rather than a verdict (§1.7).
+edge's Control API socket and tmpfs to the deploy's. Over every file either edge mounts, the shared
+`nginx/shared/http.conf` among them, it holds both edges to trusting the connector's rendered
+address alone and to declaring the real-address header and recursion once (I18). It holds each
+application service to reading its package's `.env`, then the root's, and no other, judged off the
+environment Compose resolves from the stand-ins the gate writes in place of the three files (I429).
+A model it cannot read, a short-syntax port or volume among them, is a refusal rather than a verdict
+(§1.7).
 
 **In CI the images scope caches layers through the Actions cache service**
 (`VERIFY_IMAGES_CACHE=gha`), and **refuses at 2 before building where the variable is set and the
