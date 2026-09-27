@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
+from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.results import InsertOneResult
 
@@ -11,15 +12,18 @@ from app.api.berechtigungen.schemas import (
     FLBerechtigungenListResponse,
     FLBerechtigungWriteResponse,
     FLBerechtigungZeile,
+    FLPatchBerechtigungPayload,
     FLPostBerechtigungPayload,
     FLPostBerechtigungResponse,
 )
 from app.api.berechtigungen.services import (
+    OWNER,
     compare,
     compose_announced,
     compose_postausgang,
     find_gesperrt_refusal,
     find_inhaber_refusal,
+    find_letzter_inhaber_refusal,
     find_mindestzahl_refusal,
     find_nur_inhaber_refusal,
     find_ohne_zugang_refusal,
@@ -33,7 +37,7 @@ from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import address_is_gesperrt, gesperrte_adressen
 from app.api.sperrliste.services import adresse_hash
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import delete_many_from_db, erase_many_from_db, post_one_to_db, pull_many_from_db, refuse
+from app.core.crud import delete_many_from_db, erase_many_from_db, patch_one_in_db, post_one_to_db, pull_many_from_db, refuse
 from app.core.dependencies import (
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
@@ -55,7 +59,7 @@ router = APIRouter(
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
 
-# The one tier a request grants: `owner` is written in the database directly and nowhere here.
+# The one tier a grant is made with: `owner` is reached only by an owner's tier change.
 ADMINISTRATION = "administration"
 
 
@@ -210,8 +214,8 @@ async def delete_berechtigung(
     Revoke one grant, removing the row. HARD, no soft form; the revoked address meets `REQ-AUTH-006` on its next request.
 
     Only an `owner` revokes (`REQ-BERECHTIGUNG-005`), judged on the actor's own grant inside the transaction, and before anything
-    about the target is answered. 404 where no grant has the id. Refused for an `owner` row (`REQ-BERECHTIGUNG-002`), which is changed
-    in the database directly, and where fewer than two live, unbarred grants would remain (`REQ-BERECHTIGUNG-004`). The removal's
+    about the target is answered. 404 where no grant has the id. Refused for an `owner` row (`REQ-BERECHTIGUNG-002`), which is made an
+    administrator first, and where fewer than two live, unbarred grants would remain (`REQ-BERECHTIGUNG-004`). The removal's
     announcement is queued in the same transaction, after any change to the row made in the database and not yet announced.
     """
 
@@ -279,5 +283,117 @@ async def delete_berechtigung(
 
     async with db.start_session() as session:
         await session.with_transaction(judge_and_revoke)
+
+    return FLBerechtigungWriteResponse(berechtigung_id=berechtigung_id)
+
+
+@router.patch(
+    by_id("berechtigung_id"),
+    response_model=FLBerechtigungWriteResponse,
+    summary="Change a grant between administrator and owner",
+    # 409 `DB-COMMON-002` cannot occur here, and is published all the same: the trace behind it reads
+    # a write by collection and never by field (`tests/core/test_duplicate_key_publication.py`).
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+)
+async def patch_berechtigung(
+    berechtigung_id: CustomRouteObjectId,
+    berechtigung_data: Annotated[FLPatchBerechtigungPayload, Body()],
+    berechtigungen_collection: BerechtigungenCollection,
+    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
+    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    sperrliste_collection: SperrlisteCollection,
+    saisons_collection: SaisonsCollection,
+    db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
+    geaendert_von: str = Depends(get_actor_email),
+    now: datetime = Depends(get_germany_now),
+) -> FLBerechtigungWriteResponse:
+    """
+    Make an administrator an owner, or an owner an administrator; an owner steps down by naming their own grant.
+
+    Only an `owner` changes a tier (`REQ-BERECHTIGUNG-005`), judged on the actor's own grant inside the transaction, and before
+    anything about the target is answered. 404 where no live grant has the id. A promotion of an address on the ban list is refused
+    (`REQ-BERECHTIGUNG-003`), and so is a demotion leaving no live, unbarred owner (`REQ-BERECHTIGUNG-007`). Naming the tier the grant
+    holds changes nothing and answers 200. The change takes effect on the next request; its announcement is queued in the same
+    transaction, after any change to the row made in the database and not yet announced.
+    """
+
+    akteur = sign_in_identifier(geaendert_von)
+    verwaltung = berechtigung_data.verwaltung
+
+    async def judge_and_change(session: AsyncClientSession) -> None:
+        """Anchor and read the list, judge the actor and the row against it, then move the tier, its announced row and queue its notice."""
+
+        grants = await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
+        refuse(find_nur_inhaber_refusal(akteur=akteur, grants=grants))
+
+        live = lebendige(grants)
+        # A live row alone: the list serves no other, and an owner nobody can sign in as could demote nobody back.
+        grant = next((row for row in live if row["_id"] == berechtigung_id), None)
+        if grant is None:
+            raise DocumentNotFoundException(filter={"_id": berechtigung_id}, error_code=DOCUMENT_NOT_FOUND)
+
+        if grant["verwaltung"] == verwaltung:
+            return
+
+        barred = await gesperrte_adressen(
+            [str(row["adresse"]) for row in live],
+            sperrliste_collection=sperrliste_collection,
+            schluessel=config.sperrliste_schluessel,
+            massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection, session=session),
+            session=session,
+        )
+        if verwaltung == OWNER:
+            refuse(find_gesperrt_refusal(gesperrt=grant["adresse"] in barred))
+        else:
+            owners = [row for row in live if row["verwaltung"] == OWNER and row["_id"] != berechtigung_id and row["adresse"] not in barred]
+            refuse(find_letzter_inhaber_refusal(remaining_owners=len(owners)))
+
+        announced = await pull_many_from_db(
+            collection=berechtigungen_angekuendigt_collection, db_filter={"_id": berechtigung_id}, limit=1, session=session
+        )
+        # A database edit to this row nobody was told of goes out first, as the revoke's does (`docs/backend/spec.md :: I451`).
+        for changed_id, art, jetzt, vorher in compare(grants=[grant], announced=announced):
+            await post_one_to_db(
+                collection=berechtigungen_postausgang_collection,
+                document=compose_postausgang(
+                    berechtigung_id=changed_id, art=art, jetzt=jetzt, vorher=vorher, geaendert_von=None, now=now, gesperrt=barred
+                ),
+                session=session,
+            )
+
+        await patch_one_in_db(
+            collection=berechtigungen_collection,
+            db_filter={"_id": berechtigung_id},
+            update={"$set": {"verwaltung": verwaltung}},
+            session=session,
+            return_document=ReturnDocument.BEFORE,
+        )
+
+        vorher = stand_of(grant)
+        jetzt = vorher.model_copy(update={"verwaltung": verwaltung})
+        await post_one_to_db(
+            collection=berechtigungen_postausgang_collection,
+            document=compose_postausgang(
+                berechtigung_id=berechtigung_id,
+                art="geaendert",
+                jetzt=jetzt,
+                vorher=vorher,
+                geaendert_von=geaendert_von,
+                now=now,
+                gesperrt=barred,
+            ),
+            session=session,
+        )
+        # The announced row is bookkeeping, so replaced with no image (`docs/backend/spec.md :: I465`).
+        await erase_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": berechtigung_id}, session=session)
+        await post_one_to_db(
+            collection=berechtigungen_angekuendigt_collection,
+            document=compose_announced(berechtigung_id=berechtigung_id, stand=jetzt, now=now),
+            session=session,
+        )
+
+    async with db.start_session() as session:
+        await session.with_transaction(judge_and_change)
 
     return FLBerechtigungWriteResponse(berechtigung_id=berechtigung_id)

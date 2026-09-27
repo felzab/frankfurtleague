@@ -73,9 +73,15 @@ class FLBerechtigungenListResponse(BaseAPIResponse):
 class FLPostBerechtigungPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    # No tier on the payload: the application grants `administration` alone, so an `owner` field
-    # here would be a refusal waiting for its first caller.
+    # No tier on the payload: a grant is made as `administration`, and `owner` is reached only by an
+    # owner's tier change, so an `owner` field here would be a refusal waiting for its first caller.
     email: CustomEmail
+
+
+class FLPatchBerechtigungPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    verwaltung: FLVerwaltung
 
 
 class FLPostBerechtigungResponse(BaseAPIResponse):
@@ -83,7 +89,7 @@ class FLPostBerechtigungResponse(BaseAPIResponse):
 
 
 class FLBerechtigungWriteResponse(BaseAPIResponse):
-    """The removal is hard, so the id is all there is to answer with."""
+    """The grant a revoke removed or a tier change moved: a removal is hard, so the id is all there is to answer with."""
 
     berechtigung_id: CustomObjectId
 

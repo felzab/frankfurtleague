@@ -98,12 +98,13 @@ CALLERS: dict[str, frozenset[str]] = {
     "anchor_a_booked_referee": frozenset({"app/api/spiele/admin_router.py :: write_and_resolve_the_bracket"}),
     # The rollover sweeps what a ban's bound falls below, and writes the season the ban is counted from.
     "_pull_the_season_a_ban_counts_from": frozenset({"app/api/sperrliste/admin_router.py :: judge_and_ban"}),
-    # The floor of two and the two refusals between a ban and a grant are each judged over the whole
-    # list, so every transaction judging one writes every row of it.
+    # The floor of two, the last owner and the two refusals between a ban and a grant are each judged
+    # over the whole list, so every transaction judging one writes every row of it.
     "pull_the_list_to_judge": frozenset(
         {
             "app/api/berechtigungen/admin_router.py :: judge_and_grant",
             "app/api/berechtigungen/admin_router.py :: judge_and_revoke",
+            "app/api/berechtigungen/admin_router.py :: judge_and_change",
             "app/api/sperrliste/admin_router.py :: judge_and_ban",
             # The claim writes no grant; it anchors where it queues, so a revoke or a ban conflicts with it.
             "app/api/berechtigungen/sweep_router.py :: queue_and_claim",

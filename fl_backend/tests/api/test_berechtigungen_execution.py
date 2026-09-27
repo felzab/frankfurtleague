@@ -17,17 +17,19 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.berechtigungen.admin_router import delete_berechtigung, get_berechtigungen, post_berechtigung
+from app.api.berechtigungen.admin_router import delete_berechtigung, get_berechtigungen, patch_berechtigung, post_berechtigung
 from app.api.berechtigungen.schemas import (
     FLBerechtigungAbgleichResponse,
     FLBerechtigungAngekuendigtPayload,
     FLBerechtigungStand,
+    FLPatchBerechtigungPayload,
     FLPostBerechtigungPayload,
 )
 from app.api.berechtigungen.services import (
     BEANSPRUCHUNG_DAUER,
     BERECHTIGUNG_GESPERRT,
     BERECHTIGUNG_INHABER,
+    BERECHTIGUNG_LETZTER_INHABER,
     BERECHTIGUNG_MINDESTZAHL,
     BERECHTIGUNG_NUR_INHABER,
     BERECHTIGUNG_OHNE_ZUGANG,
@@ -183,6 +185,39 @@ async def revoke(
         )
 
     await acting(Actor(kind="admin_session", email=als), call)
+
+
+async def change(
+    database: AsyncDatabase, client: AsyncMongoClient, grant_id: ObjectId, verwaltung: str, *, als: str = OWNER, berechtigungen: Any = None
+) -> None:
+    """The tier change, as the route runs it past its guards."""
+
+    async def call() -> Any:
+        return await patch_berechtigung(
+            berechtigung_id=grant_id,
+            berechtigung_data=FLPatchBerechtigungPayload.model_validate({"verwaltung": verwaltung}),
+            berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
+            berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
+            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            sperrliste_collection=database[Collection.SPERRLISTE],
+            saisons_collection=database[Collection.SAISONS],
+            db=client,
+            config=CONFIG,
+            geaendert_von=als,
+            now=NOW,
+        )
+
+    await acting(Actor(kind="admin_session", email=als), call)
+
+
+async def tiers(database: AsyncDatabase) -> dict[str, str]:
+    return {str(row["adresse"]): str(row["verwaltung"]) async for row in database[Collection.BERECHTIGUNGEN].find()}
+
+
+async def a_second_owner(database: AsyncDatabase) -> None:
+    """Anna an owner too, as a paste makes one, so a case starts from two."""
+
+    await database[Collection.BERECHTIGUNGEN].update_one({"_id": ANNA_ID}, {"$set": {"verwaltung": "owner"}})
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str = NEU_TYPED, *, als: str = ANNA, berechtigungen: Any = None) -> Any:
@@ -576,6 +611,127 @@ class TestTheOwnersRow:
         assert on_a_league(mongo_replica_set_url, body) == (BERECHTIGUNG_INHABER, sorted([OWNER, ANNA]))
 
 
+class TestAnOwnerChangesATier:
+    """`PATCH /berechtigungen/{berechtigung_id}`: an owner promotes, demotes and steps down, each announced and logged."""
+
+    def test_a_promotion_moves_the_tier_queues_its_notice_moves_the_record_and_is_logged(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, ...]:
+            await told(database, client)
+            await change(database, client, ANNA_ID, "owner")
+            announced = await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].find_one({"_id": ANNA_ID})
+            logged = await database[Collection.AKTIONEN].count_documents(
+                {"collection": str(Collection.BERECHTIGUNGEN), "operation": "patch_one", "document_id": ANNA_ID}
+            )
+
+            return (
+                await tiers(database),
+                [(row["art"], row["jetzt"], row["vorher"], row["urheber"], row["geaendert_von"]) for row in await queued(database)],
+                announced and announced["verwaltung"],
+                logged,
+            )
+
+        assert on_a_league(mongo_replica_set_url, body) == (
+            {OWNER: "owner", ANNA: "owner", BERND: "administration"},
+            [
+                (
+                    "geaendert",
+                    {"adresse": ANNA, "verwaltung": "owner"},
+                    {"adresse": ANNA, "verwaltung": "administration"},
+                    "anwendung",
+                    OWNER,
+                )
+            ],
+            "owner",
+            1,
+        )
+
+    def test_an_owner_steps_down_once_another_owner_stands(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> dict[str, str]:
+            await change(database, client, ANNA_ID, "owner")
+            await change(database, client, OWNER_ID, "administration")
+
+            return await tiers(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == {OWNER: "administration", ANNA: "owner", BERND: "administration"}
+
+    def test_the_tier_already_held_changes_and_queues_nothing(self, mongo_replica_set_url: str):
+        """A second press of the same control is harmless: no write, no notice."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[dict[str, str], list[Mapping[str, Any]]]:
+            await told(database, client)
+            await change(database, client, BERND_ID, "administration")
+            await change(database, client, OWNER_ID, "owner")
+
+            return await tiers(database), await queued(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == ({OWNER: "owner", ANNA: "administration", BERND: "administration"}, [])
+
+    def test_an_administrator_changes_no_tier_and_is_told_so_before_the_target_is_looked_up(self, mongo_replica_set_url: str):
+        """`REQ-BERECHTIGUNG-005`: making oneself an owner included, and an unknown id refused as the administrator's."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, str, dict[str, str]]:
+            itself = await refusal_of(change(database, client, ANNA_ID, "owner", als=ANNA))
+            unknown = await refusal_of(change(database, client, ObjectId(), "owner", als=ANNA))
+
+            return itself, unknown, await tiers(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == (
+            BERECHTIGUNG_NUR_INHABER,
+            BERECHTIGUNG_NUR_INHABER,
+            {OWNER: "owner", ANNA: "administration", BERND: "administration"},
+        )
+
+    @pytest.mark.parametrize("target", [ObjectId(), DEAD_ID], ids=["no row", "a dead row"])
+    def test_a_grant_the_list_does_not_serve_is_not_found(self, mongo_replica_set_url: str, target: ObjectId):
+        """A dead row made an owner would be an owner nobody can sign in as."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
+            with pytest.raises(DocumentNotFoundException):
+                await change(database, client, target, "owner")
+
+        on_a_league(mongo_replica_set_url, body, grants=[*the_three_grants(), grant_document(DEAD_ID, DEAD_OWNER, "administration")])
+
+    def test_a_barred_address_is_made_an_owner_by_nobody(self, mongo_replica_set_url: str):
+        """`REQ-BERECHTIGUNG-003`, the grant's own refusal: a barred holder is no administrator, so never an owner."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, dict[str, str]]:
+            await database[Collection.SPERRLISTE].insert_one(a_ban_row(BERND))
+
+            return await refusal_of(change(database, client, BERND_ID, "owner")), await tiers(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == (
+            BERECHTIGUNG_GESPERRT,
+            {OWNER: "owner", ANNA: "administration", BERND: "administration"},
+        )
+
+
+class TestTheLastOwner:
+    """`REQ-BERECHTIGUNG-007`: a demotion leaves one live, unbarred owner (`docs/backend/spec.md :: I466`)."""
+
+    def test_the_only_owner_neither_steps_down_nor_is_demoted(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, dict[str, str]]:
+            return await refusal_of(change(database, client, OWNER_ID, "administration")), await tiers(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == (
+            BERECHTIGUNG_LETZTER_INHABER,
+            {OWNER: "owner", ANNA: "administration", BERND: "administration"},
+        )
+
+    def test_a_barred_second_owner_holds_no_floor(self, mongo_replica_set_url: str):
+        """Counted as the floor of two is: a barred owner admits nobody, so it could demote nobody back."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, dict[str, str]]:
+            await a_second_owner(database)
+            await database[Collection.SPERRLISTE].insert_one(a_ban_row(ANNA))
+
+            return await refusal_of(change(database, client, OWNER_ID, "administration")), await tiers(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == (
+            BERECHTIGUNG_LETZTER_INHABER,
+            {OWNER: "owner", ANNA: "owner", BERND: "administration"},
+        )
+
+
 class TestAGrantToABarredAddress:
     """`REQ-BERECHTIGUNG-003`, and the ban's `REQ-SPERRLISTE-003` from the other side."""
 
@@ -738,6 +894,38 @@ class TestTheAnchorClosesEachRace:
             )
 
         assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, [("erteilt", NEU, None), ("entzogen", NEU, OWNER)], 0, 2)
+
+    def test_two_owners_demoting_each_other_leave_one_owner(self, mongo_replica_set_url: str):
+        """Either alone leaves one owner, both together none: the second is judged again and finds its actor demoted."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, dict[str, str]]:
+            await a_second_owner(database)
+            racing = GrantsRunningARivalAfterTheFirstRead(
+                database[Collection.BERECHTIGUNGEN], lambda: change(database, client, OWNER_ID, "administration", als=ANNA)
+            )
+            outcome = await outcome_of(change(database, client, ANNA_ID, "administration", berechtigungen=racing))
+
+            return racing.rival_outcome, outcome, await tiers(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == (
+            COMMITTED,
+            BERECHTIGUNG_NUR_INHABER,
+            {OWNER: "administration", ANNA: "owner", BERND: "administration"},
+        )
+
+    def test_a_demotion_landing_beside_a_revoke_refuses_the_revoke(self, mongo_replica_set_url: str):
+        """The revoking owner is demoted between its first read and its write, so it revokes nothing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, list[str]]:
+            await a_second_owner(database)
+            racing = GrantsRunningARivalAfterTheFirstRead(
+                database[Collection.BERECHTIGUNGEN], lambda: change(database, client, OWNER_ID, "administration", als=ANNA)
+            )
+            outcome = await outcome_of(revoke(database, client, BERND_ID, berechtigungen=racing))
+
+            return racing.rival_outcome, outcome, await addresses(database)
+
+        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, BERECHTIGUNG_NUR_INHABER, sorted([OWNER, ANNA, BERND]))
 
 
 class TestTheClaim:
@@ -1079,6 +1267,21 @@ class TestTheMountedRouteReadsTheGrants:
             )
 
         assert on_a_league(mongo_replica_set_url, body) == (201, ANNA, ANNA, ANNA)
+
+    def test_a_tier_change_over_http_reaches_the_grant(self, mongo_replica_set_url: str):
+        """The one tier-change case through the body parser and `get_actor_email`; every other hands the handler both."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, dict[str, str], Any]:
+            await told(database, client)
+            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+                response = await http.patch(
+                    f"/api/v{API_VERSION}/berechtigungen/{ANNA_ID}", headers={**ADMIN_AUTH, ACTOR_HEADER: OWNER}, json={"verwaltung": "owner"}
+                )
+            [queued_row] = await queued(database)
+
+            return response.status_code, await tiers(database), queued_row["geaendert_von"]
+
+        assert on_a_league(mongo_replica_set_url, body) == (200, {OWNER: "owner", ANNA: "owner", BERND: "administration"}, OWNER)
 
     def test_every_served_instant_carries_its_offset(self, mongo_replica_set_url: str):
         """The driver reads a stored instant back with no offset, which a reader would take for local time."""

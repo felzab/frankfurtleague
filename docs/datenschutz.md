@@ -333,7 +333,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   at once (`docs/backend/spec.md :: I451`); the log keeps the removed grant's image, the address in
   it, for its twelve months, as it keeps every administrator's write, and no image of an announced or
   outbox row the revoke or a pass removes (`docs/backend/spec.md :: I465`). No erasure route reaches a
-  grant: the revoke is the route, and an `owner` grant is removed in the database directly
+  grant: the revoke is the route, and an `owner` grant is made an administrator's first
   (`docs/backend/spec.md :: I436`). **The granter's address outlives both**: `erteilt_von` keeps it on
   every grant they made, through their own revoke and their erasure, served to every administrator
   while those grants stand.

@@ -343,24 +343,20 @@ administration is shut while it is down. Each of these is easy to get wrong:
 - **An `administration` grant is made on the „Administratoren“ page, and only an `owner` is offered
   its revoke there** (`docs/frontend/spec.md :: I459`). Both ask a passkey confirmation of the last
   five minutes, a grant outliving the session making it (`docs/frontend/spec.md :: I458`).
-- **An `owner` grant is written in MongoDB Playground, against the application database** (`DB_BASE_NAME`, which `fl_backend/.env` names): no route writes an
-  owner at all (`docs/backend/spec.md :: I436`). The address goes in FOLDED — trimmed, the letters
-  of both halves lower-case, the domain in punycode — or it admits nobody, the validator refusing no
-  spelling; the boot counts such a row as `SRV-BOOT-007` and never names its address. Every field
-  below is one the validator types, `erteilt_am` a date rather than a string:
-
-  ```js
-  use("<DB_BASE_NAME>");
-  db.berechtigungen.insertOne({
-    adresse: "<folded address>",
-    verwaltung: "administration", // or "owner"
-    erteilt_von: "PLAYGROUND",
-    erteilt_am: new Date(),
-  });
-  ```
-
-  A revoke is `db.berechtigungen.deleteOne({ adresse: "<folded address>" })`. In the application only
-  an `owner` revokes (`docs/backend/spec.md :: I449`).
+- **An `owner` is made, and steps down, only through the tier change an `owner` makes**
+  (`PATCH /berechtigungen/{berechtigung_id}`, `docs/backend/spec.md :: I436`): it mails every
+  administrator and is logged, and the last live, unbarred `owner` is demoted by nobody
+  (`docs/backend/spec.md :: I466`). An `owner` is revoked only once made an administrator, and in
+  the application only an `owner` revokes (`docs/backend/spec.md :: I449`).
+- **The database is written directly for two things alone: the first owner, before anybody can sign
+  in, and recovery when no owner can sign in.** Write in MongoDB Playground, never
+  `mongosh`, into the `berechtigungen` collection of the application database (`DB_BASE_NAME`,
+  which `fl_backend/.env` names). The row holds four fields, each typed by the validator: `adresse`,
+  the address FOLDED — trimmed, the letters of both halves lower-case, the domain in punycode — or it
+  admits nobody, the validator refusing no spelling and the boot counting it as `SRV-BOOT-007`
+  without naming it; `verwaltung`, `owner` or `administration`; `erteilt_von`, a marker naming the
+  paste, such as `PLAYGROUND`; and `erteilt_am`, a date rather than a string. Removing the row by its
+  folded address revokes it. The statement itself is kept off this public repository.
 
 - **Paste only into a database a boot of the release carrying `berechtigungen` has reached.** That
   boot creates the validator and the unique index; a paste before it creates the collection with
@@ -374,7 +370,8 @@ administration is shut while it is down. Each of these is easy to get wrong:
   Delete it from the frontend's once this release is settled.
 
 - **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer
-  (`docs/backend/spec.md :: I435`), and the Playground refuses nothing: the boot warns with
+  (`docs/backend/spec.md :: I435`), the tier change to leave no owner
+  (`docs/backend/spec.md :: I466`), and the Playground refuses nothing: the boot warns with
   `SRV-BOOT-005` where no grant is left and `SRV-BOOT-006` where no owner is, and serves the public
   site either way.
 - **A barred address is granted nothing, and a granted one is banned by nothing**

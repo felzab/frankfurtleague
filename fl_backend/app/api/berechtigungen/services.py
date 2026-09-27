@@ -18,8 +18,8 @@ from app.shared.folding import is_stored_identifier, sign_in_identifier
 
 BERECHTIGUNG_VORHANDEN = "REQ-BERECHTIGUNG-001"
 
-# No route writes an `owner` row, so no route removes one either: the tier exists to be out of the
-# reach of an administrator's session (`docs/backend/spec.md` §1.1).
+# No route removes an `owner` row: an owner is demoted by another owner, or steps down, before a
+# revoke reaches the row, so the tier stays out of an administrator's reach (`docs/backend/spec.md :: I436`).
 BERECHTIGUNG_INHABER = "REQ-BERECHTIGUNG-002"
 
 BERECHTIGUNG_GESPERRT = "REQ-BERECHTIGUNG-003"
@@ -30,6 +30,9 @@ BERECHTIGUNG_MINDESTZAHL = "REQ-BERECHTIGUNG-004"
 BERECHTIGUNG_NUR_INHABER = "REQ-BERECHTIGUNG-005"
 
 BERECHTIGUNG_OHNE_ZUGANG = "REQ-BERECHTIGUNG-006"
+
+# 409: the grants' state, and promoting another owner first is what lifts it.
+BERECHTIGUNG_LETZTER_INHABER = "REQ-BERECHTIGUNG-007"
 
 # An `owner` grant counts among the two, being a row no route can remove: a floor one `owner` alone
 # met would leave nobody to act while that one person is unreachable.
@@ -97,9 +100,10 @@ def find_ohne_zugang_refusal(*, akteur: str, grants: Sequence[Mapping[str, Any]]
 
 
 def find_nur_inhaber_refusal(*, akteur: str, grants: Sequence[Mapping[str, Any]]) -> WriteRefusal | None:
-    """`REQ-BERECHTIGUNG-005`: only an `owner` revokes, judged on the actor's own live grant inside the transaction.
+    """`REQ-BERECHTIGUNG-005`: only an `owner` revokes or changes a tier, judged on the actor's own live grant inside the transaction.
 
-    So one administrator cannot strip the others down to the floor and then shelter behind it.
+    So one administrator cannot strip the others down to the floor and then shelter behind it, nor
+    make themselves an owner.
     """
 
     if verwaltung_des(akteur, grants) == OWNER:
@@ -108,7 +112,7 @@ def find_nur_inhaber_refusal(*, akteur: str, grants: Sequence[Mapping[str, Any]]
     return WriteRefusal(
         error_code=BERECHTIGUNG_NUR_INHABER,
         status=HTTPStatus.FORBIDDEN,
-        message="only an owner revokes access to the administration",
+        message="only an owner revokes access to the administration or changes its tier",
     )
 
 
@@ -129,7 +133,7 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
 
 
 def find_inhaber_refusal(*, grant: Mapping[str, Any]) -> WriteRefusal | None:
-    """`REQ-BERECHTIGUNG-002`: an `owner` row is changed in the database directly and never here."""
+    """`REQ-BERECHTIGUNG-002`: an `owner` row is revoked by no route; it is demoted first."""
 
     if grant.get("verwaltung") != OWNER:
         return None
@@ -137,7 +141,7 @@ def find_inhaber_refusal(*, grant: Mapping[str, Any]) -> WriteRefusal | None:
     return WriteRefusal(
         error_code=BERECHTIGUNG_INHABER,
         status=HTTPStatus.CONFLICT,
-        message="an owner's access is not changed through the application",
+        message="an owner's access is not revoked; make them an administrator first",
     )
 
 
@@ -155,6 +159,23 @@ def find_mindestzahl_refusal(*, remaining: int) -> WriteRefusal | None:
         error_code=BERECHTIGUNG_MINDESTZAHL,
         status=HTTPStatus.CONFLICT,
         message=f"the administration keeps at least {MINDESTZAHL} people with access; grant another before revoking this one",
+    )
+
+
+def find_letzter_inhaber_refusal(*, remaining_owners: int) -> WriteRefusal | None:
+    """`REQ-BERECHTIGUNG-007`: a demotion leaves at least one live, unbarred `owner` (`docs/backend/spec.md :: I466`).
+
+    Counted as the floor of two is: a dead or barred `owner` row admits nobody, so it could demote
+    nobody back and grant nothing.
+    """
+
+    if remaining_owners >= 1:
+        return None
+
+    return WriteRefusal(
+        error_code=BERECHTIGUNG_LETZTER_INHABER,
+        status=HTTPStatus.CONFLICT,
+        message="the administration keeps at least one owner; make another person an owner first",
     )
 
 
