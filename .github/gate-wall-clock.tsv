@@ -322,6 +322,14 @@
 # sixteen-core Windows machine carrying other agent sessions, so upper bounds. The `ops` cost sits
 # inside that row's floor and the `scripts` cost far inside its budget, and no row moves.
 #
+# `ops` gained a rule in `scripts/checks/check_compose_model.py :: trusted_connector` holding
+# `real_ip_header` and `real_ip_recursive`: 1.64-1.69 ms a call with it against 0.81-0.85 ms
+# without, seven interleaved rounds of five hundred calls over production's mounted files, twice a
+# gate run. `scripts` gained thirteen cases over the root `.env`'s check, the join's failed half,
+# the held-once case fold, the reader's line numbers and the realip settings, 2.9-3.2 s together
+# over three runs. Both measured locally on 2026-09-27 on a sixteen-core Windows machine carrying
+# other agent sessions, so upper bounds; each sits inside its row, and no row moves.
+#
 # `scripts` lost the comment classifier, its cases and its self-check step, and the cases that
 # listed a fixture branch or ran `verify.sh` over it. `scripts/tests/test_gate_pool.py`, whose
 # order case holds one unit open for a second, took 5.9-7.4 s against 4.9-10.4 s, three interleaved
