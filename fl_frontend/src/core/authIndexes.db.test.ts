@@ -6,7 +6,6 @@ import { MongoClient, ObjectId } from "mongodb";
 
 import {
   ADMIN_EMAIL,
-  asDataUrl,
   configDouble,
   cookieHeader,
   GATE_BACKEND_CONFIG,
@@ -15,7 +14,7 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "./authDoubles.ts";
-import { exportingModule, overridingModule } from "./exportingModule.ts";
+import { overridingModule } from "./exportingModule.ts";
 import { assertionFor, CREDENTIAL_RAW_ID, registrationFor } from "./testAuthenticator.ts";
 
 import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
@@ -64,14 +63,14 @@ const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
 /** Each error line written, as the logger was handed it. */
 const errors: { event: string; fields: unknown }[] = [];
 
-const LOGGING_DOUBLE = exportingModule({
+const LOGGING_DOUBLE = {
   logger: {
     debug: () => undefined,
     info: () => undefined,
     warn: () => undefined,
     error: (event: string, _error: unknown, fields: unknown) => void errors.push({ event, fields }),
   },
-});
+};
 
 /** What the request a case arrives as carries. */
 let requestHeaders: Headers | undefined;
@@ -83,9 +82,9 @@ const { sent } = registerAuthDoubles({
     logging: LOGGING_DOUBLE,
   },
   specifiers: {
-    "next/headers": asDataUrl(exportingModule({ headers: () => Promise.resolve(requestHeaders) })),
+    "next/headers": { headers: () => Promise.resolve(requestHeaders) },
     // What the account page's spine calls once an action has written, which throws outside a server action.
-    "next/cache": asDataUrl(exportingModule({ refresh: () => undefined })),
+    "next/cache": { refresh: () => undefined },
   },
 });
 

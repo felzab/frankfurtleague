@@ -16,7 +16,7 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "./authDoubles.ts";
-import { exportingModule, overridingModule } from "./exportingModule.ts";
+import { overridingModule } from "./exportingModule.ts";
 import { registrationFor } from "./testAuthenticator.ts";
 
 // A replica set, which the module starts by default: why this file needs one is
@@ -100,14 +100,14 @@ const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
   },
 });
 
-const LOGGING_DOUBLE = exportingModule({
+const LOGGING_DOUBLE = {
   logger: {
     debug: () => undefined,
     info: () => undefined,
     warn: (message: string) => void warnings.push(message),
     error: (message: string) => void errors.push(message),
   },
-});
+};
 
 const { sent } = registerAuthDoubles({
   core: { config: configDouble({ MONGODB_URI: MONGO_URL, ...GATE_BACKEND_CONFIG }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },

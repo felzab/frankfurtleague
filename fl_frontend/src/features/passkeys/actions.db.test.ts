@@ -16,7 +16,7 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "@/core/authDoubles.ts";
-import { exportingModule, overridingModule } from "@/core/exportingModule.ts";
+import { overridingModule } from "@/core/exportingModule.ts";
 import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 // A replica set, which the module starts by default: the property under test is a transaction's.
@@ -118,20 +118,20 @@ const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
   },
 });
 
-const HEADERS_DOUBLE = exportingModule({ headers: () => Promise.resolve(requestHeaders) });
+const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
 
-const LOGGING_DOUBLE = exportingModule({
+const LOGGING_DOUBLE = {
   logger: {
     debug: () => undefined,
     info: () => undefined,
     warn: (message: string) => void warnings.push(message),
     error: (message: string) => void errors.push(message),
   },
-});
+};
 
 const { sent } = registerAuthDoubles({
   core: { config: configDouble({ MONGODB_URI: MONGO_URL }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
-  specifiers: { "next/headers": asDataUrl(HEADERS_DOUBLE), "next/cache": asDataUrl(NEXT_CACHE_DOUBLE) },
+  specifiers: { "next/headers": HEADERS_DOUBLE, "next/cache": asDataUrl(NEXT_CACHE_DOUBLE) },
 });
 
 /**

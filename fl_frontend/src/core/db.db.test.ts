@@ -18,7 +18,7 @@ import {
 } from "mongodb";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "./authDoubles.ts";
-import { exportingModule, overridingModule } from "./exportingModule.ts";
+import { overridingModule } from "./exportingModule.ts";
 
 import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
 import type { MongoClient } from "mongodb";
@@ -160,14 +160,14 @@ registerAuthDoubles({
   core: {
     config: configDouble({ MONGODB_URI: RELAYED_URL }),
     db: overridingModule(PRODUCTION_DB, {}),
-    logging: exportingModule({
+    logging: {
       logger: {
         debug: () => undefined,
         info: () => undefined,
         warn: () => undefined,
         error: (event: string, _error: unknown, fields?: Record<string, unknown>) => void logged.push({ event, ...fields }),
       },
-    }),
+    },
   },
 });
 
