@@ -4,30 +4,43 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { replacingModule } from "./exportingModule.ts";
+import { replacingModule, replacingPackage } from "./exportingModule.ts";
 import { doubleSendMail } from "./mailDouble.ts";
 import { filesUnder } from "./treeWalk.ts";
 
 const APP_DIR = path.resolve(import.meta.dirname, "..", "app");
 
+const inert = (): undefined => undefined;
+
+/** Next's response as the sweep reads one: the status a handler answered, and its body. */
+class NextResponseDouble {
+  readonly body: unknown;
+  readonly status: number;
+
+  constructor(body: unknown, init?: ResponseInit) {
+    this.body = body;
+    this.status = init?.status ?? 200;
+  }
+
+  static json(body: unknown, init?: ResponseInit): NextResponseDouble {
+    return new NextResponseDouble(body, init);
+  }
+
+  static redirect(_url: unknown, status?: number): NextResponseDouble {
+    return new NextResponseDouble(null, { status: status ?? 307 });
+  }
+}
+
 /* Each handler runs for real against these: a refused request must reach none of them, and a
    request let through reaches whichever it reaches first, which the request itself records. */
 const PACKAGE_DOUBLES: Record<string, string> = {
   "server-only": "export {};",
-  "next/cache":
-    "const inert = () => undefined; export { inert as updateTag, inert as refresh, inert as revalidateTag, inert as cacheTag, inert as cacheLife };",
-  "next/headers": "export const headers = async () => new Headers();",
-  "next/server": `export class NextResponse {
-  constructor(body, init) { this.body = body; this.status = init?.status ?? 200; }
-  static json(body, init) { return new NextResponse(body, init); }
-  static redirect(url, status) { return new NextResponse(null, { status: status ?? 307 }); }
-}
-export const after = () => undefined;
-export const connection = async () => undefined;`,
-  "next/navigation": "export const unstable_rethrow = () => undefined;",
+  "next/cache": replacingPackage("next/cache", { updateTag: inert, refresh: inert, revalidateTag: inert, cacheTag: inert, cacheLife: inert }),
+  "next/headers": replacingPackage("next/headers", { headers: () => Promise.resolve(new Headers()) }),
+  "next/server": replacingPackage("next/server", { NextResponse: NextResponseDouble, after: inert, connection: () => Promise.resolve() }),
+  "next/navigation": replacingPackage("next/navigation", { unstable_rethrow: inert }),
 };
 
-const inert = (): undefined => undefined;
 const ADMINISTRATOR = { user: { email: "vorstand@example.org" } };
 
 /**

@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 
 import { APIError } from "better-auth/api";
 
-import { exportingModule, replacingModule } from "@/core/exportingModule.ts";
+import { replacingModule, replacingPackage } from "@/core/exportingModule.ts";
 import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 
@@ -24,7 +24,7 @@ const asModule = (source: string): string => `data:text/javascript,${encodeURICo
 const PACKAGE_DOUBLES: Readonly<Record<string, string>> = {
   ...REQUEST_PACKAGES,
   // Collected rather than run, so a case runs the work behind the response only once it holds the answer.
-  "next/server": exportingModule({ after: (task: () => Promise<void>) => void deferred.push(task) }),
+  "next/server": replacingPackage("next/server", { after: (task: () => Promise<void>) => void deferred.push(task) }),
 };
 
 const AUTH_DOUBLE = { auth: { api: { sendVerificationOTP: () => signingIn() } } };

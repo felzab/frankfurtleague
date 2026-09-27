@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { describe, it, mock } from "node:test";
 
-import { exportingModule, replacingModule } from "@/core/exportingModule.ts";
+import { replacingModule, replacingPackage } from "@/core/exportingModule.ts";
 
 /* Replaced at the module boundary, as `fl_frontend/src/shared/utils/undoRoute.test.ts` replaces them:
    a response is the framework's, and the spine between it and the handler is what is driven. */
@@ -10,8 +10,10 @@ import { exportingModule, replacingModule } from "@/core/exportingModule.ts";
 let spineTraces = 0;
 
 const PACKAGE_DOUBLES: Record<string, string> = {
-  "next/server": `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`,
-  "next/headers": exportingModule({
+  "next/server": replacingPackage("next/server", {
+    NextResponse: { json: (body: unknown, init?: ResponseInit) => ({ body, status: init?.status ?? 200 }) },
+  }),
+  "next/headers": replacingPackage("next/headers", {
     headers: async () => {
       spineTraces += 1;
       return new Headers();

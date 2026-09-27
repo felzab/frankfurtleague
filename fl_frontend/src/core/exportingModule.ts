@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
+import { createRequire, registerHooks } from "node:module";
 import { fileURLToPath } from "node:url";
 
 import ts from "typescript";
@@ -48,10 +48,15 @@ export type RealModule = Readonly<Record<string, unknown>>;
 
 const REAL_MODULES = new Map<string, string>();
 
+/** Asks for a package as the tree installs it, whatever double a suite resolves its own name to. */
+const INSTALLED = "fl-installed-package:";
+
 // Registered as this module evaluates: a hook registered from inside another's load would change the
 // chain that load is running in.
 registerHooks({
   resolve(specifier, context, nextResolve) {
+    // Passed on below every suite's hook, each registered after this one and so asked before it.
+    if (specifier.startsWith(INSTALLED)) return nextResolve(specifier.slice(INSTALLED.length), context);
     const real = REAL_MODULES.get(specifier);
     return real === undefined ? nextResolve(specifier, context) : { url: real, shortCircuit: true };
   },
@@ -118,13 +123,29 @@ export function exportedNames(file: string): string[] {
  * imports one more.
  */
 export function replacingModule(realUrl: string, what: string, doubled: Readonly<Record<string, unknown>>): string {
+  return standingIn(exportedNames(fileURLToPath(realUrl)), what, doubled);
+}
+
+const requireHere = createRequire(import.meta.url);
+
+/**
+ * `replacingModule` for an installed package, its names read off the package evaluated rather than
+ * parsed: Next's entry files are CommonJS, which assign their exports at run time.
+ */
+export function replacingPackage(specifier: string, doubled: Readonly<Record<string, unknown>>): string {
+  const installed = requireHere(requireHere.resolve(`${INSTALLED}${specifier}`)) as Readonly<Record<string, unknown>>;
+  // `exportingModule` binds names alone, so a default import of a doubled package fails to link.
+  return standingIn(
+    Object.keys(installed).filter((name) => name !== "default"),
+    specifier,
+    doubled,
+  );
+}
+
+function standingIn(names: readonly string[], what: string, doubled: Readonly<Record<string, unknown>>): string {
   const notDoubled = (name: string) => (): never => {
     throw new Error(`${what}'s ${name} is not doubled`);
   };
 
-  return exportingModule(
-    Object.fromEntries(
-      exportedNames(fileURLToPath(realUrl)).map((name) => [name, Object.hasOwn(doubled, name) ? doubled[name] : notDoubled(name)]),
-    ),
-  );
+  return exportingModule(Object.fromEntries(names.map((name) => [name, Object.hasOwn(doubled, name) ? doubled[name] : notDoubled(name)])));
 }

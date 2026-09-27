@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingPackage } from "@/core/exportingModule.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
@@ -14,9 +14,11 @@ import { mapEntziehenRefusal, mapErteilenRefusal, mapStufeRefusal } from "./refu
 const deferred: (() => unknown)[] = [];
 
 /* `refresh()` throws outside a request Next itself is rendering; `after` is collected. */
-const NEXT_CACHE_DOUBLE = exportingModule({ refresh: () => undefined });
+const NEXT_CACHE_DOUBLE = replacingPackage("next/cache", { refresh: () => undefined });
 // Bound to the caller's context as Next's own `after` binds it, so a task runs inside the action's request.
-const NEXT_SERVER_DOUBLE = exportingModule({ after: (task: () => unknown) => void deferred.push(AsyncLocalStorage.bind(task)) });
+const NEXT_SERVER_DOUBLE = replacingPackage("next/server", {
+  after: (task: () => unknown) => void deferred.push(AsyncLocalStorage.bind(task)),
+});
 
 /* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
 const { setSession, setFresh, signedOut, failSignOut } = doubleActionRequest();

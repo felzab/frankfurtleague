@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 
 import z from "zod";
 
-import { replacingModule } from "@/core/exportingModule.ts";
+import { replacingModule, replacingPackage } from "@/core/exportingModule.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 import type { UndoReport } from "./undoRoute.ts";
@@ -12,11 +12,17 @@ import type { UndoReport } from "./undoRoute.ts";
 /* Replaced at the module boundary, as `fl_frontend/src/app/api/admin/spiele/undo/route.test.ts`
    replaces them: a session and a response are the framework's, and the spine between them is driven. */
 const PACKAGE_DOUBLES: Record<string, string> = {
-  "next/server": `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`,
-  "next/navigation": `export const unstable_rethrow = () => {};`,
+  "next/server": replacingPackage("next/server", {
+    NextResponse: { json: (body: unknown, init?: ResponseInit) => ({ body, status: init?.status ?? 200 }) },
+  }),
+  "next/navigation": replacingPackage("next/navigation", { unstable_rethrow: () => undefined }),
   "next/headers": NEXT_HEADERS_DOUBLE,
   // Throws as Next does outside a server action, so a route that reached it fails here.
-  "next/cache": `export const refresh = () => { throw new Error("refresh() outside a server action"); };`,
+  "next/cache": replacingPackage("next/cache", {
+    refresh: (): never => {
+      throw new Error("refresh() outside a server action");
+    },
+  }),
 };
 type ServedSession = { user: { email: string }; session: { authFactor: string } } | null;
 

@@ -8,7 +8,7 @@ import { createElement } from "react";
 
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingPackage } from "@/core/exportingModule.ts";
 
 import type * as NextError from "next/error";
 import type { ComponentType, ReactNode } from "react";
@@ -87,10 +87,9 @@ export { face as Anton, face as Inter, face as Raleway };`)}`;
 
 /*
  `next/error` is CommonJS whose exports Node's static reader cannot see, so an ESM import of
- `catchError` fails at link. The real function is handed on; an export a component adds fails to
- link here until it is named.
+ `catchError` fails at link. The real function is handed on.
 */
-const NEXT_ERROR = `data:text/javascript,${encodeURIComponent(exportingModule({ catchError: (requireHere("next/error") as typeof NextError).catchError }))}`;
+const NEXT_ERROR = `data:text/javascript,${encodeURIComponent(replacingPackage("next/error", { catchError: (requireHere("next/error") as typeof NextError).catchError }))}`;
 
 // Here, not in every test process: the hook below compiles the only code carrying maps, and Node maps
 // only modules loaded after the call. `node_modules` stays unmapped for its CPU cost

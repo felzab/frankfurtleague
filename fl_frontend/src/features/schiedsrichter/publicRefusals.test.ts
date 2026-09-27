@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
+import { replacingPackage } from "@/core/exportingModule.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
@@ -10,7 +11,7 @@ const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(
 const PACKAGE_DOUBLES: Record<string, string> = {
   "server-only": "export {};",
   "next/headers": NEXT_HEADERS_DOUBLE,
-  "next/cache": `export const revalidateTag = () => {}; export const updateTag = () => {};`,
+  "next/cache": replacingPackage("next/cache", { revalidateTag: () => undefined, updateTag: () => undefined }),
 };
 
 registerHooks({

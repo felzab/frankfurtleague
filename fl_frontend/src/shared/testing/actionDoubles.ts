@@ -6,7 +6,7 @@ import { afterEach, beforeEach } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { blankComments } from "@/core/blankComments.ts";
-import { exportedNames, exportingModule, replacingModule } from "@/core/exportingModule.ts";
+import { exportedNames, exportingModule, replacingModule, replacingPackage } from "@/core/exportingModule.ts";
 
 import type { AdminRefusal } from "@/core/auth.ts";
 import type { SubjectSession } from "@/core/subject.ts";
@@ -137,7 +137,7 @@ const INERT_DECLARATIONS = { cacheLife: (): undefined => undefined, cacheTag: ()
  * harness that doubles its packages itself. `cacheLife` and `cacheTag` declare a cached read rather
  * than clear one, so they record nothing.
  */
-export const NEXT_CACHE_DOUBLE = exportingModule({
+export const NEXT_CACHE_DOUBLE = replacingPackage("next/cache", {
   ...recorded(["updateTag", "refresh", "revalidateTag", "revalidatePath"]),
   ...INERT_DECLARATIONS,
 });
@@ -149,7 +149,7 @@ export const ACTION_ONLY_INVALIDATIONS = ["updateTag", "refresh"];
  * `next/cache` as a route handler meets it: each of `ACTION_ONLY_INVALIDATIONS` throws there, as Next's
  * does, and is recorded first, since a route may catch the throw and answer as though it cleared.
  */
-export const ROUTE_NEXT_CACHE_DOUBLE = exportingModule({
+export const ROUTE_NEXT_CACHE_DOUBLE = replacingPackage("next/cache", {
   ...recorded(["revalidateTag", "revalidatePath"]),
   ...Object.fromEntries(
     ACTION_ONLY_INVALIDATIONS.map((name) => [
@@ -164,7 +164,7 @@ export const ROUTE_NEXT_CACHE_DOUBLE = exportingModule({
 });
 
 /** `next/headers` for a request that carries none, for a harness that doubles its packages itself. */
-export const NEXT_HEADERS_DOUBLE = "export const headers = async () => new Headers();";
+export const NEXT_HEADERS_DOUBLE = replacingPackage("next/headers", { headers: () => Promise.resolve(new Headers()) });
 
 /**
  * Each answers only inside a request Next itself is serving: `updateTag`, `refresh` and `headers`

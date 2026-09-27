@@ -2,14 +2,16 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { replacingModule } from "@/core/exportingModule.ts";
+import { replacingModule, replacingPackage } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real mailer a provider. */
-const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
+const NEXT_SERVER = replacingPackage("next/server", {
+  NextResponse: { json: (body: unknown, init?: ResponseInit) => ({ body, status: init?.status ?? 200 }) },
+});
 const inert = (): undefined => undefined;
 const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
 /* The serving origin, which `SKIP_ENV_VALIDATION` leaves unset: the mail shell refuses a relative
@@ -37,7 +39,7 @@ const PACKAGE_DOUBLES: Record<string, string> = {
   "server-only": "export {};",
   "next/server": NEXT_SERVER,
   "next/headers": NEXT_HEADERS_DOUBLE,
-  "next/navigation": `export const unstable_rethrow = () => {};`,
+  "next/navigation": replacingPackage("next/navigation", { unstable_rethrow: () => undefined }),
 };
 
 registerHooks({

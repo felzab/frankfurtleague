@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { registerHooks } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { exportedNames, exportingModule, overridingModule, replacingModule, UNBINDABLE } from "./exportingModule.ts";
+import { exportedNames, exportingModule, overridingModule, replacingModule, replacingPackage, UNBINDABLE } from "./exportingModule.ts";
 
 const LINE_SEPARATOR = String.fromCharCode(0x2028);
 
@@ -164,6 +165,25 @@ describe("the module a double replaces a real one with", () => {
     } finally {
       remove();
     }
+  });
+});
+
+describe("the module a double replaces an installed package with", () => {
+  it("exports every name the package does, read past a double already standing over it", async () => {
+    // A suite's own hook, registered after this file's imports: its answer would hand over its own names.
+    registerHooks({
+      resolve: (specifier, context, nextResolve) =>
+        specifier === "next/headers"
+          ? { url: "data:text/javascript,export const headers = 1;", shortCircuit: true }
+          : nextResolve(specifier, context),
+    });
+    const built = (await import(
+      `data:text/javascript,${encodeURIComponent(replacingPackage("next/headers", { headers: () => "double" }))}`
+    )) as Record<string, () => unknown>;
+
+    assert.deepEqual(Object.keys(built).sort(), ["cookies", "draftMode", "headers"]);
+    assert.equal(built.headers!(), "double");
+    assert.throws(() => built.cookies!(), /next\/headers's cookies is not doubled/);
   });
 });
 

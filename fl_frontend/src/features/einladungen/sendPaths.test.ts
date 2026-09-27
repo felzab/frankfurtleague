@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { exportingModule, replacingModule } from "@/core/exportingModule.ts";
+import { replacingModule, replacingPackage } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -43,7 +43,7 @@ const keyTag = ({ idempotencyKey }: SentMail): string | undefined => idempotency
 
 // `refresh` writes to the same log the fan-out does, which is how the ordering case below reads which
 // of the two ran first; `cacheCalls` is a list of its own, so it cannot order a refresh against a send.
-const NEXT_CACHE = exportingModule({
+const NEXT_CACHE = replacingPackage("next/cache", {
   refresh: () => void log.push("refresh"),
   updateTag: () => undefined,
   revalidateTag: () => undefined,
