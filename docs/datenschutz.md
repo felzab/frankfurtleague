@@ -373,7 +373,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   it, for its twelve months, as it keeps every administrator's write, and no image of an announced or
   outbox row the revoke or a pass removes (`docs/backend/spec.md :: I465`). No erasure route reaches a
   grant: the revoke is the route, and an `owner` grant is made an administrator's first
-  (`docs/backend/spec.md :: I436`). **The granter's address outlives both**: `erteilt_von` keeps it on
+  (`docs/backend/spec.md :: I436`). **A restore from a snapshot undoes a revoke made after it**: the
+  grant comes back with its announced row, so no notice says it stands again, and the address is
+  admitted again until the revoke is run once more
+  ([`ops/runbooks.md`](ops/runbooks.md#13-after-a-restore-from-a-snapshot)). **The granter's address outlives both**: `erteilt_von` keeps it on
   every grant they made, through their own revoke and their erasure, served to every administrator
   while those grants stand and the ban list does not hold it (`docs/backend/spec.md :: I452`).
 - **The administrator's own email on every log row stays, outside every redaction.** The log
