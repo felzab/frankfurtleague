@@ -118,19 +118,24 @@ describe("where the shared undo dispatch sends a caller the route turned away", 
     assert.deepEqual(pressed.toastsBeforeLeaving, [2], "the page is left before the outcome is reported");
   });
 
-  /* `fl_frontend/src/proxy.ts`'s other destination: signing in again is no way back for an address
-     holding no grant, so the sentence names the cause and no repair. */
-  it("says the change still stands, then leaves for the sign-in landing on the route's own 403", async () => {
-    const pressed = await pressAgainst(
-      Response.json({ success: false, error: "Deine Sitzung hat keine Administratorrechte." }, { status: 403 }),
-    );
-    const gescheitert = pressed.toasts.at(-1);
+  /* `fl_frontend/src/proxy.ts`'s other destination, where no sign-in repairs anything: the route words
+     the cause by the guard's reason, a grant revoked apart from one never held, and the dispatch adds
+     none of its own. */
+  it("says the route's own sentence, then leaves for the sign-in landing on the route's own 403", async () => {
+    for (const error of [
+      "Deine Sitzung hat keine Administratorrechte. Die Änderung steht weiterhin.",
+      "Dein Zugang zur Verwaltung besteht nicht mehr. Die Änderung steht weiterhin.",
+    ]) {
+      raised.length = 0;
+      const pressed = await pressAgainst(Response.json({ success: false, error }, { status: 403 }));
+      const gescheitert = pressed.toasts.at(-1);
 
-    assert.deepEqual(pressed.replacedWith, ["/signin/weiter"]);
-    assert.equal(gescheitert?.variant, "danger");
-    assert.equal(gescheitert?.title, "Änderung nicht zurückgenommen");
-    assert.equal(gescheitert?.options?.description, "Deine Sitzung hat keine Administratorrechte. Die Änderung steht weiterhin.");
-    assert.deepEqual(pressed.toastsBeforeLeaving, [2], "the page is left before the outcome is reported");
+      assert.deepEqual(pressed.replacedWith, ["/signin/weiter"]);
+      assert.equal(gescheitert?.variant, "danger");
+      assert.equal(gescheitert?.title, "Änderung nicht zurückgenommen");
+      assert.equal(gescheitert?.options?.description, error, "the dispatch said another cause than the route's");
+      assert.deepEqual(pressed.toastsBeforeLeaving, [2], "the page is left before the outcome is reported");
+    }
   });
 
   /* The cases proving the two above are the route's doing: an edge's 403 carries no envelope and is

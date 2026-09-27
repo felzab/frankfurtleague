@@ -3,10 +3,11 @@ import { NextResponse } from "next/server";
 import { isFreshlySignedIn } from "@/core/auth";
 import { logger } from "@/core/logging";
 
-import { AENDERUNG_STEHT_WEITERHIN, isRefusal, RUECKNAHME_UNKLAR } from "./actionError";
+import { AENDERUNG_STEHT_WEITERHIN, isRefusal, RUECKNAHME_UNKLAR, ZUGANG_WEG } from "./actionError";
 import { ADMIN_FORBIDDEN, BERECHTIGUNG_UNGELESEN, runAdminRouteWrite, stepUpRequired } from "./adminMutation";
 import { buildRefusal } from "./refusal";
 
+import type { AdminRefusal } from "@/core/auth";
 import type { NextRequest } from "next/server";
 import type { ZodType } from "zod";
 
@@ -21,6 +22,16 @@ const UNDO_RESTORED = "Die Änderung wurde zurückgenommen.";
 
 const UNDO_BERECHTIGUNG_UNGELESEN = `${BERECHTIGUNG_UNGELESEN} ${AENDERUNG_STEHT_WEITERHIN}`;
 const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausgeführt", repair: "Lade die Seite neu" });
+
+/**
+ * A session no sign-in repairs, by the guard's reason: the cause an action turned away for it names
+ * (`fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`), and no repair.
+ */
+const UNDO_TURNED_AWAY: Readonly<Record<Exclude<AdminRefusal, "signIn" | "unread">, string>> = {
+  noGrant: `Deine Sitzung hat keine Administratorrechte. ${AENDERUNG_STEHT_WEITERHIN}`,
+  // GERMAN-PENDING: new German, not yet approved.
+  grantGone: `${ZUGANG_WEG} ${AENDERUNG_STEHT_WEITERHIN}`,
+};
 
 /**
  * What one slice's replay answers: why it did not commit, that nobody can tell whether it did, or
@@ -128,7 +139,8 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
 
     // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: a session a
     // sign-in repairs is 401, and one whose address holds no grant 403, since no sign-in grants one.
-    return NextResponse.json({ success: false, error: ADMIN_FORBIDDEN }, { status: guarded.refused === "signIn" ? 401 : 403 });
+    if (guarded.refused === "signIn") return NextResponse.json({ success: false, error: ADMIN_FORBIDDEN }, { status: 401 });
+    return NextResponse.json({ success: false, error: UNDO_TURNED_AWAY[guarded.refused] }, { status: 403 });
   }
 
   const result = guarded.answer;

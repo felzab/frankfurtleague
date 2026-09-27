@@ -84,7 +84,7 @@ const { handleUndoRequest, replayRefusal } = await import("./undoRoute.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { recordWriteSent } = await import("@/core/requestScope.ts");
 const { ADMIN_FORBIDDEN } = await import("./adminMutation.ts");
-const { AENDERUNG_STEHT_WEITERHIN } = await import("./actionError.ts");
+const { AENDERUNG_STEHT_WEITERHIN, ZUGANG_WEG } = await import("./actionError.ts");
 
 const PAYLOAD = { id: "68c1f0a2b3c4d5e6f7a8b9c0" };
 
@@ -183,10 +183,15 @@ describe("who the undo spine answers before it does any work", () => {
     }
   });
 
-  /* The line `fl_frontend/src/proxy.ts` draws: a session holding no grant is sent to the person's own
-     `/bereich` rather than to sign in again, which would grant it no administration either. */
+  /* The line `fl_frontend/src/proxy.ts` draws: a session holding no grant goes to the person's own
+     `/bereich`, a sign-in granting it nothing, told the cause an action would be told and that the
+     change stands. */
   it("answers a session holding no grant apart from a missing one, and still does no work for it", async () => {
     // A person's code-made session, and an administrator's passkey session whose grant is gone.
+    const told: Record<string, string> = {
+      code: "Deine Sitzung hat keine Administratorrechte. Die Änderung steht weiterhin.",
+      passkey: `${ZUGANG_WEG} Die Änderung steht weiterhin.`,
+    };
     for (const authFactor of ["code", "passkey"]) {
       undoRouteSession = { user: { email: "ehemalig@example.de" }, session: { authFactor } };
       let restored = 0;
@@ -200,6 +205,7 @@ describe("who the undo spine answers before it does any work", () => {
         assert.equal(status, 403, `a ${authFactor} session holding no grant is answered as though nobody were signed in`);
         // The envelope, which is what tells this 403 from an edge's challenge in the dispatch.
         assert.equal(answer.success, false, "the refusal carries no outcome the dispatch can recognise as the route's");
+        assert.equal(answer.error, told[authFactor], `a ${authFactor} session holding no grant is told another cause`);
         assert.equal(bodiesRead, 0, "the body is read for a caller nobody has authorized");
         assert.equal(restored, 0, "the undo restores for a session nobody authorized");
         assert.deepEqual(invalidated, [], "the caches are cleared for a caller nobody has authorized");

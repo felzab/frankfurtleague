@@ -12,20 +12,26 @@ type UndoOutcome = { success: true; message: string; warn: boolean } | { success
 
 /**
  * Where the route turned the caller away rather than judging the replay, and what the danger toast
- * says before the page is left: `fl_frontend/src/proxy.ts`'s two destinations, whose sign-in lands on
- * `/bereich/admin` rather than back on this change.
+ * says before the page is left: one of `fl_frontend/src/proxy.ts`'s two destinations, whose sign-in
+ * lands on `/bereich/admin` rather than back on this change.
  */
-const TURNED_AWAY = {
-  signedOut: { destination: "/signin", description: `Melde Dich neu an. ${AENDERUNG_STEHT_WEITERHIN}` },
-  // No repair: signing in again grants no administration to an address holding no grant.
-  withoutAdminRole: { destination: SIGN_IN_LANDING, description: `Deine Sitzung hat keine Administratorrechte. ${AENDERUNG_STEHT_WEITERHIN}` },
-} as const;
+type TurnedAway = { readonly destination: string; readonly description: string };
 
-type TurnedAway = (typeof TURNED_AWAY)[keyof typeof TURNED_AWAY];
+const SIGNED_OUT: TurnedAway = { destination: "/signin", description: `Melde Dich neu an. ${AENDERUNG_STEHT_WEITERHIN}` };
 
-/** Whether a body parsed at all opens as every outcome of the route's does. */
-const isRouteEnvelope = (body: unknown): boolean =>
-  typeof body === "object" && body !== null && "success" in body && typeof body.success === "boolean";
+/**
+ * The route's own sentence off a 403 that carries its envelope, which words it by the guard's reason;
+ * `null` for anything else, an edge challenge answering 403 in markup.
+ */
+const turnedAwaySentence = (body: unknown): string | null =>
+  typeof body === "object" &&
+  body !== null &&
+  "success" in body &&
+  typeof body.success === "boolean" &&
+  "error" in body &&
+  typeof body.error === "string"
+    ? body.error
+    : null;
 
 type UndoOffer<TPayload> = {
   /** The slice's own route on `fl_frontend/src/shared/utils/undoRoute.ts :: handleUndoRequest`, whose schema parses `body`. */
@@ -67,13 +73,12 @@ async function postUndo<TPayload>(endpoint: string, body: TPayload): Promise<Und
 
   // Before the transport check: nothing standing in front of the route answers 401.
   if (response.status === 401) {
-    return TURNED_AWAY.signedOut;
+    return SIGNED_OUT;
   }
 
-  // An edge challenge answers 403 as well, in markup: only the route's own carries its envelope.
-  if (response.status === 403 && isRouteEnvelope(await response.json().catch(() => null))) {
-    return TURNED_AWAY.withoutAdminRole;
-  }
+  // No repair beside the route's sentence: signing in again grants no administration to an address holding no grant.
+  const sentence = response.status === 403 ? turnedAwaySentence(await response.json().catch(() => null)) : null;
+  if (sentence !== null) return { destination: SIGN_IN_LANDING, description: sentence };
 
   // The route answers 200 with the outcome in the body for every other reportable case, so a non-2xx
   // is a genuine transport failure.
