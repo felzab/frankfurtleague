@@ -34,9 +34,8 @@ export function armBerechtigungenAbgleich(): void {
 }
 
 /**
- * Whether a pass is running, and whether a change arrived while it ran. Per instance of this module, which
- * Next may load once for the boot and once for the actions: two passes may then run side by side, and the
- * claim hands the second none of the first's rows.
+ * Whether a pass is running, and whether a change arrived while it ran, per module instance: Next may
+ * load one for the boot and one for the actions, and the claim hands a second pass none of the first's rows.
  */
 let laeuft = false;
 let nochmal = false;
