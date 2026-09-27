@@ -370,7 +370,8 @@ Every ruling below is the sign-up flow as it stands for the next season.
   passkeys of anyone who set one up. It is inside the erasure, and it is reached by hand:
   `fl_frontend/src/core/auth.ts` is where that store is configured, and
   [`ops/runbooks.md`](ops/runbooks.md#5-when-somebody-asks-for-their-data-or-asks-us-to-change-it)
-  is what names it as the place a signed-in person's own data sits. Its collections are `user`,
+  is what names it as the place a signed-in person's own data sits and gives the step that erases it
+  there. Its collections are `user`,
   `session`, `account`, `verification` and `passkey`. The last holds a credential's public key, its
   identifier, the counters the browser reports, when it last signed its holder in
   (`fl_frontend/src/core/passkeyLastUse.ts`) and any name its holder gives it on the account page

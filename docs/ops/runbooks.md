@@ -519,9 +519,24 @@ One person can hold several — a referee is a pupil, and a contact person can b
 | Administrator  | The sign-in store — the `auth` database, holding the address, the sessions, the sign-in codes and the passkey — plus `sperrliste.erstellt_von` on every ban they entered, which no erasure reaches, and the grants: their own in `berechtigungen` and `berechtigungen_angekuendigt`, `erteilt_von` on every grant they made, and each queued notice naming them in `berechtigungen_postausgang` |
 | Anyone else    | The `auth` database's `verification` collection alone, where the address of whoever typed it into the sign-in form is held until the retention index removes the row (§14)                                                                                                                                                                                                                      |
 
-**A pupil, referee or contact person who has signed in is in the sign-in store too**: their first
-code writes their `user` row and a session in the `auth` database, read by hand as an
-administrator's is.
+**Anybody who has signed in is in the sign-in store too, and an erasure reaches it only by hand.**
+A person's first sign-in writes their `user` row and a session in the `auth` database, a pupil's,
+referee's or contact person's as an administrator's is, and no erasure route touches that database.
+Read it for an access request. **Finish the erasure of anybody who has signed in with one step in the
+Atlas console**, after the route's own erasure has run:
+
+1. In the `auth` database's `user` collection, find the row whose `email` is the address as the
+   sign-in box folds it, in lower case (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`).
+2. Delete every row of `session`, `account` and `passkey` whose `userId` is that row's `_id`, then
+   the `user` row itself.
+3. Delete the `verification` row whose `identifier` is `sign-in-otp-` followed by that address, a
+   code still waiting to be typed.
+
+The rows counting the address's failed and requested codes carry a keyed hash nobody can compute by
+hand, and expire within a day on their own (§17); a passkey ceremony's row carries an account id
+rather than an address, and expires within five minutes. **An address shared by several people is
+one account**, so the step signs every one of them out and takes their passkeys: tell the person
+asking, and say that the others sign in afresh by code.
 
 `/bereich/admin/aktionen` answers what was written about them and by whom, and is the only place that
 question is answered at all. **Two populations sit in that collection and only one has an expiry**:
@@ -1120,8 +1135,11 @@ does not look erased, and each role's guard reads something the restore took awa
   keyed on the address, so the address off the thread is the whole input — and the armed panel's list
   now names seats written since the snapshot as well, which is why section 5 says to read it before
   pressing.
-- **An administrator.** The sign-in store is the `auth` database, reached by hand (section 5), so whether
-  the restore reached it is a question about what was restored rather than about this step.
+- **Anybody who had signed in, whatever their role.** The `auth` database is on the same cluster
+  ([`spec.md`](spec.md) I174), so a restore of the cluster brings back their `user`, `session`,
+  `account` and `passkey` rows with everything else. Run section 5's hand step in the sign-in store
+  again for each of them, after the route's erasure above; for an administrator it is the whole of
+  their erasure there.
 
 **The log's redactions came back as well**, so re-running each erasure is also what re-empties the
 images it had stamped ([`../backend/spec.md`](../backend/spec.md#2-invariants) I42, I212).
