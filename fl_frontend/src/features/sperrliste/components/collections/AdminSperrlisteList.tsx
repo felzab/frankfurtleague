@@ -76,7 +76,8 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
               and a column of a card's width clips it wherever it renders. */}
           <div className="flex w-full flex-col gap-1 border-t border-border/50 pt-3">
             <span className={FACT_LABEL_CLASSES}>Grund</span>
-            <p className="fluid-sm font-medium text-foreground">{eintrag.grund}</p>
+            {/* `wrap-break-word`: a reason may quote an address or a link, one word wider than the card on a phone. */}
+            <p className="fluid-sm font-medium wrap-break-word text-foreground">{eintrag.grund}</p>
           </div>
 
           {/* Its own track under the reason rather than a line inside it: the bound is the one fact

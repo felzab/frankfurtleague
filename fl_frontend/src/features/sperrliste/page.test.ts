@@ -46,6 +46,16 @@ describe("the page the ban list stands on", () => {
     assert.ok(!markup.includes("<h1"), "the page raises an h1 the shell already owns");
   });
 
+  /* A reason is typed by an administrator and may quote an address or a link, one word wider than the
+     card on a phone: its line breaks that word rather than run it past the card. */
+  it("breaks a word of the reason wider than its card", async () => {
+    const markup = await renderPage(PAGE);
+    const zeile = new RegExp(`<p class="([^"]*)">${EINTRAG.grund}</p>`).exec(markup)?.[1]?.split(" ");
+
+    assert.ok(zeile !== undefined, "the reason renders in no line of its own, so the case below reads nothing");
+    assert.ok(zeile.includes("wrap-break-word"), "a long word of the reason runs past the card");
+  });
+
   /* The bar an administrator types into is the one control this page offers, and the query it takes
      is a person's address: on this route alone it is held in the page rather than written to `?q=`. */
   it("asks the shell to hold the typed query instead of writing it", () => {
