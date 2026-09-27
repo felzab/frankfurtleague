@@ -61,9 +61,8 @@ services:
     cap_drop:
       - ALL
     healthcheck:
-      # A static asset, not a page: it proves the server is answering without rendering a route or
-      # touching the backend. The image's own Node asks, with a HEAD so nothing is downloaded: the
-      # Debian slim base ships no wget or curl, and a probe installing one adds a tool to the image.
+      # A static asset, not a page: the server answers without rendering a route or touching the
+      # backend. The image's own Node sends the HEAD, because Debian slim ships no wget or curl.
       test:
         ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/favicon.ico',{method:'HEAD'}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
       interval: 30s
