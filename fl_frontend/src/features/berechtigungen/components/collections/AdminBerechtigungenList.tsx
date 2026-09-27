@@ -4,6 +4,7 @@ import { memo } from "react";
 
 import Key from "@gravity-ui/icons/Key";
 
+import { servedInstant } from "@/core/servedInstant";
 import {
   BERECHTIGUNGEN_CRUD_COPY,
   DIREKT_IN_DER_DATENBANK,
@@ -34,9 +35,9 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
 // already the next day's in UTC.
 const ERTEILT_TAG = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", day: "2-digit", month: "2-digit", year: "numeric" });
 
-/** The Berlin day of `erteilt_am`, which the backend serialises without an offset where the store's UTC holds it. */
+/** The Berlin day of `erteilt_am`. */
 function erteiltTag(stamp: string): string {
-  const instant = new Date(/(?:Z|[+-]\d{2}:\d{2})$/i.test(stamp) ? stamp : `${stamp}Z`);
+  const instant = servedInstant(stamp);
 
   // A Playground paste writes what it likes, and `Intl.format` throws on an invalid date.
   return Number.isNaN(instant.getTime()) ? stamp : ERTEILT_TAG.format(instant);

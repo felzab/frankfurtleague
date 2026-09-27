@@ -54,7 +54,7 @@ const aenderung = (fields: Record<string, unknown> = {}) => ({
   jetzt: { adresse: "neu@schule.de", verwaltung: "administration" },
   vorher: null,
   geaendert_von: "vorstand@schule.de",
-  geaendert_am: "2026-09-27T01:00:00Z",
+  geaendert_am: "2026-09-27T01:00:00",
   gesperrt: false,
   ...fields,
 });

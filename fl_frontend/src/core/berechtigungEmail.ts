@@ -13,6 +13,7 @@ import {
   stuffSignatureDelimiter,
   textFooter,
 } from "./emailShell";
+import { servedInstant } from "./servedInstant";
 
 export type BerechtigungEmail = { subject: string; html: string; text: string };
 
@@ -41,7 +42,7 @@ export type Zugangsaenderung =
 export type Urheber = { readonly von: string; readonly am: string } | null;
 
 function zeitText(instant: string): string {
-  return new Date(instant).toLocaleString("de-DE", { timeZone: ZEITZONE, dateStyle: "long", timeStyle: "short" });
+  return servedInstant(instant).toLocaleString("de-DE", { timeZone: ZEITZONE, dateStyle: "long", timeStyle: "short" });
 }
 
 /** The change's sentence, the address marked up by `wer` so the two parts each take their own form. */

@@ -22,7 +22,7 @@ const INHABER = {
   gesperrt: false,
   verwaltung: "owner",
   erteilt_von: "PLAYGROUND",
-  erteilt_am: "2026-09-27T01:00:00Z",
+  erteilt_am: "2026-09-27T01:00:00",
 };
 const VORSTAND = {
   id: "6890a1b2c3d4e5f6071b0002",
@@ -39,7 +39,7 @@ const GESPERRT = {
   gesperrt: true,
   verwaltung: "administration",
   erteilt_von: "PLAYGROUND",
-  erteilt_am: "2026-09-27T03:00:00Z",
+  erteilt_am: "2026-09-27T03:00:00",
 };
 
 /** The tier the lookup answers the signed-in administrator, until a case names another. */

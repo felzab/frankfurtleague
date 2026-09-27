@@ -16,13 +16,21 @@ const { buildBerechtigungEmail } = await import("./berechtigungEmail.ts");
 
 const ORIGIN = "http://localhost:3000";
 
-/** Winter, so the instant is an hour off UTC: a formatter ignoring the zone would print 22:30. */
-const AM = "2026-01-15T22:30:00Z";
+/** Winter, so the instant is an hour off UTC: a formatter ignoring the zone would print 22:30. Naive, as served. */
+const AM = "2026-01-15T22:30:00";
 
 const WARNSATZ = "Wenn Du diese Änderung nicht erwartet hast, melde Dich sofort bei den anderen Administratorinnen und Administratoren.";
 
 describe("the notice a change to who administers sends", () => {
-  it("names a grant, who made it and when, in the reader's own zone, in both parts", () => {
+  it("names a grant, who made it and when, in the reader's own zone, in both parts", (t) => {
+    // A runtime zone far from UTC: a stamp read in the runtime's zone would print another hour.
+    const zone = process.env.TZ;
+    process.env.TZ = "Pacific/Auckland";
+    t.after(() => {
+      if (zone === undefined) delete process.env.TZ;
+      else process.env.TZ = zone;
+    });
+
     const mail = buildBerechtigungEmail(
       { art: "erteilt", adresse: "neu@schule.de", inhaber: false },
       { von: "vorstand@schule.de", am: AM },
