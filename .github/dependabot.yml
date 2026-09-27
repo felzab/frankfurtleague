@@ -107,8 +107,8 @@ updates:
   # Each `FROM` names a tag and its digest (`docs/ops/spec.md` §1.1), and this ecosystem rewrites the
   # two together; the compose ecosystem below does the same for every image either stack names.
 
-  # It moves the tag alone, so its pull request for a new Node, or for a Python outside the series
-  # `fl_backend/.python-version` names, stays red until that pin moves on the same branch
+  # It moves the `FROM` line alone, so its pull request for a new Node, or a Python outside
+  # `fl_backend/.python-version`'s series, stays red until the checkout's pin moves on the same branch
   # (`docs/ops/spec.md :: I511`, `:: I513`).
 
   # No security update reaches this ecosystem, so a Node or Python security release waits for this
