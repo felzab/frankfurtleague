@@ -13,8 +13,7 @@
 # - `docs/logging/spec.md` L11, and the edge's half of L12, the span every line carries.
 # - `docs/logging/spec.md` L7 and L10, on every location proxying to the frontend.
 # - `docs/ops/spec.md` I2, each security header sent once, as written, on every location's response.
-# - `docs/ops/spec.md` I352, no visitor named in the container's own streams.
-#
+# - `docs/ops/spec.md` I352, no visitor named in the container's own streams.#
 #   ./nginx/edge_test.sh --verbose   print the access line every case was graded on
 #   ./nginx/edge_test.sh --help
 
@@ -130,10 +129,16 @@ for argument in nginx.get("command") or []:
 tmpfs = nginx.get("tmpfs") or []
 for entry in [tmpfs] if isinstance(tmpfs, str) else tmpfs:
     print("tmpfs", entry, sep="\t")
+for key, flag in (("cap_drop", "--cap-drop"), ("cap_add", "--cap-add"), ("security_opt", "--security-opt")):
+    for entry in nginx.get(key) or []:
+        print("privilege", flag, entry, sep="\t")
 '
 EDGE_IMAGE=""
 EDGE_COMMAND=()
 EDGE_TMPFS=()
+# The capabilities and options the model starts nginx with, on both edges below: a master refused a
+# capability it needs never starts (`docs/ops/spec.md :: I491`).
+EDGE_PRIVILEGES=()
 mapfile -t EDGE_MODEL < <("$EDGE_PY" -c "$EDGE_MODEL_READ" "${SCRATCH}/model/local.json" \
   || echo "unread")
 for model_line in "${EDGE_MODEL[@]}"; do
@@ -142,6 +147,9 @@ for model_line in "${EDGE_MODEL[@]}"; do
     image$'\t'*) EDGE_IMAGE="${model_line#*$'\t'}" ;;
     command$'\t'*) EDGE_COMMAND+=( "${model_line#*$'\t'}" ) ;;
     tmpfs$'\t'*) EDGE_TMPFS+=( --tmpfs "${model_line#*$'\t'}" ) ;;
+    privilege$'\t'*)
+      model_line="${model_line#*$'\t'}"
+      EDGE_PRIVILEGES+=( "${model_line%%$'\t'*}" "${model_line#*$'\t'}" ) ;;
     *) refuse "the local stack's model could not be read: ${model_line}" ;;
   esac
 done
@@ -164,6 +172,7 @@ MSYS_NO_PATHCONV=1 docker run -d --name "$CONTAINER" \
   --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
   "${LOCAL_MOUNTS[@]}" \
   "${EDGE_TMPFS[@]}" \
+  "${EDGE_PRIVILEGES[@]}" \
   -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
   -v "/${SCRATCH}/zz-upstream-stub.conf:/etc/nginx/conf.d/zz-upstream-stub.conf:ro" \
   -v "/${SCRATCH}/zz-reload-probe.conf:/etc/nginx/conf.d/zz-reload-probe.conf:ro" \
@@ -708,6 +717,7 @@ MSYS2_ARG_CONV_EXCL="/CN" quietly openssl req -x509 -newkey rsa:2048 -nodes -day
 MSYS_NO_PATHCONV=1 docker run -d --name "$PROD_CONTAINER" \
   -p 127.0.0.1:0:443 \
   --add-host frontend:127.0.0.1 --add-host backend:127.0.0.1 \
+  "${EDGE_PRIVILEGES[@]}" \
   -v "/${REPO_ROOT}/nginx/prod:/etc/nginx/conf.d:ro" \
   -v "/${REPO_ROOT}/nginx/shared:/etc/nginx/shared:ro" \
   -v "/${SCRATCH}/certs:/etc/nginx/certs:ro" \
