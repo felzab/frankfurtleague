@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
@@ -15,12 +16,15 @@ const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("expor
 type Line = { level: string; event: string; fields: unknown };
 
 const lines: Line[] = [];
-const recorders = globalThis as unknown as Record<string, unknown>;
-recorders.__flAbgleichLines = lines;
 
-const LOGGING_DOUBLE = `const record = (level) => (event, ...rest) => globalThis.__flAbgleichLines.push({ level, event, fields: rest.at(-1) });
-export const logger = { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") };`;
-const CONFIG_DOUBLE = `export const frontend_config = { AUTH_URL: "http://localhost:3000", LOG_FORMAT: "console" };`;
+const record =
+  (level: string) =>
+  (event: string, ...rest: unknown[]): void =>
+    void lines.push({ level, event, fields: rest.at(-1) });
+const LOGGING_DOUBLE = exportingModule({
+  logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") },
+});
+const CONFIG_DOUBLE = exportingModule({ frontend_config: { AUTH_URL: "http://localhost:3000", LOG_FORMAT: "console" } });
 
 registerHooks({
   resolve(specifier, context, nextResolve) {

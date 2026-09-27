@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { exportingModule } from "@/core/exportingModule.ts";
+
 import type { TestContext } from "node:test";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
@@ -12,19 +14,28 @@ type Line = { level: string; event: string; fields: unknown };
 
 const lines: Line[] = [];
 
-const recorders = globalThis as unknown as Record<string, unknown>;
-recorders.__flBootLines = lines;
+/** The retired variable as the doubled config answers it, which a case sets. */
+let retired: string | undefined;
 
 // Every level records: which level the retired variable's line takes is part of what is asserted.
-const LOGGING_DOUBLE = `const record = (level) => (event, ...rest) => globalThis.__flBootLines.push({ level, event, fields: rest.at(-1) });
-export const logger = { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") };`;
+const record =
+  (level: string) =>
+  (event: string, ...rest: unknown[]): void =>
+    void lines.push({ level, event, fields: rest.at(-1) });
+const LOGGING_DOUBLE = exportingModule({
+  logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") },
+});
 
 // A getter, so each case sets the variable the one registry entry reads.
-const CONFIG_DOUBLE = `export const frontend_config = {
-  LOG_FORMAT: "console",
-  BEWERBUNG_SWEEP: "off",
-  get ALLOWED_ADMIN_EMAILS() { return globalThis.__flBootRetired; },
-};`;
+const CONFIG_DOUBLE = exportingModule({
+  frontend_config: {
+    LOG_FORMAT: "console",
+    BEWERBUNG_SWEEP: "off",
+    get ALLOWED_ADMIN_EMAILS() {
+      return retired;
+    },
+  },
+});
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -50,12 +61,12 @@ describe("the boot finding the retired administrator variable", () => {
      read by nothing; the line is what tells an operator the file still carries it. */
   it("warns once, naming the variable and never its value", async () => {
     const value = "vorstand@schule.de,kassenwart@schule.de";
-    recorders.__flBootRetired = value;
+    retired = value;
 
     try {
       await register();
     } finally {
-      delete recorders.__flBootRetired;
+      retired = undefined;
     }
 
     assert.deepEqual(lines, [

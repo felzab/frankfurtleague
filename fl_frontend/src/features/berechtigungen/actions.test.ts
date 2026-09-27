@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { assertEachAnswered } from "@/shared/testing/publishedRefusals.ts";
@@ -10,12 +11,10 @@ import { mapEntziehenRefusal, mapErteilenRefusal } from "./refusals.ts";
 
 /** Work the real `after` would run behind the response, collected rather than run: no case here has a response. */
 const deferred: (() => unknown)[] = [];
-const DEFERRED = "__flBerechtigungDeferred";
-(globalThis as unknown as Record<string, unknown>)[DEFERRED] = deferred;
 
 /* `refresh()` throws outside a request Next itself is rendering; `after` is collected. */
-const NEXT_CACHE_DOUBLE = "export const refresh = () => undefined;";
-const NEXT_SERVER_DOUBLE = `export const after = (task) => { globalThis.${DEFERRED}.push(task); };`;
+const NEXT_CACHE_DOUBLE = exportingModule({ refresh: () => undefined });
+const NEXT_SERVER_DOUBLE = exportingModule({ after: (task: () => unknown) => void deferred.push(task) });
 
 /* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
 const { setSession, setFresh } = doubleActionRequest();
