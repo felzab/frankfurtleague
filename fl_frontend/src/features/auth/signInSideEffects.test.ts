@@ -127,7 +127,8 @@ interface Attempt {
   readonly mailed: readonly string[];
   /** Verification rows the store gained while the caller was still waiting. */
   readonly writtenWhileAnswering: number;
-  readonly writtenAfter: number;
+  /** The identifier of each verification row the store gained once the deferred work ran. */
+  readonly writtenAfter: readonly string[];
   /** Backend reads the gate had made while the caller was still waiting, and once the deferred work ran. */
   readonly askedWhileAnswering: number;
   readonly askedAfter: number;
@@ -155,6 +156,7 @@ async function signInWith(email: string): Promise<Attempt> {
 
   const mailedBefore = sent.length;
   const storedBefore = store.verification.length;
+  const rowsBefore = new Set(store.verification);
   const askedBefore = asked.length;
   deferred.length = 0;
 
@@ -175,7 +177,7 @@ async function signInWith(email: string): Promise<Attempt> {
     mailedWhileAnswering,
     mailed: sent.slice(mailedBefore).map((message) => message.to),
     writtenWhileAnswering,
-    writtenAfter: store.verification.length - storedBefore,
+    writtenAfter: store.verification.filter((row) => !rowsBefore.has(row)).map((row) => row.identifier),
     askedWhileAnswering,
     askedAfter: asked.length - askedBefore,
     scheduled: scheduled.length,
@@ -218,6 +220,17 @@ function recordingJar(): { name: string; value: string }[] {
   };
 
   return written;
+}
+
+/** Each written row's kind, by its identifier: the plugin's code row, or one of the two counts `fl_frontend/src/core/auth.ts` keeps. */
+function kindsOf(identifiers: readonly string[], email: string): string[] {
+  return identifiers
+    .map((identifier) => {
+      if (identifier === `sign-in-otp-${email}`) return "the code";
+      if (identifier === "sign-in-mail-every-address") return "every address's total";
+      return identifier.startsWith("sign-in-mail-") ? "the address's count" : identifier;
+    })
+    .sort();
 }
 
 /** The answer with the echo dropped: `submittedEmail` is the caller's own input and differs by design. */
@@ -273,13 +286,18 @@ describe("what a sign-in leaves behind on the response", () => {
     assert.equal(rejected.scheduled, 1, "the rejected branch scheduled nothing, so the two are distinguishable by what they defer");
   });
 
-  it("writes the verification rows behind the response as well, the same on both branches", () => {
+  /* Kinds rather than a count: a refused branch writing the every-address total in place of the
+     address's own row counts the same. The total names no address, so the one row the branches
+     differ by tells nobody anything. */
+  it("writes the code's row and the address's count behind the response on both branches, and the every-address total on the mailed one alone", () => {
     assert.equal(granted.writtenWhileAnswering, 0, "the caller waited on a store write");
     assert.equal(rejected.writtenWhileAnswering, 0);
-    // The code's own row and the row counting a send against the address, on both branches; the mailed
-    // one adds the every-address total's, which names no address.
-    assert.equal(granted.writtenAfter, 3);
-    assert.equal(rejected.writtenAfter, 2, "the two branches differ in what the store gained about the address, which is an oracle");
+    assert.deepEqual(kindsOf(granted.writtenAfter, GRANTED), ["every address's total", "the address's count", "the code"]);
+    assert.deepEqual(
+      kindsOf(rejected.writtenAfter, REJECTED),
+      ["the address's count", "the code"],
+      "the two branches differ in what the store gained about the address, which is an oracle",
+    );
   });
 });
 
