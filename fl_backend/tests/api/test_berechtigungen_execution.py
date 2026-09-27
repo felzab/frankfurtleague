@@ -706,7 +706,7 @@ class TestAnOwnerChangesATier:
 
 
 class TestTheLastOwner:
-    """`REQ-BERECHTIGUNG-007`: a demotion leaves one live, unbarred owner (`docs/backend/spec.md :: I466`)."""
+    """`REQ-BERECHTIGUNG-007`: a demotion leaves one live, unbarred owner (`docs/backend/spec.md :: I471`)."""
 
     def test_the_only_owner_neither_steps_down_nor_is_demoted(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, dict[str, str]]:

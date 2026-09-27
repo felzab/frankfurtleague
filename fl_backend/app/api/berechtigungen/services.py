@@ -163,7 +163,7 @@ def find_mindestzahl_refusal(*, remaining: int) -> WriteRefusal | None:
 
 
 def find_letzter_inhaber_refusal(*, remaining_owners: int) -> WriteRefusal | None:
-    """`REQ-BERECHTIGUNG-007`: a demotion leaves at least one live, unbarred `owner` (`docs/backend/spec.md :: I466`).
+    """`REQ-BERECHTIGUNG-007`: a demotion leaves at least one live, unbarred `owner` (`docs/backend/spec.md :: I471`).
 
     Counted as the floor of two is: a dead or barred `owner` row admits nobody, so it could demote
     nobody back and grant nothing.

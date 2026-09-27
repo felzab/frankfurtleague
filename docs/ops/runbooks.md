@@ -346,7 +346,7 @@ administration is shut while it is down. Each of these is easy to get wrong:
 - **An `owner` is made, and steps down, only through the tier change an `owner` makes**
   (`PATCH /berechtigungen/{berechtigung_id}`, `docs/backend/spec.md :: I436`): it mails every
   administrator and is logged, and the last live, unbarred `owner` is demoted by nobody
-  (`docs/backend/spec.md :: I466`). An `owner` is revoked only once made an administrator, and in
+  (`docs/backend/spec.md :: I471`). An `owner` is revoked only once made an administrator, and in
   the application only an `owner` revokes (`docs/backend/spec.md :: I449`).
 - **The database is written directly for two things alone: the first owner, before anybody can sign
   in, and recovery when no owner can sign in.** Write in MongoDB Playground, never
@@ -371,7 +371,7 @@ administration is shut while it is down. Each of these is easy to get wrong:
 
 - **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer
   (`docs/backend/spec.md :: I435`), the tier change to leave no owner
-  (`docs/backend/spec.md :: I466`), and the Playground refuses nothing: the boot warns with
+  (`docs/backend/spec.md :: I471`), and the Playground refuses nothing: the boot warns with
   `SRV-BOOT-005` where no grant is left and `SRV-BOOT-006` where no owner is, and serves the public
   site either way.
 - **A barred address is granted nothing, and a granted one is banned by nothing**
