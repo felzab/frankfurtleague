@@ -969,8 +969,8 @@ address alone and to declaring the real-address header and recursion once (I18).
 application service to reading its package's `.env`, then the root's, and no other, judged off the
 environment Compose resolves from the stand-ins the gate writes in place of the three files (I429),
 and every service to exactly its networks, so only nginx shares one with the connector or with the
-application pair (I471). It holds every secret to exactly the services `:: SECRET_HOLDERS` names,
-read from its own file, the actor token's signing key the frontend's alone, with no bind mount or
+application pair (I471). It holds every secret to exactly the services
+`scripts/checks/check_compose_model.py :: SECRET_HOLDERS` names, read from its own file, the actor token's signing key the frontend's alone, with no bind mount or
 config reaching `secrets/` beside them and no service handed a moved credential's name in its
 environment (I472, I492, I493); and every service to dropping every capability and gaining no
 privilege, nginx adding back its master's four (I491). A model it
