@@ -49,7 +49,7 @@ from app.api.kontakte.admin_router import erase_kontaktperson
 from app.api.kontakte.schemas import FLKontaktErasurePayload
 from app.api.sperrliste.admin_router import post_sperrliste_eintrag
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
-from app.api.sperrliste.services import adresse_hash, compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import post_team
 from app.api.teams.schemas import FLPostTeamPayload
 from app.api.teams.services import CLUB_RETIRED, ENTRY_GRUPPE_FULL, ENTRY_SAISON_NOT_FUTURE, UNCONFIRMED_HERKUNFT
@@ -62,7 +62,7 @@ from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, ADMIN_KEY, build_test_config, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
+from tests.documents import ADDRESS, ban_document, rules_document, saison_document, saison_team_document, team_document
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -1214,18 +1214,8 @@ CORRECTED_EMAIL = "sekretariat@zorbanax.example.de"
 CONFIG = build_test_config()
 
 
-def ban_document(address: str) -> dict[str, Any]:
-    """One ban as the shipped write stores it, keyed under the suite's own settings and bounded from this season."""
-
-    return {
-        "_id": ObjectId(),
-        "adresse_hash": adresse_hash(address, schluessel=CONFIG.sperrliste_schluessel),
-        "schluessel_version": "sperrliste-v1",
-        "grund": "Falsches Geburtsdatum bei der Anmeldung",
-        "erstellt_von": "admin@frankfurtleague.de",
-        "erstellt_am": "2026-03-15",
-        "gesperrt_bis_saison_id": compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID),
-    }
+# Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
+STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
 
 
 REFUSED_MESSAGE = "49a3999c-0ce1-4ea6-ab68-afcd6dc2e794"
@@ -1683,7 +1673,7 @@ class TestAResendRacingAnAnswer:
             address = str(before["kontakte"]["ansprechperson"]["email"])
 
             async def ban() -> None:
-                await database[Collection.SPERRLISTE].insert_one(ban_document(address))
+                await database[Collection.SPERRLISTE].insert_one(ban_document(address, bis=STANDING))
 
             with pytest.raises(WriteRefusalException) as refused:
                 await resend(database, "ansprechperson", bewerbungen=MissesTheFirstWrite(database[Collection.BEWERBUNGEN], meanwhile=ban))
@@ -2027,7 +2017,7 @@ class TestABannedContactAddress:
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             before = await seed_an_open_ansprechperson_seat(database)
-            await database[Collection.SPERRLISTE].insert_one(ban_document(str(before["kontakte"]["ansprechperson"]["email"])))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(str(before["kontakte"]["ansprechperson"]["email"]), bis=STANDING))
             with pytest.raises(WriteRefusalException) as failure:
                 await resend(database, "ansprechperson")
 
@@ -2043,7 +2033,7 @@ class TestABannedContactAddress:
 
         async def body(database: AsyncDatabase, _: AsyncMongoClient) -> Any:
             await seed_an_open_ansprechperson_seat(database)
-            await database[Collection.SPERRLISTE].insert_one(ban_document(CORRECTED_EMAIL))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(CORRECTED_EMAIL, bis=STANDING))
 
             return await resend(database, "ansprechperson")
 
@@ -2065,7 +2055,7 @@ class TestABannedContactAddress:
     def test_a_correction_naming_a_banned_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_a_bounced_application(database, client)
-            await database[Collection.SPERRLISTE].insert_one(ban_document(CORRECTED_EMAIL))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(CORRECTED_EMAIL, bis=STANDING))
             before = await stored_bewerbung(database, CORRECTION_BEWERBUNG)
             with pytest.raises(WriteRefusalException) as failure:
                 await correct(database, client, "ansprechperson")
@@ -2080,7 +2070,7 @@ class TestABannedContactAddress:
     def test_a_reseat_naming_a_banned_address_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await seed_an_application_a_seat_was_declined_on(database, client)
-            await database[Collection.SPERRLISTE].insert_one(ban_document(RESEAT_PERSON["email"]))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(RESEAT_PERSON["email"], bis=STANDING))
             before = await stored_bewerbung(database, RESEAT_BEWERBUNG)
             with pytest.raises(WriteRefusalException) as failure:
                 await reseat(database, client, "ansprechperson")

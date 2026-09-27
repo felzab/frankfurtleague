@@ -24,7 +24,7 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_TEAM_NICHT_EINGETRAGEN,
 )
 from app.api.saisons.cache import invalidate_saison_cache
-from app.api.sperrliste.services import adresse_hash, compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import WriteRefusalException
@@ -137,20 +137,9 @@ def junction_document(saison_id: str, team_id: ObjectId, name: str) -> dict[str,
     return documents.saison_team_document(saison_id, team_id, name, name[:2].upper())
 
 
-def ban_document(address: str, *, bis: str | None = None) -> dict[str, Any]:
-    """One ban as the shipped write stores it, keyed under the suite's own settings."""
-
-    return {
-        "_id": ObjectId(),
-        "adresse_hash": adresse_hash(address, schluessel=CONFIG.sperrliste_schluessel),
-        "schluessel_version": "sperrliste-v1",
-        "grund": "Falsches Geburtsdatum bei der Anmeldung",
-        "erstellt_von": "admin@frankfurtleague.de",
-        "erstellt_am": "2026-03-15",
-        # Composed by the production helper rather than spelled: a hand-written bound that drifted
-        # from it would leave these cases passing over a lapsed row.
-        "gesperrt_bis_saison_id": bis or compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID),
-    }
+# Composed by the production helper rather than spelled: a hand-written bound that drifted from it
+# would leave these cases passing over a lapsed row.
+STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
 
 
 def on_a_league(
@@ -160,7 +149,7 @@ def on_a_league(
     registrierung: Any = OPEN_WINDOW,
     squad: int = 0,
     banned: str | None = None,
-    banned_bis: str | None = None,
+    banned_bis: str = STANDING,
     saison_status: str = "active",
     spaetere_saison: bool = False,
     matchday_beginn: str | None = None,
@@ -209,7 +198,7 @@ def on_a_league(
                 )
 
             if banned is not None:
-                await database[Collection.SPERRLISTE].insert_one(ban_document(banned, bis=banned_bis))
+                await database[Collection.SPERRLISTE].insert_one(documents.ban_document(banned, bis=banned_bis))
 
             if matchday_beginn is not None:
                 await database[Collection.SPIELTAGE].insert_one(
@@ -487,7 +476,7 @@ class TestTheSubmissionKey:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await register(database, client, schluessel=SCHLUESSEL)
-            await database[Collection.SPERRLISTE].insert_one(ban_document(PUPIL_EMAIL))
+            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(PUPIL_EMAIL, bis=STANDING))
             before = (await rows_of(database))[0]
             with pytest.raises(WriteRefusalException) as refused:
                 await register(database, client, schluessel=SCHLUESSEL)

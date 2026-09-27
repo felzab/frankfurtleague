@@ -14,7 +14,6 @@ from app.api.identitaet.router import get_subjekt
 from app.api.identitaet.schemas import FLSubjektPayload, FLSubjektResponse
 from app.api.identitaet.services import build_referee_pipeline, build_seat_pipeline
 from app.api.kontakte.services import KONTAKT_SLOTS
-from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.security import MISSING_TOKEN, WRONG_SYSTEM_KEY
@@ -23,7 +22,7 @@ from app.shared.folding import league_address, sign_in_identifier
 from tests.app_client import app_client
 from tests.config import BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import EINWILLIGUNG, rules_document, saison_document, saison_team_document, spieler_document, team_document
+from tests.documents import EINWILLIGUNG, ban_document, rules_document, saison_document, saison_team_document, spieler_document, team_document
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -260,7 +259,10 @@ async def _seed(database: AsyncDatabase) -> None:
         ]
     )
     await database[Collection.SPERRLISTE].insert_many(
-        [_ban(BAN_ACTIVE_OID, GESPERRT_STORED, bis=FUTURE_SAISON), _ban(BAN_LAPSED_OID, ABGELAUFEN, bis=PAST_SAISON)]
+        [
+            ban_document(GESPERRT_STORED, bis=FUTURE_SAISON, _id=BAN_ACTIVE_OID),
+            ban_document(ABGELAUFEN, bis=PAST_SAISON, _id=BAN_LAPSED_OID),
+        ]
     )
     await database[Collection.BERECHTIGUNGEN].insert_many([_grant(VERWALTUNG_INHABER, "owner"), _grant(VERWALTUNG_STORED, "administration")])
 
@@ -269,20 +271,6 @@ def _grant(adresse: str, verwaltung: str) -> dict[str, Any]:
     """A grant as the Playground or the grant route stores one: the folded identifier and its tier."""
 
     return {"adresse": adresse, "verwaltung": verwaltung, "erteilt_von": "PLAYGROUND", "erteilt_am": datetime(2026, 1, 1, tzinfo=UTC)}
-
-
-def _ban(ban_id: ObjectId, email: str, *, bis: str) -> dict[str, Any]:
-    """A ban as the write stores one: the address under the test key, and the last season it covers."""
-
-    return {
-        "_id": ban_id,
-        "adresse_hash": adresse_hash(email, schluessel=CONFIG.sperrliste_schluessel),
-        "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
-        "grund": "Wiederholt gemeldet",
-        "erstellt_von": "admin@example.org",
-        "erstellt_am": "2026-01-10",
-        "gesperrt_bis_saison_id": bis,
-    }
 
 
 def on_a_league(url: str, body: Body) -> Any:

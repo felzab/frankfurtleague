@@ -19,7 +19,7 @@ from app.api.registrierungen.services import (
     compose_bestaetigung,
 )
 from app.api.saisons.cache import invalidate_saison_cache
-from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash, compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
@@ -568,27 +568,13 @@ class TestTheMediaAge:
         assert rows == []
 
 
-def ban_document(address: str, *, bis: str) -> dict[str, Any]:
-    """One ban as the shipped write stores it, keyed under the suite's own settings."""
-
-    return {
-        "_id": ObjectId(),
-        "adresse_hash": adresse_hash(address, schluessel=build_test_config().sperrliste_schluessel),
-        "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
-        "grund": "Falsches Geburtsdatum bei der Anmeldung",
-        "erstellt_von": "admin@frankfurtleague.de",
-        "erstellt_am": "2026-03-30",
-        "gesperrt_bis_saison_id": bis,
-    }
-
-
 # Composed by the production helper rather than spelled: a hand-written bound that drifted from it
 # would leave these cases passing over a lapsed row.
 STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
 
 
 async def ban(database: AsyncDatabase, address: str, *, bis: str = STANDING) -> None:
-    await database[Collection.SPERRLISTE].insert_one(ban_document(address, bis=bis))
+    await database[Collection.SPERRLISTE].insert_one(documents.ban_document(address, bis=bis))
 
 
 class TestALinkToABarredAddress:

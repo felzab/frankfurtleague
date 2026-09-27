@@ -18,7 +18,7 @@ from fastapi.routing import APIRoute
 from pymongo import MongoClient
 
 from app.api.einladungen.services import compose_einladung
-from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
+from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.security import verify_access_admin
 from app.main import create_app
@@ -27,7 +27,7 @@ from tests.app_client import app_client
 from tests.config import ADMIN_KEY, build_test_config, grants_for_the_suite
 from tests.core.app_source import api_routes
 from tests.database import a_clean_database_sync
-from tests.documents import saison_document
+from tests.documents import ban_document, saison_document
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -96,15 +96,8 @@ NAMES_NO_ADMINISTRATOR: dict[str, str] = {
 }
 
 
-def _ban(address: str, *, von: str) -> dict[str, Any]:
-    return {
-        "adresse_hash": adresse_hash(address, schluessel=CONFIG.sperrliste_schluessel),
-        "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
-        "grund": "Falsches Geburtsdatum bei der Anmeldung",
-        "erstellt_von": von,
-        "erstellt_am": "2026-04-01",
-        "gesperrt_bis_saison_id": "2031",
-    }
+# Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
+STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
 
 
 def _seed(url: str, *, barred: bool) -> None:
@@ -125,7 +118,12 @@ def _seed(url: str, *, barred: bool) -> None:
                 },
             ]
         )
-        database[Collection.SPERRLISTE].insert_many([_ban(OTHER, von=BARRED), *([_ban(BARRED, von=OWNER)] if barred else [])])
+        database[Collection.SPERRLISTE].insert_many(
+            [
+                ban_document(OTHER, bis=STANDING, erstellt_von=BARRED),
+                *([ban_document(BARRED, bis=STANDING, erstellt_von=OWNER)] if barred else []),
+            ]
+        )
         database[Collection.EINLADUNGEN].insert_one(
             compose_einladung(saison_id=SAISON_ID, team_id=TEAM_OID, token_hash="a" * 64, erstellt_von=BARRED, today="2026-04-01")
         )

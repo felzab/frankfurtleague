@@ -15,7 +15,7 @@ from app.api.bewerbungen.sweep_router import get_sweep_saisons
 from app.api.registrierungen import sweep_router as sweep_router_module
 from app.api.registrierungen.services import SWEEP_PAGE, build_erinnerung_filter, build_unconfirmed_filter, build_wiederholung_filter
 from app.api.registrierungen.sweep_router import REMINDERS_PER_PASS, sweep_registrierungen
-from app.api.sperrliste.services import adresse_hash, compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db
@@ -24,7 +24,7 @@ from app.core.recording import SYSTEM_ACTOR_EMAIL
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
-from tests.documents import rules_document, saison_document, team_document
+from tests.documents import ban_document, rules_document, saison_document, team_document
 from tests.worker import worker_database
 
 # Module level, as the other execution suites mark theirs: every test below reaches a real mongod.
@@ -175,18 +175,8 @@ async def log_rows_naming(database: AsyncDatabase, row_id: ObjectId) -> list[Map
     return await database[Collection.AKTIONEN].find({"collection": str(Collection.REGISTRIERUNGEN), "document_id": row_id}).to_list(length=None)
 
 
-def ban_document(address: str) -> dict[str, Any]:
-    """One ban as the shipped write stores it, keyed under the suite's own settings and bounded from this season."""
-
-    return {
-        "_id": ObjectId(),
-        "adresse_hash": adresse_hash(address, schluessel=build_test_config().sperrliste_schluessel),
-        "schluessel_version": "sperrliste-v1",
-        "grund": "Falsches Geburtsdatum bei der Anmeldung",
-        "erstellt_von": "admin@frankfurtleague.de",
-        "erstellt_am": "2026-03-15",
-        "gesperrt_bis_saison_id": compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID),
-    }
+# Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
+STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
 
 
 class TestTheReminderClock:
@@ -276,7 +266,7 @@ class TestTheReminderClock:
         """Skipped in the pass and nothing written: the next pass reads it again and asks the ban again."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPERRLISTE].insert_one(ban_document(f"{REMIND_OID}@example.com"))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(f"{REMIND_OID}@example.com", bis=STANDING))
             # Both passes inside: the level outside is whatever an earlier test on this worker left.
             with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
                 response = await sweep(database, client)
@@ -317,7 +307,7 @@ class TestTheReminderClock:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             # Its deadline, today, comes before the other registration at its mark.
-            await database[Collection.SPERRLISTE].insert_one(ban_document(f"{INSIDE_OID}@example.com"))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(f"{INSIDE_OID}@example.com", bis=STANDING))
 
             return [entry.registrierung_id for entry in (await sweep(database, client)).erinnerungen]
 
@@ -327,7 +317,7 @@ class TestTheReminderClock:
         """Withheld once more while the ban stands, and chased on the first pass after it is lifted."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            await database[Collection.SPERRLISTE].insert_one(ban_document(f"{REMIND_OID}@example.com"))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(f"{REMIND_OID}@example.com", bis=STANDING))
             await sweep(database, client)
             still_barred = await sweep(database, client, today="2026-04-02")
             await database[Collection.SPERRLISTE].delete_many({})

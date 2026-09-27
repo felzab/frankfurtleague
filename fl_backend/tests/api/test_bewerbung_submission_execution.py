@@ -33,7 +33,7 @@ from app.api.bewerbungen.services import (
     hash_token,
 )
 from app.api.kontakte.services import build_clearing_update
-from app.api.sperrliste.services import adresse_hash, compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exception_handlers import PAYLOAD_REFUSED
@@ -44,7 +44,7 @@ from app.shared.schemas.bounds import BEWERBUNG_BESTAETIGUNG_FRIST_TAGE
 from tests.app_client import app_client
 from tests.config import BASE_AUTH, build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, a_clean_database_sync, on_the_seed_loop
-from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
+from tests.documents import ADDRESS, ban_document, rules_document, saison_document, saison_team_document, team_document
 from tests.holds import HoldsAfterItsLookup
 from tests.worker import worker_database
 
@@ -176,18 +176,8 @@ SCHLUESSEL = UUID("1b4e28ba-2fa1-4d2b-883f-0016d3cca427")
 CONFIG = build_test_config()
 
 
-def ban_document(address: str) -> dict[str, Any]:
-    """One ban as the shipped write stores it, keyed under the suite's own settings and bounded from this season."""
-
-    return {
-        "_id": ObjectId(),
-        "adresse_hash": adresse_hash(address, schluessel=CONFIG.sperrliste_schluessel),
-        "schluessel_version": "sperrliste-v1",
-        "grund": "Falsches Geburtsdatum bei der Anmeldung",
-        "erstellt_von": "admin@frankfurtleague.de",
-        "erstellt_am": "2026-03-15",
-        "gesperrt_bis_saison_id": compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID),
-    }
+# Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
+STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
 
 
 async def submit(database: AsyncDatabase, *, schluessel: UUID | None = None, bewerbungen: Any = None, **overrides: Any) -> Any:
@@ -1278,7 +1268,7 @@ class TestABannedContactAddress:
     @pytest.mark.parametrize("seat", ["trainer", "ansprechperson", "stellvertretung"])
     def test_a_banned_address_on_any_seat_is_refused_and_stores_nothing(self, mongo_replica_set_url: str, seat: str):
         async def body(database: AsyncDatabase) -> tuple[str, int]:
-            await database[Collection.SPERRLISTE].insert_one(ban_document(KONTAKTE[seat]["email"]))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(KONTAKTE[seat]["email"], bis=STANDING))
             with pytest.raises(WriteRefusalException) as failure:
                 await submit(database)
 
@@ -1294,7 +1284,7 @@ class TestABannedContactAddress:
 
         async def body(database: AsyncDatabase) -> Any:
             await submit(database, schluessel=SCHLUESSEL)
-            await database[Collection.SPERRLISTE].insert_one(ban_document(KONTAKTE["stellvertretung"]["email"]))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(KONTAKTE["stellvertretung"]["email"], bis=STANDING))
             before = await database[Collection.BEWERBUNGEN].find_one({})
             with pytest.raises(WriteRefusalException) as failure:
                 await submit(database, schluessel=SCHLUESSEL)

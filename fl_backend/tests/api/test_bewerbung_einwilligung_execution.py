@@ -26,12 +26,12 @@ from app.api.bewerbungen.services import (
     compose_bestaetigungen,
     hash_token,
 )
-from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash, compose_gesperrt_bis_saison_id
+from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import ADDRESS, kontaktperson_document, team_document
+from tests.documents import ADDRESS, ban_document, kontaktperson_document, team_document
 from tests.worker import worker_database
 
 # Module level, as the submission suite marks its own: every test below reaches a real mongod.
@@ -741,19 +741,8 @@ class TestAResend:
         assert on_a_league(mongo_replica_set_url, body) == bewerbung_document()
 
 
-def ban_document(address: str) -> dict[str, Any]:
-    """One ban as the shipped write stores it, keyed under the suite's own settings."""
-
-    return {
-        "_id": ObjectId(),
-        "adresse_hash": adresse_hash(address, schluessel=build_test_config().sperrliste_schluessel),
-        "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
-        "grund": "Falsches Geburtsdatum bei der Bestätigung",
-        "erstellt_von": "admin@frankfurtleague.de",
-        "erstellt_am": "2026-03-30",
-        # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
-        "gesperrt_bis_saison_id": compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID),
-    }
+# Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
+STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
 
 
 def address_of(seat: str, document: Mapping[str, Any] | None = None) -> str:
@@ -761,7 +750,7 @@ def address_of(seat: str, document: Mapping[str, Any] | None = None) -> str:
 
 
 async def ban(database: AsyncDatabase, address: str) -> None:
-    await database[Collection.SPERRLISTE].insert_one(ban_document(address))
+    await database[Collection.SPERRLISTE].insert_one(ban_document(address, bis=STANDING))
 
 
 def decline(database: AsyncDatabase, client: AsyncMongoClient, seat: str) -> Any:
