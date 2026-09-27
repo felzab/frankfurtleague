@@ -18,13 +18,7 @@ from typing import Any
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from app.core.exceptions import (
-    ActorForbiddenException,
-    ActorTokenRefusedException,
-    DatabaseUnavailableException,
-    MalformedRequestException,
-    RequestAuthorizationException,
-)
+from app.core.exceptions import BaseAPIException, DocumentNotFoundException, WriteRefusalException
 from app.core.security import ACTOR_HEADER, verify_access_admin, verify_access_base, verify_access_system
 from app.main import DEPENDENCY_REFUSALS, create_app, dependency_refusals
 from tests.actor_tokens import FOREIGN_SIGNING_KEY, SignedActor, actor_claims, sign
@@ -56,16 +50,22 @@ PROBED_STATUSES = frozenset({HTTPStatus.BAD_REQUEST, HTTPStatus.UNAUTHORIZED, HT
 # maps that both went empty still fails.
 PROBED_OPERATIONS_FLOOR = 100
 
-# Raised by these alone: a raise of any of them anywhere else answers a code the table never publishes.
-PROTOCOL_EXCEPTIONS = frozenset(
-    {
-        RequestAuthorizationException.__name__,
-        MalformedRequestException.__name__,
-        ActorForbiddenException.__name__,
-        ActorTokenRefusedException.__name__,
-        DatabaseUnavailableException.__name__,
-    }
-)
+# The two refusal classes whose codes reach the document by another route, each held there.
+PUBLISHED_ELSEWHERE: Mapping[type[BaseAPIException], str] = {
+    WriteRefusalException: "a rule's code, published from `RULES` (`tests/core/test_rule_publication.py`)",
+    DocumentNotFoundException: "a miss, published by its handler's `responses=` (`tests/core/test_not_found_publication.py`)",
+}
+
+
+def _subclasses(cls: type) -> Iterator[type]:
+    for subclass in cls.__subclasses__():
+        yield subclass
+        yield from _subclasses(subclass)
+
+
+# Derived, so a refusal class added anywhere the application imports is swept until it is named above:
+# a raise of one outside the table's dependencies answers a code the table never publishes.
+PROTOCOL_EXCEPTIONS = frozenset(cls.__name__ for cls in _subclasses(BaseAPIException) if cls not in PUBLISHED_ELSEWHERE)
 
 
 def _url(route: APIRoute) -> str:
@@ -131,6 +131,23 @@ def _own_nodes(node: ast.AST) -> Iterator[ast.AST]:
         if not isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
             yield child
             yield from _own_nodes(child)
+
+
+def _raised_in(function: Any) -> set[str]:
+    return {
+        node.exc.func.id
+        for node in ast.walk(declared(function))
+        if isinstance(node, ast.Raise) and isinstance(node.exc, ast.Call) and isinstance(node.exc.func, ast.Name)
+    }
+
+
+def test_the_derived_refusal_classes_hold_every_class_the_tables_dependencies_raise():
+    """Read off the dependencies' own raises, a second route to the set: a derivation that went empty would sweep nothing, green."""
+
+    raised = set().union(*(_raised_in(dependency) for dependency in DEPENDENCY_REFUSALS))
+
+    assert raised, "no raise is read off the table's dependencies, so the clause below is vacuous"
+    assert raised <= PROTOCOL_EXCEPTIONS
 
 
 def test_every_raise_of_a_protocol_refusal_sits_in_a_dependency_the_table_names_or_in_a_handler_declaring_it():
