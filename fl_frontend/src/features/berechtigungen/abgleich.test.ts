@@ -155,8 +155,7 @@ describe("one pass over the claimed changes", () => {
   });
 
   /* The takeover a holder of the database's credentials would make: one grant's address edited from A
-     to B. The claim answers it as A's removal and B's grant, B now among the holders, and each change
-     is told as itself: every holder learns both, and A its own loss. */
+     to B, answered as A's removal and B's grant. Every holder, B among them, is told both; A its own loss. */
   it("tells an address repointed in the database as the old address's loss and the new one's grant", async () => {
     const DATENBANK = { geaendert_von: null, geaendert_am: null };
     claim = claimOf(
