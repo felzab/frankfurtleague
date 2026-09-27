@@ -21,7 +21,7 @@ from app.api.sperrliste.admin_router import get_sperrliste, post_sperrliste_eint
 from app.api.sperrliste.crud import address_is_gesperrt
 from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
-from app.api.sperrliste.services import SPERRLISTE_KEINE_SAISON, SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
+from app.api.sperrliste.services import SPERRLISTE_KEINE_SAISON, adresse_hash
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from tests import documents
@@ -120,19 +120,6 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str =
         erstellt_von=ADMIN,
         today=TODAY,
     )
-
-
-def a_raw_row(email: str) -> dict[str, Any]:
-    """One conforming entry written straight to the collection, which is what a case varying a single key needs."""
-
-    return {
-        "adresse_hash": adresse_hash(email, schluessel=CONFIG.sperrliste_schluessel),
-        "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
-        "grund": GRUND,
-        "erstellt_von": ADMIN,
-        "erstellt_am": TODAY,
-        "gesperrt_bis_saison_id": LAST_COVERED,
-    }
 
 
 async def is_gesperrt(database: AsyncDatabase, *, against: str | None, email: str = BANNED) -> bool:
@@ -314,13 +301,13 @@ class TestTheBoundaryTheCheckReads:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, int]:
             await ban(database, client)
-            keyless = a_raw_row(OTHER)
+            keyless = documents.ban_document(OTHER, bis=LAST_COVERED)
             del keyless["gesperrt_bis_saison_id"]
 
             with pytest.raises(OperationFailure) as refused:
                 await database[Collection.SPERRLISTE].insert_one(keyless)
 
-            await database[Collection.SPERRLISTE].insert_one(a_raw_row(OTHER))
+            await database[Collection.SPERRLISTE].insert_one(documents.ban_document(OTHER, bis=LAST_COVERED))
 
             return refused.value.code, await database[Collection.SPERRLISTE].count_documents({})
 

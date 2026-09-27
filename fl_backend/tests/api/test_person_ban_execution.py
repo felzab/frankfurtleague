@@ -11,14 +11,13 @@ import pytest
 from fastapi import Depends
 from httpx2 import ASGITransport, AsyncClient  # noqa: TID251
 
-from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.core.collections import Collection
 from app.core.security import ACTOR_HEADER, PERSON_ACTOR_BINDERS, PERSON_BARRED
 from app.main import create_app
 from tests.actor_tokens import actor_token
 from tests.config import TEST_BASE_URL
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import rules_document, saison_document
+from tests.documents import ban_document, rules_document, saison_document
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -45,16 +44,7 @@ def answered(url: str, email: str, *, bis: str) -> tuple[int, Any]:
     async def _run() -> tuple[int, Any]:
         async with a_clean_database(url, DATABASE_NAME, constraints=True) as (client, database):
             await database[Collection.SAISONS].insert_one(saison_document(RUNNING, "active", rules=rules_document()))
-            await database[Collection.SPERRLISTE].insert_one(
-                {
-                    "adresse_hash": adresse_hash(BARRED, schluessel=CONFIG.sperrliste_schluessel),
-                    "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
-                    "grund": "Wiederholt gemeldet",
-                    "erstellt_von": "inhaberin@frankfurtleague.de",
-                    "erstellt_am": "2026-04-01",
-                    "gesperrt_bis_saison_id": bis,
-                }
-            )
+            await database[Collection.SPERRLISTE].insert_one(ban_document(BARRED, bis=bis))
 
             app = create_app(CONFIG)
             app.add_api_route(PROBE, _probe, methods=["GET"], dependencies=[Depends(PERSON_ACTOR_BINDERS["spieler"])])

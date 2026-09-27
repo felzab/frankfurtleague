@@ -20,14 +20,14 @@ from app.api.einladungen.services import (
 )
 from app.api.saisons.admin_router import post_einladungen_versand, preview_einladungen_versand
 from app.api.sperrliste.lookup import BanList
-from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
+from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import delete_einladung, get_einladung, post_einladung
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
-from tests.documents import rules_document, saison_document, saison_team_document
+from tests.documents import ban_document, rules_document, saison_document, saison_team_document
 from tests.holds import HeldCollection
 from tests.worker import worker_database
 
@@ -712,14 +712,7 @@ class TestTheStateRead:
             await mint(database, TWO_SEATS)
             if barred:
                 await database[Collection.SPERRLISTE].insert_one(
-                    {
-                        "adresse_hash": adresse_hash(ADMIN, schluessel=build_test_config().sperrliste_schluessel),
-                        "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
-                        "grund": "Zugang entzogen",
-                        "erstellt_von": "inhaberin@frankfurtleague.de",
-                        "erstellt_am": TODAY,
-                        "gesperrt_bis_saison_id": "2031",
-                    }
+                    ban_document(ADMIN, bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID))
                 )
             state = await read_state(database, TWO_SEATS)
 

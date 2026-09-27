@@ -20,7 +20,7 @@ from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import rules_document, saison_document
+from tests.documents import ban_document, rules_document, saison_document
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -209,14 +209,7 @@ class TestASecondBanOfOneAddress:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> None:
             await ban(database, client)
-            duplicate = {
-                "adresse_hash": adresse_hash(BANNED_RETYPED, schluessel=CONFIG.sperrliste_schluessel),
-                "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
-                "grund": GRUND,
-                "erstellt_von": ADMIN,
-                "erstellt_am": TODAY,
-                "gesperrt_bis_saison_id": LAST_COVERED,
-            }
+            duplicate = ban_document(BANNED_RETYPED, bis=LAST_COVERED)
 
             with pytest.raises(DuplicateKeyError):
                 await database[Collection.SPERRLISTE].insert_one(duplicate)
@@ -537,16 +530,14 @@ class TestTheKeyTheRowsWereTakenUnder:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> bool:
             await database[Collection.SPERRLISTE].insert_one(
-                {
-                    "adresse_hash": adresse_hash(BANNED, schluessel=SecretStr("the-previous-key".ljust(64, "0"))),
-                    # The label a row keyed under the previous master would carry: the validator
-                    # closes no set, so the old population stays readable.
-                    "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
-                    "grund": GRUND,
-                    "erstellt_von": ADMIN,
-                    "erstellt_am": TODAY,
-                    "gesperrt_bis_saison_id": LAST_COVERED,
-                }
+                ban_document(
+                    BANNED,
+                    bis=LAST_COVERED,
+                    # Keyed under the previous master and labelled as the builder labels every row,
+                    # which a row written before a rotation would carry: the validator closes no set,
+                    # so the old population stays readable.
+                    adresse_hash=adresse_hash(BANNED, schluessel=SecretStr("the-previous-key".ljust(64, "0"))),
+                )
             )
 
             return await address_is_gesperrt(

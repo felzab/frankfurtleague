@@ -41,7 +41,7 @@ from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich, po
 from app.api.sperrliste.admin_router import delete_sperrliste_eintrag, post_sperrliste_eintrag
 from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
-from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, SPERRLISTE_VERWALTUNG, adresse_hash
+from app.api.sperrliste.services import SPERRLISTE_VERWALTUNG, compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
@@ -52,7 +52,7 @@ from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.documents import rules_document, saison_document
+from tests.documents import ban_document, rules_document, saison_document
 from tests.isolation import COMMITTED, outcome_of
 from tests.worker import worker_database
 
@@ -111,17 +111,8 @@ def the_three_grants() -> list[dict[str, Any]]:
     ]
 
 
-def a_ban_row(adresse: str) -> dict[str, Any]:
-    """A standing ban as the ban write stores one, for an address no ban route would take today."""
-
-    return {
-        "adresse_hash": adresse_hash(adresse, schluessel=CONFIG.sperrliste_schluessel),
-        "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
-        "grund": GRUND,
-        "erstellt_von": OWNER,
-        "erstellt_am": TODAY,
-        "gesperrt_bis_saison_id": "2031",
-    }
+# Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
+STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=RUNNING)
 
 
 def on_a_league(url: str, body: Body, *, grants: list[dict[str, Any]] | None = None) -> Any:
@@ -435,7 +426,7 @@ class TestTheListServesLiveGrantsAlone:
         """Both on one list: the three live rows, one of them barred by a ban the Playground grant predates."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[tuple[str | None, bool, str]], int]:
-            await database[Collection.SPERRLISTE].insert_one(a_ban_row(BERND))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(BERND, bis=STANDING))
             listed = await get_berechtigungen(
                 berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
                 sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
@@ -476,7 +467,7 @@ class TestTheListServesLiveGrantsAlone:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str | None, str | None, bool]]:
             await grant(database, client, als=ANNA)
             await revoke(database, client, ANNA_ID)
-            await database[Collection.SPERRLISTE].insert_one(a_ban_row(ANNA))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(ANNA, bis=STANDING))
             listed = await get_berechtigungen(
                 berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
                 sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
@@ -687,7 +678,7 @@ class TestAnOwnerChangesATier:
         """`REQ-BERECHTIGUNG-003`, the grant's own refusal: a barred holder is no administrator, so never an owner."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, dict[str, str]]:
-            await database[Collection.SPERRLISTE].insert_one(a_ban_row(BERND))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(BERND, bis=STANDING))
 
             return await refusal_of(change(database, client, BERND_ID, "owner")), await tiers(database)
 
@@ -714,7 +705,7 @@ class TestTheLastOwner:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, dict[str, str]]:
             await a_second_owner(database)
-            await database[Collection.SPERRLISTE].insert_one(a_ban_row(ANNA))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(ANNA, bis=STANDING))
 
             return await refusal_of(change(database, client, OWNER_ID, "administration")), await tiers(database)
 
@@ -783,7 +774,7 @@ class TestTheFloorOfTwo:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
             if third == "barred":
-                await database[Collection.SPERRLISTE].insert_one(a_ban_row(BERND))
+                await database[Collection.SPERRLISTE].insert_one(ban_document(BERND, bis=STANDING))
 
             return await refusal_of(revoke(database, client, ANNA_ID))
 
@@ -1089,7 +1080,7 @@ class TestTheClaim:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[tuple[str | None, bool]], list[str]]:
             await told(database, client)
-            await database[Collection.SPERRLISTE].insert_one(a_ban_row(NEU))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(NEU, bis=STANDING))
             await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(DEAD_ID, NEU, "administration"))
             answer = await claimed(database, client)
 
@@ -1118,7 +1109,7 @@ class TestTheClaim:
             await told(database, client)
             created = await grant(database, client)
             await revoke(database, client, created)
-            await database[Collection.SPERRLISTE].insert_one(a_ban_row(NEU))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(NEU, bis=STANDING))
 
             return [
                 (
@@ -1183,7 +1174,7 @@ class TestTheClaim:
         """The revoke withholds as it queues, before any claim reads the row."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Mapping[str, Any]]:
-            await database[Collection.SPERRLISTE].insert_one(a_ban_row(NEU))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(NEU, bis=STANDING))
             await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(DEAD_ID, NEU, "administration"))
             await told(database, client)
             await revoke(database, client, DEAD_ID)
@@ -1201,7 +1192,7 @@ class TestTheClaim:
             await told(database, client)
             await grant(database, client, als=ANNA)
             await revoke(database, client, ANNA_ID)
-            await database[Collection.SPERRLISTE].insert_one(a_ban_row(ANNA))
+            await database[Collection.SPERRLISTE].insert_one(ban_document(ANNA, bis=STANDING))
 
             return [
                 (change.art, change.geaendert_von, change.geaendert_von_gesperrt, change.urheber, change.gesperrt)
@@ -1345,7 +1336,7 @@ class TestTheMountedRouteReadsTheGrants:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[int]:
             async with app_client(mongo_replica_set_url, config=CONFIG) as http:
                 before = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=SignedActor(BERND, ADMIN_KEY))
-                await database[Collection.SPERRLISTE].insert_one(a_ban_row(BERND))
+                await database[Collection.SPERRLISTE].insert_one(ban_document(BERND, bis=STANDING))
                 after = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=SignedActor(BERND, ADMIN_KEY))
 
             return [before.status_code, after.status_code]
@@ -1356,7 +1347,7 @@ class TestTheMountedRouteReadsTheGrants:
         """The lapsed half of the case above: a check judging no running season would read every ban as standing."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
-            await database[Collection.SPERRLISTE].insert_one(a_ban_row(BERND) | {"gesperrt_bis_saison_id": str(int(RUNNING) - 1)})
+            await database[Collection.SPERRLISTE].insert_one(ban_document(BERND, bis=str(int(RUNNING) - 1)))
             async with app_client(mongo_replica_set_url, config=CONFIG) as http:
                 response = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=SignedActor(BERND, ADMIN_KEY))
 

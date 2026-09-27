@@ -19,7 +19,7 @@ from app.api.saisons.admin_router import activate_saison
 from app.api.sperrliste.admin_router import post_sperrliste_eintrag
 from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
-from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
+from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from tests import documents
@@ -97,14 +97,7 @@ def a_targets_fixture(target: str) -> dict[str, Any]:
 
 
 def the_lapsing_ban() -> dict[str, Any]:
-    return {
-        "adresse_hash": adresse_hash(BANNED, schluessel=CONFIG.sperrliste_schluessel),
-        "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
-        "grund": GRUND,
-        "erstellt_von": ADMIN,
-        "erstellt_am": "2021-04-01",
-        "gesperrt_bis_saison_id": LAPSING_BOUND,
-    }
+    return documents.ban_document(BANNED, bis=LAPSING_BOUND, erstellt_am="2021-04-01")
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, saisons: Any = None) -> str:
