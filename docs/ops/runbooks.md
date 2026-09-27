@@ -107,7 +107,9 @@ the machine is outside the repository. What it does tell you:
   pulls the failed build straight back. **After a rollback, deploy by tag** — `./scripts/ops/deploy.sh <tag>`,
   the tag the rollback names — until a good build is published. Nothing is put back where the pull left
   `:latest` naming the images that were already running: restoring them would restore the build that
-  just failed, and the script says so instead ([`spec.md`](spec.md) §4).
+  just failed, and the script says so instead ([`spec.md`](spec.md) §4). **A deploy by tag to a build
+  from before the root `.env` and the actor token is refused by this checkout**, and §16 carries
+  the steps that roll back across that release.
 - After the health wait, what `deploy.sh` checks is the **running stack rather than the checkout alone**:
   that nginx is running, reloaded and holding the checkout's configuration, the security headers as they
   are actually served, and the liveness probe through the edge. `./scripts/ops/deploy.sh --status` reads the
@@ -1282,6 +1284,26 @@ points it, a key that is not Ed25519, or an `ACTOR_TOKEN_PUBLIC_KEY` that is mis
 not its public half. Each refusal names the fault and never a value. The remedy is to run the command
 above again, or, where the refusal names `ACTOR_SIGNING_KEY_FILE`, to delete that line from
 `fl_frontend/.env`.
+
+**A deploy by tag to a build from before the root `.env` and the actor token is refused by this
+checkout**, however `fl_backend/.env` is left: that backend's settings forbid a name they do not
+declare, so its preflight refuses `ACTOR_TOKEN_PUBLIC_KEY`, and without the line the key pair check
+refuses instead. The rollback a failed health wait makes is unaffected, since it restores images and
+reads no environment file. To roll back across that release by hand, on the server at the checkout
+root:
+
+1. `git checkout <commit>`, the older build's own commit, so the deploy script, the compose file and
+   nginx's configuration are the ones that build was released with.
+2. In `fl_backend/.env`, turn the `ACTOR_TOKEN_PUBLIC_KEY` line into a comment by putting `#` in
+   front of it.
+3. Copy the three `INTERNAL_API_KEY_*` lines of the root `.env` into both `fl_frontend/.env` and
+   `fl_backend/.env`: that build's compose file reads each package's file alone. Its frontend also
+   requires the `ALLOWED_ADMIN_EMAILS` line §3 keeps in `fl_frontend/.env`.
+4. `./scripts/ops/deploy.sh sha-<commit>`.
+
+Rolling forward undoes each step before deploying: check out the newer commit, delete the copied
+keys from both package files, which the deploy otherwise refuses as a name held twice (I430), and
+restore the `ACTOR_TOKEN_PUBLIC_KEY` line.
 
 ## 17. Clearing an address's code lock
 
