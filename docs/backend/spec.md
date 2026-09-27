@@ -198,7 +198,8 @@ as `gesperrt` (I389). `:: gesperrte_hashes` answers a set in one read: the publi
 it for every seat's address, its replay included, and `:: gesperrte_adressen` asks it for stored
 addresses on behalf of an application's re-send (I416), the three confirmation presses, which take
 no consent from a barred address however old its link (I505), their three views, which answer such a
-link `gesperrt` (I515), the grants' revoke and claim and every
+link `gesperrt` (I515), the tier change, whose promotion of a barred address it refuses
+`REQ-BERECHTIGUNG-003` and whose demotion counts no barred owner (I479), the grants' revoke and claim and every
 admin read naming an author, which withhold what it finds (I452), the actor check on every
 admin-tier request, which admits no barred holder (I463), and the person check every person's
 binder carries, which serves no barred person (I488). Each passes the season the ban is judged
