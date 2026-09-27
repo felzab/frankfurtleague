@@ -110,13 +110,14 @@ where a version left behind breaks something; §3 carries what each failure look
 
 ### 1.2 Mounts
 
-| Host path                        | Container path                   | Mode       |
-| -------------------------------- | -------------------------------- | ---------- |
-| `./nginx/prod`                   | `/etc/nginx/conf.d`              | read-only  |
-| `./nginx/shared`                 | `/etc/nginx/shared`              | read-only  |
-| `./certs`                        | `/etc/nginx/certs`               | read-only  |
-| `/var/log/frankfurtleague/nginx` | `/var/log/frankfurtleague/nginx` | read-write |
-| `./secrets/tunnel_token`         | `/run/secrets/tunnel_token`      | read-only  |
+| Host path                        | Container path                      | Mode       |
+| -------------------------------- | ----------------------------------- | ---------- |
+| `./nginx/prod`                   | `/etc/nginx/conf.d`                 | read-only  |
+| `./nginx/shared`                 | `/etc/nginx/shared`                 | read-only  |
+| `./certs`                        | `/etc/nginx/certs`                  | read-only  |
+| `/var/log/frankfurtleague/nginx` | `/var/log/frankfurtleague/nginx`    | read-write |
+| `./secrets/tunnel_token`         | `/run/secrets/tunnel_token`         | read-only  |
+| `./secrets/fl_actor_signing_key` | `/run/secrets/fl_actor_signing_key` | read-only  |
 
 Each must exist before `up`. `deploy.sh` checks the read-only ones, every file under `./nginx/prod`
 and `./nginx/shared` included, before anything is stopped or pulled, and creates the log directory
@@ -126,6 +127,12 @@ so nginx loads no server of this site's or fails on its includes; the token is a
 rather than a bind mount, so a missing one fails the `up` itself. The token file is owned by uid and gid 65532 with mode `400`: the pinned connector
 image runs as that user, and Compose hands the secret over with the host file's owner and mode, so
 a file readable by root alone leaves the connector restarting in a loop.
+
+**The actor token's signing key is the frontend's alone** (I463), a Compose secret on the token's
+pattern: the private half of the machine's Ed25519 pair, as PKCS#8 PEM, owned by uid and gid 1001
+with mode `400`, the frontend image's `nextjs` user. Any other service holding it could mint an
+actor the backend trusts. The public half is not secret and sits in `fl_backend/.env` as
+`ACTOR_TOKEN_PUBLIC_KEY` ([`runbooks.md`](runbooks.md) §16).
 **`./secrets/` is `.gitignore`d**,
 which is what keeps the credential uncommittable from a checkout that has to hold it.
 
@@ -894,7 +901,8 @@ address alone and to declaring the real-address header and recursion once (I18).
 application service to reading its package's `.env`, then the root's, and no other, judged off the
 environment Compose resolves from the stand-ins the gate writes in place of the three files (I429),
 and every service to exactly its networks, so only nginx shares one with the connector or with the
-application pair (I462). A model it cannot read, a short-syntax port or volume among them, is a refusal rather than a verdict
+application pair (I462), and the actor token's signing key to the frontend alone (I463). A model it
+cannot read, a short-syntax port or volume among them, is a refusal rather than a verdict
 (§1.7).
 
 **In CI the images scope caches layers through the Actions cache service**
@@ -1192,6 +1200,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I429 | The internal API keys are written once, in the checkout root's `.env`, which both application services list last and both dev commands read                                   | `scripts/lib/_lib.sh :: check_root_env` for what it holds; `scripts/checks/check_compose_model.py :: env_files`; `fl_backend/tests/core/test_config.py :: TestTheCheckoutRootsFile`; `fl_frontend/next-dev.test.mjs`                                                                               |
 | I430 | No package's `.env` repeats a name the checkout root's holds, in any letter case: the backend folds case, and compose hands the container both                                | `scripts/ops/deploy.sh :: check_env_names_held_once`, driven by `scripts/tests/test_deploy_streams.py`, the snippet run for real; the local stack and dev mode unenforced                                                                                                                          |
 | I462 | Only nginx shares a network with the connector, and only nginx with the application pair, in both stacks                                                                      | `scripts/checks/check_compose_model.py :: networks`, over the models `docker compose config` renders                                                                                                                                                                                               |
+| I463 | The actor token's signing key reaches the frontend alone, at `/run/secrets/fl_actor_signing_key`, read from `./secrets/fl_actor_signing_key`                                  | `scripts/checks/check_compose_model.py :: signing_key`, over the models `docker compose config` renders                                                                                                                                                                                            |
 
 ## 3. Violation → remedy
 

@@ -145,7 +145,11 @@ services:
     # resolve, and a service that never starts needs none.
     secrets: !reset []
 
-secrets: !reset {}
+# The signing key alone: this stack's frontend mints the actor token as production's does, from a
+# key pair of this machine's own (`docs/ops/runbooks.md` §16).
+secrets: !override
+  fl_actor_signing_key:
+    file: ./secrets/fl_actor_signing_key
 
 # A named volume rather than a bind mount: mongod's storage engine wants POSIX file locking, which
 # a Windows host directory does not give it.

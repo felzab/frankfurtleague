@@ -335,9 +335,17 @@ def rendered_stack(project: Path, conf_dir: str, **extra: dict[str, Any]) -> dic
         {"type": "bind", "source": str(project / "nginx/shared"), "target": "/etc/nginx/shared"},
     ]
     nginx = {"volumes": edge_volumes, "command": LISTENING, "tmpfs": ["/run/nginx-control:mode=700"], **joined(EDGE, APP)}
-    frontend = env_file("fl_frontend/.env", ".env") | joined(APP)
+    frontend = env_file("fl_frontend/.env", ".env") | joined(APP) | HOLDS_THE_KEY
     backend = env_file("fl_backend/.env", ".env") | joined(APP)
-    return model(nginx=nginx, frontend=frontend, backend=backend, **extra)
+    return model(nginx=nginx, frontend=frontend, backend=backend, **extra) | declared_key(project)
+
+
+# A service's secret as Compose renders the short syntax, and the top-level entry it names.
+HOLDS_THE_KEY: Final = {"secrets": [{"source": checker.SIGNING_KEY}]}
+
+
+def declared_key(project: Path, rel: str = checker.SIGNING_KEY_FILE) -> dict[str, Any]:
+    return {"secrets": {checker.SIGNING_KEY: {"file": str(project / rel)}}}
 
 
 def run_main(production: dict[str, Any], local: dict[str, Any], project: Path) -> tuple[int, str]:
@@ -504,3 +512,61 @@ def test_main_judges_the_networks_of_both_models():
 
         assert code == 1, said
         assert f"{broken}: frontend joins" in said, said
+
+
+# --- the actor token's signing key ----------------------------------------------------------------------
+
+RENDER: Final = Path("/render")
+
+
+def test_the_frontend_alone_holding_the_key_from_the_checkouts_file_is_clean():
+    assert checker.signing_key(model(frontend=HOLDS_THE_KEY, backend={}) | declared_key(RENDER), "p", RENDER) == []
+
+
+@pytest.mark.parametrize("target", [checker.SIGNING_KEY, checker.SIGNING_KEY_TARGET], ids=["relative", "absolute"])
+def test_a_target_naming_the_default_path_either_way_is_clean(target: str):
+    held = {"secrets": [{"source": checker.SIGNING_KEY, "target": target}]}
+
+    assert checker.signing_key(model(frontend=held) | declared_key(RENDER), "p", RENDER) == []
+
+
+@pytest.mark.parametrize("holder", ["backend", "nginx", "cloudflared"])
+def test_a_second_holder_fails(holder: str):
+    """Whoever holds the key mints an actor the backend takes as the frontend's."""
+    found = checker.signing_key(model(frontend=HOLDS_THE_KEY, **{holder: HOLDS_THE_KEY}) | declared_key(RENDER), "p", RENDER)
+
+    assert len(found) == 1
+    assert holder in found[0].detail
+
+
+def test_a_frontend_without_the_key_fails():
+    """Its boot gate would refuse after the recreate, behind an edge answering 502."""
+    assert len(checker.signing_key(model(frontend={}) | declared_key(RENDER), "p", RENDER)) == 1
+
+
+def test_the_key_mounted_elsewhere_fails():
+    """The frontend's config reads the default path, so a key mounted anywhere else is no key to it."""
+    held = {"secrets": [{"source": checker.SIGNING_KEY, "target": "/etc/key"}]}
+
+    assert len(checker.signing_key(model(frontend=held) | declared_key(RENDER), "p", RENDER)) == 1
+
+
+def test_the_key_read_from_another_file_fails():
+    """The preflight judges `secrets/fl_actor_signing_key`, so another source is a file nothing checked."""
+    found = checker.signing_key(model(frontend=HOLDS_THE_KEY) | declared_key(RENDER, "keys/signing.pem"), "p", RENDER)
+
+    assert len(found) == 1
+    assert "keys/signing.pem" in found[0].detail
+
+
+def test_main_judges_the_signing_key_of_both_models():
+    project = new_root("fl-compose-main-key-")
+    for broken in ("production", "local"):
+        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
+        local = rendered_stack(project, "nginx/local")
+        ({"production": production, "local": local}[broken])["services"]["backend"] |= HOLDS_THE_KEY
+
+        code, said = run_main(production, local, project)
+
+        assert code == 1, said
+        assert f"{broken}: ['backend', 'frontend'] holds" in said, said

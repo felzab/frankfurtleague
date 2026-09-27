@@ -58,6 +58,13 @@ SERVICE_NETWORKS: Final = {
     "mongo": frozenset({APP_NETWORK}),
 }
 
+# The actor token's signing key: the one service holding it, where that service's config reads it by
+# default, and the checkout file the deploy's preflight judges (`docs/ops/spec.md :: I463`).
+SIGNING_KEY: Final = "fl_actor_signing_key"
+SIGNING_KEY_HOLDER: Final = "frontend"
+SIGNING_KEY_TARGET: Final = f"/run/secrets/{SIGNING_KEY}"
+SIGNING_KEY_FILE: Final = f"secrets/{SIGNING_KEY}"
+
 # The header the visitor's address is taken from, and which element of it: Cloudflare's
 # single-address header, the last element of a chain a client can prepend to (`nginx/shared/http.conf`).
 REALIP_SETTINGS: Final = {"real_ip_header": "CF-Connecting-IP", "real_ip_recursive": "off"}
@@ -122,6 +129,34 @@ def networks(model: dict[str, Any], name: str) -> list[Finding]:
                     f"{CONTINUATION}the connector reaches nginx alone, and the application reaches nothing but through nginx (I462)",
                 )
             )
+    return findings
+
+
+def signing_key(model: dict[str, Any], name: str, project: Path) -> list[Finding]:
+    """The frontend alone holds the signing key, at `SIGNING_KEY_TARGET`, read from `SIGNING_KEY_FILE`.
+
+    Any other holder mints actors the backend trusts, and another source is a file the preflight never read.
+    """
+    findings: list[Finding] = []
+    holders: list[str] = []
+    for service, definition in sorted(services(model, name).items()):
+        for entry in definition.get("secrets") or []:
+            source = entry.get("source") if isinstance(entry, dict) else entry
+            if source != SIGNING_KEY:
+                continue
+            holders.append(service)
+            target = str((entry.get("target") if isinstance(entry, dict) else None) or source)
+            # A relative target is a name under `/run/secrets` (https://docs.docker.com/reference/compose-file/services/#secrets).
+            mounted = target if target.startswith("/") else f"/run/secrets/{target}"
+            if mounted != SIGNING_KEY_TARGET:
+                findings.append(Finding("fail", f"{name}: {service} mounts {SIGNING_KEY} at {mounted}, not {SIGNING_KEY_TARGET} (I463)"))
+    if holders != [SIGNING_KEY_HOLDER]:
+        findings.append(Finding("fail", f"{name}: {holders or 'nothing'} holds {SIGNING_KEY}, not {SIGNING_KEY_HOLDER} alone (I463)"))
+    declared = (model.get("secrets") or {}).get(SIGNING_KEY) or {}
+    source_file = Path(str(declared.get("file") or ""))
+    read = source_file.relative_to(project).as_posix() if source_file.is_relative_to(project) else source_file.as_posix()
+    if read != SIGNING_KEY_FILE:
+        findings.append(Finding("fail", f"{name}: {SIGNING_KEY} is read from {read!r}, not {SIGNING_KEY_FILE} (I463)"))
     return findings
 
 
@@ -419,6 +454,8 @@ def main() -> int:
         findings += prod_mounts + local_mounts + compared(prod_pairs, deploy_pairs(DEPLOY), "production")
         findings += env_files(prod_model, "production") + env_files(local_model, "local")
         findings += networks(prod_model, "production") + networks(local_model, "local")
+        findings += signing_key(prod_model, "production", Path(args.production).resolve().parent)
+        findings += signing_key(local_model, "local", Path(args.local).resolve().parent)
         socket = deploy_socket(DEPLOY)
         findings += control_socket(prod_model, "production", socket) + control_socket(local_model, "local", socket)
         # Production's address for both: the local stack starts no connector, and an edge trusting
@@ -438,6 +475,7 @@ def main() -> int:
         print(f"      either edge trusts the {CONNECTOR_SERVICE} address alone, and marks it as the fallback")
         print("      each application service reads its package's environment file, then the checkout's")
         print(f"      the connector shares a network with {EDGE_SERVICE} alone, and the application pair with {EDGE_SERVICE} alone")
+        print(f"      {SIGNING_KEY_HOLDER} alone holds the actor token's signing key, read from {SIGNING_KEY_FILE}")
     return code
 
 
