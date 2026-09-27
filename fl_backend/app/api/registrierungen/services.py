@@ -309,6 +309,7 @@ REGISTRIERUNG_TOKEN_EXPIRED = "REQ-REGISTRIERUNG-005"
 REGISTRIERUNG_ALREADY_CONFIRMED = "REQ-REGISTRIERUNG-006"
 REGISTRIERUNG_ALTER = "REQ-REGISTRIERUNG-007"
 REGISTRIERUNG_MEDIEN_ALTER = "REQ-REGISTRIERUNG-010"
+REGISTRIERUNG_BESTAETIGUNG_GESPERRT = "REQ-REGISTRIERUNG-012"
 
 # What a pupil's own press records. `volljaehrig` names who spoke and pins no age
 # (`docs/glossary.md :: Einwilligung`), so it is the member a sixteen-year-old's own answer takes.
@@ -346,11 +347,13 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     "_id": 0,
 }
 
-# Narrower than the view's: the press judges the link and the stamp, and names no team and no person.
+# Narrower than the view's: the press judges the link, the stamp and the address the ban list is
+# asked of, and names no team and no person.
 BESTAETIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
     "bestaetigung.frist": 1,
     "status": 1,
     "einwilligung.bestaetigt_am": 1,
+    "email": 1,
 }
 
 
@@ -423,6 +426,21 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
         error_code=REGISTRIERUNG_ALREADY_CONFIRMED,
         status=HTTPStatus.CONFLICT,
         message="this registration has already been confirmed; an answer is given once",
+    )
+
+
+def find_bestaetigung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
+    """`REQ-REGISTRIERUNG-012`: the ban list holds the address this link was mailed to, however long ago it was minted."""
+
+    if not gesperrt:
+        return None
+
+    # 403 and named plainly, where the submission's `-009` is neutral: whoever holds the mailed token
+    # holds that mailbox, as a sign-in code's holder does, and the ban's own mail has told them.
+    return WriteRefusal(
+        error_code=REGISTRIERUNG_BESTAETIGUNG_GESPERRT,
+        status=HTTPStatus.FORBIDDEN,
+        message="the email address this link was sent to is on the ban list, so it confirms nothing",
     )
 
 

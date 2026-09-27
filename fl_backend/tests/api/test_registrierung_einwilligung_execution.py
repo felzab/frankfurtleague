@@ -12,15 +12,19 @@ from app.api.registrierungen.schemas import FLRegistrierungBestaetigungAnsichtPa
 from app.api.registrierungen.services import (
     REGISTRIERUNG_ALREADY_CONFIRMED,
     REGISTRIERUNG_ALTER,
+    REGISTRIERUNG_BESTAETIGUNG_GESPERRT,
     REGISTRIERUNG_MEDIEN_ALTER,
     REGISTRIERUNG_TOKEN_EXPIRED,
     REGISTRIERUNG_TOKEN_UNKNOWN,
     compose_bestaetigung,
 )
+from app.api.saisons.cache import invalidate_saison_cache
+from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash, compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 from tests import documents
+from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -175,7 +179,10 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
     return await post_bestaetigung(
         antwort_data=FLRegistrierungBestaetigungPayload.model_validate(body),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
+        saisons_collection=database[Collection.SAISONS],
+        sperrliste_collection=database[Collection.SPERRLISTE],
         db=client,
+        config=build_test_config(),
         today=TODAY,
     )
 
@@ -556,3 +563,109 @@ class TestTheMediaAge:
         assert code == REGISTRIERUNG_MEDIEN_ALTER
         assert document == registrierung_document()
         assert rows == []
+
+
+def ban_document(address: str, *, bis: str) -> dict[str, Any]:
+    """One ban as the shipped write stores it, keyed under the suite's own settings."""
+
+    return {
+        "_id": ObjectId(),
+        "adresse_hash": adresse_hash(address, schluessel=build_test_config().sperrliste_schluessel),
+        "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
+        "grund": "Falsches Geburtsdatum bei der Anmeldung",
+        "erstellt_von": "admin@frankfurtleague.de",
+        "erstellt_am": "2026-03-30",
+        "gesperrt_bis_saison_id": bis,
+    }
+
+
+# Composed by the production helper rather than spelled: a hand-written bound that drifted from it
+# would leave these cases passing over a lapsed row.
+STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
+
+
+async def ban(database: AsyncDatabase, address: str, *, bis: str = STANDING) -> None:
+    await database[Collection.SPERRLISTE].insert_one(ban_document(address, bis=bis))
+
+
+class TestALinkToABarredAddress:
+    """`REQ-REGISTRIERUNG-012`: a ban reaches a link already in somebody's inbox, the seeded one minted before it."""
+
+    def test_the_press_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        """Barred in the folded spelling while the row stores the typed one, so the check keys the stored address as a ban does."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ban(database, FOLDED_EMAIL)
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW)
+
+            return refused.value.error_code, refused.value.status_code, await stored(database), await log_rows(database)
+
+        code, status, document, rows = on_a_league(mongo_replica_set_url, body)
+
+        assert (code, status) == (REGISTRIERUNG_BESTAETIGUNG_GESPERRT, 403)
+        assert document == registrierung_document()
+        assert rows == []
+
+    def test_a_ban_on_another_address_leaves_the_link_answering(self, mongo_replica_set_url: str):
+        """The other half of the pair: without it the case above passes for a check refusing every press."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ban(database, "somebody-else@example.com")
+
+            return await answer(database, client, RAW)
+
+        assert on_a_league(mongo_replica_set_url, body).ergebnis == "bestaetigt"
+
+    def test_the_link_answers_again_once_the_ban_is_lifted(self, mongo_replica_set_url: str):
+        """Nothing of the ban is written on the registration, so lifting it is all a mistaken ban needs undone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ban(database, FOLDED_EMAIL)
+            with pytest.raises(WriteRefusalException):
+                await answer(database, client, RAW)
+            await database[Collection.SPERRLISTE].delete_many({})
+
+            return await answer(database, client, RAW)
+
+        assert on_a_league(mongo_replica_set_url, body).ergebnis == "bestaetigt"
+
+    def test_a_ban_past_its_last_season_bars_nothing(self, mongo_replica_set_url: str):
+        """The running season is what the bound is read against: asked without it, the lapsed row would still bar."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await database[Collection.SAISONS].insert_one(documents.saison_document(SAISON_ID, "active"))
+            invalidate_saison_cache()
+            await ban(database, FOLDED_EMAIL, bis=f"{int(SAISON_ID) - 1}")
+
+            return await answer(database, client, RAW)
+
+        assert on_a_league(mongo_replica_set_url, body).ergebnis == "bestaetigt"
+
+    def test_a_confirmed_registration_answers_the_stamp_rather_than_the_ban(self, mongo_replica_set_url: str):
+        """The order: a pupil who answered before the ban is told their answer stands, which it does until an administrator acts."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            await answer(database, client, RAW)
+            await ban(database, FOLDED_EMAIL)
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW)
+
+            return refused.value.error_code
+
+        assert on_a_league(mongo_replica_set_url, body) == REGISTRIERUNG_ALREADY_CONFIRMED
+
+    def test_a_barred_press_carrying_a_refused_date_answers_the_ban_rather_than_the_age(self, mongo_replica_set_url: str):
+        """The other half of the order: a corrected date buys a barred address nothing, so it is not what the pupil is asked for."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            await ban(database, FOLDED_EMAIL)
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW, geburtsdatum=A_DAY_SHORT)
+
+            return refused.value.error_code
+
+        assert on_a_league(mongo_replica_set_url, body) == REGISTRIERUNG_BESTAETIGUNG_GESPERRT

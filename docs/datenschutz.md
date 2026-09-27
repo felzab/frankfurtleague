@@ -156,11 +156,13 @@ Every ruling below is the sign-up flow as it stands for the next season.
     (`REQ-BEWERBUNG-012`), so a mistyped date costs nothing and the same link takes the right one
     while it runs;
   - an address the ban list holds, for a registration (`REQ-REGISTRIERUNG-009`), for any of an application's
-    three contact persons (`REQ-BEWERBUNG-018`) and for a sign-in
+    three contact persons (`REQ-BEWERBUNG-018`), for a sign-in
     by any route, refused as its session would be created
-    (`fl_frontend/src/core/auth.ts :: refuseUnadmitted`); the notice's „eine E-Mail-Adresse, die
-    gesperrt ist“ names no route, so it covers all three, and the ban's own mail tells the person the
-    sign-in is barred.
+    (`fl_frontend/src/core/auth.ts :: refuseUnadmitted`), and for the confirmation on a person's own
+    page, however long ago its link was mailed (`REQ-REGISTRIERUNG-012`, `REQ-SCHIEDSRICHTER-009`,
+    `REQ-BEWERBUNG-020`), a contact person's Widerspruch still being taken; the notice's „eine
+    E-Mail-Adresse, die gesperrt ist“ names no route, so it covers all four, and the ban's own mail
+    tells the person the sign-in is barred.
 
   What the review can change is bounded by the rule each refusal applies: a person reads the case
   and answers, a mistyped date is corrected through the same link, an administrator can lift a ban
@@ -704,8 +706,9 @@ the `Entry` column carries a token only where one still resolves in that file.
   Datenschutzexperte**: the person barred, pseudonymised and possibly named by the reason, and the
   entering administrator in plain ([section 5](#5-erasure-reaches-everyone-who-asks)). The basis
   for keeping any of it is legitimate interest in refusing a re-registration the league has already
-  declined — a refusal the ban's own create, the public registration and every referee write that
-  mints a confirmation link perform ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)).
+  declined — a refusal the ban's own create, the public registration, every referee write that
+  mints a confirmation link and every confirmation press perform
+  ([`backend/spec.md`](backend/spec.md#11-endpoint-inventory)).
   One question to put: what an access request reaches, given that no route finds the row from the
   address it was taken from while the reason beside it may name its subject outright. The bound is
   [section 6](#6-retention-is-bounded-where-a-bound-was-chosen)'s, and the procedure for the lookup

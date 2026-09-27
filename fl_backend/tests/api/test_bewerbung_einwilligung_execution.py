@@ -14,6 +14,7 @@ from app.api.bewerbungen.router import get_bewerbung_by_id, get_bewerbungen
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAnsichtPayload, FLBewerbungEinwilligungAntwortPayload, FLBewerbungenFilterParams
 from app.api.bewerbungen.services import (
     BEWERBUNG_ALREADY_DECIDED,
+    BEWERBUNG_EINWILLIGUNG_GESPERRT,
     BEWERBUNG_KONTAKT_ALTER,
     BEWERBUNG_SEAT_ALREADY_ANSWERED,
     BEWERBUNG_TOKEN_DECIDED,
@@ -25,6 +26,7 @@ from app.api.bewerbungen.services import (
     compose_bestaetigungen,
     hash_token,
 )
+from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash, compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.config import build_test_config
@@ -78,7 +80,7 @@ ANSICHT_RESOLVES = frozenset(
 # (`app/api/bewerbungen/services.py :: EINWILLIGUNG_ANSICHT_FIELDS`).
 ANTWORT_RESOLVES = frozenset(
     _seat_paths("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am")
-    | _seat_paths("kontakte", "vorname", "einwilligung.bestaetigt_am")
+    | _seat_paths("kontakte", "vorname", "email", "einwilligung.bestaetigt_am")
     | {"_id", "kontakte.trainer_ist_zugleich", "saison_id", "status", "bestaetigungsfrist"}
 )
 
@@ -164,7 +166,10 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen,
         aktionen_collection=database[Collection.AKTIONEN],
+        saisons_collection=database[Collection.SAISONS],
+        sperrliste_collection=database[Collection.SPERRLISTE],
         db=client,
+        config=build_test_config(),
         today=TODAY,
         germany_now=NOW,
     )
@@ -719,3 +724,128 @@ class TestAResend:
             return await stored(database)
 
         assert on_a_league(mongo_replica_set_url, body) == bewerbung_document()
+
+
+def ban_document(address: str) -> dict[str, Any]:
+    """One ban as the shipped write stores it, keyed under the suite's own settings."""
+
+    return {
+        "_id": ObjectId(),
+        "adresse_hash": adresse_hash(address, schluessel=build_test_config().sperrliste_schluessel),
+        "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
+        "grund": "Falsches Geburtsdatum bei der Bestätigung",
+        "erstellt_von": "admin@frankfurtleague.de",
+        "erstellt_am": "2026-03-30",
+        # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
+        "gesperrt_bis_saison_id": compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID),
+    }
+
+
+def address_of(seat: str, document: Mapping[str, Any] | None = None) -> str:
+    return str((document or bewerbung_document())["kontakte"][seat]["email"])
+
+
+async def ban(database: AsyncDatabase, address: str) -> None:
+    await database[Collection.SPERRLISTE].insert_one(ban_document(address))
+
+
+def decline(database: AsyncDatabase, client: AsyncMongoClient, seat: str) -> Any:
+    return answer(database, client, RAW[seat], antwort="abgelehnt", geburtsdatum=None, whatsapp=False)
+
+
+class TestALinkToABarredAddress:
+    """`REQ-BEWERBUNG-020`: a ban reaches a link already in somebody's inbox, the seeded ones all minted before it."""
+
+    def test_a_consent_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ban(database, address_of("stellvertretung"))
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW["stellvertretung"])
+
+            return refused.value, await stored(database), await log_rows(database)
+
+        refused, document, rows = on_a_league(mongo_replica_set_url, body)
+
+        assert (refused.error_code, refused.status_code) == (BEWERBUNG_EINWILLIGUNG_GESPERRT, 403)
+        assert document == bewerbung_document()
+        assert rows == []
+
+    def test_a_decline_is_still_taken(self, mongo_replica_set_url: str):
+        """A barred person asking to be removed is never refused: the decline empties the seat and redacts the log as an erasure does."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ban(database, address_of("stellvertretung"))
+
+            return await decline(database, client, "stellvertretung"), await stored(database)
+
+        response, document = on_a_league(mongo_replica_set_url, body)
+
+        assert response.ergebnis == "abgelehnt"
+        assert document["kontakte"]["stellvertretung"] is None
+
+    def test_a_ban_on_another_seats_address_leaves_this_link_answering(self, mongo_replica_set_url: str):
+        """The other half of the pair: without it the first case passes for a check refusing every consent."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ban(database, address_of("trainer"))
+
+            return await answer(database, client, RAW["stellvertretung"])
+
+        assert on_a_league(mongo_replica_set_url, body).ergebnis == "bestaetigt"
+
+    def test_the_link_answers_again_once_the_ban_is_lifted(self, mongo_replica_set_url: str):
+        """Nothing of the ban is written on the seat, so lifting it is all a mistaken ban needs undone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ban(database, address_of("stellvertretung"))
+            with pytest.raises(WriteRefusalException):
+                await answer(database, client, RAW["stellvertretung"])
+            await database[Collection.SPERRLISTE].delete_many({})
+
+            return await answer(database, client, RAW["stellvertretung"])
+
+        assert on_a_league(mongo_replica_set_url, body).ergebnis == "bestaetigt"
+
+    def test_a_pair_is_refused_on_either_seats_address(self, mongo_replica_set_url: str):
+        """One press writes both seats, so each address it would confirm is asked: only a hand edit parts a pair's two."""
+
+        paired = bewerbung_document(kontakte=kontakte(trainer_ist_zugleich="ansprechperson"))
+        paired["kontakte"]["trainer"]["email"] = "wraxlington.trainer@example.com"
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ban(database, address_of("trainer", paired))
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW["ansprechperson"])
+
+            return refused.value.error_code
+
+        assert on_a_league(mongo_replica_set_url, body, documents=[paired]) == BEWERBUNG_EINWILLIGUNG_GESPERRT
+
+    def test_an_answered_seat_answers_the_stamp_rather_than_the_ban(self, mongo_replica_set_url: str):
+        """The order: the answer given before the ban stands until an administrator acts, and the person is told so."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            await answer(database, client, RAW["stellvertretung"])
+            await ban(database, address_of("stellvertretung"))
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW["stellvertretung"])
+
+            return refused.value.error_code
+
+        assert on_a_league(mongo_replica_set_url, body) == BEWERBUNG_SEAT_ALREADY_ANSWERED
+
+    def test_a_barred_consent_carrying_a_refused_date_answers_the_ban_rather_than_the_age(self, mongo_replica_set_url: str):
+        """The other half of the order: a corrected date buys a barred address nothing, so it is not what the person is asked for."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> str:
+            await ban(database, address_of("stellvertretung"))
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await answer(database, client, RAW["stellvertretung"], geburtsdatum=A_CHILDS_BIRTHDATE)
+
+            return refused.value.error_code
+
+        assert on_a_league(mongo_replica_set_url, body) == BEWERBUNG_EINWILLIGUNG_GESPERRT

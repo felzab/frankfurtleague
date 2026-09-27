@@ -172,6 +172,7 @@ SCHIEDSRICHTER_KEINE_ADRESSE = "REQ-SCHIEDSRICHTER-006"
 # frontend cannot part.
 SCHIEDSRICHTER_ADRESSE_GESPERRT = "REQ-SCHIEDSRICHTER-007"
 SCHIEDSRICHTER_MEDIEN_ALTER = "REQ-SCHIEDSRICHTER-008"
+SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT = "REQ-SCHIEDSRICHTER-009"
 
 # The carrier key, which `app/api/zustellung/services.py :: ZIEL_PFADE` also spells for this kind.
 # A test holds the two equal: parted, a bounce would be filed under a path no link is stored at.
@@ -317,6 +318,21 @@ def find_already_confirmed_refusal(*, einwilligung: Any) -> WriteRefusal | None:
         error_code=SCHIEDSRICHTER_ALREADY_CONFIRMED,
         status=HTTPStatus.CONFLICT,
         message="this entry has already been confirmed; an answer is given once",
+    )
+
+
+def find_bestaetigung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
+    """`REQ-SCHIEDSRICHTER-009`: the ban list holds the address this link was mailed to, however long ago it was minted."""
+
+    if not gesperrt:
+        return None
+
+    # 403 where the editor's `-007` is 409: this caller is the barred person, holding the mailbox the
+    # token was sent to, where the editor's is an administrator writing about an entry.
+    return WriteRefusal(
+        error_code=SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT,
+        status=HTTPStatus.FORBIDDEN,
+        message="the email address this link was sent to is on the ban list, so it confirms nothing",
     )
 
 
@@ -469,11 +485,13 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     "_id": 0,
 }
 
-# Narrower than the view's: the answer takes its wording from the payload rather than the row.
+# Narrower than the view's: the answer takes its wording from the payload rather than the row. The
+# address is what the press asks the ban list of, and no answer carries it.
 BESTAETIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
     "name": 1,
     f"{EINWILLIGUNG_FELD}.bestaetigt_am": 1,
     f"{BESTAETIGUNG_FELD}.frist": 1,
+    "kontakt.email": 1,
 }
 
 # What the re-send judges, and the address it hashes against the ban list.

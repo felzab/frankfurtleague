@@ -33,6 +33,7 @@ from app.api.schiedsrichter.services import (
     SCHIEDSRICHTER_ADRESSE_GESPERRT,
     SCHIEDSRICHTER_ALREADY_CONFIRMED,
     SCHIEDSRICHTER_ALTER,
+    SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT,
     SCHIEDSRICHTER_ERTEILT_VON,
     SCHIEDSRICHTER_KEINE_ADRESSE,
     SCHIEDSRICHTER_MEDIEN_ALTER,
@@ -235,7 +236,10 @@ async def confirm(database: AsyncDatabase, client: AsyncMongoClient, token: str,
     return await post_bestaetigung(
         antwort_data=FLSchiedsrichterBestaetigungPayload.model_validate(body),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
+        saisons_collection=database[Collection.SAISONS],
+        sperrliste_collection=database[Collection.SPERRLISTE],
         db=client,
+        config=build_test_config(),
         today=today,
     )
 
@@ -967,3 +971,79 @@ class TestTheMediaAge:
             return await stored(database)
 
         assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["medien"] is False
+
+
+class TestALinkToABarredAddress:
+    """`REQ-SCHIEDSRICHTER-009`: a ban reaches a link already in somebody's inbox, entered here through its own route after the mint."""
+
+    def test_the_press_is_refused_and_writes_nothing(self, mongo_replica_set_url: str):
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            await ban(database, client, email=EMAIL)
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await confirm(database, client, minted.bestaetigung.token)
+
+            return refused.value, await stored(database)
+
+        refused, row = on_a_league(mongo_replica_set_url, body)
+
+        assert (refused.error_code, refused.status_code) == (SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT, 403)
+        assert row.get(EINWILLIGUNG_FELD) is None
+        assert row.get("geburtsdatum") is None
+
+    def test_a_ban_on_another_address_leaves_the_link_answering(self, mongo_replica_set_url: str):
+        """The other half of the pair: without it the case above passes for a check refusing every press."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            await ban(database, client, email=BANNED_EMAIL)
+            await confirm(database, client, minted.bestaetigung.token)
+
+            return await stored(database)
+
+        assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["bestaetigt_am"] == TODAY
+
+    def test_the_link_answers_again_once_the_ban_is_lifted(self, mongo_replica_set_url: str):
+        """Nothing of the ban is written on the entry, so lifting it is all a mistaken ban needs undone."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            await ban(database, client, email=EMAIL)
+            with pytest.raises(WriteRefusalException):
+                await confirm(database, client, minted.bestaetigung.token)
+            await database[Collection.SPERRLISTE].delete_many({})
+            await confirm(database, client, minted.bestaetigung.token)
+
+            return await stored(database)
+
+        assert on_a_league(mongo_replica_set_url, body)[EINWILLIGUNG_FELD]["bestaetigt_am"] == TODAY
+
+    def test_an_entry_confirmed_before_the_ban_answers_the_stamp_rather_than_the_ban(self, mongo_replica_set_url: str):
+        """The order: the answer given before the ban stands until an administrator acts, and the person is told so."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            await confirm(database, client, minted.bestaetigung.token)
+            await ban(database, client, email=EMAIL)
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await confirm(database, client, minted.bestaetigung.token)
+
+            return refused.value
+
+        assert on_a_league(mongo_replica_set_url, body).error_code == SCHIEDSRICHTER_ALREADY_CONFIRMED
+
+    def test_a_barred_press_carrying_a_refused_date_answers_the_ban_rather_than_the_age(self, mongo_replica_set_url: str):
+        """The other half of the order: a corrected date buys a barred address nothing, so it is not what the referee is asked for."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            minted = await resend(database, client)
+            await ban(database, client, email=EMAIL)
+
+            with pytest.raises(WriteRefusalException) as refused:
+                await confirm(database, client, minted.bestaetigung.token, geburtsdatum=A_CHILDS_BIRTHDATE)
+
+            return refused.value
+
+        assert on_a_league(mongo_replica_set_url, body).error_code == SCHIEDSRICHTER_BESTAETIGUNG_GESPERRT

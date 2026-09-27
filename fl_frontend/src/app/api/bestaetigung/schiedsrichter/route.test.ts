@@ -49,7 +49,7 @@ registerHooks({
 const { POST } = await import("./route.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
 const { SCHIEDSRICHTER_EINWILLIGUNG } = await import("@/core/einwilligung.ts");
-const { ANTWORT_NEU_OEFFNEN } = await import("@/shared/utils/reopenLink.ts");
+const { ANTWORT_NEU_OEFFNEN, LINK_ADRESSE_GESPERRT } = await import("@/shared/utils/reopenLink.ts");
 
 const TOKEN = "abc123";
 const HEUTE = "2026-09-21";
@@ -215,6 +215,17 @@ describe("the referee's confirmation handler", () => {
     assert.equal(body.zustand, undefined, "the form was swapped for a panel by a refusal that spends nothing");
     assert.match(body.fieldErrors?.["geburtsdatum"] ?? "", /16/);
     assert.equal(gelesen, 1);
+  });
+
+  /* A sentence and never a panel: nothing about the link is over, and a lifted ban lets the same
+     press through. */
+  it("answers a barred address with the ban's sentence, keeping the form", async () => {
+    schreibAntwort = () => aRefusal(403, "REQ-SCHIEDSRICHTER-009");
+
+    const answer = await bodyOf(aRequest(gueltigerKoerper));
+
+    assert.deepEqual(answer.body, { success: false, error: LINK_ADRESSE_GESPERRT });
+    assert.equal(gelesen, 0);
   });
 
   it("leaves the age refusal unworded where the floor cannot be read", async () => {

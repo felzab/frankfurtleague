@@ -142,11 +142,19 @@ class TestTheRecordTheConfirmationWrites:
 class TestWhatALeakedLinkLearns:
     """`READ-REFEREE-002`: a first name and a role, and no field the admin tier holds."""
 
-    @pytest.mark.parametrize("projection", [BESTAETIGUNG_ANSICHT_FIELDS, BESTAETIGUNG_ANTWORT_FIELDS], ids=["ansicht", "antwort"])
-    def test_neither_projection_reaches_a_field_behind_the_contact_rule(self, projection: Mapping[str, int]):
-        withheld = {"schule", "kontakt", "default_payment", "geburtsdatum", "inactive_since"}
+    @pytest.mark.parametrize(
+        ("projection", "asked_of_the_ban_list"),
+        [(BESTAETIGUNG_ANSICHT_FIELDS, set()), (BESTAETIGUNG_ANTWORT_FIELDS, {"kontakt.email"})],
+        ids=["ansicht", "antwort"],
+    )
+    def test_neither_projection_reaches_a_field_behind_the_contact_rule(self, projection: Mapping[str, int], asked_of_the_ban_list: set[str]):
+        """The press reads the address for the ban list alone; `test_neither_base_tier_answer_carries_the_mint` keeps it off both answers."""
 
-        assert not {key.partition(".")[0] for key, kept in projection.items() if kept} & withheld
+        withheld = {"schule", "kontakt", "default_payment", "geburtsdatum", "inactive_since"}
+        read = {key for key, kept in projection.items() if kept}
+
+        assert asked_of_the_ban_list <= read
+        assert not {key.partition(".")[0] for key in read - asked_of_the_ban_list} & withheld
 
     def test_the_view_declares_exactly_the_six_names_it_may_answer(self):
         """An EQUALITY, not a subset: a field added to this model reaches a caller holding nothing but a token."""

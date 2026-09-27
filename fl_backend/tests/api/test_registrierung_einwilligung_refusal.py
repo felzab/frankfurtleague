@@ -162,10 +162,13 @@ class TestTheLookupAndItsProjections:
             "medien",
         }
 
-    def test_the_answers_read_names_no_team_and_no_address(self):
-        """The press echoes what it was sent; widened to the view's, this projection would carry the address into a path with no use for one."""
+    def test_the_answers_read_holds_what_the_press_judges_and_no_team_or_name(self):
+        """Widened to the view's, the read would name the team and the pupil.
 
-        assert not {"team_id", "saison_id", "vorname", "email"} & set(BESTAETIGUNG_ANTWORT_FIELDS)
+        The address is read for the ban alone, and the answer's model above keeps it off the response.
+        """
+
+        assert set(BESTAETIGUNG_ANTWORT_FIELDS) == {"bestaetigung.frist", "status", "einwilligung.bestaetigt_am", "email"}
 
 
 class TestATokenNoRegistrationHolds:

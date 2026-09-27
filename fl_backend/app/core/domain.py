@@ -1891,6 +1891,15 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_schiedsrichter_bestaetigung_refusal.py::TestTheMediaAge",
     ),
     Rule(
+        code="REQ-SCHIEDSRICHTER-009",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /schiedsrichter/bestaetigung",
+        aggregate="Schiedsrichter",
+        summary="a link mailed to an address the ban list now holds records no consent, whenever it was minted",
+        implemented_by="app.api.schiedsrichter.services.find_bestaetigung_gesperrt_refusal",
+        tested_by="tests/api/test_schiedsrichter_bestaetigung_execution.py::TestALinkToABarredAddress",
+    ),
+    Rule(
         code="REQ-SQUAD-001",
         status=HTTPStatus.CONFLICT,
         operation=(
@@ -2111,6 +2120,15 @@ RULES: tuple[Rule, ...] = (
         summary="no confirmation link is minted for a corrected, reseated or re-sent contact address the ban list still holds",
         implemented_by="app.api.bewerbungen.services.find_kontakt_gesperrt_refusal",
         tested_by="tests/api/test_bewerbung_triage_execution.py::TestABannedContactAddress",
+    ),
+    Rule(
+        code="REQ-BEWERBUNG-020",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /bewerbungen/einwilligung",
+        aggregate="Bewerbung",
+        summary="a link mailed to an address the ban list now holds takes no consent, whenever it was minted; its decline is still taken",
+        implemented_by="app.api.bewerbungen.services.find_einwilligung_gesperrt_refusal",
+        tested_by="tests/api/test_bewerbung_einwilligung_execution.py::TestALinkToABarredAddress",
     ),
     Rule(
         code="REQ-PURGE-001",
@@ -2336,6 +2354,15 @@ RULES: tuple[Rule, ...] = (
         summary="a submission key already stored is replayed only over the details it was first sent with",
         implemented_by="app.api.registrierungen.services.find_abweichender_fingerabdruck_refusal",
         tested_by="tests/api/test_registrierung_submission_execution.py::TestTheSubmissionKey",
+    ),
+    Rule(
+        code="REQ-REGISTRIERUNG-012",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /registrierungen/bestaetigung",
+        aggregate="Registrierung",
+        summary="a link mailed to an address the ban list now holds confirms no registration, whenever it was minted",
+        implemented_by="app.api.registrierungen.services.find_bestaetigung_gesperrt_refusal",
+        tested_by="tests/api/test_registrierung_einwilligung_execution.py::TestALinkToABarredAddress",
     ),
 )
 

@@ -1809,7 +1809,10 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
         ),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         aktionen_collection=database[Collection.AKTIONEN],
+        saisons_collection=database[Collection.SAISONS],
+        sperrliste_collection=database[Collection.SPERRLISTE],
         db=client,
+        config=build_test_config(),
         today=TODAY,
         germany_now=NOW,
     )

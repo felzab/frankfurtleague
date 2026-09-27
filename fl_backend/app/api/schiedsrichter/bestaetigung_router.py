@@ -5,6 +5,7 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 
 from app.api.bewerbungen.services import hash_token
+from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.schiedsrichter.schemas import (
     FLSchiedsrichterBestaetigungAnsichtPayload,
     FLSchiedsrichterBestaetigungAnsichtResponse,
@@ -20,6 +21,7 @@ from app.api.schiedsrichter.services import (
     compose_confirmation_update,
     find_already_confirmed_refusal,
     find_alter_refusal,
+    find_bestaetigung_gesperrt_refusal,
     find_expired_token_refusal,
     find_medien_refusal,
     find_unknown_token_refusal,
@@ -27,9 +29,10 @@ from app.api.schiedsrichter.services import (
     vorname_of,
     zustand_of,
 )
-from app.core.config import API_VERSION
+from app.api.sperrliste.crud import gesperrte_adressen
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, refuse
-from app.core.dependencies import DBClient, SchiedsrichterCollection, get_german_date_str
+from app.core.dependencies import DBClient, SaisonsCollection, SchiedsrichterCollection, SperrlisteCollection, get_german_date_str
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.security import bind_public_actor, verify_access_base
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, SCHIEDSRICHTER_MIN_AGE_YEARS
@@ -100,7 +103,10 @@ async def get_bestaetigung_ansicht(
 async def post_bestaetigung(
     antwort_data: Annotated[FLSchiedsrichterBestaetigungPayload, Body()],
     schiedsrichter_collection: SchiedsrichterCollection,
+    saisons_collection: SaisonsCollection,
+    sperrliste_collection: SperrlisteCollection,
     db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterBestaetigungResponse:
     """
@@ -111,7 +117,8 @@ async def post_bestaetigung(
     and the fixture list reads it there.
 
     Refuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed
-    (`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), an age outside what this
+    (`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), a link mailed to an address
+    the ban list holds now, whenever the link was minted (`REQ-SCHIEDSRICHTER-009`), an age outside what this
     consent asks (`REQ-SCHIEDSRICHTER-005`), and a media consent from a referee below `medien_mindestalter`
     (`REQ-SCHIEDSRICHTER-008`) -- the last two judged before anything is written, so a mistyped year spends nothing.
 
@@ -120,6 +127,8 @@ async def post_bestaetigung(
     """
 
     token_hash = hash_token(antwort_data.token)
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
+    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection=saisons_collection)
 
     async def answer_for_the_person(session: AsyncClientSession) -> FLSchiedsrichterBestaetigungResponse:
         """Judge, then write, everything judged read in-session.
@@ -139,6 +148,16 @@ async def post_bestaetigung(
         # to ask for another.
         refuse(find_already_confirmed_refusal(einwilligung=raw.get(EINWILLIGUNG_FELD)))
         refuse(find_expired_token_refusal(frist=frist_of(raw.get(BESTAETIGUNG_FELD)), today=today))
+        # Asked at the press rather than only at the mint: a ban entered after the link went out
+        # stops it here, and one lifted while it runs lets it answer again.
+        gesperrt = await gesperrte_adressen(
+            [str((raw.get("kontakt") or {}).get("email") or "")],
+            sperrliste_collection=sperrliste_collection,
+            schluessel=config.sperrliste_schluessel,
+            massgebliche_saison_id=massgebliche_saison_id,
+            session=session,
+        )
+        refuse(find_bestaetigung_gesperrt_refusal(gesperrt=bool(gesperrt)))
         refuse(find_alter_refusal(geburtsdatum=antwort_data.geburtsdatum, today=today))
         refuse(find_medien_refusal(geburtsdatum=antwort_data.geburtsdatum, medien=antwort_data.medien, today=today))
 

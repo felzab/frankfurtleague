@@ -287,6 +287,7 @@ describe("what one refused confirmation shows", () => {
       "REQ-REGISTRIERUNG-006",
       "REQ-REGISTRIERUNG-007",
       "REQ-REGISTRIERUNG-010",
+      "REQ-REGISTRIERUNG-012",
     ];
 
     for (const code of new Set([...published, ...mapped])) {

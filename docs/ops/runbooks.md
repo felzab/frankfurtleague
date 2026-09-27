@@ -679,10 +679,15 @@ reseat or re-send of a seat to it (`REQ-BEWERBUNG-019`) and every referee write 
 and both sweeps withhold the reminder they would send it, logging the application's or
 registration's id. A grant of the address is refused (`REQ-BERECHTIGUNG-003`), a grant the Playground
 wrote onto it admits nobody, and the grants' routes show the address nowhere
-([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)). No other route asks the list,
-so a person reading the queue is still what keeps a barred address out of everything a sign-up
-does not cover. **What the address
-already holds stays until you take it away**, and the ban names none of it:
+([`../backend/spec.md`](../backend/spec.md#11-endpoint-inventory)). **Every confirmation link
+already mailed to the address stops confirming at once**, however long ago it went out: a pupil's
+(`REQ-REGISTRIERUNG-012`), a referee's (`REQ-SCHIEDSRICHTER-009`) and a contact seat's
+(`REQ-BEWERBUNG-020`) press is refused on the page, while a contact seat's Widerspruch is still
+taken, since it removes the person. Nothing of the ban is written on those records, so lifting a
+mistaken ban lets a link still inside its deadline answer again. No other route asks the list, so a person reading the queue is still what
+keeps a barred address out of everything a sign-up does not cover. **What the address already
+holds stays until you take it away** — a record it confirmed before the ban, and one it can no
+longer confirm alike — and the ban names none of it:
 
 - a referee still booked on an unplayed fixture: reassign those fixtures first, then retire the
   referee, which `REQ-RETIRE-004` holds to that order;

@@ -20,6 +20,7 @@ from app.api.registrierungen.services import (
     compose_confirmation_update,
     find_already_confirmed_refusal,
     find_alter_refusal,
+    find_bestaetigung_gesperrt_refusal,
     find_expired_token_refusal,
     find_medien_refusal,
     find_unknown_token_refusal,
@@ -27,9 +28,19 @@ from app.api.registrierungen.services import (
     sole_person,
     zustand_of,
 )
-from app.core.config import API_VERSION
+from app.api.saisons.crud import pull_massgebliche_saison_id
+from app.api.sperrliste.crud import gesperrte_adressen
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
-from app.core.dependencies import DBClient, RegistrierungenCollection, SpielerCollection, TeamsCollection, get_german_date_str
+from app.core.dependencies import (
+    DBClient,
+    RegistrierungenCollection,
+    SaisonsCollection,
+    SperrlisteCollection,
+    SpielerCollection,
+    TeamsCollection,
+    get_german_date_str,
+)
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.security import bind_public_actor, verify_access_base
 from app.shared.folding import sign_in_identifier
@@ -133,7 +144,10 @@ async def get_bestaetigung_ansicht(
 async def post_bestaetigung(
     antwort_data: Annotated[FLRegistrierungBestaetigungPayload, Body()],
     registrierungen_collection: RegistrierungenCollection,
+    saisons_collection: SaisonsCollection,
+    sperrliste_collection: SperrlisteCollection,
     db: DBClient,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
 ) -> FLRegistrierungBestaetigungResponse:
     """
@@ -144,15 +158,18 @@ async def post_bestaetigung(
     given under older words is renewed under the words this person just read.
 
     Refuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has
-    passed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), an age
-    below the floor (`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the last two judged
-    before anything is written, so a mistyped year spends nothing and the pupil keeps the link.
+    passed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), a link mailed to
+    an address the ban list holds now, whenever the link was minted (`-012`), an age below the floor (`-007`), and a
+    media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the last two judged before
+    anything is written, so a mistyped year spends nothing and the pupil keeps the link.
 
     The registration stays pending after this: an admission is a later decision, and nothing here writes a person
     or a squad row.
     """
 
     token_hash = hash_token(antwort_data.token)
+    # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
+    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection=saisons_collection)
 
     async def answer_for_the_pupil(session: AsyncClientSession) -> FLRegistrierungBestaetigungResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it.
@@ -169,6 +186,16 @@ async def post_bestaetigung(
 
         refuse(find_expired_token_refusal(bestaetigung=raw.get("bestaetigung"), status=raw.get("status"), today=today))
         refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
+        # Asked at the press rather than only at the mint: a ban entered after the link went out
+        # stops it here, and one lifted while it runs lets it answer again.
+        gesperrt = await gesperrte_adressen(
+            [str(raw.get("email") or "")],
+            sperrliste_collection=sperrliste_collection,
+            schluessel=config.sperrliste_schluessel,
+            massgebliche_saison_id=massgebliche_saison_id,
+            session=session,
+        )
+        refuse(find_bestaetigung_gesperrt_refusal(gesperrt=bool(gesperrt)))
         refuse(find_alter_refusal(geburtsdatum=antwort_data.geburtsdatum, today=today))
         refuse(find_medien_refusal(geburtsdatum=antwort_data.geburtsdatum, medien=antwort_data.medien, today=today))
 

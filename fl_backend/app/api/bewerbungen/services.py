@@ -45,6 +45,7 @@ BEWERBUNG_FASSUNG_VERALTET = "REQ-BEWERBUNG-016"
 BEWERBUNG_TOKEN_PAST_DEADLINE = "REQ-BEWERBUNG-017"
 BEWERBUNG_ADRESSE_GESPERRT = "REQ-BEWERBUNG-018"
 BEWERBUNG_KONTAKT_GESPERRT = "REQ-BEWERBUNG-019"
+BEWERBUNG_EINWILLIGUNG_GESPERRT = "REQ-BEWERBUNG-020"
 
 # `bewerbung: null` and no key are both the closed window, never an error (`FLSaison.bewerbung`
 # defaults).
@@ -547,10 +548,11 @@ EINWILLIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     "_id": 0,
 }
 
-# Narrower than the view's: the answer takes its wording from the payload and names no school.
+# Narrower than the view's: the answer takes its wording from the payload and names no school. The
+# address is what a consent asks the ban list of, and no answer carries it.
 EINWILLIGUNG_ANTWORT_FIELDS: Mapping[str, int] = {
     **_per_seat("bestaetigungen", *TOKEN_HASH_FIELDS, "abgelehnt_am"),
-    **_per_seat("kontakte", "vorname", "einwilligung.bestaetigt_am"),
+    **_per_seat("kontakte", "vorname", "email", "einwilligung.bestaetigt_am"),
     "kontakte.trainer_ist_zugleich": 1,
     "saison_id": 1,
     "status": 1,
@@ -888,6 +890,24 @@ def find_kontakt_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
         error_code=BEWERBUNG_KONTAKT_GESPERRT,
         status=HTTPStatus.CONFLICT,
         message="this email address is on the ban list, so no confirmation link may be sent to it; lift the entry first",
+    )
+
+
+def find_einwilligung_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
+    """`REQ-BEWERBUNG-020`: the ban list holds the address a confirmation link was mailed to, however long ago it was minted.
+
+    Asked of a consent alone: a Widerspruch empties the seat, which is what a barred person is owed.
+    """
+
+    if not gesperrt:
+        return None
+
+    # 403 and named plainly, where the form's is neutral: whoever holds the mailed token holds that
+    # mailbox, as a sign-in code's holder does, and the ban's own mail has told them.
+    return WriteRefusal(
+        error_code=BEWERBUNG_EINWILLIGUNG_GESPERRT,
+        status=HTTPStatus.FORBIDDEN,
+        message="the email address this link was sent to is on the ban list, so it confirms nothing; a Widerspruch is still taken",
     )
 
 
