@@ -513,6 +513,18 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
+  /* One address is one account (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`), so the
+     account page shows each person sharing it the others' sign-ins and lets them end those. */
+  it("tells the people sharing an address that they share its account and see its sign-ins", () => {
+    rendert(
+      "Wenn mehrere Personen ein Postfach teilen: Löschen wir anhand einer E-Mail-Adresse, kann diese Adresse zu mehreren Personen " +
+        "gehören, etwa bei einem gemeinsamen Postfach einer Schule. In diesem Fall zeigen wir Dir vorher, welche Einträge betroffen " +
+        "wären, und löschen erst nach Deiner Bestätigung. Meldest Du Dich mit einer Adresse an, die auch andere nutzen, teilst Du mit " +
+        "ihnen ein Konto: Ihr seht alle dieselben Anmeldungen und Passkeys, mit ihrem Beginn, ihrer letzten Nutzung und ihren Namen, " +
+        "und jede Person kann jede Anmeldung beenden und jeden Passkey löschen, auch die der anderen.",
+    );
+  });
+
   it("promises every erasure asked for an emptied action log", () => {
     rendert(
       "Das Änderungsprotokoll: Jede Änderung an den Daten der Liga wird mit dem vorherigen Stand festgehalten, damit ein Fehler " +

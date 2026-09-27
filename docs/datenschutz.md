@@ -337,6 +337,14 @@ Every ruling below is the sign-up flow as it stands for the next season.
   than inferred on the client
   (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktReveal.tsx :: FormKontaktReveal`).
   A person id across seasons is not introduced: contact persons are season-scoped by design.
+- **People sharing an address share one account, and each sees the others' sign-ins.** The sign-in
+  store keys an account on the folded address
+  (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`), so colleagues signing in from one
+  school inbox hold one account. Its account page shows each of them every session of it, when each
+  began and was last active and by which factor, and every passkey by its name
+  (`fl_frontend/src/features/konto/sicherheit.ts :: readSicherheit`), and lets any of them end
+  another's session or delete another's passkey. The published notice says so
+  (`DatenschutzView.tsx :: teilst Du mit ihnen ein Konto`).
 - **An administrator's address is stored as their grant, in plain, and so is the address of
   whoever granted it.** `berechtigungen` holds the grant and `berechtigungen_angekuendigt` what the
   other administrators were told of it, and every administrator is served both addresses. The outbox
