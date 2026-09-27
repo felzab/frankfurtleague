@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { callPage, pageBody, redirectTarget } from "@/shared/testing/pageHarness.ts";
@@ -16,18 +14,6 @@ import type { Anmeldung, Sicherheit } from "./types.ts";
 const { setSubject } = doubleActionRequest();
 // The shells hand a sign-out action to the bar, and the section's actions are called nowhere here.
 doubleEveryAction();
-
-/** The one address the allowlist holds here, which the environment would otherwise name. */
-const ALLOWLISTED = "vorstand@example.org";
-const ALLOWLIST_DOUBLE = exportingModule({ isUserAdmin: (email?: string | null) => email === ALLOWLISTED });
-
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/allowlist.ts")) return { format: "module", source: ALLOWLIST_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
 
 /* Reached with `await import` and never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { default: KontoPage } = await import("@/app/bereich/(persoenlich)/konto/page.tsx");
@@ -46,8 +32,11 @@ const NO_PROPS = { params: Promise.resolve({}), searchParams: Promise.resolve({}
 const OHNE_FUNKTION: SubjectSession = {
   email: "pia@example.org",
   admin: false,
-  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: true, gesperrt: false },
+  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: true, gesperrt: false, verwaltung: null },
 };
+
+/** The same person holding a grant: the administrator's lane decides what the page shows them. */
+const MIT_ZUGANG: SubjectSession = { ...OHNE_FUNKTION, subjekt: { ...OHNE_FUNKTION.subjekt, verwaltung: "administration" } };
 
 /** The page's one heading, which is the bar's: a view under it carries none. */
 function heading(html: string): string {
@@ -74,8 +63,8 @@ describe("the account page", () => {
 
   /* The section is the administrator's lane's to fill, so a lapsed administrator verdict is sent on to
      that lane's step, as the landing sends it, rather than shown an empty section. */
-  it("sends an allowlisted address whose administrator verdict lapsed to the admin subtree", async () => {
-    setSubject({ ...OHNE_FUNKTION, email: ALLOWLISTED });
+  it("sends an address holding a grant whose administrator verdict lapsed to the admin subtree", async () => {
+    setSubject(MIT_ZUGANG);
     const { thrown } = await callPage(KontoPage, NO_PROPS);
     assert.deepEqual(
       thrown.flatMap((error) => redirectTarget(error) ?? []),
@@ -83,7 +72,7 @@ describe("the account page", () => {
     );
 
     // The control: the administrator's own verdict standing, the page renders.
-    setSubject({ ...OHNE_FUNKTION, email: ALLOWLISTED, admin: true });
+    setSubject({ ...MIT_ZUGANG, admin: true });
     assert.equal((await pageBody(KontoPage, NO_PROPS)).type, KontoPanel);
   });
 

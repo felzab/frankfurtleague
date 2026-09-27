@@ -2,7 +2,6 @@ import "server-only";
 
 import { headers } from "next/headers";
 
-import { isUserAdmin } from "@/core/allowlist";
 import { auth, CODE_FACTOR, isWithinPersonLifetime, PASSKEY_FACTOR } from "@/core/auth";
 import { PERSON_LIFETIME } from "@/core/sessionLifetimes";
 import { passkeyBestandOf, passkeyNamenOf } from "@/features/passkeys/bestand";
@@ -55,7 +54,7 @@ export async function readSicherheit(served: KontoSession): Promise<Sicherheit> 
     passkeys: karten,
     kannHinzufuegen: kannHinzufuegen,
     anmeldungen: anmeldungenOf(rows, held, served),
-    verwaltung: isUserAdmin(served.user.email),
+    verwaltung: served.verwaltung,
     inhaberId: served.user.id,
     inhaberAdresse: served.user.email,
     freshUntil: freshUntil(served),
