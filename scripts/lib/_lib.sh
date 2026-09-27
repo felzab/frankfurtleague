@@ -774,9 +774,9 @@ $2}"; }
 # application services must hold equal, and no name that is one service's alone.
 ROOT_ENV_NAMES=(INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN)
 
-# Read as text before any compose call or reader: compose takes a `COMPOSE_*` line there as its own
-# setting, and three readers substitute a `$` before a validator sees the key
-# (`docs/ops/spec.md` §1.5). Prints names, never a value.
+# Read as text before any compose call or reader, since compose takes a `COMPOSE_*` line there as its
+# own setting (`docs/ops/spec.md` §1.5). Values are the keys' alphabet's (I11), which each service's
+# validator holds. Prints names, never a value.
 check_root_env() { # $1 the file
   local line name number=0 IFS=' '
   local -A seen=()
@@ -799,10 +799,6 @@ check_root_env() { # $1 the file
       wrong+=("line ${number}: ${name} is written a second time, after line ${seen[$name]}")
     else
       seen[$name]="$number"
-    fi
-    # The value tested and never kept: a `$` is substituted, and a quote opens a value a reader parses.
-    if [[ "${line#*=}" == *[\$\"\'\`]* ]]; then
-      wrong+=("line ${number}: ${name}'s value carries a \$ or a quote, which a reader acts on before any validator sees it")
     fi
   done < "$1"
   for name in "${ROOT_ENV_NAMES[@]}"; do

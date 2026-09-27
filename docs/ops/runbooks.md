@@ -1194,8 +1194,8 @@ nothing while the backend does not answer.
 ## 16. The checkout root's `.env`
 
 **It holds `INTERNAL_API_KEY_BASE`, `INTERNAL_API_KEY_SYSTEM` and `INTERNAL_API_KEY_ADMIN`, and
-nothing else** ([`spec.md`](spec.md) §1.5, I429), one `NAME=value` line each, with no `$` or quote
-in a value. `deploy.sh` and `local.sh` read it before anything else and refuse any other line,
+nothing else** ([`spec.md`](spec.md) §1.5, I429), one `NAME=value` line each. `deploy.sh` and
+`local.sh` read it before anything else and refuse any other line,
 naming its line number and never a value: `MONGODB_URI` stays in each package's file, since the two
 services hold different logins, and a compose setting such as `COMPOSE_PROJECT_NAME` goes in the
 shell. Neither package's `.env` carries the keys: the deploy refuses a name both files hold, in any

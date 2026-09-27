@@ -398,7 +398,7 @@ it the same way, the backend through `fl_backend/app/core/config.py :: model_con
 frontend through the `dev` script in `fl_frontend/package.json`. Each machine holds its own three:
 they are bearer tokens between one machine's two processes, so a development machine generates
 fresh ones rather than copying production's ([`runbooks.md`](runbooks.md) §16). **It holds the three
-keys and nothing else, each once, as `NAME=value` with no `$` or quote in the value**, and
+keys and nothing else, each once, as `NAME=value`**, and
 `deploy.sh` and `local.sh` refuse any other content before their first compose call, `--status` and
 `--down` included (`scripts/lib/_lib.sh :: check_root_env`):
 
@@ -407,9 +407,9 @@ keys and nothing else, each once, as `NAME=value` with no `$` or quote in the va
 - **It is also compose's own `.env`**, read for interpolation and for compose's `COMPOSE_*`
   settings, so a `COMPOSE_*` line would steer compose itself, a `--status` naming another project's
   containers among it. A compose setting goes in the shell or on the command line instead.
-- **A `$` is substituted before any validator sees the key**: by compose, by `@next/env`, and, as
-  `${…}`, by python-dotenv, which the deploy's backend reader uses. A quote opens a value each reader
-  parses its own way.
+- **A value is left to the keys' alphabet** (I11) rather than judged here: a reader that rewrites a
+  key apart from the others leaves a character outside it on one side, which that side's validator
+  refuses, the deploy's two preflight readers before any recreate.
 
 A name a package file repeats is refused apart (I430), compose handing the container the root's.
 
@@ -523,8 +523,9 @@ settings class.
 **What that check proves stops at the names.** The preflight parses each package's file, joined to
 the root's, as python-dotenv does, and the running container gets the two parsed as Compose does;
 the two agree on which names a file declares and not on every quoting form, so a value the
-preflight accepted is not proven identical to the one the container will see. The root file alone
-is held to the one form they read alike (`scripts/lib/_lib.sh :: check_root_env`).
+preflight accepted is not proven identical to the one the container will see. The root file's keys
+are the exception: a key carries no character any of the readers alters (I11), so two readers
+parsing one apart leave a character outside the alphabet on one side, which the preflight refuses.
 
 **Before either of those reads, and before the pull, compose is asked whether it can parse its own
 configuration** (`scripts/ops/deploy.sh :: check_compose_config`): a configuration it cannot read —
