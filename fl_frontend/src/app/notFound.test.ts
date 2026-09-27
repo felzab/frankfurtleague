@@ -99,35 +99,32 @@ const prefixOf = (dir: string) =>
     })
     .join("/")}`;
 
-/** An address's path, cut into its segments, its query and fragment dropped. */
-const pathSegmentsOf = (href: string) => (href.split(/[?#]/)[0] ?? "").split("/").filter(Boolean);
-
 /**
- * The area an address lands in: the deepest whose segments it opens with, so `/bereich/admin` is an
- * area of its own and never the one at `/bereich` around it.
+ * Where each prefixed area's 404 may send the reader, written out rather than matched as Next would:
+ * inside its own prefix as its boundary's params fill it in, and inside no area nested below it.
  */
-function areaOf(href: string, areas: readonly string[]): string | undefined {
-  const segments = pathSegmentsOf(href);
-  const staticDepth = (dir: string) => patternOf(dir).filter((segment) => !DYNAMIC.test(segment)).length;
+const WAYS_OUT: Readonly<Record<string, { prefix: string; excluding: readonly string[] }>> = {
+  [path.join("bereich", "(persoenlich)")]: { prefix: "/bereich", excluding: ["/bereich/admin", "/bereich/team"] },
+  [path.join("bereich", "admin")]: { prefix: "/bereich/admin", excluding: [] },
+  [path.join("bereich", "team", "[team_id]", "[saison_id]")]: {
+    prefix: `/bereich/team/${probeOf("team_id")}/${probeOf("saison_id")}`,
+    excluding: [],
+  },
+  dashboard: { prefix: "/dashboard", excluding: [] },
+};
 
-  return (
-    areas
-      .filter((dir) =>
-        patternOf(dir).every((segment, index) => segments[index] !== undefined && (DYNAMIC.test(segment) || segment === segments[index])),
-      )
-      // A static segment outranks a dynamic one at equal depth, as it does in Next's own matching.
-      .sort((one, other) => patternOf(other).length - patternOf(one).length || staticDepth(other) - staticDepth(one))[0]
-  );
+/** Whether `href`'s path is `prefix` or lies below it, by whole segments, its query and fragment dropped. */
+function isUnder(href: string, prefix: string): boolean {
+  const pfad = href.split(/[?#]/)[0] ?? "";
+  return pfad === prefix || pfad.startsWith(`${prefix}/`);
 }
 
-/**
- * The ways out of `dir`'s boundary that leave it: into another area, or onto another team or season
- * than the one its dynamic segments were served under.
- */
-function strayWaysOut(dir: string, hrefs: readonly string[], areas: readonly string[]): string[] {
-  const served = pathSegmentsOf(prefixOf(dir));
+/** The ways out of `dir`'s boundary that leave the addresses `WAYS_OUT` declares for it. */
+function strayWaysOut(dir: string, hrefs: readonly string[]): string[] {
+  const declared = WAYS_OUT[path.relative(APP_DIR, dir)];
+  if (declared === undefined) throw new Error(`${path.relative(APP_DIR, dir)} declares no ways out`);
 
-  return hrefs.filter((href) => areaOf(href, areas) !== dir || served.some((segment, index) => pathSegmentsOf(href)[index] !== segment));
+  return hrefs.filter((href) => !isUnder(href, declared.prefix) || declared.excluding.some((nested) => isUnder(href, nested)));
 }
 
 const inside = (dir: string) => (file: string) => file.startsWith(dir + path.sep);
@@ -431,23 +428,27 @@ describe("where each 404 sends the reader", () => {
       const hrefs = hrefsIn(markup);
 
       assert.ok(hrefs.length > 0, `${prefixOf(dir)}'s boundary renders no way out at all`);
-      assert.deepEqual(strayWaysOut(dir, hrefs, AREAS), [], `these links leave ${prefixOf(dir)}`);
+      assert.deepEqual(strayWaysOut(dir, hrefs), [], `these links leave ${prefixOf(dir)}`);
     }
   });
 
-  /* The reader above, held against areas the tree need not hold: an outer area's prefix holds every
-     area nested in it, and the right team in another season still leaves the served address. */
+  /* Declared by hand, so an area added without its ways out would pass the case above unread. */
+  it("declares where every prefixed area's 404 may send the reader", () => {
+    assert.deepEqual(Object.keys(WAYS_OUT).sort(), PREFIXED.map((dir) => path.relative(APP_DIR, dir)).sort());
+  });
+
+  /* The declarations above, held against addresses the tree need not hold: an outer area's prefix
+     holds every area nested in it, and the right team in another season still leaves the served address. */
   it("tells an area from the one around it, and the served season from another", () => {
     const person = path.join(APP_DIR, "bereich", "(persoenlich)");
     const admin = path.join(APP_DIR, "bereich", "admin");
     const team = path.join(APP_DIR, "bereich", "team", "[team_id]", "[saison_id]");
-    const areas = [path.join(APP_DIR, "(public)"), person, admin, team];
     const served = prefixOf(team);
 
-    assert.deepEqual(strayWaysOut(person, ["/bereich", "/bereich/admin", "/bereich/adminbereich"], areas), ["/bereich/admin"]);
-    assert.deepEqual(strayWaysOut(admin, ["/bereich/admin/teams", "/bereich"], areas), ["/bereich"]);
-    assert.deepEqual(strayWaysOut(person, [`${served}/kader`], areas), [`${served}/kader`]);
-    assert.deepEqual(strayWaysOut(team, [served, `${served}/kader?x=1`, "/bereich/team/probe-team_id/2425", "/bereich"], areas), [
+    assert.deepEqual(strayWaysOut(person, ["/bereich", "/bereich/admin", "/bereich/adminbereich"]), ["/bereich/admin"]);
+    assert.deepEqual(strayWaysOut(admin, ["/bereich/admin/teams", "/bereich"]), ["/bereich"]);
+    assert.deepEqual(strayWaysOut(person, [`${served}/kader`]), [`${served}/kader`]);
+    assert.deepEqual(strayWaysOut(team, [served, `${served}/kader?x=1`, "/bereich/team/probe-team_id/2425", "/bereich"]), [
       "/bereich/team/probe-team_id/2425",
       "/bereich",
     ]);
