@@ -42,6 +42,7 @@ const AUTH_DOUBLE = exportingModule({
           name: "APIError",
           // A status-only refusal, as `APIError.fromStatus` raises one, carries no code.
           body: outcome === "SERVICE_UNAVAILABLE" ? undefined : { code: outcome, message: outcome },
+          status: outcome === "SERVICE_UNAVAILABLE" ? "SERVICE_UNAVAILABLE" : "BAD_REQUEST",
         });
         return Promise.reject(refusal);
       },
@@ -130,7 +131,11 @@ describe("the route a typed code is checked at", () => {
         "Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn Du das für einen Fehler hältst, schreib uns an kontakt@frankfurtleague.de.",
       ],
       // The mint's backend unreachable, and any refusal a release adds: the retry, never a 500.
-      ["SERVICE_UNAVAILABLE", "Versuche es noch einmal."],
+      // Spent before the mint was asked, so retyping it would only meet a wrong code.
+      [
+        "SERVICE_UNAVAILABLE",
+        "Die Anmeldung hat gerade nicht geklappt, und Dein Code ist damit verbraucht. Fordere in ein paar Minuten einen neuen an.",
+      ],
       ["SOME_NEW_REFUSAL", "Versuche es noch einmal."],
     ];
 

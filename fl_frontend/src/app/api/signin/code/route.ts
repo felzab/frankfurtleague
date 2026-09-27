@@ -24,6 +24,14 @@ const CodeSignInPayloadSchema = SignInPayloadSchema.extend({
 const FALSCH = "Der Code stimmt nicht. Prüfe ihn und gib ihn noch einmal ein.";
 
 /**
+ * The mint's backend did not answer, after the code was already spent: retyping it would meet a wrong
+ * code, so the reader is sent for a new one.
+ */
+// GERMAN-PENDING: new German, not yet approved.
+const CODE_VERBRAUCHT =
+  "Die Anmeldung hat gerade nicht geklappt, und Dein Code ist damit verbraucht. Fordere in ein paar Minuten einen neuen an.";
+
+/**
  * The library's refusals by code. Each reaches an address holding an account and one holding none
  * alike, so none of them names which it met (`docs/frontend/spec.md :: I443`).
  */
@@ -113,10 +121,11 @@ export async function POST(request: NextRequest) {
     // reader as a wrong code.
     if (!isAPIError(error)) throw error;
 
-    // Any other refusal, the mint's unreachable backend among them, is one the same press may pass,
-    // which is what the retry sentence tells the reader.
+    // A refusal no code names is worded as a retry, the one answer that promises nothing it cannot
+    // keep; the mint's outage is the exception, its code being spent before the mint was asked.
     const code: unknown = error.body?.code;
-    const sentence = (typeof code === "string" ? REFUSAL_BY_CODE[code] : undefined) ?? VERSUCHE_ES_ERNEUT;
+    const worded = typeof code === "string" ? REFUSAL_BY_CODE[code] : undefined;
+    const sentence = worded ?? (error.status === "SERVICE_UNAVAILABLE" ? CODE_VERBRAUCHT : VERSUCHE_ES_ERNEUT);
 
     if (code === "INVALID_OTP" && (await alreadySignedIn(requestHeaders, email))) {
       await forgiveCodeAttempt(body);
