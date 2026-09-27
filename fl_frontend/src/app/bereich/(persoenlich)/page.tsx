@@ -23,10 +23,9 @@ export default async function PersoenlichStartPage() {
   if (erstes === undefined) return <FunktionenView zustand={unbestaetigt ? "unbestaetigt" : "leer"} />;
 
   // Every person lands on a page named „Übersicht“ (`docs/frontend/spec.md :: I466`): a team's own
-  // landing is one, and the administration is the administrator's, so only those go straight on; a lone
-  // player's or referee's page is one card here.
+  // landing is one, so one team alone goes straight on; any other lone place is one card here.
   const [{ art }] = erstes.funktionen;
-  if (weitere.length === 0 && (art === "kontakt" || art === "administration")) redirect(erstes.href);
+  if (weitere.length === 0 && art === "kontakt") redirect(erstes.href);
 
   return (
     <FunktionenView

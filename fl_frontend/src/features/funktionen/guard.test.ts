@@ -146,31 +146,25 @@ describe("where the landing takes a person", () => {
     assert.ok(!markup.includes("nirgends eingetragen"), "the pending person is told they are entered nowhere");
   });
 
-  /* A team's own landing is „Übersicht“ too, and the administration is the administrator's, so one
-     of those alone is where the person goes. */
-  it("sends a person holding one team or the administration alone straight there", async () => {
-    const cases: [SubjectSession, string][] = [
-      [person({ sitze: [sitz()] }), `/bereich/team/${TEAM_A}/2526`],
-      [person({}, true), "/bereich/admin"],
-    ];
+  /* A team's own landing is „Übersicht“ too, so one team alone is where the person goes. */
+  it("sends a person holding one team alone straight there", async () => {
+    setSubject(person({ sitze: [sitz()] }));
 
-    for (const [subject, destination] of cases) {
-      // An administrator's session is one the sign-in store sends to the admin subtree.
-      if (subject.admin) setSession({ user: { email: subject.email } }, "/bereich/admin");
-      setSubject(subject);
-      assert.deepEqual(await redirectsOf(PersoenlichStartPage), [destination]);
-    }
+    assert.deepEqual(await redirectsOf(PersoenlichStartPage), [`/bereich/team/${TEAM_A}/2526`]);
   });
 
-  /* Every person lands on a page named „Übersicht“: a lone player or referee meets this one, holding
-     the one card, rather than their own page. */
-  it("keeps a lone player or referee on the landing, with the one card", async () => {
+  /* Every person lands on a page named „Übersicht“: a lone player, referee or administrator meets this
+     one, holding the one card, rather than their own page. */
+  it("keeps a lone player, referee or administrator on the landing, with the one card", async () => {
     const cases: [SubjectSession, string][] = [
       [person({ spieler: [{ spieler_id: TEAM_A }] }), "/bereich/spieler"],
       [person({ schiedsrichter: [{ schiedsrichter_id: TEAM_A }] }), "/bereich/schiedsrichter"],
+      [person({}, true), "/bereich/admin"],
     ];
 
     for (const [subject, card] of cases) {
+      // An administrator's session is one the sign-in store sends to the admin subtree.
+      if (subject.admin) setSession({ user: { email: subject.email } }, "/bereich/admin");
       setSubject(subject);
       assert.deepEqual(await redirectsOf(PersoenlichStartPage), [], `the landing sends a lone holder on to ${card}`);
       assert.deepEqual(await switchHrefs(), [card]);
