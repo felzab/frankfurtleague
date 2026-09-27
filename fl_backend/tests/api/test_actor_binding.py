@@ -579,6 +579,16 @@ class TestTheGrantsOverAServedRequest:
         "headers",
         [pytest.param({}, id="no actor"), pytest.param({ACTOR_HEADER: "not-an-address"}, id="a malformed actor")],
     )
+    def test_an_actor_is_judged_before_the_grant_read_opens_the_database(self, headers: Mapping[str, str]):
+        """The real lookup and no database: a 503 here would mean the grants were asked before the token was."""
+        response = TestClient(create_app(CONFIG), raise_server_exceptions=False).get(READ_PATH, headers={**ADMIN_KEY, **headers})
+
+        assert (response.status_code, response.json()["error_code"]) == (400, MISSING_ACTOR)
+
+    @pytest.mark.parametrize(
+        "headers",
+        [pytest.param({}, id="no actor"), pytest.param({ACTOR_HEADER: "not-an-address"}, id="a malformed actor")],
+    )
     def test_a_read_naming_nobody_is_refused_on_a_router_that_writes_nothing(self, headers: Mapping[str, str]):
         """The read routers carry `bind_actor` for this alone, so an admin-tier read has no route around the grants."""
         response = client().get(READ_ROUTER_PATH, headers={**ADMIN_KEY, **headers})
