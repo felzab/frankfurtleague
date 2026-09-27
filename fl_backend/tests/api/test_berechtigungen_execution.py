@@ -1053,6 +1053,34 @@ class TestTheMountedRouteReadsTheGrants:
 
         assert on_a_league(mongo_replica_set_url, body) == [200, 200, 403]
 
+    def test_a_grant_made_over_http_is_attributed_to_the_header_s_administrator_everywhere(self, mongo_replica_set_url: str):
+        """The actor header in capitals: the grant, its notice and its log row each name the administrator the header names.
+
+        Every other grant case hands the handler its actor, so only this one reaches `get_actor_email`. The
+        grant and the log keep the header's spelling, as every stored actor field does; the notice keeps
+        the fold a later ban matches it by.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, Any, Any, Any]:
+            await told(database, client)
+            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+                response = await http.post(
+                    f"/api/v{API_VERSION}/berechtigungen", headers={**ADMIN_AUTH, ACTOR_HEADER: ANNA.upper()}, json={"email": NEU_TYPED}
+                )
+
+            stored = await database[Collection.BERECHTIGUNGEN].find_one({"adresse": NEU})
+            [queued_row] = await queued(database)
+            logged = await database[Collection.AKTIONEN].find_one({"collection": str(Collection.BERECHTIGUNGEN), "operation": "insert"})
+
+            return (
+                response.status_code,
+                stored and stored["erteilt_von"],
+                queued_row["geaendert_von"],
+                logged and logged["actor"].get("email"),
+            )
+
+        assert on_a_league(mongo_replica_set_url, body) == (201, ANNA.upper(), ANNA, ANNA.upper())
+
     def test_every_served_instant_carries_its_offset(self, mongo_replica_set_url: str):
         """The driver reads a stored instant back with no offset, which a reader would take for local time."""
 

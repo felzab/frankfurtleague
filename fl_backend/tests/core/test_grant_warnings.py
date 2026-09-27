@@ -2,22 +2,27 @@
 CORE · what the boot says about the grants and the retired variable, and that it boots anyway
 
 `app/core/db.py :: warn_about_the_grants` reads one `find`, so a collection standing in for that
-read is all it meets; the lifespan's own call is exercised by every boot the db tier makes.
+read is all most cases meet; one db case boots over a real collection, so the lifespan's own call
+is asserted as well as run.
 """
 
 import asyncio
 import logging
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from typing import Any, cast
 
 import pytest
 from fastapi import FastAPI
 from pydantic import SecretStr
+from pymongo import MongoClient
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.core.collections import Collection
 from app.core.db import DEAD_GRANT, NO_GRANT, NO_OWNER, RETIRED_ADMIN_LIST, DatabaseUnreachableError, lifespan, warn_about_the_grants
 from app.core.logging import FL_LOGGER_NAME
 from tests.config import UNANSWERED_URI, build_test_config
+from tests.worker import worker_database
 
 
 class _Cursor:
@@ -117,3 +122,45 @@ def test_the_retired_variable_is_warned_about_by_name_exactly_while_it_is_carrie
 
     assert (RETIRED_ADMIN_LIST.error_code in codes) is (carried is not None)
     assert all("admin@example.com" not in record.getMessage() for record in caplog.records)
+
+
+def booted_over(grants: Sequence[Mapping[str, Any]], mongo_url: str, caplog: pytest.LogCaptureFixture) -> set[str]:
+    """The lifespan entered and left over a database holding these grants; the grant codes it logged."""
+
+    name = worker_database("fl_boot_grants")
+    config = build_test_config().model_copy(update={"mongodb_uri": SecretStr(mongo_url), "db_base_name": name})
+    client: MongoClient = MongoClient(mongo_url)
+
+    async def enter() -> None:
+        app = FastAPI()
+        app.state.config = config
+        async with lifespan(app):
+            pass
+
+    try:
+        client.drop_database(name)
+        if grants:
+            stamped = {"erteilt_von": "PLAYGROUND", "erteilt_am": datetime(2026, 1, 1, tzinfo=UTC)}
+            client[name][Collection.BERECHTIGUNGEN].insert_many([{**grant, **stamped} for grant in grants])
+        with caplog.at_level(logging.WARNING, logger=FL_LOGGER_NAME):
+            asyncio.run(enter())
+    finally:
+        client.drop_database(name)
+        client.close()
+
+    codes = {getattr(record, "error_code", "") for record in caplog.records}
+
+    return codes & {NO_GRANT.error_code, NO_OWNER.error_code, DEAD_GRANT.error_code}
+
+
+@pytest.mark.db
+class TestTheBootWarnsAboutTheGrantsItFinds:
+    """The lifespan's own call, over a real collection: a boot that stopped asking would leave the operator warned of nothing."""
+
+    def test_an_empty_list_is_named_at_boot(self, mongo_url: str, caplog: pytest.LogCaptureFixture):
+        assert booted_over([], mongo_url, caplog) == {NO_GRANT.error_code}
+
+    def test_an_owner_and_an_administrator_boot_in_silence(self, mongo_url: str, caplog: pytest.LogCaptureFixture):
+        """The control: a boot warning every time would pass the case above."""
+
+        assert booted_over([OWNER, ADMINISTRATOR], mongo_url, caplog) == set()
