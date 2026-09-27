@@ -80,6 +80,13 @@ const ADAPTER_DOUBLE = {
           return (...args: unknown[]) => {
             adapterCalls.operations?.push(operationOf(key, args));
             if (adapterCalls.refusing?.(key, args) === true) return Promise.reject(new Error("the store refused"));
+            // A session's insert waits at the hold a case arms, so two mints can land in either order.
+            const held = adapterCalls.heldSessionInsert;
+            if (held !== undefined && operationOf(key, args) === "create session") {
+              adapterCalls.heldSessionInsert = undefined;
+              held.entered();
+              return held.release.then(() => (value as (...rest: unknown[]) => unknown).apply(target, args));
+            }
             return (value as (...rest: unknown[]) => unknown).apply(target, args);
           };
         },
@@ -120,10 +127,31 @@ const BACKENDS = new Map<string, Backend>();
 /** Every read the gate put on the wire, by path. */
 const asked: string[] = [];
 
+/** One call a case holds: it answers `entered` as the call arrives, and runs on once `release` settles. */
+type Hold = { readonly entered: () => void; readonly release: Promise<void> };
+
+/** Set by a case to hold the next backend read, the lookup a mint's gate makes among them. */
+let heldRead: Hold | undefined;
+
+/** Arms one hold through `arm`, answering when the held call has arrived and the release that lets it on. */
+function holdNext(arm: (hold: Hold) => void): { arrived: Promise<void>; release: () => void } {
+  let release = (): void => undefined;
+  let arrive = (): void => undefined;
+  const arrived = new Promise<void>((resolve) => (arrive = resolve));
+  arm({ entered: () => arrive(), release: new Promise<void>((resolve) => (release = resolve)) });
+  return { arrived, release: () => release() };
+}
+
 const ORIGINAL_FETCH = globalThis.fetch;
 globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
   const path = new URL(input instanceof Request ? input.url : String(input)).pathname;
   asked.push(path);
+  const held = heldRead;
+  if (held !== undefined) {
+    heldRead = undefined;
+    held.entered();
+    await held.release;
+  }
 
   const email = (JSON.parse(String(init?.body ?? "{}")) as { email?: string }).email ?? "";
   const backend = BACKENDS.get(email) ?? (email === ADMIN_EMAIL ? A_GRANT : NOTHING_HELD);
@@ -184,6 +212,8 @@ const adapterCalls = {
   counts: new Barrier(),
   /** Set by a case to make the store refuse the operations it names. */
   refusing: undefined as ((key: string, args: unknown[]) => boolean) | undefined,
+  /** Set by a case to hold the next session insert. */
+  heldSessionInsert: undefined as Hold | undefined,
 };
 
 // Imported here rather than at the top: a static import resolves before the hooks above are
@@ -1889,6 +1919,44 @@ describe("which session a new sign-in replaces", () => {
     assert.equal(writtenSince(before).length, 1, "both step-ups left their session standing");
     const opened = await Promise.all([served(cookieHeader(byPasskey)), served(cookieHeader(byCode))]);
     assert.equal(opened.filter((answer) => answer !== null).length, 1);
+  });
+
+  /* The library stamps a mint before the gate's backend read, so the mint stamped first can be admitted
+     last: ordered by that stamp, neither after hook ends the other. */
+  it("leaves one session where the step-up stamped first is admitted last", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+    const before = [...store.session];
+
+    // The assertion's first backend read is its mint's gate: nothing before it on that path asks one.
+    const gate = holdNext((hold) => (heldRead = hold));
+    const byPasskey = assertPasskey(cookie, true);
+    await gate.arrived;
+    await signInByCode(auth, ADMIN_EMAIL, { ...ORIGIN, cookie });
+    gate.release();
+    const answered = await byPasskey;
+    assert.equal(answered.status, 200, "the assertion was refused, so no race was run");
+
+    assert.equal(writtenSince(before).length, 1, "both step-ups left their session standing");
+    // The response answered last is the cookie the browser keeps, so its session is the one that stands.
+    assert.notEqual(await served(cookieHeader(answered)), null, "the session the last response set was the one ended");
+  });
+
+  /* Stamped past its gate, a mint can still be inserted after a later one has run its after hook, which
+     then saw only itself: the earlier mint's own hook is the last to run, and ends itself. */
+  it("leaves one session where the step-up stamped first is inserted last", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+    const before = [...store.session];
+
+    const insert = holdNext((hold) => (adapterCalls.heldSessionInsert = hold));
+    const byPasskey = assertPasskey(cookie, true);
+    await insert.arrived;
+    await signInByCode(auth, ADMIN_EMAIL, { ...ORIGIN, cookie });
+    insert.release();
+    await byPasskey;
+
+    assert.equal(writtenSince(before).length, 1, "both step-ups left their session standing");
   });
 
   /* The stamp is scoped to the cookie it names: a sign-in from another device, carrying none, ends no

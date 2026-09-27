@@ -436,9 +436,13 @@ async function endEarlierSiblings(
     ],
   });
 
-  // The later mint ends the earlier and never the reverse, so two after hooks running at once cannot
-  // each end the other; its response is the one more likely to set the cookie last.
-  const earlier = siblings.filter((row) => row.id !== minted.id && mintedBefore(row, minted)).map((row) => row.id);
+  // Every hook keeps the latest it sees and ends the rest, its own row included: the last hook to run
+  // sees every sibling whatever order the inserts landed in, so exactly one stands.
+  const rows = siblings.some((row) => row.id === minted.id) ? siblings : [...siblings, minted];
+  const latest = rows.reduce((kept, row) => (mintedBefore(kept, row) ? row : kept));
+  // Its own row ends only where a later mint was inserted first, and the browser may keep this
+  // response's cookie all the same: that fails closed, as a sign-in asked again.
+  const earlier = rows.filter((row) => row.id !== latest.id).map((row) => row.id);
   if (earlier.length === 0) return;
 
   await context.adapter.deleteMany({ model: "session", where: [{ field: "id", operator: "in", value: earlier }] });
@@ -800,16 +804,25 @@ const authOptions = {
 
           const credential = factor === PASSKEY_FACTOR ? { passkeyCredentialId: ceremonyCredentialId(ctx) } : {};
           const replaced = await replacedToken(ctx);
+          const lineage = replaced === null ? {} : { [REPLACED_SESSION_FIELD]: await lineageOf(replaced, ctx.context.secret) };
+
+          // Stamped again past every await, so the order of two mints is their order of insert, one write
+          // apart, and not of a backend round trip: `endEarlierSiblings` keeps the latest by it.
+          const stamped = new Date();
+          const lifetime = new Date(session.expiresAt).getTime() - new Date(session.createdAt).getTime();
 
           return {
             data: {
               ...session,
+              createdAt: stamped,
+              updatedAt: stamped,
+              expiresAt: new Date(stamped.getTime() + lifetime),
               // Emptied here because the library offers no switch for it, beside the one above that
               // empties the address: a second copy of the caller under no retention clock.
               userAgent: "",
               authFactor: factor,
               ...credential,
-              ...(replaced === null ? {} : { [REPLACED_SESSION_FIELD]: await lineageOf(replaced, ctx.context.secret) }),
+              ...lineage,
             },
           };
         },
