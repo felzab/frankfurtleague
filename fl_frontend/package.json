@@ -15,7 +15,7 @@
   },
   "packageManager": "pnpm@11.27.1",
   "scripts": {
-    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 node next-dev.mjs dev --turbo",
+    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 dotenv -e ../.env --no-expand -- next dev --turbo",
     "build": "next build",
     "environment-names": "node --conditions=react-server --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/tsconfig-alias-hook.mjs scripts/emit-environment-names.mjs",
     "start": "next start",
@@ -64,6 +64,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "cross-env": "^10.1.0",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.6",
     "eslint-plugin-better-tailwindcss": "^4.7.0",

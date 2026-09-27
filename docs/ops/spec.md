@@ -408,7 +408,9 @@ platform.
 **The checkout root's `.env` holds the internal API keys once, for both application services**
 (I429): `docker-compose.yml` lists it after each package's own file, and the two dev commands read
 it the same way, the backend through `fl_backend/app/core/config.py :: model_config` and the
-frontend through the `dev` script in `fl_frontend/package.json`. Each machine holds its own three:
+frontend through the `dev` script in `fl_frontend/package.json`. That script loads the root file with
+dotenv-cli before `next dev` starts, so a variable the shell already set wins, then the root file,
+then Next's own reading of `fl_frontend/.env`. Each machine holds its own three:
 they are bearer tokens between one machine's two processes, so a development machine generates
 fresh ones rather than copying production's ([`runbooks.md`](runbooks.md) §16). **It holds the three
 keys and nothing else, each once, as `NAME=value`**, and
@@ -430,12 +432,11 @@ A name a package file repeats is refused apart (I430), compose handing the conta
 alters each, so the two sides would hold different keys:
 
 - `$` is interpolated by compose and by Next's `@next/env`, and `${` by python-dotenv.
-- `#` ends the value wherever it stands for `@next/env` and for Node's `process.loadEnvFile`, which
-  `fl_frontend/next-dev.mjs` calls.
-- A leading `"` or `'` opens a quoted value for every reader, and a backtick does for `@next/env` and
-  Node alone.
+- `#` ends the value wherever it stands for dotenv, which both `@next/env` and the `dev` script's
+  dotenv-cli run.
+- A leading `"` or `'` opens a quoted value for every reader, and a backtick does for dotenv alone.
 - `\` inside a quoted value is an escape to python-dotenv, and inside a double-quoted one to
-  compose, while `@next/env` and Node keep it.
+  compose, while dotenv keeps it.
 
 Every other printable ASCII character reaches each reader as written, bare or quoted, so a key from
 `openssl rand -hex`, base64 or `secrets.token_urlsafe` is always one of the class. **The deploy's
@@ -1197,7 +1198,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I355 | nginx loads its configuration through directory mounts, and a deploy or `--status` finding it holding anything but this checkout's files ends in a finding (§1.2)             | `scripts/ops/deploy.sh :: edge_reads_checkout`, over nginx's own dump, after every reload and in `--status`; `scripts/checks/check_compose_model.py :: edge_mounts` holds both stacks' mounts                                                                                                      |
 | I365 | A pushed image has passed the images scope's three assertions, and `:latest` moves only onto one whose layers and user match the checked image                                | `.github/workflows/publish.yml`'s check step, calling the images scope's assertions in `scripts/lib/_lib.sh`, and its comparison step; `scripts/tests/test_image_assertions.py` runs both steps' own text                                                                                          |
 | I367 | Every base, stack, script-run and test-tier image this repository does not build is pinned by tag and digest, the frontend db tier's `mongo` alone excepted                   | `scripts/tests/test_image_pins.py`, over both Dockerfiles, both compose files, `scripts/gate/selfcheck.sh`, `scripts/ops/local.sh` and `fl_backend/tests/conftest.py`, and holding the frontend db tier's tag to the backend's                                                                     |
-| I429 | The internal API keys are written once, in the checkout root's `.env`, which both application services list last and both dev commands read                                   | `scripts/lib/_lib.sh :: check_root_env` for what it holds; `scripts/checks/check_compose_model.py :: env_files`; `fl_backend/tests/core/test_config.py :: TestTheCheckoutRootsFile`; `fl_frontend/next-dev.test.mjs`                                                                               |
+| I429 | The internal API keys are written once, in the checkout root's `.env`, which both application services list last and both dev commands read                                   | `scripts/lib/_lib.sh :: check_root_env` for what it holds; `scripts/checks/check_compose_model.py :: env_files`; `fl_backend/tests/core/test_config.py :: TestTheCheckoutRootsFile`; `fl_frontend/scripts/dev-script.test.mjs`                                                                     |
 | I430 | No package's `.env` repeats a name the checkout root's holds, in any letter case: the backend folds case, and compose hands the container both                                | `scripts/ops/deploy.sh :: check_env_names_held_once`, driven by `scripts/tests/test_deploy_streams.py`, the snippet run for real; the local stack and dev mode unenforced                                                                                                                          |
 | I471 | Only nginx shares a network with the connector, and only nginx with the application pair, in both stacks                                                                      | `scripts/checks/check_compose_model.py :: networks`, over the models `docker compose config` renders                                                                                                                                                                                               |
 | I472 | The actor token's signing key reaches the frontend alone, at `/run/secrets/fl_actor_signing_key`, read from `./secrets/fl_actor_signing_key`                                  | `scripts/checks/check_compose_model.py :: signing_key`, over the models `docker compose config` renders                                                                                                                                                                                            |
