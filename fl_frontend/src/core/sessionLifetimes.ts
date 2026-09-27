@@ -5,7 +5,8 @@ const DAY_MS = 24 * HOUR_MS;
 export type Lifetime = { readonly idle: number; readonly absolute: number };
 
 // Here rather than in `fl_frontend/src/core/auth.ts`, which enforces them: the privacy notice states
-// these figures too, and importing them from there would load Better Auth into the page.
+// these figures too, and importing them from there would load Better Auth into the page. Mirrored in
+// `fl_backend/app/shared/schemas/bounds.py`, whose actor check refuses a token older than it.
 export const ADMIN_WINDOW_HOURS = 48;
 
 // ONE figure for the administrator, written into both halves below: `updatedAt` never precedes
