@@ -155,10 +155,14 @@ describe("the boot reading the actor's signing key", () => {
   async function refusedBoot(t: TestContext, file: string): Promise<{ thrown: unknown; written: string; exited: number | undefined }> {
     const chunks: string[] = [];
     let exited: number | undefined;
+    const write = process.stdout.write.bind(process.stdout) as (...args: unknown[]) => boolean;
     t.mock.method(process.stdout, "write", (chunk: unknown, ...rest: unknown[]) => {
+      // The runner reports each case to its parent over this stream in binary frames, and one swallowed
+      // here is a case the run never counts: only text is the boot's.
+      if (typeof chunk !== "string") return write(chunk, ...rest);
       // Refused past the exit: a line written after it would never reach the stream.
       assert.equal(exited, undefined, "a line was written after the process ended");
-      chunks.push(String(chunk));
+      chunks.push(chunk);
       const done = rest.at(-1);
       if (typeof done === "function") (done as () => void)();
       return true;
