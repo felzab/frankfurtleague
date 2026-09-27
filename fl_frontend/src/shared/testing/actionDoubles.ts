@@ -204,6 +204,8 @@ type SignInAnswers = {
   signedOut: string[];
   /** What that sign-out throws, where a case asks it to fail. */
   signOutFailure: Error | null;
+  /** Whether an account holds the address a ban signs out, which the real sign-out answers. */
+  accountHeld: boolean;
   /** `isFreshlySignedIn`'s answer, whatever session it is handed. */
   fresh: boolean;
   /** Why the guard refuses where it refuses, or `null` to read it off the landing the case named. */
@@ -211,9 +213,7 @@ type SignInAnswers = {
 };
 
 /** Where the real store sends a caller the session leaves out, when a case names no other. */
-const destinationOf = (session: AdminSessionDouble): string =>
-  // eslint-disable-next-line local/admin-link -- the sign-in store's own landing, which carries no season
-  session === null ? "/signin" : "/bereich/admin";
+const destinationOf = (session: AdminSessionDouble): string => (session === null ? "/signin" : "/bereich");
 
 const answering = (answer: unknown): Promise<unknown> => (answer instanceof Error ? Promise.reject(answer) : Promise.resolve(answer));
 
@@ -272,7 +272,7 @@ const signInStore = (url: string, answers: SignInAnswers): string =>
     isFreshlySignedIn: () => answers.fresh,
     endSessionsOfAddress: (address: unknown) => {
       answers.signedOut.push(String(address));
-      return answering(answers.signOutFailure ?? undefined);
+      return answering(answers.signOutFailure ?? answers.accountHeld);
     },
   });
 
@@ -311,6 +311,8 @@ export function doubleActionRequest({
   signedOut: () => readonly string[];
   /** Makes every sign-out for the rest of the case throw `failure`. */
   failSignOut: (failure: Error) => void;
+  /** Makes every sign-out for the rest of the case find no account; an account is held by default. */
+  holdNoAccount: () => void;
   /** Why the guard refuses for the rest of the case, where it refuses. */
   setRefusal: (next: AdminRefusal) => void;
 } {
@@ -322,6 +324,7 @@ export function doubleActionRequest({
     subjectReads: 0,
     signedOut: [],
     signOutFailure: null,
+    accountHeld: true,
     fresh: true,
     refusal: null,
   };
@@ -341,6 +344,7 @@ export function doubleActionRequest({
     answers.subjectReads = 0;
     answers.signedOut.length = 0;
     answers.signOutFailure = null;
+    answers.accountHeld = true;
     answers.fresh = true;
     answers.refusal = null;
   });
@@ -366,6 +370,7 @@ export function doubleActionRequest({
     subjectReads: () => answers.subjectReads,
     signedOut: () => [...answers.signedOut],
     failSignOut: (failure) => void (answers.signOutFailure = failure),
+    holdNoAccount: () => void (answers.accountHeld = false),
     setRefusal: (next) => void (answers.refusal = next),
   };
 }

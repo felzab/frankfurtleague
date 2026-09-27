@@ -194,9 +194,9 @@ describe("the request double", () => {
     assert.equal(await getAdminSession(), null);
     assert.equal(await getSignInDestination(), "/signin", "a caller with no session is sent somewhere other than to sign in");
 
-    setSession(null, "/bereich");
+    setSession(null, "/signin/passkey");
 
-    assert.equal(await getSignInDestination(), "/bereich", "the destination a case named went unanswered");
+    assert.equal(await getSignInDestination(), "/signin/passkey", "the destination a case named went unanswered");
   });
 
   /* After the case above, whose signed-out request would otherwise stand in for this case's caller. */
@@ -204,7 +204,7 @@ describe("the request double", () => {
     const served = (await getAdminSession()) as { user: { email: string }; session: object };
     assert.equal(served.user.email, "vorstand@example.org");
     assert.ok("createdAt" in served.session, "the administrator is served without the row the step-up window is read off");
-    assert.equal(await getSignInDestination(), "/bereich/admin", "the previous case's destination outlived its case");
+    assert.equal(await getSignInDestination(), "/bereich", "the previous case's destination outlived its case");
   });
 
   it("hands every read of one case the same session", async () => {

@@ -173,8 +173,7 @@ describe("where the landing takes a person", () => {
     ];
 
     for (const [subject, card] of cases) {
-      // An administrator's session is one the sign-in store sends to the admin subtree.
-      if (subject.admin) setSession({ user: { email: subject.email } }, "/bereich/admin");
+      if (subject.admin) setSession({ user: { email: subject.email } }, "/bereich");
       setSubject(subject);
       assert.deepEqual(await redirectsOf(PersoenlichStartPage), [], `the landing sends a lone holder on to ${card}`);
       assert.deepEqual(await switchHrefs(), [card]);
@@ -192,10 +191,10 @@ describe("where the landing takes a person", () => {
     assert.deepEqual(await redirectsOf(PersoenlichStartPage), []);
   });
 
-  /* An administrator whose verdict stands has come to `/bereich` for the other places they hold, so the
-     landing offers them rather than sending them back to the admin subtree they just left. */
+  /* An administrator whose verdict stands signs in to `/bereich`, so the landing offers the other places
+     they hold rather than sending them on to the admin subtree. */
   it("offers an address holding a grant whose administrator verdict stands its own landing", async () => {
-    setSession({ user: { email: "vorstand@example.org" } }, "/bereich/admin");
+    setSession({ user: { email: "vorstand@example.org" } }, "/bereich");
     setSubject({ ...person({ spieler: [{ spieler_id: TEAM_A }], verwaltung: "administration" }, true), email: "vorstand@example.org" });
 
     assert.deepEqual(await redirectsOf(PersoenlichStartPage), [], "a standing administrator is sent away from the landing");
@@ -390,7 +389,7 @@ describe("an admin render's subject reads", () => {
   /* The guard sits in the person's layouts only, so an administrator's request runs `getAdminSession`
      alone. A real admin page under every layout above it, which is where a guard added too high lands. */
   it("runs no person guard", async () => {
-    setSession({ user: { email: "pia@example.org" } }, "/bereich/admin");
+    setSession({ user: { email: "pia@example.org" } }, "/bereich");
     setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }, true));
 
     assert.equal(await readsUnder(path.join(APP_DIR, "bereich", "admin", "sperrliste")), 0);
