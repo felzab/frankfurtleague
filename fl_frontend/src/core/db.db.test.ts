@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, connect as dial } from "node:net";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { after, describe, it } from "node:test";
 import { setTimeout as pause } from "node:timers/promises";
 
@@ -47,9 +50,12 @@ class Relay {
   private trigger: Buffer | null = null;
   /** Whether `hangFrom`'s command was ever sent, without which its case proves nothing. */
   triggered = false;
+  /** Connections `refuse` has closed: none, and the client it was to refuse dialed somewhere else. */
+  refused = 0;
   private readonly sockets = new Set<Socket>();
   private readonly server = createServer((inbound) => {
     if (this.refusing) {
+      this.refused += 1;
       inbound.destroy();
       return;
     }
@@ -330,6 +336,12 @@ describe("the sign-in store's client recovers from a cold start it could not com
   /* Its own process, so nothing of this file's holds the event loop open: once the read has failed,
      the reconnect's pause is all that is left. */
   it("lets a process whose store refuses it exit once its read has failed", async () => {
+    // A relay of the child's own, so what it refuses is the child's alone and never this file's clients'.
+    const childRelay = new Relay();
+    const childUrl = `mongodb://127.0.0.1:${await childRelay.listen()}/?directConnection=true`;
+    // The child's config reads the store's address from its secrets directory and never from the environment.
+    const secrets = mkdtempSync(path.join(tmpdir(), "fl-db-child-"));
+    writeFileSync(path.join(secrets, "frontend_mongodb_uri"), childUrl);
     const child = spawn(
       process.execPath,
       [
@@ -345,13 +357,13 @@ await client.db("store_bound").collection("probe").findOne({}).catch(() => undef
 process.stdout.write(process.env.FL_CHILD_SETTLED ?? "");`,
       ],
       // The marker travels as data in the environment rather than as source.
-      { env: { ...process.env, MONGODB_URI: RELAYED_URL, FL_CHILD_SETTLED: CHILD_SETTLED }, stdio: ["ignore", "pipe", "inherit"] },
+      { env: { ...process.env, SECRETS_DIR: secrets, FL_CHILD_SETTLED: CHILD_SETTLED }, stdio: ["ignore", "pipe", "inherit"] },
     );
     const exited = once(child, "exit") as Promise<[number | null, NodeJS.Signals | null]>;
     const settled = new Promise<void>((resolve) => child.stdout.on("data", (chunk) => String(chunk).includes(CHILD_SETTLED) && resolve()));
 
     try {
-      await relay.refuse(async () => {
+      await childRelay.refuse(async () => {
         const first = await settledWithin(CHILD_LOAD_MS + OPERATION_BOUND, "the child's read", () =>
           Promise.race([settled.then(() => CHILD_SETTLED), exited.then(() => "an exit")]),
         );
@@ -363,8 +375,11 @@ process.stdout.write(process.env.FL_CHILD_SETTLED ?? "");`,
         )) as [number | null];
         assert.equal(code, 0);
       });
+      assert.ok(childRelay.refused > 0, "the child's read was refused by no store here, so its exit proves nothing");
     } finally {
       child.kill();
+      await childRelay.close();
+      rmSync(secrets, { recursive: true, force: true });
     }
   });
 });
