@@ -19,13 +19,13 @@ NEU = FLBerechtigungStand(adresse="nora.neu@beispielschule.de", verwaltung="admi
 
 
 def test_an_acting_administrator_barred_when_queued_is_stored_withheld_and_still_the_applications():
-    """The actor is stored folded, the spelling a barred set holds; withheld, `quelle` alone says who made the change."""
+    """The actor is stored folded, the spelling a barred set holds; withheld, `urheber` alone says who made the change."""
 
     row = compose_postausgang(
         berechtigung_id=GRANT, art="erteilt", jetzt=NEU, vorher=None, geaendert_von="Anna.Admin@Frankfurtleague.de", now=NOW, gesperrt={ANNA}
     )
 
-    assert (row["geaendert_von"], row["quelle"], row["vorenthalten"], row["geaendert_am"]) == (None, "anwendung", "gesperrt", NOW)
+    assert (row["geaendert_von"], row["urheber"], row["vorenthalten"], row["geaendert_am"]) == (None, "anwendung", "gesperrt", NOW)
 
 
 def test_an_unbarred_actor_is_stored_folded_with_no_reason():
@@ -35,13 +35,13 @@ def test_an_unbarred_actor_is_stored_folded_with_no_reason():
         berechtigung_id=GRANT, art="erteilt", jetzt=NEU, vorher=None, geaendert_von="Anna.Admin@Frankfurtleague.de", now=NOW, gesperrt=()
     )
 
-    assert (row["geaendert_von"], row["quelle"], row["vorenthalten"]) == (ANNA, "anwendung", None)
+    assert (row["geaendert_von"], row["urheber"], row["vorenthalten"]) == (ANNA, "anwendung", None)
 
 
 def test_a_change_found_in_the_database_names_its_source_rather_than_leaving_a_null_actor_to_say_it():
     row = compose_postausgang(berechtigung_id=GRANT, art="erteilt", jetzt=NEU, vorher=None, geaendert_von=None, now=NOW, gesperrt=())
 
-    assert (row["geaendert_von"], row["geaendert_am"], row["quelle"], row["vorenthalten"]) == (None, None, "datenbank", None)
+    assert (row["geaendert_von"], row["geaendert_am"], row["urheber"], row["vorenthalten"]) == (None, None, "datenbank", None)
 
 
 def test_a_barred_grant_address_is_withheld_with_the_same_reason():

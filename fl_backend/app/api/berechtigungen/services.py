@@ -180,6 +180,11 @@ def compare(
             changes.append((berechtigung_id, "erteilt", now, None))
         elif now is None:
             changes.append((berechtigung_id, "entzogen", None, before))
+        # Read as one tier change, a repointed address would name its new holder alone and hide whose
+        # access ended (`docs/backend/spec.md :: I463`).
+        elif now.adresse != before.adresse:
+            changes.append((berechtigung_id, "entzogen", None, before))
+            changes.append((berechtigung_id, "erteilt", now, None))
         elif now != before:
             changes.append((berechtigung_id, "geaendert", now, before))
 
@@ -227,7 +232,7 @@ def compose_postausgang(
     return {
         "berechtigung_id": berechtigung_id,
         "art": art,
-        "quelle": "datenbank" if geaendert_von is None else "anwendung",
+        "urheber": "datenbank" if geaendert_von is None else "anwendung",
         "jetzt": None if rows[0] is None else rows[0].model_dump(),
         "vorher": None if rows[1] is None else rows[1].model_dump(),
         "geaendert_von": stored_actor,

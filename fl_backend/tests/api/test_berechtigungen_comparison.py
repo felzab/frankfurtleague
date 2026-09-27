@@ -37,9 +37,18 @@ def test_a_revoke_and_a_regrant_of_one_address_are_two_changes():
     assert kinds([row(SECOND, "anna@schule.de")], [row(FIRST, "anna@schule.de")]) == [(FIRST, "entzogen"), (SECOND, "erteilt")]
 
 
-def test_a_tier_or_an_address_changed_in_place_is_a_change():
+def test_a_tier_changed_in_place_is_one_change():
     assert kinds([row(FIRST, "anna@schule.de", "owner")], [row(FIRST, "anna@schule.de")]) == [(FIRST, "geaendert")]
-    assert kinds([row(FIRST, "berta@schule.de")], [row(FIRST, "anna@schule.de")]) == [(FIRST, "geaendert")]
+
+
+def test_an_address_repointed_under_one_id_is_the_old_ones_removal_and_the_new_ones_grant():
+    """Read as one tier change, the notice would name the new address alone and hide whose access ended."""
+
+    changes = compare(grants=[row(FIRST, "berta@schule.de", "owner")], announced=[row(FIRST, "anna@schule.de")])
+
+    assert [
+        (art, jetzt and (jetzt.adresse, jetzt.verwaltung), vorher and (vorher.adresse, vorher.verwaltung)) for _, art, jetzt, vorher in changes
+    ] == [("entzogen", None, ("anna@schule.de", "administration")), ("erteilt", ("berta@schule.de", "owner"), None)]
 
 
 def test_each_change_carries_both_states_the_stamp_is_handed_back():

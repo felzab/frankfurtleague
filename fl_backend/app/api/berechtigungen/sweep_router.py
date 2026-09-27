@@ -76,10 +76,11 @@ async def post_berechtigungen_abgleich(
     mailed, with `beanspruchung`, to `POST /berechtigungen/abgleich/angekuendigt`. Where a lease lapses before that, the next call
     claims those changes again. `beanspruchung` and `beansprucht_bis` are null exactly where nothing was claimed.
 
-    `quelle` says where each change came from: `anwendung` for one made through the application, `datenbank` for one found here.
-    No barred address is answered in plain: wherever one would stand -- `jetzt`, `vorher`, `geaendert_von`, `empfaenger` -- it is
-    `null` or left out, and the change carries `gesperrt`. So `geaendert_von` null beside `quelle` `anwendung` is a barred
-    administrator. `empfaenger` is every live, unbarred grant holder now; a removed address is read off its change.
+    `urheber` says who made each change: `anwendung` for an administrator through the application, `datenbank` for an edit
+    found here. No barred address is answered in plain: wherever one would stand -- `jetzt`, `vorher`, `geaendert_von`,
+    `empfaenger` -- it is `null` or left out, and the change carries `gesperrt`; a withheld `geaendert_von` carries
+    `geaendert_von_gesperrt` as well. An address changed in place is two changes, its removal and the new address's grant.
+    `empfaenger` is every live, unbarred grant holder now; a removed address is read off its change.
     """
 
     async def queue_and_claim(session: AsyncClientSession) -> tuple[list[dict[str, Any]], list[str], int, str | None]:
@@ -185,10 +186,12 @@ def _answered(row: Mapping[str, Any], barred: set[str]) -> dict[str, Any]:
         "id": zeile.id,
         "berechtigung_id": zeile.berechtigung_id,
         "art": zeile.art,
-        "quelle": zeile.quelle,
+        "urheber": zeile.urheber,
         "jetzt": jetzt,
         "vorher": vorher,
         "geaendert_von": geaendert_von,
+        # Only a withheld actor is null on a change the application made.
+        "geaendert_von_gesperrt": zeile.urheber == "anwendung" and geaendert_von is None,
         "geaendert_am": zeile.geaendert_am,
         # The stored reason, or a ban entered since the row was queued; never read off a null address.
         "gesperrt": zeile.vorenthalten == "gesperrt" or withheld_now,

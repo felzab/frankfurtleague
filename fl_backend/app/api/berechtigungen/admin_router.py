@@ -71,8 +71,8 @@ async def get_berechtigungen(
 
     Uncapped, as few people hold one. A row whose address no request can match -- empty, unfolded or refused by the address rule --
     admits nobody and is left out, counted in `uebersprungen`. An address on the ban list is answered as `null` beside `gesperrt`,
-    never in plain, and so is a barred `erteilt_von`, which is otherwise an administrator's address for a grant made here and
-    whatever the database edit wrote for one made there.
+    never in plain, and so is a barred `erteilt_von`, beside `erteilt_von_gesperrt`; it is otherwise an administrator's address
+    for a grant made here and whatever the database edit wrote for one made there.
     """
 
     rows = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection)
@@ -89,13 +89,15 @@ async def get_berechtigungen(
     served = []
     for grant in grants:
         gesperrt = grant.adresse in barred
+        erteilt_von = withheld_actor(grant.erteilt_von, barred)
         served.append(
             FLBerechtigungZeile(
                 id=grant.id,
                 adresse=None if gesperrt else grant.adresse,
                 gesperrt=gesperrt,
                 verwaltung=grant.verwaltung,
-                erteilt_von=withheld_actor(grant.erteilt_von, barred),
+                erteilt_von=erteilt_von,
+                erteilt_von_gesperrt=erteilt_von is None,
                 erteilt_am=grant.erteilt_am,
             )
         )

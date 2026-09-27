@@ -375,7 +375,7 @@ _REGISTRIERUNG_STATUS = ["eingereicht", "abgelehnt"]
 # validator is the one check that paste meets.
 _VERWALTUNG = ["owner", "administration"]
 _BERECHTIGUNG_AENDERUNGEN = ["erteilt", "entzogen", "geaendert"]
-_BERECHTIGUNG_QUELLEN = ["anwendung", "datenbank"]
+_BERECHTIGUNG_URHEBER = ["anwendung", "datenbank"]
 _BERECHTIGUNG_VORENTHALTEN = ["gesperrt"]
 
 # One grant's state in an outbox row; the address null where it was barred when queued.
@@ -991,7 +991,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "_id",
                 "berechtigung_id",
                 "art",
-                "quelle",
+                "urheber",
                 "jetzt",
                 "vorher",
                 "geaendert_von",
@@ -1005,7 +1005,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "_id": {"bsonType": "objectId"},
                 "berechtigung_id": {"bsonType": "objectId"},
                 "art": {"bsonType": "string", "enum": _BERECHTIGUNG_AENDERUNGEN},
-                "quelle": {"bsonType": "string", "enum": _BERECHTIGUNG_QUELLEN},
+                "urheber": {"bsonType": "string", "enum": _BERECHTIGUNG_URHEBER},
                 "jetzt": _BERECHTIGUNG_STAND,
                 "vorher": _BERECHTIGUNG_STAND,
                 "geaendert_von": {"bsonType": _STRING_OR_NULL},

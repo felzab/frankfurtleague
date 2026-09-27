@@ -315,7 +315,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "_id": BERECHTIGUNG_OID,
             "berechtigung_id": TEAM_OID,
             "art": "entzogen",
-            "quelle": "anwendung",
+            "urheber": "anwendung",
             "jetzt": None,
             "vorher": {"adresse": None, "verwaltung": "administration"},
             "geaendert_von": "inhaberin@example.invalid",

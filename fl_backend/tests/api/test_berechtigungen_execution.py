@@ -448,9 +448,9 @@ class TestTheListServesLiveGrantsAlone:
         ]
 
     def test_a_barred_granting_administrator_is_withheld_as_erteilt_von(self, mongo_replica_set_url: str):
-        """The actor field takes the same withholding as the address (`docs/backend/spec.md :: I452`)."""
+        """The actor field takes the same withholding as the address, flagged as the address is (`docs/backend/spec.md :: I452`)."""
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str | None, str | None]]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str | None, str | None, bool]]:
             await grant(database, client, als=ANNA)
             await revoke(database, client, ANNA_ID)
             await database[Collection.SPERRLISTE].insert_one(a_ban_row(ANNA))
@@ -461,9 +461,13 @@ class TestTheListServesLiveGrantsAlone:
                 config=CONFIG,
             )
 
-            return [(row.adresse, row.erteilt_von) for row in listed.berechtigungen]
+            return [(row.adresse, row.erteilt_von, row.erteilt_von_gesperrt) for row in listed.berechtigungen]
 
-        assert on_a_league(mongo_replica_set_url, body) == [(BERND, "PLAYGROUND"), (OWNER, "PLAYGROUND"), (NEU, None)]
+        assert on_a_league(mongo_replica_set_url, body) == [
+            (BERND, "PLAYGROUND", False),
+            (OWNER, "PLAYGROUND", False),
+            (NEU, None, True),
+        ]
 
 
 class TestASecondGrantOfOneAddress:
@@ -843,7 +847,7 @@ class TestTheClaim:
                     change.jetzt.adresse if change.jetzt else None,
                     change.vorher.adresse if change.vorher else None,
                     change.gesperrt,
-                    change.quelle,
+                    change.urheber,
                 )
                 for change in (await claimed(database, client)).aenderungen
             ]
@@ -913,19 +917,53 @@ class TestTheClaim:
         assert rows and all(NEU not in str(row) for row in rows)
 
     def test_a_barred_acting_administrator_is_withheld_while_the_change_stays_the_applications(self, mongo_replica_set_url: str):
-        """`geaendert_von` null beside `quelle` `anwendung`: the frontend never reads a barred actor as a database edit."""
+        """Withheld and flagged, `urheber` still `anwendung`: a barred actor never reads as a database edit."""
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str, str | None, str, bool]]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str, str | None, bool, str, bool]]:
             await told(database, client)
             await grant(database, client, als=ANNA)
             await revoke(database, client, ANNA_ID)
             await database[Collection.SPERRLISTE].insert_one(a_ban_row(ANNA))
 
             return [
-                (change.art, change.geaendert_von, change.quelle, change.gesperrt) for change in (await claimed(database, client)).aenderungen
+                (change.art, change.geaendert_von, change.geaendert_von_gesperrt, change.urheber, change.gesperrt)
+                for change in (await claimed(database, client)).aenderungen
             ]
 
-        assert on_a_league(mongo_replica_set_url, body) == [("erteilt", None, "anwendung", True), ("entzogen", OWNER, "anwendung", True)]
+        assert on_a_league(mongo_replica_set_url, body) == [
+            ("erteilt", None, True, "anwendung", True),
+            ("entzogen", OWNER, False, "anwendung", True),
+        ]
+
+    def test_an_address_repointed_in_the_database_is_announced_as_one_removal_and_one_grant(self, mongo_replica_set_url: str):
+        """One id, a new address: every notice names whose access ended as well as whose began, and a second claim finds nothing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[tuple[Any, ...]], list[Any]]:
+            await told(database, client)
+            await database[Collection.BERECHTIGUNGEN].update_one({"_id": BERND_ID}, {"$set": {"adresse": NEU}})
+            answer = await claimed(database, client)
+            await stamped(database, client, str(answer.beanspruchung), [change.id for change in answer.aenderungen])
+
+            return [
+                (
+                    change.berechtigung_id,
+                    change.art,
+                    change.urheber,
+                    change.geaendert_von,
+                    change.geaendert_von_gesperrt,
+                    change.jetzt.adresse if change.jetzt else None,
+                    change.vorher.adresse if change.vorher else None,
+                )
+                for change in answer.aenderungen
+            ], (await claimed(database, client)).aenderungen
+
+        changes, later = on_a_league(mongo_replica_set_url, body)
+
+        assert changes == [
+            (BERND_ID, "entzogen", "datenbank", None, False, None, BERND),
+            (BERND_ID, "erteilt", "datenbank", None, False, NEU, None),
+        ]
+        assert later == []
 
 
 class TestTheMountedRouteReadsTheGrants:
