@@ -324,6 +324,7 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "erfasst_am": datetime(2026, 1, 1, tzinfo=UTC),
             "beansprucht_bis": datetime(2026, 1, 1, 0, 10, tzinfo=UTC),
             "beanspruchung": "a-claim",
+            "versuche": 1,
         },
     }
 

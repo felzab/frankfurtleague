@@ -129,6 +129,8 @@ class FLBerechtigungPostausgangZeile(BaseModel):
     erfasst_am: datetime
     beansprucht_bis: datetime | None
     beanspruchung: str | None
+    # How many claims have handed the row out; each claim raises it in its own transaction.
+    versuche: int = Field(ge=0)
 
 
 class FLBerechtigungAenderung(BaseModel):
@@ -146,6 +148,8 @@ class FLBerechtigungAenderung(BaseModel):
     geaendert_am: FLUtcInstant | None
     # Set where an address of this change, the actor's included, is barred and withheld wherever it would stand.
     gesperrt: bool
+    # Set where this claim is past the row's last hand-out: the pass mails nothing and stamps it.
+    aufgegeben: bool
 
 
 class FLBerechtigungAbgleichResponse(BaseAPIResponse):

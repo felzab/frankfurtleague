@@ -21,6 +21,7 @@ from app.api.berechtigungen.schemas import (
 )
 from app.api.berechtigungen.services import (
     BEANSPRUCHUNG_DAUER,
+    VERSUCHE_HOECHSTENS,
     compare,
     compose_announced,
     compose_postausgang,
@@ -147,11 +148,12 @@ async def post_berechtigungen_abgleich(
         if claimable:
             token = secrets.token_urlsafe(24)
             # Every claimed row written, so two overlapping calls conflict on the rows both read and
-            # the retry sees them held (`docs/backend/spec.md :: I454`).
+            # the retry sees them held (`docs/backend/spec.md :: I454`); the count rises in this write,
+            # so a retried claim counts once (`:: I472`).
             await patch_many_in_db(
                 collection=berechtigungen_postausgang_collection,
                 db_filter={"_id": {"$in": [row["_id"] for row in claimable]}},
-                update={"$set": {"beanspruchung": token, "beansprucht_bis": now + BEANSPRUCHUNG_DAUER}},
+                update={"$set": {"beanspruchung": token, "beansprucht_bis": now + BEANSPRUCHUNG_DAUER}, "$inc": {"versuche": 1}},
                 session=session,
             )
 
@@ -208,6 +210,8 @@ def _answered(row: Mapping[str, Any], barred: set[str]) -> dict[str, Any]:
         "geaendert_am": zeile.geaendert_am,
         # The stored reason, or a ban entered since the row was queued; never read off a null address.
         "gesperrt": zeile.vorenthalten == "gesperrt" or withheld_now,
+        # The row as read before this claim raised its count.
+        "aufgegeben": zeile.versuche + 1 > VERSUCHE_HOECHSTENS,
     }
 
 

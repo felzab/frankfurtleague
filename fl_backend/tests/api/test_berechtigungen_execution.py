@@ -34,6 +34,7 @@ from app.api.berechtigungen.services import (
     BERECHTIGUNG_NUR_INHABER,
     BERECHTIGUNG_OHNE_ZUGANG,
     BERECHTIGUNG_VORHANDEN,
+    VERSUCHE_HOECHSTENS,
     compose_postausgang,
 )
 from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich, post_berechtigungen_angekuendigt
@@ -927,6 +928,19 @@ class TestTheAnchorClosesEachRace:
 
         assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, BERECHTIGUNG_NUR_INHABER, sorted([OWNER, ANNA, BERND]))
 
+    def test_two_claims_of_one_notice_count_it_once(self, mongo_replica_set_url: str):
+        """A claim retried after it met a rival's lands nothing, so the row's count moved once (`docs/backend/spec.md :: I472`)."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, int, list[int]]:
+            await told(database, client)
+            await grant(database, client)
+            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: claimed(database, client))
+            answer = await claimed(database, client, berechtigungen=racing)
+
+            return racing.rival_outcome, len(answer.aenderungen), [row["versuche"] for row in await queued(database)]
+
+        assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, 0, [1])
+
 
 class TestTheClaim:
     def test_a_pass_with_nothing_to_queue_writes_no_anchor(self, mongo_replica_set_url: str):
@@ -1016,6 +1030,35 @@ class TestTheClaim:
             ]
 
         assert on_a_league(mongo_replica_set_url, body) == [(0, 3), (1, 1), (2, 1)]
+
+    def test_each_claim_that_hands_a_notice_out_counts_on_its_row(self, mongo_replica_set_url: str):
+        """Three lapsed leases, three hand-outs: the count lives on the row, so a restart of the pass resets nothing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[bool], list[int]]:
+            await told(database, client)
+            await grant(database, client)
+            given_up = []
+            for lapse in range(3):
+                answer = await claimed(database, client, now=NOW + lapse * BEANSPRUCHUNG_DAUER)
+                given_up += [change.aufgegeben for change in answer.aenderungen]
+
+            return given_up, [row["versuche"] for row in await queued(database)]
+
+        assert on_a_league(mongo_replica_set_url, body) == ([False, False, False], [3])
+
+    def test_a_notice_handed_out_its_last_time_is_answered_as_given_up_the_time_after(self, mongo_replica_set_url: str):
+        """The bound's last hand-out is mailed as any other; the claim after it tells the pass to stamp and mail nothing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[bool]:
+            await told(database, client)
+            await grant(database, client)
+            await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].update_many({}, {"$set": {"versuche": VERSUCHE_HOECHSTENS - 1}})
+            last = await claimed(database, client)
+            after = await claimed(database, client, now=NOW + BEANSPRUCHUNG_DAUER)
+
+            return [change.aufgegeben for change in (*last.aenderungen, *after.aenderungen)]
+
+        assert on_a_league(mongo_replica_set_url, body) == [False, True]
 
     def test_the_bookkeeping_leaves_the_log_no_address(self, mongo_replica_set_url: str):
         """Granted and revoked here, removed in the database, then claimed and stamped: the bookkeeping's log rows name ids alone.

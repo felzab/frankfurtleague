@@ -995,6 +995,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "erfasst_am",
                 "beansprucht_bis",
                 "beanspruchung",
+                "versuche",
             ),
             properties={
                 "_id": {"bsonType": "objectId"},
@@ -1012,6 +1013,7 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # lease, which a missing key would satisfy too and a mistyped one would hide.
                 "beansprucht_bis": {"bsonType": ["date", "null"]},
                 "beanspruchung": {"bsonType": _STRING_OR_NULL},
+                "versuche": {"bsonType": "int"},
             },
         )
     },

@@ -44,6 +44,11 @@ OWNER: Final = "owner"
 # takes rows the first is still sending; short enough that a pass that died is replaced within two.
 BEANSPRUCHUNG_DAUER: Final = timedelta(minutes=10)
 
+# The claims that hand a notice out before the next gives it up: at the lease above, four hours
+# of passes none of which stamped it. Counted on the row, so a restart resets nothing
+# (`docs/backend/spec.md :: I472`).
+VERSUCHE_HOECHSTENS: Final = 24
+
 
 def lebendige_adresse(row: Mapping[str, Any]) -> str | None:
     """The address a stored grant admits, or `None` for a dead row, which every reader skips (`docs/backend/spec.md :: I453`).
@@ -262,6 +267,7 @@ def compose_postausgang(
         "erfasst_am": now,
         "beansprucht_bis": None,
         "beanspruchung": None,
+        "versuche": 0,
     }
 
 
