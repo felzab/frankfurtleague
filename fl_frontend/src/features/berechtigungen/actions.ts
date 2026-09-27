@@ -133,7 +133,6 @@ export async function patchBerechtigungAction(rawPayload: FLPatchBerechtigungPay
     }
 
     if (!patchOperation.acknowledged) {
-      // GERMAN-PENDING: new German, not yet approved.
       return { success: false, error: buildRefusal({ reason: "Die Stufe wurde nicht geändert", repair: VERSUCHE_ES_ERNEUT }) };
     }
 

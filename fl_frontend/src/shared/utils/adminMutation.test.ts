@@ -65,7 +65,7 @@ describe("the session guard every admin write runs behind", () => {
       return Promise.resolve({ success: true });
     });
 
-    assert.deepEqual(answer, { success: false, error: "Deine Berechtigung ließ sich gerade nicht prüfen. Versuche es erneut." });
+    assert.deepEqual(answer, { success: false, error: "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen. Versuche es erneut." });
     assert.equal(ran, 0, "the body ran behind a grant nobody read");
   });
 

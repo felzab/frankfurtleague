@@ -6,7 +6,6 @@ import { ANKUENDIGUNGEN_MAX } from "@/features/berechtigungen/constants";
 import { CustomObjectIdStringSchema, KontaktEmailSchema } from "@/shared/schemas";
 
 /** The two tiers a grant holds; `owner` holds every power `administration` does, and only an owner's tier change writes it. */
-// GERMAN-PENDING: new German, not yet approved.
 export const FLVerwaltungSchema = z.enum(["owner", "administration"], { error: "Diese Stufe gibt es nicht." });
 export type FLVerwaltung = z.infer<typeof FLVerwaltungSchema>;
 

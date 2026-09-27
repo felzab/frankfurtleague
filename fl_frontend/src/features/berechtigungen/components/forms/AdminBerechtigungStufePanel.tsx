@@ -48,12 +48,10 @@ export function AdminBerechtigungStufePanel({
       const res = await patchBerechtigungAction({ id: berechtigungId, verwaltung: ziel }).catch(rejectedWrite(router));
 
       if (!res.success) {
-        // GERMAN-PENDING: new German, not yet approved.
         appToast.failure("Stufe nicht geändert", res);
         return;
       }
 
-      // GERMAN-PENDING: new German, not yet approved.
       appToast.success("Stufe geändert", { description: res.message });
     });
   };

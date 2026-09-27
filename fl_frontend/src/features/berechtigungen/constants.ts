@@ -69,7 +69,6 @@ type StufeWorte = { resting: string; armed: string; running: string; folge: stri
  * Each row's tier change, named by what its card shows as the revoke is, and by the tier it moves to, so
  * the confirmation names both. The administrator's own row is named as theirs: stepping down is theirs alone.
  */
-// GERMAN-PENDING: new German, not yet approved.
 export function stufeWorte({
   adresse,
   erteiltAm,
@@ -112,7 +111,6 @@ export function stufeWorte({
 }
 
 /** What a tier change answers, done or already so, the notice's sentence for the tier with the address left out. */
-// GERMAN-PENDING: new German, not yet approved.
 export const STUFE_GEAENDERT_MESSAGE: Readonly<Record<FLVerwaltung, string>> = {
   owner: "Diese Adresse ist jetzt Inhaber der Verwaltung.",
   administration: "Diese Adresse ist nicht mehr Inhaber der Verwaltung und behält den Zugang.",

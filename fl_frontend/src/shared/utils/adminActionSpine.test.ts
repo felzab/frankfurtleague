@@ -99,6 +99,6 @@ describe("every admin server action", () => {
     setRefusal("unread");
     const { answers } = await answerOfEveryAction();
 
-    assert.deepEqual(answers, expectedOf(answers, "Deine Berechtigung ließ sich gerade nicht prüfen. Versuche es erneut."));
+    assert.deepEqual(answers, expectedOf(answers, "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen. Versuche es erneut."));
   });
 });
