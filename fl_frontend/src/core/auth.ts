@@ -1260,6 +1260,17 @@ export async function readServedSession(requestHeaders: Headers): Promise<Served
 }
 
 /**
+ * The session the code route's second tab counts as signed in: every guard's read, and none where the
+ * address may no longer sign in, a ban its ending missed included (`docs/frontend/spec.md :: I313`, `:: I406`).
+ */
+export async function readAdmittedSession(requestHeaders: Headers): Promise<ServedSession | null> {
+  const served = await readServedSession(requestHeaders);
+  if (served === null) return null;
+
+  return (await mayReceiveSignIn(served.user.email)) === "admitted" ? served : null;
+}
+
+/**
  * The proxy's read: the proxy runs ahead of the render and can still write a cookie, so the library's
  * refresh past `updateAge` lands whole, `nextCookies()` carrying its cookie onto the proxy's answer
  * (`docs/frontend/spec.md :: I495`).

@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { isAPIError } from "better-auth/api";
 import { z } from "zod";
 
-import { ADDRESS_ATTEMPTS_EXHAUSTED, auth, forgiveCodeAttempt } from "@/core/auth";
+import { ADDRESS_ATTEMPTS_EXHAUSTED, auth, forgiveCodeAttempt, readAdmittedSession } from "@/core/auth";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { frontend_config } from "@/core/config";
 import { asSignInIdentifier } from "@/core/emailAddress";
@@ -64,7 +64,8 @@ const alreadyIn = (): NextResponse => NextResponse.json({ success: true, bereits
  * second tab of a sign-in another tab finished meets a spent code, and is sent on rather than refused.
  */
 async function alreadySignedIn(requestHeaders: Headers, email: string): Promise<boolean> {
-  const served = await auth.api.getSession({ headers: requestHeaders });
+  // The guards' own read, never the library's: a session they refuse forgives no guess (`docs/frontend/spec.md :: I313`).
+  const served = await readAdmittedSession(requestHeaders);
   if (served === null || asSignInIdentifier(served.user.email) !== email) return false;
 
   // The code's own window rather than any step-up's, so a confirmation asked of an older session is

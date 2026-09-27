@@ -207,6 +207,7 @@ const {
   isFreshlySignedIn,
   judgeAdminRequest,
   PASSKEY_LIMIT,
+  readAdmittedSession,
   readServedSession,
   slideSession,
 } = await import("./auth.ts");
@@ -1091,6 +1092,27 @@ describe("a passkey session whose passkey is gone", () => {
     arriveAs(cookie);
 
     assert.equal(await getAdminSession(), null);
+  });
+});
+
+/* The code route's second tab forgives a guess to whoever it reads as signed in, so that read is the
+   guards' own, a ban and a gone passkey included. */
+describe("the session a code's second tab counts as signed in (`docs/frontend/spec.md :: I313`)", () => {
+  afterEach(() => BACKENDS.delete(PERSON_EMAIL));
+
+  it("serves the session every guard serves, and none a ban or a gone passkey refuses", async () => {
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    const request = new Headers({ ...ORIGIN, cookie });
+    assert.equal((await readAdmittedSession(request))?.session.id, row.id, "the live session was refused, so the cases below prove nothing");
+
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+    assert.equal(await readAdmittedSession(request), null, "a barred subject's session counted as signed in");
+
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    madeByPasskey(store, row);
+    store.passkey.length = 0;
+    assert.equal(await readAdmittedSession(request), null, "a session whose passkey is gone counted as signed in");
   });
 });
 

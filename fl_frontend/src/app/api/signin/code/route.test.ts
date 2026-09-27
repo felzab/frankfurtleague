@@ -20,8 +20,11 @@ const forgiven: object[] = [];
 /** How the next sign-in ends: `signed-in`, `broken`, or the code of the refusal it raises. */
 let outcome = "signed-in";
 
-/** The session the caller's own cookie names, which `holding` sets. */
+/** The session the caller's own cookie names as the library reads it, which `holding` sets. */
 let served: unknown = null;
+
+/** That session as the guards read it: `null` where they refuse it, which `holding` sets alike. */
+let admitted: unknown = null;
 
 /* The sign-in replaced at the module boundary: which answer it reaches for which address is
    `fl_frontend/src/core/auth.test.ts`'s subject, and this file asks what the route makes of each. A
@@ -32,6 +35,7 @@ const AUTH_DOUBLE = {
     forgiven.push(body);
     return Promise.resolve();
   },
+  readAdmittedSession: () => Promise.resolve(admitted),
   auth: {
     api: {
       signInEmailOTP: ({ body }: { body: { email: string; otp: string } }) => {
@@ -93,15 +97,17 @@ const post = (payload: unknown, headers: Record<string, string> = {}) =>
 /** A browser too old to send `Sec-Fetch-Site`. */
 const postUnlabelled = (payload: unknown, headers: Record<string, string> = {}) => arrive(JSON.stringify(payload), headers);
 
-/** The session the caller's own cookie names, as the guard reads it. */
-function holding(email: string, madeMsAgo: number): void {
+/** The session the caller's own cookie names, which the guards serve unless `refused`. */
+function holding(email: string, madeMsAgo: number, { refused = false }: { refused?: boolean } = {}): void {
   served = { user: { email }, session: { createdAt: new Date(Date.now() - madeMsAgo) } };
+  admitted = refused ? null : served;
 }
 
 beforeEach(() => {
   calls.length = 0;
   outcome = "signed-in";
   served = null;
+  admitted = null;
 });
 
 describe("the route a typed code is checked at", () => {
@@ -179,6 +185,22 @@ describe("the route a typed code is checked at", () => {
       holding(email, age);
       assert.equal(((await (await handler.POST(post({ email: ADDRESS, code: CODE }))).json()) as { success: boolean }).success, false);
     }
+  });
+
+  /* A session the library still reads but every guard refuses -- its passkey gone, its address barred --
+     is no sign-in: its wrong code stays counted (`docs/frontend/spec.md :: I313`). */
+  it("refuses that wrong code where the guards serve the caller's session to nobody", async () => {
+    outcome = "INVALID_OTP";
+    holding(ADDRESS, 60 * 1000, { refused: true });
+    const forgivenBefore = forgiven.length;
+
+    const answer: unknown = await (await handler.POST(post({ email: ADDRESS, code: CODE }))).json();
+
+    assert.deepEqual(answer, {
+      success: false,
+      error: "Der Code stimmt nicht oder gilt nicht mehr. Nimm den Code aus der neuesten E-Mail oder fordere einen neuen an.",
+    });
+    assert.equal(forgiven.length, forgivenBefore, "a guess from a session no guard serves was taken back");
   });
 
   /* Only a wrong code: an expired or exhausted one is refused whatever the caller holds. */
