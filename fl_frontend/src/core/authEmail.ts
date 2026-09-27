@@ -22,7 +22,8 @@ export const CODE_VALIDITY_MINUTES = 10;
 
 const UEBERSCHRIFT = "Dein Anmeldecode";
 
-const EINGABE_SATZ = "Gib diesen Code auf der Anmeldeseite ein:";
+// One sentence for both pages that send it: the sign-in page's code step and the account page's confirmation.
+const EINGABE_SATZ = "Gib diesen Code auf der Seite ein, auf der Du ihn angefordert hast:";
 
 const GUELTIG_SATZ = `Er ist ${String(CODE_VALIDITY_MINUTES)} Minuten gültig und kann nur einmal verwendet werden.`;
 

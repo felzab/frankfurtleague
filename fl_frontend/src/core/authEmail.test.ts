@@ -85,6 +85,8 @@ describe("buildCodeEmail", () => {
     for (const fakt of [
       CODE,
       "Dein Anmeldecode",
+      // The approved words: the account page's confirmation sends this mail as the sign-in page does.
+      "Gib diesen Code auf der Seite ein, auf der Du ihn angefordert hast:",
       `Er ist ${GUELTIGKEIT} gültig und kann nur einmal verwendet werden.`,
       NUR_HIER_SATZ,
       IGNORIER_SATZ,
