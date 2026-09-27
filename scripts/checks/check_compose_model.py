@@ -2,20 +2,8 @@
 
 `docker compose config` merges the files, applies the profiles, expands every short-syntax port and
 volume and resolves each service's environment, so this reads the model the engine is handed rather
-than parsing YAML again.
-
-Invariants:
-- Production publishes nothing and declares exactly the services `PRODUCTION_SERVICES` names, so a
-  database joining it is a finding (`docs/ops/spec.md :: I1`, `:: I174`).
-- Locally only the edge publishes to every interface; the rest bind a loopback address (`:: I1`).
-- Every mount the edge takes from `nginx/` is a directory, and production's are the pairs
-  `scripts/ops/deploy.sh :: EDGE_CONFIG_DIRS` compares (`docs/ops/spec.md :: I355`).
-- The edge opens its Control API at `scripts/ops/deploy.sh :: EDGE_CONTROL_SOCKET`, in a tmpfs of
-  mode 700.
-- Either edge trusts the connector's rendered address alone, in `set_real_ip_from` and in the geo
-  arm marking the fallback (`docs/ops/spec.md :: I18`).
-- Each application service reads its package's environment file, then the root's, and no other
-  (`docs/ops/spec.md :: I429`).
+than parsing YAML again. Each rule states its invariant at its own function, beside the
+`docs/ops/spec.md` row it holds.
 """
 
 from __future__ import annotations
@@ -58,6 +46,18 @@ DEPLOY: Final = REPO_ROOT / "scripts" / "ops" / "deploy.sh"
 # The one service whose requests production's edge takes the visitor's address from.
 CONNECTOR_SERVICE: Final = "cloudflared"
 
+# Every service's networks, exactly: the connector shares one with nginx alone, and the application
+# pair and the local database share the other with nginx (`docs/ops/spec.md :: I462`).
+EDGE_NETWORK: Final = "frankfurtleague-net"
+APP_NETWORK: Final = "frankfurtleague-app"
+SERVICE_NETWORKS: Final = {
+    CONNECTOR_SERVICE: frozenset({EDGE_NETWORK}),
+    EDGE_SERVICE: frozenset({EDGE_NETWORK, APP_NETWORK}),
+    "frontend": frozenset({APP_NETWORK}),
+    "backend": frozenset({APP_NETWORK}),
+    "mongo": frozenset({APP_NETWORK}),
+}
+
 # The header the visitor's address is taken from, and which element of it: Cloudflare's
 # single-address header, the last element of a chain a client can prepend to (`nginx/shared/http.conf`).
 REALIP_SETTINGS: Final = {"real_ip_header": "CF-Connecting-IP", "real_ip_recursive": "off"}
@@ -80,6 +80,7 @@ def host_network(model: dict[str, Any], name: str) -> list[Finding]:
 
 
 def production(model: dict[str, Any], name: str) -> list[Finding]:
+    """Nothing published, and exactly `PRODUCTION_SERVICES`, so a database joining is a finding (`docs/ops/spec.md :: I1`, `:: I174`)."""
     declared = services(model, name)
     findings = host_network(model, name)
     if set(declared) != PRODUCTION_SERVICES:
@@ -98,7 +99,34 @@ def production(model: dict[str, Any], name: str) -> list[Finding]:
     return findings
 
 
+def networks(model: dict[str, Any], name: str) -> list[Finding]:
+    """Each service on exactly its `SERVICE_NETWORKS`, so no request reaches the application pair but through nginx.
+
+    A service declaring none is rendered on `default`, which is a finding like any other network.
+    """
+    findings: list[Finding] = []
+    for service, definition in sorted(services(model, name).items()):
+        joined = definition.get("networks") or {}
+        if not isinstance(joined, dict):
+            raise ValueError(f"{name}: {service} has networks Compose did not render as a mapping, so this is not its rendered model")
+        expected = SERVICE_NETWORKS.get(service)
+        if expected is None:
+            findings.append(
+                Finding("fail", f"{name}: {service} is on no list of who joins which network\n{CONTINUATION}add it to SERVICE_NETWORKS (I462)")
+            )
+        elif frozenset(joined) != expected:
+            findings.append(
+                Finding(
+                    "fail",
+                    f"{name}: {service} joins {sorted(joined)}, not {sorted(expected)}\n"
+                    f"{CONTINUATION}the connector reaches nginx alone, and the application reaches nothing but through nginx (I462)",
+                )
+            )
+    return findings
+
+
 def local(model: dict[str, Any], name: str) -> list[Finding]:
+    """Only the edge publishes to every interface; the rest bind a loopback address (`docs/ops/spec.md :: I1`)."""
     findings = host_network(model, name)
     for service, definition in sorted(services(model, name).items()):
         if service == EDGE_SERVICE:
@@ -390,6 +418,7 @@ def main() -> int:
         local_pairs, local_mounts = edge_mounts(local_model, "local", Path(args.local).resolve().parent, REPO_ROOT)
         findings += prod_mounts + local_mounts + compared(prod_pairs, deploy_pairs(DEPLOY), "production")
         findings += env_files(prod_model, "production") + env_files(local_model, "local")
+        findings += networks(prod_model, "production") + networks(local_model, "local")
         socket = deploy_socket(DEPLOY)
         findings += control_socket(prod_model, "production", socket) + control_socket(local_model, "local", socket)
         # Production's address for both: the local stack starts no connector, and an edge trusting
@@ -408,6 +437,7 @@ def main() -> int:
         print("      both edges open the Control API where the deploy asks it, in a tmpfs of mode 700")
         print(f"      either edge trusts the {CONNECTOR_SERVICE} address alone, and marks it as the fallback")
         print("      each application service reads its package's environment file, then the checkout's")
+        print(f"      the connector shares a network with {EDGE_SERVICE} alone, and the application pair with {EDGE_SERVICE} alone")
     return code
 
 

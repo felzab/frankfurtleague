@@ -11,7 +11,7 @@ import contextlib
 import io
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 
 import pytest
 from conftest import import_scripts, new_root
@@ -305,6 +305,17 @@ def test_a_mounted_directory_the_checkout_lacks_is_left_to_the_mount_check():
     assert checker.trusted_connector(checker.edge_configuration(missing, root), CONNECTOR, "c") == []
 
 
+EDGE: Final = checker.EDGE_NETWORK
+APP: Final = checker.APP_NETWORK
+# The connector as production renders it: on the edge network alone, at its static address.
+CONNECTED: Final = {"networks": {EDGE: {"ipv4_address": CONNECTOR}}}
+
+
+def joined(*networks: str) -> dict[str, Any]:
+    """A service's `networks` as Compose renders a list of names: each a key with no settings."""
+    return {"networks": dict.fromkeys(networks)}
+
+
 def env_file(*paths: str) -> dict[str, Any]:
     """A service's environment as Compose resolves it from the gate's stand-ins for `paths`, read in that order.
 
@@ -323,9 +334,9 @@ def rendered_stack(project: Path, conf_dir: str, **extra: dict[str, Any]) -> dic
         {"type": "bind", "source": str(project / conf_dir), "target": "/etc/nginx/conf.d"},
         {"type": "bind", "source": str(project / "nginx/shared"), "target": "/etc/nginx/shared"},
     ]
-    nginx = {"volumes": edge_volumes, "command": LISTENING, "tmpfs": ["/run/nginx-control:mode=700"]}
-    frontend = env_file("fl_frontend/.env", ".env")
-    backend = env_file("fl_backend/.env", ".env")
+    nginx = {"volumes": edge_volumes, "command": LISTENING, "tmpfs": ["/run/nginx-control:mode=700"], **joined(EDGE, APP)}
+    frontend = env_file("fl_frontend/.env", ".env") | joined(APP)
+    backend = env_file("fl_backend/.env", ".env") | joined(APP)
     return model(nginx=nginx, frontend=frontend, backend=backend, **extra)
 
 
@@ -347,8 +358,8 @@ def run_main(production: dict[str, Any], local: dict[str, Any], project: Path) -
 def test_both_edges_of_this_checkout_are_judged_and_trust_the_connector_alone():
     """The nginx files as they stand, through `main`: a trust either edge's own directory adds fails this."""
     project = new_root("fl-compose-main-")
-    connector = {"networks": {"frankfurtleague-net": {"ipv4_address": CONNECTOR}}}
-    production = rendered_stack(project, "nginx/prod", cloudflared=connector)
+
+    production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
     local = rendered_stack(project, "nginx/local")
 
     code, said = run_main(production, local, project)
@@ -359,11 +370,11 @@ def test_both_edges_of_this_checkout_are_judged_and_trust_the_connector_alone():
 def test_main_judges_the_environment_files_of_both_models():
     """The rule's own cases drive it directly; a service reading its package's file alone, in either model, fails the run."""
     project = new_root("fl-compose-main-env-")
-    connector = {"networks": {"frankfurtleague-net": {"ipv4_address": CONNECTOR}}}
+
     for broken in ("production", "local"):
-        production = rendered_stack(project, "nginx/prod", cloudflared=connector)
+        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
         local = rendered_stack(project, "nginx/local")
-        ({"production": production, "local": local}[broken])["services"]["backend"] = env_file("fl_backend/.env")
+        ({"production": production, "local": local}[broken])["services"]["backend"] = env_file("fl_backend/.env") | joined(APP)
 
         code, said = run_main(production, local, project)
 
@@ -423,3 +434,73 @@ def test_a_connector_without_one_static_address_refuses():
         except ValueError:
             continue
         raise AssertionError(f"a connector with networks {networks!r} was given an address")
+
+
+# --- who shares a network with whom ---------------------------------------------------------------------
+
+SPLIT: Final = {
+    "cloudflared": CONNECTED,
+    "nginx": joined(EDGE, APP),
+    "frontend": joined(APP),
+    "backend": joined(APP),
+    "mongo": joined(APP),
+}
+
+
+def test_each_service_on_exactly_its_networks_is_clean():
+    assert checker.networks(model(**SPLIT), "p") == []
+
+
+@pytest.mark.parametrize(
+    ("service", "networks"),
+    [
+        ("cloudflared", (EDGE, APP)),
+        ("frontend", (EDGE, APP)),
+        ("backend", (EDGE,)),
+        ("mongo", (EDGE,)),
+        ("nginx", (EDGE,)),
+        ("backend", ("default",)),
+    ],
+    ids=[
+        "connector-reaches-the-application",
+        "frontend-on-the-edge",
+        "backend-moved-to-the-edge",
+        "database-on-the-edge",
+        "edge-cut-off",
+        "default",
+    ],
+)
+def test_a_service_on_another_network_than_its_own_fails(service: str, networks: tuple[str, ...]):
+    """Each is a way to the application pair that skips nginx, or an edge cut off from one side."""
+    found = checker.networks(model(**(SPLIT | {service: joined(*networks)})), "p")
+
+    assert [finding.detail.split("\n")[0] for finding in found] == [
+        f"p: {service} joins {sorted(networks)}, not {sorted(checker.SERVICE_NETWORKS[service])}"
+    ]
+
+
+def test_a_service_nobody_placed_on_a_network_fails():
+    """A new service is a decision about who reaches it, so it is placed in `SERVICE_NETWORKS` rather than admitted by default."""
+    found = checker.networks(model(**SPLIT, worker=joined(APP)), "p")
+
+    assert len(found) == 1
+    assert "worker is on no list" in found[0].detail
+
+
+def test_networks_that_are_no_mapping_refuse():
+    with pytest.raises(ValueError, match="not its rendered model"):
+        checker.networks(model(frontend={"networks": [APP]}), "p")
+
+
+def test_main_judges_the_networks_of_both_models():
+    """A frontend joining the edge network, in either model, fails the run."""
+    project = new_root("fl-compose-main-networks-")
+    for broken in ("production", "local"):
+        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
+        local = rendered_stack(project, "nginx/local")
+        ({"production": production, "local": local}[broken])["services"]["frontend"] |= joined(EDGE, APP)
+
+        code, said = run_main(production, local, project)
+
+        assert code == 1, said
+        assert f"{broken}: frontend joins" in said, said

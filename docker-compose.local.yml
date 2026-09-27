@@ -97,8 +97,9 @@ services:
       # What `./scripts/ops/local.sh --seed` restores from. Read-only: the restore reads this directory
       # and nothing inside the container writes it.
       - ./.local-db/dump:/dump:ro
+    # The application pair's network, which nginx shares and nothing reaching the edge does.
     networks:
-      - frankfurtleague-net
+      - frankfurtleague-app
     # docker-compose.yml's `x-logging`, spelled out: a YAML anchor does not reach across files.
     logging:
       driver: "json-file"

@@ -5,8 +5,8 @@
 # that, because a server that builds is a server that can fail a build with the site down.
 #
 # Invariants:
-# - The host publishes NOTHING. Every service is reachable only from inside `frankfurtleague-net`,
-#   the connector included, so anything nginx does not route does not exist for the internet. A
+# - The host publishes NOTHING. Every service is reachable only over the stack's own networks, the
+#   connector included, so anything nginx does not route does not exist for the internet. A
 #   `ports:` entry anywhere removes that silently (`docs/ops/spec.md :: I1`).
 # - One package per service; the two images are never merged into one (`.claude/CLAUDE.md` §7, images).
 # - The base of the local stack too: `./scripts/ops/local.sh` merges docker-compose.local.yml over
@@ -37,7 +37,7 @@ services:
     image: ghcr.io/felzab/frankfurtleague-frontend:latest
     restart: unless-stopped
     networks:
-      - frankfurtleague-net
+      - frankfurtleague-app
     logging: *default-logging
     # The container needs no elevated capability at any point: it serves HTTP as a non-root user.
     security_opt:
@@ -78,7 +78,7 @@ services:
     image: ghcr.io/felzab/frankfurtleague-backend:latest
     restart: unless-stopped
     networks:
-      - frankfurtleague-net
+      - frankfurtleague-app
     logging: *default-logging
     security_opt:
       - no-new-privileges:true
@@ -135,8 +135,11 @@ services:
       - ./nginx/shared:/etc/nginx/shared:ro
       - ./certs:/etc/nginx/certs:ro
       - /var/log/frankfurtleague/nginx:/var/log/frankfurtleague/nginx
+    # The one service on both: it takes the connector's requests on the first and proxies them on
+    # the second.
     networks:
       - frankfurtleague-net
+      - frankfurtleague-app
     logging: *default-logging
     # `service_healthy`, not just `service_started`: an nginx starting from nothing must not accept
     # traffic before both upstreams answer. A deploy does not pass through here, recreating the
@@ -194,9 +197,12 @@ secrets:
   tunnel_token:
     file: ./secrets/tunnel_token
 
-# A single user-defined bridge. Containers resolve each other by service name -- `http://backend:8000`
-# and `http://frontend:3000` in nginx/prod/prod.conf are these names, not hosts.
+# Two user-defined bridges, joined by nginx alone (`docs/ops/spec.md :: I462`). Containers resolve each
+# other by service name on a network they share -- `http://backend:8000` and `http://frontend:3000` in
+# nginx/shared/site.conf are these names, not hosts.
 networks:
+  # The connector's and nginx's. Its name is the one a running stack already has: a network renamed
+  # under the same subnet fails the deploy's `up` with `Pool overlaps` while the old one holds it.
   frankfurtleague-net:
     driver: bridge
     # Declared rather than left to the daemon: `nginx/shared/http.conf :: set_real_ip_from` trusts the
@@ -205,3 +211,7 @@ networks:
     ipam:
       config:
         - subnet: 172.30.0.0/24
+  # nginx's and the application pair's. Its subnet is the daemon's to pick: nothing trusts an address
+  # on it.
+  frankfurtleague-app:
+    driver: bridge
