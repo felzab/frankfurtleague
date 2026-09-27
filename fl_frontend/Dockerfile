@@ -36,7 +36,11 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml* ./
 COPY patches ./patches
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm fetch
 COPY package.json ./
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --offline
+
+# `--no-runtime`: the image's own node is the runtime, so the Node `devEngines` pins for a checkout
+# is not linked ahead of it. `pnpm fetch` above still downloads that Node into the store cache, and
+# ignores the flag.
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --offline --no-runtime
 
 # FROM deps, never `COPY --from=deps` of node_modules: a second transfer on a cold build, and a
 # second copy in what `mode=max` exports.

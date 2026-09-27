@@ -5,8 +5,8 @@
   "devEngines": {
     "runtime": {
       "name": "node",
-      "version": "26.x",
-      "onFail": "error"
+      "version": "26.10.0",
+      "onFail": "download"
     }
   },
   "engines": {
