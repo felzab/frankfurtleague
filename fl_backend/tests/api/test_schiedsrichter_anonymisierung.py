@@ -34,6 +34,7 @@ from app.api.schiedsrichter.services import (
     find_ghost_erasure_refusal,
     first_stamped,
 )
+from app.api.sperrliste.lookup import BanList
 from app.api.spiele.schemas import (
     SONDEREREIGNIS_WITHOUT_A_RESULT,
     FLPatchSpielDataPayload,
@@ -381,10 +382,8 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        saisons_collection=database[Collection.SAISONS],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=client,
-        config=CONFIG,
         today=TODAY,
         actor=FRESH_ADMIN_ACTOR,
     )
@@ -445,10 +444,8 @@ async def call_reactivation(database: AsyncDatabase, client: AsyncMongoClient, s
     return await reactivate_schiedsrichter(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        saisons_collection=database[Collection.SAISONS],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=client,
-        config=CONFIG,
         today=TODAY,
         actor=FRESH_ADMIN_ACTOR,
     )
@@ -706,10 +703,8 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
                     ),
                     schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
                     spiele_collection=database[Collection.SPIELE],
-                    sperrliste_collection=database[Collection.SPERRLISTE],
-                    saisons_collection=database[Collection.SAISONS],
+                    sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
                     db=client,
-                    config=CONFIG,
                     today=TODAY,
                     actor=FRESH_ADMIN_ACTOR,
                 )

@@ -9,15 +9,13 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
-from pydantic import SecretStr
 from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.schemas import FLVerwaltung
 from app.api.berechtigungen.services import lebendige_adresse
-from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import gesperrte_adressen
+from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_from_db
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -72,9 +70,7 @@ async def holds_a_live_unbarred_grant(
     identifier: str,
     *,
     berechtigungen_collection: AsyncCollection,
-    sperrliste_collection: AsyncCollection,
-    saisons_collection: AsyncCollection,
-    schluessel: SecretStr,
+    sperrliste: BanList,
 ) -> bool:
     """The actor check's question: one equality on the grants, then one on the ban list by the identifier's hash.
 
@@ -86,12 +82,7 @@ async def holds_a_live_unbarred_grant(
     if not found or lebendige_adresse(found[0]) is None:
         return False
 
-    return not await gesperrte_adressen(
-        [identifier],
-        sperrliste_collection=sperrliste_collection,
-        schluessel=schluessel,
-        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection),
-    )
+    return not await adressen_gesperrt(sperrliste, [identifier])
 
 
 async def withhold_in_the_outbox(*, berechtigungen_postausgang_collection: AsyncCollection, adresse: str, session: AsyncClientSession) -> None:

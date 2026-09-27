@@ -17,6 +17,7 @@ from pymongo.errors import DuplicateKeyError
 
 from app.api.saisons.admin_router import activate_saison
 from app.api.sperrliste.admin_router import post_sperrliste_eintrag
+from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.core.collections import Collection
@@ -111,6 +112,9 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, saisons: Any
         created = await post_sperrliste_eintrag(
             sperrliste_data=FLPostSperrlistePayload(email=BANNED, grund=GRUND),
             sperrliste_collection=database[Collection.SPERRLISTE],
+            sperrliste=BanList(
+                database[Collection.SPERRLISTE], saisons if saisons is not None else database[Collection.SAISONS], CONFIG.sperrliste_schluessel
+            ),
             saisons_collection=saisons if saisons is not None else database[Collection.SAISONS],
             berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],

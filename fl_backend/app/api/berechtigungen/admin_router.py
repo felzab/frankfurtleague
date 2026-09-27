@@ -31,20 +31,16 @@ from app.api.berechtigungen.services import (
     lebendige,
     lebendige_adresse,
     stand_of,
-    withheld_actor,
 )
-from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import address_is_gesperrt, gesperrte_adressen
-from app.api.sperrliste.services import adresse_hash
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
+from app.api.sperrliste.services import withheld_actor
+from app.core.config import API_VERSION
 from app.core.crud import delete_many_from_db, erase_many_from_db, patch_one_in_db, post_one_to_db, pull_many_from_db, refuse
 from app.core.dependencies import (
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
     BerechtigungenPostausgangCollection,
     DBClient,
-    SaisonsCollection,
-    SperrlisteCollection,
     get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
@@ -66,9 +62,7 @@ ADMINISTRATION = "administration"
 @router.get("", response_model=FLBerechtigungenListResponse, summary="List who may enter the administration")
 async def get_berechtigungen(
     berechtigungen_collection: BerechtigungenCollection,
-    sperrliste_collection: SperrlisteCollection,
-    saisons_collection: SaisonsCollection,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
+    sperrliste: SperrlisteLookup,
 ) -> FLBerechtigungenListResponse:
     """
     List every live grant of access to the administration, by address: its tier, who granted it and when.
@@ -82,11 +76,8 @@ async def get_berechtigungen(
     rows = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection)
     live = lebendige(rows)
     grants = [FLBerechtigung.model_validate(row) for row in live]
-    barred = await gesperrte_adressen(
-        [grant.adresse for grant in grants] + [sign_in_identifier(grant.erteilt_von) for grant in grants],
-        sperrliste_collection=sperrliste_collection,
-        schluessel=config.sperrliste_schluessel,
-        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection),
+    barred = await adressen_gesperrt(
+        sperrliste, [grant.adresse for grant in grants] + [sign_in_identifier(grant.erteilt_von) for grant in grants]
     )
 
     served = []
@@ -121,10 +112,8 @@ async def post_berechtigung(
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
-    sperrliste_collection: SperrlisteCollection,
-    saisons_collection: SaisonsCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     erteilt_von: str = Depends(get_actor_email),
     now: datetime = Depends(get_germany_now),
 ) -> FLPostBerechtigungResponse:
@@ -142,7 +131,7 @@ async def post_berechtigung(
     adresse = sign_in_identifier(str(berechtigung_data.email))
     akteur = sign_in_identifier(erteilt_von)
     # Keyed from the payload's own value, as the ban write keys it (`app/api/identitaet/router.py :: get_subjekt`).
-    gehasht = adresse_hash(str(berechtigung_data.email), schluessel=config.sperrliste_schluessel)
+    gehasht = sperrliste.hash_of(str(berechtigung_data.email))
 
     async def judge_and_grant(session: AsyncClientSession) -> InsertOneResult:
         """Anchor and read the list, ask the ban list, then write the grant, its announced row and its outbox row, on one transaction."""
@@ -151,12 +140,7 @@ async def post_berechtigung(
         refuse(find_ohne_zugang_refusal(akteur=akteur, grants=grants))
         refuse(find_vorhanden_refusal(adresse=adresse, grants=grants))
 
-        gesperrt = await address_is_gesperrt(
-            sperrliste_collection=sperrliste_collection,
-            adresse_hash=gehasht,
-            massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection=saisons_collection, session=session),
-            session=session,
-        )
+        gesperrt = await hash_gesperrt(sperrliste, gehasht, session=session)
         refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
         document: dict[str, Any] = {
@@ -206,10 +190,8 @@ async def delete_berechtigung(
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
-    sperrliste_collection: SperrlisteCollection,
-    saisons_collection: SaisonsCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     entzogen_von: str = Depends(get_actor_email),
     now: datetime = Depends(get_germany_now),
 ) -> FLBerechtigungWriteResponse:
@@ -240,13 +222,7 @@ async def delete_berechtigung(
         refuse(find_inhaber_refusal(grant=grant))
 
         live = lebendige(grants)
-        barred = await gesperrte_adressen(
-            [str(row["adresse"]) for row in live],
-            sperrliste_collection=sperrliste_collection,
-            schluessel=config.sperrliste_schluessel,
-            massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection, session=session),
-            session=session,
-        )
+        barred = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in live], session=session)
         remaining = [row for row in live if row["_id"] != berechtigung_id and row["adresse"] not in barred]
         refuse(find_mindestzahl_refusal(remaining=len(remaining)))
 
@@ -306,10 +282,8 @@ async def patch_berechtigung(
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
-    sperrliste_collection: SperrlisteCollection,
-    saisons_collection: SaisonsCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     geaendert_von: str = Depends(get_actor_email),
     now: datetime = Depends(get_germany_now),
 ) -> FLBerechtigungWriteResponse:
@@ -347,13 +321,7 @@ async def patch_berechtigung(
         # Rereads this snapshot's rows and writes each, so a rival judging the list conflicts (`docs/backend/spec.md :: I438`).
         await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
 
-        barred = await gesperrte_adressen(
-            [str(row["adresse"]) for row in live],
-            sperrliste_collection=sperrliste_collection,
-            schluessel=config.sperrliste_schluessel,
-            massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection, session=session),
-            session=session,
-        )
+        barred = await adressen_gesperrt(sperrliste, [str(row["adresse"]) for row in live], session=session)
         if verwaltung == OWNER:
             refuse(find_gesperrt_refusal(gesperrt=grant["adresse"] in barred))
         else:

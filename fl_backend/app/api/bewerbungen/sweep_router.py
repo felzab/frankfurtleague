@@ -44,10 +44,9 @@ from app.api.bewerbungen.services import (
     vorname_of,
 )
 from app.api.saisons.cache import dropping_the_saison_cache
-from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import gesperrte_adressen
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.collections import Collection
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.config import API_VERSION
 from app.core.crud import erase_many_from_db, patch_many_in_db, patch_one_in_db, pull_many_from_db, pull_one_from_db
 from app.core.dependencies import (
     AktionenCollection,
@@ -55,7 +54,6 @@ from app.core.dependencies import (
     DBClient,
     SaisonsCollection,
     SaisonTeamsCollection,
-    SperrlisteCollection,
     TeamsCollection,
     get_german_date_str,
     get_germany_now,
@@ -164,9 +162,8 @@ async def sweep_saison(
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
     aktionen_collection: AktionenCollection,
-    sperrliste_collection: SperrlisteCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungSweepResponse:
@@ -213,7 +210,7 @@ async def sweep_saison(
     stamp = log_stamp(germany_now)
     # Outside the reminder's transaction, whose callback may run again, as the correction reads it
     # (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection)
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def stamp_the_run(session: AsyncClientSession) -> None:
         """One fan-out over every season today has not reached, inside the pass's LAST transaction, so a stamped day is a committed call."""
@@ -292,10 +289,9 @@ async def sweep_saison(
         ]
         # Asked over the whole page before the share is cut: nothing of a ban is stored, so a barred row
         # stays due, and a share cut first would fill with the same barred rows on every pass.
-        gesperrt = await gesperrte_adressen(
+        gesperrt = await adressen_gesperrt(
+            sperrliste,
             [email for _, mailboxes in per_row for email, _ in mailboxes],
-            sperrliste_collection=sperrliste_collection,
-            schluessel=config.sperrliste_schluessel,
             massgebliche_saison_id=massgebliche_saison_id,
             session=session,
         )

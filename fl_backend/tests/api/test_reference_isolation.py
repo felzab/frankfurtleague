@@ -30,6 +30,7 @@ from app.api.bewerbungen.schemas import FLAnnehmenBewerbungPayload
 from app.api.schiedsrichter.admin_router import anonymise_schiedsrichter, delete_schiedsrichter, patch_schiedsrichter
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload
 from app.api.schiedsrichter.services import REFEREE_STILL_ASSIGNED
+from app.api.sperrliste.lookup import BanList
 from app.api.spiele.admin_router import patch_spiel_data, patch_spiele_paarungen
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLPatchSpielePaarungenPayload, unplayed_filter
 from app.api.spiele.services import BOOKING_UNKNOWN_RESOURCE, FIXTURE_DOUBLE_BOOKED
@@ -403,10 +404,8 @@ async def rename_the_referee(client: AsyncMongoClient, handles: Mapping[Collecti
         ),
         schiedsrichter_collection=handles[Collection.SCHIEDSRICHTER],
         spiele_collection=handles[Collection.SPIELE],
-        sperrliste_collection=handles[Collection.SPERRLISTE],
-        saisons_collection=handles[Collection.SAISONS],
+        sperrliste=BanList(handles[Collection.SPERRLISTE], handles[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=client,
-        config=CONFIG,
         today=TODAY,
         actor=FRESH_ADMIN_ACTOR,
     )

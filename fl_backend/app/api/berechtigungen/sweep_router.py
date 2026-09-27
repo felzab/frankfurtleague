@@ -27,19 +27,16 @@ from app.api.berechtigungen.services import (
     compose_postausgang,
     lebendige,
     withheld,
-    withheld_actor,
 )
-from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import gesperrte_adressen
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.api.sperrliste.services import withheld_actor
+from app.core.config import API_VERSION
 from app.core.crud import erase_many_from_db, patch_many_in_db, post_many_to_db, pull_many_from_db
 from app.core.dependencies import (
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
     BerechtigungenPostausgangCollection,
     DBClient,
-    SaisonsCollection,
-    SperrlisteCollection,
     get_germany_now,
 )
 from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
@@ -64,10 +61,8 @@ async def post_berechtigungen_abgleich(
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
-    sperrliste_collection: SperrlisteCollection,
-    saisons_collection: SaisonsCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     now: datetime = Depends(get_germany_now),
 ) -> FLBerechtigungAbgleichResponse:
     """
@@ -107,14 +102,8 @@ async def post_berechtigungen_abgleich(
         stored = {str(row["adresse"]) for row in live} | {
             stand.adresse for _, _, jetzt, vorher in changes for stand in (jetzt, vorher) if stand is not None and stand.adresse is not None
         }
-        massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection, session=session)
-        barred = await gesperrte_adressen(
-            stored,
-            sperrliste_collection=sperrliste_collection,
-            schluessel=config.sperrliste_schluessel,
-            massgebliche_saison_id=massgebliche_saison_id,
-            session=session,
-        )
+        massgebliche_saison_id = await sperrliste_saison(sperrliste, session=session)
+        barred = await adressen_gesperrt(sperrliste, stored, massgebliche_saison_id=massgebliche_saison_id, session=session)
 
         if changes:
             await post_many_to_db(
@@ -165,12 +154,8 @@ async def post_berechtigungen_abgleich(
             for stand in (row.get("jetzt"), row.get("vorher"))
             if stand is not None and (adresse := stand.get("adresse")) is not None
         } | {str(row["geaendert_von"]) for row in claimable if row.get("geaendert_von") is not None}
-        barred |= await gesperrte_adressen(
-            claimed_addresses - stored,
-            sperrliste_collection=sperrliste_collection,
-            schluessel=config.sperrliste_schluessel,
-            massgebliche_saison_id=massgebliche_saison_id,
-            session=session,
+        barred |= await adressen_gesperrt(
+            sperrliste, claimed_addresses - stored, massgebliche_saison_id=massgebliche_saison_id, session=session
         )
 
         answered = [_answered(row, barred) for row in claimable]

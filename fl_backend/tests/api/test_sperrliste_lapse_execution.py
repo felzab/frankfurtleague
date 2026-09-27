@@ -19,6 +19,7 @@ from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.admin_router import get_sperrliste, post_sperrliste_eintrag
 from app.api.sperrliste.crud import address_is_gesperrt
+from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import SPERRLISTE_KEINE_SAISON, SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.core.collections import Collection
@@ -101,7 +102,8 @@ async def listed(database: AsyncDatabase) -> Any:
     """The list read with its two dependencies: the season the ban list compares against, and the key."""
 
     return await get_sperrliste(
-        sperrliste_collection=database[Collection.SPERRLISTE], saisons_collection=database[Collection.SAISONS], config=CONFIG
+        sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
     )
 
 
@@ -109,6 +111,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str =
     return await post_sperrliste_eintrag(
         sperrliste_data=FLPostSperrlistePayload(email=email, grund=GRUND),
         sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         saisons_collection=database[Collection.SAISONS],
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],

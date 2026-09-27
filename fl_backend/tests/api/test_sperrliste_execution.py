@@ -12,6 +12,7 @@ from pymongo.errors import DuplicateKeyError
 
 from app.api.sperrliste.admin_router import delete_sperrliste_eintrag, get_sperrliste, post_sperrliste_eintrag
 from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
+from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_SCHLUESSEL_VERSION, SPERRLISTE_VERWALTUNG, adresse_hash
 from app.api.spieler.admin_router import delete_spieler, erase_spieler
@@ -79,7 +80,8 @@ async def listed(database: AsyncDatabase) -> Any:
     """The list read with its two dependencies: the season the ban list compares against, and the key."""
 
     return await get_sperrliste(
-        sperrliste_collection=database[Collection.SPERRLISTE], saisons_collection=database[Collection.SAISONS], config=CONFIG
+        sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
     )
 
 
@@ -87,6 +89,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str =
     return await post_sperrliste_eintrag(
         sperrliste_data=FLPostSperrlistePayload(email=email, grund=grund),
         sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         saisons_collection=database[Collection.SAISONS],
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],

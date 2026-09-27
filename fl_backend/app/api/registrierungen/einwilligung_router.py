@@ -28,15 +28,12 @@ from app.api.registrierungen.services import (
     sole_person,
     zustand_of,
 )
-from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import gesperrte_adressen
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
+from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     DBClient,
     RegistrierungenCollection,
-    SaisonsCollection,
-    SperrlisteCollection,
     SpielerCollection,
     TeamsCollection,
     get_german_date_str,
@@ -71,9 +68,7 @@ async def get_bestaetigung_ansicht(
     registrierungen_collection: RegistrierungenCollection,
     teams_collection: TeamsCollection,
     spieler_collection: SpielerCollection,
-    saisons_collection: SaisonsCollection,
-    sperrliste_collection: SperrlisteCollection,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
+    sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLRegistrierungBestaetigungAnsichtResponse:
     """
@@ -125,12 +120,7 @@ async def get_bestaetigung_ansicht(
     shown_back = answers_shown_back(registrierung_raw=raw, spieler_raw=sole_person(named))
     einwilligung = shown_back.get("einwilligung") or {}
 
-    gesperrt = await gesperrte_adressen(
-        [str(raw.get("email") or "")],
-        sperrliste_collection=sperrliste_collection,
-        schluessel=config.sperrliste_schluessel,
-        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection=saisons_collection),
-    )
+    gesperrt = await adressen_gesperrt(sperrliste, [str(raw.get("email") or "")])
 
     return FLRegistrierungBestaetigungAnsichtResponse(
         zustand=zustand_of(registrierung_raw=raw, today=today, gesperrt=bool(gesperrt)),
@@ -156,10 +146,8 @@ async def get_bestaetigung_ansicht(
 async def post_bestaetigung(
     antwort_data: Annotated[FLRegistrierungBestaetigungPayload, Body()],
     registrierungen_collection: RegistrierungenCollection,
-    saisons_collection: SaisonsCollection,
-    sperrliste_collection: SperrlisteCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
 ) -> FLRegistrierungBestaetigungResponse:
     """
@@ -181,7 +169,7 @@ async def post_bestaetigung(
 
     token_hash = hash_token(antwort_data.token)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection=saisons_collection)
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def answer_for_the_pupil(session: AsyncClientSession) -> FLRegistrierungBestaetigungResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it.
@@ -200,12 +188,8 @@ async def post_bestaetigung(
         refuse(find_already_confirmed_refusal(einwilligung=raw.get("einwilligung")))
         # Asked at the press rather than only at the mint: a ban entered after the link went out
         # stops it here, and one lifted while it runs lets it answer again.
-        gesperrt = await gesperrte_adressen(
-            [str(raw.get("email") or "")],
-            sperrliste_collection=sperrliste_collection,
-            schluessel=config.sperrliste_schluessel,
-            massgebliche_saison_id=massgebliche_saison_id,
-            session=session,
+        gesperrt = await adressen_gesperrt(
+            sperrliste, [str(raw.get("email") or "")], massgebliche_saison_id=massgebliche_saison_id, session=session
         )
         refuse(find_bestaetigung_gesperrt_refusal(gesperrt=bool(gesperrt)))
         refuse(find_alter_refusal(geburtsdatum=antwort_data.geburtsdatum, today=today))

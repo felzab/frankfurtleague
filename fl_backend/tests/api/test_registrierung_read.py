@@ -7,6 +7,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 
 from app.api.registrierungen.router import get_registrierungen
 from app.api.registrierungen.schemas import FLRegistrierungenFilterParams
+from app.api.sperrliste.lookup import BanList
 from app.core.collections import Collection
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
@@ -102,9 +103,7 @@ def on_a_league(url: str, body: Body) -> Any:
 async def read(database: AsyncDatabase, **filters: Any) -> Any:
     return await get_registrierungen(
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        saisons_collection=database[Collection.SAISONS],
-        config=build_test_config(),
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
         filters=FLRegistrierungenFilterParams.model_validate(filters),
     )
 

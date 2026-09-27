@@ -10,10 +10,6 @@ from collections.abc import Collection, Iterable, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, Final
 
-from app.api.berechtigungen.services import withheld_actor
-
-# The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
-# month and read a provider's verdict the same way, and a second spelling would drift from it.
 from app.api.bewerbungen.services import (
     ZUSTELLUNG_ABGEWIESEN,
     days_after,
@@ -28,6 +24,10 @@ from app.api.bewerbungen.services import (
 # cannot disagree.
 from app.api.einladungen.services import registrierungsfenster_laeuft
 from app.api.registrierungen.schemas import FLRegistrierungBestaetigungZustand, FLRegistrierungEntscheidung
+
+# The application sweep's own date arithmetic and its refusal vocabulary: the two flows count a
+# month and read a provider's verdict the same way, and a second spelling would drift from it.
+from app.api.sperrliste.services import withheld_actor
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal
 from app.shared.alter import whole_years_between

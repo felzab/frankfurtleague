@@ -3,7 +3,6 @@ from collections.abc import Mapping, Sequence
 from typing import Annotated, Any, get_args
 
 from fastapi import APIRouter, Depends, Query
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.schemas import (
     FLBewerbung,
@@ -24,11 +23,10 @@ from app.api.bewerbungen.services import (
     entscheider_adressen,
     mit_vorenthaltener_entscheidung,
 )
-from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import gesperrte_adressen
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
+from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, pull_many_from_db, pull_one_from_db
-from app.core.dependencies import BewerbungenCollection, SaisonsCollection, SperrlisteCollection
+from app.core.dependencies import BewerbungenCollection
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
@@ -50,14 +48,11 @@ FLBewerbungenFilters = Annotated[FLBewerbungenFilterParams, Query()]
 
 
 async def _as_served(
-    rows: Sequence[Mapping[str, Any]], *, sperrliste_collection: AsyncCollection, saisons_collection: AsyncCollection, config: BackendConfig
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    sperrliste: BanList,
 ) -> list[dict[str, Any]]:
-    barred = await gesperrte_adressen(
-        entscheider_adressen(rows),
-        sperrliste_collection=sperrliste_collection,
-        schluessel=config.sperrliste_schluessel,
-        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection),
-    )
+    barred = await adressen_gesperrt(sperrliste, entscheider_adressen(rows))
 
     return [mit_vorenthaltener_entscheidung(row, barred) for row in rows]
 
@@ -65,9 +60,7 @@ async def _as_served(
 @router.get("", response_model=FLBewerbungenListResponse, summary="List Bewerbungen")
 async def get_bewerbungen(
     bewerbungen_collection: BewerbungenCollection,
-    sperrliste_collection: SperrlisteCollection,
-    saisons_collection: SaisonsCollection,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
+    sperrliste: SperrlisteLookup,
     filters: FLBewerbungenFilters,
 ) -> FLBewerbungenListResponse:
     """
@@ -135,9 +128,7 @@ async def get_bewerbungen(
     # would hand whoever writes them the power to 500 this page. Answering short leaves the
     # administrator a usable list, and `vollstaendig` reports the cut.
     return FLBewerbungenListResponse(
-        bewerbungen=FLBewerbungListAdapter.validate_python(
-            await _as_served(served, sperrliste_collection=sperrliste_collection, saisons_collection=saisons_collection, config=config)
-        ),
+        bewerbungen=FLBewerbungListAdapter.validate_python(await _as_served(served, sperrliste=sperrliste)),
         vollstaendig=len(read) <= filters.limit,
         anzahl_je_status=dict(zip(get_args(FLBewerbungStatus), counted, strict=True)),
         anzahl_je_saisonbezug=dict(zip(saisonbezug_terms, bezogen, strict=True)),
@@ -151,15 +142,11 @@ async def get_bewerbungen(
 async def get_bewerbung_by_id(
     bewerbung_id: CustomRouteObjectId,
     bewerbungen_collection: BewerbungenCollection,
-    sperrliste_collection: SperrlisteCollection,
-    saisons_collection: SaisonsCollection,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
+    sperrliste: SperrlisteLookup,
 ) -> FLBewerbungSingleResponse:
     """One application in full, which is what the triage decides against; its decision's administrator is withheld as the list withholds it."""
 
     bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter={"_id": bewerbung_id}, projection=WITHOUT_TOKEN_HASHES)
-    [served] = await _as_served(
-        [bewerbung_raw], sperrliste_collection=sperrliste_collection, saisons_collection=saisons_collection, config=config
-    )
+    [served] = await _as_served([bewerbung_raw], sperrliste=sperrliste)
 
     return FLBewerbungSingleResponse(bewerbung=FLBewerbung(**served))

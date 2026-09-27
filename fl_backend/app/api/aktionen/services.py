@@ -2,7 +2,7 @@ from collections.abc import Collection, Iterable, Mapping
 from typing import Any
 
 from app.api.aktionen.schemas import FLAktorAdapter, FLAktorMitAdresse
-from app.api.berechtigungen.services import withheld_actor
+from app.api.sperrliste.services import withheld_actor
 from app.core.crud import build_sort
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import parse_object_id

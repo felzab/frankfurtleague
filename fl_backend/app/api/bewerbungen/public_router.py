@@ -42,17 +42,14 @@ from app.api.bewerbungen.services import (
     saison_nimmt_bewerbungen_an,
     season_has_ended,
 )
-from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import gesperrte_hashes
-from app.api.sperrliste.services import adresse_hash
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.api.sperrliste.lookup import BanList, SperrlisteLookup, hashes_gesperrt, sperrliste_saison
+from app.core.config import API_VERSION
 from app.core.crud import patch_one_in_db, post_one_to_db, pull_many_from_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
     SaisonsCollection,
     SaisonTeamsCollection,
-    SperrlisteCollection,
     TeamsCollection,
     get_german_date_str,
 )
@@ -260,21 +257,17 @@ async def get_trikotfarben(
 
 
 async def _any_gesperrt(
-    *, sperrliste_collection: AsyncCollection, gehasht: Sequence[str], massgebliche_saison_id: str | None, session: AsyncClientSession
+    *, sperrliste: BanList, gehasht: Sequence[str], massgebliche_saison_id: str | None, session: AsyncClientSession
 ) -> bool:
     """Whether the ban list holds any of the seats' addresses, asked in the caller's transaction in one read."""
 
-    return bool(
-        await gesperrte_hashes(
-            sperrliste_collection=sperrliste_collection, adresse_hashes=gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session
-        )
-    )
+    return bool(await hashes_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session))
 
 
 async def _answer_as_the_first(
     *,
     bewerbungen_collection: AsyncCollection,
-    sperrliste_collection: AsyncCollection,
+    sperrliste: BanList,
     stored: Mapping[str, Any],
     fingerabdruck: str,
     gehasht: Sequence[str],
@@ -289,9 +282,7 @@ async def _answer_as_the_first(
     # Before the mint below, as the first press asks it before its own, or a ban entered since is
     # answered with fresh links. The fingerprint just matched, so `gehasht` keys the stored addresses
     # (`docs/backend/spec.md :: I414`).
-    gesperrt = await _any_gesperrt(
-        sperrliste_collection=sperrliste_collection, gehasht=gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session
-    )
+    gesperrt = await _any_gesperrt(sperrliste=sperrliste, gehasht=gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
     refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
     tokens: FLBewerbungBestaetigungTokens | None = None
@@ -338,9 +329,8 @@ async def post_bewerbung(
     saisons_collection: SaisonsCollection,
     teams_collection: TeamsCollection,
     saison_teams_collection: SaisonTeamsCollection,
-    sperrliste_collection: SperrlisteCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     # Version 4 alone: a guessable key lets a stranger store other details under it first, and the
     # visitor's own press is then refused as a changed replay.
     # Optional, so a page loaded before the form sent one still submits, unprotected.
@@ -373,13 +363,10 @@ async def post_bewerbung(
     # per distinct address, the seat the Trainer also holds naming theirs twice.
     kontakte = bewerbung_data.kontakte
     gehasht = sorted(
-        {
-            adresse_hash(str(person.email), schluessel=config.sperrliste_schluessel)
-            for person in (kontakte.trainer, kontakte.ansprechperson, kontakte.stellvertretung)
-        }
+        {sperrliste.hash_of(str(person.email)) for person in (kontakte.trainer, kontakte.ansprechperson, kontakte.stellvertretung)}
     )
     # The REFERENCE season a ban is counted from, as the registration reads it.
-    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection)
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def store_or_replay(session: AsyncClientSession) -> FLPostBewerbungResponse:
         """The replay or the judged insert, in one transaction: either write is the request's only one (`docs/backend/spec.md :: I52`)."""
@@ -393,7 +380,7 @@ async def post_bewerbung(
         if stored is not None:
             return await _answer_as_the_first(
                 bewerbungen_collection=bewerbungen_collection,
-                sperrliste_collection=sperrliste_collection,
+                sperrliste=sperrliste,
                 stored=stored,
                 fingerabdruck=fingerabdruck,
                 gehasht=gehasht,
@@ -439,9 +426,7 @@ async def post_bewerbung(
 
         # Last, as the registration asks it: every other refusal names what the applicant can repair
         # themselves, and this one they are told neutrally.
-        gesperrt = await _any_gesperrt(
-            sperrliste_collection=sperrliste_collection, gehasht=gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session
-        )
+        gesperrt = await _any_gesperrt(sperrliste=sperrliste, gehasht=gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_gesperrt_refusal(gesperrt=gesperrt))
 
         # Minted here rather than in the document literal below, so the raw half reaches the response

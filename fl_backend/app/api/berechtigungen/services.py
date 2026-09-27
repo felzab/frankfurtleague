@@ -13,6 +13,7 @@ from typing import Any, Final
 from bson import ObjectId
 
 from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungStand
+from app.api.sperrliste.services import withheld_actor
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import is_stored_identifier, sign_in_identifier
 
@@ -224,15 +225,6 @@ def withheld(stand: FLBerechtigungStand | None, gesperrt: Collection[str]) -> FL
         return stand
 
     return stand.model_copy(update={"adresse": None})
-
-
-def withheld_actor(actor: str | None, gesperrt: Collection[str]) -> str | None:
-    """An actor field with a barred address withheld, compared on the fold the barred set holds (`docs/backend/spec.md :: I452`)."""
-
-    if actor is None or sign_in_identifier(actor) in gesperrt:
-        return None
-
-    return actor
 
 
 def compose_postausgang(

@@ -8,7 +8,6 @@ from typing import Any, Final, cast, get_args
 
 from pydantic import BaseModel, ValidationError
 
-from app.api.berechtigungen.services import withheld_actor
 from app.api.bewerbungen.schemas import (
     FLBewerbungEinwilligungZustand,
     FLBewerbungEntscheidung,
@@ -16,6 +15,7 @@ from app.api.bewerbungen.schemas import (
     FLKontaktRolle,
     refuse_age_outside_the_bounds,
 )
+from app.api.sperrliste.services import withheld_actor
 from app.api.teams.schemas import FLPostTeamPayload, FLTrikotFarbe
 from app.core.crud import build_sort
 from app.core.exceptions import WriteRefusal

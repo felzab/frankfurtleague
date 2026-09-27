@@ -33,17 +33,14 @@ from app.api.bewerbungen.services import (
     seat_vorname,
     zustand_of,
 )
-from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import gesperrte_adressen
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, sperrliste_saison
 from app.core.collections import Collection
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.config import API_VERSION
 from app.core.crud import patch_many_in_db, patch_one_in_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     AktionenCollection,
     BewerbungenCollection,
     DBClient,
-    SaisonsCollection,
-    SperrlisteCollection,
     TeamsCollection,
     get_german_date_str,
     get_germany_now,
@@ -84,9 +81,7 @@ async def get_einwilligung_ansicht(
     ansicht_data: Annotated[FLBewerbungEinwilligungAnsichtPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     teams_collection: TeamsCollection,
-    saisons_collection: SaisonsCollection,
-    sperrliste_collection: SperrlisteCollection,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
+    sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungEinwilligungAnsichtResponse:
     """
@@ -120,12 +115,7 @@ async def get_einwilligung_ansicht(
     zugleich = paired_seat(kontakte=bewerbung_raw.get("kontakte"), bestaetigungen=bewerbung_raw.get("bestaetigungen"), seat=seat)
     seats = (seat,) if zugleich is None else (seat, zugleich)
 
-    gesperrt = await gesperrte_adressen(
-        seat_adressen(kontakte=bewerbung_raw.get("kontakte"), seats=seats),
-        sperrliste_collection=sperrliste_collection,
-        schluessel=config.sperrliste_schluessel,
-        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection=saisons_collection),
-    )
+    gesperrt = await adressen_gesperrt(sperrliste, seat_adressen(kontakte=bewerbung_raw.get("kontakte"), seats=seats))
 
     return FLBewerbungEinwilligungAnsichtResponse(
         zustand=zustand_of(bewerbung_raw=bewerbung_raw, seat=seat, today=today, gesperrt=bool(gesperrt)),
@@ -149,10 +139,8 @@ async def post_einwilligung(
     antwort_data: Annotated[FLBewerbungEinwilligungAntwortPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
     aktionen_collection: AktionenCollection,
-    saisons_collection: SaisonsCollection,
-    sperrliste_collection: SperrlisteCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
     germany_now: datetime = Depends(get_germany_now),
 ) -> FLBewerbungEinwilligungAntwortResponse:
@@ -175,9 +163,7 @@ async def post_einwilligung(
     token_hash = hash_token(antwort_data.token)
     # Outside the transaction (`app/api/sperrliste/crud.py :: address_is_gesperrt`), and only for the
     # answer that asks the ban.
-    massgebliche_saison_id = (
-        await pull_massgebliche_saison_id(saisons_collection=saisons_collection) if antwort_data.antwort == "erteilt" else None
-    )
+    massgebliche_saison_id = await sperrliste_saison(sperrliste) if antwort_data.antwort == "erteilt" else None
 
     async def answer_for_the_person(session: AsyncClientSession) -> FLBewerbungEinwilligungAntwortResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it.
@@ -220,12 +206,8 @@ async def post_einwilligung(
 
             # Asked at the press rather than only at the mint, so a ban entered after the link went out
             # stops it here. Never of the decline below: a barred person asking to be removed is not refused.
-            gesperrt = await gesperrte_adressen(
-                seat_adressen(kontakte=kontakte, seats=seats),
-                sperrliste_collection=sperrliste_collection,
-                schluessel=config.sperrliste_schluessel,
-                massgebliche_saison_id=massgebliche_saison_id,
-                session=session,
+            gesperrt = await adressen_gesperrt(
+                sperrliste, seat_adressen(kontakte=kontakte, seats=seats), massgebliche_saison_id=massgebliche_saison_id, session=session
             )
             refuse(find_einwilligung_gesperrt_refusal(gesperrt=bool(gesperrt)))
             # Over BOTH seats, so a Trainer who also sits in one of the other two is judged as the

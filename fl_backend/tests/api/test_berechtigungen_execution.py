@@ -39,6 +39,7 @@ from app.api.berechtigungen.services import (
 )
 from app.api.berechtigungen.sweep_router import post_berechtigungen_abgleich, post_berechtigungen_angekuendigt
 from app.api.sperrliste.admin_router import delete_sperrliste_eintrag, post_sperrliste_eintrag
+from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, SPERRLISTE_VERWALTUNG, adresse_hash
 from app.core.collections import Collection
@@ -157,10 +158,8 @@ async def grant(
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
-            sperrliste_collection=database[Collection.SPERRLISTE],
-            saisons_collection=database[Collection.SAISONS],
+            sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
             db=client,
-            config=CONFIG,
             erteilt_von=als,
             now=NOW,
         )
@@ -177,10 +176,8 @@ async def revoke(
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
-            sperrliste_collection=database[Collection.SPERRLISTE],
-            saisons_collection=database[Collection.SAISONS],
+            sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
             db=client,
-            config=CONFIG,
             entzogen_von=als,
             now=NOW,
         )
@@ -200,10 +197,8 @@ async def change(
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
-            sperrliste_collection=database[Collection.SPERRLISTE],
-            saisons_collection=database[Collection.SAISONS],
+            sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
             db=client,
-            config=CONFIG,
             geaendert_von=als,
             now=NOW,
         )
@@ -226,6 +221,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, email: str = NE
         return await post_sperrliste_eintrag(
             sperrliste_data=FLPostSperrlistePayload(email=email, grund=GRUND),
             sperrliste_collection=database[Collection.SPERRLISTE],
+            sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
             saisons_collection=database[Collection.SAISONS],
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
@@ -285,10 +281,8 @@ async def claimed(
             berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
-            sperrliste_collection=database[Collection.SPERRLISTE],
-            saisons_collection=database[Collection.SAISONS],
+            sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
             db=client,
-            config=CONFIG,
             now=now,
         )
 
@@ -391,10 +385,8 @@ class TestTheOutboxMovesWithItsChange:
                     berechtigungen_postausgang_collection=cast(
                         AsyncCollection, Aborting(database[Collection.BERECHTIGUNGEN_POSTAUSGANG], "insert_one")
                     ),
-                    sperrliste_collection=database[Collection.SPERRLISTE],
-                    saisons_collection=database[Collection.SAISONS],
+                    sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
                     db=client,
-                    config=CONFIG,
                     erteilt_von=ANNA,
                     now=NOW,
                 )
@@ -421,10 +413,8 @@ class TestTheOutboxMovesWithItsChange:
                         AsyncCollection, Aborting(database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT], "delete_many")
                     ),
                     berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
-                    sperrliste_collection=database[Collection.SPERRLISTE],
-                    saisons_collection=database[Collection.SAISONS],
+                    sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
                     db=client,
-                    config=CONFIG,
                     entzogen_von=OWNER,
                     now=NOW,
                 )
@@ -448,9 +438,7 @@ class TestTheListServesLiveGrantsAlone:
             await database[Collection.SPERRLISTE].insert_one(a_ban_row(BERND))
             listed = await get_berechtigungen(
                 berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                sperrliste_collection=database[Collection.SPERRLISTE],
-                saisons_collection=database[Collection.SAISONS],
-                config=CONFIG,
+                sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
             )
 
             return [(row.adresse, row.gesperrt, row.verwaltung) for row in listed.berechtigungen], listed.uebersprungen
@@ -468,9 +456,7 @@ class TestTheListServesLiveGrantsAlone:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[str | None, str | None]]:
             listed = await get_berechtigungen(
                 berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                sperrliste_collection=database[Collection.SPERRLISTE],
-                saisons_collection=database[Collection.SAISONS],
-                config=CONFIG,
+                sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
             )
 
             return [(row.adresse, row.erteilt_von) for row in listed.berechtigungen]
@@ -493,9 +479,7 @@ class TestTheListServesLiveGrantsAlone:
             await database[Collection.SPERRLISTE].insert_one(a_ban_row(ANNA))
             listed = await get_berechtigungen(
                 berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-                sperrliste_collection=database[Collection.SPERRLISTE],
-                saisons_collection=database[Collection.SAISONS],
-                config=CONFIG,
+                sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
             )
 
             return [(row.adresse, row.erteilt_von, row.erteilt_von_gesperrt) for row in listed.berechtigungen]
@@ -1385,7 +1369,8 @@ class TestTheMountedRouteReadsTheGrants:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[bool]:
             holds_a_live_grant = get_grant_lookup(
-                database[Collection.BERECHTIGUNGEN], database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG
+                database[Collection.BERECHTIGUNGEN],
+                BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
             )
 
             return [await holds_a_live_grant(ANNA), await holds_a_live_grant("jürgen@frankfurtleague.de")]

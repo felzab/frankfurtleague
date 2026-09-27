@@ -6,7 +6,6 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.berechtigungen.services import withheld_actor
 from app.api.bewerbungen.services import mint_token
 from app.api.einladungen.schemas import FLEinladung, FLEinladungMintResponse, FLEinladungResponse, FLEinladungWriteResponse, FLEinladungZeile
 from app.api.einladungen.services import (
@@ -19,9 +18,10 @@ from app.api.einladungen.services import (
 )
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.cache import dropping_the_saison_cache
-from app.api.saisons.crud import pull_massgebliche_saison_id, pull_saison_id_and_rules
+from app.api.saisons.crud import pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.sperrliste.crud import gesperrte_adressen
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
+from app.api.sperrliste.services import withheld_actor
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.schemas import (
@@ -60,7 +60,7 @@ from app.api.teams.services import (
     has_taken_place,
 )
 from app.core.actor_token import ActorClaims
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
@@ -79,7 +79,6 @@ from app.core.dependencies import (
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
-    SperrlisteCollection,
     SpieleCollection,
     TeamsCollection,
     get_german_date_str,
@@ -888,8 +887,7 @@ async def get_einladung(
     saison_id: str,
     einladungen_collection: EinladungenCollection,
     saisons_collection: SaisonsCollection,
-    sperrliste_collection: SperrlisteCollection,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
+    sperrliste: SperrlisteLookup,
     today: str = Depends(get_german_date_str),
 ) -> FLEinladungResponse:
     """
@@ -919,12 +917,7 @@ async def get_einladung(
     if live:
         # As stored first, so a row the stored shape refuses fails here rather than being served withheld.
         erstellt_von = FLEinladung.model_validate(live[0]).erstellt_von
-        barred = await gesperrte_adressen(
-            [sign_in_identifier(erstellt_von)],
-            sperrliste_collection=sperrliste_collection,
-            schluessel=config.sperrliste_schluessel,
-            massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection),
-        )
+        barred = await adressen_gesperrt(sperrliste, [sign_in_identifier(erstellt_von)])
         withheld = withheld_actor(erstellt_von, barred)
         einladung = FLEinladungZeile.model_validate({**live[0], "erstellt_von": withheld, "erstellt_von_gesperrt": withheld is None})
 

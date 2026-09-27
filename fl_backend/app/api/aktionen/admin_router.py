@@ -4,7 +4,6 @@ from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Depends, Query
 from pymongo import ASCENDING
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.aktionen.schemas import (
     HERKUNFT_JE_KIND,
@@ -15,11 +14,10 @@ from app.api.aktionen.schemas import (
     FLAktionSingleResponse,
 )
 from app.api.aktionen.services import akteur_adressen, build_aktionen_sort, document_id_term, mit_vorenthaltenem_akteur
-from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import gesperrte_adressen
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
+from app.core.config import API_VERSION
 from app.core.crud import aggregate_many_from_db, build_query, pull_many_from_db, pull_one_from_db
-from app.core.dependencies import AktionenCollection, SaisonsCollection, SperrlisteCollection
+from app.core.dependencies import AktionenCollection
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
@@ -116,15 +114,8 @@ def _tally(cells: Sequence[Mapping[str, Any]], *, counted: str, held: Mapping[st
     return totals
 
 
-async def _as_served(
-    rows: Sequence[Mapping[str, Any]], *, sperrliste_collection: AsyncCollection, saisons_collection: AsyncCollection, config: BackendConfig
-) -> list[dict[str, Any]]:
-    barred = await gesperrte_adressen(
-        akteur_adressen(rows),
-        sperrliste_collection=sperrliste_collection,
-        schluessel=config.sperrliste_schluessel,
-        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection),
-    )
+async def _as_served(rows: Sequence[Mapping[str, Any]], *, sperrliste: BanList) -> list[dict[str, Any]]:
+    barred = await adressen_gesperrt(sperrliste, akteur_adressen(rows))
 
     return [mit_vorenthaltenem_akteur(row, barred) for row in rows]
 
@@ -132,9 +123,7 @@ async def _as_served(
 @router.get("", response_model=FLAktionenListResponse, summary="List recorded admin actions")
 async def get_aktionen(
     aktionen_collection: AktionenCollection,
-    sperrliste_collection: SperrlisteCollection,
-    saisons_collection: SaisonsCollection,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
+    sperrliste: SperrlisteLookup,
     filters: FLAktionenFilters,
 ) -> FLAktionenListResponse:
     """List what administrators changed, newest first; `vollstaendig` is false on a cut answer.
@@ -190,9 +179,7 @@ async def get_aktionen(
     cells = _facet_cells(grouped)
 
     return FLAktionenListResponse(
-        aktionen=FLAktionenListAdapter.validate_python(
-            await _as_served(served, sperrliste_collection=sperrliste_collection, saisons_collection=saisons_collection, config=config)
-        ),
+        aktionen=FLAktionenListAdapter.validate_python(await _as_served(served, sperrliste=sperrliste)),
         vollstaendig=len(read) <= filters.limit,
         anzahl_je_collection=_tally(cells, counted="collection", held={"operation": filters.operation, "herkunft": filters.herkunft}),
         anzahl_je_operation=_tally(cells, counted="operation", held={"collection": filters.collection, "herkunft": filters.herkunft}),
@@ -206,9 +193,7 @@ async def get_aktionen(
 async def get_aktion_by_id(
     aktion_id: CustomRouteObjectId,
     aktionen_collection: AktionenCollection,
-    sperrliste_collection: SperrlisteCollection,
-    saisons_collection: SaisonsCollection,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
+    sperrliste: SperrlisteLookup,
 ) -> FLAktionSingleResponse:
     """One row with the document its write replaced, which the list withholds.
 
@@ -217,6 +202,6 @@ async def get_aktion_by_id(
     """
 
     aktion_raw = await pull_one_from_db(collection=aktionen_collection, db_filter={"_id": aktion_id})
-    [served] = await _as_served([aktion_raw], sperrliste_collection=sperrliste_collection, saisons_collection=saisons_collection, config=config)
+    [served] = await _as_served([aktion_raw], sperrliste=sperrliste)
 
     return FLAktionSingleResponse(aktion=FLAktionMitStand(**served))

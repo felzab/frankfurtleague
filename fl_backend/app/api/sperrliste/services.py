@@ -7,14 +7,14 @@ spelling would file rows no check can match, and nothing would report it.
 
 import hashlib
 import hmac
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
 from http import HTTPStatus
 from typing import Final
 
 from pydantic import SecretStr
 
 from app.core.exceptions import WriteRefusal
-from app.shared.folding import canonical_address
+from app.shared.folding import canonical_address, sign_in_identifier
 from app.shared.schemas.bounds import SAISON_ID_LENGTH, SPERRE_DAUER_SAISONS
 from app.shared.sub_keys import derive_sub_key
 
@@ -44,6 +44,15 @@ def adresse_hash(address: str, *, schluessel: SecretStr) -> str:
     return hmac.new(
         derive_sub_key(schluessel, SPERRLISTE_SCHLUESSEL_VERSION), canonical_address(address).encode("utf-8"), hashlib.sha256
     ).hexdigest()
+
+
+def withheld_actor(actor: str | None, gesperrt: Collection[str]) -> str | None:
+    """An actor field with a barred address withheld, compared on the fold the barred set holds (`docs/backend/spec.md :: I452`)."""
+
+    if actor is None or sign_in_identifier(actor) in gesperrt:
+        return None
+
+    return actor
 
 
 def compose_gesperrt_bis_saison_id(*, massgebliche_saison_id: str) -> str:

@@ -11,8 +11,7 @@ from pydantic import SecretStr
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.crud import holds_a_live_unbarred_grant
-from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import gesperrte_adressen
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.actor_token import (
     ACTOR_TOKEN_MAX_LENGTH,
     COMPACT_JWS_PATTERN,
@@ -22,7 +21,7 @@ from app.core.actor_token import (
     verify_actor_token,
 )
 from app.core.config import BackendConfig, get_app_config
-from app.core.db import get_berechtigungen_collection, get_saisons_collection, get_sperrliste_collection
+from app.core.db import get_berechtigungen_collection
 from app.core.exception_handlers import refusal_response
 from app.core.exceptions import (
     ActorConfirmationRequiredException,
@@ -160,21 +159,12 @@ GrantLookup = Callable[[str], Awaitable[bool]]
 
 
 def get_grant_lookup(
-    berechtigungen_collection: Annotated[AsyncCollection, Depends(get_berechtigungen_collection)],
-    sperrliste_collection: Annotated[AsyncCollection, Depends(get_sperrliste_collection)],
-    saisons_collection: Annotated[AsyncCollection, Depends(get_saisons_collection)],
-    config: Annotated[BackendConfig, Depends(get_app_config)],
+    berechtigungen_collection: Annotated[AsyncCollection, Depends(get_berechtigungen_collection)], sperrliste: SperrlisteLookup
 ) -> GrantLookup:
     """The actor check's read: a live grant, and no ban on its address (`docs/backend/spec.md :: I453`, `:: I463`)."""
 
     async def holds_a_live_grant(identifier: str) -> bool:
-        return await holds_a_live_unbarred_grant(
-            identifier,
-            berechtigungen_collection=berechtigungen_collection,
-            sperrliste_collection=sperrliste_collection,
-            saisons_collection=saisons_collection,
-            schluessel=config.sperrliste_schluessel,
-        )
+        return await holds_a_live_unbarred_grant(identifier, berechtigungen_collection=berechtigungen_collection, sperrliste=sperrliste)
 
     return holds_a_live_grant
 
@@ -233,22 +223,11 @@ CONFIRMATION_REQUIRED_RESPONSE: Final = refusal_response(HTTPStatus.UNAUTHORIZED
 BanLookup = Callable[[str], Awaitable[bool]]
 
 
-def get_ban_lookup(
-    sperrliste_collection: Annotated[AsyncCollection, Depends(get_sperrliste_collection)],
-    saisons_collection: Annotated[AsyncCollection, Depends(get_saisons_collection)],
-    config: Annotated[BackendConfig, Depends(get_app_config)],
-) -> BanLookup:
+def get_ban_lookup(sperrliste: SperrlisteLookup) -> BanLookup:
     """The person check's read, keyed as the grant check keys its own ban read (`docs/backend/spec.md :: I463`)."""
 
     async def is_gesperrt(identifier: str) -> bool:
-        return bool(
-            await gesperrte_adressen(
-                [identifier],
-                sperrliste_collection=sperrliste_collection,
-                schluessel=config.sperrliste_schluessel,
-                massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection),
-            )
-        )
+        return bool(await adressen_gesperrt(sperrliste, [identifier]))
 
     return is_gesperrt
 

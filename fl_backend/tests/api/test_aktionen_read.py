@@ -13,6 +13,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.aktionen.admin_router import get_aktionen
 from app.api.aktionen.schemas import FLAktion, FLAktionenFilterParams, FLAktionenListAdapter, FLAktionMitStand
 from app.api.aktionen.services import akteur_adressen, mit_vorenthaltenem_akteur
+from app.api.sperrliste.lookup import BanList
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests.config import build_test_config
 
@@ -334,9 +335,9 @@ def run_list(log: _LogCollection, **filters: Any) -> Any:
     return asyncio.run(
         get_aktionen(
             aktionen_collection=cast(AsyncCollection, log),
-            sperrliste_collection=cast(AsyncCollection, _NothingStored()),
-            saisons_collection=cast(AsyncCollection, _NothingStored()),
-            config=build_test_config(),
+            sperrliste=BanList(
+                cast(AsyncCollection, _NothingStored()), cast(AsyncCollection, _NothingStored()), build_test_config().sperrliste_schluessel
+            ),
             filters=FLAktionenFilterParams.model_validate(filters),
         )
     )

@@ -5,16 +5,13 @@ from fastapi import APIRouter, Body, Depends
 from app.api.berechtigungen.crud import verwaltung_of
 from app.api.identitaet.crud import find_subjekt
 from app.api.identitaet.schemas import FLSubjektPayload, FLSubjektResponse
-from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import address_is_gesperrt
-from app.api.sperrliste.services import adresse_hash
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.api.sperrliste.lookup import SperrlisteLookup, hash_gesperrt
+from app.core.config import API_VERSION
 from app.core.dependencies import (
     BerechtigungenCollection,
     SaisonsCollection,
     SaisonTeamsCollection,
     SchiedsrichterCollection,
-    SperrlisteCollection,
     SpielerCollection,
 )
 from app.core.exception_handlers import stores_nothing
@@ -42,9 +39,8 @@ async def get_subjekt(
     saisons_collection: SaisonsCollection,
     spieler_collection: SpielerCollection,
     schiedsrichter_collection: SchiedsrichterCollection,
-    sperrliste_collection: SperrlisteCollection,
+    sperrliste: SperrlisteLookup,
     berechtigungen_collection: BerechtigungenCollection,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> FLSubjektResponse:
     """
     Answer which confirmed contact seats, pupil records and referee records the league holds for one mailbox.
@@ -101,11 +97,7 @@ async def get_subjekt(
 
     # Keyed from the payload's own value, as the ban write keys it: that payload type runs the rule
     # `canonical_address` runs, so an address the hash would refuse was answered 422 before here.
-    gesperrt = await address_is_gesperrt(
-        sperrliste_collection=sperrliste_collection,
-        adresse_hash=adresse_hash(str(subjekt_data.email), schluessel=config.sperrliste_schluessel),
-        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection=saisons_collection),
-    )
+    gesperrt = await hash_gesperrt(sperrliste, sperrliste.hash_of(str(subjekt_data.email)))
 
     verwaltung = await verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=sign_in_identifier(str(subjekt_data.email)))
 

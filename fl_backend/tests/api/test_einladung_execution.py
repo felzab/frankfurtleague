@@ -19,6 +19,7 @@ from app.api.einladungen.services import (
     find_unknown_einladung_refusal,
 )
 from app.api.saisons.admin_router import post_einladungen_versand, preview_einladungen_versand
+from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.api.teams.admin_router import delete_einladung, get_einladung, post_einladung
 from app.core.collections import Collection
@@ -191,8 +192,7 @@ async def read_state(database: AsyncDatabase, team_id: ObjectId, *, today: str =
         saison_id=SAISON_ID,
         einladungen_collection=database[Collection.EINLADUNGEN],
         saisons_collection=database[Collection.SAISONS],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        config=build_test_config(),
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
         today=today,
     )
 

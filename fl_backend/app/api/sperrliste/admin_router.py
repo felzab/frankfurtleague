@@ -6,10 +6,11 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
 from app.api.berechtigungen.crud import pull_the_list_to_judge, withhold_in_the_outbox
-from app.api.berechtigungen.services import find_ohne_zugang_refusal, lebendige, withheld_actor
+from app.api.berechtigungen.services import find_ohne_zugang_refusal, lebendige
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import address_is_gesperrt, gesperrte_adressen, read_sperrliste_page
+from app.api.sperrliste.crud import read_sperrliste_page
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt
 from app.api.sperrliste.schemas import (
     FLPostSperrlistePayload,
     FLPostSperrlisteResponse,
@@ -20,12 +21,12 @@ from app.api.sperrliste.schemas import (
 )
 from app.api.sperrliste.services import (
     SPERRLISTE_SCHLUESSEL_VERSION,
-    adresse_hash,
     berechtigte_hashes,
     compose_gesperrt_bis_saison_id,
     find_keine_saison_refusal,
     find_sperrliste_refusal,
     find_verwaltung_refusal,
+    withheld_actor,
 )
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import delete_many_from_db, patch_many_in_db, post_one_to_db, pull_one_from_db, refuse
@@ -81,11 +82,7 @@ async def _pull_the_season_a_ban_counts_from(
 
 
 @router.get("", response_model=FLSperrlisteListResponse, summary="List the banned addresses")
-async def get_sperrliste(
-    sperrliste_collection: SperrlisteCollection,
-    saisons_collection: SaisonsCollection,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
-) -> FLSperrlisteListResponse:
+async def get_sperrliste(sperrliste_collection: SperrlisteCollection, sperrliste: SperrlisteLookup) -> FLSperrlisteListResponse:
     """
     List the bans, newest first: why each was entered, by whom and on which day, with how many the list holds.
 
@@ -100,12 +97,7 @@ async def get_sperrliste(
     rows, anzahl_gesamt = await read_sperrliste_page(sperrliste_collection=sperrliste_collection, limit=LIST_LIMIT_DEFAULT)
     # Each row as stored first, so a row the stored shape refuses fails here rather than being served withheld.
     bans = [(row, FLSperrlisteEintrag.model_validate(row)) for row in rows]
-    barred = await gesperrte_adressen(
-        [sign_in_identifier(ban.erstellt_von) for _, ban in bans],
-        sperrliste_collection=sperrliste_collection,
-        schluessel=config.sperrliste_schluessel,
-        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection),
-    )
+    barred = await adressen_gesperrt(sperrliste, [sign_in_identifier(ban.erstellt_von) for _, ban in bans])
 
     served = []
     for row, ban in bans:
@@ -126,6 +118,7 @@ async def post_sperrliste_eintrag(
     berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
+    sperrliste: SperrlisteLookup,
     erstellt_von: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
 ) -> FLPostSperrlisteResponse:
@@ -141,7 +134,7 @@ async def post_sperrliste_eintrag(
     for the address loses the address in the same transaction.
     """
 
-    gehasht = adresse_hash(str(sperrliste_data.email), schluessel=config.sperrliste_schluessel)
+    gehasht = sperrliste.hash_of(str(sperrliste_data.email))
 
     async def judge_and_ban(session: AsyncClientSession) -> tuple[InsertOneResult, str]:
         """Ask the grants, read the season, ask the list, then write. Each takes this transaction's session, so a retry re-runs all four."""
@@ -162,12 +155,7 @@ async def post_sperrliste_eintrag(
         massgebliche_saison_id = await _pull_the_season_a_ban_counts_from(saisons_collection=saisons_collection, session=session)
         gesperrt_bis_saison_id = compose_gesperrt_bis_saison_id(massgebliche_saison_id=massgebliche_saison_id)
 
-        gesperrt = await address_is_gesperrt(
-            sperrliste_collection=sperrliste_collection,
-            adresse_hash=gehasht,
-            massgebliche_saison_id=massgebliche_saison_id,
-            session=session,
-        )
+        gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_sperrliste_refusal(gesperrt=gesperrt))
 
         document: dict[str, Any] = {

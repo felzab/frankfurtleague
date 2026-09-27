@@ -41,20 +41,17 @@ from app.api.bewerbungen.services import (
     seat_named,
 )
 from app.api.saisons.cache import dropping_the_saison_cache
-from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.saisons.schemas import FLSaisonRules
-from app.api.sperrliste.crud import address_is_gesperrt, gesperrte_adressen
-from app.api.sperrliste.services import adresse_hash
+from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt, hash_gesperrt, sperrliste_saison
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.services import compose_kontakte_at_entry, find_club_entry_refusal
-from app.core.config import API_VERSION, BackendConfig, get_app_config
+from app.core.config import API_VERSION
 from app.core.crud import insert_live, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
     SaisonsCollection,
     SaisonTeamsCollection,
-    SperrlisteCollection,
     TeamsCollection,
     get_german_date_str,
 )
@@ -295,10 +292,8 @@ async def erneut_einwilligung(
     bewerbung_id: CustomRouteObjectId,
     seat: str,
     bewerbungen_collection: BewerbungenCollection,
-    saisons_collection: SaisonsCollection,
-    sperrliste_collection: SperrlisteCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungEinwilligungErneutResponse:
     """
@@ -326,13 +321,7 @@ async def erneut_einwilligung(
         # pair's details equal and the correction moves both. Only a hand edit could part them.
         slots = [kontakte.get(held) for held in seats] if isinstance(kontakte, Mapping) else []
         adressen = {str(slot["email"]) for slot in slots if isinstance(slot, Mapping) and slot.get("email")}
-        gesperrt = await gesperrte_adressen(
-            adressen,
-            sperrliste_collection=sperrliste_collection,
-            schluessel=config.sperrliste_schluessel,
-            massgebliche_saison_id=massgebliche_saison_id,
-            session=session,
-        )
+        gesperrt = await adressen_gesperrt(sperrliste, adressen, massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_kontakt_gesperrt_refusal(gesperrt=bool(gesperrt)))
 
     # A 404 rather than a 422, as a malformed path id answers: the segment names no seat any
@@ -370,7 +359,7 @@ async def erneut_einwilligung(
         async def mint_unless_gesperrt(session: AsyncClientSession) -> Mapping[str, Any]:
             """Write, then ask the ban list of the addresses the write found; a barred one aborts the write."""
 
-            massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection=saisons_collection, session=session)
+            massgebliche_saison_id = await sperrliste_saison(sperrliste, session=session)
             matched = await patch_one_in_db(
                 collection=bewerbungen_collection,
                 db_filter=build_erneut_filter(bewerbung_id=bewerbung_id, seats=seats),
@@ -416,10 +405,8 @@ async def korrigiere_kontakt_email(
     seat: str,
     email_data: Annotated[FLBewerbungKontaktEmailPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
-    saisons_collection: SaisonsCollection,
-    sperrliste_collection: SperrlisteCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungKontaktEmailResponse:
     """
@@ -440,8 +427,8 @@ async def korrigiere_kontakt_email(
 
     # Outside the transaction, whose callback may run again, as the referee editor reads both
     # (`app/api/sperrliste/crud.py :: address_is_gesperrt`).
-    gehasht = adresse_hash(email_data.email, schluessel=config.sperrliste_schluessel)
-    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection)
+    gehasht = sperrliste.hash_of(email_data.email)
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def correct_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktEmailResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
@@ -471,9 +458,7 @@ async def korrigiere_kontakt_email(
         # Asked over the seats this write does NOT reach, so a mirrored pair moving to one new address
         # together is not refused for sharing it with itself.
         refuse(find_kontakt_email_refusal(kontakte=kontakte, seats=seats, email=email_data.email))
-        gesperrt = await address_is_gesperrt(
-            sperrliste_collection=sperrliste_collection, adresse_hash=gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session
-        )
+        gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_kontakt_gesperrt_refusal(gesperrt=gesperrt))
 
         raw, token_hash = mint_token()
@@ -509,10 +494,8 @@ async def besetze_kontakt_sitz(
     seat: str,
     sitz_data: Annotated[FLBewerbungKontaktSitzPayload, Body()],
     bewerbungen_collection: BewerbungenCollection,
-    saisons_collection: SaisonsCollection,
-    sperrliste_collection: SperrlisteCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
-    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungKontaktSitzResponse:
     """
@@ -535,8 +518,8 @@ async def besetze_kontakt_sitz(
     """
 
     # Outside the transaction, as the correction reads both.
-    gehasht = adresse_hash(sitz_data.email, schluessel=config.sperrliste_schluessel)
-    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection)
+    gehasht = sperrliste.hash_of(sitz_data.email)
+    massgebliche_saison_id = await sperrliste_saison(sperrliste)
 
     async def seat_and_mint(session: AsyncClientSession) -> FLBewerbungKontaktSitzResponse:
         """Judge, then write. Everything judged is read in-session, so a retry re-judges it."""
@@ -564,9 +547,7 @@ async def besetze_kontakt_sitz(
         # Asked over the seats this write does NOT reach, as the correction asks it: a mirrored pair
         # is one person, and comparing them against each other would refuse every such reseat.
         refuse(find_kontakt_email_refusal(kontakte=kontakte, seats=seats, email=sitz_data.email))
-        gesperrt = await address_is_gesperrt(
-            sperrliste_collection=sperrliste_collection, adresse_hash=gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session
-        )
+        gesperrt = await hash_gesperrt(sperrliste, gehasht, massgebliche_saison_id=massgebliche_saison_id, session=session)
         refuse(find_kontakt_gesperrt_refusal(gesperrt=gesperrt))
 
         raw, token_hash = mint_token()

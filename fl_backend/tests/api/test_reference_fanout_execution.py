@@ -9,6 +9,7 @@ from pymongo.errors import OperationFailure
 
 from app.api.schiedsrichter.admin_router import patch_schiedsrichter
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLPatchSchiedsrichterResponse
+from app.api.sperrliste.lookup import BanList
 from app.api.spielorte.admin_router import patch_spielort
 from app.api.spielorte.schemas import FLPatchSpielortPayload, FLPatchSpielortResponse
 from app.api.teams.admin_router import patch_team
@@ -278,10 +279,8 @@ async def rename_the_referee(
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        saisons_collection=database[Collection.SAISONS],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=client,
-        config=CONFIG,
         today=TODAY,
         actor=FRESH_ADMIN_ACTOR,
     )
