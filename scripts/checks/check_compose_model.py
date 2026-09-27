@@ -57,6 +57,10 @@ DEPLOY: Final = REPO_ROOT / "scripts" / "ops" / "deploy.sh"
 # The one service whose requests production's edge takes the visitor's address from.
 CONNECTOR_SERVICE: Final = "cloudflared"
 
+# The header the visitor's address is taken from, and which element of it: Cloudflare's
+# single-address header, the last element of a chain a client can prepend to (`nginx/shared/http.conf`).
+REALIP_SETTINGS: Final = {"real_ip_header": "CF-Connecting-IP", "real_ip_recursive": "off"}
+
 
 def services(model: dict[str, Any], name: str) -> dict[str, Any]:
     found = model.get("services")
@@ -260,6 +264,16 @@ def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
                 f"{CONTINUATION}the marker and set_real_ip_from name one address (I18)",
             )
         )
+    for directive, expected in REALIP_SETTINGS.items():
+        declared = re.findall(rf"^\s*{directive}\s+([^;\s]+)\s*;", conf, re.MULTILINE)
+        if declared != [expected]:
+            findings.append(
+                Finding(
+                    "fail",
+                    f"{name} declares {directive} {declared or 'nowhere'}, not once as {expected}\n"
+                    f"{CONTINUATION}a second one, in a server or a location, replaces the shared one there (I18)",
+                )
+            )
     return findings
 
 

@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
 from conftest import import_scripts, new_root
 
 [checker] = import_scripts("check_compose_model")
@@ -191,7 +192,27 @@ CONNECTOR = "172.30.0.250"
 
 def conf(real_ip: str = f"set_real_ip_from {CONNECTOR};", arm: str = f"{CONNECTOR}/32  1;") -> str:
     """An edge's trust, as `nginx/shared/http.conf` spells it."""
-    return f"{real_ip}\nreal_ip_header CF-Connecting-IP;\n\ngeo $realip_fallback {{\n    default          0;\n    {arm}\n}}\n"
+    return f"{real_ip}\nreal_ip_header CF-Connecting-IP;\nreal_ip_recursive off;\n\n{marker(arm)}"
+
+
+def marker(arm: str = f"{CONNECTOR}/32  1;") -> str:
+    """The fallback's geo block alone."""
+    return f"geo $realip_fallback {{\n    default          0;\n    {arm}\n}}\n"
+
+
+@pytest.mark.parametrize(
+    "added",
+    ["server {\n    real_ip_header X-Forwarded-For;\n}\n", "location / {\n    real_ip_recursive on;\n}\n"],
+    ids=["header", "recursive"],
+)
+def test_a_realip_setting_a_server_or_location_overrides_fails(added: str):
+    """nginx takes a level's own setting over the inherited one, so a server reading another header trusts what a client writes there."""
+    assert len(checker.trusted_connector(conf() + added, CONNECTOR, "c")) == 1
+
+
+def test_a_realip_header_declared_nowhere_fails():
+    """nginx's default is X-Real-IP, which the connector never sends, so every visitor would read as the connector."""
+    assert len(checker.trusted_connector(conf().replace("real_ip_header CF-Connecting-IP;\n", ""), CONNECTOR, "c")) == 1
 
 
 def test_a_connector_trusted_and_marked_at_its_rendered_address_is_clean():
@@ -227,7 +248,7 @@ def test_a_conf_without_the_fallback_marker_refuses():
 
 def test_a_second_fallback_marker_fails():
     """Each file an edge mounts is read, so a block an entry file repeats is a second marker, not a hidden one."""
-    assert len(checker.trusted_connector(conf() + conf(real_ip=""), CONNECTOR, "c")) == 1
+    assert len(checker.trusted_connector(conf() + marker(), CONNECTOR, "c")) == 1
 
 
 def mounted(prod: str, shared: str) -> Path:
