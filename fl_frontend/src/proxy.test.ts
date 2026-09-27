@@ -159,6 +159,14 @@ describe("where the admin proxy sends a signed-in request", () => {
     assert.equal(redirectedTo(await arriveAtAdmin({ cookie: removed.cookie })), "/signin/weiter");
   });
 
+  /* Shut while the backend is: an unread grant admits nobody, so the one address holding a grant is
+     turned away like any other rather than let through on the grant it held last. */
+  it("sends an administrator whose grant the backend cannot answer for to the landing", async (t) => {
+    t.mock.method(globalThis, "fetch", () => Promise.reject(new TypeError("fetch failed")));
+
+    assert.equal(redirectedTo(await arriveAtAdmin({ cookie: admin.cookie })), "/signin/weiter");
+  });
+
   it("turns that session's action POST away to the landing as well, in the action's own redirect", async () => {
     const answer = await arriveAtAdmin({ method: "POST", action: true, cookie: removed.cookie });
 
