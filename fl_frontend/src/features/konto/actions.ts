@@ -56,8 +56,13 @@ export async function endAndereAnmeldungenAction(): Promise<ActionResult> {
 /**
  * Whether the session a confirmation just made is the page's holder's: once the page's session has
  * ended, its challenge names nobody and any account's passkey signs its own account in
- * (`docs/frontend/spec.md :: I428`).
+ * (`docs/frontend/spec.md :: I428`). `stattSitzungId` names the session the confirmation replaces.
  */
-export async function pruefeInhaberAction(inhaberId: string): Promise<QueryResult<{ gleich: boolean }>> {
-  return runKontoMutation("pruefeInhaberAction", async (served) => ({ success: true, gleich: isHeldBy(served, inhaberId) }));
+export async function pruefeInhaberAction(inhaberId: string, stattSitzungId?: string): Promise<QueryResult<{ gleich: boolean }>> {
+  return runKontoMutation("pruefeInhaberAction", async (served) => ({
+    success: true,
+    // A confirmation is a new sign-in, so the page's own session is none: the code route answers a
+    // second tab's spent code with the session that tab already holds (`docs/frontend/spec.md :: I428`).
+    gleich: isHeldBy(served, inhaberId) && (typeof stattSitzungId !== "string" || served.session.id !== stattSitzungId),
+  }));
 }

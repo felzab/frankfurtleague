@@ -98,6 +98,14 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
     return answer.success && answer.gleich;
   };
 
+  // The code's check also asks for a session other than this page's own: the route answers a code it
+  // finds spent with success where the caller already holds a young session for that address.
+  const dieseSitzungId = anmeldungen.find((anmeldung) => anmeldung.diesesGeraet)?.id;
+  const istNeuerInhaber = async (): Promise<boolean> => {
+    const answer = await pruefeInhaberAction(sicherheit.inhaberId, dieseSitzungId);
+    return answer.success && answer.gleich;
+  };
+
   const confirmed = (): void => {
     setFreshUntil(Date.now() + STEP_UP_WINDOW_MS);
     setEnrolmentUntil(Date.now() + ENROLMENT_WINDOW_MS);
@@ -218,7 +226,7 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
         {!verwaltung && (
           <CodeConfirmation
             address={sicherheit.inhaberAdresse}
-            istInhaber={istInhaber}
+            istInhaber={istNeuerInhaber}
             onConfirmed={confirmed}
           />
         )}
@@ -320,7 +328,7 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
             verwaltung ? null : (
               <CodeConfirmation
                 address={sicherheit.inhaberAdresse}
-                istInhaber={istInhaber}
+                istInhaber={istNeuerInhaber}
                 onConfirmed={steppedUp}
               />
             )
