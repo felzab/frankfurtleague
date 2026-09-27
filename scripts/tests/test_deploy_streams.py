@@ -601,7 +601,12 @@ def _judged(setup: str, key: str, env: str) -> str:
 
 def test_the_runbooks_command_writes_a_pair_the_check_passes() -> None:
     """Run as the runbook prints it, over the fixture's own `fl_backend/.env`: Git Bash's `openssl` is the carriage-return case."""
-    command = next(line for line in RUNBOOKS.read_text(encoding="utf-8").splitlines() if line.startswith("mkdir -p secrets && openssl genpkey"))
+    text = RUNBOOKS.read_text(encoding="utf-8")
+    generate = next(line for line in text.splitlines() if line.startswith("(umask 077 && mkdir -p secrets && openssl genpkey"))
+    # The development machine's placing step, the server's being `sudo install` to a uid this host may not have.
+    placed = re.findall(r"`(mv secrets/fl_actor_signing_key\.new secrets/fl_actor_signing_key)`", text)
+    assert len(placed) == 1, placed
+    command = f"{generate}\n{placed[0]}"
     # Counted, never printed: each file's carriage returns, which the runbook promises it writes none of.
     counted = "printf \"cr=%s\\n\" \"$(cat secrets/fl_actor_signing_key fl_backend/.env | tr -cd '\\r' | wc -c | tr -d ' ')\""
     output = _judged(f"{command}\n{counted}", "secrets/fl_actor_signing_key", "fl_backend/.env")
@@ -747,6 +752,37 @@ def test_a_backend_file_without_the_public_half_hands_the_check_an_empty_line() 
 
     assert code == 0, output
     assert Path(f"{fixture.argv}.stdin").read_text(encoding="utf-8") == "\n"
+
+
+# `stat` answered by a function of the case's own, since a Windows filesystem keeps no mode to set.
+MODE: Final = "stat() { STAT_ANSWER; }\n" + _lifted("signing_key_mode_advisory") + "\nsigning_key_mode_advisory\necho judged"
+
+
+@pytest.mark.parametrize(
+    ("answer", "warned"),
+    [
+        pytest.param("printf '400\\n'", "", id="the-frontend-user-s-alone"),
+        pytest.param("printf '440\\n'", "has mode 440", id="its-group-reads-it"),
+        pytest.param("printf '604\\n'", "has mode 604", id="everyone-reads-it"),
+        pytest.param("printf '420\\n'", "has mode 420", id="its-group-writes-it"),
+        pytest.param("return 1", "could not be read", id="stat-fails"),
+    ],
+)
+def test_a_key_another_account_can_reach_draws_a_warning_and_never_a_refusal(answer: str, warned: str) -> None:
+    code, output, _ = _run(MODE.replace("STAT_ANSWER", answer))
+
+    assert code == 0, output
+    assert "judged" in output, output
+    if warned:
+        assert warned in output, output
+    else:
+        assert "!!" not in output, output
+
+
+def test_the_deploy_reads_the_key_s_mode_once_it_knows_the_key_is_there() -> None:
+    text = DEPLOY.read_text(encoding="utf-8")
+
+    assert text.index('\nrequire_file "$SIGNING_KEY_FILE"') < text.index("\nsigning_key_mode_advisory\n"), DEPLOY.name
 
 
 @pytest.mark.parametrize(

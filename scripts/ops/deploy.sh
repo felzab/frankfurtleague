@@ -325,6 +325,20 @@ so nothing here says whether a package file repeats a name ${SHARED_ENV} holds. 
   fi
 }
 
+# Compose hands the key over with the host file's owner and mode (`docs/ops/spec.md` §1.2): a key
+# another account can read passes every check here, while any login on this host could mint an actor.
+signing_key_mode_advisory() {
+  local mode=""
+  if ! mode="$(stat -c '%a' "$SIGNING_KEY_FILE" 2>/dev/null)" || [[ ! "$mode" =~ ^[0-7]+$ ]]; then
+    warn "the mode of ${SIGNING_KEY_FILE} could not be read, so nothing here says whether another account on this host can read it."
+  # A warning rather than a refusal: the stack runs either way, and the exposure is already there.
+  elif (( 8#$mode & 8#077 )); then
+    warn "${SIGNING_KEY_FILE} has mode ${mode}, so an account other than its owner can reach it, and with it mint
+any actor the backend trusts. Give it to the frontend's user alone (docs/ops/runbooks.md §16):
+  sudo chown 1001:1001 ${SIGNING_KEY_FILE} && sudo chmod 400 ${SIGNING_KEY_FILE}"
+  fi
+}
+
 # nginx's Control API, by the image's own curl. Every call is bounded, as every `curl` here is: the
 # reload runs with the replaced containers' addresses answering 502 until it lands.
 edge_control() {
@@ -800,6 +814,7 @@ require_file "nginx/shared/site.conf" "nginx/prod/prod.conf includes it from the
 require_file "nginx/shared/security_headers.conf" "nginx/shared/site.conf includes it; without it nginx refuses the whole configuration."
 require_file "secrets/tunnel_token" "The connector reads it with --token-file and registers no tunnel without it, which leaves the site with no route in at all."
 require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate the pair: docs/ops/runbooks.md §16."
+signing_key_mode_advisory
 require_dir  "certs"            "nginx mounts this read-only for the TLS certificate and key."
 ok "all present"
 
