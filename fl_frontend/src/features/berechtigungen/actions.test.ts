@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
@@ -14,7 +15,8 @@ const deferred: (() => unknown)[] = [];
 
 /* `refresh()` throws outside a request Next itself is rendering; `after` is collected. */
 const NEXT_CACHE_DOUBLE = exportingModule({ refresh: () => undefined });
-const NEXT_SERVER_DOUBLE = exportingModule({ after: (task: () => unknown) => void deferred.push(task) });
+// Bound to the caller's context as Next's own `after` binds it, so a task runs inside the action's request.
+const NEXT_SERVER_DOUBLE = exportingModule({ after: (task: () => unknown) => void deferred.push(AsyncLocalStorage.bind(task)) });
 
 /* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
 const { setSession, setFresh } = doubleActionRequest();
@@ -29,16 +31,25 @@ registerHooks({
 
 const GRANT_ID = "6890a1b2c3d4e5f6071b0001";
 
-const client = doubleApiAnswers(({ method }) =>
-  Promise.resolve(method === "DELETE" ? { acknowledged: 1, berechtigung_id: GRANT_ID } : { acknowledged: 1, created_id: GRANT_ID }),
-);
+/** The trace each call went out under: the action's own, or none for work run outside any request. */
+const traces: { endpoint: string; trace: string | undefined }[] = [];
+
+const NOTHING_CLAIMED = { acknowledged: 1, beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
+
+const client = doubleApiAnswers(({ endpoint, method }) => {
+  traces.push({ endpoint, trace: getRequestTraceId() });
+  if (endpoint === "/berechtigungen/abgleich") return Promise.resolve(NOTHING_CLAIMED);
+  return Promise.resolve(method === "DELETE" ? { acknowledged: 1, berechtigung_id: GRANT_ID } : { acknowledged: 1, created_id: GRANT_ID });
+});
 
 const { deleteBerechtigungAction, postBerechtigungAction } = await import("./actions.ts");
+const { getRequestTraceId } = await import("@/core/requestScope.ts");
 
 const MINUTE_MS = 60 * 1000;
 
 beforeEach(() => {
   deferred.length = 0;
+  traces.length = 0;
   setFresh(true);
 });
 
@@ -72,6 +83,25 @@ describe("the grant", () => {
     assert.equal(result.success, false);
     assert.deepEqual(client.calls, []);
   });
+});
+
+/* The task is the pass itself, and it runs in no request: Next's `after` carries the action's scope
+   into it, whose deadline the response has spent, and a cut send holds its row for the whole lease. */
+describe("the announcement a change schedules", () => {
+  for (const [name, act] of [
+    ["grant", () => postBerechtigungAction({ email: "neu@schule.de" })],
+    ["revoke", () => deleteBerechtigungAction({ id: GRANT_ID })],
+  ] as const) {
+    it(`runs the claim behind the ${name}'s answer, outside the action's request`, async () => {
+      assert.equal((await act()).success, true);
+      const [write] = traces;
+      assert.ok(write?.trace !== undefined, "the action ran in no request, so the case below proves nothing");
+
+      await Promise.all(deferred.map((task) => task()));
+
+      assert.deepEqual(traces.slice(1), [{ endpoint: "/berechtigungen/abgleich", trace: undefined }]);
+    });
+  }
 });
 
 describe("the revoke", () => {

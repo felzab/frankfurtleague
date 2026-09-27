@@ -42,6 +42,14 @@ export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "sp
 }
 
 /**
+ * Runs `fn` outside any request, as a timer's work runs: Next's `after` carries the request's scope
+ * into its callback, and with it a deadline the response has already spent.
+ */
+export function runOutsideRequestScope<T>(fn: () => T): T {
+  return storage.exit(fn);
+}
+
+/**
  * One outbound call's abort signal: its own bound, or what is left of the request's deadline where that
  * is shorter, and born aborted once nothing is left. Outside a scope, a `"use cache"` fill's, its own bound alone.
  */
