@@ -1237,7 +1237,7 @@ nothing while the backend does not answer.
 ## 16. The secret files and the checkout root's `.env`
 
 **Every credential is a file under `secrets/`, beside the compose file**, under one name on the
-host, at `/run/secrets/` in its container and in development ([`spec.md`](spec.md) §1.2, I506).
+host, at `/run/secrets/` in its container and in development ([`spec.md`](spec.md) §1.2, I509).
 Which service reads which, and each file's owner and mode on the server, is that section's table.
 **A file holds its value and nothing else**: no `NAME=`, no quotes, no comment. Both readers drop a
 trailing newline and surrounding blanks, and everything else in the file is part of the value.

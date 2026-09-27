@@ -85,7 +85,7 @@ host files rather than a container stream (§1.2), holding every line that names
 ([`runbooks.md`](runbooks.md) §7).
 
 **Every service drops every capability and runs under `no-new-privileges:true`, and `nginx` alone
-adds any back** (I505): four, each one its master, starting as root, fails to start without.
+adds any back** (I508): four, each one its master, starting as root, fails to start without.
 
 - `CHOWN` hands the workers the temp directories they write.
 - `SETUID` and `SETGID` make the workers their own user.
@@ -138,11 +138,11 @@ left to Docker would be root-owned, and the host's `logrotate` file names it. A 
 directory is mounted empty, so nginx loads no server of this site's or fails on its includes.
 
 **Every credential the stack holds is a Compose file secret, and none is an environment
-variable** (I506): `docker inspect` prints a container's environment, and never the contents of a
+variable** (I509): `docker inspect` prints a container's environment, and never the contents of a
 mount. Each file has one name on the host, at `/run/secrets/` and in development, so the two
 database logins are two files. Who holds which is
 `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`; no service is handed one of their old
-environment names (I507).
+environment names (I510).
 
 **Compose mounts a file secret as a bind mount and ignores its `uid`, `gid` and `mode`**, so the
 host file's own owner and mode are what the container sees (Docker's Compose file reference,
@@ -160,7 +160,7 @@ different users: both take group 1003 through `group_add`, the documented answer
 different users sharing one file, so neither service's copy can drift from the other's. A file
 readable by the wrong user leaves that service refusing to boot, and the connector restarting in a
 loop; the deploy has each service's own container read its files before anything is recreated
-(I508).
+(I511).
 
 **The actor token's signing key is the frontend's alone** (I472): the private half of the machine's
 Ed25519 pair, as PKCS#8 PEM. Any other service holding it could mint an actor the backend trusts.
@@ -489,7 +489,7 @@ Every other printable ASCII character reaches each reader as written, bare or qu
 `openssl rand -hex`, base64 or `secrets.token_urlsafe` is always one of the class. A key in its file
 is held to the same class, the root file a rollback reads carrying the same key. **The deploy's
 preflight judges a key with the pulled backend image's own validator**, in the backend's container
-(I508), so a key outside the class refuses the deploy at exit 2 before anything is recreated; the
+(I511), so a key outside the class refuses the deploy at exit 2 before anything is recreated; the
 remedy is a new key ([`runbooks.md`](runbooks.md) §16).
 
 **Every value in the three files is held to the spellings those readers agree on** (I487), a
@@ -502,7 +502,7 @@ password percent-encoded, which MongoDB's own URI format asks of them already.
 
 **The local stack points both application services at its own database through one tracked
 file**, `local-stack/mongodb_uri`, which `docker-compose.local.yml` hands both as their database
-secret, so no machine needs a login to run it and no run is left aimed at the wrong cluster (I506).
+secret, so no machine needs a login to run it and no run is left aimed at the wrong cluster (I509).
 The same override sets `BEWERBUNG_SWEEP` off and `APP_ENV` to `local`, and hands the frontend no
 key to the mail provider. The database is a copy of production, so
 an armed pass here deletes real applications and stamps real rows; `APP_ENV` is what keeps the
@@ -573,7 +573,7 @@ recreated container refuses to boot behind an edge already answering 502. **A na
 a value to decide: the arm passes `--production`, having one deployment to put live, and the reader
 run without that flag demands the unconditional set alone. The mail provider's key is such a value,
 and a file: the frontend's file reader asks for `auth_resend_key` on the deploy and never on the
-local stack, which sends no mail (I508). **The bare
+local stack, which sends no mail (I511). **The bare
 pass-through `KEY` declares a name and satisfies no required one**: compose resolves that form's
 value from the shell that ran it, and failing that from the checkout root's `.env` (Docker's
 environment-variable precedence table, rows 8 and 9, read 2026-09-27). A deploy's shell holds none,
@@ -601,7 +601,7 @@ preflight accepted is not proven identical to the one the container will see. Th
 are the exception: a key carries no character any of the readers alters (I11), so two readers
 parsing one apart leave a character outside the alphabet on one side, which the preflight refuses.
 
-**The containers about to run then read their own secret files** (I508), each service's through
+**The containers about to run then read their own secret files** (I511), each service's through
 `docker compose run`, so as the user and in the group the stack starts it with
 (`scripts/lib/_lib.sh :: check_secret_files`): a file missing, not a file, unreadable by that user or
 blank refuses at exit 2 with nothing recreated, naming the file and never a byte of it. The
@@ -973,8 +973,8 @@ and every service to exactly its networks, so only nginx shares one with the con
 application pair (I471). It holds every secret to exactly the services
 `scripts/checks/check_compose_model.py :: SECRET_HOLDERS` names, read from its own file, the actor token's signing key the frontend's alone, with no bind mount or
 config reaching `secrets/` beside them and no service handed a moved credential's name in its
-environment (I472, I506, I507); and every service to dropping every capability and gaining no
-privilege, nginx adding back its master's four (I505). A model it
+environment (I472, I509, I510); and every service to dropping every capability and gaining no
+privilege, nginx adding back its master's four (I508). A model it
 cannot read, a short-syntax port or volume among them, is a refusal rather than a verdict
 (§1.7).
 
@@ -1247,7 +1247,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I7   | Neither `:latest` tag moves until both packages hold the build under its `sha-` tag                                                                                            | `.github/workflows/publish.yml`'s last step moves both; `scripts/ops/deploy.sh :: compare_pulled_pair` refuses a `:latest` pair whose `version` labels differ or are absent before recreating, driven by `scripts/tests/test_deploy_pair.py`                                                            |
 | I9   | Deploy recreates the application containers in place, leaving nginx running and reloading it                                                                                   | `deploy.sh`                                                                                                                                                                                                                                                                                             |
 | I10  | Scripts use LF line endings and carry the git executable bit                                                                                                                   | `selfcheck.sh` (its LF and executable-bit checks)                                                                                                                                                                                                                                                       |
-| I11  | The three API keys are 64 printable ASCII characters, none that an env-file reader alters (§1.5), one file each that both sides read                                           | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS`, held equal by `fl_backend/tests/shared/test_frontend_mirrors.py`; one file serves both sides (I506)                                                                            |
+| I11  | The three API keys are 64 printable ASCII characters, none that an env-file reader alters (§1.5), one file each that both sides read                                           | `fl_frontend/src/core/config.ts :: INTERNAL_API_KEY` and `fl_backend/app/core/config.py :: INTERNAL_API_KEY_CHARACTERS`, held equal by `fl_backend/tests/shared/test_frontend_mirrors.py`; one file serves both sides (I509)                                                                            |
 | I13  | Exactly one backend endpoint is reachable from the edge — `= /api/v0/system/is_live`, exact-match so nothing joins it, restating the whole `proxy_set_header` set (§1.3)       | partly — both stacks serve `nginx/shared/site.conf`'s one location set; `nginx -t` reads no location and no test requests a backend path                                                                                                                                                                |
 | I14  | Every `limit_req` zone is PAIRED, one narrow key and one wide, the wide at a multiple of the narrow's rate and burst (§1.3)                                                    | `nginx/shared/http.conf`'s paired zones, each declared inside every limited location (§1.3); unenforced by the gate                                                                                                                                                                                     |
 | I15  | Every platform-conditional branch `scripts/checks/docs_gate/platform.py` reaches is a named module constant or an allowlist row carrying its reason (§1.6, PLAT-1 to PLAT-4)   | gate check `platform-branch`, over `scripts/checks/docs_gate/platform.py :: PLATFORM_ALLOW`; the effect a branch selects is proven by the `verify` workflow's Linux run alone                                                                                                                           |
@@ -1277,10 +1277,10 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I472 | The actor token's signing key reaches the frontend alone, at `/run/secrets/fl_actor_signing_key`, read from `./secrets/fl_actor_signing_key`                                   | `scripts/checks/check_compose_model.py :: secret_holders` and `:: secrets_directory`, over the models `docker compose config` renders                                                                                                                                                                   |
 | I473 | Before containers start, both preflights refuse a signing key the frontend cannot read or a mismatched public half, printing no value; an unrunnable check warns               | `scripts/lib/_lib.sh :: check_actor_key`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh`; `scripts/tests/test_deploy_streams.py` runs its snippet for real                                                                                                                                |
 | I487 | No value in an `.env` compose reads holds a spelling its readers take differently: a `$`, an unspaced `#`, a quoted `\`, a leading backtick                                    | `scripts/lib/_lib.sh :: check_env_spellings`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh` before any compose call reads the file; `scripts/tests/test_deploy_streams.py`                                                                                                               |
-| I505 | Every service in both stacks drops every capability and sets `no-new-privileges`; `nginx` alone adds any back, `CHOWN`, `SETUID`, `SETGID` and `DAC_OVERRIDE`                  | `scripts/checks/check_compose_model.py :: privileges`, over the models `docker compose config` renders; `nginx/edge_test.sh` starts both edges with them                                                                                                                                                |
-| I506 | Every credential reaches a service as a Compose file secret, held by exactly the services that read it, from its own file under `secrets/`                                     | `scripts/checks/check_compose_model.py :: secret_holders` over `:: SECRET_HOLDERS`, the local stack's database URI the tracked `local-stack/mongodb_uri`                                                                                                                                                |
-| I507 | No service's `environment:` names a value a secret file holds, in any letter case                                                                                              | `scripts/checks/check_compose_model.py :: moved_names`, over the models `docker compose config` renders                                                                                                                                                                                                 |
-| I508 | Before containers start, each application service's container finds its secret files present, readable and not blank, and the backend's builds its settings, printing no value | `scripts/lib/_lib.sh :: check_secret_files` and `:: check_backend_boot_config`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh`; `scripts/tests/test_deploy_streams.py`                                                                                                                    |
+| I508 | Every service in both stacks drops every capability and sets `no-new-privileges`; `nginx` alone adds any back, `CHOWN`, `SETUID`, `SETGID` and `DAC_OVERRIDE`                  | `scripts/checks/check_compose_model.py :: privileges`, over the models `docker compose config` renders; `nginx/edge_test.sh` starts both edges with them                                                                                                                                                |
+| I509 | Every credential reaches a service as a Compose file secret, held by exactly the services that read it, from its own file under `secrets/`                                     | `scripts/checks/check_compose_model.py :: secret_holders` over `:: SECRET_HOLDERS`, the local stack's database URI the tracked `local-stack/mongodb_uri`                                                                                                                                                |
+| I510 | No service's `environment:` names a value a secret file holds, in any letter case                                                                                              | `scripts/checks/check_compose_model.py :: moved_names`, over the models `docker compose config` renders                                                                                                                                                                                                 |
+| I511 | Before containers start, each application service's container finds its secret files present, readable and not blank, and the backend's builds its settings, printing no value | `scripts/lib/_lib.sh :: check_secret_files` and `:: check_backend_boot_config`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh`; `scripts/tests/test_deploy_streams.py`                                                                                                                    |
 
 ## 3. Violation → remedy
 
@@ -1292,7 +1292,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | `The environment could not be read: <TYPE>` then no traffic                                       | The backend's settings reader failed before any variable was judged — a `.env` file it cannot decode is the reachable case                      | Read `fl_backend/.env` and the root's `.env` as utf-8; no variable is named because none was reached (I179)                                                                                                          |
 | Deploy reports healthy but the site is unreachable                                                | nginx, or the connector in front of it (§1.1)                                                                                                   | prod: `docker compose logs nginx` for startup, `/var/log/frankfurtleague/nginx/error.log` for requests, then `docker compose logs cloudflared`                                                                       |
 | No tunnel registers, or the connector restarts in a loop                                          | The token file is missing, unreadable by the connector's uid 65532, or not this tunnel's, or the release rejects the run arguments              | `docker compose logs cloudflared`. Preflight refuses a missing `./secrets/tunnel_token` by name, so a loop means its owner and mode, the value or the arguments (§1.2)                                               |
-| A container refuses to boot naming a file under `/run/secrets`                                    | The host file is missing, owned by another user or blank; compose hands it over with the host's owner and mode (§1.2)                           | Give it the user and mode §1.2's table names, or write it again ([`runbooks.md`](runbooks.md) §16); the deploy's preflight names it first (I508)                                                                     |
+| A container refuses to boot naming a file under `/run/secrets`                                    | The host file is missing, owned by another user or blank; compose hands it over with the host's owner and mode (§1.2)                           | Give it the user and mode §1.2's table names, or write it again ([`runbooks.md`](runbooks.md) §16); the deploy's preflight names it first (I511)                                                                     |
 | An `up` fails: `Pool overlaps with other one on this address space`                               | Another Docker network on this host holds `172.30.0.0/24`, which `docker-compose.yml` declares so the connector's address is fixed (I18)        | Find it with `docker network inspect`, then remove or re-subnet it; moving this stack's subnet moves the connector's address (I18)                                                                                   |
 | The tunnel is up and Cloudflare answers 502 or 1033                                               | The dashboard routes a hostname to nothing, or its `Origin Server Name` names something other than the mounted certificate (§1.8)               | `docker compose logs cloudflared` names the origin it dialled. Both settings are dashboard state, so nothing here can be edited to fix it                                                                            |
 | `failed to connect to the docker API at npipe:...`                                                | Docker Desktop is not running                                                                                                                   | Start it and wait for it to settle                                                                                                                                                                                   |
@@ -1340,7 +1340,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | Registry tag pruning is manual                                    | Accepted — a botched delete destroys rollback history. The retention procedure is in §1.5                                                                                                          |
 | Revoking admin access ends no session                             | Accepted — both processes read the grant on every request, so a revoked one admits nothing from the next and nothing restarts                                                                      |
 | Nothing announces that a season rollover is due                   | Accepted — nothing in the running application watches the season clock; the trigger to revisit is a rollover actually missed, which serves last season silently                                    |
-| Traffic between containers is plain HTTP                          | Accepted — the admin key and actor token cross `frankfurtleague-app` unencrypted, a bridge on one host no container can read, none holding `NET_RAW` (I505)                                        |
+| Traffic between containers is plain HTTP                          | Accepted — the admin key and actor token cross `frankfurtleague-app` unencrypted, a bridge on one host no container can read, none holding `NET_RAW` (I508)                                        |
 | Certificate renewal is outside this repository                    | Accepted — they are mounted from `./certs`, and nothing here issues or rotates them                                                                                                                |
 | The local database runs unauthenticated                           | Accepted — authentication on `--replSet` wants a keyfile whose permissions `mongod` checks, which a Windows host does not reliably give it (`fl_backend/tests/conftest.py :: _replica_set_mongod`) |
 | The local database holds real contact records                     | Accepted — a copy I1 keeps off every interface but this host's; `--fresh` removes volume, copy and access log, every `--down` removes `.tmp-mail/`                                                 |

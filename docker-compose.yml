@@ -231,7 +231,7 @@ services:
 
 # Each a file the host provides, never a variable: `docker inspect` prints an environment and never a
 # mount's contents. One name on the host, at `/run/secrets/` and in development, so the two database
-# logins take two (`docs/ops/spec.md :: I506`).
+# logins take two (`docs/ops/spec.md :: I509`).
 secrets:
   tunnel_token:
     file: ./secrets/tunnel_token
