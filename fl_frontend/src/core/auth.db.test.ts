@@ -49,6 +49,21 @@ const wrapCollection = (name: string, collection: object): object =>
           return (value as Method).apply(target, args);
         };
       }
+      // A bound's count, which the Mongo adapter runs as an aggregate ending in `$count`: held so a
+      // burst of requests all reach it before any reads it.
+      if (name === "verification" && prop === "aggregate") {
+        return (...args: unknown[]) => {
+          // A cursor, returned at once: the wait belongs to its `toArray`, where the count is read.
+          const cursor = (value as Method).apply(target, args) as { toArray: () => Promise<unknown> };
+          if (!JSON.stringify(args[0] ?? []).includes('"$count"')) return cursor;
+          return {
+            toArray: async () => {
+              await counting.arrive();
+              return cursor.toArray();
+            },
+          };
+        };
+      }
       if (name === "verification" && prop === "findOneAndDelete") {
         return async (...args: unknown[]) => {
           await consuming();
@@ -142,6 +157,9 @@ class Gate {
 const warnings: string[] = [];
 const barrier = new Barrier();
 
+/** Where each bound's count waits, for a case that arms it. */
+const counting = new Barrier();
+
 /** Where a request's first write after its judgement waits: `barrier`, unless a case holds it at its own gate. */
 let holding: { arrive: () => Promise<unknown> } = barrier;
 
@@ -176,6 +194,7 @@ after(async () => {
 beforeEach(async () => {
   gateAnswer = { sitze: [], gesperrt: false };
   barrier.disarm();
+  counting.disarm();
   warnings.length = 0;
   consuming = async () => undefined;
   await authDb().dropDatabase();
@@ -490,6 +509,67 @@ describe("an address's failures after a code signs in, against a real database (
     await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN) });
 
     assert.deepEqual(await failureRows(), [], "a sign-in left failures standing against the address");
+  });
+
+  /* Each attempt's row goes in before it counts; held at the count until the whole burst has arrived,
+     every count sees every row, the worst interleaving a real store can give. */
+  it("lets no burst of concurrent wrong codes past the bound", async () => {
+    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
+    const wrong = otp === "000000" ? "111111" : "000000";
+
+    counting.arm(15);
+    const answers = await Promise.all(
+      Array.from({ length: 15 }, () =>
+        auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: wrong }, headers: new Headers(ORIGIN) }).then(
+          () => "signed in",
+          (error: { body?: { code?: unknown } }) => error.body?.code,
+        ),
+      ),
+    );
+    assert.ok(await counting.filled, "the burst never met at the count, so it ran no race");
+
+    const reached = answers.filter((answer) => answer !== "ADDRESS_ATTEMPTS_EXHAUSTED").length;
+    assert.ok(reached <= 10, `${String(reached)} of 15 concurrent attempts reached the code`);
+    assert.ok((await failureRows()).length <= 10);
+  });
+
+  /* A refusal at the mint comes after the code verified, so it is no guess: its row comes back out on
+     the real store as on the memory one. */
+  it("counts no refusal at the mint, and still counts a wrong code", async () => {
+    const email = "gesperrt-mit-code@example.org";
+    gateAnswer = { sitze: [LIVE_SEAT], gesperrt: true };
+    const otp = await auth.api.createVerificationOTP({ body: { email, type: "sign-in" } });
+
+    await assert.rejects(
+      auth.api.signInEmailOTP({ body: { email, otp }, headers: new Headers(ORIGIN) }),
+      (error: { body?: { code?: unknown } }) => error.body?.code === "SIGN_IN_BARRED",
+    );
+    assert.deepEqual(await failureRows(), [], "the refusal at the mint was counted as a failed code");
+
+    const next = await auth.api.createVerificationOTP({ body: { email, type: "sign-in" } });
+    await assert.rejects(
+      auth.api.signInEmailOTP({ body: { email, otp: next === "000000" ? "111111" : "000000" }, headers: new Headers(ORIGIN) }),
+      (error: { body?: { code?: unknown } }) => error.body?.code === "INVALID_OTP",
+    );
+    assert.equal((await failureRows()).length, 1);
+  });
+});
+
+/* The per-address mail cap's own race, on the real store: sends held at their count until the whole
+   burst has arrived (`docs/frontend/spec.md :: I442`). */
+describe("the code mails one address may be sent, against a real database", () => {
+  it("mails no burst of concurrent sends past the fifth", async () => {
+    const before = sent.length;
+
+    counting.arm(8);
+    await Promise.all(
+      Array.from({ length: 8 }, () =>
+        auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) }),
+      ),
+    );
+    assert.ok(await counting.filled, "the burst never met at the count, so it ran no race");
+
+    assert.ok(sent.length - before <= 5, `${String(sent.length - before)} of 8 concurrent sends were mailed`);
   });
 });
 
