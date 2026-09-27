@@ -91,6 +91,7 @@ server {
     access_log off;
     add_header X-Seen-Traceparent $http_traceparent always;
     add_header X-Seen-Actor $http_x_fl_actor always;
+    add_header X-Seen-Next-Action $http_next_action always;
 STUB
   for name in "${!SECURITY_HEADERS[@]}"; do printf '    add_header %s "upstream" always;\n' "$name"; done
   printf '%s\n' '    location / { return 200 "stub\n"; }' '}'
@@ -501,6 +502,8 @@ done < "${REPO_ROOT}/nginx/shared/site.conf"
 # dropping the inherited set hands both to Next as they arrived.
 CLIENT_TRACE="0af7651916cd43dd8448eb211c80319c"
 CLIENT_ACTOR="fl-edge-actor-probe"
+# On a GET, which no zone meters, so every location answers.
+CLIENT_ACTION="fl-edge-action-probe"
 # One curl for every path, each response's headers to a file of its own, and the counting in bash:
 # on Windows a spawn costs ~0.1s, which a grep per header would pay a hundred times.
 HEADER_REQUESTS=()
@@ -508,7 +511,7 @@ for _i in "${!HEADER_PATHS[@]}"; do
   if (( _i > 0 )); then HEADER_REQUESTS+=( --next ); fi
   HEADER_REQUESTS+=( -s -o /dev/null -D "${SCRATCH}/headers-${_i}" --max-time 5 -H "Host: localhost"
     -H "traceparent: 00-${CLIENT_TRACE}-b7ad6b7169203331-01" -H "X-FL-Actor: ${CLIENT_ACTOR}"
-    "${BASE}${HEADER_PATHS[_i]}" )
+    -H "Next-Action: ${CLIENT_ACTION}" "${BASE}${HEADER_PATHS[_i]}" )
 done
 curl "${HEADER_REQUESTS[@]}" || true
 UPSTREAM_READ=0
@@ -526,6 +529,13 @@ for _i in "${!HEADER_PATHS[@]}"; do
   if [[ -n "${SENT_VALUE[x-seen-actor]:-}" ]]; then
     fail "UPSTREAM ${HEADER_PATHS[_i]}"
     detail "expected no X-FL-Actor at Next, Next received '${SENT_VALUE[x-seen-actor]}'"
+    HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+  fi
+  # The one visitor header the edge sets only to drop it when empty: a location declaring its own
+  # proxy_set_header set without it would break every server action it carries.
+  if [[ "${SENT_VALUE[x-seen-next-action]:-}" != "$CLIENT_ACTION" ]]; then
+    fail "UPSTREAM ${HEADER_PATHS[_i]}"
+    detail "expected Next-Action ${CLIENT_ACTION} at Next, Next received '${SENT_VALUE[x-seen-next-action]:-}'"
     HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
 done
@@ -557,9 +567,13 @@ done
 # The key spent, so each of these answers 429 only if the map takes it for an action.
 action_request multipart -X POST -F "probe=1" "${BASE}/"
 action_request urlencoded -X POST --data "probe=1" "${BASE}/"
-action_request admin-prefix -X POST -H "Next-Action: ${ACTION_ID}" --data '[]' "${BASE}/api/admin/probe"
-action_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" --data '[]' "${BASE}/_next/static/chunk.js"
-# And each of these answers 200 only if the map leaves it out.
+action_request admin-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/api/admin/probe"
+action_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/_next/static/chunk.js"
+# An id opening with a colon, which a key joined on `:` would read as no id at all.
+action_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
+# And each of these answers 200 only if the map leaves it out. An empty `Next-Action` is dropped
+# before Next, so it is a plain post like the JSON one.
+action_request empty-id -X POST -H "Next-Action;" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 action_request json-post -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/"
 action_request page-load "${BASE}/"
 action_request asset-load "${BASE}/_next/static/chunk.js"
@@ -585,6 +599,8 @@ expect_action multipart 429
 expect_action urlencoded 429
 expect_action admin-prefix 429
 expect_action static-prefix 429
+expect_action colon-id 429
+expect_action empty-id 200
 expect_action json-post 200
 expect_action page-load 200
 expect_action asset-load 200

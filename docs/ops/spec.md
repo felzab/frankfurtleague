@@ -279,7 +279,9 @@ What decides that number, and what it risks, is at the zone in `nginx/shared/htt
 `limit_conn conn 50` on the narrow key, sized for HTTP/2 where nginx counts each concurrent request
 as a connection. **Its one rate zone pair keys on server actions alone**, `action`/`action48` over
 `nginx/shared/http.conf :: $action_limit_key`: a POST carrying a `Next-Action` header or either
-form content type, which is every post Next 16.3.6 runs as an action. Every other request's key is
+form content type, which is every post Next 16.3.6 runs as an action. Next takes an empty header for
+an action too, which nginx cannot tell from none, so the edge passes the header only where it holds
+a value (`nginx/shared/site.conf :: Next-Action`). Every other request's key is
 empty, so no page load or asset is metered; the pair is rated above any administrator's run of
 saves. `/api/admin/` carries it too, an action posted there reaching Next as well, and so does
 `/_next/static/`, where a POST reaches no action (a 405 whose render fails as a 500, driven against
