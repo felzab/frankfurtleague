@@ -185,25 +185,29 @@ Every ruling below is the sign-up flow as it stands for the next season.
   - the ban refusing an administrator's correction, reseat or re-send of an application's contact
     seat (`REQ-BEWERBUNG-019`), which falls on that administrator's write in the same way.
 
-  **Four refusals a person's own entry meets are not named among them.** Every box that stores an
+  **Five refusals a person's own entry meets are not named among them.** Every box that stores an
   address refuses one whose part before the @ is not plain ASCII
   (`fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`,
-  `fl_backend/app/shared/folding.py :: league_address`). The code sign-in refuses three more:
+  `fl_backend/app/shared/folding.py :: league_address`). The code sign-in refuses four more:
   - an address that failed ten codes in a row is refused the next, the right one included, until the
     oldest of those failures is a day old or a sign-in clears the count, and the refusal says so and
     offers a passkey (`docs/frontend/spec.md :: I441`);
   - an address that asked for five codes in the hour is mailed no further one that hour, answered as
     a mailed code is (`docs/frontend/spec.md :: I442`);
+  - once every address together has been mailed the hour's total of codes, no address is mailed one
+    until the oldest of those mails is an hour old, answered the same way: a limit of the service
+    rather than a judgement about the person, keeping a flood of codes from spending the mail
+    provider's quota that every other message of the league's needs (`docs/frontend/spec.md :: I447`);
   - an address holding neither a grant nor a record the send gate reads is mailed no code at all,
     answered the same way: the gate's `holds-nothing` verdict
     (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). The gate reads squads, players and
     referees, so a registration or an application awaiting its confirmation admits nobody.
 
-  The last two answer as a mailed code does so that no answer tells a member from a stranger, and
-  the person meeting either is not told of it.
+  The last three answer as a mailed code does so that no answer tells a member from a stranger, and
+  the person meeting any of them is not told of it.
 
-  The notice's retention table names both counts and how long each lasts
-  (`DatenschutzView.tsx :: FRISTEN`), and none of the four as a refusal. Whether any belongs beside
+  The notice's retention table names the two per-address counts and how long each lasts
+  (`DatenschutzView.tsx :: FRISTEN`), and none of the five as a refusal. Whether any belongs beside
   the two the notice names is [section 11](#11-open-and-owed-a-decision)'s question.
 
 - **There is no guardian workflow.** No code composes a consent on a guardian's word; a pupil's own
@@ -763,12 +767,12 @@ the `Entry` column carries a token only where one still resolves in that file.
   refusal is a limit of what the league can take, as the full squad is, or a judgement about the
   person; and so whether the notice names it beside the full squad or among the refusals it offers
   a review of.
-- **The code sign-in's three refusals are named by the notice as counts or not at all, for the
+- **The code sign-in's four refusals are named by the notice as counts or not at all, for the
   Datenschutzexperte.** [Section 2](#2-consent-comes-from-the-person-from-16-or-18) lists them: the
-  lock after ten failed codes in a row, the five codes an address may ask for in an hour, and the
-  gate mailing no code to an address that holds nothing. A passkey signs in past the first two, and
-  the last two are not told to the person who meets them, which is what keeps the sign-in from
-  telling a member from a stranger. The questions to put: whether each is a limit of the service, as
+  lock after ten failed codes in a row, the five codes an address may ask for in an hour, the hour's
+  total across every address, and the gate mailing no code to an address that holds nothing. A
+  passkey signs in past the first three, and the last three are not told to the person who meets
+  them, which is what keeps the sign-in from telling a member from a stranger. The questions to put: whether each is a limit of the service, as
   the full squad is, and so named beside it or not at all; and whether a refusal the person is not
   told of can be offered a review.
 - **What carries a pupil's own consent from sixteen, for the Datenschutzexperte.**
