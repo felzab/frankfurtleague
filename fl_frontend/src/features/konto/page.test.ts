@@ -158,6 +158,7 @@ const sicherheit = (fields: Partial<Sicherheit> = {}): Sicherheit => ({
   inhaberAdresse: "pia@example.org",
   freshUntil: null,
   enrolmentUntil: null,
+  servedAt: Date.now(),
   ...fields,
 });
 

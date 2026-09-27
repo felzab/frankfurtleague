@@ -6,7 +6,7 @@ import { auth, CODE_FACTOR, isWithinPersonLifetime, PASSKEY_FACTOR } from "@/cor
 import { PERSON_LIFETIME } from "@/core/sessionLifetimes";
 import { passkeyBestandOf, passkeyNamenOf } from "@/features/passkeys/bestand";
 import { passkeyAnzeigename } from "@/features/passkeys/utils";
-import { enrolmentUntil, freshUntil } from "@/shared/utils/kontoMutation";
+import { confirmedUntil } from "@/shared/utils/kontoMutation";
 
 import type { PasskeyRow } from "@/features/passkeys/bestand";
 import type { KontoSession } from "@/shared/utils/kontoMutation";
@@ -57,8 +57,7 @@ export async function readSicherheit(served: KontoSession): Promise<Sicherheit> 
     verwaltung: served.verwaltung,
     inhaberId: served.user.id,
     inhaberAdresse: served.user.email,
-    freshUntil: freshUntil(served),
-    enrolmentUntil: enrolmentUntil(served),
+    ...confirmedUntil(served),
   };
 }
 

@@ -3,7 +3,7 @@ import { connection } from "next/server";
 
 import { getAdminSession } from "@/core/auth";
 import { SIGN_IN_LANDING } from "@/core/signInLanding";
-import { enrolmentUntil, freshUntil } from "@/shared/utils/kontoMutation";
+import { confirmedUntil } from "@/shared/utils/kontoMutation";
 
 import { AdminStepUpProvider } from "./AdminStepUpProvider";
 
@@ -22,9 +22,5 @@ export async function AdminAuthGuard({ children }: { children: React.ReactNode }
 
   // Read off the session this render already holds, so a step-up press asks before it sends
   // rather than after the server refuses it (`docs/frontend/spec.md :: I433`).
-  return (
-    <AdminStepUpProvider served={{ freshUntil: freshUntil(served), enrolmentUntil: enrolmentUntil(served), inhaberId: served.user.id }}>
-      {children}
-    </AdminStepUpProvider>
-  );
+  return <AdminStepUpProvider served={{ ...confirmedUntil(served), inhaberId: served.user.id }}>{children}</AdminStepUpProvider>;
 }

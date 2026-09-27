@@ -127,6 +127,8 @@ const sicherheit = (fields: Partial<Sicherheit> = {}): Sicherheit => ({
   inhaberAdresse: ADDRESS,
   freshUntil: Date.now() + HOUR_MS,
   enrolmentUntil: Date.now() + 4 * MINUTE_MS,
+  // The server's clock and the browser's agree unless a case says otherwise.
+  servedAt: Date.now(),
   ...fields,
 });
 
@@ -559,6 +561,29 @@ describe("the page's windows against the server's render", () => {
       await screen.findByRole("button", { name: "Mit Passkey bestätigen" }),
       "a confirmation the server's render did not carry outlived it",
     );
+  });
+
+  /* The figures are the server's clock and the lapse timer the browser's: a browser minutes fast met the
+     five minutes already spent, closing the add control as each confirmation's refresh drew it. */
+  it("keeps the time a render left on a browser clock minutes fast", async () => {
+    const serverNow = Date.now() - 6 * MINUTE_MS;
+    const { again } = served({ freshUntil: null, enrolmentUntil: null, servedAt: serverNow });
+
+    again({ freshUntil: serverNow + HOUR_MS, enrolmentUntil: serverNow + 4 * MINUTE_MS, servedAt: serverNow });
+    assert.ok(screen.getByRole("button", { name: "Passkey hinzufügen" }));
+
+    // Past the lapse timer's first turn, which a window read across the two clocks takes at once.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.ok(screen.queryByRole("button", { name: "Passkey hinzufügen" }), "the add control closed on a window the server held open");
+  });
+
+  // Real timers and a window a fifth of a second long, as the lapse case above has them.
+  it("closes the window when the render said on a browser clock minutes slow", async () => {
+    const serverNow = Date.now() + 6 * MINUTE_MS;
+    open({ enrolmentUntil: serverNow + 200, servedAt: serverNow });
+    assert.ok(screen.getByRole("button", { name: "Passkey hinzufügen" }));
+
+    await screen.findByRole("button", { name: "Mit Passkey bestätigen" });
   });
 
   /* The enrolment's window sits inside the step-up's: a refusal closing the wider one leaves no add

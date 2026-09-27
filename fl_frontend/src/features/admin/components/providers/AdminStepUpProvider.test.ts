@@ -67,7 +67,7 @@ const ARMED = "Ja, Sperre vom 12.03.2026 endgültig aufheben";
 const page = (freshUntil: number | null) =>
   underNext(
     h(AdminStepUpProvider, {
-      served: { freshUntil, enrolmentUntil: null, inhaberId: "administrator" },
+      served: { freshUntil, enrolmentUntil: null, servedAt: Date.now(), inhaberId: "administrator" },
       children: h(AdminSperreAufhebenPanel, { sperreId: "6890a1b2c3d4e5f607190001", gesperrtAm: "12.03.2026" }),
     }),
   );
@@ -247,7 +247,7 @@ describe("the narrow window a grant's revoke is held to", () => {
   const revokeUnder = (freshUntil: number, enrolmentUntil: number) =>
     underNext(
       h(AdminStepUpProvider, {
-        served: { freshUntil, enrolmentUntil, inhaberId: "administrator" },
+        served: { freshUntil, enrolmentUntil, servedAt: Date.now(), inhaberId: "administrator" },
         children: h(AdminBerechtigungEntziehenPanel, {
           berechtigungId: "6890a1b2c3d4e5f6071b0002",
           adresse: "vorstand@schule.de",
@@ -292,10 +292,11 @@ describe("the narrow window a grant is held to", () => {
     heldBy = true;
   });
 
-  const grantUnder = (freshUntil: number, enrolmentUntil: number) =>
+  /** `servedAt` is the server's clock as it read both figures, the browser's own unless a case says otherwise. */
+  const grantUnder = (freshUntil: number, enrolmentUntil: number, servedAt = Date.now()) =>
     underNext(
       h(AdminStepUpProvider, {
-        served: { freshUntil, enrolmentUntil, inhaberId: "administrator" },
+        served: { freshUntil, enrolmentUntil, servedAt, inhaberId: "administrator" },
         children: h(AdminCreateBerechtigungForm, { onClose: () => undefined }),
       }),
     );
@@ -328,6 +329,32 @@ describe("the narrow window a grant is held to", () => {
     await grant(user);
 
     assert.equal(prompts, 0);
+    unmount();
+  });
+
+  /* The figures are the server's clock and the press reads the browser's: a browser minutes fast found
+     the five minutes spent at every render, so each grant asked again. */
+  it("asks nothing inside the five minutes the server's render left, on a browser clock minutes fast", async (t) => {
+    const user = userEvent.setup();
+    t.mock.timers.enable({ apis: ["Date"], now: 11_000_000 });
+    const serverNow = 11_000_000 - 6 * 60 * 1000;
+    const { unmount } = render(grantUnder(serverNow + STEP_UP_WINDOW_MS, serverNow + ENROLMENT_WINDOW_MS, serverNow));
+
+    await grant(user);
+
+    assert.equal(prompts, 0, "a window the server still held open was read as spent");
+    unmount();
+  });
+
+  it("asks once the server's five minutes have passed, on a browser clock minutes slow", async (t) => {
+    const user = userEvent.setup();
+    t.mock.timers.enable({ apis: ["Date"], now: 12_000_000 });
+    const serverNow = 12_000_000 + 6 * 60 * 1000;
+    const { unmount } = render(grantUnder(serverNow + STEP_UP_WINDOW_MS, serverNow - 1, serverNow));
+
+    await grant(user);
+
+    assert.equal(prompts, 1, "the grant went out on a window the server had already closed");
     unmount();
   });
 });
