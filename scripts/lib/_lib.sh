@@ -873,6 +873,35 @@ nothing here says whether the frontend can sign with it or the backend verify it
   fi
 }
 
+# --- The rendered compose models ----------------------------------------------------------------------
+
+# Every environment file the compose files name. Compose refuses to parse a stack whose file is
+# missing, and the real ones are never copied: each is replaced by a stand-in naming itself
+# (`scripts/checks/check_compose_model.py :: STAND_IN_READ`).
+COMPOSE_STAND_INS=(fl_backend/.env fl_frontend/.env .env)
+
+# One staging for the gate's ops scope and `nginx/edge_test.sh`, so a change to the files compose reads
+# reaches both. `$1` is an empty scratch directory.
+stage_compose_models() {
+  local directory="$1" env_file number=0
+  mkdir -p "${directory}/fl_backend" "${directory}/fl_frontend"
+  cp docker-compose.yml docker-compose.local.yml "${directory}/"
+  for env_file in "${COMPOSE_STAND_INS[@]}"; do
+    number=$(( number + 1 ))
+    printf 'FL_STAND_IN_READ_%s=%s\nFL_STAND_IN_LAST=%s\n' "$number" "$env_file" "$env_file" > "${directory}/${env_file}"
+  done
+}
+
+# `$2` is `production` or `local`, written to `$1/$2.json`. The local stack is the merge `local.sh` runs,
+# the override being no stack alone. `--output` keeps a text-mode stream off the model.
+render_compose_model() {
+  local -a files=(-f "$1/docker-compose.yml")
+  if [[ "$2" == local ]]; then files+=(-f "$1/docker-compose.local.yml"); fi
+  # Never `--no-env-resolution`: Compose 2.38 ignores it and later releases honour it, so it would
+  # make the rendered environment depend on the release.
+  quietly docker compose "${files[@]}" config --format json --output "$1/$2.json"
+}
+
 # --- Redaction -------------------------------------------------------------------------------------
 
 # A filter for anything a CONTAINER's log is printed through. `mongodb-connection-string-url` throws

@@ -10,11 +10,12 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import os
 from pathlib import Path
 from typing import Any, Final
 
 import pytest
-from conftest import import_scripts, new_root
+from conftest import BASH, base_env, import_scripts, new_root, run_shell, write_shell
 
 [checker] = import_scripts("check_compose_model")
 
@@ -637,3 +638,52 @@ def test_main_judges_the_signing_key_of_both_models():
 
         assert code == 1, said
         assert f"{broken}: ['backend', 'frontend'] holds" in said, said
+
+
+# --- the models the gate and the edge test render --------------------------------------------------------
+
+LIB: Final = Path(__file__).resolve().parents[1] / "lib" / "_lib.sh"
+# Records each compose call's argv, one call per line, and writes nothing a model would hold.
+COMPOSE_STUB: Final = '#!/usr/bin/env bash\nprintf \'%s\n\' "$*" >> "$FL_COMPOSE_ARGV"\n'
+
+
+def _staged_and_rendered() -> tuple[Path, list[str]]:
+    """`stage_compose_models` and both renders, as the gate's ops scope calls them, behind a stand-in docker."""
+    assert BASH is not None, "no bash on PATH -- every script in scripts/ needs one"
+    root = new_root("fl-compose-stage-")
+    stubs = root / "stubs"
+    stubs.mkdir()
+    os.chmod(write_shell(stubs / "docker", COMPOSE_STUB), 0o755)
+    environment = base_env() | {"PATH": str(stubs) + os.pathsep + os.environ["PATH"], "FL_COMPOSE_ARGV": str(root / "argv.txt")}
+    staged = root / "staged"
+    body = (
+        f'source "{LIB.as_posix()}"\n'
+        f'stage_compose_models "{staged.as_posix()}"\n'
+        f'render_compose_model "{staged.as_posix()}" production\n'
+        f'render_compose_model "{staged.as_posix()}" local\n'
+    )
+    done = run_shell(BASH, write_shell(root / "parent.sh", body), env=environment)
+    assert done.returncode == 0, done.stdout + done.stderr
+    return staged, (root / "argv.txt").read_text(encoding="utf-8").splitlines()
+
+
+def test_each_stand_in_names_itself_in_the_names_the_checker_reads():
+    """`env_files` judges a service by what its stand-ins resolved to, so a stand-in the checker cannot read judges nothing."""
+    staged, _ = _staged_and_rendered()
+
+    for number, env_file in enumerate(("fl_backend/.env", "fl_frontend/.env", ".env"), start=1):
+        text = (staged / env_file).read_bytes().decode()
+        assert text == f"{checker.STAND_IN_READ}{number}={env_file}\n{checker.STAND_IN_LAST}={env_file}\n", env_file
+    assert (staged / "docker-compose.yml").read_bytes() == (checker.REPO_ROOT / "docker-compose.yml").read_bytes()
+    assert (staged / "docker-compose.local.yml").read_bytes() == (checker.REPO_ROOT / "docker-compose.local.yml").read_bytes()
+
+
+def test_the_local_model_is_the_merge_and_neither_render_skips_the_environment():
+    """`--no-env-resolution` is ignored by one Compose release and honoured by the next, so it renders two models."""
+    staged, argv = _staged_and_rendered()
+    base = f"-f {staged.as_posix()}/docker-compose.yml"
+
+    assert argv == [
+        f"compose {base} config --format json --output {staged.as_posix()}/production.json",
+        f"compose {base} -f {staged.as_posix()}/docker-compose.local.yml config --format json --output {staged.as_posix()}/local.json",
+    ]

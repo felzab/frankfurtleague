@@ -1141,29 +1141,12 @@ written at the rule, never suppressed at this call site." \
   fi
 
   step "ops · compose files parse"
-  # Compose refuses to parse a file whose env_file is missing, so each stack is parsed from a
-  # scratch copy beside stand-in .envs -- never the real trees, which the backend, db and
-  # frontend scopes read while they run. The EXIT trap removes the scratch.
+  # A scratch copy, never the real trees, which the backend, db and frontend scopes read while they
+  # run. The EXIT trap removes the scratch.
   OPS_SCRATCH="$(mktemp -d)"
-  mkdir -p "${OPS_SCRATCH}/fl_backend" "${OPS_SCRATCH}/fl_frontend"
-  cp docker-compose.yml docker-compose.local.yml "${OPS_SCRATCH}/"
-  # Each stand-in names itself (`scripts/checks/check_compose_model.py :: STAND_IN_READ`), so the
-  # environment Compose resolves says which files a service read and which it read last.
-  stand_in=0
-  for env_file in fl_backend/.env fl_frontend/.env .env; do
-    stand_in=$(( stand_in + 1 ))
-    printf 'FL_STAND_IN_READ_%s=%s\nFL_STAND_IN_LAST=%s\n' "$stand_in" "$env_file" "$env_file" \
-      > "${OPS_SCRATCH}/${env_file}"
-  done
-  # The local stack is the merge `scripts/ops/local.sh` runs, never docker-compose.local.yml alone,
-  # which is an override and no stack at all. `--output` rather than a redirect, so no text-mode
-  # stream writes the model.
-  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.yml" config --format json \
-    --output "${OPS_SCRATCH}/production.json" \
-    || die "docker-compose.yml does not parse."
-  quietly docker compose -f "${OPS_SCRATCH}/docker-compose.yml" -f "${OPS_SCRATCH}/docker-compose.local.yml" \
-    config --format json --output "${OPS_SCRATCH}/local.json" \
-    || die "docker-compose.local.yml does not merge over docker-compose.yml."
+  stage_compose_models "$OPS_SCRATCH"
+  render_compose_model "$OPS_SCRATCH" production || die "docker-compose.yml does not parse."
+  render_compose_model "$OPS_SCRATCH" local || die "docker-compose.local.yml does not merge over docker-compose.yml."
   ok "both stacks parse"
 
   # A parse accepts a published port and a database alike, so nothing else holds

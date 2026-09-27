@@ -108,20 +108,15 @@ for conf in "${REPO_ROOT}"/nginx/local/*.conf; do
 done
 (( ${#LOCAL_MOUNTS[@]} > 2 )) || refuse "nginx/local/ holds no *.conf, so there is no edge to serve."
 
-# The edge's image, `command` and `tmpfs` off the model Compose renders for the local stack, as
-# `scripts/gate/verify.sh`'s compose step renders it: the Control API the deploy reloads through
+# The edge's image, `command` and `tmpfs` off the model Compose renders for the local stack, by the
+# gate's own `scripts/lib/_lib.sh :: render_compose_model`: the Control API the deploy reloads through
 # exists only as that command starts that release.
 EDGE_PY="$(any_python || true)"
 if [[ -z "$EDGE_PY" ]] || ! python_at_floor "$EDGE_PY"; then
   refuse "no python at the checkers' floor, so the edge's command could not be read off its model."
 fi
-mkdir -p "${SCRATCH}/model/fl_backend" "${SCRATCH}/model/fl_frontend"
-cp docker-compose.yml docker-compose.local.yml "${SCRATCH}/model/"
-: > "${SCRATCH}/model/fl_backend/.env"
-: > "${SCRATCH}/model/fl_frontend/.env"
-: > "${SCRATCH}/model/.env"
-quietly docker compose -f "${SCRATCH}/model/docker-compose.yml" -f "${SCRATCH}/model/docker-compose.local.yml" \
-  config --format json --no-env-resolution --output "${SCRATCH}/model/local.json" \
+stage_compose_models "${SCRATCH}/model"
+render_compose_model "${SCRATCH}/model" local \
   || refuse "compose could not render the local stack's model, so the edge's command is unknown."
 EDGE_MODEL_READ='
 import json
