@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@heroui/react/button";
 
 import { SIGN_IN_LANDING } from "@/core/signInLanding";
-import { formButton } from "@/shared/components/ui/formButtons";
+import { ctaButton } from "@/shared/components/ui/formButtons";
 import { SignInCard } from "@/shared/components/ui/SignInCard";
 import { useSignOut } from "@/shared/hooks/useSignOut";
 
@@ -30,7 +30,8 @@ export function SignedInCard({ address }: { address: string }) {
         {/* A plain link: the landing decides where a signed-in visitor goes, as after every sign-in. */}
         <Link
           href={SIGN_IN_LANDING}
-          className={formButton({ intent: "submit", fullWidth: true })}>
+          // `ctaButton`'s `css` hover: `formButton` hovers on `data-hovered`, which no link is given.
+          className={`${ctaButton({ intent: "primary", hover: "css" })} w-full`}>
           Weiter zu Deinem Bereich
         </Link>
 
@@ -41,7 +42,8 @@ export function SignedInCard({ address }: { address: string }) {
           data-signout-control="true"
           onPress={press}
           onBlur={disarm}
-          className={formButton({ intent: "cancel", fullWidth: true })}>
+          // The link's recipe, so the pair keeps one weight.
+          className={`${ctaButton({ intent: "outline", hover: "aria" })} w-full`}>
           {confirm.isConfirming ? (confirm.isPending ? "Meldet ab..." : "Abmelden?") : "Abmelden"}
         </Button>
       </div>

@@ -30,4 +30,19 @@ describe("the sign-in page for somebody already signed in", () => {
     assert.ok(screen.getByRole("button", { name: "Abmelden" }));
     assert.ok(screen.queryByRole("textbox") === null, "a sign-in field stands beside the signed-in card");
   });
+
+  /* A link is given no `data-hovered`, so a hover keyed on it never shows; a HeroUI button latches CSS
+     `:hover` after a tap (`fl_frontend/src/shared/components/ui/formButtons.ts :: ctaButton`). */
+  it("hovers the link by CSS and the sign-out by the attribute its button sets", () => {
+    render(underNext(h(SignedInCard, { address: ADDRESS }), { router: recordingRouter().router }));
+
+    const hovers = (element: HTMLElement, prefix: string): string[] => [...element.classList].filter((name) => name.startsWith(prefix));
+    const link = screen.getByRole("link", { name: "Weiter zu Deinem Bereich" });
+    const signOut = screen.getByRole("button", { name: "Abmelden" });
+
+    assert.notDeepEqual(hovers(link, "hover:"), [], "the link shows no hover at all");
+    assert.deepEqual(hovers(link, "data-hovered:"), [], "the link hovers on an attribute no link is given");
+    assert.notDeepEqual(hovers(signOut, "data-hovered:"), [], "the sign-out shows no hover at all");
+    assert.deepEqual(hovers(signOut, "hover:"), [], "the sign-out hovers by CSS, which a tap latches");
+  });
 });

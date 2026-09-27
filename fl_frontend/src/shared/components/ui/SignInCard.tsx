@@ -8,7 +8,10 @@ import type { ReactNode } from "react";
  */
 export function SignInCard({
   title,
-  /** The form's own glyph. Absent everywhere else, the steps after it being read rather than arrived at. */
+  /**
+   * `/signin`'s own glyph, on the form and on the greeting standing in its place. Absent on the steps after
+   * the form, which are read rather than arrived at.
+   */
   ornament,
   children,
 }: {
