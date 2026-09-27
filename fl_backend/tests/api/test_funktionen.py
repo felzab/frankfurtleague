@@ -507,7 +507,7 @@ class TestTheRetirementNarrowing:
         assert answered(seeded_league, GEIST).schiedsrichter == []
 
 
-@pytest.mark.parametrize("identifier", ["", " 　﻿"], ids=["empty", "blank"])
+@pytest.mark.parametrize("identifier", ["", " \u3000\ufeff"], ids=["empty", "blank"])
 def test_an_identifier_folding_to_nothing_is_refused_before_any_read(identifier: str):
     """A bare object stands in for every handle, so a lookup that went ahead would raise an attribute error rather than this."""
 
