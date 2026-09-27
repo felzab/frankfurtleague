@@ -870,10 +870,3 @@ the `Entry` column carries a token only where one still resolves in that file.
   commercially, as a rule for payment, and § 18 (2) MStV one that is journalistic and editorial. The
   questions to put: whether § 18 (1) MStV carries all four names, and whether either of the other
   two reaches this site.
-- **The web server's error lines are bounded by size and by no age.** An nginx error line about a
-  request is expected to name the client's address, as nginx formats one — recalled rather than read
-  in nginx's documentation, and the level the image logs at is not established either — and those
-  lines stay in the nginx container's own stream
-  (`docs/logging/spec.md :: 1.2`), which the container runtime rotates by size alone and no deploy
-  copies off; the published notice's eight days describe the access log alone. Which bound they owe
-  is not yet decided.
