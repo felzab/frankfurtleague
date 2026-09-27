@@ -28,9 +28,9 @@ const neutralResult = (submittedEmail: string): FormState => ({
 });
 
 /**
- * Public by necessity. `nginx/shared/site.conf :: location = /signin` bounds that PATH rather than this
- * action: a server action resolves from a process-wide module map, so the same POST to any other
- * page reaches this and is metered by nothing.
+ * Public by necessity. `nginx/shared/site.conf :: location = /signin` bounds that PATH, not this action:
+ * an action resolves from a process-wide module map, so a POST to any page reaches it, metered there
+ * by the server-action zone pair alone.
  */
 // `_prevState` is required by `useActionState`'s calling convention -- the action receives the
 // previous state first -- and read by nothing: the form re-renders from the returned state alone.
