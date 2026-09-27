@@ -54,8 +54,8 @@ export async function endAndereAnmeldungenAction(): Promise<ActionResult> {
 }
 
 /**
- * Whether the session a confirmation just made is the page's holder's: the browser offers every
- * account's passkey, and another account's would otherwise run the waiting change as that account
+ * Whether the session a confirmation just made is the page's holder's: once the page's session has
+ * ended, its challenge names nobody and any account's passkey signs its own account in
  * (`docs/frontend/spec.md :: I428`).
  */
 export async function pruefeInhaberAction(inhaberId: string): Promise<QueryResult<{ gleich: boolean }>> {

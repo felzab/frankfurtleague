@@ -1061,6 +1061,46 @@ function steppedUp(row: SessionRow): void {
   ageRow(row, { created: 0, idle: 0 });
 }
 
+/* A signed-in page's challenge names its account, and the plugin verifies the credential and never
+   whose it is: another account's passkey would sign that account in and end the page's session
+   (`docs/frontend/spec.md :: I428`). */
+describe("whose passkey may answer a signed-in page's challenge", () => {
+  it("refuses another account's passkey, minting nothing and ending nothing", async () => {
+    const other = await signIn(PERSON_EMAIL);
+    store.passkey.push({ ...aPasskeyFor(other.row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+    const { cookie } = await signIn(ADMIN_EMAIL);
+    const before = [...store.session];
+
+    const refused = await assertPasskey(cookie, true);
+
+    assert.equal(refused.status, 401);
+    assert.deepEqual(store.session, before, "another account's passkey minted a session or ended the page's");
+  });
+
+  it("admits the page's own account's passkey", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+
+    assert.equal((await assertPasskey(cookie, true)).status, 200);
+  });
+
+  /* Signed out, the challenge names nobody, and any account's passkey is the sign-in itself. */
+  it("admits an account's passkey to a challenge asked for signed out", async () => {
+    const holder = await signIn(ADMIN_EMAIL);
+    store.passkey.push({ ...aPasskeyFor(holder.row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+
+    const offered = await overHttp("/passkey/generate-authenticate-options", {});
+    const { challenge } = (await offered.json()) as { challenge: string };
+    const answer = await overHttp("/passkey/verify-authentication", {
+      method: "POST",
+      cookie: cookieHeader(offered),
+      body: { response: assertionFor(challenge, true) },
+    });
+
+    assert.equal(answer.status, 200, await answer.clone().text());
+  });
+});
+
 describe("what the passkey ceremony has to prove before it mints anything", () => {
   /* The asking half, which the patched plugin carries: a ceremony told "preferred" may answer with
      the flag unset, and the arm below would then refuse the only passkey the administrator has. */

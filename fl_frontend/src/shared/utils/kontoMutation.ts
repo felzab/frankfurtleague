@@ -13,8 +13,9 @@ export const KONTO_FORBIDDEN = "Deine Anmeldung ist abgelaufen. Melde Dich neu a
 export type KontoSession = NonNullable<Awaited<ReturnType<typeof getKontoSession>>>;
 
 /**
- * Whether the served session is the one the page was drawn for: the browser offers every account's
- * passkey, so a confirmation can sign another account in (`docs/frontend/spec.md :: I428`).
+ * Whether the served session is the one the page was drawn for: a confirmation made once the page's
+ * session has ended answers a challenge naming nobody, and can sign another account in
+ * (`docs/frontend/spec.md :: I428`).
  */
 export function isHeldBy(served: { readonly user: { readonly id: string } }, holderId: string): boolean {
   return served.user.id === holderId;

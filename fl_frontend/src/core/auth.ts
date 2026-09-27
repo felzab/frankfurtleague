@@ -356,6 +356,36 @@ function ceremonyCredentialId(ctx: Pick<GenericEndpointContext, "body">): string
   return declared;
 }
 
+/** The plugin's own name for its challenge cookie, which its options leave at the default here. */
+const PASSKEY_CHALLENGE_COOKIE = "better-auth-passkey";
+
+/**
+ * A signed-in page's challenge names its account, and the plugin checks the credential, never whose:
+ * another account's passkey would sign that account in and end the page's session (`docs/frontend/spec.md :: I428`).
+ */
+async function refuseAnotherAccountsPasskey(ctx: GenericEndpointContext): Promise<void> {
+  const token = await ctx.getSignedCookie(ctx.context.createAuthCookie(PASSKEY_CHALLENGE_COOKIE).name, ctx.context.secret);
+  // Left to the plugin, which refuses a missing or spent challenge itself.
+  if (typeof token !== "string" || token === "") return;
+
+  const challenge = await ctx.context.internalAdapter.findVerificationValue(token);
+  if (challenge === null) return;
+
+  const parsed: unknown = JSON.parse(challenge.value);
+  const userData: unknown = typeof parsed === "object" && parsed !== null ? Reflect.get(parsed, "userData") : undefined;
+  const expected: unknown = typeof userData === "object" && userData !== null ? Reflect.get(userData, "id") : undefined;
+  if (typeof expected !== "string" || expected === "") return;
+
+  const credentialID = declaredCredentialId(ctx);
+  if (typeof credentialID !== "string" || credentialID === "") return;
+
+  const answered = await ctx.context.adapter.findOne<{ userId: string }>({
+    model: "passkey",
+    where: [{ field: "credentialID", value: credentialID }],
+  });
+  if (answered !== null && answered.userId !== expected) throw APIError.fromStatus("UNAUTHORIZED");
+}
+
 /**
  * Ends the session the request's cookie named once a sign-in has minted its successor: a step-up
  * would otherwise leave the session it replaced alive beside the new one (`docs/frontend/spec.md :: I399`).
@@ -785,6 +815,9 @@ const authOptions = {
         // The plugin's own answer to a send, so a capped one reads as a mailed one.
         return ctx.json({ success: true });
       }
+
+      // Both arms: an in-process assertion answered by another account's passkey is no less that account's.
+      if (ctx.path === PASSKEY_ASSERTION_PATH) await refuseAnotherAccountsPasskey(ctx);
 
       // Above the in-process return, so both arms carry it: the registration's transaction opens later,
       // and a backend round trip inside it would hold it open (`docs/frontend/spec.md :: I462`).

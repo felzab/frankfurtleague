@@ -166,8 +166,8 @@ describe("a change past the step-up window", () => {
     await waitFor(() => assert.deepEqual(toasts(), [["success", "Abgemeldet", "Die Anmeldung ist beendet."]]));
   });
 
-  /* The browser offers every account's passkey: one of another account's signs that account in, and
-     the waiting change would run as it (`docs/frontend/spec.md :: I428`). */
+  /* Once the page's session has ended, the challenge names nobody and another account's passkey signs
+     that account in; the waiting change would run as it (`docs/frontend/spec.md :: I428`). */
   it("runs nothing when the confirmation signed another account in, and says so", async () => {
     const user = userEvent.setup();
     answers.pruefeInhaberAction = { success: true, gleich: false };

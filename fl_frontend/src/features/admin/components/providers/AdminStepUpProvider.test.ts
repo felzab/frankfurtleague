@@ -198,8 +198,8 @@ describe("the administrator's step-up window", () => {
     assert.equal(calls.length, before, "a refused prompt sent the write");
   });
 
-  /* The browser offers every account's passkey, and the one asserted signs its own account in: the
-     waiting write would then run as that account (`docs/frontend/spec.md :: I428`). */
+  /* Once the page's session has ended, the challenge names nobody and the passkey asserted signs its
+     own account in: the waiting write would then run as that account (`docs/frontend/spec.md :: I428`). */
   it("leaves the write unrun where the confirmation signed in another account", async (t) => {
     const user = userEvent.setup();
     t.mock.timers.enable({ apis: ["Date"], now: 1_000_000 });

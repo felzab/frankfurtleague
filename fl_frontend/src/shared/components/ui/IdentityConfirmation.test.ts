@@ -67,8 +67,8 @@ describe("the confirmation by passkey", () => {
     assert.ok(screen.queryByRole("alert") === null);
   });
 
-  /* The browser offers every account's passkey, and another account's signs that account in
-     (`docs/frontend/spec.md :: I428`). */
+  /* Once the page's session has ended, the challenge names nobody and another account's passkey signs
+     that account in (`docs/frontend/spec.md :: I428`). */
   it("refuses an assertion that signed another account in", async () => {
     holder = () => Promise.resolve(false);
     open();
