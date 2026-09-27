@@ -51,9 +51,11 @@ const aenderung = (fields: Record<string, unknown> = {}) => ({
   id: OUTBOX_A,
   berechtigung_id: GRANT_A,
   art: "erteilt",
+  urheber: "anwendung",
   jetzt: { adresse: "neu@schule.de", verwaltung: "administration" },
   vorher: null,
   geaendert_von: "vorstand@schule.de",
+  geaendert_von_gesperrt: false,
   geaendert_am: "2026-09-27T01:00:00",
   gesperrt: false,
   ...fields,
@@ -138,7 +140,13 @@ describe("one pass over the claimed changes", () => {
      only the holders, telling them a barred address was granted. */
   it("mails a barred address nothing, and names it to nobody", async () => {
     claim = claimOf([
-      aenderung({ jetzt: { adresse: null, verwaltung: "administration" }, gesperrt: true, geaendert_von: null, geaendert_am: null }),
+      aenderung({
+        jetzt: { adresse: null, verwaltung: "administration" },
+        gesperrt: true,
+        urheber: "datenbank",
+        geaendert_von: null,
+        geaendert_am: null,
+      }),
     ]);
 
     await runBerechtigungenAbgleich();
@@ -164,7 +172,7 @@ describe("one pass over the claimed changes", () => {
   /* The takeover a holder of the database's credentials would make: one grant's address edited from A
      to B, answered as A's removal and B's grant. Every holder, B among them, is told both; A its own loss. */
   it("tells an address repointed in the database as the old address's loss and the new one's grant", async () => {
-    const DATENBANK = { geaendert_von: null, geaendert_am: null };
+    const DATENBANK = { urheber: "datenbank", geaendert_von: null, geaendert_am: null };
     claim = claimOf(
       [
         aenderung({ art: "entzogen", jetzt: null, vorher: { adresse: "opfer@schule.de", verwaltung: "administration" }, ...DATENBANK }),
@@ -195,7 +203,9 @@ describe("one pass over the claimed changes", () => {
   });
 
   it("tells an `owner` grant made in the database as the owner's", async () => {
-    claim = claimOf([aenderung({ jetzt: { adresse: "neu@schule.de", verwaltung: "owner" }, geaendert_von: null, geaendert_am: null })]);
+    claim = claimOf([
+      aenderung({ jetzt: { adresse: "neu@schule.de", verwaltung: "owner" }, urheber: "datenbank", geaendert_von: null, geaendert_am: null }),
+    ]);
 
     await runBerechtigungenAbgleich();
 
@@ -209,6 +219,7 @@ describe("one pass over the claimed changes", () => {
         art: "geaendert",
         jetzt: { adresse: "vorstand@schule.de", verwaltung: "owner" },
         vorher: { adresse: "vorstand@schule.de", verwaltung: "administration" },
+        urheber: "datenbank",
         geaendert_von: null,
         geaendert_am: null,
       }),
@@ -218,6 +229,17 @@ describe("one pass over the claimed changes", () => {
 
     assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
     assert.ok(mail.sent.every((sent) => sent.text.includes("vorstand@schule.de ist jetzt Inhaber der Verwaltung.")));
+  });
+
+  /* The case round 3 split out: a null actor on a change made in the application is a barred administrator. */
+  it("tells a barred administrator's change as theirs, never as a database edit", async () => {
+    claim = claimOf([aenderung({ geaendert_von: null, geaendert_von_gesperrt: true, gesperrt: true })]);
+
+    await runBerechtigungenAbgleich();
+
+    assert.ok(mail.sent.length > 0);
+    assert.ok(mail.sent.every((sent) => sent.text.includes("Geändert von einer gesperrten Adresse")));
+    assert.ok(mail.sent.every((sent) => !sent.text.includes("direkt in der Datenbank")));
   });
 
   /* One key per row and recipient: a lapsed claim mailing a row again reaches nobody twice inside

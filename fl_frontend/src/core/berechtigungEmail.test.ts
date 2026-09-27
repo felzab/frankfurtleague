@@ -59,6 +59,17 @@ describe("the notice a change to who administers sends", () => {
     assert.ok(mail.text.includes(WARNSATZ));
   });
 
+  /* A barred administrator's change is no database edit: told so, it would send every holder looking for a
+     paste nobody made, and the notice never names a barred address. */
+  it("names a barred administrator by their state, never as the database", () => {
+    const mail = buildBerechtigungEmail({ art: "entzogen", adresse: "alt@schule.de" }, { von: null, am: AM }, ORIGIN);
+
+    for (const part of [mail.text, mail.html]) {
+      assert.ok(part.includes("Geändert von einer gesperrten Adresse am 15. Januar 2026"), "the withheld actor is not told as barred");
+      assert.ok(!part.includes("direkt in der Datenbank"), "a barred administrator's change reads as a database edit");
+    }
+  });
+
   /* A barred address leaves the ban list on no route, the notice included. */
   it("names no address for a barred one, in either part", () => {
     const mail = buildBerechtigungEmail({ art: "erteilt", adresse: null, inhaber: false }, null, ORIGIN);

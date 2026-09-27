@@ -16,8 +16,10 @@ export const FLBerechtigungZeileSchema = z.object({
   adresse: z.string().nullable(),
   gesperrt: z.boolean(),
   verwaltung: FLVerwaltungSchema,
-  // An administrator's address, or whatever a database paste wrote: no reader decides anything from it.
-  erteilt_von: z.string(),
+  // An administrator's address, or whatever a database paste wrote, an empty string included; null exactly
+  // where `erteilt_von_gesperrt` holds, a barred actor being withheld as a barred grant is.
+  erteilt_von: z.string().nullable(),
+  erteilt_von_gesperrt: z.boolean(),
   // An instant, where most dates in this app are a calendar day.
   erteilt_am: z.string(),
 });
@@ -72,10 +74,13 @@ export const FLBerechtigungAenderungSchema = z.object({
   id: CustomObjectIdStringSchema,
   berechtigung_id: CustomObjectIdStringSchema,
   art: z.enum(["erteilt", "entzogen", "geaendert"]),
+  // Where the change came from, read here and never off a null actor, which a barred administrator also is.
+  urheber: z.enum(["anwendung", "datenbank"]),
   jetzt: FLBerechtigungStandSchema.nullable(),
   vorher: FLBerechtigungStandSchema.nullable(),
-  // Null where the change was made in the database directly; `geaendert_am` is null exactly then.
+  // Null for a change made in the database, and for one whose administrator is barred, which the flag says.
   geaendert_von: z.string().nullable(),
+  geaendert_von_gesperrt: z.boolean(),
   geaendert_am: z.string().nullable(),
   gesperrt: z.boolean(),
 });

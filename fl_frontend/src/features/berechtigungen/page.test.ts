@@ -22,6 +22,7 @@ const INHABER = {
   gesperrt: false,
   verwaltung: "owner",
   erteilt_von: "PLAYGROUND",
+  erteilt_von_gesperrt: false,
   erteilt_am: "2026-09-27T01:00:00",
 };
 const VORSTAND = {
@@ -30,6 +31,7 @@ const VORSTAND = {
   gesperrt: false,
   verwaltung: "administration",
   erteilt_von: "inhaber@schule.de",
+  erteilt_von_gesperrt: false,
   // Naive, as the backend serialises the store's UTC, and past 22:00: already the 28th in Berlin.
   erteilt_am: "2026-09-27T22:30:00",
 };
@@ -38,7 +40,8 @@ const GESPERRT = {
   adresse: null,
   gesperrt: true,
   verwaltung: "administration",
-  erteilt_von: "PLAYGROUND",
+  erteilt_von: null,
+  erteilt_von_gesperrt: true,
   erteilt_am: "2026-09-27T03:00:00",
 };
 
@@ -95,6 +98,13 @@ describe("the page the administrators stand on", () => {
 
     assert.ok(text.includes("Direkt in der Datenbank"));
     assert.ok(!text.includes("PLAYGROUND"), "the paste's raw marker reached the page");
+  });
+
+  /* An administrator barred since is withheld as a barred grant is: the row names the state, never an empty cell. */
+  it("names a grant's barred administrator by their state", async () => {
+    const text = textOf(await renderPage(PAGE), " ");
+
+    assert.equal(text.split("Gesperrte Adresse").length - 1, 2, "the barred row's address and its administrator are not both named by state");
   });
 
   it("dates a grant by the Berlin day it was made on", async () => {

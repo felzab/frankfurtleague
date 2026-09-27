@@ -183,10 +183,11 @@ function zugangsaenderung(aenderung: FLBerechtigungAenderung): Zugangsaenderung 
   return { art: aenderung.art, adresse: aenderung.jetzt?.adresse ?? null, inhaber: aenderung.jetzt?.verwaltung === "owner" };
 }
 
+/** Read off `urheber`, never off a null actor: a barred administrator's change is no database edit. */
 function urheber(aenderung: FLBerechtigungAenderung): Urheber {
-  return aenderung.geaendert_von === null || aenderung.geaendert_am === null
-    ? null
-    : { von: aenderung.geaendert_von, am: aenderung.geaendert_am };
+  if (aenderung.urheber === "datenbank") return null;
+
+  return { von: aenderung.geaendert_von_gesperrt ? null : aenderung.geaendert_von, am: aenderung.geaendert_am };
 }
 
 /** Which half stopped and the error's name, never a person. */

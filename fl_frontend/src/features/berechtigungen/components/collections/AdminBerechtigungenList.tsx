@@ -43,6 +43,13 @@ function erteiltTag(stamp: string): string {
   return Number.isNaN(instant.getTime()) ? stamp : ERTEILT_TAG.format(instant);
 }
 
+/** Who granted it: a barred administrator by their state, as a barred grant is, and a paste naming nobody by its origin. */
+function erteiltVon({ erteilt_von, erteilt_von_gesperrt }: FLBerechtigungZeile): string {
+  if (erteilt_von_gesperrt || erteilt_von === null) return GESPERRTE_ADRESSE;
+
+  return erteilt_von === PLAYGROUND_MARKER || erteilt_von === "" ? DIREKT_IN_DER_DATENBANK : erteilt_von;
+}
+
 /** The eyebrow naming the fact at the fact, as the ban list's cards carry it. */
 const FACT_LABEL_CLASSES = "fluid-xxs font-extrabold tracking-widest text-foreground-muted uppercase";
 
@@ -88,9 +95,7 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
           <div className="grid w-full grid-cols-1 gap-3 border-t border-border/50 pt-3 sm:grid-cols-2">
             <div className="flex min-w-0 flex-col gap-1">
               <span className={FACT_LABEL_CLASSES}>{ERTEILT_VON_LABEL}</span>
-              <p className="fluid-sm font-medium break-words text-foreground">
-                {berechtigung.erteilt_von === PLAYGROUND_MARKER ? DIREKT_IN_DER_DATENBANK : berechtigung.erteilt_von}
-              </p>
+              <p className="fluid-sm font-medium break-words text-foreground">{erteiltVon(berechtigung)}</p>
             </div>
             <div className="flex min-w-0 flex-col gap-1">
               <span className={FACT_LABEL_CLASSES}>{ERTEILT_AM_LABEL}</span>

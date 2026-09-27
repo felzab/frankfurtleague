@@ -38,8 +38,14 @@ export type Zugangsaenderung =
   | { readonly art: "erteilt" | "geaendert"; readonly adresse: string | null; readonly inhaber: boolean }
   | { readonly art: "entzogen"; readonly adresse: string | null };
 
-/** Who made the change and when, or `null` where it was made in the database directly. */
-export type Urheber = { readonly von: string; readonly am: string } | null;
+/**
+ * Who made the change and when, or `null` where it was made in the database directly. `von` is null for an
+ * administrator since barred, whose address the notice never names.
+ */
+export type Urheber = { readonly von: string | null; readonly am: string | null } | null;
+
+/** The acting administrator where a ban withholds them. GERMAN-PENDING */
+const GESPERRTER_URHEBER = "einer gesperrten Adresse";
 
 function zeitText(instant: string): string {
   return servedInstant(instant).toLocaleString("de-DE", { timeZone: ZEITZONE, dateStyle: "long", timeStyle: "short" });
@@ -70,7 +76,10 @@ function aenderungsSatz(aenderung: Zugangsaenderung, wer: (adresse: string) => s
 
 /** The second sentence: who made it and when, or where a change nobody in the application made came from. */
 function urheberSatz(urheber: Urheber, wer: (adresse: string) => string): string {
-  return urheber === null ? OHNE_VERWALTUNG : `Geändert von ${wer(urheber.von)} am ${wer(zeitText(urheber.am))}.`;
+  if (urheber === null) return OHNE_VERWALTUNG;
+
+  const von = urheber.von === null ? GESPERRTER_URHEBER : wer(urheber.von);
+  return urheber.am === null ? `Geändert von ${von}.` : `Geändert von ${von} am ${wer(zeitText(urheber.am))}.`;
 }
 
 /**
