@@ -53,6 +53,13 @@ const auskunftSatz = (kontakt: string): string =>
   `Möchtest Du eine Kopie Deiner Daten oder ihre Löschung, schreib uns an ${kontakt}. Wir bestätigen Deine Anfrage mit einer E-Mail an diese gesperrte Adresse.`;
 
 /**
+ * A barred address's confirmation link shows the ban's sentence and nothing else, so a contact person
+ * withdrawing a consent that link took has only this mail to learn where it now goes.
+ */
+const einwilligungSatz = (kontakt: string): string =>
+  `Einen Widerspruch gegen Deine Einwilligung nimmst Du weiterhin per E-Mail an ${kontakt} vor.`;
+
+/**
  * Art. 6 (1) (f). Named because the mail is the ONLY record this reader ever gets: the notice they
  * would otherwise read it in is a page nobody has sent them to.
  */
@@ -95,6 +102,7 @@ function renderHtml(grund: string, gesperrtBisSaisonId: string, origin: string):
       paragraph(`${GRUND_VOR} ${escapeHtml(grund)}`),
       paragraph(escapeHtml(GESPEICHERT_SATZ), "0 0 16px", ASIDE_TEXT),
       paragraph(auskunftSatz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0 0 16px", ASIDE_TEXT),
+      paragraph(einwilligungSatz(link(`mailto:${KONTAKT_EMAIL}`, KONTAKT_EMAIL)), "0 0 16px", ASIDE_TEXT),
       paragraph(escapeHtml(GRUNDLAGE_SATZ), "0 0 16px", ASIDE_TEXT),
       // Its own paragraph and the last before the control, which is the separateness Art. 21 (4) asks for.
       // The address as a marked link here too: the objection is one a reader has to select and paste otherwise.
@@ -117,6 +125,8 @@ function renderText(grund: string, gesperrtBisSaisonId: string, origin: string):
     GESPEICHERT_SATZ,
     "",
     auskunftSatz(KONTAKT_EMAIL),
+    "",
+    einwilligungSatz(KONTAKT_EMAIL),
     "",
     GRUNDLAGE_SATZ,
     "",

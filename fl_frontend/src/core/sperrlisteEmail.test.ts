@@ -80,6 +80,20 @@ describe("the message a banned address is sent", () => {
     );
   });
 
+  /* A contact person's link shows a barred address the ban's sentence alone, so this mail is where they
+     learn an objection to their consent still reaches the league. The approved words, written out. */
+  it("says an objection to a consent still goes by mail, in both branches", () => {
+    assert.ok(
+      MAIL.text.includes("Einen Widerspruch gegen Deine Einwilligung nimmst Du weiterhin per E-Mail an kontakt@frankfurtleague.de vor."),
+      "the text branch does not say where an objection to a consent goes",
+    );
+    assert.match(
+      MAIL.html,
+      /Einen Widerspruch gegen Deine Einwilligung nimmst Du weiterhin per E-Mail an <a href="mailto:kontakt@frankfurtleague\.de"[^>]*>kontakt@frankfurtleague\.de<\/a> vor\./,
+      "the card does not say where an objection to a consent goes",
+    );
+  });
+
   /* A message quoting the address back would put it in a mailbox, a provider's log and a bounce
      report — every place the keyed hash exists to keep one out of. */
   it("carries no address but the league's own", () => {
