@@ -396,7 +396,8 @@ describe("where a session that is only read slides (`docs/frontend/spec.md :: I4
     assert.deepEqual(stampsOf(row), due);
   });
 
-  it("revives no ended session: no row is written, and the cookie is not extended", async () => {
+  // The cookie is expired rather than left standing: the library clears it on a read that finds no live row.
+  it("revives no ended session: no row is written, and the cookie is expired", async () => {
     for (const ending of ["deleted", "lapsed"] as const) {
       const { cookie, row } = await signIn("leserin@example.org");
       if (ending === "deleted") store.session.splice(store.session.indexOf(row), 1);
@@ -409,7 +410,7 @@ describe("where a session that is only read slides (`docs/frontend/spec.md :: I4
         false,
         `a ${ending} session has a row again`,
       );
-      assert.ok(set === undefined || set.maxAge === 0, `a ${ending} session's cookie was extended`);
+      assert.equal(set?.maxAge, 0, `a ${ending} session's cookie was left standing or extended`);
     }
   });
 

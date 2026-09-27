@@ -207,6 +207,8 @@ const {
   isFreshlySignedIn,
   judgeAdminRequest,
   PASSKEY_LIMIT,
+  readServedSession,
+  slideSession,
 } = await import("./auth.ts");
 const { buildCodeEmail, CODE_VALIDITY_MINUTES } = await import("./authEmail.ts");
 const { proxy } = await import("../proxy.ts");
@@ -429,12 +431,13 @@ describe("what the mounted HTTP surface answers", () => {
   it("still gives the guards in process the account, the stamps they compare and the row's id, and nothing else", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
 
-    const body = await served(cookie);
-    assert.ok(body);
-    assert.deepEqual(Object.keys(body).sort(), ["session", "user"]);
-    assert.deepEqual(Object.keys(body.user).sort(), ["email", "id"]);
-    assert.deepEqual(Object.keys(body.session).sort(), ["authFactor", "createdAt", "id", "passkeyCredentialId", "updatedAt"]);
-    assert.ok(!JSON.stringify(body).includes(row.token), "the served session carries the cookie's own value");
+    for (const body of [await readServedSession(new Headers({ ...ORIGIN, cookie })), await slideSession(new Headers({ ...ORIGIN, cookie }))]) {
+      assert.ok(body);
+      assert.deepEqual(Object.keys(body).sort(), ["session", "user"]);
+      assert.deepEqual(Object.keys(body.user).sort(), ["email", "id"]);
+      assert.deepEqual(Object.keys(body.session).sort(), ["authFactor", "createdAt", "id", "passkeyCredentialId", "updatedAt"]);
+      assert.ok(!JSON.stringify(body).includes(row.token), "the served session carries the cookie's own value");
+    }
   });
 
   /* The hole the allowlist exists for: a holder of the mailbox alone reaches a code-borne session,
@@ -548,7 +551,9 @@ describe("what the narrowed session still gives the guards", () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
 
-    assert.ok(!JSON.stringify(await served(cookie)).includes(row.token), "the cookie's value reaches the object the proxy inspects");
+    const inspected = await slideSession(new Headers({ ...ORIGIN, cookie }));
+    assert.ok(inspected, "the proxy's read served no session, so the case proves nothing");
+    assert.ok(!JSON.stringify(inspected).includes(row.token), "the cookie's value reaches the object the proxy inspects");
   });
 
   it("gives the proxy the same verdict the page guard reaches", async () => {
@@ -572,6 +577,55 @@ describe("what the narrowed session still gives the guards", () => {
     // session belongs, and `fl_frontend/src/proxy.test.ts` holds the pair to not bouncing a caller.
     assert.equal(new URL(answer.headers.get("location") ?? "http://x/none").pathname, "/signin/weiter");
     assert.equal(await getAdminSession(), null);
+  });
+});
+
+/* Read as no session, an outage of the store sends an administrator to a sign-in whose code never
+   comes, and tells a person on `/signin` that one is on its way. */
+describe("a session read the store does not answer (`docs/frontend/spec.md :: I519`)", () => {
+  const refusingSessions = (_key: string, args: unknown[]): boolean => (args[0] as { model?: unknown } | undefined)?.model === "session";
+
+  it("throws at every guard and at the landing, rather than answering as signed out", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    madeByPasskey(store, row);
+    arriveAs(cookie);
+    assert.ok(await getAdminSession(), "the administrator was refused with the store answering, so the case proves nothing");
+
+    adapterCalls.refusing = refusingSessions;
+    try {
+      await assert.rejects(getAdminSession());
+      await assert.rejects(getKontoSession());
+      await assert.rejects(getSignInDestination());
+      await assert.rejects(getSignedInAddress());
+    } finally {
+      adapterCalls.refusing = undefined;
+    }
+  });
+
+  it("lets the proxy's request through to the page's own guard, clearing no cookie", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    madeByPasskey(store, row);
+
+    adapterCalls.refusing = refusingSessions;
+    try {
+      const answer = await proxy(new NextRequest("http://localhost:3000/bereich/admin/spiele", { headers: { cookie } }));
+
+      assert.equal(answer.headers.get("location"), null, "the proxy signed an administrator out on an outage");
+      assert.equal(answer.headers.get("x-middleware-next"), "1");
+      assert.equal(answer.headers.getSetCookie().length, 0);
+    } finally {
+      adapterCalls.refusing = undefined;
+    }
+  });
+
+  // The control: a cookie naming no row is signed out, whatever the store's answers are made of.
+  it("still answers a cookie naming no row as no session", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    store.session.splice(store.session.indexOf(row), 1);
+    arriveAs(cookie);
+
+    assert.equal(await getAdminSession(), null);
+    assert.equal(await getSignInDestination(), "/signin");
   });
 });
 

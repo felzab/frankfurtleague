@@ -10,19 +10,26 @@ import type { NextRequest } from "next/server";
  * the matcher stay scoped to the pages a session serves — the session read is a Mongo round trip, never on a public load.
  */
 export async function proxy(req: NextRequest): Promise<NextResponse> {
-  // Every arm, before any answer is chosen: only here can a read by a person who only reads slide
-  // their cookie as well as their row (`docs/frontend/spec.md :: I495`).
-  const slid = await slideSession(req.headers);
+  let session: Awaited<ReturnType<typeof servedSessionOf>>;
+  try {
+    // Every arm, before any answer is chosen: only here can a read by a person who only reads slide
+    // their cookie as well as their row (`docs/frontend/spec.md :: I495`).
+    const slid = await slideSession(req.headers);
 
-  // Every other word is a person's or the sign-in's, guarded by its own page: judged here by the
-  // administrator's checks, it would turn every person away.
-  if (!inAdminArea(req.nextUrl.pathname)) {
+    // Every other word is a person's or the sign-in's, guarded by its own page: judged here by the
+    // administrator's checks, it would turn every person away.
+    if (!inAdminArea(req.nextUrl.pathname)) {
+      return NextResponse.next();
+    }
+
+    // A server action's POST takes the checks below too: an action writing a cookie makes Next render
+    // the tree at the POSTed URL into its answer, admin layout and all (`docs/frontend/spec.md :: I243`).
+    session = await servedSessionOf(slid);
+  } catch {
+    // A store that did not answer signs nobody out: the page's own guard reads it again and fails
+    // into its area's error boundary, which renders nothing it guards (`docs/frontend/spec.md :: I519`).
     return NextResponse.next();
   }
-
-  // A server action's POST takes the checks below too: an action writing a cookie makes Next render
-  // the tree at the POSTed URL into its answer, admin layout and all (`docs/frontend/spec.md :: I243`).
-  const session = await servedSessionOf(slid);
 
   // No return destination carried across: honouring one needs it checked against an allowlist first.
   if (!session) {

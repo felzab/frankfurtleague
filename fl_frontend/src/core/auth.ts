@@ -9,7 +9,6 @@ import { betterAuth, getCurrentAdapter } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx, isAPIError } from "better-auth/api";
 import { makeSignature } from "better-auth/crypto";
 import { nextCookies } from "better-auth/next-js";
-import { customSession } from "better-auth/plugins/custom-session";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { MongoServerError } from "mongodb";
 
@@ -720,10 +719,6 @@ const AUTH_ORIGIN = new URL(frontend_config.AUTH_URL ?? "https://auth-url-unset.
 /** The serving origin a notice below is composed on, never `brand.ts :: SITE_URL` (I186). */
 const MAIL_ORIGIN = frontend_config.AUTH_URL ?? AUTH_ORIGIN.origin;
 
-/**
- * Bound to a name because `customSession` below is typed off it: the projection's `session`
- * argument carries the added field only where it is handed this same declaration.
- */
 const sessionOptions = {
   expiresIn: SESSION_EXPIRES_IN_SECONDS,
   updateAge: SESSION_UPDATE_AGE_SECONDS,
@@ -1101,22 +1096,8 @@ const authOptions = {
 
     passkeyLastUse(),
 
-    // Built fresh, never the served object returned whole: the session row carries its own `token`,
-    // which is the value of the `httpOnly` cookie (`docs/frontend/spec.md :: I198`).
-    customSession(
-      async ({ user, session }) => ({
-        user: { id: user.id, email: user.email },
-        session: {
-          // The row's id and never its token: the passkey removal keeps the one session it ran in by it.
-          id: session.id,
-          createdAt: session.createdAt,
-          updatedAt: session.updatedAt,
-          authFactor: session.authFactor,
-          passkeyCredentialId: session.passkeyCredentialId,
-        },
-      }),
-      { session: sessionOptions },
-    ),
+    // No `customSession`: its read answers a store that does not answer as no session, and the guards'
+    // projection is `projected` below, over the library's own read (`docs/frontend/spec.md :: I519`).
 
     // Last, which the library warns about: it copies a response's `set-cookie` into Next's store.
     nextCookies(),
@@ -1228,18 +1209,54 @@ export const getKontoSession = cache(async (): Promise<JudgedSession | null> => 
   return isWithinPersonLifetime(served.session) ? judged : null;
 });
 
-/** The library's own read of the session a request's cookie names, before any guard has judged it. */
-type LibrarySession = Awaited<ReturnType<typeof auth.api.getSession>>;
+/** The library's own read of the session a request's cookie names, the row's `token` among its fields. */
+type LibraryRead = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
 
-/** What every guard below is handed; no HTTP route serves it, `/get-session` being disabled. */
-type ServedSession = NonNullable<LibrarySession>;
+/**
+ * What every guard below is handed, built fresh off the library's read and never that read whole: the row
+ * carries its own `token`, which is the value of the `httpOnly` cookie (`docs/frontend/spec.md :: I198`).
+ */
+type ServedSession = {
+  user: { id: string; email: string };
+  session: Pick<LibraryRead["session"], "id" | "createdAt" | "updatedAt" | "authFactor" | "passkeyCredentialId">;
+};
+
+function projected({ user, session }: LibraryRead): ServedSession {
+  return {
+    user: { id: user.id, email: user.email },
+    session: {
+      // The row's id and never its token: the passkey removal keeps the one session it ran in by it.
+      id: session.id,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+      authFactor: session.authFactor,
+      passkeyCredentialId: session.passkeyCredentialId,
+    },
+  };
+}
+
+/**
+ * The session the request's cookie names, or `null` where it names none. A store that does not answer
+ * throws rather than reading as signed out (`docs/frontend/spec.md :: I519`).
+ */
+async function readLibrarySession(requestHeaders: Headers, slide: boolean): Promise<ServedSession | null> {
+  try {
+    const read = await auth.api.getSession({ headers: requestHeaders, query: slide ? {} : { disableRefresh: true } });
+    return read === null ? null : projected(read);
+  } catch (failed) {
+    // The library's word for a row ended between its read and its refresh, which is no session at all;
+    // every other throw is the store's, worded `INTERNAL_SERVER_ERROR` and logged as `FE-AUTH-003`.
+    if (isAPIError(failed) && failed.status === "UNAUTHORIZED") return null;
+    throw failed;
+  }
+}
 
 /**
  * The session every guard serves. It never slides the session: a page render cannot write the
  * cookie, so a refresh here would carry the row past the cookie the browser holds (`docs/frontend/spec.md :: I496`).
  */
 export async function readServedSession(requestHeaders: Headers): Promise<ServedSession | null> {
-  return servedSessionOf(await auth.api.getSession({ headers: requestHeaders, query: { disableRefresh: true } }));
+  return servedSessionOf(await readLibrarySession(requestHeaders, false));
 }
 
 /**
@@ -1247,15 +1264,15 @@ export async function readServedSession(requestHeaders: Headers): Promise<Served
  * refresh past `updateAge` lands whole, `nextCookies()` carrying its cookie onto the proxy's answer
  * (`docs/frontend/spec.md :: I495`).
  */
-export async function slideSession(requestHeaders: Headers): Promise<LibrarySession> {
-  return auth.api.getSession({ headers: requestHeaders });
+export async function slideSession(requestHeaders: Headers): Promise<ServedSession | null> {
+  return readLibrarySession(requestHeaders, true);
 }
 
 /**
  * `null` where a passkey no row holds made the session: a sign-in racing that passkey's removal
  * inserts its session after the removal's sign-out ran (`docs/frontend/spec.md :: I313`).
  */
-export async function servedSessionOf(served: LibrarySession): Promise<ServedSession | null> {
+export async function servedSessionOf(served: ServedSession | null): Promise<ServedSession | null> {
   if (served === null || served.session.authFactor !== PASSKEY_FACTOR) return served;
 
   const credentialID: unknown = served.session.passkeyCredentialId;
