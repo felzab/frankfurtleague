@@ -1466,7 +1466,7 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
  * Ends every live session of the account an address holds, which the refusal of its next sign-in does
  * not reach; the account and its passkeys stay for the day the ban ends (`docs/frontend/spec.md :: I402`).
  */
-export async function endSessionsOfAddress(address: string): Promise<void> {
+export async function endSessionsOfAddress(address: string): Promise<boolean> {
   // No grant is asked about: a ban and a grant each end every session of the address they name,
   // whatever it holds.
   const folded = asSignInIdentifier(address);
@@ -1476,8 +1476,11 @@ export async function endSessionsOfAddress(address: string): Promise<void> {
   // Equality on the stored address: every sign-in hands the library the folded form, which it stores
   // lower-cased and so unchanged.
   const account = await adapter.findOne<{ id: string }>({ model: "user", where: [{ field: "email", value: folded }] });
-  if (account === null) return;
+  // The answer is whether an account holds the address, which decides whether a ban mails it
+  // (`docs/frontend/spec.md :: I517`).
+  if (account === null) return false;
 
   // By the account, never by a token: no session's cookie value leaves the store for this.
   await adapter.deleteMany({ model: "session", where: [{ field: "userId", value: account.id }] });
+  return true;
 }

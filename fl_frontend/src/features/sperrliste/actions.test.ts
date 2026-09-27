@@ -259,9 +259,9 @@ describe("the barred address's live sign-ins", () => {
     assert.deepEqual(request.signedOut(), []);
   });
 
-  /* The ban is written and the address survives nowhere to retry with, so a failure is reported and
-     the notice still goes: the administrator told nothing would assume the sessions ended. */
-  it("leaves the ban standing and says so where the sessions could not be ended", async () => {
+  /* The ban is written and the address survives nowhere to retry with, so a failure is reported; a store
+     that did not answer did not say whether an account holds the address either, so nobody is mailed. */
+  it("leaves the ban standing, mails nobody and says both where the sessions could not be ended", async () => {
     request.failSignOut(new Error("the store answered nothing"));
 
     const result = await anAddressIsBanned();
@@ -269,20 +269,33 @@ describe("the barred address's live sign-ins", () => {
     assert.equal(result.success, true);
     assert.equal(
       "message" in result ? result.message : undefined,
-      "Die Sperre steht. Laufende Anmeldungen der Adresse konnten nicht beendet werden.",
+      "Die Sperre steht. Laufende Anmeldungen der Adresse konnten nicht beendet werden. Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.",
     );
-    assert.deepEqual(events, ["post", "mail", "refresh"], "a failed sign-out stopped the notice or the refresh");
+    assert.deepEqual(events, ["post", "refresh"], "a failed sign-out stopped the refresh, or a notice went on a guess");
   });
+});
 
-  it("names both failures where the notice failed as well", async () => {
-    request.failSignOut(new Error("the store answered nothing"));
-    sendWith("refused");
+describe("which barred addresses the notice goes to (`docs/frontend/spec.md :: I517`)", () => {
+  it("mails nothing to an address no account holds, and answers a clean ban", async () => {
+    request.holdNoAccount();
 
     const result = await anAddressIsBanned();
 
-    assert.equal(
-      "message" in result ? result.message : undefined,
-      "Die Sperre steht. Laufende Anmeldungen der Adresse konnten nicht beendet werden. Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.",
+    assert.equal(result.success, true);
+    assert.equal("message" in result ? result.message : undefined, SPERRE_ERFOLG);
+    assert.deepEqual(mail.sent, [], "an address holding no account was mailed");
+    assert.deepEqual(events, ["post", "refresh"]);
+    assert.deepEqual(request.signedOut(), [BARRED], "the store was not asked, so the case proves nothing");
+  });
+
+  // The control: the same ban on an address an account holds.
+  it("mails an address an account holds", async () => {
+    const result = await anAddressIsBanned();
+
+    assert.equal("message" in result ? result.message : undefined, SPERRE_ERFOLG);
+    assert.deepEqual(
+      mail.sent.map(({ to }) => to),
+      [BARRED],
     );
   });
 });

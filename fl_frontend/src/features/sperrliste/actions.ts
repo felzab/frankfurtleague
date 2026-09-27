@@ -25,21 +25,23 @@ const BENACHRICHTIGUNG_UNKLAR = "Ob die Benachrichtigung angekommen ist, ist unk
 
 const ANMELDUNGEN_NICHT_BEENDET = "Laufende Anmeldungen der Adresse konnten nicht beendet werden.";
 
+/** What the sign-out found: whether an account holds the address, `null` where the store did not say, and the sentence a failure owes. */
+type Abmeldung = { readonly konto: boolean | null; readonly satz: string | null };
+
 /**
  * Ends the address's live sessions, which the refusal of every next sign-in does not reach
  * (`docs/frontend/spec.md :: I402`). A failure leaves the ban standing, as a failed notice does.
  */
-async function abmelden(email: string): Promise<string | null> {
+async function abmelden(email: string): Promise<Abmeldung> {
   try {
-    await endSessionsOfAddress(email);
-    return null;
+    return { konto: await endSessionsOfAddress(email), satz: null };
   } catch (failed) {
     // The NAME alone, as the notice's own failure is logged: the address must reach no line.
     logger.error("sperrliste.sessions_not_ended", undefined, {
       error_code: "FE-AUTH-006",
       name: failed instanceof Error ? failed.name : "unknown",
     });
-    return ANMELDUNGEN_NICHT_BEENDET;
+    return { konto: null, satz: ANMELDUNGEN_NICHT_BEENDET };
   }
 }
 
@@ -104,12 +106,18 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
     // AFTER the write is acknowledged, so nobody is signed out or told they are barred by a request
     // that then failed; the sign-out first, so the notice's account of it is already true.
     const abgemeldet = await abmelden(validated.data.email);
-    // On the response's own bound rather than a second read the sweep could beat.
-    const benachrichtigt = await benachrichtigen(validated.data.email, validated.data.grund, postOperation.gesperrt_bis_saison_id);
+
+    // Only an address an account holds is mailed (`docs/frontend/spec.md :: I517`). Where the store did
+    // not say, nobody is, the notice's account sentences being a guess, and the administrator is told.
+    let benachrichtigt: string | null = abgemeldet.konto === null ? NICHT_BENACHRICHTIGT : null;
+    if (abgemeldet.konto === true) {
+      // On the response's own bound rather than a second read the sweep could beat.
+      benachrichtigt = await benachrichtigen(validated.data.email, validated.data.grund, postOperation.gesperrt_bis_saison_id);
+    }
 
     // Each failure is told, and neither undoes the ban: the write is acknowledged and no address
     // survives to retry either with.
-    const failures = [abgemeldet, benachrichtigt].filter((sentence) => sentence !== null);
+    const failures = [abgemeldet.satz, benachrichtigt].filter((sentence) => sentence !== null);
     const message = failures.length === 0 ? SPERRE_ERFOLG : [SPERRE_STEHT, ...failures].join(" ");
 
     return { success: true, created_id: postOperation.created_id, message: message };

@@ -1856,7 +1856,8 @@ describe("what a ban ends in the sign-in store", () => {
     store.passkey.push(aPasskeyFor(first.row.userId));
     const bystander = await signIn("unbeteiligt@example.org");
 
-    await endSessionsOfAddress(PERSON_EMAIL.toUpperCase());
+    // Whether an account holds the address is what the ban's notice is sent on (`docs/frontend/spec.md :: I517`).
+    assert.equal(await endSessionsOfAddress(PERSON_EMAIL.toUpperCase()), true);
 
     assert.ok(!store.session.includes(first.row) && !store.session.includes(second.row), "a session of the barred address survived");
     assert.ok(store.session.includes(bystander.row), "the ban ended another address's session");
@@ -1897,10 +1898,10 @@ describe("what a ban ends in the sign-in store", () => {
     assert.deepEqual(asked, []);
   });
 
-  it("does nothing for an address no account holds", async () => {
+  it("does nothing for an address no account holds, and says it found none", async () => {
     const sessions = store.session.length;
 
-    await endSessionsOfAddress("niemand@example.org");
+    assert.equal(await endSessionsOfAddress("niemand@example.org"), false);
 
     assert.equal(store.session.length, sessions);
   });
