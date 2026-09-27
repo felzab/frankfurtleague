@@ -15,6 +15,7 @@ import {
   STEP_UP_REQUESTS,
   STEP_UP_ROUTES,
   STEP_UP_WRITES,
+  UNDECLARED_SENDS,
   UNDO_REPLAYS,
 } from "@/shared/testing/stepUpWrites.ts";
 import { undo } from "@/shared/testing/undoRoutes.ts";
@@ -158,6 +159,16 @@ describe("an administrator write the server holds to the step-up window", () => 
         .filter((name) => !CONDITIONALLY_STEPPED_UP.has(name))
         .sort(),
     );
+  });
+
+  /* What each action sends, against what it declares: an action sending a step-up write's request
+     with no declaration of its own is missing from every listing above, which starts from one. */
+  it("is declared by every action sending a request a step-up write sends", () => {
+    const undeclared = Object.entries(UNDECLARED_SENDS)
+      .filter(([, sent]) => sent.some((request) => STEP_UP_REQUESTS.has(request)))
+      .map(([name, sent]) => `${name} sends ${sent.filter((request) => STEP_UP_REQUESTS.has(request)).join(", ")}`);
+
+    assert.deepEqual(undeclared, []);
   });
 
   /* Each export called, never its source read: an action that dropped its declaration validates the

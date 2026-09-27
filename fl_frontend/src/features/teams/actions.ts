@@ -50,7 +50,8 @@ export async function postTeamAction(
   // that into a field error rather than a type error.
   rawPayload: TeamCreateDraft,
 ): Promise<ActionResult<{ created_id: string }>> {
-  return runAdminMutation("postTeamAction", async () => {
+  // Every create enters the club into a season, which nothing reverses: the entry's own step-up.
+  return runAdminMutation("postTeamAction", { stepUp: true }, async () => {
     const validated = FLCreateTeamFormPayloadSchema.safeParse(rawPayload);
 
     if (!validated.success) {

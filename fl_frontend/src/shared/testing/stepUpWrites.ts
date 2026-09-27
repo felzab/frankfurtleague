@@ -63,7 +63,7 @@ function requestsSent(node: ts.Node, imported: ReadonlyMap<string, string>): str
 }
 
 /** Every exported action of every slice, how it declares its step-up and the requests it sends, read off each `actions.ts`'s syntax tree. */
-const DECLARED = filesUnder(SLICES, (name) => name === "actions.ts", 10).flatMap((file) => {
+const ACTIONS = filesUnder(SLICES, (name) => name === "actions.ts", 10).flatMap((file) => {
   const slice = path.basename(path.dirname(file));
   const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
   const imported = mutationImports(source, slice);
@@ -71,10 +71,11 @@ const DECLARED = filesUnder(SLICES, (name) => name === "actions.ts", 10).flatMap
   return source.statements.flatMap((statement) => {
     const exported = ts.canHaveModifiers(statement) && ts.getModifiers(statement)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
     if (!exported || !ts.isFunctionDeclaration(statement) || statement.name === undefined || statement.body === undefined) return [];
-    const declaration = declarationOf(statement.body);
-    return declaration === null ? [] : [{ name: statement.name.text, slice, declaration, sends: requestsSent(statement.body, imported) }];
+    return [{ name: statement.name.text, slice, declaration: declarationOf(statement.body), sends: requestsSent(statement.body, imported) }];
   });
 });
+
+const DECLARED = ACTIONS.flatMap(({ declaration, ...action }) => (declaration === null ? [] : [{ ...action, declaration }]));
 
 /**
  * Every administrator action the server holds to the step-up window, by export against its slice
@@ -124,6 +125,14 @@ export const UNDO_REPLAYS: Readonly<Record<string, readonly string[]>> = Object.
 
 /** Every request a step-up write sends, as `slice :: export`: an undo route replaying one is a second door to that write. */
 export const STEP_UP_REQUESTS: ReadonlySet<string> = new Set(DECLARED.flatMap(({ sends }) => sends));
+
+/**
+ * Every request each action declaring no step-up sends, by export: one sending a step-up write's
+ * request is that write through a second door, the rule being the write's and never its caller's.
+ */
+export const UNDECLARED_SENDS: Readonly<Record<string, readonly string[]>> = Object.fromEntries(
+  ACTIONS.filter(({ declaration }) => declaration === null).map(({ name, sends }) => [name, sends]),
+);
 
 /** Refused from a stale session on some calls alone, the action judging its own payload before `refuseUnconfirmed`. */
 export const CONDITIONALLY_STEPPED_UP: ReadonlySet<string> = new Set(
@@ -183,5 +192,6 @@ export const STEP_UP_CALLERS: Readonly<Record<string, Readonly<Record<string, St
     deleteEinladungAction: "two-press",
     mailEinladungAction: "one-press",
   },
+  "features/teams/components/forms/AdminCreateTeamForm.tsx": { postTeamAction: "create" },
   "features/teams/components/forms/AdminTeamEditForm/FormSaisonSection.tsx": { postSaisonTeamAction: "one-press" },
 };

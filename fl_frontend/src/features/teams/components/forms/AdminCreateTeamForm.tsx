@@ -83,6 +83,7 @@ export function AdminCreateTeamForm({
       toPayload={(draft) => draft}
       onSubmit={(draft) => postTeamAction(draft)}
       marksRequired
+      stepUp
       successMessage="Team angelegt"
       onClose={onClose}
     />
