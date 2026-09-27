@@ -29,6 +29,10 @@ const nextCache = await import("next/cache");
 const { getAdminSession, getKontoSession, getSignInDestination } = await import("@/core/auth.ts");
 const { getSubjectSession } = await import("@/core/subject.ts");
 
+/** A module exporting `names`, beside a block comment holding a line shaped as one more export. */
+const moduleExporting = (...names: string[]): string =>
+  [...names.map((name) => `export const ${name} = async () => undefined;`), "/*", "export const nurImKommentar = 1;", "*/", ""].join("\n");
+
 type Served = { session: { createdAt: Date } };
 
 /** The session one case was served, which the case after it compares its own against. */
@@ -54,17 +58,17 @@ describe("the actions double", () => {
     assert.deepEqual(calls, [{ action: "patchSpieltagAction", payload }]);
   });
 
-  /* A name cut at its dollar sign is a double exporting an action the module never had, and the
-     import of the real name then fails to link. */
-  it("carries an action whose name holds a dollar sign under its whole name", async () => {
+  /* A name cut at its dollar sign or at an umlaut is a double exporting an action the module never
+     had, and the import of the real name then fails to link; a name inside a comment it never had either. */
+  it("carries every action under its whole name, and none a comment names", async () => {
     const scratch = mkdtempSync(path.join(tmpdir(), "fl-dollar-"));
     const file = path.join(scratch, "dollarNamed.mjs");
-    writeFileSync(file, "export const save$Entwurf = async () => undefined;\n");
+    writeFileSync(file, moduleExporting("save$Entwurf", "prüfeEntwurf"));
 
     try {
       const doubled = (await import(pathToFileURL(file).href)) as Record<string, unknown>;
 
-      assert.deepEqual(Object.keys(doubled), ["save$Entwurf"]);
+      assert.deepEqual(Object.keys(doubled).sort(), ["prüfeEntwurf", "save$Entwurf"]);
     } finally {
       rmSync(scratch, { recursive: true, force: true });
     }
@@ -153,17 +157,17 @@ it("leaves a write running", () => {
 
 describe("the request double", () => {
   /* The sign-in store's export names are read off its source as the actions module's are, so a name cut
-     at its dollar sign is a store export no import can link. */
-  it("carries a sign-in store export whose name holds a dollar sign under its whole name", async () => {
+     at its dollar sign or at an umlaut is a store export no import can link. */
+  it("carries every sign-in store export under its whole name, and none a comment names", async () => {
     const scratch = mkdtempSync(path.join(tmpdir(), "fl-dollar-store-"));
     const file = path.join(scratch, "src", "core", "auth.ts");
     mkdirSync(path.dirname(file), { recursive: true });
-    writeFileSync(file, "export const sign$Out = async () => undefined;\n");
+    writeFileSync(file, moduleExporting("sign$Out", "prüfeSitzung"));
 
     try {
       const doubled = (await import(pathToFileURL(file).href)) as Record<string, unknown>;
 
-      assert.deepEqual(Object.keys(doubled), ["sign$Out"]);
+      assert.deepEqual(Object.keys(doubled).sort(), ["prüfeSitzung", "sign$Out"]);
     } finally {
       rmSync(scratch, { recursive: true, force: true });
     }

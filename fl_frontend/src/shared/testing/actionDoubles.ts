@@ -6,7 +6,7 @@ import { afterEach, beforeEach } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import { blankComments } from "@/core/blankComments.ts";
-import { exportingModule } from "@/core/exportingModule.ts";
+import { exportedNames, exportingModule, replacingModule } from "@/core/exportingModule.ts";
 
 import type { AdminRefusal } from "@/core/auth.ts";
 import type { SubjectSession } from "@/core/subject.ts";
@@ -84,9 +84,7 @@ export function doubleActions({
         throw new Error(`${url} sends a write the admin spine judges its answer by; double its client with doubleApiAnswers instead`);
       }
 
-      const real = blankComments(readFileSync(fileURLToPath(url), "utf8"));
-      const names = [...real.matchAll(/^export (?:async )?(?:function|const) ([\w$]+)/gm)].map(([, name = ""]) => name);
-      const source = exportingModule(Object.fromEntries(names.map((name) => [name, act(name)])));
+      const source = exportingModule(Object.fromEntries(exportedNames(fileURLToPath(url)).map((name) => [name, act(name)])));
 
       return { format: "module", source, shortCircuit: true };
     },
@@ -260,68 +258,34 @@ const servedOf = (session: AdminSessionDouble): unknown => {
 };
 
 /**
- * `url`'s module with `doubled` standing in for the exports it names, the real one opening the
- * database driver as it loads. Every other export throws where called, its name read off the real
- * module so an import links.
+ * The sign-in store answering the session and the sign-in destination `doubleActionRequest` holds,
+ * replaced whole because the real one opens the database driver as it loads.
  */
-function sessionModule(url: string, what: string, doubled: ReadonlyMap<string, (...args: unknown[]) => unknown>): string {
-  const names = [...readFileSync(fileURLToPath(url), "utf8").matchAll(/^export (?:async )?(?:function|const) ([\w$]+)/gm)].map(
-    ([, name = ""]) => name,
-  );
-
-  return exportingModule(
-    Object.fromEntries(
-      names.map((name) => [
-        name,
-        doubled.get(name) ??
-          ((): never => {
-            throw new Error(`${what}'s ${name} is not doubled`);
-          }),
-      ]),
-    ),
-  );
-}
-
-/** The sign-in store answering the session and the sign-in destination `doubleActionRequest` holds. */
 const signInStore = (url: string, answers: SignInAnswers): string =>
-  sessionModule(
-    url,
-    "the sign-in store",
-    new Map<string, (...args: unknown[]) => unknown>([
-      ["getAdminSession", () => administratorOf(answers)],
-      ["judgeAdminRequest", () => verdictOf(answers)],
-      // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
-      ["getKontoSession", () => answering(answers.served)],
-      ["getSignInDestination", () => Promise.resolve(answers.destination)],
-      ["isFreshlySignedIn", () => answers.fresh],
-      [
-        "endSessionsOfAddress",
-        (address: unknown) => {
-          answers.signedOut.push(String(address));
-          return answering(answers.signOutFailure ?? undefined);
-        },
-      ],
-    ]),
-  );
+  replacingModule(url, "the sign-in store", {
+    getAdminSession: () => administratorOf(answers),
+    judgeAdminRequest: () => verdictOf(answers),
+    // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
+    getKontoSession: () => answering(answers.served),
+    getSignInDestination: () => Promise.resolve(answers.destination),
+    isFreshlySignedIn: () => answers.fresh,
+    endSessionsOfAddress: (address: unknown) => {
+      answers.signedOut.push(String(address));
+      return answering(answers.signOutFailure ?? undefined);
+    },
+  });
 
 /**
  * The subject lookup answering what `doubleActionRequest` holds, counting every read: the real one
  * calls the sign-in store this file replaces, and reads the doubled `auth` it cannot build.
  */
 const subjectLookup = (url: string, answers: SignInAnswers): string =>
-  sessionModule(
-    url,
-    "the subject lookup",
-    new Map([
-      [
-        "getSubjectSession",
-        () => {
-          answers.subjectReads += 1;
-          return answering(answers.subject);
-        },
-      ],
-    ]),
-  );
+  replacingModule(url, "the subject lookup", {
+    getSubjectSession: () => {
+      answers.subjectReads += 1;
+      return answering(answers.subject);
+    },
+  });
 
 /**
  * The request a server action runs in, so a case calls the REAL action, its `mutations.ts` doubled
