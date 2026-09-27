@@ -590,9 +590,12 @@ def _judged(setup: str, key: str, env: str) -> str:
 def test_the_runbooks_command_writes_a_pair_the_check_passes() -> None:
     """Run as the runbook prints it, over the fixture's own `fl_backend/.env`: Git Bash's `openssl` is the carriage-return case."""
     command = next(line for line in RUNBOOKS.read_text(encoding="utf-8").splitlines() if line.startswith("mkdir -p secrets && openssl genpkey"))
-    output = _judged(command, "secrets/fl_actor_signing_key", "fl_backend/.env")
+    # Counted, never printed: each file's carriage returns, which the runbook promises it writes none of.
+    counted = "printf \"cr=%s\\n\" \"$(cat secrets/fl_actor_signing_key fl_backend/.env | tr -cd '\\r' | wc -c | tr -d ' ')\""
+    output = _judged(f"{command}\n{counted}", "secrets/fl_actor_signing_key", "fl_backend/.env")
 
     assert "check=0" in output, output
+    assert "cr=0" in output, output
 
 
 def test_a_matching_pair_passes() -> None:
