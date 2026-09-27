@@ -65,6 +65,15 @@ FILES = {
     "sperrliste_schluessel": BAN_LIST_KEY,
 }
 
+# Each file's variable before it became a file, which a machine's own shell may still carry.
+RETIRED_VARIABLE_OF = {
+    MONGODB_URI_FILE: "MONGODB_URI",
+    "internal_api_key_base": "INTERNAL_API_KEY_BASE",
+    "internal_api_key_system": "INTERNAL_API_KEY_SYSTEM",
+    "internal_api_key_admin": "INTERNAL_API_KEY_ADMIN",
+    "sperrliste_schluessel": "SPERRLISTE_SCHLUESSEL",
+}
+
 # Every name the environment half declares as retired, which a machine's own shell may carry.
 RETIRED = (
     "ALLOWED_ADMIN_EMAILS",
@@ -294,15 +303,6 @@ class TestTheInternalKeys:
 
 
 class TestTheBanListKey:
-    def test_a_directory_holding_none_refuses_the_boot_naming_the_file_whatever_the_environment_carries(self, monkeypatch, tmp_path):
-        """The one secret whose absence is silent at every other rung: every ban would hash under a key nobody chose.
-
-        The variable the release before read stands beside the missing file, and stands in for nothing.
-        """
-        refused = refusal(monkeypatch, tmp_path, {"sperrliste_schluessel": None}, SPERRLISTE_SCHLUESSEL=BAN_LIST_KEY)
-
-        assert refused == "Invalid secret files: sperrliste_schluessel"
-
     def test_a_key_carrying_a_value_is_never_echoed_by_the_refusal_beside_it(self, monkeypatch, tmp_path):
         """A rejected key reaching the container log is the whole exposure, and the value here is the one this gate would leak."""
         short = "x" * (SPERRLISTE_KEY_MIN_LENGTH - 1)
@@ -332,6 +332,16 @@ class TestTheBanListKey:
 
 class TestTheSecretFiles:
     """Each credential is its file's, and only its file's (`docs/backend/spec.md` §1.5)."""
+
+    @pytest.mark.parametrize("file", SECRET_FILES)
+    def test_a_directory_missing_one_file_refuses_the_boot_naming_it_whatever_the_environment_carries(self, monkeypatch, tmp_path, file):
+        """Over every file the class reads: a credential given a default boots without its file, on a value nobody chose.
+
+        The variable the release before read stands beside the missing file, and stands in for nothing.
+        """
+        refused = refusal(monkeypatch, tmp_path, {file: None}, **{RETIRED_VARIABLE_OF[file]: FILES[file]})
+
+        assert refused == f"Invalid secret files: {file}"
 
     def test_a_variable_beside_its_file_leaves_the_files_value_in_effect(self, monkeypatch, tmp_path):
         """pydantic-settings ranks a variable above the secrets directory, so a variable left behind would otherwise win in silence."""
