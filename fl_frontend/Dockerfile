@@ -1,15 +1,18 @@
 # FRONTEND · the site image
 
-# The OS layer the build and the runtime share, so anything added here ships in the image.
+# The OS layer the build and the runtime share, so anything added here ships in the image. Debian
+# rather than Alpine: Node's glibc builds are its Tier 1 platform, its musl builds experimental.
 
 # The tag names the Node `package.json :: devEngines` pins (`docs/ops/spec.md :: I511`), and
 # Dependabot moves it together with the digest (`docs/ops/spec.md` §1.1).
-FROM node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS base
+FROM node:26.10.0-trixie-slim@sha256:ec7758ee051e457b468b32bde57b0879010b325bb9862718e9615225ce4aaae1 AS base
 
-# libc6-compat for Alpine's native C binaries (SWC while building, image optimization while
-# serving); tini for PID 1 signal routing -> a stop signal reaches node, which exits on it
-# without draining what is in flight (`docs/ops/spec.md`).
-RUN apk add --no-cache libc6-compat tini
+# tini as PID 1, as Node's Docker guidance asks: node there ignores every signal it registered no
+# handler for and reaps no orphaned child
+# (https://github.com/nodejs/docker-node/blob/33161d6f1329b30670bd3259c8db7bbe7da072c8/docs/BestPractices.md#handling-kernel-signals).
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tini && \
+    rm -rf /var/lib/apt/lists/*
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -20,7 +23,8 @@ FROM base AS toolchain
 # `package.json :: packageManager` names the same pnpm (`docs/ops/spec.md :: I512`).
 ARG PNPM_VERSION=11.27.1
 
-RUN npm install -g pnpm@${PNPM_VERSION}
+# npm's cache is a mount, so none of it is written into the layer.
+RUN --mount=type=cache,id=npm,target=/root/.npm npm install -g pnpm@${PNPM_VERSION}
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -77,8 +81,10 @@ ENV PORT=3000
 # Next's standalone server binds localhost otherwise, which no other container can reach.
 ENV HOSTNAME="0.0.0.0"
 
-RUN addgroup -S --gid 1001 nodejs && \
-    adduser -S --uid 1001 nextjs -G nodejs -s /sbin/nologin
+# Pinned rather than allocated: the host's secret files are owned by this uid and gid, Compose
+# giving a file secret no owner of its own (`docs/ops/spec.md` §1.2).
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --no-log-init --uid 1001 --gid nodejs --no-create-home --shell /usr/sbin/nologin nextjs
 
 # The prerender cache is written at run time, so .next must belong to the runtime user.
 RUN mkdir .next && chown nextjs:nodejs .next
@@ -97,6 +103,5 @@ COPY --from=builder --chmod=644 /app/environment-names.json /app/scripts/check-e
 
 USER nextjs
 EXPOSE 3000
-
 
 CMD ["tini", "--", "node", "server.js"]
