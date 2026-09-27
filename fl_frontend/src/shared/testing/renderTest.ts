@@ -8,6 +8,9 @@ import { createElement } from "react";
 
 import { renderToStaticMarkup } from "react-dom/server";
 
+import { exportingModule } from "@/core/exportingModule.ts";
+
+import type * as NextError from "next/error";
 import type { ComponentType, ReactNode } from "react";
 import type * as TypeScript from "typescript";
 
@@ -83,6 +86,13 @@ const INERT_FONTS = `data:text/javascript,${encodeURIComponent(`const face = () 
 export { face as Anton, face as Inter, face as Raleway };`)}`;
 
 /*
+ `next/error` is CommonJS whose exports Node's static reader cannot see, so an ESM import of
+ `catchError` fails at link. The real function is handed on; an export a component adds fails to
+ link here until it is named.
+*/
+const NEXT_ERROR = `data:text/javascript,${encodeURIComponent(exportingModule({ catchError: (requireHere("next/error") as typeof NextError).catchError }))}`;
+
+/*
  Registered as this module evaluates, which is why a component under test is reached with
  `await import` and never a static import beside this one (`docs/frontend/spec.md` §1.9).
 */
@@ -98,6 +108,11 @@ registerHooks({
     // Next's font loader runs only inside its own build, so each face loads as an inert one, as a
     // stylesheet does below: nothing a render here asserts is decided by a font.
     if (specifier === "next/font/google") return { url: INERT_FONTS, shortCircuit: true };
+    // The application's imports alone: these hooks answer a `require` too, and a package's own one
+    // of `next/error` takes more than `catchError`.
+    if (specifier === "next/error" && !(context.parentURL ?? "/node_modules/").includes("/node_modules/")) {
+      return { url: NEXT_ERROR, shortCircuit: true };
+    }
 
     return nextResolve(specifier, context);
   },

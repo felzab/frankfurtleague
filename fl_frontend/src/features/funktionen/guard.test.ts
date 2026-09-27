@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { createRequire, registerHooks } from "node:module";
+import { registerHooks } from "node:module";
 import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -16,7 +16,6 @@ import { textOf } from "@/shared/testing/renderTest.ts";
 
 import type { FLSubjektSitz } from "@/core/schemas.ts";
 import type { SubjectSession } from "@/core/subject.ts";
-import type * as NextError from "next/error";
 import type { ReactNode } from "react";
 
 const { setSession, setSubject, subjectReads } = doubleActionRequest();
@@ -30,15 +29,7 @@ const ALLOWLIST_DOUBLE = exportingModule({ isUserAdmin: (email?: string | null) 
 // The shells hand a sign-out action to the bar, whose real module reaches `next/server` past the harness.
 doubleEveryAction();
 
-/* `next/error` is CommonJS whose exports Node's static reader cannot see, so an area boundary's ESM
-   import of `catchError` fails at link. The shim hands on the real function rather than a stand-in. */
-const NEXT_ERROR_INTEROP = exportingModule({ catchError: (createRequire(import.meta.filename)("next/error") as typeof NextError).catchError });
-
 registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "next/error") return { url: `data:text/javascript,${encodeURIComponent(NEXT_ERROR_INTEROP)}`, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/allowlist.ts")) return { format: "module", source: ALLOWLIST_DOUBLE, shortCircuit: true };

@@ -2,7 +2,7 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/pageHarness.ts";
 
 import assert from "node:assert/strict";
-import { createRequire, registerHooks } from "node:module";
+import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import { Component, createElement as h } from "react";
@@ -18,7 +18,6 @@ import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answerReadsWith, callPage, clearSteps, EMPTIEST_ANSWER, pageBody, renderPage, steps } from "@/shared/testing/pageHarness.ts";
 
-import type * as NextError from "next/error";
 import type { ComponentType, ReactElement, ReactNode } from "react";
 
 const { setSession, setSubject } = doubleActionRequest();
@@ -26,10 +25,6 @@ const { setSession, setSubject } = doubleActionRequest();
 doubleEveryAction();
 // The area's panel reports the crash it draws.
 const fetchDouble = doubleFetch();
-
-/* `next/error` is CommonJS whose exports Node's static reader cannot see, so an area boundary's ESM
-   import of `catchError` fails at link. The shim hands on the real function rather than a stand-in. */
-const NEXT_ERROR_INTEROP = exportingModule({ catchError: (createRequire(import.meta.filename)("next/error") as typeof NextError).catchError });
 
 /* The admin shell's passkey dialog builds the browser's auth client as it loads, which reads the page's
    origin, and this window has none. No case opens the dialog, so every ceremony refuses. */
@@ -51,10 +46,6 @@ const LOGGER_DOUBLE = exportingModule({
 });
 
 registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "next/error") return { url: `data:text/javascript,${encodeURIComponent(NEXT_ERROR_INTEROP)}`, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/authClient.ts")) return { format: "module", source: AUTH_CLIENT_DOUBLE, shortCircuit: true };

@@ -17,11 +17,6 @@ import type { FormState } from "@/shared/types/types";
 
 const LEFT = "__flSignInLeft";
 
-/* `next/error` is CommonJS whose exports Node's static reader cannot see, so the ESM import of
-   `catchError` fails at link. The shim hands on the real function rather than a stand-in. */
-const NEXT_ERROR_INTEROP = `import { createRequire } from "node:module";
-export const { catchError } = createRequire(${JSON.stringify(import.meta.filename)})("next/error");`;
-
 /* A full document navigation, which jsdom does not implement and whose `location` no test can
    replace: recorded at the module boundary. */
 const NAVIGATION_DOUBLE = `export function leaveDocumentFor(path) { globalThis.${LEFT}.push(path); }`;
@@ -31,12 +26,6 @@ const NAVIGATION_DOUBLE = `export function leaveDocumentFor(path) { globalThis.$
 const CLIENT_DOUBLE = `export const authClient = { signIn: { passkey: async () => ({ error: null }) } };`;
 
 registerHooks({
-  resolve(specifier, context, nextResolve) {
-    // Narrowed to the card: the shim's own `require` has to reach the real module.
-    if (specifier === "next/error" && (context.parentURL ?? "").endsWith("/SignInForm.tsx"))
-      return { url: `data:text/javascript,${encodeURIComponent(NEXT_ERROR_INTEROP)}`, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
   load(url, context, nextLoad) {
     if (url.endsWith("/src/shared/utils/documentNavigation.ts")) return { format: "module", source: NAVIGATION_DOUBLE, shortCircuit: true };
     if (url.endsWith("/src/core/authClient.ts")) return { format: "module", source: CLIENT_DOUBLE, shortCircuit: true };

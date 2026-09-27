@@ -27,21 +27,11 @@ doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: () => n
 doubleToasts();
 globalThis.fetch = (() => new Promise(() => undefined)) as unknown as typeof globalThis.fetch;
 
-/* `next/error` is CommonJS whose exports Node's static reader cannot see, so the sign-in card's ESM import
-   of `catchError` fails at link: `fl_frontend/src/shared/hooks/draftFieldWiring.test.ts`'s shim. */
-const NEXT_ERROR_INTEROP = `import { createRequire } from "node:module";
-export const { catchError } = createRequire(${JSON.stringify(import.meta.filename)})("next/error");`;
-
 /* The sign-in card's passkey button builds the browser's auth client as it loads, which reads the
    page's origin, and this window has none. No case here presses it. */
 const AUTH_CLIENT_DOUBLE = "export const authClient = { signIn: { passkey: async () => ({ error: null }) } };";
 
 registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "next/error" && (context.parentURL ?? "").endsWith("/SignInForm.tsx"))
-      return { url: `data:text/javascript,${encodeURIComponent(NEXT_ERROR_INTEROP)}`, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/authClient.ts")) return { format: "module", source: AUTH_CLIENT_DOUBLE, shortCircuit: true };
