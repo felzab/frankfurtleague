@@ -4,7 +4,7 @@ import { KONTAKT_EMAIL } from "@/core/brand";
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung";
 import { isRecordMissing } from "@/core/errors";
 import { isRefusal, isRuleRefusal, refusedPayloadAnswer } from "@/shared/utils/actionError";
-import { buildRefusal } from "@/shared/utils/refusal";
+import { buildRefusal, LADE_NEU_UND_VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 import { mirrorTrainerSeat } from "@/shared/utils/trainerSeat";
 
@@ -125,7 +125,7 @@ export function geburtsdatumSpanne(today: string, mindestalter: number): { frueh
 /** A body the running API refuses on a path no box takes, which only a page older than the deploy sends. */
 export const BEWERBUNG_VERALTET = buildRefusal({
   reason: "Einzelne Angaben konnten wir nicht übernehmen",
-  repair: "Lade die Seite neu und versuche es noch einmal",
+  repair: LADE_NEU_UND_VERSUCHE_ES_ERNEUT,
 });
 
 /**

@@ -182,7 +182,7 @@ describe("a prompt the browser did not complete", () => {
     assert.deepEqual([seen.replaced, left, seen.refresh], [[], [], 0], "a refused ceremony sent the reader on");
     assert.deepEqual(
       raised.map((toast) => [toast.variant, toast.title, toast.description]),
-      [["danger", "Passkey nicht eingerichtet", "Versuche es noch einmal."]],
+      [["danger", "Passkey nicht eingerichtet", "Versuche es erneut."]],
     );
     assert.ok(screen.getByRole("button", { name: "Jetzt einrichten" }), "the control the reader would press again is gone");
   });
@@ -238,7 +238,7 @@ describe("a prompt the browser did not complete", () => {
 
     assert.deepEqual(
       raised.map((toast) => toast.description),
-      ["Versuche es noch einmal."],
+      ["Versuche es erneut."],
     );
     assert.deepEqual([seen.refresh, seen.replaced, left], [1, [], []]);
   });

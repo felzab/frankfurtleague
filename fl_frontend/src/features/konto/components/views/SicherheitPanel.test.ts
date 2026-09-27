@@ -16,7 +16,7 @@ import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
-import { VERSUCHE_ES_NOCH_EINMAL_SATZ } from "@/shared/utils/refusal.ts";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal.ts";
 
 import type { Navigations } from "@/shared/testing/nextContexts.ts";
 import type { Sicherheit } from "../../types.ts";
@@ -355,11 +355,7 @@ describe("adding a passkey", () => {
 
     await waitFor(() =>
       assert.deepEqual(toasts(), [
-        [
-          "danger",
-          "Passkey nicht hinzugefügt",
-          `Gleichzeitig wurde ein anderer Passkey hinzugefügt oder gelöscht. ${VERSUCHE_ES_NOCH_EINMAL_SATZ}`,
-        ],
+        ["danger", "Passkey nicht hinzugefügt", `Gleichzeitig wurde ein anderer Passkey hinzugefügt oder gelöscht. ${VERSUCHE_ES_ERNEUT_SATZ}`],
       ]),
     );
   });
@@ -400,7 +396,7 @@ describe("adding a passkey", () => {
 
       await user.click(screen.getByRole("button", { name: "Passkey hinzufügen" }));
 
-      await waitFor(() => assert.deepEqual(toasts(), [["danger", "Passkey nicht hinzugefügt", VERSUCHE_ES_NOCH_EINMAL_SATZ]]));
+      await waitFor(() => assert.deepEqual(toasts(), [["danger", "Passkey nicht hinzugefügt", VERSUCHE_ES_ERNEUT_SATZ]]));
       assert.ok(screen.getByRole("button", { name: "Passkey hinzufügen" }), "a fresh session lost its add control");
     });
   });

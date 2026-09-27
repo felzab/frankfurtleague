@@ -1,6 +1,6 @@
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "@/core/passkeyRefusal";
-import { VERSUCHE_ES_NOCH_EINMAL_SATZ } from "@/shared/utils/refusal";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 /**
  * The one refusal a reader can act on: the assertion ASKS for verification rather than demanding
@@ -38,7 +38,7 @@ const WORDED: ReadonlyMap<string, string> = new Map([
  * above are the exceptions, because retrying repeats them.
  */
 export function describeCeremonyRefusal(error: unknown): string {
-  return WORDED.get(refusalCode(error) ?? "") ?? VERSUCHE_ES_NOCH_EINMAL_SATZ;
+  return WORDED.get(refusalCode(error) ?? "") ?? VERSUCHE_ES_ERNEUT_SATZ;
 }
 
 /** Another ceremony took this one's place, which is no failure a reader made. */

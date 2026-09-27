@@ -886,7 +886,7 @@ describe("the re-sent confirmation link", () => {
 
     assert.equal(result.success, false, "a refused send is still reported as a link on its way");
     assert.match(errorOf(result), /Der alte Link gilt nicht mehr/, "the failure does not say the previous link is spent");
-    assert.match(errorOf(result), /Versuche es noch einmal/, "the failure names no way out");
+    assert.match(errorOf(result), /Versuche es erneut/, "the failure names no way out");
   });
 
   /* The spine leaves a refusal standing, and a message that did not go leaves the mint standing: the

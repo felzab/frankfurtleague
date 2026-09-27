@@ -12,7 +12,7 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { SignInCard } from "@/shared/components/ui/SignInCard";
 import { appToast } from "@/shared/utils/appToast";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
-import { VERSUCHE_ES_NOCH_EINMAL_SATZ } from "@/shared/utils/refusal";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import { describeCeremonyRefusal, refusalCode, refusalStatus } from "../../passkeyAnswers";
 
@@ -79,11 +79,11 @@ async function ceremonyHeld(step: Step): Promise<Held | null> {
 
     // The guard's own refusal, which an enrolment another tab or device finished first earns too:
     // the step this card was handed is then stale in the same way.
-    if (enrolling && refusalStatus(error) === 404) return { description: VERSUCHE_ES_NOCH_EINMAL_SATZ, stale: true };
+    if (enrolling && refusalStatus(error) === 404) return { description: VERSUCHE_ES_ERNEUT_SATZ, stale: true };
 
     return { description: describeCeremonyRefusal(error), stale: false };
   } catch {
-    return { description: VERSUCHE_ES_NOCH_EINMAL_SATZ, stale: false };
+    return { description: VERSUCHE_ES_ERNEUT_SATZ, stale: false };
   }
 }
 

@@ -136,7 +136,7 @@ describe("the route a typed code is checked at", () => {
         "SERVICE_UNAVAILABLE",
         "Die Anmeldung hat gerade nicht geklappt, und Dein Code ist damit verbraucht. Fordere in ein paar Minuten einen neuen an.",
       ],
-      ["SOME_NEW_REFUSAL", "Versuche es noch einmal."],
+      ["SOME_NEW_REFUSAL", "Versuche es erneut."],
     ];
 
     for (const [code, sentence] of expected) {

@@ -13,7 +13,7 @@ import { userEvent } from "@testing-library/user-event";
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
-import { VERSUCHE_ES_NOCH_EINMAL_SATZ } from "@/shared/utils/refusal.ts";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal.ts";
 
 /* The browser's own credential calls, replaced at the module boundary: this runner has no
    `navigator.credentials`, and a test-only prop would be a seam in production code. */
@@ -162,7 +162,7 @@ describe("the button", () => {
     await waitFor(() => assert.deepEqual(calls.slice(1), [undefined, AUTOFILL]));
     assert.deepEqual(
       raised.map((toast) => [toast.title, toast.description]),
-      [["Nicht angemeldet", VERSUCHE_ES_NOCH_EINMAL_SATZ]],
+      [["Nicht angemeldet", VERSUCHE_ES_ERNEUT_SATZ]],
     );
     assert.ok(screen.getByRole("button", { name: "Mit Passkey anmelden" }));
   });
@@ -183,7 +183,7 @@ describe("the button", () => {
       [
         "Diese E-Mail-Adresse ist gesperrt. Solange die Sperre gilt, ist keine Anmeldung möglich.",
         `Mit dieser Adresse ist derzeit keine Anmeldung möglich. Wenn Du das für einen Fehler hältst, schreib uns an ${KONTAKT_EMAIL}.`,
-        VERSUCHE_ES_NOCH_EINMAL_SATZ,
+        VERSUCHE_ES_ERNEUT_SATZ,
       ],
     );
   });

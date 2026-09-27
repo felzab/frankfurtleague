@@ -4,7 +4,7 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentErr
 import { logger } from "@/core/logging";
 
 import { isRuleRefusal, refusedFailure, unansweredAction } from "./actionError";
-import { UNHANDLED_FIELD_REFUSAL } from "./refusal";
+import { UNHANDLED_FIELD_REFUSAL, UNKNOWN_REFUSAL } from "./refusal";
 import { runWithIncomingTrace } from "./traceScope";
 import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
 
@@ -16,7 +16,7 @@ import type { NextRequest } from "next/server";
  * here is: on any other status `fl_frontend/src/shared/utils/publicSubmit.ts :: postPublicForm`
  * answers its own sentence and these words reach no reader.
  */
-const FREMDE_HERKUNFT = "Diese Anfrage kam nicht von dieser Seite. Lade die Seite neu und versuche es noch einmal.";
+const FREMDE_HERKUNFT = `Diese Anfrage kam nicht von dieser Seite. ${UNKNOWN_REFUSAL}`;
 
 /**
  * What a member of the public is told for a unique index's refusal, which no route maps: the shared

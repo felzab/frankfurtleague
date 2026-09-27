@@ -12,7 +12,7 @@ import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING } from "@/core/passkeyRefusal";
 import { CODE_FAILURE_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "@/core/signInCode";
 import { GESPERRT, OHNE_FUNKTION } from "@/features/auth/passkeyAnswers";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
-import { VERSUCHE_ES_NOCH_EINMAL_SATZ } from "@/shared/utils/refusal";
+import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
 
 import type { NextRequest } from "next/server";
 
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
     // keep; the mint's outage is the exception, its code being spent before the mint was asked.
     const code: unknown = error.body?.code;
     const worded = typeof code === "string" ? REFUSAL_BY_CODE[code] : undefined;
-    const sentence = worded ?? (error.status === "SERVICE_UNAVAILABLE" ? CODE_VERBRAUCHT : VERSUCHE_ES_NOCH_EINMAL_SATZ);
+    const sentence = worded ?? (error.status === "SERVICE_UNAVAILABLE" ? CODE_VERBRAUCHT : VERSUCHE_ES_ERNEUT_SATZ);
 
     if (code === "INVALID_OTP" && (await alreadySignedIn(requestHeaders, email))) {
       await forgiveCodeAttempt(body);
