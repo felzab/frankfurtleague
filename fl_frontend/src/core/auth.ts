@@ -532,7 +532,10 @@ async function withinBound(context: BoundContext, identifier: string, limit: num
   return null;
 }
 
-/** Whether every address together has already been mailed the hour's total: a read alone, writing nothing. */
+/**
+ * Whether every address together has already been mailed the hour's total: a read alone, writing nothing,
+ * so two sends racing for the hour's last mail both pass it (`docs/frontend/spec.md` §4).
+ */
 async function mailTotalReached(context: BoundContext): Promise<boolean> {
   const mailed = await context.adapter.count({
     model: "verification",
