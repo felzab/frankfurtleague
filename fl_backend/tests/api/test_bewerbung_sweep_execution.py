@@ -708,13 +708,14 @@ class TestABarredMailboxIsNotChased:
     def test_the_barred_seat_is_stamped_with_no_link_and_the_other_mailbox_is_chased(self, mongo_replica_set_url: str, caplog):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPERRLISTE].insert_one(ban_document("bramblewick@example.com"))
+            # Both passes inside: the level outside is whatever an earlier test on this worker left.
             with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
                 response = await sweep(database, client)
-            # Still in the read: nothing of the ban is stored, so the next pass asks it again.
-            still_read = await database[Collection.BEWERBUNGEN].find_one(
-                {"_id": REMIND_OID, **build_erinnerung_filter(saison_id=SAISON_ID, today=TODAY)}
-            )
-            second = await sweep(database, client)
+                # Still in the read: nothing of the ban is stored, so the next pass asks it again.
+                still_read = await database[Collection.BEWERBUNGEN].find_one(
+                    {"_id": REMIND_OID, **build_erinnerung_filter(saison_id=SAISON_ID, today=TODAY)}
+                )
+                second = await sweep(database, client)
 
             reminded = [
                 (entry.email, [seat.rollen for seat in entry.seats]) for entry in response.erinnerungen if entry.bewerbung_id == REMIND_OID
@@ -737,8 +738,9 @@ class TestABarredMailboxIsNotChased:
         assert second == []
 
         withheld = [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()]
-        # A count, never an id: a line naming the application would tie it to the ban.
-        assert withheld == [f"Reminders withheld from barred addresses in season {SAISON_ID}: 1 mailbox(es)"]
+        # A count, never an id: a line naming the application would tie it to the ban. One per pass,
+        # each having asked the ban afresh.
+        assert withheld == [f"Reminders withheld from barred addresses in season {SAISON_ID}: 1 mailbox(es)"] * 2
         assert not any("bramblewick" in record.getMessage() or str(REMIND_OID) in record.getMessage() for record in caplog.records)
 
     def test_a_barred_application_takes_no_place_in_the_share(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch):

@@ -277,12 +277,13 @@ class TestTheReminderClock:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPERRLISTE].insert_one(ban_document(f"{REMIND_OID}@example.com"))
+            # Both passes inside: the level outside is whatever an earlier test on this worker left.
             with caplog.at_level(logging.INFO, logger=FL_LOGGER_NAME):
                 response = await sweep(database, client)
-            still_read = await database[Collection.REGISTRIERUNGEN].find_one(
-                {"_id": REMIND_OID, **build_erinnerung_filter(saison_id=SAISON_ID, today=TODAY)}
-            )
-            second = await sweep(database, client)
+                still_read = await database[Collection.REGISTRIERUNGEN].find_one(
+                    {"_id": REMIND_OID, **build_erinnerung_filter(saison_id=SAISON_ID, today=TODAY)}
+                )
+                second = await sweep(database, client)
 
             return (
                 [entry.registrierung_id for entry in response.erinnerungen],
@@ -304,8 +305,9 @@ class TestTheReminderClock:
         assert second == []
 
         withheld = [record.getMessage() for record in caplog.records if "withheld" in record.getMessage()]
-        # A count, never an id: a line naming the registration would tie it to the ban.
-        assert withheld == [f"Reminders withheld from barred addresses in season {SAISON_ID}: 1 registration(s)"]
+        # A count, never an id: a line naming the registration would tie it to the ban. One per pass,
+        # each having asked the ban afresh.
+        assert withheld == [f"Reminders withheld from barred addresses in season {SAISON_ID}: 1 registration(s)"] * 2
         assert not any(str(REMIND_OID) in record.getMessage() for record in caplog.records if "withheld" in record.getMessage())
 
     def test_a_barred_registration_takes_no_place_in_the_share(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch):
