@@ -232,6 +232,35 @@ describe("the shared refusal reader over this overlay's own markup", () => {
     assert.notEqual(renamed, html, "the overlay's name is not where this case renames it");
     assert.throws(() => refusalWrappers(renamed), /Sichern.*Speichern/);
   });
+
+  /* Speech input ignores case and most punctuation (WCAG 2.5.3's Understanding document), so a name that
+     differs from the words on screen only there is the one a person saying those words reaches. */
+  it("finds an overlay whose name holds its control's words in another case or punctuation", () => {
+    const html = renderTree(refused(REASON));
+
+    for (const name of ["Entwurf speichern", "Entwurf „SPEICHERN“", "speichern: Entwurf"]) {
+      const renamed = html.replace(`aria-label="${LABEL}"`, `aria-label="${name}"`);
+
+      assert.notEqual(renamed, html, "the overlay's name is not where this case renames it");
+      assert.deepEqual(
+        refusalWrappers(renamed).map((wrapper) => wrapper.name),
+        [name],
+      );
+    }
+  });
+
+  /* The words have to stand together and in order: a phrase spoken whole is not matched against its words
+     scattered across a longer name, nor against part of a longer word. */
+  it("refuses an overlay whose name holds its control's words apart, out of order or inside other words", () => {
+    const html = renderTree(refused(REASON, "Änderung speichern"));
+
+    for (const name of ["Änderung jetzt speichern", "speichern Änderung", "Änderungen speichern"]) {
+      const renamed = html.replace('aria-label="Änderung speichern"', `aria-label="${name}"`);
+
+      assert.notEqual(renamed, html, "the overlay's name is not where this case renames it");
+      assert.throws(() => refusalWrappers(renamed), /does not contain/, `„${name}“ was read as holding „Änderung speichern“`);
+    }
+  });
 });
 
 const FIELD_HINT = "An diese Adresse schicken wir den Link.";

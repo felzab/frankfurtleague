@@ -6,7 +6,7 @@ import { createElement as h } from "react";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, EMPTIEST_ANSWER, renderPage } from "@/shared/testing/pageHarness.ts";
-import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
+import { refusalWrappers, renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { ReactElement } from "react";
 
@@ -85,10 +85,6 @@ const buttonNames = (html: string): string[] =>
         .trim(),
   );
 
-/** The name of each refusal laid over a closed control, which stands in for that control as its one tab stop. */
-const refusalNames = (html: string): string[] =>
-  [...html.matchAll(/<div\b[^>]*\sdata-slot="popover-trigger"[^>]*>/g)].flatMap(([tag]) => /\saria-label="([^"]*)"/.exec(tag)?.[1] ?? []);
-
 describe("the page the administrators stand on", () => {
   it("raises no heading the shell already owns", async () => {
     const markup = await renderPage(PAGE);
@@ -157,7 +153,12 @@ describe("who is offered the revoke", () => {
     );
     assert.ok(textOf(markup, " ").includes("Den Zugang entziehen kann nur der Inhaber."), "the closed revoke says not why");
     // Every revoke closed at once is where one name per row matters most: the overlay is each one's only stop.
-    assert.deepEqual(refusalNames(markup), ["Zugang von vorstand@schule.de entziehen", "Zugang vom 27.09.2026 entziehen"]);
+    // Read off the overlay itself, not through `refusalWrappers`, which refuses this name: it parts the words on
+    // screen with the row. The name's wording is not yet decided.
+    const overlays = [...markup.matchAll(/<div\b[^>]*\sdata-slot="popover-trigger"[^>]*>/g)].map(
+      ([tag]) => /\saria-label="([^"]*)"/.exec(tag)?.[1],
+    );
+    assert.deepEqual(overlays, ["Zugang von vorstand@schule.de entziehen", "Zugang vom 27.09.2026 entziehen"]);
   });
 
   /* No request changes an `owner` grant, so its row carries no control even for an owner. */
@@ -204,7 +205,11 @@ describe("who is offered the tier change", () => {
       .find((tag) => tag.includes('aria-label="Zugang vom 27.09.2026 zum Inhaber ernennen"'));
     assert.ok(gesperrt !== undefined && /\bdisabled\b/.test(gesperrt), "a promotion the backend refuses is open to press");
     assert.ok(textOf(markup, " ").includes("Diese Adresse ist gesperrt."), "the closed promotion says not why");
-    assert.deepEqual(refusalNames(markup), ["Zugang vom 27.09.2026 zum Inhaber ernennen"], "the closed promotion's one stop names no row");
+    assert.deepEqual(
+      refusalWrappers(markup).map(({ name }) => name),
+      ["Zugang vom 27.09.2026 zum Inhaber ernennen"],
+      "the closed promotion's one stop names no row",
+    );
   });
 
   /* An address is one word a phone's width cannot seat beside a verb, so the words on a control stay short

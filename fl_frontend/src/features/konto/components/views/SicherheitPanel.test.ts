@@ -60,6 +60,8 @@ const fetchMock = doubleFetch();
 
 const { SicherheitPanel } = await import("./SicherheitPanel.tsx");
 const { unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { LETZTER_PASSKEY } = await import("@/features/passkeys/components/ui/PasskeyKarteView.tsx");
+const { refusalWrappers } = await import("@/shared/testing/renderTest.ts");
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -276,6 +278,14 @@ describe("removing a passkey", () => {
 
     await waitFor(() => assert.equal(toasts().at(-1)?.[1], "Passkey gelöscht"));
     assert.deepEqual(seen.replaced, []);
+  });
+
+  /* Closed, the overlay is the deletion's one tab stop, so it carries the passkey's name as the open control
+     does; speech input still finds it by „Löschen“, whatever the case. */
+  it("closes an administrator's last passkey's deletion under the passkey's name", () => {
+    open({ verwaltung: true });
+
+    assert.deepEqual(refusalWrappers(document.body.innerHTML), [{ name: LAPTOP_LOESCHEN, label: LAPTOP_LOESCHEN, reason: LETZTER_PASSKEY }]);
   });
 });
 
