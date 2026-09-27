@@ -329,7 +329,7 @@ describe("settledErasureAnsicht", () => {
     });
     const said2 = settledErasureAnsicht(EMAIL, { status: "fulfilled", value: { success: false, error: "Keine Berechtigung." } });
 
-    assert.deepEqual(fieldOf, { email: EMAIL, status: "refused", reason: "Brich ab und starte das Löschen noch einmal." });
+    assert.deepEqual(fieldOf, { email: EMAIL, status: "refused", reason: "Brich ab und starte das Löschen erneut." });
     assert.deepEqual(said2, { email: EMAIL, status: "refused", reason: "Keine Berechtigung." });
   });
 
