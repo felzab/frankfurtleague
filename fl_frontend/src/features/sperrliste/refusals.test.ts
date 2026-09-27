@@ -24,7 +24,7 @@ describe("the address a unique index already holds", () => {
   it("answers every refusal the create publishes", () => {
     assert.deepEqual(
       publishedRefusals(CREATE_OPERATION).filter((code) => code !== DUPLICATE_KEY),
-      ["REQ-SPERRLISTE-001", "REQ-SPERRLISTE-002", "REQ-SPERRLISTE-003"],
+      ["REQ-BERECHTIGUNG-006", "REQ-SPERRLISTE-001", "REQ-SPERRLISTE-002", "REQ-SPERRLISTE-003"],
     );
     for (const code of publishedRefusals(CREATE_OPERATION)) {
       assert.notEqual(answerShown(CREATE_OPERATION, code, mapAdresseRefusal), null, `${code} reaches the admin as an unhandled conflict`);
@@ -46,6 +46,11 @@ describe("the address a unique index already holds", () => {
     assert.deepEqual(mapAdresseRefusal(refusedWith(409, "REQ-SPERRLISTE-003")), {
       fieldErrors: { email: "Diese Adresse gehört zur Verwaltung und lässt sich nicht sperren." },
     });
+  });
+
+  /* The ban re-judges its actor in the write: a grant gone meanwhile is the administrator's, not the address's. */
+  it("answers an administrator whose grant went meanwhile a banner and marks no box", () => {
+    assert.deepEqual(mapAdresseRefusal(refusedWith(403, "REQ-BERECHTIGUNG-006")), { error: "Dein Zugang zur Verwaltung besteht nicht mehr." });
   });
 
   it("leaves a conflict it does not know to the shared reader", () => {
