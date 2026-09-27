@@ -678,11 +678,7 @@ export function DatenschutzView() {
             selbst aus, und wir stellen aus einer Sicherung nichts wieder her, ohne Deine Löschung erneut auszuführen.
           </p>
           <p className={ABSATZ_CLASSES}>
-            Wenn mehrere Personen ein Postfach teilen: Löschen wir anhand einer E-Mail-Adresse, kann diese Adresse zu mehreren Personen gehören,
-            etwa bei einem gemeinsamen Postfach einer Schule. In diesem Fall zeigen wir Dir vorher, welche Einträge betroffen wären, und löschen
-            erst nach Deiner Bestätigung. Meldest Du Dich mit einer Adresse an, die auch andere nutzen, teilst Du mit ihnen ein Konto: Ihr seht
-            alle dieselben Anmeldungen und Passkeys, mit ihrem Beginn, ihrer letzten Nutzung und ihren Namen, und jede Person kann jede
-            Anmeldung beenden und jeden Passkey löschen, auch die der anderen.
+            Deine E-Mail-Adresse steht bei uns für Dich allein: Alles, was unter ihr eingetragen ist, gehört zu Deinem Konto.
           </p>
           <p className={ABSATZ_CLASSES}>
             Eine Einschränkung gilt für Administratorinnen und Administratoren der Liga: Ihre E-Mail-Adresse bleibt in den Zeilen des

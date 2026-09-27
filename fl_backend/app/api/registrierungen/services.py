@@ -337,7 +337,7 @@ BESTAETIGUNG_ANSICHT_FIELDS: Mapping[str, int] = {
     "team_id": 1,
     "vorname": 1,
     # Both read for the join finding the person the league may already hold, and answered by
-    # neither read: the address is an inbox rather than an identity, so the name narrows it.
+    # neither read: the name narrows the address, for the reason `persons_named` gives.
     "nachname": 1,
     "email": 1,
     "geburtsdatum": 1,
@@ -460,13 +460,12 @@ PERSON_IDENTITY_FIELDS: tuple[str, ...] = ("vorname", "nachname")
 def persons_named(rows: Sequence[Mapping[str, Any]], *, vorname: Any, nachname: Any) -> list[Mapping[str, Any]]:
     """Every row at this address whose stored name is the registration's own.
 
-    An address is NOT an identity: one family mailbox is shared by two pupils
-    (`app/core/constraints.py :: SUPPORT_INDEXES`), and joining on it alone shows one the other's
-    birthdate.
+    Nothing enforces one person per address (`docs/datenschutz.md :: "One address is one person"`),
+    and joined on a mailbox shared anyway, the address alone shows one pupil another's birthdate.
     """
 
     # The seat editor's fold (`app/api/teams/services.py :: _identity_of`), so „Weiß“ and „Weiss“ at
-    # one family mailbox are two pupils and neither is shown the other's record.
+    # one shared mailbox are two pupils and neither is shown the other's record.
     wanted = tuple(person_name_key(value) for value in (vorname, nachname))
 
     return [row for row in rows if tuple(person_name_key(row.get(field)) for field in PERSON_IDENTITY_FIELDS) == wanted]

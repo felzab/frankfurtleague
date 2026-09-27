@@ -660,8 +660,8 @@ seat only where that one's address folds to the same spelling** once its capital
 pressing**: it names every one of those seats, by
 person and by the season or application it sits in, and the press stays shut until that list is on
 screen
-(`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx`),
-so a shared school inbox arrives as several names. Read the counts the result reports afterwards —
+(`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktErasure.tsx`).
+Read the counts the result reports afterwards —
 they are what say how far the write reached.
 
 **Answer as soon as what you need is gathered, and where it will take longer say so in the first

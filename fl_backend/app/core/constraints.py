@@ -1188,8 +1188,9 @@ SUPPORT_INDEXES: Sequence[SupportIndex] = (
         (("bestaetigung.token_hash", ASCENDING),),
         "the referee confirmation page's lookup, driven by strangers",
     ),
-    # A support index and never a unique one: one family mailbox really is shared by two pupils, so
-    # this read answers a list rather than refusing the second person who registers under it.
+    # A support index and not a unique one: an address is taken for one person without being enforced
+    # (`docs/datenschutz.md :: "One address is one person"`), so this read answers a list rather than
+    # refusing a second.
     SupportIndex(
         Collection.SPIELER,
         "spieler_email",

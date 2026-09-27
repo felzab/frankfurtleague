@@ -81,7 +81,8 @@ async def get_subjekt(
     folded identifier alone, the one spelling a grant is stored in. It is the one stored answer here: whether a person is an
     administrator is decided by a grant rather than derived from a league record, and it narrows none of the records beside it.
 
-    Each list may be empty and each may hold more than one entry: one inbox holds seats at two clubs, and two pupils share an address.
+    Each list may be empty and each may hold more than one entry: one person holds seats at two clubs, and nothing enforces one pupil
+    record per address.
     An address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.
     """
 

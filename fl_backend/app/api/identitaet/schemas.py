@@ -61,8 +61,8 @@ class FLSubjektSchiedsrichter(BaseModel):
 class FLSubjekt(BaseModel):
     """Which confirmed, live records one mailbox matches, as three lists rather than three optional records.
 
-    A list under each because one inbox holds seats at two clubs and two pupils share an address
-    (`docs/datenschutz.md :: "Colleagues sharing a school inbox"`).
+    One person holds seats at two clubs, and nothing enforces one pupil record per address
+    (`docs/datenschutz.md :: "One address is one person"`).
     """
 
     sitze: list[FLSubjektSitz]

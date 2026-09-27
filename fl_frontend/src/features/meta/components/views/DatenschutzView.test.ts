@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "27. September 2026", digest: "33322c4f75a3b3b2eb60026fe6adccb9ea7e4ead11e51c9e2971b505760a43e5" } as const;
+const FASSUNG = { stand: "27. September 2026", digest: "475bc277119f7646cd95d4679ac88916e2519f01e483dcb71b113cd023781413" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -531,16 +531,10 @@ describe("the privacy notice's publication and retention rows keep their ruled b
     );
   });
 
-  /* One address is one account (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`), so the
-     account page shows each person sharing it the others' sign-ins and lets them end those. */
-  it("tells the people sharing an address that they share its account and see its sign-ins", () => {
-    rendert(
-      "Wenn mehrere Personen ein Postfach teilen: Löschen wir anhand einer E-Mail-Adresse, kann diese Adresse zu mehreren Personen " +
-        "gehören, etwa bei einem gemeinsamen Postfach einer Schule. In diesem Fall zeigen wir Dir vorher, welche Einträge betroffen " +
-        "wären, und löschen erst nach Deiner Bestätigung. Meldest Du Dich mit einer Adresse an, die auch andere nutzen, teilst Du mit " +
-        "ihnen ein Konto: Ihr seht alle dieselben Anmeldungen und Passkeys, mit ihrem Beginn, ihrer letzten Nutzung und ihren Namen, " +
-        "und jede Person kann jede Anmeldung beenden und jeden Passkey löschen, auch die der anderen.",
-    );
+  /* No write enforces it (`docs/datenschutz.md :: "One address is one person"`), so this sentence and
+     the forms' hints are all that make the assumption known to the person it binds. */
+  it("tells a person that their address stands for them alone and everything under it is their account's", () => {
+    rendert("Deine E-Mail-Adresse steht bei uns für Dich allein: Alles, was unter ihr eingetragen ist, gehört zu Deinem Konto.");
   });
 
   it("promises every erasure asked for an emptied action log", () => {

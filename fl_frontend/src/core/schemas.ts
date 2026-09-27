@@ -60,8 +60,8 @@ export type FLSubjektSchiedsrichter = z.infer<typeof FLSubjektSchiedsrichterSche
 
 /**
  * Which confirmed, live league records one mailbox matches. A list under each rather than an
- * optional record: one inbox holds seats at two clubs, and two pupils share an address
- * (`docs/datenschutz.md`).
+ * optional record: one person holds seats at two clubs, and nothing enforces one pupil record per
+ * address (`docs/datenschutz.md :: "One address is one person"`).
  */
 export const FLSubjektResponseSchema = BaseAPIResponseSchema.extend({
   sitze: z.array(FLSubjektSitzSchema),

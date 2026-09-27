@@ -181,7 +181,7 @@ export function FormKontaktpersonenSection({
                 <FieldError className={FIELD_ERROR_CLASSES} />
                 <Hint
                   mode="field"
-                  text="An diese Adresse schicken wir den Link zur Bestätigung. Dort trägt die Person auch ihr Geburtsdatum ein."
+                  text="An diese Adresse schicken wir den Link zur Bestätigung. Dort trägt die Person auch ihr Geburtsdatum ein. Nimm die eigene Adresse der Person, kein gemeinsames Postfach."
                 />
               </TextField>
 

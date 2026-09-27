@@ -331,20 +331,27 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`REQ-RETIRE-004`) has nothing left to refuse. A fixture played or called off keeps its booking
   and its own `payment` under the ghost: that is the league's record of the match, not of the
   person. A person who officiates again is entered as a new referee.
-- **An erasure keyed on an email address names whom it reaches.** Colleagues sharing a school inbox
-  are one subject to the match, so every seat the address holds is listed for confirmation before the
-  write — by name and by the season it sits in, read through `POST /kontakte/erasure/ansicht` rather
-  than inferred on the client
-  (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktReveal.tsx :: FormKontaktReveal`).
-  A person id across seasons is not introduced: contact persons are season-scoped by design.
-- **People sharing an address share one account, and each sees the others' sign-ins.** The sign-in
-  store keys an account on the folded address
-  (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`), so colleagues signing in from one
-  school inbox hold one account. Its account page shows each of them every session of it, when each
-  began and was last active and by which factor, and every passkey by its name
-  (`fl_frontend/src/features/konto/sicherheit.ts :: readSicherheit`), and lets any of them end
-  another's session or delete another's passkey. The published notice says so
-  (`DatenschutzView.tsx :: teilst Du mit ihnen ein Konto`).
+- **An erasure keyed on an email address names what it reaches.** Every seat the address holds is
+  its one person's (the entry below), and each is listed for confirmation before the write — by name
+  and by the season it sits in, read through `POST /kontakte/erasure/ansicht` rather than inferred on
+  the client
+  (`fl_frontend/src/features/kontakte/components/forms/AdminKontakteEditForm/FormKontaktReveal.tsx :: FormKontaktReveal`),
+  so a name nobody expected shows a mailbox shared against that entry before anything goes. A person
+  id across seasons is not introduced: contact persons are season-scoped by design.
+- **One address is one person, and the league assumes it rather than enforcing it.** Every record
+  stored under a folded address (`fl_backend/app/shared/folding.py :: sign_in_identifier`) — a
+  contact seat, a squad entry, a referee row, a grant — is that one person's, whatever Funktion it
+  gives them, and so is the account the sign-in store keys on it
+  (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`). No write compares names to refuse
+  a second person: names typed by different people for one person differ, a grant carries none, and
+  no index spans the collections. The assumption is made known where an address is typed — the
+  registration form and the application's contact seats — and in the published notice
+  (`DatenschutzView.tsx :: Deine E-Mail-Adresse steht bei uns für Dich allein`). A mailbox shared
+  anyway is one account: whoever reads it signs in, sees and changes every record under it, and an
+  erasure keyed on it takes them all. The registration confirmation still shows a stored birthdate
+  back only where the name matches as well
+  (`fl_backend/app/api/registrierungen/services.py :: persons_named`), the one place a shared
+  mailbox would otherwise show one pupil another's. Ruled 2026-09-27.
 - **An administrator's address is stored as their grant, in plain, and so is the address of
   whoever granted it.** `berechtigungen` holds the grant and `berechtigungen_angekuendigt` what the
   other administrators were told of it, and every administrator is served both addresses. The outbox

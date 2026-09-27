@@ -69,8 +69,9 @@ async def get_bestaetigung_ansicht(
     will be judged by, the age from which the media switch is offered, and the wording's version. Beside them the
     three answers the league already holds for this person -- the birthdate, the publication scope and the media
     switch -- so a returning pupil confirms what stands rather than entering it again. That person is matched on
-    the registration's folded address AND its folded name: a mailbox a family shares stands behind more than one
-    pupil, so an address alone would show one of them another's birthdate. All three are null wherever that match is not exactly one person.
+    the registration's folded address AND its folded name: an address is taken for one person but enforced as one nowhere,
+    and matched on the address alone a mailbox shared anyway would show one pupil another's birthdate. All three are null wherever
+    that match is not exactly one person.
 
     A POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no
     registration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather
@@ -101,8 +102,8 @@ async def get_bestaetigung_ansicht(
     )
     household = persons if len(persons) <= _PERSONS_READ else []
 
-    # Narrowed by the NAME before anything is shown back: a mailbox a family shares stands behind
-    # more than one pupil.
+    # Narrowed by the NAME before anything is shown back: nothing stops a mailbox shared anyway
+    # standing behind more than one pupil.
     named = persons_named(household, vorname=raw.get("vorname"), nachname=raw.get("nachname"))
 
     shown_back = answers_shown_back(registrierung_raw=raw, spieler_raw=sole_person(named))
