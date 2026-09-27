@@ -1293,3 +1293,12 @@ The five-an-hour mail cap (`docs/frontend/spec.md :: I442`) keeps rows of the sa
 `sign-in-mail-`, the every-address total (`:: I447`) among them as `sign-in-mail-every-address`;
 they lift within the hour. During a flood the total can be lifted sooner the same way, by deleting
 every row whose `identifier` starts with `sign-in-mail-`, which gives every address its hour back.
+
+**Twenty member addresses are enough to close code sign-in for everyone, and to close it again every
+hour.** Only mailed codes count toward the total, and a person's address is mailed up to five an
+hour, so anyone who knows twenty addresses the gate admits can ask for the hundredth code alone;
+while the total is full nobody is mailed a code, and a passkey still signs its holder in. Lines
+under `FE-AUTH-008` that come back hour after hour, or soon after a sweep, are that case rather
+than a busy evening. The sweep above reopens code sign-in only until the requests come again, since
+it clears the per-address rows too; while it recurs, point the people who sign in by code at a
+passkey, and repeat the sweep when it closes again.
