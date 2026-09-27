@@ -12,6 +12,7 @@ import { Button } from "@heroui/react/button";
 import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
+import { GESPERRTE_ADRESSE } from "@/features/berechtigungen/constants";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { deleteEinladungAction, mailEinladungAction, postEinladungAction } from "@/features/einladungen/actions";
 import { useEinladungLink } from "@/features/einladungen/components/EinladungLinkHolder";
@@ -35,7 +36,7 @@ import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clip
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FrischeEinladung } from "@/features/einladungen/components/EinladungLinkHolder";
-import type { FLEinladung } from "@/features/einladungen/schemas";
+import type { FLEinladungZeile } from "@/features/einladungen/schemas";
 import type { Key } from "@heroui/react/rac";
 
 /**
@@ -49,6 +50,11 @@ const MINT_UNKLAR = "Lade die Seite neu. Steht dort ein Link, ziehe ihn zurück 
 
 /** Where a reader goes when the browser refuses the clipboard, beside the box the value stands in. */
 const VON_HAND_KOPIEREN = "Markiere den Link im Feld darüber und kopiere ihn von Hand.";
+
+/** Who minted it: a barred administrator by their state, in the grants list's words (`docs/frontend/spec.md :: I492`). */
+function angelegtVon({ erstellt_von, erstellt_von_gesperrt }: FLEinladungZeile): string {
+  return erstellt_von_gesperrt || erstellt_von === null ? GESPERRTE_ADRESSE : erstellt_von;
+}
 
 /** Which of the two writes the armed press performs, picked before arming rather than raced between two controls. */
 type Operation = "ersetzen" | "zurueckziehen";
@@ -72,7 +78,7 @@ export function FormEinladungSection({
   isMember: boolean;
   /** `REQ-EINLADUNG-002`: a finished season hands out no further links, and the panel explains instead of offering. */
   isFinishedSaison: boolean;
-  einladung: FLEinladung | null;
+  einladung: FLEinladungZeile | null;
   /** Whether the registration window is open today, which is the link's only expiry. */
   laeuft: boolean;
 }) {
@@ -234,7 +240,7 @@ export function FormEinladungSection({
                 {einladung !== null && (
                   <ConfirmReadoutRow
                     label="Angelegt von"
-                    value={einladung.erstellt_von}
+                    value={angelegtVon(einladung)}
                   />
                 )}
                 {einladung !== null && (

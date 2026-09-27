@@ -115,6 +115,7 @@ const liveRow = (einladungId: string) => () => ({
     team_id: "x",
     erstellt_am: "2026-09-01",
     erstellt_von: "v@b.de",
+    erstellt_von_gesperrt: false,
     widerrufen_am: null,
     versand: { zustellung: null },
   },

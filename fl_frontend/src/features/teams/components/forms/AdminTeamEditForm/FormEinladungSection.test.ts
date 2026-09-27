@@ -14,7 +14,7 @@ import { closedControl, isInTheFlow } from "@/shared/testing/closedControl.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 
-import type { FLEinladung } from "@/features/einladungen/schemas.ts";
+import type { FLEinladungZeile } from "@/features/einladungen/schemas.ts";
 
 /** A write nobody has answered yet, which is how each action answers unless a case says otherwise. */
 const running = (): Promise<never> => new Promise(() => undefined);
@@ -28,6 +28,7 @@ const { raised } = doubleToasts();
 
 const { EinladungLinkHolder } = await import("@/features/einladungen/components/EinladungLinkHolder.tsx");
 const { FormEinladungSection } = await import("./FormEinladungSection.tsx");
+const { GESPERRTE_ADRESSE } = await import("@/features/berechtigungen/constants.ts");
 /** The ruling's words for a mint of unknown outcome, whose token nothing can show again. */
 const MINT_UNKLAR = "Lade die Seite neu. Steht dort ein Link, ziehe ihn zurück und erstelle einen neuen.";
 
@@ -40,12 +41,13 @@ const SAISON_ID = "2627";
 const TOKEN = "geheimer-linkwert";
 const LINK = `http://localhost:3000/registrierung?token=${TOKEN}`;
 
-const LIVE: FLEinladung = {
+const LIVE: FLEinladungZeile = {
   id: EINLADUNG_ID,
   saison_id: SAISON_ID,
   team_id: TEAM_ID,
   erstellt_am: "2026-09-01",
   erstellt_von: "vorstand@beispiel.de",
+  erstellt_von_gesperrt: false,
   widerrufen_am: null,
   // The carrier as the WIRE sends it for an invitation nobody has mailed: the mint writes `{}`, and
   // the endpoint serialises the key with `null` in it. A record here would never exercise the
@@ -195,6 +197,15 @@ describe("the team's invite panel", () => {
       screen.queryByRole("button", { name: "Link per E-Mail senden" }) === null,
       "a mail press stands with no link to put in a message",
     );
+  });
+
+  /* The backend serves no barred address in plain, a minter's included, so the row names the state in
+     the grants list's own words rather than standing empty. */
+  it("names a minter barred since by their state, as the grants list does", () => {
+    render(panel({ einladung: { ...LIVE, erstellt_von: null, erstellt_von_gesperrt: true } }));
+
+    assert.ok(isInTheFlow(GESPERRTE_ADRESSE), "the barred minter is not named by state");
+    assert.equal(document.body.textContent.includes("@"), false, "the row names an address the backend withheld");
   });
 
   /* Both writes end the standing link, so a preselection would arm the one nobody read: the pick is

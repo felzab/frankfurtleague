@@ -108,6 +108,7 @@ const standingLink = {
   team_id: TEAM_ID,
   erstellt_am: "2026-09-01",
   erstellt_von: "vorstand@example.org",
+  erstellt_von_gesperrt: false,
   widerrufen_am: null,
   versand: null,
 };

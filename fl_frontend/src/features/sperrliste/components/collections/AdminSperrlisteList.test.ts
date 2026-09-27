@@ -7,7 +7,7 @@ import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
 
-import type { FLSperrlisteEintrag } from "@/features/sperrliste/schemas.ts";
+import type { FLSperrlisteZeile } from "@/features/sperrliste/schemas.ts";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView.tsx";
 
 /** The removal each row offers: a real one needs a session and a backend. */
@@ -17,16 +17,18 @@ doubleActions({ modules: ["/src/features/sperrliste/actions.ts"] });
    compile step as it evaluates (`docs/frontend/spec.md` §1.9). */
 const { AdminSperrlisteList } = await import("./AdminSperrlisteList.tsx");
 const { SPERRLISTE_CRUD_COPY } = await import("@/features/sperrliste/constants.ts");
+const { GESPERRTE_ADRESSE } = await import("@/features/berechtigungen/constants.ts");
 
 /**
  * Two bans whose every field differs, so an assertion reaching a reason or an administrator cannot
  * be satisfied by the row beside it.
  */
-const SPERREN: FLSperrlisteEintrag[] = [
+const SPERREN: (FLSperrlisteZeile & { erstellt_von: string })[] = [
   {
     id: "6890a1b2c3d4e5f607190001",
     grund: "Falsches Geburtsdatum angegeben",
     erstellt_von: "vorstand@example.org",
+    erstellt_von_gesperrt: false,
     erstellt_am: "2026-03-12",
     gesperrt_bis_saison_id: "2031",
   },
@@ -34,12 +36,13 @@ const SPERREN: FLSperrlisteEintrag[] = [
     id: "6890a1b2c3d4e5f607190002",
     grund: "Wiederholt fremde Namen eingetragen",
     erstellt_von: "turnier@example.org",
+    erstellt_von_gesperrt: false,
     erstellt_am: "2026-04-02",
     gesperrt_bis_saison_id: "2032",
   },
 ];
 
-const listMarkup = (sperren: FLSperrlisteEintrag[], emptiness: CrudEmptiness = "none"): string =>
+const listMarkup = (sperren: FLSperrlisteZeile[], emptiness: CrudEmptiness = "none"): string =>
   renderTree(underNext(h(AdminSperrlisteList, { filteredSperren: sperren, emptiness })));
 
 /** Every address the markup carries, which is what „serves no address“ is checked against. */
@@ -77,6 +80,17 @@ describe("what a row of the ban list shows", () => {
 
     // „bis 2031“ alone reads as the season the ban ends in, which is a year early.
     assert.ok(html.includes("einschließlich"), "the row leaves the named season open to being read as the first free one");
+  });
+
+  /* The backend serves no barred address in plain, an author's included, so the row names the state
+     in the grants list's own words rather than leaving the line empty. */
+  it("names an administrator barred since by their state, as the grants list does", () => {
+    const [erste, zweite] = SPERREN;
+    assert.ok(erste !== undefined && zweite !== undefined);
+    const html = listMarkup([{ ...erste, erstellt_von: null, erstellt_von_gesperrt: true }, zweite]);
+
+    assert.equal(textOf(html, " ").split(GESPERRTE_ADRESSE).length - 1, 1, "the barred author is not named by state, or twice");
+    assert.deepEqual(addressesIn(html), [zweite.erstellt_von], "the row beside it lost its author");
   });
 
   /* The whole point of the keyed hash: the banned address is stored nowhere a reader can reach, so

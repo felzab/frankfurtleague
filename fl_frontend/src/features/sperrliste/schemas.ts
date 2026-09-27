@@ -6,24 +6,26 @@ import { SPERRLISTE_GRUND_MAX_LENGTH } from "@/features/sperrliste/constants";
 import { CustomDateStringSchema, CustomObjectIdStringSchema, KontaktEmailSchema } from "@/shared/schemas";
 
 /**
- * One ban, as the API serves it. **No address field, and none can be added**: the collection keeps a
+ * One ban, as the list serves it. **No address field, and none can be added**: the collection keeps a
  * keyed hash and every response is built to hold no key carrying an `@`.
  */
-export const FLSperrlisteEintragSchema = z.object({
+export const FLSperrlisteZeileSchema = z.object({
   id: CustomObjectIdStringSchema,
   grund: z.string().nonempty(),
   // Judged on the payload alone: a read stating an address rule refuses a value the API stored, and
-  // one such row fails the whole list's parse.
-  erstellt_von: z.string().nonempty(),
+  // one such row fails the whole list's parse. Null exactly where `erstellt_von_gesperrt` holds, as
+  // the grants list withholds a barred actor.
+  erstellt_von: z.string().nonempty().nullable(),
+  erstellt_von_gesperrt: z.boolean(),
   erstellt_am: CustomDateStringSchema,
   // The last season the ban covers, INCLUSIVE. Held to the width alone rather than to a year: a
   // stored row a later rule would refuse must still parse, or one of them fails the whole list.
   gesperrt_bis_saison_id: z.string().length(SAISON_ID_LENGTH),
 });
-export type FLSperrlisteEintrag = z.infer<typeof FLSperrlisteEintragSchema>;
+export type FLSperrlisteZeile = z.infer<typeof FLSperrlisteZeileSchema>;
 
 export const FLSperrlisteListResponseSchema = BaseAPIResponseSchema.extend({
-  sperrliste: z.array(FLSperrlisteEintragSchema),
+  sperrliste: z.array(FLSperrlisteZeileSchema),
   /**
    * How many bans the collection holds, which the rows cannot answer once the endpoint's cap has cut
    * them short. Past that cap a ban is enforced and shown to nobody, so nobody can lift it either.

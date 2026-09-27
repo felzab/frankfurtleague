@@ -4,6 +4,7 @@ import { memo } from "react";
 
 import Ban from "@gravity-ui/icons/Ban";
 
+import { GESPERRTE_ADRESSE } from "@/features/berechtigungen/constants";
 import { SPERRE_BIS_LABEL, sperreBisWert, SPERRLISTE_CRUD_COPY } from "@/features/sperrliste/constants";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
 import { IDENTITY_HEAD_CLASSES, IDENTITY_LINE_CLASSES, IDENTITY_ROW_CLASSES, IDENTITY_STACK_CLASSES } from "@/shared/components/ui/adminTable";
@@ -12,7 +13,7 @@ import { formatSpielDatum } from "@/shared/utils/format";
 
 import { AdminSperreAufhebenPanel } from "../forms/AdminSperreAufhebenPanel";
 
-import type { FLSperrlisteEintrag } from "@/features/sperrliste/schemas";
+import type { FLSperrlisteZeile } from "@/features/sperrliste/schemas";
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
 
 const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
@@ -22,6 +23,11 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
   filtered: SPERRLISTE_CRUD_COPY.emptyForQuery,
   none: SPERRLISTE_CRUD_COPY.emptyOverall,
 };
+
+/** Who entered it: a barred administrator by their state, in the grants list's words (`docs/frontend/spec.md :: I492`). */
+function erstelltVon({ erstellt_von, erstellt_von_gesperrt }: FLSperrlisteZeile): string {
+  return erstellt_von_gesperrt || erstellt_von === null ? GESPERRTE_ADRESSE : erstellt_von;
+}
 
 /** The eyebrow naming the fact at the fact, so no heading over the list can disagree with it. */
 const FACT_LABEL_CLASSES = "fluid-xxs font-extrabold tracking-widest text-foreground-muted uppercase";
@@ -34,13 +40,13 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
   filteredSperren,
   emptiness,
 }: {
-  filteredSperren: FLSperrlisteEintrag[];
+  filteredSperren: FLSperrlisteZeile[];
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
 }) {
   /* The day leads, being the one short token that tells two rows apart: the address is a keyed hash
      and the reason is a sentence. */
-  const renderIdentity = (eintrag: FLSperrlisteEintrag) => (
+  const renderIdentity = (eintrag: FLSperrlisteZeile) => (
     <div className={IDENTITY_ROW_CLASSES}>
       <Ban
         aria-hidden="true"
@@ -52,7 +58,7 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
               day wears the grade `AdminBewerbungenList` gives one instead. */}
           <span className="font-numeric fluid-sm font-semibold text-foreground tabular-nums">{formatSpielDatum(eintrag.erstellt_am)}</span>
         </div>
-        <span className={IDENTITY_LINE_CLASSES}>{eintrag.erstellt_von}</span>
+        <span className={IDENTITY_LINE_CLASSES}>{erstelltVon(eintrag)}</span>
       </div>
     </div>
   );

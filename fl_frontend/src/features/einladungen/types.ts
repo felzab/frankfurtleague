@@ -1,4 +1,4 @@
-import type { FLEinladung, FLEinladungVersandGrund } from "./schemas";
+import type { FLEinladungVersandGrund, FLEinladungZeile } from "./schemas";
 
 /**
  * What the team editor's invite panel is rendered from. **`laeuft` rides beside the row rather than
@@ -6,7 +6,7 @@ import type { FLEinladung, FLEinladungVersandGrund } from "./schemas";
  * no expiry date of its own.
  */
 export type TeamEinladungState = {
-  einladung: FLEinladung | null;
+  einladung: FLEinladungZeile | null;
   laeuft: boolean;
 };
 

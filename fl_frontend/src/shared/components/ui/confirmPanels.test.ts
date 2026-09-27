@@ -134,6 +134,7 @@ const LIVE_EINLADUNG = {
   team_id: TEAM_ID,
   erstellt_am: "2026-09-01",
   erstellt_von: "vorstand@beispiel.de",
+  erstellt_von_gesperrt: false,
   widerrufen_am: null,
   versand: { zustellung: null },
 };

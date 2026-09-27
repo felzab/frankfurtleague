@@ -22,6 +22,7 @@ const EINTRAG = {
   id: OBJECT_ID,
   grund: "Fremde Namen eingetragen",
   erstellt_von: "vorstand@example.org",
+  erstellt_von_gesperrt: false,
   erstellt_am: "2026-03-01",
   gesperrt_bis_saison_id: "2030",
 };
