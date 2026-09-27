@@ -9,6 +9,7 @@ import { after, describe, it } from "node:test";
 import { setTimeout as pause } from "node:timers/promises";
 
 import { MongoDBContainer } from "@testcontainers/mongodb";
+import { isAPIError } from "better-auth/api";
 import {
   MongoNetworkTimeoutError,
   MongoNotConnectedError,
@@ -174,7 +175,7 @@ registerAuthDoubles({
 // Imported after the hooks above are registered: a static import resolves before they exist.
 const { client } = (await import(PRODUCTION_DB)) as { client: MongoClient };
 opened.clients.push(client);
-const { auth } = await import("./auth.ts");
+const { auth, readServedSession } = await import("./auth.ts");
 // The same module evaluated again, so further clients built by the same code, each connecting first
 // inside its own case.
 const { client: coldClient } = (await import(`${import.meta.resolve("./db.ts")}?cold-start`)) as { client: MongoClient };
@@ -256,22 +257,20 @@ describe("the sign-in store's client bounds a cold start (`docs/frontend/spec.md
 });
 
 describe("the sign-in store's client bounds every operation it sends (`docs/frontend/spec.md :: I362`)", () => {
-  /* The read every admin request makes twice, in `fl_frontend/src/proxy.ts` and in each guard. The
-     library answers a failed read as no session and logs it, so the line is what names the bound. */
+  /* The read every admin request makes twice, in `fl_frontend/src/proxy.ts` and in each guard. A failed
+     read throws rather than reading as no session (`docs/frontend/spec.md :: I519`), and the line names the bound. */
   it("ends a session read the store never answers within its `timeoutMS`", async () => {
     const headers = new Headers({ ...ORIGIN, cookie: cookieHeader(await signInByCode(auth, ADMIN_EMAIL)) });
 
     // The control: the same read answers through the relay while it passes requests on.
-    const answered = await auth.api.getSession({ headers });
+    const answered = await readServedSession(headers);
     assert.equal(answered?.user.email, ADMIN_EMAIL);
     logged.length = 0;
 
-    const outcome = await relay.hang(() => settledWithin(OPERATION_BOUND, "the hung read", () => auth.api.getSession({ headers })));
+    const outcome = await relay.hang(() => settledWithin(OPERATION_BOUND, "the hung read", () => readServedSession(headers)));
 
-    assert.deepEqual(
-      { outcome, logged },
-      { outcome: null, logged: [{ event: "auth.library_failed", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }] },
-    );
+    assert.ok(isAPIError(outcome) && outcome.status === "INTERNAL_SERVER_ERROR", `the hung read settled with ${String(outcome)}`);
+    assert.deepEqual(logged, [{ event: "auth.library_failed", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }]);
   });
 
   /* A code's sign-in runs the adapter's own transaction to consume its row. The timeout does not
