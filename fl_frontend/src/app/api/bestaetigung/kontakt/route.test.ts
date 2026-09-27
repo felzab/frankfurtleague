@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
@@ -15,7 +16,7 @@ const LOGGING = `const line = (...args) => void globalThis.__flSeatLogs.push(JSO
 export const logger = { info: line, warn: line, error: line };`;
 /* The serving origin every link in a message is minted on. */
 const ORIGIN = "http://localhost:3000";
-const CONFIG = `export const frontend_config = { AUTH_URL: "${ORIGIN}", APP_ENV: "test" };`;
+const CONFIG = exportingModule({ frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } });
 /* The provider rather than the fan-out, which is what composes the message a case reads. */
 const { sent: mails } = doubleSendMail();
 const { calls } = doubleApiAnswers(async (call) => antwortFuer(call));

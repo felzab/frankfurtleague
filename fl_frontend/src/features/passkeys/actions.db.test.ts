@@ -16,6 +16,7 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "@/core/authDoubles.ts";
+import { exportingModule, overridingModule } from "@/core/exportingModule.ts";
 import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 // A replica set, which the module starts by default: the property under test is a transaction's.
@@ -24,61 +25,104 @@ const mongod = await new MongoDBContainer("mongo:8.3.11").start();
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
 const MONGO_URL = `${mongod.getConnectionString()}/?directConnection=true`;
 
-const REQUEST_HEADERS = "__flPasskeyDbRequestHeaders";
-const LOGGED = "__flPasskeyDbLogged";
-const BARRIER = "__flPasskeyDbBarrier";
-const SIGNING_OUT = "__flPasskeyDbSigningOut";
-const REAL_CLIENT = "__flPasskeyDbRealClient";
-const COMMITTED = "__flPasskeyDbCommitted";
-const GATE = "__flPasskeyDbGate";
-
 // A second URL for the production module, which the load hook's match on a path's end lets past the
 // double: the client under test is the one `fl_frontend/src/core/db.ts` builds, Stable API included.
 const PRODUCTION_DB = `${import.meta.resolve("@/core/db.ts")}?production`;
 
+type Method = (...args: unknown[]) => unknown;
+
+const bound = (target: object, value: unknown): unknown => (typeof value === "function" ? (value as Method).bind(target) : value);
+
+/** The client `fl_frontend/src/core/db.ts` built, which the double below stands over. */
+let productionClient: unknown;
+
+/** What the request a case arrives as carries. */
+let requestHeaders: Headers | undefined;
+
+/** The first write each collection makes after a removal's judgement, held at `barrier`. */
+const HELD: Readonly<Record<string, string>> = { passkey: "deleteOne", user: "findOneAndUpdate" };
+
+const wrapCollection = (name: string, collection: object): object =>
+  new Proxy(collection, {
+    get(target, prop) {
+      const value: unknown = Reflect.get(target, prop, target);
+      if (HELD[name] === prop) {
+        return async (...args: unknown[]) => {
+          await barrier.arrive();
+          return (value as Method).apply(target, args);
+        };
+      }
+      if (name === "passkey" && prop === "aggregate") {
+        return (pipeline: unknown, options?: { session?: unknown }) => {
+          const cursor = (value as Method).call(target, pipeline, options) as object;
+          if (!options?.session) return cursor;
+          return new Proxy(cursor, {
+            get(c, p) {
+              const read: unknown = Reflect.get(c, p, c);
+              if (p === "toArray") {
+                return async () => {
+                  await readGate.arrive();
+                  return (read as Method).call(c);
+                };
+              }
+              return bound(c, read);
+            },
+          });
+        };
+      }
+      if (name === "session" && prop === "deleteMany") {
+        return async (...args: unknown[]) => {
+          await signingOut();
+          return (value as Method).apply(target, args);
+        };
+      }
+      return bound(target, value);
+    },
+  });
+
+const wrapDb = (db: object): object =>
+  new Proxy(db, {
+    get(target, prop) {
+      const value: unknown = Reflect.get(target, prop, target);
+      if (prop === "collection")
+        return (name: string, options?: unknown) => wrapCollection(name, (value as Method).call(target, name, options) as object);
+      return bound(target, value);
+    },
+  });
+
 /* The real client, held where a removal makes its first write after its judgement: the passkey row
    where nothing claims the account, the account's own row where something does. The session
    `deleteMany` runs `signingOut` first, inside the removal's transaction. */
-const DB_DOUBLE = `import { client as real } from ${JSON.stringify(PRODUCTION_DB)};
-globalThis.${REAL_CLIENT} = real;
-const bound = (target, value) => (typeof value === "function" ? value.bind(target) : value);
-const HELD = { passkey: "deleteOne", user: "findOneAndUpdate" };
-const wrapCollection = (name, collection) => new Proxy(collection, { get(target, prop) {
-  if (HELD[name] === prop) return async (...args) => { await globalThis.${BARRIER}.arrive(); return target[prop](...args); };
-  if (name === "passkey" && prop === "aggregate") return (pipeline, options) => {
-    const cursor = target.aggregate(pipeline, options);
-    if (!options || !options.session) return cursor;
-    return new Proxy(cursor, { get(c, p) {
-      if (p === "toArray") return async () => { await globalThis.${GATE}.arrive(); return c.toArray(); };
-      return bound(c, Reflect.get(c, p, c));
-    }});
-  };
-  if (name === "session" && prop === "deleteMany") return async (...args) => { await globalThis.${SIGNING_OUT}(); return target[prop](...args); };
-  return bound(target, Reflect.get(target, prop, target));
-}});
-const wrapDb = (db) => new Proxy(db, { get(target, prop) {
-  if (prop === "collection") return (name, options) => wrapCollection(name, target.collection(name, options));
-  return bound(target, Reflect.get(target, prop, target));
-}});
-export const client = new Proxy(real, { get(target, prop) {
-  if (prop === "db") return (name, options) => wrapDb(target.db(name, options));
-  if (prop === "startSession") return (...args) => {
-    const session = target.startSession(...args);
-    const commit = session.commitTransaction.bind(session);
-    session.commitTransaction = async () => { const done = await commit(); await globalThis.${COMMITTED}(); return done; };
-    return session;
-  };
-  return bound(target, Reflect.get(target, prop, target));
-}});`;
+const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
+  client: (db) => {
+    productionClient = db.client;
+    return new Proxy(db.client as object, {
+      get(target, prop) {
+        const value: unknown = Reflect.get(target, prop, target);
+        if (prop === "db") return (name: string, options?: unknown) => wrapDb((value as Method).call(target, name, options) as object);
+        if (prop === "startSession") {
+          return (...args: unknown[]) => {
+            const session = (value as Method).apply(target, args) as { commitTransaction: () => Promise<unknown> };
+            const commit = session.commitTransaction.bind(session);
+            session.commitTransaction = async () => {
+              const done = await commit();
+              await committed();
+              return done;
+            };
+            return session;
+          };
+        }
+        return bound(target, value);
+      },
+    });
+  },
+});
 
-const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};`;
+const HEADERS_DOUBLE = exportingModule({ headers: () => Promise.resolve(requestHeaders) });
 
-const LOGGING_DOUBLE = `export const logger = {
-  debug: () => {},
-  info: () => {},
-  warn: (message) => globalThis.${LOGGED}.push(message),
-  error: () => {},
-};`;
+const LOGGING_DOUBLE = exportingModule({
+  logger: { debug: () => undefined, info: () => undefined, warn: (message: string) => void warnings.push(message), error: () => undefined },
+});
 
 const { sent } = registerAuthDoubles({
   core: { config: configDouble({ MONGODB_URI: MONGO_URL }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
@@ -120,18 +164,15 @@ const OPEN_GATE = { arrive: async () => undefined };
 
 const warnings: string[] = [];
 const barrier = new Barrier();
-const globals = globalThis as unknown as Record<string, unknown>;
-globals[LOGGED] = warnings;
-globals[BARRIER] = barrier;
-globals[GATE] = OPEN_GATE;
+
+/** Where a removal's in-transaction read of the passkey rows waits: nowhere, unless a case holds it. */
+let readGate: { arrive: () => Promise<unknown> } = OPEN_GATE;
 
 /** What runs as a removal reaches its sign-out: inside its transaction, after its delete. */
 let signingOut: () => Promise<unknown> = async () => undefined;
-globals[SIGNING_OUT] = () => signingOut();
 
 /** What runs once a removal's commit has been taken by the server, before its answer reaches the removal. */
 let committed: () => Promise<unknown> = async () => undefined;
-globals[COMMITTED] = () => committed();
 
 // Imported after the hooks above are registered: a static import resolves before they exist.
 const { auth } = await import("@/core/auth");
@@ -147,7 +188,7 @@ type RealClient = {
   close: () => Promise<void>;
 };
 
-const realClient = globals[REAL_CLIENT] as RealClient;
+const realClient = productionClient as RealClient;
 const authDb = () => realClient.db("auth");
 
 after(async () => {
@@ -160,7 +201,7 @@ beforeEach(async () => {
   warnings.length = 0;
   signingOut = async () => undefined;
   committed = async () => undefined;
-  globals[GATE] = OPEN_GATE;
+  readGate = OPEN_GATE;
   await authDb().dropDatabase();
 });
 
@@ -212,7 +253,7 @@ async function passkeyRows(): Promise<Record<string, unknown>[]> {
 
 /** Two removals from ONE session, which two open dialogs share: both held at their first write. */
 async function removeAtOnce(cookie: string, ids: readonly string[]) {
-  globals[REQUEST_HEADERS] = new Headers({ ...ORIGIN, cookie });
+  requestHeaders = new Headers({ ...ORIGIN, cookie });
   const mailedBefore = sent.length;
   barrier.arm(ids.length);
   const answers = await Promise.all(ids.map((id) => removePasskeyAction(id)));
@@ -259,9 +300,9 @@ describe("two removals by one administrator at once, against a real database (`d
     const { cookie, userId } = await steppedUpAdmin();
     const [held, through] = await seedPasskeys(userId, 2);
     assert.ok(held && through);
-    globals[REQUEST_HEADERS] = new Headers({ ...ORIGIN, cookie });
+    requestHeaders = new Headers({ ...ORIGIN, cookie });
     const gate = new Gate();
-    globals[GATE] = gate;
+    readGate = gate;
 
     try {
       const second = removePasskeyAction(held);
@@ -291,7 +332,7 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
     const own = await steppedUpAdmin();
     const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
     assert.ok(first);
-    globals[REQUEST_HEADERS] = new Headers({ ...ORIGIN, cookie: own.cookie });
+    requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
 
     assert.equal((await removePasskeyAction(first)).success, true);
     assert.deepEqual([await opens(other.cookie), await opens(own.cookie)], [false, true]);
@@ -304,7 +345,7 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
     const own = await steppedUpAdmin();
     const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
     assert.ok(first);
-    globals[REQUEST_HEADERS] = new Headers({ ...ORIGIN, cookie: own.cookie });
+    requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
     signingOut = () =>
       authDb()
         .collection("session")
@@ -335,7 +376,7 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
     const own = await steppedUpAdmin();
     const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
     assert.ok(first);
-    globals[REQUEST_HEADERS] = new Headers({ ...ORIGIN, cookie: own.cookie });
+    requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
     signingOut = async () => {
       // Built rather than raised by the server: the test container refuses `configureFailPoint`.
       throw new MongoServerError({
@@ -366,7 +407,7 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
     const own = await steppedUpAdmin();
     const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
     assert.ok(first);
-    globals[REQUEST_HEADERS] = new Headers({ ...ORIGIN, cookie: own.cookie });
+    requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
     signingOut = async () => {
       throw new Error("planted");
     };
@@ -391,7 +432,7 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
     const own = await steppedUpAdmin();
     const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
     assert.ok(first);
-    globals[REQUEST_HEADERS] = new Headers({ ...ORIGIN, cookie: own.cookie });
+    requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
     committed = async () => {
       throw new Error("planted: the commit's answer lost");
     };

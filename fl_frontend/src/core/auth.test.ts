@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import { after, afterEach, beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { memoryAdapter } from "better-auth/adapters/memory";
 import { isAPIError } from "better-auth/api";
 
 import {
@@ -12,65 +13,77 @@ import {
   configDouble,
   cookieHeader,
   lastMailedCode,
-  MEMORY_ADAPTER_URL,
   ORIGIN,
   registerAuthDoubles,
   signInByCode,
 } from "./authDoubles.ts";
+import { exportingModule } from "./exportingModule.ts";
 import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "./testAuthenticator.ts";
 
-const STORE = "__flAuthStore";
-const ADAPTER_CALLS = "__flAuthAdapterCalls";
-const REQUEST_HEADERS = "__flAuthRequestHeaders";
-const LOGGED = "__flAuthLogged";
+import type { MemoryDB } from "better-auth/adapters/memory";
 
 /** Allowlisted by nothing: the person arm of every case below. */
 const PERSON_EMAIL = "spielerin@example.org";
 
 /* Replaced at the module boundary rather than the adapter being given a seam: the real module opens
    a `MongoClient` at import, so loading it would reach for a server no test run holds. */
-const DB_DOUBLE = `export const client = {
-  db: (name) => { globalThis.${ADAPTER_CALLS}.databases.push(name); return { name }; },
-};`;
+const DB_DOUBLE = exportingModule({
+  client: {
+    db: (name: string) => {
+      adapterCalls.databases.push(name);
+      return { name };
+    },
+  },
+});
 
-const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};`;
+/** What the request a case arrives as carries, which `arriveAs` sets. */
+let requestHeaders: Headers | undefined;
+
+const HEADERS_DOUBLE = exportingModule({ headers: () => Promise.resolve(requestHeaders) });
 
 /* Caught at this boundary rather than off stdout: the subject is what the module HANDS the writer,
    and the real writer turns that into a line with no structure left to assert over. */
-const LOGGING_DOUBLE = `export const logger = {
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: (message, error, meta) => globalThis.${LOGGED}.push({ message, error, meta }),
-};`;
+const LOGGING_DOUBLE = exportingModule({
+  logger: {
+    debug: () => undefined,
+    info: () => undefined,
+    warn: () => undefined,
+    error: (message: string, error: unknown, meta: Record<string, unknown>) => void logged.push({ message, error, meta }),
+  },
+});
+
+/** One adapter operation, recorded under the model it was asked about. */
+const operationOf = (key: string, args: unknown[]): string => `${key} ${String((args[0] as { model?: unknown } | undefined)?.model ?? "")}`;
 
 /* The memory store under the real `auth.ts`, recording what the module handed the adapter's factory,
    and each operation on the adapter while a case holds `operations` open: what an answer's timing
    is made of. */
-const ADAPTER_DOUBLE = `import { memoryAdapter } from ${JSON.stringify(MEMORY_ADAPTER_URL)};
-export const mongodbAdapter = (db, config) => {
-  globalThis.${ADAPTER_CALLS}.pairs.push({ db, config });
-  const factory = memoryAdapter(globalThis.${STORE});
-  return (options) => new Proxy(factory(options), {
-    get: (target, key) => {
-      const value = Reflect.get(target, key);
-      if (typeof value !== "function" || typeof key !== "string") return value;
-      // A count waits at the barrier a case arms, so every attempt of a burst reaches its count first.
-      if (key === "count") {
-        return async (...args) => {
-          globalThis.${ADAPTER_CALLS}.operations?.push(key + " " + String(args[0]?.model ?? ""));
-          await globalThis.${ADAPTER_CALLS}.counts.arrive();
-          return value.apply(target, args);
-        };
-      }
-      return (...args) => {
-        globalThis.${ADAPTER_CALLS}.operations?.push(key + " " + String(args[0]?.model ?? ""));
-        return value.apply(target, args);
-      };
-    },
-  });
-};`;
+const ADAPTER_DOUBLE = exportingModule({
+  mongodbAdapter: (db: unknown, config?: { client?: unknown }) => {
+    adapterCalls.pairs.push({ db, config });
+    const factory = memoryAdapter(store as unknown as MemoryDB);
+    return (options: Parameters<typeof factory>[0]) =>
+      new Proxy(factory(options), {
+        get: (target, key) => {
+          const value: unknown = Reflect.get(target, key);
+          if (typeof value !== "function" || typeof key !== "string") return value;
+          // A count waits at the barrier a case arms, so every attempt of a burst reaches its count first.
+          if (key === "count") {
+            return async (...args: unknown[]) => {
+              adapterCalls.operations?.push(operationOf(key, args));
+              await adapterCalls.counts.arrive();
+              return (value as (...rest: unknown[]) => unknown).apply(target, args);
+            };
+          }
+          return (...args: unknown[]) => {
+            adapterCalls.operations?.push(operationOf(key, args));
+            return (value as (...rest: unknown[]) => unknown).apply(target, args);
+          };
+        },
+      });
+  },
+});
 
 const API_ORIGIN = "http://backend.test";
 
@@ -163,11 +176,6 @@ const adapterCalls = {
   counts: new Barrier(),
 };
 
-const globals = globalThis as unknown as Record<string, unknown>;
-globals[STORE] = store;
-globals[LOGGED] = logged;
-globals[ADAPTER_CALLS] = adapterCalls;
-
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so neither the doubles nor the `next/server` extension would be in place yet.
 const { toNextJsHandler } = await import("better-auth/next-js");
@@ -256,7 +264,7 @@ async function signIn(email: string): Promise<{ cookie: string; row: SessionRow 
 
 /** Answers every guard below as one request would: the cookie they read off `headers()`. */
 function arriveAs(cookie: string | null): void {
-  globals[REQUEST_HEADERS] = new Headers(cookie === null ? ORIGIN : { ...ORIGIN, cookie });
+  requestHeaders = new Headers(cookie === null ? ORIGIN : { ...ORIGIN, cookie });
 }
 
 function served(cookie: string) {

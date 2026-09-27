@@ -6,6 +6,7 @@ import { MongoDBContainer } from "@testcontainers/mongodb";
 
 import { ADMIN_EMAIL, asDataUrl, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "@/core/authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/core/cacheScope.ts";
+import { exportingModule, overridingModule } from "@/core/exportingModule.ts";
 
 import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
 import type { CommandStartedEvent, MongoClient } from "mongodb";
@@ -22,8 +23,8 @@ after(async () => {
 const mongod = await new MongoDBContainer("mongo:8.3.11").start();
 opened.mongod = mongod;
 
-const REQUEST_HEADERS = "__flAdminSessionRequestHeaders";
-const globals = globalThis as unknown as Record<string, unknown>;
+/** What the request a case arrives as carries. */
+let requestHeaders: Headers | undefined;
 
 // The query suffix takes the real module past the load hook's match on a path's end: the client
 // counted is the one `fl_frontend/src/core/db.ts` builds.
@@ -32,9 +33,9 @@ const PRODUCTION_DB = `${import.meta.resolve("@/core/db.ts")}?production`;
 registerAuthDoubles({
   core: {
     config: configDouble({ MONGODB_URI: `${mongod.getConnectionString()}/?directConnection=true` }),
-    db: `export { client } from ${JSON.stringify(PRODUCTION_DB)};`,
+    db: overridingModule(PRODUCTION_DB, {}),
   },
-  specifiers: { "next/headers": asDataUrl(`export const headers = async () => globalThis.${REQUEST_HEADERS};`) },
+  specifiers: { "next/headers": asDataUrl(exportingModule({ headers: () => Promise.resolve(requestHeaders) })) },
 });
 
 // The server build for `auth.ts` alone, whose `cache` memoizes where the client build's passes
@@ -78,7 +79,7 @@ describe("the administrator's session across one render pass", () => {
   /* The admin layout wraps the shell's season slot and the page segment in a guard each, and both
      run in one render pass: `fl_frontend/src/app/bereich/admin/layout.tsx :: AdminLayout`. */
   it("reads the store once for both of the layout's guards", async () => {
-    globals[REQUEST_HEADERS] = await signInAsAdministrator();
+    requestHeaders = await signInAsAdministrator();
 
     beginRenderPass();
     const before = sessionReads.length;

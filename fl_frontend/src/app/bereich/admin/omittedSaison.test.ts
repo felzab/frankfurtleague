@@ -9,6 +9,7 @@ import { pathToFileURL } from "node:url";
 
 import { render } from "@testing-library/react";
 
+import { overridingModule } from "@/core/exportingModule.ts";
 import { readPublishedDocument } from "@/core/openapiDocument.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
@@ -28,20 +29,29 @@ import {
   steps,
 } from "@/shared/testing/pageHarness.ts";
 
+import type * as Resolvers from "@/features/saisons/resolvers.ts";
 import type { FLSaison, FLSaisonStatus } from "@/features/saisons/schemas.ts";
 import type { HandOver, PageProps } from "@/shared/testing/pageHarness.ts";
+import type { NextPageProps } from "@/shared/types/types";
 import type { ReactNode } from "react";
 
 /** The id of each season `resolveAdminSaison` or `requireAdminSaison` answered, `null` for none. */
-const RESOLVED = "__flOmittedSaisonResolved";
+const resolved: (string | null)[] = [];
+
+const recorded = <T extends FLSaison | undefined>(saison: T): T => {
+  resolved.push(saison?.id ?? null);
+  return saison;
+};
 
 /* The real resolvers, each page-facing one recording its answer: a page picking its rows locally sends
    no season a read could show. */
-const resolverDouble = (real: string) => `import * as real from ${JSON.stringify(real)};
-export * from ${JSON.stringify(real)};
-const recorded = (saison) => (globalThis.${RESOLVED}.push(saison?.id ?? null), saison);
-export const resolveAdminSaison = async (searchParams) => recorded(await real.resolveAdminSaison(searchParams));
-export const requireAdminSaison = async (searchParams) => recorded(await real.requireAdminSaison(searchParams));`;
+const resolverDouble = (real: string): string =>
+  overridingModule(real, {
+    resolveAdminSaison: (resolvers) => async (searchParams: NextPageProps["searchParams"]) =>
+      recorded(await (resolvers as typeof Resolvers).resolveAdminSaison(searchParams)),
+    requireAdminSaison: (resolvers) => async (searchParams: NextPageProps["searchParams"]) =>
+      recorded(await (resolvers as typeof Resolvers).requireAdminSaison(searchParams)),
+  });
 
 // An administrator's session: every admin-tier read resolves its actor from it before it is sent
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
@@ -60,10 +70,6 @@ const { FLSaisonSchema } = await import("@/features/saisons/schemas.ts");
 const { SaisonMetadataDisplay } = await import("@/features/saisons/components/ui/SaisonMetadataDisplay.tsx");
 
 type Read = { endpoint: string; params: Record<string, unknown> };
-
-const globals = globalThis as unknown as Record<string, unknown>;
-const resolved: (string | null)[] = [];
-globals[RESOLVED] = resolved;
 
 /** The season of every club or squad row a page read past its `saison_id`: the rows it picked. */
 const picks: string[] = [];

@@ -85,13 +85,13 @@ describe("the actions double", () => {
   it("fails a case that leaves a write running without naming why", () => {
     const scratch = mkdtempSync(path.join(tmpdir(), "fl-pending-"));
     const fixture = path.join(scratch, "leftPending.test.mjs");
-    const urlOf = (relative: string) => JSON.stringify(pathToFileURL(path.join(SRC, relative)).href);
+    // Named through the alias the child's hook resolves, so no path of this machine is written into the fixture.
     writeFileSync(
       fixture,
       `import { it } from "node:test";
-import { doubleActions } from ${urlOf("shared/testing/actionDoubles.ts")};
+import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 const { answerWith } = doubleActions({ modules: ["/src/features/spieltage/actions.ts"] });
-const spieltage = await import(${urlOf("features/spieltage/actions.ts")});
+const spieltage = await import("@/features/spieltage/actions.ts");
 it("leaves a write running", () => {
   answerWith(() => new Promise(() => undefined));
   void spieltage.patchSpieltagAction({ id: "s1" });

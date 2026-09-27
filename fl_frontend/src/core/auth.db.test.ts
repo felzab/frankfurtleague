@@ -15,6 +15,7 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "./authDoubles.ts";
+import { exportingModule, overridingModule } from "./exportingModule.ts";
 import { registrationFor } from "./testAuthenticator.ts";
 
 // A replica set, which the module starts by default: why this file needs one is
@@ -24,41 +25,68 @@ const mongod = await new MongoDBContainer("mongo:8.3.11").start();
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
 const MONGO_URL = `${mongod.getConnectionString()}/?directConnection=true`;
 
-const BARRIER = "__flAuthDbBarrier";
-const LOGGED = "__flAuthDbLogged";
-const CONSUMING = "__flAuthDbConsuming";
-const REAL_CLIENT = "__flAuthDbRealClient";
-
 // A second URL for the production module, which the load hook's match on a path's end lets past the
 // double: the client under test is the one `fl_frontend/src/core/db.ts` builds, Stable API included.
 const PRODUCTION_DB = `${import.meta.resolve("./db.ts")}?production`;
 
+type Method = (...args: unknown[]) => unknown;
+
+const bound = (target: object, value: unknown): unknown => (typeof value === "function" ? (value as Method).bind(target) : value);
+
+/** The client `fl_frontend/src/core/db.ts` built, which the double below stands over. */
+let productionClient: unknown;
+
+/** The first write each collection makes after a request's judgement, held at `holding`. */
+const HELD: Readonly<Record<string, string>> = { passkey: "insertOne", user: "findOneAndUpdate" };
+
+const wrapCollection = (name: string, collection: object): object =>
+  new Proxy(collection, {
+    get(target, prop) {
+      const value: unknown = Reflect.get(target, prop, target);
+      if (HELD[name] === prop) {
+        return async (...args: unknown[]) => {
+          await holding.arrive();
+          return (value as Method).apply(target, args);
+        };
+      }
+      if (name === "verification" && prop === "findOneAndDelete") {
+        return async (...args: unknown[]) => {
+          await consuming();
+          return (value as Method).apply(target, args);
+        };
+      }
+      return bound(target, value);
+    },
+  });
+
+const wrapDb = (db: object): object =>
+  new Proxy(db, {
+    get(target, prop) {
+      const value: unknown = Reflect.get(target, prop, target);
+      if (prop === "collection")
+        return (name: string, options?: unknown) => wrapCollection(name, (value as Method).call(target, name, options) as object);
+      return bound(target, value);
+    },
+  });
+
 /* The real client, held where a request makes its first write after its judgement: the passkey row
    where nothing claims the account, the account's own row where something does. */
-const DB_DOUBLE = `import { client as real } from ${JSON.stringify(PRODUCTION_DB)};
-globalThis.${REAL_CLIENT} = real;
-const bound = (target, value) => (typeof value === "function" ? value.bind(target) : value);
-const HELD = { passkey: "insertOne", user: "findOneAndUpdate" };
-const wrapCollection = (name, collection) => new Proxy(collection, { get(target, prop) {
-  if (HELD[name] === prop) return async (...args) => { await globalThis.${BARRIER}.arrive(); return target[prop](...args); };
-  if (name === "verification" && prop === "findOneAndDelete") return async (...args) => { await globalThis.${CONSUMING}(); return target[prop](...args); };
-  return bound(target, Reflect.get(target, prop, target));
-}});
-const wrapDb = (db) => new Proxy(db, { get(target, prop) {
-  if (prop === "collection") return (name, options) => wrapCollection(name, target.collection(name, options));
-  return bound(target, Reflect.get(target, prop, target));
-}});
-export const client = new Proxy(real, { get(target, prop) {
-  if (prop === "db") return (name, options) => wrapDb(target.db(name, options));
-  return bound(target, Reflect.get(target, prop, target));
-}});`;
+const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
+  client: (db) => {
+    productionClient = db.client;
+    return new Proxy(db.client as object, {
+      get(target, prop) {
+        const value: unknown = Reflect.get(target, prop, target);
+        if (prop === "db") return (name: string, options?: unknown) => wrapDb((value as Method).call(target, name, options) as object);
+        return bound(target, value);
+      },
+    });
+  },
+});
 
-const LOGGING_DOUBLE = `export const logger = {
-  debug: () => {},
-  info: () => {},
-  warn: (message) => globalThis.${LOGGED}.push(message),
-  error: () => {},
-};`;
+const LOGGING_DOUBLE = exportingModule({
+  logger: { debug: () => undefined, info: () => undefined, warn: (message: string) => void warnings.push(message), error: () => undefined },
+});
 
 const { sent } = registerAuthDoubles({
   core: { config: configDouble({ MONGODB_URI: MONGO_URL, ...GATE_BACKEND_CONFIG }), db: DB_DOUBLE, logging: LOGGING_DOUBLE },
@@ -113,13 +141,12 @@ class Gate {
 
 const warnings: string[] = [];
 const barrier = new Barrier();
-const globals = globalThis as unknown as Record<string, unknown>;
-globals[LOGGED] = warnings;
-globals[BARRIER] = barrier;
+
+/** Where a request's first write after its judgement waits: `barrier`, unless a case holds it at its own gate. */
+let holding: { arrive: () => Promise<unknown> } = barrier;
 
 /** What runs as the verify half consumes its challenge: after its session was read, before its transaction. */
 let consuming: () => Promise<unknown> = async () => undefined;
-globals[CONSUMING] = () => consuming();
 
 // Imported after the hooks above are registered: a static import resolves before they exist.
 const { toNextJsHandler } = await import("better-auth/next-js");
@@ -137,7 +164,7 @@ type RealClient = {
   close: () => Promise<void>;
 };
 
-const realClient = globals[REAL_CLIENT] as RealClient;
+const realClient = productionClient as RealClient;
 const authDb = () => realClient.db("auth");
 
 after(async () => {
@@ -269,7 +296,7 @@ describe("two enrolments of one administrator at once, against a real database (
     const a = await offer(await signIn(ADMIN_EMAIL));
     const b = await offer(await signIn(ADMIN_EMAIL));
     const gate = new Gate();
-    globals[BARRIER] = gate;
+    holding = gate;
 
     try {
       const second = verify(b, AUTHENTICATOR_B);
@@ -290,7 +317,7 @@ describe("two enrolments of one administrator at once, against a real database (
       );
     } finally {
       gate.release();
-      globals[BARRIER] = barrier;
+      holding = barrier;
     }
   });
 

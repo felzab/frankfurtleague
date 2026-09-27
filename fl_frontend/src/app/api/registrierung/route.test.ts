@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -14,7 +15,7 @@ const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: 
    one rather than composing a message whose every link is a bare path. */
 /** The serving origin this run is configured with, which the link the mail carries has to be built on. */
 const ORIGIN = "http://localhost:3000";
-const CONFIG = `export const frontend_config = { AUTH_URL: "${ORIGIN}", APP_ENV: "test" };`;
+const CONFIG = exportingModule({ frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } });
 /** The row's write, apart from the delivery reports the real fan-out files after a send. */
 const WRITE = "/registrierungen";
 const calls = doubleApiClient(({ endpoint }, schema) => {

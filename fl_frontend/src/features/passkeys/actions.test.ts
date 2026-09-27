@@ -1,23 +1,23 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
+import { memoryAdapter } from "better-auth/adapters/memory";
+
 import {
   ADMIN_EMAIL,
   asDataUrl,
   configDouble,
   cookieHeader,
   GATE_BACKEND_CONFIG,
-  MEMORY_ADAPTER_URL,
   ORIGIN,
   registerAuthDoubles,
   seatEveryAddress,
   signInByCode,
 } from "@/core/authDoubles.ts";
+import { exportingModule } from "@/core/exportingModule.ts";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
-const STORE = "__flPasskeyStore";
-const REQUEST_HEADERS = "__flPasskeyRequestHeaders";
-const PASS_THROUGH = "__flPasskeyPassThrough";
+import type { MemoryDB } from "better-auth/adapters/memory";
 
 /** Allowlisted by nothing: the person lane of every guard below. */
 const PERSON_EMAIL = "spielerin@example.org";
@@ -28,18 +28,28 @@ const OTHER_EMAIL = "schiedsrichter@example.org";
 /** The person's one account page, which every passkey notice links. */
 const KONTO = "/bereich/konto";
 
-const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};`;
+/** What the request a case arrives as carries, which `arriveAs` sets. */
+let requestHeaders: Headers | undefined;
+
+/** Whether the adapter's `transaction` hands the adapter itself back rather than opening one. */
+let passThrough = false;
+
+const HEADERS_DOUBLE = exportingModule({ headers: () => Promise.resolve(requestHeaders) });
 
 const LOGGING_DOUBLE = `export const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };`;
 
 /* Where the flag is set, `transaction` hands the adapter itself back, which is what the Mongo adapter
    does when it is given no client: the shape the removal must refuse rather than trust. */
-const ADAPTER_DOUBLE = `import { memoryAdapter } from ${JSON.stringify(MEMORY_ADAPTER_URL)};
-export const mongodbAdapter = () => (options) => {
-  const adapter = memoryAdapter(globalThis.${STORE})(options);
-  const served = { ...adapter, transaction: (callback) => (globalThis.${PASS_THROUGH} ? callback(served) : adapter.transaction(callback)) };
-  return served;
-};`;
+const ADAPTER_DOUBLE = exportingModule({
+  mongodbAdapter: () => (options: Parameters<ReturnType<typeof memoryAdapter>>[0]) => {
+    const adapter = memoryAdapter(store as unknown as MemoryDB)(options);
+    const served: typeof adapter = {
+      ...adapter,
+      transaction: (callback) => (passThrough ? callback(served) : adapter.transaction(callback)),
+    };
+    return served;
+  },
+});
 
 // Every address this file signs in is seated: the gate at session creation is not its subject.
 seatEveryAddress();
@@ -75,9 +85,6 @@ type Store = {
 const store: Store = { user: [], session: [], account: [], verification: [], passkey: [] };
 const sent = mail.sent;
 
-const globals = globalThis as unknown as Record<string, unknown>;
-globals[STORE] = store;
-
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so none of the doubles would be in place yet.
 const { auth, getAdminSession } = await import("@/core/auth");
@@ -89,7 +96,7 @@ const { PASSKEY_NAME_MAX } = await import("./schemas.ts");
 const HOUR_MS = 60 * 60 * 1000;
 
 beforeEach(() => {
-  globals[PASS_THROUGH] = false;
+  passThrough = false;
   store.passkey.length = 0;
   store.session.length = 0;
   cacheCalls.length = 0;
@@ -118,7 +125,7 @@ async function signedInWith(email: string, credentialID: string, ageMs = 0): Pro
 
 /** Answers every guard below as one request would: the cookie they read off `headers()`. */
 function arriveAs(cookie: string): void {
-  globals[REQUEST_HEADERS] = new Headers({ ...ORIGIN, cookie });
+  requestHeaders = new Headers({ ...ORIGIN, cookie });
 }
 
 /** A stored passkey as the plugin's own routes read one, so an admitted call would really act. */
@@ -329,7 +336,7 @@ describe("what a removal costs, and what it refuses", () => {
     seedPasskey(admin.row.userId, "zwei");
     const { cookie } = await signedInWith(ADMIN_EMAIL, held.credentialID);
     arriveAs(cookie);
-    globals[PASS_THROUGH] = true;
+    passThrough = true;
     const mails = sent.length;
 
     const answer = await removePasskeyAction(held.id);

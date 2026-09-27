@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -14,7 +15,7 @@ const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body
 const LOGGING = `const line = (...args) => void globalThis.__flBewLogs.push(JSON.stringify(args));
 export const logger = { info: line, warn: line, error: line };`;
 const ORIGIN = "http://localhost:3000";
-const CONFIG = `export const frontend_config = { AUTH_URL: "${ORIGIN}", APP_ENV: "test" };`;
+const CONFIG = exportingModule({ frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } });
 const calls = doubleApiClient(({ endpoint }, schema) =>
   // The accepted-send record every mail reports back; its answer is read by nothing here.
   schema.parse(endpoint === "/bewerbungen" ? schreibAntwort() : { acknowledged: 1, angewendet: [] }),

@@ -10,16 +10,18 @@ import { act, createElement as h } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 
 import type { FormState } from "@/shared/types/types";
 
-const LEFT = "__flSignInLeft";
+/** Every path the card left the document for. */
+const left: string[] = [];
 
 /* A full document navigation, which jsdom does not implement and whose `location` no test can
    replace: recorded at the module boundary. */
-const NAVIGATION_DOUBLE = `export function leaveDocumentFor(path) { globalThis.${LEFT}.push(path); }`;
+const NAVIGATION_DOUBLE = exportingModule({ leaveDocumentFor: (path: string) => void left.push(path) });
 
 /* The passkey button's browser client, which reads the page's origin as it loads, and this window
    has none. No case presses the button. */
@@ -37,10 +39,6 @@ registerHooks({
 const { calls, answerWith } = doubleActions({ modules: ["/src/features/auth/actions.ts"] });
 const { raised } = doubleToasts();
 const fetchMock = doubleFetch();
-
-/** Every path the card left the document for. */
-const left: string[] = [];
-Reflect.set(globalThis, LEFT, left);
 
 const { SignInForm } = await import("./SignInForm.tsx");
 const { CodeStep } = await import("./CodeStep.tsx");

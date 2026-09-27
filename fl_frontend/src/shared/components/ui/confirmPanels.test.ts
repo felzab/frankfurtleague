@@ -3,7 +3,7 @@ import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { createRequire, registerHooks } from "node:module";
+import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -14,6 +14,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import ts from "typescript";
 
+import { overridingModule } from "@/core/exportingModule.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
@@ -27,11 +28,11 @@ const SRC = path.resolve(import.meta.dirname, "..", "..", "..");
 /* Every row a panel renders is wrapped in a marked box, so a second row counts whether or not its
    press is the armed one: an unarmed row renders nothing else a reader could count. */
 const ROW_URL = pathToFileURL(path.join(import.meta.dirname, "ConfirmActionRow.tsx")).href;
-const REACT_URL = pathToFileURL(createRequire(import.meta.filename).resolve("react")).href;
 const COUNTED_ROW = `data:text/javascript,${encodeURIComponent(
-  `import { createElement } from ${JSON.stringify(REACT_URL)};
-   import { ConfirmActionRow as Row } from ${JSON.stringify(ROW_URL)};
-   export function ConfirmActionRow(props) { return createElement("div", { "data-confirm-row": "" }, createElement(Row, props)); }`,
+  overridingModule(ROW_URL, {
+    ConfirmActionRow: (row) => (props: object) =>
+      h("div", { "data-confirm-row": "" }, h(row.ConfirmActionRow as (props: object) => ReactNode, props)),
+  }),
 )}`;
 
 registerHooks({

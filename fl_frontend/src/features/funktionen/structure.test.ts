@@ -2,13 +2,20 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
+import { overridingModule } from "@/core/exportingModule.ts";
+
 import type { Funktion } from "@/core/funktionen.ts";
+import type * as Constants from "./constants.ts";
 
 /* The real table and a second row after it: with the landing alone, "every entry" and "the landing
    only" are one list, and no case could tell a seat rule narrowing a Trainer to the landing. */
-const tableDouble = (real: string) => `import * as real from ${JSON.stringify(real)};
-export * from ${JSON.stringify(real)};
-export const TEAM_SIDEMENU_ENTRIES = [...real.TEAM_SIDEMENU_ENTRIES, { ...real.TEAM_SIDEMENU_ENTRIES[0], id: "probe-seite", label: "Probe" }];`;
+const tableDouble = (real: string): string =>
+  overridingModule(real, {
+    TEAM_SIDEMENU_ENTRIES: (constants) => {
+      const entries = (constants as typeof Constants).TEAM_SIDEMENU_ENTRIES;
+      return [...entries, { ...entries[0], id: "probe-seite", label: "Probe" }];
+    },
+  });
 
 registerHooks({
   load(url, context, nextLoad) {

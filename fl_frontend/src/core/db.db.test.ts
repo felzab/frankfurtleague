@@ -15,6 +15,7 @@ import {
 } from "mongodb";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "./authDoubles.ts";
+import { exportingModule, overridingModule } from "./exportingModule.ts";
 
 import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
 import type { MongoClient } from "mongodb";
@@ -143,10 +144,7 @@ const relay = new Relay();
 opened.relay = relay;
 const RELAYED_URL = `mongodb://127.0.0.1:${await relay.listen()}/?directConnection=true`;
 
-const LOGGED = "__flDbTierLogged";
 const logged: Record<string, unknown>[] = [];
-const globals = globalThis as unknown as Record<string, unknown>;
-globals[LOGGED] = logged;
 
 // The query suffix takes the real module past the load hook's match on a path's end: the client
 // under test is the one `fl_frontend/src/core/db.ts` builds, over the relay.
@@ -155,13 +153,15 @@ const PRODUCTION_DB = `${import.meta.resolve("./db.ts")}?production`;
 registerAuthDoubles({
   core: {
     config: configDouble({ MONGODB_URI: RELAYED_URL }),
-    db: `export { client } from ${JSON.stringify(PRODUCTION_DB)};`,
-    logging: `export const logger = {
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: (event, _error, fields) => globalThis.${LOGGED}.push({ event, ...fields }),
-};`,
+    db: overridingModule(PRODUCTION_DB, {}),
+    logging: exportingModule({
+      logger: {
+        debug: () => undefined,
+        info: () => undefined,
+        warn: () => undefined,
+        error: (event: string, _error: unknown, fields?: Record<string, unknown>) => void logged.push({ event, ...fields }),
+      },
+    }),
   },
 });
 
@@ -340,7 +340,7 @@ describe("the sign-in store's client recovers from a cold start it could not com
         import.meta.resolve("../../tsconfig-alias-hook.mjs"),
         "--input-type=module",
         "--eval",
-        `const { client } = await import(${JSON.stringify(import.meta.resolve("./db.ts"))});
+        `const { client } = await import("@/core/db.ts");
 await client.db("store_bound").collection("probe").findOne({}).catch(() => undefined);
 process.stdout.write("${CHILD_SETTLED}");`,
       ],

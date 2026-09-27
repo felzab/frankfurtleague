@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { exportingModule, UNBINDABLE } from "./exportingModule.ts";
+import { exportingModule, overridingModule, UNBINDABLE } from "./exportingModule.ts";
 
 const LINE_SEPARATOR = String.fromCharCode(0x2028);
 
@@ -47,5 +47,19 @@ describe("the module a double is built as", () => {
 
     assert.equal(built.recorded, recorded);
     assert.equal(built.record, record);
+  });
+});
+
+describe("the module a double stands over a real one as", () => {
+  /* A `data:` URL keeps its quote as written: spelled into the source, it would end the specifier. */
+  const REAL = `data:text/javascript,export const kept = "it's the real one"; export const answer = () => 1;`;
+
+  it("keeps every export the real module has, and builds each override from the real module itself", async () => {
+    const built = (await import(
+      `data:text/javascript,${encodeURIComponent(overridingModule(REAL, { answer: (real) => () => (real.answer as () => number)() + 41 }))}`
+    )) as { kept: string; answer: () => number };
+
+    assert.equal(built.kept, "it's the real one");
+    assert.equal(built.answer(), 42);
   });
 });

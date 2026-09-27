@@ -1,37 +1,39 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import {
-  asDataUrl,
-  configDouble,
-  cookieHeader,
-  GATE_BACKEND_CONFIG,
-  MEMORY_ADAPTER_URL,
-  ORIGIN,
-  registerAuthDoubles,
-  seatEveryAddress,
-} from "./authDoubles.ts";
+import { memoryAdapter } from "better-auth/adapters/memory";
+
+import { asDataUrl, configDouble, cookieHeader, GATE_BACKEND_CONFIG, ORIGIN, registerAuthDoubles, seatEveryAddress } from "./authDoubles.ts";
+import { exportingModule } from "./exportingModule.ts";
 import { assertionFor, COSE_KEY } from "./testAuthenticator.ts";
 
-const STORE = "__flLastUseStore";
-const STAMP_REFUSED = "__flLastUseStampRefused";
-const WARNED = "__flLastUseWarned";
+import type { MemoryDB } from "better-auth/adapters/memory";
 
 const HEADERS_DOUBLE = `export const headers = async () => new Headers();`;
 
-const LOGGING_DOUBLE = `export const logger = {
-  debug: () => {}, info: () => {}, error: () => {},
-  warn: (event, fields) => globalThis.${WARNED}.push([event, fields]),
-};`;
+const LOGGING_DOUBLE = exportingModule({
+  logger: {
+    debug: () => undefined,
+    info: () => undefined,
+    error: () => undefined,
+    warn: (event: string, fields: Record<string, unknown>) => void warned.push([event, fields]),
+  },
+});
+
+/** Whether the stamp's write is refused. */
+let stampRefused = false;
 
 /* Where the flag is set, the stamp's write is refused and every other write lands: the plugin's own
    counter update runs on the same row in the same request. */
-const ADAPTER_DOUBLE = `import { memoryAdapter } from ${JSON.stringify(MEMORY_ADAPTER_URL)};
-export const mongodbAdapter = () => (options) => {
-  const adapter = memoryAdapter(globalThis.${STORE})(options);
-  const refused = (args) => globalThis.${STAMP_REFUSED} && args.model === "passkey" && args.update?.lastUsedAt !== undefined;
-  return { ...adapter, update: (args) => (refused(args) ? Promise.reject(new Error("stamp refused")) : adapter.update(args)) };
-};`;
+const ADAPTER_DOUBLE = exportingModule({
+  mongodbAdapter: () => (options: Parameters<ReturnType<typeof memoryAdapter>>[0]) => {
+    const adapter = memoryAdapter(store as unknown as MemoryDB)(options);
+    type Update = Parameters<typeof adapter.update>[0];
+    const refused = (args: Update): boolean =>
+      stampRefused && args.model === "passkey" && (args.update as { lastUsedAt?: unknown } | undefined)?.lastUsedAt !== undefined;
+    return { ...adapter, update: (args: Update) => (refused(args) ? Promise.reject(new Error("stamp refused")) : adapter.update(args)) };
+  },
+});
 
 // Every address this file signs in is seated: the gate at session creation is not its subject.
 seatEveryAddress();
@@ -44,9 +46,7 @@ registerAuthDoubles({
 type Store = Record<"user" | "session" | "account" | "verification" | "passkey", Record<string, unknown>[]>;
 
 const store: Store = { user: [], session: [], account: [], verification: [], passkey: [] };
-Reflect.set(globalThis, STORE, store);
 const warned: [string, Record<string, unknown>][] = [];
-Reflect.set(globalThis, WARNED, warned);
 
 // Imported here rather than at the top: a static import resolves before the doubles above exist.
 const { toNextJsHandler } = await import("better-auth/next-js");
@@ -100,7 +100,7 @@ function seedPasskey(credentialID: string): Record<string, unknown> {
 const lastUse = (row: Record<string, unknown>): unknown => Reflect.get(row, "lastUsedAt");
 
 beforeEach(() => {
-  Reflect.set(globalThis, STAMP_REFUSED, false);
+  stampRefused = false;
   warned.length = 0;
   store.passkey.length = 0;
   store.session.length = 0;
@@ -138,7 +138,7 @@ describe("when a passkey was last used", () => {
      sign-in as a failure: the session is already committed, and its cookie would be lost. */
   it("signs the holder in, and logs the unstamped use, when the stamp's write fails", async () => {
     const asserted = seedPasskey(ASSERTED);
-    Reflect.set(globalThis, STAMP_REFUSED, true);
+    stampRefused = true;
 
     const answer = await assertPasskey(true);
 

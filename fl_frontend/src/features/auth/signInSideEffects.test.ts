@@ -2,15 +2,19 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { ADMIN_EMAIL, asDataUrl, memoryAdapterDouble, ORIGIN, registerAuthDoubles } from "@/core/authDoubles.ts";
+import { exportingModule, overridingModule } from "@/core/exportingModule.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 import type { FormState } from "@/shared/types/types.ts";
 
 const STORE = "__flSignInStore";
-const COOKIE_JAR = "__flSignInCookieJar";
-const REQUEST_HEADERS = "__flSignInRequestHeaders";
-const DEFERRED = "__flSignInDeferredWork";
+
+/** What `headers()` answers, which `arriveAs` sets. */
+let requestHeaders: Headers | undefined;
+
+/** What `cookies()` hands back: the jar the case installed. */
+let cookieJar: unknown;
 
 const ALLOWLISTED = ADMIN_EMAIL;
 /** Absent from the config double's allowlist, so the gate inside the send is what refuses it. */
@@ -60,15 +64,15 @@ const { calls: asked } = doubleApiAnswers(answerFromTheBackend);
  * `headers()` feeds the trace scope and the endpoint's own `requireHeaders`. `cookies()` hands back
  * the jar the case below installed, which is the whole subject of this file.
  */
-const HEADERS_DOUBLE = `export const headers = async () => globalThis.${REQUEST_HEADERS};
-export const cookies = async () => globalThis.${COOKIE_JAR};`;
+const HEADERS_DOUBLE = exportingModule({ headers: () => Promise.resolve(requestHeaders), cookies: () => Promise.resolve(cookieJar) });
 
 /**
  * Collected rather than run: work the real `after` puts behind the response is work no case here may
  * see inside one. `NextResponse` is the real export beside it, this file building the response itself.
  */
-const NEXT_SERVER_DOUBLE = `export * from ${JSON.stringify(import.meta.resolve("next/server"))};
-export const after = (task) => { globalThis.${DEFERRED}.push(task); };`;
+const NEXT_SERVER_DOUBLE = overridingModule(import.meta.resolve("next/server"), {
+  after: () => (task: () => Promise<void>) => void deferred.push(task),
+});
 
 // Recorded rather than sent: the send is what parts the two branches, so a file that cannot see it
 // would compare two refusals and pass.
@@ -94,12 +98,11 @@ const store = {
 };
 
 const globals = globalThis as unknown as Record<string, unknown>;
-globals[DEFERRED] = deferred;
 globals[STORE] = store;
 
 /** What `headers()` answers, replaced by the case that needs the cookie a press has just written. */
 function arriveAs(cookie: string | null): void {
-  globals[REQUEST_HEADERS] = new Headers(cookie === null ? ORIGIN : { ...ORIGIN, cookie });
+  requestHeaders = new Headers(cookie === null ? ORIGIN : { ...ORIGIN, cookie });
 }
 
 arriveAs(null);
@@ -143,7 +146,7 @@ async function signInWith(email: string): Promise<Attempt> {
       return response.cookies.delete(...args);
     },
   };
-  globals[COOKIE_JAR] = jar;
+  cookieJar = jar;
 
   const submitted = new FormData();
   submitted.set("email", email);
@@ -204,7 +207,7 @@ async function typeTheCode(email: string, code: string): Promise<Response> {
 function recordingJar(): { name: string; value: string }[] {
   const written: { name: string; value: string }[] = [];
   const response = new NextResponse();
-  globals[COOKIE_JAR] = {
+  cookieJar = {
     set: (name: string, value: string, options: Parameters<typeof response.cookies.set>[2]) => {
       written.push({ name, value });
       return response.cookies.set(name, value, options);
