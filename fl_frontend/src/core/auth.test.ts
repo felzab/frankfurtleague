@@ -198,6 +198,7 @@ const { runWithEndpointContext } = (await import(
 const {
   auth,
   endSessionsOfAddress,
+  forgiveCodeAttempt,
   getAdminSession,
   getKontoSession,
   getPasskeyStep,
@@ -2132,6 +2133,25 @@ describe("the failures one address may spend, across every code it is sent (`doc
     } finally {
       BACKENDS.delete(address);
     }
+  });
+
+  /* The route's second tab: the spent code meets the sign-in it already made, which is no guess. */
+  it("takes back exactly the failure the route forgives, by the body it sent", async () => {
+    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
+    await answerOf(ADMIN_EMAIL, wrongFor(otp));
+    const [earlier] = failureRows();
+    assert.ok(earlier !== undefined);
+
+    const body = { email: ADMIN_EMAIL, otp: wrongFor(otp) };
+    await auth.api.signInEmailOTP({ body, headers: new Headers(ORIGIN) }).catch(() => undefined);
+    assert.equal(failureRows().length, 2, "the second attempt was not counted, so nothing below is taken back");
+
+    await forgiveCodeAttempt(body);
+
+    assert.deepEqual(
+      failureRows().map((row) => row.id),
+      [earlier.id],
+    );
   });
 
   /* Ten in a row, and any sign-in ends the row: nine failures, a right code, then ten more are all

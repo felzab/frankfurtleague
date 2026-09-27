@@ -41,7 +41,8 @@ export function CodeStep({
   isSending: boolean;
   onResend: () => void;
   onBack?: () => void;
-  onSignedIn: () => void;
+  /** `bereits`: a session another tab made answered this, and no code was confirmed here. */
+  onSignedIn: (answer: { bereits: boolean }) => void;
 }) {
   const [code, setCode] = useState("");
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -71,7 +72,7 @@ export function CodeStep({
     setIsChecking(true);
     setRefusal(null);
 
-    const checked = await postPublicForm<PublicEnvelope>(CODE_ENDPOINT, { email: address, code: typed });
+    const checked = await postPublicForm<PublicEnvelope & { bereits?: boolean }>(CODE_ENDPOINT, { email: address, code: typed });
 
     if (!checked.answered) {
       setIsChecking(false);
@@ -80,7 +81,7 @@ export function CodeStep({
     }
 
     if (checked.body.success) {
-      onSignedIn();
+      onSignedIn({ bereits: checked.body.bereits === true });
       return;
     }
 

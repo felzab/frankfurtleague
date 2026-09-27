@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { isAPIError } from "better-auth/api";
 import { z } from "zod";
 
-import { ADDRESS_ATTEMPTS_EXHAUSTED, auth } from "@/core/auth";
+import { ADDRESS_ATTEMPTS_EXHAUSTED, auth, forgiveCodeAttempt } from "@/core/auth";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { frontend_config } from "@/core/config";
 import { asSignInIdentifier } from "@/core/emailAddress";
@@ -43,6 +43,12 @@ const REFUSAL_BY_CODE: Readonly<Record<string, string>> = {
 const refused = (error: string): NextResponse => NextResponse.json({ success: false, error });
 
 const signedIn = (): NextResponse => NextResponse.json({ success: true });
+
+/**
+ * The second tab's answer: signed in, but by the sign-in another tab made, never by this code. A caller
+ * confirming a change reads `bereits` as no confirmation at all.
+ */
+const alreadyIn = (): NextResponse => NextResponse.json({ success: true, bereits: true });
 
 /**
  * Whether the caller already holds a session for this address, made inside one code's window: the
@@ -93,13 +99,15 @@ export async function POST(request: NextRequest) {
   // one address's (`docs/frontend/spec.md :: I446`).
   const email = asSignInIdentifier(parsed.data.email);
   const requestHeaders = await headers();
+  // Held by reference: the attempt's own failure row is kept against this object.
+  const body = { email, otp: parsed.data.code };
 
   try {
     // The answer is dropped whole: it carries the session's own token, and the one copy a browser
     // may hold is the cookie `nextCookies()` writes.
 
     // No `request`, so the library's own origin check never runs: the pair above stands in for it.
-    await auth.api.signInEmailOTP({ body: { email, otp: parsed.data.code }, headers: requestHeaders });
+    await auth.api.signInEmailOTP({ body, headers: requestHeaders });
   } catch (error) {
     // Anything the library did not raise is this application failing, which is never worded to the
     // reader as a wrong code.
@@ -110,7 +118,10 @@ export async function POST(request: NextRequest) {
     const code: unknown = error.body?.code;
     const sentence = (typeof code === "string" ? REFUSAL_BY_CODE[code] : undefined) ?? VERSUCHE_ES_ERNEUT;
 
-    if (code === "INVALID_OTP" && (await alreadySignedIn(requestHeaders, email))) return signedIn();
+    if (code === "INVALID_OTP" && (await alreadySignedIn(requestHeaders, email))) {
+      await forgiveCodeAttempt(body);
+      return alreadyIn();
+    }
 
     return refused(sentence);
   }

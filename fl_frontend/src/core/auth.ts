@@ -422,6 +422,18 @@ async function clearCodeFailures(context: BoundContext, userId: string): Promise
   await context.adapter.deleteMany({ model: "verification", where: [{ field: "identifier", value: identifier }] });
 }
 
+/**
+ * Takes back the failure a code sign-in's `body` was counted as, for the route's second tab: a spent
+ * code met by the sign-in it already made is no guess.
+ */
+export async function forgiveCodeAttempt(body: object): Promise<void> {
+  const own = attemptRows.get(body);
+  if (own === undefined) return;
+
+  const { adapter } = await auth.$context;
+  await unlessUnsettled(() => adapter.delete({ model: "verification", where: [{ field: "id", value: own }] }).then(() => undefined));
+}
+
 /** A count left standing expires on its own, so a bookkeeping failure never fails the sign-in it follows. */
 async function unlessUnsettled(settle: () => Promise<void>): Promise<void> {
   try {

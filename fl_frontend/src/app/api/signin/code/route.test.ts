@@ -14,6 +14,9 @@ const MINTED = "fabricated-session-token";
 /** Every body the sign-in was handed, in order. */
 const calls: { email: string; otp: string }[] = [];
 
+/** Every body the route asked to take back as no failure, by reference. */
+const forgiven: object[] = [];
+
 /** How the next sign-in ends: `signed-in`, `broken`, or the code of the refusal it raises. */
 let outcome = "signed-in";
 
@@ -25,6 +28,10 @@ let served: unknown = null;
    refusal is shaped as the library raises one. */
 const AUTH_DOUBLE = exportingModule({
   ADDRESS_ATTEMPTS_EXHAUSTED: "ADDRESS_ATTEMPTS_EXHAUSTED",
+  forgiveCodeAttempt: (body: object) => {
+    forgiven.push(body);
+    return Promise.resolve();
+  },
   auth: {
     api: {
       signInEmailOTP: ({ body }: { body: { email: string; otp: string } }) => {
@@ -142,7 +149,12 @@ describe("the route a typed code is checked at", () => {
     outcome = "INVALID_OTP";
     holding(ADDRESS, 60 * 1000);
 
-    assert.deepEqual(await (await handler.POST(post({ email: ADDRESS, code: CODE }))).json(), { success: true });
+    const before = calls.length;
+    const answer: unknown = await (await handler.POST(post({ email: ADDRESS, code: CODE }))).json();
+
+    // Never a bare success: a caller confirming a change must not read another tab's sign-in as one.
+    assert.deepEqual(answer, { success: true, bereits: true });
+    assert.equal(forgiven.at(-1), calls[before], "the refused attempt stayed counted against the address");
   });
 
   /* The window is the code's own: a confirmation asked of an older session is never answered by the
