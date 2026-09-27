@@ -71,6 +71,10 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   // No `reactCompiler`: measured at +40 KB gzipped per page load for memoization this app needs in
   // two admin views, both hand-written.
+
+  // Off, or `next dev` run by an agent writes an `AGENTS.md` and a `CLAUDE.md` here, which an agent
+  // then loads as instructions nobody reviewed; `.claude/CLAUDE.md` §4 names this repository's docs.
+  agentRules: false,
 };
 
 export default nextConfig;
