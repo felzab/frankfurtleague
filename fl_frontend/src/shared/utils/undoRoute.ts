@@ -19,7 +19,6 @@ const FREMDE_HERKUNFT = `Diese Anfrage kam nicht von dieser Seite. Lade die Seit
 
 const UNDO_RESTORED = "Die Änderung wurde zurückgenommen.";
 
-// GERMAN-PENDING: drafted for the coordinator's approval at landing.
 /** A grant the backend did not answer: nothing ran, and signing in again reads the same grant. */
 const BERECHTIGUNG_UNGELESEN = `Deine Berechtigung ließ sich gerade nicht prüfen. ${AENDERUNG_STEHT_WEITERHIN}`;
 const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausgeführt", repair: "Lade die Seite neu" });
