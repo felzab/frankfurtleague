@@ -267,28 +267,30 @@ class TestWhatALinkOpens:
         """The other half: the narrowing must not cost a returning sibling the answers they themselves gave."""
 
         twin = spieler_document(TWIN_OID, vorname="Bramblewick", geburtsdatum=A_TWINS_BIRTHDATE)
-        household = [spieler_document(SPIELER_OID), twin]
+        at_the_mailbox = [spieler_document(SPIELER_OID), twin]
 
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=household)
+        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), spieler=at_the_mailbox)
 
         assert response.geburtsdatum == A_RETURNING_PUPILS_BIRTHDATE
 
-    def test_the_later_seeded_pupil_of_a_household_is_shown_their_own_record(self, mongo_replica_set_url: str):
+    def test_the_later_seeded_of_two_pupils_at_one_mailbox_is_shown_their_own_record(self, mongo_replica_set_url: str):
         """The case above names the pupil seeded FIRST, so a read carrying one row would still find them.
 
         What this one drives is `app/api/registrierungen/einwilligung_router.py :: _PERSONS_READ`
-        bounding the household the narrowing can reach.
+        bounding the rows at one mailbox the narrowing can reach.
         """
 
         twin = spieler_document(TWIN_OID, vorname="Bramblewick", geburtsdatum=A_TWINS_BIRTHDATE)
-        household = [spieler_document(SPIELER_OID), twin]
+        at_the_mailbox = [spieler_document(SPIELER_OID), twin]
         theirs = registrierung_document(vorname="Bramblewick")
 
-        response = on_a_league(mongo_replica_set_url, lambda database, _: ansicht(database, RAW), registrierungen=[theirs], spieler=household)
+        response = on_a_league(
+            mongo_replica_set_url, lambda database, _: ansicht(database, RAW), registrierungen=[theirs], spieler=at_the_mailbox
+        )
 
         assert response.geburtsdatum == A_TWINS_BIRTHDATE
 
-    def test_a_household_past_the_bound_shows_nobody_even_where_one_namesake_is_inside_it(self, mongo_replica_set_url: str):
+    def test_a_mailbox_shared_past_the_bound_shows_nobody_even_where_one_namesake_is_inside_it(self, mongo_replica_set_url: str):
         """Nine rows at one mailbox, the pupil's two namesakes seeded last: a read capped at eight reaches one of them and shows it as sole."""
 
         others = [spieler_document(ObjectId(f"6890a1b2c3d4e5f60796003{n}"), vorname=f"Geschwister{n}") for n in range(7)]
@@ -298,7 +300,7 @@ class TestWhatALinkOpens:
 
         assert (response.geburtsdatum, response.umfang, response.medien) == (None, None, None)
 
-    def test_a_household_past_the_bound_shows_nobody_even_where_the_pupil_is_sole_inside_it(self, mongo_replica_set_url: str):
+    def test_a_mailbox_shared_past_the_bound_shows_nobody_even_where_the_pupil_is_sole_inside_it(self, mongo_replica_set_url: str):
         """The bound's own rule: nine rows holding ONE namesake, whom the narrowing alone would show as sole."""
 
         others = [spieler_document(ObjectId(f"6890a1b2c3d4e5f60796004{n}"), vorname=f"Geschwister{n}") for n in range(8)]

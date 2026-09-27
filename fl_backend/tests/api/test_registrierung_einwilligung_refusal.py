@@ -375,7 +375,7 @@ class TestWhoseAnswersThePagePresents:
             pytest.param("Quillhilde", True, id="the name as stored"),
             pytest.param("quillhilde", True, id="another case of it"),
             pytest.param("  Quillhilde ", True, id="padded, as a form submits it"),
-            pytest.param("Bramblewick", False, id="a sibling registering at the family mailbox"),
+            pytest.param("Bramblewick", False, id="a sibling registering at the same mailbox"),
         ],
     )
     def test_the_address_is_narrowed_by_the_name_before_anybody_is_shown_back(self, spelling: str, found: bool):
@@ -388,13 +388,13 @@ class TestWhoseAnswersThePagePresents:
 
         assert (sole_person(named) is not None) == found
 
-    def test_a_household_the_narrowing_parts_shows_each_pupil_their_own_record(self):
+    def test_a_mailbox_the_narrowing_parts_shows_each_pupil_their_own_record(self):
         """The other half: narrowing to nothing wherever two rows share a mailbox would cost a returning sibling their own answers."""
 
-        household = [self.PERSON, self.SIBLING]
+        at_the_mailbox = [self.PERSON, self.SIBLING]
 
-        for person in household:
-            named = persons_named(household, vorname=person["vorname"], nachname=person["nachname"])
+        for person in at_the_mailbox:
+            named = persons_named(at_the_mailbox, vorname=person["vorname"], nachname=person["nachname"])
 
             assert sole_person(named) == person
 
@@ -406,7 +406,7 @@ class TestWhoseAnswersThePagePresents:
         assert named == []
 
     def test_a_sharp_s_surname_and_its_ss_spelling_are_two_pupils(self):
-        """„Weiß“ and „Weiss“ at one family mailbox are two families' children, whom `casefold` would show each other's record."""
+        """„Weiß“ and „Weiss“ at one mailbox are two pupils, whom `casefold` would show each other's record."""
 
         stored = {**self.PERSON, "nachname": "Weiß"}
 
