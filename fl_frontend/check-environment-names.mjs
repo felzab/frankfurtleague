@@ -10,9 +10,9 @@ const PASSTHROUGH = /^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*$/;
 // so a host's own typo there would decide which names the host is held to.
 const PRODUCTION_FLAG = "--production";
 
-// Where `fl_frontend/Dockerfile` puts the two: the WORKDIR the mount lands in, and the key sets the
-// builder emitted from the schema (`scripts/ops/deploy.sh :: check_frontend_env_names`).
-export const ENVIRONMENT_FILE = "/app/.env";
+// Where `fl_frontend/Dockerfile` puts the key sets the builder emitted from the schema. The file to
+// judge has no default: the deploy hands a join it builds for each run
+// (`scripts/ops/deploy.sh :: check_frontend_env_names`).
 export const DECLARED_NAMES_FILE = "/app/environment-names.json";
 
 /** A backslash escapes either quote, the single one included: compose documents `VAR='Let\'s go!'`, and closing on that quote reads the value's next line as a declaration. */
@@ -86,8 +86,9 @@ export function undeclaredNames(found, declared) {
 }
 
 /**
- * A required name the file gives no value. A bare pass-through takes its value from the shell that
- * ran compose, and a deploy's shell holds none, so the variable never reaches the container.
+ * A required name the file gives no value. A bare pass-through takes its value from the shell or the
+ * root `.env`, neither holding one on a deploy (`docs/ops/spec.md` §1.5), so the variable never
+ * reaches the container.
  */
 function missingNames(valued, required) {
   const present = new Set(valued);
@@ -102,7 +103,12 @@ function requiredFor(sets, production) {
 
 function report(argv) {
   const positional = argv.filter((argument) => argument !== PRODUCTION_FLAG);
-  const [file = ENVIRONMENT_FILE, declaredFile = DECLARED_NAMES_FILE] = positional;
+  const [file, declaredFile = DECLARED_NAMES_FILE] = positional;
+  // 4, not a pass: a reader handed nothing to read has judged nothing.
+  if (file === undefined) {
+    process.stderr.write("no environment file named\n");
+    return 4;
+  }
   const sets = JSON.parse(readFileSync(declaredFile, "utf8"));
   const required = requiredFor(sets, positional.length !== argv.length);
   const { names, assigned, unreadable } = scanNames(readFileSync(file, "utf8"));

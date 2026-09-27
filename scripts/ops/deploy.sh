@@ -254,7 +254,7 @@ An undeclared name is one nothing in the schema reads, so the line reads as omit
 default serves production -- delete it, correct its spelling, or declare it in the schema. A missing
 required name is one the boot gate would meet instead, after the recreate and behind an edge already
 answering 502 -- write it into the file WITH A VALUE, a bare \`NAME\` line taking its value from the
-shell that ran compose, which here holds none.
+shell that ran compose or ${SHARED_ENV}, and here neither holds one.
 NOTHING has been recreated, and the site is untouched."
   elif (( rc )); then
     # An advisory rather than a refusal, for the reason `check_env_names` carries.

@@ -70,7 +70,8 @@ the machine is outside the repository. What it does tell you:
   with nothing recreated**. The remedy differs by kind — delete an undeclared line, correct its
   spelling, or declare the name in the schema, nothing in that schema reading an undeclared one;
   **write a missing required one into the file WITH a value**, a bare `NAME` line taking its value
-  from the shell that ran compose and reaching the container as nothing at all. That is where a
+  from the shell that ran compose or the root `.env`, which hold none for it, and reaching the
+  container as nothing at all. That is where a
   release adding a required name meets a host nobody edited, and it covers `AUTH_RESEND_KEY`, which
   the schema demands under `APP_ENV=production` and this deploy always puts live. Every VALUE is
   judged at boot and nowhere else, `AUTH_SECRET` below the sign-in library's floor of 32 characters

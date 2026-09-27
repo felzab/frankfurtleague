@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { DECLARED_NAMES_FILE, ENVIRONMENT_FILE, scanNames, undeclaredNames } from "./check-environment-names.mjs";
+import { DECLARED_NAMES_FILE, scanNames, undeclaredNames } from "./check-environment-names.mjs";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
@@ -95,6 +95,13 @@ describe("the names outside the schema", () => {
 });
 
 describe("what the deploy grades the checker's answer as", () => {
+  it("answers 4 when named no file at all, having judged nothing", () => {
+    const done = spawnSync(process.execPath, [CHECKER, "--production"], { encoding: "utf8" });
+
+    assert.equal(done.status, 4, done.stderr);
+    assert.match(done.stderr, /no environment file named/);
+  });
+
   it("answers 0 where every name in the file is one the schema declares", () => {
     const done = check("ALPHA_NAME=one\nBETA_NAME=two\n");
 
@@ -228,7 +235,7 @@ describe("the key set the image carries", () => {
     );
   });
 
-  it("is copied to the paths the checker reads when the deploy gives it none, at a mode of its own", () => {
+  it("is copied to the path the checker reads when the deploy names no key set, at a mode of its own", () => {
     const emitted = /RUN pnpm run environment-names (\S+)/.exec(DOCKERFILE);
     const copied = /^COPY --from=builder(?: (--chmod=\S+))? (\/app\/\S+) (\/app\/\S+) \.\/$/m.exec(DOCKERFILE);
     const workdirs = [...DOCKERFILE.matchAll(/^WORKDIR (\S+)$/gm)].map((match) => match[1]);
@@ -241,6 +248,5 @@ describe("the key set the image carries", () => {
     assert.deepEqual(new Set(workdirs), new Set(["/app"]));
     assert.deepEqual(new Set([copied[2], copied[3]]), new Set([DECLARED_NAMES_FILE, `/app/${path.basename(CHECKER)}`]));
     assert.equal(`/app/${emitted[1]}`, DECLARED_NAMES_FILE);
-    assert.equal(path.posix.dirname(ENVIRONMENT_FILE), "/app");
   });
 });

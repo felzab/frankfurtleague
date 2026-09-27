@@ -498,11 +498,13 @@ required under `APP_ENV=production` alone, so the DEPLOY asks for it and not the
 would have to open a value to decide: the arm passes `--production`, having one deployment to put
 live, and the reader run without that flag demands the unconditional set alone. **The bare
 pass-through `KEY` declares a name and satisfies no required one**: compose resolves that form's
-value from the shell that ran it, a deploy's holds none, and a pass-through it cannot resolve is
-dropped from the container's environment altogether — which is worse than the empty value, arriving
-as an empty string. **3 is each reader's own answer for a refusal, and the one code either arm
-grades as one**; the deploy's own exit is §1.7's 2, and a reader ending any other way
-leaves the deploy where it stood. Its reader takes a comment, a blank line, `KEY=value`, the bare
+value from the shell that ran it, and failing that from the checkout root's `.env` (Docker's
+environment-variable precedence table, rows 8 and 9, read 2026-09-27). A deploy's shell holds none,
+and the root file holds only the three keys, which no package file may name (I430), so a
+pass-through there is never resolved and is dropped from the container's environment altogether —
+which is worse than the empty value, arriving as an empty string. **3 is each reader's own answer
+for a refusal, and the one code each of the three arms grades as one**; the deploy's own exit is
+§1.7's 2, and a reader ending any other way leaves the deploy where it stood. Its reader takes a comment, a blank line, `KEY=value`, the bare
 pass-through `KEY` and a quoted value running past its own line — **and no other form**.
 `export KEY=value`, `KEY: value`, a name opening on a digit or carrying a dot, a hyphen or a
 non-ASCII letter, a BOM before a first-line declaration and a quote that never closes each read as
@@ -515,10 +517,11 @@ looks up: Node and Next read `TZ`, `NODE_OPTIONS`, `PORT` and `HOSTNAME` of thei
 correct, or a name to declare in the schema — the same three the backend's arm offers for its
 settings class.
 
-**What that check proves stops at the names.** The preflight parses the file as python-dotenv does
-and the running container gets it parsed as Compose does; the two agree on which names a file
-declares and not on every quoting form, so a value the preflight accepted is not proven identical to
-the one the container will see.
+**What that check proves stops at the names.** The preflight parses each package's file, joined to
+the root's, as python-dotenv does, and the running container gets the two parsed as Compose does;
+the two agree on which names a file declares and not on every quoting form, so a value the
+preflight accepted is not proven identical to the one the container will see. The root file alone
+is held to the one form they read alike (`scripts/lib/_lib.sh :: check_root_env`).
 
 **Before either of those reads, and before the pull, compose is asked whether it can parse its own
 configuration** (`scripts/ops/deploy.sh :: check_compose_config`): a configuration it cannot read —
