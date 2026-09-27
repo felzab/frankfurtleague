@@ -14,7 +14,6 @@ import {
   seatEveryAddress,
   signInByCode,
 } from "@/core/authDoubles.ts";
-import { exportingModule } from "@/core/exportingModule.ts";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 import type { MemoryDB } from "better-auth/adapters/memory";
@@ -34,13 +33,13 @@ let requestHeaders: Headers | undefined;
 /** Whether the adapter's `transaction` hands the adapter itself back rather than opening one. */
 let passThrough = false;
 
-const HEADERS_DOUBLE = exportingModule({ headers: () => Promise.resolve(requestHeaders) });
+const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
 
-const LOGGING_DOUBLE = `export const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };`;
+const LOGGING_DOUBLE = { logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: () => undefined } };
 
 /* Where the flag is set, `transaction` hands the adapter itself back, which is what the Mongo adapter
    does when it is given no client: the shape the removal must refuse rather than trust. */
-const ADAPTER_DOUBLE = exportingModule({
+const ADAPTER_DOUBLE = {
   mongodbAdapter: () => (options: Parameters<ReturnType<typeof memoryAdapter>>[0]) => {
     const adapter = memoryAdapter(store as unknown as MemoryDB)(options);
     const served: typeof adapter = {
@@ -49,7 +48,7 @@ const ADAPTER_DOUBLE = exportingModule({
     };
     return served;
   },
-});
+};
 
 // Every address this file signs in is seated: the gate at session creation is not its subject.
 seatEveryAddress();
@@ -57,9 +56,9 @@ seatEveryAddress();
 const mail = registerAuthDoubles({
   core: { logging: LOGGING_DOUBLE, config: configDouble(GATE_BACKEND_CONFIG) },
   specifiers: {
-    "next/headers": asDataUrl(HEADERS_DOUBLE),
+    "next/headers": HEADERS_DOUBLE,
     "next/cache": asDataUrl(NEXT_CACHE_DOUBLE),
-    "@better-auth/mongo-adapter": asDataUrl(ADAPTER_DOUBLE),
+    "@better-auth/mongo-adapter": ADAPTER_DOUBLE,
   },
 });
 

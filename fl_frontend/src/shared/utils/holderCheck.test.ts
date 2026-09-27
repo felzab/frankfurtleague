@@ -14,7 +14,6 @@ import {
   seatEveryAddress,
   signInByCode,
 } from "@/core/authDoubles.ts";
-import { exportingModule } from "@/core/exportingModule.ts";
 import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 const STORE = "__flHolderCheckStore";
@@ -28,9 +27,9 @@ const OTHER_EMAIL = "schiedsrichter@example.org";
 /** What the request a case arrives as carries. */
 let requestHeaders: Headers | undefined;
 
-const HEADERS_DOUBLE = exportingModule({ headers: () => Promise.resolve(requestHeaders) });
+const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
 
-const LOGGING_DOUBLE = `export const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };`;
+const LOGGING_DOUBLE = { logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: () => undefined } };
 
 // Every address this file signs in is seated: the gate at session creation is not its subject.
 seatEveryAddress([ADMIN_EMAIL, SECOND_ADMIN_EMAIL]);
@@ -41,7 +40,7 @@ registerAuthDoubles({
     config: configDouble(GATE_BACKEND_CONFIG),
   },
   specifiers: {
-    "next/headers": asDataUrl(HEADERS_DOUBLE),
+    "next/headers": HEADERS_DOUBLE,
     "next/cache": asDataUrl(NEXT_CACHE_DOUBLE),
     "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),
   },

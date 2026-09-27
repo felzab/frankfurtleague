@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { exportingModule } from "@/core/exportingModule.ts";
 import { answerReadsWith, callPage, EMPTIEST_ANSWER, pageBody, redirectTarget } from "@/shared/testing/pageHarness.ts";
 
-import { asDataUrl, cookieHeader, memoryAdapterDouble, ORIGIN, registerAuthDoubles, signInByCode } from "../../core/authDoubles.ts";
+import { cookieHeader, memoryAdapterDouble, ORIGIN, registerAuthDoubles, signInByCode } from "../../core/authDoubles.ts";
 
 const STORE = "__flOfferLaterStore";
 /** What the request a case arrives as carries. */
@@ -22,7 +21,7 @@ globals[STORE] = store;
    empty one: the real sign-in store judges the session the cookie names. */
 registerAuthDoubles({
   specifiers: {
-    "next/headers": asDataUrl(exportingModule({ headers: () => Promise.resolve(requestHeaders) })),
+    "next/headers": { headers: () => Promise.resolve(requestHeaders) },
     "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),
   },
 });

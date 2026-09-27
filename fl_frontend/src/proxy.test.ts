@@ -7,7 +7,6 @@ import "next/dist/server/node-environment-baseline.js";
 
 import {
   ADMIN_EMAIL,
-  asDataUrl,
   configDouble,
   cookieHeader,
   GATE_BACKEND_CONFIG,
@@ -18,14 +17,13 @@ import {
   seatEveryAddress,
   signInByCode,
 } from "./core/authDoubles.ts";
-import { exportingModule } from "./core/exportingModule.ts";
 
 const STORE = "__flProxyStore";
 /** What the request a case arrives as carries, which `arriveAs` sets. */
 let requestHeaders: Headers | undefined;
 
 /** The landing reads the request off this, where the proxy is handed its own `NextRequest`. */
-const HEADERS_DOUBLE = exportingModule({ headers: () => Promise.resolve(requestHeaders) });
+const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
 
 /** An address holding no grant, whose session the verdict is what refuses. */
 const REMOVED_EMAIL = "ehemalig@example.org";
@@ -38,7 +36,7 @@ registerAuthDoubles({
   specifiers: {
     // This file's subject is the SHAPE of a turn-away rather than the store behind it.
     "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),
-    "next/headers": asDataUrl(HEADERS_DOUBLE),
+    "next/headers": HEADERS_DOUBLE,
     // Next's bundler aliases this to its own vendored copy, and no package of that name is installed.
     "react-server-dom-webpack/client": import.meta.resolve("next/dist/compiled/react-server-dom-webpack/client.js"),
   },

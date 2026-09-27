@@ -4,7 +4,7 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { exportingModule } from "./exportingModule.ts";
+import { replacingModule } from "./exportingModule.ts";
 import { assertEveryTokenIsRead, schemeTokens } from "./schemeReader.ts";
 
 import type * as EmailShell from "./emailShell.ts";
@@ -24,7 +24,11 @@ const POISON_RESPONSIBLE_HTML = "Verein &amp; Co., c/o &lt;Haus&gt; &quot;Süd&q
 /* The controller line reaches the card from a module constant, so a hostile one arrives only by
    replacing the brand module — the route that leaves production code with no test-only opening. */
 const BRAND_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(
-  exportingModule({ KONTAKT_EMAIL: "kontakt@beispiel.de", VEREIN_NAME: POISON_CLUB, VEREIN_ANSCHRIFT: POISON_ADDRESS }),
+  replacingModule(import.meta.resolve("./brand.ts"), "the brand", {
+    KONTAKT_EMAIL: "kontakt@beispiel.de",
+    VEREIN_NAME: POISON_CLUB,
+    VEREIN_ANSCHRIFT: POISON_ADDRESS,
+  }),
 )}`;
 
 registerHooks({

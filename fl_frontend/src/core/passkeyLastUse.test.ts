@@ -3,29 +3,28 @@ import { beforeEach, describe, it } from "node:test";
 
 import { memoryAdapter } from "better-auth/adapters/memory";
 
-import { asDataUrl, configDouble, cookieHeader, GATE_BACKEND_CONFIG, ORIGIN, registerAuthDoubles, seatEveryAddress } from "./authDoubles.ts";
-import { exportingModule } from "./exportingModule.ts";
+import { configDouble, cookieHeader, GATE_BACKEND_CONFIG, ORIGIN, registerAuthDoubles, seatEveryAddress } from "./authDoubles.ts";
 import { assertionFor, COSE_KEY } from "./testAuthenticator.ts";
 
 import type { MemoryDB } from "better-auth/adapters/memory";
 
-const HEADERS_DOUBLE = `export const headers = async () => new Headers();`;
+const HEADERS_DOUBLE = { headers: () => Promise.resolve(new Headers()) };
 
-const LOGGING_DOUBLE = exportingModule({
+const LOGGING_DOUBLE = {
   logger: {
     debug: () => undefined,
     info: () => undefined,
     error: () => undefined,
     warn: (event: string, fields: Record<string, unknown>) => void warned.push([event, fields]),
   },
-});
+};
 
 /** Whether the stamp's write is refused. */
 let stampRefused = false;
 
 /* Where the flag is set, the stamp's write is refused and every other write lands: the plugin's own
    counter update runs on the same row in the same request. */
-const ADAPTER_DOUBLE = exportingModule({
+const ADAPTER_DOUBLE = {
   mongodbAdapter: () => (options: Parameters<ReturnType<typeof memoryAdapter>>[0]) => {
     const adapter = memoryAdapter(store as unknown as MemoryDB)(options);
     type Update = Parameters<typeof adapter.update>[0];
@@ -33,14 +32,14 @@ const ADAPTER_DOUBLE = exportingModule({
       stampRefused && args.model === "passkey" && (args.update as { lastUsedAt?: unknown } | undefined)?.lastUsedAt !== undefined;
     return { ...adapter, update: (args: Update) => (refused(args) ? Promise.reject(new Error("stamp refused")) : adapter.update(args)) };
   },
-});
+};
 
 // Every address this file signs in is seated: the gate at session creation is not its subject.
 seatEveryAddress();
 
 registerAuthDoubles({
   core: { logging: LOGGING_DOUBLE, config: configDouble(GATE_BACKEND_CONFIG) },
-  specifiers: { "next/headers": asDataUrl(HEADERS_DOUBLE), "@better-auth/mongo-adapter": asDataUrl(ADAPTER_DOUBLE) },
+  specifiers: { "next/headers": HEADERS_DOUBLE, "@better-auth/mongo-adapter": ADAPTER_DOUBLE },
 });
 
 type Store = Record<"user" | "session" | "account" | "verification" | "passkey", Record<string, unknown>[]>;

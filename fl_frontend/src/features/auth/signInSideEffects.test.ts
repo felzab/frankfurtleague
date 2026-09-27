@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { ADMIN_EMAIL, asDataUrl, memoryAdapterDouble, ORIGIN, registerAuthDoubles } from "@/core/authDoubles.ts";
-import { exportingModule, overridingModule } from "@/core/exportingModule.ts";
+import { overridingModule } from "@/core/exportingModule.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
@@ -66,7 +66,7 @@ const { calls: asked } = doubleApiAnswers(answerFromTheBackend);
  * `headers()` feeds the trace scope and the endpoint's own `requireHeaders`. `cookies()` hands back
  * the jar the case below installed, which is the whole subject of this file.
  */
-const HEADERS_DOUBLE = exportingModule({ headers: () => Promise.resolve(requestHeaders), cookies: () => Promise.resolve(cookieJar) });
+const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders), cookies: () => Promise.resolve(cookieJar) };
 
 /**
  * Collected rather than run: work the real `after` puts behind the response is work no case here may
@@ -82,8 +82,8 @@ const { sent } = registerAuthDoubles({
   specifiers: {
     // Both spellings: the application imports the bare one, and `nextCookies()` reaches for the
     // extension itself -- so a double on one alone leaves the cookie writer on the real module.
-    "next/headers": asDataUrl(HEADERS_DOUBLE),
-    "next/headers.js": asDataUrl(HEADERS_DOUBLE),
+    "next/headers": HEADERS_DOUBLE,
+    "next/headers.js": HEADERS_DOUBLE,
     "next/server": asDataUrl(NEXT_SERVER_DOUBLE),
     // What this file watches is the response rather than the store.
     "@better-auth/mongo-adapter": memoryAdapterDouble(STORE),

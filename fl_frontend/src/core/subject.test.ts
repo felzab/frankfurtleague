@@ -7,7 +7,6 @@ import { jwtVerify } from "jose";
 import {
   ACTOR_KEY_PAIR,
   ADMIN_EMAIL,
-  asDataUrl,
   configDouble,
   cookieHeader,
   madeByPasskey,
@@ -17,7 +16,6 @@ import {
   signInByCode,
 } from "./authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "./cacheScope.ts";
-import { exportingModule } from "./exportingModule.ts";
 
 import type { RequestActor } from "./requestScope.ts";
 
@@ -47,16 +45,16 @@ let headerReadCount = 0;
 /** What the request a case arrives as carries, which `arriveAs` sets. */
 let requestHeaders: Headers | undefined;
 
-const HEADERS_DOUBLE = exportingModule({
+const HEADERS_DOUBLE = {
   headers: () => {
     headerReadCount += 1;
     return Promise.resolve(requestHeaders);
   },
-});
+};
 
 registerAuthDoubles({
   core: { config: CONFIG_DOUBLE },
-  specifiers: { "next/headers": asDataUrl(HEADERS_DOUBLE), "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) },
+  specifiers: { "next/headers": HEADERS_DOUBLE, "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) },
 });
 
 type SessionRow = { token: string; userId: string; expiresAt: Date; createdAt: Date; updatedAt: Date; authFactor?: string };

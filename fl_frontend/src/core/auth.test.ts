@@ -10,7 +10,6 @@ import { jwtVerify } from "jose";
 import {
   ACTOR_KEY_PAIR,
   ADMIN_EMAIL,
-  asDataUrl,
   Barrier,
   configDouble,
   cookieHeader,
@@ -20,7 +19,6 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "./authDoubles.ts";
-import { exportingModule } from "./exportingModule.ts";
 import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "./sessionLifetimes.ts";
 import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationFor } from "./testAuthenticator.ts";
 
@@ -31,30 +29,30 @@ const PERSON_EMAIL = "spielerin@example.org";
 
 /* Replaced at the module boundary rather than the adapter being given a seam: the real module opens
    a `MongoClient` at import, so loading it would reach for a server no test run holds. */
-const DB_DOUBLE = exportingModule({
+const DB_DOUBLE = {
   client: {
     db: (name: string) => {
       adapterCalls.databases.push(name);
       return { name };
     },
   },
-});
+};
 
 /** What the request a case arrives as carries, which `arriveAs` sets. */
 let requestHeaders: Headers | undefined;
 
-const HEADERS_DOUBLE = exportingModule({ headers: () => Promise.resolve(requestHeaders) });
+const HEADERS_DOUBLE = { headers: () => Promise.resolve(requestHeaders) };
 
 /* Caught at this boundary rather than off stdout: the subject is what the module HANDS the writer,
    and the real writer turns that into a line with no structure left to assert over. */
-const LOGGING_DOUBLE = exportingModule({
+const LOGGING_DOUBLE = {
   logger: {
     debug: () => undefined,
     info: () => undefined,
     warn: () => undefined,
     error: (message: string, error: unknown, meta: Record<string, unknown>) => void logged.push({ message, error, meta }),
   },
-});
+};
 
 /** One adapter operation, recorded under the model it was asked about. */
 const operationOf = (key: string, args: unknown[]): string => `${key} ${String((args[0] as { model?: unknown } | undefined)?.model ?? "")}`;
@@ -62,7 +60,7 @@ const operationOf = (key: string, args: unknown[]): string => `${key} ${String((
 /* The memory store under the real `auth.ts`, recording what the module handed the adapter's factory,
    and each operation on the adapter while a case holds `operations` open: what an answer's timing
    is made of. */
-const ADAPTER_DOUBLE = exportingModule({
+const ADAPTER_DOUBLE = {
   mongodbAdapter: (db: unknown, config?: { client?: unknown }) => {
     adapterCalls.pairs.push({ db, config });
     const factory = memoryAdapter(store as unknown as MemoryDB);
@@ -87,7 +85,7 @@ const ADAPTER_DOUBLE = exportingModule({
         },
       });
   },
-});
+};
 
 const API_ORIGIN = "http://backend.test";
 
@@ -101,7 +99,7 @@ const { sent } = registerAuthDoubles({
     // Where the send gate's backend read goes, answered by the `fetch` below rather than a server.
     config: configDouble({ API_URL: API_ORIGIN, API_VERSION: 0, INTERNAL_API_KEY_SYSTEM: "fabricated-system-not-a-credential" }),
   },
-  specifiers: { "next/headers": asDataUrl(HEADERS_DOUBLE), "@better-auth/mongo-adapter": asDataUrl(ADAPTER_DOUBLE) },
+  specifiers: { "next/headers": HEADERS_DOUBLE, "@better-auth/mongo-adapter": ADAPTER_DOUBLE },
 });
 
 /** What the backend's one read answers an address, or that it throws for it or refuses it as a payload. */

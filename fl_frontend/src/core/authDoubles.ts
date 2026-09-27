@@ -8,7 +8,7 @@ import { after } from "node:test";
 
 import { memoryAdapter } from "better-auth/adapters/memory";
 
-import { exportingModule } from "./exportingModule.ts";
+import { replacingModule, replacingPackage } from "./exportingModule.ts";
 import { doubleSendMail } from "./mailDouble.ts";
 
 import type { MemoryDB } from "better-auth/adapters/memory";
@@ -38,7 +38,7 @@ export const asDataUrl = (source: string): string => `data:text/javascript,${enc
  * and reaches the library as its `secret` option, which it reads ahead of `BETTER_AUTH_SECRET` and
  * `AUTH_SECRET`, so neither environment name needs setting for a run.
  */
-export function configDouble(overrides: Readonly<Record<string, unknown>> = {}): string {
+export function configDouble(overrides: Readonly<Record<string, unknown>> = {}): DoubledExports {
   const config = {
     ...GATE_BACKEND_CONFIG,
     AUTH_URL: `http://${ORIGIN.host}`,
@@ -49,28 +49,35 @@ export function configDouble(overrides: Readonly<Record<string, unknown>> = {}):
     ...overrides,
   };
   // An override of `undefined` takes the name out, as an unset variable is absent from the real config.
-  return exportingModule({ frontend_config: Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined)) });
+  return { frontend_config: Object.fromEntries(Object.entries(config).filter(([, value]) => value !== undefined)) };
 }
 
 /* Replaced here rather than the adapter being given a seam: the real client needs a `MONGODB_URI`
    the config above omits, and with one a suite left on the real adapter would reach for a server
    rather than fail at once. */
-const DB_DOUBLE = `export const client = { db: () => ({}) };`;
+const DB_DOUBLE: DoubledExports = { client: { db: () => ({}) } };
 
 /**
  * The Mongo adapter reaches a real server through aggregation pipelines, so the store under the real
  * `auth.ts` is the library's own in-memory one, over the object held at `globalThis[store]`.
  */
-export const memoryAdapterDouble = (store: string): string =>
-  asDataUrl(exportingModule({ mongodbAdapter: () => memoryAdapter(Reflect.get(globalThis, store) as MemoryDB) }));
+export const memoryAdapterDouble = (store: string): DoubledExports => ({
+  mongodbAdapter: () => memoryAdapter(Reflect.get(globalThis, store) as MemoryDB),
+});
 
 const SERVER_ONLY_DOUBLE_URL = asDataUrl("export {};");
 
+/** The exports a double answers for, by name: every other name the real module has throws once called. */
+export type DoubledExports = Readonly<Record<string, unknown>>;
+
 type Doubles = {
-  /** Module sources by the `fl_frontend/src/core/<name>.ts` they replace, over the two defaults. */
-  readonly core?: Readonly<Record<string, string>>;
-  /** Module URLs by the bare specifier they replace. */
-  readonly specifiers?: Readonly<Record<string, string>>;
+  /**
+   * By the `fl_frontend/src/core/<name>.ts` each replaces, over the two defaults. A source is taken
+   * only as `overridingModule` builds one: a hand-listed one fails to link the day auth.ts imports one more name.
+   */
+  readonly core?: Readonly<Record<string, DoubledExports | string>>;
+  /** By the bare specifier each replaces: the package's doubled exports, or the URL of a module loaded in its place. */
+  readonly specifiers?: Readonly<Record<string, DoubledExports | string>>;
 };
 
 /**
@@ -82,8 +89,14 @@ export function registerAuthDoubles({ core = {}, specifiers = {} }: Doubles = {}
   // The mailer is always `doubleSendMail`'s, whose record this answers. A second one is refused rather
   // than layered: two mailer hooks answer by registration order, and a suite would read whichever came last.
   if ("mail" in core) throw new Error("The mailer is doubleSendMail's: read the record registerAuthDoubles answers.");
-  const sources = Object.entries({ config: configDouble(), db: DB_DOUBLE, ...core });
-  const replaced = new Map(Object.entries(specifiers));
+  const modules = Object.entries({ config: configDouble(), db: DB_DOUBLE, ...core });
+  // Built here, each export name read off the installed package before any hook below stands over it.
+  const replaced = new Map(
+    Object.entries(specifiers).map(([specifier, double]) => [
+      specifier,
+      typeof double === "string" ? double : asDataUrl(replacingPackage(specifier, double)),
+    ]),
+  );
 
   // The grant is read over the lookup, so without an answer no suite has an administrator at all. A
   // suite answering the lookup itself, before this or after it, keeps its own answer.
@@ -100,9 +113,11 @@ export function registerAuthDoubles({ core = {}, specifiers = {} }: Doubles = {}
     load(url, context, nextLoad) {
       // Matched on the RESOLVED url's end, so this holds whichever order the alias hook and this one
       // run in, and a query-suffixed url passes: both db-tier suites load the real `db.ts` that way.
-      const double = sources.find(([name]) => url.endsWith(`/src/core/${name}.ts`));
-      if (double !== undefined) return { format: "module", source: double[1], shortCircuit: true };
-      return nextLoad(url, context);
+      const found = modules.find(([name]) => url.endsWith(`/src/core/${name}.ts`));
+      if (found === undefined) return nextLoad(url, context);
+      const [name, double] = found;
+      const source = typeof double === "string" ? double : replacingModule(url, `core/${name}.ts`, double);
+      return { format: "module", source: source, shortCircuit: true };
     },
   });
 
