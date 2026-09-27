@@ -7,8 +7,9 @@ import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
-import { doubleActionRequest, doubleEveryAction, exportingModule } from "@/shared/testing/actionDoubles.ts";
+import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { callPage, clearSteps, readsOf, redirectTarget, renderPage, steps } from "@/shared/testing/pageHarness.ts";
 import { textOf } from "@/shared/testing/renderTest.ts";

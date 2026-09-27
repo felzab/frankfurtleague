@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { exportingModule, REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
+import { exportingModule } from "@/core/exportingModule.ts";
+import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 
 /* Its own sign-in double rather than `doubleActionRequest`'s, which records the actor on every call
    as an action's lookup does: a render's lookup answered from its cache records nobody, and that is

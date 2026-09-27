@@ -123,6 +123,11 @@ const TEST_ONLY = [
     message: "mailDouble replaces the mail module for the process: a *.test.ts(x) file may import it, production code may not.",
   },
   {
+    // In core for `mailDouble.ts`'s reason: `authDoubles.ts` builds its modules with it too.
+    group: ["**/exportingModule.ts", "**/exportingModule"],
+    message: "exportingModule builds a module double's source: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
     // In core for `mailDouble.ts`'s reason: a core guard's memo is proven by a core suite.
     group: ["**/cacheScope.ts", "**/cacheScope"],
     message:

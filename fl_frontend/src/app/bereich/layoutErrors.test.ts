@@ -12,7 +12,8 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
-import { doubleActionRequest, doubleEveryAction, exportingModule } from "@/shared/testing/actionDoubles.ts";
+import { exportingModule } from "@/core/exportingModule.ts";
+import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answerReadsWith, callPage, clearSteps, EMPTIEST_ANSWER, pageBody, renderPage, steps } from "@/shared/testing/pageHarness.ts";

@@ -4,7 +4,8 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
-import { doubleActionRequest, doubleEveryAction, exportingModule } from "@/shared/testing/actionDoubles.ts";
+import { exportingModule } from "@/core/exportingModule.ts";
+import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { callPage, pageBody, redirectTarget } from "@/shared/testing/pageHarness.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";

@@ -4,6 +4,7 @@ import { after } from "node:test";
 
 import { memoryAdapter } from "better-auth/adapters/memory";
 
+import { exportingModule } from "./exportingModule.ts";
 import { doubleSendMail } from "./mailDouble.ts";
 
 import type { MemoryDB } from "better-auth/adapters/memory";
@@ -15,20 +16,6 @@ export const ADMIN_EMAIL = "vorstand@example.org";
 export const ORIGIN = { host: "localhost:3000", "x-forwarded-proto": "http" } as const;
 
 export const asDataUrl = (source: string): string => `data:text/javascript,${encodeURIComponent(source)}`;
-
-let modulesBuilt = 0;
-
-/**
- * Each value crosses through a global and never as a literal in the source, which spells this file's
- * own export names alone: a value written into code is safe only while every escape it passed through
- * holds.
- */
-function exportingModule(values: Readonly<Record<string, unknown>>): string {
-  // A slot per module, since two modules can load before either evaluates.
-  const slot = `__flAuthDoubledModule${String((modulesBuilt += 1))}`;
-  Reflect.set(globalThis, slot, values);
-  return `export const { ${Object.keys(values).join(", ")} } = globalThis.${slot};`;
-}
 
 /**
  * The config every sign-in suite runs `fl_frontend/src/core/auth.ts` under. The secret is fabricated
