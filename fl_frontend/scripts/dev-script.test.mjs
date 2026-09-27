@@ -22,9 +22,9 @@ after(() => rmSync(SCRATCH, { recursive: true, force: true }));
 // than a file: it keeps a name the process started with, so this prints what reaches the server.
 const NEXT_READS = `
 const { processEnv } = require(${JSON.stringify(createRequire(require.resolve("next/package.json")).resolve("@next/env"))});
-processEnv([{ path: ".env", contents: "FL_DEV_PROBE_ROOT=from-the-package-file\\nFL_DEV_PROBE_PACKAGE=from-the-package-file\\nACTOR_SIGNING_KEY_FILE=from-the-package-file\\n" }], ".");
-const { FL_DEV_PROBE_ROOT, FL_DEV_PROBE_PACKAGE, FL_DEV_PROBE_SHELL, ACTOR_SIGNING_KEY_FILE } = process.env;
-process.stdout.write(JSON.stringify({ probes: { FL_DEV_PROBE_ROOT, FL_DEV_PROBE_PACKAGE, FL_DEV_PROBE_SHELL }, keyFile: ACTOR_SIGNING_KEY_FILE }));
+processEnv([{ path: ".env", contents: "FL_DEV_PROBE_ROOT=from-the-package-file\\nFL_DEV_PROBE_PACKAGE=from-the-package-file\\nACTOR_SIGNING_KEY_FILE=from-the-package-file\\nSECRETS_DIR=from-the-package-file\\n" }], ".");
+const { FL_DEV_PROBE_ROOT, FL_DEV_PROBE_PACKAGE, FL_DEV_PROBE_SHELL, ACTOR_SIGNING_KEY_FILE, SECRETS_DIR } = process.env;
+process.stdout.write(JSON.stringify({ probes: { FL_DEV_PROBE_ROOT, FL_DEV_PROBE_PACKAGE, FL_DEV_PROBE_SHELL }, keyFile: ACTOR_SIGNING_KEY_FILE, secretsDir: SECRETS_DIR }));
 `;
 
 /** What the dev server's environment holds for the probes, started by the `dev` script's loader over `root`. */
@@ -36,7 +36,7 @@ function served(root) {
     // The scratch directory, which holds no `.env`, and a bound: a flag misread as the command would
     // otherwise be handed to the shell to open.
     cwd: SCRATCH,
-    env: { ...process.env, FL_DEV_PROBE_SHELL: "from-the-shell", ACTOR_SIGNING_KEY_FILE: "from-the-shell" },
+    env: { ...process.env, FL_DEV_PROBE_SHELL: "from-the-shell", ACTOR_SIGNING_KEY_FILE: "from-the-shell", SECRETS_DIR: "from-the-shell" },
     encoding: "utf8",
     timeout: 30_000,
   });
@@ -76,5 +76,13 @@ describe("the dev script's loader", () => {
     writeFileSync(root, "ACTOR_SIGNING_KEY_FILE=from-the-root-file\n");
 
     assert.equal(path.resolve(FRONTEND, served(root).keyFile), path.resolve(FRONTEND, "..", "secrets", "fl_actor_signing_key"));
+  });
+
+  // The same reason for the directory every other secret file is read from.
+  it("hands the server the checkout's secrets directory over the shell and both files", () => {
+    const root = path.join(SCRATCH, "root-naming-the-directory.txt");
+    writeFileSync(root, "SECRETS_DIR=from-the-root-file\n");
+
+    assert.equal(path.resolve(FRONTEND, served(root).secretsDir), path.resolve(FRONTEND, "..", "secrets"));
   });
 });

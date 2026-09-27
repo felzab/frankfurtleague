@@ -10,8 +10,9 @@ import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
 /**
- * The names the builder stage itself sets, its `node` base image's `NODE_VERSION` among them; a name added
- * here is a claim about the Dockerfile and that image (`docs/frontend/spec.md :: I84`).
+ * The names the builder stage sets, its base image's `NODE_VERSION` and the value it reads from the
+ * placeholder file `SECRETS_DIR` names among them; a name added here is a claim about the Dockerfile
+ * and that image (`docs/frontend/spec.md :: I84`).
  */
 const PROVIDED_WHILE_BUILDING = new Set([
   "CI",
@@ -22,6 +23,7 @@ const PROVIDED_WHILE_BUILDING = new Set([
   "NODE_VERSION",
   "PATH",
   "PNPM_HOME",
+  "SECRETS_DIR",
   "SKIP_ENV_VALIDATION",
 ]);
 

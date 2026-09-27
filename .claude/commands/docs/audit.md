@@ -68,6 +68,7 @@ Each part goes to an agent that reads it **in full** and has seen no other part.
    | `**/*.png` · `**/*.ico` · `**/*.svg`                | Images: nothing written to read                                                                   |
    | `fl_frontend/pnpm-lock.yaml` · `fl_backend/uv.lock` | Resolver output, written by a machine for a machine                                               |
    | `fl_backend/openapi.json`                           | Emitted by `fl_backend/tests/openapi_document.py`; a finding against it belongs to that generator |
+   | `fl_frontend/placeholder-secrets/**`                | One placeholder value per file, read by the build: nothing written to read                        |
 
    `node_modules`, `.venv` and `docs/audit/` need no row: they are gitignored, so `git ls-files`
    never names them.

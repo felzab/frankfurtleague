@@ -168,7 +168,8 @@ crash ([`spec.md`](spec.md#2-invariants) L6).
 ## 3. Startup codes
 
 Raised before either service serves anything — the backend's by `fl_backend/app/core/db.py :: lifespan`,
-the frontend's by `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment` and its one warning by
+the frontend's by `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment` and
+`:: refuseUnreadableSecretFiles` and its one warning by
 `fl_frontend/src/instrumentation-node.ts :: registerOnNode`. Each reaches a log line
 and no response, so it carries no status and its `trace_id` is `SYSTEM` — the
 code is the whole join key, which is why a boot failure gets one at all
@@ -185,19 +186,20 @@ table**, the backend's leaving the process as a Python traceback on stderr befor
 configured ([`spec.md`](spec.md#12-the-stream-contract) §1.2): what identifies it is the variable
 or secret file names `fl_backend/app/core/config.py :: get_config` prints.
 
-| Code           | Meaning                                                                                                                                                                             |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SRV-BOOT-001` | The MongoDB server could not be reached                                                                                                                                             |
-| `SRV-BOOT-002` | The secret file `backend_mongodb_uri` yielded no server to connect to                                                                                                               |
-| `SRV-BOOT-003` | The server refused to authenticate the credentials in `backend_mongodb_uri`                                                                                                         |
-| `SRV-BOOT-004` | The database constraints could not be applied                                                                                                                                       |
-| `SRV-BOOT-005` | A warning, and the boot goes on: `berechtigungen` holds no live grant, so nobody can enter the administration                                                                       |
-| `SRV-BOOT-006` | A warning, and the boot goes on: no live grant is an `owner` grant, so every grant is within an administrator's reach                                                               |
-| `SRV-BOOT-007` | A warning, and the boot goes on: grants whose address is empty, unfolded or refused by the address rule admit nobody; the line counts them and names none                           |
-| `SRV-BOOT-008` | A warning, and the boot goes on: a retired variable is still set in the backend's environment, a secret's old name or `ALLOWED_ADMIN_EMAILS`; the line names each and never a value |
-| `FE-BOOT-001`  | A frontend environment variable failed validation; the line names the variables and no value                                                                                        |
-| `FE-BOOT-002`  | A warning, and the boot goes on: `ALLOWED_ADMIN_EMAILS` is retired and still set in the frontend's file, which nothing reads; the line names the variable and never its value       |
-| `FE-BOOT-003`  | The actor's signing key file is missing, unreadable or holds no Ed25519 private key, so the frontend will not start; the line names the path and never the contents                 |
+| Code           | Meaning                                                                                                                                                                                                   |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SRV-BOOT-001` | The MongoDB server could not be reached                                                                                                                                                                   |
+| `SRV-BOOT-002` | The secret file `backend_mongodb_uri` yielded no server to connect to                                                                                                                                     |
+| `SRV-BOOT-003` | The server refused to authenticate the credentials in `backend_mongodb_uri`                                                                                                                               |
+| `SRV-BOOT-004` | The database constraints could not be applied                                                                                                                                                             |
+| `SRV-BOOT-005` | A warning, and the boot goes on: `berechtigungen` holds no live grant, so nobody can enter the administration                                                                                             |
+| `SRV-BOOT-006` | A warning, and the boot goes on: no live grant is an `owner` grant, so every grant is within an administrator's reach                                                                                     |
+| `SRV-BOOT-007` | A warning, and the boot goes on: grants whose address is empty, unfolded or refused by the address rule admit nobody; the line counts them and names none                                                 |
+| `SRV-BOOT-008` | A warning, and the boot goes on: a retired variable is still set in the backend's environment, a secret's old name or `ALLOWED_ADMIN_EMAILS`; the line names each and never a value                       |
+| `FE-BOOT-001`  | A frontend environment variable failed validation; the line names the variables and no value                                                                                                              |
+| `FE-BOOT-002`  | A warning, and the boot goes on: a retired variable is still set in the frontend's environment, a secret's old name or `ALLOWED_ADMIN_EMAILS`, which nothing reads; the line names each and never a value |
+| `FE-BOOT-003`  | The actor's signing key file is missing, unreadable or holds no Ed25519 private key, so the frontend will not start; the line names the path and never the contents                                       |
+| `FE-BOOT-004`  | A frontend secret file could not be read, or holds a value the schema refuses, so the frontend will not start; the line names the files, with the errno where the read failed, and never the contents     |
 
 The first three `SRV-BOOT-*` rows are one decision — `db.py :: _refusal_for`, which pairs each
 cause's sentence with its code — so a fourth cause added there takes a fourth row here. **The three

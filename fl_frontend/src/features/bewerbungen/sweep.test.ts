@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { registerHooks } from "node:module";
-import { beforeEach, describe, it, mock } from "node:test";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { after, beforeEach, describe, it, mock } from "node:test";
 
 import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
 import { replacingModule } from "@/core/exportingModule.ts";
@@ -71,6 +74,7 @@ const CONFIG_DOUBLE = {
       return sweepSwitch;
     },
   },
+  retiredVariablesSet: () => [],
 };
 
 const INDEXES_DOUBLE = { buildAuthIndexes: () => Promise.resolve() };
@@ -214,26 +218,34 @@ describe("the switch the retention sweep is armed by", () => {
     APP_ENV: "production",
     API_URL: "http://backend:8000",
     API_VERSION: "0",
-    MONGODB_URI: "mongodb://localhost:27017/probe",
     AUTH_URL: "http://localhost:3000",
-    // Long enough for the signing floor the parse applies: a shorter placeholder fails the whole
-    // environment, and every case here would then report the switch as unreadable.
-    AUTH_SECRET: "s".repeat(32),
-    AUTH_RESEND_KEY: "resend",
-    // The prefix is the whole of what the schema judges, so a placeholder carrying it is enough.
-    RESEND_WEBHOOK_SECRET: "whsec_probe",
-    INTERNAL_API_KEY_BASE: "b".repeat(64),
-    INTERNAL_API_KEY_SYSTEM: "s".repeat(64),
-    INTERNAL_API_KEY_ADMIN: "a".repeat(64),
     LOG_FORMAT: "console",
   };
+
+  /** And every secret file it reads, by the file's own name. */
+  const SECRETS_DIR = mkdtempSync(path.join(tmpdir(), "fl-sweep-secrets-"));
+  after(() => rmSync(SECRETS_DIR, { recursive: true, force: true }));
+  for (const [name, value] of Object.entries({
+    frontend_mongodb_uri: "mongodb://localhost:27017/probe",
+    // Long enough for the signing floor the parse applies: a shorter placeholder fails the whole
+    // environment, and every case here would then report the switch as unreadable.
+    auth_secret: "s".repeat(32),
+    auth_resend_key: "resend",
+    // The prefix is the whole of what the schema judges, so a placeholder carrying it is enough.
+    resend_webhook_secret: "whsec_probe",
+    internal_api_key_base: "b".repeat(64),
+    internal_api_key_system: "s".repeat(64),
+    internal_api_key_admin: "a".repeat(64),
+  })) {
+    writeFileSync(path.join(SECRETS_DIR, name), value);
+  }
 
   let probe = 0;
 
   /** The real module's own parse, with the gate the `test:base` script stands down put back up. */
   async function parseWith(value: string | undefined): Promise<{ BEWERBUNG_SWEEP: string }> {
     const before = { ...process.env };
-    Object.assign(process.env, COMPLETE_ENV);
+    Object.assign(process.env, COMPLETE_ENV, { SECRETS_DIR });
     delete process.env.SKIP_ENV_VALIDATION;
     if (value === undefined) delete process.env.BEWERBUNG_SWEEP;
     else process.env.BEWERBUNG_SWEEP = value;

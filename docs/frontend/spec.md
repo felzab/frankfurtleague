@@ -720,25 +720,42 @@ exits non-zero**, as it does when the signing key cannot be read (I476): Next se
 throwing boot hook, every page a 500, where a dead container is what a restart policy and the
 deploy's rollback read.
 
-| Variable                                       | Constraint                                                                                                                             |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `APP_ENV`                                      | `production` \| `local`; **no default, so a deployment that does not declare it refuses to boot** — and only `production` mails (I228) |
-| `API_URL`                                      | URL; must not share `AUTH_URL`'s origin                                                                                                |
-| `API_VERSION`                                  | integer                                                                                                                                |
-| `MONGODB_URI`                                  | must start `mongodb://` or `mongodb+srv://`                                                                                            |
-| `AUTH_URL`                                     | URL; **must be https** unless it points at localhost                                                                                   |
-| `AUTH_SECRET`                                  | string, **at least 32 characters** — the sign-in library warns below that floor and never refuses                                      |
-| `AUTH_RESEND_KEY`                              | string, **required only under `APP_ENV=production`** — a deployment that is not production is demanded no key and sends nothing (I228) |
-| `RESEND_WEBHOOK_SECRET`                        | string beginning `whsec_`                                                                                                              |
-| `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 printable ASCII characters, none a space or one an env-file reader alters (`docs/ops/spec.md :: I11`)                       |
-| `ACTOR_SIGNING_KEY_FILE`                       | PEM path of the actor's Ed25519 PKCS#8 signing key; `/run/secrets/fl_actor_signing_key` by default; unreadable at boot, `FE-BOOT-003`  |
-| `ALLOWED_ADMIN_EMAILS`                         | retired, declared for one release so a rollback's file still passes; read by nothing, and a boot finding it set warns `FE-BOOT-002`    |
-| `LOG_FORMAT`                                   | `json` \| `console`, case-normalised                                                                                                   |
-| `LOG_LEVEL`                                    | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR`, case-normalised, `INFO` where the server sets nothing; `CRITICAL` is refused                |
-| `BEWERBUNG_SWEEP`                              | `on` \| `off`, case-normalised, `on` where the server sets nothing; the sweep arms only where it reads `on` under a production build   |
+| Variable                                                                                                               | Constraint                                                                                                                             |
+| ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_ENV`                                                                                                              | `production` \| `local`; **no default, so a deployment that does not declare it refuses to boot** — and only `production` mails (I228) |
+| `API_URL`                                                                                                              | URL; must not share `AUTH_URL`'s origin                                                                                                |
+| `API_VERSION`                                                                                                          | integer                                                                                                                                |
+| `AUTH_URL`                                                                                                             | URL; **must be https** unless it points at localhost                                                                                   |
+| `ACTOR_SIGNING_KEY_FILE`                                                                                               | PEM path of the actor's Ed25519 PKCS#8 signing key; `/run/secrets/fl_actor_signing_key` by default; unreadable at boot, `FE-BOOT-003`  |
+| `SECRETS_DIR`                                                                                                          | the directory each secret file below is read from; `/run/secrets` by default; a path, never a secret                                   |
+| `MONGODB_URI`, `AUTH_SECRET`, `AUTH_RESEND_KEY`, `RESEND_WEBHOOK_SECRET`, `INTERNAL_API_KEY_*`, `ALLOWED_ADMIN_EMAILS` | retired, declared so a rollback's file still passes; read by nothing, and a boot finding one set warns `FE-BOOT-002`                   |
+| `LOG_FORMAT`                                                                                                           | `json` \| `console`, case-normalised                                                                                                   |
+| `LOG_LEVEL`                                                                                                            | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR`, case-normalised, `INFO` where the server sets nothing; `CRITICAL` is refused                |
+| `BEWERBUNG_SWEEP`                                                                                                      | `on` \| `off`, case-normalised, `on` where the server sets nothing; the sweep arms only where it reads `on` under a production build   |
+
+| Secret file                                    | Read as                                        | Constraint                                                                                                                              |
+| ---------------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `frontend_mongodb_uri`                         | `MONGODB_URI`                                  | must start `mongodb://` or `mongodb+srv://`                                                                                             |
+| `auth_secret`                                  | `AUTH_SECRET`                                  | **at least 32 characters** — the sign-in library warns below that floor and never refuses                                               |
+| `auth_resend_key`                              | `AUTH_RESEND_KEY`                              | not empty; **required only under `APP_ENV=production`** — a deployment that is not production is handed no key and sends nothing (I228) |
+| `resend_webhook_secret`                        | `RESEND_WEBHOOK_SECRET`                        | beginning `whsec_`                                                                                                                      |
+| `internal_api_key_base` / `_system` / `_admin` | `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN` | exactly 64 printable ASCII characters, none a space or one an env-file reader alters (`docs/ops/spec.md :: I11`)                        |
+
+**Each secret is its file's and never the environment's** (I501): `fl_frontend/src/core/config.ts ::
+readSecretFiles` reads them before the schema runs, strips the whitespace around each value exactly
+as the backend strips its copy of a shared key, and hands the schema the file's value under the key
+every consumer reads. A variable of the same name is a retired line, so it neither stands in for a
+missing file nor wins over a present one. A missing file is the schema's to judge; one the process
+cannot read — a directory at its path, bytes that are not UTF-8, a `SECRETS_DIR` that is no
+directory — refuses the boot as `Unreadable secret files: <PATH> (<ERRNO>)`, and a value the schema
+refuses is named by its file as `Invalid secret files: <FILES>`, both `FE-BOOT-004` and worded as
+the backend words them. The `dev` script names the checkout's `secrets/`
+(`fl_frontend/package.json :: dev`); the build, `typegen` and the unit tier name
+`fl_frontend/placeholder-secrets/`, which holds the database URI's placeholder and nothing else,
+because `fl_frontend/src/core/db.ts` builds its client while the module loads.
 
 `SKIP_ENV_VALIDATION=true` bypasses the gate — used by the Docker builder stage, which has no real
-environment.
+environment — and a secret file that cannot be read refuses nothing under it.
 
 **`LOG_LEVEL` stops one level below the backend's `LOG_LEVEL_APP`**
 ([`../backend/spec.md`](../backend/spec.md) §1.5), which admits `CRITICAL` and has writers there.
@@ -761,7 +778,9 @@ stops that half-alive shape reaching a page.
 from the environment.** The library's own chain looks for `BETTER_AUTH_URL` and never a bare
 `AUTH_URL`, so an unpassed `baseURL` would leave the origin derived from each incoming request; the
 explicit value is also what decides the cookie prefix above and the relying-party identifier the
-passkey ceremony is bound to.
+passkey ceremony is bound to. **An empty `secret` falls back to the process's own `AUTH_SECRET` in
+silence**, the library taking the first value that is set, so the file's `min(32)` refusal is what
+keeps a retired line from signing every session.
 
 **`AUTH_URL` is also the origin every message's links are built on** (I186): repointing it moves the
 confirmation links and each close's legal links together, which is what lets a
@@ -2189,6 +2208,8 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | I492 | **A withheld author reads „Gesperrte Adresse“ wherever an admin card names one**, in the grants list's words, never an empty line                                                                                                                  | `fl_frontend/src/features/berechtigungen/constants.ts :: vonOderGesperrt`, read by each admin card naming an actor a read may withhold; `fl_frontend/src/features/berechtigungen/constants.test.ts`, `fl_frontend/src/features/berechtigungen/page.test.ts`, `fl_frontend/src/features/sperrliste/components/collections/AdminSperrlisteList.test.ts`, `fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.test.ts`                                                                                                                                                                                                                                            |
 | I493 | **The backend's refusal for want of a recent confirmation answers as the spine's own**, re-reading the page's figure, never the generic fallback                                                                                                   | `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`; `fl_frontend/src/shared/utils/adminStepUp.test.ts :: "a write the backend refuses for want of a recent confirmation"`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | I497 | **Every credential code `fl_backend/openapi.json` publishes has its answer chosen**: its own words, or the fallback with the reason it is right                                                                                                    | `fl_frontend/src/app/credentialCoverage.test.ts :: ANSWERED`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| I501 | **A secret is read from its file alone**: no variable of its name stands in for a missing file or wins over a present one                                                                                                                          | `fl_frontend/src/core/config.ts :: readSecretFiles`, wired into `runtimeEnv`; `fl_frontend/src/core/config.test.ts :: "the secret files the frontend reads"`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| I502 | **A secret file is stripped of Python's `str.strip()` set**, never `trim()`'s, so a key both services read is one key                                                                                                                              | `fl_frontend/src/core/config.ts :: stripLikeTheBackend`; `fl_frontend/src/core/config.test.ts :: "the secret files the frontend reads"`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ## 3. Violation → remedy
 

@@ -294,9 +294,10 @@ Locally, `git branch -d short-kebab-name` after the pull. The traps attached to 
   so a fork's run receives no secrets and no write token; `publish.yml` is started by hand alone.
   Each declares its own `permissions:` block, and the read-only default is what one that forgets
   inherits.
-- **Secret scanning matches known provider token formats**, so it catches neither
-  `INTERNAL_API_KEY_*` nor `AUTH_SECRET`. What protects those is `.env*` being gitignored and
-  excluded from both Docker build contexts.
+- **Secret scanning matches known provider token formats**, so it catches neither an internal API
+  key nor `auth_secret`. What protects those is `secrets/`, where each is a file, being gitignored
+  and outside both Docker build contexts, and `.env*`, which may still carry their retired lines,
+  being gitignored and excluded from both.
 - **The Dependabot toggles are separate from `.github/dependabot.yml`**, which governs only routine
   scheduled version updates; without them a published advisory produces no notification at all. Version
   updates need no toggle of their own — that file's presence on the default branch enables them.

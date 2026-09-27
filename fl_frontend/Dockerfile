@@ -46,8 +46,9 @@ FROM deps AS builder
 # the first module that reads config. The schema is still enforced by local.sh and on every deploy.
 ENV SKIP_ENV_VALIDATION=true
 # Needed even with validation skipped: fl_frontend/src/core/db.ts constructs a MongoClient at module
-# scope, and `new MongoClient(undefined)` throws.
-ENV MONGODB_URI=mongodb://localhost:27017/placeholder
+# scope, and `new MongoClient(undefined)` throws. The tracked directory holds that URI's placeholder
+# alone, the one file the frontend reads while it builds.
+ENV SECRETS_DIR=/app/placeholder-secrets
 
 # Everything but what `deps` installed from: pnpm's dependency check fails a patch written after the
 # install it validated, and a `deps` layer restored from the cache ran its install before this

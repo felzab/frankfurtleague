@@ -1,5 +1,5 @@
 export async function registerOnNode() {
-  const frontend_config = await passBootGates().catch((refusal: unknown) => {
+  const { frontend_config, retiredVariablesSet } = await passBootGates().catch((refusal: unknown) => {
     // Next logs a throwing hook and serves on, every page a 500; a dead container is what a restart
     // policy and the deploy's rollback read (`docs/frontend/spec.md :: I476`). The empty write's
     // callback runs once the CRITICAL line has left.
@@ -8,10 +8,11 @@ export async function registerOnNode() {
     throw refusal;
   });
 
-  // The name alone, never its value: a list of administrators' addresses stays off the stream.
-  if (frontend_config.ALLOWED_ADMIN_EMAILS !== undefined) {
+  // The names alone, never a value: one of them held administrators' addresses, the rest credentials.
+  const retired = retiredVariablesSet();
+  if (retired.length > 0) {
     const { logger } = await import("./core/logging");
-    logger.warn("config.retired_variable", { error_code: "FE-BOOT-002", variables: "ALLOWED_ADMIN_EMAILS" });
+    logger.warn("config.retired_variable", { error_code: "FE-BOOT-002", variables: retired.join(", ") });
   }
 
   // `next dev` never sets NODE_ENV to production, and a developer's machine holds a real transport
@@ -37,10 +38,10 @@ export async function registerOnNode() {
   }
 }
 
-/** The two boot gates, each writing its own CRITICAL line before it throws: the environment, then the signing key. */
+/** The two boot gates, each writing its own CRITICAL line before it throws: the environment and the secret files, then the signing key. */
 async function passBootGates() {
   // Importing it *is* the gate — validation runs during this module load, before anything is served.
-  const { frontend_config } = await import("./core/config");
+  const config = await import("./core/config");
 
   // Installed before the first request can error, so Next's own multi-line console dumps still
   // reach the log as one JSON document per line; the shim itself stands down under the console
@@ -53,5 +54,5 @@ async function passBootGates() {
   const { loadActorSigningKeyAtBoot } = await import("./core/actorToken");
   await loadActorSigningKeyAtBoot();
 
-  return frontend_config;
+  return config;
 }

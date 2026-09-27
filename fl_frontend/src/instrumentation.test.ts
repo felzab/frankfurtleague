@@ -18,8 +18,8 @@ type Line = { level: string; event: string; fields: unknown };
 
 const lines: Line[] = [];
 
-/** The retired variable as the doubled config answers it, which a case sets. */
-let retired: string | undefined;
+/** The retired names the doubled config answers as carried, which a case sets. */
+let retired: string[] = [];
 
 /** Where a refused boot's own files go, removed after the run. */
 const KEY_DIRECTORY = mkdtempSync(path.join(tmpdir(), "fl-boot-key-"));
@@ -37,18 +37,16 @@ const LOGGING_DOUBLE = {
   logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") },
 };
 
-// A getter, so each case sets the variable the one registry entry reads.
+// A getter and a function, so each case sets what the one registry entry reads.
 const CONFIG_DOUBLE = {
   frontend_config: {
     LOG_FORMAT: "console",
     BEWERBUNG_SWEEP: "off",
-    get ALLOWED_ADMIN_EMAILS() {
-      return retired;
-    },
     get ACTOR_SIGNING_KEY_FILE() {
       return keyFile;
     },
   },
+  retiredVariablesSet: () => retired,
 };
 
 /** How often a boot asked for the sign-in store's indexes. */
@@ -85,23 +83,26 @@ beforeEach(() => {
   lines.length = 0;
 });
 
-describe("the boot finding the retired administrator variable", () => {
-  /* One environment file serves this image and one a rollback returns to, so the variable is taken and
-     read by nothing; the line is what tells an operator the file still carries it. */
-  it("warns once, naming the variable and never its value", async () => {
-    const value = "vorstand@schule.de,kassenwart@schule.de";
-    retired = value;
+describe("the boot finding a retired variable", () => {
+  /* One environment file serves this image and one a rollback returns to, so each variable is taken and
+     read by nothing; the line tells an operator the file still carries it. No value reaches the boot
+     to print. */
+  it("warns once, naming every one the environment carries", async () => {
+    retired = ["ALLOWED_ADMIN_EMAILS", "MONGODB_URI"];
 
     try {
       await register();
     } finally {
-      retired = undefined;
+      retired = [];
     }
 
     assert.deepEqual(lines, [
-      { level: "WARN", event: "config.retired_variable", fields: { error_code: "FE-BOOT-002", variables: "ALLOWED_ADMIN_EMAILS" } },
+      {
+        level: "WARN",
+        event: "config.retired_variable",
+        fields: { error_code: "FE-BOOT-002", variables: "ALLOWED_ADMIN_EMAILS, MONGODB_URI" },
+      },
     ]);
-    assert.ok(!JSON.stringify(lines).includes("schule.de"), "the line carried an address the variable held");
   });
 
   it("writes nothing where the file no longer carries it", async () => {
