@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -147,6 +147,23 @@ it("leaves a write running", () => {
 });
 
 describe("the request double", () => {
+  /* The sign-in store's export names are read off its source as the actions module's are, so a name cut
+     at its dollar sign is a store export no import can link. */
+  it("carries a sign-in store export whose name holds a dollar sign under its whole name", async () => {
+    const scratch = mkdtempSync(path.join(tmpdir(), "fl-dollar-store-"));
+    const file = path.join(scratch, "src", "core", "auth.ts");
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, "export const sign$Out = async () => undefined;\n");
+
+    try {
+      const doubled = (await import(pathToFileURL(file).href)) as Record<string, unknown>;
+
+      assert.deepEqual(Object.keys(doubled), ["sign$Out"]);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
   it("records each invalidation a write makes, in order, with what it was handed", () => {
     nextCache.updateTag("teams");
     nextCache.refresh();

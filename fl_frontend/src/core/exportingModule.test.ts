@@ -7,10 +7,15 @@ const LINE_SEPARATOR = String.fromCharCode(0x2028);
 
 describe("the module a double is built as", () => {
   /* No real module can hand the hooks such a name, their pattern reading identifier characters alone,
-     so the builder is asked directly: its source spells every export name as code. */
+     so each builder is asked directly: its source spells every export name as code. */
   it("refuses to declare a name that is no identifier", () => {
     for (const name of ['x", (globalThis.escaped = true), "', `x${LINE_SEPARATOR}y`]) {
       assert.throws(() => exportingModule({ [name]: 1 }), /is no name a module can declare/, JSON.stringify(name));
+      assert.throws(
+        () => overridingModule("data:text/javascript,", { [name]: () => 1 }),
+        /is no name a module can declare/,
+        JSON.stringify(name),
+      );
     }
   });
 

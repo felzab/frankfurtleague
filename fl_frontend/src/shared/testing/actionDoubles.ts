@@ -406,6 +406,8 @@ function toastMembers(): string[] {
   const from = source.indexOf("export const appToast = {");
   if (from === -1) throw new Error("appToast.ts declares no appToast object for the double to mirror");
 
+  // `$` too: a member named with one would be read short, and the double would raise under a name `appToast.ts` never
+  // had. That file is its one input, so no case feeds it one.
   return [...source.slice(from, source.indexOf("\n};", from)).matchAll(/^ {2}([\w$]+):/gm)].map(([, name]) => name ?? "");
 }
 
