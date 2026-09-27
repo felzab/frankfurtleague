@@ -1,9 +1,8 @@
 import hashlib
 import hmac
-import re
 import secrets
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
-from typing import Annotated, Final, TypeIs, get_args
+from typing import Annotated, Final, get_args
 
 from fastapi import Depends, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -11,9 +10,17 @@ from pydantic import SecretStr
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.crud import holds_a_live_unbarred_grant
+from app.core.actor_token import (
+    ACTOR_TOKEN_MAX_LENGTH,
+    COMPACT_JWS_PATTERN,
+    ActorClaims,
+    ActorTokenKey,
+    ActorTokenRefusal,
+    verify_actor_token,
+)
 from app.core.config import BackendConfig, get_app_config
 from app.core.db import get_berechtigungen_collection, get_saisons_collection, get_sperrliste_collection
-from app.core.exceptions import ActorForbiddenException, MalformedRequestException, RequestAuthorizationException
+from app.core.exceptions import ActorForbiddenException, ActorTokenRefusedException, MalformedRequestException, RequestAuthorizationException
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, AktorFunktion, PersonActor, actor_var, request_var
 from app.shared.folding import sign_in_identifier
 from app.shared.sub_keys import derive_sub_key
@@ -89,23 +96,50 @@ ACTOR_HEADER = "X-FL-Actor"
 
 MISSING_ACTOR = "REQ-AUTH-005"
 ACTOR_NOT_ADMIN = "REQ-AUTH-006"
-
-# Deliberately loose: this is a shape check on a value the frontend composed from its own session,
-# not an address validation. The bound is what stops an arbitrarily long header reaching the log.
-
-# C0 is excluded explicitly because `\s` does not cover all of it: 23 controls, NUL among them,
-# otherwise reach `aktionen.actor.email` -- the value an erasure is audited against.
-WELL_FORMED_ACTOR = re.compile(r"[^@\s\x00-\x1f]+@[^@\s\x00-\x1f]+\.[^@\s\x00-\x1f]+\Z")
-ACTOR_MAX_LENGTH = 254
+ACTOR_TOKEN_REFUSED = "REQ-AUTH-007"
 
 # The methods that record nothing (`app/core/exception_handlers.py` reads them).
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
-def is_well_formed_actor(header_value: str | None) -> TypeIs[str]:
-    """One reading of a malformed header for every dependency here: `verify_actor_is_admin` passes exactly what `bind_actor` refuses."""
+def get_actor_token_key(request: Request) -> ActorTokenKey:
+    """The key the application was built with (`app/main.py :: create_app`), its `kid` computed there once."""
 
-    return header_value is not None and len(header_value) <= ACTOR_MAX_LENGTH and WELL_FORMED_ACTOR.fullmatch(header_value) is not None
+    return request.app.state.actor_token_key
+
+
+def get_actor_token(request: Request) -> str:
+    """The header's value where it is shaped like a signed token at all; a missing or unshaped one names nobody, and answers 400."""
+
+    token = request.headers.get(ACTOR_HEADER)
+    if token is None or len(token) > ACTOR_TOKEN_MAX_LENGTH or COMPACT_JWS_PATTERN.fullmatch(token) is None:
+        raise MalformedRequestException(error_code=MISSING_ACTOR, message=f"the request carries no {ACTOR_HEADER} shaped like a signed token")
+    return token
+
+
+def verify_admin_actor(
+    token: Annotated[str, Depends(get_actor_token)], key: Annotated[ActorTokenKey, Depends(get_actor_token_key)]
+) -> ActorClaims:
+    """The administrator an admin-tier request is attributed to, as the frontend's admin guard signed it.
+
+    One dependency `verify_actor_is_admin` and `bind_actor` share, so FastAPI verifies once a request.
+    """
+
+    try:
+        return verify_actor_token(token, key, lane="admin")
+    except ActorTokenRefusal as refusal:
+        raise ActorTokenRefusedException(error_code=ACTOR_TOKEN_REFUSED, reason=refusal.reason) from None
+
+
+def verify_person_actor(
+    token: Annotated[str, Depends(get_actor_token)], key: Annotated[ActorTokenKey, Depends(get_actor_token_key)]
+) -> ActorClaims:
+    """The signed-in person a person's route is attributed to; no factor or age rule, which are the admin tier's."""
+
+    try:
+        return verify_actor_token(token, key, lane="person")
+    except ActorTokenRefusal as refusal:
+        raise ActorTokenRefusedException(error_code=ACTOR_TOKEN_REFUSED, reason=refusal.reason) from None
 
 
 # Whether a folded identifier holds a live grant: the one question the actor check asks.
@@ -132,37 +166,28 @@ def get_grant_lookup(
     return holds_a_live_grant
 
 
-async def verify_actor_is_admin(request: Request, holds_a_live_grant: Annotated[GrantLookup, Depends(get_grant_lookup)]) -> None:
-    """Refuse an actor an admin-tier route names who holds no live grant, read per request (`docs/backend/spec.md :: I383`).
+async def verify_actor_is_admin(
+    # First, so an unverified actor is refused before the grant read opens the database.
+    actor: Annotated[ActorClaims, Depends(verify_admin_actor)],
+    holds_a_live_grant: Annotated[GrantLookup, Depends(get_grant_lookup)],
+) -> None:
+    """Refuse a verified actor an admin-tier route names who holds no live grant, read per request (`docs/backend/spec.md :: I383`)."""
 
-    An absent or malformed header passes here and meets `bind_actor`, declared after it on every
-    admin-tier router.
-    """
-
-    header_value = request.headers.get(ACTOR_HEADER)
-    if not is_well_formed_actor(header_value):
-        return
-
-    # Folded, as every grant is stored, or a mixed-case header locks an administrator out of the
+    # Folded, as every grant is stored, or a mixed-case identifier locks an administrator out of the
     # panel. Either tier admits: `owner` holds every power `administration` does.
-    if not await holds_a_live_grant(sign_in_identifier(header_value)):
+    if not await holds_a_live_grant(sign_in_identifier(actor.email)):
         # The address stays out of the message, which reaches the log line.
         raise ActorForbiddenException(error_code=ACTOR_NOT_ADMIN, message=f"the {ACTOR_HEADER} this request names is not an administrator")
 
 
-async def bind_actor(request: Request) -> AsyncIterator[None]:
-    """Attribute this request's writes to their administrator, and refuse a request naming nobody.
+async def bind_actor(request: Request, actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> AsyncIterator[None]:
+    """Attribute this request's writes to the administrator its verified actor token names.
 
-    Every method, a read included: the grant check judges who asks off this header. At router level, so
-    a later operation cannot miss it (`docs/backend/spec.md :: I41`).
+    Every method, a read included: the grant check judges who asks off this token. At router level,
+    so a later operation cannot miss it (`docs/backend/spec.md :: I41`).
     """
 
-    header_value = request.headers.get(ACTOR_HEADER)
-
-    if not is_well_formed_actor(header_value):
-        raise MalformedRequestException(error_code=MISSING_ACTOR, message=f"an admin-tier request carries no well-formed {ACTOR_HEADER}")
-
-    actor_token = actor_var.set(Actor(kind="admin_session", email=header_value))
+    actor_token = actor_var.set(Actor(kind="admin_session", email=actor.email))
     # The route's template, not `request.url.path`: an id baked into the stored path would make one
     # row per document where the page wants one row per kind of action.
     route = request.scope.get("route")
@@ -199,20 +224,18 @@ def person_actor_binder(funktion: AktorFunktion) -> Callable[..., AsyncIterator[
     the record names what was checked.
     """
 
-    async def bind_person(request: Request, config: Annotated[BackendConfig, Depends(get_app_config)]) -> AsyncIterator[str]:
-        """Attribute this request's writes to the signed-in person it names, and yield their folded identifier.
+    async def bind_person(
+        request: Request,
+        config: Annotated[BackendConfig, Depends(get_app_config)],
+        actor: Annotated[ActorClaims, Depends(verify_person_actor)],
+    ) -> AsyncIterator[str]:
+        """Attribute this request's writes to the signed-in person its verified actor token names, and yield their folded identifier.
 
         Refuses on EVERY method, as `bind_actor` does: a person's route serves nothing anonymous.
         """
 
-        header_value = request.headers.get(ACTOR_HEADER)
-        if not is_well_formed_actor(header_value):
-            raise MalformedRequestException(
-                error_code=MISSING_ACTOR, message=f"a request to a person's route carries no well-formed {ACTOR_HEADER}"
-            )
-
         # What the handler authorises against, so one mailbox's two spellings cannot hold two answers.
-        identifier = sign_in_identifier(header_value)
+        identifier = sign_in_identifier(actor.email)
 
         pseudonym = akteur_pseudonym(identifier, schluessel=config.sperrliste_schluessel)
         actor_token = actor_var.set(PersonActor(pseudonym=pseudonym, funktion=funktion))

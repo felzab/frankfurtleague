@@ -56,9 +56,10 @@ frontend container sets from the signed-in session — `fl_frontend/src/core/api
 admin-tier calls alone, as a token signed for its sixty seconds
 ([`docs/frontend/spec.md`](../frontend/spec.md) I474). **No log line carries that token**, nor an error
 thrown for the call that sent it: it is a bearer credential while it lives. The header names
-**who** a write is attributed to rather than which request it belongs to,
-and the guard refusing a write that carries no well-formed one is
-[`docs/backend/spec.md`](../backend/spec.md) I41.
+**who** a write is attributed to rather than which request it belongs to, and the backend believes
+it only as a token the frontend's key signed ([`docs/backend/spec.md`](../backend/spec.md) I41,
+I477). **A refused token's line names the check it failed** (L14), in a phrase of the verifier's
+own rather than the library's message.
 
 **The public application form's submit carries none, and is attributed without one.** No browser sends
 the header, so the base-tier router binding it names
@@ -275,6 +276,7 @@ On Windows, redirecting the backend command's output needs `PYTHONUTF8=1` —
 | L11 | A credential a URL carries never reaches the edge's access line, on the path field or on the referer (section 4)                                         | `nginx/shared/http.conf :: map $request_uri $credential_free_uri` and `:: map $http_referer $logged_referer`, which both edges include; driven by `nginx/edge_test.sh`                                                                                                                                                                                                                                                                    |
 | L12 | Every hop mints its own span and forwards the trace id unchanged; no hop keeps an incoming span                                                          | `fl_backend/tests/api/test_error_responses.py :: TestAccessLine`; `fl_frontend/src/core/trace.test.ts`; nginx's by `nginx/edge_test.sh`, which reads the edge's `span_id` off every access line                                                                                                                                                                                                                                           |
 | L13 | Every failure line carries an `error_code`: a forwarded one takes the route's, and an application omission is left visible rather than defaulted         | `fl_frontend/src/core/consoleShim.test.ts`, `fl_frontend/src/core/config.test.ts`; `fl_backend/tests/core/test_logging.py :: TestForwardedFailureFilter`                                                                                                                                                                                                                                                                                  |
+| L14 | A refused actor token's line names the check it failed, in the verifier's own phrase, and never the token                                                | `fl_backend/app/core/actor_token.py :: ActorTokenRefusal`, raised through `fl_backend/app/core/exceptions.py :: ActorTokenRefusedException`; `fl_backend/tests/api/test_actor_binding.py :: test_a_refused_token_logs_its_reason_and_never_the_token`                                                                                                                                                                                     |
 
 ## 3. Violation → remedy
 

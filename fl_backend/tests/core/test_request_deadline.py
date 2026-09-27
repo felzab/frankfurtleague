@@ -36,10 +36,10 @@ from app.core.exception_handlers import (
 )
 from app.core.logging import fl_logger
 from app.core.middlewares import REQUEST_DEADLINE_S
-from app.core.security import ACTOR_HEADER
 from app.main import STORES_NOTHING_EXTENSION, create_app
+from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, ADMINISTRATORS, TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
+from tests.config import ADMIN_KEY, ADMINISTRATORS, TEST_BASE_URL, UNANSWERED_URI, build_test_config, grants_for_the_suite
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_team_document
@@ -59,7 +59,7 @@ ANSWERED_WITHIN_S = SHORT_DEADLINE_S + 10
 
 FAILED = DATABASE_FAILED
 
-ADMIN_HEADERS = {**ADMIN_AUTH, ACTOR_HEADER: "admin@frankfurtleague.de"}
+ADMIN_HEADERS = SignedActor("admin@frankfurtleague.de", ADMIN_KEY)
 
 DATABASE_NAME = worker_database("fl_request_deadline_test")
 

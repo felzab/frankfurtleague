@@ -151,3 +151,8 @@ REGISTRIERUNG_MIN_ALTER_JAHRE: Final = 16
 # judgement over every record carrying `medien`, and nobody below it is recognisable in a published
 # photograph or video, or interviewed (`docs/backend/spec.md :: I338`).
 MEDIEN_MIN_AGE_YEARS: Final = 18
+
+# The frontend expires an administrator's session this long after its sign-in, and the backend
+# refuses an actor token whose sign-in is older: a looser backend honours a session the frontend
+# believes gone.
+ADMIN_WINDOW_HOURS: Final = 48

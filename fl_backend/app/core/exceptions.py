@@ -71,12 +71,30 @@ class RequestAuthorizationException(BaseAPIException):
 class MalformedRequestException(BaseAPIException):
     """A header the request needs is missing or malformed.
 
-    400 and never 401: it is judged after the key has passed, and no `WWW-Authenticate` scheme covers
-    the header, so a 401's challenge would name a credential that was valid.
+    400 and never 401: the caller composed no credential at all, a defect of the caller's, where
+    `ActorTokenRefusedException` answers a credential it composed and this side refused.
     """
 
     def __init__(self, error_code: str, message: str):
         super().__init__(status_code=status.HTTP_400_BAD_REQUEST, error_code=error_code, message=message)
+
+
+# RFC 9110's 401 must carry a challenge, and `Bearer` would name the tier key, which passed: the
+# scheme names the actor token's own header instead.
+ACTOR_TOKEN_CHALLENGE = "FL-Actor"
+
+
+class ActorTokenRefusedException(BaseAPIException):
+    """The key passed, and the actor token beside it failed verification: a credential present and not accepted, RFC 9110's 401."""
+
+    def __init__(self, error_code: str, reason: str):
+        super().__init__(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            error_code=error_code,
+            # `reason` is `app/core/actor_token.py :: ActorTokenRefusal`'s fixed phrase: the token never reaches the log.
+            message=f"the actor token was refused: {reason}",
+            headers={"WWW-Authenticate": ACTOR_TOKEN_CHALLENGE},
+        )
 
 
 class ActorForbiddenException(BaseAPIException):

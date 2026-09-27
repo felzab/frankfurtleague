@@ -47,6 +47,7 @@ from app.api.system.router import router as system_router
 from app.api.teams.admin_router import router as teams_admin_router
 from app.api.teams.router import router as teams_router
 from app.api.zustellung.router import router as zustellung_router
+from app.core.actor_token import ActorTokenKey
 from app.core.config import API_VERSION, BackendConfig
 from app.core.db import get_database, get_db_client, lifespan
 from app.core.domain import OPERATION_SEPARATOR, RULES
@@ -67,18 +68,20 @@ from app.core.middlewares import TraceContextMiddleware
 from app.core.routing import ObjectIdConvertor
 from app.core.security import (
     ACTOR_NOT_ADMIN,
+    ACTOR_TOKEN_REFUSED,
     MISSING_ACTOR,
     MISSING_TOKEN,
-    PERSON_ACTOR_BINDERS,
     WRONG_ADMIN_KEY,
     WRONG_BASE_KEY,
     WRONG_SYSTEM_KEY,
-    bind_actor,
+    get_actor_token,
     get_token,
     verify_access_admin,
     verify_access_base,
     verify_access_system,
     verify_actor_is_admin,
+    verify_admin_actor,
+    verify_person_actor,
 )
 from app.shared.schemas.responses import FLFailureBody, FLRefusedPayloadBody
 
@@ -143,10 +146,12 @@ DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
     verify_access_base: (HTTPStatus.UNAUTHORIZED, WRONG_BASE_KEY),
     verify_access_admin: (HTTPStatus.UNAUTHORIZED, WRONG_ADMIN_KEY),
     verify_access_system: (HTTPStatus.UNAUTHORIZED, WRONG_SYSTEM_KEY),
-    bind_actor: (HTTPStatus.BAD_REQUEST, MISSING_ACTOR),
-    # Every method: a header present on a read is judged as on a write (`app/core/security.py :: verify_actor_is_admin`).
+    # The actor's three, each raised by the dependency it is keyed on; a binder declaring them raises
+    # none of its own, and an operation meets them through it (`dependency_refusals` walks sub-dependencies).
+    get_actor_token: (HTTPStatus.BAD_REQUEST, MISSING_ACTOR),
+    verify_admin_actor: (HTTPStatus.UNAUTHORIZED, ACTOR_TOKEN_REFUSED),
+    verify_person_actor: (HTTPStatus.UNAUTHORIZED, ACTOR_TOKEN_REFUSED),
     verify_actor_is_admin: (HTTPStatus.FORBIDDEN, ACTOR_NOT_ADMIN),
-    **{binder: (HTTPStatus.BAD_REQUEST, MISSING_ACTOR) for binder in PERSON_ACTOR_BINDERS.values()},
     get_db_client: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
     get_database: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
 }
@@ -457,6 +462,8 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
 
     app = FastAPI(lifespan=lifespan)
     app.state.config = config
+    # Once, here: the `kid` a token must name is this key's thumbprint, and no request recomputes it.
+    app.state.actor_token_key = ActorTokenKey.from_public_key(config.actor_token_public_key)
 
     register_exception_handlers(app)
 

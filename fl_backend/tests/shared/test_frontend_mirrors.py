@@ -102,6 +102,9 @@ MIRRORED_BOUNDS: Final = (
     Mirror("features/sperrliste/constants.ts", "SPERRE_DAUER_SAISONS", "SPERRE_DAUER_SAISONS"),
     # The log row cuts what the read already cut, so the two numbers are one decision.
     Mirror("features/aktionen/constants.ts", "AKTEUR_PSEUDONYM_SHOWN", "AKTEUR_PSEUDONYM_SHOWN"),
+    # The frontend expires an administrator's session at this age and the backend refuses an actor
+    # token older than it: a looser backend honours a session the frontend believes gone.
+    Mirror("core/sessionLifetimes.ts", "ADMIN_WINDOW_HOURS", "ADMIN_WINDOW_HOURS"),
 )
 
 # Every integer `bounds.py` declares that no frontend module retypes, with why none does. A bound in
@@ -1350,7 +1353,8 @@ UNMIRRORED_PATTERNS: Final[dict[str, str]] = {
     "app/shared/schemas/custom.py :: DOMAIN_REGEX": "byte-for-byte `z.regexes.domain`, which the frontend reads off zod rather than retyping",
     "app/core/config.py :: HOSTNAME": "the shape `TrustedHostMiddleware` reads an allowlist entry in, which no request carries",
     "app/core/config.py :: ORIGIN": "the shape `CORSMiddleware` reads an allowlist entry in; the browser composes what it grades",
-    "app/core/security.py :: WELL_FORMED_ACTOR": "a loose shape check on a composed header, the frontend mirroring the address rule instead",
+    "app/core/actor_token.py :: COMPACT_JWS_PATTERN": "the shape a signed token arrives in, which the frontend's `jose` writes and never reads",
+    "app/core/actor_token.py :: ED25519_PUBLIC_KEY_PATTERN": "a variable only the backend reads: the frontend holds the private half",
 }
 
 

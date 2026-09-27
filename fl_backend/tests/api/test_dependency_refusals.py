@@ -3,9 +3,9 @@ TESTS · the refusals a dependency answers before any handler, probed on every o
 
 `app/main.py :: DEPENDENCY_REFUSALS` publishes each dependency's code on the operations running it,
 so the table is held against what a request actually meets: every operation is asked without a key,
-with a wrong one, with its own and no actor, with its own and an administrator, and with its own and
-an actor who is none, against an application holding no database, where each dependency answers
-before the handler runs.
+with a wrong one, with its own and no actor, with its own and an administrator, with its own and an
+actor who is none, and with its own and a forged actor, against an application holding no database,
+where each dependency answers before the handler runs.
 """
 
 import ast
@@ -21,6 +21,7 @@ from fastapi.testclient import TestClient
 from app.core.exceptions import ActorForbiddenException, DatabaseUnavailableException, MalformedRequestException, RequestAuthorizationException
 from app.core.security import ACTOR_HEADER, verify_access_admin, verify_access_base, verify_access_system
 from app.main import DEPENDENCY_REFUSALS, create_app, dependency_refusals
+from tests.actor_tokens import FOREIGN_SIGNING_KEY, SignedActor, actor_claims, sign
 from tests.config import ADMIN_KEY, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes, declared, module_of, parsed
 from tests.grants import admit
@@ -31,9 +32,11 @@ APP = admit(create_app(build_test_config()))
 
 TIER_KEYS: Mapping[Any, Mapping[str, str]] = {verify_access_base: BASE_AUTH, verify_access_admin: ADMIN_KEY, verify_access_system: SYSTEM_AUTH}
 WRONG_KEY = {"Authorization": "Bearer wrong"}
-ACTOR = {ACTOR_HEADER: "admin@example.com"}
-# Well-formed and holding none of the grants `APP` answers from.
-NOT_AN_ADMINISTRATOR = {ACTOR_HEADER: "schueler@example.com"}
+ACTOR = SignedActor("admin@example.com")
+# Verified and holding none of the grants `APP` answers from.
+NOT_AN_ADMINISTRATOR = SignedActor("schueler@example.com")
+# Shaped like a token and signed under a key nobody configured, so it fails verification.
+FORGED_ACTOR = {ACTOR_HEADER: sign(actor_claims("admin@example.com"), private_key=FOREIGN_SIGNING_KEY)}
 
 # What a path parameter is filled with: an id the `objectid` convertor matches, and a word for anything else.
 _PARAMETER = re.compile(r"\{(\w+)(?::(\w+))?\}")
@@ -78,7 +81,7 @@ def _observed() -> dict[tuple[str, str], set[tuple[HTTPStatus, str]]]:
         own = _guard_key(route)
         for method in sorted(route.methods or ()):
             answers = found.setdefault((route.path_format, method.lower()), set())
-            for headers in ({}, WRONG_KEY, own, {**own, **ACTOR}, {**own, **NOT_AN_ADMINISTRATOR}):
+            for headers in ({}, WRONG_KEY, own, {**own, **ACTOR}, {**own, **NOT_AN_ADMINISTRATOR}, {**own, **FORGED_ACTOR}):
                 response = client.request(method, _url(route), headers=headers)
                 if response.status_code in PROBED_STATUSES:
                     answers.add((HTTPStatus(response.status_code), response.json()["error_code"]))

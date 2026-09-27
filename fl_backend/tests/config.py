@@ -5,7 +5,7 @@ from pydantic import SecretStr
 from pydantic_settings import SettingsConfigDict
 
 from app.core.config import INTERNAL_API_KEY_LENGTH, SPERRLISTE_KEY_MIN_LENGTH, BackendConfig
-from app.core.security import ACTOR_HEADER
+from tests.actor_tokens import ACTOR_TOKEN_PUBLIC_KEY, SignedActor
 from tests.worker import worker_database
 
 # The base name of the corpus the pymongo-seeded suites share. What they seed and what the app under
@@ -50,7 +50,7 @@ SYSTEM_AUTH = {"Authorization": f"Bearer {_KEY_SYSTEM}"}
 ADMIN_KEY = {"Authorization": f"Bearer {_KEY_ADMIN}"}
 # What an administrator's request carries: the admin tier refuses one naming nobody on every method
 # (`app/core/security.py :: bind_actor`), so the key alone reaches no admin-tier handler.
-ADMIN_AUTH = {**ADMIN_KEY, ACTOR_HEADER: "admin@example.com"}
+ADMIN_AUTH = SignedActor("admin@example.com", ADMIN_KEY)
 
 
 class ConfigReadingNoDotenvFile(BackendConfig):
@@ -80,6 +80,7 @@ def build_test_config() -> BackendConfig:
         internal_api_key_system=SecretStr(_KEY_SYSTEM),
         internal_api_key_admin=SecretStr(_KEY_ADMIN),
         sperrliste_schluessel=SecretStr(_SPERRLISTE_SCHLUESSEL),
+        actor_token_public_key=ACTOR_TOKEN_PUBLIC_KEY,
     )
 
 

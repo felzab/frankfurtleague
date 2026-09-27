@@ -1,7 +1,9 @@
 import asyncio
 import contextlib
+import logging
+import time
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from typing import Any, cast, get_args
 
 import pytest
@@ -12,8 +14,10 @@ from pymongo.asynchronous.collection import AsyncCollection
 from starlette.requests import Request
 
 from app.api.sperrliste.services import adresse_hash
+from app.core.actor_token import ACTOR_TOKEN_MAX_LENGTH, Lane
 from app.core.collections import Collection
-from app.core.exceptions import NO_DATABASE_CLIENT, MalformedRequestException
+from app.core.exceptions import ACTOR_TOKEN_CHALLENGE, NO_DATABASE_CLIENT, ActorTokenRefusedException, MalformedRequestException
+from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import (
     PUBLIC_ACTOR,
     PUBLIC_ACTOR_EMAIL,
@@ -27,20 +31,23 @@ from app.core.recording import (
 )
 from app.core.security import (
     ACTOR_HEADER,
-    ACTOR_MAX_LENGTH,
     ACTOR_NOT_ADMIN,
+    ACTOR_TOKEN_REFUSED,
     MISSING_ACTOR,
     PERSON_ACTOR_BINDERS,
     SAFE_METHODS,
-    WELL_FORMED_ACTOR,
     akteur_pseudonym,
     bind_actor,
     bind_public_actor,
     bind_system_actor,
     get_actor_email,
+    get_actor_token,
+    verify_admin_actor,
+    verify_person_actor,
 )
 from app.main import create_app
-from tests.config import ADMIN_AUTH, ADMIN_KEY, build_test_config
+from tests.actor_tokens import FOREIGN_SIGNING_KEY, SignedActor, actor_claims, actor_token, sign
+from tests.config import ADMIN_KEY, build_test_config
 from tests.core.app_source import api_routes
 from tests.grants import admit
 
@@ -52,6 +59,8 @@ CONFIG = build_test_config()
 # Its actor check answered from `tests/config.py :: ADMINISTRATORS`, so a case clearing it meets the
 # missing database at the handler rather than at the check.
 APP = admit(create_app(CONFIG))
+# The key the application verifies with, for a case driving a binder without a served request.
+KEY = APP.state.actor_token_key
 
 TEAM_ID = "6890a1b2c3d4e5f607182930"
 WRITE_PATH = f"/api/v0/teams/{TEAM_ID}"
@@ -111,7 +120,8 @@ async def through_the_binder(request: Request) -> tuple[Bound, Bound]:
     Returns what was bound while the request ran and what is bound once it has finished.
     """
 
-    binder = bind_actor(request)
+    # The binder's own dependencies first, as FastAPI resolves them.
+    binder = bind_actor(request, verify_admin_actor(get_actor_token(request), KEY))
     await anext(binder)
     during = (actor_var.get(), request_var.get())
 
@@ -134,16 +144,15 @@ async def through_the_public_binder(request: Request) -> tuple[Bound, Bound]:
     return during, (actor_var.get(), request_var.get())
 
 
-# The code POINTS, not the characters: a literal control byte in this file is a syntax error.
-CONTROL_CODE_POINTS = [0x00, 0x01, 0x08, 0x0E, 0x1B]
-
+# Nothing shaped like a signed token: each names nobody, and none is a token that failed its checks.
 MALFORMED_ACTORS = [
     pytest.param("", id="empty"),
-    pytest.param("admin", id="no domain"),
-    pytest.param("admin@example", id="no dot in the domain"),
-    pytest.param("admin@@example.com", id="two at signs"),
-    pytest.param("admin @example.com", id="whitespace"),
-    pytest.param(f"{'a' * ACTOR_MAX_LENGTH}@example.com", id="over the length bound"),
+    # What the header carried before it was signed: an address alone is no credential.
+    pytest.param(ACTOR, id="a plain address"),
+    pytest.param("aaa.bbb", id="two segments"),
+    pytest.param("aaa.bbb.ccc.ddd", id="four segments"),
+    pytest.param("aaa.b b.ccc", id="whitespace"),
+    pytest.param(f"aaa.{'b' * ACTOR_TOKEN_MAX_LENGTH}.ccc", id="over the length bound"),
 ]
 
 # One of each verb rather than the whole surface, which the inventory below covers instead.
@@ -167,18 +176,44 @@ class TestTheGuardOverAServedRequest:
 
     @pytest.mark.parametrize("actor", MALFORMED_ACTORS)
     def test_a_write_carrying_a_malformed_actor_is_refused(self, actor: str):
-        """A shape check and a bound, not an address validation: the value was composed by the frontend from its own session."""
-        response = client().delete(WRITE_PATH, headers={**ADMIN_AUTH, ACTOR_HEADER: actor})
+        """Refused ahead of the signature, at 400: nothing shaped like a credential arrived, which is a defect of the caller."""
+        response = client().delete(WRITE_PATH, headers={**ADMIN_KEY, ACTOR_HEADER: actor})
 
         assert response.status_code == 400
         assert response.json()["error_code"] == MISSING_ACTOR
 
-    def test_a_write_carrying_a_well_formed_actor_reaches_the_database(self):
+    def test_a_write_carrying_a_verified_actor_reaches_the_database(self):
         """The control: without it every case above would pass on a guard that refuses everything."""
-        response = client().delete(WRITE_PATH, headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR})
+        response = client().delete(WRITE_PATH, headers=SignedActor(ACTOR, ADMIN_KEY))
 
         assert response.status_code == 503
         assert response.json()["error_code"] == UNREACHED_DATABASE
+
+    @pytest.mark.parametrize(("method", "path"), [*WRITES, pytest.param("get", READ_PATH, id="GET")])
+    def test_a_token_signed_by_anyone_else_is_refused_with_a_challenge(self, method: str, path: str):
+        """The admin key alone names nobody: a token not signed with the frontend's key is refused before anything is reached."""
+        forged = sign(actor_claims(ACTOR), private_key=FOREIGN_SIGNING_KEY)
+        response = getattr(client(), method)(path, headers={**ADMIN_KEY, ACTOR_HEADER: forged})
+
+        assert response.status_code == 401
+        assert response.json()["error_code"] == ACTOR_TOKEN_REFUSED
+        # RFC 9110's 401 carries a challenge, and it names the actor's scheme rather than the key's, which passed.
+        assert response.headers["www-authenticate"] == ACTOR_TOKEN_CHALLENGE
+
+    @pytest.mark.parametrize(
+        "lane_claims",
+        [
+            pytest.param({"lane": "person", "amr": ["code"]}, id="a person's token"),
+            pytest.param({"amr": ["code"]}, id="an administrator signed in by code"),
+        ],
+    )
+    def test_a_verified_token_the_admin_tier_does_not_take_is_refused(self, lane_claims: Mapping[str, Any]):
+        """Signed by the frontend and holding a granted address, and still refused: the tier asks which guard minted it and by what factor."""
+        token = sign({**actor_claims(ACTOR), **lane_claims})
+        response = client().delete(WRITE_PATH, headers={**ADMIN_KEY, ACTOR_HEADER: token})
+
+        assert response.status_code == 401
+        assert response.json()["error_code"] == ACTOR_TOKEN_REFUSED
 
     def test_an_admin_read_with_no_actor_is_refused(self):
         """What an admin-tier read serves is authorised by who asks, so a read naming nobody is refused as a write is."""
@@ -199,20 +234,44 @@ class TestTheGuardExemptsNoMethod:
         assert excinfo.value.error_code == MISSING_ACTOR
 
 
+def _expired() -> tuple[str, str]:
+    now = int(time.time())
+    return sign({**actor_claims(ACTOR), "iat": now - 600, "exp": now - 540}), "expired"
+
+
+def _foreign() -> tuple[str, str]:
+    return sign(actor_claims(ACTOR), private_key=FOREIGN_SIGNING_KEY), "unknown kid"
+
+
+@pytest.mark.parametrize("refused", [_expired, _foreign], ids=("expired", "signed by another key"))
+def test_a_refused_token_logs_its_reason_and_never_the_token(refused: Callable[[], tuple[str, str]], caplog: pytest.LogCaptureFixture):
+    """A signed value is a credential for the minute it lives, and PyJWT's own message is no phrase this module chose."""
+    token, reason = refused()
+    with caplog.at_level(logging.WARNING, logger=FL_LOGGER_NAME):
+        client().delete(WRITE_PATH, headers={**ADMIN_KEY, ACTOR_HEADER: token})
+
+    lines = [record.getMessage() for record in caplog.records]
+
+    assert any(line.endswith(f"the actor token was refused: {reason}") for line in lines), lines
+    # Each segment on its own, so a line carrying the payload alone is caught as well as the whole token.
+    assert not any(segment in line for segment in token.split(".") for line in lines)
+    assert not any("Signature has expired" in line for line in lines)
+
+
 class TestWhatTheBindingLeavesBehind:
-    def test_a_well_formed_actor_is_bound_for_the_length_of_the_request(self):
-        during, _ = asyncio.run(through_the_binder(request_for("PATCH", ACTOR)))
+    def test_a_verified_actor_is_bound_for_the_length_of_the_request(self):
+        during, _ = asyncio.run(through_the_binder(request_for("PATCH", actor_token(ACTOR))))
 
         assert during[0] == Actor(kind="admin_session", email=ACTOR)
 
     def test_the_bound_path_is_the_route_template_rather_than_the_url(self):
         """An id baked into the stored path makes one row per document where the page wants one per kind of action."""
-        during, _ = asyncio.run(through_the_binder(request_for("PATCH", ACTOR)))
+        during, _ = asyncio.run(through_the_binder(request_for("PATCH", actor_token(ACTOR))))
 
         assert during[1] == ("PATCH", ROUTE_TEMPLATE)
 
     def test_the_binding_is_cleared_once_the_request_has_finished(self):
-        _, after = asyncio.run(through_the_binder(request_for("PATCH", ACTOR)))
+        _, after = asyncio.run(through_the_binder(request_for("PATCH", actor_token(ACTOR))))
 
         assert after == (SYSTEM_ACTOR, None)
 
@@ -391,7 +450,8 @@ def test_the_public_write_inventory_is_not_empty():
 # are shaped like a real administrator, which is the whole point: nothing about them is malformed.
 FORGED_ACTORS = [
     pytest.param("attacker@example.com", id="a well-formed address"),
-    pytest.param(ACTOR, id="the address a real admin session sends"),
+    pytest.param(ACTOR, id="an administrator's address"),
+    pytest.param(actor_token(ACTOR), id="the token a real admin session sends"),
     pytest.param("", id="an empty header"),
     pytest.param("not-an-address", id="a malformed value"),
 ]
@@ -429,29 +489,6 @@ def test_the_public_binder_refuses_no_request_whatever_the_header_says():
     assert after == (SYSTEM_ACTOR, None)
 
 
-@pytest.mark.parametrize("code_point", CONTROL_CODE_POINTS)
-def test_an_actor_carrying_a_control_character_is_refused(code_point: int):
-    r"""`\s` does not cover all of C0, so 23 controls reached `aktionen.actor.email` on the shape check alone.
-
-    No address holds one, and this value is what an erasure is audited against.
-    """
-
-    forged = f"a{chr(code_point)}b@example.com"
-
-    assert WELL_FORMED_ACTOR.fullmatch(forged) is None
-
-    with pytest.raises(MalformedRequestException) as excinfo:
-        asyncio.run(through_the_binder(request_for("PATCH", forged)))
-
-    assert excinfo.value.error_code == MISSING_ACTOR
-
-
-def test_an_ordinary_address_is_still_admitted():
-    """The control: a class that excluded too much would refuse every administrator instead."""
-
-    assert WELL_FORMED_ACTOR.fullmatch(ACTOR) is not None
-
-
 # A second admin-tier read, on a router that writes nothing, so the check is shown to reach a router
 # whose binder guards no write.
 READ_ROUTER_PATH = "/api/v0/spielorte"
@@ -465,7 +502,7 @@ class TestTheGrantsOverAServedRequest:
 
     def test_a_granted_address_binds_on_a_write(self):
         """The control, reaching the database: every refusal below would pass on a check refusing everybody."""
-        response = client().delete(WRITE_PATH, headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR})
+        response = client().delete(WRITE_PATH, headers=SignedActor(ACTOR, ADMIN_KEY))
 
         assert response.status_code == 503
         assert response.json()["error_code"] == UNREACHED_DATABASE
@@ -484,7 +521,7 @@ class TestTheGrantsOverAServedRequest:
         403 where the control above answers 503: the database is the next thing reached, so nothing
         was read or written.
         """
-        response = getattr(client(), method)(path, headers={**ADMIN_AUTH, ACTOR_HEADER: NOT_AN_ADMINISTRATOR})
+        response = getattr(client(), method)(path, headers=SignedActor(NOT_AN_ADMINISTRATOR, ADMIN_KEY))
 
         assert response.status_code == 403
         assert response.json()["error_code"] == ACTOR_NOT_ADMIN
@@ -496,7 +533,7 @@ class TestTheGrantsOverAServedRequest:
     def test_a_granted_address_in_another_case_is_admitted(self, path: str):
         """Both sides folded, or a session spelled in capitals locks its administrator out of the panel."""
         method = "delete" if path == WRITE_PATH else "get"
-        response = getattr(client(), method)(path, headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR.upper()})
+        response = getattr(client(), method)(path, headers=SignedActor(ACTOR.upper(), ADMIN_KEY))
 
         assert response.status_code == 503
         assert response.json()["error_code"] == UNREACHED_DATABASE
@@ -528,10 +565,16 @@ MIXED_CASE = "Anna@BeispielSchule.DE"
 SPIELER: AktorFunktion = "spieler"
 
 
+def person_binder(request: Request, funktion: AktorFunktion = SPIELER) -> AsyncIterator[str]:
+    """A person's binder over the actor its dependencies verify, resolved first as FastAPI resolves them."""
+
+    return PERSON_ACTOR_BINDERS[funktion](request, CONFIG, verify_person_actor(get_actor_token(request), KEY))
+
+
 async def through_the_person_binder(request: Request, funktion: AktorFunktion = SPIELER) -> tuple[str, Bound, Bound]:
     """`through_the_binder` for a person's binder, which yields the folded identifier and reads the request's settings."""
 
-    binder = PERSON_ACTOR_BINDERS[funktion](request, CONFIG)
+    binder = person_binder(request, funktion)
     identifier = await anext(binder)
     during = (actor_var.get(), request_var.get())
 
@@ -541,8 +584,14 @@ async def through_the_person_binder(request: Request, funktion: AktorFunktion = 
     return identifier, during, (actor_var.get(), request_var.get())
 
 
-def person_request(method: str, actor: str | None) -> Request:
-    return request_for(method, actor, url_path=PERSON_ROUTE.replace("{team_id}", TEAM_ID), route_path=PERSON_ROUTE)
+def person_request(method: str, email: str | None, *, lane: Lane = "person") -> Request:
+    """A request to a person's route carrying `email`'s signed token, or no header at all."""
+
+    return raw_person_request(method, None if email is None else actor_token(email, lane=lane))
+
+
+def raw_person_request(method: str, header: str | None) -> Request:
+    return request_for(method, header, url_path=PERSON_ROUTE.replace("{team_id}", TEAM_ID), route_path=PERSON_ROUTE)
 
 
 class _LogDouble:
@@ -577,9 +626,16 @@ class TestThePersonBinder:
     @pytest.mark.parametrize("actor", MALFORMED_ACTORS)
     def test_a_malformed_actor_is_refused_on_a_read(self, actor: str):
         with pytest.raises(MalformedRequestException) as excinfo:
-            asyncio.run(through_the_person_binder(person_request("GET", actor)))
+            asyncio.run(through_the_person_binder(raw_person_request("GET", actor)))
 
         assert excinfo.value.error_code == MISSING_ACTOR
+
+    def test_an_administrator_s_token_is_refused(self):
+        """Which guard minted it: a person's route believes only the person lane's token, whatever address it names."""
+        with pytest.raises(ActorTokenRefusedException) as excinfo:
+            asyncio.run(through_the_person_binder(person_request("GET", KNOWN_IDENTIFIER, lane="admin")))
+
+        assert excinfo.value.error_code == ACTOR_TOKEN_REFUSED
 
     def test_a_mixed_case_header_authorises_as_the_folded_string(self):
         """What the handler is handed, so a Funktion check cannot name two spellings of one mailbox."""
@@ -594,7 +650,7 @@ class TestThePersonBinder:
         log = _LogDouble()
 
         async def _one_write() -> None:
-            binder = PERSON_ACTOR_BINDERS[SPIELER](person_request("PATCH", MIXED_CASE), CONFIG)
+            binder = person_binder(person_request("PATCH", MIXED_CASE))
             await anext(binder)
             await record_write(collection=cast(AsyncCollection, log), operation="patch_one", document_id=TEAM_ID)
             with contextlib.suppress(StopAsyncIteration):
@@ -614,7 +670,7 @@ class TestThePersonBinder:
         """A handler asking for the administrator there has named the wrong field, and the pseudonym would read as an address."""
 
         async def _asked() -> None:
-            binder = PERSON_ACTOR_BINDERS[SPIELER](person_request("PATCH", KNOWN_IDENTIFIER), CONFIG)
+            binder = person_binder(person_request("PATCH", KNOWN_IDENTIFIER))
             await anext(binder)
             try:
                 get_actor_email()

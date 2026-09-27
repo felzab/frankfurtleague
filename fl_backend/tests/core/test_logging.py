@@ -21,6 +21,7 @@ from app.core.logging import (
 )
 from app.core.middlewares import mint_span_id, resolve_trace_id
 from app.core.security import MISSING_TOKEN
+from tests.actor_tokens import ACTOR_TOKEN_PUBLIC_KEY
 from tests.config import ConfigReadingNoDotenvFile
 from tests.core.app_source import APP_ROOT, parsed
 
@@ -339,6 +340,7 @@ class TestLoggingSettings:
             internal_api_key_system=SecretStr("s" * INTERNAL_API_KEY_LENGTH),
             internal_api_key_admin=SecretStr("a" * INTERNAL_API_KEY_LENGTH),
             sperrliste_schluessel=SecretStr("k" * SPERRLISTE_KEY_MIN_LENGTH),
+            actor_token_public_key=ACTOR_TOKEN_PUBLIC_KEY,
             **overrides,
         )
 

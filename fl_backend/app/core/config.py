@@ -7,6 +7,8 @@ from pydantic import AfterValidator, Field, SecretStr, ValidationError, field_va
 from pydantic_core import PydanticCustomError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.actor_token import ActorTokenKey
+
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 # A property of THIS CODE, never a deployment's: an environment able to set it could serve
@@ -138,6 +140,9 @@ class BackendConfig(BaseSettings):
         min_length=SPERRLISTE_KEY_MIN_LENGTH, description="HMAC master key for the email ban list and the action log's pseudonyms"
     )
 
+    # A plain `str`: the public half of the frontend's signing pair, which verifies and signs nothing.
+    actor_token_public_key: str = Field(description="The Ed25519 public key an actor token is verified with, as RFC 8037's `x`")
+
     log_level_app: LogLevel = Field(
         default="INFO",
         description="The minimal level a log has to reach to be processed",
@@ -172,6 +177,13 @@ class BackendConfig(BaseSettings):
         uri = value.get_secret_value()
         if not (uri.startswith("mongodb://") or uri.startswith("mongodb+srv://")):
             raise ValueError("MongoDB URI must start with 'mongodb://' or 'mongodb+srv://'")
+        return value
+
+    @field_validator("actor_token_public_key")
+    def validate_actor_token_public_key(cls, value: str) -> str:
+        # The key built here is discarded: building it is the check, so a key that cannot verify
+        # refuses the boot by name rather than every admin request at 401.
+        ActorTokenKey.from_public_key(value)
         return value
 
     @field_validator("api_trusted_hosts")

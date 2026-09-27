@@ -30,7 +30,6 @@ from app.core.constraints import UNIQUE_INDEXES
 from app.core.dependencies import DB
 from app.core.exception_handlers import duplicate_key_exception_handler, refused_codes
 from app.core.exceptions import DUPLICATE_KEY
-from app.core.security import ACTOR_HEADER
 from app.main import create_app
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, build_test_config, grants_for_the_suite
@@ -415,7 +414,7 @@ def _posted_twice(uri: str, payload: Mapping[str, Any]) -> tuple[Response, Respo
     async def _both() -> tuple[Response, Response]:
         config = build_test_config().model_copy(update={"db_base_name": DUPLICATE_SEASON_DATABASE})
         async with app_client(uri, config=config) as http:
-            headers = {**ADMIN_AUTH, ACTOR_HEADER: "admin@example.com"}
+            headers = ADMIN_AUTH
             first = await http.post(SAISONS, json=dict(payload), headers=headers)
             second = await http.post(SAISONS, json=dict(payload), headers=headers)
             return first, second

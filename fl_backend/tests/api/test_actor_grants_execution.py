@@ -14,8 +14,9 @@ from fastapi.routing import APIRoute
 from pymongo import MongoClient
 
 from app.core.collections import Collection
-from app.core.security import ACTOR_HEADER, ACTOR_NOT_ADMIN, verify_access_admin
+from app.core.security import ACTOR_NOT_ADMIN, verify_access_admin
 from app.main import create_app
+from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, build_test_config, grants_for_the_suite
 from tests.core.app_source import api_routes
@@ -71,7 +72,7 @@ def answered(url: str, method: str, path: str, actor: str) -> tuple[int, str | N
 
     async def _answered() -> tuple[int, str | None]:
         async with app_client(url, config=CONFIG) as http:
-            response = await http.request(method, _url(path), headers={**ADMIN_KEY, ACTOR_HEADER: actor})
+            response = await http.request(method, _url(path), headers=SignedActor(actor, ADMIN_KEY))
 
         return response.status_code, response.json().get("error_code")
 

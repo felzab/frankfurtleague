@@ -42,10 +42,11 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.recording import SYSTEM_ACTOR, Actor, actor_var
-from app.core.security import ACTOR_HEADER, ACTOR_NOT_ADMIN, get_grant_lookup
+from app.core.security import ACTOR_NOT_ADMIN, get_grant_lookup
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
+from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, SYSTEM_AUTH
+from tests.config import ADMIN_KEY, SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document
 from tests.isolation import COMMITTED, outcome_of
@@ -1035,7 +1036,7 @@ class TestTheMountedRouteReadsTheGrants:
     def test_an_actor_is_admitted_exactly_where_a_grant_names_it(self, mongo_replica_set_url: str, actor: str, status: int):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, str | None]:
             async with app_client(mongo_replica_set_url, config=CONFIG) as http:
-                response = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers={**ADMIN_AUTH, ACTOR_HEADER: actor})
+                response = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=SignedActor(actor, ADMIN_KEY))
 
             return response.status_code, response.json().get("error_code")
 
@@ -1044,9 +1045,9 @@ class TestTheMountedRouteReadsTheGrants:
     def test_a_revoked_administrator_is_refused_on_the_very_next_request(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[int]:
             async with app_client(mongo_replica_set_url, config=CONFIG) as http:
-                headers = {**ADMIN_AUTH, ACTOR_HEADER: BERND}
+                headers = SignedActor(BERND, ADMIN_KEY)
                 before = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=headers)
-                revoked = await http.delete(f"/api/v{API_VERSION}/berechtigungen/{BERND_ID}", headers={**ADMIN_AUTH, ACTOR_HEADER: OWNER})
+                revoked = await http.delete(f"/api/v{API_VERSION}/berechtigungen/{BERND_ID}", headers=SignedActor(OWNER, ADMIN_KEY))
                 after = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=headers)
 
             return [before.status_code, revoked.status_code, after.status_code]
@@ -1064,7 +1065,7 @@ class TestTheMountedRouteReadsTheGrants:
             await told(database, client)
             async with app_client(mongo_replica_set_url, config=CONFIG) as http:
                 response = await http.post(
-                    f"/api/v{API_VERSION}/berechtigungen", headers={**ADMIN_AUTH, ACTOR_HEADER: ANNA.upper()}, json={"email": NEU_TYPED}
+                    f"/api/v{API_VERSION}/berechtigungen", headers=SignedActor(ANNA.upper(), ADMIN_KEY), json={"email": NEU_TYPED}
                 )
 
             stored = await database[Collection.BERECHTIGUNGEN].find_one({"adresse": NEU})
@@ -1087,7 +1088,7 @@ class TestTheMountedRouteReadsTheGrants:
             await told(database, client)
             await grant(database, client)
             async with app_client(mongo_replica_set_url, config=CONFIG) as http:
-                listed = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers={**ADMIN_AUTH, ACTOR_HEADER: ANNA})
+                listed = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=SignedActor(ANNA, ADMIN_KEY))
                 answered = await http.post(f"/api/v{API_VERSION}/berechtigungen/abgleich", headers=SYSTEM_AUTH)
 
             [erteilt_am] = [row["erteilt_am"] for row in listed.json()["berechtigungen"] if row["adresse"] == NEU]
@@ -1107,9 +1108,9 @@ class TestTheMountedRouteReadsTheGrants:
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[int]:
             async with app_client(mongo_replica_set_url, config=CONFIG) as http:
-                before = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers={**ADMIN_AUTH, ACTOR_HEADER: BERND})
+                before = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=SignedActor(BERND, ADMIN_KEY))
                 await database[Collection.SPERRLISTE].insert_one(a_ban_row(BERND))
-                after = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers={**ADMIN_AUTH, ACTOR_HEADER: BERND})
+                after = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=SignedActor(BERND, ADMIN_KEY))
 
             return [before.status_code, after.status_code]
 

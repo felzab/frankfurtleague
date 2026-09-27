@@ -11,9 +11,19 @@ from pymongo import MongoClient
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exception_handlers import DATABASE_FAILED
-from app.core.security import ACTOR_HEADER, WRONG_ADMIN_KEY
+from app.core.security import WRONG_ADMIN_KEY
+from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, ADMINISTRATORS, BASE_AUTH, UNANSWERED_DEADLINE_S, UNANSWERED_URI, build_test_config, grants_for_the_suite
+from tests.config import (
+    ADMIN_AUTH,
+    ADMIN_KEY,
+    ADMINISTRATORS,
+    BASE_AUTH,
+    UNANSWERED_DEADLINE_S,
+    UNANSWERED_URI,
+    build_test_config,
+    grants_for_the_suite,
+)
 from tests.database import a_clean_database_sync
 from tests.worker import worker_database
 
@@ -148,7 +158,7 @@ def created(uri: str, payload: Mapping[str, Any], *, database_name: str) -> Resp
 
     async def _created() -> Response:
         async with app_client(uri, config=config_for(database_name)) as http:
-            return await http.post(SPIELORTE, json=dict(payload), headers={**ADMIN_AUTH, ACTOR_HEADER: ACTOR})
+            return await http.post(SPIELORTE, json=dict(payload), headers=SignedActor(ACTOR, ADMIN_KEY))
 
     return asyncio.run(_created())
 
