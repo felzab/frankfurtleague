@@ -22,7 +22,6 @@ from app.core.logging import (
 from app.core.middlewares import mint_span_id, resolve_trace_id
 from app.core.security import MISSING_TOKEN
 from tests.actor_tokens import ACTOR_TOKEN_PUBLIC_KEY
-from tests.config import ConfigReadingNoDotenvFile
 from tests.core.app_source import APP_ROOT, parsed
 
 TIMESTAMP_SHAPE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\Z")
@@ -331,7 +330,7 @@ def test_a_span_is_sixteen_hex_and_fresh_each_time():
 
 class TestLoggingSettings:
     def make(self, **overrides) -> BackendConfig:
-        return ConfigReadingNoDotenvFile(
+        return BackendConfig(
             api_trusted_hosts="testserver",
             api_cors_allowed_origins="http://localhost:3000",
             mongodb_uri=SecretStr("mongodb://localhost:27017/t"),
@@ -345,9 +344,7 @@ class TestLoggingSettings:
         )
 
     def test_the_default_format_is_json(self):
-        # Asserted on the field rather than an instance: constructing the settings reads the developer's
-        # real `.env` for anything not passed.
-        assert BackendConfig.model_fields["log_format"].default == "json"
+        assert self.make().log_format == "json"
 
     @pytest.mark.parametrize("value,expected", [("JSON", "json"), ("Console", "console")])
     def test_format_case_is_normalised(self, value, expected):

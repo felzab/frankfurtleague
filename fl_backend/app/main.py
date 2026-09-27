@@ -454,8 +454,8 @@ def create_app(config: BackendConfig | None = None) -> FastAPI:
     """Build the application.
 
     A FUNCTION, so the composition root is a choice rather than an import side effect. `config` is
-    what every request reads (`app/core/config.py :: get_app_config`), the environment's where none
-    is passed.
+    what every request reads (`app/core/config.py :: get_app_config`), the environment's and the
+    secret files' where none is passed.
     """
     # Here rather than at module scope, so `app.main` holds no `get_config` for a caller to import;
     # the ruff ban names that path too, since ruff matches the path an import spells.

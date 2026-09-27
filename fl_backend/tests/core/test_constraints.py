@@ -800,8 +800,9 @@ def test_a_driver_failure_is_diagnosed_rather_than_traced(code: int, errmsg: str
     diagnosis = diagnose_failure(failure)
 
     assert expected in diagnosis
-    # A diagnostic quoting the connection string is one nobody can paste into a bug report.
-    assert "mongodb" not in diagnosis and "@" not in diagnosis
+    # A diagnostic quoting the connection string is one nobody can paste into a bug report. The scheme
+    # rather than the word, which the secret file's own name carries.
+    assert "mongodb://" not in diagnosis and "mongodb+srv://" not in diagnosis and "@" not in diagnosis
 
 
 def test_no_two_declared_indexes_share_a_name():

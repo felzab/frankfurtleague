@@ -8,7 +8,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import ConfigurationError, OperationFailure
 
 from app.core.collections import Collection
-from app.core.config import BackendConfig, get_app_config
+from app.core.config import MONGODB_URI_FILE, BackendConfig, get_app_config
 from app.core.constraints import apply_constraints
 from app.core.exceptions import NO_DATABASE_CLIENT, DatabaseUnavailableException
 from app.core.logging import fl_logger
@@ -25,18 +25,18 @@ class Refusal(NamedTuple):
     error_code: str
 
 
-# The variable's NAME and the fact, in one sentence each, used by the log line and the error alike.
+# The secret file's NAME and the fact, in one sentence each, used by the log line and the error alike.
 # The three share their opening, so an operator who found one of them reads which by its continuation.
-UNREACHABLE = Refusal("MONGODB_URI: the MongoDB server could not be reached, so the application will not start.", "SRV-BOOT-001")
-NO_SERVER = Refusal("MONGODB_URI: the value did not yield a server to connect to, so the application will not start.", "SRV-BOOT-002")
-REJECTED = Refusal("MONGODB_URI: the server refused to authenticate this value, so the application will not start.", "SRV-BOOT-003")
+UNREACHABLE = Refusal(f"{MONGODB_URI_FILE}: the MongoDB server could not be reached, so the application will not start.", "SRV-BOOT-001")
+NO_SERVER = Refusal(f"{MONGODB_URI_FILE}: the value did not yield a server to connect to, so the application will not start.", "SRV-BOOT-002")
+REJECTED = Refusal(f"{MONGODB_URI_FILE}: the server refused to authenticate this value, so the application will not start.", "SRV-BOOT-003")
 
 
 class DatabaseUnreachableError(Exception):
-    """The boot's database refusal, named by the variable that configures it and nothing else.
+    """The boot's database refusal, named by the secret file that configures it and nothing else.
 
-    Its own type rather than the driver's: pymongo quotes what it parsed out of `MONGODB_URI`, which
-    is how a mistyped value reaches a log.
+    Its own type rather than the driver's: pymongo quotes what it parsed out of the URI, which is how
+    a mistyped value reaches a log.
     """
 
 
@@ -46,7 +46,7 @@ def _refusal_for(error: BaseException) -> Refusal:
     `str(error)` quotes what the driver parsed or resolved, so nothing derived from it is read here.
     """
     # The server answered and refused: a password restored from a manager that does not match lands
-    # here, and it sends an operator to the environment file rather than to the network.
+    # here, and it sends an operator to the secret file rather than to the network.
     if isinstance(error, OperationFailure):
         return REJECTED
     # `AsyncMongoClient.__init__` parses the URI, so these arrive from the construction as well as
@@ -75,9 +75,9 @@ DEAD_GRANT = BootWarning(
     "berechtigungen holds {count} grant(s) whose address is empty, unfolded or refused by the address rule, which admit nobody.",
     "SRV-BOOT-007",
 )
-# The variable's name alone, never its value, which is a list of addresses.
-RETIRED_ADMIN_LIST = BootWarning(
-    "ALLOWED_ADMIN_EMAILS is retired and read by nothing: delete it from this service's environment.", "SRV-BOOT-008"
+# The names alone, never a value: one of them held addresses, and the rest credentials.
+RETIRED_VARIABLES = BootWarning(
+    "These variables are retired and read by nothing: {names}. Delete them from this service's environment.", "SRV-BOOT-008"
 )
 
 
@@ -109,8 +109,9 @@ async def lifespan(app: FastAPI):
     config: BackendConfig = app.state.config
     client: AsyncMongoClient | None = None
 
-    if config.allowed_admin_emails is not None:
-        fl_logger.warning(RETIRED_ADMIN_LIST.sentence, extra={"error_code": RETIRED_ADMIN_LIST.error_code})
+    if config.retired_variables:
+        names = ", ".join(sorted(config.retired_variables))
+        fl_logger.warning(RETIRED_VARIABLES.sentence.format(names=names), extra={"error_code": RETIRED_VARIABLES.error_code})
 
     try:
         try:

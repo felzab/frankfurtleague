@@ -10,6 +10,7 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import OperationFailure
 
 from app.core.collections import Collection
+from app.core.config import MONGODB_URI_FILE, get_config  # noqa: TID251
 from app.shared.schemas.bounds import AKTION_RETENTION_SECONDS
 
 # Handled rather than re-raised: creating the collection with the validator attached reaches the
@@ -1605,8 +1606,8 @@ def classify_failure(failure: OperationFailure) -> str:
 def diagnose_failure(failure: OperationFailure) -> str:
     """Turn a driver exception into the sentence an operator can act on.
 
-    Names the FILE and the VARIABLE, never the connection string: the value is a secret, and a
-    diagnostic that prints one cannot be pasted into a bug report.
+    Names the FILE, never the connection string: the value is a secret, and a diagnostic that prints
+    one cannot be pasted into a bug report.
     """
     message = failure_message(failure)
     kind = classify_failure(failure)
@@ -1615,7 +1616,7 @@ def diagnose_failure(failure: OperationFailure) -> str:
         return (
             "  The database REJECTED THE CREDENTIALS. This is not a permissions problem, and no role\n"
             "  change will fix it.\n\n"
-            "  MONGODB_URI in fl_backend/.env carries a username and password the cluster does not\n"
+            f"  The secret file {MONGODB_URI_FILE} carries a username and password the cluster does not\n"
             "  accept. Deleting and recreating a database user changes its password even when the name\n"
             "  is unchanged, so a URI that worked yesterday can stop working with no visible edit.\n\n"
             "  The server's own copy of that file is SEPARATE and was not touched by anything you did\n"
@@ -1643,10 +1644,6 @@ def diagnose_failure(failure: OperationFailure) -> str:
 # An operator tool, never inside a request, which is why it prints where the service logs
 # (`app/core/logging.py`).
 async def _run(check: bool) -> int:
-    # Imported here, not at module scope: `app.core.config` refuses on import without a complete
-    # environment, and the tests import this module with none.
-    from app.core.config import get_config  # noqa: TID251
-
     client = AsyncMongoClient(
         host=get_config().mongodb_uri.get_secret_value(),
         serverSelectionTimeoutMS=get_config().db_server_selection_timeout,

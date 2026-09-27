@@ -1,8 +1,10 @@
 import asyncio
 import base64
+import errno
 import logging
 import secrets
-from collections.abc import Callable, Iterator
+import warnings
+from collections.abc import Callable, Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -15,17 +17,19 @@ from pymongo.errors import ConfigurationError, InvalidURI, OperationFailure, Ser
 
 from app.core.config import (
     INTERNAL_API_KEY_LENGTH,
+    MONGODB_URI_FILE,
+    SECRET_FILES,
     SPERRLISTE_KEY_MIN_LENGTH,
     BackendConfig,
     EnvironmentValidationError,
     get_app_config,
     get_config,  # noqa: TID251
+    read_environment,
 )
 from app.core.constraints import COLLECTION_VALIDATORS
-from app.core.db import NO_SERVER, REJECTED, UNREACHABLE, DatabaseUnreachableError, _refusal_for, lifespan
+from app.core.db import NO_SERVER, REJECTED, RETIRED_VARIABLES, UNREACHABLE, DatabaseUnreachableError, _refusal_for, lifespan
 from app.main import KEY_TIERS, create_app
 from tests.actor_tokens import ACTOR_TOKEN_PUBLIC_KEY
-from tests.config import ConfigReadingNoDotenvFile
 from tests.core.app_source import api_routes
 from tests.worker import worker_database
 
@@ -44,18 +48,32 @@ def a_key_the_boot_accepts(prefix: str) -> str:
 # helper would make a change to either silently move the other's fixtures.
 BAN_LIST_KEY = "ban-list".ljust(SPERRLISTE_KEY_MIN_LENGTH, "0")
 
-# Spelled as the environment spells them, because the gate under test is what reads the environment.
+# Spelled as the environment spells them, because the half under test is what reads the environment.
 REQUIRED = {
     "API_TRUSTED_HOSTS": "testserver,localhost",
     "API_CORS_ALLOWED_ORIGINS": "http://localhost:3000",
-    "MONGODB_URI": "mongodb://localhost:27017/frankfurtleague_test",
     "DB_BASE_NAME": "frankfurtleague_test",
-    "INTERNAL_API_KEY_BASE": a_key_the_boot_accepts("base"),
-    "INTERNAL_API_KEY_SYSTEM": a_key_the_boot_accepts("system"),
-    "INTERNAL_API_KEY_ADMIN": a_key_the_boot_accepts("admin"),
-    "SPERRLISTE_SCHLUESSEL": BAN_LIST_KEY,
     "ACTOR_TOKEN_PUBLIC_KEY": ACTOR_TOKEN_PUBLIC_KEY,
 }
+
+# Named as the secrets directory names them, each holding what a deployment's file would.
+FILES = {
+    MONGODB_URI_FILE: "mongodb://localhost:27017/frankfurtleague_test",
+    "internal_api_key_base": a_key_the_boot_accepts("base"),
+    "internal_api_key_system": a_key_the_boot_accepts("system"),
+    "internal_api_key_admin": a_key_the_boot_accepts("admin"),
+    "sperrliste_schluessel": BAN_LIST_KEY,
+}
+
+# Every name the environment half declares as retired, which a machine's own shell may carry.
+RETIRED = (
+    "ALLOWED_ADMIN_EMAILS",
+    "MONGODB_URI",
+    "INTERNAL_API_KEY_BASE",
+    "INTERNAL_API_KEY_SYSTEM",
+    "INTERNAL_API_KEY_ADMIN",
+    "SPERRLISTE_SCHLUESSEL",
+)
 
 
 @pytest.fixture(autouse=True)
@@ -81,18 +99,30 @@ WELL_FORMED: dict[str, Any] = {
 
 def build(**overrides: Any) -> BackendConfig:
     """Every required field passed, as `tests/config.py :: build_test_config` passes them."""
-    return ConfigReadingNoDotenvFile(**{**WELL_FORMED, **overrides})
+    return BackendConfig(**{**WELL_FORMED, **overrides})
 
 
-def an_environment(monkeypatch: pytest.MonkeyPatch, working_directory: Path, **overrides: str) -> None:
-    """The variables in the process environment, and a working directory holding only what a case put there.
+def an_environment(
+    monkeypatch: pytest.MonkeyPatch, working_directory: Path, files: Mapping[str, bytes | None] | None = None, **overrides: str
+) -> Path:
+    """The variables, a secrets directory and a working directory, each holding only what the case put there.
 
-    `get_config` reads both sources, so a case leaving either standing would be answered by
-    whatever the machine running it happens to carry.
+    `get_config` reads all three, so one left standing answers with the machine's own. A file mapped
+    to `None` is left out.
     """
     monkeypatch.chdir(working_directory)
+    directory = working_directory / "run-secrets"
+    directory.mkdir(exist_ok=True)
+    # Bytes (CLAUDE.md §6): a text-mode write would end every file in a carriage return on Windows.
+    for name, content in {**{name: value.encode() for name, value in FILES.items()}, **(files or {})}.items():
+        if content is not None:
+            (directory / name).write_bytes(content)
+    monkeypatch.setenv("SECRETS_DIR", str(directory))
+    for name in RETIRED:
+        monkeypatch.delenv(name, raising=False)
     for name, value in {**REQUIRED, **overrides}.items():
         monkeypatch.setenv(name, value)
+    return directory
 
 
 def boot(config: BackendConfig | None = None) -> None:
@@ -106,6 +136,16 @@ def boot(config: BackendConfig | None = None) -> None:
             raise AssertionError("the boot is expected to fail before the application starts")
 
     asyncio.run(enter())
+
+
+def refusal(monkeypatch: pytest.MonkeyPatch, working_directory: Path, files: Mapping[str, bytes | None] | None = None, **overrides: str) -> str:
+    """What `get_config` refused with over this environment and these files."""
+    an_environment(monkeypatch, working_directory, files, **overrides)
+
+    with pytest.raises(EnvironmentValidationError) as raised:
+        get_config()
+
+    return str(raised.value)
 
 
 class TestTrustedHosts:
@@ -137,12 +177,7 @@ class TestCorsAllowedOrigins:
 
     def test_the_bare_wildcard_the_hosts_variable_allows_fails_the_boot(self, monkeypatch, tmp_path):
         """Refused on purpose, unlike `API_TRUSTED_HOSTS`: this API is fetched server-side, and a wildcard with credentials is invalid CORS."""
-        an_environment(monkeypatch, tmp_path, API_CORS_ALLOWED_ORIGINS="*")
-
-        with pytest.raises(EnvironmentValidationError) as raised:
-            get_config()
-
-        assert str(raised.value) == "Invalid environment variables: API_CORS_ALLOWED_ORIGINS"
+        assert refusal(monkeypatch, tmp_path, API_CORS_ALLOWED_ORIGINS="*") == "Invalid environment variables: API_CORS_ALLOWED_ORIGINS"
 
 
 class TestDatabaseBaseName:
@@ -184,15 +219,13 @@ class TestThePoolAndTheTimeout:
             build(**{field: value})
 
     def test_a_minimum_above_the_maximum_fails_the_boot_naming_both_variables(self, monkeypatch, tmp_path):
-        """The pair each bound alone admits: pymongo refuses it while CONSTRUCTING the client, whose refusal blames `MONGODB_URI` instead."""
-        an_environment(monkeypatch, tmp_path, DB_MIN_CONNECTIONS="200", DB_MAX_CONNECTIONS="100")
-
-        with pytest.raises(EnvironmentValidationError) as raised:
-            get_config()
-
+        """The pair each bound alone admits: pymongo refuses it while CONSTRUCTING the client, whose refusal blames the URI's file instead."""
         # Equality rather than two membership checks: it is also what proves the rejected numbers and
         # the locationless issue's `<unknown>` are both absent.
-        assert str(raised.value) == "Invalid environment variables: DB_MAX_CONNECTIONS, DB_MIN_CONNECTIONS"
+        assert (
+            refusal(monkeypatch, tmp_path, DB_MIN_CONNECTIONS="200", DB_MAX_CONNECTIONS="100")
+            == "Invalid environment variables: DB_MAX_CONNECTIONS, DB_MIN_CONNECTIONS"
+        )
 
     def test_a_minimum_equal_to_the_maximum_boots(self, monkeypatch, tmp_path):
         """The boundary the driver allows -- `minPoolSize must be smaller or equal to maxPoolSize` -- so the gate must not refuse it."""
@@ -200,13 +233,13 @@ class TestThePoolAndTheTimeout:
 
         assert get_config().db_min_connections == 100
 
-    def test_the_bounds_leave_the_shipped_defaults_alone(self):
-        """Read off the fields rather than an instance: constructing the settings reads the developer's own environment."""
-        defaults = BackendConfig.model_fields
+    def test_the_bounds_leave_the_shipped_defaults_alone(self, monkeypatch, tmp_path):
+        """Read off the environment half, which is where a deployment that sets none of them gets its values."""
+        an_environment(monkeypatch, tmp_path)
 
-        assert defaults["db_server_selection_timeout"].default == 15000
-        assert defaults["db_min_connections"].default == 5
-        assert defaults["db_max_connections"].default == 100
+        config = get_config()
+
+        assert (config.db_server_selection_timeout, config.db_min_connections, config.db_max_connections) == (15000, 5, 100)
 
 
 class TestTheInternalKeys:
@@ -261,30 +294,23 @@ class TestTheInternalKeys:
 
 
 class TestTheBanListKey:
-    def test_an_environment_carrying_none_refuses_the_boot_naming_the_variable(self, monkeypatch, tmp_path):
-        """The one variable whose absence is silent at every other rung: every ban would hash under a key nobody chose.
+    def test_a_directory_holding_none_refuses_the_boot_naming_the_file_whatever_the_environment_carries(self, monkeypatch, tmp_path):
+        """The one secret whose absence is silent at every other rung: every ban would hash under a key nobody chose.
 
-        Driven through the environment rather than `build`, because what a deployment omits is a
-        name the process never carries.
+        The variable the release before read stands beside the missing file, and stands in for nothing.
         """
-        an_environment(monkeypatch, tmp_path)
-        monkeypatch.delenv("SPERRLISTE_SCHLUESSEL")
+        refused = refusal(monkeypatch, tmp_path, {"sperrliste_schluessel": None}, SPERRLISTE_SCHLUESSEL=BAN_LIST_KEY)
 
-        with pytest.raises(EnvironmentValidationError) as raised:
-            get_config()
-
-        assert str(raised.value) == "Invalid environment variables: SPERRLISTE_SCHLUESSEL"
+        assert refused == "Invalid secret files: sperrliste_schluessel"
 
     def test_a_key_carrying_a_value_is_never_echoed_by_the_refusal_beside_it(self, monkeypatch, tmp_path):
         """A rejected key reaching the container log is the whole exposure, and the value here is the one this gate would leak."""
         short = "x" * (SPERRLISTE_KEY_MIN_LENGTH - 1)
-        an_environment(monkeypatch, tmp_path, SPERRLISTE_SCHLUESSEL=short)
 
-        with pytest.raises(EnvironmentValidationError) as raised:
-            get_config()
+        refused = refusal(monkeypatch, tmp_path, {"sperrliste_schluessel": short.encode()})
 
-        assert str(raised.value) == "Invalid environment variables: SPERRLISTE_SCHLUESSEL"
-        assert short not in str(raised.value)
+        assert refused == "Invalid secret files: sperrliste_schluessel"
+        assert short not in refused
 
     def test_a_key_under_the_floor_fails_the_boot(self):
         """The boot is the last cheap moment: the key can never be rotated, every stored hash having been taken under it."""
@@ -302,6 +328,144 @@ class TestTheBanListKey:
         longer = "k" * (SPERRLISTE_KEY_MIN_LENGTH * 2)
 
         assert build(sperrliste_schluessel=SecretStr(longer)).sperrliste_schluessel.get_secret_value() == longer
+
+
+class TestTheSecretFiles:
+    """Each credential is its file's, and only its file's (`docs/backend/spec.md` §1.5)."""
+
+    def test_a_variable_beside_its_file_leaves_the_files_value_in_effect(self, monkeypatch, tmp_path):
+        """pydantic-settings ranks a variable above the secrets directory, so a variable left behind would otherwise win in silence."""
+        an_environment(monkeypatch, tmp_path, INTERNAL_API_KEY_BASE=a_key_the_boot_accepts("left-behind"))
+
+        config = get_config()
+
+        assert config.internal_api_key_base.get_secret_value() == FILES["internal_api_key_base"]
+        assert config.retired_variables == {"INTERNAL_API_KEY_BASE"}
+
+    def test_a_file_ending_in_a_line_break_reads_without_it(self, monkeypatch, tmp_path):
+        """A file written by an editor or `echo` ends in one, and a key carrying it would match nothing the frontend sends."""
+        key = a_key_the_boot_accepts("stripped")
+        an_environment(monkeypatch, tmp_path, {"internal_api_key_base": f"{key}\r\n".encode()})
+
+        assert get_config().internal_api_key_base.get_secret_value() == key
+
+    def test_a_refused_value_names_the_file_alone(self, monkeypatch, tmp_path):
+        """The URI is the credential, so the scheme check's refusal is the line a password would otherwise ride out on."""
+        marker = "hunter2-marker"
+
+        refused = refusal(monkeypatch, tmp_path, {MONGODB_URI_FILE: f"reader:{marker}@localhost:27017".encode()})
+
+        assert refused == f"Invalid secret files: {MONGODB_URI_FILE}"
+        assert marker not in refused
+
+    def test_an_unreadable_file_refuses_naming_its_path_and_errno_and_never_its_content(self, monkeypatch, tmp_path, capsys):
+        """The read raising as it does without the permission to read, on any platform the suite runs on.
+
+        A file mode cannot deny the read on Windows, so the refusal is raised where the file system raises it.
+        """
+        marker = a_key_the_boot_accepts("unreadable-marker")
+        directory = an_environment(monkeypatch, tmp_path, {"internal_api_key_admin": marker.encode()})
+        unreadable = directory / "internal_api_key_admin"
+        read_text = Path.read_text
+
+        def refusing(path: Path, *args: Any, **kwargs: Any) -> str:
+            if path == unreadable:
+                raise PermissionError(errno.EACCES, "Permission denied", str(path))
+            return read_text(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", refusing)
+
+        with pytest.raises(EnvironmentValidationError) as raised:
+            get_config()
+
+        assert str(raised.value) == f"Unreadable secret files: {unreadable} (EACCES)"
+        assert raised.value.__cause__ is None and raised.value.__suppress_context__
+        assert marker not in str(raised.value) + "".join(capsys.readouterr())
+
+    def test_a_directory_standing_at_a_files_path_refuses_naming_that_path(self, monkeypatch, tmp_path):
+        """What Docker leaves where a bind mount's source file was missing, and a warning alone in the library."""
+        directory = an_environment(monkeypatch, tmp_path, {"internal_api_key_system": None})
+        (directory / "internal_api_key_system").mkdir()
+
+        with pytest.raises(EnvironmentValidationError) as raised:
+            get_config()
+
+        assert str(raised.value) == f"Unreadable secret files: {directory / 'internal_api_key_system'} (EISDIR)"
+
+    @pytest.mark.parametrize("shape,reason", [("missing", "ENOENT"), ("a file", "ENOTDIR")])
+    def test_a_directory_that_is_none_refuses_naming_it_and_warns_nothing(self, monkeypatch, tmp_path, shape, reason):
+        """The missing one is load-bearing: the library only warns there, and a warning leaves outside the log envelope."""
+        an_environment(monkeypatch, tmp_path)
+        named = tmp_path / "nowhere"
+        if shape == "a file":
+            named.write_bytes(b"")
+        monkeypatch.setenv("SECRETS_DIR", str(named))
+
+        with warnings.catch_warnings(record=True) as caught, pytest.raises(EnvironmentValidationError) as raised:
+            warnings.simplefilter("always")
+            get_config()
+
+        assert str(raised.value) == f"Unreadable secret files: {named} ({reason})"
+        assert [str(warning.message) for warning in caught] == []
+
+    def test_a_file_nothing_declares_is_never_read(self, monkeypatch, tmp_path):
+        """In development one directory holds both services' files and the signing key, which the backend must not refuse."""
+        an_environment(monkeypatch, tmp_path, {"auth_secret": b"the frontend's", "fl_actor_signing_key": b"-----BEGIN PRIVATE KEY-----"})
+
+        assert get_config().db_base_name == REQUIRED["DB_BASE_NAME"]
+
+    def test_the_environment_half_opens_no_secret_file(self, monkeypatch, tmp_path):
+        """The deploy's preflight reads it in a container that mounts none (`scripts/ops/deploy.sh :: ENV_NAME_CHECK`)."""
+        an_environment(monkeypatch, tmp_path)
+        monkeypatch.setenv("SECRETS_DIR", str(tmp_path / "nowhere"))
+
+        assert read_environment().db_base_name == REQUIRED["DB_BASE_NAME"]
+
+    def test_every_declared_file_is_one_the_directory_is_handed(self):
+        """The fixture above writes exactly the files the class reads, so a field added without a file fails here first."""
+        assert sorted(SECRET_FILES) == sorted(FILES)
+
+
+class TestTheRetiredVariables:
+    """The names the secrets were read from before they became files, accepted for one release (`docs/backend/spec.md` §1.5)."""
+
+    def test_each_moved_name_in_the_environment_file_boots_and_no_field_holds_its_value(self, monkeypatch, tmp_path):
+        """The file a rollback's image reads still carries them, so refusing one here would refuse the release that rollback needs."""
+        marker = a_key_the_boot_accepts("retired-marker")
+        lines = [f"{name}={marker}" for name in RETIRED]
+        (tmp_path / ".env").write_bytes(("\n".join(lines) + "\n").encode())
+        an_environment(monkeypatch, tmp_path)
+
+        config = get_config()
+        held = [value.get_secret_value() if isinstance(value, SecretStr) else str(value) for value in config.model_dump().values()]
+
+        assert config.retired_variables == set(RETIRED)
+        assert all(marker not in value for value in held)
+
+    def test_the_boot_names_each_one_it_finds_and_prints_no_value(self, monkeypatch, tmp_path, caplog):
+        """End to end, from the environment to the boot's line, as an operator reading the log after a deploy meets it."""
+        marker = "vorstand@schule.de"
+        an_environment(
+            monkeypatch,
+            tmp_path,
+            {MONGODB_URI_FILE: UNROUTABLE_URI.encode()},
+            ALLOWED_ADMIN_EMAILS=marker,
+            SPERRLISTE_SCHLUESSEL=marker,
+            DB_SERVER_SELECTION_TIMEOUT="200",
+        )
+
+        with caplog.at_level(logging.WARNING), pytest.raises(DatabaseUnreachableError):
+            boot()
+
+        warned = [record.getMessage() for record in caplog.records if getattr(record, "error_code", "") == RETIRED_VARIABLES.error_code]
+        assert warned == [RETIRED_VARIABLES.sentence.format(names="ALLOWED_ADMIN_EMAILS, SPERRLISTE_SCHLUESSEL")]
+        assert marker not in caplog.text
+
+    def test_a_misspelling_of_a_retired_name_is_still_refused(self, monkeypatch, tmp_path):
+        """Declared for their exact spelling alone, so `forbid` still catches the typo it exists for."""
+        (tmp_path / ".env").write_bytes(b"MONGODB_URL=mongodb://typo.example\n")
+
+        assert refusal(monkeypatch, tmp_path) == "Invalid environment variables: MONGODB_URL"
 
 
 class TestTheActorTokenPublicKey:
@@ -339,33 +503,33 @@ class TestTheActorTokenPublicKey:
 
     def test_a_refusal_names_the_variable_and_never_the_value(self, monkeypatch, tmp_path):
         malformed = ACTOR_TOKEN_PUBLIC_KEY[:-1]
-        an_environment(monkeypatch, tmp_path, ACTOR_TOKEN_PUBLIC_KEY=malformed)
 
-        with pytest.raises(EnvironmentValidationError) as raised:
-            get_config()
+        refused = refusal(monkeypatch, tmp_path, ACTOR_TOKEN_PUBLIC_KEY=malformed)
 
-        assert str(raised.value) == "Invalid environment variables: ACTOR_TOKEN_PUBLIC_KEY"
-        assert malformed not in str(raised.value)
+        assert refused == "Invalid environment variables: ACTOR_TOKEN_PUBLIC_KEY"
+        assert malformed not in refused
 
 
 class TestTheNamesOnlyErrorPath:
     def test_the_refusal_names_the_variables_and_carries_no_rejected_value(self, monkeypatch, tmp_path):
         """The incident's class: a value that reaches the container log is the whole exposure, and a name is all an operator needs."""
         origins, database = "frankfurtleague.de", "frankfurt league"
-        an_environment(monkeypatch, tmp_path, API_CORS_ALLOWED_ORIGINS=origins, DB_BASE_NAME=database)
 
-        with pytest.raises(EnvironmentValidationError) as raised:
-            get_config()
+        message = refusal(monkeypatch, tmp_path, API_CORS_ALLOWED_ORIGINS=origins, DB_BASE_NAME=database)
 
-        message = str(raised.value)
         assert "API_CORS_ALLOWED_ORIGINS" in message
         assert "DB_BASE_NAME" in message
         assert origins not in message
         assert database not in message
 
-    def test_the_pydantic_error_is_suppressed_rather_than_chained(self, monkeypatch, tmp_path):
+    @pytest.mark.parametrize(
+        "files,overrides",
+        [({}, {"DB_BASE_NAME": "frankfurt league"}), ({MONGODB_URI_FILE: b"localhost:27017"}, {})],
+        ids=["a variable", "a secret file"],
+    )
+    def test_the_pydantic_error_is_suppressed_rather_than_chained(self, monkeypatch, tmp_path, files, overrides):
         """`raise ... from None` is what keeps `input_value=` out of the traceback uvicorn prints, and nothing else in the path does."""
-        an_environment(monkeypatch, tmp_path, DB_BASE_NAME="frankfurt league")
+        an_environment(monkeypatch, tmp_path, files, **overrides)
 
         with pytest.raises(EnvironmentValidationError) as raised:
             get_config()
@@ -374,7 +538,7 @@ class TestTheNamesOnlyErrorPath:
         assert raised.value.__suppress_context__
 
     def test_a_file_the_reader_cannot_decode_refuses_with_the_failure_type_alone(self, monkeypatch, tmp_path):
-        """The other way out of `BackendConfig()`: the dotenv read fails before any field is judged.
+        """The other way out of the environment half: the dotenv read fails before any field is judged.
 
         No `ValidationError` exists to name a variable, and the raw exception quotes the file's own
         bytes.
@@ -388,6 +552,15 @@ class TestTheNamesOnlyErrorPath:
         assert str(raised.value) == "The environment could not be read: UnicodeDecodeError"
         assert raised.value.__cause__ is None
         assert raised.value.__suppress_context__
+
+    def test_a_secret_file_the_reader_cannot_decode_refuses_with_the_failure_type_alone(self, monkeypatch, tmp_path):
+        """Its decode error quotes the bytes it choked on, which are the credential's."""
+        directory = an_environment(monkeypatch, tmp_path, {"sperrliste_schluessel": b"\xff\xfe" + BAN_LIST_KEY.encode()})
+
+        with pytest.raises(EnvironmentValidationError) as raised:
+            get_config()
+
+        assert str(raised.value) == f"Unreadable secret files: {directory} (UnicodeDecodeError)"
 
     def test_a_well_formed_environment_still_builds(self, monkeypatch, tmp_path):
         an_environment(monkeypatch, tmp_path)
@@ -405,21 +578,8 @@ class TestANameTheClassDoesNotDeclare:
         # Bytes (CLAUDE.md §6), and a value nothing may echo: the assertion below is what holds the
         # refusal to naming the variable.
         (tmp_path / ".env").write_bytes(b"LOG_FORMAT_=console-but-misspelled\n")
-        an_environment(monkeypatch, tmp_path)
 
-        with pytest.raises(EnvironmentValidationError) as raised:
-            get_config()
-
-        assert str(raised.value) == "Invalid environment variables: LOG_FORMAT_"
-
-    def test_the_retired_admin_list_in_the_environment_file_still_boots(self, monkeypatch, tmp_path):
-        """A development machine's file may still carry the line, and must boot (`docs/backend/spec.md` §1.5)."""
-        (tmp_path / ".env").write_bytes(b"ALLOWED_ADMIN_EMAILS=admin@example.com\n")
-        an_environment(monkeypatch, tmp_path)
-        # The file's line alone: a process variable of the name would outrank it and prove nothing.
-        monkeypatch.delenv("ALLOWED_ADMIN_EMAILS", raising=False)
-
-        assert get_config().allowed_admin_emails == "admin@example.com"
+        assert refusal(monkeypatch, tmp_path) == "Invalid environment variables: LOG_FORMAT_"
 
     def test_a_misspelling_carrying_no_value_is_dropped_before_the_gate_sees_it(self, monkeypatch, tmp_path):
         """The gap the runbook's remedy is written around.
@@ -438,59 +598,53 @@ class TestANameTheClassDoesNotDeclare:
 
         assert get_config().log_format == "json"
 
-    def test_the_class_the_suite_builds_reads_no_environment_file_at_all(self, monkeypatch, tmp_path):
-        """A subclass that stopped turning the dotenv source off is green on CI and red on a developer's machine alone."""
+    def test_the_class_the_suite_builds_reads_no_source_at_all(self, monkeypatch, tmp_path):
+        """A settings class that read one would be green on CI and red on a developer's machine alone."""
         (tmp_path / ".env").write_bytes(b"LOG_FORMAT_=console-but-misspelled\n")
-        monkeypatch.chdir(tmp_path)
-        # The shipped default is the assertion, and the process environment reaches it too: a shell
-        # exporting LOG_FORMAT would redden this over a file the subclass correctly ignored.
-        monkeypatch.delenv("LOG_FORMAT", raising=False)
+        an_environment(monkeypatch, tmp_path, {"internal_api_key_base": a_key_the_boot_accepts("from-a-file").encode()}, LOG_FORMAT="console")
 
-        assert ConfigReadingNoDotenvFile(**WELL_FORMED).log_format == "json"
+        config = build()
+
+        assert (config.log_format, config.internal_api_key_base) == ("json", WELL_FORMED["internal_api_key_base"])
 
 
 class TestTheCheckoutRootsFile:
-    """`fastapi dev` runs from `fl_backend/`, and the keys both services hold once live in the directory above it."""
+    """`fastapi dev` runs from `fl_backend/`, and compose lists the checkout root's file last for the container."""
 
     @staticmethod
     def a_package_beside_a_root(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, root: bytes | None, package: bytes) -> None:
-        """A run from a package inside `tmp_path`, whose own `.env` is the root's.
-
-        The key the files carry leaves the process environment, which would otherwise outrank both.
-        """
+        """A run from a package inside `tmp_path`, whose own `.env` is the root's."""
         (tmp_path / "fl_backend").mkdir()
         (tmp_path / "fl_backend" / ".env").write_bytes(package)
         if root is not None:
             (tmp_path / ".env").write_bytes(root)
         an_environment(monkeypatch, tmp_path / "fl_backend")
-        monkeypatch.delenv("INTERNAL_API_KEY_BASE")
-
-    def test_a_key_only_the_roots_file_holds_reaches_the_settings(self, monkeypatch, tmp_path):
-        key = a_key_the_boot_accepts("root")
-        self.a_package_beside_a_root(monkeypatch, tmp_path, f"INTERNAL_API_KEY_BASE={key}\n".encode(), b"")
-
-        assert get_config().internal_api_key_base.get_secret_value() == key
 
     def test_the_roots_file_wins_a_name_both_files_hold(self, monkeypatch, tmp_path):
         """Compose lists the root's file last and hands the container its value, so a run from the package agrees."""
-        root, package = a_key_the_boot_accepts("root"), a_key_the_boot_accepts("package")
-        self.a_package_beside_a_root(
-            monkeypatch, tmp_path, f"INTERNAL_API_KEY_BASE={root}\n".encode(), f"INTERNAL_API_KEY_BASE={package}\n".encode()
-        )
+        self.a_package_beside_a_root(monkeypatch, tmp_path, b"LOG_LEVEL_APP=ERROR\n", b"LOG_LEVEL_APP=DEBUG\n")
 
-        assert get_config().internal_api_key_base.get_secret_value() == root
+        assert get_config().log_level_app == "ERROR"
+
+    def test_a_key_the_roots_file_still_carries_is_retired_and_its_file_answers(self, monkeypatch, tmp_path):
+        """The three internal keys lived there before they were files, and a host's root file may carry them for one release."""
+        stale = a_key_the_boot_accepts("root")
+        self.a_package_beside_a_root(monkeypatch, tmp_path, f"INTERNAL_API_KEY_BASE={stale}\n".encode(), b"")
+
+        config = get_config()
+
+        assert config.internal_api_key_base.get_secret_value() == FILES["internal_api_key_base"]
+        assert config.retired_variables == {"INTERNAL_API_KEY_BASE"}
 
     def test_a_missing_roots_file_leaves_the_package_file_to_answer(self, monkeypatch, tmp_path):
         """A container holds neither file; the run must not refuse for one it was never meant to have."""
-        key = a_key_the_boot_accepts("package")
-        self.a_package_beside_a_root(monkeypatch, tmp_path, None, f"INTERNAL_API_KEY_BASE={key}\n".encode())
+        self.a_package_beside_a_root(monkeypatch, tmp_path, None, b"LOG_LEVEL_APP=DEBUG\n")
 
-        assert get_config().internal_api_key_base.get_secret_value() == key
+        assert get_config().log_level_app == "DEBUG"
 
     def test_a_name_the_class_does_not_declare_in_the_roots_file_fails_the_boot_naming_it(self, monkeypatch, tmp_path):
         """The root's file is a dotenv source like the package's, so `extra="forbid"` reaches it: a frontend-only name there is a refusal."""
-        key = a_key_the_boot_accepts("root")
-        self.a_package_beside_a_root(monkeypatch, tmp_path, f"INTERNAL_API_KEY_BASE={key}\nAUTH_SECRET=x\n".encode(), b"")
+        self.a_package_beside_a_root(monkeypatch, tmp_path, b"AUTH_SECRET=x\n", b"")
 
         with pytest.raises(EnvironmentValidationError) as raised:
             get_config()
@@ -499,9 +653,9 @@ class TestTheCheckoutRootsFile:
 
 
 class TestTheStartupPing:
-    def test_a_server_that_cannot_be_reached_names_the_variable_and_not_the_host(self, monkeypatch, tmp_path, caplog):
-        """Driven through the environment, which `get_config` reads for the settings the boot builds its client from."""
-        an_environment(monkeypatch, tmp_path, MONGODB_URI=UNROUTABLE_URI, DB_SERVER_SELECTION_TIMEOUT="200")
+    def test_a_server_that_cannot_be_reached_names_the_file_and_not_the_host(self, monkeypatch, tmp_path, caplog):
+        """Driven through the files, which `get_config` reads for the settings the boot builds its client from."""
+        an_environment(monkeypatch, tmp_path, {MONGODB_URI_FILE: UNROUTABLE_URI.encode()}, DB_SERVER_SELECTION_TIMEOUT="200")
 
         with caplog.at_level(logging.CRITICAL):
             with pytest.raises(DatabaseUnreachableError) as raised:
@@ -509,29 +663,29 @@ class TestTheStartupPing:
 
         assert str(raised.value) == UNREACHABLE.sentence
         assert UNROUTABLE_HOST not in caplog.text
-        assert "MONGODB_URI" in caplog.text
+        assert MONGODB_URI_FILE in caplog.text
 
     def test_the_boot_opens_the_settings_the_application_was_built_with(self, monkeypatch, tmp_path, caplog):
-        """Never the environment's: an application built with other settings would serve one database and boot against another."""
-        an_environment(monkeypatch, tmp_path, MONGODB_URI="mongodb://")
+        """Never the files': an application built with other settings would serve one database and boot against another."""
+        an_environment(monkeypatch, tmp_path, {MONGODB_URI_FILE: b"mongodb://"})
 
         with caplog.at_level(logging.CRITICAL):
             with pytest.raises(DatabaseUnreachableError) as raised:
                 boot(build(mongodb_uri=SecretStr(UNROUTABLE_URI), db_server_selection_timeout=200))
 
-        # The environment's truncated value would have answered `NO_SERVER`.
+        # The file's truncated value would have answered `NO_SERVER`.
         assert str(raised.value) == UNREACHABLE.sentence
 
-    def test_a_uri_the_scheme_check_passes_and_the_driver_cannot_open_names_the_variable(self, monkeypatch, tmp_path, caplog):
+    def test_a_uri_the_scheme_check_passes_and_the_driver_cannot_open_names_the_file(self, monkeypatch, tmp_path, caplog):
         """A truncated value: the driver refuses it while the client is CONSTRUCTED, so a handler around the ping alone never sees it."""
-        an_environment(monkeypatch, tmp_path, MONGODB_URI="mongodb://")
+        an_environment(monkeypatch, tmp_path, {MONGODB_URI_FILE: b"mongodb://"})
 
         with caplog.at_level(logging.CRITICAL):
             with pytest.raises(DatabaseUnreachableError) as raised:
                 boot()
 
         assert str(raised.value) == NO_SERVER.sentence
-        assert "MONGODB_URI" in caplog.text
+        assert MONGODB_URI_FILE in caplog.text
         # The `extra=` reaching the record is what puts `error_code` in the envelope
         # (`docs/logging/spec.md` §1.2), which is the field an operator greps a boot failure by.
         assert caplog.records[-1].error_code == NO_SERVER.error_code
@@ -554,7 +708,7 @@ class TestTheBootAppliesTheConstraintsWhereTheApplicationServes:
     def test_the_constraints_land_in_the_database_the_settings_name(self, monkeypatch, tmp_path, mongo_url: str):
         """The environment names a second database on the same server, so a boot reading it applies there instead."""
         built_name, environment_name = worker_database("fl_boot_built"), worker_database("fl_boot_environment")
-        an_environment(monkeypatch, tmp_path, MONGODB_URI=mongo_url, DB_BASE_NAME=environment_name)
+        an_environment(monkeypatch, tmp_path, {MONGODB_URI_FILE: mongo_url.encode()}, DB_BASE_NAME=environment_name)
 
         client: MongoClient = MongoClient(mongo_url)
         try:
@@ -608,9 +762,9 @@ class TestWhichRefusalACauseEarns:
         """Three actions, three sentences. The `ValueError` case is load-bearing: a mistyped port leaves the driver's own hierarchy."""
         assert _refusal_for(error) == expected
 
-    def test_every_refusal_opens_with_the_variable(self):
-        """One opening for the three, so an operator who greps the variable name is handed whichever of them the boot raised."""
-        assert all(refusal.sentence.startswith("MONGODB_URI: ") for refusal in (UNREACHABLE, NO_SERVER, REJECTED))
+    def test_every_refusal_opens_with_the_file(self):
+        """One opening for the three, so an operator who greps the file's name is handed whichever of them the boot raised."""
+        assert all(refusal.sentence.startswith(f"{MONGODB_URI_FILE}: ") for refusal in (UNREACHABLE, NO_SERVER, REJECTED))
 
     def test_no_two_refusals_share_a_code(self):
         """A code copied onto a second sentence answers a grep with the other incident, which is worse than no code at all."""

@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import SecretStr
-from pydantic_settings import SettingsConfigDict
 
 from app.core.config import INTERNAL_API_KEY_LENGTH, SPERRLISTE_KEY_MIN_LENGTH, BackendConfig
 from tests.actor_tokens import ACTOR_TOKEN_PUBLIC_KEY, SignedActor
@@ -53,25 +52,13 @@ ADMIN_KEY = {"Authorization": f"Bearer {_KEY_ADMIN}"}
 ADMIN_AUTH = SignedActor("admin@example.com", ADMIN_KEY)
 
 
-class ConfigReadingNoDotenvFile(BackendConfig):
-    """The suite's settings, reading no dotenv file: a machine's own `.env` is not a fixture.
-
-    An init argument outranks a source's value and never its extra keys, which `extra="forbid"`
-    makes fatal.
-    """
-
-    # Merged over the parent's rather than replacing it, so `extra="forbid"` and the encoding still
-    # bind: only the dotenv source is dropped.
-    model_config = SettingsConfigDict(env_file=None)
-
-
 def build_test_config() -> BackendConfig:
-    """Every variable with no default supplied here, so any checkout runs the suite.
+    """Every field with no default supplied here, so any checkout runs the suite.
 
     Not in `conftest.py`: pytest loads that under its own module name, so importing it would
-    duplicate every fixture. No dotenv source, for the reason at `ConfigReadingNoDotenvFile`.
+    duplicate every fixture.
     """
-    return ConfigReadingNoDotenvFile(
+    return BackendConfig(
         api_trusted_hosts="testserver,localhost",
         api_cors_allowed_origins="http://localhost:3000",
         mongodb_uri=SecretStr("mongodb://localhost:27017/frankfurtleague_test"),

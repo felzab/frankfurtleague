@@ -217,11 +217,11 @@ says in so many words that a client crash has none.
 The format is selected by environment, never by build; `console` is the development format by
 convention rather than by enforcement.
 
-| Surface   | Command                                           | Format                                          |
-| --------- | ------------------------------------------------- | ----------------------------------------------- |
-| Frontend  | `pnpm dev` in `fl_frontend/`                      | `console` via `fl_frontend/.env`                |
-| Backend   | `uv run fastapi dev app/asgi.py` in `fl_backend/` | `console` via `LOG_FORMAT` in `fl_backend/.env` |
-| All three | `./scripts/ops/local.sh`                          | The production stream, exactly as deployed      |
+| Surface   | Command                                                                  | Format                                          |
+| --------- | ------------------------------------------------------------------------ | ----------------------------------------------- |
+| Frontend  | `pnpm dev` in `fl_frontend/`                                             | `console` via `fl_frontend/.env`                |
+| Backend   | `SECRETS_DIR=../secrets uv run fastapi dev app/asgi.py` in `fl_backend/` | `console` via `LOG_FORMAT` in `fl_backend/.env` |
+| All three | `./scripts/ops/local.sh`                                                 | The production stream, exactly as deployed      |
 
 **Both console formats write ONE line shape**, held by both suites
 (`fl_backend/tests/core/test_logging.py :: TestConsoleFormatter`,

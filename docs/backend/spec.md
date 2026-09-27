@@ -183,7 +183,7 @@ subject is an email address and travels in the body instead.
 |        | `/berechtigungen/{berechtigung_id}`                         | `REQ-BERECHTIGUNG-003` refuses promoting a barred address, `-007` a demotion leaving no live, unbarred `owner` (I479)                                                                 |
 
 **No BARRED address leaves the ban list, on any route.** A ban is stored as an HMAC of the address
-taken under `SPERRLISTE_SCHLUESSEL`, the address itself dropped (§1.5), and the admin read projects
+taken under `sperrliste_schluessel`, the address itself dropped (§1.5), and the admin read projects
 even that hash away — so neither a response nor a log line carries a value the barred address can be
 recovered from (I268, I269). **The row is not anonymous for that:** `erstellt_von` is the
 administrator's own address in plain and `grund` is free text that may name the person barred, both
@@ -486,25 +486,51 @@ bug and answers 500 `SRV-FAIL-001`
 
 ### 1.5 Environment
 
-Declared once as a pydantic-settings model (`fl_backend/app/core/config.py :: BackendConfig`);
-fields without a default are required at boot and the process refuses to start without them.
+Read in two halves by `fl_backend/app/core/config.py :: get_config`: the variables below from the
+process environment and the two dotenv files (`fl_backend/app/core/config.py :: BackendEnvironment`),
+then one file per credential out of the directory `SECRETS_DIR` names
+(`fl_backend/app/core/config.py :: BackendSecrets`). Every consumer reads the two joined as
+`fl_backend/app/core/config.py :: BackendConfig`, which reads no source of its own. Fields without a
+default are required at boot and the process refuses to start without them.
 
-| Variable                      | Constraint                                                                                                                              | Default    |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `API_TRUSTED_HOSTS`           | comma-separated, each a hostname or a `*` wildcard                                                                                      | — required |
-| `API_CORS_ALLOWED_ORIGINS`    | comma-separated, each a scheme, host and port only; no `*`                                                                              | — required |
-| `MONGODB_URI`                 | must start `mongodb://` or `mongodb+srv://`                                                                                             | — required |
-| `DB_BASE_NAME`                | the characters MongoDB accepts in a database name                                                                                       | — required |
-| `DB_SERVER_SELECTION_TIMEOUT` | int, ms, above zero and at most 60000                                                                                                   | `15000`    |
-| `DB_MIN_CONNECTIONS`          | int, not negative and not above `DB_MAX_CONNECTIONS`                                                                                    | `5`        |
-| `DB_MAX_CONNECTIONS`          | int, at least one                                                                                                                       | `100`      |
-| `INTERNAL_API_KEY_*`          | `BASE` / `SYSTEM` / `ADMIN`, each a `SecretStr` of exactly 64 printable ASCII characters, none a space or one an env-file reader alters | — required |
-| `ALLOWED_ADMIN_EMAILS`        | **retired**: read by nothing; the boot warns `SRV-BOOT-008` while it is set                                                             | —          |
-| `ACTOR_TOKEN_PUBLIC_KEY`      | the unpadded base64url of a raw 32-byte Ed25519 public key, RFC 8037's `x`; not a secret                                                | — required |
-| `SPERRLISTE_SCHLUESSEL`       | a `SecretStr` of at least 64 characters; never rotated, and the length counts characters rather than entropy                            | — required |
-| `LOG_LEVEL_APP`               | `DEBUG`…`CRITICAL`, case-normalised                                                                                                     | `INFO`     |
-| `LOG_LEVEL_DB`                | same vocabulary, for pymongo                                                                                                            | `WARNING`  |
-| `LOG_FORMAT`                  | `json` \| `console`, case-normalised                                                                                                    | **`json`** |
+| Variable                                                                                                       | Constraint                                                                               | Default        |
+| -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | -------------- |
+| `API_TRUSTED_HOSTS`                                                                                            | comma-separated, each a hostname or a `*` wildcard                                       | — required     |
+| `API_CORS_ALLOWED_ORIGINS`                                                                                     | comma-separated, each a scheme, host and port only; no `*`                               | — required     |
+| `DB_BASE_NAME`                                                                                                 | the characters MongoDB accepts in a database name                                        | — required     |
+| `DB_SERVER_SELECTION_TIMEOUT`                                                                                  | int, ms, above zero and at most 60000                                                    | `15000`        |
+| `DB_MIN_CONNECTIONS`                                                                                           | int, not negative and not above `DB_MAX_CONNECTIONS`                                     | `5`            |
+| `DB_MAX_CONNECTIONS`                                                                                           | int, at least one                                                                        | `100`          |
+| `ACTOR_TOKEN_PUBLIC_KEY`                                                                                       | the unpadded base64url of a raw 32-byte Ed25519 public key, RFC 8037's `x`; not a secret | — required     |
+| `SECRETS_DIR`                                                                                                  | the directory each secret file below is read from; a path, never a secret                | `/run/secrets` |
+| `MONGODB_URI`, `INTERNAL_API_KEY_BASE` / `_SYSTEM` / `_ADMIN`, `SPERRLISTE_SCHLUESSEL`, `ALLOWED_ADMIN_EMAILS` | **retired**: read by nothing; the boot warns `SRV-BOOT-008`, naming each one still set   | —              |
+| `LOG_LEVEL_APP`                                                                                                | `DEBUG`…`CRITICAL`, case-normalised                                                      | `INFO`         |
+| `LOG_LEVEL_DB`                                                                                                 | same vocabulary, for pymongo                                                             | `WARNING`      |
+| `LOG_FORMAT`                                                                                                   | `json` \| `console`, case-normalised                                                     | **`json`**     |
+
+| Secret file                                    | Constraint                                                                                  |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `backend_mongodb_uri`                          | must start `mongodb://` or `mongodb+srv://`                                                 |
+| `internal_api_key_base` / `_system` / `_admin` | exactly 64 printable ASCII characters, none a space or one an env-file reader alters        |
+| `sperrliste_schluessel`                        | at least 64 characters; never rotated, and the length counts characters rather than entropy |
+
+**A credential is its file's and nothing else's.** The secret half takes no environment and no
+dotenv file as a source: pydantic-settings ranks both above a secrets directory, so a variable left
+behind would win over its file in silence. A missing file therefore refuses the boot as
+`Invalid secret files: <FILES>`, whatever the environment carries, and a file that cannot be read —
+a missing `SECRETS_DIR` included — as `Unreadable secret files: <PATH> (<ERRNO>)`, neither printing a
+value. The whitespace around a file's value is stripped, so the line break an editor leaves is no
+part of a key. **The file names are the same on the host, in the container and in development**,
+which is why the database login carries its service's prefix: the frontend's is `frontend_mongodb_uri`.
+
+**The moved names are retired rather than undeclared**: the release before this one reads them, and
+the deploy's automatic rollback puts its image back under the environment files this release finds,
+so this one boots on those files and warns `SRV-BOOT-008` naming each moved line still present
+(`fl_backend/app/core/config.py :: BackendEnvironment`). Their values reach no field a consumer
+reads. **In development the files live in the checkout's `secrets/`**, and `fastapi dev` reaches them
+as `SECRETS_DIR=../secrets uv run fastapi dev app/asgi.py`, run in Git Bash from `fl_backend/`.
+`SECRETS_DIR` never goes in `fl_backend/.env`: compose hands that file to the container, and a
+development path there turns the container away from its mounts.
 
 `API_CORS_ALLOWED_ORIGINS` refuses the bare `*` that `API_TRUSTED_HOSTS` accepts, and the refusal is
 deliberate: this API is reached server-side from the frontend's own origin, never from a browser at
@@ -516,7 +542,7 @@ env-file reader alters** (`docs/ops/spec.md :: I11`): a key the length bound alo
 then answers every internal request 500, and a `$` or a `#` in one reaches the two sides as
 different keys ([`docs/ops/spec.md`](../ops/spec.md) §1.5 names the six).
 
-**`SPERRLISTE_SCHLUESSEL` is the one variable here that can never be replaced.** Every row of
+**`sperrliste_schluessel` is the one secret here that can never be replaced.** Every row of
 `sperrliste` holds an HMAC taken under it and no address survives to re-hash
 (`fl_backend/app/api/sperrliste/services.py :: adresse_hash`), so a new value leaves every ban
 standing and matching nobody, in silence — the check computes a hash no row holds and the list still
@@ -641,10 +667,11 @@ about a dict can describe carries the executing module alone, with no sibling to
 
 Every field the application under test needs is passed explicitly to
 `fl_backend/tests/config.py :: build_test_config`, which builds
-`fl_backend/tests/config.py :: ConfigReadingNoDotenvFile` — a settings class reading no dotenv file
-at all, so a machine carrying one runs the same suite CI does and a failure means the code rather
-than the machine. **The process environment is still a source**, which is why a test about a default
-asserts on the model's field rather than on a constructed instance.
+`fl_backend/app/core/config.py :: BackendConfig` — the joined settings, reading no source at all, so
+a machine carrying a `.env`, a secrets directory or an exported variable runs the same suite CI does
+and a failure means the code rather than the machine. A case about the two halves' own reading
+drives `get_config` over an environment and a secrets directory it writes itself
+(`fl_backend/tests/core/test_config.py :: an_environment`).
 
 **The server fixtures live in the root `conftest.py`**, not in `api/`, because suites under both
 `api/` and `core/` want a database; each is session-scoped, so one `mongod` serves every suite that
@@ -1056,6 +1083,8 @@ rather than by the handler remembering to conceal one.
 | I488 | A person's route serves no verified person the ban list holds, read per request; else `REQ-AUTH-008`                                                                                                                                                                            | `fl_backend/app/core/security.py :: verify_person_is_unbarred`, which every binder in `:: PERSON_ACTOR_BINDERS` depends on; `fl_backend/tests/api/test_actor_binding.py :: TestThePersonBinderOverAServedRequest`, `fl_backend/tests/api/test_person_ban_execution.py`                                                                                                                                                                                                                                                       |
 | I489 | A grant, a revoke and a tier change take a sign-in `ENROLMENT_WINDOW_MINUTES` old at most when the token was minted; else `REQ-AUTH-009`                                                                                                                                        | `fl_backend/app/core/security.py :: verify_recent_confirmation`, declared on the three by `fl_backend/app/api/berechtigungen/admin_router.py`; `fl_backend/tests/api/test_actor_binding.py :: TestTheStepUpOverAServedRequest`, the window held to the frontend's by `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS`                                                                                                                                                                                   |
 | I490 | A re-send asks the ban in a transaction writing the season a ban counts from, so a ban committing beside it refuses the link (I53)                                                                                                                                              | `fl_backend/app/api/bewerbungen/admin_router.py :: _anchor_the_season_a_ban_counts_from`; `fl_backend/tests/api/test_bewerbung_triage_execution.py :: TestAResendRacingAnAnswer`, `fl_backend/tests/core/test_bounded_writes.py`                                                                                                                                                                                                                                                                                             |
+| I499 | A credential is read from its secret file alone: no variable stands in for a missing file, and none wins over a present one                                                                                                                                                     | `fl_backend/app/core/config.py :: BackendSecrets`; `fl_backend/tests/core/test_config.py :: TestTheSecretFiles`, `:: TestTheBanListKey`                                                                                                                                                                                                                                                                                                                                                                                      |
+| I500 | The secrets' old variable names boot as retired, so a rollback's environment files do: warned `SRV-BOOT-008` by name, values reaching no consumer                                                                                                                               | `fl_backend/app/core/config.py :: BackendEnvironment`; `fl_backend/tests/core/test_config.py :: TestTheRetiredVariables`, `fl_backend/tests/core/test_grant_warnings.py`                                                                                                                                                                                                                                                                                                                                                     |
 
 ## 3. Violation → remedy
 
@@ -1144,7 +1173,7 @@ rather than by the handler remembering to conceal one.
 | An admin-tier request comes back 403 with `REQ-AUTH-006`                                                    | The actor it names holds no grant in `berechtigungen`, one stored unfolded (I383, `SRV-BOOT-007`), or a barred one (I463)                                                                   | Grant the address ([`../ops/runbooks.md`](../ops/runbooks.md#3-granting-or-revoking-admin-access)), or lift a ban entered in error                                                                                                                                                   |
 | 503 with `Retry-After: 30`                                                                                  | Database unavailable                                                                                                                                                                        | `DB-CONN-001` — check MongoDB                                                                                                                                                                                                                                                        |
 | A contacts save comes back 409 with `REQ-KONTAKT-001`                                                       | The row's contact block moved between the editor's read and the save, an erasure being the usual cause (I192)                                                                               | Reload the contacts page and enter the change again; the reloaded block is what the next save is judged against                                                                                                                                                                      |
-| A second ban of an address the list already holds is accepted                                               | `SPERRLISTE_SCHLUESSEL` was replaced, so every stored hash stands under a value nothing computes now (I268)                                                                                 | Restore the previous value, or clear the list and enter the bans again from whatever record names the addresses: nothing recovers them from the rows                                                                                                                                 |
+| A second ban of an address the list already holds is accepted                                               | `sperrliste_schluessel` was replaced, so every stored hash stands under a value nothing computes now (I268)                                                                                 | Restore the previous value, or clear the list and enter the bans again from whatever record names the addresses: nothing recovers them from the rows                                                                                                                                 |
 | A referee who answered their link still publishes as „anonym“, or a withheld one still publishes their name | The confirmation's caller did not drop the `spiele` tag (I306)                                                                                                                              | Call `revalidateTag("spiele", { expire: 0 })` in the route handler (`docs/frontend/spec.md :: I14`); without the option the recommended profile serves the stale entry once more                                                                                                     |
 
 ## 4. Known-open
