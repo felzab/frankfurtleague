@@ -983,7 +983,7 @@ entity — and which of those it is decides whether this is a page change or a c
 already says what it needs through its required fields and the rail's Hinweise. What it waits on is
 a product ruling per entity, and that cost does not grow while it waits.
 
-### `qw6j-scru` · `style-src 'self'` waits on two swatches, a library attribute and a library stylesheet, and its Report-Only rollout narrows `script-src-attr` and `img-src` beside it
+### `qw6j-scru` · `style-src 'self'` waits on two swatches, a library attribute and two library stylesheets, and its Report-Only rollout narrows `script-src-attr` and `img-src` beside it
 
 | Status | Depends on |
 | ------ | ---------- |
@@ -1081,8 +1081,9 @@ criteria, and the one CSP fact it carries is Mantine's, stated there. (Read 2026
 from react-dom's `setValueForStyle` and from each project's own documentation; all of that moves
 without us.)
 
-**Done when** the swatches and the `ScrollShadow` attribute are gone and the `usePress` rule reaches
-every pressable element with the injected element refused; a `Content-Security-Policy-Report-Only`
+**Done when** the swatches and the `ScrollShadow` attribute are gone, the `usePress` rule reaches
+every pressable element with the injected element refused, and `input-otp`'s rules hide the code
+field's own input with its injected element refused; a `Content-Security-Policy-Report-Only`
 header carrying `style-src 'self'`, `script-src-attr 'none'` and `img-src 'self'` has been served
 from `nginx/shared/security_headers.conf` beside the enforcing header, its `report-to` and its
 `report-uri` both naming an ingest route of this application that writes each violation report as
@@ -1115,7 +1116,7 @@ paragraphs and that sentence move in the same commit (CUR-2), the code being the
 here establishes that an SSR'd attribute the parser refused stays unapplied after hydration, that
 every overlay still positions under the strict policy, or that nothing sets an inline handler or
 loads a `data:` image at runtime; the first two are read off the react-dom and react-aria sources,
-the `usePress` element off the installed module. The five `ScrollShadow` call sites and the image
+the `usePress` element off the installed module. The four `ScrollShadow` call sites and the image
 consumers are a source search rather than a measurement of what each page actually streams.
 
 ### `scfh-f6gw` · Every privacy decision the sign-up programme took is reviewed once, and a German brief puts the open questions to a Datenschutzexperte
