@@ -27,7 +27,14 @@ import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./pas
 import { passkeyLastUse } from "./passkeyLastUse";
 import { ENROLMENT_CONFLICT, SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
 import { setRequestActor } from "./requestScope";
-import { ADMIN_LIFETIME, ENROLMENT_WINDOW_MS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS, STEP_UP_WINDOW_MS } from "./sessionLifetimes";
+import {
+  ADMIN_LIFETIME,
+  isWithinEnrolmentWindow,
+  isWithinStepUpWindow,
+  PERSON_LIFETIME,
+  SESSION_EXPIRES_IN_DAYS,
+  STEP_UP_WINDOW_MS,
+} from "./sessionLifetimes";
 import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "./signInCode";
 import { lookUpSubjekt, mayReceiveSignIn } from "./signInGate";
 import { verwaltungOf } from "./verwaltung";
@@ -141,22 +148,6 @@ type StepUpCaller = {
   readonly session: { readonly createdAt: Date | string; readonly authFactor?: unknown };
   readonly verwaltung: boolean;
 };
-
-function isYoungerThan(createdAt: Date | string, window: number): boolean {
-  const created = new Date(createdAt).getTime();
-
-  // An unreadable stamp is no step-up rather than an unbounded one, as `withinLifetime` reads one.
-  return Number.isFinite(created) && Date.now() - created < window;
-}
-
-function isWithinStepUpWindow(createdAt: Date | string): boolean {
-  return isYoungerThan(createdAt, STEP_UP_WINDOW_MS);
-}
-
-/** Adding a passkey asks a sign-in or confirmation this recent, whoever adds it (`docs/frontend/spec.md :: I411`). */
-function isWithinEnrolmentWindow(createdAt: Date | string): boolean {
-  return isYoungerThan(createdAt, ENROLMENT_WINDOW_MS);
-}
 
 /**
  * Whether a session was signed in -- or confirmed, which mints a new one -- recently enough to change

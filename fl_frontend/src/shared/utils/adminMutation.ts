@@ -5,7 +5,7 @@ import { adminRefusal, getAdminSession, isFreshlySignedIn } from "@/core/auth";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestWriteSent } from "@/core/requestScope";
-import { ENROLMENT_WINDOW_MS } from "@/core/sessionLifetimes";
+import { isWithinEnrolmentWindow } from "@/core/sessionLifetimes";
 
 import { unansweredAction, ZUGANG_WEG } from "./actionError";
 import { runWithIncomingTrace } from "./traceScope";
@@ -48,8 +48,7 @@ export function stepUpRequired(): StepUpRequired {
  */
 export function refuseUnconfirmed(session: AdminSession, demand: Exclude<StepUpDemand, false> = true): StepUpRequired | null {
   // Inside the step-up window as well: the narrow window is a stricter reading of the same confirmation.
-  const confirmed =
-    isFreshlySignedIn(session) && (demand !== "enrolment" || Date.now() < new Date(session.session.createdAt).getTime() + ENROLMENT_WINDOW_MS);
+  const confirmed = isFreshlySignedIn(session) && (demand !== "enrolment" || isWithinEnrolmentWindow(session.session.createdAt));
   if (confirmed) return null;
 
   refresh();

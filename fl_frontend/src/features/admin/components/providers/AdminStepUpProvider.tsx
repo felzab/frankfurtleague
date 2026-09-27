@@ -1,10 +1,10 @@
 "use client";
 
-import { startTransition, useMemo, useState } from "react";
+import { startTransition, useCallback, useMemo, useState } from "react";
 
-import { authClient } from "@/core/authClient";
 import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
 import { StepUpContext } from "@/shared/components/ui/stepUp";
+import { usePasskeyStepUp } from "@/shared/hooks/usePasskeyStepUp";
 
 import { pruefeAdministratorAction } from "../../actions";
 
@@ -36,6 +36,15 @@ export function AdminStepUpProvider({
     setUntil({ standing: served.confirmedUntil, enrolment: served.enrolmentUntil });
   }
 
+  // The account page's holder check over the administrator's own spine: an assertion signing another
+  // account in leaves the waiting write unrun (`docs/frontend/spec.md :: I428`).
+  const { inhaberId } = served;
+  const istInhaber = useCallback(async () => {
+    const holder = await pruefeAdministratorAction(inhaberId);
+    return holder.success && holder.gleich;
+  }, [inhaberId]);
+  const { stepUp: prompt } = usePasskeyStepUp(istInhaber);
+
   // Memoised by hand: the React Compiler is deliberately off, and every armed control reads this.
   const stepUp = useMemo<StepUp>(
     () => ({
@@ -44,18 +53,8 @@ export function AdminStepUpProvider({
         return confirmedUntil === null || now >= confirmedUntil;
       },
       confirm: async () => {
-        try {
-          const { error } = await authClient.signIn.passkey();
-          if (error !== null) return false;
+        if (!(await prompt())) return false;
 
-          // The account page's check, and never a second spelling: an assertion signing another account
-          // in leaves the waiting write unrun (`docs/frontend/spec.md :: I428`).
-          const holder = await pruefeAdministratorAction(served.inhaberId);
-          if (!holder.success || !holder.gleich) return false;
-        } catch {
-          // Thrown by the options request ahead of the prompt, and by a holder check that never came back.
-          return false;
-        }
         // Wrapped: the press awaits this inside its transition, and React leaves an update after an
         // `await` outside it.
         // Both windows from this moment: the assertion minted a new session, which is what each is measured from.
@@ -66,7 +65,7 @@ export function AdminStepUpProvider({
         return true;
       },
     }),
-    [until, served.inhaberId],
+    [until, prompt],
   );
 
   return <StepUpContext.Provider value={stepUp}>{children}</StepUpContext.Provider>;

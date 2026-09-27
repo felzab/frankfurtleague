@@ -15,6 +15,7 @@ const { ADMIN_FORBIDDEN, runAdminMutation, runAdminRouteWrite } = await import("
 const { boundCall, recordWriteSent, REQUEST_DEADLINE_MS } = await import("@/core/requestScope");
 const { getAdminSession } = await import("@/core/auth");
 const { APIBadStatusError, APINetworkError, ApiUnsentError, RolledBackError } = await import("@/core/errors");
+const { ENROLMENT_WINDOW_MS } = await import("@/core/sessionLifetimes");
 
 /** A body that sends a write before it answers, as a call through the API client records one. */
 const writing =
@@ -91,6 +92,26 @@ describe("the session guard every admin write runs behind", () => {
     });
 
     assert.equal(seen, await getAdminSession(), "the body was handed a session other than the one the guard resolved");
+  });
+});
+
+describe("the enrolment window a grant's write is held to", () => {
+  afterEach(() => mock.timers.reset());
+
+  /* Inside the step-up window and past the enrolment one: a write declaring either window is held to
+     its own, and the narrow one refuses what the wide one lets through. */
+  it("refuses a session confirmed six minutes ago, where the step-up window alone admits it", async () => {
+    mock.timers.enable({ apis: ["Date"], now: Date.now() });
+    mock.timers.tick(ENROLMENT_WINDOW_MS + 60_000);
+    let ran = 0;
+    const body = () => {
+      ran += 1;
+      return Promise.resolve({ success: true });
+    };
+
+    assert.equal(Reflect.get(await runAdminMutation("probeAction", { stepUp: "enrolment" }, body), "stepUp"), true);
+    assert.equal(ran, 0, "a session past the enrolment window reached the body");
+    assert.deepEqual(await runAdminMutation("probeAction", { stepUp: true }, body), { success: true });
   });
 });
 

@@ -29,3 +29,22 @@ export const STEP_UP_WINDOW_MS = 2 * HOUR_MS;
 // Narrower for ADDING a passkey, which outlives the session that adds it: a borrowed session would
 // otherwise leave its borrower a way in for good (`docs/frontend/spec.md :: I411`).
 export const ENROLMENT_WINDOW_MS = 5 * 60 * 1000;
+
+function isYoungerThan(createdAt: Date | string, window: number): boolean {
+  const created = new Date(createdAt).getTime();
+
+  // An unreadable stamp is no step-up rather than an unbounded one, as
+  // `fl_frontend/src/core/auth.ts :: withinLifetime` reads one.
+  return Number.isFinite(created) && Date.now() - created < window;
+}
+
+// Both windows' predicates beside their figures rather than in `auth.ts`: every spine judging one reads
+// it here, and the suites doubling the sign-in store keep it real.
+export function isWithinStepUpWindow(createdAt: Date | string): boolean {
+  return isYoungerThan(createdAt, STEP_UP_WINDOW_MS);
+}
+
+/** Adding a passkey asks a sign-in or confirmation this recent, whoever adds it (`docs/frontend/spec.md :: I411`). */
+export function isWithinEnrolmentWindow(createdAt: Date | string): boolean {
+  return isYoungerThan(createdAt, ENROLMENT_WINDOW_MS);
+}

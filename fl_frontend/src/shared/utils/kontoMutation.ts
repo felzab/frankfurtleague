@@ -1,5 +1,5 @@
 import { getKontoSession, isFreshlySignedIn } from "@/core/auth";
-import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
+import { ENROLMENT_WINDOW_MS, isWithinEnrolmentWindow, STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
 
 import { runGuardedMutation, stepUpRequired } from "./adminMutation";
 
@@ -30,8 +30,8 @@ export function freshUntil(served: KontoSession): number | null {
  * guard's narrower window, inside the confirmation every change takes (`docs/frontend/spec.md :: I411`).
  */
 export function enrolmentUntil(served: KontoSession): number | null {
-  const until = new Date(served.session.createdAt).getTime() + ENROLMENT_WINDOW_MS;
-  return isFreshlySignedIn(served) && Date.now() < until ? until : null;
+  if (!isFreshlySignedIn(served) || !isWithinEnrolmentWindow(served.session.createdAt)) return null;
+  return new Date(served.session.createdAt).getTime() + ENROLMENT_WINDOW_MS;
 }
 
 /**

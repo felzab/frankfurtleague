@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 
 import { authClient } from "@/core/authClient";
 
@@ -19,7 +19,9 @@ export function usePasskeyStepUp(istInhaber: () => Promise<boolean>): PasskeySte
   const [isPending, setIsPending] = useState(false);
   const [refused, setRefused] = useState(false);
 
-  const stepUp = async (): Promise<boolean> => {
+  // Memoised by hand, the React Compiler being off: the administrator's provider hands it to every
+  // armed control through its context value, which a new function each render would renew.
+  const stepUp = useCallback(async (): Promise<boolean> => {
     setIsPending(true);
     setRefused(false);
     try {
@@ -34,7 +36,7 @@ export function usePasskeyStepUp(istInhaber: () => Promise<boolean>): PasskeySte
     } finally {
       setIsPending(false);
     }
-  };
+  }, [istInhaber]);
 
   return { stepUp, isPending, refused };
 }

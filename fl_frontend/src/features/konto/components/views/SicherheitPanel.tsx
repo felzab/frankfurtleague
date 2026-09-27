@@ -17,10 +17,11 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
-import { IDENTITY_CONFIRMATION_TITLE, IdentityConfirmation, StepUpRefusal } from "@/shared/components/ui/IdentityConfirmation";
+import { IDENTITY_CONFIRMATION_TITLE, IdentityConfirmation } from "@/shared/components/ui/IdentityConfirmation";
 import { ModalShell } from "@/shared/components/ui/ModalShell";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { STEP_UP_LABEL, STEP_UP_RUNNING } from "@/shared/components/ui/stepUp";
+import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { usePasskeyStepUp } from "@/shared/hooks/usePasskeyStepUp";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
@@ -211,7 +212,7 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
           </Button>
         )}
         <p className="muted-hint text-pretty">{STEP_UP_HINT}</p>
-        {hinzufuegenStepUp.refused && <StepUpRefusal />}
+        <StepUpRefused refused={hinzufuegenStepUp.refused} />
         {/* A person's other way to a fresh sign-in, and their only one while they hold no passkey; an
             administrator's confirmation is the passkey's alone (`docs/frontend/spec.md :: I422`). */}
         {!verwaltung && (

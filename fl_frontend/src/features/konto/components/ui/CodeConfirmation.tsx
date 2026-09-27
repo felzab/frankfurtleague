@@ -7,6 +7,7 @@ import { Button } from "@heroui/react/button";
 import { handleSignIn } from "@/features/auth/actions";
 import { CodeStep } from "@/features/auth/components/forms/CodeStep";
 import { formButton } from "@/shared/components/ui/formButtons";
+import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
 import { appToast } from "@/shared/utils/appToast";
 
 import type { FormState } from "@/shared/types/types";
@@ -83,13 +84,10 @@ export function CodeConfirmation({
         className={formButton({ intent: "cancel", fullWidth: true })}>
         {isSending ? "Sendet..." : "Code per E-Mail senden"}
       </Button>
-      {refused && (
-        <p
-          role="alert"
-          className="fluid-sm text-pretty text-danger-strong">
-          {CODE_STEP_UP_REFUSED}
-        </p>
-      )}
+      <StepUpRefused
+        refused={refused}
+        message={CODE_STEP_UP_REFUSED}
+      />
     </div>
   );
 }

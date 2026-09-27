@@ -2,10 +2,11 @@
 
 import { Button } from "@heroui/react/button";
 
-import { STEP_UP_LABEL, STEP_UP_REFUSED, STEP_UP_RUNNING } from "@/shared/components/ui/stepUp";
+import { STEP_UP_LABEL, STEP_UP_RUNNING } from "@/shared/components/ui/stepUp";
 import { usePasskeyStepUp } from "@/shared/hooks/usePasskeyStepUp";
 
 import { formButton } from "./formButtons";
+import { StepUpRefused } from "./StepUpRefused";
 
 import type { ReactNode } from "react";
 
@@ -49,20 +50,9 @@ export function IdentityConfirmation({
         </Button>
       )}
 
-      {refused && <StepUpRefusal />}
+      <StepUpRefused refused={refused} />
 
       {codeHalf}
     </div>
-  );
-}
-
-/** The failed confirmation's own line, under whichever control ran it. */
-export function StepUpRefusal() {
-  return (
-    <p
-      role="alert"
-      className="fluid-sm text-pretty text-danger-strong">
-      {STEP_UP_REFUSED}
-    </p>
   );
 }
