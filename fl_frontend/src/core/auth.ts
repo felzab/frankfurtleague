@@ -383,6 +383,18 @@ async function withinBound(context: BoundContext, identifier: string, limit: num
   return null;
 }
 
+/** Whether every address together has already been mailed the hour's total: a read alone, writing nothing. */
+async function mailTotalReached(context: BoundContext): Promise<boolean> {
+  const mailed = await context.adapter.count({
+    model: "verification",
+    where: [
+      { field: "identifier", value: MAIL_TOTAL_IDENTIFIER },
+      { field: "expiresAt", operator: "gt", value: new Date() },
+    ],
+  });
+  return mailed >= CODE_MAIL_TOTAL_LIMIT;
+}
+
 /**
  * Each code sign-in's own failure row, from the hook counting it to the hook settling it, keyed on the
  * body both are handed: the newest row may be a racing attempt's, whose own removal would find nothing.
@@ -697,6 +709,14 @@ const authOptions = {
       // a send voids the held code and mails none. Ahead of the gate, so the store's rows never tell a
       // member from a stranger.
       const recipient = ctx.path === CODE_SEND_PATH ? codeSendAddress(ctx.body) : null;
+
+      // The total read ahead of the plugin as well, so a full hour voids no held code; writing nothing
+      // and naming nobody, it answers members and strangers alike. The counted row comes past the gate.
+      if (recipient !== null && (await mailTotalReached(ctx.context))) {
+        logger.warn("auth.code_mail_total_capped", { error_code: "FE-AUTH-008" });
+        return ctx.json({ success: true });
+      }
+
       if (
         recipient !== null &&
         (await withinBound(

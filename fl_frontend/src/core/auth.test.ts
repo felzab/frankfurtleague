@@ -2265,10 +2265,14 @@ describe("the code mails one address may be sent in an hour (`docs/frontend/spec
     }
     const before = sent.length;
 
+    const held = lastMailedCode(sent, ADMIN_EMAIL);
     const capped = await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
     assert.equal(sent.length, before, "a send past the total was mailed");
     assert.deepEqual(capped, mailedAnswer);
+    // Capped ahead of the plugin, which would otherwise have replaced the code the person holds.
+    assert.ok(held !== null);
+    assert.equal((await answerOf(ADMIN_EMAIL, held)).status, 200, "the capped send voided the code the person holds");
   });
 
   /* Counted per request, invented addresses would close sign-in for everyone. */
