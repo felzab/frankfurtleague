@@ -128,9 +128,9 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
     // again into the same unread grant.
     if (guarded.refused === "unread") return NextResponse.json({ success: false, error: BERECHTIGUNG_UNGELESEN });
 
-    // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: an address
-    // holding no grant is 403, and any other session 401, which sends it where it gets further.
-    return NextResponse.json({ success: false, error: ADMIN_FORBIDDEN }, { status: guarded.refused === "noGrant" ? 403 : 401 });
+    // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: a session a
+    // sign-in repairs is 401, and one whose address holds no grant 403, since no sign-in grants one.
+    return NextResponse.json({ success: false, error: ADMIN_FORBIDDEN }, { status: guarded.refused === "signIn" ? 401 : 403 });
   }
 
   const result = guarded.answer;

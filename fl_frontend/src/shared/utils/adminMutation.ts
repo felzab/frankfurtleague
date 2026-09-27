@@ -1,7 +1,7 @@
 import { refresh } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
-import { adminRefusal, getAdminSession, isFreshlySignedIn, judgeAdminRequest } from "@/core/auth";
+import { isFreshlySignedIn, judgeAdminRequest } from "@/core/auth";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestWriteSent } from "@/core/requestScope";
@@ -12,7 +12,7 @@ import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
 import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
 
-import type { AdminRefusal } from "@/core/auth";
+import type { AdminRefusal, getAdminSession } from "@/core/auth";
 import type { StepUpDemand } from "@/shared/components/ui/stepUp";
 import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "./validation";
@@ -74,8 +74,6 @@ export type Guarded<T> = { forbidden: true; refused: AdminRefusal } | { forbidde
 
 /** Which caller a spine admits, and what its log lines are filed under. */
 type Guard<S> = { readonly lane: string; readonly resolve: () => Promise<S | null> };
-
-const ADMIN_GUARD: Guard<AdminSession> = { lane: "Admin", resolve: getAdminSession };
 
 /**
  * Seeds the request scope with the edge-minted trace id, and converts a thrown API error into the caller's result
@@ -146,9 +144,20 @@ export async function runGuardedMutation<S, T extends { success: boolean }>(
   return answer;
 }
 
-/** The guard's refusal in the words that name its remedy: a grant that is gone is not repaired by a sign-in. */
-async function adminForbidden(): Promise<string> {
-  return (await adminRefusal()) === "ohne-zugang" ? ZUGANG_WEG : ADMIN_FORBIDDEN;
+/**
+ * The admin guard for one call, keeping why it refused: a second read of the session to learn why is
+ * another round trip, and can answer differently from the one that refused.
+ */
+function judgingGuard(): { readonly guard: Guard<AdminSession>; readonly verdict: { refused: AdminRefusal } } {
+  const verdict: { refused: AdminRefusal } = { refused: "signIn" };
+  const resolve = async (): Promise<AdminSession | null> => {
+    const judged = await judgeAdminRequest();
+    if ("session" in judged) return judged.session;
+    verdict.refused = judged.refused;
+    return null;
+  };
+
+  return { guard: { lane: "Admin", resolve }, verdict };
 }
 
 /** A guarded action's body, handed the administrator the guard resolved. */
@@ -172,10 +181,13 @@ export async function runAdminMutation<T extends { success: boolean }>(
   ...rest: [AdminBody<T>] | [AdminWrite, AdminBody<T>]
 ): Promise<T | ActionFailure> {
   const [{ stepUp }, fn] = rest.length === 1 ? [{ stepUp: false }, rest[0]] : rest;
+  const { guard, verdict } = judgingGuard();
+  // The refusal in the words naming its remedy: a grant that is gone is not repaired by a sign-in.
+  const forbidden = () => Promise.resolve(verdict.refused === "grantGone" ? ZUGANG_WEG : ADMIN_FORBIDDEN);
 
   return runGuardedMutation(
     mutationName,
-    { ...ADMIN_GUARD, forbidden: adminForbidden },
+    { ...guard, forbidden },
     async (session) =>
       // Ahead of the body, so a stale session's step-up write reaches neither its payload nor the backend.
       (stepUp === false ? null : refuseUnconfirmed(session, stepUp)) ?? fn(session),
@@ -191,18 +203,7 @@ export async function runAdminRouteWrite<T extends { success: boolean }>(
   mutationName: string,
   fn: (session: AdminSession) => Promise<T>,
 ): Promise<Guarded<T>> {
-  // Kept off the guard's own call: a second read of the session to learn why is another round trip,
-  // and can answer differently from the one that refused.
-  const verdict: { refused: AdminRefusal } = { refused: "signIn" };
-  const guard: Guard<AdminSession> = {
-    lane: ADMIN_GUARD.lane,
-    resolve: async () => {
-      const judged = await judgeAdminRequest();
-      if ("session" in judged) return judged.session;
-      verdict.refused = judged.refused;
-      return null;
-    },
-  };
+  const { guard, verdict } = judgingGuard();
   const guarded = await runGuarded(mutationName, guard, fn);
 
   return guarded.forbidden ? { forbidden: true, refused: verdict.refused } : { forbidden: false, answer: guarded.answer };

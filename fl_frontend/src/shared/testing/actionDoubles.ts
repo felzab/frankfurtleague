@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { blankComments } from "@/core/blankComments.ts";
 import { exportingModule } from "@/core/exportingModule.ts";
 
+import type { AdminRefusal } from "@/core/auth.ts";
 import type { SubjectSession } from "@/core/subject.ts";
 import type { ActionFailure } from "@/shared/types/types.ts";
 
@@ -206,8 +207,8 @@ type SignInAnswers = {
   signOutFailure: Error | null;
   /** `isFreshlySignedIn`'s answer, whatever session it is handed. */
   fresh: boolean;
-  /** Why the guard refused, as `adminRefusal` answers it: a new sign-in's remedy unless a case says the grant is gone. */
-  refusal: "ohne-zugang" | "anmelden";
+  /** Why the guard refuses where it refuses, or `null` to read it off the landing the case named. */
+  refusal: AdminRefusal | null;
 };
 
 /** Where the real store sends a caller the session leaves out, when a case names no other. */
@@ -237,7 +238,7 @@ async function administratorOf({ session, served }: SignInAnswers): Promise<unkn
  * as the real guard and landing judge one session: `/bereich` is a session whose address holds no grant.
  */
 async function verdictOf(answers: SignInAnswers): Promise<unknown> {
-  if (answers.session === null) return { refused: answers.destination === "/bereich" ? "noGrant" : "signIn" };
+  if (answers.session === null) return { refused: answers.refusal ?? (answers.destination === "/bereich" ? "noGrant" : "signIn") };
 
   return { session: await administratorOf(answers) };
 }
@@ -291,7 +292,6 @@ const signInStore = (url: string, answers: SignInAnswers): string =>
       ["getKontoSession", () => answering(answers.served)],
       ["getSignInDestination", () => Promise.resolve(answers.destination)],
       ["isFreshlySignedIn", () => answers.fresh],
-      ["adminRefusal", () => Promise.resolve(answers.refusal)],
       [
         "endSessionsOfAddress",
         (address: unknown) => {
@@ -345,7 +345,7 @@ export function doubleActionRequest({
   /** Makes every sign-out for the rest of the case throw `failure`. */
   failSignOut: (failure: Error) => void;
   /** Why the guard refuses for the rest of the case, where it refuses. */
-  setRefusal: (next: "ohne-zugang" | "anmelden") => void;
+  setRefusal: (next: AdminRefusal) => void;
 } {
   const answers: SignInAnswers = {
     session,
@@ -356,7 +356,7 @@ export function doubleActionRequest({
     signedOut: [],
     signOutFailure: null,
     fresh: true,
-    refusal: "anmelden",
+    refusal: null,
   };
   // The destination goes with the session, so a case cannot leave one standing that another case's session contradicts.
   const setSession = (next: AdminSessionDouble, destination = destinationOf(next)): void => {
@@ -375,7 +375,7 @@ export function doubleActionRequest({
     answers.signedOut.length = 0;
     answers.signOutFailure = null;
     answers.fresh = true;
-    answers.refusal = "anmelden";
+    answers.refusal = null;
   });
   registerHooks({
     resolve(specifier, context, nextResolve) {

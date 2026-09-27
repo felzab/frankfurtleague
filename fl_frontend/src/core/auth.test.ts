@@ -194,7 +194,6 @@ const { runWithEndpointContext } = (await import(
   pathToFileURL(createRequire(import.meta.resolve("better-auth")).resolve("@better-auth/core/context")).href
 )) as { runWithEndpointContext: <T>(context: object, run: () => Promise<T>) => Promise<T> };
 const {
-  adminRefusal,
   auth,
   endSessionsOfAddress,
   getAdminSession,
@@ -690,13 +689,13 @@ describe("why the admin guard refused", () => {
   it("answers a grant that is gone apart from a session a new sign-in repairs", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     arriveAs(cookie);
-    assert.equal(await adminRefusal(), "anmelden", "a code-borne session was told its grant is gone");
+    assert.deepEqual(await judgeAdminRequest(), { refused: "signIn" }, "a code-borne session was told its grant is gone");
 
     row.authFactor = "passkey";
     BACKENDS.set(ADMIN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
 
     assert.equal(await getAdminSession(), null, "the guard admitted a session holding no grant");
-    assert.equal(await adminRefusal(), "ohne-zugang");
+    assert.deepEqual(await judgeAdminRequest(), { refused: "grantGone" });
   });
 });
 

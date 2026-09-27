@@ -46,7 +46,7 @@ describe("the session guard every admin write runs behind", () => {
      sign-in that restores nothing. */
   it("tells a caller whose grant is gone so, rather than to sign in again", async () => {
     setSession(null);
-    setRefusal("ohne-zugang");
+    setRefusal("grantGone");
 
     const answer = await runAdminMutation("probeAction", () => Promise.resolve({ success: true }));
 

@@ -39,12 +39,12 @@ let grantUnread = false;
 const AUTH = exportingModule({
   getAdminSession: async () => (through() && !grantUnread ? session() : null),
   isFreshlySignedIn: () => true,
-  adminRefusal: async () => "anmelden",
   judgeAdminRequest: async () => {
     const served = session();
     if (served === null) return { refused: "signIn" };
     if (grantUnread) return { refused: "unread" };
-    if (served.user.email !== GRANTED) return { refused: "noGrant" };
+    // A passkey session holding no grant is one whose grant is gone; a code-made one a person's.
+    if (served.user.email !== GRANTED) return { refused: served.session.authFactor === "passkey" ? "grantGone" : "noGrant" };
     return through() ? { session: served } : { refused: "signIn" };
   },
   // Answering where the spine asked the landing after its guard's own verdict: a second read of the session.
@@ -175,23 +175,26 @@ describe("who the undo spine answers before it does any work", () => {
   /* The line `fl_frontend/src/proxy.ts` draws: a session holding no grant is sent to the person's own
      `/bereich` rather than to sign in again, which would grant it no administration either. */
   it("answers a session holding no grant apart from a missing one, and still does no work for it", async () => {
-    undoRouteSession = { user: { email: "ehemalig@example.de" }, session: { authFactor: "passkey" } };
-    let restored = 0;
+    // A person's code-made session, and an administrator's passkey session whose grant is gone.
+    for (const authFactor of ["code", "passkey"]) {
+      undoRouteSession = { user: { email: "ehemalig@example.de" }, session: { authFactor } };
+      let restored = 0;
 
-    try {
-      const { answer, status, invalidated, bodiesRead } = await undo(async () => {
-        restored += 1;
-        return {};
-      });
+      try {
+        const { answer, status, invalidated, bodiesRead } = await undo(async () => {
+          restored += 1;
+          return {};
+        });
 
-      assert.equal(status, 403, "a person's live session is answered as though nobody were signed in");
-      // The envelope, which is what tells this 403 from an edge's challenge in the dispatch.
-      assert.equal(answer.success, false, "the refusal carries no outcome the dispatch can recognise as the route's");
-      assert.equal(bodiesRead, 0, "the body is read for a caller nobody has authorized");
-      assert.equal(restored, 0, "the undo restores for a session nobody authorized");
-      assert.deepEqual(invalidated, [], "the caches are cleared for a caller nobody has authorized");
-    } finally {
-      undoRouteSession = undefined;
+        assert.equal(status, 403, `a ${authFactor} session holding no grant is answered as though nobody were signed in`);
+        // The envelope, which is what tells this 403 from an edge's challenge in the dispatch.
+        assert.equal(answer.success, false, "the refusal carries no outcome the dispatch can recognise as the route's");
+        assert.equal(bodiesRead, 0, "the body is read for a caller nobody has authorized");
+        assert.equal(restored, 0, "the undo restores for a session nobody authorized");
+        assert.deepEqual(invalidated, [], "the caches are cleared for a caller nobody has authorized");
+      } finally {
+        undoRouteSession = undefined;
+      }
     }
   });
 

@@ -1036,30 +1036,10 @@ export function isAdminSession(served: ServedSession, verwaltung: boolean): bool
 }
 
 /**
- * Why the admin guard turned this request away: `ohne-zugang` where the session would pass but its address
- * holds no grant, which no sign-in restores; `anmelden` for everything a new sign-in does repair.
+ * Why the administrator's guard turned a request away, by what repairs it: a sign-in for `signIn`; no
+ * caller for `noGrant`, nor for `grantGone`, a session passing but for its grant; the backend for `unread`.
  */
-export async function adminRefusal(): Promise<"ohne-zugang" | "anmelden"> {
-  const served = await auth.api.getSession({ headers: await headers() });
-  if (!served || served.session.authFactor !== PASSKEY_FACTOR || !withinLifetime(served.session, ADMIN_LIFETIME)) return "anmelden";
-
-  // An unread grant is no answer about the grant, so it is told as the guard's own refusal.
-  return (await verwaltungOrNull(served.user.email)) === false ? "ohne-zugang" : "anmelden";
-}
-
-/**
- * `isAdminSession` over the grant this request reads, for the admin guard: an unread grant admits nobody,
- * so the administration is shut while the backend is.
- */
-async function isAdminRequest(served: ServedSession): Promise<boolean> {
-  return isAdminSession(served, (await verwaltungOrNull(served.user.email)) === true);
-}
-
-/**
- * Why the administrator's guard turned a request away, by what repairs it: a sign-in for `signIn`,
- * nothing a caller does for `noGrant`, and the backend for `unread`, whose grant read went unanswered.
- */
-export type AdminRefusal = "signIn" | "noGrant" | "unread";
+export type AdminRefusal = "signIn" | "noGrant" | "grantGone" | "unread";
 
 // React's `cache`, never `"use cache"`, which would hand one request's session to another: one read
 // serves every guard of a render pass, and none outside it, where a server action and the proxy
@@ -1072,9 +1052,10 @@ export const judgeAdminRequest = cache(async (): Promise<{ readonly session: Jud
   const served = await auth.api.getSession({ headers: await headers() });
   if (!served) return { refused: "signIn" };
 
+  // An unread grant admits nobody, so the administration is shut while the backend is.
   const verwaltung = await verwaltungOrNull(served.user.email);
   if (verwaltung === null) return { refused: "unread" };
-  if (!verwaltung) return { refused: "noGrant" };
+  if (!verwaltung) return { refused: isAdminSession(served, true) ? "grantGone" : "noGrant" };
   if (!isAdminSession(served, true)) return { refused: "signIn" };
 
   // Recorded here rather than in `runAdminMutation`: a second resolution is another round trip to
