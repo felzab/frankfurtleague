@@ -201,6 +201,7 @@ const {
   forgiveCodeAttempt,
   getAdminSession,
   getKontoSession,
+  getSignedInAddress,
   getPasskeyStep,
   getSignInDestination,
   isAdminSession,
@@ -582,6 +583,27 @@ describe("what the narrowed session still gives the guards", () => {
     // session belongs, and `fl_frontend/src/proxy.test.ts` holds the pair to not bouncing a caller.
     assert.equal(new URL(answer.headers.get("location") ?? "http://x/none").pathname, "/signin/weiter");
     assert.equal(await getAdminSession(), null);
+  });
+});
+
+/* `/signin` greets whom the landing would send on, and offers everybody else a sign-in: a second
+   sign-in over a live session would list that account's passkeys alone. */
+describe("whom `/signin` greets rather than offering a sign-in", () => {
+  it("greets a live session by its folded address, and nobody without one", async () => {
+    arriveAs(null);
+    assert.equal(await getSignedInAddress(), null);
+
+    const { cookie } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie);
+    assert.equal(await getSignedInAddress(), PERSON_EMAIL);
+  });
+
+  it("offers a spent session a fresh sign-in rather than greeting it", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    ageRow(row, { created: 31 * DAY_MS });
+    arriveAs(cookie);
+
+    assert.equal(await getSignedInAddress(), null);
   });
 });
 
@@ -2121,6 +2143,7 @@ describe("the failures one address may spend, across every code it is sent (`doc
       const racing = { ...counted, id: "racing-attempt", createdAt: new Date(Date.now() + 60_000) };
       store.verification.push(racing);
 
+      ageCodeRows(address);
       const otp = await auth.api.createVerificationOTP({ body: { email: address, type: "sign-in" } });
       assert.equal((await answerOf(address, otp)).code, "SIGN_IN_BARRED");
 

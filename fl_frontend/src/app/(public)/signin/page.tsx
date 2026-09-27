@@ -1,5 +1,11 @@
+import { Suspense } from "react";
+import { connection } from "next/server";
+
+import { getSignedInAddress } from "@/core/auth";
 import { SIGN_IN_LANDING } from "@/core/signInLanding";
 import { SignInForm } from "@/features/auth/components/forms/SignInForm";
+import { SignedInCard } from "@/features/auth/components/ui/SignedInCard";
+import { ContentLoader } from "@/shared/components/ui/ContentLoader";
 import { openGraphFor } from "@/shared/utils/metadata";
 
 import type { Metadata } from "next";
@@ -16,6 +22,18 @@ export const metadata: Metadata = {
   alternates: { canonical: "/signin" },
 };
 
+/** Resolves nothing itself, for `/signin/weiter`'s reason: the card is a function of the request's session. */
 export default function SignInPage() {
-  return <SignInForm next={SIGN_IN_LANDING} />;
+  return (
+    <Suspense fallback={<ContentLoader fills="viewport" />}>
+      <AnmeldenInhalt />
+    </Suspense>
+  );
+}
+
+async function AnmeldenInhalt() {
+  await connection();
+
+  const address = await getSignedInAddress();
+  return address === null ? <SignInForm next={SIGN_IN_LANDING} /> : <SignedInCard address={address} />;
 }

@@ -1142,8 +1142,22 @@ export type SignInDestination = "/bereich/admin" | "/signin/passkey" | "/bereich
 
 export async function getSignInDestination(): Promise<SignInDestination> {
   const requestHeaders = await headers();
+  return signInDestinationOf(await auth.api.getSession({ headers: requestHeaders }), requestHeaders);
+}
 
+/**
+ * The address `/signin` greets rather than offering a sign-in: one the landing would send on
+ * anywhere but back to `/signin`, so a spent or unreadable session is offered a fresh sign-in.
+ */
+export async function getSignedInAddress(): Promise<string | null> {
+  const requestHeaders = await headers();
   const served = await auth.api.getSession({ headers: requestHeaders });
+  if ((await signInDestinationOf(served, requestHeaders)) === "/signin" || served === null) return null;
+
+  return asSignInIdentifier(served.user.email);
+}
+
+async function signInDestinationOf(served: ServedSession | null, requestHeaders: Headers): Promise<SignInDestination> {
   if (!served) return "/signin";
 
   // An unread grant is the backend down: `/bereich` answers it with the person area's outage panel, its

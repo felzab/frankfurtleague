@@ -3,8 +3,8 @@ import { DISPLAY_HEADING_CLASSES } from "./displayType";
 import type { ReactNode } from "react";
 
 /**
- * The box every step of one sign-in stands in — the form with its code step, and the passkey page —
- * so a change to the card's grade reaches both rather than one of them.
+ * The box every step of one sign-in stands in — the form with its code step, the passkey page, and the
+ * greeting of somebody already signed in — so a change to the card's grade reaches all three at once.
  */
 export function SignInCard({
   title,
