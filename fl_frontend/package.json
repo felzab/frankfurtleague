@@ -17,7 +17,7 @@
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 node next-dev.mjs dev --turbo",
     "build": "next build",
-    "environment-names": "node --conditions=react-server --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tsconfig-alias-hook.mjs emit-environment-names.mjs",
+    "environment-names": "node --conditions=react-server --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/tsconfig-alias-hook.mjs scripts/emit-environment-names.mjs",
     "start": "next start",
     "lint": "eslint . --max-warnings 0 --cache --cache-strategy content --cache-location node_modules/.cache/eslint/",
     "knip": "knip --no-progress --treat-config-hints-as-errors",
@@ -27,7 +27,7 @@
     "typecheck": "pnpm typegen && tsc --noEmit",
     "typecheck:only": "tsc --noEmit",
     "test": "pnpm run test:base \"**/!(*.db).test.{cjs,mjs,js,cts,mts,ts}\" \"**/*-test.{cjs,mjs,js,cts,mts,ts}\" \"**/*_test.{cjs,mjs,js,cts,mts,ts}\" \"**/test-*.{cjs,mjs,js,cts,mts,ts}\" \"**/test.{cjs,mjs,js,cts,mts,ts}\" \"**/test/**/*.{cjs,mjs,js,cts,mts,ts}\"",
-    "test:base": "cross-env SKIP_ENV_VALIDATION=true MONGODB_URI=mongodb://localhost:27017/placeholder node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tsconfig-alias-hook.mjs --test",
+    "test:base": "cross-env SKIP_ENV_VALIDATION=true MONGODB_URI=mongodb://localhost:27017/placeholder node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/tsconfig-alias-hook.mjs --test",
     "test:db": "pnpm run test:base \"**/*.db.test.{cjs,mjs,js,cts,mts,ts}\"",
     "audit:prod": "pnpm audit --prod --audit-level high"
   },

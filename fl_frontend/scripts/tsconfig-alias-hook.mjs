@@ -29,7 +29,8 @@ import { createRequire, registerHooks } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const SRC_DIR = path.join(import.meta.dirname, "src");
+const FRONTEND_DIR = path.join(import.meta.dirname, "..");
+const SRC_DIR = path.join(FRONTEND_DIR, "src");
 const ALIAS = "@/";
 
 /** tsconfig maps `@/*` to `./src/*`; TypeScript then resolves the extension, so we do the same. */
@@ -104,12 +105,12 @@ registerHooks({
     // Throw rather than fall through: Node's own error for an unresolved `@/…` is
     // `Cannot find package '@/shared'`, which sends the reader hunting a missing dependency — the
     // one thing it is not.
-    const tried = CANDIDATE_SUFFIXES.map((suffix) => path.relative(import.meta.dirname, base + suffix)).join(", ");
+    const tried = CANDIDATE_SUFFIXES.map((suffix) => path.relative(FRONTEND_DIR, base + suffix)).join(", ");
     throw new Error(
       `Cannot resolve "${specifier}"` +
         (context.parentURL ? ` imported from ${context.parentURL}` : "") +
         `\n  The "@/*" alias maps to src/*. None of these files exist: ${tried}` +
-        `\n  (resolved by tsconfig-alias-hook.mjs, which teaches \`node --test\` the tsconfig path alias)`,
+        `\n  (resolved by scripts/tsconfig-alias-hook.mjs, which teaches \`node --test\` the tsconfig path alias)`,
     );
   },
 });

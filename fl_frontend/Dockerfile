@@ -85,7 +85,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # The mode is spelled rather than left to the builder's umask: the preflight reads them as the host's
 # own user, so a 0600 pair would answer the advisory on every deploy and never the refusal.
-COPY --from=builder --chmod=644 /app/environment-names.json /app/check-environment-names.mjs ./
+COPY --from=builder --chmod=644 /app/environment-names.json /app/scripts/check-environment-names.mjs ./
 
 USER nextjs
 EXPOSE 3000

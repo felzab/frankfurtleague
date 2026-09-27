@@ -125,7 +125,7 @@ it("leaves a write running", () => {
     try {
       const run = spawnSync(
         process.execPath,
-        ["--import", pathToFileURL(path.join(SRC, "..", "tsconfig-alias-hook.mjs")).href, "--test", "--test-reporter=spec", fixture],
+        ["--import", pathToFileURL(path.join(SRC, "..", "scripts", "tsconfig-alias-hook.mjs")).href, "--test", "--test-reporter=spec", fixture],
         { encoding: "utf8", timeout: 120_000, env },
       );
 

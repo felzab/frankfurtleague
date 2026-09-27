@@ -18,10 +18,10 @@ registerHooks({
   },
 });
 
-const HERE = import.meta.dirname;
-const CHECKER = path.join(HERE, "check-environment-names.mjs");
-const MANIFEST = JSON.parse(readFileSync(path.join(HERE, "package.json"), "utf8"));
-const DOCKERFILE = readFileSync(path.join(HERE, "Dockerfile"), "utf8");
+const FRONTEND = path.join(import.meta.dirname, "..");
+const CHECKER = path.join(import.meta.dirname, "check-environment-names.mjs");
+const MANIFEST = JSON.parse(readFileSync(path.join(FRONTEND, "package.json"), "utf8"));
+const DOCKERFILE = readFileSync(path.join(FRONTEND, "Dockerfile"), "utf8");
 const SCRATCH = mkdtempSync(path.join(tmpdir(), "fl-environment-names-"));
 
 // Dummy names throughout, and files this suite writes itself: nothing here reads, mounts or names a
@@ -207,7 +207,7 @@ describe("the key set the image carries", () => {
     const destination = path.join(SCRATCH, "emitted.json");
 
     assert.equal(command, "node");
-    const done = spawnSync(process.execPath, [...flags, destination], { cwd: HERE, encoding: "utf8" });
+    const done = spawnSync(process.execPath, [...flags, destination], { cwd: FRONTEND, encoding: "utf8" });
     assert.equal(done.status, 0, done.stderr);
 
     // `pnpm test` sets it; run bare, the import below validates on a machine holding no value for
@@ -217,7 +217,7 @@ describe("the key set the image carries", () => {
     /* Skipping validation makes `createEnv` hand back the `runtimeEnv` object itself, so these keys
        are the wiring the emitter's own route never reads: two lists that can disagree
        (`docs/_standard/standard.md :: PRE-4`). */
-    const { frontend_config } = await import("./src/core/config.ts");
+    const { frontend_config } = await import("../src/core/config.ts");
     const wired = Object.keys(frontend_config).sort();
 
     const emitted = JSON.parse(readFileSync(destination, "utf8"));
@@ -246,7 +246,10 @@ describe("the key set the image carries", () => {
     // preflight running as the host's own user and never as the builder's.
     assert.equal(copied[1], "--chmod=644", "the reader and the key set are copied at whatever mode the builder left them");
     assert.deepEqual(new Set(workdirs), new Set(["/app"]));
-    assert.deepEqual(new Set([copied[2], copied[3]]), new Set([DECLARED_NAMES_FILE, `/app/${path.basename(CHECKER)}`]));
+    // Its source path in the builder; the `./` destination lands it at `/app/` in the runner, the path
+    // `scripts/tests/test_deploy_env_names.py` holds to what the deploy runs.
+    const builderChecker = `/app/${path.relative(FRONTEND, CHECKER).split(path.sep).join("/")}`;
+    assert.deepEqual(new Set([copied[2], copied[3]]), new Set([DECLARED_NAMES_FILE, builderChecker]));
     assert.equal(`/app/${emitted[1]}`, DECLARED_NAMES_FILE);
   });
 });

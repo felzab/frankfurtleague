@@ -337,7 +337,7 @@ describe("the sign-in store's client recovers from a cold start it could not com
         "--conditions=react-server",
         "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON",
         "--import",
-        import.meta.resolve("../../tsconfig-alias-hook.mjs"),
+        import.meta.resolve("../../scripts/tsconfig-alias-hook.mjs"),
         "--input-type=module",
         "--eval",
         `const { client } = await import("@/core/db.ts");
