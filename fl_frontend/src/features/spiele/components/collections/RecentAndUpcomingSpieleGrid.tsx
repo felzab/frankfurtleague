@@ -86,7 +86,7 @@ function SectionBody({
         tone="warning"
         badgeLabel="Spielunterbrechung"
         heading="Spieldaten konnten nicht geladen werden."
-        message="Dieser Bereich ist gerade nicht erreichbar.">
+        message="Die Spiele sind gerade nicht erreichbar.">
         <Link
           href="/dashboard/spielplan#top"
           prefetch={false}
