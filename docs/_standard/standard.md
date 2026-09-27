@@ -413,7 +413,8 @@ README and every template.
   `3. Violation → remedy`; and `4. Known-open`. The invariant table is three columns — the number,
   the invariant, and what enforces it. Numbers are `I<n>` on a surface sheet and `L<n>` on the
   logging sheet, permanent and
-  never reused; **the `I<n>` band is one namespace across every sheet at `docs/*/spec.md`** — OUT-8's
+  never reused once on `main`: a number a branch retires before merging was never issued, and the
+  branch reuses it, since its allocation runs without a gap; **the `I<n>` band is one namespace across every sheet at `docs/*/spec.md`** — OUT-8's
   three surfaces, the pipeline sheet and the logging sheet, which is the set
   `scripts/checks/docs_gate/branch.py :: _spec_sheet` reads — so a new row takes one past the highest
   number any sheet defines and a citation crossing sheets still names its

@@ -289,12 +289,10 @@ const SPIELER_ABSAETZE = {
     "Du hast Dich über den Link Deines Teams {team} ({schule}) für die Saison {saison} der Frankfurt League registriert. Auf dieser " +
     "Seite bestätigst Du diese Registrierung und entscheidest, was wir mit Deinen Angaben tun dürfen. Erst danach kann Dein Team " +
     "Dich in seinen Kader aufnehmen.",
-  // GERMAN-PENDING: new German, not yet approved.
   gespeichert:
     "Gespeichert sind Dein Vorname, Dein Nachname, Deine E-Mail-Adresse, Deine Rückennummer, Deine Position und Deine Stufe sowie " +
     "das Geburtsdatum, das Du gleich hier einträgst. Mit Deiner E-Mail-Adresse hast Du zugleich ein Konto auf der Website: Du " +
     "meldest Dich damit ohne Passwort an und siehst dort jederzeit, was wir über Dich gespeichert haben.",
-  // GERMAN-PENDING: new German, not yet approved.
   geburtsdatum:
     "Mitspielen kann nur, wer mindestens {minAlter} Jahre alt ist. Das prüfen wir an dem Geburtsdatum, das Du hier einträgst; " +
     "niemand hat es vorher für Dich angegeben. Ein falsches Geburtsdatum beendet die Teilnahme: Wir sperren das Konto, und mit " +
@@ -304,13 +302,11 @@ const SPIELER_ABSAETZE = {
     "Deine Nummer, Deine Position und Deine Stufe, entscheiden über die Aufnahme in den Kader und können Nummer, Position, Stufe und die " +
     "Kapitänsrolle anpassen. Deine E-Mail-Adresse und Dein Geburtsdatum sehen nur die Administratorinnen und Administratoren der " +
     "Liga.",
-  // GERMAN-PENDING: new German, not yet approved.
   veroeffentlichung:
     "Du entscheidest, ob Dein Vorname und der Anfangsbuchstabe Deines Nachnamens auf der Website erscheinen: in der Kaderliste " +
     "Deines Teams, in Aufstellungen und bei Torschützen und Karten. Mehr als das steht dort in keinem Fall: nie Dein voller " +
     "Nachname. Wählst Du „intern“, stehen dort nur Deine Nummer und Deine Position, und an der Stelle Deines Namens steht „anonym“. Am " +
     "Mitspielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Konto umstellen.",
-  // GERMAN-PENDING: new German, not yet approved.
   medien:
     "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga " +
     "von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich " +
@@ -328,7 +324,6 @@ const SPIELER_ABSAETZE = {
     "über den Link Deines Teams erneut registrieren. Deine Angaben behalten wir, bis in der nächsten Saison die Registrierung " +
     "geschlossen ist. Registrierst Du Dich dort wieder mit derselben E-Mail-Adresse, bleiben sie erhalten und Du musst nur Deine " +
     "Wahl bestätigen; andernfalls löschen wir sie dann vollständig.",
-  // GERMAN-PENDING: new German, not yet approved.
   widerruf:
     "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. " +
     "Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Konto über " +
@@ -360,7 +355,6 @@ export const SCHIEDSRICHTER_ABSAETZE = {
   worum:
     "Die Verwaltung der Frankfurt League hat Dich als Schiedsrichterin oder Schiedsrichter eingetragen und Dir dafür diesen Link " +
     "geschickt. Auf dieser Seite bestätigst Du den Eintrag und entscheidest, was wir mit Deinen Angaben tun dürfen.",
-  // GERMAN-PENDING: new German, not yet approved.
   gespeichert:
     "Gespeichert sind Dein Name, Deine E-Mail-Adresse und, falls angegeben, Deine Schule und Deine Telefonnummer, das für Dich " +
     "hinterlegte Honorar je Spiel sowie das Geburtsdatum, das Du gleich hier einträgst. Mit Deiner E-Mail-Adresse hast Du " +
@@ -372,13 +366,11 @@ export const SCHIEDSRICHTER_ABSAETZE = {
   wer:
     "Deine Schule, Deine Kontaktdaten, das Honorar und Dein Geburtsdatum sehen nur die Administratorinnen und " +
     "Administratoren der Liga. Diese Angaben werden nirgends veröffentlicht und nicht an Teams, Schulen oder Dritte weitergegeben.",
-  // GERMAN-PENDING: new German, not yet approved.
   veroeffentlichung:
     "Du entscheidest, ob Dein Name im Spielplan bei den Spielen erscheint, die Du leitest: der erste Teil Deines Namens und vom " +
     "nächsten nur der Anfangsbuchstabe; ist nur ein Name eingetragen, steht er ganz da. Wählst Du „intern“, steht dort an der " +
     "Stelle Deines Namens „anonym“. Am Leiten von Spielen ändert diese Wahl nichts, und Du kannst sie jederzeit in Deinem Konto " +
     "umstellen.",
-  // GERMAN-PENDING: new German, not yet approved.
   medien:
     "Unabhängig davon kannst Du ab {medienMinAlter} Jahren erlauben, dass Fotos, Videos und Interviews, die im Rahmen der Liga " +
     "von Dir entstehen, auf unserer Website und unserem Instagram-Kanal veröffentlicht werden. Bist Du jünger, fragen wir Dich " +
@@ -395,7 +387,6 @@ export const SCHIEDSRICHTER_ABSAETZE = {
     "Bestätigst Du diese Seite nicht innerhalb von vierzehn Tagen, verfällt der Link; die Verwaltung schickt Dir auf Wunsch einen " +
     "neuen. Dein Eintrag ist an keine Saison gebunden und bleibt bestehen, bis er endgültig gelöscht wird: von Dir selbst, von " +
     "der Verwaltung oder auf Deinen Wunsch. Setzt die Verwaltung Dich nur nicht mehr ein, bleibt er bestehen.",
-  // GERMAN-PENDING: new German, not yet approved.
   widerruf:
     "Du kannst jede Einwilligung jederzeit zurücknehmen (Art. 7 Abs. 3 DSGVO); was bis dahin geschehen ist, bleibt rechtmäßig. " +
     "Du kannst außerdem jederzeit die Löschung aller Deiner Daten verlangen (Art. 17 DSGVO): direkt in Deinem Konto über " +

@@ -234,7 +234,7 @@ export function RegistrierungFormPanel({
               <FieldError className={FIELD_ERROR_CLASSES} />
               <Hint
                 mode="field"
-                text="An diese Adresse schicken wir Deinen Bestätigungslink. Sie wird später auch Dein Zugang zur Website."
+                text="An diese Adresse schicken wir Deinen Bestätigungslink. Mit ihr hast Du später auch ein Konto auf der Website."
               />
             </TextField>
 
