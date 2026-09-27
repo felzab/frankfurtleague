@@ -1112,8 +1112,9 @@ const authOptions = {
 
     passkeyLastUse(),
 
-    // No `customSession`: its read answers a store that does not answer as no session, and the guards'
-    // projection is `projected` below, over the library's own read (`docs/frontend/spec.md :: I519`).
+    // No `customSession` while its read answers a store that does not answer as no session, which
+    // better-auth pull request 11391 retires: until then `projected` below builds the guards' copy over
+    // the library's own read (`docs/frontend/spec.md :: I519`).
 
     // Last, which the library warns about: it copies a response's `set-cookie` into Next's store.
     nextCookies(),
