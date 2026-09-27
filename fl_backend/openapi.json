@@ -6207,7 +6207,7 @@
       },
       "post": {
         "summary": "Ban an email address",
-        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is\nrunning, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and\nwhere the address is an administrator's (`REQ-SPERRLISTE-003`). The ban covers the fifth season\nafter the one running now — the last one it covers is answered as `gesperrt_bis_saison_id` — and\nit survives that person's erasure.",
+        "description": "Ban an address from signing up. The address is hashed under the backend key and dropped; no row and no log line holds it.\n\nRefused where the list already holds the address (`REQ-SPERRLISTE-001`), while no season is\nrunning, there being nothing to count the ban's five seasons from (`REQ-SPERRLISTE-002`), and\nwhere the address is an administrator's (`REQ-SPERRLISTE-003`), and where the administrator\nentering it holds no grant by the time it is judged (`REQ-BERECHTIGUNG-006`). The ban covers the\nfifth season after the one running now — the last one it covers is answered as\n`gesperrt_bis_saison_id` — and it survives that person's erasure. Every grant notice still queued\nfor the address loses the address in the same transaction.",
         "operationId": "post_sperrliste_eintrag_api_v0_sperrliste_post",
         "requestBody": {
           "content": {
@@ -6246,7 +6246,7 @@
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004"
           },
           "403": {
-            "$ref": "#/components/responses/403.REQ-AUTH-006"
+            "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-BERECHTIGUNG-006"
           },
           "503": {
             "$ref": "#/components/responses/503.DB-CONN-001"
@@ -6321,7 +6321,7 @@
     "/api/v0/berechtigungen": {
       "get": {
         "summary": "List who may enter the administration",
-        "description": "List every live grant of access to the administration, by address: its tier, who granted it and when.\n\nUncapped, as few people hold one. A row whose address no request can match -- empty, unfolded or refused by the address rule --\nadmits nobody and is left out, counted in `uebersprungen`. An address on the ban list is answered as `null` beside `gesperrt`,\nnever in plain. `erteilt_von` is an administrator's address for a grant made here, and whatever the database edit wrote for one\nmade there.",
+        "description": "List every live grant of access to the administration, by address: its tier, who granted it and when.\n\nUncapped, as few people hold one. A row whose address no request can match -- empty, unfolded or refused by the address rule --\nadmits nobody and is left out, counted in `uebersprungen`. An address on the ban list is answered as `null` beside `gesperrt`,\nnever in plain, and so is a barred `erteilt_von`, beside `erteilt_von_gesperrt`; it is otherwise an administrator's address\nfor a grant made here and whatever the database edit wrote for one made there.",
         "operationId": "get_berechtigungen_api_v0_berechtigungen_get",
         "responses": {
           "200": {
@@ -7702,7 +7702,7 @@
     "/api/v0/berechtigungen/abgleich": {
       "post": {
         "summary": "Claim the grant changes still to be announced",
-        "description": "Queue every change made to the grants in the database directly, then claim the unannounced changes and answer who to tell.\n\nEvery grant and revoke made through the application queued its own notice when it was made, naming the administrator who made\nit. What was changed in the database directly is found here, by comparing the grants with the record of what is already\naccounted for, and queued naming nobody: `geaendert_von` and `geaendert_am` null. A database change undone again before any\ncall to this endpoint is found by nothing. A row whose address no request can match counts as no grant, and `uebersprungen`\ncounts those rows.\n\nThe call then claims, oldest first and a page at a time, every queued change no claim holds or whose claim has lapsed, for ten\nminutes from now. A second call inside that time is answered none of them. The caller mails each change and then hands the ids it\nmailed, with `beanspruchung`, to `POST /berechtigungen/abgleich/angekuendigt`. Where a lease lapses before that, the next call\nclaims those changes again. `beanspruchung` and `beansprucht_bis` are null exactly where nothing was claimed.\n\nNo barred address is answered in plain: wherever one would stand -- `jetzt`, `vorher`, `empfaenger` -- it is `null` or left out,\nand the change carries `gesperrt`. `empfaenger` is every live, unbarred grant holder now; a removed address is read off its change.",
+        "description": "Queue every change made to the grants in the database directly, then claim the unannounced changes and answer who to tell.\n\nEvery grant and revoke made through the application queued its own notice when it was made, naming the administrator who made\nit. What was changed in the database directly is found here, by comparing the grants with the record of what is already\naccounted for, and queued naming nobody: `geaendert_von` and `geaendert_am` null. A database change undone again before any\ncall to this endpoint is found by nothing. A row whose address no request can match counts as no grant, and `uebersprungen`\ncounts those rows.\n\nThe call then claims, oldest first and a page at a time, every queued change no claim holds or whose claim has lapsed, for ten\nminutes from now. A second call inside that time is answered none of them. The caller mails each change and then hands the ids it\nmailed, with `beanspruchung`, to `POST /berechtigungen/abgleich/angekuendigt`. Where a lease lapses before that, the next call\nclaims those changes again. `beanspruchung` and `beansprucht_bis` are null exactly where nothing was claimed.\n\n`urheber` says who made each change: `anwendung` for an administrator through the application, `datenbank` for an edit\nfound here. No barred address is answered in plain: wherever one would stand -- `jetzt`, `vorher`, `geaendert_von`,\n`empfaenger` -- it is `null` or left out, and the change carries `gesperrt`; a withheld `geaendert_von` carries\n`geaendert_von_gesperrt` as well. An address changed in place is two changes, its removal and the new address's grant.\n`empfaenger` is every live, unbarred grant holder now; a removed address is read off its change.",
         "operationId": "post_berechtigungen_abgleich_api_v0_berechtigungen_abgleich_post",
         "responses": {
           "200": {
@@ -7714,6 +7714,9 @@
                 }
               }
             }
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002"
           },
           "default": {
             "$ref": "#/components/responses/default"
@@ -8686,6 +8689,14 @@
             ],
             "title": "Art"
           },
+          "urheber": {
+            "type": "string",
+            "enum": [
+              "anwendung",
+              "datenbank"
+            ],
+            "title": "Urheber"
+          },
           "jetzt": {
             "anyOf": [
               {
@@ -8717,6 +8728,10 @@
             ],
             "title": "Geaendert Von"
           },
+          "geaendert_von_gesperrt": {
+            "type": "boolean",
+            "title": "Geaendert Von Gesperrt"
+          },
           "geaendert_am": {
             "anyOf": [
               {
@@ -8739,9 +8754,11 @@
           "id",
           "berechtigung_id",
           "art",
+          "urheber",
           "jetzt",
           "vorher",
           "geaendert_von",
+          "geaendert_von_gesperrt",
           "geaendert_am",
           "gesperrt"
         ],
@@ -8885,9 +8902,19 @@
             "title": "Verwaltung"
           },
           "erteilt_von": {
-            "type": "string",
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Erteilt Von"
+          },
+          "erteilt_von_gesperrt": {
+            "type": "boolean",
+            "title": "Erteilt Von Gesperrt"
           },
           "erteilt_am": {
             "type": "string",
@@ -8902,6 +8929,7 @@
           "gesperrt",
           "verwaltung",
           "erteilt_von",
+          "erteilt_von_gesperrt",
           "erteilt_am"
         ],
         "title": "FLBerechtigungZeile",
