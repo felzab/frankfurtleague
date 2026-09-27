@@ -19,9 +19,11 @@ from app.api.einladungen.services import (
     find_unknown_einladung_refusal,
 )
 from app.api.saisons.admin_router import post_einladungen_versand, preview_einladungen_versand
+from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_hash
 from app.api.teams.admin_router import delete_einladung, get_einladung, post_einladung
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_team_document
 from tests.holds import HeldCollection
@@ -187,6 +189,8 @@ async def read_state(database: AsyncDatabase, team_id: ObjectId, *, today: str =
         saison_id=SAISON_ID,
         einladungen_collection=database[Collection.EINLADUNGEN],
         saisons_collection=database[Collection.SAISONS],
+        sperrliste_collection=database[Collection.SPERRLISTE],
+        config=build_test_config(),
         today=today,
     )
 
@@ -697,6 +701,32 @@ class TestTheStateRead:
             return (await read_state(database, TWO_SEATS)).laeuft
 
         assert on_a_league(mongo_replica_set_url, body, saison_status="past") is False
+
+    @pytest.mark.parametrize("barred", [False, True], ids=("a minter the list does not hold", "a barred minter"))
+    def test_a_barred_minter_is_withheld_beside_a_flag(self, mongo_replica_set_url: str, barred: bool):
+        """The grants list's rule on every admin read: no barred address is served in plain (`docs/backend/spec.md :: I452`)."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await mint(database, TWO_SEATS)
+            if barred:
+                await database[Collection.SPERRLISTE].insert_one(
+                    {
+                        "adresse_hash": adresse_hash(ADMIN, schluessel=build_test_config().sperrliste_schluessel),
+                        "schluessel_version": SPERRLISTE_SCHLUESSEL_VERSION,
+                        "grund": "Zugang entzogen",
+                        "erstellt_von": "inhaberin@frankfurtleague.de",
+                        "erstellt_am": TODAY,
+                        "gesperrt_bis_saison_id": "2031",
+                    }
+                )
+            state = await read_state(database, TWO_SEATS)
+
+            return state.einladung and (state.einladung.erstellt_von, state.einladung.erstellt_von_gesperrt), state.model_dump_json()
+
+        served, rendered = on_a_league(mongo_replica_set_url, body)
+
+        assert served == ((None, True) if barred else (ADMIN, False))
+        assert (ADMIN in rendered) is not barred
 
     def test_a_mailed_link_reports_what_became_of_the_message(self, mongo_replica_set_url: str):
         """The other side of the null: an invitation nobody mailed and one whose message bounced must read differently."""

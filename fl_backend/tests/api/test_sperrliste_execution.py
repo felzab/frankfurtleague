@@ -75,6 +75,14 @@ def on_a_clean_list(url: str, body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
+async def listed(database: AsyncDatabase) -> Any:
+    """The list read with its two dependencies: the season the ban list compares against, and the key."""
+
+    return await get_sperrliste(
+        sperrliste_collection=database[Collection.SPERRLISTE], saisons_collection=database[Collection.SAISONS], config=CONFIG
+    )
+
+
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED, grund: str = GRUND, von: str = ADMIN) -> Any:
     return await post_sperrliste_eintrag(
         sperrliste_data=FLPostSperrlistePayload(email=email, grund=grund),
@@ -300,7 +308,7 @@ class TestWhatTheListServes:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client)
 
-            return await get_sperrliste(sperrliste_collection=database[Collection.SPERRLISTE])
+            return await listed(database)
 
         served = on_a_clean_list(mongo_replica_set_url, body)
 
@@ -314,6 +322,25 @@ class TestWhatTheListServes:
         assert served.sperrliste[0].erstellt_von == ADMIN
         assert served.sperrliste[0].erstellt_am == TODAY
 
+    def test_an_author_revoked_and_barred_since_is_withheld_beside_a_flag(self, mongo_replica_set_url: str):
+        """The grants list's rule on every admin read: no barred address is served in plain (`docs/backend/spec.md :: I452`)."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            await ban(database, client, email=OTHER)
+            # Revoked as a paste revokes, then barred through the route by another administrator.
+            await database[Collection.BERECHTIGUNGEN].delete_one({"adresse": ADMIN})
+            await ban(database, client, email=ADMIN, von=grants_for_the_suite()[0]["adresse"])
+
+            served = await listed(database)
+
+            return [(row.erstellt_von, row.erstellt_von_gesperrt) for row in served.sperrliste], served.model_dump_json()
+
+        rows, rendered = on_a_clean_list(mongo_replica_set_url, body)
+
+        # Newest first: the ban on the author, entered by an owner the list does not hold, then the author's own.
+        assert rows == [(grants_for_the_suite()[0]["adresse"], False), (None, True)]
+        assert ADMIN not in rendered
+
     def test_the_total_counts_the_collection_and_not_the_rows_served(self, mongo_replica_set_url: str):
         """A ban past the cap is enforced and not rendered, so the count is what says one is there to lift.
 
@@ -324,7 +351,7 @@ class TestWhatTheListServes:
             await ban(database, client)
             await ban(database, client, email=OTHER)
 
-            served = await get_sperrliste(sperrliste_collection=database[Collection.SPERRLISTE])
+            served = await listed(database)
             capped = await read_sperrliste_page(sperrliste_collection=database[Collection.SPERRLISTE], limit=1)
 
             return served.anzahl_gesamt, capped[1]
@@ -375,7 +402,7 @@ class TestWhatTheListServes:
             await ban(database, client, grund="Zuerst eingetragen")
             await ban(database, client, email=OTHER, grund="Danach eingetragen")
 
-            served = await get_sperrliste(sperrliste_collection=database[Collection.SPERRLISTE])
+            served = await listed(database)
 
             return [row.grund for row in served.sperrliste]
 

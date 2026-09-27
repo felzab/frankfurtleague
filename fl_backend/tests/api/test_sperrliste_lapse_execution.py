@@ -97,6 +97,14 @@ def on_a_league(url: str, seasons: list[dict[str, Any]], body: Body) -> Any:
     return on_the_seed_loop(_run())
 
 
+async def listed(database: AsyncDatabase) -> Any:
+    """The list read with its two dependencies: the season the ban list compares against, and the key."""
+
+    return await get_sperrliste(
+        sperrliste_collection=database[Collection.SPERRLISTE], saisons_collection=database[Collection.SAISONS], config=CONFIG
+    )
+
+
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED) -> Any:
     return await post_sperrliste_eintrag(
         sperrliste_data=FLPostSperrlistePayload(email=email, grund=GRUND),
@@ -162,7 +170,7 @@ class TestWhatTheWriteRecords:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await ban(database, client)
 
-            return await get_sperrliste(sperrliste_collection=database[Collection.SPERRLISTE])
+            return await listed(database)
 
         served = on_a_league(mongo_replica_set_url, [saison_document(ENTERED_UNDER, "active")], body)
 

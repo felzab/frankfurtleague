@@ -244,7 +244,8 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "season the ban covers (`docs/backend/spec.md :: I273`), and the activation that runs past it ERASES "
             "the row rather than deleting it, so the bound is outlived by no log image either "
             "(`docs/backend/spec.md :: I274`). Anonymous it is not: `erstellt_von` is that "
-            "administrator's address in plain and `grund` is free text that may name the person barred, both served "
+            "administrator's address in plain and `grund` is free text that may name the person barred, both served -- "
+            "`erstellt_von` withheld where the ban list holds that administrator too (`docs/backend/spec.md :: I452`) -- "
             "and both outliving either erasure. The BARRED address alone is yielded to nobody without the key."
         ),
     ),
@@ -261,7 +262,7 @@ AGGREGATES: tuple[Aggregate, ...] = (
             "link's LIFETIME is the season's registration window, read at every use rather than copied here, so a window moved "
             "after the mint moves every link with it. It names no SUBJECT, which is why an erasure never reaches one and why the "
             "row is deleted by nothing. Anonymous it is not: `erstellt_von` is an administrator's address in plain, served on "
-            "the admin read and outliving any erasure, as the ban list's is."
+            "the admin read unless the ban list holds it, and outliving any erasure, as the ban list's is."
         ),
     ),
     Aggregate(

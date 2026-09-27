@@ -6,8 +6,9 @@ from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
+from app.api.berechtigungen.services import withheld_actor
 from app.api.bewerbungen.services import mint_token
-from app.api.einladungen.schemas import FLEinladung, FLEinladungMintResponse, FLEinladungResponse, FLEinladungWriteResponse
+from app.api.einladungen.schemas import FLEinladung, FLEinladungMintResponse, FLEinladungResponse, FLEinladungWriteResponse, FLEinladungZeile
 from app.api.einladungen.services import (
     WITHOUT_TOKEN_HASH,
     build_live_team_filter,
@@ -18,8 +19,9 @@ from app.api.einladungen.services import (
 )
 from app.api.registrierungen.services import saison_nimmt_registrierungen_an
 from app.api.saisons.cache import dropping_the_saison_cache
-from app.api.saisons.crud import pull_saison_id_and_rules
+from app.api.saisons.crud import pull_massgebliche_saison_id, pull_saison_id_and_rules
 from app.api.saisons.schemas import FLSaisonRules
+from app.api.sperrliste.crud import gesperrte_adressen
 from app.api.spiele.schemas import FLSpielListAdapter
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.schemas import (
@@ -57,7 +59,7 @@ from app.api.teams.services import (
     find_retire_refusal,
     has_taken_place,
 )
-from app.core.config import API_VERSION
+from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import (
     GERMAN_COLLATION,
     aggregate_many_from_db,
@@ -76,6 +78,7 @@ from app.core.dependencies import (
     SaisonsCollection,
     SaisonSpielerCollection,
     SaisonTeamsCollection,
+    SperrlisteCollection,
     SpieleCollection,
     TeamsCollection,
     get_german_date_str,
@@ -83,6 +86,7 @@ from app.core.dependencies import (
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin
+from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -855,6 +859,8 @@ async def get_einladung(
     saison_id: str,
     einladungen_collection: EinladungenCollection,
     saisons_collection: SaisonsCollection,
+    sperrliste_collection: SperrlisteCollection,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
 ) -> FLEinladungResponse:
     """
@@ -862,7 +868,8 @@ async def get_einladung(
 
     **No hash and no raw value**: the link itself was answered once, by the mint. What is served is who minted it and when, and what became
     of the last message sent about it — a `versand.zustellung` absent, or naming no message, means nobody has mailed it, which is a state
-    rather than a delivery failure.
+    rather than a delivery failure. The minter is `null` beside `erstellt_von_gesperrt` where the ban list holds that address, as no barred
+    address is served in plain.
 
     `laeuft` is the season's registration window judged against today, and false for good once the season has ended; it is the whole of
     the link's expiry. 404 where no season holds that id; a team with no invitation answers `einladung: null` rather than a 404.
@@ -879,9 +886,22 @@ async def get_einladung(
         projection=WITHOUT_TOKEN_HASH,
     )
 
+    einladung = None
+    if live:
+        # As stored first, so a row the stored shape refuses fails here rather than being served withheld.
+        erstellt_von = FLEinladung.model_validate(live[0]).erstellt_von
+        barred = await gesperrte_adressen(
+            [sign_in_identifier(erstellt_von)],
+            sperrliste_collection=sperrliste_collection,
+            schluessel=config.sperrliste_schluessel,
+            massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection),
+        )
+        withheld = withheld_actor(erstellt_von, barred)
+        einladung = FLEinladungZeile.model_validate({**live[0], "erstellt_von": withheld, "erstellt_von_gesperrt": withheld is None})
+
     return FLEinladungResponse(
         saison_id=saison_id,
         team_id=team_id,
-        einladung=FLEinladung.model_validate(live[0]) if live else None,
+        einladung=einladung,
         laeuft=saison_nimmt_registrierungen_an(saison_status=saison_raw["status"], registrierung=saison_raw.get("registrierung"), today=today),
     )

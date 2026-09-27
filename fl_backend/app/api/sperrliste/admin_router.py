@@ -6,16 +6,17 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
 from app.api.berechtigungen.crud import pull_the_list_to_judge, withhold_in_the_outbox
-from app.api.berechtigungen.services import find_ohne_zugang_refusal, lebendige
+from app.api.berechtigungen.services import find_ohne_zugang_refusal, lebendige, withheld_actor
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
+from app.api.sperrliste.crud import address_is_gesperrt, gesperrte_adressen, read_sperrliste_page
 from app.api.sperrliste.schemas import (
     FLPostSperrlistePayload,
     FLPostSperrlisteResponse,
     FLSperrlisteEintrag,
     FLSperrlisteListResponse,
     FLSperrlisteWriteResponse,
+    FLSperrlisteZeile,
 )
 from app.api.sperrliste.services import (
     SPERRLISTE_SCHLUESSEL_VERSION,
@@ -80,23 +81,38 @@ async def _pull_the_season_a_ban_counts_from(
 
 
 @router.get("", response_model=FLSperrlisteListResponse, summary="List the banned addresses")
-async def get_sperrliste(sperrliste_collection: SperrlisteCollection) -> FLSperrlisteListResponse:
+async def get_sperrliste(
+    sperrliste_collection: SperrlisteCollection,
+    saisons_collection: SaisonsCollection,
+    config: Annotated[BackendConfig, Depends(get_app_config)],
+) -> FLSperrlisteListResponse:
     """
     List the bans, newest first: why each was entered, by whom and on which day, with how many the list holds.
 
     No address of the person a ban bars, and nothing one can be recovered from: a row stores a keyed
     hash of it and the read projects that away. `erstellt_von` is the administrator who entered the
-    row, and is an address. **The rows are capped at `LIST_LIMIT_DEFAULT` and there is no paging control**,
-    so where `anzahl_gesamt` exceeds the rows served, bans are enforced that this answer does not
-    show — and a ban nobody can see is one nobody can lift.
+    row, and is an address — `null` beside `erstellt_von_gesperrt` where the ban list holds that
+    administrator's address too, as no barred address is served in plain. **The rows are capped at
+    `LIST_LIMIT_DEFAULT` and there is no paging control**, so where `anzahl_gesamt` exceeds the rows
+    served, bans are enforced that this answer does not show — and a ban nobody can see is one nobody can lift.
     """
 
     rows, anzahl_gesamt = await read_sperrliste_page(sperrliste_collection=sperrliste_collection, limit=LIST_LIMIT_DEFAULT)
-
-    return FLSperrlisteListResponse(
-        sperrliste=[FLSperrlisteEintrag.model_validate(row) for row in rows],
-        anzahl_gesamt=anzahl_gesamt,
+    # Each row as stored first, so a row the stored shape refuses fails here rather than being served withheld.
+    bans = [(row, FLSperrlisteEintrag.model_validate(row)) for row in rows]
+    barred = await gesperrte_adressen(
+        [sign_in_identifier(ban.erstellt_von) for _, ban in bans],
+        sperrliste_collection=sperrliste_collection,
+        schluessel=config.sperrliste_schluessel,
+        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection),
     )
+
+    served = []
+    for row, ban in bans:
+        erstellt_von = withheld_actor(ban.erstellt_von, barred)
+        served.append(FLSperrlisteZeile.model_validate({**row, "erstellt_von": erstellt_von, "erstellt_von_gesperrt": erstellt_von is None}))
+
+    return FLSperrlisteListResponse(sperrliste=served, anzahl_gesamt=anzahl_gesamt)
 
 
 @router.post(
