@@ -539,7 +539,7 @@ const FORMS: Record<string, FormCase> = {
           }),
         ),
         async (into) => {
-          await userEvent.setup().click(screen.getByRole("button", { name: "Umbenennen" }));
+          await userEvent.setup().click(screen.getByRole("button", { name: "Passkey vom 1. September 2026 umbenennen" }));
           await settle();
           marksOn(into);
         },

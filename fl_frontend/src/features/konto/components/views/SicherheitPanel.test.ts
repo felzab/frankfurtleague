@@ -66,6 +66,11 @@ const STEP_UP_REQUIRED = "Bestätige zuerst, dass Du es bist.";
 const STEP_UP_REFUSED = "Wir konnten Dich nicht mit einem Passkey bestätigen.";
 const CODE_STEP_UP_REFUSED = "Wir konnten Dich nicht mit dem Code bestätigen.";
 
+/** The other device's sign-out and the card's two controls, as a screen reader names them (R698). */
+const ANDERE_ABMELDEN = "Anmeldung per Passkey „Laptop“ vom 25. September 2026, 10:00 abmelden";
+const LAPTOP_LOESCHEN = "Passkey „Laptop“ löschen";
+const LAPTOP_UMBENENNEN = "Passkey „Laptop“ umbenennen";
+
 /** The holder's own address, where the code half mails its code. */
 const ADDRESS = "spielerin@example.org";
 
@@ -150,7 +155,7 @@ describe("a change past the step-up window", () => {
     answers.pruefeInhaberAction = { success: true, gleich: true };
     const seen = open({ freshUntil: null, enrolmentUntil: null });
 
-    await user.click(screen.getByRole("button", { name: "Abmelden" }));
+    await user.click(screen.getByRole("button", { name: ANDERE_ABMELDEN }));
     assert.deepEqual(sent(), [], "a change was sent before the confirmation");
 
     await user.click((await dialog()).getByRole("button", { name: "Mit Passkey bestätigen" }));
@@ -173,7 +178,7 @@ describe("a change past the step-up window", () => {
     answers.pruefeInhaberAction = { success: true, gleich: false };
     open({ freshUntil: null, enrolmentUntil: null });
 
-    await user.click(screen.getByRole("button", { name: "Abmelden" }));
+    await user.click(screen.getByRole("button", { name: ANDERE_ABMELDEN }));
     await user.click((await dialog()).getByRole("button", { name: "Mit Passkey bestätigen" }));
 
     const panel = await dialog();
@@ -186,7 +191,7 @@ describe("a change past the step-up window", () => {
     ceremony.signInPasskey = refused(400, "ERROR_CEREMONY_ABORTED");
     open({ freshUntil: null, enrolmentUntil: null });
 
-    await user.click(screen.getByRole("button", { name: "Abmelden" }));
+    await user.click(screen.getByRole("button", { name: ANDERE_ABMELDEN }));
     await user.click((await dialog()).getByRole("button", { name: "Mit Passkey bestätigen" }));
 
     const panel = await dialog();
@@ -200,7 +205,7 @@ describe("a change past the step-up window", () => {
     answers.endAnmeldungAction = STALE;
     open();
 
-    await user.click(screen.getByRole("button", { name: "Abmelden" }));
+    await user.click(screen.getByRole("button", { name: ANDERE_ABMELDEN }));
 
     assert.ok((await dialog()).getByRole("button", { name: "Mit Passkey bestätigen" }));
     assert.deepEqual(toasts(), []);
@@ -213,7 +218,7 @@ describe("a change past the step-up window", () => {
     answers.pruefeInhaberAction = { success: true, gleich: true };
     open({ freshUntil: null, enrolmentUntil: null });
 
-    await user.click(screen.getByRole("button", { name: "Umbenennen" }));
+    await user.click(screen.getByRole("button", { name: LAPTOP_UMBENENNEN }));
     await user.clear(screen.getByRole("textbox", { name: "Name" }));
     await user.type(screen.getByRole("textbox", { name: "Name" }), "Mein iPhone");
     await user.click(screen.getByRole("button", { name: "Speichern" }));
@@ -231,7 +236,7 @@ describe("a change past the step-up window", () => {
     };
     open();
 
-    await user.click(screen.getByRole("button", { name: "Umbenennen" }));
+    await user.click(screen.getByRole("button", { name: LAPTOP_UMBENENNEN }));
     await user.type(screen.getByRole("textbox", { name: "Name" }), " Pro");
     await user.click(screen.getByRole("button", { name: "Speichern" }));
 
@@ -248,7 +253,7 @@ describe("removing a passkey", () => {
     const seen = open();
     t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
 
-    await user.click(screen.getByRole("button", { name: "Löschen" }));
+    await user.click(screen.getByRole("button", { name: LAPTOP_LOESCHEN }));
     t.mock.timers.tick(DOUBLE_PRESS_MS);
     await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
 
@@ -262,7 +267,7 @@ describe("removing a passkey", () => {
     const seen = open();
     t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
 
-    await user.click(screen.getByRole("button", { name: "Löschen" }));
+    await user.click(screen.getByRole("button", { name: LAPTOP_LOESCHEN }));
     t.mock.timers.tick(DOUBLE_PRESS_MS);
     await user.click(screen.getByRole("button", { name: "Ja, Passkey löschen" }));
 
@@ -300,7 +305,7 @@ describe("adding a passkey", () => {
     assert.ok(screen.queryByRole("button", { name: "Passkey hinzufügen" }) === null, "the add control skipped the narrower window");
     assert.ok(screen.getByRole("button", { name: "Mit Passkey bestätigen" }));
 
-    await user.click(screen.getByRole("button", { name: "Abmelden" }));
+    await user.click(screen.getByRole("button", { name: ANDERE_ABMELDEN }));
 
     await waitFor(() => assert.deepEqual(sent(), [["endAnmeldungAction", "andere"]]));
     assert.ok(screen.queryByRole("dialog") === null, "a change inside the two hours asked for a confirmation");
@@ -425,7 +430,7 @@ describe("confirming by a code mailed to the holder", () => {
     answers.pruefeInhaberAction = { success: true, gleich: true };
     const seen = open({ freshUntil: null, enrolmentUntil: null });
 
-    await user.click(screen.getByRole("button", { name: "Abmelden" }));
+    await user.click(screen.getByRole("button", { name: ANDERE_ABMELDEN }));
     await confirmByCode(user, await dialog());
 
     await waitFor(() => assert.deepEqual(sent().at(-1), ["endAnmeldungAction", "andere"]));
@@ -446,7 +451,7 @@ describe("confirming by a code mailed to the holder", () => {
     answers.pruefeInhaberAction = { success: true, gleich: false };
     open({ freshUntil: null, enrolmentUntil: null });
 
-    await user.click(screen.getByRole("button", { name: "Abmelden" }));
+    await user.click(screen.getByRole("button", { name: ANDERE_ABMELDEN }));
     await confirmByCode(user, await dialog());
 
     const panel = await dialog();
@@ -463,7 +468,7 @@ describe("confirming by a code mailed to the holder", () => {
     const user = userEvent.setup();
     open({ passkeys: [], freshUntil: null, enrolmentUntil: null });
 
-    await user.click(screen.getByRole("button", { name: "Abmelden" }));
+    await user.click(screen.getByRole("button", { name: ANDERE_ABMELDEN }));
 
     const panel = await dialog();
     assert.ok(panel.getByRole("button", { name: "Code per E-Mail senden" }));
@@ -487,7 +492,7 @@ describe("confirming by a code mailed to the holder", () => {
     const user = userEvent.setup();
     open({ verwaltung: true, freshUntil: null, enrolmentUntil: null });
 
-    await user.click(screen.getByRole("button", { name: "Abmelden" }));
+    await user.click(screen.getByRole("button", { name: ANDERE_ABMELDEN }));
 
     const panel = await dialog();
     assert.ok(panel.getByRole("button", { name: "Mit Passkey bestätigen" }));

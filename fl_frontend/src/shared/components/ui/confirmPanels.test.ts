@@ -284,7 +284,8 @@ const PANELS: Record<string, Arming[]> = {
             onRename: () => Promise.resolve(),
           }),
         ),
-      resting: "Löschen",
+      // Its name, which carries the visible „Löschen“ and names the card (R698).
+      resting: "Passkey „YubiKey 5“ löschen",
     },
   ],
   [M.andereAbmelden]: [

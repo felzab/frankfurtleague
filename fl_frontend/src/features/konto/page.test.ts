@@ -220,6 +220,39 @@ describe("what the security section tells its reader", () => {
     assert.doesNotMatch(named, />Passkey<\/span>/);
   });
 
+  /* A screen reader meets „Abmelden“, „Löschen“ and „Umbenennen“ once per row, so each is named by its
+     row, the visible label inside the name (WCAG 2.4.6, 2.5.3), from the facts a row holds. */
+  it("names each row's controls by the row they act on", () => {
+    const andere: Anmeldung = {
+      id: "andere",
+      diesesGeraet: false,
+      angemeldetAm: "2026-09-25T08:00:00.000Z",
+      zuletztAktivAm: "2026-09-25T09:00:00.000Z",
+      endetSpaetestensAm: "2026-10-25T08:00:00.000Z",
+      faktor: { art: "code" },
+    };
+    const html = renderTree(
+      underNext(
+        h(SicherheitPanel, {
+          sicherheit: sicherheit({
+            anmeldungen: [...sicherheit().anmeldungen, andere],
+            passkeys: [karte("unbenannt"), { ...karte("benannt"), name: "Mein iPhone" }],
+          }),
+        }),
+      ),
+    );
+
+    for (const name of [
+      "Anmeldung per Code vom 25. September 2026, 10:00 abmelden",
+      "Passkey vom 1. September 2026 löschen",
+      "Passkey vom 1. September 2026 umbenennen",
+      "Passkey „Mein iPhone“ löschen",
+      "Passkey „Mein iPhone“ umbenennen",
+    ]) {
+      assert.ok(html.includes(`aria-label="${name}"`), `no control is named „${name}“`);
+    }
+  });
+
   /* The activity stamp refreshes hourly, so a minute printed beside it would claim a precision the
      row does not hold; the sign-in's own time is exact and keeps its minute. */
   it("prints the last activity by the day and the sign-in by the minute", () => {

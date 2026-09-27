@@ -37,6 +37,18 @@ const DATUM = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", date
  */
 export const LETZTER_PASSKEY = "Der letzte Passkey lässt sich nicht löschen.";
 
+// GERMAN-PENDING (R698): the controls' names below are drafts awaiting approval.
+/**
+ * The name a card's control goes by for a screen reader, which meets it once per card: the passkey's
+ * own name, or its set-up date where it has none but the fallback (WCAG 2.4.6).
+ */
+function kontrollname(karte: PasskeyKarte, tat: "löschen" | "umbenennen"): string {
+  const name = passkeyAnzeigename(karte);
+  return karte.name === null && karte.anbieter === null
+    ? `Passkey vom ${DATUM.format(new Date(karte.eingerichtetAm))} ${tat}`
+    : `Passkey „${name}“ ${tat}`;
+}
+
 /** What deleting one costs, in the armed reveal: the sign-out is not derivable from a control labelled „Löschen“. */
 const FOLGE = "Dieser Passkey wird gelöscht. Geräte, die damit angemeldet sind, werden abgemeldet.";
 
@@ -114,6 +126,7 @@ export function PasskeyKarteView({
               <Button
                 type="button"
                 variant="secondary"
+                aria-label={kontrollname(karte, "umbenennen")}
                 onPress={() => setIsRenaming(true)}
                 className={formButton({ intent: "cancel" })}>
                 <PencilToLine
@@ -127,6 +140,7 @@ export function PasskeyKarteView({
               confirm={twoPress}
               reason={reason}
               resting="Löschen"
+              restingName={kontrollname(karte, "löschen")}
               armed="Ja, Passkey löschen"
               running="Löscht..."
               icon={

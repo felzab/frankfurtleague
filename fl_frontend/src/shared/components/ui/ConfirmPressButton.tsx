@@ -26,6 +26,7 @@ export function ConfirmPressButton({
   onPress,
   type = "button",
   describedBy,
+  restingName,
 }: {
   confirm: TwoPressConfirm;
   /**
@@ -51,6 +52,11 @@ export function ConfirmPressButton({
   type?: "button" | "submit";
   /** A hint the resting control is described by, dropped once armed: the armed label says it. */
   describedBy?: string;
+  /**
+   * The resting control's name where its label repeats row after row: it names the row, the visible
+   * label kept inside it (WCAG 2.5.3). Dropped once armed, where the armed label is the name.
+   */
+  restingName?: string;
 }) {
   const { isConfirming } = confirm;
   // The prompt's words over the panel's armed ones: this press opens the browser's passkey prompt
@@ -72,6 +78,7 @@ export function ConfirmPressButton({
         isDisabled={!waiting && reason !== null}
         onPress={onPress}
         aria-describedby={isConfirming ? undefined : describedBy}
+        aria-label={isConfirming || waiting ? undefined : restingName}
         className={confirmButton(isConfirming)}>
         {!isConfirming && icon}
         {/* The prompt's words while it is open: nothing has been sent yet. */}
