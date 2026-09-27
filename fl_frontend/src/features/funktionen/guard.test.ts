@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
+import { KONTAKT_EMAIL } from "@/core/brand.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
@@ -144,6 +145,15 @@ describe("where the landing takes a person", () => {
     assert.ok(markup.includes("Noch nicht bestätigt"), "the pending page is not what renders");
     assert.ok(markup.includes("kontakt@frankfurtleague.de"), "the pending page names nobody to write to");
     assert.ok(!markup.includes("nirgends eingetragen"), "the pending person is told they are entered nowhere");
+    // The approved wording, whole: it names neither the record nor its team, which a mailbox typed by mistake would hand a stranger.
+    assert.ok(
+      textOf(markup, " ")
+        .replace(/\s+/g, " ")
+        .includes(
+          `Du bist angemeldet, aber Deine Eintragung ist noch nicht bestätigt. Bestätige sie über den Link aus unserer E-Mail. Hast Du keinen bekommen, schreib uns an ${KONTAKT_EMAIL}.`,
+        ),
+      "the pending page's hint is not the approved sentence",
+    );
   });
 
   /* A team's own landing is „Übersicht“ too, so one team alone is where the person goes. */
