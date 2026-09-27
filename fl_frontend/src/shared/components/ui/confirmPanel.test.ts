@@ -7,6 +7,7 @@ import { refusalWrappers, renderMarkup, textOf } from "@/shared/testing/renderTe
 
 import { confirmButton, formButton } from "./formButtons";
 import { PANEL_REVEAL_CLASSES } from "./motion";
+import { NAME_WRAP_CLASSES } from "./nameWrap";
 import { STEP_UP_LABEL, STEP_UP_REFUSED, STEP_UP_RUNNING } from "./stepUp";
 
 import type { TwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
@@ -252,6 +253,19 @@ describe("the shared confirm control", () => {
       "the open prompt says the write is running, where nothing has been sent",
     );
     assert.equal(controlWords(pressButton({ asksPasskey: false })), "Spielplan löschen", "the resting control names the prompt");
+  });
+
+  /* A label may carry a word the page does not write, an address among them, wider than the control on
+     a phone. Each box between that word and the card must give way, so each is asserted. */
+  it("lets a word wider than the control break inside it rather than widen the card", () => {
+    const classesOf = (tag: string): string[] => (/\sclass="([^"]*)"/.exec(tag)?.[1] ?? "").split(" ");
+    const labelTag = /<button\b[^>]*>[\s\S]*?(<span\b[^>]*>)/.exec(AT_REST)?.[1] ?? "";
+
+    assert.ok(rootClasses(AT_REST).includes("min-w-0"), "the wrapper keeps the label's longest word as its floor in the `sm` row");
+    assert.ok(classesOf(controlTag(AT_REST)).includes("max-w-full"), "the control grows past its wrapper to seat the longest word");
+    for (const token of ["min-w-0", ...NAME_WRAP_CLASSES.split(" ")]) {
+      assert.ok(classesOf(labelTag).includes(token), `the label is missing ${token}, so a long word leaves the control`);
+    }
   });
 
   /* The one thing that looks different once the reveal is open, so the armed fill is what says the
