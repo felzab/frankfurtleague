@@ -343,8 +343,8 @@ session did not prove is what the signature exists to rule out.
 
 **Two guards resolve a session, and one request may run only one of them** (I272).
 `getAdminSession()` is the administrator's lane; `fl_frontend/src/core/subject.ts ::
-getSubjectSession` is a person's, and it answers the league records one mailbox matches rather than
-authorizing anything. Both compose the actor by folding the same address, so one person is one
+getSubjectSession` is a person's, and it answers the confirmed, live records one mailbox holds
+(`fl_backend/app/api/identitaet/crud.py :: find_subjekt`) rather than authorizing anything. Both compose the actor by folding the same address, so one person is one
 identifier whichever lane sent the request — an administrator's writes are logged under it, a
 person's under its pseudonym (`fl_backend/app/core/security.py :: akteur_pseudonym`). Each signs its
 own lane into the token, so a page that called both would set two actors on one request, and
