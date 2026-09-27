@@ -24,7 +24,7 @@ from app.core.config import (
     EnvironmentValidationError,
     get_app_config,
     get_config,  # noqa: TID251
-    read_environment,
+    read_environment,  # noqa: TID251
 )
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.db import NO_SERVER, REJECTED, RETIRED_VARIABLES, UNREACHABLE, DatabaseUnreachableError, _refusal_for, lifespan

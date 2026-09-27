@@ -123,6 +123,11 @@ ignore = ["B008"]
 # Each permitted import carries its own `noqa`, which RUF100 reports once nothing there needs it;
 # the preflight in `scripts/ops/deploy.sh` is a shell string ruff never reads.
 "app.core.config.get_config".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+# The readers `get_config` is built from, each the same hazard under another name.
+"app.core.config.read_environment".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"app.core.config.read_secrets".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"app.core.config.BackendEnvironment".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"app.core.config.BackendSecrets".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
 # Ruff matches the path an import spells rather than the function it binds, so the same function
 # imported from the module building the app would pass the entry above.
 "app.main.get_config".msg = "Read the request's settings through `get_app_config`; `app.main` holds no `get_config` for a caller."
