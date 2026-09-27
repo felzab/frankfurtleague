@@ -390,14 +390,21 @@ Every ruling below is the sign-up flow as it stands for the next season.
   is what names it as the place a signed-in person's own data sits and gives the step that erases it
   there. Its collections are `user`,
   `session`, `account`, `verification` and `passkey`. The last holds a credential's public key, its
-  identifier, the counters the browser reports, when it last signed its holder in
+  identifier, the counters the browser reports, when it was set up, when it last signed its holder in
   (`fl_frontend/src/core/passkeyLastUse.ts`) and any name its holder gives it on the account page
   (`fl_frontend/src/features/passkeys/actions.ts :: renamePasskeyAction`), and never a secret the person holds, the private
-  key staying on their own device; a `session` row holds the account it belongs to, its own
+  key staying on their own device. The library also stores what the browser reported of the
+  authenticator: the identifier of its model, which the account page turns into its maker's name
+  (`fl_frontend/src/features/passkeys/bestand.ts :: passkeyNamenOf`), whether the credential is
+  bound to one device or synced, whether it is backed up, and the ways the browser can reach it. A
+  `session` row holds the account it belongs to, when it was made, its own
   expiry, which factor made it and, where a passkey did, that passkey's credential identifier,
   where it replaced a session the browser held a keyed digest of that session's cookie
   (`fl_frontend/src/core/auth.ts :: lineageOf`), and neither the address nor the browser the sign-in
-  came from. A `user` row's `updatedAt` records when that account, or any of its passkeys, last
+  came from. It also records when it was last used, to within the interval a session waits before
+  its row is refreshed (`fl_frontend/src/core/auth.ts :: SESSION_UPDATE_AGE_SECONDS`), and the
+  account page shows that as „Zuletzt aktiv“ beside each sign-in
+  (`fl_frontend/src/features/konto/sicherheit.ts`). A `user` row's `updatedAt` records when that account, or any of its passkeys, last
   changed, a removal included (`fl_frontend/src/core/auth.ts :: claimAccount`). **A session and a sign-in code each carry an expiry set at that
   configuration, and the expiry bounds the credential rather than the row**: the library drops a
   session row when its holder presents the stale cookie and leaves it standing where nobody comes
