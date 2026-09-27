@@ -1173,9 +1173,12 @@ administrator on it is mailed whether or not the backend answers.
 ## 16. The checkout root's `.env`
 
 **It holds `INTERNAL_API_KEY_BASE`, `INTERNAL_API_KEY_SYSTEM` and `INTERNAL_API_KEY_ADMIN`, and
-nothing else** ([`spec.md`](spec.md) §1.5, I429). Neither package's `.env` carries them: the deploy
-refuses a name both files hold (I430), and a name only one service declares, or a compose setting,
-is refused by the other service's reader.
+nothing else** ([`spec.md`](spec.md) §1.5, I429), one `NAME=value` line each, with no `$` or quote
+in a value. `deploy.sh` and `local.sh` read it before anything else and refuse any other line,
+naming its line number and never a value: `MONGODB_URI` stays in each package's file, since the two
+services hold different logins, and a compose setting such as `COMPOSE_PROJECT_NAME` goes in the
+shell. Neither package's `.env` carries the keys: the deploy refuses a name both files hold, in any
+letter case (I430).
 
 **Each machine has its own three keys.** They authenticate one machine's frontend to its own
 backend and nothing else, so a development machine generates fresh ones and never copies

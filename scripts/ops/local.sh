@@ -176,6 +176,9 @@ require_platform windows
 require_docker
 require_file "docker-compose.yml"
 require_file "docker-compose.local.yml"
+# Before `--down` too, whose compose call would otherwise honour a `COMPOSE_*` line in it.
+require_file ".env" "Both containers read it via env_file, last. Generate its keys for this machine: docs/ops/runbooks.md §16."
+check_root_env ".env"
 
 if (( DOWN )); then
   section "down"
@@ -205,7 +208,6 @@ section "preflight"
 step "Files the containers read"
 require_file "fl_frontend/.env" "The frontend container reads it via env_file. Copy it from your password manager."
 require_file "fl_backend/.env"  "The backend container reads it via env_file."
-require_file ".env" "Both containers read it via env_file, last. Generate its keys for this machine: docs/ops/runbooks.md §16."
 ok "the three .env files are in place"
 
 step "Anything holding the build's files open"

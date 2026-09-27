@@ -395,13 +395,21 @@ platform.
 it the same way, the backend through `fl_backend/app/core/config.py :: model_config` and the
 frontend through the `dev` script in `fl_frontend/package.json`. Each machine holds its own three:
 they are bearer tokens between one machine's two processes, so a development machine generates
-fresh ones rather than copying production's ([`runbooks.md`](runbooks.md) §16). **It holds only
-names both services declare**: each deploy reader refuses a name its service does not declare, and
-a name a package file repeats is refused apart (I430), compose handing the container the root's.
-**It is also compose's own `.env`**, read for interpolation and for compose's `COMPOSE_*` settings.
-The compose files interpolate nothing, and a `COMPOSE_*` line there reaches both containers as a
-variable, which the deploy's readers refuse, so a compose setting goes in the shell or on the
-command line instead.
+fresh ones rather than copying production's ([`runbooks.md`](runbooks.md) §16). **It holds the three
+keys and nothing else, each once, as `NAME=value` with no `$` or quote in the value**, and
+`deploy.sh` and `local.sh` refuse any other content before their first compose call, `--status` and
+`--down` included (`scripts/lib/_lib.sh :: check_root_env`):
+
+- **Another name both services declare still does not belong there.** `MONGODB_URI` would give the
+  two services one database login, which [`overview.md`](overview.md) forbids.
+- **It is also compose's own `.env`**, read for interpolation and for compose's `COMPOSE_*`
+  settings, so a `COMPOSE_*` line would steer compose itself, a `--status` naming another project's
+  containers among it. A compose setting goes in the shell or on the command line instead.
+- **A `$` is substituted before any validator sees the key**: by compose, by `@next/env`, and, as
+  `${…}`, by python-dotenv, which the deploy's backend reader uses. A quote opens a value each reader
+  parses its own way.
+
+A name a package file repeats is refused apart (I430), compose handing the container the root's.
 
 **A key carries none of `"`, `#`, `$`, `'`, `\` or the backtick** (I11), because some env-file reader
 alters each, so the two sides would hold different keys:
@@ -416,9 +424,9 @@ alters each, so the two sides would hold different keys:
 
 Every other printable ASCII character reaches each reader as written, bare or quoted, so a key from
 `openssl rand -hex`, base64 or `secrets.token_urlsafe` is always one of the class. **The deploy's
-preflight judges a key with the pulled backend image's own validator**, so a key outside the class
-refuses the deploy at exit 2 before anything is recreated; the remedy is a new key
-([`runbooks.md`](runbooks.md) §16).
+preflight judges a key with the pulled backend image's own validator**, over the raw value the root
+file's check has already held free of `$`, so a key outside the class refuses the deploy at exit 2
+before anything is recreated; the remedy is a new key ([`runbooks.md`](runbooks.md) §16).
 
 **The local stack points both application services at its own database through compose's
 `environment`**, so no `.env` is edited and no run is left aimed at the wrong cluster
@@ -1163,7 +1171,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I355 | nginx loads its configuration through directory mounts, and a deploy or `--status` finding it holding anything but this checkout's files ends in a finding (§1.2)             | `scripts/ops/deploy.sh :: edge_reads_checkout`, over nginx's own dump, after every reload and in `--status`; `scripts/checks/check_compose_model.py :: edge_mounts` holds both stacks' mounts                                                                                      |
 | I365 | A pushed image has passed the images scope's three assertions, and `:latest` moves only onto one whose layers and user match the checked image                                | `.github/workflows/publish.yml`'s check step, calling the images scope's assertions in `scripts/lib/_lib.sh`, and its comparison step; `scripts/tests/test_image_assertions.py` runs both steps' own text                                                                          |
 | I367 | Every base, stack, script-run and test-tier image this repository does not build is pinned by tag and digest, the frontend db tier's `mongo` alone excepted                   | `scripts/tests/test_image_pins.py`, over both Dockerfiles, both compose files, `scripts/gate/selfcheck.sh`, `scripts/ops/local.sh` and `fl_backend/tests/conftest.py`, and holding the frontend db tier's tag to the backend's                                                     |
-| I429 | The internal API keys are written once, in the checkout root's `.env`, which both application services list last and both dev commands read                                   | `scripts/checks/check_compose_model.py :: env_files`; `fl_backend/tests/core/test_config.py :: TestTheCheckoutRootsFile`; the frontend's `dev` script unenforced                                                                                                                   |
+| I429 | The internal API keys are written once, in the checkout root's `.env`, which both application services list last and both dev commands read                                   | `scripts/lib/_lib.sh :: check_root_env` for what it holds; `scripts/checks/check_compose_model.py :: env_files`; `fl_backend/tests/core/test_config.py :: TestTheCheckoutRootsFile`                                                                                                |
 | I430 | No package's `.env` repeats a name the checkout root's holds, in any letter case: the backend folds case, and compose hands the container both                                | `scripts/ops/deploy.sh :: check_env_names_held_once`, driven by `scripts/tests/test_deploy_streams.py`, the snippet run for real; the local stack and dev mode unenforced                                                                                                          |
 
 ## 3. Violation → remedy

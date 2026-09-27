@@ -770,6 +770,51 @@ $2}"; }
 require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
 
+# The whole of what the checkout root's `.env` may hold (`docs/ops/spec.md :: I429`): the names both
+# application services must hold equal, and no name that is one service's alone.
+ROOT_ENV_NAMES=(INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN)
+
+# Read as text before any compose call or reader: compose takes a `COMPOSE_*` line there as its own
+# setting, and three readers substitute a `$` before a validator sees the key
+# (`docs/ops/spec.md` §1.5). Prints names, never a value.
+check_root_env() { # $1 the file
+  local line name number=0 IFS=' '
+  local -A seen=()
+  local -a wrong=()
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    number=$(( number + 1 ))
+    # Every reader drops a line's closing carriage return, so it is no finding here.
+    line="${line%$'\r'}"
+    [[ "$line" =~ ^[[:space:]]*(#.*)?$ ]] && continue
+    if [[ ! "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]]; then
+      wrong+=("line ${number} is not NAME=value, the one form every reader takes alike")
+      continue
+    fi
+    name="${BASH_REMATCH[1]}"
+    if [[ "$name" == COMPOSE_* ]]; then
+      wrong+=("line ${number}: ${name} is a compose setting, which compose would act on here; set it in the shell instead")
+    elif [[ " ${ROOT_ENV_NAMES[*]} " != *" ${name} "* ]]; then
+      wrong+=("line ${number}: ${name} is not one of ${ROOT_ENV_NAMES[*]}; it belongs in the package file of the service that reads it")
+    elif [[ -n "${seen[$name]:-}" ]]; then
+      wrong+=("line ${number}: ${name} is written a second time, after line ${seen[$name]}")
+    else
+      seen[$name]="$number"
+    fi
+    # The value tested and never kept: a `$` is substituted, and a quote opens a value a reader parses.
+    if [[ "${line#*=}" == *[\$\"\'\`]* ]]; then
+      wrong+=("line ${number}: ${name}'s value carries a \$ or a quote, which a reader acts on before any validator sees it")
+    fi
+  done < "$1"
+  for name in "${ROOT_ENV_NAMES[@]}"; do
+    [[ -n "${seen[$name]:-}" ]] || wrong+=("${name} is missing")
+  done
+  if (( ${#wrong[@]} )); then
+    refuse "$1 holds what nothing here may read, so nothing was asked of compose or of either service:
+$(printf '  %s\n' "${wrong[@]}")
+It holds the three internal keys and nothing else (docs/ops/runbooks.md §16)."
+  fi
+}
+
 # --- Redaction -------------------------------------------------------------------------------------
 
 # A filter for anything a CONTAINER's log is printed through. `mongodb-connection-string-url` throws

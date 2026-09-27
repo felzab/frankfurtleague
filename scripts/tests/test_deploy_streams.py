@@ -19,15 +19,18 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 from pathlib import Path
 from typing import Final
 
+import pytest
 from conftest import BASH, base_env, lift_assignment, lift_function, new_root, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
 REPO_ROOT: Final = SCRIPTS.parent
 LIB: Final = SCRIPTS / "lib" / "_lib.sh"
 DEPLOY: Final = SCRIPTS / "ops" / "deploy.sh"
+LOCAL: Final = SCRIPTS / "ops" / "local.sh"
 RUNBOOKS: Final = REPO_ROOT / "docs" / "ops" / "runbooks.md"
 
 
@@ -506,6 +509,70 @@ def test_the_overlap_snippet_answers_0_where_no_name_repeats() -> None:
     # The guard's own answer, for the reason the case above pins it.
     if "ModuleNotFoundError" not in output:
         assert "snippet=0" in output, output
+
+
+# --- the checkout root's `.env`, judged as text before compose or any reader ---------------------------
+
+# The three keys, each a fabricated 64 `k`, written as the runbook's command writes them.
+ROOT_KEYS: Final = "".join(f"INTERNAL_API_KEY_{tier}={'k' * 64}\n" for tier in ("BASE", "SYSTEM", "ADMIN"))
+
+
+def _root_env(text: str) -> tuple[int, str]:
+    """`scripts/lib/_lib.sh :: check_root_env` over a root file holding `text`, the fixture's own."""
+    body = f"printf '%s' {shlex.quote(text)} > .env\ncheck_root_env .env\necho judged-clean\n"
+    code, output, _ = _run(body)
+    return code, output
+
+
+def test_a_root_file_holding_the_three_keys_alone_is_clean() -> None:
+    code, output = _root_env("# the keys\n\n" + ROOT_KEYS)
+
+    assert code == 0, output
+    assert "judged-clean" in output, output
+
+
+@pytest.mark.parametrize(
+    ("line", "said"),
+    [
+        ("COMPOSE_PROJECT_NAME=other", "COMPOSE_PROJECT_NAME is a compose setting"),
+        ("MONGODB_URI=mongodb://no-login-here", "MONGODB_URI is not one of"),
+        (f"INTERNAL_API_KEY_BASE={'k' * 64}", "INTERNAL_API_KEY_BASE is written a second time"),
+        ("export OTHER=1", "is not NAME=value"),
+    ],
+    ids=["compose-setting", "one-service-name", "twice", "not-name-value"],
+)
+def test_a_root_file_holding_anything_else_refuses_before_compose_is_asked(line: str, said: str) -> None:
+    """A compose setting is acted on by compose itself, and `MONGODB_URI` here would give both services one login."""
+    code, output = _root_env(ROOT_KEYS + line + "\n")
+
+    assert code == 2, output
+    assert said in output, output
+    assert "judged-clean" not in output, output
+
+
+@pytest.mark.parametrize("value", ["${OTHER}" + "k" * 56, "$OTHER" + "k" * 58, "'" + "k" * 62 + "'"], ids=["braced", "bare", "quoted"])
+def test_a_key_a_reader_would_rewrite_refuses_naming_the_key_and_never_the_value(value: str) -> None:
+    """python-dotenv substitutes `${…}`, compose and `@next/env` any `$`, before either validator judges the key."""
+    code, output = _root_env(ROOT_KEYS.replace(f"INTERNAL_API_KEY_BASE={'k' * 64}", f"INTERNAL_API_KEY_BASE={value}"))
+
+    assert code == 2, output
+    assert "INTERNAL_API_KEY_BASE's value carries a $ or a quote" in output, output
+    assert "OTHER" not in output, output
+
+
+def test_a_root_file_missing_a_key_refuses() -> None:
+    code, output = _root_env(ROOT_KEYS.replace(f"INTERNAL_API_KEY_ADMIN={'k' * 64}\n", ""))
+
+    assert code == 2, output
+    assert "INTERNAL_API_KEY_ADMIN is missing" in output, output
+
+
+@pytest.mark.parametrize(("script", "first_compose"), [(DEPLOY, "\nif (( STATUS_ONLY )); then"), (LOCAL, "\nif (( DOWN )); then")])
+def test_the_root_file_is_judged_before_the_first_compose_call(script: Path, first_compose: str) -> None:
+    """`--status` and `--down` call compose too, which would take a `COMPOSE_*` line as its own."""
+    text = script.read_text(encoding="utf-8")
+
+    assert text.index("\ncheck_root_env ") < text.index(first_compose), script.name
 
 
 # --- the configuration compose reads, before anything is pulled ---------------------------------------

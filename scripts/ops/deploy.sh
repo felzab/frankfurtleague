@@ -93,6 +93,9 @@ fi
 require_platform linux
 require_docker
 require_file "$COMPOSE"
+# Before `--status` too, whose compose calls would otherwise honour a `COMPOSE_*` line in it.
+require_file "$SHARED_ENV" "Both application services read it last, for the names they must hold equal (docs/ops/runbooks.md §16)."
+check_root_env "$SHARED_ENV"
 
 # `version`, never `revision`: the version label is the tag the build was pushed under, and the
 # revision is the full commit, which no tag spells.
@@ -781,7 +784,6 @@ section "preflight"
 step "Files and directories the stack mounts, before anything is stopped or pulled"
 require_file "fl_frontend/.env" "The frontend cannot start without it. Restore it from your password manager."
 require_file "fl_backend/.env"  "The backend cannot start without it."
-require_file "$SHARED_ENV" "Both application services read it last, for the names they must hold equal (docs/ops/runbooks.md §16)."
 # Each file and never its directory alone: Docker mounts a missing directory empty, where nginx
 # loads no server of this site's or refuses the include, the edge serving its previous
 # configuration until it restarts.
