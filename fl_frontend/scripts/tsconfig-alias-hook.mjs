@@ -1,29 +1,8 @@
-/**
- * Teaches `node --test` the specifier forms tsconfig and a bundler resolve and Node does not.
- *
- * Node's ESM resolver reads neither `tsconfig` paths nor extensionless specifiers, so without this a
- * module under test that imports `@/shared/utils/format` dies with ERR_MODULE_NOT_FOUND — even though
- * `tsc` and Turbopack both resolve it fine. The workaround before this existed was to write the import
- * relatively and with an explicit `.ts` extension, which put a rule in the codebase that applied to
- * exactly one file and would have confused the next person to add a test.
- *
- * Both halves of that sentence are handled: the `@/*` alias, and an extensionless RELATIVE specifier.
- * The second is why `features/spiele/schemas.ts` and `features/spieltage/schemas.ts` were untestable —
- * each imports `"../saisons/schemas"`, which is ordinary application style everywhere else in the tree.
- *
- * Wired into the `test:base` script via `--import`. It affects nothing else: `next build`, `tsc` and ESLint
- * never load it.
- *
- * NOT named `test-alias-loader.mjs`: `node --test` discovers
- * `test-*` as a test file, so it was collected, executed a second time, and inflated the test count
- * by one. Keep the name clear of `test-*`, `*.test.*`, `*-test.*` and `*_test.*`.
- *
- * `registerHooks` (Node >= 22.15) runs the hook synchronously and in-thread, so this needs no separate
- * hooks module and no deprecated `--loader` flag.
- *
- * Test files themselves keep their ordinary relative imports (`./format.ts`) — those are plain ESM and
- * correct as written. This exists only so *application* modules can use the alias everywhere.
- */
+// Loaded by `--import` in `package.json`'s `test:base` and `environment-names` scripts, the second
+// running in the image's builder; `next build`, `tsc` and ESLint never load it.
+
+// Named clear of `test-*`, `*.test.*`, `*-test.*` and `*_test.*`: `node --test` collects a file so
+// named as a test and runs it a second time.
 import { statSync } from "node:fs";
 import { createRequire, registerHooks } from "node:module";
 import path from "node:path";
@@ -55,8 +34,8 @@ function resolveWithSuffix(base) {
 /**
  * An extensionless `./x` or `../y/x`, which TypeScript resolves and Node does not.
  *
- * A specifier that already carries an extension is left alone, so the ten test files importing
- * `./schemas.ts` keep resolving through Node's own resolver rather than through this.
+ * A specifier that already carries an extension is left alone, so a test file importing
+ * `./schemas.ts` keeps resolving through Node's own resolver rather than through this.
  */
 function isExtensionlessRelative(specifier) {
   return (specifier.startsWith("./") || specifier.startsWith("../")) && path.extname(specifier) === "";
@@ -82,6 +61,12 @@ function isNextEntry(specifier) {
   return /^next\/[\w-]+$/.test(specifier) && isFile(path.join(NEXT_DIR, `${specifier.slice("next/".length)}.js`));
 }
 
+// Node reads neither tsconfig's `@/*` paths nor an extensionless specifier, both of which `tsc` and
+// Turbopack resolve, so a module written with either dies under `node --test` with
+// ERR_MODULE_NOT_FOUND unless this hook answers it.
+
+// `registerHooks` runs the hook synchronously and in-thread, so this needs no separate hooks module
+// and no `--loader` flag.
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (isNextEntry(specifier)) return nextResolve(`${specifier}.js`, context);
