@@ -4,7 +4,6 @@ import { memo } from "react";
 
 import Key from "@gravity-ui/icons/Key";
 
-import { servedInstant } from "@/core/servedInstant";
 import {
   BERECHTIGUNGEN_CRUD_COPY,
   DIREKT_IN_DER_DATENBANK,
@@ -37,7 +36,7 @@ const ERTEILT_TAG = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin"
 
 /** The Berlin day of `erteilt_am`. */
 function erteiltTag(stamp: string): string {
-  const instant = servedInstant(stamp);
+  const instant = new Date(stamp);
 
   // A Playground paste writes what it likes, and `Intl.format` throws on an invalid date.
   return Number.isNaN(instant.getTime()) ? stamp : ERTEILT_TAG.format(instant);

@@ -23,7 +23,7 @@ const INHABER = {
   verwaltung: "owner",
   erteilt_von: "PLAYGROUND",
   erteilt_von_gesperrt: false,
-  erteilt_am: "2026-09-27T01:00:00",
+  erteilt_am: "2026-09-27T01:00:00Z",
 };
 const VORSTAND = {
   id: "6890a1b2c3d4e5f6071b0002",
@@ -32,8 +32,8 @@ const VORSTAND = {
   verwaltung: "administration",
   erteilt_von: "inhaber@schule.de",
   erteilt_von_gesperrt: false,
-  // Naive, as the backend serialises the store's UTC, and past 22:00: already the 28th in Berlin.
-  erteilt_am: "2026-09-27T22:30:00",
+  // Past 22:00 UTC: already the 28th in Berlin.
+  erteilt_am: "2026-09-27T22:30:00Z",
 };
 const GESPERRT = {
   id: "6890a1b2c3d4e5f6071b0003",
@@ -42,7 +42,7 @@ const GESPERRT = {
   verwaltung: "administration",
   erteilt_von: null,
   erteilt_von_gesperrt: true,
-  erteilt_am: "2026-09-27T03:00:00",
+  erteilt_am: "2026-09-27T03:00:00Z",
 };
 
 /** The tier the lookup answers the signed-in administrator, until a case names another. */
