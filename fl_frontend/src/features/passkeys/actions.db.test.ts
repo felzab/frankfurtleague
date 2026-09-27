@@ -330,18 +330,28 @@ describe("two removals by one administrator at once, against a real database (`d
 /** The passkey a removal below takes away, and the device it signed in; the acting device signed in with another. */
 const REMOVED = "fl-passkey-db-entfernt";
 
+/** A third passkey, which signed in a device of its own and stays. */
+const KEPT = "fl-passkey-db-behalten";
+
 describe("the sessions a removal ends, against a real database (`docs/frontend/spec.md :: I313`)", () => {
   const opens = async (cookie: string) => (await auth.api.getSession({ headers: new Headers({ ...ORIGIN, cookie }) })) !== null;
 
-  it("ends the session the removed passkey made and keeps the one another passkey made", async () => {
+  /* Two devices besides the acting one that the removed passkey did not sign in: ending every session
+     but the acting one would also pass a case holding only the removed passkey's. */
+  it("ends the session the removed passkey made and keeps those another passkey or a code made", async () => {
     const other = await steppedUpAdmin(REMOVED);
+    const third = await steppedUpAdmin(KEPT);
     const own = await steppedUpAdmin();
-    const [first] = await seedPasskeys(own.userId, 2, [REMOVED]);
+    const byCode = cookieHeader(await signInByCode(auth, ADMIN_EMAIL));
+    const [first] = await seedPasskeys(own.userId, 3, [REMOVED, KEPT]);
     assert.ok(first);
     requestHeaders = new Headers({ ...ORIGIN, cookie: own.cookie });
 
     assert.equal((await removePasskeyAction(first)).success, true);
-    assert.deepEqual([await opens(other.cookie), await opens(own.cookie)], [false, true]);
+    assert.deepEqual(
+      [await opens(other.cookie), await opens(third.cookie), await opens(byCode), await opens(own.cookie)],
+      [false, true, true, true],
+    );
   });
 
   /* Another device's hourly `updatedAt` refresh, landing while the sign-out runs: the sign-out's own
