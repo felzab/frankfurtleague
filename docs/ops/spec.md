@@ -82,9 +82,22 @@ destroys them (`scripts/ops/deploy.sh :: LOG_DIR`), and host files the deploy ca
 those copies to thirty days, through `systemd-tmpfiles`, and the edge's access and error logs —
 host files rather than a container stream (§1.2), holding every line that names a visitor
 (I352) — to eight, through an hourly `logrotate`
-([`runbooks.md`](runbooks.md) §7). **`cap_drop: ALL` and `no-new-privileges:true` are every
-service's but `nginx`'s** — it declares neither, which is recorded in §4 rather than assumed to be
-deliberate.
+([`runbooks.md`](runbooks.md) §7).
+
+**Every service drops every capability and runs under `no-new-privileges:true`, and `nginx` alone
+adds any back** (I491): four, each one its master, starting as root, fails to start without.
+
+- `CHOWN` hands the workers the temp directories they write.
+- `SETUID` and `SETGID` make the workers their own user.
+- `DAC_OVERRIDE` opens the logs, and the TLS key wherever root does not own it: the log directory
+  belongs to the deploying user
+  ([`runbooks.md`](runbooks.md) §7), and root is no owner there. Re-owning it to root does not
+  replace this capability, because nginx gives each log it reopens to its worker's user, and a
+  master started after that cannot write to a file it has given away.
+
+`NET_BIND_SERVICE` is not among them: a container's `net.ipv4.ip_unprivileged_port_start` is 0,
+which lets every user bind below 1024 (read 2026-09-27, on engine 29.8.0). With `NET_RAW` in no
+container, none can read the traffic crossing `frankfurtleague-app` (§4).
 
 **The frontend container is also what runs the retention sweep.**
 `fl_frontend/src/instrumentation-node.ts :: registerOnNode` arms
@@ -1220,6 +1233,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I472 | The actor token's signing key reaches the frontend alone, at `/run/secrets/fl_actor_signing_key`, read from `./secrets/fl_actor_signing_key`                                  | `scripts/checks/check_compose_model.py :: signing_key` and `:: secrets_directory`, over the models `docker compose config` renders                                                                                                                                                                 |
 | I473 | Before containers start, both preflights refuse a signing key the frontend cannot read or a mismatched public half, printing no value; an unrunnable check warns              | `scripts/lib/_lib.sh :: check_actor_key`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh`; `scripts/tests/test_deploy_streams.py` runs its snippet for real                                                                                                                           |
 | I487 | No value in an `.env` compose reads holds a spelling its readers take differently: a `$`, an unspaced `#`, a quoted `\`, a leading backtick                                   | `scripts/lib/_lib.sh :: check_env_spellings`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh` before any compose call reads the file; `scripts/tests/test_deploy_streams.py`                                                                                                          |
+| I491 | Every service in both stacks drops every capability and sets `no-new-privileges`; `nginx` alone adds any back, `CHOWN`, `SETUID`, `SETGID` and `DAC_OVERRIDE`                 | `scripts/checks/check_compose_model.py :: privileges`, over the models `docker compose config` renders                                                                                                                                                                                             |
 
 ## 3. Violation → remedy
 
@@ -1276,8 +1290,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | Registry tag pruning is manual                                    | Accepted — a botched delete destroys rollback history. The retention procedure is in §1.5                                                                                                          |
 | Revoking admin access ends no session                             | Accepted — both processes read the grant on every request, so a revoked one admits nothing from the next and nothing restarts                                                                      |
 | Nothing announces that a season rollover is due                   | Accepted — nothing in the running application watches the season clock; the trigger to revisit is a rollover actually missed, which serves last season silently                                    |
-| `nginx` drops no capabilities                                     | Open — every other service carries `cap_drop: ALL` and `no-new-privileges:true` and `nginx` carries neither, and the asymmetry is undecided                                                        |
-| Traffic between containers is plain HTTP                          | Accepted — the admin key and actor token cross `frankfurtleague-app` unencrypted, a bridge on one host; `nginx`, keeping `NET_RAW` (above), alone could read them                                  |
+| Traffic between containers is plain HTTP                          | Accepted — the admin key and actor token cross `frankfurtleague-app` unencrypted, a bridge on one host no container can read, none holding `NET_RAW` (I491)                                        |
 | Certificate renewal is outside this repository                    | Accepted — they are mounted from `./certs`, and nothing here issues or rotates them                                                                                                                |
 | The local database runs unauthenticated                           | Accepted — authentication on `--replSet` wants a keyfile whose permissions `mongod` checks, which a Windows host does not reliably give it (`fl_backend/tests/conftest.py :: _replica_set_mongod`) |
 | The local database holds real contact records                     | Accepted — a copy I1 keeps off every interface but this host's; `--fresh` removes volume, copy and access log, every `--down` removes `.tmp-mail/`                                                 |

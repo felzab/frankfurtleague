@@ -145,6 +145,20 @@ services:
       - frankfurtleague-net
       - frankfurtleague-app
     logging: *default-logging
+    security_opt:
+      - no-new-privileges:true
+    # Each one added back is one the master, starting as root, fails to start without
+    # (`docs/ops/spec.md` §1.1). No NET_BIND_SERVICE: Docker lets every user bind below 1024.
+    cap_drop:
+      - ALL
+    cap_add:
+      # Handing the workers its temp directories.
+      - CHOWN
+      # Becoming the workers' user.
+      - SETUID
+      - SETGID
+      # Opening its logs: the deploying user owns their directory, and root is no owner there.
+      - DAC_OVERRIDE
     # `service_healthy`, not just `service_started`: an nginx starting from nothing must not accept
     # traffic before both upstreams answer. A deploy does not pass through here, recreating the
     # application pair alone, so this governs a cold start.

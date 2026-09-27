@@ -132,6 +132,39 @@ def networks(model: dict[str, Any], name: str) -> list[Finding]:
     return findings
 
 
+# What each service adds back after dropping every capability: nginx's master fails to start without
+# each of its four (`docker-compose.yml :: nginx`), and every other service runs as its own user.
+CAPABILITIES_ADDED: Final = {EDGE_SERVICE: frozenset({"CHOWN", "SETUID", "SETGID", "DAC_OVERRIDE"})}
+# The spellings Compose documents for the option, a boolean one taking either separator or none.
+NO_NEW_PRIVILEGES: Final = frozenset({"no-new-privileges", "no-new-privileges:true", "no-new-privileges=true"})
+
+
+def _capabilities(listed: object) -> frozenset[str]:
+    """Capability names as the kernel's list spells them, a `CAP_` prefix Docker also accepts dropped."""
+    return frozenset(str(name).upper().removeprefix("CAP_") for name in listed or [])
+
+
+def privileges(model: dict[str, Any], name: str) -> list[Finding]:
+    """Every service drops every capability, takes `no-new-privileges`, and adds back only `CAPABILITIES_ADDED`'s.
+
+    One left in place is one no start was shown to need, and NET_RAW reads the bridge a token crosses (I491).
+    """
+    findings: list[Finding] = []
+    for service, definition in sorted(services(model, name).items()):
+        dropped = _capabilities(definition.get("cap_drop"))
+        added = _capabilities(definition.get("cap_add"))
+        allowed = CAPABILITIES_ADDED.get(service, frozenset())
+        if dropped != {"ALL"}:
+            findings.append(Finding("fail", f"{name}: {service} drops {sorted(dropped) or 'nothing'}, not ALL (I491)"))
+        if added != allowed:
+            findings.append(
+                Finding("fail", f"{name}: {service} adds back {sorted(added) or 'nothing'}, not {sorted(allowed) or 'nothing'} (I491)")
+            )
+        if not NO_NEW_PRIVILEGES & set(definition.get("security_opt") or []):
+            findings.append(Finding("fail", f"{name}: {service} does not set no-new-privileges (I491)"))
+    return findings
+
+
 def _declared_file(declared: object, project: Path) -> str:
     """A top-level secret's or config's `file`, relative to the rendered project where it sits inside it."""
     source_file = Path(str((declared.get("file") if isinstance(declared, dict) else None) or ""))
@@ -491,6 +524,7 @@ def main() -> int:
         findings += prod_mounts + local_mounts + compared(prod_pairs, deploy_pairs(DEPLOY), "production")
         findings += env_files(prod_model, "production") + env_files(local_model, "local")
         findings += networks(prod_model, "production") + networks(local_model, "local")
+        findings += privileges(prod_model, "production") + privileges(local_model, "local")
         findings += signing_key(prod_model, "production", Path(args.production).resolve().parent)
         findings += signing_key(local_model, "local", Path(args.local).resolve().parent)
         findings += secrets_directory(prod_model, "production", Path(args.production).resolve().parent)
@@ -514,6 +548,7 @@ def main() -> int:
         print(f"      either edge trusts the {CONNECTOR_SERVICE} address alone, and marks it as the fallback")
         print("      each application service reads its package's environment file, then the checkout's")
         print(f"      the connector shares a network with {EDGE_SERVICE} alone, and the application pair with {EDGE_SERVICE} alone")
+        print(f"      every service drops every capability and gains no privilege, {EDGE_SERVICE} adding back its master's four")
         print(f"      {SIGNING_KEY_HOLDER} alone holds the actor token's signing key, read from {SIGNING_KEY_FILE}")
         print(f"      no service mounts {Path(SIGNING_KEY_FILE).parent.as_posix()}/ but through a secret naming its file")
     return code

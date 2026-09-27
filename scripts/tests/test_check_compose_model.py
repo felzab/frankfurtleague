@@ -338,7 +338,14 @@ def rendered_stack(project: Path, conf_dir: str, **extra: dict[str, Any]) -> dic
     nginx = {"volumes": edge_volumes, "command": LISTENING, "tmpfs": ["/run/nginx-control:mode=700"], **joined(EDGE, APP)}
     frontend = env_file("fl_frontend/.env", ".env") | joined(APP) | HOLDS_THE_KEY
     backend = env_file("fl_backend/.env", ".env") | joined(APP)
-    return model(nginx=nginx, frontend=frontend, backend=backend, **extra) | declared_key(project)
+    stack = {"nginx": nginx, "frontend": frontend, "backend": backend, **extra}
+    return model(**{service: definition | hardened(service) for service, definition in stack.items()}) | declared_key(project)
+
+
+def hardened(service: str) -> dict[str, Any]:
+    """A service's privileges as Compose renders the lists `docker-compose.yml` writes for it."""
+    added = sorted(checker.CAPABILITIES_ADDED.get(service, ()))
+    return {"cap_drop": ["ALL"], "security_opt": ["no-new-privileges:true"]} | ({"cap_add": added} if added else {})
 
 
 # A service's secret as Compose renders the short syntax, and the top-level entry it names.
@@ -513,6 +520,56 @@ def test_main_judges_the_networks_of_both_models():
 
         assert code == 1, said
         assert f"{broken}: frontend joins" in said, said
+
+
+# --- what each service may do as root -------------------------------------------------------------------
+
+PRIVILEGED: Final = model(**{service: hardened(service) for service in (*checker.PRODUCTION_SERVICES, "mongo")})
+
+
+def test_every_service_dropping_all_and_the_edge_adding_its_four_is_clean():
+    assert checker.privileges(PRIVILEGED, "p") == []
+
+
+@pytest.mark.parametrize("spelled", [["cap_chown", "Cap_SetUid", "SETGID", "dac_override"], ["CAP_CHOWN", "CAP_SETUID", "CAP_SETGID", "CAP_DAC_OVERRIDE"]])
+def test_a_capability_spelled_as_docker_also_accepts_it_is_the_same_capability(spelled: list[str]):
+    """Docker takes a name in any case and with or without `CAP_`, so a spelling alone is no finding."""
+    rendered = model(**PRIVILEGED["services"] | {"nginx": hardened("nginx") | {"cap_add": spelled}})
+
+    assert checker.privileges(rendered, "p") == []
+
+
+@pytest.mark.parametrize(
+    ("service", "changed", "said"),
+    [
+        pytest.param("nginx", {"cap_add": ["CHOWN", "SETUID", "SETGID", "DAC_OVERRIDE", "NET_RAW"]}, "nginx adds back", id="edge-keeps-net-raw"),
+        pytest.param("nginx", {"cap_drop": []}, "nginx drops nothing", id="edge-drops-nothing"),
+        pytest.param("frontend", {"cap_add": ["NET_BIND_SERVICE"]}, "frontend adds back", id="frontend-adds-one"),
+        pytest.param("backend", {"cap_drop": ["NET_RAW"]}, "backend drops ['NET_RAW'], not ALL", id="backend-drops-one"),
+        pytest.param("cloudflared", {"security_opt": []}, "cloudflared does not set no-new-privileges", id="connector-may-gain"),
+        pytest.param("mongo", {"security_opt": ["no-new-privileges:false"]}, "mongo does not set no-new-privileges", id="database-false"),
+    ],
+)
+def test_a_capability_or_a_privilege_left_in_place_fails(service: str, changed: dict[str, Any], said: str):
+    """NET_RAW is the one that reads the bridge the admin key and an actor token cross in plain HTTP."""
+    rendered = model(**PRIVILEGED["services"] | {service: hardened(service) | changed})
+
+    found = checker.privileges(rendered, "p")
+
+    assert [f"p: {said}" in finding.detail for finding in found] == [True], found
+
+
+def test_main_judges_the_privileges_of_both_models():
+    project = new_root("fl-compose-main-privileges-")
+    for broken in ("production", "local"):
+        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
+        local = rendered_stack(project, "nginx/local")
+        ({"production": production, "local": local}[broken])["services"]["nginx"]["cap_add"] = ["ALL"]
+
+        code, said = run_main(production, local, project)
+
+        assert code == 1, said
+        assert f"{broken}: nginx adds back ['ALL']" in said, said
 
 
 # --- the actor token's signing key ----------------------------------------------------------------------
