@@ -2,21 +2,24 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
 const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
-const NEXT_CACHE = `export const revalidateTag = (tag, profile) => { globalThis.__flRefTags.push([tag, profile]); };
-export const updateTag = (tag) => { globalThis.__flRefTags.push(["updateTag", tag]); throw new Error("updateTag in a route handler"); };`;
+const tags: [string, unknown][] = [];
+const NEXT_CACHE = exportingModule({
+  revalidateTag: (tag: string, profile: unknown) => void tags.push([tag, profile]),
+  updateTag: (tag: string): never => {
+    tags.push(["updateTag", tag]);
+    throw new Error("updateTag in a route handler");
+  },
+});
 const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
 
 const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint));
-
-const recorders = globalThis as unknown as Record<string, unknown>;
-const tags: [string, unknown][] = [];
-recorders.__flRefTags = tags;
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 

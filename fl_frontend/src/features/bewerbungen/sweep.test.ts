@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it, mock } from "node:test";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
@@ -23,9 +24,8 @@ type SweepLog = { event: string; saison_id: string | undefined };
 
 const logs: SweepLog[] = [];
 
-const recorders = globalThis as unknown as Record<string, unknown>;
-recorders.__flSweepLogs = logs;
-recorders.__flSweepSwitch = "on";
+/** The sweep's switch as the doubled config answers it, which a case sets. */
+let sweepSwitch: string | undefined = "on";
 
 let apiAnswer: (call: ApiEvent) => unknown = () => ({});
 
@@ -44,19 +44,25 @@ const mail = doubleSendMail();
 
 // The error arm records: which EVENT a failure is filed under is what tells an operator which half
 // of a season's pass stopped, and that is a line rather than a call the transport shows.
-const LOGGING_DOUBLE = `export const logger = {
-  info: () => {},
-  warn: () => {},
-  error: (event, _message, fields) => globalThis.__flSweepLogs.push({ event, saison_id: fields?.saison_id }),
-};`;
+const LOGGING_DOUBLE = exportingModule({
+  logger: {
+    info: () => undefined,
+    warn: () => undefined,
+    error: (event: string, _message: unknown, fields?: { saison_id?: string }) => void logs.push({ event, saison_id: fields?.saison_id }),
+  },
+});
 
 // A getter, not a value: one process holds one module registry, so a case that could not re-read the
 // switch could only ever prove one side of it.
-const CONFIG_DOUBLE = `export const frontend_config = {
-  LOG_FORMAT: "console",
-  AUTH_URL: "http://localhost:3000",
-  get BEWERBUNG_SWEEP() { return globalThis.__flSweepSwitch; },
-};`;
+const CONFIG_DOUBLE = exportingModule({
+  frontend_config: {
+    LOG_FORMAT: "console",
+    AUTH_URL: "http://localhost:3000",
+    get BEWERBUNG_SWEEP() {
+      return sweepSwitch;
+    },
+  },
+});
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -182,7 +188,7 @@ beforeEach(() => {
     events.push({ kind: "mail", ...sent });
     return refused.has(sent.to) ? "refused" : "accepted";
   });
-  recorders.__flSweepSwitch = "on";
+  sweepSwitch = "on";
   sweepAnswers({});
 });
 
@@ -265,7 +271,7 @@ describe("what register arms", () => {
   /** One arming and three hours of ticks: every case below asks only whether anything reached the backend at all. */
   async function armAndTick(nodeEnv: string, sweep: string | undefined): Promise<void> {
     const restore = underNodeEnv(nodeEnv);
-    recorders.__flSweepSwitch = sweep;
+    sweepSwitch = sweep;
     mock.timers.enable({ apis: ["setInterval", "setTimeout"] });
 
     try {

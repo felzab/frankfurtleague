@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 
 import z from "zod";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 import type { UndoReport } from "./undoRoute.ts";
@@ -17,28 +18,31 @@ const PACKAGE_DOUBLES: Record<string, string> = {
   // Throws as Next does outside a server action, so a route that reached it fails here.
   "next/cache": `export const refresh = () => { throw new Error("refresh() outside a server action"); };`,
 };
+type ServedSession = { user: { email: string }; session: { authFactor: string } } | null;
+
 /**
- * The session each case sets on the bus below; unset, an administrator is signed in. The landing
- * derives from that one session, so a case cannot set a verdict its session contradicts.
+ * The session each case sets; unset, an administrator is signed in. The landing derives from that one
+ * session, so a case cannot set a verdict its session contradicts.
  */
-const AUTH = `const ALLOWLISTED = "admin@example.de";
-const session = () =>
-  globalThis.__flUndoRouteSession === undefined
-    ? { user: { email: ALLOWLISTED }, session: { authFactor: "passkey" } }
-    : globalThis.__flUndoRouteSession;
-const through = () => {
+let undoRouteSession: ServedSession | undefined;
+
+const ALLOWLISTED = "admin@example.de";
+const session = (): ServedSession =>
+  undoRouteSession === undefined ? { user: { email: ALLOWLISTED }, session: { authFactor: "passkey" } } : undoRouteSession;
+const through = (): boolean => {
   const served = session();
   return served !== null && served.user.email === ALLOWLISTED && served.session.authFactor === "passkey";
 };
-export const getAdminSession = async () => (through() ? session() : null);
-export const isFreshlySignedIn = () => true;
-export const getSignInDestination = async () => {
-  const served = session();
-  if (served === null) return "/signin";
-  if (served.user.email !== ALLOWLISTED) return "/bereich";
-  return through() ? "/bereich/admin" : "/signin";
-};`;
-const bus = globalThis as unknown as Record<string, unknown>;
+const AUTH = exportingModule({
+  getAdminSession: async () => (through() ? session() : null),
+  isFreshlySignedIn: () => true,
+  getSignInDestination: async () => {
+    const served = session();
+    if (served === null) return "/signin";
+    if (served.user.email !== ALLOWLISTED) return "/bereich";
+    return through() ? "/bereich/admin" : "/signin";
+  },
+});
 const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
@@ -138,7 +142,7 @@ describe("who the undo spine answers before it does any work", () => {
   /* The spine's own authorization: the backend refuses too, but that is a different service, and
      `proxy.ts` matches `/bereich/:path*`, never `/api/admin/*`. */
   it("refuses a caller with no admin session before reading the body or restoring anything", async () => {
-    bus.__flUndoRouteSession = null;
+    undoRouteSession = null;
     let restored = 0;
 
     try {
@@ -154,14 +158,14 @@ describe("who the undo spine answers before it does any work", () => {
       assert.equal(restored, 0, "the undo restores without checking who is asking");
       assert.deepEqual(invalidated, [], "the caches are cleared for a caller nobody has authorized");
     } finally {
-      delete bus.__flUndoRouteSession;
+      undoRouteSession = undefined;
     }
   });
 
   /* The line `fl_frontend/src/proxy.ts` draws: a session the allowlist does not carry is sent to the
      person's own `/bereich` rather than to sign in again, where that same allowlist would refuse it once more. */
   it("answers a session outside the allowlist apart from a missing one, and still does no work for it", async () => {
-    bus.__flUndoRouteSession = { user: { email: "ehemalig@example.de" }, session: { authFactor: "passkey" } };
+    undoRouteSession = { user: { email: "ehemalig@example.de" }, session: { authFactor: "passkey" } };
     let restored = 0;
 
     try {
@@ -177,14 +181,14 @@ describe("who the undo spine answers before it does any work", () => {
       assert.equal(restored, 0, "the undo restores for a session nobody authorized");
       assert.deepEqual(invalidated, [], "the caches are cleared for a caller nobody has authorized");
     } finally {
-      delete bus.__flUndoRouteSession;
+      undoRouteSession = undefined;
     }
   });
 
   /* The other half of the split: an administrator who has followed the link and not yet presented
      the passkey is 401, which sends them somewhere they can finish, rather than 403 to a person's landing. */
   it("answers an allowlisted session short of the second factor the way it answers a missing one", async () => {
-    bus.__flUndoRouteSession = { user: { email: "admin@example.de" }, session: { authFactor: "link" } };
+    undoRouteSession = { user: { email: "admin@example.de" }, session: { authFactor: "link" } };
     let restored = 0;
 
     try {
@@ -197,7 +201,7 @@ describe("who the undo spine answers before it does any work", () => {
       assert.equal(restored, 0, "the undo restores for a session short of the second factor");
       assert.deepEqual(invalidated, [], "the caches are cleared for a caller nobody has authorized");
     } finally {
-      delete bus.__flUndoRouteSession;
+      undoRouteSession = undefined;
     }
   });
 });

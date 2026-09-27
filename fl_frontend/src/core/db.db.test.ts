@@ -342,9 +342,10 @@ describe("the sign-in store's client recovers from a cold start it could not com
         "--eval",
         `const { client } = await import("@/core/db.ts");
 await client.db("store_bound").collection("probe").findOne({}).catch(() => undefined);
-process.stdout.write("${CHILD_SETTLED}");`,
+process.stdout.write(process.env.FL_CHILD_SETTLED ?? "");`,
       ],
-      { env: { ...process.env, MONGODB_URI: RELAYED_URL }, stdio: ["ignore", "pipe", "inherit"] },
+      // The marker travels as data in the environment rather than as source.
+      { env: { ...process.env, MONGODB_URI: RELAYED_URL, FL_CHILD_SETTLED: CHILD_SETTLED }, stdio: ["ignore", "pipe", "inherit"] },
     );
     const exited = once(child, "exit") as Promise<[number | null, NodeJS.Signals | null]>;
     const settled = new Promise<void>((resolve) => child.stdout.on("data", (chunk) => String(chunk).includes(CHILD_SETTLED) && resolve()));

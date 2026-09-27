@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 
 import type { MailOutcome } from "@/core/mailDouble.ts";
@@ -23,35 +24,37 @@ const logged: LoggedCall[] = [];
 /** How the provider answers each address a case aims a failure at; every other address is accepted. */
 const outcomes = new Map<string, MailOutcome>();
 
-const recorders = globalThis as unknown as Record<string, unknown>;
 /** What the recording half of the fan-out was handed. */
 const gemeldet: Record<string, unknown>[] = [];
 
-recorders.__flMailLogs = logged;
-recorders.__flZustellungCalls = gemeldet;
-recorders.__flZustellungFails = false;
+/** Whether the backend refuses the record the fan-out files. */
+let zustellungFails = false;
 
 // The recording half of the fan-out reaches the backend, which no test process runs.
-const MUTATIONS_DOUBLE = `export const meldeZustellungAngenommen = async (payload) => {
-  globalThis.__flZustellungCalls.push(payload);
-  if (globalThis.__flZustellungFails) throw new Error("the backend refused the record");
-  return { acknowledged: 1, angewendet: payload.rollen };
-};`;
+const MUTATIONS_DOUBLE = exportingModule({
+  meldeZustellungAngenommen: async (payload: { rollen?: unknown }) => {
+    gemeldet.push(payload);
+    if (zustellungFails) throw new Error("the backend refused the record");
+    return { acknowledged: 1, angewendet: payload.rollen };
+  },
+});
 
 // The error argument is CAPTURED, never discarded: `fl_frontend/src/core/logFormat.ts :: serializeError`
 // writes an error's message and stack, so a double that drops it cannot see an address reaching the
 // stream through one.
-const LOGGING_DOUBLE = `export const logger = {
-  info: () => {},
-  warn: () => {},
-  error: (message, error, meta) => {
-    globalThis.__flMailLogs.push({
-      message,
-      error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
-      meta: meta ?? {},
-    });
+const LOGGING_DOUBLE = exportingModule({
+  logger: {
+    info: () => undefined,
+    warn: () => undefined,
+    error: (message: string, error: unknown, meta?: Record<string, unknown>) => {
+      logged.push({
+        message,
+        error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
+        meta: meta ?? {},
+      });
+    },
   },
-};`;
+});
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -122,7 +125,7 @@ function reset(): void {
   outcomes.clear();
   mail.answerWith(({ to }) => outcomes.get(to) ?? { accepted: ACCEPTED_ID });
   gemeldet.length = 0;
-  recorders.__flZustellungFails = false;
+  zustellungFails = false;
 }
 
 describe("how one seat is named to somebody who is not sitting in it", () => {
@@ -682,7 +685,7 @@ describe("what an accepted send records about itself", () => {
      not, which on the sweep's path withholds an erasure for ever. */
   it("does not fail the send when the record cannot be written", async () => {
     reset();
-    recorders.__flZustellungFails = true;
+    zustellungFails = true;
 
     const outcome = await sendBewerbungMail({ operation: "bewerbungSweep", auftrag: AUFTRAG, recipients: [gepaart], buildMail: buildMail });
 

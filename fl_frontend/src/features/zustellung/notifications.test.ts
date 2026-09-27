@@ -3,6 +3,7 @@ import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 import { inspect } from "node:util";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 
 import type { MailOutcome } from "@/core/mailDouble.ts";
@@ -17,8 +18,6 @@ type LoggedCall = { message: string; error: unknown; meta: Record<string, unknow
 /** The id the doubled provider accepts a message under, unless a case names another for its address. */
 const ACCEPTED_ID = "56761188-7520-42d8-8898-ff6fc54ce618";
 
-const recorders = globalThis as unknown as Record<string, unknown>;
-
 const mail = doubleSendMail();
 const sent = mail.sent;
 const logged: LoggedCall[] = [];
@@ -27,42 +26,41 @@ const outcomes = new Map<string, MailOutcome>();
 const gemeldet: Record<string, unknown>[] = [];
 const abgewiesen: Record<string, unknown>[] = [];
 
-recorders.__flZielMailLogs = logged;
-recorders.__flZielGemeldet = gemeldet;
-recorders.__flZielAbgewiesen = abgewiesen;
-recorders.__flZielAbweisungFails = false;
-recorders.__flZielMeldungFails = false;
-recorders.__flZielAngewendet = true;
+/** Whether the backend refuses each record, and what it answers it applied; each case sets them. */
+const backend = { abweisungFails: false, meldungFails: false, angewendet: true };
 
 // The recording half of the fan-out reaches the backend, which no test process runs.
-const MUTATIONS_DOUBLE = `export const meldeZielZustellungAngenommen = async (payload) => {
-  globalThis.__flZielGemeldet.push(payload);
-  if (globalThis.__flZielMeldungFails) throw new Error("the backend refused the record");
-  return { acknowledged: 1, angewendet: globalThis.__flZielAngewendet };
-};
-
-export const meldeZielZustellungAbgewiesen = async (payload) => {
-  globalThis.__flZielAbgewiesen.push(payload);
-  if (globalThis.__flZielAbweisungFails) throw new Error("the backend refused the record");
-  return { acknowledged: 1, angewendet: globalThis.__flZielAngewendet };
-};`;
+const MUTATIONS_DOUBLE = exportingModule({
+  meldeZielZustellungAngenommen: async (payload: Record<string, unknown>) => {
+    gemeldet.push(payload);
+    if (backend.meldungFails) throw new Error("the backend refused the record");
+    return { acknowledged: 1, angewendet: backend.angewendet };
+  },
+  meldeZielZustellungAbgewiesen: async (payload: Record<string, unknown>) => {
+    abgewiesen.push(payload);
+    if (backend.abweisungFails) throw new Error("the backend refused the record");
+    return { acknowledged: 1, angewendet: backend.angewendet };
+  },
+});
 
 // The error argument is CAPTURED, never discarded: `fl_frontend/src/core/logFormat.ts :: serializeError`
 // writes an error's message and stack, so a double that drops it cannot see an address reaching the
 // stream through one.
-const LOGGING_DOUBLE = `export const logger = {
-  info: () => {},
-  warn: (message, meta) => {
-    globalThis.__flZielMailLogs.push({ message, error: undefined, meta: meta ?? {} });
+const LOGGING_DOUBLE = exportingModule({
+  logger: {
+    info: () => undefined,
+    warn: (message: string, meta?: Record<string, unknown>) => {
+      logged.push({ message, error: undefined, meta: meta ?? {} });
+    },
+    error: (message: string, error: unknown, meta?: Record<string, unknown>) => {
+      logged.push({
+        message,
+        error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
+        meta: meta ?? {},
+      });
+    },
   },
-  error: (message, error, meta) => {
-    globalThis.__flZielMailLogs.push({
-      message,
-      error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : error,
-      meta: meta ?? {},
-    });
-  },
-};`;
+});
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -99,9 +97,9 @@ beforeEach(() => {
   abgewiesen.length = 0;
   outcomes.clear();
   mail.answerWith(({ to }) => outcomes.get(to) ?? { accepted: ACCEPTED_ID });
-  recorders.__flZielAbweisungFails = false;
-  recorders.__flZielMeldungFails = false;
-  recorders.__flZielAngewendet = true;
+  backend.abweisungFails = false;
+  backend.meldungFails = false;
+  backend.angewendet = true;
 });
 
 describe("the tags one message rides out with", () => {
@@ -205,7 +203,7 @@ describe("one fan-out about a record", () => {
   /* Discarded, a `false` reads exactly like a recorded send, and it is what an operator needs to
      see when a whole slice's accepted sends are landing nowhere. */
   it("writes one line where the backend applied the accepted send to no record", async () => {
-    recorders.__flZielAngewendet = false;
+    backend.angewendet = false;
 
     const { delivered } = await sendZielMail({
       operation: "schiedsrichter.einladung",
@@ -327,7 +325,7 @@ describe("one fan-out about a record", () => {
   /* The message HAS gone, so a caller told otherwise would report a send that happened as one that
      did not — and the record is the half that can be repaired by the next send. */
   it("keeps a delivered address delivered when the record could not be written", async () => {
-    recorders.__flZielMeldungFails = true;
+    backend.meldungFails = true;
 
     const { delivered, unreachable } = await sendZielMail({
       operation: "schiedsrichter.einladung",
@@ -408,7 +406,7 @@ describe("one fan-out about a record", () => {
      the record — which the next send repairs. */
   it("keeps the fan-out's answer when the refusal could not be recorded", async () => {
     outcomes.set(ADDRESS, { refused: 422, providerErrorName: "invalid_parameter" });
-    recorders.__flZielAbweisungFails = true;
+    backend.abweisungFails = true;
 
     const { delivered, unreachable } = await sendZielMail({
       operation: "schiedsrichter.einladung",
@@ -425,7 +423,7 @@ describe("one fan-out about a record", () => {
      recipient cannot reach the stream through a serialised stack. */
   it("names no recipient on any line it writes", async () => {
     outcomes.set(ADDRESS, "refused");
-    recorders.__flZielMeldungFails = true;
+    backend.meldungFails = true;
 
     await sendZielMail({
       operation: "schiedsrichter.einladung",

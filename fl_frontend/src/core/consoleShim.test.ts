@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { afterEach, describe, it } from "node:test";
 
+import { exportingModule } from "./exportingModule.ts";
 import { writtenBy } from "./stdoutCapture.ts";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
@@ -9,10 +10,16 @@ const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("expor
 
 // Getters, not values: the format decides whether the shim installs at all, and the threshold
 // whether a shimmed `console.debug` reaches the stream.
-const CONFIG_DOUBLE = `export const frontend_config = {
-  get LOG_FORMAT() { return globalThis.__flLogFormat; },
-  get LOG_LEVEL() { return globalThis.__flLogLevel; },
-};`;
+const CONFIG_DOUBLE = exportingModule({
+  frontend_config: {
+    get LOG_FORMAT() {
+      return settings.format;
+    },
+    get LOG_LEVEL() {
+      return settings.level;
+    },
+  },
+});
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -25,9 +32,10 @@ registerHooks({
   },
 });
 
-const settings = globalThis as { __flLogFormat?: string; __flLogLevel?: string };
-settings.__flLogFormat = "json";
-settings.__flLogLevel = "DEBUG";
+/** What the doubled config answers, which each case sets. */
+const settings: { format?: string; level?: string } = {};
+settings.format = "json";
+settings.level = "DEBUG";
 
 const { installConsoleShim } = await import("./consoleShim.ts");
 const { runWithRequestScope } = await import("./requestScope.ts");
@@ -40,15 +48,15 @@ const SPAN = "b".repeat(16);
 
 afterEach(() => {
   Object.assign(console, ORIGINAL_CONSOLE);
-  settings.__flLogFormat = "json";
-  settings.__flLogLevel = "DEBUG";
+  settings.format = "json";
+  settings.level = "DEBUG";
 });
 
 describe("installConsoleShim", () => {
   // The logger's console line leaves through `console.*`; a shim under that format would wrap the
   // writer it forwards to and recurse.
   it("installs nothing under the console format", () => {
-    settings.__flLogFormat = "console";
+    settings.format = "console";
 
     installConsoleShim();
 
@@ -130,11 +138,11 @@ describe("installConsoleShim", () => {
 
   it("holds a shimmed console.debug to the same threshold as the logger", () => {
     installConsoleShim();
-    settings.__flLogLevel = "INFO";
+    settings.level = "INFO";
 
     assert.deepEqual(writtenBy(() => console.debug("dropped")).documents, []);
 
-    settings.__flLogLevel = "DEBUG";
+    settings.level = "DEBUG";
 
     assert.equal(writtenBy(() => console.debug("kept")).documents.length, 1);
   });

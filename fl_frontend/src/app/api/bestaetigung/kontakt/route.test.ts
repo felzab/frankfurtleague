@@ -12,19 +12,16 @@ import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
 const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
-const LOGGING = `const line = (...args) => void globalThis.__flSeatLogs.push(JSON.stringify(args));
-export const logger = { info: line, warn: line, error: line };`;
+/** Every line the handler's logger was handed, serialised whole. */
+const logs: string[] = [];
+const line = (...args: unknown[]): void => void logs.push(JSON.stringify(args));
+const LOGGING = exportingModule({ logger: { info: line, warn: line, error: line } });
 /* The serving origin every link in a message is minted on. */
 const ORIGIN = "http://localhost:3000";
 const CONFIG = exportingModule({ frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } });
 /* The provider rather than the fan-out, which is what composes the message a case reads. */
 const { sent: mails } = doubleSendMail();
 const { calls } = doubleApiAnswers(async (call) => antwortFuer(call));
-
-const recorders = globalThis as unknown as Record<string, unknown>;
-/** Every line the handler's logger was handed, serialised whole. */
-const logs: string[] = [];
-recorders.__flSeatLogs = logs;
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 

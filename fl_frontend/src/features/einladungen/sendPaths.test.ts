@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -10,16 +11,16 @@ import type { MailOutcome, SentMail } from "@/core/mailDouble.ts";
 
 /* The real client reaches a backend no test process runs and the real mailer a provider, so those two
    are replaced; the fan-out is the real one, and what the actions hand it is read off the messages it sends. */
-const CONFIG = `export const frontend_config = { AUTH_URL: "https://liga.example.de" };`;
+const CONFIG = exportingModule({ frontend_config: { AUTH_URL: "https://liga.example.de" } });
 /** What the client answers in this case, whichever endpoint the action reads. */
 let apiAnswer: () => unknown = () => undefined;
 // The delivery report each accepted or refused message files, which the backend applies.
 doubleApiClient(({ endpoint }) => (endpoint.startsWith("/zustellung/") ? { acknowledged: 1, angewendet: true } : apiAnswer()));
-const TEAMS = `export const getTeamMemberships = async () => globalThis.__flSendTeams();`;
+/** The club list the action reads, which each case names. */
+let sendTeams: () => unknown = () => undefined;
+const TEAMS = exportingModule({ getTeamMemberships: async () => sendTeams() });
 
-const recorders = globalThis as unknown as Record<string, unknown>;
 const log: string[] = [];
-recorders.__flSendLog = log;
 
 /** Each address's outcome: delivered, refused by the provider, or held by the deployment. */
 const outcome =
@@ -42,7 +43,11 @@ const keyTag = ({ idempotencyKey }: SentMail): string | undefined => idempotency
 
 // `refresh` writes to the same log the fan-out does, which is how the ordering case below reads which
 // of the two ran first; `cacheCalls` is a list of its own, so it cannot order a refresh against a send.
-const NEXT_CACHE = `export const refresh = () => { globalThis.__flSendLog.push("refresh"); }; export const updateTag = () => {}; export const revalidateTag = () => {};`;
+const NEXT_CACHE = exportingModule({
+  refresh: () => void log.push("refresh"),
+  updateTag: () => undefined,
+  revalidateTag: () => undefined,
+});
 
 doubleActionRequest();
 
@@ -121,14 +126,14 @@ const sentence = (res: { success: boolean; message?: string; error?: string }): 
 beforeEach(() => {
   log.length = 0;
   apiAnswer = liveRow(EINLADUNG_ID);
-  recorders.__flSendTeams = teamsHolding("a".repeat(24), BEIDE_BESTAETIGT);
+  sendTeams = teamsHolding("a".repeat(24), BEIDE_BESTAETIGT);
   sendWith(outcome(["jonas@beispiel.de", "erika@beispiel.de"], [], []));
 });
 
 describe("what the single invite press answers", () => {
   it("counts a delivered fan-out as a send, and writes to the confirmed seats alone", async () => {
     const teamId = "a".repeat(24);
-    recorders.__flSendTeams = teamsHolding(teamId, { ...BEIDE_BESTAETIGT, stellvertretung: seat("mila@beispiel.de", null) });
+    sendTeams = teamsHolding(teamId, { ...BEIDE_BESTAETIGT, stellvertretung: seat("mila@beispiel.de", null) });
 
     const res = await press(teamId);
 
@@ -144,7 +149,7 @@ describe("what the single invite press answers", () => {
      a retry that no repeat of it can reach. */
   it("counts a wholly withheld fan-out as a send, and says the deployment held it", async () => {
     const teamId = "c".repeat(24);
-    recorders.__flSendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
+    sendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
     sendWith(outcome([], ["jonas@beispiel.de", "erika@beispiel.de"], ["jonas@beispiel.de", "erika@beispiel.de"]));
 
     const res = await press(teamId);
@@ -157,7 +162,7 @@ describe("what the single invite press answers", () => {
      shows is the one it already had. */
   it("leaves the panel standing where the deployment held every message", async () => {
     const teamId = "6f".repeat(12);
-    recorders.__flSendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
+    sendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
     sendWith(() => "withheld");
 
     await press(teamId);
@@ -167,7 +172,7 @@ describe("what the single invite press answers", () => {
 
   it("refuses a fan-out that delivered to nobody and was withheld from nobody", async () => {
     const teamId = "d".repeat(24);
-    recorders.__flSendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
+    sendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
     sendWith(outcome([], ["jonas@beispiel.de", "erika@beispiel.de"], []));
 
     const res = await press(teamId);
@@ -180,7 +185,7 @@ describe("what the single invite press answers", () => {
      the panel shows. */
   it("refreshes the panel after a fan-out that delivered to nobody", async () => {
     const teamId = "e".repeat(24);
-    recorders.__flSendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
+    sendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
     sendWith(outcome([], ["jonas@beispiel.de", "erika@beispiel.de"], []));
 
     await press(teamId);
@@ -192,7 +197,7 @@ describe("what the single invite press answers", () => {
      already revoked, and file the delivery record against the closed row. */
   it("refuses where the live row is not the one the caller named, and composes nothing", async () => {
     const teamId = "e".repeat(24);
-    recorders.__flSendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
+    sendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
     apiAnswer = liveRow("f".repeat(24));
 
     const res = await press(teamId);
@@ -204,7 +209,7 @@ describe("what the single invite press answers", () => {
 
   it("refuses where no link stands at all, and composes nothing", async () => {
     const teamId = "1a".repeat(12);
-    recorders.__flSendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
+    sendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
     apiAnswer = () => ({ acknowledged: 1, saison_id: SAISON_ID, team_id: "x", einladung: null, laeuft: true });
 
     const res = await press(teamId);
@@ -217,10 +222,10 @@ describe("what the single invite press answers", () => {
   /* Two refusals, each naming a different repair: entering contacts, or waiting for one of them to
      confirm. One sentence for both would send somebody to a page with nothing to do on it. */
   it("tells a team with no contact block apart from one whose seats have not confirmed", async () => {
-    recorders.__flSendTeams = teamsHolding("2b".repeat(12), null);
+    sendTeams = teamsHolding("2b".repeat(12), null);
     const ohneBlock = await press("2b".repeat(12));
 
-    recorders.__flSendTeams = teamsHolding("3c".repeat(12), {
+    sendTeams = teamsHolding("3c".repeat(12), {
       ...BEIDE_BESTAETIGT,
       trainer: seat("jonas@beispiel.de", null),
       ansprechperson: seat("erika@beispiel.de", null),
@@ -236,7 +241,7 @@ describe("what the single invite press answers", () => {
      the day's key is what stops the provider sending it twice. */
   it("keys the send against the German day", async () => {
     const teamId = "4d".repeat(12);
-    recorders.__flSendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
+    sendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
 
     await press(teamId);
 
@@ -247,7 +252,7 @@ describe("what the single invite press answers", () => {
      the panel the state before it. */
   it("refreshes after the send rather than before it", async () => {
     const teamId = "5e".repeat(12);
-    recorders.__flSendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
+    sendTeams = teamsHolding(teamId, BEIDE_BESTAETIGT);
 
     await press(teamId);
 
