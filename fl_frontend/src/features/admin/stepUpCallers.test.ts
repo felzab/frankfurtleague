@@ -398,6 +398,64 @@ describe("a one-press caller of a step-up write past the window", () => {
   }
 });
 
+const { STEP_UP_RUNNING } = await import("@/shared/components/ui/stepUp.ts");
+
+/** Whether the next prompt stays open until `release` answers it: until then each answers yes at once, as a reach needs. */
+const held: { holding: boolean; release?: (confirmed: boolean) => void } = { holding: false };
+const heldVia = (tree: ReactNode): ReactNode =>
+  h(
+    StepUpContext.Provider,
+    {
+      value: {
+        isStale: () => true,
+        confirm: () => (held.holding ? new Promise<boolean>((resolve) => (held.release = resolve)) : Promise.resolve(true)),
+      },
+    },
+    tree,
+  );
+
+describe("a one-press caller of a step-up write, while its prompt is open", () => {
+  beforeEach(() => {
+    held.holding = false;
+    held.release = undefined;
+  });
+
+  for (const [pair, drives] of Object.entries(DRIVES)) {
+    const action = pair.split(" :: ")[1] ?? "";
+    for (const drive of drives.filter((each) => each.asks)) {
+      /* Nothing is sent while the passkey prompt is open, so the pressed control reads the step-up's
+         words rather than the write's own running words. */
+      it(`${pair}, reads as confirming rather than sending`, async () => {
+        const user = userEvent.setup({ delay: null });
+        if (drive.answer !== undefined) answerWith(drive.answer);
+        const { unmount } = render(heldVia(drive.render()));
+        await drive.reach?.(user);
+        const sent = calls.length;
+        held.holding = true;
+
+        const pressed = screen.getAllByRole("button", { name: drive.press })[0] ?? assert.fail(`nothing to press for ${pair}`);
+        const wordless = pressed.textContent === "";
+        await user.click(pressed);
+        await waitFor(() => assert.ok(held.release !== undefined, `${pair}: the press opened no prompt`));
+        // An icon control has no words to change, so it answers a second press by its pending state instead.
+        if (wordless)
+          assert.equal(pressed.getAttribute("data-pending"), "true", `${pair}: the icon control takes a second press while the prompt is open`);
+        else assert.equal(pressed.textContent, STEP_UP_RUNNING, `${pair}: the control does not read as confirming while the prompt is open`);
+        assert.ok(!calls.slice(sent).some((call) => call.action === action), `${pair}: the write went out while the prompt was open`);
+
+        held.release?.(true);
+        await waitFor(() =>
+          assert.ok(
+            calls.slice(sent).some((call) => call.action === action),
+            `${pair}: the press sent no ${action}`,
+          ),
+        );
+        unmount();
+      });
+    }
+  }
+});
+
 describe("a create sending a step-up write", () => {
   it("declares it to the create form, which asks before it sends", async () => {
     const creates = Object.entries(STEP_UP_CALLERS).flatMap(([module, writes]) =>
