@@ -17,8 +17,11 @@ import { NAME_WRAP_CLASSES } from "../../ui/nameWrap";
 import { RAIL_SQUARE_HEROUI_RING_CLASSES } from "./railGutter";
 import { useSidemenuState } from "./SidemenuState";
 
-/** One place a person's Funktionen lead to, labelled as the landing labels its card for it. */
-export type FunktionOrt = { href: string; titel: string; detail: string };
+/**
+ * One place a person's Funktionen lead to, labelled as the landing labels its card for it. `name` is
+ * what its item is announced as: the title, told apart where two places share one.
+ */
+export type FunktionOrt = { href: string; titel: string; detail: string; name: string };
 
 const BEREICH_HREF = "/bereich";
 
@@ -106,9 +109,9 @@ export function FunktionSwitcher({
                 id={ort.href}
                 href={ort.href}
                 textValue={ort.titel}
-                // The title names the item and the detail describes it: read together, every item's name would
+                // The name names the item and the detail describes it: read together, every item's name would
                 // run on into its roles. HeroUI's `Label` wires no menu-item slot, where its `Description` does.
-                aria-label={ort.titel}
+                aria-label={ort.name}
                 // Each press leaves the shell, so it closes the drawer itself, for `SidemenuFooter`'s reason.
                 onAction={onMobileClose}
                 className="flex w-full items-center gap-2 rounded-md px-2 py-1.5">

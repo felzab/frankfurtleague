@@ -120,7 +120,27 @@ describe("the places the switcher lists", () => {
     ].map(([, href, titel, detail]) => ({ href: href!, titel: titel!, detail: detail! }));
 
     assert.ok(cards.length >= 4, `the landing offers ${String(cards.length)} cards to compare against`);
-    assert.deepEqual(funktionOrteOf(funktionenOf(subject).funktionen), cards);
+    assert.deepEqual(
+      funktionOrteOf(funktionenOf(subject).funktionen).map(({ href, titel, detail }) => ({ href, titel, detail })),
+      cards,
+    );
+  });
+
+  /* One team in two seasons is two places under one title: each is announced with its season, and a
+     place whose title is its own is announced by the title alone. */
+  it("names one team's two seasons apart, and every other place by its title", () => {
+    const orte = funktionOrteOf(
+      funktionenOf(person({ sitze: [sitz(), sitz({ saison_id: "2627", saison_status: "future" })], spieler: [SPIELER_ROW] })).funktionen,
+    );
+
+    assert.deepEqual(
+      orte.map((ort) => ort.name),
+      ["Goethe-Gymnasium, Saison 2526", "Goethe-Gymnasium, Saison 2627", "Spieler"],
+    );
+    assert.deepEqual(
+      funktionOrteOf(funktionenOf(person({ sitze: [sitz()], spieler: [SPIELER_ROW] })).funktionen).map((ort) => ort.name),
+      ["Goethe-Gymnasium", "Spieler"],
+    );
   });
 });
 

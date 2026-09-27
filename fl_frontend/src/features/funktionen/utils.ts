@@ -67,7 +67,18 @@ export function zeilenOf(ziel: FunktionZiel): { titel: string; detail: string } 
  * One place is no choice to offer, so the switcher shows only from two.
  */
 export function funktionOrteOf(funktionen: readonly Funktion[]): FunktionOrt[] {
-  return zieleOf(funktionen).map((ziel) => ({ href: ziel.href, ...zeilenOf(ziel) }));
+  const orte = zieleOf(funktionen).map((ziel) => ({ ziel: ziel, ...zeilenOf(ziel) }));
+
+  return orte.map(({ ziel, titel, detail }) => {
+    const [erste] = ziel.funktionen;
+    // One team in two seasons is two places under one title, which a screen reader would name alike
+    // (`docs/frontend/spec.md :: I465`).
+    const geteilt = erste.art === "kontakt" && orte.some((ort) => ort.ziel !== ziel && ort.titel === titel);
+    // GERMAN-PENDING: a draft awaiting approval.
+    const name = geteilt ? `${titel}, Saison ${erste.saison_id}` : titel;
+
+    return { href: ziel.href, titel: titel, detail: detail, name: name };
+  });
 }
 
 /**

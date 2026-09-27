@@ -18,9 +18,14 @@ const { FunktionSwitcher } = await import("./FunktionSwitcher.tsx");
 const { SidemenuStateProvider } = await import("./SidemenuState.tsx");
 const { NAME_WRAP_CLASSES } = await import("../../ui/nameWrap.ts");
 
-const GOETHE: FunktionOrt = { href: "/bereich/team/t1/2526", titel: "Goethe-Gymnasium", detail: "Saison 2526 · Trainer" };
-const SPIELER: FunktionOrt = { href: "/bereich/spieler", titel: "Spieler", detail: "Dein Kadereintrag" };
-const VERWALTUNG: FunktionOrt = { href: "/bereich/admin", titel: "Verwaltung", detail: "Die Verwaltung der Liga" };
+const GOETHE: FunktionOrt = {
+  href: "/bereich/team/t1/2526",
+  titel: "Goethe-Gymnasium",
+  detail: "Saison 2526 · Trainer",
+  name: "Goethe-Gymnasium",
+};
+const SPIELER: FunktionOrt = { href: "/bereich/spieler", titel: "Spieler", detail: "Dein Kadereintrag", name: "Spieler" };
+const VERWALTUNG: FunktionOrt = { href: "/bereich/admin", titel: "Verwaltung", detail: "Die Verwaltung der Liga", name: "Verwaltung" };
 
 /** The switcher as a shell's sidemenu renders it, standing at `pathname`; the drawer's closes counted. */
 function switcherAt(
@@ -168,15 +173,24 @@ describe("what the switcher lists", () => {
   });
 
   /* The roles are the detail, read after the name rather than run on into it. */
-  it("names each place by its title and describes it by its detail", async () => {
+  it("names each place by its name and describes it by its detail", async () => {
     switcherAt(GOETHE.href);
     await openMenu("Goethe-Gymnasium, Funktion wechseln");
 
     for (const ort of [GOETHE, SPIELER]) {
-      assert.ok(
-        screen.getByRole("menuitemradio", { name: ort.titel, description: ort.detail }),
-        `${ort.titel} is not named by its title alone`,
-      );
+      assert.ok(screen.getByRole("menuitemradio", { name: ort.name, description: ort.detail }), `${ort.titel} is not named by its name alone`);
+    }
+  });
+
+  /* The name, never the title, so two places sharing a title are announced apart. */
+  it("names two places sharing a title apart", async () => {
+    const zuvor = { ...GOETHE, name: "Goethe-Gymnasium, Saison 2526" };
+    const jetzt = { ...GOETHE, href: "/bereich/team/t1/2627", detail: "Saison 2627 · Trainer", name: "Goethe-Gymnasium, Saison 2627" };
+    switcherAt(SPIELER.href, { orte: [zuvor, jetzt, SPIELER] });
+    await openMenu("Spieler, Funktion wechseln");
+
+    for (const ort of [zuvor, jetzt]) {
+      assert.equal(screen.getByRole("menuitemradio", { name: ort.name }).getAttribute("href"), ort.href, `${ort.name} names no item`);
     }
   });
 
