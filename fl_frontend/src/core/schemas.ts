@@ -74,5 +74,8 @@ export const FLSubjektResponseSchema = BaseAPIResponseSchema.extend({
   // Whether the address is on the ban list; it narrows none of the lists above
   // (`docs/backend/spec.md :: I389`).
   gesperrt: z.boolean(),
+  // The tier of the grant the address holds, null for none: the administrator verdict's one source,
+  // read per request and never stamped on a session (`docs/backend/spec.md :: I383`).
+  verwaltung: z.enum(["owner", "administration"]).nullable(),
 });
 export type FLSubjektResponse = z.infer<typeof FLSubjektResponseSchema>;
