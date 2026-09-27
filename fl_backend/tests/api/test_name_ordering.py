@@ -22,8 +22,6 @@ from app.core.collections import Collection
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
-pytestmark = pytest.mark.db
-
 DATABASE_NAME = worker_database("fl_name_ordering_test")
 
 # „Ö" belongs beside „O" and „von" beside „V", where a byte comparison puts the first after every
@@ -138,6 +136,7 @@ class TestTheStoredOrderIsNotTheOrderAnyListServes:
         assert sorted(NAMES) == BYTE_ORDER, "Python's own byte comparison no longer produces the order this file calls binary"
 
 
+@pytest.mark.db
 class TestEveryNameListIsOrderedAsGermanReads:
     """Each read serves the same four names, and each attaches the collation at its own call site."""
 

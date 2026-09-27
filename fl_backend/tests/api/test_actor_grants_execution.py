@@ -25,8 +25,6 @@ from tests.worker import worker_database
 
 from .conftest import config_for
 
-pytestmark = pytest.mark.db
-
 DATABASE_NAME = worker_database("fl_actor_grants_test")
 
 CONFIG = config_for(DATABASE_NAME)
@@ -83,11 +81,13 @@ def test_the_sweep_reaches_every_admin_tier_operation():
     assert len(ADMIN_TIER) >= ADMIN_TIER_FLOOR
 
 
+@pytest.mark.db
 @pytest.mark.parametrize(("path", "method"), ADMIN_TIER, ids=lambda value: value)
 def test_an_actor_holding_no_grant_is_refused_by_the_real_read(seeded_url: str, path: str, method: str):
     assert answered(seeded_url, method, path, NOT_AN_ADMINISTRATOR) == (403, ACTOR_NOT_ADMIN)
 
 
+@pytest.mark.db
 @pytest.mark.parametrize(("path", "method"), ADMIN_TIER, ids=lambda value: value)
 def test_an_actor_holding_a_grant_passes_the_real_read(seeded_url: str, path: str, method: str):
     """The control: a read refusing everybody passes the case above on every operation."""
