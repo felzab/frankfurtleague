@@ -525,7 +525,7 @@ describe("POST /api/mail/zustellung", () => {
       eventFor(type, { bounce: { type: "Permanent", subType: "Suppressed" }, tags: { berechtigung: "hinweis" } });
 
     const zugestellt = await answerTo(signed(JSON.stringify(eventFor("email.delivered", { tags: { berechtigung: "hinweis" } }))));
-    assert.deepEqual(logs, [], "a delivered notice wrote a line");
+    assert.equal(logs.length, 0, "a delivered notice wrote a line");
 
     const { status, body } = await answerTo(signed(JSON.stringify(hinweis("email.bounced"))));
 
