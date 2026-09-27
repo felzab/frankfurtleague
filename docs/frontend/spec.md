@@ -1447,8 +1447,9 @@ company, and what the surface it describes offers.
 
 Every public route sets its own `title`, `description` and canonical, the homepage excepted: the root
 layout's own three ARE the homepage's, its canonical being `/`. `metadataBase` there is what lets the
-canonicals be paths. **No route under `/bereich/admin` sets any but its catch-all**, whose 404 answer is the
-one below, so the rest of the admin tree inherits.
+canonicals be paths. **No route under `/bereich` sets any but its catch-alls**, whose 404 answer is the
+one below, so every signed-in page, the administration's and the person's alike, keeps the site's own
+title in the tab: they are unindexed, and one title for all of them is my rule (2026-09-28).
 The consequences worth knowing before editing metadata:
 
 - **A route that sets no metadata inherits the root layout's, canonical included**, so an unset
