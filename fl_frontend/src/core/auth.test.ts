@@ -800,6 +800,12 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
     assert.ok(await getAdminSession());
     assert.equal(await getSignInDestination(), "/bereich");
   });
+
+  /* Chosen rather than derived, and read back by the proxy's own cases, which therefore pass at any
+     figure: shorter, every signed-in request writes the session row; longer, the idle windows blur. */
+  it("slides a session's row at most once an hour, the granularity the idle windows are judged at", () => {
+    assert.equal(auth.options.session.updateAge, HOUR_MS / 1000);
+  });
 });
 
 describe("a grant the backend cannot answer for", () => {
