@@ -561,7 +561,11 @@ def test_a_root_file_holding_anything_else_refuses_before_compose_is_asked(line:
     assert "judged-clean" not in output, output
 
 
-@pytest.mark.parametrize("value", ["${OTHER}" + "k" * 56, "$OTHER" + "k" * 58, "'" + "k" * 62 + "'"], ids=["braced", "bare", "quoted"])
+@pytest.mark.parametrize(
+    "value",
+    ["${OTHER}" + "k" * 56, "$OTHER" + "k" * 58, "'" + "k" * 62 + "'", '"' + "k" * 62 + '"', "`" + "k" * 62 + "`", "k" * 31 + '"' + "k" * 32],
+    ids=["braced", "bare", "single-quoted", "double-quoted", "backticked", "double-quote-inside"],
+)
 def test_a_key_a_reader_would_rewrite_refuses_naming_the_key_and_never_the_value(value: str) -> None:
     """python-dotenv substitutes `${…}`, compose and `@next/env` any `$`, before either validator judges the key."""
     code, output = _root_env(ROOT_KEYS.replace(f"INTERNAL_API_KEY_BASE={'k' * 64}", f"INTERNAL_API_KEY_BASE={value}"))
