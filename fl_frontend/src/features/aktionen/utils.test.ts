@@ -71,8 +71,8 @@ describe("describeAktionDatensatz", () => {
 /** Every kind the read model accepts, read off both variants of the mirror so a kind added there reaches the cases below. */
 const AKTOR_KINDS = FLAktorSchema.options.flatMap((variant) => variant.shape.kind.options);
 
-/** A pseudonym's shape, whose first eight characters are what a row shows. */
-const PSEUDONYM = "3f9a07c2".padEnd(64, "0");
+/** A pseudonym as the log read serves one: already cut to the start a row shows. */
+const PSEUDONYM = "3f9a07c2";
 
 /** A valid actor of each kind: a signed-in person carries a pseudonym and a Funktion where every other kind carries `email`. */
 function actorOf(kind: FLAktor["kind"]): FLAktor {

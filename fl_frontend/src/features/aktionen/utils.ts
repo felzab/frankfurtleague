@@ -1,4 +1,4 @@
-import { AKTEUR_PSEUDONYM_SHOWN, AKTION_COLLECTION_LABELS, AKTOR_FUNKTION_LABELS, AKTOR_HERKUNFT } from "./constants";
+import { AKTION_COLLECTION_LABELS, AKTOR_FUNKTION_LABELS, AKTOR_HERKUNFT } from "./constants";
 
 import type { AktionHerkunft } from "./constants";
 import type { FLAktion, FLAktor, FLAktorPerson } from "./schemas";
@@ -11,9 +11,12 @@ export function herkunftOfAktor(actor: FLAktor): AktionHerkunft {
   return AKTOR_HERKUNFT[actor.kind];
 }
 
-/** How a signed-in person's row names them: the Funktion the write was authorised under and the start of their pseudonym. */
+/**
+ * How a signed-in person's row names them: the Funktion the write was authorised under and their pseudonym,
+ * which the read serves already cut to the start a page may show (`fl_backend/app/api/aktionen/schemas.py :: FLAktorPerson`).
+ */
 export function personAkteurLabel(actor: FLAktorPerson): string {
-  return `${AKTOR_FUNKTION_LABELS[actor.funktion]} · ${actor.pseudonym.slice(0, AKTEUR_PSEUDONYM_SHOWN)}`;
+  return `${AKTOR_FUNKTION_LABELS[actor.funktion]} · ${actor.pseudonym}`;
 }
 
 /** Falls back to the stored name, so a collection the backend adds lists as itself rather than as an empty cell. */

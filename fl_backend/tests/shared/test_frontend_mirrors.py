@@ -114,8 +114,6 @@ MIRRORED_BOUNDS: Final = (
     # The notice states the ban's length in a word, which its render test holds to this constant; no
     # payload carries a length at all.
     Mirror("features/sperrliste/constants.ts", "SPERRE_DAUER_SAISONS", "SPERRE_DAUER_SAISONS"),
-    # The log row cuts what the read already cut, so the two numbers are one decision.
-    Mirror("features/aktionen/constants.ts", "AKTEUR_PSEUDONYM_SHOWN", "AKTEUR_PSEUDONYM_SHOWN"),
     # The frontend expires an administrator's session at this age and the backend refuses an actor
     # token older than it: a looser backend honours a session the frontend believes gone.
     Mirror("core/sessionLifetimes.ts", "ADMIN_WINDOW_HOURS", "ADMIN_WINDOW_HOURS"),
@@ -132,6 +130,7 @@ UNMIRRORED_BOUNDS: Final[dict[str, str]] = {
         "the log index's own `expireAfterSeconds`; the privacy notice states it by hand in months, which no count of seconds is exactly"
     ),
     "REGISTRIERUNG_ERINNERUNG_TAGE": "the day the sweep reminds a pupil, which no frontend page or mail states",
+    "AKTEUR_PSEUDONYM_SHOWN": "the log read serves the pseudonym already cut to it, and the page shows what it is served",
 }
 
 MIRRORED_MODULES: Final = tuple(dict.fromkeys(mirror.module for mirror in MIRRORED_BOUNDS))
