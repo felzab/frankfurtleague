@@ -244,16 +244,6 @@ function codeRowOf(email: string): Store["verification"][number] | undefined {
   return store.verification.findLast((row) => row.identifier === `sign-in-otp-${email}`);
 }
 
-/**
- * Moves every code row `email` holds a second back, so the next send's row is the newest by its stamp:
- * two sends inside one millisecond tie, and the store then serves the older code as the live one.
- */
-function ageCodeRows(email: string): void {
-  for (const row of store.verification) {
-    if (row.identifier === `sign-in-otp-${email}`) row.createdAt = new Date(row.createdAt.getTime() - 1000);
-  }
-}
-
 /** The rows counting failed codes, every address's. */
 function failureRows(): Store["verification"] {
   return store.verification.filter((row) => row.identifier.startsWith("sign-in-attempt-"));
@@ -2025,7 +2015,6 @@ describe("what the code costs an address holding nothing", () => {
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
     const first = lastMailedCode(sent, ADMIN_EMAIL);
     const mailed = sent.length;
-    ageCodeRows(ADMIN_EMAIL);
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
     const second = lastMailedCode(sent, ADMIN_EMAIL);
     assert.ok(first !== null && second !== null);
@@ -2033,6 +2022,19 @@ describe("what the code costs an address holding nothing", () => {
 
     assert.equal((await answerOf(ADMIN_EMAIL, first)).code, "INVALID_OTP", "the first mail's code still signs in");
     assert.equal((await answerOf(ADMIN_EMAIL, second)).status, 200);
+  });
+
+  /* Two tabs asking at once. The plugin takes the newest stamp for the live code and breaks a tie by
+     nothing, so on one frozen millisecond the mail sent last must still carry the code that signs in. */
+  it("keeps the code mailed last live when two sends share one millisecond", async (t) => {
+    t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+    const second = lastMailedCode(sent, ADMIN_EMAIL);
+    assert.ok(second !== null);
+
+    assert.equal((await answerOf(ADMIN_EMAIL, second)).status, 200, "the code mailed first outranked the one mailed after it");
   });
 
   /* A code's ten minutes run from its own mail and no later request moves them: were a send to extend
@@ -2318,7 +2320,6 @@ describe("the failures one address may spend, across every code it is sent (`doc
       const racing = { ...counted, id: "racing-attempt", createdAt: new Date(Date.now() + 60_000) };
       store.verification.push(racing);
 
-      ageCodeRows(address);
       const otp = await auth.api.createVerificationOTP({ body: { email: address, type: "sign-in" } });
       assert.equal((await answerOf(address, otp)).code, "SIGN_IN_BARRED");
 
@@ -2436,13 +2437,11 @@ describe("the code mails one address may be sent in an hour (`docs/frontend/spec
      the fifth mail's code and mail no other: the person would hold a dead code for the hour. */
   it("leaves the last mailed code standing when a send is capped", async () => {
     for (let send = 0; send < 5; send += 1) {
-      ageCodeRows(ADMIN_EMAIL);
       await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
     }
     const fifth = lastMailedCode(sent, ADMIN_EMAIL);
     assert.ok(fifth !== null);
 
-    ageCodeRows(ADMIN_EMAIL);
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
 
     assert.equal((await answerOf(ADMIN_EMAIL, fifth)).status, 200, "the capped send voided the code the person holds");

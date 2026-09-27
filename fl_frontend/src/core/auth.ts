@@ -70,6 +70,23 @@ const CODE_VALIDITY_SECONDS = CODE_VALIDITY_MINUTES * 60;
 /** How the plugin names a sign-in code's row: its type, then the address (`email-otp/utils :: toOTPIdentifier`). */
 const CODE_ROW_PREFIX = "sign-in-otp-";
 
+// The newest stamp this process gave a new sign-in code, which the next one's passes. Held in memory:
+// one process serves the league, and a second would order only its own codes.
+let lastCodeStamp = 0;
+
+/** How far past its issue time a code's stamp may be moved: a clock set back never lengthens a code's life by more. */
+const CODE_STAMP_SLACK_MS = 1000;
+
+/**
+ * A new code's stamp, strictly after every other this process gave: the plugin takes the newest stamp for
+ * the live code and breaks a tie by nothing, so two codes issued inside one millisecond would leave either live.
+ */
+function nextCodeStamp(issued: number): number {
+  const stamp = issued <= lastCodeStamp && lastCodeStamp - issued < CODE_STAMP_SLACK_MS ? lastCodeStamp + 1 : issued;
+  lastCodeStamp = stamp;
+  return stamp;
+}
+
 /** The one path that spends a code, which `fl_frontend/src/app/api/signin/code/route.ts` calls in process. */
 const CODE_SIGN_IN_PATH = "/sign-in/email-otp";
 
@@ -761,9 +778,12 @@ const authOptions = {
         // A wrong guess writes its code back stamped now, and the plugin takes the newest stamp for the
         // live code, so a send racing the guess would lose to it: stamped with its issue time instead
         // (`docs/frontend/spec.md :: I486`).
-        before: async (row) => {
+        before: async (row, ctx) => {
           if (!row.identifier.startsWith(CODE_ROW_PREFIX)) return;
-          return { data: { ...row, createdAt: new Date(new Date(row.expiresAt).getTime() - CODE_VALIDITY_SECONDS * 1000) } };
+          const issued = new Date(row.expiresAt).getTime() - CODE_VALIDITY_SECONDS * 1000;
+          // The write-back keeps the stamp its code was issued under, the expiry carrying it.
+          const stamp = ctx?.path === CODE_SIGN_IN_PATH ? issued : nextCodeStamp(issued);
+          return { data: { ...row, createdAt: new Date(stamp), expiresAt: new Date(stamp + CODE_VALIDITY_SECONDS * 1000) } };
         },
       },
     },
