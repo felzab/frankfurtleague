@@ -57,8 +57,9 @@ export function CodeConfirmation({
     });
   };
 
-  const signedIn = async (): Promise<void> => {
-    if (await istInhaber().catch(() => false)) {
+  const signedIn = async (bereits: boolean): Promise<void> => {
+    // Another tab's session answered, and this code confirmed nothing: never a step-up.
+    if (!bereits && (await istInhaber().catch(() => false))) {
       onConfirmed();
       return;
     }
@@ -77,7 +78,7 @@ export function CodeConfirmation({
         submitLabel={BESTAETIGEN}
         isSending={isSending}
         onResend={send}
-        onSignedIn={() => void signedIn()}
+        onSignedIn={({ bereits }) => void signedIn(bereits)}
       />
     );
   }

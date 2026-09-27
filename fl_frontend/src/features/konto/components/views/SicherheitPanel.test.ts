@@ -463,6 +463,28 @@ describe("confirming by a code mailed to the holder", () => {
     assert.ok(panel.getByRole("button", { name: "Code per E-Mail senden" }), "the refused step left no way to try again");
   });
 
+  /* The route answers a spent code with `bereits` where another tab's session for the address stands:
+     that code confirmed nothing, so the waiting change never runs on it. */
+  it("runs nothing when the route answers that another tab already signed in", async () => {
+    const user = userEvent.setup();
+    answers.pruefeInhaberAction = { success: true, gleich: true };
+    answers.handleSignIn = SENT;
+    open({ freshUntil: null, enrolmentUntil: null });
+
+    await user.click(screen.getByRole("button", { name: ANDERE_ABMELDEN }));
+    const panel = await dialog();
+    await user.click(panel.getByRole("button", { name: "Code per E-Mail senden" }));
+    const field = await screen.findByLabelText<HTMLInputElement>("Code aus der E-Mail");
+    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(answered({ success: true, bereits: true })));
+    await user.type(field, "048213");
+
+    await waitFor(() => assert.ok(panel.getByRole("alert").textContent?.includes(CODE_STEP_UP_REFUSED)));
+    assert.deepEqual(
+      sent().map(([action]) => action),
+      ["handleSignIn"],
+    );
+  });
+
   /* Holding no passkey, the panel offers no prompt the person cannot answer. */
   it("offers a person holding no passkey the code alone", async () => {
     const user = userEvent.setup();
