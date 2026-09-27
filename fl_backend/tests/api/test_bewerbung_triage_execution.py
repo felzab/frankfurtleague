@@ -67,10 +67,6 @@ from tests.worker import worker_database
 
 from .conftest import config_for
 
-# Module level, as `tests/api/test_spieler_erasure_execution.py` marks its suite: every test below
-# reaches a real mongod, and a marker per test would be one a new test could be written without.
-pytestmark = pytest.mark.db
-
 DATABASE_NAME = worker_database("fl_bewerbung_triage_test")
 
 
@@ -294,6 +290,7 @@ async def through_the_app(
         return await http.post(path, json=dict(payload), headers=headers)
 
 
+@pytest.mark.db
 class TestAnAcceptanceEntersTheSchool:
     """The three writes, against a real mongod: a club where the school is new, the junction row, and the application."""
 
@@ -380,6 +377,7 @@ class TestAnAcceptanceEntersTheSchool:
         assert (assigned, wished) == ("gruen", "rot")
 
 
+@pytest.mark.db
 class TestTheSeasonsOwnEntryRulesReachTheAcceptance:
     """`find_entry_refusal` is REUSED rather than restated, so these prove the reuse arrives.
 
@@ -494,6 +492,7 @@ UNRESOLVED = [
 ]
 
 
+@pytest.mark.db
 class TestAnApplicationResolvingToNoOneClub:
     """`REQ-BEWERBUNG-002` reaching the acceptance.
 
@@ -549,6 +548,7 @@ def confirmed_kontakte(*, open_seat: str | None) -> dict[str, Any]:
     return block
 
 
+@pytest.mark.db
 class TestAcceptanceWaitsForEverySeat:
     """`REQ-BEWERBUNG-013` reaching the acceptance, inside its transaction."""
 
@@ -620,6 +620,7 @@ async def seed_the_unusable_school(database: AsyncDatabase) -> Mapping[str, Any]
     return await stored_bewerbung(database, UNUSABLE_BEWERBUNG)
 
 
+@pytest.mark.db
 class TestASchoolNoClubCanBeCreatedFrom:
     """`REQ-BEWERBUNG-003` reaching the acceptance, which is the last point that can still answer 409.
 
@@ -662,6 +663,7 @@ class TestASchoolNoClubCanBeCreatedFrom:
         assert on_a_league(mongo_replica_set_url, body, occupied=RULES["teams_per_group"]) == BEWERBUNG_SCHULE_UNUSABLE
 
 
+@pytest.mark.db
 class TestAPartialAcceptanceCommitsNothing:
     """One transaction over three writes: a club created without its junction row is a school in no season that nothing reports."""
 
@@ -700,6 +702,7 @@ class TestAPartialAcceptanceCommitsNothing:
         assert (stored["status"], stored["team_id"], stored["entscheidung"]) == ("eingereicht", None, None)
 
 
+@pytest.mark.db
 class TestADuplicateShorthandIsAConflictAndNotHalfAClub:
     """`uniq_shorthand` refuses the created club, which is a 409 rather than a crash -- and no half-written season."""
 
@@ -723,6 +726,7 @@ class TestADuplicateShorthandIsAConflictAndNotHalfAClub:
         assert (clubs, rows, status) == (SEEDED_CLUBS, [], "eingereicht")
 
 
+@pytest.mark.db
 class TestWhoTheDecisionNames:
     """`entscheidung.von` is the request's bound actor, so it and the `aktionen` row cannot disagree.
 
@@ -798,6 +802,7 @@ def submission_bytes(stored: Mapping[str, Any]) -> bytes:
 class TestADeclineTouchesNothingElse:
     """What the school wrote stays the record the decision was taken against."""
 
+    @pytest.mark.db
     def test_the_submission_is_byte_identical_afterwards(self, mongo_replica_set_url: str):
         """Catches a decline that rewrites the document rather than `$set`ting the two fields it owns."""
 
@@ -812,6 +817,7 @@ class TestADeclineTouchesNothingElse:
         assert after == before
         assert response.updated_document.status == "abgelehnt"
 
+    @pytest.mark.db
     def test_it_moves_the_status_and_the_decision_and_writes_no_season_row(self, mongo_replica_set_url: str):
         """The floor under the comparison above: a decline that did nothing at all would pass it."""
 
@@ -837,6 +843,7 @@ class TestADeclineTouchesNothingElse:
         # shorter than it was sent and fails that comparison for no reason of its own.
         assert GRUND_AT_THE_BOUND.strip() == GRUND_AT_THE_BOUND
 
+    @pytest.mark.db
     @pytest.mark.parametrize("grund", [pytest.param(GRUND, id="an ordinary reason"), pytest.param(GRUND_AT_THE_BOUND, id="at the bound")])
     def test_the_served_reason_reaches_the_document_byte_identical(self, mongo_replica_set_url: str, grund: str):
         """The reason is stored AND emailed to the applicants: one lost on the way is a decline nobody can act on.
@@ -858,6 +865,7 @@ class TestADeclineTouchesNothingElse:
         assert stored_grund.encode("utf-8") == grund.encode("utf-8")
         assert len(stored_grund) == len(grund)
 
+    @pytest.mark.db
     @pytest.mark.parametrize("grund", [pytest.param("   ", id="spaces"), pytest.param("\t\n ", id="tab and newline")])
     def test_a_reason_of_whitespace_alone_is_refused(self, mongo_replica_set_url: str, grund: str):
         """Drop `strip_whitespace` and this passes as a 200: `min_length` counts CHARACTERS.
@@ -876,6 +884,7 @@ class TestADeclineTouchesNothingElse:
         assert status_code == 422
         assert (stored["status"], stored["entscheidung"]) == ("eingereicht", None), "the refused decline still decided the application"
 
+    @pytest.mark.db
     def test_a_padded_reason_is_stored_as_a_trimming_client_would_have_sent_it(self, mongo_replica_set_url: str):
         """One composition, as the two club-create paths have: the browser trims before it posts.
 
@@ -913,6 +922,7 @@ DECISION_PAIRS = [
 ]
 
 
+@pytest.mark.db
 class TestADecisionIsNotTakenTwice:
     """`REQ-BEWERBUNG-001` against a real mongod: a refusal that exists is not a refusal that is reached."""
 
@@ -971,6 +981,7 @@ OTHER_ADMIN_EMAIL = "triage.bramblewick@example.com"
 OTHER_GRUND = "Die Anmeldefrist für diese Saison ist verstrichen."
 
 
+@pytest.mark.db
 class TestTwoDeclinesAtOnce:
     """The write itself carries the guard, so the loser of the race mails the applicants nothing.
 
@@ -1027,6 +1038,7 @@ class TestTwoDeclinesAtOnce:
 SEEDED_IN_ORDER = (PICKED_BEWERBUNG, NEW_SCHOOL_BEWERBUNG, RETIRED_BEWERBUNG, CLASHING_BEWERBUNG)
 
 
+@pytest.mark.db
 class TestTheQueueTheTriageIsWorkedDown:
     """`GET /bewerbungen` is what an administrator works down, so what it does with a tie is a decision."""
 
@@ -1076,6 +1088,7 @@ class _ReadSpy(monitoring.CommandListener):
         """Required by the listener interface; a failed read is still one this spy has seen started."""
 
 
+@pytest.mark.db
 class TestTheAcceptanceJudgesWhatItReadsInsideTheTransaction:
     """That the session reaches the SERVER, which is what the callback's docstring claims.
 
@@ -1126,6 +1139,7 @@ def without_the_id(document: Mapping[str, Any]) -> dict[str, Any]:
     return {field: value for field, value in document.items() if field != "_id"}
 
 
+@pytest.mark.db
 class TestOneSchoolMakesOneClubWhicheverPathCreatesIt:
     """`POST /teams` and an acceptance are two ways to the same collection, so they store one document for one school."""
 
@@ -1164,6 +1178,7 @@ class TestOneSchoolMakesOneClubWhicheverPathCreatesIt:
         assert created["website_url"] == "https://wirbelknoten.example.de/pfad"
 
 
+@pytest.mark.db
 class TestAnAcceptanceTakenOnAStaleJudgement:
     """The final patch carries the status, so a stale judgement enters nobody.
 
@@ -1302,6 +1317,7 @@ async def seed_a_bounced_application(database: AsyncDatabase, client: AsyncMongo
     )
 
 
+@pytest.mark.db
 class TestCorrectingOneContactAddress:
     """The one repair there is for a link the provider will not carry, and the one field of a submitted application it rewrites."""
 
@@ -1592,6 +1608,7 @@ async def ban_through_the_route(database: AsyncDatabase, client: AsyncMongoClien
         actor_var.reset(token)
 
 
+@pytest.mark.db
 class TestAResendRacingAnAnswer:
     """The re-send reads outside any transaction, so what lands between its read and its write is judged by the write's filter."""
 
@@ -1793,6 +1810,7 @@ async def seed_an_application_a_seat_was_declined_on(database: AsyncDatabase, cl
     await answer_for(database, client, "ansprechperson")
 
 
+@pytest.mark.db
 class TestAResendToASeatStampedEmpty:
     """`is_confirmed` reads `""` as unconfirmed (`docs/backend/spec.md :: I387`), and the re-send's filter reads it the same way."""
 
@@ -1811,6 +1829,7 @@ class TestAResendToASeatStampedEmpty:
         assert stored["bestaetigungen"]["ansprechperson"]["token_hash"] == hash_token(response.token)
 
 
+@pytest.mark.db
 class TestSeatingAnotherPersonInAnEmptiedSeat:
     """The seat a Widerspruch emptied is the one an administrator may put somebody else in, against a real document."""
 
@@ -2009,6 +2028,7 @@ class TestSeatingAnotherPersonInAnEmptiedSeat:
         assert stored["bestaetigungsfrist"] > TODAY, "the new person is seated behind a link that already opens nothing"
 
 
+@pytest.mark.db
 class TestABannedContactAddress:
     """`REQ-BEWERBUNG-019`: no repair and no re-send mints a link for an address the ban list holds, and the application is left as it was."""
 

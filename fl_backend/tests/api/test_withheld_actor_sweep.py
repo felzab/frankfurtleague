@@ -37,8 +37,6 @@ from .conftest import config_for
 from .test_bewerbungen_read import bewerbung_document
 from .test_registrierung_read import registrierung_document
 
-pytestmark = pytest.mark.db
-
 DATABASE_NAME = worker_database("fl_withheld_actor_test")
 
 CONFIG = config_for(DATABASE_NAME)
@@ -225,6 +223,7 @@ def test_every_admin_tier_read_is_named_once():
     assert len(set(named)) == len(named), "a read named in both listings"
 
 
+@pytest.mark.db
 @pytest.mark.parametrize("route", sorted(NAMES_AN_ADMINISTRATOR))
 def test_an_unbarred_administrator_is_served_by_address(unbarred: dict[str, tuple[int, str]], route: str):
     """The control: a read the seed never reached would pass the case below having served nothing."""
@@ -236,6 +235,7 @@ def test_an_unbarred_administrator_is_served_by_address(unbarred: dict[str, tupl
     assert _flags_set(json.loads(text)) == []
 
 
+@pytest.mark.db
 @pytest.mark.parametrize("route", sorted(NAMES_AN_ADMINISTRATOR))
 def test_a_barred_administrator_is_withheld_beside_a_flag(barred: dict[str, tuple[int, str]], route: str):
     status, text = barred[route]
@@ -245,6 +245,7 @@ def test_a_barred_administrator_is_withheld_beside_a_flag(barred: dict[str, tupl
     assert _flags_set(json.loads(text)) != [], "the address is gone and nothing says it was withheld"
 
 
+@pytest.mark.db
 @pytest.mark.parametrize("route", sorted(NAMES_AN_ADMINISTRATOR))
 def test_an_administrator_whose_ban_has_lapsed_is_served_by_address(lapsed: dict[str, tuple[int, str]], route: str):
     """The running season is what the bound is read against: asked without it, the lapsed row would still withhold."""
