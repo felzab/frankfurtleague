@@ -6415,7 +6415,7 @@
     "/api/v0/berechtigungen/{berechtigung_id}": {
       "delete": {
         "summary": "Revoke access to the administration",
-        "description": "Revoke one grant, removing the row. HARD, no soft form; the revoked address meets `REQ-AUTH-006` on its next request.\n\nOnly an `owner` revokes (`REQ-BERECHTIGUNG-005`), judged on the actor's own grant inside the transaction, and before anything\nabout the target is answered. 404 where no grant has the id. Refused for an `owner` row (`REQ-BERECHTIGUNG-002`), which is changed\nin the database directly, and where fewer than two live, unbarred grants would remain (`REQ-BERECHTIGUNG-004`). The removal's\nannouncement is queued in the same transaction, after any change to the row made in the database and not yet announced.",
+        "description": "Revoke one grant, removing the row. HARD, no soft form; the revoked address meets `REQ-AUTH-006` on its next request.\n\nOnly an `owner` revokes (`REQ-BERECHTIGUNG-005`), judged on the actor's own grant inside the transaction, and before anything\nabout the target is answered. 404 where no grant has the id. Refused for an `owner` row (`REQ-BERECHTIGUNG-002`), which is made an\nadministrator first, and where fewer than two live, unbarred grants would remain (`REQ-BERECHTIGUNG-004`). The removal's\nannouncement is queued in the same transaction, after any change to the row made in the database and not yet announced.",
         "operationId": "delete_berechtigung_api_v0_berechtigungen__berechtigung_id__delete",
         "security": [
           {
@@ -6459,6 +6459,75 @@
           },
           "400": {
             "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-AUTH-006.REQ-BERECHTIGUNG-005"
+          },
+          "503": {
+            "$ref": "#/components/responses/503.DB-CONN-001"
+          }
+        },
+        "x-fl-tier": "admin"
+      },
+      "patch": {
+        "summary": "Change a grant between administrator and owner",
+        "description": "Make an administrator an owner, or an owner an administrator; an owner steps down by naming their own grant.\n\nOnly an `owner` changes a tier (`REQ-BERECHTIGUNG-005`), judged on the actor's own grant inside the transaction, and before\nanything about the target is answered. 404 where no live grant has the id. A promotion of an address on the ban list is refused\n(`REQ-BERECHTIGUNG-003`), and so is a demotion leaving no live, unbarred owner (`REQ-BERECHTIGUNG-007`). Naming the tier the grant\nholds changes nothing and answers 200. The change takes effect on the next request; its announcement is queued in the same\ntransaction, after any change to the row made in the database and not yet announced.",
+        "operationId": "patch_berechtigung_api_v0_berechtigungen__berechtigung_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "berechtigung_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Berechtigung Id",
+              "pattern": "^[0-9a-fA-F]{24}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FLPatchBerechtigungPayload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FLBerechtigungWriteResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/404.DB-COMMON-001"
+          },
+          "409": {
+            "$ref": "#/components/responses/409.DB-COMMON-002.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-007"
+          },
+          "422": {
+            "$ref": "#/components/responses/422.REQ-VAL-001"
+          },
+          "default": {
+            "$ref": "#/components/responses/default"
+          },
+          "400": {
+            "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007"
@@ -8747,6 +8816,10 @@
           "gesperrt": {
             "type": "boolean",
             "title": "Gesperrt"
+          },
+          "aufgegeben": {
+            "type": "boolean",
+            "title": "Aufgegeben"
           }
         },
         "type": "object",
@@ -8760,7 +8833,8 @@
           "geaendert_von",
           "geaendert_von_gesperrt",
           "geaendert_am",
-          "gesperrt"
+          "gesperrt",
+          "aufgegeben"
         ],
         "title": "FLBerechtigungAenderung",
         "description": "One claimed change to announce: what the grant is now, what everyone was last told, and who made it."
@@ -8870,7 +8944,7 @@
           "berechtigung_id"
         ],
         "title": "FLBerechtigungWriteResponse",
-        "description": "The removal is hard, so the id is all there is to answer with."
+        "description": "The grant a revoke removed or a tier change moved: a removal is hard, so the id is all there is to answer with."
       },
       "FLBerechtigungZeile": {
         "properties": {
@@ -12589,6 +12663,24 @@
           "einwilligung"
         ],
         "title": "FLKontaktpersonPayload"
+      },
+      "FLPatchBerechtigungPayload": {
+        "properties": {
+          "verwaltung": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "administration"
+            ],
+            "title": "Verwaltung"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "verwaltung"
+        ],
+        "title": "FLPatchBerechtigungPayload"
       },
       "FLPatchSaisonPayload": {
         "properties": {
@@ -20232,6 +20324,31 @@
                         "DB-COMMON-002",
                         "REQ-BERECHTIGUNG-002",
                         "REQ-BERECHTIGUNG-004"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "409.DB-COMMON-002.REQ-BERECHTIGUNG-003.REQ-BERECHTIGUNG-007": {
+        "description": "Conflict",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "DB-COMMON-002",
+                        "REQ-BERECHTIGUNG-003",
+                        "REQ-BERECHTIGUNG-007"
                       ]
                     }
                   }
