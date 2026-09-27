@@ -192,6 +192,11 @@ type SubjectDouble = SubjectSession | null | Error;
  */
 type SignInAnswers = {
   session: AdminSessionDouble;
+  /**
+   * What every read serves for `session`, one object as one request's reads hand over. Made at each
+   * `setSession`, so a window read off its `createdAt` opens at the case's start, never the file's.
+   */
+  served: unknown;
   destination: string;
   subject: SubjectDouble;
   subjectReads: number;
@@ -217,14 +222,14 @@ const answering = (answer: unknown): Promise<unknown> => (answer instanceof Erro
  * The session, recorded as the request's actor where it is an administrator's, as the real
  * `getAdminSession` records it. Imported at the call, so the scope is the one the code under test loaded.
  */
-async function administratorOf(session: AdminSessionDouble): Promise<unknown> {
+async function administratorOf({ session, served }: SignInAnswers): Promise<unknown> {
   if (session !== null && !(session instanceof Error)) {
     const { setRequestActor } = await import("@/core/requestScope.ts");
     const { asSignInIdentifier } = await import("@/core/emailAddress.ts");
     setRequestActor(asSignInIdentifier(session.user.email));
   }
 
-  return answering(administratorServed(session));
+  return answering(served);
 }
 
 /**
@@ -240,15 +245,6 @@ const servedOf = (session: AdminSessionDouble): unknown => {
     session: { id: "doubled-session", createdAt: now, updatedAt: now, authFactor: "passkey", passkeyCredentialId: "doubled-credential" },
   };
 };
-
-/** One served session per session a case names, so every read in a case hands over the same object, as one request's reads do. */
-const servedAdministrators = new WeakMap<object, unknown>();
-
-function administratorServed(session: AdminSessionDouble): unknown {
-  if (session === null || session instanceof Error) return session;
-  if (!servedAdministrators.has(session)) servedAdministrators.set(session, servedOf(session));
-  return servedAdministrators.get(session);
-}
 
 /**
  * `url`'s module with `doubled` standing in for the exports it names, the real one opening the
@@ -279,9 +275,9 @@ const signInStore = (url: string, answers: SignInAnswers): string =>
     url,
     "the sign-in store",
     new Map<string, (...args: unknown[]) => unknown>([
-      ["getAdminSession", () => administratorOf(answers.session)],
+      ["getAdminSession", () => administratorOf(answers)],
       // The account page's guard, answering the same session: its own lanes are the sign-in store's to judge.
-      ["getKontoSession", () => answering(servedOf(answers.session))],
+      ["getKontoSession", () => answering(answers.served)],
       ["getSignInDestination", () => Promise.resolve(answers.destination)],
       ["isFreshlySignedIn", () => answers.fresh],
       ["adminRefusal", () => Promise.resolve(answers.refusal)],
@@ -342,6 +338,7 @@ export function doubleActionRequest({
 } {
   const answers: SignInAnswers = {
     session,
+    served: servedOf(session),
     destination: destinationOf(session),
     subject,
     subjectReads: 0,
@@ -353,6 +350,7 @@ export function doubleActionRequest({
   // The destination goes with the session, so a case cannot leave one standing that another case's session contradicts.
   const setSession = (next: AdminSessionDouble, destination = destinationOf(next)): void => {
     answers.session = next;
+    answers.served = servedOf(next);
     answers.destination = destination;
   };
   const setSubject = (next: SubjectDouble): void => void (answers.subject = next);

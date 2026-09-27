@@ -29,6 +29,11 @@ const nextCache = await import("next/cache");
 const { getAdminSession, getKontoSession, getSignInDestination } = await import("@/core/auth.ts");
 const { getSubjectSession } = await import("@/core/subject.ts");
 
+type Served = { session: { createdAt: Date } };
+
+/** The session one case was served, which the case after it compares its own against. */
+let earlier: Served | undefined;
+
 describe("the actions double", () => {
   /* Stood in for, a module a real action writes through records no write, and the admin spine then
      answers a press that wrote as one that did not. */
@@ -196,6 +201,23 @@ describe("the request double", () => {
     assert.equal(served.user.email, "vorstand@example.org");
     assert.ok("createdAt" in served.session, "the administrator is served without the row the step-up window is read off");
     assert.equal(await getSignInDestination(), "/bereich/admin", "the previous case's destination outlived its case");
+  });
+
+  it("hands every read of one case the same session", async () => {
+    earlier = (await getAdminSession()) as Served;
+    assert.equal(await getKontoSession(), earlier, "two reads of one case were handed two sessions");
+
+    // The next case starts on a later clock reading, so its session can be told apart by age.
+    const madeAt = earlier.session.createdAt.getTime();
+    while (Date.now() === madeAt) await new Promise((resolve) => setTimeout(resolve, 1));
+  });
+
+  /* After the case above, naming the same session: a window read off `createdAt` would otherwise run
+     from the file's first read, and a case late in a slow file meet a session it never aged. */
+  it("serves the next case a session made at that case's start", async () => {
+    const next = (await getAdminSession()) as Served;
+    assert.ok(earlier !== undefined, "the case above served nothing");
+    assert.ok(next.session.createdAt > earlier.session.createdAt, "the case was served the session an earlier case made");
   });
 
   /* The account spine reads the served session's own fields: a bare `{ user }` would answer every
