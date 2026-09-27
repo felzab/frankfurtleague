@@ -200,8 +200,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
     provider's quota that every other message of the league's needs (`docs/frontend/spec.md :: I447`);
   - an address holding neither a grant nor a record the send gate reads is mailed no code at all,
     answered the same way: the gate's `holds-nothing` verdict
-    (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). The gate reads squads, players and
-    referees, so a registration or an application awaiting its confirmation admits nobody.
+    (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). The gate reads the contact seats on a
+    team's season row, pupils and referees (`docs/glossary.md :: Subjekt`), so a registration or an
+    application awaiting its confirmation admits nobody.
 
   The last three answer as a mailed code does so that no answer tells a member from a stranger, and
   the person meeting any of them is not told of it.
