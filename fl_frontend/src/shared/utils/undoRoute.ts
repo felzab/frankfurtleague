@@ -28,7 +28,7 @@ const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausge
  * (`fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`), and no repair.
  */
 const UNDO_TURNED_AWAY: Readonly<Record<Exclude<AdminRefusal, "signIn" | "unread">, string>> = {
-  noGrant: `Deine Sitzung hat keine Administratorrechte. ${AENDERUNG_STEHT_WEITERHIN}`,
+  noGrant: `${ZUGANG_WEG} ${AENDERUNG_STEHT_WEITERHIN}`,
   grantGone: `${ZUGANG_WEG} ${AENDERUNG_STEHT_WEITERHIN}`,
 };
 

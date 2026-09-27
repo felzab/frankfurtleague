@@ -189,7 +189,7 @@ describe("who the undo spine answers before it does any work", () => {
   it("answers a session holding no grant apart from a missing one, and still does no work for it", async () => {
     // A person's code-made session, and an administrator's passkey session whose grant is gone.
     const told: Record<string, string> = {
-      code: "Deine Sitzung hat keine Administratorrechte. Die Änderung steht weiterhin.",
+      code: `${ZUGANG_WEG} Die Änderung steht weiterhin.`,
       passkey: `${ZUGANG_WEG} Die Änderung steht weiterhin.`,
     };
     for (const authFactor of ["code", "passkey"]) {

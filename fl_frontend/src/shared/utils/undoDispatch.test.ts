@@ -119,12 +119,12 @@ describe("where the shared undo dispatch sends a caller the route turned away", 
   });
 
   /* `fl_frontend/src/proxy.ts`'s other destination, where no sign-in repairs anything: the route words
-     the cause by the guard's reason, a grant revoked apart from one never held, and the dispatch adds
-     none of its own. */
+     the cause, and the dispatch adds none of its own. */
   it("says the route's own sentence, then leaves for the sign-in landing on the route's own 403", async () => {
     for (const error of [
-      "Deine Sitzung hat keine Administratorrechte. Die Änderung steht weiterhin.",
       "Dein Zugang zur Verwaltung besteht nicht mehr. Die Änderung steht weiterhin.",
+      // Any sentence the route sends, so a dispatch holding the approved one as its own fails here.
+      "Die Rücknahme wurde nicht ausgeführt. Lade die Seite neu.",
     ]) {
       raised.length = 0;
       const pressed = await pressAgainst(Response.json({ success: false, error }, { status: 403 }));

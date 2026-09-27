@@ -19,8 +19,8 @@ import type { ActionFailure } from "@/shared/types/types";
 import type { FieldErrors } from "./validation";
 
 /**
- * What every admin write answers when the session carries no admin role. It becomes `FormState.error` and reaches a
- * toast, so it names the admin's only remedy rather than the role that is absent.
+ * What an admin write answers a session a sign-in repairs: none, or one short of the administrator's
+ * factor or window. It reaches a toast, so it names the remedy rather than the role that is absent.
  */
 export const ADMIN_FORBIDDEN = "Deine Sitzung hat keine Administratorrechte. Melde Dich neu an.";
 
@@ -170,7 +170,8 @@ function judgingGuard(): { readonly guard: Guard<AdminSession>; readonly verdict
 /** Each reason the guard turns an admin write away for, in the words of its remedy; a record, so a reason added to the guard is worded here. */
 const FORBIDDEN_BY_REFUSAL: Readonly<Record<AdminRefusal, string>> = {
   signIn: ADMIN_FORBIDDEN,
-  noGrant: ADMIN_FORBIDDEN,
+  // One sentence for an address holding no grant, whether it was revoked or never held: no sign-in repairs either.
+  noGrant: ZUGANG_WEG,
   grantGone: ZUGANG_WEG,
   unread: BERECHTIGUNG_UNGELESEN_ERNEUT,
 };
@@ -197,8 +198,8 @@ export async function runAdminMutation<T extends { success: boolean }>(
 ): Promise<T | ActionFailure> {
   const [{ stepUp }, fn] = rest.length === 1 ? [{ stepUp: false }, rest[0]] : rest;
   const { guard, verdict } = judgingGuard();
-  // The refusal in the words naming its remedy: neither a grant that is gone nor one the backend left
-  // unread is repaired by a sign-in.
+  // The refusal in the words naming its remedy: no grant, and a grant the backend left unread, are
+  // repaired by no sign-in.
   const forbidden = () => Promise.resolve(FORBIDDEN_BY_REFUSAL[verdict.refused]);
 
   return runGuardedMutation(mutationName, { ...guard, forbidden }, async (session) => {

@@ -69,15 +69,15 @@ describe("the session guard every admin write runs behind", () => {
     assert.equal(ran, 0, "the body ran behind a grant nobody read");
   });
 
-  /* A signed-in address holding no grant: no sign-in grants one, and the sentence is the one the proxy's
-     own turn-away would leave the caller with. */
-  it("tells a caller whose address holds no grant that the session carries no administration", async () => {
+  /* A signed-in address holding no grant: no sign-in grants one, so it is told what a revoked grant is
+     told, and never „Melde Dich neu an“. */
+  it("tells a caller whose address holds no grant that its access is gone, rather than to sign in again", async () => {
     setSession(null);
     setRefusal("noGrant");
 
     assert.deepEqual(await runAdminMutation("probeAction", () => Promise.resolve({ success: true })), {
       success: false,
-      error: ADMIN_FORBIDDEN,
+      error: "Dein Zugang zur Verwaltung besteht nicht mehr.",
     });
   });
 
