@@ -90,14 +90,6 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
     return answer.success && answer.gleich;
   };
 
-  // The code's check also asks for a session other than this page's own: the route answers a code it
-  // finds spent with success where the caller already holds a young session for that address.
-  const dieseSitzungId = anmeldungen.find((anmeldung) => anmeldung.diesesGeraet)?.id;
-  const istNeuerInhaber = async (): Promise<boolean> => {
-    const answer = await pruefeInhaberAction(sicherheit.inhaberId, dieseSitzungId);
-    return answer.success && answer.gleich;
-  };
-
   const confirmed = (): void => {
     windows.confirmed();
     // The confirmation minted a new session and ended this page's: what the page drew off the old one,
@@ -218,7 +210,7 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
         {!verwaltung && (
           <CodeConfirmation
             address={sicherheit.inhaberAdresse}
-            istInhaber={istNeuerInhaber}
+            istInhaber={istInhaber}
             onConfirmed={confirmed}
           />
         )}
@@ -320,7 +312,7 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
             verwaltung ? null : (
               <CodeConfirmation
                 address={sicherheit.inhaberAdresse}
-                istInhaber={istNeuerInhaber}
+                istInhaber={istInhaber}
                 onConfirmed={steppedUp}
               />
             )

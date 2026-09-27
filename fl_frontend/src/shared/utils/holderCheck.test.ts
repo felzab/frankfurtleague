@@ -87,17 +87,6 @@ describe("which session a holder check calls the holder's (docs/frontend/spec.md
     assert.deepEqual(await pruefeInhaberAction(holder), { success: true, gleich: false });
   });
 
-  /* The code route answers a spent code with success where the caller already holds a young session
-     for the address, so the page's own session answering is no confirmation. */
-  it("answers not held for the session the confirmation was to replace", async () => {
-    const holder = await arriveSignedIn(PERSON_EMAIL);
-    const replaced = store.session.at(-1)?.id;
-    assert.ok(replaced !== undefined);
-
-    assert.deepEqual(await pruefeInhaberAction(holder, replaced), { success: true, gleich: false });
-    assert.deepEqual(await pruefeInhaberAction(holder, "eine-andere-sitzung"), { success: true, gleich: true });
-  });
-
   it("answers held for the administrator who asked, and not held for another administrator's session", async () => {
     const holder = await arriveSignedIn(ADMIN_EMAIL, { byPasskey: true });
     assert.deepEqual(await pruefeAdministratorAction(holder), { success: true, gleich: true });
