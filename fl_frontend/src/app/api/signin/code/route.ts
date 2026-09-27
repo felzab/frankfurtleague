@@ -21,7 +21,9 @@ const CodeSignInPayloadSchema = SignInPayloadSchema.extend({
   code: z.string().regex(new RegExp(`^\\d{${String(SIGN_IN_CODE_LENGTH)}}$`)),
 });
 
-const FALSCH = "Der Code stimmt nicht. Prüfe ihn und gib ihn noch einmal ein.";
+/** One answer for every code the store does not hold: mistyped, expired and swept, already spent, or replaced
+ * by a newer mail. A sentence naming one cause alone is false for the others, and each retype is counted. */
+const FALSCH = "Der Code stimmt nicht oder gilt nicht mehr. Nimm den Code aus der neuesten E-Mail oder fordere einen neuen an.";
 
 /**
  * The mint's backend did not answer, after the code was already spent: retyping it would meet a wrong

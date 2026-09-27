@@ -167,7 +167,7 @@ describe("the sign-in card's code step", () => {
   it("says why a code was refused at the field, and empties it for the next try", async () => {
     const user = userEvent.setup();
     const field = await atTheCodeStep(user);
-    const falsch = "Der Code stimmt nicht. Prüfe ihn und gib ihn noch einmal ein.";
+    const falsch = "Der Code stimmt nicht oder gilt nicht mehr. Nimm den Code aus der neuesten E-Mail oder fordere einen neuen an.";
     fetchMock.mock.mockImplementationOnce(() => Promise.resolve(answered({ success: false, error: falsch })));
 
     await user.type(field, "000000");

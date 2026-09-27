@@ -123,7 +123,7 @@ describe("the route a typed code is checked at", () => {
 
   it("words each of the library's refusals, on a 200 this application decided", async () => {
     const expected: readonly (readonly [string, string])[] = [
-      ["INVALID_OTP", "Der Code stimmt nicht. Prüfe ihn und gib ihn noch einmal ein."],
+      ["INVALID_OTP", "Der Code stimmt nicht oder gilt nicht mehr. Nimm den Code aus der neuesten E-Mail oder fordere einen neuen an."],
       ["OTP_EXPIRED", "Der Code ist abgelaufen. Fordere einen neuen an."],
       ["TOO_MANY_ATTEMPTS", "Zu viele Versuche mit diesem Code. Fordere einen neuen an."],
       [
@@ -205,7 +205,7 @@ describe("the route a typed code is checked at", () => {
     ]) {
       assert.deepEqual(await (await handler.POST(request)).json(), {
         success: false,
-        error: "Der Code stimmt nicht. Prüfe ihn und gib ihn noch einmal ein.",
+        error: "Der Code stimmt nicht oder gilt nicht mehr. Nimm den Code aus der neuesten E-Mail oder fordere einen neuen an.",
       });
     }
     assert.deepEqual(calls, []);
