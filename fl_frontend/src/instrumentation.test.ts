@@ -183,7 +183,9 @@ describe("the boot reading the actor's signing key", () => {
   });
 
   it("refuses to boot on a file holding no key, never writing what it holds", async (t) => {
-    const held = "not-a-key-but-a-value-that-must-stay-unwritten";
+    // One short mark repeated, so any fragment of the file seven characters long carries it whole.
+    const mark = "Q7xZ";
+    const held = mark.repeat(40);
     const file = path.join(KEY_DIRECTORY, "garbage.pem");
     writeFileSync(file, held);
 
@@ -191,7 +193,7 @@ describe("the boot reading the actor's signing key", () => {
 
     assert.ok(thrown instanceof Error, "the boot went on over a file holding no key");
     assert.match(written, /FE-BOOT-003/);
-    assert.ok(!written.includes(held) && !String(thrown.stack).includes(held), "the refusal quoted the file");
+    assert.ok(!written.includes(mark) && !String(thrown.stack).includes(mark), "the refusal quoted the file");
   });
 
   it("boots on a readable Ed25519 key, writing nothing", async (t) => {

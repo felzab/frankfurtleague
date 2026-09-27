@@ -178,7 +178,9 @@ describe("the key file", () => {
   });
 
   it("refuses a file holding no key, never quoting what it holds", async () => {
-    const held = "not-a-key-but-a-value-that-must-stay-unquoted";
+    // One short mark repeated, so any fragment of the file seven characters long carries it whole.
+    const mark = "Q7xZ";
+    const held = mark.repeat(40);
     const file = path.join(DIRECTORY, "garbage.pem");
     writeFileSync(file, held);
 
@@ -186,7 +188,7 @@ describe("the key file", () => {
       assert.ok(error instanceof ActorSigningKeyError);
       assert.equal(error.reason, "holds no readable PEM private key");
       assert.ok(
-        !JSON.stringify({ message: error.message, stack: error.stack, cause: error.cause }).includes(held),
+        !JSON.stringify({ message: error.message, stack: error.stack, cause: error.cause }).includes(mark),
         "the refusal quoted the file",
       );
       return true;
