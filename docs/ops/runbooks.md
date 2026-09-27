@@ -537,9 +537,7 @@ Atlas console**, after the route's own erasure has run:
 
 The rows counting the address's failed and requested codes carry a keyed hash nobody can compute by
 hand, and expire within a day on their own (§17); a passkey ceremony's row carries an account id
-rather than an address, and expires within five minutes. **An address shared by several people is
-one account**, so the step signs every one of them out and takes their passkeys: tell the person
-asking, and say that the others sign in afresh by code.
+rather than an address, and expires within five minutes.
 
 `/bereich/admin/aktionen` answers what was written about them and by whom, and is the only place that
 question is answered at all. **Two populations sit in that collection and only one has an expiry**:
