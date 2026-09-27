@@ -22,6 +22,16 @@ from app.api.spieler.schemas import FLPostSaisonSpielerPayload
 from app.api.spielorte.admin_router import _maps_link
 from app.api.teams.schemas import MAX_NUMBER_OF_GROUPS
 from app.api.zustellung import schemas as zustellung_schemas
+from app.core.actor_token import (
+    ACTOR_TOKEN_ALGORITHM,
+    ACTOR_TOKEN_AUDIENCE,
+    ACTOR_TOKEN_ISSUER,
+    ACTOR_TOKEN_LIFETIME_S,
+    ACTOR_TOKEN_TYPE,
+    PASSKEY_FACTOR,
+    REQUIRED_CLAIMS,
+    Lane,
+)
 from app.core.config import INTERNAL_API_KEY_CHARACTERS
 from app.core.logging import NEEDS_QUOTING
 from app.core.middlewares import TRACEPARENT
@@ -37,6 +47,7 @@ from app.shared.schemas.custom import (
     CustomObjectId,
     CustomTimeString,
 )
+from tests.actor_tokens import ACTOR_TOKEN_CONTRACT
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[3]
 FRONTEND_SRC: Final = REPO_ROOT / "fl_frontend" / "src"
@@ -1551,3 +1562,25 @@ def test_the_panel_table_names_every_season_status_once():
 @pytest.mark.parametrize(("saison_status", "grants"), _panel_grants(), ids=lambda value: str(value))
 def test_a_seat_s_season_grants_the_panel_the_shared_table_says(saison_status: FLSaisonStatus, grants: bool):
     assert grants_a_panel(saison_status) is grants
+
+
+def test_the_actor_token_verifier_reads_the_contract_the_frontend_mints_to():
+    """The verifier's constants against the table the frontend mints to.
+
+    The signer reads the table, so a verifier refusing its tokens fails every signed case; this catches
+    a verifier that moved yet still admits them, such as a longer lifetime.
+    """
+
+    contract = ACTOR_TOKEN_CONTRACT
+
+    assert (ACTOR_TOKEN_ALGORITHM, ACTOR_TOKEN_TYPE, ACTOR_TOKEN_ISSUER, ACTOR_TOKEN_AUDIENCE, ACTOR_TOKEN_LIFETIME_S) == (
+        contract["alg"],
+        contract["typ"],
+        contract["iss"],
+        contract["aud"],
+        contract["lifetime_s"],
+    )
+    assert sorted(REQUIRED_CLAIMS) == sorted(contract["claims"])
+    assert sorted(get_args(Lane)) == sorted(contract["lanes"])
+    assert PASSKEY_FACTOR == contract["admin_factor"]
+    assert contract["admin_factor"] in contract["factors"]

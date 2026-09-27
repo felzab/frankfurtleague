@@ -1,17 +1,19 @@
 import assert from "node:assert/strict";
 import { createHash, createPrivateKey, generateKeyPairSync } from "node:crypto";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { registerHooks } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, describe, it } from "node:test";
 
 import { CompactSign, decodeJwt, decodeProtectedHeader, jwtVerify } from "jose";
+import { z } from "zod";
 
 import { ACTOR_KEY_FILE as KEY_FILE, ACTOR_KEY_PAIR as PAIR } from "./authDoubles.ts";
 import { replacingModule } from "./exportingModule.ts";
 
 import type { KeyObject } from "node:crypto";
+import type { ActorLane } from "./requestScope.ts";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
@@ -36,6 +38,28 @@ registerHooks({
 });
 
 const { actorClaimsOf, ActorSigningKeyError, loadSigningKey, mintActorToken, mintRequestActor } = await import("./actorToken.ts");
+
+const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
+
+// Read rather than retyped: the backend's verifier is held to the same table in its own suite and its
+// test signer mints from it, so a value changed on one side alone fails a suite rather than production.
+const CONTRACT = z
+  .object({
+    alg: z.string(),
+    typ: z.string(),
+    iss: z.string(),
+    aud: z.string(),
+    lifetime_s: z.number().int(),
+    claims: z.array(z.string()),
+    lanes: z.array(z.string()),
+    factors: z.array(z.string()),
+    admin_factor: z.string(),
+  })
+  .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "actor_token_contract.json"), "utf8")));
+
+// Every lane this runtime mints: `satisfies` refuses a lane added to or dropped from `ActorLane` without
+// this record, so the comparison with the table cannot pass over one.
+const MINTED_LANES = { admin: true, person: true } as const satisfies Record<ActorLane, true>;
 
 /**
  * RFC 7638's thumbprint of an Ed25519 public key, reckoned here from the RFC rather than by the library
@@ -69,26 +93,28 @@ describe("the token a guard mints", () => {
     const signing = await loadSigningKey(KEY_FILE);
     const token = await mintActorToken(signing, claimsFor("admin"), ISSUED_AT);
 
-    assert.deepEqual(decodeProtectedHeader(token), { alg: "EdDSA", typ: "fl-actor+jwt", kid: thumbprintOf(PAIR.publicKey) });
+    assert.deepEqual(decodeProtectedHeader(token), { alg: CONTRACT.alg, typ: CONTRACT.typ, kid: thumbprintOf(PAIR.publicKey) });
   });
 
   /* Every claim the backend requires, each spelled as it reads it: one missing or renamed refuses every
      write the lane makes. */
-  it("carries every claim, and expires sixty seconds after it was issued", async () => {
+  it("carries every claim, and expires the contract's lifetime after it was issued", async () => {
     const signing = await loadSigningKey(KEY_FILE);
-    const { jti, ...payload } = decodeJwt(await mintActorToken(signing, claimsFor("admin"), ISSUED_AT));
+    const minted = decodeJwt(await mintActorToken(signing, claimsFor("admin"), ISSUED_AT));
+    const { jti, ...payload } = minted;
 
+    assert.deepEqual(Object.keys(minted).sort(), [...CONTRACT.claims].sort());
     assert.deepEqual(payload, {
-      iss: "fl-frontend",
-      aud: "fl-backend",
+      iss: CONTRACT.iss,
+      aud: CONTRACT.aud,
       sub: "user-row-id",
       email: "vorstand@example.org",
       sid: "session-row-id",
-      amr: ["passkey"],
+      amr: [CONTRACT.admin_factor],
       auth_time: Math.floor(CREATED_AT.getTime() / 1000),
       lane: "admin",
       iat: ISSUED_AT,
-      exp: ISSUED_AT + 60,
+      exp: ISSUED_AT + CONTRACT.lifetime_s,
     });
     assert.match(String(jti), /^[A-Za-z0-9_-]{22}$/, "the id is not 128 bits in base64url");
     assert.equal(Buffer.from(String(jti), "base64url").length, 16);
@@ -107,10 +133,10 @@ describe("the token a guard mints", () => {
     const token = await mintActorToken(signing, claimsFor("person"), ISSUED_AT);
 
     const { payload } = await jwtVerify(token, PAIR.publicKey, {
-      algorithms: ["EdDSA"],
-      typ: "fl-actor+jwt",
-      issuer: "fl-frontend",
-      audience: "fl-backend",
+      algorithms: [CONTRACT.alg],
+      typ: CONTRACT.typ,
+      issuer: CONTRACT.iss,
+      audience: CONTRACT.aud,
       currentDate: new Date((ISSUED_AT + 30) * 1000),
     });
     assert.equal(payload.lane, "person");
@@ -121,16 +147,17 @@ describe("the token a guard mints", () => {
 });
 
 describe("the claims a session is stated by", () => {
-  it("names the lane of the guard that minted it", () => {
-    assert.equal(claimsFor("admin").lane, "admin");
-    assert.equal(claimsFor("person").lane, "person");
+  it("names the lane of the guard that minted it, each of those the backend verifies", () => {
+    assert.deepEqual(Object.keys(MINTED_LANES).sort(), [...CONTRACT.lanes].sort());
+    for (const lane of Object.keys(MINTED_LANES) as ActorLane[]) assert.equal(claimsFor(lane).lane, lane);
   });
 
   /* The session's own factor, never what the account holds: a code-borne session of an address holding
      a passkey is a code session. */
-  it("states the factor that made the session, each of the two this league mints", () => {
-    assert.deepEqual(actorClaimsOf(SOURCE, "person")?.amr, ["passkey"]);
-    assert.deepEqual(actorClaimsOf({ ...SOURCE, session: { ...SOURCE.session, authFactor: "code" } }, "person")?.amr, ["code"]);
+  it("states the factor that made the session, each of those the contract names", () => {
+    for (const authFactor of CONTRACT.factors) {
+      assert.deepEqual(actorClaimsOf({ ...SOURCE, session: { ...SOURCE.session, authFactor } }, "person")?.amr, [authFactor], authFactor);
+    }
   });
 
   /* A token cannot state a factor the session did not prove, nor an address or an age nobody can read. */
@@ -238,8 +265,8 @@ describe("the actor a guard records", () => {
 
     assert.equal(actor.email, "vorstand@example.org");
     assert.equal(actor.lane, "admin");
-    const { payload } = await jwtVerify(actor.token, PAIR.publicKey, { algorithms: ["EdDSA"], typ: "fl-actor+jwt" });
-    assert.equal(payload.exp, Number(payload.iat) + 60);
+    const { payload } = await jwtVerify(actor.token, PAIR.publicKey, { algorithms: [CONTRACT.alg], typ: CONTRACT.typ });
+    assert.equal(payload.exp, Number(payload.iat) + CONTRACT.lifetime_s);
   });
 
   /* The backend refuses a token living longer than sixty seconds, so both stamps come from one reading
