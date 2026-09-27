@@ -201,13 +201,33 @@ export async function runAdminMutation<T extends { success: boolean }>(
   // unread is repaired by a sign-in.
   const forbidden = () => Promise.resolve(FORBIDDEN_BY_REFUSAL[verdict.refused]);
 
-  return runGuardedMutation(
-    mutationName,
-    { ...guard, forbidden },
-    async (session) =>
-      // Ahead of the body, so a stale session's step-up write reaches neither its payload nor the backend.
-      (stepUp === false ? null : refuseUnconfirmed(session, stepUp)) ?? fn(session),
-  );
+  return runGuardedMutation(mutationName, { ...guard, forbidden }, async (session) => {
+    // Ahead of the body, so a stale session's step-up write reaches neither its payload nor the backend.
+    const unconfirmed = stepUp === false ? null : refuseUnconfirmed(session, stepUp);
+    if (unconfirmed !== null) return unconfirmed;
+
+    try {
+      return await fn(session);
+    } catch (error) {
+      if (!isConfirmationRefused(error)) throw error;
+
+      // The backend's own window refused a write this spine admitted: one declaring no step-up, or one
+      // sent at the window's edge. Answered as the refusal above, so the page's next press asks
+      // (`docs/frontend/spec.md :: I493`).
+      logger.error(`Admin mutation refused for want of a confirmation: ${mutationName}`, error, {
+        error_code: error.code,
+        server_error_code: error.serverErrorCode,
+        status: error.statusCode,
+      });
+      refresh();
+      return stepUpRequired();
+    }
+  });
+}
+
+/** The backend's refusal of a write for want of a passkey confirmation inside the window it holds that write to. */
+function isConfirmationRefused(error: unknown): error is APIBadStatusError {
+  return error instanceof APIBadStatusError && error.serverErrorCode === "REQ-AUTH-009";
 }
 
 /**

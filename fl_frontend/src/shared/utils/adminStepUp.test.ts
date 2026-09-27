@@ -4,9 +4,11 @@ import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { publishedOperations } from "@/core/openapiDocument.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
+import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import { CONDITIONALLY_STEPPED_UP, STEP_UP_CALLERS, STEP_UP_ROUTES, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
 import { undo } from "@/shared/testing/undoRoutes.ts";
 
@@ -79,7 +81,7 @@ function landed({ endpoint, method }: ApiCall): Record<string, unknown> {
   return { ...key, saison_id: "2526", kontakte: null, kontakte_stand: "a1b2" };
 }
 
-const { calls } = doubleApiAnswers((call: ApiCall) => Promise.resolve(landed(call)));
+const { calls, answerWith } = doubleApiAnswers((call: ApiCall) => Promise.resolve(landed(call)));
 
 const { stepUpRequired } = await import("./adminMutation.ts");
 
@@ -303,6 +305,43 @@ describe("an undo route the server holds to the step-up window", () => {
       sent = calls.length;
       assert.notDeepEqual(await undo(POST, drive.refused), { ...refused }, `a fresh session was refused a ${slice} replay`);
       assert.equal(calls.length - sent, writes(sent).length, `a fresh session's ${slice} replay read the store to judge a step-up`);
+    });
+  }
+});
+
+const GRANT_ID = "6890a1b2c3d4e5f6071b0001";
+
+/** Per operation publishing the backend's own confirmation refusal, the action sending it and a payload it sends. */
+const CONFIRMED_BY_THE_BACKEND: Record<string, { name: string; payload: unknown }> = {
+  "POST /berechtigungen": { name: "postBerechtigungAction", payload: { email: "neu@schule.de" } },
+  "DELETE /berechtigungen/{berechtigung_id}": { name: "deleteBerechtigungAction", payload: { id: GRANT_ID } },
+  "PATCH /berechtigungen/{berechtigung_id}": { name: "patchBerechtigungAction", payload: { id: GRANT_ID, verwaltung: "owner" } },
+};
+
+describe("a write the backend refuses for want of a recent confirmation", () => {
+  /* Read off the document rather than kept by hand: an operation that starts publishing the refusal
+     and is driven by nothing here answers its administrator with the generic fallback. */
+  it("is driven for every operation publishing it", () => {
+    const publishing = publishedOperations()
+      .filter(({ answers }) => answers.some(({ code }) => code === "REQ-AUTH-009"))
+      .map(({ operation }) => operation);
+
+    assert.deepEqual(publishing.sort(), Object.keys(CONFIRMED_BY_THE_BACKEND).sort());
+  });
+
+  /* The session is inside the spine's window, so only the backend refuses: the answer has to be the
+     spine's own refusal, and the figure re-read, for the page's next press to ask. */
+  for (const [operation, { name, payload }] of Object.entries(CONFIRMED_BY_THE_BACKEND)) {
+    it(`${name} answers the step-up refusal, and the page's figure is read again`, async () => {
+      setFresh(true);
+      answerWith(() => Promise.reject(refusedOn(operation, "REQ-AUTH-009")));
+
+      assert.deepEqual(await (await action(name))(payload), refused, `${name} answered the backend's refusal in other words`);
+      assert.deepEqual(
+        cacheCalls.map((call) => call.name),
+        ["refresh"],
+        "the refusal left the page's figure standing, so its next press is refused again",
+      );
     });
   }
 });
