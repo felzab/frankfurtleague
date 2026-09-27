@@ -12,6 +12,7 @@ import {
   GESPERRTE_ADRESSE,
   INHABER_LABEL,
   PLAYGROUND_MARKER,
+  vonOderGesperrt,
 } from "@/features/berechtigungen/constants";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
 import { IDENTITY_HEAD_CLASSES, IDENTITY_NAME_CLASSES, IDENTITY_ROW_CLASSES, IDENTITY_STACK_CLASSES } from "@/shared/components/ui/adminTable";
@@ -43,11 +44,11 @@ function erteiltTag(stamp: string): string {
   return Number.isNaN(instant.getTime()) ? stamp : ERTEILT_TAG.format(instant);
 }
 
-/** Who granted it: a barred administrator by their state, as a barred grant is, and a paste naming nobody by its origin. */
+/** Who granted it, as every admin card names an actor, and a paste naming nobody by its origin. */
 function erteiltVon({ erteilt_von, erteilt_von_gesperrt }: FLBerechtigungZeile): string {
-  if (erteilt_von_gesperrt || erteilt_von === null) return GESPERRTE_ADRESSE;
+  const von = vonOderGesperrt(erteilt_von, erteilt_von_gesperrt);
 
-  return erteilt_von === PLAYGROUND_MARKER || erteilt_von === "" ? DIREKT_IN_DER_DATENBANK : erteilt_von;
+  return von === PLAYGROUND_MARKER || von === "" ? DIREKT_IN_DER_DATENBANK : von;
 }
 
 /** The eyebrow naming the fact at the fact, as the ban list's cards carry it. */

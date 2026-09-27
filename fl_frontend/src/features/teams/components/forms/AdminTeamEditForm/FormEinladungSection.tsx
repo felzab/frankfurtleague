@@ -12,7 +12,7 @@ import { Button } from "@heroui/react/button";
 import { ToggleButton } from "@heroui/react/toggle-button";
 import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
-import { GESPERRTE_ADRESSE } from "@/features/berechtigungen/constants";
+import { vonOderGesperrt } from "@/features/berechtigungen/constants";
 import { ZUSTELLUNG_CHIP } from "@/features/bewerbungen/zustellung";
 import { deleteEinladungAction, mailEinladungAction, postEinladungAction } from "@/features/einladungen/actions";
 import { useEinladungLink } from "@/features/einladungen/components/EinladungLinkHolder";
@@ -50,11 +50,6 @@ const MINT_UNKLAR = "Lade die Seite neu. Steht dort ein Link, ziehe ihn zurück 
 
 /** Where a reader goes when the browser refuses the clipboard, beside the box the value stands in. */
 const VON_HAND_KOPIEREN = "Markiere den Link im Feld darüber und kopiere ihn von Hand.";
-
-/** Who minted it: a barred administrator by their state, in the grants list's words (`docs/frontend/spec.md :: I492`). */
-function angelegtVon({ erstellt_von, erstellt_von_gesperrt }: FLEinladungZeile): string {
-  return erstellt_von_gesperrt || erstellt_von === null ? GESPERRTE_ADRESSE : erstellt_von;
-}
 
 /** Which of the two writes the armed press performs, picked before arming rather than raced between two controls. */
 type Operation = "ersetzen" | "zurueckziehen";
@@ -240,7 +235,7 @@ export function FormEinladungSection({
                 {einladung !== null && (
                   <ConfirmReadoutRow
                     label="Angelegt von"
-                    value={angelegtVon(einladung)}
+                    value={vonOderGesperrt(einladung.erstellt_von, einladung.erstellt_von_gesperrt)}
                   />
                 )}
                 {einladung !== null && (

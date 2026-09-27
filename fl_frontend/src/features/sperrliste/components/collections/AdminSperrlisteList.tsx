@@ -4,7 +4,7 @@ import { memo } from "react";
 
 import Ban from "@gravity-ui/icons/Ban";
 
-import { GESPERRTE_ADRESSE } from "@/features/berechtigungen/constants";
+import { vonOderGesperrt } from "@/features/berechtigungen/constants";
 import { SPERRE_BIS_LABEL, sperreBisWert, SPERRLISTE_CRUD_COPY } from "@/features/sperrliste/constants";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
 import { IDENTITY_HEAD_CLASSES, IDENTITY_LINE_CLASSES, IDENTITY_ROW_CLASSES, IDENTITY_STACK_CLASSES } from "@/shared/components/ui/adminTable";
@@ -23,11 +23,6 @@ const EMPTY_MESSAGES: Record<CrudEmptiness, string> = {
   filtered: SPERRLISTE_CRUD_COPY.emptyForQuery,
   none: SPERRLISTE_CRUD_COPY.emptyOverall,
 };
-
-/** Who entered it: a barred administrator by their state, in the grants list's words (`docs/frontend/spec.md :: I492`). */
-function erstelltVon({ erstellt_von, erstellt_von_gesperrt }: FLSperrlisteZeile): string {
-  return erstellt_von_gesperrt || erstellt_von === null ? GESPERRTE_ADRESSE : erstellt_von;
-}
 
 /** The eyebrow naming the fact at the fact, so no heading over the list can disagree with it. */
 const FACT_LABEL_CLASSES = "fluid-xxs font-extrabold tracking-widest text-foreground-muted uppercase";
@@ -58,7 +53,7 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
               day wears the grade `AdminBewerbungenList` gives one instead. */}
           <span className="font-numeric fluid-sm font-semibold text-foreground tabular-nums">{formatSpielDatum(eintrag.erstellt_am)}</span>
         </div>
-        <span className={IDENTITY_LINE_CLASSES}>{erstelltVon(eintrag)}</span>
+        <span className={IDENTITY_LINE_CLASSES}>{vonOderGesperrt(eintrag.erstellt_von, eintrag.erstellt_von_gesperrt)}</span>
       </div>
     </div>
   );
