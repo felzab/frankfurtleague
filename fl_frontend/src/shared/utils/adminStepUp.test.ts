@@ -9,7 +9,14 @@ import { filesUnder } from "@/core/treeWalk.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { CONDITIONALLY_STEPPED_UP, STEP_UP_CALLERS, STEP_UP_ROUTES, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
+import {
+  CONDITIONALLY_STEPPED_UP,
+  STEP_UP_CALLERS,
+  STEP_UP_REQUESTS,
+  STEP_UP_ROUTES,
+  STEP_UP_WRITES,
+  UNDO_REPLAYS,
+} from "@/shared/testing/stepUpWrites.ts";
 import { undo } from "@/shared/testing/undoRoutes.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
@@ -284,6 +291,25 @@ describe("an undo route the server holds to the step-up window", () => {
      to that save which nothing holds to the window. */
   it("is driven for every route declaring one", () => {
     assert.deepEqual(Object.keys(ROUTE_DRIVES).sort(), [...STEP_UP_ROUTES].sort());
+  });
+
+  /* Two listings by different routes, what each replay sends against what each route declares: a route
+     replaying a step-up write's request with no `stepUp` of its own drops out of the declared one alone. */
+  it("is declared by every route whose replay sends a request a step-up write sends", () => {
+    const replaying = Object.entries(UNDO_REPLAYS)
+      .filter(([, sent]) => sent.some((request) => STEP_UP_REQUESTS.has(request)))
+      .map(([slice]) => slice);
+
+    assert.deepEqual(replaying.sort(), [...STEP_UP_ROUTES].sort());
+  });
+
+  /* A replay the reader finds no request in would pass the case above having been asked nothing. */
+  it("reads a request off every undo route's replay", () => {
+    const unread = Object.entries(UNDO_REPLAYS)
+      .filter(([, sent]) => sent.length === 0)
+      .map(([slice]) => slice);
+
+    assert.deepEqual(unread, []);
   });
 
   for (const [slice, drive] of Object.entries(ROUTE_DRIVES)) {

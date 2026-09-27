@@ -28,16 +28,51 @@ function declarationOf(body: ts.Node): "declared" | "conditional" | null {
   return found;
 }
 
-/** Every exported action of every slice and how it declares its step-up, read off each `actions.ts`'s syntax tree. */
+const MUTATIONS_MODULE = /^(?:\.\/|@\/features\/(\w+)\/)mutations$/;
+
+/** The request functions `source` imports from a slice's `mutations.ts`, by local name, each as `slice :: export`. */
+function mutationImports(source: ts.SourceFile, ownSlice: string): Map<string, string> {
+  const imported = new Map<string, string>();
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+    const specifier = MUTATIONS_MODULE.exec(statement.moduleSpecifier.text);
+    const bindings = statement.importClause?.namedBindings;
+    if (specifier === null || bindings === undefined || !ts.isNamedImports(bindings)) continue;
+    for (const element of bindings.elements) {
+      imported.set(element.name.text, `${specifier[1] ?? ownSlice} :: ${(element.propertyName ?? element.name).text}`);
+    }
+  }
+  return imported;
+}
+
+/**
+ * Direct calls alone: a request sent through a helper module is not seen, which the floor in
+ * `fl_frontend/src/shared/utils/adminStepUp.test.ts` catches only where a replay sends nothing else.
+ */
+function requestsSent(node: ts.Node, imported: ReadonlyMap<string, string>): string[] {
+  const sent = new Set<string>();
+  const visit = (child: ts.Node): void => {
+    if (ts.isCallExpression(child) && ts.isIdentifier(child.expression)) {
+      const request = imported.get(child.expression.text);
+      if (request !== undefined) sent.add(request);
+    }
+    ts.forEachChild(child, visit);
+  };
+  visit(node);
+  return [...sent];
+}
+
+/** Every exported action of every slice, how it declares its step-up and the requests it sends, read off each `actions.ts`'s syntax tree. */
 const DECLARED = filesUnder(SLICES, (name) => name === "actions.ts", 10).flatMap((file) => {
   const slice = path.basename(path.dirname(file));
   const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
+  const imported = mutationImports(source, slice);
 
   return source.statements.flatMap((statement) => {
     const exported = ts.canHaveModifiers(statement) && ts.getModifiers(statement)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
     if (!exported || !ts.isFunctionDeclaration(statement) || statement.name === undefined || statement.body === undefined) return [];
     const declaration = declarationOf(statement.body);
-    return declaration === null ? [] : [{ name: statement.name.text, slice, declaration }];
+    return declaration === null ? [] : [{ name: statement.name.text, slice, declaration, sends: requestsSent(statement.body, imported) }];
   });
 });
 
@@ -61,16 +96,34 @@ function declaresStepUp(node: ts.Node): boolean {
   return ts.forEachChild(node, declaresStepUp) ?? false;
 }
 
+/** Every undo route, by the slice its directory names, with its syntax tree. */
+const UNDO_ROUTE_SOURCES: ReadonlyMap<string, ts.SourceFile> = new Map(
+  filesUnder(UNDO_ROUTES, (name) => name === "route.ts", 8)
+    .filter((file) => path.basename(path.dirname(file)) === "undo")
+    .map((file) => [
+      path.basename(path.dirname(path.dirname(file))),
+      ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true),
+    ]),
+);
+
 /**
  * Every undo route a replay of which the server holds to the step-up window, by the slice its directory
  * names, read off its declaration as the actions are; a route's replay is a save, and is judged as one.
  */
 export const STEP_UP_ROUTES: ReadonlySet<string> = new Set(
-  filesUnder(UNDO_ROUTES, (name) => name === "route.ts", 8)
-    .filter((file) => path.basename(path.dirname(file)) === "undo")
-    .filter((file) => declaresStepUp(ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true)))
-    .map((file) => path.basename(path.dirname(path.dirname(file)))),
+  [...UNDO_ROUTE_SOURCES].filter(([, source]) => declaresStepUp(source)).map(([slice]) => slice),
 );
+
+/**
+ * Every request each undo route's replay sends, read off its calls rather than its declaration: the
+ * second listing `STEP_UP_ROUTES` is held to, since a route dropping its `stepUp` drops out of that one.
+ */
+export const UNDO_REPLAYS: Readonly<Record<string, readonly string[]>> = Object.fromEntries(
+  [...UNDO_ROUTE_SOURCES].map(([slice, source]) => [slice, requestsSent(source, mutationImports(source, slice))]),
+);
+
+/** Every request a step-up write sends, as `slice :: export`: an undo route replaying one is a second door to that write. */
+export const STEP_UP_REQUESTS: ReadonlySet<string> = new Set(DECLARED.flatMap(({ sends }) => sends));
 
 /** Refused from a stale session on some calls alone, the action judging its own payload before `refuseUnconfirmed`. */
 export const CONDITIONALLY_STEPPED_UP: ReadonlySet<string> = new Set(
