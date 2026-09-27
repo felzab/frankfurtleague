@@ -634,9 +634,10 @@ class TestTheStepUpOverAServedRequest:
 
     @pytest.mark.parametrize(("method", "path"), [pytest.param("get", "/api/v0/berechtigungen", id="the list"), *WRITES])
     def test_a_route_the_page_does_not_step_up_takes_the_older_sign_in(self, method: str, path: str):
+        """Past the window and still admitted: the handler runs, and meets the database this client never opened."""
         response = getattr(client(), method)(path, headers=signed_in_before(ENROLMENT_WINDOW_S + 1))
 
-        assert response.json()["error_code"] != CONFIRMATION_REQUIRED
+        assert (response.status_code, response.json()["error_code"]) == (503, UNREACHED_DATABASE)
 
 
 # Obviously fake, padded to the boot's floor, and the key the pseudonym below was computed under.
