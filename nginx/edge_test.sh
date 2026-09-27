@@ -540,8 +540,9 @@ for _i in "${!HEADER_PATHS[@]}"; do
     detail "expected no X-FL-Actor at Next, Next received '${SENT_VALUE[x-seen-actor]}'"
     HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
-  # The one visitor header the edge sets only to drop it when empty: a location declaring its own
-  # proxy_set_header set without it would break every server action it carries.
+  # That no location clears the id a server action is posted with. What the edge's own directive
+  # adds, dropping an EMPTY one, no case sees: the stub's `$http_next_action` reads an empty header
+  # and a missing one alike.
   if [[ "${SENT_VALUE[x-seen-next-action]:-}" != "$CLIENT_ACTION" ]]; then
     fail "UPSTREAM ${HEADER_PATHS[_i]}"
     detail "expected Next-Action ${CLIENT_ACTION} at Next, Next received '${SENT_VALUE[x-seen-next-action]:-}'"
@@ -580,8 +581,7 @@ action_request admin-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-T
 action_request static-prefix -X POST -H "Next-Action: ${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/_next/static/chunk.js"
 # An id opening with a colon, which a key joined on `:` would read as no id at all.
 action_request colon-id -X POST -H "Next-Action: :${ACTION_ID}" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
-# And each of these answers 200 only if the map leaves it out. An empty `Next-Action` is dropped
-# before Next, so it is a plain post like the JSON one.
+# And each of these answers 200 only if the map leaves it out, an empty `Next-Action` among them.
 action_request empty-id -X POST -H "Next-Action;" -H "Content-Type: text/plain;charset=UTF-8" --data '[]' "${BASE}/"
 action_request json-post -X POST -H "Content-Type: application/json" --data '{}' "${BASE}/"
 action_request page-load "${BASE}/"
