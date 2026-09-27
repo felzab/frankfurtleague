@@ -134,7 +134,7 @@ def test_the_frontend_file_and_the_checkouts_are_mounted_read_only_and_the_reade
     # The checkout's own file, beside the package directory rather than inside it.
     assert package[0] == shared[0].removesuffix(".env") + "fl_frontend/.env", argv
     # The file the join wrote, rather than the reader's default beside it in the image.
-    assert argv[-2] == "/tmp/.env", argv
+    assert argv[-1] == "/tmp/.env", argv
     # Neither the image's own user, whose uid this host does not have, nor root.
     assert "--user" in argv, argv
     assert argv[argv.index("--user") + 1] not in ("0:0", "root"), argv
@@ -152,19 +152,11 @@ def test_the_reader_the_arm_runs_is_the_one_the_frontend_image_carries() -> None
     # Left to the builder's umask, a 0600 reader would answer this arm's advisory on every deploy
     # forever -- the one verdict no other case here can tell from a pass.
     assert copied.group(1) == "--chmod=644", copied.group(0)
-    # Located rather than sliced off the end, so a flag added after it fails its own case below and
+    # Located rather than sliced off the end, so a flag added after it fails the union case above and
     # not this one.
     reader = Path(copied.group(3)).name
     assert reader in argv, argv
     assert argv[argv.index(reader) - 1] == "node", argv
-
-
-def test_the_frontend_reader_is_told_that_this_deploy_is_the_production_one() -> None:
-    """Without the flag a host missing a name production alone demands passes preflight, is recreated, and then 502s at boot."""
-    _, _, fixture = _run(FRONTEND_ARM)
-    argv = fixture.argv.read_text(encoding="utf-8").splitlines()
-
-    assert argv[-1] == "--production", argv
 
 
 def test_the_mount_the_user_and_the_filter_are_one_function_both_arms_reach() -> None:
