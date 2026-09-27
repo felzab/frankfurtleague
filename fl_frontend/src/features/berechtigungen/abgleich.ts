@@ -33,9 +33,16 @@ export function armBerechtigungenAbgleich(): void {
   handle.unref();
 }
 
-/** Whether a pass is running, and whether a change arrived while it ran. Module state, which is per process. */
+/**
+ * Whether a pass is running, and whether a change arrived while it ran. Per instance of this module, which
+ * Next may load once for the boot and once for the actions: two passes may then run side by side, and the
+ * claim hands the second none of the first's rows.
+ */
 let laeuft = false;
 let nochmal = false;
+
+/** The dead rows last warned of: a count that stands is warned once, not at every pass while nobody repairs it. */
+let gewarntUebersprungen = 0;
 
 /**
  * One pass, or a second one queued behind the pass already running: a change written after that pass
@@ -68,7 +75,11 @@ async function abgleichen(): Promise<void> {
     return;
   }
 
-  if (claim.uebersprungen > 0) logger.warn("berechtigung.abgleich_uebersprungen", { error_code: "FE-SWEEP-002", anzahl: claim.uebersprungen });
+  if (claim.uebersprungen > gewarntUebersprungen) {
+    logger.warn("berechtigung.abgleich_uebersprungen", { error_code: "FE-SWEEP-002", anzahl: claim.uebersprungen });
+  }
+  // Down as well as up, so a row repaired and another made dead later is warned of again.
+  gewarntUebersprungen = claim.uebersprungen;
   if (claim.beanspruchung === null || claim.aenderungen.length === 0) return;
 
   const angekuendigt: string[] = [];

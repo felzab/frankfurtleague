@@ -303,14 +303,19 @@ describe("what a pass leaves for the next", () => {
     );
   });
 
-  it("warns of rows no request can match, counting them", async () => {
-    claim = claimOf([], { uebersprungen: 2 });
-
-    await runBerechtigungenAbgleich();
+  /* Once for a count that stands, not every five minutes while nobody repairs the row; again once it rises. */
+  it("warns of rows no request can match once per count, counting them", async () => {
+    for (const uebersprungen of [0, 2, 2, 3, 3]) {
+      claim = claimOf([], { uebersprungen });
+      await runBerechtigungenAbgleich();
+    }
 
     assert.deepEqual(
       lines.map((line) => [line.level, line.event, line.fields]),
-      [["WARN", "berechtigung.abgleich_uebersprungen", { error_code: "FE-SWEEP-002", anzahl: 2 }]],
+      [
+        ["WARN", "berechtigung.abgleich_uebersprungen", { error_code: "FE-SWEEP-002", anzahl: 2 }],
+        ["WARN", "berechtigung.abgleich_uebersprungen", { error_code: "FE-SWEEP-002", anzahl: 3 }],
+      ],
     );
   });
 });
