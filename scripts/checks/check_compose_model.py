@@ -79,7 +79,7 @@ _EITHER_STACK: Final = {
 }
 
 # Every secret each stack declares, as (its holders, the checkout file it is read from): a holder that
-# does not read it is one more place it leaks from, and a reader lacking it refuses its boot (I509).
+# does not read it is one more place it leaks from, and a reader lacking it refuses its boot (I508).
 SECRET_HOLDERS: Final[dict[str, dict[str, tuple[frozenset[str], str]]]] = {
     "production": {
         **{secret: (holders, f"{SECRETS_DIRECTORY}/{secret}") for secret, holders in _EITHER_STACK.items()},
@@ -97,7 +97,7 @@ SECRET_HOLDERS: Final[dict[str, dict[str, tuple[frozenset[str], str]]]] = {
 }
 
 # The environment names those files replace (`scripts/lib/_lib.sh :: MOVED_ENV_NAMES`): one in a
-# service's `environment:` is a second copy of a credential beside its file (I510).
+# service's `environment:` is a second copy of a credential beside its file (I509).
 MOVED_ENV_NAMES: Final = frozenset(
     {
         "MONGODB_URI",
@@ -193,7 +193,7 @@ def _capabilities(listed: list[Any] | None) -> frozenset[str]:
 def privileges(model: dict[str, Any], name: str) -> list[Finding]:
     """Every service drops every capability, takes `no-new-privileges`, and adds back only `CAPABILITIES_ADDED`'s.
 
-    One left in place is one no start was shown to need, and NET_RAW reads the bridge a token crosses (I508).
+    One left in place is one no start was shown to need, and NET_RAW reads the bridge a token crosses (I507).
     """
     findings: list[Finding] = []
     for service, definition in sorted(services(model, name).items()):
@@ -201,13 +201,13 @@ def privileges(model: dict[str, Any], name: str) -> list[Finding]:
         added = _capabilities(definition.get("cap_add"))
         allowed = CAPABILITIES_ADDED.get(service, frozenset())
         if dropped != {"ALL"}:
-            findings.append(Finding("fail", f"{name}: {service} drops {sorted(dropped) or 'nothing'}, not ALL (I508)"))
+            findings.append(Finding("fail", f"{name}: {service} drops {sorted(dropped) or 'nothing'}, not ALL (I507)"))
         if added != allowed:
             findings.append(
-                Finding("fail", f"{name}: {service} adds back {sorted(added) or 'nothing'}, not {sorted(allowed) or 'nothing'} (I508)")
+                Finding("fail", f"{name}: {service} adds back {sorted(added) or 'nothing'}, not {sorted(allowed) or 'nothing'} (I507)")
             )
         if not NO_NEW_PRIVILEGES & set(definition.get("security_opt") or []):
-            findings.append(Finding("fail", f"{name}: {service} does not set no-new-privileges (I508)"))
+            findings.append(Finding("fail", f"{name}: {service} does not set no-new-privileges (I507)"))
     return findings
 
 
@@ -220,7 +220,7 @@ def _declared_file(declared: object, project: Path) -> str:
 def secrets_directory(model: dict[str, Any], name: str, project: Path) -> list[Finding]:
     """No bind mount and no config reaches into `SECRETS_DIRECTORY`, nor mounts one holding it.
 
-    A secret is the one route a file there takes, so each reaches only the service naming it (I472, I509).
+    A secret is the one route a file there takes, so each reaches only the service naming it (I472, I508).
     """
     directory = project / SECRETS_DIRECTORY
     findings: list[Finding] = []
@@ -246,13 +246,13 @@ def secrets_directory(model: dict[str, Any], name: str, project: Path) -> list[F
 def secret_holders(model: dict[str, Any], name: str, project: Path, stack: str) -> list[Finding]:
     """Exactly `SECRET_HOLDERS[stack]`: each declared, read from its file, and held by its services alone at `/run/secrets/<name>`.
 
-    A second name reading one file is that credential under an alias, so an undeclared name is a finding too (I472, I509).
+    A second name reading one file is that credential under an alias, so an undeclared name is a finding too (I472, I508).
     """
     expected = SECRET_HOLDERS[stack]
     declared = model.get("secrets") or {}
     findings: list[Finding] = []
     for secret in sorted(set(declared) - set(expected)):
-        findings.append(Finding("fail", f"{name}: the secret {secret} is declared and SECRET_HOLDERS lists no such secret (I509)"))
+        findings.append(Finding("fail", f"{name}: the secret {secret} is declared and SECRET_HOLDERS lists no such secret (I508)"))
     held: dict[str, list[str]] = {secret: [] for secret in expected}
     for service, definition in sorted(services(model, name).items()):
         for entry in definition.get("secrets") or []:
@@ -264,21 +264,21 @@ def secret_holders(model: dict[str, Any], name: str, project: Path, stack: str) 
             # A relative target is a name under `/run/secrets` (https://docs.docker.com/reference/compose-file/services/#secrets).
             mounted = target if target.startswith("/") else f"/run/secrets/{target}"
             if mounted != f"/run/secrets/{source}":
-                findings.append(Finding("fail", f"{name}: {service} mounts {source} at {mounted}, not /run/secrets/{source} (I509)"))
+                findings.append(Finding("fail", f"{name}: {service} mounts {source} at {mounted}, not /run/secrets/{source} (I508)"))
     for secret, (holders, source_file) in sorted(expected.items()):
         if secret not in declared:
-            findings.append(Finding("fail", f"{name}: the secret {secret} is not declared, and {sorted(holders)} read it (I509)"))
+            findings.append(Finding("fail", f"{name}: the secret {secret} is not declared, and {sorted(holders)} read it (I508)"))
             continue
         read = _declared_file(declared[secret], project)
         if read != source_file:
-            findings.append(Finding("fail", f"{name}: {secret} is read from {read!r}, not {source_file} (I509)"))
+            findings.append(Finding("fail", f"{name}: {secret} is read from {read!r}, not {source_file} (I508)"))
         if sorted(held[secret]) != sorted(holders):
-            findings.append(Finding("fail", f"{name}: {held[secret] or 'nothing'} holds {secret}, not {sorted(holders)} (I509)"))
+            findings.append(Finding("fail", f"{name}: {held[secret] or 'nothing'} holds {secret}, not {sorted(holders)} (I508)"))
     return findings
 
 
 def moved_names(model: dict[str, Any], name: str) -> list[Finding]:
-    """No service is handed a name in `MOVED_ENV_NAMES` through `environment:`, in any letter case (I510).
+    """No service is handed a name in `MOVED_ENV_NAMES` through `environment:`, in any letter case (I509).
 
     The backend folds case, so a lower-cased copy is the same credential again.
     """
@@ -293,7 +293,7 @@ def moved_names(model: dict[str, Any], name: str) -> list[Finding]:
                     Finding(
                         "fail",
                         f"{name}: {service} is handed {variable} in its environment\n"
-                        f"{CONTINUATION}its value is a secret file's, which the service reads from /run/secrets (I510)",
+                        f"{CONTINUATION}its value is a secret file's, which the service reads from /run/secrets (I509)",
                     )
                 )
     return findings

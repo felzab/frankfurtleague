@@ -137,7 +137,7 @@ EDGE_IMAGE=""
 EDGE_COMMAND=()
 EDGE_TMPFS=()
 # The capabilities and options the model starts nginx with, on both edges below: a master refused a
-# capability it needs never starts (`docs/ops/spec.md :: I508`).
+# capability it needs never starts (`docs/ops/spec.md :: I507`).
 EDGE_PRIVILEGES=()
 mapfile -t EDGE_MODEL < <("$EDGE_PY" -c "$EDGE_MODEL_READ" "${SCRATCH}/model/local.json" \
   || echo "unread")

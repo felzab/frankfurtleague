@@ -1166,7 +1166,7 @@ than the deploy reads it, trusts an address that is not the connector's, hands a
 environment files than the deploy judges, puts a service on another network than its own, or hands
 the actor token's signing key to a service but the frontend, or leaves a service a capability or a
 privilege it was not shown to need. The findings above name the service and the rule:
-docs/ops/spec.md I1, I174, I355, I18, I429, I471, I472 or I508." \
+docs/ops/spec.md I1, I174, I355, I18, I429, I471, I472 or I507." \
       "$OPS_PY" scripts/checks/check_compose_model.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json"
     ok "production publishes nothing and declares no database; locally only nginx leaves loopback; both edges mount nginx/ by directory and open the Control API where the deploy asks it; either edge trusts the connector alone; each application service reads its package's environment file, then the checkout's; only nginx shares a network with the connector or the application pair; the frontend alone holds the actor signing key; every service drops every capability, nginx adding back its master's four"
   fi
