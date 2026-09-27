@@ -135,6 +135,9 @@ describe("one pass over the claimed changes", () => {
     assert.deepEqual(mail.sent.map((sent) => sent.to).sort(), [...HOLDERS].sort());
     assert.ok(mail.sent.every((sent) => sent.text.includes("Eine gesperrte Adresse hat jetzt Zugang zur Verwaltung.")));
     assert.ok(mail.sent.every((sent) => sent.text.includes("direkt in der Datenbank")));
+    // Told in full: a send attempted to the withheld address fails, and leaves the row for every later pass.
+    assert.deepEqual(lines, []);
+    assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
   /* One key per row and recipient: a lapsed claim mailing a row again reaches nobody twice inside
