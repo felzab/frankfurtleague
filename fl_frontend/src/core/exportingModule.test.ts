@@ -34,4 +34,18 @@ describe("the module a double is built as", () => {
 
     assert.equal(built.message, message);
   });
+
+  /* The value itself, never a copy: a double records into the object its suite reads, and a builder
+     serialising values would pass the case above while every recording went to a copy. */
+  it("hands each object and function across as itself", async () => {
+    const recorded: unknown[] = [];
+    const record = (entry: unknown): number => recorded.push(entry);
+    const built = (await import(`data:text/javascript,${encodeURIComponent(exportingModule({ recorded, record }))}`)) as Record<
+      string,
+      unknown
+    >;
+
+    assert.equal(built.recorded, recorded);
+    assert.equal(built.record, record);
+  });
 });
