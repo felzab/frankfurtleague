@@ -106,16 +106,16 @@ async def get_bestaetigung_ansicht(
     persons = await pull_many_from_db(
         collection=spieler_collection,
         db_filter={"email": sign_in_identifier(str(raw.get("email") or ""))},
-        # One PAST the bound, so a larger household is seen to be larger: capped at the bound, the read
-        # answers a subset of a larger household, and a namesake left outside it makes the other look sole.
+        # One PAST the bound, so a mailbox shared by more is seen to be: capped at the bound, the read
+        # answers a subset of the people behind it, and a namesake left outside it makes the other look sole.
         limit=_PERSONS_READ + 1,
         projection=[*PERSON_IDENTITY_FIELDS, "geburtsdatum", "einwilligung"],
     )
-    household = persons if len(persons) <= _PERSONS_READ else []
+    at_the_address = persons if len(persons) <= _PERSONS_READ else []
 
     # Narrowed by the NAME before anything is shown back: nothing stops a mailbox shared anyway
     # standing behind more than one pupil.
-    named = persons_named(household, vorname=raw.get("vorname"), nachname=raw.get("nachname"))
+    named = persons_named(at_the_address, vorname=raw.get("vorname"), nachname=raw.get("nachname"))
 
     shown_back = answers_shown_back(registrierung_raw=raw, spieler_raw=sole_person(named))
     einwilligung = shown_back.get("einwilligung") or {}
