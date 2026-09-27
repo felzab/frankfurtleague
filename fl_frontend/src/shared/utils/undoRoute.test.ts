@@ -141,7 +141,7 @@ describe("what the undo spine answers when nobody can tell whether its replay la
 
 describe("who the undo spine answers before it does any work", () => {
   /* The spine's own authorization: the backend refuses too, but that is a different service, and
-     `proxy.ts` matches `/bereich/:path*`, never `/api/admin/*`. */
+     `proxy.ts` matches `/bereich/admin/:path*`, never `/api/admin/*`. */
   it("refuses a caller with no admin session before reading the body or restoring anything", async () => {
     undoRouteSession = null;
     let restored = 0;

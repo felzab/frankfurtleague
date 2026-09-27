@@ -55,7 +55,8 @@ const store: Store = { user: [], session: [], account: [], verification: [], pas
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so neither the doubles nor the `next/server` extension would be in place yet.
 const { NextRequest } = await import("next/server");
-const { auth, getSignInDestination } = await import("./core/auth.ts");
+const { auth, getAdminSession, getSignInDestination } = await import("./core/auth.ts");
+const { unstable_doesMiddlewareMatch } = await import("next/experimental/testing/server.js");
 const { config, proxy } = await import("./proxy.ts");
 
 /** What the landing reads, for the cases that put its answer and this proxy's side by side. */
@@ -153,25 +154,23 @@ describe("where the admin proxy sends a signed-in request", () => {
     assert.equal(answer.status, 200);
   });
 
-  /* To the landing and never the public root: the landing is the one place that decides, and it
-     sends a removed address to `/bereich` while sending the administrator below one step further on. */
-  it("sends a session whose address holds no grant to the landing", async () => {
-    assert.equal(redirectedTo(await arriveAtAdmin({ cookie: removed.cookie })), "/signin/weiter");
+  /* Optimistic, as Next documents a proxy's check: the session and its factor, and no backend read. The
+     grant is the admin guard's, which refuses a session holding none on the same request. */
+  it("lets a passkey session through whatever its grant, and leaves the grant to the admin guard", async (t) => {
+    const fetched = t.mock.method(globalThis, "fetch", () => Promise.reject(new TypeError("fetch failed")));
+
+    assert.equal(redirectedTo(await arriveAtAdmin({ cookie: removed.cookie })), null);
+    assert.equal(fetched.mock.callCount(), 0, "the proxy asked the backend about a grant");
+
+    arriveAs(removed.cookie);
+    assert.equal(await getAdminSession(), null, "the guard admitted a session holding no grant");
   });
 
-  /* Shut while the backend is: an unread grant admits nobody, so the one address holding a grant is
-     turned away like any other rather than let through on the grant it held last. */
-  it("sends an administrator whose grant the backend cannot answer for to the landing", async (t) => {
-    t.mock.method(globalThis, "fetch", () => Promise.reject(new TypeError("fetch failed")));
-
-    assert.equal(redirectedTo(await arriveAtAdmin({ cookie: admin.cookie })), "/signin/weiter");
-  });
-
-  it("turns that session's action POST away to the landing as well, in the action's own redirect", async () => {
+  it("lets that session's action POST through to the action's own guard", async () => {
     const answer = await arriveAtAdmin({ method: "POST", action: true, cookie: removed.cookie });
 
     assert.equal(redirectedTo(answer), null);
-    assert.equal(answer.headers.get("x-action-redirect"), "/signin/weiter;replace");
+    assert.equal(answer.headers.get("x-action-redirect"), null);
   });
 
   /* The arm that made the public root wrong: an administrator who has typed the code and not yet
@@ -203,42 +202,46 @@ describe("where the admin proxy sends a signed-in request", () => {
   });
 });
 
-describe("which addresses under the matched prefix the admin proxy judges", () => {
-  // Every case here calls the proxy directly, so a misspelled matcher would pass them all while Next
-  // never ran the proxy on a single page.
-  it("is matched to the whole `/bereich` prefix and nothing else", () => {
-    assert.deepEqual(config.matcher, ["/bereich/:path*"]);
-  });
+/**
+ * Whether Next runs the proxy for `url`: its server tries the raw path and then its decoded spelling
+ * (`next/dist/server/lib/router-utils/resolve-routes.js`), which the testing helper does not, so both are asked.
+ */
+function matched(url: string): boolean {
+  const { pathname } = new URL(url);
+  let spelled = pathname;
+  try {
+    spelled = decodeURIComponent(pathname);
+  } catch {
+    // Left as written, as Next leaves an escape it cannot decode.
+  }
 
-  // The person lane's words share the prefix, and the administrator's verdict turns every person away.
-  it("lets every word outside the administrator's subtree through, whoever arrives", async () => {
-    for (const url of [
-      "http://localhost:3000/bereich/team/6890a1b2c3d4e5f607190001",
-      "http://localhost:3000/bereich/administration",
-      // A malformed escape the decoding cannot read, which must not take the request down with it.
-      "http://localhost:3000/bereich/team/%E0%A4%A",
-    ]) {
-      for (const cookie of [undefined, removed.cookie]) {
-        const answer = await arriveAtAdmin({ url, cookie });
+  return [pathname, spelled].some((path) => unstable_doesMiddlewareMatch({ config, url: new URL(path, url).href }));
+}
 
-        assert.equal(answer.headers.get("x-middleware-next"), "1", `${url} was judged by the administrator's verdict`);
-      }
-    }
-  });
-
-  // Next's matcher admits the decoded path as well, so the subtree is judged on an escaped spelling too.
-  it("judges the administrator's subtree whole, its root and an escaped spelling included", async () => {
+describe("which addresses the admin proxy is run on", () => {
+  // The person lane's words share the prefix and run no proxy: each person layout guards its own lane.
+  it("runs on the administrator's subtree alone, its root and an escaped spelling included", () => {
     for (const url of [
       "http://localhost:3000/bereich/admin",
       "http://localhost:3000/bereich/admin/spiele",
       "http://localhost:3000/bereich/%61dmin/spiele",
     ]) {
+      assert.equal(matched(url), true, `${url} runs no proxy`);
+    }
+    for (const url of [
+      "http://localhost:3000/bereich",
+      "http://localhost:3000/bereich/team/6890a1b2c3d4e5f607190001",
+      "http://localhost:3000/bereich/administration",
+      // A malformed escape the decoding cannot read, which must not take the request down with it.
+      "http://localhost:3000/bereich/team/%E0%A4%A",
+    ]) {
+      assert.equal(matched(url), false, `${url} runs the administrator's proxy`);
+    }
+  });
+
+  it("judges each spelling it runs on alike, turning a signed-out request away", async () => {
+    for (const url of ["http://localhost:3000/bereich/admin", "http://localhost:3000/bereich/%61dmin/spiele"]) {
       assert.equal(redirectedTo(await arriveAtAdmin({ url })), "/signin", `${url} let a signed-out request through`);
-      assert.equal(
-        redirectedTo(await arriveAtAdmin({ url, cookie: removed.cookie })),
-        "/signin/weiter",
-        `${url} let a removed address through`,
-      );
     }
   });
 });
