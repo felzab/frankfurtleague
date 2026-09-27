@@ -13,6 +13,7 @@ from __future__ import annotations
 import contextlib
 import functools
 import importlib
+import importlib.util
 import io
 import re
 import sys
@@ -271,6 +272,8 @@ FRONTEND_RAISE: Final = '  const code = "' + FRONTEND_CODE + '";'
 # The rule register, at the path the checker names: a code it declares is spelled in the backend
 # tree and owed no row, which is what the clean corpus proves by carrying none for it.
 DOMAIN_REGISTER: Final = "fl_backend/app/core/domain.py"
+# The package the checker imports that register from, afresh on every run.
+BACKEND_APP: Final = "fl_backend/app"
 RULE_CODE: Final = "REQ-SAMPLE-002"
 UNENFORCED_SUBJECT: Final = "a sample state the register permits"
 # One live token of every shape a reason may take, each resolving in the corpus below.
@@ -1225,6 +1228,15 @@ def _clear_caches(scripts_dir: Path) -> None:
                 clear()
 
 
+def _drop_backend_bytecode(root: Path) -> None:
+    """Python trusts bytecode matching its source's size and whole-second mtime.
+
+    So a plant within a second of another the same size would import as that one.
+    """
+    for source in (root / BACKEND_APP).rglob("*.py"):
+        Path(importlib.util.cache_from_source(str(source))).unlink(missing_ok=True)
+
+
 def _output() -> tuple[int, str]:
     """One run's exit code and everything it printed, for a case that turns on a finding's words.
 
@@ -1233,6 +1245,7 @@ def _output() -> tuple[int, str]:
     """
     fixture = _gate()
     _clear_caches(fixture.root / SCRIPTS_COPY)
+    _drop_backend_bytecode(fixture.root)
     buffer = io.StringIO()
     argv = sys.argv
     sys.argv = ["check_docs.py"]
@@ -2419,6 +2432,7 @@ def _main(*argv: str) -> tuple[int, str]:
     """
     fixture = _gate()
     _clear_caches(fixture.root / SCRIPTS_COPY)
+    _drop_backend_bytecode(fixture.root)
     buffer = io.StringIO()
     kept = sys.argv
     sys.argv = ["check_docs.py", *argv]
