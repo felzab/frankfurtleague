@@ -4,9 +4,9 @@ import { after, beforeEach, describe, it } from "node:test";
 
 import { MongoDBContainer } from "@testcontainers/mongodb";
 
-import { ADMIN_EMAIL, asDataUrl, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "@/core/authDoubles.ts";
+import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "@/core/authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "@/core/cacheScope.ts";
-import { exportingModule, overridingModule } from "@/core/exportingModule.ts";
+import { overridingModule } from "@/core/exportingModule.ts";
 
 import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
 import type { CommandStartedEvent, MongoClient } from "mongodb";
@@ -37,11 +37,11 @@ registerAuthDoubles({
   core: {
     config: configDouble({ MONGODB_URI: `${mongod.getConnectionString()}/?directConnection=true` }),
     db: overridingModule(PRODUCTION_DB, {}),
-    logging: exportingModule({
+    logging: {
       logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: (message: string) => void errors.push(message) },
-    }),
+    },
   },
-  specifiers: { "next/headers": asDataUrl(exportingModule({ headers: () => Promise.resolve(requestHeaders) })) },
+  specifiers: { "next/headers": { headers: () => Promise.resolve(requestHeaders) } },
 });
 
 // The server build for `auth.ts` alone, whose `cache` memoizes where the client build's passes

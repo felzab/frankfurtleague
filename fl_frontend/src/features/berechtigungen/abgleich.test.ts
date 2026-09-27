@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
@@ -21,10 +21,8 @@ const record =
   (level: string) =>
   (event: string, ...rest: unknown[]): void =>
     void lines.push({ level, event, fields: rest.at(-1) });
-const LOGGING_DOUBLE = exportingModule({
-  logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") },
-});
-const CONFIG_DOUBLE = exportingModule({ frontend_config: { AUTH_URL: "http://localhost:3000", LOG_FORMAT: "console" } });
+const LOGGING_DOUBLE = { logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") } };
+const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: "http://localhost:3000", LOG_FORMAT: "console" } };
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -33,8 +31,10 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/logging.ts"))
+      return { format: "module", source: replacingModule(url, "the logger", LOGGING_DOUBLE), shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts"))
+      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
     return nextLoad(url, context);
   },
 });
