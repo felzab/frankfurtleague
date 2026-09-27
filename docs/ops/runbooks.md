@@ -1238,9 +1238,9 @@ public half is the key's last 32 bytes in DER form, which is the raw Ed25519 key
   `sudo chown 1001:1001 secrets/fl_actor_signing_key && sudo chmod 400 secrets/fl_actor_signing_key`.
   Compose hands a file secret over with the host's owner and mode, and the frontend runs as uid 1001
   ([`spec.md`](spec.md) §1.2).
-- **For `pnpm dev`**, name the file in `fl_frontend/.env`:
-  `ACTOR_SIGNING_KEY_FILE=../secrets/fl_actor_signing_key`. The dev server runs in `fl_frontend/`,
-  and the default path is the container's.
+- **For `pnpm dev`**, write nothing more: the `dev` script names the file itself
+  ([`spec.md`](spec.md) I429). Never name it in `fl_frontend/.env`, which the frontend container
+  reads too: it would look for the key at that path rather than at its mount, and refuse to start.
 - **Rotating** means generating a new pair and deploying. Delete the old `ACTOR_TOKEN_PUBLIC_KEY`
   line first. A token lives sixty seconds, and the deploy recreates both containers together. The pair
   is kept nowhere else: a lost key is replaced by generating a new pair.

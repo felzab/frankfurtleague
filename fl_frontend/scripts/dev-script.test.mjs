@@ -22,9 +22,9 @@ after(() => rmSync(SCRATCH, { recursive: true, force: true }));
 // than a file: it keeps a name the process started with, so this prints what reaches the server.
 const NEXT_READS = `
 const { processEnv } = require(${JSON.stringify(createRequire(require.resolve("next/package.json")).resolve("@next/env"))});
-processEnv([{ path: ".env", contents: "FL_DEV_PROBE_ROOT=from-the-package-file\\nFL_DEV_PROBE_PACKAGE=from-the-package-file\\n" }], ".");
-const { FL_DEV_PROBE_ROOT, FL_DEV_PROBE_PACKAGE, FL_DEV_PROBE_SHELL } = process.env;
-process.stdout.write(JSON.stringify({ FL_DEV_PROBE_ROOT, FL_DEV_PROBE_PACKAGE, FL_DEV_PROBE_SHELL }));
+processEnv([{ path: ".env", contents: "FL_DEV_PROBE_ROOT=from-the-package-file\\nFL_DEV_PROBE_PACKAGE=from-the-package-file\\nACTOR_SIGNING_KEY_FILE=from-the-package-file\\n" }], ".");
+const { FL_DEV_PROBE_ROOT, FL_DEV_PROBE_PACKAGE, FL_DEV_PROBE_SHELL, ACTOR_SIGNING_KEY_FILE } = process.env;
+process.stdout.write(JSON.stringify({ probes: { FL_DEV_PROBE_ROOT, FL_DEV_PROBE_PACKAGE, FL_DEV_PROBE_SHELL }, keyFile: ACTOR_SIGNING_KEY_FILE }));
 `;
 
 /** What the dev server's environment holds for the probes, started by the `dev` script's loader over `root`. */
@@ -36,7 +36,7 @@ function served(root) {
     // The scratch directory, which holds no `.env`, and a bound: a flag misread as the command would
     // otherwise be handed to the shell to open.
     cwd: SCRATCH,
-    env: { ...process.env, FL_DEV_PROBE_SHELL: "from-the-shell" },
+    env: { ...process.env, FL_DEV_PROBE_SHELL: "from-the-shell", ACTOR_SIGNING_KEY_FILE: "from-the-shell" },
     encoding: "utf8",
     timeout: 30_000,
   });
@@ -58,7 +58,7 @@ describe("the dev script's loader", () => {
     const root = path.join(SCRATCH, "root.txt");
     writeFileSync(root, "FL_DEV_PROBE_ROOT=from-the-root-file\nFL_DEV_PROBE_SHELL=from-the-root-file\n");
 
-    assert.deepEqual(served(root), {
+    assert.deepEqual(served(root).probes, {
       FL_DEV_PROBE_ROOT: "from-the-root-file",
       FL_DEV_PROBE_PACKAGE: "from-the-package-file",
       FL_DEV_PROBE_SHELL: "from-the-shell",
@@ -66,6 +66,15 @@ describe("the dev script's loader", () => {
   });
 
   it("starts on a machine with no root file, the boot gate naming whatever is then missing", () => {
-    assert.equal(served(path.join(SCRATCH, "absent.txt")).FL_DEV_PROBE_ROOT, "from-the-package-file");
+    assert.equal(served(path.join(SCRATCH, "absent.txt")).probes.FL_DEV_PROBE_ROOT, "from-the-package-file");
+  });
+
+  // Named by the script rather than in `fl_frontend/.env`, which the container reads too: a path
+  // there turns the container away from its secret's mount, and its boot refuses (`docs/ops/spec.md :: I429`).
+  it("hands the server the checkout's signing key file over the shell and both files", () => {
+    const root = path.join(SCRATCH, "root-naming-the-key.txt");
+    writeFileSync(root, "ACTOR_SIGNING_KEY_FILE=from-the-root-file\n");
+
+    assert.equal(path.resolve(FRONTEND, served(root).keyFile), path.resolve(FRONTEND, "..", "secrets", "fl_actor_signing_key"));
   });
 });

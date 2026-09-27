@@ -410,7 +410,11 @@ platform.
 it the same way, the backend through `fl_backend/app/core/config.py :: model_config` and the
 frontend through the `dev` script in `fl_frontend/package.json`. That script loads the root file with
 dotenv-cli before `next dev` starts, so a variable the shell already set wins, then the root file,
-then Next's own reading of `fl_frontend/.env`. Each machine holds its own three:
+then Next's own reading of `fl_frontend/.env`. **One name is the script's own**: it sets
+`ACTOR_SIGNING_KEY_FILE` to the checkout's `secrets/fl_actor_signing_key` over the shell and both
+files, because `fl_frontend/.env` also reaches the frontend container, where a path written there
+would turn the frontend away from the secret's mount (I472) and its boot refuses. Each machine holds
+its own three:
 they are bearer tokens between one machine's two processes, so a development machine generates
 fresh ones rather than copying production's ([`runbooks.md`](runbooks.md) §16). **It holds the three
 keys and nothing else, each once, as `NAME=value`**, and
