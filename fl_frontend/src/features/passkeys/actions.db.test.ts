@@ -205,11 +205,14 @@ beforeEach(async () => {
   await authDb().dropDatabase();
 });
 
+/** The passkey the acting device signed in with, which `seedPasskeys` writes last unless a case names it. */
+const OWN_CREDENTIAL = "fl-passkey-db-eigener";
+
 /**
  * The administrator the account page acts as, signed in just now by the passkey `credentialID` names:
  * the stamp its assertion writes, set on the session this call minted and on no earlier one.
  */
-async function steppedUpAdmin(credentialID = "fl-passkey-db-eigener"): Promise<{ cookie: string; userId: string }> {
+async function steppedUpAdmin(credentialID = OWN_CREDENTIAL): Promise<{ cookie: string; userId: string }> {
   const cookie = cookieHeader(await signInByCode(auth, ADMIN_EMAIL));
 
   await authDb()
@@ -224,7 +227,10 @@ async function steppedUpAdmin(credentialID = "fl-passkey-db-eigener"): Promise<{
   return { cookie, userId: String(user._id) };
 }
 
-/** Rows written through the adapter, so they carry the shape the plugin's own writes give them; `credentialIDs` names the first ones. */
+/**
+ * Rows in the shape the plugin's own writes give them; `credentialIDs` names the first ones. The last
+ * is the acting device's own passkey, which every guard asks for (`docs/frontend/spec.md :: I313`).
+ */
 async function seedPasskeys(userId: string, count: number, credentialIDs: readonly string[] = []): Promise<string[]> {
   const { adapter } = await auth.$context;
   const ids: string[] = [];
@@ -233,7 +239,7 @@ async function seedPasskeys(userId: string, count: number, credentialIDs: readon
       model: "passkey",
       data: {
         userId: userId,
-        credentialID: credentialIDs[index] ?? `fl-passkey-db-${randomUUID()}`,
+        credentialID: credentialIDs[index] ?? (index === count - 1 ? OWN_CREDENTIAL : `fl-passkey-db-${randomUUID()}`),
         publicKey: "fabricated-public-key",
         counter: 0,
         deviceType: "singleDevice",
