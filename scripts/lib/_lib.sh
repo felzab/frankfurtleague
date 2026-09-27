@@ -811,6 +811,39 @@ It holds the three internal keys and nothing else (docs/ops/runbooks.md §16)."
   fi
 }
 
+# Each environment file reaches a service through compose and a dev server through that package's own
+# reader, which read four spellings differently (`docs/ops/spec.md :: I487`). Read as text before any
+# compose call; prints names and line numbers, never a value.
+check_env_spellings() { # $1 the file
+  local line number=0 name value IFS=' '
+  local -a wrong=()
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    number=$(( number + 1 ))
+    line="${line%$'\r'}"
+    [[ "$line" =~ ^[[:space:]]*(#.*)?$ ]] && continue
+    # A line no reader takes as NAME=value is compose's to refuse, which it does by name.
+    [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*(.*)$ ]] || continue
+    name="${BASH_REMATCH[2]}"; value="${BASH_REMATCH[3]}"
+    if [[ "$value" == *'$'* ]]; then
+      wrong+=("line ${number}: ${name} holds a \$, which each reader substitutes its own way")
+    elif [[ "$value" == '`'* ]]; then
+      wrong+=("line ${number}: ${name} opens with a backtick, which only Next's reader takes as a quote")
+    elif [[ "$value" == [\"\']* && "$value" == *\\* ]]; then
+      wrong+=("line ${number}: ${name} holds a backslash inside quotes, which each reader decodes its own way")
+    elif [[ "$value" != [\"\']* && ( "$value" == '#'* || "$value" =~ [^[:space:]]# ) ]]; then
+      wrong+=("line ${number}: ${name} holds a # with no space before it, where Next's reader alone ends the value")
+    fi
+  done < "$1"
+  if (( ${#wrong[@]} )); then
+    refuse "$1 holds a value its readers would not agree on, so the service and its dev server would
+each be handed a different one:
+$(printf '  %s\n' "${wrong[@]}")
+In a MongoDB URI write the character percent-encoded (\$ as %24, # as %23); any other value, generate
+again without it. A trailing comment counts too: move it to a line of its own.
+NOTHING was asked of compose or of either service."
+  fi
+}
+
 # The actor token's signing key: where the host holds it, and where compose mounts it for the frontend
 # (`docs/ops/spec.md :: I472`). The file is read by the scripts that source this one.
 # shellcheck disable=SC2034

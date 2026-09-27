@@ -567,6 +567,68 @@ def test_the_root_file_is_judged_before_the_first_compose_call(script: Path, fir
     assert text.index("\ncheck_root_env ") < text.index(first_compose), script.name
 
 
+# --- every `.env` compose reads, judged as text for the spellings its readers disagree on -----------------
+
+
+def _env_spellings(text: str) -> tuple[int, str]:
+    """`scripts/lib/_lib.sh :: check_env_spellings` over a file holding `text`, the fixture's own."""
+    body = f"printf '%s' {shlex.quote(text)} > fl_backend/.env\ncheck_env_spellings fl_backend/.env\necho judged-clean\n"
+    code, output, _ = _run(body)
+    return code, output
+
+
+def test_a_file_every_reader_takes_alike_is_clean() -> None:
+    """Comments say anything; an encoded URI, a spaced comment, a matched quote pair and a bare backslash read alike."""
+    lines = ("# costs $5 #1", "MONGODB_URI=mongodb://user:pa%24ss%23@db/x", "", "LOG_FORMAT='json' # the stream")
+    lines += ('FROM="a#b"', "PATHLIKE=a\\b", "TICK=a`b")
+    code, output = _env_spellings("\n".join(lines) + "\n")
+
+    assert code == 0, output
+    assert "judged-clean" in output, output
+
+
+@pytest.mark.parametrize(
+    ("line", "said"),
+    [
+        pytest.param("MONGODB_URI=mongodb://user:pa$ss@db/x", "holds a $", id="dollar-bare"),
+        pytest.param("SECRET=${OTHER}", "holds a $", id="dollar-braced"),
+        pytest.param("QUOTED='a$b'", "holds a $", id="dollar-single-quoted"),
+        pytest.param('DOUBLE="a$b"', "holds a $", id="dollar-double-quoted"),
+        pytest.param("export SPACED = a$b", "holds a $", id="dollar-export-and-spaces"),
+        pytest.param("TRAILING=plain # was $5", "holds a $", id="dollar-in-a-trailing-comment"),
+        pytest.param("HASH=a#b", "holds a # with no space before it", id="hash-unspaced"),
+        pytest.param("HASH=#abc", "holds a # with no space before it", id="hash-leading"),
+        pytest.param("SLASH='a\\b'", "holds a backslash inside quotes", id="backslash-single-quoted"),
+        pytest.param('SLASH="a\\b"', "holds a backslash inside quotes", id="backslash-double-quoted"),
+        pytest.param("TICK=`abc`", "opens with a backtick", id="backtick-leading"),
+    ],
+)
+def test_a_spelling_the_readers_disagree_on_refuses_naming_the_line_never_the_value(line: str, said: str) -> None:
+    """Each was read apart by python-dotenv, `@next/env` and `node:util :: parseEnv`; `$` even inside single quotes."""
+    code, output = _env_spellings(f"FIRST=1\n{line}\n")
+    name = line.removeprefix("export ").split("=", 1)[0].strip()
+
+    assert code == 2, output
+    assert f"line 2: {name} {said}" in output, output
+    assert line.split("=", 1)[1].strip() not in output, output
+    assert "judged-clean" not in output, output
+
+
+@pytest.mark.parametrize("script", [DEPLOY, LOCAL], ids=["deploy", "local"])
+def test_every_file_is_judged_before_the_first_compose_call_that_reads_it(script: Path) -> None:
+    """The root file before `--status` and `--down` as well, which read it for interpolation."""
+    text = script.read_text(encoding="utf-8")
+    readers = ("\ncheck_compose_config\n", "docker compose build", "\ncheck_actor_key ")
+    first_read = min(text.index(marker) for marker in readers if marker in text)
+    root = "$SHARED_ENV" if script == DEPLOY else ".env"
+    first_compose = "\nif (( STATUS_ONLY )); then" if script == DEPLOY else "\nif (( DOWN )); then"
+
+    assert text.index("\ncheck_root_env ") < text.index(f'\ncheck_env_spellings "{root}"') < text.index(first_compose), script.name
+    for package in ("fl_frontend", "fl_backend"):
+        judged = text.index(f'\ncheck_env_spellings "{package}/.env"')
+        assert text.index(f'\nrequire_file "{package}/.env"') < judged < first_read, (script.name, package)
+
+
 # --- the actor token's key pair ---------------------------------------------------------------------------
 
 # A pair of the case's own, generated with the node the check itself runs on and never committed:

@@ -428,9 +428,9 @@ keys and nothing else, each once, as `NAME=value`**, and
 - **It is also compose's own `.env`**, read for interpolation and for compose's `COMPOSE_*`
   settings, so a `COMPOSE_*` line would steer compose itself, a `--status` naming another project's
   containers among it. A compose setting goes in the shell or on the command line instead.
-- **A value is left to the keys' alphabet** (I11) rather than judged here: a reader that rewrites a
-  key apart from the others leaves a character outside it on one side, which that side's validator
-  refuses, the deploy's two preflight readers before any recreate.
+- **A value is left to the keys' alphabet** (I11) past the spellings every file is held to (I487): a
+  reader that rewrites a key apart from the others leaves a character outside it on one side, which
+  that side's validator refuses, the deploy's two preflight readers before any recreate.
 
 A name a package file repeats is refused apart (I430), compose handing the container the root's.
 
@@ -446,9 +446,17 @@ alters each, so the two sides would hold different keys:
 
 Every other printable ASCII character reaches each reader as written, bare or quoted, so a key from
 `openssl rand -hex`, base64 or `secrets.token_urlsafe` is always one of the class. **The deploy's
-preflight judges a key with the pulled backend image's own validator**, over the raw value the root
-file's check has already held free of `$`, so a key outside the class refuses the deploy at exit 2
-before anything is recreated; the remedy is a new key ([`runbooks.md`](runbooks.md) §16).
+preflight judges a key with the pulled backend image's own validator**, over a raw value I487 has
+already held free of `$`, so a key outside the class refuses the deploy at exit 2 before anything is
+recreated; the remedy is a new key ([`runbooks.md`](runbooks.md) §16).
+
+**Every value in the three files is held to the spellings those readers agree on** (I487), a
+password, a URI or an address being no value an alphabet could narrow: `deploy.sh` and `local.sh`
+refuse, before any compose call reads the file, a `$` anywhere, which each reader substitutes its own
+way and Next's inside single quotes too; a `#` with no space before it in a bare value; a `\` inside
+quotes; and a leading backtick (`scripts/lib/_lib.sh :: check_env_spellings`). A matched pair of
+quotes is left alone, every reader stripping it alike. A MongoDB URI writes `$` and `#` in a
+password percent-encoded, which MongoDB's own URI format asks of them already.
 
 **The local stack points both application services at its own database through compose's
 `environment`**, so no `.env` is edited and no run is left aimed at the wrong cluster
@@ -1210,6 +1218,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I471 | Only nginx shares a network with the connector, and only nginx with the application pair, in both stacks                                                                      | `scripts/checks/check_compose_model.py :: networks`, over the models `docker compose config` renders                                                                                                                                                                                               |
 | I472 | The actor token's signing key reaches the frontend alone, at `/run/secrets/fl_actor_signing_key`, read from `./secrets/fl_actor_signing_key`                                  | `scripts/checks/check_compose_model.py :: signing_key` and `:: secrets_directory`, over the models `docker compose config` renders                                                                                                                                                                 |
 | I473 | Before containers start, both preflights refuse a signing key the frontend cannot read or a mismatched public half, printing no value; an unrunnable check warns              | `scripts/lib/_lib.sh :: check_actor_key`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh`; `scripts/tests/test_deploy_streams.py` runs its snippet for real                                                                                                                           |
+| I487 | No value in an `.env` compose reads holds a spelling its readers take differently: a `$`, an unspaced `#`, a quoted `\`, a leading backtick                                   | `scripts/lib/_lib.sh :: check_env_spellings`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh` before any compose call reads the file; `scripts/tests/test_deploy_streams.py`                                                                                                          |
 
 ## 3. Violation → remedy
 

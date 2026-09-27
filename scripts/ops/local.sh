@@ -179,6 +179,7 @@ require_file "docker-compose.local.yml"
 # Before `--down` too, whose compose call would otherwise honour a `COMPOSE_*` line in it.
 require_file ".env" "Both containers read it via env_file, last. Generate its keys for this machine: docs/ops/runbooks.md §16."
 check_root_env ".env"
+check_env_spellings ".env"
 
 if (( DOWN )); then
   section "down"
@@ -208,6 +209,8 @@ section "preflight"
 step "Files the containers read"
 require_file "fl_frontend/.env" "The frontend container reads it via env_file. Copy it from your password manager."
 require_file "fl_backend/.env"  "The backend container reads it via env_file."
+check_env_spellings "fl_frontend/.env"
+check_env_spellings "fl_backend/.env"
 require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate this machine's pair: docs/ops/runbooks.md §16."
 ok "the three .env files and the actor token's signing key are in place"
 
