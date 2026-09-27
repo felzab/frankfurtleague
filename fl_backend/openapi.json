@@ -6774,7 +6774,7 @@
     "/api/v0/bewerbungen/einwilligung/ansicht": {
       "post": {
         "summary": "What one confirmation link opens",
-        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, the holder's first name and the consent wording's version,\nand `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,\nso a reopened link shows what became of it.",
+        "description": "Answer what the page renders for the seat this token opens, and no contact record (`READ-BEWERBUNG-002`).\n\nThe seat's state, the school, the season, the role, the holder's first name and the consent wording's version,\nand `zugleich_rolle`: the second seat the same person holds, which an answer on this link writes too, or null.\n`mindestalter` is the age this link's person has to reach, over both seats where they hold two, so the page offers\nexactly the dates the answer will take.\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nseat holds (`REQ-BEWERBUNG-009`): a confirmed, declined or expired link is SERVED in that state rather than refused,\nso a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever the ban list\nholds an address a consent on this link would be refused for (`REQ-BEWERBUNG-020`), so the page offers a barred\nperson nothing to press.",
         "operationId": "get_einwilligung_ansicht_api_v0_bewerbungen_einwilligung_ansicht_post",
         "requestBody": {
           "content": {
@@ -6944,7 +6944,7 @@
     "/api/v0/registrierungen/bestaetigung/ansicht": {
       "post": {
         "summary": "What one registration confirmation link opens",
-        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the pupil's own first name, the age floor the press\nwill be judged by, the age from which the media switch is offered, and the wording's version. Beside them the\nthree answers the league already holds for this person -- the birthdate, the publication scope and the media\nswitch -- so a returning pupil confirms what stands rather than entering it again. That person is matched on\nthe registration's folded address AND its folded name: an address is taken for one person but enforced as one nowhere,\nand matched on the address alone a mailbox shared anyway would show one pupil another's birthdate. All three are null wherever\nthat match is not exactly one person.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it.",
+        "description": "Answer what the page renders for the registration this token opens, and no part of the registration beyond it.\n\nThe link's state, the team and its school, the season, the pupil's own first name, the age floor the press\nwill be judged by, the age from which the media switch is offered, and the wording's version. Beside them the\nthree answers the league already holds for this person -- the birthdate, the publication scope and the media\nswitch -- so a returning pupil confirms what stands rather than entering it again. That person is matched on\nthe registration's folded address AND its folded name: an address is taken for one person but enforced as one nowhere,\nand matched on the address alone a mailbox shared anyway would show one pupil another's birthdate. All three are null wherever\nthat match is not exactly one person.\n\nA POST that reads, so the token travels in a body and never in a second URL. Refuses only a token no\nregistration holds (`REQ-REGISTRIERUNG-004`): a confirmed or an expired link is SERVED in that state rather\nthan refused, so a reopened link shows what became of it. The state is `gesperrt`, ahead of every other, wherever\nthe ban list holds the address the link was mailed to (`REQ-REGISTRIERUNG-012`), so the page offers a barred\npupil nothing to press.",
         "operationId": "get_bestaetigung_ansicht_api_v0_registrierungen_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -7060,7 +7060,7 @@
     "/api/v0/schiedsrichter/bestaetigung/ansicht": {
       "post": {
         "summary": "What one Schiedsrichter confirmation link opens",
-        "description": "Answer what this token opens: the referee's first name, the link's state and deadline, both age floors, and the wording's version.\n\n**A first name and a role, and nothing else** (`READ-REFEREE-002`): never the full name, the school, the contact\ndetails, the fee, the birthdate or the entry's id, all of which are behind `READ-CONTACT-001`. A POST that reads, so the\ntoken travels in a body and never in a second URL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it.",
+        "description": "Answer what this token opens: the referee's first name, the link's state and deadline, both age floors, and the wording's version.\n\n**A first name and a role, and nothing else** (`READ-REFEREE-002`): never the full name, the school, the contact\ndetails, the fee, the birthdate or the entry's id, all of which are behind `READ-CONTACT-001`. A POST that reads, so the\ntoken travels in a body and never in a second URL.\n\nRefuses only a token no referee holds (`REQ-SCHIEDSRICHTER-002`): a confirmed or an expired link\nis SERVED in that state rather than refused, so a reopened link shows what became of it. The state is `gesperrt`,\nahead of every other, wherever the ban list holds the address the link was mailed to (`REQ-SCHIEDSRICHTER-009`),\nso the page offers a barred referee nothing to press.",
         "operationId": "get_bestaetigung_ansicht_api_v0_schiedsrichter_bestaetigung_ansicht_post",
         "requestBody": {
           "content": {
@@ -9382,7 +9382,8 @@
               "gueltig",
               "bestaetigt",
               "abgelehnt",
-              "abgelaufen"
+              "abgelaufen",
+              "gesperrt"
             ],
             "title": "Zustand"
           },
@@ -14847,7 +14848,8 @@
             "enum": [
               "gueltig",
               "bestaetigt",
-              "abgelaufen"
+              "abgelaufen",
+              "gesperrt"
             ],
             "title": "Zustand"
           },
@@ -16246,7 +16248,8 @@
             "enum": [
               "gueltig",
               "bestaetigt",
-              "abgelaufen"
+              "abgelaufen",
+              "gesperrt"
             ],
             "title": "Zustand"
           },
