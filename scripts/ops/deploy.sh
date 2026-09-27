@@ -190,8 +190,10 @@ except Exception as unexpected:
 # `docker-compose.yml`'s order, the last winning in both. Every reader takes one file, a pinned
 # rollback's older image's included.
 
-# shellcheck disable=SC2016  # the container's sh's own $0, $1 and $@, which must not expand here
-ENV_UNION_BUILD='umask 077 && { cat "$0/package"; echo; cat "$0/shared"; } > "$1/.env" && shift && exec "$@"'
+# Chained, ending 4, every reader's code for a failed read, where a half is unread: half a join
+# reads as missing the other half's names.
+# shellcheck disable=SC2016  # the container's own sh expands them, and this one must not
+ENV_UNION_BUILD='umask 077 && { cat "$0/package" && echo && cat "$0/shared"; } > "$1/.env" || exit 4; shift; exec "$@"'
 
 # One mount, one user and one filter for either package's reader: the two judge different things and
 # each says so itself, but a second copy of this is how one arm's mount drifts from the other's.

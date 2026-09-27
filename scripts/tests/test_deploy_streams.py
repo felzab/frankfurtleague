@@ -334,6 +334,17 @@ def test_the_join_puts_the_package_file_first_and_parts_it_from_the_checkouts_by
     assert output.splitlines()[-2:] == ["PACKAGE_NAME=one", "SHARED_NAME=two"], output
 
 
+@pytest.mark.parametrize("half", ["package", "shared"])
+def test_a_half_the_join_cannot_read_ends_it_as_a_read_failure_before_any_reader(half: str) -> None:
+    """A join of one half would be judged as a file missing the other's names, a refusal pointing at the wrong remedy."""
+    body = UNION.replace("sh -c", f"rm mounts/{half}\njoin_rc=0\nsh -c").replace("cat union/.env\n", "cat union/.env || join_rc=$?\n")
+    code, output, _ = _run(body + 'printf "join=%s\\n" "$join_rc"\n')
+
+    assert code == 0, output
+    assert "join=4" in output, output
+    assert "PACKAGE_NAME=one" not in output and "SHARED_NAME=two" not in output, output
+
+
 def test_the_snippet_reaches_its_refusal_through_the_names_only_path() -> None:
     """`BackendConfig()` renders `input_value=` on its own error, so a snippet that constructed it directly would publish the rejected value."""
     snippet = _assignment("ENV_NAME_CHECK")
