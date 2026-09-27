@@ -3,7 +3,7 @@ import { registerHooks } from "node:module";
 import { beforeEach, describe, it, mock } from "node:test";
 
 import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
@@ -51,17 +51,17 @@ const mail = doubleSendMail();
 
 // The error arm records: which EVENT a failure is filed under is what tells an operator which half
 // of a season's pass stopped, and that is a line rather than a call the transport shows.
-const LOGGING_DOUBLE = exportingModule({
+const LOGGING_DOUBLE = {
   logger: {
     info: () => undefined,
     warn: () => undefined,
     error: (event: string, _message: unknown, fields?: { saison_id?: string }) => void logs.push({ event, saison_id: fields?.saison_id }),
   },
-});
+};
 
 // A getter, not a value: one process holds one module registry, so a case that could not re-read the
 // switch could only ever prove one side of it.
-const CONFIG_DOUBLE = exportingModule({
+const CONFIG_DOUBLE = {
   frontend_config: {
     LOG_FORMAT: "console",
     AUTH_URL: "http://localhost:3000",
@@ -71,7 +71,7 @@ const CONFIG_DOUBLE = exportingModule({
       return sweepSwitch;
     },
   },
-});
+};
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -80,8 +80,10 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/logging.ts"))
+      return { format: "module", source: replacingModule(url, "the logger", LOGGING_DOUBLE), shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts"))
+      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

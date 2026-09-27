@@ -4,7 +4,7 @@ import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 import { inspect } from "node:util";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
@@ -15,19 +15,19 @@ const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("expor
  */
 const webhookSecret = `whsec_${randomBytes(24).toString("base64")}`;
 
-const CONFIG_DOUBLE = exportingModule({ frontend_config: { RESEND_WEBHOOK_SECRET: webhookSecret } });
+const CONFIG_DOUBLE = { frontend_config: { RESEND_WEBHOOK_SECRET: webhookSecret } };
 
 type LoggedLine = { level: string; message: string; error?: unknown; meta?: Record<string, unknown> };
 
 const logs: LoggedLine[] = [];
 
-const LOGGER_DOUBLE = exportingModule({
+const LOGGER_DOUBLE = {
   logger: {
     info: (message: string, meta?: Record<string, unknown>) => void logs.push({ level: "info", message, meta }),
     warn: (message: string, meta?: Record<string, unknown>) => void logs.push({ level: "warn", message, meta }),
     error: (message: string, error: unknown, meta?: Record<string, unknown>) => void logs.push({ level: "error", message, error, meta }),
   },
-});
+};
 
 /** What the backend answers a reported event, or throws for it; a case names another for itself. */
 type Answer = (payload: Record<string, unknown>) => unknown;
@@ -50,12 +50,12 @@ const reporting =
 
 // Replaced at the module boundary rather than the route being reshaped to admit a seam: the real
 // client reaches a backend no test process runs.
-const MUTATIONS_DOUBLE = exportingModule({ meldeZustellEreignis: reporting(calls, () => zustellungAnswer) });
+const MUTATIONS_DOUBLE = { meldeZustellEreignis: reporting(calls, () => zustellungAnswer) };
 
-const ZIEL_MUTATIONS_DOUBLE = exportingModule({ meldeZielZustellEreignis: reporting(zielCalls, () => zielZustellungAnswer) });
+const ZIEL_MUTATIONS_DOUBLE = { meldeZielZustellEreignis: reporting(zielCalls, () => zielZustellungAnswer) };
 
 // `next/headers` is request-only and throws outside one, so the real scope cannot run here.
-const TRACE_DOUBLE = `export const runWithIncomingTrace = async (fn) => fn();`;
+const TRACE_DOUBLE = { runWithIncomingTrace: async (fn: () => unknown) => fn() };
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -64,11 +64,18 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGER_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/features/bewerbungen/mutations.ts")) return { format: "module", source: MUTATIONS_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/features/zustellung/mutations.ts")) return { format: "module", source: ZIEL_MUTATIONS_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/shared/utils/traceScope.ts")) return { format: "module", source: TRACE_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts"))
+      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
+    if (url.endsWith("/src/core/logging.ts"))
+      return { format: "module", source: replacingModule(url, "the logger", LOGGER_DOUBLE), shortCircuit: true };
+    if (url.endsWith("/src/features/bewerbungen/mutations.ts")) {
+      return { format: "module", source: replacingModule(url, "the application writes", MUTATIONS_DOUBLE), shortCircuit: true };
+    }
+    if (url.endsWith("/src/features/zustellung/mutations.ts")) {
+      return { format: "module", source: replacingModule(url, "the delivery writes", ZIEL_MUTATIONS_DOUBLE), shortCircuit: true };
+    }
+    if (url.endsWith("/src/shared/utils/traceScope.ts"))
+      return { format: "module", source: replacingModule(url, "the trace scope", TRACE_DOUBLE), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

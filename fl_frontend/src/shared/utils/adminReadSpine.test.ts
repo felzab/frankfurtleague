@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 
 import ts from "typescript";
 
+import { replacingModule } from "@/core/exportingModule.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 
@@ -14,18 +15,21 @@ const { setSession } = doubleActionRequest();
 
 // The real client, so a read it refuses is refused by the code under test; its configuration doubled so
 // a call it does send reaches the doubled network below.
-const CONFIG = `export const frontend_config = {
-  API_URL: "http://backend:8000",
-  API_VERSION: 0,
-  INTERNAL_API_KEY_BASE: "base-key-double",
-  INTERNAL_API_KEY_SYSTEM: "system-key-double",
-  INTERNAL_API_KEY_ADMIN: "admin-key-double",
-};`;
+const CONFIG = {
+  frontend_config: {
+    API_URL: "http://backend:8000",
+    API_VERSION: 0,
+    INTERNAL_API_KEY_BASE: "base-key-double",
+    INTERNAL_API_KEY_SYSTEM: "system-key-double",
+    INTERNAL_API_KEY_ADMIN: "admin-key-double",
+  },
+};
 
 registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts"))
+      return { format: "module", source: replacingModule(url, "the config", CONFIG), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

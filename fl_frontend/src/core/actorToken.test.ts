@@ -9,7 +9,7 @@ import { after, describe, it } from "node:test";
 import { CompactSign, decodeJwt, decodeProtectedHeader, jwtVerify } from "jose";
 
 import { ACTOR_KEY_FILE as KEY_FILE, ACTOR_KEY_PAIR as PAIR } from "./authDoubles.ts";
-import { exportingModule } from "./exportingModule.ts";
+import { replacingModule } from "./exportingModule.ts";
 
 import type { KeyObject } from "node:crypto";
 
@@ -20,7 +20,7 @@ const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("expor
 const DIRECTORY = mkdtempSync(path.join(tmpdir(), "fl-actor-token-"));
 after(() => rmSync(DIRECTORY, { recursive: true, force: true }));
 
-const CONFIG_DOUBLE = exportingModule({ frontend_config: { ACTOR_SIGNING_KEY_FILE: KEY_FILE, LOG_FORMAT: "json" } });
+const CONFIG_DOUBLE = { frontend_config: { ACTOR_SIGNING_KEY_FILE: KEY_FILE, LOG_FORMAT: "json" } };
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -29,7 +29,8 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts"))
+      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

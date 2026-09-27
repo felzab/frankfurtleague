@@ -14,6 +14,7 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import ts from "typescript";
 
+import { replacingModule } from "@/core/exportingModule.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { side, spielFields } from "@/shared/testing/fixtures.ts";
@@ -29,12 +30,14 @@ globalThis.fetch = (() => new Promise(() => undefined)) as unknown as typeof glo
 
 /* The sign-in card's passkey button builds the browser's auth client as it loads, which reads the
    page's origin, and this window has none. No case here presses it. */
-const AUTH_CLIENT_DOUBLE = "export const authClient = { signIn: { passkey: async () => ({ error: null }) } };";
+const AUTH_CLIENT_DOUBLE = { authClient: { signIn: { passkey: async () => ({ error: null }) } } };
 
 registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/authClient.ts")) return { format: "module", source: AUTH_CLIENT_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/authClient.ts")) {
+      return { format: "module", source: replacingModule(url, "the sign-in client", AUTH_CLIENT_DOUBLE), shortCircuit: true };
+    }
     return nextLoad(url, context);
   },
 });

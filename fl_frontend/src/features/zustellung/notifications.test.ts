@@ -3,7 +3,7 @@ import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 import { inspect } from "node:util";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 
 import type { MailOutcome } from "@/core/mailDouble.ts";
@@ -30,7 +30,7 @@ const abgewiesen: Record<string, unknown>[] = [];
 const backend = { abweisungFails: false, meldungFails: false, angewendet: true };
 
 // The recording half of the fan-out reaches the backend, which no test process runs.
-const MUTATIONS_DOUBLE = exportingModule({
+const MUTATIONS_DOUBLE = {
   meldeZielZustellungAngenommen: async (payload: Record<string, unknown>) => {
     gemeldet.push(payload);
     if (backend.meldungFails) throw new Error("the backend refused the record");
@@ -41,12 +41,12 @@ const MUTATIONS_DOUBLE = exportingModule({
     if (backend.abweisungFails) throw new Error("the backend refused the record");
     return { acknowledged: 1, angewendet: backend.angewendet };
   },
-});
+};
 
 // The error argument is CAPTURED, never discarded: `fl_frontend/src/core/logFormat.ts :: serializeError`
 // writes an error's message and stack, so a double that drops it cannot see an address reaching the
 // stream through one.
-const LOGGING_DOUBLE = exportingModule({
+const LOGGING_DOUBLE = {
   logger: {
     info: () => undefined,
     warn: (message: string, meta?: Record<string, unknown>) => {
@@ -60,7 +60,7 @@ const LOGGING_DOUBLE = exportingModule({
       });
     },
   },
-});
+};
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -69,8 +69,11 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/features/zustellung/mutations.ts")) return { format: "module", source: MUTATIONS_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/logging.ts"))
+      return { format: "module", source: replacingModule(url, "the logger", LOGGING_DOUBLE), shortCircuit: true };
+    if (url.endsWith("/src/features/zustellung/mutations.ts")) {
+      return { format: "module", source: replacingModule(url, "the delivery writes", MUTATIONS_DOUBLE), shortCircuit: true };
+    }
     return nextLoad(url, context);
   },
 });

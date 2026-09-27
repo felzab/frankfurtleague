@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { exportingModule, replacingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -11,14 +11,14 @@ import type { MailOutcome, SentMail } from "@/core/mailDouble.ts";
 
 /* The real client reaches a backend no test process runs and the real mailer a provider, so those two
    are replaced; the fan-out is the real one, and what the actions hand it is read off the messages it sends. */
-const CONFIG = exportingModule({ frontend_config: { AUTH_URL: "https://liga.example.de" } });
+const CONFIG = { frontend_config: { AUTH_URL: "https://liga.example.de" } };
 /** What the client answers in this case, whichever endpoint the action reads. */
 let apiAnswer: () => unknown = () => undefined;
 // The delivery report each accepted or refused message files, which the backend applies.
 doubleApiClient(({ endpoint }) => (endpoint.startsWith("/zustellung/") ? { acknowledged: 1, angewendet: true } : apiAnswer()));
 /** The club list the action reads, which each case names. */
 let sendTeams: () => unknown = () => undefined;
-const TEAMS = exportingModule({ getTeamMemberships: async () => sendTeams() });
+const TEAMS = { getTeamMemberships: async () => sendTeams() };
 
 const log: string[] = [];
 
@@ -59,8 +59,10 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
-    if (url.endsWith("/src/features/teams/queries.ts")) return { format: "module", source: TEAMS, shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts"))
+      return { format: "module", source: replacingModule(url, "the config", CONFIG), shortCircuit: true };
+    if (url.endsWith("/src/features/teams/queries.ts"))
+      return { format: "module", source: replacingModule(url, "the club reads", TEAMS), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

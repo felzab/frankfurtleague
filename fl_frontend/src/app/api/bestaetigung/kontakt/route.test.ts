@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
@@ -15,10 +15,10 @@ const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body
 /** Every line the handler's logger was handed, serialised whole. */
 const logs: string[] = [];
 const line = (...args: unknown[]): void => void logs.push(JSON.stringify(args));
-const LOGGING = exportingModule({ logger: { info: line, warn: line, error: line } });
+const LOGGING = { logger: { info: line, warn: line, error: line } };
 /* The serving origin every link in a message is minted on. */
 const ORIGIN = "http://localhost:3000";
-const CONFIG = exportingModule({ frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } });
+const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } };
 /* The provider rather than the fan-out, which is what composes the message a case reads. */
 const { sent: mails } = doubleSendMail();
 const { calls } = doubleApiAnswers(async (call) => antwortFuer(call));
@@ -40,8 +40,10 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
+    if (url.endsWith("/src/core/logging.ts"))
+      return { format: "module", source: replacingModule(url, "the logger", LOGGING), shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts"))
+      return { format: "module", source: replacingModule(url, "the config", CONFIG), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

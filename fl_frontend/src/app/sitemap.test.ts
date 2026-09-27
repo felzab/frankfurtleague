@@ -8,6 +8,7 @@ import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { SITE_URL } from "@/core/brand";
+import { replacingModule } from "@/core/exportingModule.ts";
 
 import sitemap from "./sitemap.ts";
 
@@ -19,7 +20,8 @@ const COMPONENT = /\/src\/features\/[a-z]+\/components\/(?:views|forms)\/(\w+)\.
 registerHooks({
   load(url, context, nextLoad) {
     const component = COMPONENT.exec(url);
-    if (component !== null) return { format: "module", source: `export const ${component[1]!} = () => null;`, shortCircuit: true };
+    if (component !== null)
+      return { format: "module", source: replacingModule(url, "the view", { [component[1]!]: () => null }), shortCircuit: true };
 
     return nextLoad(url, context);
   },

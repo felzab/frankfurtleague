@@ -4,6 +4,7 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
+import { replacingModule } from "./exportingModule.ts";
 import {
   boundCall,
   getRequestActor,
@@ -20,17 +21,23 @@ import {
 
 // The two outbound clients' configuration and log, replaced at the module boundary: the real config
 // reads credentials no test run holds, and the mail client posts only for a production deployment.
-const MODULE_DOUBLES: Readonly<Record<string, string>> = {
-  "/src/core/config.ts": `export const frontend_config = {
-  API_URL: "http://backend:8000",
-  API_VERSION: 0,
-  INTERNAL_API_KEY_BASE: "base-key-double",
-  INTERNAL_API_KEY_SYSTEM: "system-key-double",
-  INTERNAL_API_KEY_ADMIN: "admin-key-double",
-  APP_ENV: "production",
-  AUTH_RESEND_KEY: "resend-key-double",
-};`,
-  "/src/core/logging.ts": "const inert = () => undefined; export const logger = { debug: inert, info: inert, warn: inert, error: inert };",
+const inert = (): undefined => undefined;
+const MODULE_DOUBLES: Readonly<Record<string, [string, Readonly<Record<string, unknown>>]>> = {
+  "/src/core/config.ts": [
+    "the config",
+    {
+      frontend_config: {
+        API_URL: "http://backend:8000",
+        API_VERSION: 0,
+        INTERNAL_API_KEY_BASE: "base-key-double",
+        INTERNAL_API_KEY_SYSTEM: "system-key-double",
+        INTERNAL_API_KEY_ADMIN: "admin-key-double",
+        APP_ENV: "production",
+        AUTH_RESEND_KEY: "resend-key-double",
+      },
+    },
+  ],
+  "/src/core/logging.ts": ["the logger", { logger: { debug: inert, info: inert, warn: inert, error: inert } }],
 };
 
 registerHooks({
@@ -39,7 +46,7 @@ registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     const double = Object.entries(MODULE_DOUBLES).find(([tail]) => url.endsWith(tail))?.[1];
-    return double === undefined ? nextLoad(url, context) : { format: "module", source: double, shortCircuit: true };
+    return double === undefined ? nextLoad(url, context) : { format: "module", source: replacingModule(url, ...double), shortCircuit: true };
   },
 });
 

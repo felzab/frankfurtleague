@@ -2,13 +2,15 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
+import { replacingModule } from "@/core/exportingModule.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
 const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
-const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
+const inert = (): undefined => undefined;
+const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
 
 const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint));
 
@@ -29,7 +31,8 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
+    if (url.endsWith("/src/core/logging.ts"))
+      return { format: "module", source: replacingModule(url, "the logger", LOGGING), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

@@ -3,7 +3,7 @@ import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
@@ -53,12 +53,13 @@ const ORIGIN = "http://localhost:3000";
 /** Every argument each logger call was handed, whatever its level. */
 const logged: unknown[][] = [];
 const record = (...args: unknown[]): void => void logged.push(args);
-const CONFIG_DOUBLE = exportingModule({ frontend_config: { AUTH_URL: ORIGIN } });
-const LOGGER_DOUBLE = exportingModule({ logger: { debug: record, info: record, warn: record, error: record } });
+const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: ORIGIN } };
+const LOGGER_DOUBLE = { logger: { debug: record, info: record, warn: record, error: record } };
 registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts"))
+      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
     return nextLoad(url, context);
   },
 });
@@ -72,7 +73,7 @@ const { sent: mailed, answerWith: answerMailWith } = doubleSendMail();
 registerHooks({
   load(url, context, nextLoad) {
     if (!url.endsWith("/src/core/logging.ts")) return nextLoad(url, context);
-    return { format: "module", source: LOGGER_DOUBLE, shortCircuit: true };
+    return { format: "module", source: replacingModule(url, "the logger", LOGGER_DOUBLE), shortCircuit: true };
   },
 });
 /** Whether `call` is the delivery report a sent message files, after the write the case is about. */

@@ -10,7 +10,7 @@ import { createElement as h } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { exportingModule, replacingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleActionRequest, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
@@ -32,7 +32,7 @@ const events: string[] = [];
 /* `refresh()` throws outside a request Next itself is rendering, and what a case here asks of it is
    that the action reached it at all. */
 const CACHE_DOUBLE = exportingModule({ refresh: () => void events.push("refresh") });
-const CONFIG_DOUBLE = `export const frontend_config = { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" };`;
+const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" } };
 
 /* The real actions, their mutations and the mailer's callers, called: the request they run in, the
    backend client and the mailer are the doubles. */
@@ -46,7 +46,8 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts"))
+      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

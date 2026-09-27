@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { exportingModule, replacingModule } from "@/core/exportingModule.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 
@@ -17,7 +17,8 @@ const NEXT_CACHE = exportingModule({
     throw new Error("updateTag in a route handler");
   },
 });
-const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
+const inert = (): undefined => undefined;
+const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
 
 const { calls } = doubleApiAnswers(async ({ endpoint }) => antwortFuer(endpoint));
 
@@ -39,7 +40,8 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
+    if (url.endsWith("/src/core/logging.ts"))
+      return { format: "module", source: replacingModule(url, "the logger", LOGGING), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

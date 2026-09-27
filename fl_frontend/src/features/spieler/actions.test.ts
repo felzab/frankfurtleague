@@ -10,7 +10,7 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pageBody } from "@/shared/testing/pageHarness.ts";
@@ -61,25 +61,25 @@ let pageAnswers: { memberships?: unknown; saisons?: unknown; teams?: unknown; as
 const getSaisons = () => Promise.resolve(pageAnswers.saisons);
 
 /* The page's own reads, each double answering only the fields the page reads. */
-const PAGE_DOUBLES: [string, string][] = [
+const PAGE_DOUBLES: [string, Readonly<Record<string, unknown>>][] = [
   [
     "/src/features/spieler/queries.ts",
-    exportingModule({
+    {
       getSpielerMemberships: () => Promise.resolve(pageAnswers.memberships),
       getSpielerNachnominierung: (saison_id: string) => {
         pageAnswers.asked?.push(saison_id);
         return Promise.resolve({ saison_id, nachnominierung: pageAnswers.nachnominierung ?? false });
       },
-    }),
+    },
   ],
-  ["/src/features/saisons/queries.ts", exportingModule({ getAdminSaisons: getSaisons, getSaisons })],
-  ["/src/features/teams/queries.ts", exportingModule({ getTeamMemberships: () => Promise.resolve(pageAnswers.teams) })],
+  ["/src/features/saisons/queries.ts", { getAdminSaisons: getSaisons, getSaisons }],
+  ["/src/features/teams/queries.ts", { getTeamMemberships: () => Promise.resolve(pageAnswers.teams) }],
 ];
 
 registerHooks({
   load(url, context, nextLoad) {
     const doubled = PAGE_DOUBLES.find(([ending]) => url.endsWith(ending));
-    if (doubled !== undefined) return { format: "module", source: doubled[1], shortCircuit: true };
+    if (doubled !== undefined) return { format: "module", source: replacingModule(url, "the page's reads", doubled[1]), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

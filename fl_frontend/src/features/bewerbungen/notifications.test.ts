@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 
 import type { MailOutcome } from "@/core/mailDouble.ts";
@@ -31,18 +31,18 @@ const gemeldet: Record<string, unknown>[] = [];
 let zustellungFails = false;
 
 // The recording half of the fan-out reaches the backend, which no test process runs.
-const MUTATIONS_DOUBLE = exportingModule({
+const MUTATIONS_DOUBLE = {
   meldeZustellungAngenommen: async (payload: { rollen?: unknown }) => {
     gemeldet.push(payload);
     if (zustellungFails) throw new Error("the backend refused the record");
     return { acknowledged: 1, angewendet: payload.rollen };
   },
-});
+};
 
 // The error argument is CAPTURED, never discarded: `fl_frontend/src/core/logFormat.ts :: serializeError`
 // writes an error's message and stack, so a double that drops it cannot see an address reaching the
 // stream through one.
-const LOGGING_DOUBLE = exportingModule({
+const LOGGING_DOUBLE = {
   logger: {
     info: () => undefined,
     warn: () => undefined,
@@ -54,7 +54,7 @@ const LOGGING_DOUBLE = exportingModule({
       });
     },
   },
-});
+};
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -63,8 +63,11 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/features/bewerbungen/mutations.ts")) return { format: "module", source: MUTATIONS_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/logging.ts"))
+      return { format: "module", source: replacingModule(url, "the logger", LOGGING_DOUBLE), shortCircuit: true };
+    if (url.endsWith("/src/features/bewerbungen/mutations.ts")) {
+      return { format: "module", source: replacingModule(url, "the application writes", MUTATIONS_DOUBLE), shortCircuit: true };
+    }
     return nextLoad(url, context);
   },
 });

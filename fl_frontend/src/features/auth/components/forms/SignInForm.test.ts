@@ -10,7 +10,7 @@ import { act, createElement as h } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
@@ -22,16 +22,19 @@ const left: string[] = [];
 
 /* A full document navigation, which jsdom does not implement and whose `location` no test can
    replace: recorded at the module boundary. */
-const NAVIGATION_DOUBLE = exportingModule({ leaveDocumentFor: (path: string) => void left.push(path) });
+const NAVIGATION_DOUBLE = { leaveDocumentFor: (path: string) => void left.push(path) };
 
 /* The passkey button's browser client, which reads the page's origin as it loads, and this window
    has none. No case presses the button. */
-const CLIENT_DOUBLE = `export const authClient = { signIn: { passkey: async () => ({ error: null }) } };`;
+const CLIENT_DOUBLE = { authClient: { signIn: { passkey: async () => ({ error: null }) } } };
 
 registerHooks({
   load(url, context, nextLoad) {
-    if (url.endsWith("/src/shared/utils/documentNavigation.ts")) return { format: "module", source: NAVIGATION_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/authClient.ts")) return { format: "module", source: CLIENT_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/shared/utils/documentNavigation.ts")) {
+      return { format: "module", source: replacingModule(url, "the navigation", NAVIGATION_DOUBLE), shortCircuit: true };
+    }
+    if (url.endsWith("/src/core/authClient.ts"))
+      return { format: "module", source: replacingModule(url, "the sign-in client", CLIENT_DOUBLE), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

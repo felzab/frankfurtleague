@@ -10,7 +10,7 @@ import { createElement as h } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 import { DOUBLE_PRESS_MS } from "@/shared/hooks/useTwoPressConfirm.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
@@ -23,14 +23,15 @@ import type { Sicherheit } from "../../types.ts";
 
 /* The browser's own credential calls, replaced at the module boundary: this runner has no
    `navigator.credentials`, and a test-only prop would be a seam in production code. */
-const CLIENT_DOUBLE = exportingModule({
+const CLIENT_DOUBLE = {
   authClient: { passkey: { addPasskey: () => run("addPasskey") }, signIn: { passkey: () => run("signInPasskey") } },
-});
+};
 
 registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/authClient.ts")) return { format: "module", source: CLIENT_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/authClient.ts"))
+      return { format: "module", source: replacingModule(url, "the sign-in client", CLIENT_DOUBLE), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

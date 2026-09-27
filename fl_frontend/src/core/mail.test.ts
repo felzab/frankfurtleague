@@ -6,7 +6,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 import { inspect } from "node:util";
 
-import { exportingModule } from "./exportingModule.ts";
+import { replacingModule } from "./exportingModule.ts";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
@@ -20,7 +20,7 @@ let resendKey: string | undefined;
 
 // Getters, not fixed values: the guard reads both names on every send, and a case moving
 // `process.env` would decide every case after it in this one process.
-const CONFIG_DOUBLE = exportingModule({
+const CONFIG_DOUBLE = {
   frontend_config: {
     get APP_ENV() {
       return appEnv;
@@ -29,15 +29,15 @@ const CONFIG_DOUBLE = exportingModule({
       return resendKey;
     },
   },
-});
+};
 
-const LOGGER_DOUBLE = exportingModule({
+const LOGGER_DOUBLE = {
   logger: {
     info: (message: string, meta?: Record<string, unknown>) => void logs.push({ message, meta }),
     warn: (message: string, meta?: Record<string, unknown>) => void logs.push({ message, meta }),
     error: (message: string, error: unknown, meta?: Record<string, unknown>) => void logs.push({ message, error, meta }),
   },
-});
+};
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -46,8 +46,10 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGER_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts"))
+      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
+    if (url.endsWith("/src/core/logging.ts"))
+      return { format: "module", source: replacingModule(url, "the logger", LOGGER_DOUBLE), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

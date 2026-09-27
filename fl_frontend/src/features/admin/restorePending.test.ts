@@ -12,6 +12,7 @@ import { createElement as h } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { replacingModule } from "@/core/exportingModule.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
@@ -24,12 +25,15 @@ import type { ReactNode } from "react";
 /** A reactivation nobody has answered: the list stays in the state its running write holds it in. */
 const { calls, answerPending } = doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: () => new Promise(() => undefined) });
 
-const APP_TOAST = 'const raise = () => () => "0";\nexport const appToast = { success: raise(), danger: raise() };';
+const raise = () => (): string => "0";
+const APP_TOAST = { appToast: { success: raise(), danger: raise() } };
 
 registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/shared/utils/appToast.ts")) return { format: "module", source: APP_TOAST, shortCircuit: true };
+    if (url.endsWith("/src/shared/utils/appToast.ts")) {
+      return { format: "module", source: replacingModule(url, "the toast module", APP_TOAST), shortCircuit: true };
+    }
     return nextLoad(url, context);
   },
 });

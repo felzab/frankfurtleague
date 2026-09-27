@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -15,9 +15,9 @@ const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body
 /** Every line the handler's logger was handed, serialised whole. */
 const logs: string[] = [];
 const line = (...args: unknown[]): void => void logs.push(JSON.stringify(args));
-const LOGGING = exportingModule({ logger: { info: line, warn: line, error: line } });
+const LOGGING = { logger: { info: line, warn: line, error: line } };
 const ORIGIN = "http://localhost:3000";
-const CONFIG = exportingModule({ frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } });
+const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } };
 const calls = doubleApiClient(({ endpoint }, schema) =>
   // The accepted-send record every mail reports back; its answer is read by nothing here.
   schema.parse(endpoint === "/bewerbungen" ? schreibAntwort() : { acknowledged: 1, angewendet: [] }),
@@ -25,7 +25,7 @@ const calls = doubleApiClient(({ endpoint }, schema) =>
 /* The provider rather than the fan-out: what this handler is judged on is whether a message is
    composed at all, and the real fan-out is what composes it. */
 const { sent: mails } = doubleSendMail();
-const QUERIES = `export const getBewerbungSchulen = async () => ({ acknowledged: 1, schulen: [] });`;
+const QUERIES = { getBewerbungSchulen: async () => ({ acknowledged: 1, schulen: [] }) };
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 
@@ -44,9 +44,13 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
-    if (url.endsWith("/src/features/bewerbungen/queries.ts")) return { format: "module", source: QUERIES, shortCircuit: true };
+    if (url.endsWith("/src/core/logging.ts"))
+      return { format: "module", source: replacingModule(url, "the logger", LOGGING), shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts"))
+      return { format: "module", source: replacingModule(url, "the config", CONFIG), shortCircuit: true };
+    if (url.endsWith("/src/features/bewerbungen/queries.ts")) {
+      return { format: "module", source: replacingModule(url, "the application reads", QUERIES), shortCircuit: true };
+    }
     return nextLoad(url, context);
   },
 });

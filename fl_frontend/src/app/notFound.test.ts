@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
+import { replacingModule } from "@/core/exportingModule.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answerReadsWith, backendNotFound, callPage, EMPTIEST_ANSWER } from "@/shared/testing/pageHarness.ts";
@@ -22,7 +23,7 @@ const VIEW = /\/src\/features\/[a-z]+\/components\/(?:views|forms)\/(\w+)\.tsx$/
 registerHooks({
   load(url, context, nextLoad) {
     const view = VIEW.exec(url);
-    if (view !== null) return { format: "module", source: `export const ${view[1]!} = () => null;`, shortCircuit: true };
+    if (view !== null) return { format: "module", source: replacingModule(url, "the view", { [view[1]!]: () => null }), shortCircuit: true };
 
     return nextLoad(url, context);
   },

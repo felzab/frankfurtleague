@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { describe, it, mock } from "node:test";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { exportingModule, replacingModule } from "@/core/exportingModule.ts";
 
 /* Replaced at the module boundary, as `fl_frontend/src/shared/utils/undoRoute.test.ts` replaces them:
    a response is the framework's, and the spine between it and the handler is what is driven. */
@@ -18,7 +18,8 @@ const PACKAGE_DOUBLES: Record<string, string> = {
     },
   }),
 };
-const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
+const inert = (): undefined => undefined;
+const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
 
 const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
 
@@ -29,7 +30,8 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
+    if (url.endsWith("/src/core/logging.ts"))
+      return { format: "module", source: replacingModule(url, "the logger", LOGGING), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

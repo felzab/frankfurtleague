@@ -4,6 +4,7 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
+import { replacingModule } from "@/core/exportingModule.ts";
 import { ADMIN_SIDEMENU_STRUCTURE } from "@/features/admin/constants.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import {
@@ -46,12 +47,11 @@ describe("the route the sidemenu names", () => {
   });
 });
 
-const RENDERS_NOTHING = `export const BewerbungView = () => null;
-export const ContentLoader = () => null;`;
+const RENDERS_NOTHING = { BewerbungView: () => null, ContentLoader: () => null };
 
 /* The public page's view and loader render nothing, so a case reads the props the page hands them;
    every read answers through the harness's client double. */
-const DOUBLED: [string, string][] = [
+const DOUBLED: [string, Readonly<Record<string, unknown>>][] = [
   ["/src/features/bewerbungen/components/views/BewerbungView.tsx", RENDERS_NOTHING],
   ["/src/shared/components/ui/ContentLoader.tsx", RENDERS_NOTHING],
 ];
@@ -63,7 +63,7 @@ doubleActionRequest();
 registerHooks({
   load(url, context, nextLoad) {
     const doubled = DOUBLED.find(([ending]) => url.endsWith(ending));
-    if (doubled !== undefined) return { format: "module", source: doubled[1], shortCircuit: true };
+    if (doubled !== undefined) return { format: "module", source: replacingModule(url, "the view", doubled[1]), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

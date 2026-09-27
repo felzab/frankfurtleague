@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { afterEach, describe, it } from "node:test";
 
-import { exportingModule } from "./exportingModule.ts";
+import { replacingModule } from "./exportingModule.ts";
 import { documentsWrittenBy } from "./stdoutCapture.ts";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
@@ -10,7 +10,7 @@ const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("expor
 
 // Getters, not values: one process holds one module registry, and the threshold and the format are
 // exactly the two switches every case below has to flip.
-const CONFIG_DOUBLE = exportingModule({
+const CONFIG_DOUBLE = {
   frontend_config: {
     get LOG_FORMAT() {
       return settings.format;
@@ -19,7 +19,7 @@ const CONFIG_DOUBLE = exportingModule({
       return settings.level;
     },
   },
-});
+};
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -27,7 +27,8 @@ registerHooks({
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts"))
+      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

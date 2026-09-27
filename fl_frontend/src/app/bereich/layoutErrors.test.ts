@@ -13,7 +13,7 @@ import { notFound, redirect } from "next/navigation";
 import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
@@ -33,12 +33,14 @@ const fetchDouble = doubleFetch();
 const refused = (): never => {
   throw new Error("no case here opens the passkey dialog");
 };
-const AUTH_CLIENT_DOUBLE = exportingModule({ authClient: { passkey: { addPasskey: refused }, signIn: { passkey: refused } } });
+const AUTH_CLIENT_DOUBLE = { authClient: { passkey: { addPasskey: refused }, signIn: { passkey: refused } } };
 
 registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/authClient.ts")) return { format: "module", source: AUTH_CLIENT_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/authClient.ts")) {
+      return { format: "module", source: replacingModule(url, "the sign-in client", AUTH_CLIENT_DOUBLE), shortCircuit: true };
+    }
     return nextLoad(url, context);
   },
 });

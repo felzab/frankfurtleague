@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
 import { z } from "zod";
 
+import { replacingModule } from "./exportingModule.ts";
 import { documentsWrittenByAsync } from "./stdoutCapture.ts";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
@@ -11,15 +12,17 @@ const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("expor
 
 // Replaced at the module boundary: the real config reads three credentials no test run holds, and
 // the client composes its base URL from `API_URL` at import.
-const CONFIG_DOUBLE = `export const frontend_config = {
-  API_URL: "http://backend:8000",
-  API_VERSION: 0,
-  INTERNAL_API_KEY_BASE: "base-key-double",
-  INTERNAL_API_KEY_SYSTEM: "system-key-double",
-  INTERNAL_API_KEY_ADMIN: "admin-key-double",
-  LOG_FORMAT: "json",
-  LOG_LEVEL: "INFO",
-};`;
+const CONFIG_DOUBLE = {
+  frontend_config: {
+    API_URL: "http://backend:8000",
+    API_VERSION: 0,
+    INTERNAL_API_KEY_BASE: "base-key-double",
+    INTERNAL_API_KEY_SYSTEM: "system-key-double",
+    INTERNAL_API_KEY_ADMIN: "admin-key-double",
+    LOG_FORMAT: "json",
+    LOG_LEVEL: "INFO",
+  },
+};
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -27,7 +30,8 @@ registerHooks({
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts"))
+      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

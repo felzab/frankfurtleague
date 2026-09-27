@@ -6,7 +6,7 @@ import path from "node:path";
 import { after, beforeEach, describe, it } from "node:test";
 
 import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 
 import type { TestContext } from "node:test";
 
@@ -33,12 +33,12 @@ const record =
   (level: string) =>
   (event: string, ...rest: unknown[]): void =>
     void lines.push({ level, event, fields: rest.at(-1) });
-const LOGGING_DOUBLE = exportingModule({
+const LOGGING_DOUBLE = {
   logger: { debug: record("DEBUG"), info: record("INFO"), warn: record("WARN"), error: record("ERROR") },
-});
+};
 
 // A getter, so each case sets the variable the one registry entry reads.
-const CONFIG_DOUBLE = exportingModule({
+const CONFIG_DOUBLE = {
   frontend_config: {
     LOG_FORMAT: "console",
     BEWERBUNG_SWEEP: "off",
@@ -49,7 +49,7 @@ const CONFIG_DOUBLE = exportingModule({
       return keyFile;
     },
   },
-});
+};
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -58,8 +58,10 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/logging.ts"))
+      return { format: "module", source: replacingModule(url, "the logger", LOGGING_DOUBLE), shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts"))
+      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
     return nextLoad(url, context);
   },
 });

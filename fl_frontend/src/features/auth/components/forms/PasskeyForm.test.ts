@@ -11,28 +11,31 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 
 /* The browser's own credential calls, replaced at the module boundary: this runner has no
    `navigator.credentials`, and a test-only prop would be a seam in production code. */
-const CLIENT_DOUBLE = exportingModule({
+const CLIENT_DOUBLE = {
   authClient: {
     passkey: { addPasskey: (options: unknown) => run("addPasskey", options) },
     signIn: { passkey: () => run("signInPasskey") },
   },
-});
+};
 
 /* A full document navigation, which jsdom does not implement and whose `location` no test can
    replace: recorded at the same module boundary the credential calls are. */
-const NAVIGATION_DOUBLE = exportingModule({ leaveDocumentFor: (path: string) => void left.push(path) });
+const NAVIGATION_DOUBLE = { leaveDocumentFor: (path: string) => void left.push(path) };
 
 registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/authClient.ts")) return { format: "module", source: CLIENT_DOUBLE, shortCircuit: true };
-    if (url.endsWith("/src/shared/utils/documentNavigation.ts")) return { format: "module", source: NAVIGATION_DOUBLE, shortCircuit: true };
+    if (url.endsWith("/src/core/authClient.ts"))
+      return { format: "module", source: replacingModule(url, "the sign-in client", CLIENT_DOUBLE), shortCircuit: true };
+    if (url.endsWith("/src/shared/utils/documentNavigation.ts")) {
+      return { format: "module", source: replacingModule(url, "the navigation", NAVIGATION_DOUBLE), shortCircuit: true };
+    }
     return nextLoad(url, context);
   },
 });

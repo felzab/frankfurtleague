@@ -14,7 +14,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import ts from "typescript";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleEveryAction, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { declaredStatus } from "@/shared/testing/declaredStatus.ts";
@@ -29,17 +29,19 @@ const SRC = path.resolve(import.meta.dirname, "..", "..");
 /* The create form, replaced at the module boundary: what a create declares to it is all this sweep
    asks of the create, `fl_frontend/src/shared/components/ui/EntityForm.test.ts` driving the real one. */
 const declaredToTheCreateForm: boolean[] = [];
-const RECORDING_FORM = exportingModule({
+const RECORDING_FORM = {
   EntityForm: (props: { stepUp?: boolean | "enrolment" }): null => {
     // Either window: which one a create is held to is the action's, and the form reads it whole.
     declaredToTheCreateForm.push(props.stepUp !== undefined && props.stepUp !== false);
     return null;
   },
-});
+};
 registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/shared/components/ui/EntityForm.tsx")) return { format: "module", source: RECORDING_FORM, shortCircuit: true };
+    if (url.endsWith("/src/shared/components/ui/EntityForm.tsx")) {
+      return { format: "module", source: replacingModule(url, "the create form", RECORDING_FORM), shortCircuit: true };
+    }
     return nextLoad(url, context);
   },
 });

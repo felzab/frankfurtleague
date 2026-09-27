@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { exportingModule } from "@/core/exportingModule.ts";
+import { replacingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -10,12 +10,13 @@ import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs, and the real mailer a provider. */
 const NEXT_SERVER = `export const NextResponse = { json: (body, init) => ({ body, status: init?.status ?? 200 }) };`;
-const LOGGING = `export const logger = { info: () => {}, warn: () => {}, error: () => {} };`;
+const inert = (): undefined => undefined;
+const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
 /* The serving origin, which `SKIP_ENV_VALIDATION` leaves unset: the mail shell refuses a relative
    one rather than composing a message whose every link is a bare path. */
 /** The serving origin this run is configured with, which the link the mail carries has to be built on. */
 const ORIGIN = "http://localhost:3000";
-const CONFIG = exportingModule({ frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } });
+const CONFIG = { frontend_config: { AUTH_URL: ORIGIN, APP_ENV: "test" } };
 /** The row's write, apart from the delivery reports the real fan-out files after a send. */
 const WRITE = "/registrierungen";
 const calls = doubleApiClient(({ endpoint }, schema) => {
@@ -46,8 +47,10 @@ registerHooks({
   },
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGING, shortCircuit: true };
-    if (url.endsWith("/src/core/config.ts")) return { format: "module", source: CONFIG, shortCircuit: true };
+    if (url.endsWith("/src/core/logging.ts"))
+      return { format: "module", source: replacingModule(url, "the logger", LOGGING), shortCircuit: true };
+    if (url.endsWith("/src/core/config.ts"))
+      return { format: "module", source: replacingModule(url, "the config", CONFIG), shortCircuit: true };
     return nextLoad(url, context);
   },
 });
