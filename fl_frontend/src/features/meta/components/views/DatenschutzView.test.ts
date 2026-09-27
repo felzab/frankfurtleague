@@ -48,7 +48,7 @@ const vorkommen = (phrase: string): number => SEITE.split(phrase).length - 1;
  * The „Stand“ and the words it dates, frozen together: a reader told nothing changed since that day
  * has been misled by any edit that left the date standing.
  */
-const FASSUNG = { stand: "27. September 2026", digest: "475bc277119f7646cd95d4679ac88916e2519f01e483dcb71b113cd023781413" } as const;
+const FASSUNG = { stand: "28. September 2026", digest: "2784bca1be01df33b0053b28c3520778311c9c9b1d818cf94fcf2cf6c21dd0a1" } as const;
 
 /** Every word the page renders but its date, so moving the date alone never passes for moving the words. */
 const wortlautDigest = (): string =>
@@ -406,6 +406,15 @@ describe("the privacy notice states the registration, referee-link and ban clock
       )?.startsWith(`${saisons.charAt(0).toUpperCase()}${saisons.slice(1)} volle Saisons nach der Saison des Eintrags`),
     );
     assert.ok(SEITE.includes(`bis die Sperre nach ${saisons} vollen Saisons endet`));
+  });
+
+  /* A grant names a person of the administration twice, its holder and its granter, and the notice of a
+     change is a second record of both; each is kept only as long as it does its job. */
+  it("keeps a grant until it is revoked, and the notice of a change only until it is sent", () => {
+    assert.equal(
+      ANGABEN.get("Zugang zur Verwaltung: E-Mail-Adresse, Stufe, Datum und die Person aus der Verwaltung, die ihn erteilt hat"),
+      "Bis der Zugang entzogen wird; eine Benachrichtigung über eine Änderung nur, bis sie versandt ist",
+    );
   });
 
   // Held here because this file owns the count words: the create form's hint and the ban list's
