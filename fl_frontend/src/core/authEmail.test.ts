@@ -56,7 +56,7 @@ const CODE = "048213";
 const HOSTILE_CODE = `a"<script>&b='c'`;
 
 const FUSS_SATZ = `Antworten an die Absenderadresse liest niemand; unsere Adresse ist ${KONTAKT_EMAIL}.`;
-const NUR_HIER_SATZ = "Gib ihn nur auf unserer Seite ein. Wir fragen Dich nie auf anderem Weg nach diesem Code.";
+const NUR_HIER_SATZ = "Gib ihn nur auf localhost:3000 ein. Wir fragen Dich nie auf anderem Weg nach diesem Code.";
 const IGNORIER_SATZ = "Du hast keinen Code angefordert? Dann ignoriere diese E-Mail einfach. Ohne den Code passiert nichts.";
 
 /** The shell's close as this branch ends on it: the block a folded delimiter line would swallow whole. */
@@ -93,6 +93,16 @@ describe("buildCodeEmail", () => {
       assert.ok(flat(mail.text).includes(fakt), `the text branch lost „${fakt}“`);
     }
     assert.equal(mail.subject, "Dein Anmeldecode für die Frankfurt League");
+  });
+
+  /* The approved sentence, as the published origin renders it: the host is the origin's and never a
+     literal of this module, so the local stack's message above names its own. */
+  it("tells a reader of the published origin to type the code on frankfurtleague.de alone", () => {
+    const mail = buildCodeEmail(CODE, "https://frankfurtleague.de");
+    const satz = "Gib ihn nur auf frankfurtleague.de ein. Wir fragen Dich nie auf anderem Weg nach diesem Code.";
+
+    assert.ok(flat(readable(mail.html)).includes(satz), "the HTML branch names another place");
+    assert.ok(flat(mail.text).includes(satz), "the text branch names another place");
   });
 
   /* A copy to paste from a phone, so the code has a line to itself in the plain branch: run into a

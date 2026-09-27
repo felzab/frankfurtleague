@@ -2071,6 +2071,18 @@ describe("what the code costs an address holding nothing", () => {
     }
   });
 
+  /* The warning names the one host the code may be typed into, read off the configured origin rather
+     than spelled: a literal would go on naming production to a stack that is not. */
+  it("names the configured host as the one place to type the code, in both branches", async () => {
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
+
+    const message = sent.at(-1);
+    assert.ok(message);
+    const satz = `Gib ihn nur auf ${ORIGIN.host} ein. Wir fragen Dich nie auf anderem Weg nach diesem Code.`;
+    assert.ok(message.text.includes(satz), "the text branch names another place, or none");
+    assert.ok(message.html.includes(satz), "the markup branch names another place, or none");
+  });
+
   it("states that same figure in the rendered message, which is the copy a reader acts on", () => {
     const { text, html } = buildCodeEmail("123456", "http://localhost:3000");
 
