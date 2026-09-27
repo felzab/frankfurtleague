@@ -145,7 +145,7 @@ def verify_admin_actor(
 def verify_person_actor(
     token: Annotated[str, Depends(get_actor_token)], key: Annotated[ActorTokenKey, Depends(get_actor_token_key)]
 ) -> ActorClaims:
-    """The signed-in person a person's route is attributed to; no factor or age rule, which are the admin tier's."""
+    """The signed-in person a person's route is attributed to: any factor, and the person's own window rather than the admin tier's."""
 
     try:
         return verify_actor_token(token, key, lane="person")

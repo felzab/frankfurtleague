@@ -16,7 +16,7 @@ from typing import Any, Final, Literal, Self, get_args
 
 import jwt
 
-from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS
+from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, PERSON_WINDOW_DAYS
 
 # Fixed strings rather than configuration: one issuer and one audience exist, and a value an
 # environment could change would let a token minted for another service pass (RFC 8725 §3.9).
@@ -210,8 +210,7 @@ def _signed_jti(token: str, key: ActorTokenKey) -> str | None:
 def verify_actor_token(token: str, key: ActorTokenKey, *, lane: Lane) -> ActorClaims:
     """The claims `token` carries, once its signature, header, registered claims and `lane` have held.
 
-    `lane == "admin"` also requires a passkey session no older than the administrator's window;
-    a person's lane asks neither.
+    Each lane caps the session's age at its own window, and the admin lane also demands a passkey.
     """
 
     try:
@@ -258,5 +257,8 @@ def _verified_claims(token: str, key: ActorTokenKey, lane: Lane) -> ActorClaims:
         # meets a limit on this side (`app/shared/schemas/bounds.py :: ADMIN_WINDOW_HOURS`).
         if time.time() - claims.auth_time > ADMIN_WINDOW_HOURS * 3600:
             raise ActorTokenRefusal("session older than the administrator's window")
+    # The person's window, re-asked for the same reason (`app/shared/schemas/bounds.py :: PERSON_WINDOW_DAYS`).
+    elif time.time() - claims.auth_time > PERSON_WINDOW_DAYS * 86400:
+        raise ActorTokenRefusal("session older than the person's window")
 
     return claims

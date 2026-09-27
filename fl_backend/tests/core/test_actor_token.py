@@ -23,7 +23,7 @@ from app.core.actor_token import (
     jwk_thumbprint,
     verify_actor_token,
 )
-from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS
+from app.shared.schemas.bounds import ADMIN_WINDOW_HOURS, PERSON_WINDOW_DAYS
 from tests.actor_tokens import ACTOR_TOKEN_PUBLIC_KEY, FOREIGN_SIGNING_KEY, actor_claims, protected_header, public_key_of, sign
 
 KEY = ActorTokenKey.from_public_key(ACTOR_TOKEN_PUBLIC_KEY)
@@ -67,7 +67,7 @@ class TestWhatIsAdmitted:
         )
 
     def test_a_person_s_code_token_is_admitted_on_the_person_lane(self):
-        """No factor or age rule there: a pupil signs in by code, and a person's session outlives the administrator's window."""
+        """No factor rule there: a pupil signs in by code, and a person's session outlives the administrator's window."""
         issued = claims("person", auth_time=int(time.time()) - ADMIN_WINDOW_HOURS * 3600 - 60)
 
         assert verify_actor_token(sign(issued), KEY, lane="person").amr == ("code",)
@@ -199,6 +199,17 @@ class TestTheAdministratorsLane:
         """The window's boundary, so a window shortened to the token's own age is seen."""
         recent = int(time.time()) - ADMIN_WINDOW_HOURS * 3600 + 60
         assert verify_actor_token(sign(claims(auth_time=recent)), KEY, lane="admin").auth_time == recent
+
+
+class TestThePersonsLane:
+    def test_a_sign_in_older_than_the_person_s_window_is_refused(self):
+        stale = int(time.time()) - PERSON_WINDOW_DAYS * 86400 - 60
+        assert refusal(sign(claims("person", auth_time=stale)), lane="person") == "session older than the person's window"
+
+    def test_a_sign_in_inside_the_person_s_window_is_admitted(self):
+        """The window's boundary, as the administrator's lane holds its own."""
+        recent = int(time.time()) - PERSON_WINDOW_DAYS * 86400 + 60
+        assert verify_actor_token(sign(claims("person", auth_time=recent)), KEY, lane="person").auth_time == recent
 
 
 class TestTheKeyId:

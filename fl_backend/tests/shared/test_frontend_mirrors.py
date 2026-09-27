@@ -117,6 +117,8 @@ MIRRORED_BOUNDS: Final = (
     # The frontend expires an administrator's session at this age and the backend refuses an actor
     # token older than it: a looser backend honours a session the frontend believes gone.
     Mirror("core/sessionLifetimes.ts", "ADMIN_WINDOW_HOURS", "ADMIN_WINDOW_HOURS"),
+    # The same pair for a person's session, whose cap runs from its sign-in however recently it was used.
+    Mirror("core/sessionLifetimes.ts", "PERSON_WINDOW_DAYS", "PERSON_WINDOW_DAYS"),
     # The window a grant, a revoke and a tier change are asked for, which the backend refuses a sign-in
     # older than: a tighter backend refuses a write its own page admitted.
     Mirror("core/sessionLifetimes.ts", "ENROLMENT_WINDOW_MS", "ENROLMENT_WINDOW_MINUTES", scale=60 * 1000),
