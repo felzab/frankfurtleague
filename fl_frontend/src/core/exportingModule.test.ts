@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { exportingModule } from "./exportingModule.ts";
+import { exportingModule, UNBINDABLE } from "./exportingModule.ts";
 
 const LINE_SEPARATOR = String.fromCharCode(0x2028);
 
@@ -11,6 +11,20 @@ describe("the module a double is built as", () => {
   it("refuses to declare a name that is no identifier", () => {
     for (const name of ['x", (globalThis.escaped = true), "', `x${LINE_SEPARATOR}y`]) {
       assert.throws(() => exportingModule({ [name]: 1 }), /is no name a module can declare/, JSON.stringify(name));
+    }
+  });
+
+  it("refuses to declare a word a module cannot bind", () => {
+    for (const name of UNBINDABLE) {
+      assert.throws(() => exportingModule({ [name]: 1 }), /is no name a module can declare/, name);
+    }
+  });
+
+  /* The list is this file's, and the engine is the authority on it: a word the engine would bind is
+     one the builder refuses for nothing. */
+  it("refuses only words the engine itself refuses to bind in a module", async () => {
+    for (const name of UNBINDABLE) {
+      await assert.rejects(import(`data:text/javascript,${encodeURIComponent(`export const { ${name} } = {};`)}`), SyntaxError, name);
     }
   });
 

@@ -1,9 +1,23 @@
 /**
+ * The words a module cannot bind: ECMAScript's reserved words, the ones strict mode adds, and `await`,
+ * which a module reserves. Refused before the source is built, since a module declaring one fails to
+ * link with a SyntaxError naming no double.
+ */
+export const UNBINDABLE: ReadonlySet<string> = new Set([
+  ...["break", "case", "catch", "class", "const", "continue", "debugger", "default", "delete", "do", "else", "enum"],
+  ...["export", "extends", "false", "finally", "for", "function", "if", "import", "in", "instanceof", "new", "null"],
+  ...["return", "super", "switch", "this", "throw", "true", "try", "typeof", "var", "void", "while", "with"],
+  ...["implements", "interface", "let", "package", "private", "protected", "public", "static", "yield"],
+  ...["await", "eval", "arguments"],
+]);
+
+/**
  * A name a generated module declares, spelled into its source where no literal can hold it: refused
- * unless it is an identifier, so nothing read off a real module can write code into the double.
+ * unless it is an identifier a module may bind, so nothing read off a real module can write code into
+ * the double.
  */
 function identifier(name: string): string {
-  if (!/^[A-Za-z_$][\w$]*$/.test(name)) throw new Error(`${JSON.stringify(name)} is no name a module can declare`);
+  if (!/^[A-Za-z_$][\w$]*$/.test(name) || UNBINDABLE.has(name)) throw new Error(`${JSON.stringify(name)} is no name a module can declare`);
   return name;
 }
 
