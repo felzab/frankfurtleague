@@ -25,6 +25,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [15. When a sign-in code does not arrive](#15-when-a-sign-in-code-does-not-arrive)                                                              | What the person cannot tell apart, and the line that can       |
 | [16. The secret files and the checkout root's `.env`](#16-the-secret-files-and-the-checkout-roots-env)                                          | What each holds, and how each machine makes its own            |
 | [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                                       | Who meets it, when it lifts, and what clearing it costs        |
+| [18. The Node a checkout runs](#18-the-node-a-checkout-runs)                                                                                    | What `pnpm install` fetches, and what a bare `node` still runs |
 
 ---
 
@@ -1409,3 +1410,15 @@ under `FE-AUTH-008` that come back hour after hour, or soon after a sweep, are t
 than a busy evening. The sweep above reopens code sign-in only until the requests come again, since
 it clears the per-address rows too; while it recurs, point the people who sign in by code at a
 passkey, and repeat the sweep when it closes again.
+
+## 18. The Node a checkout runs
+
+**`pnpm install` in `fl_frontend/` downloads the Node `fl_frontend/package.json :: devEngines` pins,
+and every `pnpm run` and `pnpm exec` in that checkout runs it**, whatever Node the machine has
+installed; `pnpm exec node --version` there prints the pinned release. A pull request moving the pin
+needs nothing more on a machine than the next `pnpm install`.
+
+**A bare `node` still runs the machine's own**, and `.claude/hooks/docs-standard.sh` and
+`scripts/gate/selfcheck.sh` call it bare. Install the pinned release machine-wide from
+https://nodejs.org/en/download, and again whenever the pin moves: a machine left on an older release
+of the line keeps every security flaw fixed since.
