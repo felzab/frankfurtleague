@@ -32,7 +32,6 @@ import type { ErrorInfo } from "next/error";
  * The spam folder alone: whether an address is sent a code at all is the gate's, and a line naming one
  * reason a person is refused would be wrong for every other.
  */
-// GERMAN-PENDING: new German, not yet approved.
 const KEIN_CODE = "Kein Code angekommen? Schau im Spam-Ordner nach.";
 
 const ANMELDEN = { rest: "Anmelden", pending: "Meldet an..." };

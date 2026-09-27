@@ -42,7 +42,6 @@ const GRUND_VOR = "Angegebener Grund:";
  * What the ban's row keeps, named because the reader cannot be shown it: the list holds a check value
  * rather than the address, while the account the address signs in to keeps it, frozen.
  */
-// GERMAN-PENDING: new German, not yet approved.
 const GESPEICHERT_SATZ =
   "In der Sperrliste stehen nur ein Prüfwert Deiner Adresse, der Grund, das Datum und wer die Sperre eingetragen hat; Deine Adresse selbst steht dort nicht. Dein Konto mit dieser Adresse bleibt gespeichert.";
 
@@ -50,7 +49,6 @@ const GESPEICHERT_SATZ =
  * The one way to a copy or a deletion while the address cannot sign in, and how the league knows the
  * request is the address holder's.
  */
-// GERMAN-PENDING: new German, not yet approved.
 const auskunftSatz = (kontakt: string): string =>
   `Möchtest Du eine Kopie Deiner Daten oder ihre Löschung, schreib uns an ${kontakt}. Wir bestätigen Deine Anfrage mit einer E-Mail an diese gesperrte Adresse.`;
 
@@ -74,7 +72,6 @@ const EINLEITUNG = `Deine E-Mail-Adresse wurde von der Verwaltung der ${BRAND_NA
 
 // „werden beendet“: the mail leaves after the sign-out was attempted and cannot know whether it held,
 // a failure being the administrator's to read.
-// GERMAN-PENDING: new German, not yet approved.
 const ANMELDUNGEN_SATZ =
   "Bestehende Anmeldungen mit dieser Adresse werden beendet. Dein Konto bleibt bestehen und ist gesperrt, bis die Sperre endet; danach kannst Du Dich wieder anmelden.";
 

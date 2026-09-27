@@ -23,7 +23,6 @@ export function SignedInCard({ address }: { address: string }) {
       title="Anmelden"
       ornament={<span className="mb-3 text-4xl sm:text-5xl">⚽</span>}>
       <div className="flex flex-col gap-y-4">
-        {/* GERMAN-PENDING: new German, not yet approved. */}
         <p className="text-center fluid-sm text-foreground">
           Du bist als <span className="font-bold break-all">{address}</span> angemeldet.
         </p>
@@ -32,7 +31,6 @@ export function SignedInCard({ address }: { address: string }) {
         <Link
           href={SIGN_IN_LANDING}
           className={formButton({ intent: "submit", fullWidth: true })}>
-          {/* GERMAN-PENDING: new German, not yet approved. */}
           Weiter zu Deinem Bereich
         </Link>
 

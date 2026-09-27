@@ -27,7 +27,6 @@ const FALSCH = "Der Code stimmt nicht. Prüfe ihn und gib ihn noch einmal ein.";
  * The mint's backend did not answer, after the code was already spent: retyping it would meet a wrong
  * code, so the reader is sent for a new one.
  */
-// GERMAN-PENDING: new German, not yet approved.
 const CODE_VERBRAUCHT =
   "Die Anmeldung hat gerade nicht geklappt, und Dein Code ist damit verbraucht. Fordere in ein paar Minuten einen neuen an.";
 
