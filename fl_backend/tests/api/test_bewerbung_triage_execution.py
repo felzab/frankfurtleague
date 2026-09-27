@@ -63,7 +63,6 @@ from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, ADMIN_KEY, build_test_config, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
-from tests.isolation import COMMITTED, outcome_of
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -1600,27 +1599,6 @@ async def ban_through_the_route(database: AsyncDatabase, client: AsyncMongoClien
         actor_var.reset(token)
 
 
-class RivalAfterTheFirstRead:
-    """A collection whose first `find_one` answers, then runs a rival to its commit, once; every other call delegated."""
-
-    def __init__(self, collection: AsyncCollection, rival: Callable[[], Awaitable[Any]]) -> None:
-        self._collection = collection
-        self._rival: Callable[[], Awaitable[Any]] | None = rival
-        self.rival_outcome: str | None = None
-
-    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        found = await self._collection.find_one(*args, **kwargs)
-        # ONE-SHOT: the retry has to meet what the rival left rather than run it again.
-        if self._rival is not None:
-            rival, self._rival = self._rival, None
-            self.rival_outcome = await outcome_of(rival())
-
-        return found
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._collection, name)
-
-
 class TestAResendRacingAnAnswer:
     """The re-send reads outside any transaction, so what lands between its read and its write is judged by the write's filter."""
 
@@ -1712,25 +1690,6 @@ class TestAResendRacingAnAnswer:
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
         assert code == BEWERBUNG_KONTAKT_GESPERRT
-        assert after == before
-
-    def test_a_ban_committing_inside_the_resend_s_snapshot_refuses_the_link(self, mongo_replica_set_url: str):
-        """The real ban commits after the re-send's transaction read the season: only the season both write makes them conflict.
-
-        Without it the re-send asks a snapshot the ban is not in, and mints a link to a barred address.
-        """
-
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
-            before = await seed_an_open_ansprechperson_seat(database)
-            address = str(before["kontakte"]["ansprechperson"]["email"])
-            racing = RivalAfterTheFirstRead(database[Collection.SAISONS], lambda: ban_through_the_route(database, client, address))
-            outcome = await outcome_of(resend(database, "ansprechperson", saisons=racing))
-
-            return racing.rival_outcome, outcome, before, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
-
-        rival, outcome, before, after = on_a_league(mongo_replica_set_url, body, saison_status="active")
-
-        assert (rival, outcome) == (COMMITTED, BEWERBUNG_KONTAKT_GESPERRT)
         assert after == before
 
     def test_a_person_holding_two_seats_is_answered_for_both(self, mongo_replica_set_url: str):

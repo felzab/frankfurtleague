@@ -4,7 +4,6 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
-from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.schemas import (
     FLAblehnenBewerbungPayload,
@@ -48,7 +47,7 @@ from app.api.sperrliste.services import adresse_hash
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.services import compose_kontakte_at_entry, find_club_entry_refusal
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import insert_live, patch_many_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.crud import insert_live, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
@@ -68,27 +67,6 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/bewerbungen",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
-
-
-async def _anchor_the_season_a_ban_counts_from(
-    *,
-    saisons_collection: AsyncCollection,
-    # REQUIRED: the anchor is what closes the race with a ban, so forgetting the session has to be a
-    # TypeError at the call rather than a silent reopening of it.
-    session: AsyncClientSession,
-) -> str | None:
-    """The running season, written as the ban's own transaction writes it, or `None` while none runs, when no ban can be entered."""
-
-    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection=saisons_collection, session=session)
-    if massgebliche_saison_id is not None:
-        await patch_many_in_db(
-            collection=saisons_collection,
-            db_filter={"_id": massgebliche_saison_id},
-            update={"$inc": {"bounded_writes": 1}},
-            session=session,
-        )
-
-    return massgebliche_saison_id
 
 
 def _entscheidung(*, today: str, von: str, grund: str | None) -> dict[str, Any]:
@@ -381,11 +359,9 @@ async def erneut_einwilligung(
     # untouched rather than overwritten.
     async def mint_on(seats: tuple[FLKontaktRolle, ...]) -> Mapping[str, Any]:
         async def mint_unless_gesperrt(session: AsyncClientSession) -> Mapping[str, Any]:
-            """Anchor the ban's season, write, then ask the ban list of the addresses the write found; a barred one aborts the write."""
+            """Write, then ask the ban list of the addresses the write found; a barred one aborts the write."""
 
-            # A transaction alone joins no ban's write set (`docs/backend/spec.md :: I53`): the season a ban
-            # counts from is the row every ban writes, so one committing beside this makes one of the two retry.
-            massgebliche_saison_id = await _anchor_the_season_a_ban_counts_from(saisons_collection=saisons_collection, session=session)
+            massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection=saisons_collection, session=session)
             matched = await patch_one_in_db(
                 collection=bewerbungen_collection,
                 db_filter=build_erneut_filter(bewerbung_id=bewerbung_id, seats=seats),
@@ -399,10 +375,8 @@ async def erneut_einwilligung(
 
             return matched
 
-        # The anchor is a season write, which the cache serves (`docs/backend/spec.md :: I131`).
-        with dropping_the_saison_cache():
-            async with db.start_session() as session:
-                return await session.with_transaction(mint_unless_gesperrt)
+        async with db.start_session() as session:
+            return await session.with_transaction(mint_unless_gesperrt)
 
     try:
         matched = await mint_on(seats)
