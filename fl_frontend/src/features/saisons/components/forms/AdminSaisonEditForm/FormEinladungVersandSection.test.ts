@@ -30,6 +30,7 @@ const { raised } = doubleToasts();
 const { FormEinladungVersandSection } = await import("./FormEinladungVersandSection.tsx");
 const { UNKNOWN_REFUSAL } = await import("@/shared/utils/refusal.ts");
 const { unansweredAction } = await import("@/shared/utils/actionError.ts");
+const { NAME_WRAP_CLASSES } = await import("@/shared/components/ui/nameWrap.ts");
 
 /** Four characters, the width every schema in the tree holds a season id to. */
 const SAISON_ID = "2627";
@@ -255,6 +256,24 @@ describe("the season's bulk invite send", () => {
     assert.ok(isInTheFlow("Hat den Link schon bekommen"), "the team already mailed is not told apart");
     assert.ok(isInTheFlow("Austritt eingetragen"), "the club that has left is not told apart");
     assert.ok(isInTheFlow("erika@beispiel.de, jonas@beispiel.de"), "the addresses the press would write to are not listed");
+  });
+
+  /* A team's name is whatever somebody typed, and it shares its row with the recipients: kept at its
+     longest word, a long name pushes them past the panel on a phone. Both lists are held, sent and skipped. */
+  it("lets a team's name shrink and break inside its row, in both lists", async () => {
+    const user = userEvent.setup();
+    answerWith(vorschauAntwort(VORSCHAU));
+    render(panel());
+
+    await user.click(screen.getByRole("button", { name: RESTING }));
+    await armedStep();
+
+    for (const team of ["Ernst-Reuter-Schule", "Liebigschule"]) {
+      const name = screen.getByText(team);
+      for (const token of ["min-w-0", ...NAME_WRAP_CLASSES.split(" ")]) {
+        assert.ok(name.classList.contains(token), `${team}'s name is missing ${token}, so a long name runs past the panel`);
+      }
+    }
   });
 
   /* A stored link is a hash, so there is nothing to send twice: choosing the re-send mints, and the

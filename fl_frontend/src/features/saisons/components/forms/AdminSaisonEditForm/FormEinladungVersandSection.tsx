@@ -15,6 +15,7 @@ import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
+import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { Switch } from "@/shared/components/ui/Switch";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
@@ -266,7 +267,9 @@ export function FormEinladungVersandSection({
                     <li
                       key={zeile.team_id}
                       className="flex flex-row items-baseline justify-between gap-x-3 fluid-xxs leading-normal font-medium text-foreground">
-                      <span className="font-bold">{zeile.team_name}</span>
+                      {/* A team's name is whatever somebody typed: as a flex item it keeps its longest
+                          word as its floor, pushing the recipients past the panel, unless it may break it. */}
+                      <span className={`min-w-0 font-bold ${NAME_WRAP_CLASSES}`}>{zeile.team_name}</span>
                       <span className="min-w-0 text-right text-foreground-muted">
                         {zeile.uebersprungen === null ? (
                           <>
@@ -291,7 +294,7 @@ export function FormEinladungVersandSection({
                     <li
                       key={zeile.team_id}
                       className="flex flex-row items-baseline justify-between gap-x-3 fluid-xxs leading-normal font-medium text-foreground">
-                      <span className="font-bold">{zeile.team_name}</span>
+                      <span className={`min-w-0 font-bold ${NAME_WRAP_CLASSES}`}>{zeile.team_name}</span>
                       <span className="min-w-0 text-right text-foreground-muted">
                         {/* Graded apart from the other skips: there the league failed the team
                             rather than passing it over. */}
