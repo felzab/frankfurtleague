@@ -169,7 +169,8 @@ crash ([`spec.md`](spec.md#2-invariants) L6).
 
 Raised before either service serves anything — the backend's by `fl_backend/app/core/db.py :: lifespan`,
 the frontend's by `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment` and
-`:: refuseUnreadableSecretFiles` and its one warning by
+`:: refuseUnreadableSecretFiles` and by `fl_frontend/src/core/actorToken.ts :: loadActorSigningKeyAtBoot`,
+and its one warning by
 `fl_frontend/src/instrumentation-node.ts :: registerOnNode`. Each reaches a log line
 and no response, so it carries no status and its `trace_id` is `SYSTEM` — the
 code is the whole join key, which is why a boot failure gets one at all
