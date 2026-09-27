@@ -2553,16 +2553,54 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
   });
 
   /* The set-up that signs in mints inside the registration's transaction, so its refusal takes the
-     passkey row back with it. */
-  it("refuses a passkey set-up that would sign a barred address in, writing no passkey", async () => {
-    const { cookie, row } = await signIn(BARRED_EMAIL);
-    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+     passkey row back with it. An address holding nothing, since the enrolment refuses a barred one
+     before any mint. */
+  it("refuses a passkey set-up that would sign in an address holding nothing, writing no passkey", async () => {
+    const { cookie, row } = await signIn(EMPTY_EMAIL);
+    BACKENDS.set(EMPTY_EMAIL, NOTHING_HELD);
 
     const refused = await enrolPasskey(cookie, { createSession: true });
 
     assert.equal(refused.status, 403);
+    assert.equal(((await refused.clone().json()) as { code?: string }).code, "SIGN_IN_HOLDS_NOTHING");
     assert.deepEqual(store.passkey, [], "the refused set-up left its passkey behind");
     assert.ok(store.session.includes(row), "the refused set-up signed its caller out");
+  });
+
+  /* The account page enrols with no `createSession`, so no mint's gate stands in front of it: a session
+     a ban's ending missed, or one a mint raced, would otherwise leave a passkey that outlives both
+     (`docs/frontend/spec.md :: I406`). */
+  it("refuses a barred address's enrolment that signs nobody in, at both halves, writing no passkey", async () => {
+    const { cookie } = await signIn(BARRED_EMAIL);
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+
+    assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404, "the options half served a barred address");
+
+    // The verify half, reached with options served before the ban.
+    BACKENDS.delete(BARRED_EMAIL);
+    const offered = await overHttp("/passkey/generate-register-options", { cookie });
+    const { challenge } = (await offered.json()) as { challenge: string };
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+
+    const refused = await overHttp("/passkey/verify-registration", {
+      method: "POST",
+      cookie: `${cookie}; ${cookieHeader(offered)}`,
+      body: { response: registrationFor(challenge, true) },
+    });
+
+    assert.equal(refused.status, 404);
+    assert.deepEqual(store.passkey, [], "a barred address enrolled a passkey");
+  });
+
+  it("offers a barred subject no passkey card, and the same subject unbarred the offer", async () => {
+    const { cookie } = await signIn(BARRED_EMAIL);
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+    arriveAs(cookie);
+
+    assert.equal(await getPasskeyStep(), null);
+
+    BACKENDS.set(BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    assert.deepEqual(await getPasskeyStep(), { step: "offer", email: BARRED_EMAIL });
   });
 
   it("admits an administrator's passkey on the grant alone, holding no league record", async () => {

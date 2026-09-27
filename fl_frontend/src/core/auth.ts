@@ -44,6 +44,10 @@ import type { AuthContext, BetterAuthOptions, DBTransactionAdapter, GenericEndpo
 import type { PasskeyEmail } from "./passkeyEmail";
 import type { RequestActor } from "./requestScope";
 import type { Lifetime } from "./sessionLifetimes";
+import type { SubjectSession } from "./subject";
+
+/** One mailbox's records, ban and grant, as the gate reads them. */
+type SubjectRecords = SubjectSession["subjekt"];
 
 // Named for what the database holds rather than for the library that writes it, so the next swap
 // inherits a name it does not have to migrate.
@@ -186,15 +190,35 @@ function logUnreadVerwaltung(failed: unknown): void {
 }
 
 /**
- * The grant where an unread one must refuse rather than admit: an enrolment held to the passkey for
- * an administrator would otherwise relax to a person's, by mailed code, while the backend is down.
+ * The records an enrolment is judged by, where an unread read must refuse rather than admit: an
+ * enrolment held to the passkey for an administrator would otherwise relax to a person's, by mailed
+ * code, while the backend is down.
  */
-async function verwaltungOrRefuse(email: string): Promise<boolean> {
+async function enrolmentSubjekt(email: string): Promise<SubjectRecords> {
   try {
-    return (await verwaltungOf(email)) !== null;
+    return await lookUpSubjekt(asSignInIdentifier(email));
   } catch (failed) {
     logUnreadVerwaltung(failed);
     throw APIError.fromStatus("SERVICE_UNAVAILABLE");
+  }
+}
+
+/**
+ * The grant an enrolment is judged by. A barred address enrols nothing, whatever it holds: its session
+ * is one a ban's ending missed or a mint raced, and a passkey would outlive both (`docs/frontend/spec.md :: I406`).
+ */
+function enrolmentGrant(subjekt: SubjectRecords): boolean {
+  if (subjekt.gesperrt) throw APIError.fromStatus("NOT_FOUND");
+  return subjekt.verwaltung !== null;
+}
+
+/** The records where an unread read offers nothing: `null` where the backend could not say. */
+async function subjektOrNull(email: string): Promise<SubjectRecords | null> {
+  try {
+    return await lookUpSubjekt(asSignInIdentifier(email));
+  } catch (failed) {
+    logUnreadVerwaltung(failed);
+    return null;
   }
 }
 
@@ -761,7 +785,11 @@ const authOptions = {
       // session it cannot read, and the in-process arm already refuses one.
       if (caller === null) throw APIError.fromStatus("NOT_FOUND");
 
-      await refuseEnrolment(ctx.context.adapter, caller.user.id, asStepUpCaller(caller, await verwaltungOrRefuse(caller.user.email)));
+      await refuseEnrolment(
+        ctx.context.adapter,
+        caller.user.id,
+        asStepUpCaller(caller, enrolmentGrant(await enrolmentSubjekt(caller.user.email))),
+      );
     }),
 
     // The `Set-Cookie` the endpoint wrote is untouched: `runAfterHooks` merges this hook's own
@@ -891,7 +919,7 @@ const authOptions = {
           await refuseEnrolment(
             adapter,
             user.id,
-            enrolling === null ? null : asStepUpCaller(enrolling, await verwaltungOrRefuse(enrolling.user.email)),
+            enrolling === null ? null : asStepUpCaller(enrolling, enrolmentGrant(await enrolmentSubjekt(enrolling.user.email))),
             verification.registrationInfo?.credential.id,
           );
 
@@ -1219,11 +1247,12 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
   const served = await auth.api.getSession({ headers: requestHeaders });
   if (!served) return null;
 
-  // An unread grant offers no card, for the landing's reason.
-  const verwaltung = await verwaltungOrNull(served.user.email);
-  if (verwaltung === null) return null;
+  // An unread read offers no card, for the landing's reason; a barred subject none either, its
+  // enrolment being refused (`docs/frontend/spec.md :: I406`).
+  const subjekt = await subjektOrNull(served.user.email);
+  if (subjekt === null || subjekt.gesperrt) return null;
 
-  const step = await passkeyStepOf(served, verwaltung, requestHeaders);
+  const step = await passkeyStepOf(served, subjekt.verwaltung !== null, requestHeaders);
   if (step === null) return null;
 
   // Folded as `getAdminSession` folds the actor it records: the stored row is the library's own
