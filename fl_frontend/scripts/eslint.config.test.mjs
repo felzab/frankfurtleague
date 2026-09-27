@@ -6,10 +6,10 @@ import { isDeepStrictEqual } from "node:util";
 
 import { ESLint } from "eslint";
 
-import config from "./eslint.config.mjs";
+import config from "../eslint.config.mjs";
 
-const HERE = import.meta.dirname;
-const PLANTS = path.join(HERE, "eslint-plants");
+const FRONTEND = path.join(import.meta.dirname, "..");
+const PLANTS = path.join(FRONTEND, "eslint-plants");
 
 /**
  * A config's selectors have no `RuleTester`: these plants are that harness, so a selector edited
@@ -139,13 +139,13 @@ const statements = config.flatMap((block, index) =>
 
 const isTestPath = (file) => /\.test\.tsx?$/.test(file);
 
-const eslint = new ESLint({ cwd: HERE });
+const eslint = new ESLint({ cwd: FRONTEND });
 const reports = new Map();
 const resolved = new Map();
 for (const plant of plants) {
   if (plant.lintedAs === undefined) continue;
-  resolved.set(plant.name, (await eslint.calculateConfigForFile(path.join(HERE, plant.lintedAs))).rules);
-  const [result] = await eslint.lintText(plant.text, { filePath: path.join(HERE, plant.lintedAs) });
+  resolved.set(plant.name, (await eslint.calculateConfigForFile(path.join(FRONTEND, plant.lintedAs))).rules);
+  const [result] = await eslint.lintText(plant.text, { filePath: path.join(FRONTEND, plant.lintedAs) });
   // A warning never matches a mark: `pnpm lint` fails on one only through `--max-warnings 0`, which
   // an editor's lint or a bare `eslint .` does not pass.
   reports.set(
@@ -171,9 +171,9 @@ const exemptions = await Promise.all(
         path.posix.dirname(file),
         `zzExemptionCheck${isTestPath(file) ? ".test" : ""}${path.posix.extname(file)}`,
       );
-      const own = syntaxMessages((await eslint.calculateConfigForFile(path.join(HERE, file))).rules);
-      const held = syntaxMessages((await eslint.calculateConfigForFile(path.join(HERE, sibling))).rules);
-      const [result] = await eslint.lintText(readFileSync(path.join(HERE, file), "utf8"), { filePath: path.join(HERE, sibling) });
+      const own = syntaxMessages((await eslint.calculateConfigForFile(path.join(FRONTEND, file))).rules);
+      const held = syntaxMessages((await eslint.calculateConfigForFile(path.join(FRONTEND, sibling))).rules);
+      const [result] = await eslint.lintText(readFileSync(path.join(FRONTEND, file), "utf8"), { filePath: path.join(FRONTEND, sibling) });
       const reported = new Set(result.messages.map((message) => message.message));
       return { file, escaped: [...held].filter((message) => !own.has(message)), reported };
     }),

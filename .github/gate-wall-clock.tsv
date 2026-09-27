@@ -469,7 +469,7 @@
 # to shard 3 with the files added between them. Shard 3 now holds
 # `fl_frontend/src/features/admin/editorWiring.test.ts`, 35.2-35.5 s of its cases and 45 s alone,
 # and the tier gained `fl_frontend/src/features/admin/formMarks.test.ts`, 17.8-17.9 s alone, 8.0-8.3
-# s of it its cases; `fl_frontend/eslint.config.test.mjs`, the standing lint plants, 8.1-8.2 s
+# s of it its cases; `fl_frontend/scripts/eslint.config.test.mjs`, the standing lint plants, 8.1-8.2 s
 # alone; and each slice's request cases, 0.34 s across the nine files holding them. Every case
 # renders or drives what it asserts, so none was cut: a file split to spread its cost pays its
 # imports again in each part, and `editorWiring.test.ts` split four ways would add about 27 s of

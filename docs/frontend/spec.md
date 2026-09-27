@@ -950,7 +950,7 @@ sample and keeps its floor over the tree as well: the two answer different quest
 no selector states — a rule read across files or across siblings, a runtime value, a file ESLint does
 not lint. **A lint ban is driven against planted source on every run.** A config's selectors have no
 `RuleTester`, and a ban matching nothing is as green as one the tree obeys.
-`fl_frontend/eslint.config.test.mjs` lints each plant in `fl_frontend/eslint-plants/` as the path its
+`fl_frontend/scripts/eslint.config.test.mjs` lints each plant in `fl_frontend/eslint-plants/` as the path its
 first line names, requires every mark reported on its line with its ban and nothing else, and fails
 on a ban the config states that no plant marks. **Every block restating a ban is one more place to
 drop it**, so the same file fails on a block no plant is linted in, a plant being linted in a block
