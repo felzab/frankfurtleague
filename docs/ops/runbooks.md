@@ -685,12 +685,15 @@ and no person named in it, the row outliving that person's erasure
 ([`../glossary.md`](../glossary.md#sperrliste--the-addresses-barred-from-signing-up)). An
 address holding a grant is refused (`REQ-SPERRLISTE-003`) until the grant is revoked
 ([section 3](#3-granting-or-revoking-admin-access)). **The write
-mails the person itself**, naming the reason you typed and the last season the ban covers, so there
-is nothing to send by hand; where the send fails the page says so, and there is then no address left
-anywhere to try again with. **The same write ends every live sign-in of the address**, keeping its
+mails the person itself where the address holds a sign-in account**, naming the reason you typed and
+the last season the ban covers, so there is nothing to send by hand; an address that never signed in
+is mailed nothing. Where the send fails, or the sign-in store could not say whether an account holds
+the address, the page says the notice did not go, and there is then no address left anywhere to try
+again with. **The same write ends every live sign-in of the address**, keeping its
 account and passkeys for the day the ban ends (`docs/frontend/spec.md :: I402`); where that fails the
-page says so too, and the sessions stay in the store until their own expiry while every person page
-refuses them as no session at all (`docs/frontend/spec.md :: I406`). **Every later sign-in of the address
+page says so too, every person page refuses the sessions as no session at all
+(`docs/frontend/spec.md :: I406`), and each is deleted the next time its browser reaches the sign-in
+page (`docs/frontend/spec.md :: I518`). **Every later sign-in of the address
 is refused as its session would be created**, by a code or a passkey alike
 (`docs/frontend/spec.md :: I403`). **Beyond that the ban refuses the sign-ups that ask it and the
 administration.** A pupil's registration asks it and is refused (`REQ-REGISTRIERUNG-009`), and so do
@@ -1185,15 +1188,14 @@ misses.
 
 **Every production boot of the frontend builds them, and serves the site whether or not each is
 built** (`fl_frontend/src/core/authIndexes.ts :: AUTH_INDEXES`, `docs/frontend/spec.md :: I498`). An
-index the boot could not build is one `FE-AUTH-011` line naming it, and nothing builds it again
-before the next boot, so read the frontend's log for that code after every deploy:
+index the boot could not build is one `FE-AUTH-011` line naming it, and only a store that did not answer is built again before the next boot, so read the frontend's log for that code after every deploy:
 
 | The line's `code` | What stands                                                       | What to do                                                                                                                                                               |
 | ----------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `85`              | An index on the same key under another name, which keeps serving  | Give the list's entry the name the Atlas console shows, in a release                                                                                                     |
 | `11000`           | Rows sharing a value the index keeps unique; no index on that key | Group the collection on the key in the Atlas console to find them. Which row stays is a judgement about those accounts, and the next boot builds the index once one does |
 | `13`              | Nothing: the sign-in store's database user may not build an index | Grant that user `readWrite` on `auth` in the Atlas console, which carries `createIndex`, then restart the frontend container                                             |
-| none              | Nothing: the store did not answer the boot                        | Restart the frontend container (`docker compose restart frontend`, on the server) once it answers                                                                        |
+| none              | Nothing: the store did not answer the boot                        | Nothing: the frontend builds them again when the store answers, and logs `FE-AUTH-011` again for any still refused                                                       |
 
 **A name in the list is the one production's index carries.** Three of them — the `passkey`
 collection's unique `credentialID` and both expiry indexes — were made in the Atlas console before
