@@ -83,7 +83,9 @@ export function mintActorToken(signing: SigningKey, claims: ActorClaims, issuedA
       .setSubject(claims.sub)
       .setIssuedAt(issuedAt)
       .setExpirationTime(issuedAt + ACTOR_TOKEN_LIFETIME_S)
-      // For correlating log lines alone: the lifetime bounds a replay, and no cache of seen ids is kept.
+      // Named on no line but the backend's refusal of a request this token carried
+      // (`docs/logging/spec.md`), and never checked for a replay: the lifetime bounds one, and no
+      // cache of seen ids is kept.
       .setJti(randomBytes(16).toString("base64url"))
       .sign(signing.key)
   );
