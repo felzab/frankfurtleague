@@ -58,6 +58,7 @@ const aenderung = (fields: Record<string, unknown> = {}) => ({
   geaendert_von_gesperrt: false,
   geaendert_am: "2026-09-27T01:00:00Z",
   gesperrt: false,
+  aufgegeben: false,
   ...fields,
 });
 
@@ -306,24 +307,38 @@ describe("what a pass leaves for the next", () => {
     assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [OUTBOX_A] }]);
   });
 
-  /* A row no pass can finish is claimed every lease for ever: past the cap it is stamped out of the outbox
-     and the line says, by count alone, how many were never told. */
-  it("gives a row up after 24 passes, stamping it under a louder line", async () => {
+  /* The backend counts a row's claims, so no count of this process's own gives a row up: one that did
+     would restart at every deploy, and a second instance would give up on its own schedule. */
+  it("keeps a row the claim has not given up, however many passes this process spent on it", async () => {
+    claim = claimOf([aenderung()]);
+    const lost: MailOutcome = "lost";
+    mail.answerWith((sent) => (sent.to === "vorstand@schule.de" ? lost : "accepted"));
+
+    for (let pass = 1; pass <= 30; pass += 1) await runBerechtigungenAbgleich();
+
+    assert.deepEqual(stamps(), [], "the pass gave a row up the backend still hands out");
+    assert.equal(mail.sent.filter((sent) => sent.to === "inhaber@schule.de").length, 1, "a recipient told once was mailed again");
+  });
+
+  /* A row no pass can finish is claimed every lease for ever: once the claim gives it up it is stamped out
+     of the outbox unmailed, and the line says, by count alone, how many were never told. */
+  it("stamps a row the claim gives up unmailed, under a louder line counting who was never told", async () => {
     const AUFGEGEBEN = "6890a1b2c3d4e5f6071a00ff";
     claim = claimOf([aenderung({ id: AUFGEGEBEN })]);
     const lost: MailOutcome = "lost";
     mail.answerWith((sent) => (sent.to === "vorstand@schule.de" ? lost : "accepted"));
+    await runBerechtigungenAbgleich();
+    assert.deepEqual(stamps(), [], "a row with a send that may yet land was stamped");
 
-    for (let pass = 1; pass < 24; pass += 1) await runBerechtigungenAbgleich();
-    assert.deepEqual(stamps(), [], "the row was given up before its cap");
-    assert.equal(mail.sent.filter((sent) => sent.to === "inhaber@schule.de").length, 1, "a recipient told once was mailed again");
-
+    mail.sent.length = 0;
+    claim = claimOf([aenderung({ id: AUFGEGEBEN, aufgegeben: true })]);
     await runBerechtigungenAbgleich();
 
+    assert.deepEqual(mail.sent, [], "a given-up row was mailed");
     assert.deepEqual(stamps(), [{ beanspruchung: "claim-1", ids: [AUFGEGEBEN] }]);
     assert.deepEqual(
       lines.filter((line) => line.event === "berechtigung.notice_abandoned").map((line) => [line.level, line.fields]),
-      [["ERROR", { error_code: "FE-MAIL-011", versuche: 24, nicht_erreicht: 1 }]],
+      [["ERROR", { error_code: "FE-MAIL-011", art: "erteilt", nicht_erreicht: 1 }]],
     );
   });
 

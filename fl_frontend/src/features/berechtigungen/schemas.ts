@@ -83,6 +83,8 @@ export const FLBerechtigungAenderungSchema = z.object({
   geaendert_von_gesperrt: z.boolean(),
   geaendert_am: z.string().nullable(),
   gesperrt: z.boolean(),
+  // Counted by the backend on the row, so a restart of this process gives nobody a second day of passes.
+  aufgegeben: z.boolean(),
 });
 export type FLBerechtigungAenderung = z.infer<typeof FLBerechtigungAenderungSchema>;
 

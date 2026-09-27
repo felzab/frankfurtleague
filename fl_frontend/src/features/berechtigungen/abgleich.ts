@@ -41,14 +41,8 @@ export function armBerechtigungenAbgleich(): void {
 let laeuft = false;
 let nochmal = false;
 
-/**
- * Passes a row may be claimed before it is given up: about four hours of lapsed leases, inside the
- * provider's day, so the recipients it did reach are mailed nothing twice.
- */
-const VERSUCHE_HOECHSTENS = 24;
-
-/** Per outbox row this instance still holds unstamped: the recipients already told, and the passes spent on it. */
-const offen = new Map<string, { erreicht: Set<string>; versuche: number }>();
+/** Per outbox row this instance still holds unstamped, the recipients already told. */
+const offen = new Map<string, Set<string>>();
 
 /** The dead rows last warned of: a count that stands is warned once, not at every pass while nobody repairs it. */
 let gewarntUebersprungen = 0;
@@ -117,12 +111,26 @@ async function abgleichen(): Promise<void> {
 async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: readonly string[]): Promise<boolean> {
   const genannt = [aenderung.jetzt?.adresse, aenderung.vorher?.adresse].filter((adresse) => adresse !== null && adresse !== undefined);
   const adressen = [...new Set([...empfaenger, ...genannt])];
+  const erreicht = offen.get(aenderung.id) ?? new Set<string>();
+
+  // Given up by the backend's count (`docs/backend/spec.md :: I480`): stamped unmailed rather than claimed
+  // for ever, and this line is all that says who was never told, by count and never by address.
+  if (aenderung.aufgegeben) {
+    offen.delete(aenderung.id);
+    logger.error("berechtigung.notice_abandoned", undefined, {
+      error_code: "FE-MAIL-011",
+      art: aenderung.art,
+      // Every recipient where this process holds no pass of the row's, a restart among the reasons.
+      nicht_erreicht: adressen.filter((adresse) => !erreicht.has(adresse)).length,
+    });
+    return true;
+  }
+
   const { subject, html, text } = buildBerechtigungEmail(zugangsaenderung(aenderung), urheber(aenderung), frontend_config.AUTH_URL);
-  const stand = offen.get(aenderung.id) ?? { erreicht: new Set<string>(), versuche: 0 };
 
   let alleErledigt = true;
   // A recipient an earlier pass told is not mailed again: past the provider's day its key collapses nothing.
-  for (const adresse of adressen.filter((adresse) => !stand.erreicht.has(adresse))) {
+  for (const adresse of adressen.filter((adresse) => !erreicht.has(adresse))) {
     try {
       // Keyed on the outbox row, so a lapsed claim mailing it again reaches nobody twice inside the
       // provider's day; the body depends on the row alone, which the provider needs to collapse it.
@@ -135,7 +143,7 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
         tags: { [BERECHTIGUNG_TAG]: BERECHTIGUNG_HINWEIS },
         idempotencyKey: mailIdempotencyKey(["berechtigung", aenderung.id], adresse),
       });
-      stand.erreicht.add(adresse);
+      erreicht.add(adresse);
     } catch (error) {
       // Logged by the mailer itself, and as told: a stack that mails nothing would claim the same rows forever.
       if (error instanceof MailWithheldError) continue;
@@ -156,21 +164,8 @@ async function ankuendigen(aenderung: FLBerechtigungAenderung, empfaenger: reado
     return true;
   }
 
-  stand.versuche += 1;
-  if (stand.versuche < VERSUCHE_HOECHSTENS) {
-    offen.set(aenderung.id, stand);
-    return false;
-  }
-
-  // Given up rather than claimed for ever: the stamp takes it out of the outbox, and this line is all
-  // that says who was never told. Counts, never an address.
-  offen.delete(aenderung.id);
-  logger.error("berechtigung.notice_abandoned", undefined, {
-    error_code: "FE-MAIL-011",
-    versuche: stand.versuche,
-    nicht_erreicht: adressen.length - stand.erreicht.size,
-  });
-  return true;
+  offen.set(aenderung.id, erreicht);
+  return false;
 }
 
 /**
