@@ -714,8 +714,10 @@ def _key_check_call(script: Path) -> str:
 
 @pytest.mark.parametrize("script", [DEPLOY, LOCAL], ids=["deploy", "local"])
 def test_each_script_runs_the_check_in_the_frontend_service_as_the_stack_starts_it(script: Path) -> None:
-    """A bare image run holds none of the service's environment, and passes a key the recreated
-    frontend never finds. No `--user`: the key is its image user's, whom the caller's uid is not."""
+    """A bare image run holds none of the service's environment, and passes a key the frontend never finds.
+
+    No `--user`: the key is its image user's, whom the caller's uid is not.
+    """
     code, output, fixture = _run(_key_check_call(script))
     argv = fixture.argv.read_text(encoding="utf-8").splitlines()
 
@@ -729,8 +731,10 @@ def test_each_script_runs_the_check_in_the_frontend_service_as_the_stack_starts_
 
 
 def test_git_bash_is_told_to_leave_the_mount_path_as_written() -> None:
-    """Git Bash rewrites a `/run/...` argument to a native program into a Windows path, and the
-    container reads the key as missing on every development machine; Linux ignores the variable."""
+    """Git Bash rewrites a `/run/...` argument to a native program into a Windows path.
+
+    The container then reads the key as missing on every development machine; Linux ignores the variable.
+    """
     code, output, fixture = _run(KEY_CHECK)
 
     assert code == 0, output
