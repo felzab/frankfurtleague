@@ -177,7 +177,12 @@ try:
     # Imported from the image working directory, then read from the one the union was joined in:
     # the settings class takes its file from wherever it is built.
     os.chdir(sys.argv[1])
-    read_environment()
+    retired = read_environment().retired_variables
+    # Said and never refused: the image a rollback returns to reads these lines.
+    if retired:
+        # No single quote anywhere in this program: the shell string holding it would end there.
+        names = ", ".join(sorted(retired))
+        print(f"Retired, and read by nothing: {names}", file=sys.stderr)
 except EnvironmentValidationError as refusal:
     print(refusal, file=sys.stderr)
     raise SystemExit(3)
@@ -1261,7 +1266,10 @@ else
          "names the env file to fix." \
          "A backend line opening 'The environment could not be read:' is that same gate on a file it" \
          "could not parse at all, naming the failure's type where it has no variable to name." \
-         "A line naming the database URI is the backend's other refusal, and its continuation says" \
+         "'Invalid secret files: <FILES>' names a secret file that is missing or holds a value the" \
+         "gate refuses, and 'Unreadable secret files: <PATH> (<ERRNO>)' one the service's user cannot" \
+         "read; both services word them identically." \
+         "A line opening 'backend_mongodb_uri:' is the backend's other refusal, and its continuation says" \
          "which of three: the value yielded no server to connect to, the server refused to" \
          "authenticate it, or the server could not be reached." \
          "Neither gate prints a value, so the .env file, or the file under secrets/ the line names," \

@@ -408,6 +408,17 @@ export SECRETS_DIR=run-secrets
 """
 
 
+def test_the_snippet_names_a_retired_line_and_passes_the_join_holding_it() -> None:
+    """The image a rollback restores reads the line, so the release reading files says so and deploys."""
+    retired = KEY_OUTSIDE_THE_CLASS.split("mkdir -p", 1)[0] + "printf 'MONGODB_URI=a value no case reads\\n' >> fl_backend/.env\n"
+    code, output, _ = _run(retired + SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix(), PAIR_JS=PAIR)
+
+    assert code == 0, output
+    assert "snippet=0" in output, output
+    assert "Retired, and read by nothing: MONGODB_URI" in output, output
+    assert "a value no case reads" not in output, output
+
+
 def test_the_boot_build_refuses_a_key_file_outside_the_class_naming_that_file_alone() -> None:
     """The preflight judges a key with the pulled image's own validator, in its container, so the class reaches the deploy first."""
     code, output, _ = _run(KEY_OUTSIDE_THE_CLASS + BOOT_SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix(), PAIR_JS=PAIR)
