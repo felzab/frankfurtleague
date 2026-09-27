@@ -922,67 +922,114 @@ redact_case 'mongodb://localhost:27017 and mail nobody@example.net' \
 
 info "${REDACTED_OK} redaction fixture(s) came back exactly as specified"
 
+# Every tag the image's file names is judged on its own, one per matching line: read as one value,
+# two stages' tags hand the series check a string its glob matches across the line break.
+first_disagreeing_tag() { # $1 exact, or series for a pin naming a series · $2 the pin · $3… the tags
+  local mode="$1" pin="$2" tag
+  shift 2
+  for tag in "$@"; do
+    [[ "$tag" == "$pin" || ( "$mode" == series && "$tag" == "${pin}."* ) ]] && continue
+    printf '%s' "$tag"
+    return 0
+  done
+}
+
+check_uv_pin() { # $1 the manifest · $2 the Dockerfile
+  local pin other
+  local -a tags
+  pin="$(sed -n 's/^required-version = "==\([0-9][^"]*\)"/\1/p' "$1")"
+  mapfile -t tags < <(sed -n 's|^FROM ghcr.io/astral-sh/uv:\([^ @]*\)[@ ].*|\1|p' "$2")
+  if [[ -z "$pin" || ${#tags[@]} -eq 0 ]]; then
+    # Not a skip: a spelling this cannot read is the same silence the step exists to remove.
+    note_fail "could not read the uv version from both files — pin '${pin:-none}', image tag '${tags[*]:-none}'"
+    return 0
+  fi
+  other="$(first_disagreeing_tag exact "$pin" "${tags[@]}")"
+  if [[ -n "$other" ]]; then
+    note_fail "${1} pins uv ${pin} and ${2} copies in ${other}; uv sync refuses the pair, so the backend image cannot build"
+  else
+    info "uv ${pin} in the manifest and the image"
+  fi
+}
+
+check_node_pin() { # $1 the manifest · $2 the Dockerfile
+  local pin other
+  local -a tags
+  # Scoped to `devEngines` then `runtime`: the manifest's own top-level `version` names the package.
+  pin="$(awk '
+    /"devEngines"[[:space:]]*:/ { dev = 1 }
+    dev && /"runtime"[[:space:]]*:/ { runtime = 1 }
+    runtime && match($0, /"version"[[:space:]]*:[[:space:]]*"[^"]*"/) {
+      pin = substr($0, RSTART, RLENGTH); sub(/^"version"[[:space:]]*:[[:space:]]*"/, "", pin); sub(/"$/, "", pin)
+      print pin; exit
+    }
+  ' "$1")"
+  mapfile -t tags < <(sed -n 's|^FROM node:\([0-9][^-@ ]*\)[-@ ].*|\1|p' "$2")
+  if [[ -z "$pin" || ${#tags[@]} -eq 0 ]]; then
+    note_fail "could not read the Node version from both files — devEngines '${pin:-none}', image tag '${tags[*]:-none}'"
+    return 0
+  fi
+  other="$(first_disagreeing_tag exact "$pin" "${tags[@]}")"
+  if [[ -n "$other" ]]; then
+    note_fail "${1} pins Node ${pin} and ${2} builds on ${other}; move the one the bot left behind, and the lockfile with the manifest (pnpm install)"
+  else
+    info "Node ${pin} in the manifest and the image"
+  fi
+}
+
+check_pnpm_pin() { # $1 the manifest · $2 the Dockerfile
+  local pin other
+  local -a tags
+  pin="$(sed -n 's/^[[:space:]]*"packageManager":[[:space:]]*"pnpm@\([0-9][^"+]*\).*/\1/p' "$1")"
+  mapfile -t tags < <(sed -n 's/^ARG PNPM_VERSION=\([^[:space:]]*\).*/\1/p' "$2")
+  if [[ -z "$pin" || ${#tags[@]} -eq 0 ]]; then
+    note_fail "could not read the pnpm version from both files — packageManager '${pin:-none}', PNPM_VERSION '${tags[*]:-none}'"
+    return 0
+  fi
+  other="$(first_disagreeing_tag exact "$pin" "${tags[@]}")"
+  if [[ -n "$other" ]]; then
+    note_fail "${1} names pnpm ${pin} and ${2} installs ${other}; bump both"
+  else
+    info "pnpm ${pin} in the manifest and the image"
+  fi
+}
+
+check_python_series() { # $1 the .python-version file · $2 the Dockerfile
+  local pin other
+  local -a tags
+  pin="$(sed -n '1s/^\([0-9][0-9.]*\)[[:space:]]*$/\1/p' "$1")"
+  mapfile -t tags < <(sed -n 's|^FROM python:\([0-9][^-@ ]*\)[-@ ].*|\1|p' "$2")
+  if [[ -z "$pin" || ${#tags[@]} -eq 0 ]]; then
+    note_fail "could not read the Python version from both files — .python-version '${pin:-none}', image tag '${tags[*]:-none}'"
+    return 0
+  fi
+  other="$(first_disagreeing_tag series "$pin" "${tags[@]}")"
+  if [[ -n "$other" ]]; then
+    note_fail "${1} names Python ${pin} and ${2} runs ${other}, outside it; CI and the virtualenv test a Python production does not run"
+  else
+    info "Python ${tags[*]} in the image, inside the ${pin} the repository pins"
+  fi
+}
+
 step "15. The uv version is one number in two files"
 # A bot moves one and not the other, and `uv sync` then refuses outright, so the backend image
 # stops building on every branch at once — including branches that touched neither file.
-UV_PIN="$(sed -n 's/^required-version = "==\([0-9][^"]*\)"/\1/p' fl_backend/pyproject.toml)"
-UV_TAG="$(sed -n 's|^FROM ghcr.io/astral-sh/uv:\([^ @]*\)[@ ].*|\1|p' fl_backend/Dockerfile)"
-if [[ -z "$UV_PIN" || -z "$UV_TAG" ]]; then
-  # Not a skip: a spelling this cannot read is the same silence the step exists to remove.
-  note_fail "could not read the uv version from both files — pin '${UV_PIN:-none}', image tag '${UV_TAG:-none}'"
-elif [[ "$UV_PIN" != "$UV_TAG" ]]; then
-  note_fail "fl_backend/pyproject.toml pins uv ${UV_PIN} and fl_backend/Dockerfile copies in ${UV_TAG}; uv sync refuses the pair, so the backend image cannot build"
-else
-  info "uv ${UV_PIN} in the manifest and the image"
-fi
+check_uv_pin fl_backend/pyproject.toml fl_backend/Dockerfile
 
 step "16. The Node version is one number in two files"
 # pnpm downloads the pinned Node for the checkout and CI, and the image runs its base's own, so a
 # bot moving the tag alone ships a Node no test ran on (`docs/ops/spec.md :: I511`).
-
-# Scoped to `devEngines` then `runtime`: the manifest's own top-level `version` names the package.
-NODE_PIN="$(awk '
-  /"devEngines"[[:space:]]*:/ { dev = 1 }
-  dev && /"runtime"[[:space:]]*:/ { runtime = 1 }
-  runtime && match($0, /"version"[[:space:]]*:[[:space:]]*"[^"]*"/) {
-    pin = substr($0, RSTART, RLENGTH); sub(/^"version"[[:space:]]*:[[:space:]]*"/, "", pin); sub(/"$/, "", pin)
-    print pin; exit
-  }
-' fl_frontend/package.json)"
-NODE_TAG="$(sed -n 's|^FROM node:\([0-9][^-@ ]*\)[-@ ].*|\1|p' fl_frontend/Dockerfile)"
-if [[ -z "$NODE_PIN" || -z "$NODE_TAG" ]]; then
-  note_fail "could not read the Node version from both files — devEngines '${NODE_PIN:-none}', image tag '${NODE_TAG:-none}'"
-elif [[ "$NODE_PIN" != "$NODE_TAG" ]]; then
-  note_fail "fl_frontend/package.json pins Node ${NODE_PIN} and fl_frontend/Dockerfile builds on ${NODE_TAG}; move the one the bot left behind, and the lockfile with the manifest (pnpm install)"
-else
-  info "Node ${NODE_PIN} in the manifest and the image"
-fi
+check_node_pin fl_frontend/package.json fl_frontend/Dockerfile
 
 step "17. The pnpm version is one number in two files"
 # Nothing moves either by itself (`.github/dependabot.yml`), so a hand bump of one installs the image
 # with a pnpm the lockfile was never written by (`docs/ops/spec.md :: I512`).
-PNPM_PIN="$(sed -n 's/^[[:space:]]*"packageManager":[[:space:]]*"pnpm@\([0-9][^"+]*\).*/\1/p' fl_frontend/package.json)"
-PNPM_ARG="$(sed -n 's/^ARG PNPM_VERSION=\([^[:space:]]*\).*/\1/p' fl_frontend/Dockerfile)"
-if [[ -z "$PNPM_PIN" || -z "$PNPM_ARG" ]]; then
-  note_fail "could not read the pnpm version from both files — packageManager '${PNPM_PIN:-none}', PNPM_VERSION '${PNPM_ARG:-none}'"
-elif [[ "$PNPM_PIN" != "$PNPM_ARG" ]]; then
-  note_fail "fl_frontend/package.json names pnpm ${PNPM_PIN} and fl_frontend/Dockerfile installs ${PNPM_ARG}; bump both"
-else
-  info "pnpm ${PNPM_PIN} in the manifest and the image"
-fi
+check_pnpm_pin fl_frontend/package.json fl_frontend/Dockerfile
 
 step "18. The Python series is one number in two files"
 # The file names a series and the tag a release inside it, so the tag's leading numbers are compared:
 # every CI job's interpreter comes from the file, and production's from the tag (`docs/ops/spec.md :: I513`).
-PY_PIN="$(sed -n '1s/^\([0-9][0-9.]*\)[[:space:]]*$/\1/p' fl_backend/.python-version)"
-PY_TAG="$(sed -n 's|^FROM python:\([0-9][^-@ ]*\)[-@ ].*|\1|p' fl_backend/Dockerfile)"
-if [[ -z "$PY_PIN" || -z "$PY_TAG" ]]; then
-  note_fail "could not read the Python version from both files — .python-version '${PY_PIN:-none}', image tag '${PY_TAG:-none}'"
-elif [[ "$PY_TAG" != "$PY_PIN" && "$PY_TAG" != "${PY_PIN}."* ]]; then
-  note_fail "fl_backend/.python-version names Python ${PY_PIN} and fl_backend/Dockerfile runs ${PY_TAG}, outside it; CI and the virtualenv test a Python production does not run"
-else
-  info "Python ${PY_TAG} in the image, inside the ${PY_PIN} the repository pins"
-fi
+check_python_series fl_backend/.python-version fl_backend/Dockerfile
 
 # The only thing that tells a run with nothing to report from one that stopped reporting.
 if [[ -n "${FL_SELFCHECK_LEDGER:-}" ]]; then

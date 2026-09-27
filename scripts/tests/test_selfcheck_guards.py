@@ -13,9 +13,11 @@ import json
 import re
 import shutil
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 from typing import Final
 
+import pytest
 from conftest import BASH, declared, lift_function, run_shell, write_shell
 
 SCRIPTS: Final = Path(__file__).resolve().parent.parent
@@ -340,3 +342,68 @@ def test_every_shape_the_call_site_reader_once_mis_lexed(tmp_path: Path) -> None
         if "unterminated" in done.stdout:
             wrong.append(f"{label}: the reader stopped -- {done.stdout!r}")
     assert not wrong, "\n".join(wrong)
+
+
+# Each pin check, the manifest spelling its pin, the image line naming a tag, the pin, and a release
+# the pin does not admit. The Python row's pin names a series, which a release inside it satisfies.
+PIN_CHECKS: Final[dict[str, tuple[str, Callable[[str], str], str, str]]] = {
+    "check_uv_pin": ('required-version = "==0.12.19"\n', lambda tag: f"FROM ghcr.io/astral-sh/uv:{tag}@sha256:0 AS uv\n", "0.12.19", "0.12.20"),
+    "check_node_pin": (
+        '{\n  "version": "1.0.0",\n  "devEngines": {\n    "runtime": {\n      "name": "node",\n      "version": "26.10.0"\n    }\n  }\n}\n',
+        lambda tag: f"FROM node:{tag}-trixie-slim@sha256:0 AS base\n",
+        "26.10.0",
+        "26.11.0",
+    ),
+    "check_pnpm_pin": ('{\n  "packageManager": "pnpm@11.27.1"\n}\n', lambda tag: f"ARG PNPM_VERSION={tag}\n", "11.27.1", "11.28.0"),
+    "check_python_series": ("3.14\n", lambda tag: f"FROM python:{tag}-slim@sha256:0 AS base\n", "3.14.7", "3.15.0"),
+}
+
+
+def _pin_check(name: str, manifest: str, dockerfile: str, tmp_path: Path) -> str:
+    """One pin step's check, lifted with the helper it calls, over a fixture pair; its verbs stubbed."""
+    pinned = write_shell(tmp_path / "manifest", manifest)
+    image = write_shell(tmp_path / "Dockerfile", dockerfile)
+    _, out, err = _bash(
+        (
+            SHEBANG,
+            f"source {LIB.as_posix()!r}",
+            "note_fail() { printf 'FAIL %s\\n' \"$*\"; }",
+            "info() { printf 'INFO %s\\n' \"$*\"; }",
+            _function("first_disagreeing_tag"),
+            _function(name),
+            f"{name} {pinned.as_posix()!r} {image.as_posix()!r}",
+        ),
+        tmp_path,
+    )
+    return out + err
+
+
+@pytest.mark.parametrize("name", sorted(PIN_CHECKS))
+def test_a_pin_every_stage_agrees_with_passes(name: str, tmp_path: Path) -> None:
+    """Two stages naming the admitted release: the control, or a check refusing everything passes the cases below."""
+    manifest, stage, admitted, _ = PIN_CHECKS[name]
+
+    said = _pin_check(name, manifest, stage(admitted) + stage(admitted), tmp_path)
+
+    assert "INFO" in said and "FAIL" not in said, said
+
+
+@pytest.mark.parametrize("name", sorted(PIN_CHECKS))
+def test_a_later_stage_naming_another_release_fails(name: str, tmp_path: Path) -> None:
+    """The second stage is the load-bearing one: read as one value with the first, the series row's glob matched across the break."""
+    manifest, stage, admitted, other = PIN_CHECKS[name]
+
+    said = _pin_check(name, manifest, stage(admitted) + stage(other), tmp_path)
+
+    assert f"FAIL {(tmp_path / 'manifest').as_posix()}" in said and other in said, said
+
+
+@pytest.mark.parametrize("name", sorted(PIN_CHECKS))
+def test_a_side_it_cannot_read_fails(name: str, tmp_path: Path) -> None:
+    """A spelling the reader misses would otherwise pass as agreement, on either side."""
+    manifest, stage, admitted, _ = PIN_CHECKS[name]
+
+    for pinned, image in (("{}\n", stage(admitted)), (manifest, "FROM scratch\n")):
+        said = _pin_check(name, pinned, image, tmp_path)
+
+        assert "FAIL could not read" in said, said
