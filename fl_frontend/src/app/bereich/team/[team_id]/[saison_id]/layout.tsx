@@ -6,9 +6,9 @@ import { FunktionenGuard } from "@/features/funktionen/components/providers/Funk
 import { TeamAreaBoundary } from "@/features/funktionen/components/providers/TeamAreaBoundary";
 import { TeamForbiddenPanel } from "@/features/funktionen/components/ui/TeamForbiddenPanel";
 import { TeamShell } from "@/features/funktionen/components/ui/TeamShell";
+import { teamStructureFor } from "@/features/funktionen/constants";
 import { requireSubjectSession } from "@/features/funktionen/resolvers";
 import { seatsAt } from "@/features/funktionen/teamSeats";
-import { teamStructureFor } from "@/features/funktionen/teamStructure";
 import { funktionOrteOf } from "@/features/funktionen/utils";
 import { PageLoader } from "@/shared/components/ui/PageLoader";
 
