@@ -198,7 +198,8 @@ takes `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminRouteWrite`, the
 action.
 
 **An administrator's step-up write asks for a fresh passkey confirmation** once the session is
-older than `fl_frontend/src/core/sessionLifetimes.ts :: STEP_UP_WINDOW_MS`, and nothing inside it. A
+older than `fl_frontend/src/core/sessionLifetimes.ts :: STEP_UP_WINDOW_MS`, and nothing inside it; a write
+that declares the enrolment's window, a grant and a revoke, asks past `:: ENROLMENT_WINDOW_MS` instead (I458). A
 step-up write is one nothing reverses, or one that mints or voids a bearer link to an address, since
 that link grants its holder access; a write one press reverses, a retirement among them, and a mail
 carrying nothing but a notice ask nothing. The rule is the write's and never its control's: a two-press
