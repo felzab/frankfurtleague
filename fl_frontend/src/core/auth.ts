@@ -67,6 +67,9 @@ const SESSION_UPDATE_AGE_SECONDS = 60 * 60;
 
 const CODE_VALIDITY_SECONDS = CODE_VALIDITY_MINUTES * 60;
 
+/** How the plugin names a sign-in code's row: its type, then the address (`email-otp/utils :: toOTPIdentifier`). */
+const CODE_ROW_PREFIX = "sign-in-otp-";
+
 /** The one path that spends a code, which `fl_frontend/src/app/api/signin/code/route.ts` calls in process. */
 const CODE_SIGN_IN_PATH = "/sign-in/email-otp";
 
@@ -753,6 +756,17 @@ const authOptions = {
   },
 
   databaseHooks: {
+    verification: {
+      create: {
+        // A wrong guess writes its code back stamped now, and the plugin takes the newest stamp for the
+        // live code, so a send racing the guess would lose to it: stamped with its issue time instead
+        // (`docs/frontend/spec.md :: I486`).
+        before: async (row) => {
+          if (!row.identifier.startsWith(CODE_ROW_PREFIX)) return;
+          return { data: { ...row, createdAt: new Date(new Date(row.expiresAt).getTime() - CODE_VALIDITY_SECONDS * 1000) } };
+        },
+      },
+    },
     session: {
       create: {
         // Every sign-in writes an identical row, so the endpoint path is the only thing separating

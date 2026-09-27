@@ -11,6 +11,7 @@ import {
   configDouble,
   cookieHeader,
   GATE_BACKEND_CONFIG,
+  lastMailedCode,
   ORIGIN,
   registerAuthDoubles,
   signInByCode,
@@ -166,7 +167,10 @@ const counting = new Barrier();
 /** Where a request's first write after its judgement waits: `barrier`, unless a case holds it at its own gate. */
 let holding: { arrive: () => Promise<unknown> } = barrier;
 
-/** What runs as the verify half consumes its challenge: after its session was read, before its transaction. */
+/**
+ * What runs as a verification row is consumed: a passkey's challenge after its session was read and
+ * before its transaction, a code inside its consume's own transaction.
+ */
 let consuming: () => Promise<unknown> = async () => undefined;
 
 // Imported after the hooks above are registered: a static import resolves before they exist.
@@ -555,6 +559,39 @@ describe("an address's failures after a code signs in, against a real database (
       (error: { body?: { code?: unknown } }) => error.body?.code === "INVALID_OTP",
     );
     assert.equal((await failureRows()).length, 1);
+  });
+});
+
+/* A wrong guess consumes the code and writes it back after its check. A send from another request,
+   inside the consume's transaction, writes a newer code the written-back one must not outrank
+   (`docs/frontend/spec.md :: I486`). */
+describe("a wrong code racing a new one's send, against a real database", () => {
+  it("signs in with the code mailed while a wrong guess was being checked", async () => {
+    const headers = new Headers(ORIGIN);
+    await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers });
+    const stale = lastMailedCode(sent, ADMIN_EMAIL);
+    assert.ok(stale !== null, "the first send mailed nothing, so no code is raced");
+
+    const gate = new Gate();
+    consuming = () => gate.arrive();
+    const guess = auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: stale === "000000" ? "111111" : "000000" }, headers }).then(
+      () => "signed in",
+      (error: { body?: { code?: unknown } }) => error.body?.code,
+    );
+    try {
+      assert.ok(await gate.reached, "the wrong guess never reached its consume, so no race was run");
+      // From this request and never from inside the held one, whose transaction a nested call would join.
+      await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers });
+    } finally {
+      gate.release();
+    }
+    assert.equal(await guess, "INVALID_OTP");
+
+    const fresh = lastMailedCode(sent, ADMIN_EMAIL);
+    assert.ok(fresh !== null && fresh !== stale, "the racing send mailed no new code");
+    await auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp: fresh }, headers });
+
+    assert.equal((await sessionRows()).length, 1);
   });
 });
 
