@@ -312,6 +312,8 @@ MIS_LEX: Final[tuple[tuple[str, tuple[str, ...], str, str, str], ...]] = (
     ("punctuated heredoc, quoted", ("cat <<" + SQ + "EOF-1" + SQ, "body", "EOF-1", "real_eight x"), "real_eight", "", ""),
     ("punctuated heredoc, bare", ("cat <<END-OF", "body", "END-OF", "real_eleven x"), "real_eleven", "", ""),
     ("here-string", ('done <<< "$heads"', "real_nine x"), "real_nine", "", ""),
+    ("for list", ("for package in list_one list_two; do real_twelve x; done",), "real_twelve", "list_one", ""),
+    ("select list", ("select choice in pick_one pick_two; do real_thirteen x; done",), "real_thirteen", "pick_one", ""),
 )
 
 

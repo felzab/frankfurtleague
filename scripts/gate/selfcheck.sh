@@ -402,7 +402,8 @@ function emit(w, nextc, atcmd) {
   # command positions.
   if (w == "case") { incase++; cmd = 1; pat = 1; return }
   if (w == "esac") { if (incase > 0) incase--; cmd = 0; pat = (incase > 0); return }
-  if (w ~ /^(if|then|else|elif|do|while|until|time|in|done|fi|coproc)$/) { cmd = 1; return }
+  # Never `in`: the words after `for x in` are data, and a `case` arm is a pattern either way.
+  if (w ~ /^(if|then|else|elif|do|while|until|time|done|fi|coproc)$/) { cmd = 1; return }
   if (w == "for" || w == "select" || w == "function") { cmd = 1; skipnext = 1; return }
   atcmd = (cmd && !pat)
   cmd = 0
