@@ -11,7 +11,14 @@ from pydantic.fields import FieldInfo
 from pymongo.errors import OperationFailure
 
 from app.api.aktionen.schemas import FLAktion, FLAktionMitStand, FLAktionRequest, FLAktorKind, FLAktorMitAdresse, FLAktorPerson
-from app.api.berechtigungen.schemas import FLBerechtigung, FLBerechtigungAngekuendigt, FLVerwaltung
+from app.api.berechtigungen.schemas import (
+    FLBerechtigung,
+    FLBerechtigungAenderungArt,
+    FLBerechtigungAngekuendigt,
+    FLBerechtigungPostausgangZeile,
+    FLBerechtigungStand,
+    FLVerwaltung,
+)
 from app.api.bewerbungen.schemas import (
     FLBewerbung,
     FLBewerbungBestaetigung,
@@ -214,6 +221,9 @@ MIRRORED_MODELS: list[tuple[Collection, tuple[str, ...], type[BaseModel] | tuple
     (Collection.REGISTRIERUNGEN, ("entscheidung",), FLRegistrierungEntscheidung, frozenset()),
     (Collection.BERECHTIGUNGEN, (), FLBerechtigung, frozenset()),
     (Collection.BERECHTIGUNGEN_ANGEKUENDIGT, (), FLBerechtigungAngekuendigt, frozenset()),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), FLBerechtigungPostausgangZeile, frozenset()),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("jetzt",), FLBerechtigungStand, frozenset()),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("vorher",), FLBerechtigungStand, frozenset()),
 ]
 
 # (collection, path to the sub-schema, field, the Literal it must equal, whether null is a member).
@@ -388,6 +398,9 @@ MIRRORED_ENUMS: list[tuple[Collection, tuple[str, ...], str, tuple[object, ...],
     # Closed on the stored row as well as the wire: the Playground writes a grant by hand.
     (Collection.BERECHTIGUNGEN, (), "verwaltung", get_args(FLVerwaltung), False),
     (Collection.BERECHTIGUNGEN_ANGEKUENDIGT, (), "verwaltung", get_args(FLVerwaltung), False),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, (), "art", get_args(FLBerechtigungAenderungArt), False),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("jetzt",), "verwaltung", get_args(FLVerwaltung), False),
+    (Collection.BERECHTIGUNGEN_POSTAUSGANG, ("vorher",), "verwaltung", get_args(FLVerwaltung), False),
     # Nullable for the reason a squad row's two are: a registration is filled in over time, and the
     # pupil may answer neither.
     (Collection.REGISTRIERUNGEN, (), "position", get_args(FLSpielerPosition), True),

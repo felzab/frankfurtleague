@@ -2,7 +2,7 @@ import hashlib
 import hmac
 import re
 import secrets
-from collections.abc import AsyncIterator, Callable, Mapping
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from typing import Annotated, Final, TypeIs, get_args
 
 from fastapi import Depends, Request, Security
@@ -15,7 +15,7 @@ from app.core.crud import pull_many_from_db
 from app.core.db import get_berechtigungen_collection
 from app.core.exceptions import ActorForbiddenException, MalformedRequestException, RequestAuthorizationException
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, AktorFunktion, PersonActor, actor_var, request_var
-from app.shared.folding import sign_in_identifier
+from app.shared.folding import is_stored_identifier, sign_in_identifier
 from app.shared.sub_keys import derive_sub_key
 
 # Named once, as `app/core/exceptions.py` names its codes, so a test asserts the core's code rather
@@ -108,13 +108,28 @@ def is_well_formed_actor(header_value: str | None) -> TypeIs[str]:
     return header_value is not None and len(header_value) <= ACTOR_MAX_LENGTH and WELL_FORMED_ACTOR.fullmatch(header_value) is not None
 
 
-async def verify_actor_is_admin(
-    request: Request, berechtigungen_collection: Annotated[AsyncCollection, Depends(get_berechtigungen_collection)]
-) -> None:
-    """Refuse an actor an admin-tier route names who holds no grant, read per request (`docs/backend/spec.md :: I383`).
+# Whether a folded identifier holds a live grant: the one question the actor check asks.
+GrantLookup = Callable[[str], Awaitable[bool]]
+
+
+def get_grant_lookup(berechtigungen_collection: Annotated[AsyncCollection, Depends(get_berechtigungen_collection)]) -> GrantLookup:
+    """The actor check's read, one equality `uniq_berechtigung_adresse` serves, a dead row admitting nobody (`docs/backend/spec.md :: I453`)."""
+
+    async def holds_a_live_grant(identifier: str) -> bool:
+        found = await pull_many_from_db(
+            collection=berechtigungen_collection, db_filter={"adresse": identifier}, limit=1, projection=["adresse"]
+        )
+
+        return bool(found) and is_stored_identifier(found[0].get("adresse"))
+
+    return holds_a_live_grant
+
+
+async def verify_actor_is_admin(request: Request, holds_a_live_grant: Annotated[GrantLookup, Depends(get_grant_lookup)]) -> None:
+    """Refuse an actor an admin-tier route names who holds no live grant, read per request (`docs/backend/spec.md :: I383`).
 
     An absent or malformed header passes here and meets `bind_actor`, declared after it on every
-    admin-tier router, which refuses either on every method.
+    admin-tier router.
     """
 
     header_value = request.headers.get(ACTOR_HEADER)
@@ -123,10 +138,7 @@ async def verify_actor_is_admin(
 
     # Folded, as every grant is stored, or a mixed-case header locks an administrator out of the
     # panel. Either tier admits: `owner` holds every power `administration` does.
-    granted = await pull_many_from_db(
-        collection=berechtigungen_collection, db_filter={"adresse": sign_in_identifier(header_value)}, limit=1, projection=["_id"]
-    )
-    if not granted:
+    if not await holds_a_live_grant(sign_in_identifier(header_value)):
         # The address stays out of the message, which reaches the log line.
         raise ActorForbiddenException(error_code=ACTOR_NOT_ADMIN, message=f"the {ACTOR_HEADER} this request names is not an administrator")
 

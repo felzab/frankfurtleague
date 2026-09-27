@@ -310,6 +310,19 @@ def valid_documents() -> dict[str, dict[str, Any]]:
             "verwaltung": "owner",
             "angekuendigt_am": datetime(2026, 1, 1, 0, 5, tzinfo=UTC),
         },
+        # A removal a pass holds claimed: the one shape carrying every nullable key both ways.
+        "berechtigungen_postausgang": {
+            "_id": BERECHTIGUNG_OID,
+            "berechtigung_id": TEAM_OID,
+            "art": "entzogen",
+            "jetzt": None,
+            "vorher": {"adresse": None, "verwaltung": "administration"},
+            "geaendert_von": "inhaberin@example.invalid",
+            "geaendert_am": datetime(2026, 1, 1, tzinfo=UTC),
+            "erfasst_am": datetime(2026, 1, 1, tzinfo=UTC),
+            "beansprucht_bis": datetime(2026, 1, 1, 0, 10, tzinfo=UTC),
+            "beanspruchung": "a-claim",
+        },
     }
 
 

@@ -11,6 +11,7 @@ from app.core.db import (
     get_aktionen_collection,
     get_berechtigungen_angekuendigt_collection,
     get_berechtigungen_collection,
+    get_berechtigungen_postausgang_collection,
     get_bewerbungen_collection,
     get_database,
     get_db_client,
@@ -63,6 +64,8 @@ RegistrierungenCollection = Annotated[AsyncCollection, Depends(get_registrierung
 BerechtigungenCollection = Annotated[AsyncCollection, Depends(get_berechtigungen_collection)]
 
 BerechtigungenAngekuendigtCollection = Annotated[AsyncCollection, Depends(get_berechtigungen_angekuendigt_collection)]
+
+BerechtigungenPostausgangCollection = Annotated[AsyncCollection, Depends(get_berechtigungen_postausgang_collection)]
 
 
 # Injected rather than read at the call site, which is what keeps "today" substitutable in tests.

@@ -325,9 +325,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   A person id across seasons is not introduced: contact persons are season-scoped by design.
 - **An administrator's address is stored as their grant, in plain, and so is the address of
   whoever granted it.** `berechtigungen` holds the grant and `berechtigungen_angekuendigt` what the
-  other administrators were told of it, and every administrator is served both addresses. A revoke
-  removes the grant at once and the announced row at the next reconciliation
-  (`docs/backend/spec.md :: I439`); the log keeps each removed row's image, the address in it, for
+  other administrators were told of it, and every administrator is served both addresses. The outbox
+  `berechtigungen_postausgang` holds a changed grant's address until a pass has mailed it, and no
+  barred address at all (`docs/backend/spec.md :: I452`). A revoke removes the grant and its
+  announced row at once (`docs/backend/spec.md :: I451`); the log keeps each removed row's image, the address in it, for
   its twelve months, as it keeps every administrator's write. No erasure route reaches a grant: the revoke is the route, and
   an `owner` grant is removed in the database directly (`docs/backend/spec.md :: I436`).
 - **The administrator's own email on every log row stays, outside every redaction.** The log

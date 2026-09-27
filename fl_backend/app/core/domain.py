@@ -282,28 +282,18 @@ AGGREGATES: tuple[Aggregate, ...] = (
     Aggregate(
         name="Berechtigung",
         root=Collection.BERECHTIGUNGEN,
-        members=(),
+        members=(Collection.BERECHTIGUNGEN_ANGEKUENDIGT, Collection.BERECHTIGUNGEN_POSTAUSGANG),
         boundary=(
             "The whole list is the boundary, not one row: the floor of two is a rule over every grant at once, so every "
             "transaction judging it writes every row of it, and two revokes or a grant beside a ban conflict instead of "
-            "both committing (`docs/backend/spec.md :: I53`). A row names an address rather than a person record, as a "
-            "ban does, so it is in no boundary with `spieler`, a seat or a referee, and one person holding a grant and a "
-            "seat is two unrelated facts. The ban list is held apart from it by refusal in both directions rather than by "
-            "membership: a grant is refused for a barred address and a ban for a granted one, each write reading the other "
-            "collection inside its own transaction. `owner` rows are written by no route at all. Anonymous it is not: "
-            "`adresse` and `erteilt_von` are administrators' addresses in plain, served to every administrator."
-        ),
-    ),
-    Aggregate(
-        name="Berechtigungsankuendigung",
-        root=Collection.BERECHTIGUNGEN_ANGEKUENDIGT,
-        members=(),
-        boundary=(
-            "What every administrator has been told the grants are, one row per grant keyed on the grant's own id. Held "
-            "true against nothing: it trails `berechtigungen` on purpose, and the distance between the two is exactly "
-            "what the reconciliation mails, so a rule binding them in one transaction would announce nothing. It is written "
-            "by the reconciliation's stamp alone, after the mail went out, and a grant removed outside the application is "
-            "found only because its row here outlives it."
+            "both committing (`docs/backend/spec.md :: I53`). The announced record and the outbox join it because a grant "
+            "or a revoke made here moves all three in one transaction: the change, the record accounting for it, and the "
+            "notice announcing it, so the comparison finds only what the database was edited to (`docs/backend/spec.md :: "
+            "I451`). A row names an address rather than a person record, as a ban does, so it is in no boundary with "
+            "`spieler`, a seat or a referee. The ban list is held apart by refusal in both directions rather than by "
+            "membership, each write reading the other collection inside its own transaction. `owner` rows are written by "
+            "no route at all. Anonymous it is not: `adresse` and `erteilt_von` are administrators' addresses in plain, "
+            "served to every administrator, and the outbox holds them until a pass has mailed them."
         ),
     ),
 )
@@ -2162,7 +2152,7 @@ RULES: tuple[Rule, ...] = (
         status=HTTPStatus.CONFLICT,
         operation="POST /berechtigungen",
         aggregate="Berechtigung",
-        summary="an address already holding a grant of either tier takes no second one",
+        summary="an address a live grant of either tier already holds takes no second one",
         implemented_by="app.api.berechtigungen.services.find_vorhanden_refusal",
         tested_by="tests/api/test_berechtigungen_execution.py::TestASecondGrantOfOneAddress",
     ),
@@ -2185,11 +2175,29 @@ RULES: tuple[Rule, ...] = (
         tested_by="tests/api/test_berechtigungen_execution.py::TestAGrantToABarredAddress",
     ),
     Rule(
+        code="REQ-BERECHTIGUNG-005",
+        status=HTTPStatus.FORBIDDEN,
+        operation="DELETE /berechtigungen/{berechtigung_id}",
+        aggregate="Berechtigung",
+        summary="a revoke is made only by an actor whose own live grant is `owner`, read inside the transaction",
+        implemented_by="app.api.berechtigungen.services.find_nur_inhaber_refusal",
+        tested_by="tests/api/test_berechtigungen_execution.py::TestOnlyAnOwnerRevokes",
+    ),
+    Rule(
+        code="REQ-BERECHTIGUNG-006",
+        status=HTTPStatus.FORBIDDEN,
+        operation="POST /berechtigungen",
+        aggregate="Berechtigung",
+        summary="a grant is made only by an actor whose own live grant still stands inside the transaction",
+        implemented_by="app.api.berechtigungen.services.find_ohne_zugang_refusal",
+        tested_by="tests/api/test_berechtigungen_execution.py::TestAnActorRevokedMidRequest",
+    ),
+    Rule(
         code="REQ-BERECHTIGUNG-004",
         status=HTTPStatus.CONFLICT,
         operation="DELETE /berechtigungen/{berechtigung_id}",
         aggregate="Berechtigung",
-        summary="a revoke leaves at least two grants standing, any `owner` grant counted among them",
+        summary="a revoke leaves at least two live, unbarred grants standing, any `owner` grant counted among them",
         implemented_by="app.api.berechtigungen.services.find_mindestzahl_refusal",
         tested_by="tests/api/test_berechtigungen_execution.py::TestTheFloorOfTwo",
     ),

@@ -1,37 +1,42 @@
-import contextlib
+import secrets
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
 from pymongo.asynchronous.client_session import AsyncClientSession
 
-from app.api.berechtigungen.crud import read_berechtigungen, read_the_announced, read_who_changed
+from app.api.berechtigungen.crud import gesperrte_adressen, read_berechtigungen, read_the_announced, read_the_claimable
 from app.api.berechtigungen.schemas import (
     FLBerechtigungAbgleichResponse,
     FLBerechtigungAenderung,
     FLBerechtigungAngekuendigtPayload,
     FLBerechtigungAngekuendigtResponse,
+    FLBerechtigungPostausgangZeile,
 )
-from app.api.berechtigungen.services import compare, compose_announced
-from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.crud import gesperrte_hashes
-from app.api.sperrliste.services import adresse_hash
+from app.api.berechtigungen.services import (
+    BEANSPRUCHUNG_DAUER,
+    compare,
+    compose_announced,
+    compose_postausgang,
+    lebendige,
+    withheld,
+)
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import delete_many_from_db, post_many_to_db
+from app.core.crud import delete_many_from_db, patch_many_in_db, post_many_to_db
 from app.core.dependencies import (
-    AktionenCollection,
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
+    BerechtigungenPostausgangCollection,
     DBClient,
     SaisonsCollection,
     SperrlisteCollection,
     get_germany_now,
 )
-from app.core.exception_handlers import stores_nothing
 from app.core.security import bind_system_actor, verify_access_system
 
 # System tier and the system actor, as the application sweep's own router is: the pass holds no
-# session, and an out-of-band change has no administrator to attribute its stamp to.
+# session, and an out-of-band change has no administrator to attribute its rows to.
 router = APIRouter(
     prefix=f"/api/v{API_VERSION}/berechtigungen/abgleich",
     dependencies=[Depends(verify_access_system), Depends(bind_system_actor)],
@@ -41,101 +46,172 @@ router = APIRouter(
 @router.post(
     "",
     response_model=FLBerechtigungAbgleichResponse,
-    summary="Say how the grants differ from what was last announced",
-    dependencies=[Depends(stores_nothing)],
+    summary="Claim the grant changes still to be announced",
 )
 async def post_berechtigungen_abgleich(
     berechtigungen_collection: BerechtigungenCollection,
     berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    aktionen_collection: AktionenCollection,
+    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
     sperrliste_collection: SperrlisteCollection,
     saisons_collection: SaisonsCollection,
+    db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
+    now: datetime = Depends(get_germany_now),
 ) -> FLBerechtigungAbgleichResponse:
     """
-    Answer every grant whose state differs from what every administrator was last told, and who to tell. Stores nothing.
+    Queue every change made to the grants in the database directly, then claim the unannounced changes and answer who to tell.
 
-    A grant added, removed or changed by any route counts, a change made in the database directly included: the comparison is with
-    the announced record rather than with the log, so a grant deleted by hand, which leaves nothing behind in `berechtigungen`, is
-    still found. Each change carries the administrator whose recorded write made it, or null where no recorded write did -- a
-    change made in the database directly, or one older than the log's twelve months. `gesperrt` says whether the address a grant
-    now names is on the ban list, which only a change made outside the application can leave true.
+    Every grant and revoke made through the application queued its own notice when it was made, naming the administrator who made
+    it. What was changed in the database directly is found here, by comparing the grants with the record of what is already
+    accounted for, and queued naming nobody: `geaendert_von` and `geaendert_am` null. A database change undone again before any
+    call to this endpoint is found by nothing. A row whose address no request can match counts as no grant, and `uebersprungen`
+    counts those rows.
 
-    `empfaenger` is every address holding a grant now; a removed address is on none, so it is read off its own change. Nothing is
-    marked as told here: the caller mails, then hands back what it announced to `POST /berechtigungen/abgleich/angekuendigt`, so a
-    send that failed is found again by the next call. Answers an empty list where nothing changed.
+    The call then claims, oldest first and a page at a time, every queued change no claim holds or whose claim has lapsed, for ten
+    minutes from now. A second call inside that time is answered none of them. The caller mails each change and then hands the ids it
+    mailed, with `beanspruchung`, to `POST /berechtigungen/abgleich/angekuendigt`. Where a lease lapses before that, the next call
+    claims those changes again. `beanspruchung` and `beansprucht_bis` are null exactly where nothing was claimed.
+
+    No barred address is answered in plain: wherever one would stand -- `jetzt`, `vorher`, `empfaenger` -- it is `null` or left out,
+    and the change carries `gesperrt`. `empfaenger` is every live, unbarred grant holder now; a removed address is read off its change.
     """
 
-    grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection)
-    changes = compare(
-        grants=grants, announced=await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection)
-    )
+    async def queue_and_claim(session: AsyncClientSession) -> tuple[list[dict[str, Any]], list[str], int, str | None]:
+        """Read the grants, the record and the ban list, queue what differs, then claim, each on this transaction's session."""
 
-    who = await read_who_changed(
-        aktionen_collection=aktionen_collection, changes=[(berechtigung_id, art) for berechtigung_id, art, _, _ in changes]
-    )
+        grants = await read_berechtigungen(berechtigungen_collection=berechtigungen_collection, session=session)
+        live = lebendige(grants)
+        announced = await read_the_announced(berechtigungen_angekuendigt_collection=berechtigungen_angekuendigt_collection, session=session)
+        changes = compare(grants=grants, announced=announced)
 
-    hashes: dict[str, str] = {}
-    for _, _, jetzt, _ in changes:
-        # A row typed in by hand may hold an address the address rule refuses, and no ban can key
-        # one of those either: it is left unjudged rather than failing the whole pass.
-        if jetzt is not None:
-            with contextlib.suppress(ValueError):
-                hashes[jetzt.adresse] = adresse_hash(jetzt.adresse, schluessel=config.sperrliste_schluessel)
-    gesperrt = await gesperrte_hashes(
-        sperrliste_collection=sperrliste_collection,
-        adresse_hashes=hashes.values(),
-        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection=saisons_collection),
-    )
-
-    aenderungen: list[FLBerechtigungAenderung] = []
-    for berechtigung_id, art, jetzt, vorher in changes:
-        row = who.get((berechtigung_id, art))
-        aenderungen.append(
-            FLBerechtigungAenderung(
-                berechtigung_id=berechtigung_id,
-                art=art,
-                jetzt=jetzt,
-                vorher=vorher,
-                geaendert_von=None if row is None else str(row["actor"]["email"]),
-                geaendert_am=None if row is None else str(row["at"]),
-                gesperrt=jetzt is not None and hashes.get(jetzt.adresse) in gesperrt,
-            )
+        stored = {str(row["adresse"]) for row in live} | {
+            stand.adresse for _, _, jetzt, vorher in changes for stand in (jetzt, vorher) if stand is not None and stand.adresse is not None
+        }
+        barred = await gesperrte_adressen(
+            stored,
+            sperrliste_collection=sperrliste_collection,
+            saisons_collection=saisons_collection,
+            schluessel=config.sperrliste_schluessel,
+            session=session,
         )
 
-    return FLBerechtigungAbgleichResponse(aenderungen=aenderungen, empfaenger=[str(grant["adresse"]) for grant in grants])
+        if changes:
+            await post_many_to_db(
+                collection=berechtigungen_postausgang_collection,
+                documents=[
+                    compose_postausgang(
+                        berechtigung_id=berechtigung_id, art=art, jetzt=jetzt, vorher=vorher, geaendert_von=None, now=now, gesperrt=barred
+                    )
+                    for berechtigung_id, art, jetzt, vorher in changes
+                ],
+                session=session,
+            )
+            # The record now accounts for each change, the notice for it standing queued.
+            await delete_many_from_db(
+                collection=berechtigungen_angekuendigt_collection,
+                db_filter={"_id": {"$in": [berechtigung_id for berechtigung_id, _, _, _ in changes]}},
+                session=session,
+            )
+            current = [
+                compose_announced(berechtigung_id=grant_id, stand=jetzt, now=now) for grant_id, _, jetzt, _ in changes if jetzt is not None
+            ]
+            if current:
+                await post_many_to_db(collection=berechtigungen_angekuendigt_collection, documents=current, session=session)
 
+        claimable = await read_the_claimable(
+            berechtigungen_postausgang_collection=berechtigungen_postausgang_collection, now=now, session=session
+        )
+        token = None
+        if claimable:
+            token = secrets.token_urlsafe(24)
+            # Every claimed row written, so two overlapping calls conflict on the rows both read and
+            # the retry sees them held (`docs/backend/spec.md :: I454`).
+            await patch_many_in_db(
+                collection=berechtigungen_postausgang_collection,
+                db_filter={"_id": {"$in": [row["_id"] for row in claimable]}},
+                update={"$set": {"beanspruchung": token, "beansprucht_bis": now + BEANSPRUCHUNG_DAUER}},
+                session=session,
+            )
 
-@router.post("/angekuendigt", response_model=FLBerechtigungAngekuendigtResponse, summary="Record which grant changes were announced")
-async def post_berechtigungen_angekuendigt(
-    angekuendigt_data: Annotated[FLBerechtigungAngekuendigtPayload, Body()],
-    berechtigungen_angekuendigt_collection: BerechtigungenAngekuendigtCollection,
-    db: DBClient,
-    now: datetime = Depends(get_germany_now),
-) -> FLBerechtigungAngekuendigtResponse:
-    """
-    Record each change the caller announced as the state it announced, and nothing else.
+        recipients = [str(row["adresse"]) for row in live if row["adresse"] not in barred]
+        # Barred addresses queued before a ban are withheld at the answer, not only at the queueing.
+        claimed_addresses = {
+            adresse
+            for row in claimable
+            for stand in (row.get("jetzt"), row.get("vorher"))
+            if stand is not None and (adresse := stand.get("adresse")) is not None
+        }
+        barred |= await gesperrte_adressen(
+            claimed_addresses - stored,
+            sperrliste_collection=sperrliste_collection,
+            saisons_collection=saisons_collection,
+            schluessel=config.sperrliste_schluessel,
+            session=session,
+        )
 
-    Each entry names a grant and the state the mail told everyone of, or null for a removal; the record takes exactly that, whatever
-    the grant holds by now, so a change made since is found by the next call to `POST /berechtigungen/abgleich`. Repeating a call
-    records the same state again. One transaction, recorded under the system actor, so an announcement of a change made in the
-    database directly leaves a log row too. `angekuendigt` is how many entries were recorded.
-    """
+        answered = [_answered(row, barred) for row in claimable]
 
-    ids = [ankuendigung.berechtigung_id for ankuendigung in angekuendigt_data.aenderungen]
-    documents = compose_announced(ankuendigungen=angekuendigt_data.aenderungen, now=now)
-
-    async def stamp(session: AsyncClientSession) -> None:
-        """Remove each named grant's announced row, then insert what was announced, on this transaction's session.
-
-        Not an update: a repeated stamp lands the same rows, and the log keeps each replaced row's image.
-        """
-
-        await delete_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": {"$in": ids}}, session=session)
-        if documents:
-            await post_many_to_db(collection=berechtigungen_angekuendigt_collection, documents=documents, session=session)
+        return answered, recipients, len(grants) - len(live), token
 
     async with db.start_session() as session:
-        await session.with_transaction(stamp)
+        answered, recipients, uebersprungen, token = await session.with_transaction(queue_and_claim)
 
-    return FLBerechtigungAngekuendigtResponse(angekuendigt=len(angekuendigt_data.aenderungen))
+    return FLBerechtigungAbgleichResponse(
+        beanspruchung=token,
+        beansprucht_bis=None if token is None else now + BEANSPRUCHUNG_DAUER,
+        aenderungen=[FLBerechtigungAenderung.model_validate(row) for row in answered],
+        empfaenger=recipients,
+        uebersprungen=uebersprungen,
+    )
+
+
+def _answered(row: Mapping[str, Any], barred: set[str]) -> dict[str, Any]:
+    """One claimed row as the answer carries it, every barred address in it withheld."""
+
+    zeile = FLBerechtigungPostausgangZeile.model_validate(row)
+    jetzt, vorher = withheld(zeile.jetzt, barred), withheld(zeile.vorher, barred)
+
+    return {
+        "id": zeile.id,
+        "berechtigung_id": zeile.berechtigung_id,
+        "art": zeile.art,
+        "jetzt": jetzt,
+        "vorher": vorher,
+        "geaendert_von": zeile.geaendert_von,
+        "geaendert_am": zeile.geaendert_am,
+        # Set where a stored address was withheld when queued, or is withheld now.
+        "gesperrt": any(stand is not None and stand.adresse is None for stand in (jetzt, vorher)),
+    }
+
+
+@router.post("/angekuendigt", response_model=FLBerechtigungAngekuendigtResponse, summary="Remove the announced changes a claim holds")
+async def post_berechtigungen_angekuendigt(
+    angekuendigt_data: Annotated[FLBerechtigungAngekuendigtPayload, Body()],
+    berechtigungen_postausgang_collection: BerechtigungenPostausgangCollection,
+    db: DBClient,
+) -> FLBerechtigungAngekuendigtResponse:
+    """
+    Remove each named change from the queue, where the named claim still holds it, and nothing else.
+
+    A change the claim does not hold -- unknown, removed already, or claimed since by another call after this claim lapsed -- is
+    left alone and counted in `ignoriert`, so a caller can mark as told only what the server itself holds as queued under its own
+    claim. A repeated id counts once. One transaction, recorded under the system actor.
+    """
+
+    ids = sorted(set(angekuendigt_data.ids))
+
+    async def stamp(session: AsyncClientSession) -> int:
+        """Remove the rows this claim still holds, on this transaction's session."""
+
+        removed = await delete_many_from_db(
+            collection=berechtigungen_postausgang_collection,
+            db_filter={"_id": {"$in": ids}, "beanspruchung": angekuendigt_data.beanspruchung},
+            session=session,
+        )
+
+        return removed.deleted_count
+
+    async with db.start_session() as session:
+        angekuendigt = await session.with_transaction(stamp)
+
+    return FLBerechtigungAngekuendigtResponse(angekuendigt=angekuendigt, ignoriert=len(ids) - angekuendigt)

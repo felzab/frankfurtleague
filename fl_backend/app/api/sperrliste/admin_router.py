@@ -6,6 +6,7 @@ from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.results import InsertOneResult
 
 from app.api.berechtigungen.crud import pull_the_list_to_judge
+from app.api.berechtigungen.services import lebendige
 from app.api.saisons.cache import dropping_the_saison_cache
 from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
@@ -19,11 +20,11 @@ from app.api.sperrliste.schemas import (
 from app.api.sperrliste.services import (
     SPERRLISTE_SCHLUESSEL_VERSION,
     adresse_hash,
+    berechtigte_hashes,
     compose_gesperrt_bis_saison_id,
     find_keine_saison_refusal,
     find_sperrliste_refusal,
     find_verwaltung_refusal,
-    verwaltung_hashes,
 )
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import delete_many_from_db, patch_many_in_db, post_one_to_db, pull_one_from_db, refuse
@@ -124,7 +125,7 @@ async def post_sperrliste_eintrag(
         refuse(
             find_verwaltung_refusal(
                 gehasht=gehasht,
-                verwaltung=verwaltung_hashes([str(grant["adresse"]) for grant in grants], schluessel=config.sperrliste_schluessel),
+                berechtigt=berechtigte_hashes([str(grant["adresse"]) for grant in lebendige(grants)], schluessel=config.sperrliste_schluessel),
             )
         )
 

@@ -97,7 +97,7 @@ def stored_adresse_hash(address: str, *, schluessel: SecretStr) -> str | None:
         return None
 
 
-def verwaltung_hashes(administrators: Iterable[str], *, schluessel: SecretStr) -> set[str]:
+def berechtigte_hashes(administrators: Iterable[str], *, schluessel: SecretStr) -> set[str]:
     """Each administrator's address as a ban is keyed, so a ban is compared in the form it bars by."""
 
     hashes = (stored_adresse_hash(administrator, schluessel=schluessel) for administrator in administrators)
@@ -105,14 +105,14 @@ def verwaltung_hashes(administrators: Iterable[str], *, schluessel: SecretStr) -
     return {gehasht for gehasht in hashes if gehasht is not None}
 
 
-def find_verwaltung_refusal(*, gehasht: str, verwaltung: set[str]) -> WriteRefusal | None:
+def find_verwaltung_refusal(*, gehasht: str, berechtigt: set[str]) -> WriteRefusal | None:
     """`REQ-SPERRLISTE-003`: the address holds a grant in `berechtigungen`, which is revoked first.
 
     The target's state, so 409: the ban is refused for what the address is, and revoking the grant
     is what changes it.
     """
 
-    if gehasht not in verwaltung:
+    if gehasht not in berechtigt:
         return None
 
     return WriteRefusal(

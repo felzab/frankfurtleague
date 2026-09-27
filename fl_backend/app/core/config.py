@@ -101,6 +101,11 @@ class BackendConfig(BaseSettings):
     def api_cors_allowed_origins_list(self) -> list[str]:
         return _entries(self.api_cors_allowed_origins)
 
+    # RETIRED, read by the boot's warning alone: declared for one release, so the file a rolled-back
+    # image requires also boots this one (`docs/backend/spec.md` §1.5). No validator, so no value
+    # refuses a boot.
+    allowed_admin_emails: str | None = Field(default=None, description="Retired: ignored, and warned about at boot")
+
     mongodb_uri: SecretStr = Field(description="MongoDB Connection URI")
     # The characters MongoDB accepts in a database name: a value carrying a separator or a space
     # would otherwise open a namespace no other tool on this host can name.

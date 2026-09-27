@@ -12,7 +12,7 @@ from app.core.config import BackendConfig, get_app_config
 from app.core.constraints import apply_constraints
 from app.core.exceptions import NO_DATABASE_CLIENT, DatabaseUnavailableException
 from app.core.logging import fl_logger
-from app.shared.folding import sign_in_identifier
+from app.shared.folding import is_stored_identifier
 
 
 class Refusal(NamedTuple):
@@ -69,9 +69,16 @@ class BootWarning(NamedTuple):
     error_code: str
 
 
-NO_GRANT = BootWarning("berechtigungen holds no grant, so nobody can enter the administration.", "SRV-BOOT-005")
-NO_OWNER = BootWarning("berechtigungen holds no owner row, so no grant is out of an administrator's reach.", "SRV-BOOT-006")
-UNFOLDED_GRANT = BootWarning("berechtigungen holds {count} grant(s) whose address is not folded, which no request can match.", "SRV-BOOT-007")
+NO_GRANT = BootWarning("berechtigungen holds no live grant, so nobody can enter the administration.", "SRV-BOOT-005")
+NO_OWNER = BootWarning("berechtigungen holds no live owner row, so no grant is out of an administrator's reach.", "SRV-BOOT-006")
+DEAD_GRANT = BootWarning(
+    "berechtigungen holds {count} grant(s) whose address is empty, unfolded or refused by the address rule, which admit nobody.",
+    "SRV-BOOT-007",
+)
+# The variable's name alone, never its value, which is a list of addresses.
+RETIRED_ADMIN_LIST = BootWarning(
+    "ALLOWED_ADMIN_EMAILS is retired and read by nothing: delete it from this service's environment.", "SRV-BOOT-008"
+)
 
 
 async def warn_about_the_grants(berechtigungen_collection: AsyncCollection) -> None:
@@ -81,19 +88,19 @@ async def warn_about_the_grants(berechtigungen_collection: AsyncCollection) -> N
     """
 
     grants = await berechtigungen_collection.find({}, projection={"adresse": 1, "verwaltung": 1}).to_list(length=None)
+    # The one reading every reader of a grant takes (`docs/backend/spec.md :: I453`): the validator
+    # refuses no spelling (`:: I16`), so a hand-typed row may be stored that no request matches.
+    live = [grant for grant in grants if is_stored_identifier(grant.get("adresse"))]
 
-    if not grants:
+    if len(live) < len(grants):
+        fl_logger.warning(DEAD_GRANT.sentence.format(count=len(grants) - len(live)), extra={"error_code": DEAD_GRANT.error_code})
+
+    if not live:
         fl_logger.warning(NO_GRANT.sentence, extra={"error_code": NO_GRANT.error_code})
         return
 
-    if all(grant.get("verwaltung") != "owner" for grant in grants):
+    if all(grant.get("verwaltung") != "owner" for grant in live):
         fl_logger.warning(NO_OWNER.sentence, extra={"error_code": NO_OWNER.error_code})
-
-    # The validator types the field and refuses no spelling (`docs/backend/spec.md :: I16`), so a row
-    # the Playground typed with a capital is stored, and matches no folded header.
-    unfolded = sum(1 for grant in grants if sign_in_identifier(str(grant.get("adresse", ""))) != grant.get("adresse"))
-    if unfolded:
-        fl_logger.warning(UNFOLDED_GRANT.sentence.format(count=unfolded), extra={"error_code": UNFOLDED_GRANT.error_code})
 
 
 @asynccontextmanager
@@ -101,6 +108,9 @@ async def lifespan(app: FastAPI):
     # The settings the application was built with (`app/main.py :: create_app`), which its requests read too.
     config: BackendConfig = app.state.config
     client: AsyncMongoClient | None = None
+
+    if config.allowed_admin_emails is not None:
+        fl_logger.warning(RETIRED_ADMIN_LIST.sentence, extra={"error_code": RETIRED_ADMIN_LIST.error_code})
 
     try:
         try:
@@ -264,3 +274,9 @@ async def get_berechtigungen_angekuendigt_collection(
     db: AsyncDatabase = Depends(get_database),
 ) -> AsyncCollection:
     return db[Collection.BERECHTIGUNGEN_ANGEKUENDIGT]
+
+
+async def get_berechtigungen_postausgang_collection(
+    db: AsyncDatabase = Depends(get_database),
+) -> AsyncCollection:
+    return db[Collection.BERECHTIGUNGEN_POSTAUSGANG]

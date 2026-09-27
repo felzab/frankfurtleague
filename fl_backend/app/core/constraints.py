@@ -374,6 +374,14 @@ _REGISTRIERUNG_STATUS = ["eingereicht", "abgelehnt"]
 # Closed here as well as on the model: a grant is typed in by hand in the Playground, and the
 # validator is the one check that paste meets.
 _VERWALTUNG = ["owner", "administration"]
+_BERECHTIGUNG_AENDERUNGEN = ["erteilt", "entzogen", "geaendert"]
+
+# One grant's state in an outbox row; the address null where it was barred when queued.
+_BERECHTIGUNG_STAND = _object(
+    nullable=True,
+    required=("adresse", "verwaltung"),
+    properties={"adresse": {"bsonType": _STRING_OR_NULL}, "verwaltung": {"bsonType": "string", "enum": _VERWALTUNG}},
+)
 
 # The key a public submission is replayed by, and the digest of the payload it first carried
 # (`docs/backend/spec.md :: I346`). Out of `required` in both collections: every row stored
@@ -972,6 +980,36 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 "adresse": {"bsonType": "string"},
                 "verwaltung": {"bsonType": "string", "enum": _VERWALTUNG},
                 "angekuendigt_am": {"bsonType": "date"},
+            },
+        )
+    },
+    Collection.BERECHTIGUNGEN_POSTAUSGANG: {
+        "$jsonSchema": _object(
+            required=(
+                "_id",
+                "berechtigung_id",
+                "art",
+                "jetzt",
+                "vorher",
+                "geaendert_von",
+                "geaendert_am",
+                "erfasst_am",
+                "beansprucht_bis",
+                "beanspruchung",
+            ),
+            properties={
+                "_id": {"bsonType": "objectId"},
+                "berechtigung_id": {"bsonType": "objectId"},
+                "art": {"bsonType": "string", "enum": _BERECHTIGUNG_AENDERUNGEN},
+                "jetzt": _BERECHTIGUNG_STAND,
+                "vorher": _BERECHTIGUNG_STAND,
+                "geaendert_von": {"bsonType": _STRING_OR_NULL},
+                "geaendert_am": {"bsonType": ["date", "null"]},
+                "erfasst_am": {"bsonType": "date"},
+                # Required as keys and null until a pass claims the row: the claim asks for a null
+                # lease, which a missing key would satisfy too and a mistyped one would hide.
+                "beansprucht_bis": {"bsonType": ["date", "null"]},
+                "beanspruchung": {"bsonType": _STRING_OR_NULL},
             },
         )
     },

@@ -5,20 +5,22 @@ The anchor lives here beside the read it protects, so no caller can judge the li
 every row of it (`docs/backend/spec.md :: I53`).
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping
+from datetime import datetime
 from typing import Any
 
-from pymongo import ASCENDING, DESCENDING
+from pydantic import SecretStr
+from pymongo import ASCENDING
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.schemas import FLVerwaltung
-from app.core.collections import Collection
+from app.api.berechtigungen.services import lebendige_adresse
+from app.api.saisons.crud import pull_massgebliche_saison_id
+from app.api.sperrliste.crud import gesperrte_hashes
+from app.api.sperrliste.services import stored_adresse_hash
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_from_db
-
-# Which recorded operation made each kind of change, so the log row read for an addition is its insert
-# and never the anchor's fan-out, which names no document at all.
-_OPERATION_OF: Mapping[str, str] = {"erteilt": "insert", "entzogen": "delete_many", "geaendert": "patch_one"}
+from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 
 async def read_berechtigungen(
@@ -56,55 +58,62 @@ async def pull_the_list_to_judge(
 
 
 async def verwaltung_of(*, berechtigungen_collection: AsyncCollection, adresse: str) -> FLVerwaltung | None:
-    """The tier this folded address holds, or `None`: one equality `uniq_berechtigung_adresse` serves."""
+    """The tier this folded address holds, or `None`: one equality `uniq_berechtigung_adresse` serves, a dead row answering `None`."""
 
-    found = await pull_many_from_db(collection=berechtigungen_collection, db_filter={"adresse": adresse}, limit=1, projection=["verwaltung"])
-
-    return found[0]["verwaltung"] if found else None
-
-
-async def read_the_announced(*, berechtigungen_angekuendigt_collection: AsyncCollection) -> list[Mapping[str, Any]]:
-    """Every announced row: the whole record is the other half of every comparison."""
-
-    return await aggregate_many_from_db(collection=berechtigungen_angekuendigt_collection, pipeline=[{"$sort": {"_id": ASCENDING}}])
-
-
-async def read_who_changed(
-    *, aktionen_collection: AsyncCollection, changes: Sequence[tuple[Any, str]]
-) -> dict[tuple[Any, str], Mapping[str, Any]]:
-    """For each `(grant id, kind of change)`, the newest log row an administrator's write left for it.
-
-    None means the change was made outside the application. A removal's row names its ids in an
-    array, which `$in` matches by member.
-    """
-
-    if not changes:
-        return {}
-
-    rows = await aggregate_many_from_db(
-        collection=aktionen_collection,
-        pipeline=[
-            {
-                "$match": {
-                    "collection": str(Collection.BERECHTIGUNGEN),
-                    "document_id": {"$in": sorted({berechtigung_id for berechtigung_id, _ in changes})},
-                    "operation": {"$in": sorted({_OPERATION_OF[art] for _, art in changes})},
-                    # An administrator's alone: a SYSTEM row is the reconciliation's own, and a grant
-                    # the paste made has none at all.
-                    "actor.kind": "admin_session",
-                }
-            },
-            {"$sort": {"at": DESCENDING, "_id": DESCENDING}},
-            {"$project": {"document_id": 1, "operation": 1, "actor.email": 1, "at": 1}},
-        ],
+    found = await pull_many_from_db(
+        collection=berechtigungen_collection, db_filter={"adresse": adresse}, limit=1, projection=["adresse", "verwaltung"]
     )
 
-    found: dict[tuple[Any, str], Mapping[str, Any]] = {}
-    for berechtigung_id, art in changes:
-        for row in rows:
-            named = row["document_id"] if isinstance(row["document_id"], list) else [row["document_id"]]
-            if row["operation"] == _OPERATION_OF[art] and berechtigung_id in named:
-                found[(berechtigung_id, art)] = row
-                break
+    return found[0]["verwaltung"] if found and lebendige_adresse(found[0]) is not None else None
 
-    return found
+
+async def read_the_announced(
+    *, berechtigungen_angekuendigt_collection: AsyncCollection, session: AsyncClientSession | None = None
+) -> list[Mapping[str, Any]]:
+    """Every announced row: the whole record is the other half of every comparison."""
+
+    return await aggregate_many_from_db(
+        collection=berechtigungen_angekuendigt_collection, pipeline=[{"$sort": {"_id": ASCENDING}}], session=session
+    )
+
+
+async def read_the_claimable(
+    *, berechtigungen_postausgang_collection: AsyncCollection, now: datetime, session: AsyncClientSession
+) -> list[Mapping[str, Any]]:
+    """The outbox rows no claim holds, oldest first, a page at a time (`docs/backend/spec.md :: I454`).
+
+    The lease is compared by the database, which holds the stamp as UTC and compares it as one.
+    """
+
+    return await pull_many_from_db(
+        collection=berechtigungen_postausgang_collection,
+        db_filter={"$or": [{"beansprucht_bis": None}, {"beansprucht_bis": {"$lte": now}}]},
+        sort_by=[("erfasst_am", ASCENDING), ("_id", ASCENDING)],
+        limit=LIST_LIMIT_DEFAULT,
+        session=session,
+    )
+
+
+async def gesperrte_adressen(
+    adressen: Iterable[str],
+    *,
+    sperrliste_collection: AsyncCollection,
+    saisons_collection: AsyncCollection,
+    schluessel: SecretStr,
+    session: AsyncClientSession | None,
+) -> set[str]:
+    """Which of these live addresses the ban list bars, in one read, judged as a sign-up is."""
+
+    keyed = {adresse: stored_adresse_hash(adresse, schluessel=schluessel) for adresse in set(adressen)}
+    hashes = {adresse: gehasht for adresse, gehasht in keyed.items() if gehasht is not None}
+    if not hashes:
+        return set()
+
+    barred = await gesperrte_hashes(
+        sperrliste_collection=sperrliste_collection,
+        adresse_hashes=hashes.values(),
+        massgebliche_saison_id=await pull_massgebliche_saison_id(saisons_collection=saisons_collection, session=session),
+        session=session,
+    )
+
+    return {adresse for adresse, gehasht in hashes.items() if gehasht in barred}

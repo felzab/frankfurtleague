@@ -1,5 +1,5 @@
 """
-CORE · what the boot says about the grants, and that it boots anyway
+CORE · what the boot says about the grants and the retired variable, and that it boots anyway
 
 `app/core/db.py :: warn_about_the_grants` reads one `find`, so a collection standing in for that
 read is all it meets; the lifespan's own call is exercised by every boot the db tier makes.
@@ -11,10 +11,13 @@ from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
 import pytest
+from fastapi import FastAPI
+from pydantic import SecretStr
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.core.db import NO_GRANT, NO_OWNER, UNFOLDED_GRANT, warn_about_the_grants
+from app.core.db import DEAD_GRANT, NO_GRANT, NO_OWNER, RETIRED_ADMIN_LIST, DatabaseUnreachableError, lifespan, warn_about_the_grants
 from app.core.logging import FL_LOGGER_NAME
+from tests.config import UNANSWERED_URI, build_test_config
 
 
 class _Cursor:
@@ -45,16 +48,20 @@ ADMINISTRATOR = {"adresse": "anna@frankfurtleague.de", "verwaltung": "administra
 # What the Playground stores where the paste was typed in capitals: nothing refuses it, and no
 # folded header ever equals it.
 UNFOLDED = {"adresse": "Bernd.Admin@Frankfurtleague.de", "verwaltung": "administration"}
+# The three other dead shapes: folded to itself, which the unfolded check alone would pass.
+EMPTY = {"adresse": "", "verwaltung": "administration"}
+MISSING = {"verwaltung": "administration"}
+UNICODE_LOCAL_PART = {"adresse": "jürgen@frankfurtleague.de", "verwaltung": "administration"}
 
 
-def test_a_list_holding_an_owner_and_folded_addresses_says_nothing(caplog):
+def test_a_list_holding_an_owner_and_live_addresses_says_nothing(caplog):
     """The control: a check warning on every boot would pass each case below."""
 
     assert warned([OWNER, ADMINISTRATOR], caplog) == []
 
 
 def test_no_grant_at_all_is_named_and_nothing_else_is(caplog):
-    """Nothing else, because no owner and no unfolded row are both implied and say nothing more."""
+    """Nothing else, because no owner is implied and says nothing more."""
 
     assert warned([], caplog) == [(NO_GRANT.error_code, NO_GRANT.sentence)]
 
@@ -63,10 +70,50 @@ def test_a_list_with_no_owner_is_named(caplog):
     assert warned([ADMINISTRATOR], caplog) == [(NO_OWNER.error_code, NO_OWNER.sentence)]
 
 
-def test_an_unfolded_row_is_counted_and_its_address_stays_out_of_the_line(caplog):
+def test_every_dead_shape_is_counted_and_no_address_reaches_the_line(caplog):
     """A count and never the address: the container log outlives the grant it would describe."""
 
-    lines = warned([OWNER, UNFOLDED], caplog)
+    lines = warned([OWNER, UNFOLDED, EMPTY, MISSING, UNICODE_LOCAL_PART], caplog)
 
-    assert lines == [(UNFOLDED_GRANT.error_code, UNFOLDED_GRANT.sentence.format(count=1))]
-    assert "bernd" not in lines[0][1].lower()
+    assert lines == [(DEAD_GRANT.error_code, DEAD_GRANT.sentence.format(count=4))]
+    assert "bernd" not in lines[0][1].lower() and "jürgen" not in lines[0][1].lower()
+
+
+def test_an_unfolded_owner_row_is_no_owner(caplog):
+    """A dead row admits nobody, so a list whose only owner row is dead has no owner (`docs/backend/spec.md :: I453`)."""
+
+    dead_owner = {**UNFOLDED, "verwaltung": "owner"}
+
+    assert warned([dead_owner, ADMINISTRATOR], caplog) == [
+        (DEAD_GRANT.error_code, DEAD_GRANT.sentence.format(count=1)),
+        (NO_OWNER.error_code, NO_OWNER.sentence),
+    ]
+
+
+def booted(allowed_admin_emails: str | None, caplog: pytest.LogCaptureFixture) -> list[str]:
+    """The lifespan entered against a server nothing answers: the variable's warning comes before the database is asked anything."""
+
+    config = build_test_config().model_copy(
+        update={"allowed_admin_emails": allowed_admin_emails, "mongodb_uri": SecretStr(UNANSWERED_URI), "db_server_selection_timeout": 1}
+    )
+
+    async def enter() -> None:
+        app = FastAPI()
+        app.state.config = config
+        async with lifespan(app):
+            raise AssertionError("no database answers, so the boot is expected to stop")
+
+    with caplog.at_level(logging.WARNING, logger=FL_LOGGER_NAME), pytest.raises(DatabaseUnreachableError):
+        asyncio.run(enter())
+
+    return [getattr(record, "error_code", "") for record in caplog.records]
+
+
+@pytest.mark.parametrize("carried", [None, "admin@example.com"], ids=["absent", "still carried"])
+def test_the_retired_variable_is_warned_about_by_name_exactly_while_it_is_carried(caplog, carried: str | None):
+    """Carried, the boot names it and goes on to the database; its value never reaches a line."""
+
+    codes = booted(carried, caplog)
+
+    assert (RETIRED_ADMIN_LIST.error_code in codes) is (carried is not None)
+    assert all("admin@example.com" not in record.getMessage() for record in caplog.records)

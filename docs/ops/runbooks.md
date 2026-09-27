@@ -344,11 +344,12 @@ these is easy to get wrong:
   signs in, and every admin-tier request its pages make meets `REQ-AUTH-006`; one holding a grant
   and no entry is turned away at the sign-in. Revoking the grant is what shuts the backend, from
   the next request, whatever the frontend's file still says.
-- **A grant is written in MongoDB Playground, against the application database** (`DB_BASE_NAME`,
-  which `fl_backend/.env` names), because no page calls the grant routes and no route writes an
+- **An `owner` grant, and any grant no page offers yet, is written in MongoDB Playground, against
+  the application database** (`DB_BASE_NAME`, which `fl_backend/.env` names): no route writes an
   owner at all (`docs/backend/spec.md :: I436`). The address goes in FOLDED — trimmed, the letters
   of both halves lower-case, the domain in punycode — or it admits nobody, the validator refusing no
-  spelling; the boot names such a row as `SRV-BOOT-007` and never its address:
+  spelling; the boot counts such a row as `SRV-BOOT-007` and never names its address. Every field
+  below is one the validator types, `erteilt_am` a date rather than a string:
 
   ```js
   use("<DB_BASE_NAME>");
@@ -360,7 +361,16 @@ these is easy to get wrong:
   });
   ```
 
-  A revoke is `db.berechtigungen.deleteOne({ adresse: "<folded address>" })`.
+  A revoke is `db.berechtigungen.deleteOne({ adresse: "<folded address>" })`. In the application only
+  an `owner` revokes (`docs/backend/spec.md :: I449`).
+
+- **Paste only into a database a boot of the release carrying `berechtigungen` has reached.** That
+  boot creates the validator and the unique index; a paste before it creates the collection with
+  neither, and a duplicate address in it then fails the next boot's index build (`SRV-BOOT-004`).
+  Admin pages answer `REQ-AUTH-006` until the paste lands, and the public site is untouched.
+- **`ALLOWED_ADMIN_EMAILS` in `fl_backend/.env` is read by nothing, and the boot names it
+  `SRV-BOOT-008` while it stands.** It is declared for one release, so a rollback to the image before
+  still finds the line it requires; delete it once that release is settled.
 
 - **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer
   (`docs/backend/spec.md :: I435`), and the Playground refuses nothing: the boot warns with
@@ -369,15 +379,15 @@ these is easy to get wrong:
 - **A barred address is granted nothing, and a granted one is banned by nothing**
   (`docs/backend/spec.md :: I437`): lift the ban first, or revoke the grant first. A grant the
   Playground writes onto a barred address is refused by nothing, and the reconciliation flags it.
-- **Every change, a Playground one included, is answered by `POST /berechtigungen/abgleich`** until
-  a stamp records it, a Playground change naming no administrator (`docs/backend/spec.md :: I439`).
-  Deleting a row of `berechtigungen_angekuendigt` by hand has that grant announced again as new.
+- **Every change is announced, a Playground one naming no administrator** (`docs/backend/spec.md ::
+I439`). A Playground change undone again before the next claim is announced by nothing, and
+  deleting a row of `berechtigungen_angekuendigt` or `berechtigungen_postausgang` by hand announces
+  that grant again as new, or silences its notice.
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
 - **An entry the sign-in library will not take stops the site rather than that one administrator.**
   The frontend's deploy reader judges names alone (`docs/ops/spec.md :: I183`), so that refusal is met
-  at boot, after the recreate and behind an edge already answering 502; an entry the backend's address
-  rule refuses is met earlier, by the deploy's preflight, before anything is recreated. Each names
+  at boot, after the recreate and behind an edge already answering 502. It names
   `ALLOWED_ADMIN_EMAILS` and never the entry. An umlaut before the at sign is the case that turns up: the sign-in box takes no
   such address, so that person needs a mailbox it will accept before there is anything to allowlist.
   An umlaut domain may be entered in either spelling, the entry and the sign-in box both converting it
@@ -1203,6 +1213,11 @@ carries a character outside the class** ([`spec.md`](spec.md) §1.5): generate a
 the command above, run on the server, and update the password-manager entry. Both containers are
 recreated by the same deploy, so the new pair never meets the old. A key changed there reaches the containers only when they are
 recreated, which the next deploy does: `docker compose restart` re-reads no environment file.
+
+**A leaked `INTERNAL_API_KEY_ADMIN` can have minted a grant**, credited to any administrator it
+named (`docs/backend/spec.md` §4). Rotating it after a suspected leak is not finished until
+`berechtigungen` holds only grants somebody can account for, and `aktionen` has been read for every
+`berechtigungen` write since the leak; revoke the rest in the Playground.
 
 ## 17. Clearing an address's code lock
 

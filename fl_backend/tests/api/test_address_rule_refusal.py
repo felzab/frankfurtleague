@@ -83,9 +83,9 @@ def answered(route: str, email: str) -> Response:
 def requested(method: str, path: str, headers: Mapping[str, str], **sent: Any) -> Response:
     async def _answered() -> Response:
         async with app_client(UNANSWERED_URI, admitting=ADMINISTRATORS) as http:
-            # The app's request deadline would hold each control against this unanswered server,
-            # and nested inside this one it cannot extend it. A refused body touches no driver
-            # call, so no deadline turns a 422 into the control's answer.
+            # The app's deadline would hold each control against this unanswered server; nested in
+            # this one it cannot extend it. With `admitting` answering the actor check, a refused
+            # body touches no driver, so no deadline turns a 422 into the control's.
             with pymongo.timeout(UNANSWERED_DEADLINE_S):
                 return await http.request(method, f"/api/v{API_VERSION}{path}", headers=headers, **sent)
 

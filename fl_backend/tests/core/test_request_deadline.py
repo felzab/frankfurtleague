@@ -91,7 +91,7 @@ class TestTheRequestDeadlineIsTheOnlyOne:
 
 
 def _erasure_answered() -> tuple[Response, float]:
-    """`POST /kontakte/erasure`, whose first database call is inside its transaction, against a server nothing answers."""
+    """`POST /kontakte/erasure` against a server nothing answers, its first database call past the actor check inside its transaction."""
 
     async def _answered() -> tuple[Response, float]:
         async with app_client(UNANSWERED_URI, admitting=ADMINISTRATORS) as http:

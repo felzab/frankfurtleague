@@ -174,16 +174,17 @@ table**, the backend's leaving the process as a Python traceback on stderr befor
 configured ([`spec.md`](spec.md#12-the-stream-contract) §1.2): what identifies it is the variable
 names `fl_backend/app/core/config.py :: get_config` prints.
 
-| Code           | Meaning                                                                                                                         |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `SRV-BOOT-001` | The MongoDB server could not be reached                                                                                         |
-| `SRV-BOOT-002` | `MONGODB_URI` yielded no server to connect to                                                                                   |
-| `SRV-BOOT-003` | The server refused to authenticate the credentials in `MONGODB_URI`                                                             |
-| `SRV-BOOT-004` | The database constraints could not be applied                                                                                   |
-| `SRV-BOOT-005` | A warning, and the boot goes on: `berechtigungen` holds no grant, so nobody can enter the administration                        |
-| `SRV-BOOT-006` | A warning, and the boot goes on: no grant is an `owner` grant, so every grant is within an administrator's reach                |
-| `SRV-BOOT-007` | A warning, and the boot goes on: a grant's address is not folded, so no request matches it; the line counts them and names none |
-| `FE-BOOT-001`  | A frontend environment variable failed validation; the line names the variables and no value                                    |
+| Code           | Meaning                                                                                                                                                   |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SRV-BOOT-001` | The MongoDB server could not be reached                                                                                                                   |
+| `SRV-BOOT-002` | `MONGODB_URI` yielded no server to connect to                                                                                                             |
+| `SRV-BOOT-003` | The server refused to authenticate the credentials in `MONGODB_URI`                                                                                       |
+| `SRV-BOOT-004` | The database constraints could not be applied                                                                                                             |
+| `SRV-BOOT-005` | A warning, and the boot goes on: `berechtigungen` holds no live grant, so nobody can enter the administration                                             |
+| `SRV-BOOT-006` | A warning, and the boot goes on: no live grant is an `owner` grant, so every grant is within an administrator's reach                                     |
+| `SRV-BOOT-007` | A warning, and the boot goes on: grants whose address is empty, unfolded or refused by the address rule admit nobody; the line counts them and names none |
+| `SRV-BOOT-008` | A warning, and the boot goes on: `ALLOWED_ADMIN_EMAILS` is retired and still set; the line names the variable and never its value                         |
+| `FE-BOOT-001`  | A frontend environment variable failed validation; the line names the variables and no value                                                              |
 
 The first three `SRV-BOOT-*` rows are one decision — `db.py :: _refusal_for`, which pairs each
 cause's sentence with its code — so a fourth cause added there takes a fourth row here. **The three
