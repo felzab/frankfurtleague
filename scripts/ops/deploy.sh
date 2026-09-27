@@ -270,8 +270,13 @@ except Exception as unavailable:
 
 root = Path(sys.argv[1])
 try:
-    shared = set(dotenv_values(root / ".env", interpolate=False))
-    twice = {package: sorted(shared & set(dotenv_values(root / package / ".env", interpolate=False))) for package in sys.argv[2:]}
+    # Case folded, as the backend reads its names: pydantic-settings lowercases every one, so a package
+    # line differing from the root name in case alone would still reach the container beside it.
+    shared = {name.casefold() for name in dotenv_values(root / ".env", interpolate=False)}
+    twice = {
+        package: sorted(name for name in dotenv_values(root / package / ".env", interpolate=False) if name.casefold() in shared)
+        for package in sys.argv[2:]
+    }
 except Exception as unreadable:
     # The type alone, for the reason ENV_NAME_CHECK gives: a reader quotes what it could not parse.
     print(type(unreadable).__name__, file=sys.stderr)

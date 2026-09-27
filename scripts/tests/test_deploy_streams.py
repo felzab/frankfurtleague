@@ -487,6 +487,18 @@ def test_the_held_once_check_runs_in_preflight_ahead_of_both_readers_and_before_
     assert held_once < read < recreated, "scripts/ops/deploy.sh asks whether a name is held twice after a reader or not at all"
 
 
+def test_the_overlap_snippet_refuses_a_package_name_differing_from_the_roots_in_case_alone() -> None:
+    """pydantic-settings lowercases every name, so `shared_key` in a package file is the same variable to the backend."""
+    code, output, _ = _run(OVERLAP.replace("SHARED_KEY=another", "shared_key=another"))
+
+    assert code == 0, output
+    if "ModuleNotFoundError" in output:
+        assert "snippet=4" in output, output
+        return
+    assert "snippet=3" in output, output
+    assert "fl_frontend/.env and .env both hold: shared_key" in output, output
+
+
 def test_the_overlap_snippet_answers_0_where_no_name_repeats() -> None:
     code, output, _ = _run(OVERLAP.replace("SHARED_KEY=another", "OTHER_KEY=another"))
 
