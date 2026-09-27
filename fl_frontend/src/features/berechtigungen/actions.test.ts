@@ -19,7 +19,7 @@ const NEXT_CACHE_DOUBLE = exportingModule({ refresh: () => undefined });
 const NEXT_SERVER_DOUBLE = exportingModule({ after: (task: () => unknown) => void deferred.push(AsyncLocalStorage.bind(task)) });
 
 /* The real actions and their mutations, called: the request they run in and the backend client are the doubles. */
-const { setSession, setFresh } = doubleActionRequest();
+const { setSession, setFresh, signedOut, failSignOut } = doubleActionRequest();
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -74,6 +74,26 @@ describe("the grant", () => {
       mapped: mapErteilenRefusal,
     });
     assert.deepEqual(deferred, [], "a refused grant scheduled an announcement");
+  });
+
+  /* A change of privilege rotates the session: one the address made before the grant, by a passkey it
+     enrolled while holding none, would otherwise administer at once (`docs/frontend/spec.md :: I461`). */
+  it("ends every session of the address granted, and none for a refused grant", async () => {
+    await postBerechtigungAction({ email: "Neu@Schule.de" });
+    assert.deepEqual(signedOut(), ["Neu@Schule.de"]);
+
+    client.answerWith(() => Promise.reject(new Error("refused")));
+    await postBerechtigungAction({ email: "zwei@schule.de" }).catch(() => undefined);
+    assert.deepEqual(signedOut(), ["Neu@Schule.de"], "a grant that failed signed its address out");
+  });
+
+  it("keeps a grant whose sessions could not be ended, and says so", async () => {
+    failSignOut(new Error("store down"));
+
+    const result = await postBerechtigungAction({ email: "neu@schule.de" });
+
+    assert.equal(result.success, true);
+    assert.equal("message" in result && result.message, "Laufende Anmeldungen der Adresse konnten nicht beendet werden.");
   });
 
   /* The sign-in library's own rule, which the address box's is wider than: a grant past it admits nobody. */

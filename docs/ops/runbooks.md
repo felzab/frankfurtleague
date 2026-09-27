@@ -393,6 +393,11 @@ I439`). A Playground change undone again before the next claim is announced by n
   at sign is the case that turns up: the sign-in box takes no such address, so that person needs a
   mailbox it will accept before a grant is worth writing. An umlaut domain is stored in punycode,
   which the sign-in box converts either spelling to.
+- **A grant admits every passkey the address already holds.** A person enrols passkeys with a mailed
+  code, the same authority an administrator's first passkey rests on, so one enrolled before the grant
+  admits once the address is granted. The grant ends the address's sessions, so it admits only on a
+  fresh passkey sign-in (`docs/frontend/spec.md :: I461`): grant an address only where its mailbox is
+  trusted as an administrator's.
 - **The grant is the access; the person's own next sign-in enrols the passkey.** An address holding
   a grant and no passkey is answered the enrolment page and reaches no admin route until one stands,
   so there is nothing to prepare for them and nothing to hand over.

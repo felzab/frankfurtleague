@@ -1149,8 +1149,8 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
  * not reach; the account and its passkeys stay for the day the ban ends (`docs/frontend/spec.md :: I402`).
  */
 export async function endSessionsOfAddress(address: string): Promise<void> {
-  // No grant is asked about: the ban refuses an address holding one (`docs/backend/spec.md :: I437`),
-  // so every address reaching here after its ban holds none.
+  // No grant is asked about: a ban and a grant each end every session of the address they name,
+  // whatever it holds.
   const folded = asSignInIdentifier(address);
 
   const { adapter } = await auth.$context;

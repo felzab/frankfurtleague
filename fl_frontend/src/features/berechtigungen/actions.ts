@@ -2,6 +2,8 @@
 
 import { after } from "next/server";
 
+import { endSessionsOfAddress } from "@/core/auth";
+import { logger } from "@/core/logging";
 import { runOutsideRequestScope } from "@/core/requestScope";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
@@ -21,6 +23,28 @@ import type { FLBerechtigungKeyPayload, FLPostBerechtigungPayload } from "./sche
  * grant outlives the session making it, and a revoke is the lockout lever.
  */
 const ZUGANG_STEP_UP = { stepUp: "enrolment" } as const;
+
+/** The ban's own sentence for the same failure: the address's sessions outlived the change. */
+const ANMELDUNGEN_NICHT_BEENDET = "Laufende Anmeldungen der Adresse konnten nicht beendet werden.";
+
+/**
+ * Ends the grantee's sessions, as a change of privilege rotates the session: one made before the grant,
+ * by a passkey enrolled while the address held none, would otherwise administer at once. A failure
+ * leaves the grant standing and is told.
+ */
+async function abmelden(email: string): Promise<string | null> {
+  try {
+    await endSessionsOfAddress(email);
+    return null;
+  } catch (failed) {
+    // The NAME alone: the address must reach no line.
+    logger.error("berechtigung.sessions_not_ended", undefined, {
+      error_code: "FE-AUTH-006",
+      name: failed instanceof Error ? failed.name : "unknown",
+    });
+    return ANMELDUNGEN_NICHT_BEENDET;
+  }
+}
 
 /**
  * Behind the response, so an in-app change is announced at once rather than at the next tick, and in no
@@ -51,9 +75,11 @@ export async function postBerechtigungAction(rawPayload: FLPostBerechtigungPaylo
       return { success: false, error: buildRefusal({ reason: "Der Zugang wurde nicht erteilt", repair: "Versuche es erneut" }) };
     }
 
+    // After the write is acknowledged, so nobody is signed out by a grant that then failed.
+    const abgemeldet = await abmelden(validated.data.email);
     ankuendigenNachDerAntwort();
 
-    return { success: true, created_id: postOperation.created_id, message: ZUGANG_ERTEILT };
+    return { success: true, created_id: postOperation.created_id, message: abgemeldet ?? ZUGANG_ERTEILT };
   });
 }
 
