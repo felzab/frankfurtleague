@@ -70,7 +70,7 @@ describe("the tier change's refusals", () => {
       error: "Die Stufe eines Zugangs ändern kann nur der Inhaber.",
     });
     assert.deepEqual(mapStufeRefusal(refusedOn(TIER, "REQ-BERECHTIGUNG-003", 409)), {
-      error: "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Zugang zur Verwaltung erhalten soll.",
+      error: "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Inhaber werden soll.",
     });
     assert.deepEqual(mapStufeRefusal(refusedOn(TIER, "REQ-BERECHTIGUNG-007", 409)), {
       error: "Die Verwaltung braucht mindestens einen Inhaber. Ernenne zuerst eine weitere Person zum Inhaber.",

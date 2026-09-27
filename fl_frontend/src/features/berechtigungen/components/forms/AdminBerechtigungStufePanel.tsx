@@ -6,7 +6,7 @@ import ChevronsDown from "@gravity-ui/icons/ChevronsDown";
 import ChevronsUp from "@gravity-ui/icons/ChevronsUp";
 
 import { patchBerechtigungAction } from "@/features/berechtigungen/actions";
-import { ADRESSE_GESPERRT, stufeWorte } from "@/features/berechtigungen/constants";
+import { INHABER_GESPERRT, stufeWorte } from "@/features/berechtigungen/constants";
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
@@ -69,7 +69,7 @@ export function AdminBerechtigungStufePanel({
         <ConfirmPressButton
           confirm={twoPress}
           // A barred address is made an owner by no request; its demotion stays open.
-          reason={ziel === "owner" && adresse === null ? ADRESSE_GESPERRT : null}
+          reason={ziel === "owner" && adresse === null ? INHABER_GESPERRT : null}
           resting={resting}
           armed={armed}
           running={running}

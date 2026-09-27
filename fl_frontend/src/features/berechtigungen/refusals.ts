@@ -1,6 +1,6 @@
 import { isRefusal, ZUGANG_WEG } from "@/shared/utils/actionError";
 
-import { ADRESSE_GESPERRT, NUR_INHABER_ENTZIEHT } from "./constants";
+import { ADRESSE_GESPERRT, INHABER_GESPERRT, NUR_INHABER_ENTZIEHT } from "./constants";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
@@ -50,7 +50,7 @@ export function mapStufeRefusal(error: unknown): { error?: string } | null {
     case "REQ-BERECHTIGUNG-005":
       return { error: "Die Stufe eines Zugangs ändern kann nur der Inhaber." };
     case "REQ-BERECHTIGUNG-003":
-      return { error: ADRESSE_GESPERRT };
+      return { error: INHABER_GESPERRT };
     // The last owner's demotion, their own step-down included.
     case "REQ-BERECHTIGUNG-007":
       return { error: "Die Verwaltung braucht mindestens einen Inhaber. Ernenne zuerst eine weitere Person zum Inhaber." };

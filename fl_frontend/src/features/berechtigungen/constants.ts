@@ -62,6 +62,9 @@ export const ZUGANG_ENTZOGEN_MESSAGE = "Diese Adresse hat keinen Zugang zur Verw
  */
 export const ADRESSE_GESPERRT = "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Zugang zur Verwaltung erhalten soll.";
 
+/** A barred address already holds its grant here, so the sentence names what it would become. */
+export const INHABER_GESPERRT = "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Inhaber werden soll.";
+
 /** Each row's tier change in words: the control at rest and armed, its running label, and what the armed state costs. */
 type StufeWorte = { resting: string; armed: string; running: string; folge: string };
 
