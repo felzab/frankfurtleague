@@ -27,10 +27,11 @@ const AUTH_INDEXES: readonly AuthIndex[] = [
   // The cookie's own value, read by every guard.
   { collection: "session", key: { token: 1 }, options: { name: "session_token_uidx", unique: true } },
   { collection: "session", key: { userId: 1 }, options: { name: "session_userId_idx" } },
-  // Each of these three names is the one production's hand-made index carries: a same-key index under
-  // another name refuses the build with code 85.
+  // Each of these three names is the one production's hand-made index carries, read in its Atlas
+  // console on 2026-09-27 and moving there without us: a same-key index under another name refuses
+  // the build with code 85.
   { collection: "session", key: { expiresAt: 1 }, options: { name: "expiresAt_1", expireAfterSeconds: 0 } },
-  { collection: "passkey", key: { credentialID: 1 }, options: { name: "fl_passkey_credentialID_unique", unique: true } },
+  { collection: "passkey", key: { credentialID: 1 }, options: { name: "credentialID_1", unique: true } },
   { collection: "verification", key: { expiresAt: 1 }, options: { name: "expiresAt_1", expireAfterSeconds: 0 } },
   // Never unique: each administrator holds several passkeys.
   { collection: "passkey", key: { userId: 1 }, options: { name: "passkey_userId_idx" } },

@@ -303,6 +303,18 @@ describe("the index build against a real store (`docs/frontend/spec.md :: I498`)
     );
   });
 
+  /* Production's store as its Atlas console listed it on 2026-09-27, beside each collection's `_id_`, and
+     moving there without us: a list entry naming one of these otherwise is refused with code 85 on every boot. */
+  it("builds over the indexes production's store was given by hand, refusing none", async () => {
+    await store().collection("session").createIndex({ expiresAt: 1 }, { name: "expiresAt_1", expireAfterSeconds: 0 });
+    await store().collection("verification").createIndex({ expiresAt: 1 }, { name: "expiresAt_1", expireAfterSeconds: 0 });
+    await store().collection("passkey").createIndex({ credentialID: 1 }, { name: "credentialID_1", unique: true });
+
+    await buildAuthIndexes();
+
+    assert.deepEqual(errors, []);
+  });
+
   it("logs the address index two accounts at one address refuse, never quoting the address", async () => {
     const account = { email: "doppelt@example.org", emailVerified: true, name: "", createdAt: new Date(), updatedAt: new Date() };
     await store()
