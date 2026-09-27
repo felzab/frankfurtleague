@@ -671,6 +671,22 @@ describe("a grant the backend cannot answer for", () => {
   });
 });
 
+describe("a grant on a barred address", () => {
+  afterEach(() => BACKENDS.delete(ADMIN_EMAIL));
+
+  /* The backend's actor check refuses a barred holder every admin-tier request, so the guard admits
+     them nowhere rather than into a shell whose every read fails. */
+  it("admits no administrator, however the session was made", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    row.authFactor = "passkey";
+    arriveAs(cookie);
+    BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, gesperrt: true });
+
+    assert.equal(await getAdminSession(), null);
+    assert.notEqual(await getSignInDestination(), "/bereich/admin");
+  });
+});
+
 describe("the second factor, judged at the same guard", () => {
   it("refuses a granted session the mailbox alone made, and sends it to the passkey page", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
@@ -2207,12 +2223,13 @@ describe("which addresses the send gate mails", () => {
     assert.deepEqual(granted.answer, seated.answer);
   });
 
-  /* A grant written in the database directly is the one way onto a barred address, and it admits:
-     the ban refuses a granted address, so the grant is the later, deliberate act. */
-  it("mails a barred address holding a grant", async () => {
+  /* A grant written in the database directly is the one way onto a barred address, and it admits
+     nothing: the backend refuses a barred holder every admin-tier request, so a code would open a
+     shell whose every read fails. */
+  it("mails a barred address holding a grant nothing", async () => {
     BACKENDS.set(BARRED_EMAIL, { ...A_GRANT, gesperrt: true });
 
-    assert.deepEqual((await askFor(BARRED_EMAIL)).mailed, [BARRED_EMAIL]);
+    assert.deepEqual((await askFor(BARRED_EMAIL)).mailed, []);
   });
 
   /* The administration is shut while the backend is: a grant nobody could read admits nothing, and
@@ -2269,8 +2286,8 @@ describe("which addresses the send gate mails", () => {
   const VERDICTS: readonly (readonly [string, string, Backend | undefined, string])[] = [
     ["an address holding a grant", ADMIN_EMAIL, A_GRANT, "admitted"],
     ["an address holding an `owner` grant", ADMIN_EMAIL, { ...NOTHING_HELD, verwaltung: "owner" }, "admitted"],
-    // The grant ahead of the ban: the order a gate judging the ban first would answer otherwise.
-    ["a barred address holding a grant", BARRED_EMAIL, { ...A_GRANT, gesperrt: true }, "admitted"],
+    // The ban ahead of the grant: the order a gate judging the grant first would answer otherwise.
+    ["a barred address holding a grant", BARRED_EMAIL, { ...A_GRANT, gesperrt: true }, "barred"],
     ["an administrator's address, the read throwing", ADMIN_EMAIL, "throws", "failed"],
     ["an address holding a live seat", SEATED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] }, "admitted"],
     ["an address whose records all await confirmation", UNCONFIRMED_EMAIL, { ...NOTHING_HELD, unbestaetigt: true }, "admitted"],

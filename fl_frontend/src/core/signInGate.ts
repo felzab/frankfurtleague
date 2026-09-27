@@ -73,13 +73,11 @@ export async function mayReceiveSignIn(identifier: string): Promise<SignInVerdic
     return "failed";
   }
 
-  // Ahead of the ban: a grant and a ban refuse each other (`docs/backend/spec.md :: I437`), so only a
-  // grant written in the database directly stands on a barred address, and its notice says so.
-  if (subjekt.verwaltung !== null) return "admitted";
-
-  // Ahead of every record: a barred address still holding a seat, or awaiting a confirmation, is
-  // offered nothing.
+  // Ahead of every record and the grant: a barred address still holding a seat, awaiting a
+  // confirmation or holding a grant written in the database directly is offered nothing.
   if (subjekt.gesperrt) return "barred";
+
+  if (subjekt.verwaltung !== null) return "admitted";
 
   const { funktionen, unbestaetigt } = funktionenOf({ email: email, admin: false, subjekt: subjekt });
 

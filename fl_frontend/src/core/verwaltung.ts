@@ -13,5 +13,9 @@ import type { FLSubjektResponse } from "./schemas";
 export async function verwaltungOf(email: string): Promise<FLSubjektResponse["verwaltung"]> {
   // Folded here because the library folds only CASE and only on the row it stores, while a grant is
   // stored folded (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`).
-  return (await lookUpSubjekt(asSignInIdentifier(email))).verwaltung;
+  const subjekt = await lookUpSubjekt(asSignInIdentifier(email));
+
+  // A barred holder is no administrator, as the backend's actor check refuses them: a grant written in
+  // the database directly is the one way onto a barred address, and it admits nothing.
+  return subjekt.gesperrt ? null : subjekt.verwaltung;
 }
