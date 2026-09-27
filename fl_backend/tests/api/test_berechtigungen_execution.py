@@ -851,20 +851,23 @@ class TestTheClaim:
         assert on_a_league(mongo_replica_set_url, body) == [(None, None, True, "anwendung"), (None, None, True, "anwendung")]
 
     def test_a_ban_entered_here_withholds_the_address_in_every_queued_notice(self, mongo_replica_set_url: str):
-        """Granted, revoked, then banned through the route: the stored rows, which a stamp copies into the log, hold no address."""
+        """Granted, revoked, banned through the route, then claimed: the stored rows, which a stamp copies into the log, hold no address."""
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Mapping[str, Any]]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[Mapping[str, Any]], FLBerechtigungAbgleichResponse]:
             await told(database, client)
             created = await grant(database, client)
             await revoke(database, client, created)
             await ban(database, client, NEU)
+            answer = await claimed(database, client)
 
-            return await queued(database)
+            return await queued(database), answer
 
-        rows = on_a_league(mongo_replica_set_url, body)
+        rows, answer = on_a_league(mongo_replica_set_url, body)
 
         assert [row["vorenthalten"] for row in rows] == ["gesperrt", "gesperrt"]
         assert all(NEU not in str(row) for row in rows)
+        assert [(change.art, change.gesperrt) for change in answer.aenderungen] == [("erteilt", True), ("entzogen", True)]
+        assert NEU not in answer.model_dump_json()
 
     def test_a_ban_withholds_the_address_past_one_page_of_queued_notices(self, mongo_replica_set_url: str):
         """More notices name the address than one read returns, and none keeps it (`docs/backend/spec.md :: I455`)."""
