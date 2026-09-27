@@ -18,7 +18,7 @@ import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 const STORE = "__flHolderCheckStore";
 
-/** A second allowlisted address: the only other account whose session the administrator's check is handed. */
+/** A second address holding a grant: the only other account whose session the administrator's check is handed. */
 const SECOND_ADMIN_EMAIL = "kassenwart@example.org";
 
 const PERSON_EMAIL = "spielerin@example.org";
@@ -32,12 +32,12 @@ const HEADERS_DOUBLE = exportingModule({ headers: () => Promise.resolve(requestH
 const LOGGING_DOUBLE = `export const logger = { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };`;
 
 // Every address this file signs in is seated: the gate at session creation is not its subject.
-seatEveryAddress();
+seatEveryAddress([ADMIN_EMAIL, SECOND_ADMIN_EMAIL]);
 
 registerAuthDoubles({
   core: {
     logging: LOGGING_DOUBLE,
-    config: configDouble({ ...GATE_BACKEND_CONFIG, ALLOWED_ADMIN_EMAILS: [ADMIN_EMAIL, SECOND_ADMIN_EMAIL] }),
+    config: configDouble(GATE_BACKEND_CONFIG),
   },
   specifiers: {
     "next/headers": asDataUrl(HEADERS_DOUBLE),

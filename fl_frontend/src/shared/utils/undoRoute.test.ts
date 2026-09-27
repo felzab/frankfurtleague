@@ -26,12 +26,12 @@ type ServedSession = { user: { email: string }; session: { authFactor: string } 
  */
 let undoRouteSession: ServedSession | undefined;
 
-const ALLOWLISTED = "admin@example.de";
+const GRANTED = "admin@example.de";
 const session = (): ServedSession =>
-  undoRouteSession === undefined ? { user: { email: ALLOWLISTED }, session: { authFactor: "passkey" } } : undoRouteSession;
+  undoRouteSession === undefined ? { user: { email: GRANTED }, session: { authFactor: "passkey" } } : undoRouteSession;
 const through = (): boolean => {
   const served = session();
-  return served !== null && served.user.email === ALLOWLISTED && served.session.authFactor === "passkey";
+  return served !== null && served.user.email === GRANTED && served.session.authFactor === "passkey";
 };
 const AUTH = exportingModule({
   getAdminSession: async () => (through() ? session() : null),
@@ -39,7 +39,7 @@ const AUTH = exportingModule({
   getSignInDestination: async () => {
     const served = session();
     if (served === null) return "/signin";
-    if (served.user.email !== ALLOWLISTED) return "/bereich";
+    if (served.user.email !== GRANTED) return "/bereich";
     return through() ? "/bereich/admin" : "/signin";
   },
 });
@@ -162,9 +162,9 @@ describe("who the undo spine answers before it does any work", () => {
     }
   });
 
-  /* The line `fl_frontend/src/proxy.ts` draws: a session the allowlist does not carry is sent to the
-     person's own `/bereich` rather than to sign in again, where that same allowlist would refuse it once more. */
-  it("answers a session outside the allowlist apart from a missing one, and still does no work for it", async () => {
+  /* The line `fl_frontend/src/proxy.ts` draws: a session holding no grant is sent to the person's own
+     `/bereich` rather than to sign in again, which would grant it no administration either. */
+  it("answers a session holding no grant apart from a missing one, and still does no work for it", async () => {
     undoRouteSession = { user: { email: "ehemalig@example.de" }, session: { authFactor: "passkey" } };
     let restored = 0;
 
@@ -187,7 +187,7 @@ describe("who the undo spine answers before it does any work", () => {
 
   /* The other half of the split: an administrator who has followed the link and not yet presented
      the passkey is 401, which sends them somewhere they can finish, rather than 403 to a person's landing. */
-  it("answers an allowlisted session short of the second factor the way it answers a missing one", async () => {
+  it("answers a granted session short of the second factor the way it answers a missing one", async () => {
     undoRouteSession = { user: { email: "admin@example.de" }, session: { authFactor: "link" } };
     let restored = 0;
 

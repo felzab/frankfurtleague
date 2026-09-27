@@ -118,8 +118,8 @@ describe("where the shared undo dispatch sends a caller the route turned away", 
     assert.deepEqual(pressed.toastsBeforeLeaving, [2], "the page is left before the outcome is reported");
   });
 
-  /* `fl_frontend/src/proxy.ts`'s other destination: signing in again is no way back for an address the
-     allowlist does not hold, so the sentence names the cause and no repair. */
+  /* `fl_frontend/src/proxy.ts`'s other destination: signing in again is no way back for an address
+     holding no grant, so the sentence names the cause and no repair. */
   it("says the change still stands, then leaves for the sign-in landing on the route's own 403", async () => {
     const pressed = await pressAgainst(
       Response.json({ success: false, error: "Deine Sitzung hat keine Administratorrechte." }, { status: 403 }),

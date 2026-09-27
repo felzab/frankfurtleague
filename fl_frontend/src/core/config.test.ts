@@ -5,7 +5,7 @@ import { afterEach, describe, it } from "node:test";
 import { isAPIError } from "better-auth/api";
 import { emailOTP } from "better-auth/plugins/email-otp";
 
-import { asSignInIdentifier, isDeliverableAddress, isSignInLibraryAddress, KONTAKT_EMAIL_MAX_LENGTH } from "./emailAddress.ts";
+import { asSignInIdentifier, isSignInLibraryAddress } from "./emailAddress.ts";
 import { documentsWrittenBy, documentsWrittenByAsync } from "./stdoutCapture.ts";
 
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
@@ -19,7 +19,6 @@ registerHooks({
 });
 
 const {
-  ADMIN_EMAIL_ALLOWLIST,
   DECLARED_ENVIRONMENT_NAMES,
   failingVariableNames,
   INTERNAL_API_KEY,
@@ -127,7 +126,6 @@ const COMPLETE_ENV: Record<string, string> = {
   INTERNAL_API_KEY_BASE: "b".repeat(LENGTH),
   INTERNAL_API_KEY_SYSTEM: "s".repeat(LENGTH),
   INTERNAL_API_KEY_ADMIN: "a".repeat(LENGTH),
-  ALLOWED_ADMIN_EMAILS: "admin@frankfurtleague.de",
   // json, so the refusal below reaches `documentsWrittenByAsync` as a document rather than a
   // colourised line it passes through to the runner's own reporter.
   LOG_FORMAT: "json",
@@ -295,79 +293,19 @@ const ADDRESS_TABLE: [clause: string, address: string][] = [
   ["nothing at all", ""],
 ];
 
-describe("the administrator allowlist", () => {
-  /* Capitals and an umlaut domain, which the fold makes the lower-case punycode the sign-in library
-     takes: an entry the fold leaves above ASCII is one the library refuses, and the case below would
-     then be proving a refusal instead. */
-  const UNFOLDED = "Vorstand@MÜNCHEN.de";
-  const FOLDED = "vorstand@xn--mnchen-3ya.de";
-
-  /* One refused entry fails the whole variable and `refuseInvalidEnvironment` throws, so an address
-     a link can be mailed to has to pass here or the site does not boot at all. */
-  it("takes an address both the sign-in box and the sign-in library accept", () => {
-    for (const raw of [
-      "vorstand@schule.de",
-      "vorstand+admin@schule.de",
-      "VORSTAND@Schule.de",
-      "vorstand@xn--mnchen-3ya.de",
-      "vorstand@münchen.de",
-    ]) {
-      assert.equal(ADMIN_EMAIL_ALLOWLIST.safeParse(raw).success, true, `refused ${raw}`);
+describe("the retired administrator variable", () => {
+  /* Declared for one release so a file carrying it passes the preflight for this image and for the one
+     a rollback returns to: refused here, the new image would not boot on the file the old one needs. */
+  it("boots whatever it holds, a value the retired rule refused included", async () => {
+    for (const value of ["vorstand@schule.de", "a@b.de;c@d.de", ""]) {
+      assert.equal((await bootWith({ ALLOWED_ADMIN_EMAILS: value }))["APP_ENV"], "production", `refused ${JSON.stringify(value)}`);
     }
   });
 
-  /* A separator nobody split on leaves one inert entry and every administrator locked out of a site
-     that came up green, which is the failure the boot refusal exists to turn into a red deploy. */
-  it("refuses an address no mailbox can be reached at, so a mis-split does not boot", () => {
-    for (const raw of ["a@b.de;c@d.de", "erika@ab-.de", "erika@schule", ""]) {
-      assert.equal(ADMIN_EMAIL_ALLOWLIST.safeParse(raw).success, false, `accepted ${raw}`);
-    }
-  });
-
-  /* The second assertion is what makes each row drive THIS rule: an address the API's own rule
-     refuses would be refused here whatever the sign-in library says. */
-  it("refuses an address the sign-in library will not take, whatever the API's own rule says", () => {
-    for (const raw of ["a!b@schule.de", "vorstand@schule.a"]) {
-      assert.equal(ADMIN_EMAIL_ALLOWLIST.safeParse(raw).success, false, `accepted ${raw}`);
-      assert.equal(isDeliverableAddress(asSignInIdentifier(raw)), true, `${raw} drives nothing: the API's rule refuses it too`);
-    }
-  });
-
-  /* An entry stored in any other form matches nothing anybody can type
-     (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`). */
-  it("holds each entry in the form the allowlist check folds an address into", () => {
-    assert.notEqual(UNFOLDED, FOLDED);
-
-    assert.deepEqual(ADMIN_EMAIL_ALLOWLIST.safeParse(` ${UNFOLDED} , ${FOLDED.toUpperCase()} `).data, [FOLDED, FOLDED]);
-  });
-
-  /* An entry over the sign-in box's own ceiling boots and then cannot be typed at the box
-     (`fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`), which is the same lock-out from the
-     other end. */
-  it("refuses an entry longer than the sign-in box will take", async () => {
-    const ofLength = (length: number): string => `${"a".repeat(length - "@schule.de".length)}@schule.de`;
-
-    assert.equal(ADMIN_EMAIL_ALLOWLIST.safeParse(ofLength(KONTAKT_EMAIL_MAX_LENGTH)).success, true);
-    assert.equal(await refusedNames({ ALLOWED_ADMIN_EMAILS: ofLength(KONTAKT_EMAIL_MAX_LENGTH + 1) }), "ALLOWED_ADMIN_EMAILS");
-  });
-
-  /* The refusal an operator reads has to send them to a variable, and the one value it may never
-     carry is the entry that failed (`docs/logging/spec.md :: L9`). */
-  it("names the variable for a refused entry, and carries no part of the address", async () => {
-    const refused = "jörg@schule.de";
-    const documents = await documentsWrittenByAsync(async () => {
-      await assert.rejects(bootWith({ ALLOWED_ADMIN_EMAILS: `admin@frankfurtleague.de,${refused}` }), /Invalid environment variables/);
-    });
-
-    assert.equal(documents[0]?.variables, "ALLOWED_ADMIN_EMAILS");
-    // Every document, not the first: a second line is where a value reaches a container log unread.
-    for (const document of documents) {
-      const written = JSON.stringify(document);
-
-      for (const secret of [refused, "jörg", "schule.de"]) {
-        assert.equal(written.includes(secret), false, `a refusal line carried ${secret}`);
-      }
-    }
+  it("is declared and demanded of no host, so a file may carry it or drop it", () => {
+    assert.ok(DECLARED_ENVIRONMENT_NAMES.includes("ALLOWED_ADMIN_EMAILS"));
+    assert.ok(!REQUIRED_ENVIRONMENT_NAMES.includes("ALLOWED_ADMIN_EMAILS"));
+    assert.ok(!PRODUCTION_REQUIRED_ENVIRONMENT_NAMES.includes("ALLOWED_ADMIN_EMAILS"));
   });
 });
 
@@ -410,7 +348,7 @@ describe("the sign-in library's own rule", () => {
 
   /* The library's check is its own, so a release moving it is a lock-out that nothing else here
      would catch. */
-  it("answers each address the way the allowlist's own predicate does", async () => {
+  it("answers each address the way the grant's own predicate does", async () => {
     for (const [clause, address] of ADDRESS_TABLE) {
       const folded = asSignInIdentifier(address);
 

@@ -1,16 +1,16 @@
 import { z } from "zod";
 
 /**
- * `core` rather than beside `fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`, which is its
- * other caller: `fl_frontend/src/core/config.ts` judges the administrator allowlist, and
+ * `core` rather than beside `fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`, its other
+ * caller: the sign-in fold and the mailer read these rules, and
  * `eslint.config.mjs :: LAYER_BOUNDARY` refuses `core` an import from `shared`. A second spelling
  * over there is what disagrees with this one.
  */
 
 /**
  * The whole-address ceiling, mirrored from `fl_backend/app/shared/schemas/bounds.py`. Declared here rather than beside
- * `fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`, which re-exports it, because the
- * administrator allowlist holds entries to the same ceiling and `core` may not import from `shared`.
+ * `fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`, which re-exports it, because
+ * `isDeliverableAddress` below holds the same ceiling and `core` may not import from `shared`.
  */
 export const KONTAKT_EMAIL_MAX_LENGTH = 254;
 
@@ -130,9 +130,9 @@ function foldedDomain(domain: string): string {
 }
 
 /**
- * The one folded form `fl_frontend/src/core/allowlist.ts :: isUserAdmin` compares an allowlist entry
- * against, and the form each entry is stored in: the sign-in library lower-cases only the row it
- * stores, and normalises nothing on either lane.
+ * The one folded form `fl_frontend/src/core/verwaltung.ts :: verwaltungOf` asks about a grant in,
+ * and the form every grant is stored in: the sign-in library lower-cases only the row it stores, and
+ * normalises nothing on either lane.
  */
 export function asSignInIdentifier(value: string): string {
   const trimmed = value.trim();

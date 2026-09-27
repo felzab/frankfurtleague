@@ -31,6 +31,12 @@ export async function register() {
   const { installConsoleShim } = await import("./core/consoleShim");
   installConsoleShim();
 
+  // The name alone, never its value: a list of administrators' addresses stays off the stream.
+  if (frontend_config.ALLOWED_ADMIN_EMAILS !== undefined) {
+    const { logger } = await import("./core/logging");
+    logger.warn("config.retired_variable", { error_code: "FE-BOOT-002", variables: "ALLOWED_ADMIN_EMAILS" });
+  }
+
   // `next dev` never sets NODE_ENV to production, and a developer's machine holds a real transport
   // and the league's real people. Compared to "on" rather than "off": a skipped validation leaves it
   // undefined, where a negated test would arm.

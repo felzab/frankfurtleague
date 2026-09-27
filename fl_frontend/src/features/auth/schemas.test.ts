@@ -7,9 +7,8 @@ describe("SignInPayloadSchema", () => {
   const refused = (email: unknown): boolean => !SignInPayloadSchema.safeParse({ email }).success;
 
   /* A session is reachable through this box alone, so an address refused here is one no administrator
-     can ever sign in with: the refusal IS the lock-out, and `ALLOWED_ADMIN_EMAILS` has to hold the
-     same set. */
-  it("takes every address an allowlist entry can hold, umlaut domains and atext characters and all", () => {
+     can ever sign in with: the refusal IS the lock-out, and the grant form takes no address beyond it. */
+  it("takes every address a grant can be made to, umlaut domains and atext characters and all", () => {
     for (const email of ["erika@käthe-schule.example", "a!b@schule.de"]) {
       assert.equal(refused(email), false, `expected "${email}" to be accepted`);
     }

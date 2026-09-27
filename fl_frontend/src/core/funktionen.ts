@@ -16,7 +16,7 @@ type SpielerFunktion = { art: "spieler"; spieler_id: string };
 
 type SchiedsrichterFunktion = { art: "schiedsrichter"; schiedsrichter_id: string };
 
-/** Derived from the session's own verdict and never served: the allowlist is no record a mailbox matches. */
+/** Derived from the session's own verdict rather than the stored grant alone, which a code-borne session also holds. */
 type AdministrationFunktion = { art: "administration" };
 
 /** What a person IS on screen: one record the lookup matched, narrowed to what grants a panel. */

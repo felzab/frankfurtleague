@@ -3,7 +3,6 @@ import "server-only";
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
-import { asSignInIdentifier, isDeliverableAddress, isSignInLibraryAddress, KONTAKT_EMAIL_MAX_LENGTH } from "./emailAddress";
 import { formatLogLine, LOG_THRESHOLDS } from "./logFormat";
 
 // Read off `createEnv` rather than imported: the package declaring the Standard Schema issue is a
@@ -17,19 +16,6 @@ export const INTERNAL_API_KEY = z
   .string()
   .length(64)
   .regex(/^[\x21\x25\x26\x28-\x5b\x5d-\x5f\x61-\x7e]+$/, "printable ASCII only, with no space and none of \" # $ ' \\ or a backtick");
-
-/**
- * An entry the sign-in library refuses is an administrator no link ever reaches: the send is
- * answered neutrally and refused behind it (`docs/frontend/spec.md :: I316`). Tightening this
- * further needs `fl_frontend/src/features/auth/schemas.ts :: SignInPayloadSchema` to keep taking
- * every entry it takes.
- */
-export const ADMIN_EMAIL_ALLOWLIST = z
-  .string()
-  .transform((str) => str.split(",").map(asSignInIdentifier))
-  // A refused entry fails the whole variable, so a separator nothing split on is met at boot rather
-  // than at a sign-in that answers every address alike.
-  .pipe(z.array(z.string().max(KONTAKT_EMAIL_MAX_LENGTH).refine(isDeliverableAddress).refine(isSignInLibraryAddress)));
 
 export function refuseInvalidEnvironment(names: readonly string[]): never {
   // Read off the raw variable, which may itself be the invalid one, so anything but `json` falls
@@ -112,7 +98,10 @@ const server = {
   INTERNAL_API_KEY_SYSTEM: INTERNAL_API_KEY,
   INTERNAL_API_KEY_ADMIN: INTERNAL_API_KEY,
 
-  ALLOWED_ADMIN_EMAILS: ADMIN_EMAIL_ALLOWLIST,
+  // Retired and read by nothing: the grant stored in `berechtigungen` decides who administers.
+  // Declared for one release, so the preflight takes the file an image rolled back to still reads;
+  // a boot finding it set warns (`fl_frontend/src/instrumentation.ts :: register`).
+  ALLOWED_ADMIN_EMAILS: z.string().optional(),
 
   // An enum over a normalised value, not a bare string: the json branch is selected by exact
   // comparison, so a capitalised one would fall through to colourised output in production.

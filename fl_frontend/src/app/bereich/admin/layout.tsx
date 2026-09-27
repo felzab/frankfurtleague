@@ -25,7 +25,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
         funktionSwitcher={
           // Under the guard for the season slot's reason, and in a boundary of its own with nothing in its
-          // stead: the rail must not wait on a read only a person holding more than the allowlist uses.
+          // stead: the rail must not wait on a read only a person holding more than the grant uses.
           <Suspense fallback={null}>
             <AdminAuthGuard>
               <AdminFunktionSwitcher />

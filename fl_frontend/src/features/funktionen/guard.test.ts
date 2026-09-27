@@ -1,13 +1,11 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
-import { exportingModule } from "@/core/exportingModule.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
@@ -23,19 +21,8 @@ const { setSession, setSubject, subjectReads } = doubleActionRequest();
 // landing. A case naming an administrator says so itself.
 beforeEach(() => setSession(null, "/bereich"));
 
-/** The one address the allowlist holds here, which the environment would otherwise name. */
-const ALLOWLISTED = "vorstand@example.org";
-const ALLOWLIST_DOUBLE = exportingModule({ isUserAdmin: (email?: string | null) => email === ALLOWLISTED });
 // The shells hand a sign-out action to the bar, whose real module reaches `next/server` past the harness.
 doubleEveryAction();
-
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/allowlist.ts")) return { format: "module", source: ALLOWLIST_DOUBLE, shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step and the doubles as it evaluates (`docs/frontend/spec.md` §1.9). */
@@ -68,7 +55,7 @@ const sitz = (fields: Partial<FLSubjektSitz> = {}): FLSubjektSitz => ({
 const person = (records: Partial<SubjectSession["subjekt"]> = {}, admin = false): SubjectSession => ({
   email: "pia@example.org",
   admin: admin,
-  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, ...records },
+  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, verwaltung: null, ...records },
 });
 
 const NO_PROPS = { params: Promise.resolve({}), searchParams: Promise.resolve({}) };
@@ -175,13 +162,13 @@ describe("where the landing takes a person", () => {
     }
   });
 
-  /* The allowlist is what makes an address an administrator's, so one whose verdict lapsed, past its
+  /* The grant is what makes an address an administrator's, so one whose verdict lapsed, past its
      window or short of the passkey, owes the admin subtree's step rather than a person's landing. */
-  it("sends an allowlisted address whose administrator verdict lapsed to the admin subtree", async () => {
-    setSubject({ ...person({ spieler: [{ spieler_id: TEAM_A }] }), email: ALLOWLISTED });
+  it("sends an address holding a grant whose administrator verdict lapsed to the admin subtree", async () => {
+    setSubject(person({ spieler: [{ spieler_id: TEAM_A }], verwaltung: "administration" }));
     assert.deepEqual(await redirectsOf(PersoenlichStartPage), ["/bereich/admin"]);
 
-    // The control: the same records on an address the allowlist does not hold are a person's.
+    // The control: the same records on an address holding no grant are a person's.
     setSubject(person({ spieler: [{ spieler_id: TEAM_A }] }));
     assert.deepEqual(await redirectsOf(PersoenlichStartPage), ["/bereich/spieler"]);
   });

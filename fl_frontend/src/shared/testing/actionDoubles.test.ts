@@ -201,7 +201,14 @@ describe("the request double", () => {
     const subject = {
       email: "pia@example.org",
       admin: false,
-      subjekt: { sitze: [], spieler: [{ spieler_id: "6890a1b2c3d4e5f607250001" }], schiedsrichter: [], unbestaetigt: false, gesperrt: false },
+      subjekt: {
+        sitze: [],
+        spieler: [{ spieler_id: "6890a1b2c3d4e5f607250001" }],
+        schiedsrichter: [],
+        unbestaetigt: false,
+        gesperrt: false,
+        verwaltung: null,
+      },
     };
     setSubject(subject);
 

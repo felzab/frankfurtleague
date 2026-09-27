@@ -23,7 +23,7 @@ import { assertionFor, COSE_KEY, CREDENTIAL_ID, CREDENTIAL_RAW_ID, registrationF
 
 import type { MemoryDB } from "better-auth/adapters/memory";
 
-/** Allowlisted by nothing: the person arm of every case below. */
+/** Granted nothing: the person arm of every case below. */
 const PERSON_EMAIL = "spielerin@example.org";
 
 /* Replaced at the module boundary rather than the adapter being given a seam: the real module opens
@@ -104,10 +104,16 @@ const { sent } = registerAuthDoubles({
 /** What the backend's one read answers an address, or that it throws for it or refuses it as a payload. */
 type Backend = Record<string, unknown> | "throws" | "refuses";
 
-const NOTHING_HELD = { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false };
+const NOTHING_HELD = { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, verwaltung: null };
 const A_SEAT = { saison_id: "2026", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" };
 
-/** Keyed by the folded address the gate posts; every address named nowhere is unbarred and holds nothing. */
+/** What the store answers the administrator of every case below: a grant and no league record. */
+const A_GRANT = { ...NOTHING_HELD, verwaltung: "administration" };
+
+/**
+ * Keyed by the folded address the gate posts; every address named nowhere is unbarred and holds
+ * nothing, but `ADMIN_EMAIL`, which holds `A_GRANT`.
+ */
 const BACKENDS = new Map<string, Backend>();
 
 /** Every read the gate put on the wire, by path. */
@@ -119,7 +125,7 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
   asked.push(path);
 
   const email = (JSON.parse(String(init?.body ?? "{}")) as { email?: string }).email ?? "";
-  const backend = BACKENDS.get(email) ?? NOTHING_HELD;
+  const backend = BACKENDS.get(email) ?? (email === ADMIN_EMAIL ? A_GRANT : NOTHING_HELD);
   if (backend === "throws") throw new TypeError("fetch failed");
   if (backend === "refuses") {
     const refusal = { error_code: "REQ-VAL-001", trace_id: "0".repeat(32), fields: [] };
@@ -399,7 +405,7 @@ async function overHttp(
 }
 
 describe("what the mounted HTTP surface answers", () => {
-  /* The allowlist's own floor: a path it admits has to still work, or every refusal below is the
+  /* The surface's own floor: a path it admits has to still work, or every refusal below is the
      handler being broken rather than the surface being closed. */
   it("serves the ceremony a browser really calls, on the path the installed plugin mounts", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
@@ -428,7 +434,7 @@ describe("what the mounted HTTP surface answers", () => {
     assert.ok(!JSON.stringify(body).includes(row.token), "the served session carries the cookie's own value");
   });
 
-  /* The hole the allowlist exists for: a holder of the mailbox alone reaches a code-borne session,
+  /* The hole the passkey factor exists for: a holder of the mailbox alone reaches a code-borne session,
      and these three read, rename and delete the administrator's only passkey behind a bare session
      middleware -- no freshness, no factor. */
   it("refuses all three passkey management routes to a code-borne session, leaving the passkey standing", async () => {
@@ -567,7 +573,7 @@ describe("what the narrowed session still gives the guards", () => {
 });
 
 describe("the three lifetimes, judged in the guard rather than in the store", () => {
-  it("refuses a session forty-nine hours old for an allowlisted address, and serves it for anyone else", async () => {
+  it("refuses a session forty-nine hours old for an address holding a grant, and serves it for anyone else", async () => {
     const admin = await signIn(ADMIN_EMAIL);
     admin.row.authFactor = "passkey";
     ageRow(admin.row, { created: 49 * HOUR_MS });
@@ -634,8 +640,39 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
   });
 });
 
+describe("a grant the backend cannot answer for", () => {
+  afterEach(() => BACKENDS.delete(ADMIN_EMAIL));
+
+  /* The administration is shut while the backend is: an unread grant admits nobody, and never falls
+     to the person's lane, where an administrator's mailbox session would manage their passkeys. */
+  it("admits no administrator, offers no passkey card and sends the session to sign in afresh", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    row.authFactor = "passkey";
+    arriveAs(cookie);
+    BACKENDS.set(ADMIN_EMAIL, "throws");
+    const loggedBefore = logged.length;
+
+    assert.equal(await getAdminSession(), null);
+    assert.equal(await getSignInDestination(), "/signin");
+    assert.equal(await getPasskeyStep(), null);
+    assert.deepEqual(
+      logged.slice(loggedBefore).map((line) => [line.message, line.meta]),
+      Array.from({ length: 3 }, () => ["auth.verwaltung_unread", { error_code: "FE-AUTH-010", name: "APINetworkError" }]),
+    );
+  });
+
+  /* The enrolment's step-up is the passkey's for an administrator, so an unread grant refuses rather
+     than judging the mailbox session as a person's. */
+  it("refuses an enrolment from a code session, as a retry would be answered", async () => {
+    const { cookie } = await signIn(ADMIN_EMAIL);
+    BACKENDS.set(ADMIN_EMAIL, "throws");
+
+    assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 503);
+  });
+});
+
 describe("the second factor, judged at the same guard", () => {
-  it("refuses an allowlisted session the mailbox alone made, and sends it to the passkey page", async () => {
+  it("refuses a granted session the mailbox alone made, and sends it to the passkey page", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     assert.equal(row.authFactor, "code", "the mailbox factor's own verification did not stamp it");
     arriveAs(cookie);
@@ -668,11 +705,11 @@ describe("the second factor, judged at the same guard", () => {
   });
 
   /* The one address this slice puts in front of a person, and the library stores whatever spelling
-     verified: unfolded it reads as a second account beside the one the allowlist carries. */
+     verified: unfolded it reads as a second account beside the one the grant names. */
   it("hands the card the folded spelling of the address it prints", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
     const held = store.user.find((user) => user.email === ADMIN_EMAIL);
-    assert.ok(held, "the sign-in wrote no user row for the allowlisted address");
+    assert.ok(held, "the sign-in wrote no user row for the granted address");
     held.email = ADMIN_EMAIL.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61));
     arriveAs(cookie);
 
@@ -755,12 +792,12 @@ describe("the second factor, judged at the same guard", () => {
     row.authFactor = "passkey";
     const withFactor = await served(cookie);
     assert.ok(withFactor);
-    assert.equal(isAdminSession(withFactor), true);
+    assert.equal(isAdminSession(withFactor, true), true);
 
     row.authFactor = "code";
     const withoutFactor = await served(cookie);
     assert.ok(withoutFactor);
-    assert.equal(isAdminSession(withoutFactor), false);
+    assert.equal(isAdminSession(withoutFactor, true), false);
   });
 
   /* The landing re-spelled the guard's conditions once, so a third one added to the guard would
@@ -780,7 +817,7 @@ describe("the second factor, judged at the same guard", () => {
 
         assert.equal(
           destination === "/bereich/admin",
-          isAdminSession(seen),
+          isAdminSession(seen, true),
           `${factor} at ${String(created / HOUR_MS)}h landed on ${destination}`,
         );
       }
@@ -1523,7 +1560,7 @@ describe("which session a new sign-in replaces", () => {
 
 describe("the step-up every change to passkeys and sign-ins asks for", () => {
   const judged = (email: string, authFactor: string, age: number) =>
-    isFreshlySignedIn({ user: { email }, session: { createdAt: new Date(Date.now() - age), authFactor } });
+    isFreshlySignedIn({ user: { email }, session: { createdAt: new Date(Date.now() - age), authFactor }, verwaltung: email === ADMIN_EMAIL });
 
   it("admits a person signed in by either factor inside the window, and neither past it", () => {
     for (const factor of ["code", "passkey"]) {
@@ -1541,7 +1578,10 @@ describe("the step-up every change to passkeys and sign-ins asks for", () => {
   });
 
   it("takes a stamp it cannot read for no step-up at all", () => {
-    assert.equal(isFreshlySignedIn({ user: { email: PERSON_EMAIL }, session: { createdAt: "kein Datum", authFactor: "passkey" } }), false);
+    assert.equal(
+      isFreshlySignedIn({ user: { email: PERSON_EMAIL }, session: { createdAt: "kein Datum", authFactor: "passkey" }, verwaltung: false }),
+      false,
+    );
   });
 });
 
@@ -1576,14 +1616,21 @@ describe("what a ban ends in the sign-in store", () => {
     assert.ok(!store.session.includes(stored.row));
   });
 
-  /* The allowlist is judged ahead of the ban at every sign-in, so its sessions stay as the next
-     sign-in would. */
-  it("leaves an allowlisted address signed in", async () => {
+  /* The ban refuses an address holding a grant, so the ending asks nothing: a read here would make a
+     ban's sign-out hostage to the backend the ban has just written to. */
+  it("ends the sessions without asking the backend whether the address holds a grant", async () => {
     const { row } = await signIn(ADMIN_EMAIL);
+    BACKENDS.set(ADMIN_EMAIL, "throws");
+    asked.length = 0;
 
-    await endSessionsOfAddress(ADMIN_EMAIL);
+    try {
+      await endSessionsOfAddress(ADMIN_EMAIL);
+    } finally {
+      BACKENDS.delete(ADMIN_EMAIL);
+    }
 
-    assert.ok(store.session.includes(row));
+    assert.ok(!store.session.includes(row));
+    assert.deepEqual(asked, []);
   });
 
   it("does nothing for an address no account holds", async () => {
@@ -1648,8 +1695,8 @@ describe("what the library's own log stream reaches this application as", () => 
   });
 });
 
-describe("what the code costs an address the allowlist does not carry", () => {
-  it("mails the allowlisted address and mails the other nothing, on the same answer", async () => {
+describe("what the code costs an address holding nothing", () => {
+  it("mails the granted address and mails the other nothing, on the same answer", async () => {
     const before = sent.length;
 
     const first = await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" }, headers: new Headers(ORIGIN) });
@@ -1670,12 +1717,12 @@ describe("what the code costs an address the allowlist does not carry", () => {
     assert.ok(codeRowOf(PERSON_EMAIL), "the unmailed address holds no code row, so a verify tells the two apart");
   });
 
-  it("mails an allowlisted address typed in another case", async () => {
+  it("mails a granted address typed in another case", async () => {
     const before = sent.length;
 
     await auth.api.sendVerificationOTP({ body: { email: ADMIN_EMAIL.toUpperCase(), type: "sign-in" }, headers: new Headers(ORIGIN) });
 
-    assert.equal(sent.slice(before).length, 1, "the allowlist refused an address differing only in case");
+    assert.equal(sent.slice(before).length, 1, "the gate refused an address differing only in case");
   });
 
   /* The one thing telling this lane's delivery events from the application flow's: untagged, the
@@ -2079,7 +2126,7 @@ describe("the code mails one address may be sent in an hour (`docs/frontend/spec
   });
 });
 
-describe("which addresses outside the allowlist the send gate mails", () => {
+describe("which addresses the send gate mails", () => {
   const SEATED_EMAIL = "trainerin@example.org";
   const UNCONFIRMED_EMAIL = "unbestaetigte@example.org";
   const BARRED_EMAIL = "gesperrte@example.org";
@@ -2147,16 +2194,36 @@ describe("which addresses outside the allowlist the send gate mails", () => {
     assert.equal(asked.length, 1, "the gate refused without asking the backend, so the past seat decided nothing");
   });
 
-  /* The order is the subject: the allowlist in process ahead of the read is what keeps an
-     administrator's code from depending on a backend call. */
-  it("mails an allowlisted address while the backend read throws, asking nothing", async () => {
-    BACKENDS.set(ADMIN_EMAIL, "throws");
+  /* The grant is read on the same one call as the records, so an administrator's address costs the
+     gate what a person's does: the answer and its timing tell the two apart nowhere. */
+  it("mails an address holding a grant after the one backend read, answering it as it answers a person's", async () => {
+    BACKENDS.set(SEATED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
 
-    assert.deepEqual((await askFor(ADMIN_EMAIL)).mailed, [ADMIN_EMAIL]);
-    assert.deepEqual(asked, []);
+    const granted = await askFor(ADMIN_EMAIL);
+    const seated = await askFor(SEATED_EMAIL);
+
+    assert.deepEqual(granted.mailed, [ADMIN_EMAIL]);
+    assert.deepEqual(asked, ["/api/v0/identitaet/subjekt", "/api/v0/identitaet/subjekt"]);
+    assert.deepEqual(granted.answer, seated.answer);
   });
 
-  it("mails nothing to an address outside the allowlist while the read throws, and logs the failure by name alone", async () => {
+  /* A grant written in the database directly is the one way onto a barred address, and it admits:
+     the ban refuses a granted address, so the grant is the later, deliberate act. */
+  it("mails a barred address holding a grant", async () => {
+    BACKENDS.set(BARRED_EMAIL, { ...A_GRANT, gesperrt: true });
+
+    assert.deepEqual((await askFor(BARRED_EMAIL)).mailed, [BARRED_EMAIL]);
+  });
+
+  /* The administration is shut while the backend is: a grant nobody could read admits nothing, and
+     the person asking cannot tell it from any other refusal. */
+  it("mails nothing to an administrator's address while the backend read throws", async () => {
+    BACKENDS.set(ADMIN_EMAIL, "throws");
+
+    assert.deepEqual((await askFor(ADMIN_EMAIL)).mailed, []);
+  });
+
+  it("mails nothing to a person's address while the read throws, and logs the failure by name alone", async () => {
     BACKENDS.set(PERSON_EMAIL, "throws");
     const loggedBefore = logged.length;
 
@@ -2200,7 +2267,11 @@ describe("which addresses outside the allowlist the send gate mails", () => {
   /* Asked directly, as a sender other than the plugin's callback asks it: that sender words the
      reason, so each is answered as itself, and a failed read as a verdict rather than a throw. */
   const VERDICTS: readonly (readonly [string, string, Backend | undefined, string])[] = [
-    ["an allowlisted address, the read throwing", ADMIN_EMAIL, "throws", "admitted"],
+    ["an address holding a grant", ADMIN_EMAIL, A_GRANT, "admitted"],
+    ["an address holding an `owner` grant", ADMIN_EMAIL, { ...NOTHING_HELD, verwaltung: "owner" }, "admitted"],
+    // The grant ahead of the ban: the order a gate judging the ban first would answer otherwise.
+    ["a barred address holding a grant", BARRED_EMAIL, { ...A_GRANT, gesperrt: true }, "admitted"],
+    ["an administrator's address, the read throwing", ADMIN_EMAIL, "throws", "failed"],
     ["an address holding a live seat", SEATED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] }, "admitted"],
     ["an address whose records all await confirmation", UNCONFIRMED_EMAIL, { ...NOTHING_HELD, unbestaetigt: true }, "admitted"],
     ["a barred address holding a live seat", BARRED_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true }, "barred"],
@@ -2298,29 +2369,38 @@ describe("which sign-ins the gate admits as the session is minted (`docs/fronten
     assert.ok(store.session.includes(row), "the refused set-up signed its caller out");
   });
 
-  /* The allowlist is judged in process ahead of the read, as at the send: an unreachable backend
-     never locks an administrator out. */
-  it("admits an administrator's passkey while the backend read throws", async () => {
+  it("admits an administrator's passkey on the grant alone, holding no league record", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+
+    assert.equal((await assertPasskey(cookie, true)).status, 200);
+  });
+
+  /* The grant is read on the same call as the ban, so an unreachable backend shuts the administration
+     too, and answers as a retry would rather than as a refusal. */
+  it("refuses an administrator's passkey while the backend read throws, minting nothing", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
     BACKENDS.set(ADMIN_EMAIL, "throws");
+    const before = [...store.session];
 
-    assert.equal((await assertPasskey(cookie, true)).status, 200);
+    assert.equal((await assertPasskey(cookie, true)).status, 503);
+    assert.deepEqual(store.session, before, "a refused passkey sign-in minted a session or ended one");
   });
 });
 
 describe("which spelling of an administrator a write is attributed to", () => {
   /* One person, one spelling in `aktionen.actor.email`: this lane and the person's lane compose the
      actor from one address, so a log filtered on it holds every write they made. */
-  it("records the folded identifier, which is the spelling the allowlist itself is compared on", async () => {
+  it("records the folded identifier, which is the spelling the grant itself is looked up by", async () => {
     const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     row.authFactor = "passkey";
 
     const held = store.user.find((user) => user.email === ADMIN_EMAIL);
-    assert.ok(held, "the sign-in wrote no user row for the allowlisted address");
-    // The fold converts this spelling's domain to the allowlisted one, so the guard admits a session
-    // whose stored address is not the one the allowlist carries.
+    assert.ok(held, "the sign-in wrote no user row for the granted address");
+    // The fold converts this spelling's domain to the granted one, so the guard admits a session
+    // whose stored address is not the one the grant carries.
     held.email = ADMIN_EMAIL.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61));
     arriveAs(cookie);
 

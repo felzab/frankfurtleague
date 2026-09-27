@@ -209,7 +209,6 @@ describe("the switch the retention sweep is armed by", () => {
     INTERNAL_API_KEY_BASE: "b".repeat(64),
     INTERNAL_API_KEY_SYSTEM: "s".repeat(64),
     INTERNAL_API_KEY_ADMIN: "a".repeat(64),
-    ALLOWED_ADMIN_EMAILS: "admin@frankfurtleague.de",
     LOG_FORMAT: "console",
   };
 

@@ -24,7 +24,7 @@ export const asDataUrl = (source: string): string => `data:text/javascript,${enc
  */
 export function configDouble(overrides: Readonly<Record<string, unknown>> = {}): string {
   const config = {
-    ALLOWED_ADMIN_EMAILS: [ADMIN_EMAIL],
+    ...GATE_BACKEND_CONFIG,
     AUTH_URL: `http://${ORIGIN.host}`,
     AUTH_SECRET: "fabricated-test-secret-not-a-credential",
     LOG_LEVEL: "ERROR",
@@ -67,6 +67,10 @@ export function registerAuthDoubles({ core = {}, specifiers = {} }: Doubles = {}
   if ("mail" in core) throw new Error("The mailer is doubleSendMail's: read the record registerAuthDoubles answers.");
   const sources = Object.entries({ config: configDouble(), db: DB_DOUBLE, ...core });
   const replaced = new Map(Object.entries(specifiers));
+
+  // The grant is read over the lookup, so without an answer no suite has an administrator at all. A
+  // suite answering the lookup itself, before this or after it, keeps its own answer.
+  if (!lookupAnswered) answerTheLookup((email) => (email === ADMIN_EMAIL ? GRANTED : null));
 
   registerHooks({
     resolve(specifier, context, nextResolve) {
@@ -164,36 +168,48 @@ export async function signInByCode(
   return auth.api.signInEmailOTP({ body: { email, otp }, headers: new Headers(headers), returnHeaders: true });
 }
 
-/** Where the sign-in gate's one backend read goes, for `configDouble` in a suite `seatEveryAddress` answers. */
+/** Where the sign-in gate's one backend read goes, in every config double this file builds. */
 export const GATE_BACKEND_CONFIG = {
   API_URL: "http://backend.test",
   API_VERSION: 0,
   INTERNAL_API_KEY_SYSTEM: "fabricated-system-not-a-credential",
 } as const;
 
-/**
- * Answers the gate's backend read with a live seat for every address, so a suite minting a person's
- * session gets past the gate at session creation (`docs/frontend/spec.md :: I403`). Needs
- * `GATE_BACKEND_CONFIG` in the suite's config double.
- */
-export function seatEveryAddress(): void {
-  const seated = {
-    acknowledged: 1,
-    sitze: [{ saison_id: "2026", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" }],
-    spieler: [],
-    schiedsrichter: [],
-    unbestaetigt: false,
-    gesperrt: false,
-  };
+/** What the lookup answers an address holding nothing, which every answer below builds on. */
+const HOLDS_NOTHING = { acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, verwaltung: null };
+
+/** `ADMIN_EMAIL`'s answer: a grant and no league record, which is what makes it an administrator. */
+const GRANTED = { ...HOLDS_NOTHING, verwaltung: "administration" };
+
+/** Whether a suite's lookup answer is installed, which `registerAuthDoubles`' default must not replace. */
+let lookupAnswered = false;
+
+/** Answers the lookup by the address it posts; `null` fails the read as an unreachable backend does. */
+function answerTheLookup(answerFor: (email: string) => Record<string, unknown> | null): void {
+  lookupAnswered = true;
   const original = globalThis.fetch;
 
-  globalThis.fetch = (() =>
-    Promise.resolve(
-      new Response(JSON.stringify(seated), { status: 200, headers: { "content-type": "application/json" } }),
-    )) as typeof globalThis.fetch;
+  globalThis.fetch = ((_input: string | URL | Request, init?: RequestInit) => {
+    const { email } = JSON.parse(String(init?.body ?? "{}")) as { email?: string };
+    const answer = answerFor(email ?? "");
+    if (answer === null) return Promise.reject(new TypeError("fetch failed"));
+
+    return Promise.resolve(new Response(JSON.stringify(answer), { status: 200, headers: { "content-type": "application/json" } }));
+  }) as typeof globalThis.fetch;
   after(() => {
     globalThis.fetch = original;
   });
+}
+
+/**
+ * Answers the gate's backend read with a live seat for every address, and a grant beside it for each
+ * address `granted` names, so a suite minting a person's session gets past the gate at session creation
+ * (`docs/frontend/spec.md :: I403`).
+ */
+export function seatEveryAddress(granted: readonly string[] = [ADMIN_EMAIL]): void {
+  const seat = { saison_id: "2026", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" };
+
+  answerTheLookup((email) => ({ ...(granted.includes(email) ? GRANTED : HOLDS_NOTHING), sitze: [seat] }));
 }
 
 /**

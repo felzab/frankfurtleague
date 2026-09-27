@@ -19,7 +19,7 @@ import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts
 
 import type { MemoryDB } from "better-auth/adapters/memory";
 
-/** Allowlisted by nothing: the person lane of every guard below. */
+/** Granted nothing: the person lane of every guard below. */
 const PERSON_EMAIL = "spielerin@example.org";
 
 /** A second person, whose rows no call made with the first one's session may reach. */

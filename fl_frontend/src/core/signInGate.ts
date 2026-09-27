@@ -1,6 +1,7 @@
 import "server-only";
 
-import { isUserAdmin } from "./allowlist";
+import { cache } from "react";
+
 import { apiClient } from "./api";
 import { asSignInIdentifier } from "./emailAddress";
 import { APIBadStatusError } from "./errors";
@@ -14,11 +15,13 @@ import type { SubjectSession } from "./subject";
 /** The code the backend answers a payload it refuses with: here, an address no rule of its own accepts. */
 const PAYLOAD_REFUSED = "REQ-VAL-001";
 
+// React's `cache`, never `"use cache"`, which would hand one request's grant to another: the guards
+// and the switcher of one render share one read, and outside a render nothing is kept.
 /**
- * One folded mailbox's records and ban, every caller reading them through this one call. Throws on
- * every backend failure; `fl_frontend/src/core/subject.ts :: getSubjectSession` lets it.
+ * One folded mailbox's records, ban and grant, every caller reading them through this one call. Throws
+ * on every backend failure; `fl_frontend/src/core/subject.ts :: getSubjectSession` lets it.
  */
-export async function lookUpSubjekt(email: string): Promise<SubjectSession["subjekt"]> {
+export const lookUpSubjekt = cache(async (email: string): Promise<SubjectSession["subjekt"]> => {
   const payload: FLSubjektPayload = { email: email };
   // In the body and on no query parameter: a URL carrying an address reaches the edge's access
   // line, which nothing downstream un-logs (`docs/logging/spec.md :: L11`).
@@ -37,8 +40,9 @@ export async function lookUpSubjekt(email: string): Promise<SubjectSession["subj
     schiedsrichter: answer.schiedsrichter,
     unbestaetigt: answer.unbestaetigt,
     gesperrt: answer.gesperrt,
+    verwaltung: answer.verwaltung,
   };
-}
+});
 
 /**
  * Why a sign-in is or is not offered; `admitted` alone is offered one. A sender that answers the
@@ -51,10 +55,6 @@ export type SignInVerdict = "admitted" | "barred" | "holds-nothing" | "failed";
  * gate, never spelled a second time. It never throws.
  */
 export async function mayReceiveSignIn(identifier: string): Promise<SignInVerdict> {
-  // First and in process, so an administrator's sign-in is never hostage to a backend call; moved
-  // behind the read, an unreachable backend locks every administrator out.
-  if (isUserAdmin(identifier)) return "admitted";
-
   const email = asSignInIdentifier(identifier);
   let subjekt: SubjectSession["subjekt"];
 
@@ -63,8 +63,8 @@ export async function mayReceiveSignIn(identifier: string): Promise<SignInVerdic
   try {
     subjekt = await lookUpSubjekt(email);
   } catch (failed) {
-    // Closed: a sign-in past a failed read would defeat the ban. The person cannot tell this from an
-    // unknown address, so the line is the only signal, carrying the name alone as the send's does.
+    // Closed, for an administrator too: a sign-in past a failed read would defeat the ban. The person
+    // cannot tell this from an unknown address, so the line is the only signal, carrying the name alone.
     const refused = failed instanceof APIBadStatusError && failed.serverErrorCode === PAYLOAD_REFUSED;
     logger.error(refused ? "auth.sign_in_gate_address_refused" : "auth.sign_in_gate_failed", undefined, {
       error_code: "FE-AUTH-002",
@@ -72,6 +72,10 @@ export async function mayReceiveSignIn(identifier: string): Promise<SignInVerdic
     });
     return "failed";
   }
+
+  // Ahead of the ban: a grant and a ban refuse each other (`docs/backend/spec.md :: I437`), so only a
+  // grant written in the database directly stands on a barred address, and its notice says so.
+  if (subjekt.verwaltung !== null) return "admitted";
 
   // Ahead of every record: a barred address still holding a seat, or awaiting a confirmation, is
   // offered nothing.

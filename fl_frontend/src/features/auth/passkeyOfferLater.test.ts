@@ -10,7 +10,7 @@ const STORE = "__flOfferLaterStore";
 /** What the request a case arrives as carries. */
 let requestHeaders: Headers | undefined;
 
-/** Allowlisted by nothing: the person the offer is made to. */
+/** Granted nothing: the person the offer is made to. */
 const PERSON_EMAIL = "spielerin@example.org";
 const TEAM_ID = "6890a1b2c3d4e5f607250011";
 
@@ -37,6 +37,7 @@ answerReadsWith((endpoint, schema, params) =>
         schiedsrichter: [],
         unbestaetigt: false,
         gesperrt: false,
+        verwaltung: null,
       }
     : EMPTIEST_ANSWER(endpoint, schema, params),
 );

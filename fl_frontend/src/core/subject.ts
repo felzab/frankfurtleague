@@ -8,7 +8,7 @@ import { asSignInIdentifier } from "./emailAddress";
 import { setRequestActor } from "./requestScope";
 import { lookUpSubjekt } from "./signInGate";
 
-import type { FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler } from "./schemas";
+import type { FLSubjektResponse, FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler } from "./schemas";
 
 /** Read-only to the depth a panel reaches: what the league holds is the endpoint's to change. */
 type SubjectRecords = {
@@ -21,6 +21,9 @@ type SubjectRecords = {
   // The backend's own verdict, never recomputed here; `getSubjectSession` serves no subject that
   // carries it set, so only the sign-in gate ever reads it `true`.
   readonly gesperrt: boolean;
+  // The grant the address holds, stored and never derived: whether it may act as an administrator is
+  // `SubjectSession["admin"]`, which the session's factor and window narrow further.
+  readonly verwaltung: FLSubjektResponse["verwaltung"];
 };
 
 /**
@@ -54,7 +57,7 @@ export const getSubjectSession = cache(async (): Promise<SubjectSession | null> 
   const subjekt = await lookUpSubjekt(email);
 
   // On every request rather than only at the ban: a session minted racing the ban, or one its ending
-  // missed, is no session here (`docs/frontend/spec.md :: I406`). An administrator is never barred.
+  // missed, is no session here (`docs/frontend/spec.md :: I406`).
   if (subjekt.gesperrt) return null;
 
   // Set here rather than at the write: `fl_backend/app/core/security.py :: bind_actor` refuses a
@@ -62,5 +65,6 @@ export const getSubjectSession = cache(async (): Promise<SubjectSession | null> 
   // second actor throws (`docs/frontend/spec.md :: I272`).
   setRequestActor(email);
 
-  return { email: email, admin: isAdminSession(served), subjekt: subjekt };
+  // Off the lookup this guard already made, so the verdict costs no second read.
+  return { email: email, admin: isAdminSession(served, subjekt.verwaltung !== null), subjekt: subjekt };
 });

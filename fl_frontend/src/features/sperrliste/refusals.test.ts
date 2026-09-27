@@ -41,7 +41,7 @@ describe("the address a unique index already holds", () => {
   });
 
   /* On the box, as the duplicate is: it is the typed address that no ban may take. No repair is
-     named, because no page takes an address off the allowlist. */
+     named, because the grant standing in the way is changed on another page. */
   it("lands an administrator's address on the address box", () => {
     assert.deepEqual(mapAdresseRefusal(refusedWith(409, "REQ-SPERRLISTE-003")), {
       fieldErrors: { email: "Diese Adresse gehört zur Verwaltung und lässt sich nicht sperren." },

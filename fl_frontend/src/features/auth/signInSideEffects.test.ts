@@ -16,22 +16,23 @@ let requestHeaders: Headers | undefined;
 /** What `cookies()` hands back: the jar the case installed. */
 let cookieJar: unknown;
 
-const ALLOWLISTED = ADMIN_EMAIL;
-/** Absent from the config double's allowlist, so the gate inside the send is what refuses it. */
+/** Holding a grant and no league record, so the grant alone is what the gate admits it on. */
+const GRANTED = ADMIN_EMAIL;
+/** Holding nothing at all, so the gate inside the send is what refuses it. */
 const REJECTED = "fremde@example.org";
 
-/** Three addresses the allowlist does not carry, each refused by a later check of the gate. */
+/** Three addresses holding no grant, each refused by a later check of the gate. */
 const BARRED = "gesperrte@example.org";
 const PAST_SEATED = "ehemalige@example.org";
 const UNREACHED = "unerreichte@example.org";
-/** The two addresses outside the allowlist the gate admits, so the refusals above are the gate's rather than the harness's. */
+/** The two addresses holding no grant the gate admits, so the refusals above are the gate's rather than the harness's. */
 const SEATED = "trainerin@example.org";
 const UNCONFIRMED = "unbestaetigte@example.org";
 
 /** What the backend's one read answers an address with, or that it threw. */
 type Backend = Record<string, unknown> | "throws";
 
-const NOTHING_HELD = { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false };
+const NOTHING_HELD = { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, verwaltung: null };
 const A_SEAT = {
   saison_id: "2026",
   team_id: "0123456789abcdef01234567",
@@ -41,6 +42,7 @@ const A_SEAT = {
 };
 
 const BACKENDS: Readonly<Record<string, Backend>> = {
+  [GRANTED]: { ...NOTHING_HELD, verwaltung: "administration" },
   [BARRED]: { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true },
   [PAST_SEATED]: { ...NOTHING_HELD, sitze: [{ ...A_SEAT, saison_status: "past" }] },
   [UNREACHED]: "throws",
@@ -226,7 +228,7 @@ function bodyWithoutEcho(result: FormState): Record<string, unknown> {
   return copy;
 }
 
-const allowlisted = await signInWith(ALLOWLISTED);
+const granted = await signInWith(GRANTED);
 const rejected = await signInWith(REJECTED);
 const admittedByTheGate = {
   "a person holding a live seat": { attempt: await signInWith(SEATED), address: SEATED },
@@ -242,45 +244,41 @@ describe("what a sign-in leaves behind on the response", () => {
   /* First, because every comparison below holds trivially of two attempts that both got nowhere:
      a config double that failed to land would refuse both addresses and agree on everything. */
   it("really did take the two branches, one mailing a code and the other not", () => {
-    assert.deepEqual(
-      [...allowlisted.mailed],
-      [ALLOWLISTED],
-      "the allowlisted attempt mailed nothing, so the two attempts are not the two branches",
-    );
+    assert.deepEqual([...granted.mailed], [GRANTED], "the granted attempt mailed nothing, so the two attempts are not the two branches");
     assert.deepEqual([...rejected.mailed], []);
   });
 
   /* A cookie written after the response is sent does not reach it, so what fails the day the
      library call moves in front of the response is that NEITHER branch wrote one. */
   it("writes no cookie on either branch, which is the one tell a body cannot hide", () => {
-    assert.deepEqual([...allowlisted.setCookie], []);
+    assert.deepEqual([...granted.setCookie], []);
     assert.deepEqual([...rejected.setCookie], []);
   });
 
   it("touches the jar on neither, so the revalidation header cannot tell them apart either", () => {
-    assert.deepEqual([...allowlisted.writes], []);
+    assert.deepEqual([...granted.writes], []);
     assert.deepEqual([...rejected.writes], []);
   });
 
   it("answers with the same body", () => {
-    assert.deepEqual(bodyWithoutEcho(allowlisted.result), bodyWithoutEcho(rejected.result));
-    assert.equal(allowlisted.result?.success, true);
+    assert.deepEqual(bodyWithoutEcho(granted.result), bodyWithoutEcho(rejected.result));
+    assert.equal(granted.result?.success, true);
   });
 
   /* The whole library call sits behind the response, so no branch-dependent work is timed by the
      caller at all — which a response floor narrows and cannot close. */
   it("schedules every branch-dependent step behind the response instead of waiting for it", () => {
-    assert.deepEqual([...allowlisted.mailedWhileAnswering], [], "the caller waited on the send, which the rejected branch never does");
-    assert.equal(allowlisted.scheduled, 1);
+    assert.deepEqual([...granted.mailedWhileAnswering], [], "the caller waited on the send, which the rejected branch never does");
+    assert.equal(granted.scheduled, 1);
     assert.equal(rejected.scheduled, 1, "the rejected branch scheduled nothing, so the two are distinguishable by what they defer");
   });
 
   it("writes the verification rows behind the response as well, the same on both branches", () => {
-    assert.equal(allowlisted.writtenWhileAnswering, 0, "the caller waited on a store write");
+    assert.equal(granted.writtenWhileAnswering, 0, "the caller waited on a store write");
     assert.equal(rejected.writtenWhileAnswering, 0);
     // The code's own row and the row counting a send against the address, on both branches; the mailed
     // one adds the every-address total's, which names no address.
-    assert.equal(allowlisted.writtenAfter, 3);
+    assert.equal(granted.writtenAfter, 3);
     assert.equal(rejected.writtenAfter, 2, "the two branches differ in what the store gained about the address, which is an oracle");
   });
 });
@@ -293,11 +291,11 @@ function assertNothingAheadOfTheAnswer(attempt: Attempt): void {
   assert.deepEqual([...attempt.setCookie], []);
   assert.deepEqual([...attempt.writes], []);
   assert.equal(attempt.scheduled, 1, "the branch deferred other than the one task every branch defers");
-  assert.deepEqual(bodyWithoutEcho(attempt.result), bodyWithoutEcho(allowlisted.result));
+  assert.deepEqual(bodyWithoutEcho(attempt.result), bodyWithoutEcho(granted.result));
 }
 
 describe("what the gate's backend read leaves on the response", () => {
-  /* The floor: addresses outside the allowlist that the gate admits, so the three refusals below
+  /* The floor: addresses holding no grant that the gate admits, so the three refusals below
      are the read deciding rather than every non-administrator being refused alike. */
   for (const [branch, { attempt, address }] of Object.entries(admittedByTheGate)) {
     it(`mails ${branch} only after the answer, which only the backend read can decide`, () => {
@@ -306,6 +304,13 @@ describe("what the gate's backend read leaves on the response", () => {
       assert.equal(attempt.askedAfter, 1, "the gate made other than its one read for a person");
     });
   }
+
+  /* The grant is read on the person's own call, so nothing an address's owner can time or read
+     tells an administrator's address from a seat holder's. */
+  it("mails an address holding a grant after the one read a person's takes, and nothing ahead of the answer", () => {
+    assertNothingAheadOfTheAnswer(granted);
+    assert.equal(granted.askedAfter, 1, "the gate read an administrator's address other than once, which a person's it reads once");
+  });
 
   for (const [branch, attempt] of Object.entries(refusedByTheGate)) {
     it(`refuses ${branch} with nothing done ahead of the answer and nothing mailed after it`, () => {
@@ -321,12 +326,12 @@ describe("what a typed code leaves in the cookie store", () => {
   /* The one wiring the whole sign-in rests on: the handler drops the verification's own answer, and
      `nextCookies()` writes the browser's copy into Next's store rather than onto the JSON answer. */
   it("writes the session cookie through Next's store, and a guard then answers for it", async () => {
-    await signInWith(ALLOWLISTED);
+    await signInWith(GRANTED);
     const code = theLastCode();
 
     // Installed after the send, which fits a jar of its own: what this case reads is the code.
     const written = recordingJar();
-    const typed = await typeTheCode(ALLOWLISTED, code);
+    const typed = await typeTheCode(GRANTED, code);
 
     assert.deepEqual(await typed.json(), { success: true });
     assert.deepEqual([...typed.headers.getSetCookie()], [], "the handler answered the credential on its own response");
@@ -343,10 +348,10 @@ describe("what a typed code leaves in the cookie store", () => {
   /* The window the message states is worth nothing unless the store enforces it: the library
      consumes an expired row on the way past, so a code typed late must refuse rather than sign in. */
   it("refuses a code whose row has expired, and mints no session for it", async () => {
-    await signInWith(ALLOWLISTED);
+    await signInWith(GRANTED);
     const code = theLastCode();
 
-    const row = store.verification.findLast((entry) => entry.identifier === `sign-in-otp-${ALLOWLISTED}`);
+    const row = store.verification.findLast((entry) => entry.identifier === `sign-in-otp-${GRANTED}`);
     assert.ok(row, "the sign-in wrote no code row to age");
     // Aged in the STORE, never by a clock handed to the running application, which would be a
     // testing-only seam in production code.
@@ -354,7 +359,7 @@ describe("what a typed code leaves in the cookie store", () => {
 
     const sessions = store.session.length;
     recordingJar();
-    const typed = await typeTheCode(ALLOWLISTED, code);
+    const typed = await typeTheCode(GRANTED, code);
 
     assert.deepEqual(await typed.json(), { success: false, error: "Der Code ist abgelaufen. Fordere einen neuen an." });
     assert.equal(store.session.length, sessions, "an expired code still minted a session");
@@ -366,9 +371,9 @@ describe("which account two spellings of one address reach", () => {
      otherwise verify into a second `user` row, which a ban matching the first by equality never ends. */
   it("writes one user row for two spellings the fold reads as one address, through the send and the code alike", async () => {
     // The fold makes the half-width ideographic full stop a dot; `toLowerCase` alone does not.
-    const spelledOtherwise = ALLOWLISTED.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61));
+    const spelledOtherwise = GRANTED.replace(/\.(?=[^.]*$)/, String.fromCodePoint(0xff61));
 
-    for (const spelling of [ALLOWLISTED, spelledOtherwise]) {
+    for (const spelling of [GRANTED, spelledOtherwise]) {
       await signInWith(spelling);
       recordingJar();
       assert.deepEqual(await (await typeTheCode(spelling, theLastCode())).json(), { success: true }, `${spelling} was not signed in`);
@@ -378,7 +383,7 @@ describe("which account two spellings of one address reach", () => {
     // could only be the second spelling's.
     assert.deepEqual(
       store.user.map((user) => user.email),
-      [ALLOWLISTED],
+      [GRANTED],
     );
   });
 });

@@ -39,7 +39,7 @@ const sitz = (fields: Partial<FLSubjektSitz> = {}): FLSubjektSitz => ({
 const person = (records: Partial<SubjectSession["subjekt"]> = {}): SubjectSession => ({
   email: "pia@example.org",
   admin: false,
-  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, ...records },
+  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, verwaltung: null, ...records },
 });
 
 const SPIELER_ROW = { spieler_id: TEAM_A };
@@ -140,7 +140,7 @@ describe("the administrator's switcher", () => {
     assert.equal(triggerIn(markup), "Verwaltung, Funktion wechseln");
   });
 
-  it("shows none where the allowlist is all the administrator holds", async () => {
+  it("shows none where the grant is all the administrator holds", async () => {
     const { markup } = await adminAt({});
 
     assert.equal(triggerIn(markup), null);

@@ -40,10 +40,18 @@ const subject = ({
   schiedsrichter = [],
   unbestaetigt = false,
   gesperrt = false,
+  verwaltung = null,
 }: Partial<SubjectSession["subjekt"]> & { admin?: boolean } = {}): SubjectSession => ({
   email: "person@example.org",
   admin: admin,
-  subjekt: { sitze: sitze, spieler: spieler, schiedsrichter: schiedsrichter, unbestaetigt: unbestaetigt, gesperrt: gesperrt },
+  subjekt: {
+    sitze: sitze,
+    spieler: spieler,
+    schiedsrichter: schiedsrichter,
+    unbestaetigt: unbestaetigt,
+    gesperrt: gesperrt,
+    verwaltung: verwaltung,
+  },
 });
 
 describe("which of a subject's seats grant a panel", () => {

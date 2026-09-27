@@ -38,19 +38,19 @@ maintainer, a live audience each season.
 
 **Admin**
 
-- Passkey sign-in with a mailed code as the fallback, and admin access granted by email allowlist
+- Passkey sign-in with a mailed code as the fallback, and admin access held as a stored grant
 - **Result entry** that moves the league table, which is computed from the matches rather than stored
 - **Venue and referee management**, with renames fanned out into every match that embeds them
 - An **action-required view** grouping matches that are missing data or a result
 
 ## Stack
 
-| Layer        | What                                                                                            |
-| ------------ | ----------------------------------------------------------------------------------------------- |
-| **Frontend** | Next.js (App Router, React Server Components), HeroUI v3, Tailwind v4                           |
-| **Backend**  | FastAPI, Pydantic v2, PyMongo (async MongoDB)                                                   |
-| **Auth**     | Better Auth — passkey or mailed-code sign-in, a passkey second factor, admin by email allowlist |
-| **Deploy**   | Docker Compose behind nginx, on a single host                                                   |
+| Layer        | What                                                                                         |
+| ------------ | -------------------------------------------------------------------------------------------- |
+| **Frontend** | Next.js (App Router, React Server Components), HeroUI v3, Tailwind v4                        |
+| **Backend**  | FastAPI, Pydantic v2, PyMongo (async MongoDB)                                                |
+| **Auth**     | Better Auth — passkey or mailed-code sign-in, a passkey second factor, admin by stored grant |
+| **Deploy**   | Docker Compose behind nginx, on a single host                                                |
 
 The app never calls FastAPI from the browser: every application read is a server-side fetch from the
 Next.js container, and the backend gates every request that touches application data on a shared key.

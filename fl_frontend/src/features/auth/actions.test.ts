@@ -10,7 +10,7 @@ import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 
 import type { FormState } from "@/shared/types/types.ts";
 
-/** The sentence the action answers with whether or not the address is allowlisted. */
+/** The sentence the action answers with whether or not the address is offered a code. */
 const NEUTRAL_ANSWER = "Falls zu dieser Adresse ein Zugang gehört, ist ein Anmeldecode unterwegs.";
 
 const deferred: (() => Promise<void>)[] = [];
@@ -72,7 +72,7 @@ async function signInAnswering(outcome: () => Promise<void>): Promise<{ answer: 
 }
 
 /*
- The subject is the answer: an allowlisted address is sent a code, and every other outcome the
+ The subject is the answer: an address the gate admits is sent a code, and every other outcome the
  sign-in can reach must read the same, or the public action is a membership oracle.
 */
 describe("handleSignIn's answer", () => {

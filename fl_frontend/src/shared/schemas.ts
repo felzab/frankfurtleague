@@ -141,7 +141,7 @@ export const FLAddressPayloadSchema = FLAddressSchema.extend({
 export type FLAddressPayload = z.infer<typeof FLAddressPayloadSchema>;
 
 /**
- * Re-exported from `core`, where the administrator allowlist can reach it: applied here so an
+ * Re-exported from `core`, where `isDeliverableAddress` holds the same ceiling: applied here so an
  * over-long address is refused in German at the keystroke, the API's `REQ-VAL-001` marking the box
  * with a generic sentence rather than the ceiling's own.
  */

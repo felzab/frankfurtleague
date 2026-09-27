@@ -17,7 +17,7 @@ import { exportingModule } from "./exportingModule.ts";
 
 const STORE = "__flSubjectStore";
 
-/** Allowlisted by nothing, which is the case this seam exists for. */
+/** Granted nothing, which is the case this seam exists for. */
 const PERSON_EMAIL = "spielerin@example.org";
 /* A half-width ideographic full stop as well as capitals: the sign-in library lower-cases what it
    stores, so a case-only spelling reaches the guard folded already and would pass with the fold deleted. */
@@ -76,9 +76,18 @@ type Subjekt = {
   schiedsrichter: { schiedsrichter_id: string }[];
   unbestaetigt: boolean;
   gesperrt: boolean;
+  verwaltung: "owner" | "administration" | null;
 };
 
-const empty = (): Subjekt => ({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false });
+const empty = (): Subjekt => ({
+  acknowledged: 1,
+  sitze: [],
+  spieler: [],
+  schiedsrichter: [],
+  unbestaetigt: false,
+  gesperrt: false,
+  verwaltung: null,
+});
 
 const SEAT = { saison_id: "2025/26", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" };
 const PUPIL = { spieler_id: "b".repeat(24) };
@@ -86,7 +95,7 @@ const PUPIL = { spieler_id: "b".repeat(24) };
 /* Keyed by the FOLDED identifier, as the endpoint's own join is: a guard sending the address as the
    session holds it then asks about a mailbox this holds nothing for. */
 const RECORDS = new Map<string, Subjekt>([
-  [ADMIN_EMAIL, { ...empty(), sitze: [SEAT] }],
+  [ADMIN_EMAIL, { ...empty(), sitze: [SEAT], verwaltung: "administration" }],
   [PERSON_EMAIL, { ...empty(), spieler: [PUPIL] }],
   [FOLDED_EMAIL, { ...empty(), spieler: [PUPIL] }],
 ]);
@@ -208,8 +217,8 @@ describe("who the seam answers for", () => {
   });
 
   /* `admin` is the administrator's whole verdict, so a page may gate an administrator-only control
-     on it: the allowlist alone answers `true` for sessions that lane refuses. */
-  it("answers an allowlisted session its seat, and marks a code-borne one no administrator", async () => {
+     on it: the grant alone answers `true` for sessions that lane refuses. */
+  it("answers a session holding a grant its seat, and marks a code-borne one no administrator", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     assert.equal(row.authFactor, "code", "the mailbox factor's own verification did not stamp it");
     arriveAs(cookie);
@@ -243,14 +252,15 @@ describe("who the seam answers for", () => {
 
   /* The envelope stops here: `acknowledged` says a write landed, which is nothing a panel reading
      records can act on. */
-  it("answers the three lists and the two flags alone, carrying no transport envelope", async () => {
+  it("answers the three lists, the two flags and the grant alone, carrying no transport envelope", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
     arriveAs(cookie);
 
     const answer = await getSubjectSession();
 
     assert.ok(answer);
-    assert.deepEqual(Object.keys(answer.subjekt).sort(), ["gesperrt", "schiedsrichter", "sitze", "spieler", "unbestaetigt"]);
+    assert.deepEqual(Object.keys(answer.subjekt).sort(), ["gesperrt", "schiedsrichter", "sitze", "spieler", "unbestaetigt", "verwaltung"]);
+    assert.equal(answer.subjekt.verwaltung, "administration");
   });
 
   /* Raised on a body carrying no record, which is the only shape the lookup sets it on: the landing
@@ -259,7 +269,7 @@ describe("who the seam answers for", () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
     nextAnswer = new Response(
-      JSON.stringify({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: true, gesperrt: false }),
+      JSON.stringify({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: true, gesperrt: false, verwaltung: null }),
       {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -275,7 +285,7 @@ describe("who the seam answers for", () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
     nextAnswer = new Response(
-      JSON.stringify({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false }),
+      JSON.stringify({ acknowledged: 1, sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, verwaltung: null }),
       {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -291,7 +301,15 @@ describe("who the seam answers for", () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
     nextAnswer = new Response(
-      JSON.stringify({ acknowledged: 1, sitze: [], spieler: [PUPIL], schiedsrichter: [], unbestaetigt: false, gesperrt: true }),
+      JSON.stringify({
+        acknowledged: 1,
+        sitze: [],
+        spieler: [PUPIL],
+        schiedsrichter: [],
+        unbestaetigt: false,
+        gesperrt: true,
+        verwaltung: null,
+      }),
       { status: 200, headers: { "content-type": "application/json" } },
     );
 
@@ -304,7 +322,7 @@ describe("who the seam answers for", () => {
   /* The case the seam exists for. The link is seeded rather than sent, whether one reaches such an
      address being the send gate's question and `fl_frontend/src/core/auth.test.ts`'s subject, and
      the library's own verification mints the session over it. */
-  it("answers an address the allowlist refuses, unmarked, with the records it names", async () => {
+  it("answers an address holding no grant, unmarked, with the records it names", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
 

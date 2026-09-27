@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { auth, isAdminSession } from "./core/auth";
+import { auth, isAdminRequest } from "./core/auth";
 import { SIGN_IN_LANDING } from "./core/signInLanding";
 
 import type { NextRequest } from "next/server";
@@ -26,12 +26,12 @@ export async function proxy(req: NextRequest): Promise<NextResponse> {
     return turnAway(req, "/signin");
   }
 
-  // Re-derived here rather than read off the session: the verdict is the allowlist, the two
+  // Re-derived here rather than read off the session: the verdict is the stored grant, the two
   // administrator figures and the factor, each judged against this request (`:: I122`).
 
   // To the landing rather than the public root: an administrator refused for the missing factor
   // alone is one step from being through, and the root offers them neither that step nor a message.
-  if (!isAdminSession(session)) {
+  if (!(await isAdminRequest(session))) {
     return turnAway(req, SIGN_IN_LANDING);
   }
 

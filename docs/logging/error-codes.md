@@ -145,6 +145,7 @@ crash ([`spec.md`](spec.md#2-invariants) L6).
 | `FE-AUTH-007`   | A passkey's last use went unstamped after a verified sign-in (`fl_frontend/src/core/passkeyLastUse.ts :: passkeyLastUse`): the sign-in stands, and its card shows the use before or none. The line carries the event, `auth.passkey_last_use_failed`, and the error's NAME alone                                                                                                                                                                                                                                                                                     |
 | `FE-AUTH-008`   | Every address together had been sent the hour's total of sign-in codes, so this send mailed nothing and answered as a mailed one (`fl_frontend/src/core/auth.ts :: CODE_MAIL_TOTAL_LIMIT`): a flood across many members' addresses, or a real evening outgrowing the figure. The line carries the event, `auth.code_mail_total_capped`, and nothing else                                                                                                                                                                                                             |
 | `FE-AUTH-009`   | A code sign-in's count against its address went unsettled (`fl_frontend/src/core/auth.ts :: settleCodeAttempt`): a sign-in's failures stay counted, or a refusal at the mint keeps its row, until each row's own day runs out. The sign-in or refusal stands as answered. The line carries the event, `auth.code_attempt_unsettled`, and the error's NAME alone                                                                                                                                                                                                      |
+| `FE-AUTH-010`   | An administrator's grant could not be read: the subject lookup failed, so the session was answered as no administrator's, the landing sent it to sign in afresh, or a passkey enrolment answered 503 (`fl_frontend/src/core/auth.ts :: logUnreadVerwaltung`). The line carries the event, `auth.verwaltung_unread`, and the error's NAME alone                                                                                                                                                                                                                       |
 | `FE-MAIL-001`   | The mail provider refused an outbound message (`MailSendError`, logged by `fl_frontend/src/core/mail.ts :: sendMail`) — a send that never reached it is `FE-NET-001`, and on the sign-in path `FE-AUTH-002` follows it under the same trace id                                                                                                                                                                                                                                                                                                                       |
 | `FE-MAIL-002`   | A message about an application did not reach the people it names — one recipient refused (`fl_frontend/src/features/bewerbungen/notifications.ts :: sendBewerbungMail`, the rest still sent), or the club's name could not be read and nobody was reached at all (`fl_frontend/src/features/bewerbungen/actions.ts :: notifyBewerbung`). What the message reports has already happened, a triage decision and a confirmation alike, so an address reaches the administrator rather than the line                                                                     |
 | `FE-MAIL-003`   | A delivery report the application could not accept — a signature it could not verify, a body it could not read, or a record the backend refused. The line carries the event's own name and the backend's status, never the tag block, the mailbox or the provider's prose (`docs/logging/spec.md :: L9`)                                                                                                                                                                                                                                                             |
@@ -159,7 +160,8 @@ crash ([`spec.md`](spec.md#2-invariants) L6).
 ## 3. Startup codes
 
 Raised before either service serves anything — the backend's by `fl_backend/app/core/db.py :: lifespan`,
-the frontend's by `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment`. Each reaches a log line
+the frontend's by `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment` and its one warning by
+`fl_frontend/src/instrumentation.ts :: register`. Each reaches a log line
 and no response, so it carries no status and its `trace_id` is `SYSTEM` — the
 code is the whole join key, which is why a boot failure gets one at all
 ([`spec.md`](spec.md#12-the-stream-contract) §1.2 makes `error_code` a field of every failure line).
@@ -175,17 +177,18 @@ table**, the backend's leaving the process as a Python traceback on stderr befor
 configured ([`spec.md`](spec.md#12-the-stream-contract) §1.2): what identifies it is the variable
 names `fl_backend/app/core/config.py :: get_config` prints.
 
-| Code           | Meaning                                                                                                                                                   |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SRV-BOOT-001` | The MongoDB server could not be reached                                                                                                                   |
-| `SRV-BOOT-002` | `MONGODB_URI` yielded no server to connect to                                                                                                             |
-| `SRV-BOOT-003` | The server refused to authenticate the credentials in `MONGODB_URI`                                                                                       |
-| `SRV-BOOT-004` | The database constraints could not be applied                                                                                                             |
-| `SRV-BOOT-005` | A warning, and the boot goes on: `berechtigungen` holds no live grant, so nobody can enter the administration                                             |
-| `SRV-BOOT-006` | A warning, and the boot goes on: no live grant is an `owner` grant, so every grant is within an administrator's reach                                     |
-| `SRV-BOOT-007` | A warning, and the boot goes on: grants whose address is empty, unfolded or refused by the address rule admit nobody; the line counts them and names none |
-| `SRV-BOOT-008` | A warning, and the boot goes on: `ALLOWED_ADMIN_EMAILS` is retired and still set; the line names the variable and never its value                         |
-| `FE-BOOT-001`  | A frontend environment variable failed validation; the line names the variables and no value                                                              |
+| Code           | Meaning                                                                                                                                                                       |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SRV-BOOT-001` | The MongoDB server could not be reached                                                                                                                                       |
+| `SRV-BOOT-002` | `MONGODB_URI` yielded no server to connect to                                                                                                                                 |
+| `SRV-BOOT-003` | The server refused to authenticate the credentials in `MONGODB_URI`                                                                                                           |
+| `SRV-BOOT-004` | The database constraints could not be applied                                                                                                                                 |
+| `SRV-BOOT-005` | A warning, and the boot goes on: `berechtigungen` holds no live grant, so nobody can enter the administration                                                                 |
+| `SRV-BOOT-006` | A warning, and the boot goes on: no live grant is an `owner` grant, so every grant is within an administrator's reach                                                         |
+| `SRV-BOOT-007` | A warning, and the boot goes on: grants whose address is empty, unfolded or refused by the address rule admit nobody; the line counts them and names none                     |
+| `SRV-BOOT-008` | A warning, and the boot goes on: `ALLOWED_ADMIN_EMAILS` is retired and still set; the line names the variable and never its value                                             |
+| `FE-BOOT-001`  | A frontend environment variable failed validation; the line names the variables and no value                                                                                  |
+| `FE-BOOT-002`  | A warning, and the boot goes on: `ALLOWED_ADMIN_EMAILS` is retired and still set in the frontend's file, which nothing reads; the line names the variable and never its value |
 
 The first three `SRV-BOOT-*` rows are one decision — `db.py :: _refusal_for`, which pairs each
 cause's sentence with its code — so a fourth cause added there takes a fourth row here. **The three

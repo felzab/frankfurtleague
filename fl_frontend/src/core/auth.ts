@@ -13,7 +13,6 @@ import { customSession } from "better-auth/plugins/custom-session";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { MongoServerError } from "mongodb";
 
-import { isUserAdmin } from "./allowlist";
 import { ANMELDUNG_CODE, ANMELDUNG_TAG } from "./anmeldeTag";
 import { buildCodeEmail, CODE_VALIDITY_MINUTES } from "./authEmail";
 import { frontend_config } from "./config";
@@ -31,6 +30,7 @@ import { setRequestActor } from "./requestScope";
 import { ADMIN_LIFETIME, ENROLMENT_WINDOW_MS, PERSON_LIFETIME, SESSION_EXPIRES_IN_DAYS, STEP_UP_WINDOW_MS } from "./sessionLifetimes";
 import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MAIL_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "./signInCode";
 import { mayReceiveSignIn } from "./signInGate";
+import { verwaltungOf } from "./verwaltung";
 
 import type { AuthContext, BetterAuthOptions, DBTransactionAdapter, GenericEndpointContext } from "better-auth";
 import type { PasskeyEmail } from "./passkeyEmail";
@@ -135,10 +135,11 @@ function refuseUnverified(userVerified: boolean): void {
   throw new APIError("BAD_REQUEST", { code: USER_VERIFICATION_REFUSED, message: "The authenticator did not verify the user." });
 }
 
-/** As much of a served session as the step-up judges; every arm below reads one stored row. */
+/** As much of a served session as the step-up judges, beside whether its address holds a grant. */
 type StepUpCaller = {
   readonly user: { readonly email: string };
   readonly session: { readonly createdAt: Date | string; readonly authFactor?: unknown };
+  readonly verwaltung: boolean;
 };
 
 function isYoungerThan(createdAt: Date | string, window: number): boolean {
@@ -165,23 +166,53 @@ function isWithinEnrolmentWindow(createdAt: Date | string): boolean {
 export function isFreshlySignedIn(served: StepUpCaller): boolean {
   if (!isWithinStepUpWindow(served.session.createdAt)) return false;
 
-  return !isUserAdmin(served.user.email) || served.session.authFactor === PASSKEY_FACTOR;
+  return !served.verwaltung || served.session.authFactor === PASSKEY_FACTOR;
 }
 
 /**
  * The stamp sits on the stored row and on neither arm's declared type, the library typing both to
  * its own base shape: read through `Reflect` rather than cast, so nothing here claims it is there.
  */
-function asStepUpCaller(served: { user: { email: string }; session: object } | null): StepUpCaller | null {
-  if (served === null) return null;
-
+function asStepUpCaller(served: { user: { email: string }; session: object }, verwaltung: boolean): StepUpCaller {
   return {
     user: { email: served.user.email },
     session: {
       createdAt: Reflect.get(served.session, "createdAt") as Date | string,
       authFactor: Reflect.get(served.session, "authFactor"),
     },
+    verwaltung: verwaltung,
   };
+}
+
+/** Logged where the grant was asked for, as the send gate's own failure is: the error's name alone. */
+function logUnreadVerwaltung(failed: unknown): void {
+  logger.error("auth.verwaltung_unread", undefined, {
+    error_code: "FE-AUTH-010",
+    name: failed instanceof Error ? failed.name : "unknown",
+  });
+}
+
+/**
+ * The grant where an unread one must refuse rather than admit: an enrolment held to the passkey for
+ * an administrator would otherwise relax to a person's, by mailed code, while the backend is down.
+ */
+async function verwaltungOrRefuse(email: string): Promise<boolean> {
+  try {
+    return (await verwaltungOf(email)) !== null;
+  } catch (failed) {
+    logUnreadVerwaltung(failed);
+    throw APIError.fromStatus("SERVICE_UNAVAILABLE");
+  }
+}
+
+/** The grant where an unread one admits nobody: `null` where the backend could not say. */
+async function verwaltungOrNull(email: string): Promise<boolean | null> {
+  try {
+    return (await verwaltungOf(email)) !== null;
+  } catch (failed) {
+    logUnreadVerwaltung(failed);
+    return null;
+  }
 }
 
 /**
@@ -211,7 +242,7 @@ async function refuseEnrolment(
 
   // The mailed code enrols an administrator's first passkey and only ever that one: past it a stolen
   // mailbox would put its own authenticator beside the administrator's and never need theirs again.
-  const bootstrap = held.length === 0 && isUserAdmin(caller.user.email) && caller.session.authFactor === CODE_FACTOR;
+  const bootstrap = held.length === 0 && caller.verwaltung && caller.session.authFactor === CODE_FACTOR;
 
   if (!bootstrap && !isFreshlySignedIn(caller)) throw APIError.fromStatus("NOT_FOUND");
   if (held.length >= PASSKEY_LIMIT) throw APIError.fromStatus("NOT_FOUND");
@@ -683,7 +714,7 @@ const authOptions = {
       // session it cannot read, and the in-process arm already refuses one.
       if (caller === null) throw APIError.fromStatus("NOT_FOUND");
 
-      await refuseEnrolment(ctx.context.adapter, caller.user.id, asStepUpCaller(caller));
+      await refuseEnrolment(ctx.context.adapter, caller.user.id, asStepUpCaller(caller, await verwaltungOrRefuse(caller.user.email)));
     }),
 
     // The `Set-Cookie` the endpoint wrote is untouched: `runAfterHooks` merges this hook's own
@@ -816,7 +847,13 @@ const authOptions = {
           // `ctx.context.session` is put there by the plugin's own `freshSessionMiddleware`, which it
           // mounts only while `registration.requireSession` keeps its default: unset it and this arm
           // sees no factor at all and refuses every enrolment.
-          await refuseEnrolment(adapter, user.id, asStepUpCaller(ctx.context.session ?? null), verification.registrationInfo?.credential.id);
+          const enrolling = ctx.context.session ?? null;
+          await refuseEnrolment(
+            adapter,
+            user.id,
+            enrolling === null ? null : asStepUpCaller(enrolling, await verwaltungOrRefuse(enrolling.user.email)),
+            verification.registrationInfo?.credential.id,
+          );
 
           try {
             await claimAccount(adapter, user.id);
@@ -883,8 +920,9 @@ type PasskeyRemoval = "removed" | "last" | "absent" | "conflict";
 export async function removePasskey(holder: { id: string; email: string }, id: string): Promise<PasskeyRemoval> {
   const { adapter } = await auth.$context;
   // Judged here rather than by the caller: an administrator's last passkey is their only way into
-  // the administration, while a person holding none signs in by code again.
-  const keepsLast = isUserAdmin(holder.email);
+  // the administration, while a person holding none signs in by code again. An unread grant throws
+  // rather than let a last passkey go.
+  const keepsLast = (await verwaltungOf(holder.email)) !== null;
 
   // Set once the callback has returned. A throw before that aborted a transaction that never
   // committed, so nothing was written; one after it came from the commit, whose outcome may be unknown.
@@ -943,21 +981,29 @@ export async function removePasskey(holder: { id: string; email: string }, id: s
 // React's `cache`, as `getAdminSession` is: the page's sections and a server action's body share one
 // read, and no request another's.
 /**
- * The account page's guard, both lanes' own verdict on the served session: an allowlisted address is
- * admitted by the administrator's guard alone, so a session its mailbox made cannot manage that
+ * The account page's guard, both lanes' own verdict on the served session: an address holding a grant
+ * is admitted by the administrator's guard alone, so a session its mailbox made cannot manage that
  * administrator's passkeys.
  */
-export const getKontoSession = cache(async (): Promise<ServedSession | null> => {
+export const getKontoSession = cache(async (): Promise<JudgedSession | null> => {
   const served = await auth.api.getSession({ headers: await headers() });
   if (served === null) return null;
 
-  if (isUserAdmin(served.user.email)) return isAdminSession(served) ? served : null;
+  // An unread grant throws rather than falling to the person's lane, which takes a mailed code.
+  const judged = { ...served, verwaltung: (await verwaltungOf(served.user.email)) !== null };
+  if (judged.verwaltung) return isAdminSession(served, true) ? judged : null;
 
-  return isWithinPersonLifetime(served.session) ? served : null;
+  return isWithinPersonLifetime(served.session) ? judged : null;
 });
 
 /** What every guard below is handed; no HTTP route serves it, `/get-session` being disabled. */
 type ServedSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
+
+/**
+ * A served session beside the grant this request read for its address, which a step-up judges it by.
+ * Held for the request alone: a stamp on the stored row would outlive a revoke made in the database.
+ */
+type JudgedSession = ServedSession & { readonly verwaltung: boolean };
 
 function withinLifetime(session: { createdAt: Date; updatedAt: Date }, lifetime: Lifetime): boolean {
   // Re-read through `Date` rather than trusting the declared type: what reaches here is whatever
@@ -978,18 +1024,26 @@ export function isWithinPersonLifetime(session: { createdAt: Date; updatedAt: Da
   return withinLifetime(session, PERSON_LIFETIME);
 }
 
-// An address added to the allowlist after its session was made is an administrator on the next
-// request, and is judged against the administrator's window on that same request.
-function isAdminWithinWindow(served: ServedSession): boolean {
-  return isUserAdmin(served.user.email) && withinLifetime(served.session, ADMIN_LIFETIME);
+// An address granted after its session was made is an administrator on the next request, and is
+// judged against the administrator's window on that same request.
+function isAdminWithinWindow(served: ServedSession, verwaltung: boolean): boolean {
+  return verwaltung && withinLifetime(served.session, ADMIN_LIFETIME);
 }
 
 /**
- * Whether this served session may act as an administrator — allowlisted, inside both of the
- * administrator's figures, and made by the passkey rather than by a mailed code alone.
+ * Whether this served session may act as an administrator — its address holding a grant, inside both
+ * of the administrator's figures, and made by the passkey rather than by a mailed code alone.
  */
-export function isAdminSession(served: ServedSession): boolean {
-  return isAdminWithinWindow(served) && served.session.authFactor === PASSKEY_FACTOR;
+export function isAdminSession(served: ServedSession, verwaltung: boolean): boolean {
+  return isAdminWithinWindow(served, verwaltung) && served.session.authFactor === PASSKEY_FACTOR;
+}
+
+/**
+ * `isAdminSession` over the grant this request reads, for the two guards that admit to the
+ * administration: an unread grant admits nobody, so the administration is shut while the backend is.
+ */
+export async function isAdminRequest(served: ServedSession): Promise<boolean> {
+  return isAdminSession(served, (await verwaltungOrNull(served.user.email)) === true);
 }
 
 // React's `cache`, never `"use cache"`, which would hand one request's session to another: one read
@@ -999,15 +1053,15 @@ export function isAdminSession(served: ServedSession): boolean {
  * Neither throws nor redirects — hence `get`, not `require` — so it guards nothing on its own line.
  * **Check the return value** (`docs/frontend/spec.md` I8).
  */
-export const getAdminSession = cache(async (): Promise<ServedSession | null> => {
+export const getAdminSession = cache(async (): Promise<JudgedSession | null> => {
   const served = await auth.api.getSession({ headers: await headers() });
-  if (!served || !isAdminSession(served)) return null;
+  if (!served || !(await isAdminRequest(served))) return null;
 
   // Recorded here rather than in `runAdminMutation`: a second resolution is another round trip to
   // the session store, and the ordering is load-bearing (`docs/frontend/spec.md` §1.3).
   setRequestActor(asSignInIdentifier(served.user.email));
 
-  return served;
+  return { ...served, verwaltung: true };
 });
 
 /** Where `/signin/weiter` sends the session it was handed. */
@@ -1019,21 +1073,26 @@ export async function getSignInDestination(): Promise<SignInDestination> {
   const served = await auth.api.getSession({ headers: requestHeaders });
   if (!served) return "/signin";
 
-  if (isUserAdmin(served.user.email)) {
+  // An unread grant sends the session to sign in afresh, never to a person's landing: that would
+  // hand an administrator's code-borne session the person's lane while the backend is down.
+  const verwaltung = await verwaltungOrNull(served.user.email);
+  if (verwaltung === null) return "/signin";
+
+  if (verwaltung) {
     // The guard's own verdict rather than a second spelling of it: a condition added there has to
     // move this landing with it, or `/bereich/admin` is offered to somebody the proxy bounces.
 
     // eslint-disable-next-line local/admin-link -- where a finished sign-in lands; no season is in scope at sign-in
-    if (isAdminSession(served)) return "/bereich/admin";
+    if (isAdminSession(served, true)) return "/bereich/admin";
 
     // Where the passkey page has no step to offer, the session is spent, and an administrator signs in
     // afresh rather than being sent to a person's landing with no way to the step they owe.
-    return (await passkeyStepOf(served, requestHeaders)) === null ? "/signin" : "/signin/passkey";
+    return (await passkeyStepOf(served, true, requestHeaders)) === null ? "/signin" : "/signin/passkey";
   }
 
   if (!isWithinPersonLifetime(served.session)) return "/signin";
 
-  return (await passkeyStepOf(served, requestHeaders)) === "offer" ? "/signin/passkey" : "/bereich";
+  return (await passkeyStepOf(served, false, requestHeaders)) === "offer" ? "/signin/passkey" : "/bereich";
 }
 
 /**
@@ -1046,10 +1105,8 @@ export type PasskeyStep = { readonly step: "enrol" | "assert" | "offer"; readonl
  * The one answer both functions around it give, so the landing never sends a session to a page that
  * then has nothing to show it and sends it back.
  */
-async function passkeyStepOf(served: ServedSession, requestHeaders: Headers): Promise<PasskeyStep["step"] | null> {
-  const admin = isUserAdmin(served.user.email);
-
-  if (admin ? !isAdminWithinWindow(served) : !isWithinPersonLifetime(served.session)) return null;
+async function passkeyStepOf(served: ServedSession, admin: boolean, requestHeaders: Headers): Promise<PasskeyStep["step"] | null> {
+  if (admin ? !isAdminWithinWindow(served, true) : !isWithinPersonLifetime(served.session)) return null;
   // A session the passkey already made needs no card, whatever it holds.
   if (served.session.authFactor === PASSKEY_FACTOR) return null;
 
@@ -1075,7 +1132,11 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
   const served = await auth.api.getSession({ headers: requestHeaders });
   if (!served) return null;
 
-  const step = await passkeyStepOf(served, requestHeaders);
+  // An unread grant offers no card, for the landing's reason.
+  const verwaltung = await verwaltungOrNull(served.user.email);
+  if (verwaltung === null) return null;
+
+  const step = await passkeyStepOf(served, verwaltung, requestHeaders);
   if (step === null) return null;
 
   // Folded as `getAdminSession` folds the actor it records: the stored row is the library's own
@@ -1088,11 +1149,9 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
  * not reach; the account and its passkeys stay for the day the ban ends (`docs/frontend/spec.md :: I402`).
  */
 export async function endSessionsOfAddress(address: string): Promise<void> {
+  // No grant is asked about: the ban refuses an address holding one (`docs/backend/spec.md :: I437`),
+  // so every address reaching here after its ban holds none.
   const folded = asSignInIdentifier(address);
-
-  // The allowlist is judged ahead of the ban at every sign-in, so ending an administrator's sessions
-  // here would sign out somebody the next sign-in admits.
-  if (isUserAdmin(folded)) return;
 
   const { adapter } = await auth.$context;
 

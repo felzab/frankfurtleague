@@ -22,7 +22,7 @@ let requestHeaders: Headers | undefined;
 /** The landing reads the request off this, where the proxy is handed its own `NextRequest`. */
 const HEADERS_DOUBLE = exportingModule({ headers: () => Promise.resolve(requestHeaders) });
 
-/** An address the config double's allowlist does not carry, whose session the verdict is what refuses. */
+/** An address holding no grant, whose session the verdict is what refuses. */
 const REMOVED_EMAIL = "ehemalig@example.org";
 
 // Every address this file signs in is seated: the gate at session creation is not its subject.
@@ -141,7 +141,7 @@ describe("where the admin proxy sends a signed-out request", () => {
 describe("where the admin proxy sends a signed-in request", () => {
   // The case that proves the redirects above are the proxy's decision: a harness resolving no
   // session at all would redirect every one of them and read exactly the same.
-  it("lets an allowlisted administrator through", async () => {
+  it("lets an administrator holding a grant through", async () => {
     assert.equal(redirectedTo(await arriveAtAdmin({ cookie: admin.cookie })), null);
   });
 
@@ -155,7 +155,7 @@ describe("where the admin proxy sends a signed-in request", () => {
 
   /* To the landing and never the public root: the landing is the one place that decides, and it
      sends a removed address to `/bereich` while sending the administrator below one step further on. */
-  it("sends a session whose address has left the allowlist to the landing", async () => {
+  it("sends a session whose address holds no grant to the landing", async () => {
     assert.equal(redirectedTo(await arriveAtAdmin({ cookie: removed.cookie })), "/signin/weiter");
   });
 
@@ -182,7 +182,7 @@ describe("where the admin proxy sends a signed-in request", () => {
   it("sends nobody back to `/bereich/admin` that this proxy would turn away again", async () => {
     for (const { name, cookie } of [
       { name: "code-borne administrator", cookie: (await signIn(ADMIN_EMAIL)).cookie },
-      { name: "address outside the allowlist", cookie: removed.cookie },
+      { name: "address holding no grant", cookie: removed.cookie },
       { name: "no session at all", cookie: undefined },
     ]) {
       arriveAs(cookie ?? null);

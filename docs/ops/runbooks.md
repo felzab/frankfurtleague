@@ -75,8 +75,7 @@ the machine is outside the repository. What it does tell you:
   release adding a required name meets a host nobody edited, and it covers `AUTH_RESEND_KEY`, which
   the schema demands under `APP_ENV=production` and this deploy always puts live. Every VALUE is
   judged at boot and nowhere else, `AUTH_SECRET` below the sign-in library's floor of 32 characters
-  and an `ALLOWED_ADMIN_EMAILS` entry that library will not take among them — each a refusal this
-  reader passes and the recreated container meets. It does catch the misspelling whose value is EMPTY
+  among them — each a refusal this reader passes and the recreated container meets. It does catch the misspelling whose value is EMPTY
   that the backend's reader drops, and a line its reader cannot take at all is an advisory rather
   than a refusal ([`spec.md`](spec.md) §1.5).
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
@@ -334,16 +333,12 @@ a perfectly good name, and a row missing its name can name a club that exists.
 
 ## 3. Granting or revoking admin access
 
-Two things admit an administrator, and each is changed on its own: a grant in the `berechtigungen`
-collection, which the backend reads on every admin-tier request, and the address in
-`ALLOWED_ADMIN_EMAILS` in `fl_frontend/.env`, which the frontend reads and which takes a recreate of
-the frontend; why, and how `role` is re-derived afterwards, are [`spec.md`](spec.md) §4. Each of
-these is easy to get wrong:
+One thing admits an administrator: a grant in the `berechtigungen` collection, which the backend
+reads on every admin-tier request and the frontend on every request, through the lookup its sign-in
+gate and its guards share. A grant or a revoke takes hold on the next request of both, and nothing
+restarts ([`spec.md`](spec.md) §4). A backend that cannot answer admits nobody, so the
+administration is shut while it is down. Each of these is easy to get wrong:
 
-- **The grant and the frontend's entry are two halves.** An address holding the entry and no grant
-  signs in, and every admin-tier request its pages make meets `REQ-AUTH-006`; one holding a grant
-  and no entry is turned away at the sign-in. Revoking the grant is what shuts the backend, from
-  the next request, whatever the frontend's file still says.
 - **An `owner` grant, and any grant no page offers yet, is written in MongoDB Playground, against
   the application database** (`DB_BASE_NAME`, which `fl_backend/.env` names): no route writes an
   owner at all (`docs/backend/spec.md :: I436`). The address goes in FOLDED — trimmed, the letters
@@ -368,9 +363,10 @@ these is easy to get wrong:
   boot creates the validator and the unique index; a paste before it creates the collection with
   neither, and a duplicate address in it then fails the next boot's index build (`SRV-BOOT-004`).
   Admin pages answer `REQ-AUTH-006` until the paste lands, and the public site is untouched.
-- **`ALLOWED_ADMIN_EMAILS` in `fl_backend/.env` is read by nothing, and the boot names it
-  `SRV-BOOT-008` while it stands.** It is declared for one release, so a rollback to the image before
-  still finds the line it requires; delete it once that release is settled.
+- **`ALLOWED_ADMIN_EMAILS` is read by nothing in either file, and each boot names it while it
+  stands**: `SRV-BOOT-008` for `fl_backend/.env`, `FE-BOOT-002` for `fl_frontend/.env`. It is declared
+  for one release, so a rollback to the image before still finds the line it requires; delete it from
+  both once that release is settled.
 
 - **Keep two grants standing, an `owner` grant among them.** The revoke route refuses to leave fewer
   (`docs/backend/spec.md :: I435`), and the Playground refuses nothing: the boot warns with
@@ -385,16 +381,14 @@ I439`). A Playground change undone again before the next claim is announced by n
   that grant again as new, or silences its notice.
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
-- **An entry the sign-in library will not take stops the site rather than that one administrator.**
-  The frontend's deploy reader judges names alone (`docs/ops/spec.md :: I183`), so that refusal is met
-  at boot, after the recreate and behind an edge already answering 502. It names
-  `ALLOWED_ADMIN_EMAILS` and never the entry. An umlaut before the at sign is the case that turns up: the sign-in box takes no
-  such address, so that person needs a mailbox it will accept before there is anything to allowlist.
-  An umlaut domain may be entered in either spelling, the entry and the sign-in box both converting it
-  to punycode.
-- **The allowlist edit grants the access; the person's own next sign-in enrols the passkey.** An
-  allowlisted address holding no passkey is answered the enrolment page and reaches no admin route
-  until one stands, so there is nothing to prepare for them and nothing to hand over.
+- **A grant to an address the sign-in library will not take admits nobody**, and nothing refuses
+  writing it: that person is mailed no code (`docs/frontend/spec.md :: I316`). An umlaut before the
+  at sign is the case that turns up: the sign-in box takes no such address, so that person needs a
+  mailbox it will accept before a grant is worth writing. An umlaut domain is stored in punycode,
+  which the sign-in box converts either spelling to.
+- **The grant is the access; the person's own next sign-in enrols the passkey.** An address holding
+  a grant and no passkey is answered the enrolment page and reaches no admin route until one stands,
+  so there is nothing to prepare for them and nothing to hand over.
 - **A lost passkey is the administrator's own to replace while they still hold another**: the
   account page, `/bereich/konto`, lists what they hold, adds one and removes one, each behind a
   passkey sign-in or confirmation inside the step-up window, and the last row cannot be removed.
@@ -1180,8 +1174,9 @@ carries the address. Ask when they tried and read that window
 live, or whose only seat is on a `past` season; an address whose records all await confirmation is
 mailed, to be told so once signed in, unless it is barred. So a quiet window means a refusal, or a
 message the provider accepted and the mailbox never showed, whose bounce the delivery webhook
-reports (§10). The allowlist is read before the backend call (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`), so an
-administrator on it is mailed whether or not the backend answers.
+reports (§10). An administrator's grant is read on that same call
+(`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`), so an administrator too is mailed
+nothing while the backend does not answer.
 
 ## 16. The checkout root's `.env`
 

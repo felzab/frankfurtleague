@@ -80,18 +80,20 @@ the one place the frontend touches MongoDB directly** — a separate `auth` data
 entities — and it exists because the adapter has no HTTP transport and sits on the hot path of every
 authorization check. Application data goes through FastAPI without exception.
 
-**Admin is an email allowlist, not a stored role.** `ALLOWED_ADMIN_EMAILS` is checked on every
-session read, through `fl_frontend/src/core/allowlist.ts :: isUserAdmin`, where the policy is defined;
-the backend holds the same list and refuses an admin-tier request naming an actor off it
-([`../backend/spec.md`](../backend/spec.md) I383). `getAdminSession()` is the gate `runAdminMutation` opens every admin server action on ([`spec.md`](spec.md) I7), and its
+**Admin is a stored grant, read on every request.** A row of `berechtigungen` (the glossary's
+`Berechtigung`) makes an address an administrator: the frontend reads it on the subject lookup,
+through `fl_frontend/src/core/verwaltung.ts :: verwaltungOf`, and the backend reads it on every
+admin-tier request and refuses one naming an actor who holds none
+([`../backend/spec.md`](../backend/spec.md) I383). A backend that cannot answer admits nobody
+([`spec.md`](spec.md) I121). `getAdminSession()` is the gate `runAdminMutation` opens every admin server action on ([`spec.md`](spec.md) I7), and its
 return value has to be checked — [`spec.md`](spec.md) I8 says what happens when it is not.
 
 **Route protection is layered**: `fl_frontend/src/proxy.ts` matches `/bereich/:path*` and turns
 away every request but an administrator's from the `/bereich/admin` subtree, and
 `fl_frontend/src/features/admin/components/providers/AdminAuthGuard.tsx :: AdminAuthGuard` — rendered
 inside the admin layout's `Suspense` boundary, so the shell still prerenders — checks independently,
-so rendering fails closed even if the matcher stops matching. What ends a session early is a
-revocation out of band rather than a lifetime expiring ([`spec.md`](spec.md) §4).
+so rendering fails closed even if the matcher stops matching. A revoke ends no session: the grant
+is read on every request, so a revoked one admits nothing from the next ([`spec.md`](spec.md) §4).
 
 **A person's sign-in is managed on one account page, `/bereich/konto`, whichever area they hold**:
 every signed-in shell links it, and its passkeys and sign-ins change only behind a sign-in or a

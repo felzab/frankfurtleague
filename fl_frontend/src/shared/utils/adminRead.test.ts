@@ -48,7 +48,7 @@ describe("an admin-tier read's scope", () => {
 
     const actor = await runAdminRead(() => Promise.resolve(getRequestActor()));
 
-    // Folded as the real lookup folds it, so the backend's allowlist and the audit log read one spelling.
+    // Folded as the real lookup folds it, so the backend's grants and the audit log read one spelling.
     assert.equal(actor, "vorstand@example.org");
     assert.equal(store.reads, 1);
   });
@@ -64,7 +64,7 @@ describe("an admin-tier read's scope", () => {
   });
 
   /* An actor already recorded proves nothing about the admin session: a person's lookup records its
-     own identifier, which the backend's allowlist may still hold. */
+     own identifier, which may hold a grant as well. */
   it("refuses an actor already recorded that is not this session's administrator, the read never running", async () => {
     store.session = { user: { email: "vorstand@example.org" } };
     let ran = 0;

@@ -11,12 +11,11 @@ import { notFound, redirect } from "next/navigation";
 import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { APIBadStatusError, APIMalformedDataError, APINetworkError } from "@/core/errors.ts";
 import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
-import { answerReadsWith, callPage, clearSteps, EMPTIEST_ANSWER, pageBody, renderPage, steps } from "@/shared/testing/pageHarness.ts";
+import { callPage, clearSteps, pageBody, steps } from "@/shared/testing/pageHarness.ts";
 
 import type { ComponentType, ReactElement, ReactNode } from "react";
 
@@ -33,24 +32,10 @@ const refused = (): never => {
 };
 const AUTH_CLIENT_DOUBLE = exportingModule({ authClient: { passkey: { addPasskey: refused }, signIn: { passkey: refused } } });
 
-/** Every error line the frontend logs here, which the request double's own logger would drop unread. */
-const logged: { message: string; meta: Record<string, unknown> | undefined }[] = [];
-const inert = (): void => undefined;
-const LOGGER_DOUBLE = exportingModule({
-  logger: {
-    debug: inert,
-    info: inert,
-    warn: inert,
-    error: (message: string, _error: unknown, meta?: Record<string, unknown>) => void logged.push({ message, meta }),
-  },
-});
-
 registerHooks({
   load(url, context, nextLoad) {
     // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
     if (url.endsWith("/src/core/authClient.ts")) return { format: "module", source: AUTH_CLIENT_DOUBLE, shortCircuit: true };
-    // Ahead of the request double's silent logger, this hook being registered after it.
-    if (url.endsWith("/src/core/logging.ts")) return { format: "module", source: LOGGER_DOUBLE, shortCircuit: true };
     return nextLoad(url, context);
   },
 });
@@ -241,70 +226,6 @@ describe("the bar over the team area's crash panel", () => {
       assert.ok(!shown.includes(TEAM_SHELL_REFUSAL.hint.lead), "the crash panel's bar tells a seat holder they hold no seat");
     } finally {
       cleanup();
-    }
-  });
-});
-
-describe("the administrator's switcher failing its lookup", () => {
-  const sent = (endpoint: string) => ({
-    url: `http://backend/api/v0${endpoint}`,
-    endpoint: endpoint,
-    method: "POST",
-    readOnly: true,
-    traceId: "0",
-  });
-
-  /** Each way the API client fails a read: a status, no answer at all, a deadline, and an answer it cannot read. */
-  const FAILURES: [name: string, fail: (endpoint: string) => Error & { code: string }][] = [
-    ["a bad status", (endpoint) => new APIBadStatusError({ ...sent(endpoint), message: "unavailable", statusCode: 503 })],
-    ["a refused connection", (endpoint) => new APINetworkError({ ...sent(endpoint), message: "refused", isTimeout: false })],
-    ["a deadline", (endpoint) => new APINetworkError({ ...sent(endpoint), message: "timed out", isTimeout: true })],
-    ["an unreadable answer", (endpoint) => new APIMalformedDataError({ ...sent(endpoint), message: "malformed", statusCode: 200 })],
-  ];
-
-  const failLookupWith = (fail: (endpoint: string) => Error) =>
-    answerReadsWith((endpoint, schema, params) => {
-      if (endpoint !== "/identitaet/subjekt") return EMPTIEST_ANSWER(endpoint, schema, params);
-      throw fail(endpoint);
-    });
-
-  /* The switcher is one row of the rail, and the administration needs no backend answer to be reached:
-     a lookup the backend fails must not replace every admin page with the area's crash panel. */
-  it("renders the admin page and no switcher, and logs the failure, whichever way the read fails", async () => {
-    for (const [name, fail] of FAILURES) {
-      failLookupWith(fail);
-      logged.length = 0;
-      try {
-        const markup = await renderPage(
-          underNext(h(AdminLayout, { children: h("p", null, "Seite") }), { pathname: "/bereich/admin/sperrliste" }),
-        );
-
-        assert.ok(markup.includes("<p>Seite</p>"), `the admin page is gone where the switcher's lookup met ${name}`);
-        assert.ok(!markup.includes("Spielunterbrechung"), `${name} in the switcher's lookup takes the admin area down`);
-        assert.ok(!markup.includes("Funktion wechseln"), `a switcher stands after ${name} with no records to list`);
-        assert.deepEqual(
-          logged.map(({ message, meta }) => [message, meta?.error_code]),
-          [["funktionen.admin_switcher_lookup_failed", fail("/identitaet/subjekt").code]],
-          `${name} is not logged under its own code`,
-        );
-      } finally {
-        answerReadsWith(EMPTIEST_ANSWER);
-      }
-    }
-  });
-
-  /* A failure the API client never raises is a defect in the switcher, which the area's own panel shows
-     rather than an administrator silently losing a row. */
-  it("hands a defect on to the area's panel", async () => {
-    const DEFECT = new Error("ein Fehler im Umschalter");
-    failLookupWith(() => DEFECT);
-    try {
-      const tree = AdminLayout({ children: h("p", null, "Seite") }) as ReactElement<{ children?: ReactNode }>;
-      const { thrown } = await callPage(() => tree.props.children, NO_PROPS);
-
-      assert.ok(thrown.includes(DEFECT), "a defect in the switcher's lookup is swallowed short of the area's boundary");
-    } finally {
-      answerReadsWith(EMPTIEST_ANSWER);
     }
   });
 });
