@@ -191,6 +191,16 @@
 # machine carrying a fleet of agent sessions, so both ends are upper bounds; the budget does not
 # move and takes no new stamp.
 #
+# `scripts` gained thirteen cases in `scripts/tests/test_deploy_streams.py` judging the actor token's
+# key pair, each spawning bash and two or three node processes, and its job now installs the
+# application. The cases cost 12.2-48.0 s alone over three rounds interleaved with the rest of their
+# module, which read 47.5-117.2 s against 11.8 s for the same 43 cases earlier that day, so the
+# machine, not the cases, set most of that spread; the least-contended pair of whole-module runs puts
+# them at 12-25 s. Measured locally on 2026-09-27 on a sixteen-core Windows machine carrying a fleet
+# of agent sessions, so every figure is an upper bound, and the install and a Linux runner's process
+# start are not measured here. The module is one chunk under `--dist loadfile`, so the job pays the
+# cases only where that chunk becomes its longest. The budget does not move and takes no new stamp.
+#
 # `format` measured two ways of skipping the walk under `..`, which lists `fl_frontend/node_modules`
 # and `.git` because prettier's own exclusions do not match there, and rejected both on their
 # verdicts rather than their clocks. Prettier's fast CLI (`--experimental-cli`, prettier 3.9.6)
