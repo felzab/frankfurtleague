@@ -756,8 +756,8 @@ const authOptions = {
 
   session: sessionOptions,
 
-  // The library stores the caller's address on every session row, and nothing here reads one: the
-  // limiter that would is off below (`docs/ops/spec.md :: I4`).
+  // Left to its default, the library would store the caller's address on every session row; the switch
+  // below stores none, and nothing here would read one, the limiter that would being off (`docs/ops/spec.md :: I4`).
 
   advanced: {
     // The edge's own access line already carries the address, under a bound (`docs/datenschutz.md` §6).
