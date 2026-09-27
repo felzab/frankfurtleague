@@ -18,7 +18,13 @@ from typing import Any
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from app.core.exceptions import ActorForbiddenException, DatabaseUnavailableException, MalformedRequestException, RequestAuthorizationException
+from app.core.exceptions import (
+    ActorForbiddenException,
+    ActorTokenRefusedException,
+    DatabaseUnavailableException,
+    MalformedRequestException,
+    RequestAuthorizationException,
+)
 from app.core.security import ACTOR_HEADER, verify_access_admin, verify_access_base, verify_access_system
 from app.main import DEPENDENCY_REFUSALS, create_app, dependency_refusals
 from tests.actor_tokens import FOREIGN_SIGNING_KEY, SignedActor, actor_claims, sign
@@ -56,6 +62,7 @@ PROTOCOL_EXCEPTIONS = frozenset(
         RequestAuthorizationException.__name__,
         MalformedRequestException.__name__,
         ActorForbiddenException.__name__,
+        ActorTokenRefusedException.__name__,
         DatabaseUnavailableException.__name__,
     }
 )
