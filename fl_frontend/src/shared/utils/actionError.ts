@@ -18,7 +18,7 @@ import type { FieldErrors } from "./validation";
 
 /**
  * What an administrator whose grant is gone is told, by the guard, by the backend's actor check and by the
- * grant's own refusal: neither a retry nor a new sign-in restores it. GERMAN-PENDING
+ * grant's own refusal: neither a retry nor a new sign-in restores it.
  */
 export const ZUGANG_WEG = "Dein Zugang zur Verwaltung besteht nicht mehr.";
 

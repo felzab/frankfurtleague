@@ -40,7 +40,7 @@ export const NUR_INHABER_ENTZIEHT = "Den Zugang entziehen kann nur der Inhaber."
 
 /**
  * Each row's revoke, named by what its card shows: the address, or the grant's day where the address is
- * withheld, as the ban list names each removal by its day. GERMAN-PENDING
+ * withheld, as the ban list names each removal by its day.
  */
 export function entziehenLabels(adresse: string | null, erteiltAm: string): { resting: string; armed: string } {
   const wessen = adresse === null ? `vom ${erteiltAm}` : `von ${adresse}`;

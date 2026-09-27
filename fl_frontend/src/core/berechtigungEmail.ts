@@ -43,7 +43,7 @@ export type Zugangsaenderung =
  */
 export type Urheber = { readonly von: string | null; readonly am: string | null } | null;
 
-/** The acting administrator where a ban withholds them. GERMAN-PENDING */
+/** The acting administrator where a ban withholds them. */
 const GESPERRTER_URHEBER = "einer gesperrten Adresse";
 
 function zeitText(instant: string): string {
