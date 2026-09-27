@@ -12,8 +12,7 @@ import { FIELD_ERROR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";
 import { appToast } from "@/shared/utils/appToast";
 import { postPublicForm } from "@/shared/utils/publicSubmit";
-
-import { VERSUCHE_ES_ERNEUT } from "../../passkeyAnswers";
+import { VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 
 import type { PublicEnvelope } from "@/shared/utils/publicSubmit";
 

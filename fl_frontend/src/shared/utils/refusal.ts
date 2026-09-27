@@ -33,6 +33,12 @@ export function buildRefusal({ reason, repair, where }: RefusalParts): string {
  */
 export const UNKNOWN_REFUSAL = "Lade die Seite neu und versuche es erneut.";
 
+/**
+ * The way out alone, under a title already saying which step did not happen, where the same press may
+ * pass: every sign-in, passkey and account refusal with no sentence of its own says this.
+ */
+export const VERSUCHE_ES_ERNEUT = "Versuche es noch einmal.";
+
 // Every form meeting a refusal no input shows, with no sentence of its own, says this. Here rather than in
 // the client hook raising it: a route handler receives a client module's exports as references, not strings.
 /**

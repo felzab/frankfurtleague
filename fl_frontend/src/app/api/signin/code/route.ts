@@ -10,8 +10,9 @@ import { frontend_config } from "@/core/config";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING } from "@/core/passkeyRefusal";
 import { CODE_FAILURE_WINDOW_HOURS, SIGN_IN_CODE_LENGTH } from "@/core/signInCode";
-import { GESPERRT, OHNE_FUNKTION, VERSUCHE_ES_ERNEUT } from "@/features/auth/passkeyAnswers";
+import { GESPERRT, OHNE_FUNKTION } from "@/features/auth/passkeyAnswers";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
+import { VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 
 import type { NextRequest } from "next/server";
 

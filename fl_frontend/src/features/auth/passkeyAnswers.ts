@@ -1,8 +1,6 @@
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "@/core/passkeyRefusal";
-
-/** The way out alone: the toast's title has already said which step did not happen. */
-export const VERSUCHE_ES_ERNEUT = "Versuche es noch einmal.";
+import { VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 
 /**
  * The one refusal a reader can act on: the assertion ASKS for verification rather than demanding

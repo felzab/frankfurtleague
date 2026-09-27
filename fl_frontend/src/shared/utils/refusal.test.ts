@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { buildRefusal, UNKNOWN_REFUSAL } from "./refusal.ts";
+import { buildRefusal, UNKNOWN_REFUSAL, VERSUCHE_ES_ERNEUT } from "./refusal.ts";
 
 describe("buildRefusal", () => {
   it("writes the reason first and the way out second, each its own sentence", () => {
@@ -54,5 +54,13 @@ describe("UNKNOWN_REFUSAL", () => {
   it("names a way out and no cause, its callers having none to name", () => {
     assert.match(UNKNOWN_REFUSAL, /^[^.]+\.$/, "the cause-less refusal is one sentence");
     assert.match(UNKNOWN_REFUSAL, /neu|erneut/);
+  });
+});
+
+/* Spelled out once here; every reader's own case compares against the constant, so a reader that
+   keeps a copy of its own fails there the day the two drift. */
+describe("VERSUCHE_ES_ERNEUT", () => {
+  it("is the approved retry sentence", () => {
+    assert.equal(VERSUCHE_ES_ERNEUT, "Versuche es noch einmal.");
   });
 });

@@ -12,8 +12,9 @@ import { formButton } from "@/shared/components/ui/formButtons";
 import { SignInCard } from "@/shared/components/ui/SignInCard";
 import { appToast } from "@/shared/utils/appToast";
 import { leaveDocumentFor } from "@/shared/utils/documentNavigation";
+import { VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 
-import { describeCeremonyRefusal, refusalCode, refusalStatus, VERSUCHE_ES_ERNEUT } from "../../passkeyAnswers";
+import { describeCeremonyRefusal, refusalCode, refusalStatus } from "../../passkeyAnswers";
 
 /** Named off `fl_frontend/src/core/auth.ts :: PasskeyStep`, whose verdict the page hands over. */
 type Step = "enrol" | "assert" | "offer";

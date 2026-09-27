@@ -24,6 +24,7 @@ import { STEP_UP_LABEL, STEP_UP_RUNNING } from "@/shared/components/ui/stepUp";
 import { usePasskeyStepUp } from "@/shared/hooks/usePasskeyStepUp";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 
 import { endAndereAnmeldungenAction, endAnmeldungAction, pruefeInhaberAction } from "../../actions";
 import { AndereAbmelden } from "../ui/AndereAbmelden";
@@ -38,8 +39,6 @@ const STEP_UP_HINT = "Für Änderungen an Passkeys und Anmeldungen fragen wir ku
 
 /** The cap's own sentence, which names the way forward rather than the number it refuses at. */
 const ZU_VIELE = "Mehr Passkeys gehen nicht. Lösche zuerst einen.";
-
-const VERSUCHE_ES_ERNEUT = "Versuche es noch einmal.";
 
 /**
  * The loser of two enrolments that ran at once (`docs/frontend/spec.md :: I341`): the other was an
