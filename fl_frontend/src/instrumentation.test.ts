@@ -86,33 +86,49 @@ describe("the pass announcing each change to who administers", () => {
   const MINUTE_MS = 60 * 1000;
   const env = process.env as Record<string, string | undefined>;
 
-  /** One boot under `nodeEnv`, and the first pass's minute: the claim fails here, which is what shows it ran. */
-  async function bootAndWait(t: TestContext, nodeEnv: string): Promise<string[]> {
+  /** Passes run so far: each claim fails here, which is what shows a pass ran. */
+  const passes = (): number => lines.filter(({ event }) => event === "berechtigung.abgleich_failed").length;
+
+  /** One boot under `nodeEnv`, then each step of `steps` in turn, answering the passes run after each. */
+  async function bootAndStep(t: TestContext, nodeEnv: string, steps: readonly number[]): Promise<number[]> {
     const before = env.NODE_ENV;
     env.NODE_ENV = nodeEnv;
     t.mock.timers.enable({ apis: ["setInterval", "setTimeout"] });
+    const counted: number[] = [];
     try {
       await register();
-      t.mock.timers.tick(MINUTE_MS);
-      // The pass's claim and its failure settle on the queue behind the tick.
-      await new Promise((resolve) => setImmediate(resolve));
-      await new Promise((resolve) => setImmediate(resolve));
+      for (const step of steps) {
+        t.mock.timers.tick(step);
+        // The pass's claim and its failure settle on the queue behind the tick.
+        await new Promise((resolve) => setImmediate(resolve));
+        await new Promise((resolve) => setImmediate(resolve));
+        counted.push(passes());
+      }
     } finally {
       t.mock.timers.reset();
       if (before === undefined) delete env.NODE_ENV;
       else env.NODE_ENV = before;
     }
 
-    return lines.map(({ event }) => event);
+    return counted;
   }
 
   /* Never behind the application sweep's switch, which this boot has off: a local stack sets it off, and
      a change to who administers is announced wherever a production build runs. */
   it("arms under a production build whatever the application sweep's switch says", async (t) => {
-    assert.ok((await bootAndWait(t, "production")).includes("berechtigung.abgleich_failed"), "no pass ran a minute after a production boot");
+    assert.deepEqual(await bootAndStep(t, "production", [MINUTE_MS]), [1], "no pass ran a minute after a production boot");
+  });
+
+  /* A minute first, as a deploy recreates this container before the backend answers; then every five
+     minutes from the boot. */
+  it("waits its minute, then runs every five minutes", async (t) => {
+    const SEKUNDE_MS = 1000;
+    const steps = [MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS, 4 * MINUTE_MS - SEKUNDE_MS, SEKUNDE_MS, 5 * MINUTE_MS];
+
+    assert.deepEqual(await bootAndStep(t, "production", steps), [0, 1, 1, 2, 3]);
   });
 
   it("arms nothing under a development build", async (t) => {
-    assert.deepEqual(await bootAndWait(t, "development"), []);
+    assert.deepEqual(await bootAndStep(t, "development", [10 * MINUTE_MS]), [0]);
   });
 });
