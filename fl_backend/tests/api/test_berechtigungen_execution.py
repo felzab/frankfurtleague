@@ -831,7 +831,7 @@ class TestTheClaim:
     def test_the_bookkeeping_leaves_the_log_no_address(self, mongo_replica_set_url: str):
         """Granted and revoked here, removed in the database, then claimed and stamped: the bookkeeping's log rows name ids alone.
 
-        Each removal of it is reached: the revoke's and the claim's of an announced row, and the stamp's (`docs/backend/spec.md :: I464`).
+        Each removal of it is reached: the revoke's and the claim's of an announced row, and the stamp's (`docs/backend/spec.md :: I465`).
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[str], list[str]]:
@@ -929,7 +929,7 @@ class TestTheClaim:
         assert NEU not in answer.model_dump_json()
 
     def test_a_ban_withholds_the_address_past_one_page_of_queued_notices(self, mongo_replica_set_url: str):
-        """More notices name the address than one read returns, and none keeps it (`docs/backend/spec.md :: I461`)."""
+        """More notices name the address than one read returns, and none keeps it (`docs/backend/spec.md :: I462`)."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[Mapping[str, Any]]:
             await told(database, client)
@@ -1103,7 +1103,7 @@ class TestTheMountedRouteReadsTheGrants:
         assert beansprucht_bis.endswith("Z")
 
     def test_a_barred_grant_holder_is_no_administrator(self, mongo_replica_set_url: str):
-        """A barred holder holds no floor, so it acts on nothing either (`docs/backend/spec.md :: I462`)."""
+        """A barred holder holds no floor, so it acts on nothing either (`docs/backend/spec.md :: I463`)."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[int]:
             async with app_client(mongo_replica_set_url, config=CONFIG) as http:

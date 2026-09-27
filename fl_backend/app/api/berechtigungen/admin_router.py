@@ -274,7 +274,7 @@ async def delete_berechtigung(
 
         await delete_many_from_db(collection=berechtigungen_collection, db_filter={"_id": berechtigung_id}, session=session)
         # The grant keeps its image, the administrator's act; its announced row is bookkeeping and keeps
-        # none (`docs/backend/spec.md :: I464`).
+        # none (`docs/backend/spec.md :: I465`).
         await erase_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": berechtigung_id}, session=session)
 
     async with db.start_session() as session:

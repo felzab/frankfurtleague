@@ -79,7 +79,7 @@ async def holds_a_live_unbarred_grant(
     """The actor check's question: one equality on the grants, then one on the ban list by the identifier's hash.
 
     A barred holder is no administrator, the reason a barred grant holds no floor
-    (`docs/backend/spec.md :: I462`).
+    (`docs/backend/spec.md :: I463`).
     """
 
     found = await pull_many_from_db(collection=berechtigungen_collection, db_filter={"adresse": identifier}, limit=1, projection=["adresse"])
@@ -95,7 +95,7 @@ async def holds_a_live_unbarred_grant(
 
 
 async def withhold_in_the_outbox(*, berechtigungen_postausgang_collection: AsyncCollection, adresse: str, session: AsyncClientSession) -> None:
-    """Every queued row naming this folded address, as a grant's address or as its actor, withheld in place (`docs/backend/spec.md :: I461`).
+    """Every queued row naming this folded address, as a grant's address or as its actor, withheld in place (`docs/backend/spec.md :: I462`).
 
     Read, then written by id: a write filtered on the address copies it into the log's filter text.
     """

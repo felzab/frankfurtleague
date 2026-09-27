@@ -379,7 +379,7 @@ administration is shut while it is down. Each of these is easy to get wrong:
   (`docs/backend/spec.md :: I437`): lift the ban first, or revoke the grant first. A grant the
   Playground writes onto a barred address is refused by nothing and admits nobody, neither to the
   site (`docs/frontend/spec.md :: I409`) nor to the admin tier while the ban stands
-  (`docs/backend/spec.md :: I462`), and the reconciliation flags it.
+  (`docs/backend/spec.md :: I463`), and the reconciliation flags it.
 - **Every change is announced, a Playground one naming no administrator** (`docs/backend/spec.md ::
 I439`). A Playground change undone again before the next claim is announced by nothing, and
   deleting a row of `berechtigungen_angekuendigt` or `berechtigungen_postausgang` by hand announces

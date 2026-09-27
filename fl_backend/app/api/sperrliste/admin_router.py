@@ -169,7 +169,7 @@ async def post_sperrliste_eintrag(
         }
 
         # Every notice still queued loses the address in this transaction, so neither the outbox nor a
-        # later stamp's log image holds it in plain (`docs/backend/spec.md :: I461`).
+        # later stamp's log image holds it in plain (`docs/backend/spec.md :: I462`).
         await withhold_in_the_outbox(
             berechtigungen_postausgang_collection=berechtigungen_postausgang_collection,
             adresse=sign_in_identifier(str(sperrliste_data.email)),

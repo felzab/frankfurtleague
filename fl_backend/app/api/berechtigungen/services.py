@@ -181,7 +181,7 @@ def compare(
         elif now is None:
             changes.append((berechtigung_id, "entzogen", None, before))
         # Read as one tier change, a repointed address would name its new holder alone and hide whose
-        # access ended (`docs/backend/spec.md :: I463`).
+        # access ended (`docs/backend/spec.md :: I464`).
         elif now.adresse != before.adresse:
             changes.append((berechtigung_id, "entzogen", None, before))
             changes.append((berechtigung_id, "erteilt", now, None))
@@ -221,7 +221,7 @@ def compose_postausgang(
 ) -> dict[str, Any]:
     """One outbox row, every barred address in it withheld as it is written; `geaendert_von` null is a change found in the database.
 
-    The actor stored folded, the spelling a later ban matches pending rows by (`docs/backend/spec.md :: I461`).
+    The actor stored folded, the spelling a later ban matches pending rows by (`docs/backend/spec.md :: I462`).
     """
 
     rows = (withheld(jetzt, gesperrt), withheld(vorher, gesperrt))

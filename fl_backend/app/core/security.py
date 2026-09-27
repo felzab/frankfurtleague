@@ -118,7 +118,7 @@ def get_grant_lookup(
     saisons_collection: Annotated[AsyncCollection, Depends(get_saisons_collection)],
     config: Annotated[BackendConfig, Depends(get_app_config)],
 ) -> GrantLookup:
-    """The actor check's read: a live grant, and no ban on its address (`docs/backend/spec.md :: I453`, `:: I462`)."""
+    """The actor check's read: a live grant, and no ban on its address (`docs/backend/spec.md :: I453`, `:: I463`)."""
 
     async def holds_a_live_grant(identifier: str) -> bool:
         return await holds_a_live_unbarred_grant(

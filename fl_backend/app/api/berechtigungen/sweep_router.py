@@ -99,7 +99,7 @@ async def post_berechtigungen_abgleich(
         changes = compare(grants=grants, announced=announced)
         if changes:
             # Anchored before the pass writes, so a revoke or a ban judging these rows conflicts with it
-            # (`docs/backend/spec.md :: I461`). The read repeats this snapshot's, and a pass queueing
+            # (`docs/backend/spec.md :: I462`). The read repeats this snapshot's, and a pass queueing
             # nothing logs no anchor.
             await pull_the_list_to_judge(berechtigungen_collection=berechtigungen_collection, session=session)
 
@@ -128,7 +128,7 @@ async def post_berechtigungen_abgleich(
             )
             # The record now accounts for each change, the notice for it standing queued.
             # Bookkeeping, so removed with no image: an image carries the address into a log every
-            # administrator reads for twelve months (`docs/backend/spec.md :: I464`).
+            # administrator reads for twelve months (`docs/backend/spec.md :: I465`).
             await erase_many_from_db(
                 collection=berechtigungen_angekuendigt_collection,
                 db_filter={"_id": {"$in": [berechtigung_id for berechtigung_id, _, _, _ in changes]}},
@@ -241,7 +241,7 @@ async def post_berechtigungen_angekuendigt(
             return 0
 
         # By the ids the claim holds, with no image: the rows carry addresses, and an imageless
-        # removal's filter is all the log keeps (`docs/backend/spec.md :: I464`).
+        # removal's filter is all the log keeps (`docs/backend/spec.md :: I465`).
         removed = await erase_many_from_db(
             collection=berechtigungen_postausgang_collection, db_filter={"_id": {"$in": [row["_id"] for row in held]}}, session=session
         )
