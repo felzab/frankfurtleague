@@ -1045,10 +1045,6 @@ export function isAdminSession(served: ServedSession, verwaltung: boolean): bool
 }
 
 /**
- * `isAdminSession` over the grant this request reads, for the two guards that admit to the
- * administration: an unread grant admits nobody, so the administration is shut while the backend is.
- */
-/**
  * Why the admin guard turned this request away: `ohne-zugang` where the session would pass but its address
  * holds no grant, which no sign-in restores; `anmelden` for everything a new sign-in does repair.
  */
@@ -1060,7 +1056,11 @@ export async function adminRefusal(): Promise<"ohne-zugang" | "anmelden"> {
   return (await verwaltungOrNull(served.user.email)) === false ? "ohne-zugang" : "anmelden";
 }
 
-export async function isAdminRequest(served: ServedSession): Promise<boolean> {
+/**
+ * `isAdminSession` over the grant this request reads, for the admin guard: an unread grant admits nobody,
+ * so the administration is shut while the backend is.
+ */
+async function isAdminRequest(served: ServedSession): Promise<boolean> {
   return isAdminSession(served, (await verwaltungOrNull(served.user.email)) === true);
 }
 
