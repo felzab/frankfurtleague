@@ -835,14 +835,6 @@ one row last-writer-wins, so a refusal the database makes never happens there. B
 script ends in its patterns, a flag appended after it is not applied: the gate shards the suite
 through `NODE_OPTIONS` (`scripts/gate/verify.sh :: do_unit_tests`).
 
-**A file whose worker exits without reporting is diagnosed by
-`fl_frontend/worker-exit-reporter.mjs`, wired into the `test:base` script beside the spec reporter.**
-`node --test` reports such a file as one failing test named for the path, so a module that threw
-while loading, a worker killed under memory pressure and a case that never reported arrive as one
-line carrying the same text; the worker's own output reaches the log unattributed, and far above
-that line where the death was early. The second reporter writes nothing where no file fails that
-way, which is why it sits in `pnpm test` for every runner of the suite rather than behind a flag.
-
 **An application module imports a HeroUI component from `@heroui/react/<component>` and an icon
 from `@gravity-ui/icons/<Name>`**, because `node --test` has no bundler to narrow a package root: a
 root import loads every component or every icon into each test file's process that reaches it.
