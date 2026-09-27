@@ -54,8 +54,8 @@ router = APIRouter(
     dependencies=[Depends(verify_access_base), Depends(bind_public_actor)],
 )
 
-# A household rather than a person: one mailbox stands behind several pupils, and the read is
-# bounded so a larger one narrows to nothing rather than to a guess.
+# Bounded for a mailbox shared anyway, which can stand behind several pupils: a larger set narrows
+# to nothing rather than to a guess.
 _PERSONS_READ = 8
 
 
