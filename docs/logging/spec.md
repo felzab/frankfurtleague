@@ -54,7 +54,7 @@ server level just as it discards a client-supplied `traceparent`, under the same
 (`nginx/shared/site.conf :: proxy_set_header X-FL-Actor`), so the only actor a REQUEST can name is the one the
 frontend container sets from the signed-in session — `fl_frontend/src/core/api.ts :: apiClient` sends it on
 admin-tier calls alone, as a token signed for its sixty seconds
-([`docs/frontend/spec.md`](../frontend/spec.md) I471). **No log line carries that token**, nor an error
+([`docs/frontend/spec.md`](../frontend/spec.md) I474). **No log line carries that token**, nor an error
 thrown for the call that sent it: it is a bearer credential while it lives. The header names
 **who** a write is attributed to rather than which request it belongs to,
 and the guard refusing a write that carries no well-formed one is

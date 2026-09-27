@@ -24,7 +24,7 @@ export async function register() {
 
   const frontend_config = await passBootGates().catch((refusal: unknown) => {
     // Next logs a throwing hook and serves on, every page a 500; a dead container is what a restart
-    // policy and the deploy's rollback read (`docs/frontend/spec.md :: I473`). The empty write's
+    // policy and the deploy's rollback read (`docs/frontend/spec.md :: I476`). The empty write's
     // callback runs once the CRITICAL line has left.
     process.exitCode = 1;
     process.stdout.write("", () => process.exit());
