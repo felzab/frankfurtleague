@@ -194,7 +194,7 @@ describe("the chrome under a person lane's guard", () => {
       setSubject({
         email: "pia@example.org",
         admin: false,
-        subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false },
+        subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, verwaltung: null },
       });
       // What the guard hands on: the chrome's element, called below on its own.
       const guarded = (await pageBody(area.layout, {})) as ReactElement<{ children: ReactElement<Record<string, unknown>> }>;

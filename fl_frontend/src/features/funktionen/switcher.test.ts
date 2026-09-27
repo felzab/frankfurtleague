@@ -131,7 +131,7 @@ describe("the administrator's switcher", () => {
     clearSteps();
     const markup = await renderPage(underNext(h(AdminLayout, { children: null }), { pathname: "/bereich/admin/teams" }));
 
-    return { markup: markup, lookups: readsOf(steps).filter((read) => read.endpoint === "/identitaet/subjekt").length };
+    return { markup: markup, reads: readsOf(steps).map(({ endpoint }) => endpoint) };
   };
 
   it("names the administration where the administrator also holds a seat", async () => {
@@ -146,12 +146,16 @@ describe("the administrator's switcher", () => {
     assert.equal(triggerIn(markup), null);
   });
 
-  /* The records keyed on the admin session's own address, in one lookup: never the person lane's guard,
-     which reads the sign-in again and sets a second actor on an administrator's request. */
+  /* The records keyed on the admin session's own address, never through the person lane's guard, which
+     sets a second actor. The lookup is the guard's own, memoised per render; beside it the season slot's list. */
   it("reads the records once through the lookup and never through the person guard", async () => {
-    const { lookups } = await adminAt({ sitze: [sitz()] });
+    const { reads } = await adminAt({ sitze: [sitz()] });
 
-    assert.equal(lookups, 1, `the administrator's render looked the records up ${String(lookups)} times`);
+    assert.deepEqual(
+      reads,
+      ["/identitaet/subjekt", "/saisons/list/admin"],
+      "the administrator's render reads other than the lookup and the seasons",
+    );
     assert.equal(subjectReads(), 0, "the administrator's render ran the person lane's guard");
   });
 

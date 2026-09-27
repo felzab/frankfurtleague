@@ -175,9 +175,9 @@ describe("where the landing takes a person", () => {
 
   /* An administrator whose verdict stands has come to `/bereich` for the other places they hold, so the
      landing offers them rather than sending them back to the admin subtree they just left. */
-  it("offers an allowlisted address whose administrator verdict stands its own landing", async () => {
-    setSession({ user: { email: ALLOWLISTED } }, "/bereich/admin");
-    setSubject({ ...person({ spieler: [{ spieler_id: TEAM_A }] }, true), email: ALLOWLISTED });
+  it("offers an address holding a grant whose administrator verdict stands its own landing", async () => {
+    setSession({ user: { email: "vorstand@example.org" } }, "/bereich/admin");
+    setSubject({ ...person({ spieler: [{ spieler_id: TEAM_A }], verwaltung: "administration" }, true), email: "vorstand@example.org" });
 
     assert.deepEqual(await redirectsOf(PersoenlichStartPage), [], "a standing administrator is sent away from the landing");
     assert.deepEqual(await switchHrefs(), ["/bereich/spieler", "/bereich/admin"]);

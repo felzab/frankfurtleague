@@ -405,7 +405,7 @@ async function overHttp(
 }
 
 describe("what the mounted HTTP surface answers", () => {
-  /* The surface's own floor: a path it admits has to still work, or every refusal below is the
+  /* The allowlist's own floor: a path it admits has to still work, or every refusal below is the
      handler being broken rather than the surface being closed. */
   it("serves the ceremony a browser really calls, on the path the installed plugin mounts", async () => {
     const { cookie } = await signIn(ADMIN_EMAIL);
@@ -434,7 +434,7 @@ describe("what the mounted HTTP surface answers", () => {
     assert.ok(!JSON.stringify(body).includes(row.token), "the served session carries the cookie's own value");
   });
 
-  /* The hole the passkey factor exists for: a holder of the mailbox alone reaches a code-borne session,
+  /* The hole the allowlist exists for: a holder of the mailbox alone reaches a code-borne session,
      and these three read, rename and delete the administrator's only passkey behind a bare session
      middleware -- no freshness, no factor. */
   it("refuses all three passkey management routes to a code-borne session, leaving the passkey standing", async () => {
