@@ -686,7 +686,7 @@ REFUSED_ADDRESS = "müller@example.com"
 
 
 class TestABarredMailboxIsNotChased:
-    """No reminder carries a fresh link to an address the ban list holds: the seat is stamped, sent nothing, and logged."""
+    """No reminder carries a fresh link to an address the ban list holds: the seat is sent nothing, stores nothing, and is counted."""
 
     def test_an_address_the_rule_refuses_is_barred_by_nothing_and_the_pass_goes_on(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
@@ -699,7 +699,7 @@ class TestABarredMailboxIsNotChased:
 
         assert (REFUSED_ADDRESS, [["stellvertretung"]]) in on_a_league(mongo_replica_set_url, body)
 
-    def test_the_barred_seat_is_stamped_with_no_link_and_the_other_mailbox_is_chased(self, mongo_replica_set_url: str, caplog):
+    def test_the_barred_seat_is_sent_nothing_and_stores_nothing_and_the_other_mailbox_is_chased(self, mongo_replica_set_url: str, caplog):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             await database[Collection.SPERRLISTE].insert_one(ban_document("bramblewick@example.com", bis=STANDING))
             # Both passes inside: the level outside is whatever an earlier test on this worker left.
