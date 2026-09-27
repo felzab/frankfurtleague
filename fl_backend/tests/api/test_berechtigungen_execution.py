@@ -1368,6 +1368,18 @@ class TestTheMountedRouteReadsTheGrants:
 
         assert on_a_league(mongo_replica_set_url, body) == [200, 403]
 
+    def test_a_ban_whose_last_season_has_passed_bars_no_holder(self, mongo_replica_set_url: str):
+        """The lapsed half of the case above: a check judging no running season would read every ban as standing."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> int:
+            await database[Collection.SPERRLISTE].insert_one(a_ban_row(BERND) | {"gesperrt_bis_saison_id": str(int(RUNNING) - 1)})
+            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+                response = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=SignedActor(BERND, ADMIN_KEY))
+
+            return response.status_code
+
+        assert on_a_league(mongo_replica_set_url, body) == 200
+
     def test_the_lookup_admits_a_live_row_and_no_dead_one_of_the_same_equality(self, mongo_replica_set_url: str):
         """A folded row the address rule refuses equals its own header and still admits nobody (`docs/backend/spec.md :: I453`)."""
 
