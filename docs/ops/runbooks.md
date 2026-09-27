@@ -364,7 +364,8 @@ administration is shut while it is down. Each of these is easy to get wrong:
 - **Paste only into a database a boot of the release carrying `berechtigungen` has reached.** That
   boot creates the validator and the unique index; a paste before it creates the collection with
   neither, and a duplicate address in it then fails the next boot's index build (`SRV-BOOT-004`).
-  Admin pages answer `REQ-AUTH-006` until the paste lands, and the public site is untouched.
+  Until the paste lands no address holds a grant, so the site admits no administrator; the public
+  site is untouched.
 - **`ALLOWED_ADMIN_EMAILS` is read by nothing, and each boot names it while it stands**:
   `FE-BOOT-002` for `fl_frontend/.env`, `SRV-BOOT-008` for `fl_backend/.env`. It stays in
   `fl_frontend/.env` alone, so a rollback to the frontend before still finds the line it requires;
@@ -386,8 +387,9 @@ I439`). A Playground change undone again before the next claim is announced by n
   that grant again as new, or silences its notice.
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
-- **A grant to an address the sign-in library will not take admits nobody**, and nothing refuses
-  writing it: that person is mailed no code (`docs/frontend/spec.md :: I316`). An umlaut before the
+- **A grant to an address the sign-in library will not take admits nobody**: that person is mailed
+  no code. The grant page refuses such an address (`docs/frontend/spec.md :: I316`); the Playground
+  refuses nothing. An umlaut before the
   at sign is the case that turns up: the sign-in box takes no such address, so that person needs a
   mailbox it will accept before a grant is worth writing. An umlaut domain is stored in punycode,
   which the sign-in box converts either spelling to.
