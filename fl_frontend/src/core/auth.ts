@@ -1386,8 +1386,7 @@ export async function getAdminSession(): Promise<JudgedSession | null> {
 export type SignInDestination = "/signin/passkey" | "/bereich" | "/signin";
 
 export async function getSignInDestination(): Promise<SignInDestination> {
-  const requestHeaders = await headers();
-  return signInDestinationOf(await readServedSession(requestHeaders), requestHeaders);
+  return (await landingOf(await headers())).destination;
 }
 
 /**
@@ -1395,26 +1394,50 @@ export async function getSignInDestination(): Promise<SignInDestination> {
  * anywhere but back to `/signin`, so a spent or unreadable session is offered a fresh sign-in.
  */
 export async function getSignedInAddress(): Promise<string | null> {
-  const requestHeaders = await headers();
-  const served = await readServedSession(requestHeaders);
-  if ((await signInDestinationOf(served, requestHeaders)) === "/signin" || served === null) return null;
-
-  return asSignInIdentifier(served.user.email);
+  const { destination, served } = await landingOf(await headers());
+  return destination === "/signin" || served === null ? null : asSignInIdentifier(served.user.email);
 }
 
-async function signInDestinationOf(served: ServedSession | null, requestHeaders: Headers): Promise<SignInDestination> {
-  if (!served) return "/signin";
+/** The landing's verdict, and the session it judged where one stands. */
+type Landing = { readonly destination: SignInDestination; readonly served: ServedSession | null };
+
+/**
+ * Every guard that refuses a session sends it to `/signin`, so this is where one no lane will serve
+ * again is ended, whatever missed ending it before (`docs/frontend/spec.md :: I518`).
+ */
+async function landingOf(requestHeaders: Headers): Promise<Landing> {
+  const read = await readLibrarySession(requestHeaders, false);
+  if (read === null) return { destination: "/signin", served: null };
+
+  // Past a person's figures no lane serves it, so one past an administrator's alone stands, the person
+  // lane still serving it; its passkey gone, none ever will.
+  const served = await servedSessionOf(read);
+  if (served === null || !isWithinPersonLifetime(read.session)) return ended(read);
 
   // An unread lookup is the backend down: `/bereich` answers it with the person area's outage panel, its
   // own lookup failing, where `/signin` would mail no code and say nothing (`docs/frontend/spec.md :: I121`).
   const subjekt = await subjektOrNull(served.user.email);
-  if (subjekt === null) return isWithinPersonLifetime(served.session) ? "/bereich" : "/signin";
+  if (subjekt === null) return { destination: "/bereich", served: served };
 
-  // The ban itself, never read through the grant: every guard behind `/bereich` refuses a barred
-  // session, so any other answer sends it round and has `/signin` greet it (`docs/frontend/spec.md :: I406`).
-  if (subjekt.gesperrt) return "/signin";
+  // The ban itself, never read through the grant: every guard behind `/bereich` refuses a barred session,
+  // and one left standing serves again on the ban's lift with no sign-in (`docs/frontend/spec.md :: I406`).
+  if (subjekt.gesperrt) return ended(read);
 
-  if (subjekt.verwaltung !== null) {
+  return { destination: await destinationOf(served, subjekt.verwaltung !== null, requestHeaders), served: served };
+}
+
+/**
+ * Deleted by the row's id, never its token, which leaves the store for nothing. The browser keeps a
+ * cookie naming no row, which every read answers as no session.
+ */
+async function ended(read: ServedSession): Promise<Landing> {
+  const { adapter } = await auth.$context;
+  await adapter.delete({ model: "session", where: [{ field: "id", value: read.session.id }] });
+  return { destination: "/signin", served: null };
+}
+
+async function destinationOf(served: ServedSession, granted: boolean, requestHeaders: Headers): Promise<SignInDestination> {
+  if (granted) {
     // The guard's own verdict rather than a second spelling of it: `/bereich` sends a granted session
     // the guard refuses on to `/bereich/admin`, which the proxy bounces back here.
     if (isAdminSession(served, true)) return "/bereich";
@@ -1423,8 +1446,6 @@ async function signInDestinationOf(served: ServedSession | null, requestHeaders:
     // afresh rather than being sent to a person's landing with no way to the step they owe.
     return (await passkeyStepOf(served, true, requestHeaders)) === null ? "/signin" : "/signin/passkey";
   }
-
-  if (!isWithinPersonLifetime(served.session)) return "/signin";
 
   return (await passkeyStepOf(served, false, requestHeaders)) === "offer" ? "/signin/passkey" : "/bereich";
 }

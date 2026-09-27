@@ -669,6 +669,39 @@ describe("whom `/signin` greets rather than offering a sign-in", () => {
   });
 });
 
+/* Every refused guard sends its session to `/signin`, so the landing is where one no lane serves is
+   ended: left standing, the proxy slides it on every visit and the library binds the page's passkey
+   challenge to its account. */
+describe("what the landing ends (`docs/frontend/spec.md :: I518`)", () => {
+  afterEach(() => BACKENDS.delete(PERSON_EMAIL));
+
+  it("ends a barred person's session, so a lift of the ban serves it no more", async () => {
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie);
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+
+    assert.equal(await getSignedInAddress(), null);
+    assert.ok(!store.session.includes(row), "a barred session the ban's ending missed outlived the landing");
+
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    assert.equal(await getKontoSession(), null, "the ban's lift served the session again with no sign-in");
+  });
+
+  /* The shared device: another person's passkey is refused on a page whose challenge names the spent account. */
+  it("ends a person's session past its lifetime, so the next passkey on that browser is anybody's", async () => {
+    const other = await signIn(ADMIN_EMAIL);
+    store.passkey.push({ ...aPasskeyFor(other.row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+    const spent = await signIn(PERSON_EMAIL);
+    ageRow(spent.row, { created: 31 * DAY_MS });
+    arriveAs(spent.cookie);
+
+    assert.equal(await getSignedInAddress(), null);
+    assert.ok(!store.session.includes(spent.row), "a session no lane serves outlived the landing");
+    assert.equal((await assertPasskey(spent.cookie, true)).status, 200, "the challenge was still bound to the spent account");
+  });
+});
+
 describe("the three lifetimes, judged in the guard rather than in the store", () => {
   it("refuses a session forty-nine hours old for an address holding a grant, and serves it for anyone else", async () => {
     const admin = await signIn(ADMIN_EMAIL);
@@ -678,6 +711,7 @@ describe("the three lifetimes, judged in the guard rather than in the store", ()
 
     assert.equal(await getAdminSession(), null);
     assert.equal(await getSignInDestination(), "/signin");
+    assert.ok(store.session.includes(admin.row), "the landing ended a session the person lane still serves");
 
     const person = await signIn(PERSON_EMAIL);
     ageRow(person.row, { created: 49 * HOUR_MS });
@@ -1016,7 +1050,7 @@ describe("the second factor, judged at the same guard", () => {
 /* A sign-in racing its passkey's removal inserts its session after the removal's sign-out ran, naming a
    credential no passkey holds (`docs/frontend/spec.md :: I313`): the state the race leaves, driven directly. */
 describe("a passkey session whose passkey is gone", () => {
-  it("serves an administrator's no guard, the proxy and the landing included, and serves it again with its row", async () => {
+  it("serves an administrator's no guard and the proxy none, serves it again with its row, and the landing ends it", async () => {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     store.passkey.length = 0;
@@ -1024,7 +1058,6 @@ describe("a passkey session whose passkey is gone", () => {
 
     assert.equal(await getAdminSession(), null);
     assert.equal(await getKontoSession(), null);
-    assert.equal(await getSignInDestination(), "/signin");
     assert.equal(await getPasskeyStep(), null);
     const turned = await proxy(new NextRequest("http://localhost:3000/bereich/admin/spiele", { headers: { cookie } }));
     assert.ok(turned.headers.get("location")?.endsWith("/signin"), "the proxy let a session through whose passkey is gone");
@@ -1033,6 +1066,11 @@ describe("a passkey session whose passkey is gone", () => {
     madeByPasskey(store, row);
     assert.ok(await getAdminSession());
     assert.ok(await getKontoSession());
+
+    // No passkey is enrolled twice under one credential, so a session its passkey's removal missed is served by no lane again.
+    store.passkey.length = 0;
+    assert.equal(await getSignInDestination(), "/signin");
+    assert.ok(!store.session.includes(row), "the landing left a session standing that no guard will serve");
   });
 
   it("serves a person's account guard no such session", async () => {
