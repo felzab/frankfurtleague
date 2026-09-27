@@ -828,6 +828,28 @@ class TestTheClaim:
 
         assert on_a_league(mongo_replica_set_url, body) == [(0, 3), (1, 1), (2, 1)]
 
+    def test_the_bookkeeping_leaves_the_log_no_address(self, mongo_replica_set_url: str):
+        """Granted and revoked here, removed in the database, then claimed and stamped: the bookkeeping's log rows name ids alone.
+
+        Each removal of it is reached: the revoke's and the claim's of an announced row, and the stamp's (`docs/backend/spec.md :: I464`).
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[list[str], list[str]]:
+            await told(database, client)
+            created = await grant(database, client)
+            await revoke(database, client, created)
+            await database[Collection.BERECHTIGUNGEN].delete_one({"_id": BERND_ID})
+            await told(database, client)
+            bookkeeping = [str(Collection.BERECHTIGUNGEN_ANGEKUENDIGT), str(Collection.BERECHTIGUNGEN_POSTAUSGANG)]
+            rows = database[Collection.AKTIONEN].find({"collection": {"$in": bookkeeping}})
+
+            return [str(row) async for row in rows], await database[Collection.BERECHTIGUNGEN_POSTAUSGANG].distinct("_id")
+
+        logged, left = on_a_league(mongo_replica_set_url, body)
+
+        assert logged and all(NEU not in row and BERND not in row for row in logged)
+        assert left == []
+
     def test_the_claim_and_the_stamp_are_logged_under_the_system_actor(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> set[str]:
             await told(database, client)

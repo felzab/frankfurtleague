@@ -33,7 +33,7 @@ from app.api.saisons.crud import pull_massgebliche_saison_id
 from app.api.sperrliste.crud import address_is_gesperrt
 from app.api.sperrliste.services import adresse_hash
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import delete_many_from_db, post_one_to_db, pull_many_from_db, refuse
+from app.core.crud import delete_many_from_db, erase_many_from_db, post_one_to_db, pull_many_from_db, refuse
 from app.core.dependencies import (
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
@@ -274,7 +274,9 @@ async def delete_berechtigung(
             )
 
         await delete_many_from_db(collection=berechtigungen_collection, db_filter={"_id": berechtigung_id}, session=session)
-        await delete_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": berechtigung_id}, session=session)
+        # The grant keeps its image, the administrator's act; its announced row is bookkeeping and keeps
+        # none (`docs/backend/spec.md :: I464`).
+        await erase_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": berechtigung_id}, session=session)
 
     async with db.start_session() as session:
         await session.with_transaction(judge_and_revoke)

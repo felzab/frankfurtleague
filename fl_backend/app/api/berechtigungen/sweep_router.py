@@ -30,7 +30,7 @@ from app.api.berechtigungen.services import (
     withheld_actor,
 )
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import delete_many_from_db, patch_many_in_db, post_many_to_db
+from app.core.crud import erase_many_from_db, patch_many_in_db, post_many_to_db, pull_many_from_db
 from app.core.dependencies import (
     BerechtigungenAngekuendigtCollection,
     BerechtigungenCollection,
@@ -125,7 +125,9 @@ async def post_berechtigungen_abgleich(
                 session=session,
             )
             # The record now accounts for each change, the notice for it standing queued.
-            await delete_many_from_db(
+            # Bookkeeping, so removed with no image: an image carries the address into a log every
+            # administrator reads for twelve months (`docs/backend/spec.md :: I464`).
+            await erase_many_from_db(
                 collection=berechtigungen_angekuendigt_collection,
                 db_filter={"_id": {"$in": [berechtigung_id for berechtigung_id, _, _, _ in changes]}},
                 session=session,
@@ -226,10 +228,20 @@ async def post_berechtigungen_angekuendigt(
     async def stamp(session: AsyncClientSession) -> int:
         """Remove the rows this claim still holds, on this transaction's session."""
 
-        removed = await delete_many_from_db(
+        held = await pull_many_from_db(
             collection=berechtigungen_postausgang_collection,
             db_filter={"_id": {"$in": ids}, "beanspruchung": angekuendigt_data.beanspruchung},
+            limit=len(ids),
+            projection=["_id"],
             session=session,
+        )
+        if not held:
+            return 0
+
+        # By the ids the claim holds, with no image: the rows carry addresses, and an imageless
+        # removal's filter is all the log keeps (`docs/backend/spec.md :: I464`).
+        removed = await erase_many_from_db(
+            collection=berechtigungen_postausgang_collection, db_filter={"_id": {"$in": [row["_id"] for row in held]}}, session=session
         )
 
         return removed.deleted_count
