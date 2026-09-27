@@ -707,7 +707,7 @@ class TestAnOwnerChangesATier:
 
 
 class TestTheLastOwner:
-    """`REQ-BERECHTIGUNG-007`: a demotion leaves one live, unbarred owner (`docs/backend/spec.md :: I480`)."""
+    """`REQ-BERECHTIGUNG-007`: a demotion leaves one live, unbarred owner (`docs/backend/spec.md :: I479`)."""
 
     def test_the_only_owner_neither_steps_down_nor_is_demoted(self, mongo_replica_set_url: str):
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, dict[str, str]]:
@@ -929,7 +929,7 @@ class TestTheAnchorClosesEachRace:
         assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, BERECHTIGUNG_NUR_INHABER, sorted([OWNER, ANNA, BERND]))
 
     def test_two_claims_of_one_notice_count_it_once(self, mongo_replica_set_url: str):
-        """A claim retried after it met a rival's lands nothing, so the row's count moved once (`docs/backend/spec.md :: I481`)."""
+        """A claim retried after it met a rival's lands nothing, so the row's count moved once (`docs/backend/spec.md :: I480`)."""
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, int, list[int]]:
             await told(database, client)
