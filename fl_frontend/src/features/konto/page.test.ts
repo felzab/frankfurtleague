@@ -80,7 +80,9 @@ describe("the account page", () => {
     const html = renderTree(h(KontoPanel, { email: "pia@example.org", sicherheit: null }));
 
     assert.equal([...html.matchAll(/<h1/g)].length, 0, "the panel carries an h1 beside the bar's");
-    assert.ok(textOf(html, " ").includes("Zugang"));
+    // Headed „Anmeldung“: „Zugang“ names the administration grant alone.
+    assert.match(html, /<h2[^>]*>Anmeldung<\/h2>/);
+    assert.ok(!textOf(html, " ").includes("Zugang"), "the sign-in address is headed by the grant's word");
     assert.ok(textOf(html, " ").includes("pia@example.org"));
   });
 });

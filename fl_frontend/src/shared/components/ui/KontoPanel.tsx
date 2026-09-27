@@ -14,12 +14,13 @@ export function KontoPanel({ email, sicherheit }: { email: string; sicherheit: R
   return (
     <div className="w-full p-6 sm:p-8">
       <div className="mx-auto flex w-full max-w-page flex-col gap-6">
-        {/* `h2` panels under the bar's `h1`, which reads „Konto“: a page carries no second `h1`. */}
+        {/* `h2` panels under the bar's `h1`, which reads „Konto“: a page carries no second `h1`. „Zugang“
+            is the administration grant's word, so the address a person signs in with is not headed by it. */}
         <section className={panel.root()}>
           <div className={panel.header()}>
             <PanelHeading
               className={panel.heading()}
-              title="Zugang"
+              title="Anmeldung"
             />
           </div>
           <dl className={panel.body()}>
