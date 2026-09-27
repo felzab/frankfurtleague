@@ -187,7 +187,9 @@ async def bind_actor(request: Request, actor: Annotated[ActorClaims, Depends(ver
     so a later operation cannot miss it (`docs/backend/spec.md :: I41`).
     """
 
-    actor_token = actor_var.set(Actor(kind="admin_session", email=actor.email))
+    # Folded, as the grant check read it: one administrator is one spelling in every stored actor
+    # field, whatever case the session's address was typed in.
+    actor_token = actor_var.set(Actor(kind="admin_session", email=sign_in_identifier(actor.email)))
     # The route's template, not `request.url.path`: an id baked into the stored path would make one
     # row per document where the page wants one row per kind of action.
     route = request.scope.get("route")

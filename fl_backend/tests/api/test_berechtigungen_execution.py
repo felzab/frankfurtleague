@@ -1054,11 +1054,10 @@ class TestTheMountedRouteReadsTheGrants:
 
         assert on_a_league(mongo_replica_set_url, body) == [200, 200, 403]
 
-    def test_a_grant_made_over_http_is_attributed_to_the_header_s_administrator_everywhere(self, mongo_replica_set_url: str):
+    def test_a_grant_made_over_http_is_attributed_to_the_token_s_administrator_everywhere(self, mongo_replica_set_url: str):
         """The only grant case reaching `get_actor_email`: every other hands the handler its actor.
 
-        The grant and the log keep the header's spelling, as every stored actor field does; the notice
-        keeps the fold a later ban matches it by.
+        A token naming a mixed-case identity is stored folded in the grant, the notice and the log alike.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, Any, Any, Any]:
@@ -1079,7 +1078,7 @@ class TestTheMountedRouteReadsTheGrants:
                 logged and logged["actor"].get("email"),
             )
 
-        assert on_a_league(mongo_replica_set_url, body) == (201, ANNA.upper(), ANNA, ANNA.upper())
+        assert on_a_league(mongo_replica_set_url, body) == (201, ANNA, ANNA, ANNA)
 
     def test_every_served_instant_carries_its_offset(self, mongo_replica_set_url: str):
         """The driver reads a stored instant back with no offset, which a reader would take for local time."""

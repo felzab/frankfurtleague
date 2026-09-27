@@ -264,6 +264,12 @@ class TestWhatTheBindingLeavesBehind:
 
         assert during[0] == Actor(kind="admin_session", email=ACTOR)
 
+    def test_a_mixed_case_identity_is_bound_folded(self):
+        """What every stored actor field copies, so one administrator is never two spellings in `aktionen` or a grant."""
+        during, _ = asyncio.run(through_the_binder(request_for("PATCH", actor_token(ACTOR.upper()))))
+
+        assert during[0] == Actor(kind="admin_session", email=ACTOR)
+
     def test_the_bound_path_is_the_route_template_rather_than_the_url(self):
         """An id baked into the stored path makes one row per document where the page wants one per kind of action."""
         during, _ = asyncio.run(through_the_binder(request_for("PATCH", actor_token(ACTOR))))
