@@ -88,6 +88,13 @@ export const AKTOR_FUNKTION_LABELS: Record<FLAktorPerson["funktion"], string> = 
 };
 
 /**
+ * How much of a person's pseudonym a log row shows, mirrored from `fl_backend/app/shared/schemas/bounds.py`
+ * and paired with it by `fl_backend/tests/shared/test_frontend_mirrors.py :: MIRRORED_BOUNDS`. Cut here too,
+ * so a longer value never reaches the page.
+ */
+export const AKTEUR_PSEUDONYM_SHOWN = 8;
+
+/**
  * What each origin is called, in the order the filter offers them. The public form is named rather than
  * folded into either neighbour: nobody signed in for it, and it is still a request somebody made.
  */

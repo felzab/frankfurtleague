@@ -100,6 +100,8 @@ MIRRORED_BOUNDS: Final = (
     # The notice states the ban's length in a word, which its render test holds to this constant; no
     # payload carries a length at all.
     Mirror("features/sperrliste/constants.ts", "SPERRE_DAUER_SAISONS", "SPERRE_DAUER_SAISONS"),
+    # The log row cuts what the read already cut, so the two numbers are one decision.
+    Mirror("features/aktionen/constants.ts", "AKTEUR_PSEUDONYM_SHOWN", "AKTEUR_PSEUDONYM_SHOWN"),
 )
 
 # Every integer `bounds.py` declares that no frontend module retypes, with why none does. A bound in

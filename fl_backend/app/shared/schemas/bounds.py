@@ -118,6 +118,11 @@ SPERRLISTE_GRUND_MAX_LENGTH: Final = 500
 # does not count, so the fifth one after it is the last the ban covers.
 SPERRE_DAUER_SAISONS: Final = 5
 
+# What the log read serves of a person's pseudonym, and what its page shows: enough to tell two people
+# apart by eye. The whole value would hand every administrator's browser a stable key to one person,
+# which no control reads.
+AKTEUR_PSEUDONYM_SHOWN: Final = 8
+
 # How long a referee has to confirm; a re-send restarts it. Longer than the registration's seven
 # days, which is the window a mistyped address is caught in: this link waits on an adult with no
 # second route in.
