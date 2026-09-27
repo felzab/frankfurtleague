@@ -342,7 +342,10 @@ describe("the editor's shape", () => {
   /* The page's chrome may never wait on the row: rendered with no boundary awaited, its fallback
      stands, where an async page would suspend whole. */
   it("renders its fallback before the row resolves", () => {
-    assert.ok(renderTree(h(AdminKontakteEditPage, PAGE_PROPS)).includes('role="status"'), "the page waits on the row before it renders");
+    // Params that never resolve, so the body the render starts reads nothing into the next case's record.
+    const unresolved = { ...PAGE_PROPS, params: new Promise<{ team_id: string }>(() => undefined) };
+
+    assert.ok(renderTree(h(AdminKontakteEditPage, unresolved)).includes('role="status"'), "the page waits on the row before it renders");
   });
 
   /* The club is judged before the backend is asked: a malformed id reads nothing. */
