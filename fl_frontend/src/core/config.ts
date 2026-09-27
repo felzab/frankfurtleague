@@ -152,9 +152,10 @@ export function failingVariableNames(issues: ValidationIssues): string[] {
 // A third member would name a stack nothing here deploys.
 const APP_ENVIRONMENTS = ["production", "local"] as const;
 
-// The credentials `production` demands and no other deployment holds. A name added here is refused
-// at boot on the production host alone.
-const PRODUCTION_ONLY_REQUIRED = ["AUTH_RESEND_KEY"] as const;
+// The credentials `production` demands and no other deployment holds, refused at boot on the
+// production host alone. Files only: the deploy asks production for them by file, and for no
+// variable beyond `REQUIRED_ENVIRONMENT_NAMES`.
+const PRODUCTION_ONLY_REQUIRED = ["AUTH_RESEND_KEY"] as const satisfies readonly SecretKey[];
 
 // Bound to names rather than written inside the call, so the preflight's sets can be read off the
 // schema itself: a hand-kept copy of those names would be a second artefact to keep current.
@@ -318,21 +319,14 @@ const required = (declarations: Record<string, z.ZodType>): string[] =>
  */
 export const REQUIRED_ENVIRONMENT_NAMES: readonly string[] = required(environment).sort();
 
-/**
- * Demanded of a production host besides, which the derivation above cannot reach:
- * `createFinalSchema` conditions these on a VALUE the preflight's reader never opens, so the deploy
- * asks for them by name instead (`scripts/ops/deploy.sh :: check_frontend_env_names`).
- */
-export const PRODUCTION_REQUIRED_ENVIRONMENT_NAMES: readonly string[] = PRODUCTION_ONLY_REQUIRED.filter((name) =>
-  Object.hasOwn(environment, name),
-).sort();
-
 /** The secret files every deployment's frontend must be handed, which the preflight's reader checks in the container. */
 export const REQUIRED_SECRET_FILES: readonly string[] = required(fromFiles)
   .map((name) => SECRET_FILES[name as SecretKey])
   .sort();
 
-/** The secret files a production host's frontend is handed besides, for the reason `PRODUCTION_REQUIRED_ENVIRONMENT_NAMES` gives. */
-export const PRODUCTION_REQUIRED_SECRET_FILES: readonly string[] = PRODUCTION_ONLY_REQUIRED.filter(isSecretKey)
-  .map((name) => SECRET_FILES[name])
-  .sort();
+/**
+ * Demanded of a production host besides, which the derivation above cannot reach: `createFinalSchema`
+ * conditions these on a VALUE the reader never opens, so the deploy names its deployment instead
+ * (`scripts/lib/_lib.sh :: check_frontend_secret_files`).
+ */
+export const PRODUCTION_REQUIRED_SECRET_FILES: readonly string[] = PRODUCTION_ONLY_REQUIRED.map((name) => SECRET_FILES[name]).sort();

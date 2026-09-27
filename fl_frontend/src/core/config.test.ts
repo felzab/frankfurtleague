@@ -25,7 +25,6 @@ const {
   DECLARED_ENVIRONMENT_NAMES,
   failingVariableNames,
   INTERNAL_API_KEY,
-  PRODUCTION_REQUIRED_ENVIRONMENT_NAMES,
   PRODUCTION_REQUIRED_SECRET_FILES,
   readSecretFiles,
   refuseInvalidEnvironment,
@@ -303,9 +302,9 @@ describe("the names the preflight demands a host's file carry", () => {
     assert.deepEqual(refused, [...REQUIRED_ENVIRONMENT_NAMES]);
   });
 
-  /* Derived the same way, and the half the set above cannot hold: these refuse on a VALUE of
-     `APP_ENV`, and the deploy passes `--production` so that the reader demands them anyway. */
-  it("names every variable production alone may not leave unset, and no other", async () => {
+  /* The deploy asks production for its own files and for no variable beyond the set above, so a
+     variable demanded on a VALUE of `APP_ENV` would pass the preflight and refuse the boot. */
+  it("demands no variable of production beyond what every deployment is held to", async () => {
     const refused: string[] = [];
 
     await documentsWrittenByAsync(async () => {
@@ -315,7 +314,7 @@ describe("the names the preflight demands a host's file carry", () => {
       }
     });
 
-    assert.deepEqual(refused, [...PRODUCTION_REQUIRED_ENVIRONMENT_NAMES]);
+    assert.deepEqual(refused, []);
   });
 
   /* The files' two sets, derived by booting without each file in turn: the preflight's container-side
@@ -343,7 +342,7 @@ describe("the names the preflight demands a host's file carry", () => {
   it("demands none of the names the secret files replaced, and declares each of them as retired", () => {
     for (const name of RETIRED_ENVIRONMENT_NAMES) {
       assert.ok(DECLARED_ENVIRONMENT_NAMES.includes(name), `${name} is not declared`);
-      assert.ok(!REQUIRED_ENVIRONMENT_NAMES.includes(name) && !PRODUCTION_REQUIRED_ENVIRONMENT_NAMES.includes(name), `${name} is demanded`);
+      assert.ok(!REQUIRED_ENVIRONMENT_NAMES.includes(name), `${name} is demanded`);
     }
     assert.ok(RETIRED_ENVIRONMENT_NAMES.includes("MONGODB_URI") && RETIRED_ENVIRONMENT_NAMES.includes("ALLOWED_ADMIN_EMAILS"));
   });
@@ -476,7 +475,6 @@ describe("the retired variables", () => {
   it("is declared and demanded of no host, so a file may carry it or drop it", () => {
     assert.ok(DECLARED_ENVIRONMENT_NAMES.includes("ALLOWED_ADMIN_EMAILS"));
     assert.ok(!REQUIRED_ENVIRONMENT_NAMES.includes("ALLOWED_ADMIN_EMAILS"));
-    assert.ok(!PRODUCTION_REQUIRED_ENVIRONMENT_NAMES.includes("ALLOWED_ADMIN_EMAILS"));
   });
 
   /* The boot's warning reads this, and it answers names alone: an empty line is a line still to delete. */

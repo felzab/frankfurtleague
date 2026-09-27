@@ -7,8 +7,8 @@ const ASSIGNMENT = /^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*=/;
 // Compose's pass-through form, which declares the name and carries no value of its own.
 const PASSTHROUGH = /^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*$/;
 
-// Passed by the caller rather than read out of the file being judged: `APP_ENV` lives in that file,
-// so a host's own typo there would decide which names the host is held to.
+// The secret-files mode's alone, passed by the caller rather than read off the host: `APP_ENV` lives in
+// an environment file, so a typo there would decide which files the host is held to.
 const PRODUCTION_FLAG = "--production";
 
 // The container-side reader's mode: run in the frontend's own container, as its own user, it judges the
@@ -103,12 +103,6 @@ function missingNames(valued, required) {
   return required.filter((name) => !present.has(name));
 }
 
-/** Two sets rather than one merged at build: one image serves both deployments, and only its caller knows which one it is being run against. */
-function requiredFor(sets, production) {
-  if (!production) return sets.required;
-  return [...new Set([...sets.required, ...sets.productionRequired])].sort();
-}
-
 /**
  * Each file the image's own user finds missing, unreadable or empty, named with the errno saying which and
  * never with what it holds. Whether a value is one the schema accepts stays the boot gate's.
@@ -148,7 +142,6 @@ function report(argv) {
     return 4;
   }
   const sets = JSON.parse(readFileSync(declaredFile, "utf8"));
-  const required = requiredFor(sets, argv.includes(PRODUCTION_FLAG));
   const { names, assigned, unreadable } = scanNames(readFileSync(file, "utf8"));
 
   // Judged before the names are, and answered with line numbers rather than lines: a file this
@@ -163,7 +156,7 @@ function report(argv) {
   if (retired.length > 0) process.stderr.write(`Retired environment variables still set: ${retired.join(", ")}\n`);
 
   const undeclared = undeclaredNames(names, sets.declared);
-  const missing = missingNames(assigned, required);
+  const missing = missingNames(assigned, sets.required);
   if (undeclared.length === 0 && missing.length === 0) return 0;
 
   // Both lines where both apply: one run of the preflight is one visit to the host, and a remedy

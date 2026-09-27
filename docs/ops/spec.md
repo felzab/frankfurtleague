@@ -572,18 +572,16 @@ and the root's hold refuses too** (`scripts/ops/deploy.sh :: check_env_names_hel
 answers about names alone**
 (`scripts/ops/deploy.sh :: check_frontend_env_names`): the image carries the schema's key sets
 rather than the schema, emitted at build from
-`fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES`, `:: REQUIRED_ENVIRONMENT_NAMES` and
-`:: PRODUCTION_REQUIRED_ENVIRONMENT_NAMES`, so a name it does not declare and a required name the
-file leaves unvalued each refuse at exit 2 with nothing recreated while every value stays the boot
-gate's (I183). **The omitted half is the one no reader
-over the file's own names can reach**: an undeclared line is one somebody wrote, a missing one is a
-line nobody did, so without it a release that makes a new name required deploys green and the
-recreated container refuses to boot behind an edge already answering 502. **A name required under
-`APP_ENV=production` alone is asked for by the DEPLOY and not the reader**, which would have to open
-a value to decide: the arm passes `--production`, having one deployment to put live, and the reader
-run without that flag demands the unconditional set alone. The mail provider's key is such a value,
-and a file: the frontend's file reader asks for `auth_resend_key` on the deploy and never on the
-local stack, which sends no mail (I510). **The bare
+`fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES` and `:: REQUIRED_ENVIRONMENT_NAMES`,
+so a name it does not declare and a required name the file leaves unvalued each refuse at exit 2
+with nothing recreated while every value stays the boot gate's (I183). **The omitted half is the one
+no reader over the file's own names can reach**: an undeclared line is one somebody wrote, a missing
+one is a line nobody did, so without it a release that makes a new name required deploys green and
+the recreated container refuses to boot behind an edge already answering 502. **What
+`APP_ENV=production` alone demands is a file and never a variable**
+(`fl_frontend/src/core/config.ts :: PRODUCTION_ONLY_REQUIRED`), since a reader would have to open a
+value to decide: the mail provider's key, which the frontend's file reader asks for on the deploy,
+told `--production`, and never on the local stack, which sends no mail (I510). **The bare
 pass-through `KEY` declares a name and satisfies no required one**: compose resolves that form's
 value from the shell that ran it, and failing that from the checkout root's `.env` (Docker's
 environment-variable precedence table, rows 8 and 9, read 2026-09-27). A deploy's shell holds none,

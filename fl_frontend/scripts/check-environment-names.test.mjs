@@ -27,12 +27,11 @@ const SCRATCH = mkdtempSync(path.join(tmpdir(), "fl-environment-names-"));
 // Dummy names throughout, and files this suite writes itself: nothing here reads, mounts or names a
 // real environment file.
 const DECLARED = ["ALPHA_NAME", "BETA_NAME", "OMEGA_NAME", "RETIRED_NAME"];
-// One name per set rather than none: a default demanding nothing would let a case that forgets
-// either required half read as a pass on it.
+// One member per set rather than none: a default demanding nothing would let a case that forgets
+// either half of the files read as a pass on it.
 const SETS = {
   declared: DECLARED,
   required: ["ALPHA_NAME"],
-  productionRequired: ["OMEGA_NAME"],
   retired: ["RETIRED_NAME"],
   secretFiles: ["alpha_file"],
   productionSecretFiles: ["omega_file"],
@@ -248,30 +247,6 @@ describe("the secret files, judged in the container that reads them", () => {
   });
 });
 
-describe("the names production alone is held to", () => {
-  /* The deploy has one deployment, so it asks for both sets; a file passing without the flag and
-     failing with it is the whole of what the flag does. */
-  it("refuses a production-only required name the file omits, under the flag the deploy passes", () => {
-    const done = check("ALPHA_NAME=one\n", { flags: ["--production"] });
-
-    assert.equal(done.status, 3, done.stderr);
-    assert.match(done.stderr, /Missing required environment variables: OMEGA_NAME/);
-  });
-
-  it("demands it of nobody else, that half of the schema resting on a value this reader never opens", () => {
-    const done = check("ALPHA_NAME=one\n");
-
-    assert.equal(done.status, 0, done.stderr);
-  });
-
-  it("names both required halves in one line where the file holds neither", () => {
-    const done = check("BETA_NAME=two\n", { flags: ["--production"] });
-
-    assert.equal(done.status, 3, done.stderr);
-    assert.match(done.stderr, /Missing required environment variables: ALPHA_NAME, OMEGA_NAME/);
-  });
-});
-
 describe("the key set the image carries", () => {
   it("is emitted by the flags package.json holds, so a deploy reads what this build declared", async () => {
     const [command, ...flags] = MANIFEST.scripts["environment-names"].split(" ");
@@ -304,7 +279,7 @@ describe("the key set the image carries", () => {
     assert.ok(emitted.secretFiles.length > 0, "the emitted file demands no secret file of a host at all");
     assert.ok(emitted.productionSecretFiles.length > 0, "the emitted file demands no secret file of a production host in particular");
     assert.deepEqual(
-      [...emitted.required, ...emitted.productionRequired].filter((name) => !wired.includes(name)),
+      emitted.required.filter((name) => !wired.includes(name)),
       [],
     );
   });

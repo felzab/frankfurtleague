@@ -284,13 +284,11 @@ nothing here says whether the backend accepts what they hold. Its own answer is 
 }
 
 # Its own arm, because the frontend's reader judges names alone: the image carries the schema's key
-# sets (`fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES`, `:: REQUIRED_ENVIRONMENT_NAMES`
-# and `:: PRODUCTION_REQUIRED_ENVIRONMENT_NAMES`) rather than the schema itself.
+# sets (`fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES` and
+# `:: REQUIRED_ENVIRONMENT_NAMES`) rather than the schema itself.
 check_frontend_env_names() {
   local rc=0
-  # `--production` because this script has one deployment, the production stack the compose file
-  # above names: the reader judges names, and the schema's production-only half rests on a VALUE.
-  read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs "${ENV_UNION_DIR}/.env" --production || rc=$?
+  read_env_names fl_frontend "$IMAGE_FRONTEND" node check-environment-names.mjs "${ENV_UNION_DIR}/.env" || rc=$?
   if (( rc == 3 )); then
     refuse "the frontend refuses this host's environment files, and the line above names the variables.
 An undeclared name is one nothing in the schema reads, so the line reads as omitted and the shipped
