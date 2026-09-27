@@ -101,6 +101,15 @@ def test_any_other_answer_from_the_frontend_image_is_an_advisory_the_deploy_surv
     assert "fl_frontend/.env" in output, output
 
 
+def test_a_line_number_the_reader_names_is_sent_to_the_package_file_it_counts() -> None:
+    """The reader counts lines of the join, which opens with the package's file, so that is the one an operator opens."""
+    code, output, _ = _run(FRONTEND_ARM, FL_DEPLOY_RUN_RC="4", FL_DEPLOY_RUN_SAYS="line(s) this reader cannot parse: 3")
+
+    assert code == 0, output
+    assert "line(s) this reader cannot parse: 3" in output, output
+    assert "counts lines of fl_frontend/.env, the file to open" in output, output
+
+
 def test_what_the_frontend_container_said_goes_through_the_credential_filter() -> None:
     """The frontend schema holds `MONGODB_URI` too, so this arm can print a connection string exactly as the backend's can."""
     code, output, _ = _run(FRONTEND_ARM, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS="MONGODB_URI mongodb://user:pw@cluster.example.net/x")

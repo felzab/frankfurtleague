@@ -206,6 +206,11 @@ read_env_names() {
     "$image" sh -c "$ENV_UNION_BUILD" "$ENV_MOUNTS" "$ENV_UNION_DIR" "$@" 2>&1)" || rc=$?
   # Through the filter every container log this script surfaces goes through (`docs/ops/spec.md` §1.7).
   if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
+  # A reader counts lines of the join, which opens with the package's file unshifted; the root's
+  # half cannot be what it names, `check_root_env` having taken every line of it already.
+  if [[ "$said" == *line* ]]; then
+    detail "A line number above counts lines of ${package}/.env, the file to open."
+  fi
   return "$rc"
 }
 
