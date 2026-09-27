@@ -4,6 +4,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends
 from pymongo import ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
+from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.bewerbungen.schemas import (
     FLAblehnenBewerbungPayload,
@@ -47,7 +48,7 @@ from app.api.sperrliste.services import adresse_hash
 from app.api.teams.crud import pull_a_club_to_enter, refuse_a_full_gruppe
 from app.api.teams.services import compose_kontakte_at_entry, find_club_entry_refusal
 from app.core.config import API_VERSION, BackendConfig, get_app_config
-from app.core.crud import insert_live, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
+from app.core.crud import insert_live, patch_many_in_db, patch_one_in_db, post_one_to_db, pull_one_from_db, refuse
 from app.core.dependencies import (
     BewerbungenCollection,
     DBClient,
@@ -67,6 +68,27 @@ router = APIRouter(
     prefix=f"/api/v{API_VERSION}/bewerbungen",
     dependencies=[Depends(verify_access_admin), Depends(verify_actor_is_admin), Depends(bind_actor)],
 )
+
+
+async def _anchor_the_season_a_ban_counts_from(
+    *,
+    saisons_collection: AsyncCollection,
+    # REQUIRED: the anchor is what closes the race with a ban, so forgetting the session has to be a
+    # TypeError at the call rather than a silent reopening of it.
+    session: AsyncClientSession,
+) -> str | None:
+    """The running season, written as the ban's own transaction writes it, or `None` while none runs, when no ban can be entered."""
+
+    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection=saisons_collection, session=session)
+    if massgebliche_saison_id is not None:
+        await patch_many_in_db(
+            collection=saisons_collection,
+            db_filter={"_id": massgebliche_saison_id},
+            update={"$inc": {"bounded_writes": 1}},
+            session=session,
+        )
+
+    return massgebliche_saison_id
 
 
 def _entscheidung(*, today: str, von: str, grund: str | None) -> dict[str, Any]:
@@ -288,6 +310,7 @@ async def erneut_einwilligung(
     bewerbungen_collection: BewerbungenCollection,
     saisons_collection: SaisonsCollection,
     sperrliste_collection: SperrlisteCollection,
+    db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
     today: str = Depends(get_german_date_str),
 ) -> FLBewerbungEinwilligungErneutResponse:
@@ -305,13 +328,11 @@ async def erneut_einwilligung(
     db_filter = {"_id": bewerbung_id}
     judged = ["status", "kontakte", "bestaetigungen"]
     bewerbung_raw = await pull_one_from_db(collection=bewerbungen_collection, db_filter=db_filter, projection=judged)
-    massgebliche_saison_id = await pull_massgebliche_saison_id(saisons_collection)
 
-    async def refuse_a_barred_address(stored: Mapping[str, Any], seats: tuple[FLKontaktRolle, ...]) -> None:
-        """Every address the seats the link answers hold, judged as the correction judges the one it writes.
-
-        A correction racing past this read moves the mailbox to an address that correction asked about.
-        """
+    async def refuse_a_barred_address(
+        stored: Mapping[str, Any], seats: tuple[FLKontaktRolle, ...], *, massgebliche_saison_id: str | None, session: AsyncClientSession
+    ) -> None:
+        """Every address the seats the link answers hold, judged as the correction judges the one it writes."""
 
         kontakte = stored.get("kontakte")
         # Both seats of a pair, which no write path lets hold two addresses: the submission requires the
@@ -323,6 +344,7 @@ async def erneut_einwilligung(
             sperrliste_collection=sperrliste_collection,
             schluessel=config.sperrliste_schluessel,
             massgebliche_saison_id=massgebliche_saison_id,
+            session=session,
         )
         refuse(find_kontakt_gesperrt_refusal(gesperrt=bool(gesperrt)))
 
@@ -350,19 +372,37 @@ async def erneut_einwilligung(
         return (rolle, other)
 
     seats = seats_judged_on(bewerbung_raw)
-    await refuse_a_barred_address(bewerbung_raw, seats)
+    # Outside the callback, for `post_einladung`'s reason: a retry minting afresh would answer a link
+    # whose hash is not the one the winning attempt stored.
     raw, token_hash = mint_token()
     bestaetigungsfrist = bestaetigungsfrist_from(today=today)
 
     # The judgement is in the FILTER, so a decision or an answer landing after the read leaves the row
-    # untouched rather than overwritten; a transaction, as the correction takes, adds nothing here.
+    # untouched rather than overwritten.
     async def mint_on(seats: tuple[FLKontaktRolle, ...]) -> Mapping[str, Any]:
-        return await patch_one_in_db(
-            collection=bewerbungen_collection,
-            db_filter=build_erneut_filter(bewerbung_id=bewerbung_id, seats=seats),
-            update=compose_erneut_update(seats=seats, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist),
-            return_document=ReturnDocument.BEFORE,
-        )
+        async def mint_unless_gesperrt(session: AsyncClientSession) -> Mapping[str, Any]:
+            """Anchor the ban's season, write, then ask the ban list of the addresses the write found; a barred one aborts the write."""
+
+            # A transaction alone joins no ban's write set (`docs/backend/spec.md :: I53`): the season a ban
+            # counts from is the row every ban writes, so one committing beside this makes one of the two retry.
+            massgebliche_saison_id = await _anchor_the_season_a_ban_counts_from(saisons_collection=saisons_collection, session=session)
+            matched = await patch_one_in_db(
+                collection=bewerbungen_collection,
+                db_filter=build_erneut_filter(bewerbung_id=bewerbung_id, seats=seats),
+                update=compose_erneut_update(seats=seats, token_hash=token_hash, today=today, bestaetigungsfrist=bestaetigungsfrist),
+                session=session,
+                return_document=ReturnDocument.BEFORE,
+            )
+            # Asked of what the write found, so a correction landing after the first read is judged at the
+            # address this link is mailed to.
+            await refuse_a_barred_address(matched, seats, massgebliche_saison_id=massgebliche_saison_id, session=session)
+
+            return matched
+
+        # The anchor is a season write, which the cache serves (`docs/backend/spec.md :: I131`).
+        with dropping_the_saison_cache():
+            async with db.start_session() as session:
+                return await session.with_transaction(mint_unless_gesperrt)
 
     try:
         matched = await mint_on(seats)
@@ -372,7 +412,6 @@ async def erneut_einwilligung(
         # reason it is refused.
         reread = await pull_one_from_db(collection=bewerbungen_collection, db_filter=db_filter, projection=judged)
         seats = seats_judged_on(reread)
-        await refuse_a_barred_address(reread, seats)
         # A re-read that passes is a row that moved back between the two, a decline and then a reseat:
         # one more write, whose own miss is the only one answering 404.
         matched = await mint_on(seats)

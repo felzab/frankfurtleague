@@ -47,6 +47,8 @@ from app.api.bewerbungen.services import (
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
 from app.api.kontakte.admin_router import erase_kontaktperson
 from app.api.kontakte.schemas import FLKontaktErasurePayload
+from app.api.sperrliste.admin_router import post_sperrliste_eintrag
+from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import adresse_hash, compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import post_team
 from app.api.teams.schemas import FLPostTeamPayload
@@ -54,13 +56,14 @@ from app.api.teams.services import CLUB_RETIRED, ENTRY_GRUPPE_FULL, ENTRY_SAISON
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import DUPLICATE_KEY, DocumentNotFoundException, WriteRefusalException
-from app.core.recording import SYSTEM_ACTOR_EMAIL
+from app.core.recording import SYSTEM_ACTOR_EMAIL, Actor, actor_var
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
 from tests.config import ADMIN_AUTH, ADMIN_KEY, build_test_config, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, rules_document, saison_document, saison_team_document, team_document
+from tests.isolation import COMMITTED, outcome_of
 from tests.worker import worker_database
 
 from .conftest import config_for
@@ -1516,15 +1519,18 @@ async def seed_an_open_ansprechperson_seat(database: AsyncDatabase, *, mirrored:
     return await stored_bewerbung(database, ERNEUT_BEWERBUNG)
 
 
-async def resend(database: AsyncDatabase, seat: str, *, as_read: Mapping[str, Any] | None = None, bewerbungen: Any = None) -> Any:
+async def resend(
+    database: AsyncDatabase, seat: str, *, as_read: Mapping[str, Any] | None = None, bewerbungen: Any = None, saisons: Any = None
+) -> Any:
     collection = database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen
 
     return await erneut_einwilligung(
         bewerbung_id=ERNEUT_BEWERBUNG,
         seat=seat,
         bewerbungen_collection=collection if as_read is None else as_the_loser_read_it(collection, as_read),
-        saisons_collection=database[Collection.SAISONS],
+        saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
         sperrliste_collection=database[Collection.SPERRLISTE],
+        db=database.client,
         config=CONFIG,
         today=TODAY,
     )
@@ -1572,6 +1578,47 @@ async def erase_the_person(database: AsyncDatabase, client: AsyncMongoClient) ->
         db=client,
         germany_now=NOW,
     )
+
+
+async def ban_through_the_route(database: AsyncDatabase, client: AsyncMongoClient, address: str) -> Any:
+    """A ban as an administrator enters it: its own transaction, with the season anchor every ban writes."""
+
+    token = actor_var.set(Actor(kind="admin_session", email=ADMIN_EMAIL))
+    try:
+        return await post_sperrliste_eintrag(
+            sperrliste_data=FLPostSperrlistePayload(email=address, grund="Falsches Geburtsdatum bei der Anmeldung"),
+            sperrliste_collection=database[Collection.SPERRLISTE],
+            saisons_collection=database[Collection.SAISONS],
+            berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
+            db=client,
+            config=CONFIG,
+            erstellt_von=ADMIN_EMAIL,
+            today=TODAY,
+        )
+    finally:
+        actor_var.reset(token)
+
+
+class RivalAfterTheFirstRead:
+    """A collection whose first `find_one` answers, then runs a rival to its commit, once; every other call delegated."""
+
+    def __init__(self, collection: AsyncCollection, rival: Callable[[], Awaitable[Any]]) -> None:
+        self._collection = collection
+        self._rival: Callable[[], Awaitable[Any]] | None = rival
+        self.rival_outcome: str | None = None
+
+    async def find_one(self, *args: Any, **kwargs: Any) -> Any:
+        found = await self._collection.find_one(*args, **kwargs)
+        # ONE-SHOT: the retry has to meet what the rival left rather than run it again.
+        if self._rival is not None:
+            rival, self._rival = self._rival, None
+            self.rival_outcome = await outcome_of(rival())
+
+        return found
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._collection, name)
 
 
 class TestAResendRacingAnAnswer:
@@ -1665,6 +1712,25 @@ class TestAResendRacingAnAnswer:
         code, before, after = on_a_league(mongo_replica_set_url, body)
 
         assert code == BEWERBUNG_KONTAKT_GESPERRT
+        assert after == before
+
+    def test_a_ban_committing_inside_the_resend_s_snapshot_refuses_the_link(self, mongo_replica_set_url: str):
+        """The real ban commits after the re-send's transaction read the season: only the season both write makes them conflict.
+
+        Without it the re-send asks a snapshot the ban is not in, and mints a link to a barred address.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
+            before = await seed_an_open_ansprechperson_seat(database)
+            address = str(before["kontakte"]["ansprechperson"]["email"])
+            racing = RivalAfterTheFirstRead(database[Collection.SAISONS], lambda: ban_through_the_route(database, client, address))
+            outcome = await outcome_of(resend(database, "ansprechperson", saisons=racing))
+
+            return racing.rival_outcome, outcome, before, await stored_bewerbung(database, ERNEUT_BEWERBUNG)
+
+        rival, outcome, before, after = on_a_league(mongo_replica_set_url, body, saison_status="active")
+
+        assert (rival, outcome) == (COMMITTED, BEWERBUNG_KONTAKT_GESPERRT)
         assert after == before
 
     def test_a_person_holding_two_seats_is_answered_for_both(self, mongo_replica_set_url: str):

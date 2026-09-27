@@ -381,6 +381,7 @@ class TestTheReminderClock:
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
                 saisons_collection=database[Collection.SAISONS],
                 sperrliste_collection=database[Collection.SPERRLISTE],
+                db=database.client,
                 config=CONFIG,
                 today=TODAY,
             )

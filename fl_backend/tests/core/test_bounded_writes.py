@@ -20,6 +20,7 @@ from typing import Any
 import pytest
 
 from app.api.berechtigungen.crud import pull_the_list_to_judge
+from app.api.bewerbungen.admin_router import _anchor_the_season_a_ban_counts_from
 from app.api.sperrliste.admin_router import _pull_the_season_a_ban_counts_from
 from app.api.spiele.admin_router import patch_spiel_data
 from app.api.spiele.crud import anchor_a_booked_referee, anchor_a_booked_venue, pull_booked_referee, pull_booked_venue
@@ -98,6 +99,8 @@ CALLERS: dict[str, frozenset[str]] = {
     "anchor_a_booked_referee": frozenset({"app/api/spiele/admin_router.py :: write_and_resolve_the_bracket"}),
     # The rollover sweeps what a ban's bound falls below, and writes the season the ban is counted from.
     "_pull_the_season_a_ban_counts_from": frozenset({"app/api/sperrliste/admin_router.py :: judge_and_ban"}),
+    # A re-sent link asks the ban list, and writes that same season so a ban beside it conflicts.
+    "_anchor_the_season_a_ban_counts_from": frozenset({"app/api/bewerbungen/admin_router.py :: mint_unless_gesperrt"}),
     # The floor of two, the last owner and the two refusals between a ban and a grant are each judged
     # over the whole list, so every transaction judging one writes every row of it.
     "pull_the_list_to_judge": frozenset(
@@ -121,6 +124,7 @@ ANCHORS: tuple[tuple[Callable[..., Any], str], ...] = (
     (anchor_a_booked_venue, "spielorte_collection"),
     (anchor_a_booked_referee, "schiedsrichter_collection"),
     (_pull_the_season_a_ban_counts_from, "saisons_collection"),
+    (_anchor_the_season_a_ban_counts_from, "saisons_collection"),
     (pull_the_list_to_judge, "berechtigungen_collection"),
 )
 

@@ -177,6 +177,7 @@ async def resend(database: AsyncDatabase, seat: str, bewerbung_id: ObjectId = BE
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         saisons_collection=database[Collection.SAISONS],
         sperrliste_collection=database[Collection.SPERRLISTE],
+        db=database.client,
         config=build_test_config(),
         today=TODAY,
     )
