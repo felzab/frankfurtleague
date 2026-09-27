@@ -42,7 +42,7 @@ describe("the message a banned address is sent", () => {
     for (const { name, body } of BEIDE) {
       assert.ok(body.includes("gesperrt"), `${name} does not say the address is barred`);
       assert.ok(body.includes(GRUND), `${name} does not carry the reason that was entered`);
-      assert.ok(body.includes("Fingerabdruck"), `${name} does not say what is kept about the address`);
+      assert.ok(body.includes("Prüfwert Deiner Adresse"), `${name} does not say what is kept about the address`);
       assert.ok(body.includes(KONTAKT_EMAIL), `${name} offers no way to object or ask`);
     }
   });
@@ -56,7 +56,12 @@ describe("the message a banned address is sent", () => {
       assert.ok(body.includes("Kontaktperson in einer Bewerbung"), `${name} does not say an application's contact seat is refused`);
       assert.ok(body.includes("Schiedsrichter"), `${name} does not say a referee entry is refused`);
       assert.ok(body.includes("Anmeldungen mit dieser Adresse werden beendet"), `${name} does not say live sign-ins end`);
-      assert.ok(body.includes("Dein Zugang bleibt erhalten"), `${name} does not say the account is kept`);
+      assert.ok(body.includes("Dein Konto bleibt bestehen und ist gesperrt"), `${name} does not say the account is kept, frozen`);
+      assert.ok(
+        !body.includes("Deine Adresse selbst speichern wir nicht"),
+        `${name} says the address is stored nowhere, which the account contradicts`,
+      );
+      assert.ok(body.includes("mit einer E-Mail an diese gesperrte Adresse"), `${name} names no way to a copy or a deletion`);
     }
   });
 

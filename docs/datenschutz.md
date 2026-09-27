@@ -514,8 +514,12 @@ Every ruling below is the sign-up flow as it stands for the next season.
   ban exists for — somebody too young for the league stays barred until they are too old for it. The
   message sent at the ban names that season, the reason, what is kept and how to object
   (`fl_frontend/src/core/sperrlisteEmail.ts`); the address it is sent to is used for that one send
-  and for ending the address's live sign-ins, and stored nowhere, so no second message can ever be
-  sent about the row. Ruled 2026-09-21.
+  and for ending the address's live sign-ins, and the ban's row keeps only a check value of it, so
+  no second message can ever be sent about the row. Ruled 2026-09-21. **The account the address
+  signs in to keeps it**, frozen until the ban ends, and the message and the notice both say so; a
+  copy or a deletion of that person's data is asked for by mail to the league's contact address,
+  and the league confirms the request by a mail to the barred address, which cannot sign in to ask.
+  Ruled 2026-09-27.
 - **No open tracking and no click tracking is subscribed, and none is read.** The mail provider
   reports what became of a message's DELIVERY and nothing about what its recipient did with it: the
   six delivery events are subscribed and `email.opened` and `email.clicked` are not

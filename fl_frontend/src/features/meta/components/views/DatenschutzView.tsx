@@ -689,9 +689,12 @@ export function DatenschutzView() {
             (Abschnitt 13).
           </p>
           <p className={ABSATZ_CLASSES}>
-            Eine zweite Einschränkung gilt für gesperrte E-Mail-Adressen: Von der gesperrten Adresse selbst speichern wir nichts, sondern nur
-            einen unlesbaren Schlüssel. Daneben stehen der Grund, das Datum und die E-Mail-Adresse der Person aus der Verwaltung, die die Sperre
-            eingetragen hat. Der Grund ist ein freier Text; steht darin ein Name, bleibt er mit dem Eintrag stehen. Dieser Eintrag bleibt auch
+            {/* GERMAN-PENDING: new German, not yet approved. */}
+            Eine zweite Einschränkung gilt für gesperrte E-Mail-Adressen: In der Sperrliste steht von der gesperrten Adresse nur ein unlesbarer
+            Prüfwert. Daneben stehen der Grund, das Datum und die E-Mail-Adresse der Person aus der Verwaltung, die die Sperre eingetragen hat.
+            Ein bestehendes Konto mit dieser Adresse bleibt gespeichert und gesperrt, bis die Sperre endet. Eine Kopie Deiner Daten oder ihre
+            Löschung erhältst Du auch während einer Sperre über eine E-Mail an <MailLink />; wir bestätigen die Anfrage mit einer E-Mail an die
+            gesperrte Adresse. Der Grund ist ein freier Text; steht darin ein Name, bleibt er mit dem Eintrag stehen. Dieser Eintrag bleibt auch
             nach einer Löschung bestehen, bis die Sperre nach fünf vollen Saisons endet oder die Verwaltung sie vorher aufhebt. Wir speichern
             diesen Eintrag auf Grundlage unseres berechtigten Interesses daran, eine gesperrte Adresse nicht erneut zuzulassen (Art. 6 Abs. 1
             lit. f DSGVO).
