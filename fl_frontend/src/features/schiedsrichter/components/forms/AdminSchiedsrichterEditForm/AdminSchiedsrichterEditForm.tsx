@@ -232,6 +232,8 @@ export function AdminSchiedsrichterEditForm({
             // Judged here and not left to the undo route: the shared spine can only answer a body the
             // schema refuses with a reload nothing would change.
             unrestorable: schiedsrichter.name === null ? OHNE_GESPEICHERTEN_NAMEN : gespeicherteAdresseGilt ? null : OHNE_GESPEICHERTE_ADRESSE,
+            // Moving the address back over what this save stored mints as the save did, so the press asks first.
+            stepUp: saveMayMint({ ...schiedsrichter, kontakt: payload.kontakt }, undoPayload.kontakt.email) ? stepUp.page : undefined,
             router,
           });
 

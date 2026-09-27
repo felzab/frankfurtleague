@@ -56,11 +56,10 @@ type UndoRoute<TPayload> = {
    */
   invalidate: (payload: TPayload) => void;
   /**
-   * Whether this replay is a step-up write, refused from a session past the window before it runs
-   * (`docs/frontend/spec.md :: I432`). Judged on the replay rather than the route: a route's other
-   * replays keep their undo unasked.
+   * Whether this replay is a step-up write (`docs/frontend/spec.md :: I432`), per replay so a route's
+   * other replays stay unasked. Asked of a stale session alone, so it may read the stored row.
    */
-  stepUp?: (payload: TPayload) => boolean;
+  stepUp?: (payload: TPayload) => boolean | Promise<boolean>;
 };
 
 /**
@@ -102,7 +101,7 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
     }
 
     // No refresh beside it, which a route handler cannot call: the dispatch asks again at its next press.
-    if (route.stepUp?.(parsed.data) === true && !isFreshlySignedIn(session)) return stepUpRequired();
+    if (route.stepUp !== undefined && !isFreshlySignedIn(session) && (await route.stepUp(parsed.data))) return stepUpRequired();
 
     // In a `finally` rather than under the refusal below: a replay committing in parts leaves rows
     // written behind a refusal and behind a throw alike, and a cached read still serves what the undo

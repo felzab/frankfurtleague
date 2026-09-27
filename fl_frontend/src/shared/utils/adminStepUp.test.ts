@@ -7,7 +7,8 @@ import { pathToFileURL } from "node:url";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
-import { CONDITIONALLY_STEPPED_UP, STEP_UP_CALLERS, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
+import { CONDITIONALLY_STEPPED_UP, STEP_UP_CALLERS, STEP_UP_ROUTES, STEP_UP_WRITES } from "@/shared/testing/stepUpWrites.ts";
+import { undo } from "@/shared/testing/undoRoutes.ts";
 
 import type { ApiCall } from "@/shared/testing/apiClientDouble.ts";
 
@@ -244,4 +245,63 @@ describe("an administrator write the server holds to the step-up window", () => 
     answered = true;
     assert.notDeepEqual(await bringBack({ id: REFEREE_ID }), refused, "a stale session was refused an answered referee's return");
   });
+});
+
+const ROUTES = path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin");
+
+/** A referee's undo body, the save's payload with its address set to `email`. */
+const refereeReplay = (email: string) => ({
+  id: REFEREE_ID,
+  name: "Anna Körner",
+  schule: null,
+  default_payment: 20,
+  kontakt: { telefon: null, email },
+});
+
+/** Per undo route declaring a step-up, a replay a stale session is refused and one it is not, over what `landed` answers. */
+const ROUTE_DRIVES: Record<string, { refused: unknown; admitted: unknown }> = {
+  kontakte: {
+    refused: { team_id: TEAM_ID, saison_id: "2526", kontakte: null, kontakte_stand: "9f2c" },
+    admitted: {
+      team_id: TEAM_ID,
+      saison_id: "2526",
+      kontakte: { trainer: null, ansprechperson: null, stellvertretung: null, trainer_ist_zugleich: null },
+      kontakte_stand: "9f2c",
+    },
+  },
+  // The stored referee has not answered, so moving the address back mints them a link.
+  schiedsrichter: { refused: refereeReplay("anna@neu.example"), admitted: refereeReplay(STORED_EMAIL) },
+};
+
+/** A request that writes, as `landed` tells a read from a write. */
+const writes = (sent: number): ApiCall[] => calls.slice(sent).filter(({ method }) => method !== undefined);
+
+describe("an undo route the server holds to the step-up window", () => {
+  /* A replay is a save, so a route declaring the step-up and driven by nothing here is a second door
+     to that save which nothing holds to the window. */
+  it("is driven for every route declaring one", () => {
+    assert.deepEqual(Object.keys(ROUTE_DRIVES).sort(), [...STEP_UP_ROUTES].sort());
+  });
+
+  for (const [slice, drive] of Object.entries(ROUTE_DRIVES)) {
+    it(`${slice}'s replay is refused where it steps up and no other, and a fresh session reads nothing to judge it`, async () => {
+      const { POST } = (await import(pathToFileURL(path.join(ROUTES, slice, "undo", "route.ts")).href)) as {
+        POST: Parameters<typeof undo>[0];
+      };
+      setFresh(false);
+
+      let sent = calls.length;
+      assert.deepEqual(await undo(POST, drive.refused), { ...refused }, `a stale session's ${slice} replay ran`);
+      assert.deepEqual(writes(sent), [], `a stale session's ${slice} replay reached the backend`);
+
+      sent = calls.length;
+      assert.notDeepEqual(await undo(POST, drive.admitted), { ...refused }, `a stale session was refused a ${slice} replay minting nothing`);
+      assert.ok(writes(sent).length > 0, `the ${slice} replay stopped short of the backend`);
+
+      setFresh(true);
+      sent = calls.length;
+      assert.notDeepEqual(await undo(POST, drive.refused), { ...refused }, `a fresh session was refused a ${slice} replay`);
+      assert.equal(calls.length - sent, writes(sent).length, `a fresh session's ${slice} replay read the store to judge a step-up`);
+    });
+  }
 });

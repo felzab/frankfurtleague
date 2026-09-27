@@ -48,6 +48,30 @@ const DECLARED = filesUnder(SLICES, (name) => name === "actions.ts", 10).flatMap
  */
 export const STEP_UP_WRITES: Readonly<Record<string, string>> = Object.fromEntries(DECLARED.map(({ name, slice }) => [name, slice]));
 
+const UNDO_ROUTES = path.resolve(import.meta.dirname, "..", "..", "app", "api", "admin");
+
+/** Whether a route's `handleUndoRequest` call hands it a `stepUp` of its own. */
+function declaresStepUp(node: ts.Node): boolean {
+  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "handleUndoRequest") {
+    const [, route] = node.arguments;
+    return (
+      route !== undefined && ts.isObjectLiteralExpression(route) && route.properties.some((property) => property.name?.getText() === "stepUp")
+    );
+  }
+  return ts.forEachChild(node, declaresStepUp) ?? false;
+}
+
+/**
+ * Every undo route a replay of which the server holds to the step-up window, by the slice its directory
+ * names, read off its declaration as the actions are; a route's replay is a save, and is judged as one.
+ */
+export const STEP_UP_ROUTES: ReadonlySet<string> = new Set(
+  filesUnder(UNDO_ROUTES, (name) => name === "route.ts", 8)
+    .filter((file) => path.basename(path.dirname(file)) === "undo")
+    .filter((file) => declaresStepUp(ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true)))
+    .map((file) => path.basename(path.dirname(path.dirname(file)))),
+);
+
 /** Refused from a stale session on some calls alone, the action judging its own payload before `refuseUnconfirmed`. */
 export const CONDITIONALLY_STEPPED_UP: ReadonlySet<string> = new Set(
   DECLARED.filter(({ declaration }) => declaration === "conditional").map(({ name }) => name),

@@ -14,6 +14,8 @@ import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { closedControl } from "@/shared/testing/closedControl.ts";
 import { nextRouter, underNext } from "@/shared/testing/nextContexts.ts";
 
+import type { ReactNode } from "react";
+
 /* Every write hangs until a case answers it: a real action needs a session and a backend. */
 const { calls, answerWith } = doubleActions({
   modules: ["/src/features/schiedsrichter/actions.ts"],
@@ -25,6 +27,24 @@ const { raised: toasts } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { AdminSchiedsrichterEditForm } = await import("./AdminSchiedsrichterEditForm.tsx");
+const { StepUpContext } = await import("@/shared/components/ui/stepUp.ts");
+
+/** Every passkey prompt a page past the step-up window ran, each answered yes. */
+const prompts: string[] = [];
+const staleWindow = (tree: ReactNode): ReactNode =>
+  h(
+    StepUpContext.Provider,
+    {
+      value: {
+        isStale: () => true,
+        confirm: () => {
+          prompts.push("prompt");
+          return Promise.resolve(true);
+        },
+      },
+    },
+    tree,
+  );
 
 const PLATZHALTER = "adresse-fehlt@frankfurtleague.invalid";
 
@@ -74,10 +94,10 @@ describe("the confirmation panel inside the referee's editor", () => {
 /* The undo replays the STORED record, and a placeholder written back is an address the payload refuses: the offer
    names that before any round trip rather than dispatching a restore the route can only turn away. */
 describe("the undo a referee's save offers", () => {
-  async function saveAddressOver(stored: string): Promise<void> {
+  async function saveAddressOver(stored: string, around: (tree: ReactNode) => ReactNode = (tree) => tree): Promise<void> {
     const user = userEvent.setup({ delay: null });
     answerWith(() => Promise.resolve({ success: true, message: "Gespeichert." }));
-    render(editor(stored));
+    render(around(editor(stored)));
     const box = screen.getByRole<HTMLInputElement>("textbox", { name: "E-Mail" });
 
     await user.clear(box);
@@ -113,5 +133,15 @@ describe("the undo a referee's save offers", () => {
 
     // Read at the press itself: the dispatch raises its pending toast before any round trip.
     assert.equal(toasts.at(-1)?.title, "Nimmt Änderung zurück...", "an undo with an address to restore was not dispatched");
+  });
+
+  /* The undo moves an unanswered referee's address back, which mints as the save did: past the window
+     the route refuses it, so the press asks first rather than dispatching a refusal. */
+  it("asks for the passkey before an undo moving an unanswered referee's address back", async () => {
+    await saveAddressOver("anna.alt@schule.de", staleWindow);
+    const beforeTheUndo = prompts.length;
+    pressUndo();
+
+    assert.equal(prompts.length, beforeTheUndo + 1, "the undo was offered without the prompt its replay needs");
   });
 });
