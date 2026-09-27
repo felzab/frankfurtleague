@@ -396,7 +396,7 @@ I439`). A Playground change undone again before the next claim is announced by n
 - **A grant admits every passkey the address already holds.** A person enrols passkeys with a mailed
   code, the same authority an administrator's first passkey rests on, so one enrolled before the grant
   admits once the address is granted. The grant ends the address's sessions, so it admits only on a
-  fresh passkey sign-in (`docs/frontend/spec.md :: I461`): grant an address only where its mailbox is
+  fresh passkey sign-in (`docs/frontend/spec.md :: I470`): grant an address only where its mailbox is
   trusted as an administrator's.
 - **The grant is the access; the person's own next sign-in enrols the passkey.** An address holding
   a grant and no passkey is answered the enrolment page and reaches no admin route until one stands,

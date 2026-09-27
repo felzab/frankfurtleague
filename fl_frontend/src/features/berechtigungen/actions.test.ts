@@ -77,7 +77,7 @@ describe("the grant", () => {
   });
 
   /* A change of privilege rotates the session: one the address made before the grant, by a passkey it
-     enrolled while holding none, would otherwise administer at once (`docs/frontend/spec.md :: I461`). */
+     enrolled while holding none, would otherwise administer at once (`docs/frontend/spec.md :: I470`). */
   it("ends every session of the address granted, and none for a refused grant", async () => {
     await postBerechtigungAction({ email: "Neu@Schule.de" });
     assert.deepEqual(signedOut(), ["Neu@Schule.de"]);
