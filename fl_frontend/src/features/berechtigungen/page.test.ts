@@ -89,6 +89,14 @@ describe("the page the administrators stand on", () => {
     assert.ok(markup.includes('type="search"'), "the page's bar waits on the list");
   });
 
+  /* The runbook's paste writes a marker, not a person: the row says where it came from instead. */
+  it("names a grant pasted into the database by where it came from", async () => {
+    const text = textOf(await renderPage(PAGE), " ");
+
+    assert.ok(text.includes("Direkt in der Datenbank"));
+    assert.ok(!text.includes("PLAYGROUND"), "the paste's raw marker reached the page");
+  });
+
   it("dates a grant by the Berlin day it was made on", async () => {
     const text = textOf(await renderPage(PAGE), " ");
 

@@ -12,7 +12,7 @@ export const BERECHTIGUNGEN_CRUD_COPY = {
   /** The create trigger's words, which the route's loading placeholder also lays out, so its box is the trigger's own. */
   createLabel: "Zugang erteilen",
   // Two rather than three: the page declares no facet, so `filtered` is reachable by no press.
-  emptyForQuery: "Kein Zugang für diese Suche.",
+  emptyForQuery: "Keine Zugänge für diese Suche.",
   emptyOverall: "Es hat noch niemand Zugang zur Verwaltung.",
 } as const;
 
@@ -21,6 +21,12 @@ export const INHABER_LABEL = "Inhaber";
 
 /** A barred address is served withheld, so the row names the state rather than an address it does not have. */
 export const GESPERRTE_ADRESSE = "Gesperrte Adresse";
+
+/** What the runbook's Playground paste writes as `erteilt_von` (`docs/ops/runbooks.md` §3), which names nobody. */
+export const PLAYGROUND_MARKER = "PLAYGROUND";
+
+/** Shown for that marker under „Erteilt von“: the row came from the database, not from an administrator. */
+export const DIREKT_IN_DER_DATENBANK = "Direkt in der Datenbank";
 
 /** The eyebrows over a row's two facts. */
 export const ERTEILT_VON_LABEL = "Erteilt von";

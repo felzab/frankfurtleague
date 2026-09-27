@@ -6,10 +6,12 @@ import Key from "@gravity-ui/icons/Key";
 
 import {
   BERECHTIGUNGEN_CRUD_COPY,
+  DIREKT_IN_DER_DATENBANK,
   ERTEILT_AM_LABEL,
   ERTEILT_VON_LABEL,
   GESPERRTE_ADRESSE,
   INHABER_LABEL,
+  PLAYGROUND_MARKER,
 } from "@/features/berechtigungen/constants";
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
 import { IDENTITY_HEAD_CLASSES, IDENTITY_NAME_CLASSES, IDENTITY_ROW_CLASSES, IDENTITY_STACK_CLASSES } from "@/shared/components/ui/adminTable";
@@ -85,7 +87,9 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
           <div className="grid w-full grid-cols-1 gap-3 border-t border-border/50 pt-3 sm:grid-cols-2">
             <div className="flex min-w-0 flex-col gap-1">
               <span className={FACT_LABEL_CLASSES}>{ERTEILT_VON_LABEL}</span>
-              <p className="fluid-sm font-medium break-words text-foreground">{berechtigung.erteilt_von}</p>
+              <p className="fluid-sm font-medium break-words text-foreground">
+                {berechtigung.erteilt_von === PLAYGROUND_MARKER ? DIREKT_IN_DER_DATENBANK : berechtigung.erteilt_von}
+              </p>
             </div>
             <div className="flex min-w-0 flex-col gap-1">
               <span className={FACT_LABEL_CLASSES}>{ERTEILT_AM_LABEL}</span>
