@@ -186,7 +186,8 @@ const FRISTEN = [
     daten: "Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey",
     // Each figure read off the constant the sign-in enforces, never typed: a copy typed here is a
     // promise nothing keeps.
-    frist: `Ein Anmeldecode gilt ${ZAHLWORT[CODE_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Konto in das Anmeldeformular einträgt. Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, versandte Codes ${EINE_STUNDE[CODE_MAIL_WINDOW_HOURS]} lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse; eine erfolgreiche Anmeldung löscht die gezählten Fehlversuche. Eine Sitzung endet, wenn sie ${String(PERSON_LEERLAUF_TAGE)} Tage lang nicht genutzt wurde, spätestens aber ${String(PERSON_HOECHSTENS_TAGE)} Tage nach der Anmeldung; für die Verwaltung gilt sie höchstens ${String(ADMIN_WINDOW_HOURS)} Stunden. Zu einer Sitzung, die mit einem Passkey begonnen hat, speichern wir, welcher Passkey das war. Adresse und Passkeys bleiben, solange der Zugang besteht, und werden auf Wunsch gelöscht`,
+    // GERMAN-PENDING: new German, not yet approved.
+    frist: `Ein Anmeldecode gilt ${ZAHLWORT[CODE_VALIDITY_MINUTES]} Minuten und wird danach gelöscht; das gilt auch für eine Adresse, die jemand ohne Konto in das Anmeldeformular einträgt. Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, angeforderte Codes ${EINE_STUNDE[CODE_MAIL_WINDOW_HOURS]} lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse; eine erfolgreiche Anmeldung löscht die gezählten Fehlversuche. Eine Sitzung endet, wenn sie ${String(PERSON_LEERLAUF_TAGE)} Tage lang nicht genutzt wurde, spätestens aber ${String(PERSON_HOECHSTENS_TAGE)} Tage nach der Anmeldung; für die Verwaltung gilt sie höchstens ${String(ADMIN_WINDOW_HOURS)} Stunden. Zu einer Sitzung, die mit einem Passkey begonnen hat, speichern wir, welcher Passkey das war. Zu jedem Passkey speichern wir, wann er zuletzt benutzt wurde, und den Namen, den Du ihm gibst. Adresse und Passkeys bleiben, solange das Konto besteht, und werden auf Wunsch gelöscht`,
   },
   {
     daten: "Änderungsprotokoll der Verwaltung",
@@ -570,10 +571,12 @@ export function DatenschutzView() {
             {/* Typed: `@better-auth/passkey` (1.7.5, read 2026-09-24) sets this cookie's life to its `MAX_AGE_IN_SECONDS`,
                 300, which it neither exports nor takes as an option, and moves it without us. */}
             <li className={ABSATZ_CLASSES}>
+              {/* GERMAN-PENDING: new German, not yet approved. */}
               Auf der Anmeldeseite und während jemand einen Passkey einrichtet oder sich damit anmeldet, ein zweites Cookie, das diesen einen
               Vorgang zusammenhält. Die Anmeldeseite setzt es schon beim Aufruf, damit Dein Browser Dir einen gespeicherten Passkey im
-              Adressfeld anbieten kann; zu jedem Aufruf speichern wir dafür einen Eintrag ohne Angaben zu Deiner Person. Cookie und Eintrag
-              laufen nach fünf Minuten ab.
+              Adressfeld anbieten kann. Zu jedem Vorgang speichern wir dafür einen Eintrag; bist Du dabei schon angemeldet, etwa wenn Du einen
+              Passkey einrichtest oder Dich vor einer Änderung erneut bestätigst, steht darin die Kennung Deines Kontos, sonst nichts über Dich.
+              Cookie und Eintrag laufen nach fünf Minuten ab.
             </li>
             <li className={ABSATZ_CLASSES}>
               Eine Freigabe von Cloudflare, wenn Du die Anmeldeseite oder das Bewerbungsformular aufrufst. Cloudflare prüft dort mit einer

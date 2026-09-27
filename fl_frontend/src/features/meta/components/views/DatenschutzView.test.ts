@@ -190,12 +190,20 @@ describe("the privacy notice's retention table", () => {
     );
   });
 
+  it("names what it keeps of each passkey beyond the key itself", () => {
+    assert.ok(
+      ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.includes(
+        "Zu jedem Passkey speichern wir, wann er zuletzt benutzt wurde, und den Namen, den Du ihm gibst.",
+      ),
+    );
+  });
+
   /* The rows counting an address's failed codes outlive the code by a day, and are told apart from
      the address itself only by being keyed. */
   it("says how long an address's failed codes are counted, at the constant the count keeps", () => {
     assert.ok(
       ANGABEN.get("Anmeldung: E-Mail-Adresse, Anmeldecode, Sitzung und Passkey")?.includes(
-        `Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, versandte Codes eine Stunde lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse;`,
+        `Falsch eingegebene Codes zählen wir ${String(CODE_FAILURE_WINDOW_HOURS)} Stunden lang, angeforderte Codes eine Stunde lang, beides unter einem unlesbaren Schlüssel statt unter der Adresse;`,
       ),
     );
   });
@@ -314,6 +322,11 @@ const ERSETZT: readonly { weg: string; statt?: string }[] = [
   },
   { weg: "Aufwandsentschädigung", statt: "die Schule und das Honorar einer Schiedsrichterin oder eines Schiedsrichters" },
   { weg: "ohne eingetragene Adresse" },
+  // The per-address rows are written ahead of the send gate, so they count what was asked for, a stranger's asking included.
+  { weg: "versandte Codes", statt: "angeforderte Codes eine Stunde lang" },
+  // The passkey ceremony's row holds the account's id when the visitor is already signed in.
+  { weg: "einen Eintrag ohne Angaben zu Deiner Person", statt: "steht darin die Kennung Deines Kontos, sonst nichts über Dich" },
+  { weg: "solange der Zugang besteht", statt: "Adresse und Passkeys bleiben, solange das Konto besteht" },
   { weg: "Der Eintrag dazu nennt keine Person" },
   { weg: "Das gilt nicht, wenn Dein Eintrag als Schiedsrichterin oder Schiedsrichter schon gelöscht war" },
   { weg: "Alles davon ist unbedingt erforderlich", statt: "Was wir selbst ablegen, ist unbedingt erforderlich" },

@@ -181,11 +181,26 @@ Every ruling below is the sign-up flow as it stands for the next season.
   - the ban refusing an administrator's correction, reseat or re-send of an application's contact
     seat (`REQ-BEWERBUNG-019`), which falls on that administrator's write in the same way.
 
-  **One refusal a person's own entry meets is not named**: every box that stores an address refuses
-  one whose part before the @ is not plain ASCII
+  **Four refusals a person's own entry meets are not named among them.** Every box that stores an
+  address refuses one whose part before the @ is not plain ASCII
   (`fl_frontend/src/shared/schemas.ts :: KontaktEmailSchema`,
-  `fl_backend/app/shared/folding.py :: league_address`). Whether it belongs beside the two the notice
-  names is [section 11](#11-open-and-owed-a-decision)'s question.
+  `fl_backend/app/shared/folding.py :: league_address`). The code sign-in refuses three more:
+  - an address that failed ten codes in a row is refused the next, the right one included, until the
+    oldest of those failures is a day old or a sign-in clears the count, and the refusal says so and
+    offers a passkey (`docs/frontend/spec.md :: I441`);
+  - an address that asked for five codes in the hour is mailed no further one that hour, answered as
+    a mailed code is (`docs/frontend/spec.md :: I442`);
+  - an address holding neither a grant nor a record the send gate reads is mailed no code at all,
+    answered the same way: the gate's `holds-nothing` verdict
+    (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). The gate reads squads, players and
+    referees, so a registration or an application awaiting its confirmation admits nobody.
+
+  The last two answer as a mailed code does so that no answer tells a member from a stranger, and
+  the person meeting either is not told of it.
+
+  The notice's retention table names both counts and how long each lasts
+  (`DatenschutzView.tsx :: FRISTEN`), and none of the four as a refusal. Whether any belongs beside
+  the two the notice names is [section 11](#11-open-and-owed-a-decision)'s question.
 
 - **There is no guardian workflow.** No code composes a consent on a guardian's word; a pupil's own
   registration is what records one, and what the vocabulary still expresses beyond that is a
@@ -360,18 +375,24 @@ Every ruling below is the sign-up flow as it stands for the next season.
   session row when its holder presents the stale cookie and leaves it standing where nobody comes
   back, and it consumes a code's row when the code is typed, live or expired, sweeping expired
   `verification` rows only when it next reads one. Per typed address it also keeps rows counting
-  failed codes for a day and sent codes for an hour, under a keyed hash of the address rather than
-  the address (`fl_frontend/src/core/auth.ts :: boundIdentifier`). Neither collection is swept by
-  the application; the
-  retention index each needs is a console step
+  failed codes for a day and requested codes for an hour, under a keyed hash of the address rather
+  than the address (`fl_frontend/src/core/auth.ts :: boundIdentifier`); both are counted ahead of the
+  send gate, so a stranger's address is counted as a member's is. One more row per code mailed counts
+  every address together for an hour, and carries no address and no hash of one. Neither collection
+  is swept by the application; the retention index each needs is a console step
   ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-two-expiry-indexes)).
 - **The sign-in store holds more than the people it signs in.** The sign-in send is public and the
   library writes its `verification` row before the send gate is consulted, so the address of anyone
   who submits the form is held there — a person the gate admits and a stranger alike — until that
   retention index removes it
-  ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-two-expiry-indexes)). Nothing else is
-  recorded of such a person: no `user` row is written until a code is typed right, and a code is mailed
-  only to an administrator or to an address the league holds records for (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`).
+  ([`ops/runbooks.md`](ops/runbooks.md#14-the-auth-databases-two-expiry-indexes)). Such a
+  person's typed address also leaves the keyed rows of the entry above, a count of the codes it
+  asked for and, where a code was typed, of the codes that failed. No `user` row is written until a
+  code is typed right, and a code is mailed only to an administrator or to an address the league
+  holds records for (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`). A passkey ceremony
+  writes a `verification` row as well, for five minutes, on every view of the sign-in page and on
+  every step-up: it holds the challenge and, where the visitor is already signed in, the id of their
+  account, and nothing about a visitor who is not.
 - **No log row names a person as the one who wrote it today, and a person's own write is
   recorded under a pseudonym rather than their address.** `fl_frontend/src/core/subject.ts :: getSubjectSession`
   already folds the address of whoever opens a panel into the request's actor, and
@@ -718,6 +739,14 @@ the `Entry` column carries a token only where one still resolves in that file.
   refusal is a limit of what the league can take, as the full squad is, or a judgement about the
   person; and so whether the notice names it beside the full squad or among the refusals it offers
   a review of.
+- **The code sign-in's three refusals are named by the notice as counts or not at all, for the
+  Datenschutzexperte.** [Section 2](#2-consent-comes-from-the-person-from-16-or-18) lists them: the
+  lock after ten failed codes in a row, the five codes an address may ask for in an hour, and the
+  gate mailing no code to an address that holds nothing. A passkey signs in past the first two, and
+  the last two are not told to the person who meets them, which is what keeps the sign-in from
+  telling a member from a stranger. The questions to put: whether each is a limit of the service, as
+  the full squad is, and so named beside it or not at all; and whether a refusal the person is not
+  told of can be offered a review.
 - **What carries a pupil's own consent from sixteen, for the Datenschutzexperte.**
   [Section 4](#4-what-is-published-and-on-what-basis) records that a pupil consents to their name's
   publication on their own from sixteen, with no guardian asked. Art. 8 (1) sets an age only for
