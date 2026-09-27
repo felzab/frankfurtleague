@@ -43,6 +43,16 @@ STUB: Final = """#!/usr/bin/env bash
 set -u
 last=""
 for arg in "$@"; do last="$arg"; done
+# `run` answers as `docker run` does, and records what its container was handed: its stdin, and
+# whether Git Bash was told to leave its arguments alone. Read off the subcommand's position, since
+# a snippet in the argv may spell any word.
+if [[ "${1:-}" == "compose" && " ${*:2:3} " == *" run "* ]]; then
+  printf '%s\\n' "$@" > "${FL_DEPLOY_ARGV}"
+  cat > "${FL_DEPLOY_ARGV}.stdin"
+  printf '%s' "${MSYS_NO_PATHCONV-unset}" > "${FL_DEPLOY_ARGV}.pathconv"
+  if [[ -n "${FL_DEPLOY_RUN_SAYS:-}" ]]; then printf '%s\\n' "${FL_DEPLOY_RUN_SAYS}" >&2; fi
+  exit "${FL_DEPLOY_RUN_RC:-0}"
+fi
 if [[ "${1:-}" == "compose" ]]; then
   case " $* " in
     *" ps "*)
@@ -112,6 +122,8 @@ def _run(body: str, **overrides: str) -> tuple[int, str, _Fixture]:
     # The execute bit is what puts this ahead of a real daemon on PATH.
     os.chmod(write_shell(stubs / "docker", STUB), 0o755)
     environment = base_env()
+    # The key check reads it over the mount path, so a caller's own would decide every key case.
+    environment.pop("ACTOR_SIGNING_KEY_FILE", None)
     environment["PATH"] = str(stubs) + os.pathsep + environment["PATH"]
     environment["FL_DEPLOY_ARGV"] = str(fixture.argv)
     environment["FL_DEPLOY_PS_ARGV"] = str(fixture.ps_argv)
@@ -604,6 +616,13 @@ def test_a_matching_pair_passes() -> None:
     assert "check=0" in output, output
 
 
+def test_the_key_is_read_where_the_environment_names_it_rather_than_at_the_mount() -> None:
+    """The frontend's config reads `ACTOR_SIGNING_KEY_FILE` over its default, so the check does too."""
+    output = _judged('node -e "$PAIR_JS" ed25519 named.pem env.txt\nexport ACTOR_SIGNING_KEY_FILE=named.pem', "absent.pem", "env.txt")
+
+    assert "check=0" in output, output
+
+
 @pytest.mark.parametrize(
     ("setup", "key", "said"),
     [
@@ -643,6 +662,18 @@ def test_a_matching_pair_passes() -> None:
             "the signing key is x25519, not Ed25519",
             id="not-a-signing-key",
         ),
+        pytest.param(
+            'node -e "$PAIR_JS" ed25519 key.pem env.txt\nexport ACTOR_SIGNING_KEY_FILE=../secrets/fl_actor_signing_key',
+            "key.pem",
+            "which ACTOR_SIGNING_KEY_FILE names in its environment, and could not read it there (ENOENT)",
+            id="a-dev-path-the-environment-names-over-a-good-mount",
+        ),
+        pytest.param(
+            'node -e "$PAIR_JS" ed25519 key.pem env.txt\nexport ACTOR_SIGNING_KEY_FILE=',
+            "key.pem",
+            "which ACTOR_SIGNING_KEY_FILE names in its environment, and could not read it there",
+            id="an-empty-path-the-frontend-s-config-refuses",
+        ),
     ],
 )
 def test_a_pair_that_would_not_work_answers_3_naming_what_is_wrong(setup: str, key: str, said: str) -> None:
@@ -653,7 +684,7 @@ def test_a_pair_that_would_not_work_answers_3_naming_what_is_wrong(setup: str, k
     assert said in output, output
 
 
-KEY_CHECK: Final = 'check_actor_key "NOTHING has been recreated." docker run --rm -i --network none frontend-image'
+KEY_CHECK: Final = 'check_actor_key "NOTHING has been recreated." docker compose -f docker-compose.yml run --rm --no-deps -T frontend'
 
 
 def test_a_refused_pair_stops_the_run_with_its_remedy() -> None:
@@ -672,18 +703,50 @@ def test_a_pair_check_that_could_not_be_made_is_an_advisory() -> None:
     assert "(exit 125)" in output, output
 
 
-def test_the_deploy_runs_the_check_as_the_frontend_user_with_the_key_mounted_where_compose_mounts_it() -> None:
-    """No `--user`: the key is owned by the image's own user, whom the caller's uid is not."""
-    call = DEPLOY.read_text(encoding="utf-8").split("\ncheck_actor_key ", 1)[1].split("\n\n", 1)[0]
-    code, output, fixture = _run("check_actor_key " + call)
+def _key_check_call(script: Path) -> str:
+    return "check_actor_key " + script.read_text(encoding="utf-8").split("\ncheck_actor_key ", 1)[1].split("\n\n", 1)[0]
+
+
+@pytest.mark.parametrize("script", [DEPLOY, LOCAL], ids=["deploy", "local"])
+def test_each_script_runs_the_check_in_the_frontend_service_as_the_stack_starts_it(script: Path) -> None:
+    """A bare image run holds none of the service's environment, and passes a key the recreated
+    frontend never finds. No `--user`: the key is its image user's, whom the caller's uid is not."""
+    code, output, fixture = _run(_key_check_call(script))
     argv = fixture.argv.read_text(encoding="utf-8").splitlines()
 
     assert code == 0, output
+    assert argv[0] == "compose", argv
+    run = argv.index("run")
+    assert argv[run : run + 5] == ["run", "--rm", "--no-deps", "-T", "frontend"], argv
     assert "--user" not in argv, argv
-    assert ["--network", "none"] == argv[argv.index("--network") : argv.index("--network") + 2], argv
-    assert argv[argv.index("-v") + 1].endswith("/checkout/secrets/fl_actor_signing_key:/run/secrets/fl_actor_signing_key:ro"), argv
     assert argv[argv.index("-e") - 1 : argv.index("-e") + 1] == ["node", "-e"], argv
     assert argv[-1] == "/run/secrets/fl_actor_signing_key", argv
+
+
+def test_git_bash_is_told_to_leave_the_mount_path_as_written() -> None:
+    """Git Bash rewrites a `/run/...` argument to a native program into a Windows path, and the
+    container reads the key as missing on every development machine; Linux ignores the variable."""
+    code, output, fixture = _run(KEY_CHECK)
+
+    assert code == 0, output
+    assert Path(f"{fixture.argv}.pathconv").read_text(encoding="utf-8") == "1"
+
+
+def test_the_container_is_handed_the_public_half_s_line_and_nothing_else() -> None:
+    """The rest of `fl_backend/.env` is the backend's database login and keys, which the frontend never holds."""
+    lines = "MONGODB_URI=mongodb://user:secret@db/x\\nACTOR_TOKEN_PUBLIC_KEY=the-public-half\\nSPERRLISTE_SCHLUESSEL=other\\n"
+    code, output, fixture = _run(f"printf '{lines}' > fl_backend/.env\n{KEY_CHECK}")
+
+    assert code == 0, output
+    assert Path(f"{fixture.argv}.stdin").read_text(encoding="utf-8") == "ACTOR_TOKEN_PUBLIC_KEY=the-public-half\n"
+
+
+def test_a_backend_file_without_the_public_half_hands_the_check_an_empty_line() -> None:
+    """grep's "no such line" is the check's own finding to make, never a refusal of the read."""
+    code, output, fixture = _run(KEY_CHECK)
+
+    assert code == 0, output
+    assert Path(f"{fixture.argv}.stdin").read_text(encoding="utf-8") == "\n"
 
 
 @pytest.mark.parametrize(

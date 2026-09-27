@@ -247,7 +247,8 @@ docker compose build || die "The image build failed — its own output is above.
 ok "images built"
 
 step "The actor token's key pair"
-# Through compose, so the key is mounted as the stack will mount it, owner and mode included.
+# Through compose, so the key is mounted as the stack will mount it, owner and mode included, and
+# read at the path the frontend's environment files name.
 check_actor_key "NOTHING has been started." docker compose run --rm --no-deps -T frontend
 
 # Before `start`, not inside it: a page rendered against an empty database caches that read for

@@ -817,8 +817,9 @@ It holds the three internal keys and nothing else (docs/ops/runbooks.md §16)."
 SIGNING_KEY_FILE="secrets/fl_actor_signing_key"
 SIGNING_KEY_MOUNT="/run/secrets/fl_actor_signing_key"
 
-# Run by the frontend image as its own user, who alone reads the key (uid 1001, mode 400), with
-# `fl_backend/.env` on stdin. Exit 3 names the fault, never a value.
+# The frontend's own reading of the key, by its own user (uid 1001, mode 400): `ACTOR_SIGNING_KEY_FILE`
+# over the default `$1`, as `fl_frontend/src/core/config.ts` reads it. Exit 3 names the fault, never
+# a value.
 # shellcheck disable=SC2016  # node's template literals
 ACTOR_KEY_CHECK='
 process.on("uncaughtException", (error) => { console.error(error.name); process.exit(4); });
@@ -826,8 +827,12 @@ const { readFileSync } = require("node:fs");
 const { createPrivateKey, createPublicKey } = require("node:crypto");
 const { parseEnv } = require("node:util");
 const refuse = (line) => { console.error(line); process.exit(3); };
+const named = process.env.ACTOR_SIGNING_KEY_FILE;
 let pem;
-try { pem = readFileSync(process.argv[1]); } catch (error) { refuse(`the signing key could not be read by the frontend user (${error.code})`); }
+try { pem = readFileSync(named ?? process.argv[1]); } catch (error) {
+  if (named === undefined) refuse(`the signing key could not be read by the frontend user (${error.code})`);
+  refuse(`the frontend reads its signing key at ${JSON.stringify(named)}, which ACTOR_SIGNING_KEY_FILE names in its environment, and could not read it there (${error.code}); the stack mounts the key at ${process.argv[1]}`);
+}
 let key;
 try { key = createPrivateKey(pem); } catch { refuse("the signing key file holds no private key in PEM"); }
 if (key.asymmetricKeyType !== "ed25519") refuse(`the signing key is ${key.asymmetricKeyType}, not Ed25519`);
@@ -837,15 +842,27 @@ if (!/^[A-Za-z0-9_-]{43}$/.test(published) || Buffer.from(published, "base64url"
 if (createPublicKey(key).export({ format: "jwk" }).x !== published) refuse("ACTOR_TOKEN_PUBLIC_KEY is not the public half of the signing key");
 '
 
+# The lines of `fl_backend/.env` the pair check is handed, as `node:util :: parseEnv` finds the name.
+PUBLIC_KEY_LINE_RE='^[[:space:]]*(export[[:space:]]+)?ACTOR_TOKEN_PUBLIC_KEY[[:space:]]*='
+
 # Before any container is replaced: a failing pair starts a build whose every admin and person call
-# the backend refuses. `$1` is what stands at the refusal; the rest runs a frontend image container.
+# the backend refuses. `$1` is what stands at the refusal; the rest runs the frontend service's
+# container as the stack starts it.
 check_actor_key() {
-  local standing="$1" rc=0 said=""; shift
-  said="$("$@" node -e "$ACTOR_KEY_CHECK" "$SIGNING_KEY_MOUNT" < fl_backend/.env 2>&1)" || rc=$?
+  local standing="$1" rc=0 said="" lines=""; shift
+  # The public half alone: the rest of the file is the backend's database login and keys, which a
+  # frontend container never holds. grep's 1 is "no such line", the check's own finding below.
+  lines="$(grep -E "$PUBLIC_KEY_LINE_RE" fl_backend/.env)" || (( $? == 1 )) \
+    || refuse "fl_backend/.env could not be read for its ACTOR_TOKEN_PUBLIC_KEY line. grep's own reason is above.
+${standing}"
+  # MSYS_NO_PATHCONV: Git Bash rewrites the `/run/...` argument into a Windows path the container
+  # has never heard of, and the key reads as missing.
+  said="$(MSYS_NO_PATHCONV=1 "$@" node -e "$ACTOR_KEY_CHECK" "$SIGNING_KEY_MOUNT" <<<"$lines" 2>&1)" || rc=$?
   if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
   if (( rc == 3 )); then
-    refuse "the actor token's key pair would not work, and the line above says why. Generate the pair
-again and put each half where docs/ops/runbooks.md §16 says.
+    refuse "the actor token's key pair would not work, and the line above says why. Where it names
+ACTOR_SIGNING_KEY_FILE, delete that line from fl_frontend/.env; otherwise generate the pair again and
+put each half where docs/ops/runbooks.md §16 says.
 ${standing}"
   elif (( rc )); then
     # An advisory, as each environment reader's is: the running stack never runs this check.

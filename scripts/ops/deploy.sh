@@ -799,7 +799,6 @@ require_file "nginx/shared/http.conf" "nginx/prod/prod.conf includes it from the
 require_file "nginx/shared/site.conf" "nginx/prod/prod.conf includes it from the nginx/shared mount; without it nginx refuses the whole configuration."
 require_file "nginx/shared/security_headers.conf" "nginx/shared/site.conf includes it; without it nginx refuses the whole configuration."
 require_file "secrets/tunnel_token" "The connector reads it with --token-file and registers no tunnel without it, which leaves the site with no route in at all."
-# Before the mount below, too: `docker run -v` creates a missing source as an empty directory.
 require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate the pair: docs/ops/runbooks.md §16."
 require_dir  "certs"            "nginx mounts this read-only for the TLS certificate and key."
 ok "all present"
@@ -1053,10 +1052,10 @@ step "The environment files, read by the builds about to run"
 check_env_names_held_once
 check_env_names
 check_frontend_env_names
-# The image's own user rather than the caller's, the reverse of `read_env_names`: the key is the
-# frontend's to read, and `--network none` because the process holding it needs no network.
+# Through compose, as `local.sh` asks it: only the service's own container reads the key where its
+# environment files point it. It holds nothing the running frontend does not, on the frontend's network.
 check_actor_key "NOTHING has been recreated, and the site is untouched." \
-  docker run --rm -i --network none -v "${PWD}/${SIGNING_KEY_FILE}:${SIGNING_KEY_MOUNT}:ro" "$IMAGE_FRONTEND"
+  docker compose -f "$COMPOSE" run --rm --no-deps -T frontend
 
 # --- the streams the recreate destroys, copied off first ---------------------------------------------
 

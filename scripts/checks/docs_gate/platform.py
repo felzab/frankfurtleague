@@ -69,6 +69,7 @@ PLATFORM_ALLOW: Final[dict[str, str]] = {
     "scripts/gate/gate_pool.py :: terminate": "reads `sys.platform` per call, not `POSIX`: the one spelling pyright narrows `os.killpg` on",
     "scripts/tests/test_gate_pool.py :: OWN_GROUP": "a unit's group is compared to its pid on POSIX alone, so the case stands down elsewhere",
     "scripts/lib/_lib.sh :: require_platform": "the one `uname -s` classifying the host, which every machine-specific script declares through",
+    "scripts/lib/_lib.sh :: check_actor_key": "MSYS rewrites the `/run/secrets` key path handed to the frontend container",
     "scripts/gate/selfcheck.sh :: mount_source": "`cygpath` for Git Bash's /tmp mount, which a POSIX spelling binds to an unrelated directory",
     "scripts/gate/selfcheck.sh :: run_shellcheck": "MSYS rewrites the container-side mount path unless told not to",
     "scripts/gate/selfcheck.sh :: run_actionlint": "the same rewrite, in front of the actionlint image",

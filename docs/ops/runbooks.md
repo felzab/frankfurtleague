@@ -1268,9 +1268,12 @@ public half is the key's last 32 bytes in DER form, which is the raw Ed25519 key
   grant nobody can account for is revoked in the Playground.
 
 `deploy.sh` and `local.sh` refuse a missing key file before anything starts. They then have the
-frontend image, as its own user, judge the pair: a key it cannot read, a key that is not Ed25519, or
-an `ACTOR_TOKEN_PUBLIC_KEY` that is missing, malformed or not its public half. Each refusal names
-the fault and never a value. The remedy each time is to run the command above again.
+frontend service's own container, started as the stack starts it and handed the
+`ACTOR_TOKEN_PUBLIC_KEY` line alone, judge the pair: a key it cannot read where its environment
+points it, a key that is not Ed25519, or an `ACTOR_TOKEN_PUBLIC_KEY` that is missing, malformed or
+not its public half. Each refusal names the fault and never a value. The remedy is to run the command
+above again, or, where the refusal names `ACTOR_SIGNING_KEY_FILE`, to delete that line from
+`fl_frontend/.env`.
 
 ## 17. Clearing an address's code lock
 
