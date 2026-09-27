@@ -137,11 +137,14 @@ after(() => {
   globalThis.fetch = ORIGINAL_FETCH;
 });
 
-// The server build for `subject.ts` alone, as Next renders it: the client build's `cache` passes
-// through, so a guard that lost its memo would read the same under every case here.
+/** The two modules whose `cache` this suite counts through, each built as Next renders it. */
+const MEMOIZED = ["/src/core/subject.ts", "/src/core/signInGate.ts"];
+
+// The server build for these alone: the client build's `cache` passes through, so a guard or a
+// lookup that lost its memo would read the same under every case here.
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    if (specifier === "react" && context.parentURL?.endsWith("/src/core/subject.ts") === true)
+    if (specifier === "react" && MEMOIZED.some((module) => context.parentURL?.endsWith(module) === true))
       return { url: SERVER_REACT_URL, shortCircuit: true };
     return nextResolve(specifier, context);
   },
@@ -155,8 +158,10 @@ beforeEach(() => {
 
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so neither the doubles nor the `next/headers` extension would be in place yet.
-const { auth, getSignInDestination } = await import("./auth.ts");
+const { auth, getAdminSession, getSignInDestination } = await import("./auth.ts");
 const { getSubjectSession } = await import("./subject.ts");
+const { lookUpSubjekt } = await import("./signInGate.ts");
+const { verwaltungOf } = await import("./verwaltung.ts");
 const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
 const { APINetworkError } = await import("./errors.ts");
 
@@ -169,6 +174,9 @@ async function signIn(email: string): Promise<{ cookie: string; row: SessionRow 
 
   const row = store.session.at(-1);
   assert.ok(row !== undefined, "the verification wrote no session row");
+
+  // The sign-in is a request of its own: its gate's lookup must not answer the guard's below.
+  beginRenderPass();
 
   return { cookie: cookie, row: row };
 }
@@ -544,5 +552,19 @@ describe("the guard across one render pass", () => {
     await getSubjectSession();
     assert.equal(headerReads() - readsBefore, 2, "a second request was answered from the first one's read");
     assert.equal(sent.length - sentBefore, 2, "a second request was answered from the first one's lookup");
+  });
+
+  /* The admin shell's guard, its switcher and the administrators page each read the grant or the
+     records, and the lookup is what they share: without its memo an admin render asks three times. */
+  it("asks the backend once for the admin guard, the switcher and the page of one render pass", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    row.authFactor = "passkey";
+    arriveAs(cookie);
+    const sentBefore = sent.length;
+
+    const [served] = await Promise.all([getAdminSession(), lookUpSubjekt(ADMIN_EMAIL), verwaltungOf(ADMIN_EMAIL)]);
+
+    assert.equal(served?.user.email, ADMIN_EMAIL, "the guard refused, so the count below counts a refusal");
+    assert.equal(sent.length - sentBefore, 1, "the reads of one admin render pass each asked the backend");
   });
 });
