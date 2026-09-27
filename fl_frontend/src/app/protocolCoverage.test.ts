@@ -22,11 +22,17 @@ const { ZUGANG_WEG } = await import("@/shared/utils/actionError.ts");
 const { runAdminMutation, stepUpRequired } = await import("@/shared/utils/adminMutation.ts");
 const { handlePublicRequest } = await import("@/shared/utils/publicRoute.ts");
 
-/** The credential class, whose codes `fl_frontend/src/core/errors.ts :: isRefusalCode` hands no slice mapper. */
-const CREDENTIAL_CLASS = /^REQ-AUTH-/;
+/** The shared reader's words for a request the running API cannot take, which a slice's own mapper may word first. */
+const EINZELNE_ANGABEN_ABGELEHNT = "Einzelne Angaben wurden nicht übernommen. Lade die Seite neu.";
 
-/** A code of that class the backend declares nowhere, answered as a code no reader names is. */
-const UNCLAIMED = "REQ-AUTH-000";
+/**
+ * The classes whose codes `fl_frontend/src/core/errors.ts :: isRefusalCode` hands no slice mapper. Never `REQ-ROUTE-`:
+ * the router answers it where no operation matched, so no operation publishes it.
+ */
+const SPINE_CLASSES = /^REQ-(?:AUTH|VAL)-/;
+
+/** A code of the same class the backend declares nowhere, answered as a code no reader names is. */
+const unclaimedBeside = (code: string): string => code.replace(/\d{3}$/, "000");
 
 /**
  * What a person meets for one code, and why: the words a spine answers it in, the answer any code of
@@ -38,7 +44,7 @@ type Answer =
   | { readonly kind: "nobody"; readonly because: string };
 
 /**
- * Every credential code the document publishes, agreeing with it in both directions. A code it does
+ * Every code of those classes the document publishes, agreeing with it in both directions. A code it does
  * not yet publish has no entry: the first operation publishing one fails here until its answer is chosen.
  */
 const ANSWERED: Readonly<Record<string, Answer>> = {
@@ -74,15 +80,23 @@ const ANSWERED: Readonly<Record<string, Answer>> = {
     words: stepUpRequired().error,
     because: "the page's next press asks for the confirmation the backend wants (`docs/frontend/spec.md :: I493`)",
   },
+  "REQ-VAL-001": {
+    kind: "worded",
+    words: EINZELNE_ANGABEN_ABGELEHNT,
+    because: "a body no rendered control takes comes from a page older than the running API, which a reload replaces and a retry resends",
+  },
+  "REQ-VAL-002": {
+    kind: "worded",
+    words: EINZELNE_ANGABEN_ABGELEHNT,
+    because: "a retry resends the unreadable body unchanged, and only a reload replaces the page that built it",
+  },
 };
 
-/** One credential code as the document publishes it: on which operation, at which status, under which key. */
+/** One such code as the document publishes it: on which operation, at which status, under which key. */
 type Published = { readonly operation: string; readonly code: string; readonly status: number; readonly tier: KeyTier | null };
 
 const PUBLISHED: readonly Published[] = publishedOperations().flatMap(({ operation, declaration, answers }) =>
-  answers
-    .filter(({ code }) => CREDENTIAL_CLASS.test(code))
-    .map(({ code, status }) => ({ operation, code, status, tier: keyTierOf(declaration) })),
+  answers.filter(({ code }) => SPINE_CLASSES.test(code)).map(({ code, status }) => ({ operation, code, status, tier: keyTierOf(declaration) })),
 );
 
 /** RFC 9110's safe methods, which no write spine sends: a read hands every failure to its page's error boundary. */
@@ -92,14 +106,14 @@ const errorOf = (answer: unknown): unknown => (typeof answer === "object" && ans
 
 /** What the write spine for `tier` answers the refusal with, its body throwing it as the API client raises it. */
 async function shownBySpine(tier: KeyTier | null, refusal: APIBadStatusError): Promise<unknown> {
-  if (tier === "admin") return errorOf(await runAdminMutation("credentialCoverage", () => Promise.reject(refusal)));
+  if (tier === "admin") return errorOf(await runAdminMutation("protocolCoverage", () => Promise.reject(refusal)));
 
   if (tier === "base") {
-    const request = new NextRequest("http://localhost/api/credentialCoverage", {
+    const request = new NextRequest("http://localhost/api/protocolCoverage", {
       method: "POST",
       headers: { "sec-fetch-site": "same-origin" },
     });
-    const response = await handlePublicRequest(request, { routeName: "credentialCoverage", run: () => Promise.reject(refusal) });
+    const response = await handlePublicRequest(request, { routeName: "protocolCoverage", run: () => Promise.reject(refusal) });
 
     return errorOf(await response.json());
   }
@@ -107,15 +121,15 @@ async function shownBySpine(tier: KeyTier | null, refusal: APIBadStatusError): P
   throw new Error(`no write spine sends a ${String(tier)}-tier call; say who answers ${refusal.serverErrorCode ?? ""} there`);
 }
 
-describe("every published credential code against the answer a person meets", () => {
+describe("every published credential and request-validation code against the answer a person meets", () => {
   /* Two listings reached by different routes, the document's and this table's, required to agree. */
-  it("names an answer for exactly the credential codes the document publishes", () => {
+  it("names an answer for exactly the codes of those classes the document publishes", () => {
     const published = [...new Set(PUBLISHED.map(({ code }) => code))];
 
     assert.deepEqual(
       published.filter((code) => !Object.hasOwn(ANSWERED, code)).sort(),
       [],
-      "a published credential code no answer was chosen for: name the words a person meets, or why the fallback is right",
+      "a published code of those classes no answer was chosen for: name the words a person meets, or why the fallback is right",
     );
     assert.deepEqual(
       Object.keys(ANSWERED)
@@ -137,8 +151,8 @@ describe("every published credential code against the answer a person meets", ()
     }
   });
 
-  /* Once per tier and status rather than per operation: no slice mapper reads a credential code, so the
-     spine alone answers it. The system tier's callers show a refusal to nobody, as
+  /* Once per tier and status rather than per operation: an operation whose mapper leaves a code unworded
+     answers it as the spine does. The system tier's callers show a refusal to nobody, as
      `fl_frontend/src/app/refusalCoverage.test.ts :: REFUSING` leaves them out. */
   it("answers each on every write spine that can meet it, as its entry says", async () => {
     const driven = new Set<string>();
@@ -150,7 +164,7 @@ describe("every published credential code against the answer a person meets", ()
       asked.add(key);
 
       const shown = await shownBySpine(tier, refusedOn(operation, code, status));
-      const expected = answer.kind === "worded" ? answer.words : await shownBySpine(tier, refusedOn(operation, UNCLAIMED, status));
+      const expected = answer.kind === "worded" ? answer.words : await shownBySpine(tier, refusedOn(operation, unclaimedBeside(code), status));
       assert.equal(shown, expected, `${key}: ${answer.because}`);
       driven.add(code);
     }
