@@ -45,7 +45,7 @@ from app.core.recording import SYSTEM_ACTOR, Actor, actor_var
 from app.core.security import ACTOR_HEADER, ACTOR_NOT_ADMIN, get_grant_lookup
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH
+from tests.config import ADMIN_AUTH, SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document
 from tests.isolation import COMMITTED, outcome_of
@@ -1030,6 +1030,28 @@ class TestTheMountedRouteReadsTheGrants:
             return [before.status_code, revoked.status_code, after.status_code]
 
         assert on_a_league(mongo_replica_set_url, body) == [200, 200, 403]
+
+    def test_every_served_instant_carries_its_offset(self, mongo_replica_set_url: str):
+        """The driver reads a stored instant back with no offset, which a reader would take for local time."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, str, str]:
+            await told(database, client)
+            await grant(database, client)
+            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+                listed = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers={**ADMIN_AUTH, ACTOR_HEADER: ANNA})
+                answered = await http.post(f"/api/v{API_VERSION}/berechtigungen/abgleich", headers=SYSTEM_AUTH)
+
+            [erteilt_am] = [row["erteilt_am"] for row in listed.json()["berechtigungen"] if row["adresse"] == NEU]
+            [change] = answered.json()["aenderungen"]
+
+            return erteilt_am, change["geaendert_am"], answered.json()["beansprucht_bis"]
+
+        erteilt_am, geaendert_am, beansprucht_bis = on_a_league(mongo_replica_set_url, body)
+
+        # `NOW` is half past noon in Berlin's summer time, so half past ten in UTC.
+        assert (erteilt_am, geaendert_am) == ("2026-04-01T10:30:00Z", "2026-04-01T10:30:00Z")
+        # The lease runs off the real clock; its spelling is what is pinned.
+        assert beansprucht_bis.endswith("Z")
 
     def test_a_barred_grant_holder_is_no_administrator(self, mongo_replica_set_url: str):
         """A barred holder holds no floor, so it acts on nothing either (`docs/backend/spec.md :: I462`)."""

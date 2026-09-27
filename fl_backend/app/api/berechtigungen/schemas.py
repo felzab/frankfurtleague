@@ -1,12 +1,22 @@
-from datetime import datetime
-from typing import Literal
+from datetime import UTC, datetime
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomNonEmptyString, CustomObjectId, CustomStrippedNonEmptyString
 from app.shared.schemas.kontakt import CustomEmail
 from app.shared.schemas.responses import BaseAPIResponse
+
+
+def as_utc(moment: datetime) -> datetime:
+    """An instant marked as the UTC it is: the driver reads a stored one back with no offset, and served so it reads as local time."""
+
+    return moment.replace(tzinfo=UTC) if moment.tzinfo is None else moment.astimezone(UTC)
+
+
+# Every instant a grants route serves, which then carries its offset.
+FLUtcInstant = Annotated[datetime, AfterValidator(as_utc)]
 
 # Closed, and mirrored by `app/core/constraints.py :: _VERWALTUNG`. `owner` holds every power
 # `administration` does and is written by no route (`docs/backend/spec.md :: 1.1`).
@@ -49,7 +59,7 @@ class FLBerechtigungZeile(BaseModel):
     # Null exactly where `erteilt_von_gesperrt` is set, as `adresse` is beside `gesperrt`.
     erteilt_von: str | None
     erteilt_von_gesperrt: bool
-    erteilt_am: datetime
+    erteilt_am: FLUtcInstant
 
 
 class FLBerechtigungenListResponse(BaseAPIResponse):
@@ -127,7 +137,7 @@ class FLBerechtigungAenderung(BaseModel):
     # Null exactly where `urheber` is `datenbank` or `geaendert_von_gesperrt` is set.
     geaendert_von: str | None
     geaendert_von_gesperrt: bool
-    geaendert_am: datetime | None
+    geaendert_am: FLUtcInstant | None
     # Set where an address of this change, the actor's included, is barred and withheld wherever it would stand.
     gesperrt: bool
 
@@ -135,7 +145,7 @@ class FLBerechtigungAenderung(BaseModel):
 class FLBerechtigungAbgleichResponse(BaseAPIResponse):
     # Null together, exactly where nothing was claimed.
     beanspruchung: str | None
-    beansprucht_bis: datetime | None
+    beansprucht_bis: FLUtcInstant | None
     aenderungen: list[FLBerechtigungAenderung]
     # Every live, unbarred holder now; a removed address is read off its change's `vorher`.
     empfaenger: list[str]
