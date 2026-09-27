@@ -1,7 +1,9 @@
 # FRONTEND · the site image
 
-# The OS layer the build and the runtime share, so anything added here ships in the image. Tag and
-# digest, which Dependabot moves together (`docs/ops/spec.md` §1.1).
+# The OS layer the build and the runtime share, so anything added here ships in the image.
+
+# The tag names the Node `package.json :: devEngines` pins (`docs/ops/spec.md :: I511`), and
+# Dependabot moves it together with the digest (`docs/ops/spec.md` §1.1).
 FROM node:26.10.0-alpine3.24@sha256:0b36e8c136b94cd4fcf02188228e76c31ad5872eef3fec8cbd2eee500cfd9e80 AS base
 
 # libc6-compat for Alpine's native C binaries (SWC while building, image optimization while
@@ -15,6 +17,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # 57 MB of installer no CMD invokes, and CI/PNPM_HOME are build-time answers that have no business
 # in a production process environment.
 FROM base AS toolchain
+# `package.json :: packageManager` names the same pnpm (`docs/ops/spec.md :: I512`).
 ARG PNPM_VERSION=11.27.1
 
 RUN npm install -g pnpm@${PNPM_VERSION}

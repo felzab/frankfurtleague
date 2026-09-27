@@ -516,6 +516,12 @@
 # 2026-09-26 on a sixteen-core Windows machine running nothing else. Each is a chunk far shorter
 # than the suite's longest.
 #
+# `scripts` gained three steps in `scripts/gate/selfcheck.sh`, holding the Node, the pnpm and the
+# Python series an image bakes in to the ones the checkout declares. Their six reads took 198-252 ms
+# a run against 2 ms for an empty loop, five interleaved rounds of twenty runs, measured locally on
+# 2026-09-27 on a sixteen-core Windows machine carrying a fleet of agent sessions, so an upper bound
+# on a runner's cost. The budget does not move and takes no new stamp.
+#
 # `format` restores prettier's cache on a runner, under a key carrying the lockfile, every frontend
 # stylesheet and the commit (`.github/workflows/verify.yml`, the format job). The scope took 21 s
 # from an empty cache against 9.1-9.3 s warm, and prettier alone 18.2-19.1 s against 6.4-6.6 s; a

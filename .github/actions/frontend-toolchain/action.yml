@@ -65,8 +65,8 @@ runs:
       env:
         pnpm_config_store_dir: ${{ runner.temp }}/pnpm-store
       with:
-        # The image pins pnpm again at `fl_frontend/Dockerfile :: ARG PNPM_VERSION`; nothing compares
-        # them, so bump both.
+        # The image pins pnpm again at `fl_frontend/Dockerfile :: ARG PNPM_VERSION`, which
+        # `docs/ops/spec.md :: I512` holds to `packageManager`, so a bump moves both.
         working-directory: fl_frontend
         # Never its own store cache: that saves under a key unique to each job of each run, so every
         # job uploads the whole store whatever it restored. The steps around this one cache it.

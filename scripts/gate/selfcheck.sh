@@ -936,6 +936,54 @@ else
   info "uv ${UV_PIN} in the manifest and the image"
 fi
 
+step "16. The Node version is one number in two files"
+# pnpm downloads the pinned Node for the checkout and CI, and the image runs its base's own, so a
+# bot moving the tag alone ships a Node no test ran on (`docs/ops/spec.md :: I511`).
+
+# Scoped to `devEngines` then `runtime`: the manifest's own top-level `version` names the package.
+NODE_PIN="$(awk '
+  /"devEngines"[[:space:]]*:/ { dev = 1 }
+  dev && /"runtime"[[:space:]]*:/ { runtime = 1 }
+  runtime && match($0, /"version"[[:space:]]*:[[:space:]]*"[^"]*"/) {
+    pin = substr($0, RSTART, RLENGTH); sub(/^"version"[[:space:]]*:[[:space:]]*"/, "", pin); sub(/"$/, "", pin)
+    print pin; exit
+  }
+' fl_frontend/package.json)"
+NODE_TAG="$(sed -n 's|^FROM node:\([0-9][^-@ ]*\)[-@ ].*|\1|p' fl_frontend/Dockerfile)"
+if [[ -z "$NODE_PIN" || -z "$NODE_TAG" ]]; then
+  note_fail "could not read the Node version from both files — devEngines '${NODE_PIN:-none}', image tag '${NODE_TAG:-none}'"
+elif [[ "$NODE_PIN" != "$NODE_TAG" ]]; then
+  note_fail "fl_frontend/package.json pins Node ${NODE_PIN} and fl_frontend/Dockerfile builds on ${NODE_TAG}; move the one the bot left behind, and the lockfile with the manifest (pnpm install)"
+else
+  info "Node ${NODE_PIN} in the manifest and the image"
+fi
+
+step "17. The pnpm version is one number in two files"
+# Nothing moves either by itself (`.github/dependabot.yml`), so a hand bump of one installs the image
+# with a pnpm the lockfile was never written by (`docs/ops/spec.md :: I512`).
+PNPM_PIN="$(sed -n 's/^[[:space:]]*"packageManager":[[:space:]]*"pnpm@\([0-9][^"+]*\).*/\1/p' fl_frontend/package.json)"
+PNPM_ARG="$(sed -n 's/^ARG PNPM_VERSION=\([^[:space:]]*\).*/\1/p' fl_frontend/Dockerfile)"
+if [[ -z "$PNPM_PIN" || -z "$PNPM_ARG" ]]; then
+  note_fail "could not read the pnpm version from both files — packageManager '${PNPM_PIN:-none}', PNPM_VERSION '${PNPM_ARG:-none}'"
+elif [[ "$PNPM_PIN" != "$PNPM_ARG" ]]; then
+  note_fail "fl_frontend/package.json names pnpm ${PNPM_PIN} and fl_frontend/Dockerfile installs ${PNPM_ARG}; bump both"
+else
+  info "pnpm ${PNPM_PIN} in the manifest and the image"
+fi
+
+step "18. The Python series is one number in two files"
+# The file names a series and the tag a release inside it, so the tag's leading numbers are compared:
+# every CI job's interpreter comes from the file, and production's from the tag (`docs/ops/spec.md :: I513`).
+PY_PIN="$(sed -n '1s/^\([0-9][0-9.]*\)[[:space:]]*$/\1/p' fl_backend/.python-version)"
+PY_TAG="$(sed -n 's|^FROM python:\([0-9][^-@ ]*\)[-@ ].*|\1|p' fl_backend/Dockerfile)"
+if [[ -z "$PY_PIN" || -z "$PY_TAG" ]]; then
+  note_fail "could not read the Python version from both files — .python-version '${PY_PIN:-none}', image tag '${PY_TAG:-none}'"
+elif [[ "$PY_TAG" != "$PY_PIN" && "$PY_TAG" != "${PY_PIN}."* ]]; then
+  note_fail "fl_backend/.python-version names Python ${PY_PIN} and fl_backend/Dockerfile runs ${PY_TAG}, outside it; CI and the virtualenv test a Python production does not run"
+else
+  info "Python ${PY_TAG} in the image, inside the ${PY_PIN} the repository pins"
+fi
+
 # The only thing that tells a run with nothing to report from one that stopped reporting.
 if [[ -n "${FL_SELFCHECK_LEDGER:-}" ]]; then
   printf 'end\t%s\n' "$LEDGERED" >> "$FL_SELFCHECK_LEDGER"

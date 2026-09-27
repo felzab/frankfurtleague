@@ -56,7 +56,8 @@ updates:
 
   # Dependabot reads pnpm-lock.yaml natively. `packageManager` and `engines.pnpm` pin pnpm itself
   # and are deliberately unmanaged -- bumping the package manager is a decision, not a routine
-  # update.
+  # update, and `fl_frontend/Dockerfile :: ARG PNPM_VERSION` moves with it
+  # (`docs/ops/spec.md :: I512`).
   - package-ecosystem: npm
     directory: /fl_frontend
     schedule:
@@ -104,6 +105,10 @@ updates:
 
   # Each `FROM` names a tag and its digest (`docs/ops/spec.md` §1.1), and this ecosystem rewrites the
   # two together; the compose ecosystem below does the same for every image either stack names.
+
+  # It moves the tag alone, so its pull request for a new Node, or for a Python outside the series
+  # `fl_backend/.python-version` names, stays red until that pin moves on the same branch
+  # (`docs/ops/spec.md :: I511`, `:: I513`).
   - package-ecosystem: docker
     directory: /fl_frontend
     schedule:

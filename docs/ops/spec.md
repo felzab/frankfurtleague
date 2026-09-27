@@ -48,12 +48,21 @@ the digest, the registry's multi-platform index, so a tag rebuilt or repointed u
 nothing here until a pull request moves it, while the tag is what `.github/dependabot.yml`'s
 `docker` and `docker-compose` ecosystems compare to propose the next pair; the two scripts' pins
 move by hand, no ecosystem reading a shell string. **Each tag names the exact release its digest
-is**, the runtime bases included, whose series `fl_backend/.python-version` and
-`fl_frontend/package.json`'s `engines` pin: a series tag (`mongo:8`) is a label no reader can hold to
-one release. `local.sh`'s
+is**, the runtime bases included: a series tag (`mongo:8`) is a label no reader can hold to one
+release. `local.sh`'s
 copy and the backend's database test tier run the local stack's own mongo, digest included, so a
 `docker-compose` update moving the stack alone fails. `scripts/tests/test_image_pins.py` holds every
 such reference to that form, and the copy and the tier to the stack (I367).
+
+**The toolchain an image bakes in is the one the checkout declares**, so what CI tested is what
+production runs. The frontend base's Node is the release `fl_frontend/package.json :: devEngines`
+pins, which pnpm downloads for every checkout and CI job while the image's install passes
+`--no-runtime` and keeps its base's own (I511); the frontend image's pnpm is `packageManager`'s
+(I512); and the backend base's Python lies inside the series `fl_backend/.python-version` pins,
+which every CI job's interpreter comes from (I513). Dependabot's `docker` ecosystem moves a tag
+alone, so its pull request for a new Node, or for a Python outside that series, is refused by
+`scripts/gate/selfcheck.sh` until the pin moves on the same branch — for Node, with the lockfile
+`pnpm install` rewrites.
 
 **The digest alone decides what runs, and nothing checks the tag against it.** An official image is
 rebuilt under the same tags whenever the image it is built `FROM` is refreshed
@@ -1281,6 +1290,9 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I508 | Every credential reaches a service as a Compose file secret, held by exactly the services that read it, from its own file under `secrets/`                                     | `scripts/checks/check_compose_model.py :: secret_holders` over `:: SECRET_HOLDERS`, the local stack's database URI the tracked `local-stack/mongodb_uri`                                                                                                                                                |
 | I509 | No service's `environment:` names a value a secret file holds, in any letter case                                                                                              | `scripts/checks/check_compose_model.py :: moved_names`, over the models `docker compose config` renders                                                                                                                                                                                                 |
 | I510 | Before containers start, each application service's container finds its secret files present, readable and not blank, and the backend's builds its settings, printing no value | `scripts/lib/_lib.sh :: check_secret_files` and `:: check_backend_boot_config`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh`; `scripts/tests/test_deploy_streams.py`                                                                                                                    |
+| I511 | The frontend image's `FROM node:` tag names the release `fl_frontend/package.json :: devEngines` pins, the Node every checkout and CI job runs                                 | `scripts/gate/selfcheck.sh :: "The Node version is one number in two files"`                                                                                                                                                                                                                            |
+| I512 | The frontend image installs with the pnpm `fl_frontend/package.json :: packageManager` names                                                                                   | `scripts/gate/selfcheck.sh :: "The pnpm version is one number in two files"`                                                                                                                                                                                                                            |
+| I513 | The backend image's `FROM python:` tag lies inside the series `fl_backend/.python-version` pins, which every CI job's interpreter comes from                                   | `scripts/gate/selfcheck.sh :: "The Python series is one number in two files"`                                                                                                                                                                                                                           |
 
 ## 3. Violation → remedy
 
@@ -1347,3 +1359,4 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | A guard the database tier stays green without                     | Narrowed — dropping `session=` at `judge_and_write_the_rules` turns `--db` (§1.6) red; which other callbacks no case drives is [`docs/backend/spec.md`](../backend/spec.md) §4's                   |
 | The linter behind §1.4's compensating control is past end of life | Open — `fl_frontend/package.json` holds eslint at a line taking no further fix, and both §1.4's `react/no-danger` control and `--frontend`'s lint step run on it                                   |
 | The edge's declared state is enforced by nothing here             | Accepted — §1.8 records what the Cloudflare dashboard holds, and no gate check, deploy step or test can read any of it                                                                             |
+| CI's Python can be another patch release than the image's         | Accepted — `actions/setup-python` resolves the series `fl_backend/.python-version` names, while the image holds the release its tag names until Dependabot moves it (I513)                         |
