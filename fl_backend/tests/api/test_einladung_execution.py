@@ -23,6 +23,7 @@ from app.api.sperrliste.services import SPERRLISTE_SCHLUESSEL_VERSION, adresse_h
 from app.api.teams.admin_router import delete_einladung, get_einladung, post_einladung
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_team_document
@@ -171,6 +172,7 @@ async def mint(database: AsyncDatabase, team_id: ObjectId, *, saison_id: str = S
         db=database.client,
         erstellt_von=ADMIN,
         today=TODAY,
+        actor=FRESH_ADMIN_ACTOR,
     )
 
 

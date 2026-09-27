@@ -5,7 +5,7 @@ TESTS · the refusals a dependency answers before any handler, probed on every o
 so the table is held against what a request actually meets: every operation is asked without a key,
 with a wrong one, with its own and no actor, with its own and an administrator, with its own and an
 actor who is none, with its own and a forged actor, and with its own and an administrator signed in
-past the enrolment window, against an application holding no database, where each dependency
+past the step-up window, against an application holding no database, where each dependency
 answers before the handler runs.
 """
 
@@ -20,9 +20,8 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from app.core.exceptions import BaseAPIException, DocumentNotFoundException, WriteRefusalException
-from app.core.security import ACTOR_HEADER, verify_access_admin, verify_access_base, verify_access_system
+from app.core.security import ACTOR_HEADER, STEP_UP_WINDOW_S, verify_access_admin, verify_access_base, verify_access_system
 from app.main import DEPENDENCY_REFUSALS, create_app, dependency_refusals
-from app.shared.schemas.bounds import ENROLMENT_WINDOW_MINUTES
 from tests.actor_tokens import FOREIGN_SIGNING_KEY, SignedActor, actor_claims, sign
 from tests.config import ADMIN_KEY, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes, declared, module_of, parsed
@@ -42,11 +41,11 @@ FORGED_ACTOR = {ACTOR_HEADER: sign(actor_claims("admin@example.com"), private_ke
 
 
 class _StaleActor(Mapping[str, str]):
-    """An administrator whose passkey sign-in is past the enrolment window and inside the administrator's, signed when read."""
+    """An administrator whose passkey sign-in is past the step-up window, the wider of two, inside the administrator's; signed when read."""
 
     def __getitem__(self, name: str) -> str:
         claims = actor_claims("admin@example.com")
-        return sign({**claims, "auth_time": claims["iat"] - ENROLMENT_WINDOW_MINUTES * 60 - 1}) if name == ACTOR_HEADER else {}[name]
+        return sign({**claims, "auth_time": claims["iat"] - STEP_UP_WINDOW_S - 1}) if name == ACTOR_HEADER else {}[name]
 
     def __iter__(self) -> Iterator[str]:
         return iter((ACTOR_HEADER,))
@@ -177,11 +176,24 @@ def test_every_raise_of_a_protocol_refusal_sits_in_a_dependency_the_table_names_
         (module_of(route.endpoint), route.endpoint.__name__) for route in api_routes(APP) if route.responses
     }
 
+    # A handler's transaction callback is the handler's own path: a refusal it raises aborts the
+    # transaction and answers at the status the handler declares.
+    callbacks = {
+        id(nested)
+        for path in sorted(APP_ROOT.rglob("*.py"))
+        for function in ast.walk(parsed(path))
+        if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)) and (path, function.name) in answering
+        for nested in ast.walk(function)
+        if nested is not function and isinstance(nested, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+
     stray = [
         f"{path.relative_to(BACKEND_ROOT).as_posix()}:{node.lineno}"
         for path in sorted(APP_ROOT.rglob("*.py"))
         for function in ast.walk(parsed(path))
-        if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)) and (path, function.name) not in answering
+        if isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and (path, function.name) not in answering
+        and id(function) not in callbacks
         for node in _own_nodes(function)
         if isinstance(node, ast.Raise)
         and isinstance(node.exc, ast.Call)

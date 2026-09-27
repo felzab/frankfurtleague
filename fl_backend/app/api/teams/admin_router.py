@@ -59,6 +59,7 @@ from app.api.teams.services import (
     find_retire_refusal,
     has_taken_place,
 )
+from app.core.actor_token import ActorClaims
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -84,8 +85,20 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
+from app.core.exceptions import ActorConfirmationRequiredException
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin
+from app.core.security import (
+    CONFIRMATION_REQUIRED,
+    CONFIRMATION_REQUIRED_RESPONSE,
+    STEP_UP_WINDOW_S,
+    bind_actor,
+    confirmed_before,
+    get_actor_email,
+    verify_access_admin,
+    verify_actor_is_admin,
+    verify_admin_actor,
+    verify_step_up,
+)
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
@@ -355,6 +368,7 @@ async def reactivate_team(
     status_code=201,
     summary="Enter a team into a season",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def post_saison_team(
     team_id: CustomRouteObjectId,
@@ -535,7 +549,7 @@ async def patch_saison_team(
     f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte",
     response_model=FLPatchSaisonTeamKontakteResponse,
     summary="Rewrite a team's season contacts, and nothing else on the row",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={401: CONFIRMATION_REQUIRED_RESPONSE, 404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_saison_team_kontakte(
     team_id: CustomRouteObjectId,
@@ -543,18 +557,23 @@ async def patch_saison_team_kontakte(
     kontakte_data: Annotated[FLPatchSaisonTeamKontaktePayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
     db: DBClient,
+    actor: Annotated[ActorClaims, Depends(verify_admin_actor)],
 ) -> FLPatchSaisonTeamKontakteResponse:
     """
     Rewrite the three people this team is reached through for one season. Null clears the block.
 
     Its own endpoint so the contacts editor and the club editor cannot clobber one row. The one
-    refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served
+    rule's refusal is `REQ-KONTAKT-001`: the body echoes back the `kontakte_stand` its caller was served
     beside the block, and a row whose block answers to another token is refused rather than
-    overwritten, an erasure between the caller's read and this write being what moves it. A `past`
-    season's contacts stay correctable. Each seat's `erfasst_von` and `bestaetigt_am` are the
-    server's: a seat the same address confirmed keeps both, and every other seat is stored as entered
-    administratively.
+    overwritten, an erasure between the caller's read and this write being what moves it. A clearing,
+    which nothing restores, is refused `REQ-AUTH-009` from a sign-in or confirmation older than
+    `STEP_UP_WINDOW_HOURS`. A `past` season's contacts stay correctable. Each seat's `erfasst_von` and
+    `bestaetigt_am` are the server's: a seat the same address confirmed keeps both, and every other seat
+    is stored as entered administratively.
     """
+
+    if kontakte_data.kontakte is None and confirmed_before(actor, STEP_UP_WINDOW_S):
+        raise ActorConfirmationRequiredException(error_code=CONFIRMATION_REQUIRED, max_age_s=STEP_UP_WINDOW_S, jti=actor.jti)
 
     db_filter = {"team_id": team_id, "saison_id": saison_id}
     payload = kontakte_data.model_dump(mode="json")
@@ -599,6 +618,7 @@ async def patch_saison_team_kontakte(
     response_model=FLReplaceSaisonTeamResponse,
     summary="Replace a club in a season, keeping its schedule",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def replace_saison_team(
     team_id: CustomRouteObjectId,
@@ -737,7 +757,7 @@ async def replace_saison_team(
     response_model=FLEinladungMintResponse,
     status_code=201,
     summary="Mint this team's registration link for a season",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={401: CONFIRMATION_REQUIRED_RESPONSE, 404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_einladung(
     team_id: CustomRouteObjectId,
@@ -746,6 +766,7 @@ async def post_einladung(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
+    actor: Annotated[ActorClaims, Depends(verify_admin_actor)],
     erstellt_von: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
 ) -> FLEinladungMintResponse:
@@ -764,6 +785,9 @@ async def post_einladung(
 
     **A team that has left the season still mints here**, where the season-wide send passes it over: this call names one team an
     administrator is looking at, and a squad row and a contact correction are accepted for such a team too.
+
+    A mint voiding a live link is refused `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`, and
+    writes nothing; a team's first link is not.
     """
 
     # Outside the callback: `with_transaction` may run it again, and a fresh value per attempt would
@@ -784,12 +808,16 @@ async def post_einladung(
 
         # `patch_many_in_db` where at most one row can match: holding no live invitation is the state
         # every team starts in, and the single-document helper answers that with a 404.
-        await patch_many_in_db(
+        widerrufen = await patch_many_in_db(
             collection=einladungen_collection,
             db_filter=build_live_team_filter(saison_id=saison_id, team_id=team_id),
             update=compose_widerruf_update(today=today),
             session=session,
         )
+        # Judged on what this transaction voided, which aborts with the refusal: only a link somebody
+        # holds makes the mint a step-up write.
+        if widerrufen.modified_count and confirmed_before(actor, STEP_UP_WINDOW_S):
+            raise ActorConfirmationRequiredException(error_code=CONFIRMATION_REQUIRED, max_age_s=STEP_UP_WINDOW_S, jti=actor.jti)
 
         document = compose_einladung(
             saison_id=saison_id,
@@ -822,6 +850,7 @@ async def post_einladung(
     response_model=FLEinladungWriteResponse,
     summary="Revoke this team's live registration link for a season",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def delete_einladung(
     team_id: CustomRouteObjectId,

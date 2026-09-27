@@ -14,6 +14,7 @@ from app.api.spielorte.schemas import FLPatchSpielortPayload, FLPatchSpielortRes
 from app.api.teams.admin_router import patch_team
 from app.api.teams.schemas import FLPatchTeamPayload, FLPatchTeamResponse
 from app.core.collections import Collection
+from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, saison_document, saison_team_document, spiel_document, team_document
@@ -282,6 +283,7 @@ async def rename_the_referee(
         db=client,
         config=CONFIG,
         today=TODAY,
+        actor=FRESH_ADMIN_ACTOR,
     )
 
 

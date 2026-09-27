@@ -39,7 +39,7 @@ from app.core.dependencies import (
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin
+from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -210,7 +210,11 @@ async def post_sperrliste_eintrag(
 
 
 @router.delete(
-    by_id("sperrliste_id"), response_model=FLSperrlisteWriteResponse, summary="Lift a ban", responses={404: DOCUMENT_NOT_FOUND_RESPONSE}
+    by_id("sperrliste_id"),
+    response_model=FLSperrlisteWriteResponse,
+    summary="Lift a ban",
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def delete_sperrliste_eintrag(
     sperrliste_id: CustomRouteObjectId,

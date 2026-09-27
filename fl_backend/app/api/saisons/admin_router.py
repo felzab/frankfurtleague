@@ -63,6 +63,7 @@ from app.api.teams.services import (
     fixtures_newly_fielding_a_departed_club,
     has_taken_place,
 )
+from app.core.actor_token import ActorClaims
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -91,9 +92,20 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.exception_handlers import DATABASE_FAILED, DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, UNKNOWN_OUTCOME
-from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
+from app.core.exceptions import DOCUMENT_NOT_FOUND, ActorConfirmationRequiredException, DocumentNotFoundException
 from app.core.logging import fl_logger
-from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin
+from app.core.security import (
+    CONFIRMATION_REQUIRED,
+    CONFIRMATION_REQUIRED_RESPONSE,
+    STEP_UP_WINDOW_S,
+    bind_actor,
+    confirmed_before,
+    get_actor_email,
+    verify_access_admin,
+    verify_actor_is_admin,
+    verify_admin_actor,
+    verify_step_up,
+)
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 router = APIRouter(
@@ -227,7 +239,14 @@ async def get_saisons_for_admin(saisons_collection: SaisonsCollection, filters: 
     return FLSaisonsListResponse(saisons=FLSaisonListAdapter.validate_python([with_schedule(raw) for raw in saisons_raw]))
 
 
-@router.post("", response_model=FLPostSaisonResponse, status_code=201, summary="Create a Saison", responses={409: DUPLICATE_KEY_RESPONSE})
+@router.post(
+    "",
+    response_model=FLPostSaisonResponse,
+    status_code=201,
+    summary="Create a Saison",
+    responses={409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
+)
 async def post_saison(
     saison_data: Annotated[FLPostSaisonPayload, Body()],
     saisons_collection: SaisonsCollection,
@@ -470,6 +489,7 @@ async def patch_saison(
     response_model=FLActivateSaisonResponse,
     summary="Make this the active Saison",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def activate_saison(
     saison_id: str,
@@ -761,7 +781,7 @@ async def swap_gruppen(
     response_model=FLGenerateSpielplanResponse,
     status_code=201,
     summary="Draw this Saison's Spielplan",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={401: CONFIRMATION_REQUIRED_RESPONSE, 404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def generate_spielplan(
     saison_id: str,
@@ -770,6 +790,7 @@ async def generate_spielplan(
     spiele_collection: SpieleCollection,
     spieltage_collection: SpieltageCollection,
     db: DBClient,
+    actor: Annotated[ActorClaims, Depends(verify_admin_actor)],
     # An absent body is `replace: false`, so a first draw needs no confirmation and nothing replaces
     # a season by leaving the flag out.
     spielplan_data: Annotated[FLGenerateSpielplanPayload, Body(default_factory=FLGenerateSpielplanPayload)],
@@ -779,8 +800,12 @@ async def generate_spielplan(
     Draw the whole season at once: every matchday and every fixture, undated, in one transaction.
 
     `shape` states the three rules the fixtures come out of, and is stored with them. `replace`
-    deletes both lists first, inside `REQ-SPIELPLAN-005`'s window.
+    deletes both lists first, inside `REQ-SPIELPLAN-005`'s window, and is refused `REQ-AUTH-009` from a sign-in or confirmation
+    older than `STEP_UP_WINDOW_HOURS`: nothing writes the removed rows back.
     """
+
+    if spielplan_data.replace and confirmed_before(actor, STEP_UP_WINDOW_S):
+        raise ActorConfirmationRequiredException(error_code=CONFIRMATION_REQUIRED, max_age_s=STEP_UP_WINDOW_S, jti=actor.jti)
 
     # A read first, so an unknown season is a 404 rather than a refusal about what it does not hold.
     await pull_one_from_db(collection=saisons_collection, db_filter={"_id": saison_id}, projection=["_id"])
@@ -970,6 +995,7 @@ async def generate_spielplan(
     response_model=FLUndrawSpielplanResponse,
     summary="Undraw this Saison's Spielplan",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def undraw_spielplan(
     saison_id: str,
@@ -1261,6 +1287,7 @@ async def preview_einladungen_versand(
     response_model=FLEinladungVersandResponse,
     summary="Mint every admitted team a link",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def post_einladungen_versand(
     saison_id: str,

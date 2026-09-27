@@ -122,6 +122,8 @@ MIRRORED_BOUNDS: Final = (
     # The window a grant, a revoke and a tier change are asked for, which the backend refuses a sign-in
     # older than: a tighter backend refuses a write its own page admitted.
     Mirror("core/sessionLifetimes.ts", "ENROLMENT_WINDOW_MS", "ENROLMENT_WINDOW_MINUTES", scale=60 * 1000),
+    # The same for every other step-up write, which the backend refuses from a sign-in older than it.
+    Mirror("core/sessionLifetimes.ts", "STEP_UP_WINDOW_MS", "STEP_UP_WINDOW_HOURS", scale=60 * 60 * 1000),
 )
 
 # Every integer `bounds.py` declares that no frontend module retypes, with why none does. A bound in

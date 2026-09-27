@@ -61,7 +61,7 @@ from app.core.dependencies import (
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
-from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin
+from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_step_up
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -86,6 +86,7 @@ _KEIN_ENTSCHEIDER_GESPERRT: Final[frozenset[str]] = frozenset()
     response_model=FLAnnehmenBewerbungResponse,
     summary="Accept a Bewerbung and enter the school into the season",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def annehmen_bewerbung(
     bewerbung_id: CustomRouteObjectId,
@@ -242,6 +243,7 @@ async def annehmen_bewerbung(
     response_model=FLAblehnenBewerbungResponse,
     summary="Decline a Bewerbung",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def ablehnen_bewerbung(
     bewerbung_id: CustomRouteObjectId,
@@ -287,6 +289,7 @@ async def ablehnen_bewerbung(
     response_model=FLBewerbungEinwilligungErneutResponse,
     summary="Re-send one seat's confirmation link",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def erneut_einwilligung(
     bewerbung_id: CustomRouteObjectId,
@@ -406,6 +409,7 @@ async def erneut_einwilligung(
     response_model=FLBewerbungKontaktEmailResponse,
     summary="Correct one contact person's email address and re-send their link",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def korrigiere_kontakt_email(
     bewerbung_id: CustomRouteObjectId,
@@ -498,6 +502,7 @@ async def korrigiere_kontakt_email(
     response_model=FLBewerbungKontaktSitzResponse,
     summary="Seat another person where a contact person stepped out",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def besetze_kontakt_sitz(
     bewerbung_id: CustomRouteObjectId,

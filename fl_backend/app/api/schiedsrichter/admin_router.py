@@ -41,9 +41,11 @@ from app.api.schiedsrichter.services import (
     find_retired_refusal,
     first_stamped,
     owes_reactivation_mint,
+    save_moves_the_link,
 )
 from app.api.sperrliste.crud import address_is_gesperrt
 from app.api.sperrliste.services import adresse_hash
+from app.core.actor_token import ActorClaims
 from app.core.collections import Collection
 from app.core.config import API_VERSION, BackendConfig, get_app_config
 from app.core.crud import (
@@ -68,9 +70,20 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
+from app.core.exceptions import ActorConfirmationRequiredException
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.routing import by_id
-from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
+from app.core.security import (
+    CONFIRMATION_REQUIRED,
+    CONFIRMATION_REQUIRED_RESPONSE,
+    STEP_UP_WINDOW_S,
+    bind_actor,
+    confirmed_before,
+    verify_access_admin,
+    verify_actor_is_admin,
+    verify_admin_actor,
+    verify_step_up,
+)
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.custom import CustomRouteObjectId
 
@@ -86,6 +99,7 @@ router = APIRouter(
     status_code=201,
     summary="Create a Schiedsrichter",
     responses={409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def post_schiedsrichter(
     schiedsrichter_data: Annotated[FLPostSchiedsrichterPayload, Body()],
@@ -157,7 +171,7 @@ async def post_schiedsrichter(
     by_id("schiedsrichter_id"),
     response_model=FLPatchSchiedsrichterResponse,
     summary="Update a Schiedsrichter and fan the change out",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={401: CONFIRMATION_REQUIRED_RESPONSE, 404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -168,6 +182,7 @@ async def patch_schiedsrichter(
     saisons_collection: SaisonsCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
+    actor: Annotated[ActorClaims, Depends(verify_admin_actor)],
     today: str = Depends(get_german_date_str),
 ) -> FLPatchSchiedsrichterResponse:
     """
@@ -183,7 +198,8 @@ async def patch_schiedsrichter(
 
     **A RETIRED referee's corrected address is stored and mails nothing**: no consent is collected for
     a role nobody gives them. Their old link is retired all the same, and the reactivation mints the
-    fresh one. Where a fresh link is minted, a banned new address is refused `REQ-SCHIEDSRICHTER-007`.
+    fresh one. Where a fresh link is minted, a banned new address is refused `REQ-SCHIEDSRICHTER-007`. A save retiring or
+    replacing a link is refused `REQ-AUTH-009` from a sign-in or confirmation older than `STEP_UP_WINDOW_HOURS`.
 
     The ghost answers 404 here as it does to every read: a name written onto it would appear on the
     fixtures of every referee already erased.
@@ -208,6 +224,8 @@ async def patch_schiedsrichter(
             projection={"kontakt.email": 1, EINWILLIGUNG_FELD: 1, "inactive_since": 1},
             session=session,
         )
+        if save_moves_the_link(stored=stored, payload_email=email) and confirmed_before(actor, STEP_UP_WINDOW_S):
+            raise ActorConfirmationRequiredException(error_code=CONFIRMATION_REQUIRED, max_age_s=STEP_UP_WINDOW_S, jti=actor.jti)
         update, minted = compose_korrektur_update(stored=stored, payload=payload, payload_email=email, token_hash=token_hash, today=today)
 
         # The season is NOT a condition here: it is `None` while no season is running, and the
@@ -312,7 +330,7 @@ async def delete_schiedsrichter(
     f"{by_id('schiedsrichter_id')}/reactivate",
     response_model=FLSchiedsrichterReactivateResponse,
     summary="Bring a deactivated Schiedsrichter back",
-    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={401: CONFIRMATION_REQUIRED_RESPONSE, 404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def reactivate_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -321,6 +339,7 @@ async def reactivate_schiedsrichter(
     saisons_collection: SaisonsCollection,
     db: DBClient,
     config: Annotated[BackendConfig, Depends(get_app_config)],
+    actor: Annotated[ActorClaims, Depends(verify_admin_actor)],
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterReactivateResponse:
     """Clear `inactive_since`, putting the referee back into the picker and every default read.
@@ -329,7 +348,8 @@ async def reactivate_schiedsrichter(
     to mail: a retired referee's save stores a new address and mails nothing, so coming back is what
     asks them. A row holding no address a link can go to comes back unasked, and so does one whose
     person has answered. Where a link is minted, an address on the ban list is refused
-    `REQ-SCHIEDSRICHTER-007` and the row stays retired.
+    `REQ-SCHIEDSRICHTER-007` and the row stays retired, and one from a sign-in or confirmation older than
+    `STEP_UP_WINDOW_HOURS` is refused `REQ-AUTH-009`.
 
     The ghost answers 404 here too: cleared on it, the picker would offer a bookable row with no
     person behind it.
@@ -351,6 +371,8 @@ async def reactivate_schiedsrichter(
         email = str((stored.get("kontakt") or {}).get("email")) if owes_reactivation_mint(stored=stored) else None
 
         if email is not None:
+            if confirmed_before(actor, STEP_UP_WINDOW_S):
+                raise ActorConfirmationRequiredException(error_code=CONFIRMATION_REQUIRED, max_age_s=STEP_UP_WINDOW_S, jti=actor.jti)
             gesperrt = await address_is_gesperrt(
                 sperrliste_collection=sperrliste_collection,
                 adresse_hash=adresse_hash(email, schluessel=config.sperrliste_schluessel),
@@ -389,6 +411,7 @@ async def reactivate_schiedsrichter(
     response_model=FLSchiedsrichterMintResponse,
     summary="Send a Schiedsrichter a fresh confirmation link",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def einladen_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -478,6 +501,7 @@ async def einladen_schiedsrichter(
     response_model=FLSchiedsrichterWriteResponse,
     summary="Anonymise a Schiedsrichter",
     responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    dependencies=[Depends(verify_step_up)],
 )
 async def anonymise_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,

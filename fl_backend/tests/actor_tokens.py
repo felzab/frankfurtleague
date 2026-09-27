@@ -19,7 +19,7 @@ import jwt
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-from app.core.actor_token import Lane, jwk_thumbprint
+from app.core.actor_token import ActorClaims, Lane, jwk_thumbprint
 from app.core.security import ACTOR_HEADER
 
 ACTOR_TOKEN_CONTRACT_PATH: Final = Path(__file__).resolve().parent / "shared" / "actor_token_contract.json"
@@ -43,7 +43,7 @@ FOREIGN_SIGNING_KEY = Ed25519PrivateKey.generate()
 SESSION_AGE_S = 60
 
 
-def actor_claims(email: str, *, lane: Lane = "admin") -> dict[str, Any]:
+def actor_claims(email: str, *, lane: Lane = "admin", signed_in_before_s: int = SESSION_AGE_S) -> dict[str, Any]:
     """Every claim the contract requires, as a session of `lane`'s guard would carry them: an administrator's by passkey, a person's by code."""
 
     now = int(time.time())
@@ -58,7 +58,7 @@ def actor_claims(email: str, *, lane: Lane = "admin") -> dict[str, Any]:
         "email": email,
         "sid": f"session-{email}",
         "amr": [admin_factor] if lane == "admin" else [next(factor for factor in ACTOR_TOKEN_CONTRACT["factors"] if factor != admin_factor)],
-        "auth_time": now - SESSION_AGE_S,
+        "auth_time": now - signed_in_before_s,
         "lane": lane,
     }
 
@@ -78,8 +78,29 @@ def sign(claims: Mapping[str, Any], *, private_key: Ed25519PrivateKey = SIGNING_
     )
 
 
-def actor_token(email: str, *, lane: Lane = "admin") -> str:
-    return sign(actor_claims(email, lane=lane))
+def actor_token(email: str, *, lane: Lane = "admin", signed_in_before_s: int = SESSION_AGE_S) -> str:
+    return sign(actor_claims(email, lane=lane, signed_in_before_s=signed_in_before_s))
+
+
+def verified_actor(email: str, *, signed_in_before_s: int = SESSION_AGE_S) -> ActorClaims:
+    """An administrator's claims as the verifier yields them, for a handler called without a request."""
+
+    claims = actor_claims(email, signed_in_before_s=signed_in_before_s)
+    return ActorClaims(
+        sub=claims["sub"],
+        email=email,
+        sid=claims["sid"],
+        amr=tuple(claims["amr"]),
+        auth_time=claims["auth_time"],
+        iat=claims["iat"],
+        lane="admin",
+        jti=claims["jti"],
+    )
+
+
+# What a handler called without a request is handed: confirmed a minute before its token, inside every
+# window a write asks for, which is judged against the token's own `iat` and so never lapses.
+FRESH_ADMIN_ACTOR = verified_actor("admin@example.com")
 
 
 class SignedActor(Mapping[str, str]):
@@ -88,13 +109,18 @@ class SignedActor(Mapping[str, str]):
     A token signed at import expires a minute into a suite whose cases were collected long before they run.
     """
 
-    def __init__(self, email: str, base: Mapping[str, str] | None = None, *, lane: Lane = "admin") -> None:
+    def __init__(
+        self, email: str, base: Mapping[str, str] | None = None, *, lane: Lane = "admin", signed_in_before_s: int = SESSION_AGE_S
+    ) -> None:
         self.email = email
         self.base = dict(base or {})
         self.lane: Lane = lane
+        self.signed_in_before_s = signed_in_before_s
 
     def __getitem__(self, name: str) -> str:
-        return actor_token(self.email, lane=self.lane) if name == ACTOR_HEADER else self.base[name]
+        if name != ACTOR_HEADER:
+            return self.base[name]
+        return actor_token(self.email, lane=self.lane, signed_in_before_s=self.signed_in_before_s)
 
     def __iter__(self) -> Iterator[str]:
         return iter((*self.base, ACTOR_HEADER))

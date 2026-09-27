@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import secrets
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from http import HTTPStatus
 from typing import Annotated, Final, get_args
 
 from fastapi import Depends, Request, Security
@@ -22,6 +23,7 @@ from app.core.actor_token import (
 )
 from app.core.config import BackendConfig, get_app_config
 from app.core.db import get_berechtigungen_collection, get_saisons_collection, get_sperrliste_collection
+from app.core.exception_handlers import refusal_response
 from app.core.exceptions import (
     ActorConfirmationRequiredException,
     ActorForbiddenException,
@@ -31,7 +33,7 @@ from app.core.exceptions import (
 )
 from app.core.recording import PUBLIC_ACTOR, SYSTEM_ACTOR, Actor, AktorFunktion, PersonActor, actor_var, request_var
 from app.shared.folding import sign_in_identifier
-from app.shared.schemas.bounds import ENROLMENT_WINDOW_MINUTES
+from app.shared.schemas.bounds import ENROLMENT_WINDOW_MINUTES, STEP_UP_WINDOW_HOURS
 from app.shared.sub_keys import derive_sub_key
 
 # Named once, as `app/core/exceptions.py` names its codes, so a test asserts the core's code rather
@@ -193,14 +195,38 @@ async def verify_actor_is_admin(
         )
 
 
+ENROLMENT_WINDOW_S: Final = ENROLMENT_WINDOW_MINUTES * 60
+STEP_UP_WINDOW_S: Final = STEP_UP_WINDOW_HOURS * 3600
+
+
+def confirmed_before(actor: ActorClaims, window_s: int) -> bool:
+    """Whether the actor's sign-in or confirmation is older than `window_s`, which `REQ-AUTH-009` refuses a write for."""
+
+    # Against `iat`, the instant the frontend's guard read the session ahead of its own check, so the two
+    # sides never disagree about a write the page admitted; the token's verified lifetime bounds the rest.
+    return actor.iat - actor.auth_time > window_s
+
+
 def verify_recent_confirmation(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> None:
     """Refuse a write the page steps up to the enrolment window from an older sign-in or confirmation (`docs/backend/spec.md :: I489`)."""
 
-    window_s = ENROLMENT_WINDOW_MINUTES * 60
-    # Against `iat`, the instant the frontend's guard read the session ahead of its own check, so the two
-    # sides never disagree about a write the page admitted; the token's verified lifetime bounds the rest.
-    if actor.iat - actor.auth_time > window_s:
-        raise ActorConfirmationRequiredException(error_code=CONFIRMATION_REQUIRED, max_age_s=window_s, jti=actor.jti)
+    if confirmed_before(actor, ENROLMENT_WINDOW_S):
+        raise ActorConfirmationRequiredException(error_code=CONFIRMATION_REQUIRED, max_age_s=ENROLMENT_WINDOW_S, jti=actor.jti)
+
+
+def verify_step_up(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> None:
+    """Refuse a write stepped up on every call from a sign-in or confirmation older than the step-up window (`docs/backend/spec.md :: I524`).
+
+    One stepped up on some calls raises the same refusal in its handler, which judges the call.
+    """
+
+    if confirmed_before(actor, STEP_UP_WINDOW_S):
+        raise ActorConfirmationRequiredException(error_code=CONFIRMATION_REQUIRED, max_age_s=STEP_UP_WINDOW_S, jti=actor.jti)
+
+
+# What a write stepped up on some calls alone publishes: a raise inside a handler is a refusal no
+# dependency walk finds (`app/main.py :: refusal_codes`).
+CONFIRMATION_REQUIRED_RESPONSE: Final = refusal_response(HTTPStatus.UNAUTHORIZED, {CONFIRMATION_REQUIRED})
 
 
 # Whether a folded identifier is on the ban list: what a person's route asks beside the token.

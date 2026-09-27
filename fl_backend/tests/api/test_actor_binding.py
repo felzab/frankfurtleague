@@ -1,6 +1,7 @@
 import asyncio
 import contextlib
 import logging
+import re
 import time
 from collections import Counter
 from collections.abc import AsyncIterator, Callable, Mapping
@@ -39,6 +40,7 @@ from app.core.security import (
     PERSON_ACTOR_BINDERS,
     PERSON_BARRED,
     SAFE_METHODS,
+    STEP_UP_WINDOW_S,
     BanLookup,
     akteur_pseudonym,
     bind_actor,
@@ -49,8 +51,9 @@ from app.core.security import (
     get_ban_lookup,
     verify_admin_actor,
     verify_person_actor,
+    verify_step_up,
 )
-from app.main import create_app
+from app.main import _dependency_calls, create_app, document_routes
 from app.shared.schemas.bounds import ENROLMENT_WINDOW_MINUTES
 from tests.actor_tokens import FOREIGN_SIGNING_KEY, SignedActor, actor_claims, actor_token, protected_header, sign
 from tests.config import ADMIN_KEY, build_test_config
@@ -613,8 +616,39 @@ def signed_in_before(age_s: int) -> dict[str, str]:
     return {**ADMIN_KEY, ACTOR_HEADER: sign({**claims, "auth_time": claims["iat"] - age_s})}
 
 
+# Every write the page steps up on every call: nothing reverses it, or it mints or voids a link to an
+# address. Listed, and held to the declarations by the case below.
+STEP_UP_WRITES = [
+    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/annehmen", id="an acceptance"),
+    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/ablehnen", id="a decline"),
+    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/einwilligung/{seat}/erneut", id="a seat's re-send"),
+    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}/email", id="a seat's address correction"),
+    pytest.param("post", "/api/v0/bewerbungen/{bewerbung_id}/kontakte/{seat}", id="a reseat"),
+    pytest.param("post", "/api/v0/kontakte/erasure", id="a contact person's erasure"),
+    pytest.param("post", "/api/v0/saisons", id="a season's creation"),
+    pytest.param("post", "/api/v0/saisons/{saison_id}/activate", id="the rollover"),
+    pytest.param("delete", "/api/v0/saisons/{saison_id}/spielplan", id="the undraw"),
+    pytest.param("post", "/api/v0/saisons/{saison_id}/einladungen/versand", id="the season's invitation send"),
+    pytest.param("post", "/api/v0/schiedsrichter", id="a referee's entry"),
+    pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/bestaetigung/einladen", id="a referee's fresh link"),
+    pytest.param("post", "/api/v0/schiedsrichter/{schiedsrichter_id}/anonymisieren", id="a referee's anonymisation"),
+    pytest.param("delete", "/api/v0/sperrliste/{sperrliste_id}", id="a ban's lift"),
+    pytest.param("delete", "/api/v0/spieler/{spieler_id}/erasure", id="a player's erasure"),
+    pytest.param("post", "/api/v0/teams/{team_id}/saisons", id="a club's entry into a season"),
+    pytest.param("post", "/api/v0/teams/{team_id}/saisons/{saison_id}/replace", id="a club's replacement"),
+    pytest.param("delete", "/api/v0/teams/{team_id}/saisons/{saison_id}/einladung", id="a club's link revoked"),
+]
+# What each path parameter is filled with: an id where the route converts one, the season or the seat otherwise.
+PATH_VALUES = {"saison_id": "2026", "seat": "trainer"}
+AN_OBJECT_ID = "6890a1b2c3d4e5f607910003"
+
+
+def url_of(template: str) -> str:
+    return re.sub(r"\{(\w+)\}", lambda match: PATH_VALUES.get(match[1], AN_OBJECT_ID), template)
+
+
 class TestTheStepUpOverAServedRequest:
-    """The grants' three writes are held to the enrolment window as the page holds them, and nothing else is."""
+    """The grants' three writes are held to the enrolment window and every other step-up write to the step-up window, as the page holds them."""
 
     @pytest.mark.parametrize(("method", "path"), GRANT_WRITES)
     def test_a_write_from_an_older_sign_in_is_refused_with_rfc_9470_s_challenge(self, method: str, path: str):
@@ -634,10 +668,38 @@ class TestTheStepUpOverAServedRequest:
 
     @pytest.mark.parametrize(("method", "path"), [pytest.param("get", "/api/v0/berechtigungen", id="the list"), *WRITES])
     def test_a_route_the_page_does_not_step_up_takes_the_older_sign_in(self, method: str, path: str):
-        """Past the window and still admitted: the handler runs, and meets the database this client never opened."""
-        response = getattr(client(), method)(path, headers=signed_in_before(ENROLMENT_WINDOW_S + 1))
+        """Past both windows and still admitted: the handler runs, and meets the database this client never opened."""
+        response = getattr(client(), method)(path, headers=signed_in_before(STEP_UP_WINDOW_S + 1))
 
         assert (response.status_code, response.json()["error_code"]) == (503, UNREACHED_DATABASE)
+
+    @pytest.mark.parametrize(("method", "path"), STEP_UP_WRITES)
+    def test_a_step_up_write_from_an_older_sign_in_is_refused_with_rfc_9470_s_challenge(self, method: str, path: str):
+        response = getattr(client(), method)(url_of(path), headers=signed_in_before(STEP_UP_WINDOW_S + 1))
+
+        assert (response.status_code, response.json()["error_code"]) == (401, CONFIRMATION_REQUIRED)
+        assert response.headers["www-authenticate"] == (
+            f'{ACTOR_TOKEN_CHALLENGE} error="insufficient_user_authentication", max_age="{STEP_UP_WINDOW_S}"'
+        )
+
+    @pytest.mark.parametrize(("method", "path"), STEP_UP_WRITES)
+    def test_a_step_up_write_at_the_window_s_edge_passes_the_check(self, method: str, path: str):
+        """The control, judged at the token's `iat` as the grants' are: no write the page let through is refused here."""
+        response = getattr(client(), method)(url_of(path), headers=signed_in_before(STEP_UP_WINDOW_S))
+
+        assert response.json()["error_code"] in {UNREACHED_DATABASE, "REQ-VAL-001"}
+
+    def test_every_route_declaring_the_step_up_is_one_listed_above(self):
+        """The declarations read off the served routes, against the list: a step-up write dropping its declaration fails here."""
+
+        declared = {
+            operation
+            for route in document_routes(APP)
+            if verify_step_up in set(_dependency_calls(route.dependant))
+            for operation in route.operations
+        }
+
+        assert declared == {(param.values[1], param.values[0]) for param in STEP_UP_WRITES}
 
 
 # Obviously fake, padded to the boot's floor, and the key the pseudonym below was computed under.

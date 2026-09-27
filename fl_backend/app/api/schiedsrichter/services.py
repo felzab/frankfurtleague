@@ -438,6 +438,23 @@ def find_gesperrt_refusal(*, gesperrt: bool) -> WriteRefusal | None:
     )
 
 
+def save_moves_the_link(*, stored: Mapping[str, Any], payload_email: str) -> bool:
+    """Whether a save retires the referee's link or mints a fresh one: an unanswered referee's address moving to another mailbox.
+
+    Either is a step-up write, a link granting its holder the answer (`app/core/security.py :: verify_step_up`).
+    """
+
+    # A CONFIRMED referee keeps their link, the record being already given; the administrator tells
+    # them the address moved (`docs/ops/runbooks.md` §5).
+    if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)):
+        return False
+
+    # One inbox rather than one string: a domain has no case (RFC 5321 §2.4), so a raw compare re-mails
+    # an address nobody moved wherever the stored row and the payload spell its domain differently.
+    stored_email = (stored.get("kontakt") or {}).get("email")
+    return stored_email is None or mailbox_key(payload_email) != mailbox_key(str(stored_email))
+
+
 def compose_korrektur_update(
     *, stored: Mapping[str, Any], payload: Mapping[str, Any], payload_email: str, token_hash: str, today: str
 ) -> tuple[dict[str, Any], bool]:
@@ -447,15 +464,7 @@ def compose_korrektur_update(
     mailbox replaced; the reactivation is what asks them.
     """
 
-    # A CONFIRMED referee keeps their link, the record being already given; the administrator tells
-    # them the address moved (`docs/ops/runbooks.md` §5).
-    if is_confirmed(einwilligung=stored.get(EINWILLIGUNG_FELD)):
-        return {"$set": dict(payload)}, False
-
-    # One inbox rather than one string: a domain has no case (RFC 5321 §2.4), so a raw compare re-mails
-    # an address nobody moved wherever the stored row and the payload spell its domain differently.
-    stored_email = (stored.get("kontakt") or {}).get("email")
-    if stored_email is not None and mailbox_key(payload_email) == mailbox_key(str(stored_email)):
+    if not save_moves_the_link(stored=stored, payload_email=payload_email):
         return {"$set": dict(payload)}, False
 
     if stored.get("inactive_since") is not None:

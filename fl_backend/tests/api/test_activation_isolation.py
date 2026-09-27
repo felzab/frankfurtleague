@@ -14,6 +14,7 @@ from app.api.spiele.schemas import SONDEREREIGNIS_WITHOUT_A_RESULT
 from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
+from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_team_document
 from tests.worker import worker_database
@@ -157,6 +158,7 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, saison_id
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(),
         today=TODAY,
+        actor=FRESH_ADMIN_ACTOR,
     )
 
 

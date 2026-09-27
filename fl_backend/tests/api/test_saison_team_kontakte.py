@@ -28,6 +28,7 @@ from app.api.teams.services import (
 )
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import saison_team_document
 from tests.worker import worker_database
@@ -208,6 +209,7 @@ async def write_kontakte(
         kontakte_data=FLPatchSaisonTeamKontaktePayload.model_validate({"kontakte": kontakte, "kontakte_stand": stand}),
         saison_teams_collection=database[Collection.SAISON_TEAMS] if saison_teams_collection is None else saison_teams_collection,
         db=database.client,
+        actor=FRESH_ADMIN_ACTOR,
     )
 
 
