@@ -11,7 +11,7 @@ import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 import type { FormState } from "@/shared/types/types.ts";
 
 /** The sentence the action answers with whether or not the address is offered a code. */
-const NEUTRAL_ANSWER = "Falls zu dieser Adresse ein Zugang gehört, ist ein Anmeldecode unterwegs.";
+const NEUTRAL_ANSWER = "Falls zu dieser Adresse ein Konto gehört, ist ein Anmeldecode unterwegs.";
 
 const deferred: (() => Promise<void>)[] = [];
 let signIns = 0;

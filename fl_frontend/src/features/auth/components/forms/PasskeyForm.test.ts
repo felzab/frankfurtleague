@@ -219,8 +219,8 @@ describe("a prompt the browser did not complete", () => {
         [
           "danger",
           "Passkey nicht eingerichtet",
-          "Für diesen Zugang wurde gerade ein anderer Passkey eingerichtet. Melde Dich jetzt mit ihm an. " +
-            `Hast Du keinen zweiten eingerichtet, schreib an ${KONTAKT_EMAIL}; wir löschen dann alle Passkeys dieses Zugangs.`,
+          "Für dieses Konto wurde gerade ein anderer Passkey eingerichtet. Melde Dich jetzt mit ihm an. " +
+            `Hast Du keinen zweiten eingerichtet, schreib an ${KONTAKT_EMAIL}; wir löschen dann alle Passkeys dieses Kontos.`,
         ],
       ],
     );

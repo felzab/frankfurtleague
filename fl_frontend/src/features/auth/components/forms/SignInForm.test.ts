@@ -45,7 +45,7 @@ const { CodeStep } = await import("./CodeStep.tsx");
 
 const ADDRESS = "vorstand@example.org";
 const LANDING = "/signin/weiter";
-const NEUTRAL = "Falls zu dieser Adresse ein Zugang gehört, ist ein Anmeldecode unterwegs.";
+const NEUTRAL = "Falls zu dieser Adresse ein Konto gehört, ist ein Anmeldecode unterwegs.";
 const SENT: FormState = { success: true, message: NEUTRAL, submittedEmail: ADDRESS };
 
 /** The route's answer to one typed code, as `postPublicForm` reads it. */

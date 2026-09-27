@@ -70,7 +70,7 @@ const CODE_STEP_UP_REFUSED = "Wir konnten Dich nicht mit dem Code bestätigen.";
 const ADDRESS = "spielerin@example.org";
 
 /** The send's answer, as the sign-in's own action gives it. */
-const SENT = { success: true, message: "Falls zu dieser Adresse ein Zugang gehört, ist ein Anmeldecode unterwegs.", submittedEmail: ADDRESS };
+const SENT = { success: true, message: "Falls zu dieser Adresse ein Konto gehört, ist ein Anmeldecode unterwegs.", submittedEmail: ADDRESS };
 
 /** The code route's answer to one typed code, as `postPublicForm` reads it. */
 const answered = (body: unknown): Response =>

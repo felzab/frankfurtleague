@@ -46,16 +46,16 @@ interface Ereignis {
 
 const HINZUGEFUEGT: Ereignis = {
   ueberschrift: "Neuer Passkey",
-  betreff: `Neuer Passkey für Deinen Zugang zur ${BRAND_NAME}`,
-  satz: (zeit) => `Deinem Zugang wurde am ${zeit} ein Passkey hinzugefügt.`,
+  betreff: `Neuer Passkey für Dein Konto bei der ${BRAND_NAME}`,
+  satz: (zeit) => `Deinem Konto wurde am ${zeit} ein Passkey hinzugefügt.`,
 };
 
 const GELOESCHT: Ereignis = {
   ueberschrift: "Passkey gelöscht",
-  betreff: `Passkey für Deinen Zugang zur ${BRAND_NAME} gelöscht`,
+  betreff: `Passkey für Dein Konto bei der ${BRAND_NAME} gelöscht`,
   // Only the devices that passkey signed in: a removal ends the sessions carrying its credential and
   // leaves every other standing (`fl_frontend/src/core/auth.ts :: removePasskey`).
-  satz: (zeit) => `Von Deinem Zugang wurde am ${zeit} ein Passkey gelöscht. Geräte, die damit angemeldet waren, wurden abgemeldet.`,
+  satz: (zeit) => `Von Deinem Konto wurde am ${zeit} ein Passkey gelöscht. Geräte, die damit angemeldet waren, wurden abgemeldet.`,
 };
 
 function aktionen(origin: string, konto: string): readonly Aktion[] {

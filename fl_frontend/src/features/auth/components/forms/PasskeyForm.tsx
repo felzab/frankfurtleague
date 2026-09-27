@@ -51,8 +51,8 @@ const STEPS = {
 
 /** The loser of two enrolments of this account that ran at once (`docs/frontend/spec.md :: I341`). */
 const GLEICHZEITIG =
-  "Für diesen Zugang wurde gerade ein anderer Passkey eingerichtet. Melde Dich jetzt mit ihm an. " +
-  `Hast Du keinen zweiten eingerichtet, schreib an ${KONTAKT_EMAIL}; wir löschen dann alle Passkeys dieses Zugangs.`;
+  "Für dieses Konto wurde gerade ein anderer Passkey eingerichtet. Melde Dich jetzt mit ihm an. " +
+  `Hast Du keinen zweiten eingerichtet, schreib an ${KONTAKT_EMAIL}; wir löschen dann alle Passkeys dieses Kontos.`;
 
 /** What the reader is told, and whether the step this card was handed may have moved on. */
 type Held = { readonly description: string; readonly stale: boolean };

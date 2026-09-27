@@ -23,7 +23,7 @@ import type { FormState } from "@/shared/types/types";
 // refusal above echoes instead.
 const neutralResult = (submittedEmail: string): FormState => ({
   success: true,
-  message: "Falls zu dieser Adresse ein Zugang gehört, ist ein Anmeldecode unterwegs.",
+  message: "Falls zu dieser Adresse ein Konto gehört, ist ein Anmeldecode unterwegs.",
   submittedEmail,
 });
 
