@@ -910,11 +910,11 @@ nothing here says whether the frontend can sign with it or the backend verify it
 
 # --- The secret files ---------------------------------------------------------------------------------
 
-# What each application service reads under its secrets directory, named alike under `secrets/`
-# (`docs/ops/spec.md :: I508`) and held to `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`.
-# The signing key and the tunnel token have checks of their own.
+# The files under `secrets/` each stack mounts per service, held to the compose files by
+# `scripts/checks/check_compose_model.py :: SECRET_HOLDERS`; each image judges whether it can use
+# them. The signing key and the tunnel token are checked apart.
 
-# shellcheck disable=SC2034  # read by name, through `check_secret_files`
+# shellcheck disable=SC2034
 FRONTEND_SECRETS=(frontend_mongodb_uri auth_secret auth_resend_key resend_webhook_secret internal_api_key_base internal_api_key_system internal_api_key_admin)
 # shellcheck disable=SC2034
 BACKEND_SECRETS=(backend_mongodb_uri sperrliste_schluessel internal_api_key_base internal_api_key_system internal_api_key_admin)
@@ -927,49 +927,35 @@ LOCAL_FRONTEND_SECRETS=(frontend_mongodb_uri auth_secret resend_webhook_secret i
 # host keeps them until the release after the files runs healthy (`docs/ops/runbooks.md` §16).
 MOVED_ENV_NAMES=(MONGODB_URI SPERRLISTE_SCHLUESSEL AUTH_SECRET AUTH_RESEND_KEY RESEND_WEBHOOK_SECRET INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN)
 
-# POSIX sh, so one program serves both images, run as the service's own user with its mounts and
-# `group_add`. A value is tested for a non-blank character and never printed; exit 3 names each file.
-
-# shellcheck disable=SC2016  # the container's sh expands them
-SECRET_FILES_CHECK='
-dir="${SECRETS_DIR:-/run/secrets}"
-found=0
-for name do
-  file="$dir/$name"
-  if [ ! -e "$file" ]; then echo "$name: missing from $dir" >&2; found=1
-  elif [ ! -f "$file" ]; then echo "$name: not a file" >&2; found=1
-  elif [ ! -r "$file" ]; then echo "$name: unreadable by uid $(id -u) in groups $(id -G)" >&2; found=1
-  elif ! grep -q "[^[:space:]]" "$file"; then echo "$name: empty or blank" >&2; found=1
-  fi
-done
-exit $((found * 3))
-'
-
-# Before any container is replaced, as `check_actor_key` is. `$3` names the array of files; the rest
-# runs the service's container as the stack starts it, the service's name and the program appended.
-check_secret_files() { # $1 what stands at the refusal, $2 the service, $3 the array of its files
-  local standing="$1" service="$2" rc=0 said=""
-  local -n files="$3"
-  shift 3
-  said="$("$@" "$service" sh -c "$SECRET_FILES_CHECK" sh "${files[@]}" 2>&1)" || rc=$?
+# By the list the image's own schema emitted, so a file a release starts requiring is asked for by
+# the build requiring it (`fl_frontend/scripts/check-environment-names.mjs`'s `--secret-files`). The
+# backend's files are its boot check's.
+check_frontend_secret_files() { # $1 what stands at the refusal, $2 production or local, the rest runs the frontend's container
+  local standing="$1" rc=0 said=""
+  local -a flags=(--secret-files)
+  # Local sends no mail, so the schema demands its provider key of production alone.
+  if [[ "$2" == production ]]; then flags+=(--production); fi
+  shift 2
+  said="$("$@" frontend node check-environment-names.mjs "${flags[@]}" 2>&1)" || rc=$?
   if [[ -n "$said" ]]; then printf '%s\n' "$said" | redact_uri_credentials | detail; fi
   if (( rc == 3 )); then
-    refuse "the ${service} container cannot use the secret files named above. Each is secrets/<name> on this
+    refuse "the frontend container cannot use the secret files named above. Each is secrets/<name> on this
 host, owned and moded as docs/ops/runbooks.md §16 says: a missing one is written there, an unreadable
-one given its owner and mode, a blank one written again.
+one given that owner and mode, a blank one written again.
 ${standing}"
   elif (( rc )); then
-    # An advisory, as `check_actor_key`'s is: the running stack never runs this check.
-    warn "the ${service} image could not be asked to read its secret files (exit ${rc}), so nothing here says
+    # An advisory, as `check_actor_key`'s is: the running stack never runs this check, and an image
+    # older than the mode answers here.
+    warn "the frontend image could not be asked to read its secret files (exit ${rc}), so nothing here says
 whether it can. Its own answer is above."
   else
-    ok "the ${service} container reads each of its ${#files[@]} secret files, and none is blank"
+    ok "the frontend container reads every secret file its schema requires, and none is blank"
   fi
 }
 
-# The backend's settings as its boot builds them, from its container's variables and secret files:
-# the files' values reach no other reader before the recreate. `get_config`, never the class, for
-# `scripts/ops/deploy.sh :: ENV_NAME_CHECK`'s reason: its refusal names, never quotes.
+# The backend's settings as its boot builds them: no other reader sees the files' values before the
+# recreate, and this is the backend's only check of its files. `get_config`, never the class, whose
+# refusal quotes the value.
 BACKEND_BOOT_CHECK='
 import sys
 
@@ -989,7 +975,7 @@ except Exception as unexpected:
     raise SystemExit(4)
 '
 
-# `check_secret_files`'s shape, the backend's program in place of the file test.
+# `check_frontend_secret_files`' shape, the backend's program in place of the frontend's.
 check_backend_boot_config() { # $1 what stands at the refusal, the rest runs the backend's container
   local standing="$1" rc=0 said=""
   shift

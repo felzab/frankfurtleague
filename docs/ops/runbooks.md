@@ -82,13 +82,15 @@ the machine is outside the repository. What it does tell you:
   refusal this reader and the secret files' reader both pass and the recreated container meets. It does catch the misspelling whose value is EMPTY
   that the backend's reader drops, and a line its reader cannot take at all is an advisory rather
   than a refusal ([`spec.md`](spec.md) §1.5).
-- **Each application service's own container then reads its secret files**, started as the stack
-  starts it, so as its own user and in its own group (`scripts/lib/_lib.sh :: check_secret_files`):
+- **Each application service's own container then judges its secret files**, started as the stack
+  starts it, so as its own user and in its own group, and by its own image's list: the frontend's
+  reads every file its schema requires (`scripts/lib/_lib.sh :: check_frontend_secret_files`), and
   **a file missing, not a file, unreadable by that user or blank refuses the deploy at exit 2** with
   nothing recreated, naming the file and never its contents. The remedy is §16's owner, mode or
-  contents for that file. The backend's container then builds its settings as its boot does, so a
-  value its validators refuse — an internal key outside its alphabet among them — refuses there too,
-  naming the variable or the file.
+  contents for that file. The backend's container builds its settings as its boot does
+  (`scripts/lib/_lib.sh :: check_backend_boot_config`), so a file it cannot use and a value its
+  validators refuse — an internal key outside its alphabet among them — refuse there, naming the
+  variable or the file.
 - **Only the application containers are recreated**, and nginx is reloaded once they are healthy
   (`scripts/ops/deploy.sh :: serve_through_nginx`), through nginx's Control API, which answers whether
   the reload applied. The edge keeps running across the swap, so a deploy that succeeds costs seconds

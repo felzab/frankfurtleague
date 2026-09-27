@@ -273,8 +273,7 @@ check_actor_key "NOTHING has been started." docker compose run --rm --no-deps -T
 
 step "The secret files"
 # For the key check's reason: each container reads its files as the stack mounts them.
-check_secret_files "NOTHING has been started." frontend LOCAL_FRONTEND_SECRETS docker compose run --rm --no-deps -T
-check_secret_files "NOTHING has been started." backend BACKEND_SECRETS docker compose run --rm --no-deps -T
+check_frontend_secret_files "NOTHING has been started." local docker compose run --rm --no-deps -T
 check_backend_boot_config "NOTHING has been started." docker compose run --rm --no-deps -T
 
 # Before `start`, not inside it: a page rendered against an empty database caches that read for

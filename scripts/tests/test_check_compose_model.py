@@ -704,7 +704,7 @@ def test_main_judges_the_secret_holders_of_both_models():
 
 
 def test_the_preflights_lists_are_the_tables():
-    """`_lib.sh`'s readers check the files each container is handed, so a list apart from compose's checks the wrong set."""
+    """The preflights ask the host for each file compose mounts, so a list apart from compose's asks for the wrong set."""
     lib = Path(__file__).resolve().parents[1] / "lib" / "_lib.sh"
 
     def listed(name: str) -> set[str]:
