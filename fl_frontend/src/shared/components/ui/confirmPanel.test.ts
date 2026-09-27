@@ -161,6 +161,7 @@ const pressButton = ({
   held?: boolean;
   submitting?: boolean;
   reason?: string | null;
+  restingName?: string;
 }): string =>
   renderMarkup(ConfirmPressButton, {
     confirm: twoPress({ isConfirming, isPending, asksPasskey, isPrompting }),
@@ -211,6 +212,16 @@ describe("the shared confirm control", () => {
       { name: "Spielplan löschen", label: "Spielplan löschen", reason: "Diese Saison hat noch keinen Spielplan." },
     ]);
     assert.deepEqual(refusalWrappers(AT_REST), [], "a control nothing refuses announces a closure");
+  });
+
+  /* A list of closed controls with one label each is told apart only by the row's name, and closed the
+     overlay is the one stop a screen reader meets, so the row's name has to reach it. */
+  it("lays the refusal over a row's closed control under the row's name", () => {
+    const refused = pressButton({ reason: "Diese Saison hat noch keinen Spielplan.", restingName: "Den Spielplan löschen" });
+
+    assert.deepEqual(refusalWrappers(refused), [
+      { name: "Den Spielplan löschen", label: "Den Spielplan löschen", reason: "Diese Saison hat noch keinen Spielplan." },
+    ]);
   });
 
   /* A panel reading before it writes holds the press on the READ, which is not the write: the label

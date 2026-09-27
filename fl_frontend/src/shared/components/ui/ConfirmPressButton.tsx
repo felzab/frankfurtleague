@@ -71,7 +71,8 @@ export function ConfirmPressButton({
     <Hint
       mode="refusal"
       reason={waiting ? null : reason}
-      label={label}
+      // The overlay over a closed control is its one tab stop, so it takes the row's name as well.
+      label={isConfirming ? label : (restingName ?? label)}
       // Free to shrink below the label's longest word in the `sm` row, which it would otherwise push past the card.
       className="min-w-0">
       <Button
