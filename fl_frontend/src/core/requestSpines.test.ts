@@ -35,6 +35,7 @@ const MODULE_DOUBLES: Record<string, string> = {
   // Signed in, so the undo spine's session check lets a request through to the body it reads.
   "/src/core/auth.ts": `export const auth = { handler: async (request) => new Response(request.url), api: {} };
 export const ADDRESS_ATTEMPTS_EXHAUSTED = "ADDRESS_ATTEMPTS_EXHAUSTED";
+export const forgiveCodeAttempt = async () => undefined;
 export const getAdminSession = async () => ({ user: { email: "vorstand@example.org" } });
 export const judgeAdminRequest = async () => ({ session: { user: { email: "vorstand@example.org" } } });
 export const isFreshlySignedIn = () => true;`,
