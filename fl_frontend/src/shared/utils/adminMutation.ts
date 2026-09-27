@@ -1,13 +1,13 @@
 import { refresh } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 
-import { getAdminSession, isFreshlySignedIn } from "@/core/auth";
+import { adminRefusal, getAdminSession, isFreshlySignedIn } from "@/core/auth";
 import { APIBadStatusError, APIMalformedDataError, APINetworkError, ApiUnsentError } from "@/core/errors";
 import { logger } from "@/core/logging";
 import { requestWriteSent } from "@/core/requestScope";
 import { ENROLMENT_WINDOW_MS } from "@/core/sessionLifetimes";
 
-import { unansweredAction } from "./actionError";
+import { unansweredAction, ZUGANG_WEG } from "./actionError";
 import { runWithIncomingTrace } from "./traceScope";
 import { VALIDATION_FAILED } from "./validation";
 import { answerThrow, writeOutcomeUnknown } from "./writeOutcome";
@@ -131,11 +131,11 @@ async function runGuarded<S, T extends { success: boolean }>(
  */
 export async function runGuardedMutation<S, T extends { success: boolean }>(
   mutationName: string,
-  guard: Guard<S> & { readonly forbidden: string },
+  guard: Guard<S> & { readonly forbidden: string | (() => Promise<string>) },
   fn: (session: S) => Promise<T>,
 ): Promise<T | ActionFailure> {
   const guarded = await runGuarded(mutationName, guard, fn);
-  if (guarded.forbidden) return { success: false, error: guard.forbidden };
+  if (guarded.forbidden) return { success: false, error: typeof guard.forbidden === "string" ? guard.forbidden : await guard.forbidden() };
 
   const { answer, wrote } = guarded;
   // Here, where no action can forget it (`docs/frontend/spec.md :: I233`). Never on a refusal, left to its
@@ -144,6 +144,11 @@ export async function runGuardedMutation<S, T extends { success: boolean }>(
   if (wrote && (answer.success || ("outcome" in answer && answer.outcome === "unknown"))) refresh();
 
   return answer;
+}
+
+/** The guard's refusal in the words that name its remedy: a grant that is gone is not repaired by a sign-in. */
+async function adminForbidden(): Promise<string> {
+  return (await adminRefusal()) === "ohne-zugang" ? ZUGANG_WEG : ADMIN_FORBIDDEN;
 }
 
 /** A guarded action's body, handed the administrator the guard resolved. */
@@ -170,7 +175,7 @@ export async function runAdminMutation<T extends { success: boolean }>(
 
   return runGuardedMutation(
     mutationName,
-    { ...ADMIN_GUARD, forbidden: ADMIN_FORBIDDEN },
+    { ...ADMIN_GUARD, forbidden: adminForbidden },
     async (session) =>
       // Ahead of the body, so a stale session's step-up write reaches neither its payload nor the backend.
       (stepUp === false ? null : refuseUnconfirmed(session, stepUp)) ?? fn(session),

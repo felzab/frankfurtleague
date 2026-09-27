@@ -6,7 +6,7 @@ import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.
 /* The trace seed, the refresh, the session and the framework's control-flow rethrow are the
    framework's, and the spine between them and the action is what is driven. */
 const ADMIN = { user: { email: "vorstand@example.org" } };
-const { setSession } = doubleActionRequest({ session: ADMIN });
+const { setSession, setRefusal } = doubleActionRequest({ session: ADMIN });
 
 /** How many times the spine asked Next to refresh the page since the case began. */
 const refreshes = (): number => cacheCalls.filter(({ name }) => name === "refresh").length;
@@ -39,6 +39,17 @@ describe("the session guard every admin write runs behind", () => {
     assert.deepEqual(answer, { success: false, error: ADMIN_FORBIDDEN });
     assert.equal(ran, 0, "the body ran for a caller nobody authorized");
     assert.equal(refreshes(), 0, "a refused caller's page was refreshed");
+  });
+
+  /* A session the guard would pass but for its grant: „Melde Dich neu an“ would send the administrator to a
+     sign-in that restores nothing. */
+  it("tells a caller whose grant is gone so, rather than to sign in again", async () => {
+    setSession(null);
+    setRefusal("ohne-zugang");
+
+    const answer = await runAdminMutation("probeAction", () => Promise.resolve({ success: true }));
+
+    assert.deepEqual(answer, { success: false, error: "Dein Zugang zur Verwaltung besteht nicht mehr." });
   });
 
   it("turns one away from a route handler's write too", async () => {

@@ -7,7 +7,15 @@ import { APIBadStatusError, APIMalformedDataError, APINetworkError, isRefusalCod
 import { publishedOperations } from "@/core/openapiDocument.ts";
 import { bodyField, refusedPayload } from "@/shared/testing/refusedPayload.ts";
 
-import { FELD_ABGELEHNT, isRuleRefusal, refusedDraftAnswer, rejectedWrite, toActionErrorResult, unansweredAction } from "./actionError.ts";
+import {
+  FELD_ABGELEHNT,
+  isRuleRefusal,
+  refusedDraftAnswer,
+  rejectedWrite,
+  toActionErrorResult,
+  unansweredAction,
+  ZUGANG_WEG,
+} from "./actionError.ts";
 import { UNKNOWN_REFUSAL } from "./refusal.ts";
 import { VALIDATION_FAILED } from "./validation.ts";
 
@@ -23,6 +31,16 @@ const READS = [
 ] as const;
 
 describe("toActionErrorResult", () => {
+  /* The backend's actor check, ahead of every handler: the grant went between the guard and the call, so
+     the server-error fallback's retry would be refused again and a sign-in restores nothing. */
+  it("tells an administrator whose grant is gone so, for a write and a read alike", () => {
+    for (const sent of [write, ...READS.map((read) => ({ ...base, ...read }))]) {
+      const result = toActionErrorResult(new APIBadStatusError({ ...sent, message: "bad", statusCode: 403, serverErrorCode: "REQ-AUTH-006" }));
+
+      assert.deepEqual(result, { success: false, error: ZUGANG_WEG }, sent.method);
+    }
+  });
+
   it("maps a 409 onto the conflict message, not the generic one", () => {
     const result = toActionErrorResult(new APIBadStatusError({ ...write, message: "bad", statusCode: 409, serverErrorCode: "DB-COMMON-002" }));
 

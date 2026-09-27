@@ -1,4 +1,4 @@
-import { isRefusal } from "@/shared/utils/actionError";
+import { isRefusal, ZUGANG_WEG } from "@/shared/utils/actionError";
 
 import type { FieldErrors } from "@/shared/utils/validation";
 
@@ -6,9 +6,6 @@ import type { FieldErrors } from "@/shared/utils/validation";
 const SCHON_ZUGANG = "Diese Adresse hat bereits Zugang zur Verwaltung.";
 
 const GESPERRT = "Diese Adresse ist gesperrt. Hebe zuerst die Sperre auf, wenn sie Zugang zur Verwaltung erhalten soll.";
-
-/** The acting administrator's own grant went while the page stood; no box repairs that. */
-const EIGENER_ZUGANG_WEG = "Dein Zugang zur Verwaltung besteht nicht mehr.";
 
 /** `null` where the refusal is something else. The address box carries what the typed address caused. */
 export function mapErteilenRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
@@ -21,7 +18,8 @@ export function mapErteilenRefusal(error: unknown): { error?: string; fieldError
 
   if (error.serverErrorCode === "REQ-BERECHTIGUNG-003") return { fieldErrors: { email: GESPERRT } };
 
-  if (error.serverErrorCode === "REQ-BERECHTIGUNG-006") return { error: EIGENER_ZUGANG_WEG };
+  // The acting administrator's own grant went while the page stood; no box repairs that.
+  if (error.serverErrorCode === "REQ-BERECHTIGUNG-006") return { error: ZUGANG_WEG };
 
   return null;
 }

@@ -37,6 +37,7 @@ const MODULE_DOUBLES: Record<string, string> = {
 export const ADDRESS_ATTEMPTS_EXHAUSTED = "ADDRESS_ATTEMPTS_EXHAUSTED";
 export const getAdminSession = async () => ({ user: { email: "vorstand@example.org" } });
 export const isFreshlySignedIn = () => true;
+export const adminRefusal = async () => "anmelden";
 export const getSignInDestination = async () => "/bereich/admin";`,
 };
 const mail = doubleSendMail();

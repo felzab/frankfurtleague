@@ -201,6 +201,8 @@ type SignInAnswers = {
   signOutFailure: Error | null;
   /** `isFreshlySignedIn`'s answer, whatever session it is handed. */
   fresh: boolean;
+  /** Why the guard refused, as `adminRefusal` answers it: a new sign-in's remedy unless a case says the grant is gone. */
+  refusal: "ohne-zugang" | "anmelden";
 };
 
 /** Where the real store sends a caller the session leaves out, when a case names no other. */
@@ -282,6 +284,7 @@ const signInStore = (url: string, answers: SignInAnswers): string =>
       ["getKontoSession", () => answering(servedOf(answers.session))],
       ["getSignInDestination", () => Promise.resolve(answers.destination)],
       ["isFreshlySignedIn", () => answers.fresh],
+      ["adminRefusal", () => Promise.resolve(answers.refusal)],
       [
         "endSessionsOfAddress",
         (address: unknown) => {
@@ -334,6 +337,8 @@ export function doubleActionRequest({
   signedOut: () => readonly string[];
   /** Makes every sign-out for the rest of the case throw `failure`. */
   failSignOut: (failure: Error) => void;
+  /** Why the guard refuses for the rest of the case, where it refuses. */
+  setRefusal: (next: "ohne-zugang" | "anmelden") => void;
 } {
   const answers: SignInAnswers = {
     session,
@@ -343,6 +348,7 @@ export function doubleActionRequest({
     signedOut: [],
     signOutFailure: null,
     fresh: true,
+    refusal: "anmelden",
   };
   // The destination goes with the session, so a case cannot leave one standing that another case's session contradicts.
   const setSession = (next: AdminSessionDouble, destination = destinationOf(next)): void => {
@@ -360,6 +366,7 @@ export function doubleActionRequest({
     answers.signedOut.length = 0;
     answers.signOutFailure = null;
     answers.fresh = true;
+    answers.refusal = "anmelden";
   });
   registerHooks({
     resolve(specifier, context, nextResolve) {
@@ -382,6 +389,7 @@ export function doubleActionRequest({
     subjectReads: () => answers.subjectReads,
     signedOut: () => [...answers.signedOut],
     failSignOut: (failure) => void (answers.signOutFailure = failure),
+    setRefusal: (next) => void (answers.refusal = next),
   };
 }
 

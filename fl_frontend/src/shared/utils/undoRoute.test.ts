@@ -36,6 +36,7 @@ const through = (): boolean => {
 const AUTH = exportingModule({
   getAdminSession: async () => (through() ? session() : null),
   isFreshlySignedIn: () => true,
+  adminRefusal: async () => "anmelden",
   getSignInDestination: async () => {
     const served = session();
     if (served === null) return "/signin";

@@ -1048,6 +1048,18 @@ export function isAdminSession(served: ServedSession, verwaltung: boolean): bool
  * `isAdminSession` over the grant this request reads, for the two guards that admit to the
  * administration: an unread grant admits nobody, so the administration is shut while the backend is.
  */
+/**
+ * Why the admin guard turned this request away: `ohne-zugang` where the session would pass but its address
+ * holds no grant, which no sign-in restores; `anmelden` for everything a new sign-in does repair.
+ */
+export async function adminRefusal(): Promise<"ohne-zugang" | "anmelden"> {
+  const served = await auth.api.getSession({ headers: await headers() });
+  if (!served || served.session.authFactor !== PASSKEY_FACTOR || !withinLifetime(served.session, ADMIN_LIFETIME)) return "anmelden";
+
+  // An unread grant is no answer about the grant, so it is told as the guard's own refusal.
+  return (await verwaltungOrNull(served.user.email)) === false ? "ohne-zugang" : "anmelden";
+}
+
 export async function isAdminRequest(served: ServedSession): Promise<boolean> {
   return isAdminSession(served, (await verwaltungOrNull(served.user.email)) === true);
 }
