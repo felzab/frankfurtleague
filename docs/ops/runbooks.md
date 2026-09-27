@@ -1260,7 +1260,8 @@ stack publishes on loopback, the local stack itself reads the tracked `local-sta
 the one production file a development machine holds is `secrets/dump_mongodb_uri` below.
 
 On a development machine, in Git Bash at the checkout root, this writes every file `pnpm dev`,
-`fastapi dev` and the local stack read, readable by its writer alone, and prints nothing:
+`fastapi dev` and the local stack read but the actor token's key pair, which its own command below
+writes, each readable by its writer alone, and prints nothing:
 
 ```bash
 (umask 077 && mkdir -p secrets && for name in internal_api_key_base internal_api_key_system internal_api_key_admin sperrliste_schluessel auth_secret; do openssl rand -hex 32 | tr -d '\r\n' > "secrets/$name"; done && printf 'whsec_%s' "$(openssl rand -base64 24 | tr -d '\r\n')" > secrets/resend_webhook_secret && printf 'mongodb://localhost:27017/?directConnection=true' | tee secrets/frontend_mongodb_uri > secrets/backend_mongodb_uri)
