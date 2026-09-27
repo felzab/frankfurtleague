@@ -16,6 +16,10 @@ const ZEITPUNKT = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", 
 
 const zeit = (iso: string): string => ZEITPUNKT.format(new Date(iso));
 
+// The day alone: the library refreshes a session's activity stamp once an hour, so a minute printed
+// here could be up to an hour behind (`fl_frontend/src/core/auth.ts :: SESSION_UPDATE_AGE_SECONDS`).
+const TAG = new Intl.DateTimeFormat("de-DE", { timeZone: "Europe/Berlin", dateStyle: "long" });
+
 /** One live sign-in: when it began and was last active, when it ends at the latest, and what made it. */
 export function AnmeldungZeile({ anmeldung, onEnd }: { anmeldung: Anmeldung; onEnd: (id: string) => Promise<void> }) {
   const [isPending, startEnding] = useTransition();
@@ -28,7 +32,7 @@ export function AnmeldungZeile({ anmeldung, onEnd }: { anmeldung: Anmeldung; onE
         </span>
         {anmeldung.diesesGeraet && <span className={`${labelBadge("brand")} self-start`}>Dieses Gerät</span>}
         <span className="muted-hint">Angemeldet am {zeit(anmeldung.angemeldetAm)}</span>
-        <span className="muted-hint">Zuletzt aktiv am {zeit(anmeldung.zuletztAktivAm)}</span>
+        <span className="muted-hint">Zuletzt aktiv am {TAG.format(new Date(anmeldung.zuletztAktivAm))}</span>
         <span className="muted-hint">Endet spätestens am {zeit(anmeldung.endetSpaetestensAm)}</span>
       </div>
 

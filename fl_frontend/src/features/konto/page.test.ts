@@ -220,6 +220,15 @@ describe("what the security section tells its reader", () => {
     assert.doesNotMatch(named, />Passkey<\/span>/);
   });
 
+  /* The activity stamp refreshes hourly, so a minute printed beside it would claim a precision the
+     row does not hold; the sign-in's own time is exact and keeps its minute. */
+  it("prints the last activity by the day and the sign-in by the minute", () => {
+    const text = shown({});
+
+    assert.match(text, /Zuletzt aktiv am 26\. September 2026(?! um)/);
+    assert.match(text, /Angemeldet am 26\. September 2026 um \d{2}:\d{2}/);
+  });
+
   it("marks this device's sign-in, names its factor, and offers no sign-out of it beside the bar's", () => {
     const html = renderTree(underNext(h(SicherheitPanel, { sicherheit: sicherheit() })));
 
