@@ -501,13 +501,14 @@ preflight judges a key with the pulled backend image's own validator**, in the b
 (I510), so a key outside the class refuses the deploy at exit 2 before anything is recreated; the
 remedy is a new key ([`runbooks.md`](runbooks.md) §16).
 
-**Every value in the three files is held to the spellings those readers agree on** (I487), a
-password, a URI or an address being no value an alphabet could narrow: `deploy.sh` and `local.sh`
-refuse, before any compose call reads the file, a `$` anywhere, which each reader substitutes its own
-way and Next's inside single quotes too; a `#` with no space before it in a bare value; a `\` inside
-quotes; and a leading backtick (`scripts/lib/_lib.sh :: check_env_spellings`). A matched pair of
-quotes is left alone, every reader stripping it alike. A MongoDB URI writes `$` and `#` in a
-password percent-encoded, which MongoDB's own URI format asks of them already.
+**Every value in the three files is held to the spellings those readers agree on** (I487), a URL
+being no value an alphabet could narrow: `deploy.sh` and `local.sh` refuse, before any compose call
+reads the file, a `$` anywhere, which each reader substitutes its own way and Next's inside single
+quotes too; a `#` with no space before it in a bare value; a `\` inside quotes; and a leading
+backtick (`scripts/lib/_lib.sh :: check_env_spellings`). A matched pair of quotes is left alone,
+every reader stripping it alike. A URL writes `$` and `#` percent-encoded, and so does a retired
+`MONGODB_URI` line kept for a rollback's image, whose password MongoDB's own URI format asks it of
+already.
 
 **The local stack points both application services at its own database through one tracked
 file**, `local-stack/mongodb_uri`, which `docker-compose.local.yml` hands both as their database

@@ -840,8 +840,9 @@ check_env_spellings() { # $1 the file
     refuse "$1 holds a value its readers would not agree on, so the service and its dev server would
 each be handed a different one:
 $(printf '  %s\n' "${wrong[@]}")
-In a MongoDB URI write the character percent-encoded (\$ as %24, # as %23); any other value, generate
-again without it. A trailing comment counts too: move it to a line of its own.
+In a URL, a retired MONGODB_URI line among them, write the character percent-encoded (\$ as %24, # as
+%23); any other value, generate again without it. A trailing comment counts too: move it to a line of
+its own.
 NOTHING was asked of compose or of either service."
   fi
 }
