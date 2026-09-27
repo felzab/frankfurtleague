@@ -2106,6 +2106,64 @@ describe("the failures one address may spend, across every code it is sent (`doc
     }
   });
 
+  /* A refusal at the mint takes back its own row and no other: the newest may be a racing attempt's,
+     whose own removal would then find nothing and leave the count one too high. */
+  it("takes a refusal at the mint's own row back out, never another attempt's", async () => {
+    const address = "eigene-zeile@example.org";
+    try {
+      BACKENDS.set(address, { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true });
+      const first = await auth.api.createVerificationOTP({ body: { email: address, type: "sign-in" } });
+      await answerOf(address, wrongFor(first));
+      const [counted] = failureRows();
+      assert.ok(counted !== undefined, "the wrong code was not counted, so nothing below has a row to compare");
+      // A row newer than the refused attempt's own, standing for an attempt still in flight.
+      const racing = { ...counted, id: "racing-attempt", createdAt: new Date(Date.now() + 60_000) };
+      store.verification.push(racing);
+
+      const otp = await auth.api.createVerificationOTP({ body: { email: address, type: "sign-in" } });
+      assert.equal((await answerOf(address, otp)).code, "SIGN_IN_BARRED");
+
+      assert.deepEqual(
+        failureRows()
+          .map((row) => row.id)
+          .sort(),
+        [counted.id, "racing-attempt"].sort(),
+      );
+    } finally {
+      BACKENDS.delete(address);
+    }
+  });
+
+  /* Ten in a row, and any sign-in ends the row: nine failures, a right code, then ten more are all
+     answered as wrong codes, and only the eleventh after the sign-in meets the lock. */
+  it("locks after ten consecutive failures, a sign-in between them clearing the count", async () => {
+    // Codes minted without a mail, so the per-address mail cap never answers for the lock.
+    const freshCode = () => auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
+    const otp = await freshCode();
+    for (let attempt = 0; attempt < 9; attempt += 1) await answerOf(ADMIN_EMAIL, wrongFor(otp));
+    assert.equal((await answerOf(ADMIN_EMAIL, await freshCode())).status, 200);
+
+    const next = await freshCode();
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const answer = await answerOf(ADMIN_EMAIL, wrongFor(next));
+      assert.notEqual(answer.code, "ADDRESS_ATTEMPTS_EXHAUSTED", `failure ${String(attempt + 1)} after the sign-in met the lock`);
+    }
+    assert.equal((await answerOf(ADMIN_EMAIL, next)).code, "ADDRESS_ATTEMPTS_EXHAUSTED");
+  });
+
+  /* The lock's own sentence points to a passkey, so a passkey sign-in has to end the count as well. */
+  it("clears the address's failures on a passkey sign-in", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+    const otp = await mailedCode();
+    for (let attempt = 0; attempt < 3; attempt += 1) await answerOf(ADMIN_EMAIL, wrongFor(otp));
+    assert.ok(failureRows().length > 0, "no failure was counted, so the clearing below proves nothing");
+
+    assert.equal((await assertPasskey(cookie, true)).status, 200);
+
+    assert.deepEqual(failureRows(), [], "a passkey sign-in left the address's failures standing");
+  });
+
   /* Each attempt's row goes in before it counts, so a burst cannot all read zero and all pass. The
      barrier holds every attempt at its count until the whole burst has arrived, the worst
      interleaving there is. */

@@ -1259,13 +1259,14 @@ the fault and never a value. The remedy each time is to run the command above ag
 
 ## 17. Clearing an address's code lock
 
-An address that has failed ten codes inside a day is refused every code until the oldest of those
-failures is a day old, the right code included (`docs/frontend/spec.md :: I441`); the person is
+An address that has failed ten codes in a row, with no sign-in between them, is refused every code
+until the oldest of those failures is a day old, the right code included
+(`docs/frontend/spec.md :: I441`); the person is
 told there were too many tries with this address. Anyone who knows an address can bring it on, and
 the rows counting it carry a keyed hash rather than the address (`:: I445`), so no row can be picked
 out for one person:
 
-- **A person holding a passkey needs nothing**: a passkey sign-in never meets the lock.
+- **A person holding a passkey needs nothing**: a passkey sign-in never meets the lock, and clears it.
 - **Otherwise it lifts by itself**, each failure's row expiring a day after it was written, removed
   by the `verification` index in §14.
 - **To lift it sooner, lift every address's at once**: in the Atlas console, delete from the `auth`

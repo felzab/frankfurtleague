@@ -358,10 +358,11 @@ async function boundIdentifier(prefix: string, email: string, secret: string): P
 }
 
 /**
- * The row goes in BEFORE the count, so requests racing past the limit each count the other's; a
- * refused event takes its own back out, so hammering a closed bound never holds it past its window.
+ * The row goes in BEFORE the count, so racing requests each count the other's; a refused event takes
+ * its own back out, so hammering a closed bound never holds it past its window. Answers the admitted
+ * row, or `null`.
  */
-async function withinBound(context: BoundContext, identifier: string, limit: number, windowMs: number): Promise<boolean> {
+async function withinBound(context: BoundContext, identifier: string, limit: number, windowMs: number): Promise<string | null> {
   const own = await context.internalAdapter.createVerificationValue({
     identifier,
     value: "counted",
@@ -376,11 +377,17 @@ async function withinBound(context: BoundContext, identifier: string, limit: num
       { field: "expiresAt", operator: "gt", value: new Date() },
     ],
   });
-  if (held <= limit) return true;
+  if (held <= limit) return own.id;
 
   await context.adapter.delete({ model: "verification", where: [{ field: "id", value: own.id }] });
-  return false;
+  return null;
 }
+
+/**
+ * Each code sign-in's own failure row, from the hook counting it to the hook settling it, keyed on the
+ * body both are handed: the newest row may be a racing attempt's, whose own removal would find nothing.
+ */
+const attemptRows = new WeakMap<object, string>();
 
 /**
  * `refuseUnadmitted`'s answers, which a code sign-in meets only once its code has verified: none of
@@ -391,28 +398,40 @@ function refusedAtMint(returned: APIError): boolean {
   return code === SIGN_IN_BARRED || code === SIGN_IN_HOLDS_NOTHING || returned.status === "SERVICE_UNAVAILABLE";
 }
 
-/** What a finished code sign-in leaves counted against its address: a code the plugin refused, and nothing else. */
-async function settleCodeAttempt(context: BoundContext, address: string, returned: unknown): Promise<void> {
-  const identifier = await boundIdentifier(FAILURE_ROW_PREFIX, address, context.secret);
+/**
+ * What a refused code sign-in leaves counted against its address: a code the plugin refused, and
+ * nothing the mint refused past it. A sign-in clears the count wherever a session is minted.
+ */
+async function settleCodeAttempt(context: BoundContext, own: string | undefined, returned: unknown): Promise<void> {
+  if (own === undefined || !isAPIError(returned) || !refusedAtMint(returned)) return;
 
-  if (!isAPIError(returned)) {
-    // `deleteMany` and never `deleteVerificationByIdentifier`, which the MongoDB adapter carries out as
-    // `deleteOne`: a sign-in after three failures would clear one of them.
-    await context.adapter.deleteMany({ model: "verification", where: [{ field: "identifier", value: identifier }] });
-    return;
+  await context.adapter.delete({ model: "verification", where: [{ field: "id", value: own }] });
+}
+
+/**
+ * Ten failures in a row lock an address's code, and a sign-in by any factor ends the row
+ * (`docs/frontend/spec.md :: I441`): a passkey is the way the lock's own sentence points to.
+ */
+async function clearCodeFailures(context: BoundContext, userId: string): Promise<void> {
+  const account = await context.internalAdapter.findUserById(userId);
+  if (account === null) return;
+
+  // `deleteMany` and never `deleteVerificationByIdentifier`, which the MongoDB adapter carries out as
+  // `deleteOne`: a sign-in after three failures would clear one of them.
+  const identifier = await boundIdentifier(FAILURE_ROW_PREFIX, account.email, context.secret);
+  await context.adapter.deleteMany({ model: "verification", where: [{ field: "identifier", value: identifier }] });
+}
+
+/** A count left standing expires on its own, so a bookkeeping failure never fails the sign-in it follows. */
+async function unlessUnsettled(settle: () => Promise<void>): Promise<void> {
+  try {
+    await settle();
+  } catch (failed) {
+    logger.warn("auth.code_attempt_unsettled", {
+      error_code: "FE-AUTH-009",
+      name: failed instanceof Error ? failed.name : "unknown",
+    });
   }
-
-  if (!refusedAtMint(returned)) return;
-
-  // The newest row rather than this attempt's own, which the hook before did not keep: the rows of one
-  // identifier count alike, so which one goes moves the count by nothing.
-  const [newest] = await context.adapter.findMany<{ id: string }>({
-    model: "verification",
-    where: [{ field: "identifier", value: identifier }],
-    sortBy: { field: "createdAt", direction: "desc" },
-    limit: 1,
-  });
-  if (newest !== undefined) await context.adapter.delete({ model: "verification", where: [{ field: "id", value: newest.id }] });
 }
 
 /** The address a sign-in code is asked for, or `null` for a send of any other type. */
@@ -608,7 +627,9 @@ const authOptions = {
         // Right after the insert, past every refusal; after the commit only for a set-up that signs in.
         // On the assertion and code paths a failed user read or cookie write still signs the caller out.
         after: async (session, ctx) => {
-          if (ctx) await endReplacedSession(ctx, session.token);
+          if (!ctx) return;
+          await endReplacedSession(ctx, session.token);
+          await unlessUnsettled(() => clearCodeFailures(ctx.context, session.userId));
         },
       },
     },
@@ -646,17 +667,18 @@ const authOptions = {
       // is the only caller. Counted whatever the address holds: a lock only members met would be a
       // membership oracle.
       const address = ctx.path === CODE_SIGN_IN_PATH ? codeSignInAddress(ctx.body) : null;
-      if (
-        address !== null &&
-        !(await withinBound(
+      if (address !== null) {
+        const own = await withinBound(
           ctx.context,
           await boundIdentifier(FAILURE_ROW_PREFIX, address, ctx.context.secret),
           CODE_FAILURE_LIMIT,
           CODE_FAILURE_WINDOW_HOURS * HOUR_MS,
-        ))
-      ) {
-        logger.info("auth.code_attempts_exhausted");
-        throw new APIError("TOO_MANY_REQUESTS", { code: ADDRESS_ATTEMPTS_EXHAUSTED, message: "Too many failed codes for this address." });
+        );
+        if (own === null) {
+          logger.info("auth.code_attempts_exhausted");
+          throw new APIError("TOO_MANY_REQUESTS", { code: ADDRESS_ATTEMPTS_EXHAUSTED, message: "Too many failed codes for this address." });
+        }
+        if (typeof ctx.body === "object" && ctx.body !== null) attemptRows.set(ctx.body, own);
       }
 
       // Ahead of the plugin, which writes each new code before its send callback runs: capped there,
@@ -665,12 +687,12 @@ const authOptions = {
       const recipient = ctx.path === CODE_SEND_PATH ? codeSendAddress(ctx.body) : null;
       if (
         recipient !== null &&
-        !(await withinBound(
+        (await withinBound(
           ctx.context,
           await boundIdentifier(MAIL_ROW_PREFIX, recipient, ctx.context.secret),
           CODE_MAIL_LIMIT,
           CODE_MAIL_WINDOW_HOURS * HOUR_MS,
-        ))
+        )) === null
       ) {
         logger.info("auth.code_mail_capped");
         // The plugin's own answer to a send, so a capped one reads as a mailed one.
@@ -713,18 +735,11 @@ const authOptions = {
     // The `Set-Cookie` the endpoint wrote is untouched: `runAfterHooks` merges this hook's own
     // headers into the response's rather than replacing them, so the credential still travels.
     after: createAuthMiddleware(async (ctx) => {
-      const attempted = ctx.path === CODE_SIGN_IN_PATH ? codeSignInAddress(ctx.body) : null;
-      if (attempted !== null) {
-        try {
-          await settleCodeAttempt(ctx.context, attempted, ctx.context.returned);
-        } catch (failed) {
-          // Logged and left: by now the rotation has ended the browser's old session, so a throw here
-          // answers a right code with a 500 and no cookie. A count left standing expires on its own.
-          logger.warn("auth.code_attempt_unsettled", {
-            error_code: "FE-AUTH-009",
-            name: failed instanceof Error ? failed.name : "unknown",
-          });
-        }
+      // Logged and left on a failure: by now the rotation has ended the browser's old session, so a
+      // throw here would answer a right code with a 500 and no cookie.
+      if (ctx.path === CODE_SIGN_IN_PATH && typeof ctx.body === "object" && ctx.body !== null) {
+        const own = attemptRows.get(ctx.body);
+        await unlessUnsettled(() => settleCodeAttempt(ctx.context, own, ctx.context.returned));
       }
 
       if (!CEREMONY_VERIFY_PATHS.has(ctx.path)) return undefined;
@@ -778,7 +793,7 @@ const authOptions = {
         // is a member.
         if (
           ctx === undefined ||
-          !(await withinBound(ctx.context, MAIL_TOTAL_IDENTIFIER, CODE_MAIL_TOTAL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS))
+          (await withinBound(ctx.context, MAIL_TOTAL_IDENTIFIER, CODE_MAIL_TOTAL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS)) === null
         ) {
           logger.warn("auth.code_mail_total_capped", { error_code: "FE-AUTH-008" });
           return;
