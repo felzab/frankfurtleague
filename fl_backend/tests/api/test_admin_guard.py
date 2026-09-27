@@ -8,7 +8,15 @@ from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from app.api.spieler import schemas as spieler_schemas
-from app.core.security import MISSING_TOKEN, bind_actor, verify_access_admin, verify_access_base, verify_access_system, verify_actor_is_admin
+from app.core.security import (
+    MISSING_TOKEN,
+    PERSON_ACTOR_BINDERS,
+    bind_actor,
+    verify_access_admin,
+    verify_access_base,
+    verify_access_system,
+    verify_actor_is_admin,
+)
 from app.main import create_app
 from tests.config import build_test_config
 from tests.core.app_source import api_routes
@@ -220,6 +228,23 @@ def test_every_admin_tier_operation_judges_its_actor_after_the_key(path: str, me
 def test_the_person_exemption_names_only_published_operations():
     """A stale entry would exempt nothing while reading as a decision."""
     assert set(PERSON_OPERATIONS) <= set(PUBLISHED_OPERATIONS), f"{sorted(set(PERSON_OPERATIONS) - set(PUBLISHED_OPERATIONS))} is not published"
+
+
+def test_every_person_operation_binds_a_person_after_the_key():
+    """What earns an operation its exemption from the grants check.
+
+    `tests/api/test_actor_binding.py :: PERSON_WRITES` is held to the same routes, so the two lists
+    agree. Not parametrised: the list is empty until a person's router is mounted.
+    """
+    unearned = []
+    for operation in sorted(PERSON_OPERATIONS):
+        route = ROUTES_BY_OPERATION.get(operation)
+        calls = [dependency.call for dependency in route.dependant.dependencies] if route else []
+        binders = [index for index, call in enumerate(calls) if any(call is binder for binder in PERSON_ACTOR_BINDERS.values())]
+        if verify_access_admin not in calls or not binders or binders[0] < calls.index(verify_access_admin):
+            unearned.append(operation)
+
+    assert unearned == [], f"{unearned} is exempt from the grants check without binding a person after the admin key"
 
 
 def test_every_guard_this_file_knows_names_a_tier():

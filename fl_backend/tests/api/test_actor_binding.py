@@ -309,6 +309,26 @@ def test_the_mutation_inventory_clears_its_floor():
     )
 
 
+def binds_a_person(route: APIRoute) -> bool:
+    """Compared by identity, as `binds_an_actor` compares: each Funktion's binder is one module-level object."""
+    return any(dependency.call is binder for dependency in route.dependant.dependencies for binder in PERSON_ACTOR_BINDERS.values())
+
+
+def test_every_person_write_binds_a_person_in_place_of_an_administrator():
+    """What earns a write its place outside `MUTATIONS`.
+
+    `tests/api/test_admin_guard.py :: PERSON_OPERATIONS` is held to the same routes, so the two lists
+    agree. Not parametrised: the list is empty until a person's router is mounted.
+    """
+    unearned = [
+        operation
+        for operation in PERSON_WRITES
+        if operation[1] in SAFE_METHODS or operation not in ROUTES_BY_OPERATION or not binds_a_person(ROUTES_BY_OPERATION[operation])
+    ]
+
+    assert unearned == [], f"{unearned} leaves `MUTATIONS` without being a mounted write that binds a person"
+
+
 @pytest.mark.parametrize(("path", "method"), PUBLIC_WRITES, ids=lambda value: value)
 def test_a_public_write_binds_the_public_actor(path: str, method: str):
     """What stands in for the binder the exemption drops: the route declares `bind_public_actor` instead.
