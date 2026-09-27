@@ -940,14 +940,17 @@ linter can express is held, `fl_frontend/src/core/schemaGerman.test.ts` among th
 operation publishing no refusal**, because a loop over an empty answer runs zero times and proves
 nothing. Which codes count is `fl_frontend/src/core/errors.ts :: isRefusalCode`, the predicate the
 production readers use: the protocol's codes are published on nearly every operation and answered
-alike by the shared reader.
+by the write spines rather than by a slice.
 `fl_frontend/src/shared/testing/publishedRefusals.ts :: refusedOn` raises a code at the status the document publishes it under, and `:: answerShown` and
 `:: assertEachAnswered` ask each code at a second status too, so a mapper reading the status fails.
 `fl_frontend/src/app/refusalCoverage.test.ts :: ANSWERED_BY` holds the other half (I360): a table
 naming the mapper for every operation publishing a refusal, each code put to it, and agreeing with
 the document in both directions. The table lives in the test rather than beside the mappers, which
 no production code would read. The system tier is left out, on the premise that its callers log a
-refusal and show it to no one.
+refusal and show it to no one. `fl_frontend/src/app/credentialCoverage.test.ts :: ANSWERED` holds the
+credential class the same way (I497), each code put to the spine of every tier publishing it on a
+write: a code the backend starts publishing fails there until its words, or the reason the fallback
+is right, are chosen.
 
 **`DB-COMMON-002`, the unique index's refusal, is the one code the shared fallback words**, as an
 administrator's conflict with an entry that exists; a public route answers it in the visitor's words
@@ -2182,6 +2185,7 @@ carries an `aria-label` of its own and the glyph inside it is decorative like an
 | I491 | **Every exported server action has a row in the §1.3 action table**, and every row names one                                                                                                                                                       | gate check `action-table`, over `scripts/checks/docs_gate/action_table.py :: EXPORT_RE` and `:: ROW_RE`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | I492 | **A withheld author reads „Gesperrte Adresse“ wherever an admin card names one**, in the grants list's words, never an empty line                                                                                                                  | `fl_frontend/src/features/berechtigungen/constants.ts :: vonOderGesperrt`, read by each admin card naming an actor a read may withhold; `fl_frontend/src/features/berechtigungen/constants.test.ts`, `fl_frontend/src/features/berechtigungen/page.test.ts`, `fl_frontend/src/features/sperrliste/components/collections/AdminSperrlisteList.test.ts`, `fl_frontend/src/features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.test.ts`                                                                                                                                                                                                                                            |
 | I493 | **The backend's refusal for want of a recent confirmation answers as the spine's own**, re-reading the page's figure, never the generic fallback                                                                                                   | `fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`; `fl_frontend/src/shared/utils/adminStepUp.test.ts :: "a write the backend refuses for want of a recent confirmation"`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| I497 | **Every credential code `fl_backend/openapi.json` publishes has its answer chosen**: its own words, or the fallback with the reason it is right                                                                                                    | `fl_frontend/src/app/credentialCoverage.test.ts :: ANSWERED`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 
 ## 3. Violation → remedy
 
