@@ -240,10 +240,12 @@ async def refusal_of(call: Awaitable[Any]) -> str:
     return str(raised.value.error_code)
 
 
-async def claimed(database: AsyncDatabase, client: AsyncMongoClient, *, now: datetime = NOW) -> FLBerechtigungAbgleichResponse:
+async def claimed(
+    database: AsyncDatabase, client: AsyncMongoClient, *, now: datetime = NOW, berechtigungen: Any = None
+) -> FLBerechtigungAbgleichResponse:
     async def call() -> FLBerechtigungAbgleichResponse:
         return await post_berechtigungen_abgleich(
-            berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+            berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
             berechtigungen_angekuendigt_collection=database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
             sperrliste_collection=database[Collection.SPERRLISTE],
@@ -696,6 +698,23 @@ class TestTheAnchorClosesEachRace:
             return racing.rival_outcome, outcome, await database[Collection.SPERRLISTE].count_documents({})
 
         assert on_a_league(mongo_replica_set_url, body) == (COMMITTED, SPERRLISTE_VERWALTUNG, 0)
+
+    def test_a_ban_landing_beside_a_claim_leaves_no_queued_row_holding_its_address(self, mongo_replica_set_url: str):
+        """The claim queues a removal the database made; a ban of that address commits between its read and its write."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, list[Mapping[str, Any]]]:
+            await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(DEAD_ID, NEU, "administration"))
+            await told(database, client)
+            await database[Collection.BERECHTIGUNGEN].delete_one({"_id": DEAD_ID})
+            racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: ban(database, client, NEU))
+            outcome = await outcome_of(claimed(database, client, berechtigungen=racing))
+
+            return racing.rival_outcome, outcome, await queued(database)
+
+        rival, outcome, rows = on_a_league(mongo_replica_set_url, body)
+
+        assert (rival, outcome) == (COMMITTED, COMMITTED)
+        assert rows and all(NEU not in str(row) for row in rows)
 
 
 class TestTheClaim:
