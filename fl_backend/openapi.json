@@ -6828,7 +6828,7 @@
     "/api/v0/bewerbungen/einwilligung": {
       "post": {
         "summary": "Confirm or decline one seat of a Bewerbung",
-        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update;\na decline empties their slot and redacts every log image holding it, as an erasure does. Refuses, in this order:\na token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided\n(`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), and an age outside the span the seats this\nperson holds ask for (`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year\nspends nothing.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.",
+        "description": "Record one person's own answer for the seat their link opens, and for a second seat the form said they hold.\n\nA consent writes their date of birth, the stamp, `person` and the wording they were shown in one update;\na decline empties their slot and redacts every log image holding it, as an erasure does. Refuses, in this order:\na token no seat holds (`REQ-BEWERBUNG-009`), a link whose deadline has passed or whose application was decided\n(`REQ-BEWERBUNG-010`), a seat already answered (`REQ-BEWERBUNG-011`), a consent from an address the ban list holds\nnow, whenever the link was minted (`REQ-BEWERBUNG-020`), and an age outside the span the seats this person holds\nask for (`REQ-BEWERBUNG-012`) -- the last judged before anything is written, so a mistyped year spends nothing. A\ndecline is taken from a barred address too: it empties the seat.\n\nThe answer also carries what the two outbound messages are composed from, the Ansprechperson seat's own\nmailbox among it: this is a server-to-server response, and a caller putting it in front of a browser\nwould hand one contact person another's address.",
         "operationId": "post_einwilligung_api_v0_bewerbungen_einwilligung_post",
         "requestBody": {
           "content": {
@@ -6868,6 +6868,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-BEWERBUNG-020"
           },
           "410": {
             "$ref": "#/components/responses/410.REQ-BEWERBUNG-010"
@@ -6995,7 +6998,7 @@
     "/api/v0/registrierungen/bestaetigung": {
       "post": {
         "summary": "Confirm one registration and record the pupil's consent",
-        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the whole consent record, in one update.\n\nThe record carries the publication scope they chose, the media answer beside it, the stamp and the wording they\nwere shown. A returning pupil's press writes the record again under the label current that day, so a consent\ngiven under older words is renewed under the words this person just read.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), an age\nbelow the floor (`-007`), and a media consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the last two judged\nbefore anything is written, so a mistyped year spends nothing and the pupil keeps the link.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
+        "description": "Record a pupil's own answer for the registration their link opens: their date of birth and the whole consent record, in one update.\n\nThe record carries the publication scope they chose, the media answer beside it, the stamp and the wording they\nwere shown. A returning pupil's press writes the record again under the label current that day, so a consent\ngiven under older words is renewed under the words this person just read.\n\nRefuses, in this order: a token no registration holds (`REQ-REGISTRIERUNG-004`), a link whose deadline has\npassed or whose registration has been decided (`-005`), a registration already confirmed (`-006`), a link mailed to\nan address the ban list holds now, whenever the link was minted (`-012`), an age below the floor (`-007`), and a\nmedia consent from a pupil below `medien_mindestalter` (`REQ-REGISTRIERUNG-010`) -- the last two judged before\nanything is written, so a mistyped year spends nothing and the pupil keeps the link.\n\nThe registration stays pending after this: an admission is a later decision, and nothing here writes a person\nor a squad row.",
         "operationId": "post_bestaetigung_api_v0_registrierungen_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -7035,6 +7038,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-REGISTRIERUNG-012"
           },
           "410": {
             "$ref": "#/components/responses/410.REQ-REGISTRIERUNG-005"
@@ -7108,7 +7114,7 @@
     "/api/v0/schiedsrichter/bestaetigung": {
       "post": {
         "summary": "Confirm one Schiedsrichter's entry and consent",
-        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were\nshown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,\nand the fixture list reads it there.\n\nRefuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed\n(`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), an age outside what this\nconsent asks (`REQ-SCHIEDSRICHTER-005`), and a media consent from a referee below `medien_mindestalter`\n(`REQ-SCHIEDSRICHTER-008`) -- the last two judged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer.** Nothing here can: a withheld\nname goes on being served for as long as that entry lives.",
+        "description": "Record a referee's own answer for the entry their link opens: their date of birth and the consent, in one update.\n\nThe consent carries the publication scope they chose, the media answer beside it, the stamp and the wording they were\nshown. It reaches this one collection and writes nothing on any fixture: a referee's publication scope has one home,\nand the fixture list reads it there.\n\nRefuses, in this order: a token no referee holds (`REQ-SCHIEDSRICHTER-002`), an entry already confirmed\n(`REQ-SCHIEDSRICHTER-004`), a link whose deadline has passed (`REQ-SCHIEDSRICHTER-003`), a link mailed to an address\nthe ban list holds now, whenever the link was minted (`REQ-SCHIEDSRICHTER-009`), an age outside what this\nconsent asks (`REQ-SCHIEDSRICHTER-005`), and a media consent from a referee below `medien_mindestalter`\n(`REQ-SCHIEDSRICHTER-008`) -- the last two judged before anything is written, so a mistyped year spends nothing.\n\n**The caller drops the cached fixture list after a successful answer.** Nothing here can: a withheld\nname goes on being served for as long as that entry lives.",
         "operationId": "post_bestaetigung_api_v0_schiedsrichter_bestaetigung_post",
         "requestBody": {
           "content": {
@@ -7148,6 +7154,9 @@
           },
           "401": {
             "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-002"
+          },
+          "403": {
+            "$ref": "#/components/responses/403.REQ-SCHIEDSRICHTER-009"
           },
           "410": {
             "$ref": "#/components/responses/410.REQ-SCHIEDSRICHTER-003"
@@ -20070,6 +20079,29 @@
           }
         }
       },
+      "403.REQ-BEWERBUNG-020": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-BEWERBUNG-020"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
       "403.REQ-REGISTRIERUNG-009": {
         "description": "Forbidden",
         "content": {
@@ -20084,6 +20116,52 @@
                     "error_code": {
                       "enum": [
                         "REQ-REGISTRIERUNG-009"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "403.REQ-REGISTRIERUNG-012": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-REGISTRIERUNG-012"
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "403.REQ-SCHIEDSRICHTER-009": {
+        "description": "Forbidden",
+        "content": {
+          "application/json": {
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/FLFailureBody"
+                },
+                {
+                  "properties": {
+                    "error_code": {
+                      "enum": [
+                        "REQ-SCHIEDSRICHTER-009"
                       ]
                     }
                   }
