@@ -16,7 +16,7 @@ import type { FormState } from "@/shared/types/types";
 const KEIN_CODE = "Kein Code angekommen? Schau im Spam-Ordner nach.";
 
 /** What a right code does here: it confirms the reader, who is already signed in. */
-const BESTAETIGEN = { rest: "Bestätigen", pending: "Wird geprüft..." };
+const BESTAETIGEN = { rest: "Bestätigen", pending: "Bestätigt..." };
 
 /** The code half's own refusal: a code that signed in an account other than the page's. */
 const CODE_STEP_UP_REFUSED = "Wir konnten Dich nicht mit dem Code bestätigen.";
