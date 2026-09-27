@@ -24,6 +24,18 @@ export const PERSON_SHELL_FALLBACK = {
   },
 } as const satisfies { label: string; hint: SidemenuHint };
 
+/**
+ * What the bar reads over the person area's crash panel wherever no listed entry heads the address:
+ * the failed read is what would have said which pages the person holds, so none is called missing.
+ */
+// GERMAN-PENDING: a draft awaiting approval.
+export const PERSON_SHELL_CRASH = {
+  label: PERSON_SHELL_FALLBACK.label,
+  hint: {
+    lead: "Dein Bereich lässt sich gerade nicht laden.",
+  },
+} as const satisfies { label: string; hint: SidemenuHint };
+
 /** Which of the person shell's entries a person may be shown: the landing, and one per person-lane page. */
 export type PersonEintrag = "landing" | "spieler" | "schiedsrichter";
 
@@ -115,9 +127,12 @@ export const TEAM_SIDEMENU_ENTRIES = [
 ] as const satisfies readonly SidemenuStructureSubOption<TeamIconName>[];
 
 /**
- * The team shell's one unnamed group for the seats held at the address's team and season: every entry
- * for any seat, since the Trainer's reaches exactly what an Ansprechperson's does, and none for no seat.
+ * The team shell's one unnamed group: every entry, since the Trainer's seat reaches exactly what an
+ * Ansprechperson's does. With no seat rule it needs no seat read, so the crash panel lists it too.
  */
+export const TEAM_SIDEMENU_STRUCTURE: SidemenuStructure<TeamIconName> = [{ category_name: "", sub_options: [...TEAM_SIDEMENU_ENTRIES] }];
+
+/** The team structure for the seats held at the address's team and season, and none for no seat. */
 export function teamStructureFor(seats: readonly TeamSeat[]): SidemenuStructure<TeamIconName> {
-  return seats.length === 0 ? [] : [{ category_name: "", sub_options: [...TEAM_SIDEMENU_ENTRIES] }];
+  return seats.length === 0 ? [] : TEAM_SIDEMENU_STRUCTURE;
 }

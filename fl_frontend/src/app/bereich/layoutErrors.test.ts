@@ -48,7 +48,8 @@ const { default: AdminLayout } = await import("@/app/bereich/admin/layout.tsx");
 const { PersonAreaBoundary } = await import("@/features/funktionen/components/providers/PersonAreaBoundary.tsx");
 const { TeamAreaBoundary } = await import("@/features/funktionen/components/providers/TeamAreaBoundary.tsx");
 const { AdminAreaBoundary } = await import("@/features/admin/components/providers/AdminAreaBoundary.tsx");
-const { TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL } = await import("@/features/funktionen/constants.ts");
+const { PERSON_SHELL_CRASH, PERSON_SHELL_FALLBACK, PERSON_SIDEMENU_ENTRIES, TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL, TEAM_SIDEMENU_ENTRIES } =
+  await import("@/features/funktionen/constants.ts");
 
 const TEAM = { team_id: "6890a1b2c3d4e5f607250011", saison_id: "2526" };
 const NO_PROPS = { params: Promise.resolve({}), searchParams: Promise.resolve({}) };
@@ -212,20 +213,45 @@ describe("the chrome under a person lane's guard", () => {
   });
 });
 
-describe("the bar over the team area's crash panel", () => {
-  /* A failing read says nothing about the seats the person holds, so the bar keeps the area's own words
-     rather than the refusal's, which would tell a seat holder they hold no seat. */
-  it("keeps the area's own hint and never the refusal's", async () => {
-    fetchDouble.mock.mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })));
-    render(underNext(h(TeamAreaBoundary, null, h(Throwing)), { pathname: `/bereich/team/${TEAM.team_id}/${TEAM.saison_id}`, params: TEAM }));
-    try {
-      await userEvent.setup().click(screen.getByRole("button", { name: `Was auf „${TEAM_SHELL_FALLBACK.label}“ zu finden ist` }));
-      const shown = document.body.textContent;
+/** The hint the bar over an area's crash panel opens on a press, the bar named `label` at `pathname`. */
+async function crashBarHint(
+  boundary: ComponentType<{ children?: ReactNode }>,
+  pathname: string,
+  label: string,
+  params?: Record<string, string>,
+): Promise<string> {
+  fetchDouble.mock.mockImplementation(() => Promise.resolve(new Response(null, { status: 204 })));
+  render(underNext(h(boundary, null, h(Throwing)), { pathname: pathname, ...(params === undefined ? {} : { params: params }) }));
+  try {
+    await userEvent.setup().click(screen.getByRole("button", { name: `Was auf „${label}“ zu finden ist` }));
+    return document.body.textContent;
+  } finally {
+    cleanup();
+  }
+}
 
-      assert.ok(shown.includes(TEAM_SHELL_FALLBACK.hint.lead), "the crash panel's bar reads no hint of the area's own");
-      assert.ok(!shown.includes(TEAM_SHELL_REFUSAL.hint.lead), "the crash panel's bar tells a seat holder they hold no seat");
-    } finally {
-      cleanup();
+describe("the bar over an area's crash panel", () => {
+  /* A failing read says nothing of the seats held, so the bar heads the landing by its own entry: the
+     refusal's words would tell a seat holder they hold none, and a missing page's call the landing no page. */
+  it("heads the team's landing by its own entry", async () => {
+    const [landing] = TEAM_SIDEMENU_ENTRIES;
+    const shown = await crashBarHint(TeamAreaBoundary, `/bereich/team/${TEAM.team_id}/${TEAM.saison_id}`, landing.label, TEAM);
+
+    assert.ok(shown.includes(landing.hint.lead), "the crash panel's bar reads no hint of the landing's own");
+    assert.ok(!shown.includes(TEAM_SHELL_FALLBACK.hint.lead), "the crash panel's bar calls the team's landing no page");
+    assert.ok(!shown.includes(TEAM_SHELL_REFUSAL.hint.lead), "the crash panel's bar tells a seat holder they hold no seat");
+  });
+
+  /* The same for the person area, whose landing every person holds; at any other address the failed
+     read is what would have said whether the person holds the page, so the bar says the area failed. */
+  it("heads the person's landing by its entry, and any other address by the crash", async () => {
+    const landing = await crashBarHint(PersonAreaBoundary, "/bereich", PERSON_SIDEMENU_ENTRIES.landing.label);
+    const spieler = await crashBarHint(PersonAreaBoundary, "/bereich/spieler", PERSON_SHELL_CRASH.label);
+
+    assert.ok(landing.includes(PERSON_SIDEMENU_ENTRIES.landing.hint.lead), "the crash panel's bar reads no hint of the landing's own");
+    assert.ok(spieler.includes(PERSON_SHELL_CRASH.hint.lead), "the crash panel's bar reads no crash hint off the landing");
+    for (const shown of [landing, spieler]) {
+      assert.ok(!shown.includes(PERSON_SHELL_FALLBACK.hint.lead), "the crash panel's bar calls a page of the area no page");
     }
   });
 });

@@ -8,7 +8,7 @@ import { FunktionSwitcher } from "@/shared/components/layout/sidemenu/FunktionSw
 import { PERSON_SHELL_FALLBACK, PERSON_SIDEMENU_ENTRIES, PERSON_SIDEMENU_ICONS } from "../../constants";
 
 import type { FunktionOrt } from "@/shared/components/layout/sidemenu/FunktionSwitcher";
-import type { SidemenuStructure } from "@/shared/types/types";
+import type { SidemenuHint, SidemenuStructure } from "@/shared/types/types";
 import type React from "react";
 import type { PersonIconName } from "../../constants";
 
@@ -19,11 +19,14 @@ import type { PersonIconName } from "../../constants";
 export function PersonShell({
   structure,
   orte,
+  fallback = PERSON_SHELL_FALLBACK,
   children,
 }: {
   structure: SidemenuStructure<PersonIconName>;
   /** The places the person's Funktionen lead to (`fl_frontend/src/features/funktionen/utils.ts :: funktionOrteOf`). */
   orte: readonly FunktionOrt[];
+  /** What the bar reads where no entry heads the address: a missing page's words, or the crash panel's own. */
+  fallback?: { label: string; hint: SidemenuHint };
   children: React.ReactNode;
 }) {
   return (
@@ -44,8 +47,8 @@ export function PersonShell({
         />
       }
       keepsSaisonQuery={false}
-      fallbackTitle={PERSON_SHELL_FALLBACK.label}
-      fallbackHint={PERSON_SHELL_FALLBACK.hint}
+      fallbackTitle={fallback.label}
+      fallbackHint={fallback.hint}
       kontoHref={KONTO_HREF}
       onSignOut={signOutAction}>
       {children}
