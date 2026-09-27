@@ -12,6 +12,7 @@ import { userEvent } from "@testing-library/user-event";
 
 import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
+import { closedControl } from "@/shared/testing/closedControl.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 
 import type { FormState } from "@/shared/types/types";
@@ -211,21 +212,22 @@ describe("the sign-in card's code step", () => {
       await act(async () => {
         fireEvent.submit(screen.getByRole("textbox", { name: "E-Mail-Adresse" }).closest("form") as HTMLFormElement);
       });
-      const resend = () => screen.getByRole("button", { name: "Code erneut senden" });
-      assert.equal(resend().hasAttribute("disabled"), true, "the resend is open at once");
+      // Closed with its reason, which a disabled control alone would take out of the tab order.
+      closedControl("Code erneut senden", COOLDOWN_REASON);
 
       await act(async () => {
         mock.timers.tick(29_999);
       });
-      assert.equal(resend().hasAttribute("disabled"), true, "the resend opened before half a minute");
+      closedControl("Code erneut senden", COOLDOWN_REASON);
 
       await act(async () => {
         mock.timers.tick(1);
       });
-      assert.equal(resend().hasAttribute("disabled"), false, "the resend stayed closed past half a minute");
+      const resend = screen.getByRole("button", { name: "Code erneut senden" });
+      assert.equal(resend.hasAttribute("disabled"), false, "the resend stayed closed past half a minute");
 
       await act(async () => {
-        fireEvent.click(resend());
+        fireEvent.click(resend);
       });
     } finally {
       mock.timers.reset();
@@ -237,6 +239,9 @@ describe("the sign-in card's code step", () => {
 
 /* The step on its own, as a page confirming a signed-in person mounts it: the caller decides what a
    finished sign-in does, and an address that may not change is offered no way to change it. */
+/** The resend's reason while its cooldown runs. */
+const COOLDOWN_REASON = "Einen neuen Code kannst Du eine halbe Minute nach dem letzten anfordern.";
+
 /** A caller other than the sign-in card, with words of its own. */
 const ELSEWHERE = {
   address: ADDRESS,
@@ -264,7 +269,7 @@ describe("the code step mounted outside the sign-in card", () => {
     render(h(CodeStep, { ...ELSEWHERE, onSignedIn: () => undefined }));
 
     assert.ok(screen.queryByRole("button", { name: "Andere E-Mail-Adresse verwenden" }) === null);
-    assert.ok(screen.getByRole("button", { name: "Code erneut senden" }));
+    closedControl("Code erneut senden", COOLDOWN_REASON);
   });
 
   /* A signed-in reader confirming a change is owed neither the sign-in's help nor its verb. */

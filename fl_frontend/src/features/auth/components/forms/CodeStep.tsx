@@ -22,6 +22,10 @@ const CODE_ENDPOINT = "/api/signin/code";
 /** Long enough that a mail sent a moment ago can arrive before a second is asked for. */
 const RESEND_COOLDOWN_MS = 30_000;
 
+/** Why the resend is closed while the cooldown runs: a disabled control also leaves the tab order. */
+// GERMAN-PENDING: new German, not yet approved.
+const ERST_WARTEN = "Einen neuen Code kannst Du eine halbe Minute nach dem letzten anfordern.";
+
 export const LABEL_CLASSES = "fluid-xs font-bold tracking-wider text-foreground uppercase";
 
 /**
@@ -172,17 +176,22 @@ export function CodeStep({
       </Button>
 
       <div className="flex flex-col gap-y-3 sm:flex-row sm:justify-center sm:gap-x-3">
-        <Button
-          type="button"
-          variant="secondary"
-          isPending={isSending}
-          // Not before the cooldown: a new code goes out and voids the one before, so a second press a
-          // moment after the first kills the code the first mail is still carrying.
-          isDisabled={isCoolingDown || isChecking}
-          onPress={onResend}
-          className={formButton({ intent: "cancel" })}>
-          Code erneut senden
-        </Button>
+        <Hint
+          mode="refusal"
+          reason={isCoolingDown ? ERST_WARTEN : null}
+          label="Code erneut senden">
+          <Button
+            type="button"
+            variant="secondary"
+            isPending={isSending}
+            // Not before the cooldown: a new code goes out and voids the one before, so a second press a
+            // moment after the first kills the code the first mail is still carrying.
+            isDisabled={isCoolingDown || isChecking}
+            onPress={onResend}
+            className={formButton({ intent: "cancel" })}>
+            Code erneut senden
+          </Button>
+        </Hint>
         {/* The send does not navigate, so without this the only way back is a page reload. */}
         {onBack !== undefined && (
           <Button
