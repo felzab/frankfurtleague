@@ -44,6 +44,7 @@ declare const extra: string;
 declare const bounds: object;
 import { createRequire as loadVia } from "node:module"; // expect: node-module
 import { SITE_URL } from "@/core/brand"; // expect: site-origin
+import { mintRequestActor } from "@/core/actorToken"; // expect: actor-signing
 
 export const FADE = "p-2 data-hovered:opacity-60"; // expect: hover-opacity
 export const TINT = "hover:bg-brand/20"; // expect: hover-alpha
@@ -175,3 +176,5 @@ export const LITERAL_UNMARK = <Select isRequired={false} name="gruppe" />; // ex
 // A mark worked out at a call site is set by hand as much as a literal is.
 export const DERIVED_MARK = <Select isRequired={owed} name="gruppe" />; // expect: hand-set-required
 export const COMPUTED_MARK = <Select isRequired={!false} name="gruppe" />; // expect: hand-set-required
+export const SIGNING_USED = mintRequestActor;
+export const SIGNING_LOADED = import("@/core/actorToken"); // expect: actor-signing-load

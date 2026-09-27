@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { after, beforeEach, describe, it } from "node:test";
 
+import { jwtVerify } from "jose";
+
 import {
+  ACTOR_KEY_PAIR,
   ADMIN_EMAIL,
   asDataUrl,
   configDouble,
@@ -14,6 +17,8 @@ import {
 } from "./authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "./cacheScope.ts";
 import { exportingModule } from "./exportingModule.ts";
+
+import type { RequestActor } from "./requestScope.ts";
 
 const STORE = "__flSubjectStore";
 
@@ -197,7 +202,7 @@ function ageRow(row: SessionRow, { created = 0, idle = 0 }: { created?: number; 
 }
 
 /** The guard inside a request scope, which is where `setRequestActor` has a store to write into. */
-async function guardInScope(): Promise<{ answer: Awaited<ReturnType<typeof getSubjectSession>>; actor: string | undefined }> {
+async function guardInScope(): Promise<{ answer: Awaited<ReturnType<typeof getSubjectSession>>; actor: RequestActor | undefined }> {
   return runWithRequestScope({ traceId: "0".repeat(31) + "1", spanId: "0".repeat(15) + "1" }, async () => {
     const answer = await getSubjectSession();
 
@@ -341,7 +346,7 @@ describe("who the seam answers for", () => {
     assert.equal(answer?.admin, false);
     assert.equal(answer?.email, PERSON_EMAIL);
     assert.deepEqual(answer?.subjekt.spieler, [PUPIL]);
-    assert.equal(actor, PERSON_EMAIL, "the request scope holds a spelling the join and the log do not share");
+    assert.equal(actor?.email, PERSON_EMAIL, "the request scope holds a spelling the join and the log do not share");
   });
 
   /* One spelling per person, or a seat holder is answered no Funktion and shown the forbidden
@@ -359,7 +364,7 @@ describe("who the seam answers for", () => {
     const { answer, actor } = await guardInScope();
 
     assert.equal(answer?.email, FOLDED_EMAIL);
-    assert.equal(actor, FOLDED_EMAIL);
+    assert.equal(actor?.email, FOLDED_EMAIL);
     assert.equal((JSON.parse(lastSent().body) as { email: string }).email, FOLDED_EMAIL);
     assert.deepEqual(answer?.subjekt.spieler, [PUPIL], "the lookup was asked about a mailbox the league holds nothing for");
   });
@@ -525,9 +530,64 @@ describe("the person's two lifetimes, compared in this guard as well as the othe
   });
 });
 
+describe("the actor a person's lane signs", () => {
+  /* Verified as the backend verifies it, with the public half of the pair the run made: a claim the
+     backend reads that this lane got wrong would refuse every write a person makes. */
+  it("signs the session's user, row, factor and age under the person lane", async () => {
+    const { cookie, row } = await signIn(UNFOLDED_EMAIL);
+    arriveAs(cookie);
+    const held = await auth.api.getSession({ headers: new Headers({ ...ORIGIN, cookie }) });
+    assert.ok(held, "the sign-in minted no session to compare the claims with");
+
+    const { actor } = await guardInScope();
+    assert.ok(actor, "the guard recorded no actor");
+    const { payload } = await jwtVerify(actor.token, ACTOR_KEY_PAIR.publicKey, {
+      algorithms: ["EdDSA"],
+      typ: "fl-actor+jwt",
+      issuer: "fl-frontend",
+      audience: "fl-backend",
+    });
+
+    assert.equal(actor.lane, "person");
+    assert.equal(payload.lane, "person");
+    assert.equal(payload.email, FOLDED_EMAIL);
+    assert.equal(payload.sub, held.user.id);
+    assert.equal(payload.sid, held.session.id);
+    assert.deepEqual(payload.amr, [row.authFactor]);
+    assert.equal(payload.auth_time, Math.floor(row.createdAt.getTime() / 1000));
+  });
+
+  /* A row stamped by no factor this league mints cannot be stated in `amr`, and a token claiming one
+     it did not prove is the lie the token exists to prevent. */
+  it("answers a session made by an unknown factor no session, and records no actor for it", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    row.authFactor = "link";
+    arriveAs(cookie);
+
+    const { answer, actor } = await guardInScope();
+
+    assert.equal(answer, null);
+    assert.equal(actor, undefined);
+  });
+});
+
 describe("the guard across one render pass", () => {
   /* First, so a scope that failed to take fails here rather than under the count below. */
   itOpensAScopeThatMemoizes();
+
+  /* A layout's guard runs before any scope opens and records nothing; the read opening the render's
+     scope afterwards is answered from the memo, and still has to name the person. */
+  it("records its actor in a scope opened after its memo was filled, reading the session once", async () => {
+    const { cookie } = await signIn(PERSON_EMAIL);
+    arriveAs(cookie);
+    const readsBefore = headerReads();
+
+    assert.ok(await getSubjectSession(), "the guard refused, so the scope below is asked about nothing");
+    const { actor } = await guardInScope();
+
+    assert.equal(actor?.email, PERSON_EMAIL, "the memo answered, and the scope names nobody");
+    assert.equal(headerReads() - readsBefore, 1, "the second call read the session again rather than the memo");
+  });
 
   /* A layout, a guard and a page each asking inside one render pass. */
   it("reads the session and asks the backend once for every guard of one render pass", async () => {

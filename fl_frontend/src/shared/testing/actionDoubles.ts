@@ -227,7 +227,9 @@ async function administratorOf({ session, served }: SignInAnswers): Promise<unkn
   if (session !== null && !(session instanceof Error)) {
     const { setRequestActor } = await import("@/core/requestScope.ts");
     const { asSignInIdentifier } = await import("@/core/emailAddress.ts");
-    setRequestActor(asSignInIdentifier(session.user.email));
+    // A token nobody verifies: the backend these suites reach is doubled, and the minting is
+    // `fl_frontend/src/core/actorToken.test.ts`'s to prove.
+    setRequestActor({ email: asSignInIdentifier(session.user.email), lane: "admin", token: "doubled-actor-token-not-a-credential" });
   }
 
   return answering(served);

@@ -7,13 +7,22 @@ import { cache } from "react";
 // times each gap between reads, not the response (`docs/frontend/spec.md :: I366`).
 export const REQUEST_DEADLINE_MS = 30000;
 
+/** Which guard recorded the actor: the administrator's, or a person's. */
+export type ActorLane = "admin" | "person";
+
+/**
+ * Who the request acts for, and the signed token `fl_frontend/src/core/api.ts :: apiClient` sends in
+ * their name (`fl_frontend/src/core/actorToken.ts :: mintRequestActor`).
+ */
+export type RequestActor = { readonly email: string; readonly lane: ActorLane; readonly token: string };
+
 interface RequestScope {
   traceId: string;
   // This service's own span, minted per request: each hop mints one locally and only the trace id
   // travels end to end (`docs/logging/spec.md :: L12`).
   spanId: string;
   // Absent on a public read, and on an admin one until its session resolves.
-  actor?: string;
+  actor?: RequestActor;
   // On `performance.now()`'s clock rather than `Date.now()`'s, which a wall-clock step moves.
   deadlineAt: number;
   // Set where a call may have landed unanswered, which the spines read once the request's work is done.
@@ -131,21 +140,23 @@ export function getRequestSpanId(): string | undefined {
   return storage.getStore()?.spanId;
 }
 
-export function getRequestActor(): string | undefined {
+export function getRequestActor(): RequestActor | undefined {
   return storage.getStore()?.actor;
 }
 
 // Mutates the live store: the session resolves after the scope is entered, and `run()` seeds at
-// entry alone. A no-op outside a scope, and on the address-less session the sign-in library's types
-// admit but a mailed code cannot produce.
-export function setRequestActor(actor: string | null | undefined): void {
+// entry alone. A no-op outside a scope.
+export function setRequestActor(actor: RequestActor): void {
   const store = storage.getStore();
-  if (!store || !actor) return;
+  if (!store) return;
 
-  // Two session guards ran on one request, which is a programming error rather than a shape to
-  // serve: whichever landed last would name the actor of every write this request makes
-  // (`docs/frontend/spec.md :: I272`).
-  if (store.actor !== undefined && store.actor !== actor) throw new Error("A second actor was set on one request scope.");
+  // A second guard on one request is a programming error: whichever landed last would name every
+  // write's actor (`docs/frontend/spec.md :: I272`). Compared by who and which lane, never by the
+  // token each mint makes afresh.
+  if (store.actor !== undefined && (store.actor.email !== actor.email || store.actor.lane !== actor.lane)) {
+    throw new Error("A second actor was set on one request scope.");
+  }
 
-  store.actor = actor;
+  // The first token stands: a guard answering from its memo hands back the one it already minted.
+  store.actor ??= actor;
 }

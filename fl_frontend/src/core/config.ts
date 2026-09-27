@@ -98,6 +98,10 @@ const server = {
   INTERNAL_API_KEY_SYSTEM: INTERNAL_API_KEY,
   INTERNAL_API_KEY_ADMIN: INTERNAL_API_KEY,
 
+  // A path, never the key: an environment value shows in `docker inspect`, and a mounted secret file
+  // in neither that nor this schema's refusals. Defaulted to where the compose secret mounts.
+  ACTOR_SIGNING_KEY_FILE: z.string().min(1).default("/run/secrets/fl_actor_signing_key"),
+
   // Retired and read by nothing: the grant stored in `berechtigungen` decides who administers.
   // Declared for one release, so the preflight takes the file an image rolled back to still reads;
   // a boot finding it set warns (`fl_frontend/src/instrumentation.ts :: register`).
@@ -166,6 +170,8 @@ export const frontend_config = createEnv({
     INTERNAL_API_KEY_BASE: process.env.INTERNAL_API_KEY_BASE,
     INTERNAL_API_KEY_SYSTEM: process.env.INTERNAL_API_KEY_SYSTEM,
     INTERNAL_API_KEY_ADMIN: process.env.INTERNAL_API_KEY_ADMIN,
+
+    ACTOR_SIGNING_KEY_FILE: process.env.ACTOR_SIGNING_KEY_FILE,
 
     ALLOWED_ADMIN_EMAILS: process.env.ALLOWED_ADMIN_EMAILS,
 

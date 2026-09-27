@@ -18,6 +18,7 @@ import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
 declare const bounds: object;
 import { createRequire as loadVia } from "node:module"; // expect: node-module
 import { SITE_URL } from "@/core/brand"; // expect: site-origin
+import { mintRequestActor } from "@/core/actorToken"; // expect: actor-signing
 
 export const USED = [TimeField, DateField, AppRouterContext, HeroForm, HintPanel, captureStdout, TEAM_FACETS];
 
@@ -33,3 +34,4 @@ export const ORIGIN_USED = SITE_URL;
 export const NUMBER_FIELD_USED = HeroNumberField;
 export const LOCALE_USED = PinnedLocale;
 export const TEXT_FIELD_USED = HeroTextField;
+export const SIGNING_USED = mintRequestActor;

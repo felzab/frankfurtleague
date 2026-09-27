@@ -13,6 +13,7 @@ import { customSession } from "better-auth/plugins/custom-session";
 import { emailOTP } from "better-auth/plugins/email-otp";
 import { MongoServerError } from "mongodb";
 
+import { mintRequestActor } from "./actorToken";
 import { ANMELDUNG_CODE, ANMELDUNG_TAG } from "./anmeldeTag";
 import { buildCodeEmail, CODE_VALIDITY_MINUTES } from "./authEmail";
 import { frontend_config } from "./config";
@@ -41,6 +42,7 @@ import { verwaltungOf } from "./verwaltung";
 
 import type { AuthContext, BetterAuthOptions, DBTransactionAdapter, GenericEndpointContext } from "better-auth";
 import type { PasskeyEmail } from "./passkeyEmail";
+import type { RequestActor } from "./requestScope";
 import type { Lifetime } from "./sessionLifetimes";
 
 // Named for what the database holds rather than for the library that writes it, so the next swap
@@ -1042,37 +1044,51 @@ export function isAdminSession(served: ServedSession, verwaltung: boolean): bool
 export type AdminRefusal = "signIn" | "noGrant" | "grantGone" | "unread";
 
 // React's `cache`, never `"use cache"`, which would hand one request's session to another: one read
-// serves every guard of a render pass, and none outside it, where a server action and the proxy
-// each read their own.
+// and one signed actor serve every guard of a render pass, and none outside it, where a server action
+// and the proxy each read theirs.
+const readAdminRequest = cache(
+  async (): Promise<{ readonly session: JudgedSession; readonly actor: RequestActor } | { readonly refused: AdminRefusal }> => {
+    const served = await auth.api.getSession({ headers: await headers() });
+    if (!served) return { refused: "signIn" };
+
+    // An unread grant admits nobody, so the administration is shut while the backend is.
+    const verwaltung = await verwaltungOrNull(served.user.email);
+    if (verwaltung === null) return { refused: "unread" };
+    if (!verwaltung) return { refused: isAdminSession(served, true) ? "grantGone" : "noGrant" };
+    if (!isAdminSession(served, true)) return { refused: "signIn" };
+
+    // A session no token can state truthfully is repaired by signing in afresh.
+    const actor = await mintRequestActor(served, "admin");
+    if (actor === null) return { refused: "signIn" };
+
+    return { session: { ...served, verwaltung: true }, actor: actor };
+  },
+);
+
 /**
  * The administrator's guard with its reason, for a caller whose answer depends on why it refused; every
  * other caller takes `getAdminSession`, over this same read.
  */
-export const judgeAdminRequest = cache(async (): Promise<{ readonly session: JudgedSession } | { readonly refused: AdminRefusal }> => {
-  const served = await auth.api.getSession({ headers: await headers() });
-  if (!served) return { refused: "signIn" };
+export async function judgeAdminRequest(): Promise<{ readonly session: JudgedSession } | { readonly refused: AdminRefusal }> {
+  const judged = await readAdminRequest();
+  if ("refused" in judged) return judged;
 
-  // An unread grant admits nobody, so the administration is shut while the backend is.
-  const verwaltung = await verwaltungOrNull(served.user.email);
-  if (verwaltung === null) return { refused: "unread" };
-  if (!verwaltung) return { refused: isAdminSession(served, true) ? "grantGone" : "noGrant" };
-  if (!isAdminSession(served, true)) return { refused: "signIn" };
+  // On every call, outside the memo: a render's first read may precede every scope, and a later
+  // scope answered from the memo would name nobody. The ordering is load-bearing
+  // (`docs/frontend/spec.md` §1.3).
+  setRequestActor(judged.actor);
 
-  // Recorded here rather than in `runAdminMutation`: a second resolution is another round trip to
-  // the session store, and the ordering is load-bearing (`docs/frontend/spec.md` §1.3).
-  setRequestActor(asSignInIdentifier(served.user.email));
-
-  return { session: { ...served, verwaltung: true } };
-});
+  return { session: judged.session };
+}
 
 /**
  * Neither throws nor redirects — hence `get`, not `require` — so it guards nothing on its own line.
  * **Check the return value** (`docs/frontend/spec.md` I8).
  */
-export const getAdminSession = cache(async (): Promise<JudgedSession | null> => {
+export async function getAdminSession(): Promise<JudgedSession | null> {
   const judged = await judgeAdminRequest();
   return "session" in judged ? judged.session : null;
-});
+}
 
 /** Where `/signin/weiter` sends the session it was handed. */
 export type SignInDestination = "/bereich/admin" | "/signin/passkey" | "/bereich" | "/signin";

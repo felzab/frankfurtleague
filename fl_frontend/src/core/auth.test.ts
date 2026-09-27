@@ -5,8 +5,10 @@ import { pathToFileURL } from "node:url";
 
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { isAPIError } from "better-auth/api";
+import { jwtVerify } from "jose";
 
 import {
+  ACTOR_KEY_PAIR,
   ADMIN_EMAIL,
   asDataUrl,
   Barrier,
@@ -2500,6 +2502,36 @@ describe("which spelling of an administrator a write is attributed to", () => {
     });
     held.email = ADMIN_EMAIL;
 
-    assert.equal(actor, ADMIN_EMAIL);
+    assert.equal(actor?.email, ADMIN_EMAIL);
+  });
+
+  /* Verified as the backend verifies it, with the public half of the pair the run made: the admin
+     tier admits only this lane, and only a passkey's session inside the administrator's window. */
+  it("signs the session's user, row, factor and age under the administrator's lane", async () => {
+    const { getRequestActor, runWithRequestScope } = await import("./requestScope.ts");
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    row.authFactor = "passkey";
+    arriveAs(cookie);
+
+    const actor = await runWithRequestScope({ traceId: `${"0".repeat(31)}1`, spanId: `${"0".repeat(15)}1` }, async () => {
+      assert.ok(await getAdminSession(), "the guard refused the session, so no actor was set at all");
+
+      return getRequestActor();
+    });
+    assert.ok(actor, "the guard recorded no actor");
+    const { payload, protectedHeader } = await jwtVerify(actor.token, ACTOR_KEY_PAIR.publicKey, {
+      algorithms: ["EdDSA"],
+      typ: "fl-actor+jwt",
+      issuer: "fl-frontend",
+      audience: "fl-backend",
+    });
+
+    assert.equal(actor.lane, "admin");
+    assert.equal(protectedHeader.alg, "EdDSA");
+    assert.equal(payload.lane, "admin");
+    assert.equal(payload.email, ADMIN_EMAIL);
+    assert.equal(payload.sub, row.userId);
+    assert.deepEqual(payload.amr, ["passkey"]);
+    assert.equal(payload.auth_time, Math.floor(new Date(row.createdAt).getTime() / 1000));
   });
 });

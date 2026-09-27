@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { registerHooks } from "node:module";
-import { beforeEach, describe, it } from "node:test";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { after, beforeEach, describe, it } from "node:test";
 
+import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
 import { exportingModule } from "@/core/exportingModule.ts";
 
 import type { TestContext } from "node:test";
@@ -16,6 +20,13 @@ const lines: Line[] = [];
 
 /** The retired variable as the doubled config answers it, which a case sets. */
 let retired: string | undefined;
+
+/** Where a refused boot's own files go, removed after the run. */
+const KEY_DIRECTORY = mkdtempSync(path.join(tmpdir(), "fl-boot-key-"));
+after(() => rmSync(KEY_DIRECTORY, { recursive: true, force: true }));
+
+/** The key file the doubled config names, which a case sets; every other boot reads the run's own key. */
+let keyFile = ACTOR_KEY_FILE;
 
 // Every level records: which level the retired variable's line takes is part of what is asserted.
 const record =
@@ -33,6 +44,9 @@ const CONFIG_DOUBLE = exportingModule({
     BEWERBUNG_SWEEP: "off",
     get ALLOWED_ADMIN_EMAILS() {
       return retired;
+    },
+    get ACTOR_SIGNING_KEY_FILE() {
+      return keyFile;
     },
   },
 });
@@ -130,5 +144,60 @@ describe("the pass announcing each change to who administers", () => {
 
   it("arms nothing under a development build", async (t) => {
     assert.deepEqual(await bootAndStep(t, "development", [10 * MINUTE_MS]), [0]);
+  });
+});
+
+describe("the boot reading the actor's signing key", () => {
+  /** The boot's refusal under `file`: what it threw, and every chunk it wrote to stdout. */
+  async function refusedBoot(t: TestContext, file: string): Promise<{ thrown: unknown; written: string }> {
+    const chunks: string[] = [];
+    t.mock.method(process.stdout, "write", (chunk: unknown) => {
+      chunks.push(String(chunk));
+      return true;
+    });
+    keyFile = file;
+    try {
+      return {
+        thrown: await register().then(
+          () => undefined,
+          (error: unknown) => error,
+        ),
+        written: chunks.join(""),
+      };
+    } finally {
+      keyFile = ACTOR_KEY_FILE;
+      t.mock.restoreAll();
+    }
+  }
+
+  /* Refused before anything is served: past the boot, every signed-in page would fail its guard. */
+  it("refuses to boot without the file, naming its path on a CRITICAL line", async (t) => {
+    const missing = path.join(KEY_DIRECTORY, "absent.pem");
+
+    const { thrown, written } = await refusedBoot(t, missing);
+
+    assert.ok(thrown instanceof Error && thrown.message.includes(missing), "the boot went on, or its error named no path");
+    assert.match(written, /CRITICAL/);
+    assert.match(written, /FE-BOOT-003/);
+    assert.ok(written.includes(missing), "the line named no path");
+  });
+
+  it("refuses to boot on a file holding no key, never writing what it holds", async (t) => {
+    const held = "not-a-key-but-a-value-that-must-stay-unwritten";
+    const file = path.join(KEY_DIRECTORY, "garbage.pem");
+    writeFileSync(file, held);
+
+    const { thrown, written } = await refusedBoot(t, file);
+
+    assert.ok(thrown instanceof Error, "the boot went on over a file holding no key");
+    assert.match(written, /FE-BOOT-003/);
+    assert.ok(!written.includes(held) && !String(thrown.stack).includes(held), "the refusal quoted the file");
+  });
+
+  it("boots on a readable Ed25519 key, writing nothing", async (t) => {
+    const { thrown, written } = await refusedBoot(t, ACTOR_KEY_FILE);
+
+    assert.equal(thrown, undefined);
+    assert.equal(written, "");
   });
 });

@@ -149,19 +149,63 @@ describe("the two headers this hop sets", () => {
     assert.deepEqual(sentTraceparent(), { traceId: TRACE, spanId: SPAN });
   });
 
-  // The actor is the admin scope's or nothing: a caller's own would attribute this read to a person
-  // who never made it, and a base call mints none to overwrite one with.
-  it("sends the scope's actor on an admin call and none at all on a base one", async () => {
-    await runWithRequestScope({ traceId: TRACE, spanId: SPAN, actor: "admin@frankfurtleague.de" }, () =>
-      apiClient("/saisons", z.array(z.unknown()), { authType: "admin", headers: { ...CALLER_HEADERS } }),
-    );
-    assert.equal(new Headers(sends.at(-1)?.init.headers).get(ACTOR_HEADER), "admin@frankfurtleague.de");
+  const ADMIN_ACTOR = { email: "admin@frankfurtleague.de", lane: "admin", token: "admin-lane-token-double" } as const;
+  const PERSON_ACTOR = { email: "spielerin@example.org", lane: "person", token: "person-lane-token-double" } as const;
 
-    await runWithRequestScope({ traceId: TRACE, spanId: SPAN, actor: "admin@frankfurtleague.de" }, () =>
-      apiClient("/saisons", z.array(z.unknown()), { headers: { ...CALLER_HEADERS } }),
+  /** The actor header the one call sent from a scope recording `actor`, under `authType`. */
+  async function actorSent(
+    actor: typeof ADMIN_ACTOR | typeof PERSON_ACTOR,
+    authType?: "base" | "system" | "admin" | "none",
+  ): Promise<string | null> {
+    await runWithRequestScope({ traceId: TRACE, spanId: SPAN, actor: actor }, () =>
+      apiClient("/saisons", z.array(z.unknown()), { authType: authType, headers: { ...CALLER_HEADERS } }),
     );
-    assert.equal(new Headers(sends.at(-1)?.init.headers).get(ACTOR_HEADER), null);
+
+    return new Headers(sends.at(-1)?.init.headers).get(ACTOR_HEADER);
+  }
+
+  // The signed token alone: the backend believes no address it cannot verify. A person's route rides
+  // the admin key too, so whichever guard recorded the actor, the token goes.
+  it("sends the scope's token on an admin-tier call, whichever lane recorded it, and never the address", async () => {
+    assert.equal(await actorSent(ADMIN_ACTOR, "admin"), ADMIN_ACTOR.token);
+    assert.equal(await actorSent(PERSON_ACTOR, "admin"), PERSON_ACTOR.token);
   });
+
+  // The error is what a spine hands the logger, and the token a bearer credential while it lives: a
+  // refused call and one that never landed each come back carrying none of it.
+  it("puts the token into no error an admin-tier call throws", async () => {
+    const failures: unknown[] = [];
+    nextAnswer = new Response(JSON.stringify({ error_code: "REQ-AUTH-006" }), { status: 403, headers: { "content-type": "application/json" } });
+    failures.push(
+      await actorSent(ADMIN_ACTOR, "admin").then(
+        () => undefined,
+        (error: unknown) => error,
+      ),
+    );
+    nextTimesOut = true;
+    failures.push(
+      await actorSent(ADMIN_ACTOR, "admin").then(
+        () => undefined,
+        (error: unknown) => error,
+      ),
+    );
+
+    for (const failure of failures) {
+      assert.ok(failure instanceof Error, "the call did not fail, so nothing below was asked");
+      const seen = JSON.stringify({ ...failure, message: failure.message, stack: failure.stack }, (_key, value: unknown) =>
+        value instanceof Error ? { ...value, message: value.message, stack: value.stack } : value,
+      );
+      assert.ok(!seen.includes(ADMIN_ACTOR.token), `${failure.name} carried the token`);
+    }
+  });
+
+  // A base or system call is the app acting as itself: an actor on one would attribute a machine read
+  // to a person, and a caller's own header is taken off rather than passed on.
+  for (const authType of [undefined, "base", "system", "none"] as const) {
+    it(`sends no actor at all on a ${authType ?? "default"}-tier call, though the scope holds one`, async () => {
+      assert.equal(await actorSent(ADMIN_ACTOR, authType), null);
+    });
+  }
 
   // The backend refuses it on arrival (REQ-AUTH-005), and the sweep over every query relies on this
   // refusal to name a read that opened outside `runAdminRead`. A caller's own header names nobody.

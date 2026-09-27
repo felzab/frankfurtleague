@@ -72,6 +72,9 @@ const BANS = [
   ["locale-provider", /The locale is pinned once/],
   ["locale-load", /Import react-aria.s primitives statically/],
   ["node-module", /a `createRequire` function held in a name/],
+  // The load's message opens with the import's, so it is matched first.
+  ["actor-signing-load", /actorToken signs the actor[^]*The boot alone loads it/],
+  ["actor-signing", /actorToken signs the actor/],
   ["test-only", /a \*\.test\.ts\(x\) file may import it, production code may not/],
   ["test-only-load", /loaded at run time stays the suite's/],
   ["hint-internals-load", /Load the popover or the panel through Hint/],

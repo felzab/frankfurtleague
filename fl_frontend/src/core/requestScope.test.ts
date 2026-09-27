@@ -51,8 +51,8 @@ const SPAN_ID = `${"0".repeat(15)}1`;
 
 const scope = () => ({ traceId: TRACE_ID, spanId: SPAN_ID });
 
-const PERSON = "spielerin@example.org";
-const ADMIN = "vorstand@example.org";
+const PERSON = { email: "spielerin@example.org", lane: "person", token: "person-token-double" } as const;
+const ADMIN = { email: "vorstand@example.org", lane: "admin", token: "admin-token-double" } as const;
 
 describe("the ids a request carries", () => {
   it("answers the ids inside a scope and nothing outside one", () => {
@@ -73,20 +73,20 @@ describe("the one actor a request is attributed to", () => {
       return Promise.resolve(getRequestActor());
     });
 
-    assert.equal(actor, PERSON);
+    assert.deepEqual(actor, PERSON);
   });
 
   /* One guard reached twice on one request is the ordinary shape — a page and its own server action
-     both resolve the session — and the spelling both set is one. */
-  it("takes the same actor twice", async () => {
+     both resolve the session — and each mint signs afresh: the first token recorded is sent. */
+  it("takes the same actor twice, under a second token, keeping the first", async () => {
     const actor = await runWithRequestScope(scope(), () => {
       setRequestActor(PERSON);
-      setRequestActor(PERSON);
+      setRequestActor({ ...PERSON, token: "a-later-mint" });
 
       return Promise.resolve(getRequestActor());
     });
 
-    assert.equal(actor, PERSON);
+    assert.deepEqual(actor, PERSON);
   });
 
   /* Both session guards on one request: the second spelling would land in `aktionen.actor.email`
@@ -101,23 +101,22 @@ describe("the one actor a request is attributed to", () => {
       return Promise.resolve(getRequestActor());
     });
 
-    assert.equal(actor, PERSON, "the refused actor was written anyway");
+    assert.deepEqual(actor, PERSON, "the refused actor was written anyway");
   });
 
-  /* The sign-in library's types admit a session carrying no address, and a request that resolved
-     none is one nothing may attribute a write to. */
-  it("takes a missing actor for a no-op, before and after one is recorded", async () => {
-    const answers = await runWithRequestScope(scope(), () => {
-      setRequestActor(null);
-      const before = getRequestActor();
+  /* One address through both guards is still two actors: the backend admits a person's lane on none
+     of the administrator's routes, so whichever landed last would decide what the request may do. */
+  it("refuses the same address recorded again under the other lane", async () => {
+    const actor = await runWithRequestScope(scope(), () => {
+      setRequestActor(ADMIN);
+      assert.throws(() => {
+        setRequestActor({ ...ADMIN, lane: "person" });
+      });
 
-      setRequestActor(PERSON);
-      setRequestActor(undefined);
-
-      return Promise.resolve([before, getRequestActor()]);
+      return Promise.resolve(getRequestActor());
     });
 
-    assert.deepEqual(answers, [undefined, PERSON]);
+    assert.deepEqual(actor, ADMIN, "the refused lane was written anyway");
   });
 
   /* A slice's read opens a scope inside the action awaiting it: a scope of its own there would send
@@ -129,7 +128,7 @@ describe("the one actor a request is attributed to", () => {
       return runWithRequestScope({ traceId: `${"0".repeat(31)}2`, spanId: `${"0".repeat(15)}2` }, () => Promise.resolve(getRequestActor()));
     });
 
-    assert.equal(actor, ADMIN, "the nested scope dropped the actor");
+    assert.deepEqual(actor, ADMIN, "the nested scope dropped the actor");
   });
 
   it("records nothing outside a scope, where a cache fill and a build-time render run", () => {

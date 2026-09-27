@@ -3,11 +3,13 @@ import "server-only";
 import { cache } from "react";
 import { headers } from "next/headers";
 
+import { mintRequestActor } from "./actorToken";
 import { auth, isAdminSession, isWithinPersonLifetime } from "./auth";
 import { asSignInIdentifier } from "./emailAddress";
 import { setRequestActor } from "./requestScope";
 import { lookUpSubjekt } from "./signInGate";
 
+import type { RequestActor } from "./requestScope";
 import type { FLSubjektResponse, FLSubjektSchiedsrichter, FLSubjektSitz, FLSubjektSpieler } from "./schemas";
 
 /** Read-only to the depth a panel reaches: what the league holds is the endpoint's to change. */
@@ -33,13 +35,8 @@ type SubjectRecords = {
 export type SubjectSession = { readonly email: string; readonly admin: boolean; readonly subjekt: SubjectRecords };
 
 // React's `cache`, never `"use cache"`, which would hand one request's session to another: a layout,
-// a guard and a page of one render pass share one session read and one lookup.
-/**
- * `null` where no readable session stands, or its subject is barred; every backend failure throws,
- * so the panel takes an error boundary rather than a sign-in nobody needs. A server action calling
- * this wraps that throw (`docs/logging/spec.md :: L6`).
- */
-export const getSubjectSession = cache(async (): Promise<SubjectSession | null> => {
+// a guard and a page of one render pass share one session read, one lookup and one signed actor.
+const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; actor: RequestActor } | null> => {
   const served = await auth.api.getSession({ headers: await headers() });
   // Both figures here as well as at `getAdminSession`: a lane that skips them is a lane in which
   // the cap does not exist.
@@ -60,11 +57,27 @@ export const getSubjectSession = cache(async (): Promise<SubjectSession | null> 
   // missed, is no session here (`docs/frontend/spec.md :: I406`).
   if (subjekt.gesperrt) return null;
 
-  // Set here rather than at the write: `fl_backend/app/core/security.py :: bind_actor` refuses a
-  // person's write carrying no actor. Both guards on one request is a programming error, so the
-  // second actor throws (`docs/frontend/spec.md :: I272`).
-  setRequestActor(email);
+  // Minted here rather than at the write: a person's route refuses a request carrying no signed
+  // actor of this lane (`fl_backend/app/core/security.py :: person_actor_binder`).
+  const actor = await mintRequestActor(served, "person");
+  if (actor === null) return null;
 
   // Off the lookup this guard already made, so the verdict costs no second read.
-  return { email: email, admin: isAdminSession(served, subjekt.verwaltung !== null), subjekt: subjekt };
+  return { subject: { email: email, admin: isAdminSession(served, subjekt.verwaltung !== null), subjekt: subjekt }, actor: actor };
 });
+
+/**
+ * `null` where no readable session stands, or its subject is barred; every backend failure throws,
+ * so the panel takes an error boundary rather than a sign-in nobody needs. A server action calling
+ * this wraps that throw (`docs/logging/spec.md :: L6`).
+ */
+export async function getSubjectSession(): Promise<SubjectSession | null> {
+  const judged = await judgeSubjectSession();
+  if (judged === null) return null;
+
+  // On every call, outside the memo, for `getAdminSession`'s reason. Both guards on one request is a
+  // programming error, so the second actor throws (`docs/frontend/spec.md :: I272`).
+  setRequestActor(judged.actor);
+
+  return judged.subject;
+}

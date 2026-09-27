@@ -1,0 +1,7 @@
+// Linted as src/instrumentation.ts.
+// The boot loads the actor's signing module at run time, and every other load ban still reaches it.
+import { mintRequestActor } from "./core/actorToken"; // expect: actor-signing
+
+export const SIGNING_USED = mintRequestActor;
+export const SIGNING_LOADED = import("./core/actorToken");
+export const DOUBLES_LOADED = import("./core/authDoubles"); // expect: test-only-load

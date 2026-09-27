@@ -13,6 +13,7 @@ import { captureStdout } from "@/core/stdoutCapture"; // expect: test-only
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-shared
 import { createRequire as loadVia } from "node:module"; // expect: node-module
 import { SITE_URL } from "@/core/brand"; // expect: site-origin
+import { mintRequestActor } from "@/core/actorToken"; // expect: actor-signing
 import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 
 export const USED = [HeroUISelect, HeroUITextField, RootSelect, AppRouterContext, DateField, HeroForm, HintPopover, captureStdout, TEAM_FACETS];
@@ -20,3 +21,4 @@ export const NODE_MODULE_USED = [loadVia];
 export const ORIGIN_USED = SITE_URL;
 export const NUMBER_FIELD_USED = HeroNumberField;
 export const LOCALE_USED = PinnedLocale;
+export const SIGNING_USED = mintRequestActor;

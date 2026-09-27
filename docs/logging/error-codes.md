@@ -193,6 +193,7 @@ names `fl_backend/app/core/config.py :: get_config` prints.
 | `SRV-BOOT-008` | A warning, and the boot goes on: `ALLOWED_ADMIN_EMAILS` is retired and still set in a development machine's backend file; the line names the variable and never its value     |
 | `FE-BOOT-001`  | A frontend environment variable failed validation; the line names the variables and no value                                                                                  |
 | `FE-BOOT-002`  | A warning, and the boot goes on: `ALLOWED_ADMIN_EMAILS` is retired and still set in the frontend's file, which nothing reads; the line names the variable and never its value |
+| `FE-BOOT-003`  | The actor's signing key file is missing, unreadable or holds no Ed25519 private key, so the frontend will not start; the line names the path and never the contents           |
 
 The first three `SRV-BOOT-*` rows are one decision — `db.py :: _refusal_for`, which pairs each
 cause's sentence with its code — so a fourth cause added there takes a fourth row here. **The three

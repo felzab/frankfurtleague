@@ -153,7 +153,9 @@ export const apiClient = async <T>(endpoint: string, schema: z.ZodType<T>, optio
   // Refused before it leaves: an admin-tier call opens under `runAdminRead` or an admin action's guard,
   // which record the actor first.
   if (authType === "admin" && !actor) throw new UnattributedAdminCallError(endpoint);
-  if (actor) headers.set(ACTOR_HEADER, actor);
+  // The signed token alone, never the address: the backend believes no actor it cannot verify
+  // (`fl_frontend/src/core/actorToken.ts :: mintActorToken`).
+  if (actor) headers.set(ACTOR_HEADER, actor.token);
   else headers.delete(ACTOR_HEADER);
 
   const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;

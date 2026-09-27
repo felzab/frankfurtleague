@@ -178,6 +178,21 @@ const TEST_ONLY = [
   },
 ];
 
+/**
+ * The actor's signing key, loaded by the two session guards and the boot alone: a module reaching it
+ * from anywhere else could mint an actor no guard judged, and a client module would put the key
+ * reader in a bundle.
+ */
+const ACTOR_SIGNING = {
+  group: ["**/actorToken.ts", "**/actorToken"],
+  message:
+    "actorToken signs the actor the backend believes: fl_frontend/src/core/auth.ts, fl_frontend/src/core/subject.ts and fl_frontend/src/instrumentation.ts load it, and a *.test.ts(x) file may; nothing else may.",
+};
+
+/** The two guards, which import `ACTOR_SIGNING` statically; the boot loads it by `import()`. */
+const ACTOR_SIGNING_GUARDS = ["src/core/auth.ts", "src/core/subject.ts"];
+const ACTOR_SIGNING_BOOT = "src/instrumentation.ts";
+
 const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
 
 /**
@@ -608,7 +623,7 @@ const HINT_NAMES = `/^(?:${HINT_INTERNALS.importNames.join("|")})$/`;
 /** The bans a named module is the one importer of, which reach tests and the harness too. */
 const HOMED_IMPORTS = [NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HEROUI_NUMBER_FIELD, HEROUI_MARKED_FIELDS, HINT_INTERNALS];
 
-const PRODUCTION_IMPORTS = [...HOMED_IMPORTS, ...SUITE_IMPORTS, SITE_ORIGIN, LOCALE_PROVIDER];
+const PRODUCTION_IMPORTS = [...HOMED_IMPORTS, ...SUITE_IMPORTS, SITE_ORIGIN, LOCALE_PROVIDER, ACTOR_SIGNING];
 
 /**
  * Bans no dedicated rule states, each one syntax selector: `exempt` names the file whose job is to
@@ -633,6 +648,11 @@ const SOURCE_BANS = [
     selector: `${inLiteral(selectorPattern(NEXT_PRIVATE_CONTEXTS.regex))}:not(${MODULE_SOURCES})`,
     message: "Name Next's private contexts in fl_frontend/src/shared/testing/nextContexts.ts alone, in a string as much as in an import.",
     tests: true,
+  },
+  {
+    selector: loadOf(specifiersOf(ACTOR_SIGNING.group)),
+    message: `${ACTOR_SIGNING.message} The boot alone loads it by \`import()\`.`,
+    exempt: [ACTOR_SIGNING_BOOT],
   },
   {
     selector: loadOf(String.raw`(?:${specifiersOf(TEST_ONLY.flatMap((entry) => entry.group))}|^(?:node:)?module$)`),
@@ -1029,6 +1049,7 @@ const eslintConfig = defineConfig([
     // What a crawler reads, which stands on the published origin.
     [["src/app/layout.tsx", "src/app/robots.ts", "src/app/sitemap.ts"], SITE_ORIGIN, PRODUCTION_IMPORTS],
     [["src/core/providers/RootProviders.tsx"], LOCALE_PROVIDER, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
+    [ACTOR_SIGNING_GUARDS, ACTOR_SIGNING, [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
     // The harness and its own test, which the production bans leave out.
     [
       ["src/shared/testing/nextContexts.ts", "src/shared/testing/nextContexts.test.ts"],

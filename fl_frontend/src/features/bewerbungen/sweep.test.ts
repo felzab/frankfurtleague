@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it, mock } from "node:test";
 
+import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
 import { exportingModule } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -64,6 +65,8 @@ const CONFIG_DOUBLE = exportingModule({
   frontend_config: {
     LOG_FORMAT: "console",
     AUTH_URL: "http://localhost:3000",
+    // The boot reads the signing key before it arms anything.
+    ACTOR_SIGNING_KEY_FILE: ACTOR_KEY_FILE,
     get BEWERBUNG_SWEEP() {
       return sweepSwitch;
     },

@@ -31,6 +31,11 @@ export async function register() {
   const { installConsoleShim } = await import("./core/consoleShim");
   installConsoleShim();
 
+  // Before anything is served, as the environment gate is: without the key no guard can name an actor,
+  // so a missing file would otherwise surface as every signed-in page failing.
+  const { loadActorSigningKeyAtBoot } = await import("./core/actorToken");
+  await loadActorSigningKeyAtBoot();
+
   // The name alone, never its value: a list of administrators' addresses stays off the stream.
   if (frontend_config.ALLOWED_ADMIN_EMAILS !== undefined) {
     const { logger } = await import("./core/logging");

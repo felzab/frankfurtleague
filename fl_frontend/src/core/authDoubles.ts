@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
+import { generateKeyPairSync } from "node:crypto";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { registerHooks } from "node:module";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { after } from "node:test";
 
 import { memoryAdapter } from "better-auth/adapters/memory";
@@ -11,6 +15,18 @@ import type { MemoryDB } from "better-auth/adapters/memory";
 import type { auth as AuthInstance } from "./auth.ts";
 
 export const ADMIN_EMAIL = "vorstand@example.org";
+
+/**
+ * The pair the actor is signed with wherever a suite boots or runs a guard, made for the run: a key
+ * file kept in the tree would be a signing key anybody could read.
+ */
+export const ACTOR_KEY_PAIR = generateKeyPairSync("ed25519");
+
+const ACTOR_KEY_DIRECTORY = mkdtempSync(path.join(tmpdir(), "fl-actor-key-"));
+/** `ACTOR_KEY_PAIR`'s private half, as the compose secret holds one: "PKCS#8" PEM. */
+export const ACTOR_KEY_FILE = path.join(ACTOR_KEY_DIRECTORY, "signing-key.pem");
+writeFileSync(ACTOR_KEY_FILE, ACTOR_KEY_PAIR.privateKey.export({ type: "pkcs8", format: "pem" }));
+after(() => rmSync(ACTOR_KEY_DIRECTORY, { recursive: true, force: true }));
 
 /** What a request arriving at the served origin carries, matched to the config double's `AUTH_URL`. */
 export const ORIGIN = { host: "localhost:3000", "x-forwarded-proto": "http" } as const;
@@ -27,6 +43,7 @@ export function configDouble(overrides: Readonly<Record<string, unknown>> = {}):
     ...GATE_BACKEND_CONFIG,
     AUTH_URL: `http://${ORIGIN.host}`,
     AUTH_SECRET: "fabricated-test-secret-not-a-credential",
+    ACTOR_SIGNING_KEY_FILE: ACTOR_KEY_FILE,
     LOG_LEVEL: "ERROR",
     LOG_FORMAT: "json",
     ...overrides,
