@@ -33,6 +33,7 @@ from app.api.bewerbungen.services import (
     hash_token,
 )
 from app.api.kontakte.services import build_clearing_update
+from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -190,9 +191,8 @@ async def submit(database: AsyncDatabase, *, schluessel: UUID | None = None, bew
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=database.client,
-        config=CONFIG,
         today=TODAY,
     )
 
@@ -1194,9 +1194,7 @@ class TestTheDatabaseStillHoldsAnApplicationStoredBeforeTheConfirmationFields:
             response = await get_bewerbung_by_id(
                 bewerbung_id=created.inserted_id,
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                sperrliste_collection=database[Collection.SPERRLISTE],
-                saisons_collection=database[Collection.SAISONS],
-                config=build_test_config(),
+                sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
             )
 
             return response.bewerbung.kontakte.trainer

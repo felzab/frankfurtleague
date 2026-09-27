@@ -15,6 +15,7 @@ from app.api.bewerbungen.sweep_router import get_sweep_saisons
 from app.api.registrierungen import sweep_router as sweep_router_module
 from app.api.registrierungen.services import SWEEP_PAGE, build_erinnerung_filter, build_unconfirmed_filter, build_wiederholung_filter
 from app.api.registrierungen.sweep_router import REMINDERS_PER_PASS, sweep_registrierungen
+from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -153,9 +154,8 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
         aktionen_collection=database[Collection.AKTIONEN],
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
         db=client,
-        config=build_test_config(),
         today=today,
         germany_now=NOW,
     )

@@ -24,6 +24,7 @@ from app.api.registrierungen.services import (
     REGISTRIERUNG_TEAM_NICHT_EINGETRAGEN,
 )
 from app.api.saisons.cache import invalidate_saison_cache
+from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -255,9 +256,8 @@ async def register(
         saisons_collection=database[Collection.SAISONS],
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         saison_spieler_collection=database[Collection.SAISON_SPIELER],
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=client,
-        config=CONFIG,
         today=TODAY,
     )
 

@@ -27,6 +27,7 @@ from app.api.bewerbungen.services import (
     hash_token,
 )
 from app.api.saisons.cache import invalidate_saison_cache
+from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
@@ -156,9 +157,7 @@ async def ansicht(database: AsyncDatabase, token: str, *, bewerbungen: Any = Non
         ansicht_data=FLBewerbungEinwilligungAnsichtPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen,
         teams_collection=database[Collection.TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        config=build_test_config(),
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
         today=TODAY,
     )
 
@@ -170,10 +169,8 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN] if bewerbungen is None else bewerbungen,
         aktionen_collection=database[Collection.AKTIONEN],
-        saisons_collection=database[Collection.SAISONS],
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
         db=client,
-        config=build_test_config(),
         today=TODAY,
         germany_now=NOW,
     )
@@ -184,10 +181,8 @@ async def resend(database: AsyncDatabase, seat: str, bewerbung_id: ObjectId = BE
         bewerbung_id=bewerbung_id,
         seat=seat,
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saisons_collection=database[Collection.SAISONS],
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
         db=database.client,
-        config=build_test_config(),
         today=TODAY,
     )
 
@@ -647,15 +642,11 @@ class TestNoHashReachesAnAdminRead:
             one = await get_bewerbung_by_id(
                 bewerbung_id=BEWERBUNG_OID,
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                sperrliste_collection=database[Collection.SPERRLISTE],
-                saisons_collection=database[Collection.SAISONS],
-                config=build_test_config(),
+                sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
             )
             many = await get_bewerbungen(
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                sperrliste_collection=database[Collection.SPERRLISTE],
-                saisons_collection=database[Collection.SAISONS],
-                config=build_test_config(),
+                sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
                 filters=FLBewerbungenFilterParams(),
             )
 

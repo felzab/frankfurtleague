@@ -39,6 +39,7 @@ from app.api.bewerbungen.sweep_router import (
     sweep_saison,
 )
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
+from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -208,9 +209,8 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
         aktionen_collection=database[Collection.AKTIONEN],
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=client,
-        config=CONFIG,
         today=today,
         germany_now=NOW,
     )
@@ -247,9 +247,7 @@ async def ansicht(database: AsyncDatabase, token: str) -> Any:
         ansicht_data=FLBewerbungEinwilligungAnsichtPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
-        saisons_collection=database[Collection.SAISONS],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        config=CONFIG,
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         today=TODAY,
     )
 
@@ -382,10 +380,8 @@ class TestTheReminderClock:
                 bewerbung_id=REMIND_OID,
                 seat="trainer",
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                saisons_collection=database[Collection.SAISONS],
-                sperrliste_collection=database[Collection.SPERRLISTE],
+                sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
                 db=database.client,
-                config=CONFIG,
                 today=TODAY,
             )
 

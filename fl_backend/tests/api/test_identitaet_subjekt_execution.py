@@ -14,6 +14,7 @@ from app.api.identitaet.router import get_subjekt
 from app.api.identitaet.schemas import FLSubjektPayload, FLSubjektResponse
 from app.api.identitaet.services import build_referee_pipeline, build_seat_pipeline
 from app.api.kontakte.services import KONTAKT_SLOTS
+from app.api.sperrliste.lookup import BanList
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.security import MISSING_TOKEN, WRONG_SYSTEM_KEY
@@ -298,9 +299,8 @@ async def call_subjekt(database: AsyncDatabase, email: str) -> FLSubjektResponse
         saisons_collection=database[Collection.SAISONS],
         spieler_collection=database[Collection.SPIELER],
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-        config=CONFIG,
     )
 
 

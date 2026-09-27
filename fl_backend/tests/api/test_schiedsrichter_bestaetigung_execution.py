@@ -44,6 +44,7 @@ from app.api.schiedsrichter.services import (
     compose_bestaetigung,
 )
 from app.api.sperrliste.admin_router import post_sperrliste_eintrag
+from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.zustellung.router import angenommen_zustellung
 from app.api.zustellung.schemas import FLZustellungAngenommenPayload
@@ -52,6 +53,7 @@ from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from tests import documents
+from tests.actor_tokens import FRESH_ADMIN_ACTOR
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -167,10 +169,8 @@ async def create(database: AsyncDatabase, client: AsyncMongoClient, *, email: st
     return await post_schiedsrichter(
         schiedsrichter_data=FLPostSchiedsrichterPayload.model_validate(payload_body(email=email)),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        saisons_collection=database[Collection.SAISONS],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=client,
-        config=CONFIG,
         today=today,
     )
 
@@ -181,11 +181,10 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
         schiedsrichter_data=FLPatchSchiedsrichterPayload.model_validate(payload_body(email=email)),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        saisons_collection=database[Collection.SAISONS],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=client,
-        config=CONFIG,
         today=today,
+        actor=FRESH_ADMIN_ACTOR,
     )
 
 
@@ -195,10 +194,8 @@ async def resend(
     return await einladen_schiedsrichter(
         schiedsrichter_id=schiedsrichter_id,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        saisons_collection=database[Collection.SAISONS],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=client,
-        config=CONFIG,
         today=today,
     )
 
@@ -207,6 +204,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str) 
     return await post_sperrliste_eintrag(
         sperrliste_data=FLPostSperrlistePayload(email=email, grund="Wiederholte Falschangaben"),
         sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         saisons_collection=database[Collection.SAISONS],
         berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
         berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
@@ -221,9 +219,7 @@ async def ansicht(database: AsyncDatabase, token: str, *, today: str = TODAY) ->
     return await get_bestaetigung_ansicht(
         ansicht_data=FLSchiedsrichterBestaetigungAnsichtPayload(token=token),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        saisons_collection=database[Collection.SAISONS],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        config=CONFIG,
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         today=today,
     )
 
@@ -241,10 +237,8 @@ async def confirm(database: AsyncDatabase, client: AsyncMongoClient, token: str,
     return await post_bestaetigung(
         antwort_data=FLSchiedsrichterBestaetigungPayload.model_validate(body),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        saisons_collection=database[Collection.SAISONS],
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
         db=client,
-        config=build_test_config(),
         today=today,
     )
 
@@ -660,11 +654,10 @@ async def reactivate(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
     return await reactivate_schiedsrichter(
         schiedsrichter_id=SCHIEDSRICHTER_OID,
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        saisons_collection=database[Collection.SAISONS],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=client,
-        config=CONFIG,
         today=TODAY,
+        actor=FRESH_ADMIN_ACTOR,
     )
 
 

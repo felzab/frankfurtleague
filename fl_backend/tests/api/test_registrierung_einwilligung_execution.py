@@ -19,6 +19,7 @@ from app.api.registrierungen.services import (
     compose_bestaetigung,
 )
 from app.api.saisons.cache import invalidate_saison_cache
+from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
@@ -161,9 +162,7 @@ async def ansicht(database: AsyncDatabase, token: str) -> Any:
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         teams_collection=database[Collection.TEAMS],
         spieler_collection=database[Collection.SPIELER],
-        saisons_collection=database[Collection.SAISONS],
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        config=build_test_config(),
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
         today=TODAY,
     )
 
@@ -182,10 +181,8 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
     return await post_bestaetigung(
         antwort_data=FLRegistrierungBestaetigungPayload.model_validate(body),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        saisons_collection=database[Collection.SAISONS],
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
         db=client,
-        config=build_test_config(),
         today=TODAY,
     )
 

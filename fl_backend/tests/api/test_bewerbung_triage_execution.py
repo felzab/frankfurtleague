@@ -48,6 +48,7 @@ from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zu
 from app.api.kontakte.admin_router import erase_kontaktperson
 from app.api.kontakte.schemas import FLKontaktErasurePayload
 from app.api.sperrliste.admin_router import post_sperrliste_eintrag
+from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import post_team
@@ -1048,9 +1049,7 @@ class TestTheQueueTheTriageIsWorkedDown:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await get_bewerbungen(
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                sperrliste_collection=database[Collection.SPERRLISTE],
-                saisons_collection=database[Collection.SAISONS],
-                config=build_test_config(),
+                sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
                 filters=FLBewerbungenFilterParams(),
             )
 
@@ -1242,10 +1241,8 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, seat: str, 
         seat=seat,
         email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": email}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saisons_collection=database[Collection.SAISONS],
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=client,
-        config=CONFIG,
         today=TODAY,
     )
 
@@ -1536,10 +1533,10 @@ async def resend(
         bewerbung_id=ERNEUT_BEWERBUNG,
         seat=seat,
         bewerbungen_collection=collection if as_read is None else as_the_loser_read_it(collection, as_read),
-        saisons_collection=database[Collection.SAISONS] if saisons is None else saisons,
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(
+            database[Collection.SPERRLISTE], database[Collection.SAISONS] if saisons is None else saisons, CONFIG.sperrliste_schluessel
+        ),
         db=database.client,
-        config=CONFIG,
         today=TODAY,
     )
 
@@ -1596,6 +1593,7 @@ async def ban_through_the_route(database: AsyncDatabase, client: AsyncMongoClien
         return await post_sperrliste_eintrag(
             sperrliste_data=FLPostSperrlistePayload(email=address, grund="Falsches Geburtsdatum bei der Anmeldung"),
             sperrliste_collection=database[Collection.SPERRLISTE],
+            sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
             saisons_collection=database[Collection.SAISONS],
             berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
@@ -1653,10 +1651,8 @@ class TestAResendRacingAnAnswer:
                 seat="ansprechperson",
                 email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": CORRECTED_EMAIL}),
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                saisons_collection=database[Collection.SAISONS],
-                sperrliste_collection=database[Collection.SPERRLISTE],
+                sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
                 db=client,
-                config=CONFIG,
                 today=TODAY,
             )
             response = await resend(database, "ansprechperson", as_read=as_read)
@@ -1757,10 +1753,8 @@ async def reseat(database: AsyncDatabase, client: AsyncMongoClient, seat: str, *
         seat=seat,
         sitz_data=FLBewerbungKontaktSitzPayload.model_validate({**RESEAT_PERSON, "email": email, "text_version": RESEAT_TEXT_VERSION}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        saisons_collection=database[Collection.SAISONS],
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=client,
-        config=CONFIG,
         today=TODAY,
     )
 
@@ -1778,10 +1772,8 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
         ),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         aktionen_collection=database[Collection.AKTIONEN],
-        saisons_collection=database[Collection.SAISONS],
-        sperrliste_collection=database[Collection.SPERRLISTE],
+        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
         db=client,
-        config=build_test_config(),
         today=TODAY,
         germany_now=NOW,
     )
