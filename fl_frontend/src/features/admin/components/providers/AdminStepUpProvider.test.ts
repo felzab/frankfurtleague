@@ -63,10 +63,10 @@ const RESTING = "Sperre vom 12.03.2026 aufheben";
 const ARMED = "Ja, Sperre vom 12.03.2026 endgültig aufheben";
 
 /** One step-up panel under the provider, as a server render of the administrator's shell hands it over. */
-const page = (confirmedUntil: number | null) =>
+const page = (freshUntil: number | null) =>
   underNext(
     h(AdminStepUpProvider, {
-      served: { confirmedUntil, enrolmentUntil: null, inhaberId: "administrator" },
+      served: { freshUntil, enrolmentUntil: null, inhaberId: "administrator" },
       children: h(AdminSperreAufhebenPanel, { sperreId: "6890a1b2c3d4e5f607190001", gesperrtAm: "12.03.2026" }),
     }),
   );
@@ -243,10 +243,10 @@ describe("the administrator's step-up window", () => {
 });
 
 describe("the narrow window a grant's revoke is held to", () => {
-  const revokeUnder = (confirmedUntil: number, enrolmentUntil: number) =>
+  const revokeUnder = (freshUntil: number, enrolmentUntil: number) =>
     underNext(
       h(AdminStepUpProvider, {
-        served: { confirmedUntil, enrolmentUntil, inhaberId: "administrator" },
+        served: { freshUntil, enrolmentUntil, inhaberId: "administrator" },
         children: h(AdminBerechtigungEntziehenPanel, {
           berechtigungId: "6890a1b2c3d4e5f6071b0002",
           adresse: "vorstand@schule.de",
@@ -291,10 +291,10 @@ describe("the narrow window a grant is held to", () => {
     heldBy = true;
   });
 
-  const grantUnder = (confirmedUntil: number, enrolmentUntil: number) =>
+  const grantUnder = (freshUntil: number, enrolmentUntil: number) =>
     underNext(
       h(AdminStepUpProvider, {
-        served: { confirmedUntil, enrolmentUntil, inhaberId: "administrator" },
+        served: { freshUntil, enrolmentUntil, inhaberId: "administrator" },
         children: h(AdminCreateBerechtigungForm, { onClose: () => undefined }),
       }),
     );

@@ -23,7 +23,7 @@ export async function AdminAuthGuard({ children }: { children: React.ReactNode }
   // Read off the session this render already holds, so a step-up press asks before it sends
   // rather than after the server refuses it (`docs/frontend/spec.md :: I433`).
   return (
-    <AdminStepUpProvider served={{ confirmedUntil: freshUntil(served), enrolmentUntil: enrolmentUntil(served), inhaberId: served.user.id }}>
+    <AdminStepUpProvider served={{ freshUntil: freshUntil(served), enrolmentUntil: enrolmentUntil(served), inhaberId: served.user.id }}>
       {children}
     </AdminStepUpProvider>
   );

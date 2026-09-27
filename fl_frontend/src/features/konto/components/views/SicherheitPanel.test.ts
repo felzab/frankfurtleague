@@ -523,3 +523,58 @@ describe("confirming by a code mailed to the holder", () => {
     assert.ok(screen.queryAllByRole("button", { name: "Code per E-Mail senden" }).length === 0);
   });
 });
+
+/* The administrator's shell keeps its windows by the same rules (`docs/frontend/spec.md :: I494`): a
+   render bringing the server's figures replaces the page's own, which the confirmation's refresh is. */
+describe("the page's windows against the server's render", () => {
+  /** The panel as one server render hands it over, and a later render with a new object. */
+  function served(fields: Partial<Sicherheit>): { again: (next: Partial<Sicherheit>) => void } {
+    const { router } = recordingRouter();
+    const { rerender } = render(underNext(h(SicherheitPanel, { sicherheit: sicherheit(fields) }), { router }));
+    return { again: (next) => rerender(underNext(h(SicherheitPanel, { sicherheit: sicherheit(next) }), { router })) };
+  }
+
+  /* Another tab's sign-in, or the refresh after this page's own confirmation, opens the window server-side:
+     keyed on the first render alone, the page would ask again for a confirmation the session holds. */
+  it("offers the enrolment once a render brings a window the page did not open", async () => {
+    const { again } = served({ freshUntil: null, enrolmentUntil: null });
+    assert.ok(screen.getByRole("button", { name: "Mit Passkey bestätigen" }));
+
+    again({});
+
+    assert.ok(await screen.findByRole("button", { name: "Passkey hinzufügen" }), "the server's open window left the page asking");
+  });
+
+  it("drops a confirmation of its own at the next render even where the figures are unchanged", async () => {
+    const user = userEvent.setup();
+    answers.pruefeInhaberAction = { success: true, gleich: true };
+    const { again } = served({ freshUntil: null, enrolmentUntil: null });
+
+    await user.click(screen.getByRole("button", { name: "Mit Passkey bestätigen" }));
+    await screen.findByRole("button", { name: "Passkey hinzufügen" });
+
+    again({ freshUntil: null, enrolmentUntil: null });
+
+    assert.ok(
+      await screen.findByRole("button", { name: "Mit Passkey bestätigen" }),
+      "a confirmation the server's render did not carry outlived it",
+    );
+  });
+
+  /* The enrolment's window sits inside the step-up's: a refusal closing the wider one leaves no add
+     control standing on the narrower one, which the enrolment guard would refuse in turn. */
+  it("closes the enrolment's window with the step-up's on the server's refusal", async () => {
+    const user = userEvent.setup();
+    answers.endAnmeldungAction = STALE;
+    open();
+    assert.ok(screen.getByRole("button", { name: "Passkey hinzufügen" }));
+
+    await user.click(screen.getByRole("button", { name: ANDERE_ABMELDEN }));
+    await dialog();
+
+    assert.ok(
+      screen.queryByRole("button", { name: "Passkey hinzufügen", hidden: true }) === null,
+      "the add control outlived the window around it",
+    );
+  });
+});

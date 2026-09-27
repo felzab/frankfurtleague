@@ -9,7 +9,6 @@ import { Button } from "@heroui/react/button";
 
 import { authClient } from "@/core/authClient";
 import { ENROLMENT_CONFLICT } from "@/core/passkeyRefusal";
-import { ENROLMENT_WINDOW_MS, STEP_UP_WINDOW_MS } from "@/core/sessionLifetimes";
 import { readPasskeyStandAction, removePasskeyAction, renamePasskeyAction } from "@/features/passkeys/actions";
 import { LETZTER_PASSKEY, PasskeyKarteView } from "@/features/passkeys/components/ui/PasskeyKarteView";
 import { Callout } from "@/shared/components/ui/Callout";
@@ -22,6 +21,7 @@ import { ModalShell } from "@/shared/components/ui/ModalShell";
 import { PanelHeading } from "@/shared/components/ui/PanelHeading";
 import { STEP_UP_LABEL, STEP_UP_RUNNING } from "@/shared/components/ui/stepUp";
 import { StepUpRefused } from "@/shared/components/ui/StepUpRefused";
+import { useConfirmationWindows } from "@/shared/hooks/useConfirmationWindows";
 import { usePasskeyStepUp } from "@/shared/hooks/usePasskeyStepUp";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
@@ -71,27 +71,19 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
   const panel = formPanel();
   const { passkeys, anmeldungen, verwaltung } = sicherheit;
 
-  // Both moved by a confirmation made on this page, which the server's figures lag until the refresh lands.
-  const [freshUntil, setFreshUntil] = useState(sicherheit.freshUntil);
-  const [enrolmentUntil, setEnrolmentUntil] = useState(sicherheit.enrolmentUntil);
+  const windows = useConfirmationWindows(sicherheit);
+  const { close } = windows;
+  const { enrolmentUntil } = windows.until;
   const [wartend, setWartend] = useState<Aenderung | null>(null);
   const [istBeschaeftigt, setIstBeschaeftigt] = useState(false);
 
-  // The add control reads its label off the enrolment window, so its end redraws the control without a press.
+  // The add control reads its label off the enrolment window, so its end redraws the control without a
+  // press; the administrator's controls judge theirs at the press and need no timer.
   useEffect(() => {
     if (enrolmentUntil === null) return;
-    const lapse = setTimeout(() => setEnrolmentUntil(null), Math.max(0, enrolmentUntil - Date.now()));
+    const lapse = setTimeout(() => close("enrolment"), Math.max(0, enrolmentUntil - Date.now()));
     return () => clearTimeout(lapse);
-  }, [enrolmentUntil]);
-
-  const isFresh = (): boolean => freshUntil !== null && Date.now() < freshUntil;
-  const mayEnrol = (): boolean => enrolmentUntil !== null && Date.now() < enrolmentUntil;
-
-  /** Whatever the page knew of either window, forgotten: the server wants a confirmation first. */
-  const stale = (): void => {
-    setFreshUntil(null);
-    setEnrolmentUntil(null);
-  };
+  }, [enrolmentUntil, close]);
 
   const istInhaber = async (): Promise<boolean> => {
     const answer = await pruefeInhaberAction(sicherheit.inhaberId);
@@ -107,8 +99,7 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
   };
 
   const confirmed = (): void => {
-    setFreshUntil(Date.now() + STEP_UP_WINDOW_MS);
-    setEnrolmentUntil(Date.now() + ENROLMENT_WINDOW_MS);
+    windows.confirmed();
     // The confirmation minted a new session and ended this page's: what the page drew off the old one,
     // „Dieses Gerät“ among it, is read again.
     router.refresh();
@@ -116,8 +107,9 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
 
   /** Runs `change` now if the page's session counts as confirmed, and after the panel's confirmation otherwise. */
   const withStepUp = async (change: Aenderung): Promise<void> => {
-    if (isFresh() && (await change()) === "erledigt") return;
-    stale();
+    if (!windows.isStale(Date.now()) && (await change()) === "erledigt") return;
+    // Whatever the page knew of either window is forgotten: the server wants a confirmation first.
+    close();
     setWartend(() => change);
   };
 
@@ -186,8 +178,8 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
   };
 
   const fuegeHinzu = async (): Promise<void> => {
-    if (!mayEnrol()) {
-      setEnrolmentUntil(null);
+    if (windows.isStale(Date.now(), "enrolment")) {
+      close("enrolment");
       return;
     }
     setIstBeschaeftigt(true);
@@ -200,7 +192,7 @@ export function SicherheitPanel({ sicherheit }: { sicherheit: Sicherheit }) {
       appToast.success("Passkey hinzugefügt", { description: "Du kannst Dich jetzt auch damit anmelden." });
       return;
     }
-    if (held.stale === true) setEnrolmentUntil(null);
+    if (held.stale === true) close("enrolment");
     appToast.failure("Passkey nicht hinzugefügt", held);
   };
 
