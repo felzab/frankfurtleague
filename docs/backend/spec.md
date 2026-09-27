@@ -600,7 +600,7 @@ look at is the one the log does not print.
 
 **A name this table does not list fails the boot when either dotenv file carries it, the package's
 `.env` or the checkout root's, and is never read at all from the process environment**
-(`fl_backend/app/core/config.py :: model_config`): only the
+(`fl_backend/app/core/config.py :: BackendEnvironment.model_config`): only the
 dotenv source hands the class an extra, and `extra="forbid"` is what stops a typo reading as an
 omission. **The one it does not catch carries an empty value** — the dotenv source drops such a name
 before the class judges it, so `LOG_FORMAT_=` boots on the shipped default in silence.

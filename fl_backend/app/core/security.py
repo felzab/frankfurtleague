@@ -265,7 +265,7 @@ async def bind_actor(request: Request, actor: Annotated[ActorClaims, Depends(ver
         request_var.reset(request_token)
 
 
-# The action log's label under `SPERRLISTE_SCHLUESSEL`, beside the ban list's
+# The action log's label under the `sperrliste_schluessel` secret file's key, beside the ban list's
 # (`app/api/sperrliste/services.py :: SPERRLISTE_SCHLUESSEL_VERSION`); one label per purpose.
 AKTEUR_PSEUDONYM_VERSION: Final = "akteur-v1"
 
