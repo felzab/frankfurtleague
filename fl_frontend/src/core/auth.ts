@@ -115,6 +115,9 @@ export const CODE_FACTOR = "code";
 
 type AuthFactor = typeof PASSKEY_FACTOR | typeof CODE_FACTOR;
 
+/** The session field naming, by `lineageOf`, the session a sign-in replaced. */
+const REPLACED_SESSION_FIELD = "replacedSession";
+
 // Every endpoint that mints a session, with the factor it proves. A path missing here mints nothing,
 // so one a release adds fails closed rather than handing out a session no guard has classified
 // (`docs/frontend/spec.md :: I398`).
@@ -377,18 +380,68 @@ async function refuseAnotherAccountsPasskey(ctx: GenericEndpointContext): Promis
   if (answered !== null && answered.userId !== expected) throw APIError.fromStatus("UNAUTHORIZED");
 }
 
+/** The session cookie a sign-in's request carried, which names the session it replaces, or `null`. */
+async function replacedToken(ctx: GenericEndpointContext): Promise<string | null> {
+  // The cookie rather than `getSessionFromCtx`, whose read refreshes the replaced row and writes a
+  // `Set-Cookie` for it into the very response that carries the new one.
+  const replaced = await ctx.getSignedCookie(ctx.context.authCookies.sessionToken.name, ctx.context.secret);
+  return typeof replaced === "string" && replaced !== "" ? replaced : null;
+}
+
+/**
+ * What every session minted to replace one cookie is stamped with. Keyed and prefixed, so the row holds
+ * neither the replaced token nor the signature half of its cookie, which is the same key over the bare token.
+ */
+function lineageOf(replaced: string, secret: string): Promise<string> {
+  return makeSignature(`replaced-session:${replaced}`, secret);
+}
+
+/** Whether `row` was minted before `minted`, the id settling a tie so exactly one of two survives. */
+function mintedBefore(row: { id: string; createdAt: Date | string }, minted: { id: string; createdAt: Date | string }): boolean {
+  const rowAt = new Date(row.createdAt).getTime();
+  const mintedAt = new Date(minted.createdAt).getTime();
+  return rowAt < mintedAt || (rowAt === mintedAt && row.id < minted.id);
+}
+
+/**
+ * Ends the sessions minted earlier to replace the same cookie: two step-ups from one browser at once
+ * each mint one, and only one `Set-Cookie` survives in the browser (`docs/frontend/spec.md :: I485`).
+ */
+async function endEarlierSiblings(
+  context: Pick<AuthContext, "adapter">,
+  minted: { id: string; userId: string; createdAt: Date | string },
+  lineage: string,
+): Promise<void> {
+  const siblings = await context.adapter.findMany<{ id: string; createdAt: Date | string }>({
+    model: "session",
+    where: [
+      { field: "userId", value: minted.userId },
+      { field: REPLACED_SESSION_FIELD, value: lineage },
+    ],
+  });
+
+  // The later mint ends the earlier and never the reverse, so two after hooks running at once cannot
+  // each end the other; its response is the one more likely to set the cookie last.
+  const earlier = siblings.filter((row) => row.id !== minted.id && mintedBefore(row, minted)).map((row) => row.id);
+  if (earlier.length === 0) return;
+
+  await context.adapter.deleteMany({ model: "session", where: [{ field: "id", operator: "in", value: earlier }] });
+}
+
 /**
  * Ends the session the request's cookie named once a sign-in has minted its successor: a step-up
  * would otherwise leave the session it replaced alive beside the new one (`docs/frontend/spec.md :: I399`).
  */
-async function endReplacedSession(ctx: GenericEndpointContext, mintedToken: string): Promise<void> {
-  // The cookie rather than `getSessionFromCtx`, whose read refreshes the replaced row and writes a
-  // `Set-Cookie` for it into the very response that carries the new one.
-  const replaced = await ctx.getSignedCookie(ctx.context.authCookies.sessionToken.name, ctx.context.secret);
-  if (typeof replaced !== "string" || replaced === "" || replaced === mintedToken) return;
+async function endReplacedSession(
+  ctx: GenericEndpointContext,
+  minted: { id: string; token: string; userId: string; createdAt: Date | string },
+): Promise<void> {
+  const replaced = await replacedToken(ctx);
+  if (replaced === null || replaced === minted.token) return;
 
   try {
     await ctx.context.internalAdapter.deleteSession(replaced);
+    await endEarlierSiblings(ctx.context, minted, await lineageOf(replaced, ctx.context.secret));
   } catch (failed) {
     // Logged and left: the new session is committed, and failing the sign-in now would strand it
     // without its cookie while the replaced one stayed alive anyway.
@@ -670,6 +723,8 @@ const sessionOptions = {
     // The `credentialID` of the passkey that made the session, so removing that passkey ends its
     // sessions and no other (`docs/frontend/spec.md :: I400`).
     passkeyCredentialId: { type: "string", required: false, input: false },
+    // Never returned: no guard reads it, and nothing but another sign-in's stamp is compared with it.
+    [REPLACED_SESSION_FIELD]: { type: "string", required: false, input: false, returned: false },
   },
 } satisfies BetterAuthOptions["session"];
 
@@ -713,6 +768,9 @@ const authOptions = {
           // (`docs/frontend/spec.md :: I403`).
           await refuseUnadmitted(ctx, session.userId);
 
+          const credential = factor === PASSKEY_FACTOR ? { passkeyCredentialId: ceremonyCredentialId(ctx) } : {};
+          const replaced = await replacedToken(ctx);
+
           return {
             data: {
               ...session,
@@ -720,7 +778,8 @@ const authOptions = {
               // empties the address: a second copy of the caller under no retention clock.
               userAgent: "",
               authFactor: factor,
-              ...(factor === PASSKEY_FACTOR ? { passkeyCredentialId: ceremonyCredentialId(ctx) } : {}),
+              ...credential,
+              ...(replaced === null ? {} : { [REPLACED_SESSION_FIELD]: await lineageOf(replaced, ctx.context.secret) }),
             },
           };
         },
@@ -728,7 +787,7 @@ const authOptions = {
         // On the assertion and code paths a failed user read or cookie write still signs the caller out.
         after: async (session, ctx) => {
           if (!ctx) return;
-          await endReplacedSession(ctx, session.token);
+          await endReplacedSession(ctx, session);
           await unlessUnsettled(() => clearCodeFailures(ctx.context, session.userId));
         },
       },

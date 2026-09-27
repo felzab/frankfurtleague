@@ -1753,6 +1753,53 @@ describe("which session a new sign-in replaces", () => {
     assert.ok(!store.session.includes(row), "the in-process sign-in left the session it replaced");
   });
 
+  /* Two step-ups carrying one cookie each replace it, and a browser keeps one `Set-Cookie`: the session
+     the other answered is held by nobody and shows in the devices list (`docs/frontend/spec.md :: I485`). */
+  for (const order of [
+    ["passkey", "code"],
+    ["code", "passkey"],
+  ] as const) {
+    it(`leaves only the later of two sessions minted to replace one cookie, the ${order[0]} minting first`, async () => {
+      const { cookie, row } = await signIn(ADMIN_EMAIL);
+      store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+      const before = [...store.session];
+
+      const stepUp = async (factor: "passkey" | "code"): Promise<string> =>
+        factor === "passkey"
+          ? cookieHeader(await assertPasskey(cookie, true))
+          : cookieHeader(await signInByCode(auth, ADMIN_EMAIL, { ...ORIGIN, cookie }));
+      const earlier = await stepUp(order[0]);
+      const later = await stepUp(order[1]);
+
+      assert.equal(writtenSince(before).length, 1, "the earlier replacement outlived the later one, held by no cookie");
+      assert.deepEqual([await served(earlier), (await served(later))?.session.id], [null, writtenSince(before)[0]?.id]);
+    });
+  }
+
+  it("leaves one session of two step-ups made from one browser at once", async () => {
+    const { cookie, row } = await signIn(ADMIN_EMAIL);
+    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+    const before = [...store.session];
+
+    const [byPasskey, byCode] = await Promise.all([assertPasskey(cookie, true), signInByCode(auth, ADMIN_EMAIL, { ...ORIGIN, cookie })]);
+    assert.equal(byPasskey.status, 200, "the assertion was refused, so no race was run");
+
+    assert.equal(writtenSince(before).length, 1, "both step-ups left their session standing");
+    const opened = await Promise.all([served(cookieHeader(byPasskey)), served(cookieHeader(byCode))]);
+    assert.equal(opened.filter((answer) => answer !== null).length, 1);
+  });
+
+  /* The stamp is scoped to the cookie it names: a sign-in from another device, carrying none, ends no
+     session this browser holds. */
+  it("ends no session minted from another cookie, or from none", async () => {
+    const device = await signIn(ADMIN_EMAIL);
+    const other = await signIn(ADMIN_EMAIL);
+
+    await signInByCode(auth, ADMIN_EMAIL, { ...ORIGIN, cookie: other.cookie });
+
+    assert.notEqual(await served(device.cookie), null, "a sign-in from another browser ended this one's session");
+  });
+
   it("ends the replaced session on a mailbox sign-in too, whoever's it was", async () => {
     const person = await signIn(PERSON_EMAIL);
 

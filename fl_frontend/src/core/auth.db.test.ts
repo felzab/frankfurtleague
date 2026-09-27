@@ -623,6 +623,23 @@ describe("a code sign-in through the mint, against a real database", () => {
     assert.notEqual(after[0]?.token, before.token);
   });
 
+  /* The sibling read and delete run on the real adapter's id and reference types, which the memory
+     store's plain strings never test (`docs/frontend/spec.md :: I485`). */
+  it("leaves only the later of two sessions minted to replace one cookie", async () => {
+    gateAnswer = { sitze: [LIVE_SEAT], gesperrt: false };
+    const held = await signIn(PERSON);
+
+    const earlier = cookieHeader(await signInByCode(auth, PERSON, { ...ORIGIN, cookie: held }));
+    const later = cookieHeader(await signInByCode(auth, PERSON, { ...ORIGIN, cookie: held }));
+
+    const opens = async (cookie: string) => (await auth.api.getSession({ headers: new Headers({ ...ORIGIN, cookie }) })) !== null;
+    assert.deepEqual(
+      { rows: (await sessionRows()).length, open: [await opens(earlier), await opens(later)] },
+      { rows: 1, open: [false, true] },
+      "the earlier replacement outlived the later one, held by no cookie",
+    );
+  });
+
   it("mints nothing for a barred address and ends nothing the browser held", async () => {
     gateAnswer = { sitze: [LIVE_SEAT], gesperrt: false };
     const held = await signIn(PERSON);

@@ -377,8 +377,10 @@ Every ruling below is the sign-up flow as it stands for the next season.
   (`fl_frontend/src/core/passkeyLastUse.ts`) and any name its holder gives it on the account page
   (`fl_frontend/src/features/passkeys/actions.ts :: renamePasskeyAction`), and never a secret the person holds, the private
   key staying on their own device; a `session` row holds the account it belongs to, its own
-  expiry, which factor made it and, where a passkey did, that passkey's credential identifier, and
-  neither the address nor the browser the sign-in came from. A `user` row's `updatedAt` records when that account, or any of its passkeys, last
+  expiry, which factor made it and, where a passkey did, that passkey's credential identifier,
+  where it replaced a session the browser held a keyed digest of that session's cookie
+  (`fl_frontend/src/core/auth.ts :: lineageOf`), and neither the address nor the browser the sign-in
+  came from. A `user` row's `updatedAt` records when that account, or any of its passkeys, last
   changed, a removal included (`fl_frontend/src/core/auth.ts :: claimAccount`). **A session and a sign-in code each carry an expiry set at that
   configuration, and the expiry bounds the credential rather than the row**: the library drops a
   session row when its holder presents the stale cookie and leaves it standing where nobody comes
