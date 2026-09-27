@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { EventEmitter } from "node:events";
 import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
@@ -9,8 +10,11 @@ import { replacingModule } from "./exportingModule.ts";
 /** Stands in for `server-only`, whose real module throws outside a React server build. */
 const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
-/** One `createIndex` the build issued, by collection and name, and whether it had settled when the next began. */
-type Build = { collection: string; name: string };
+/** One `createIndex` the build issued, by collection and name, and the time budget it carried. */
+type Build = { collection: string; name: string; timeoutMS?: number };
+
+/** The store client's own events, of which the build listens for `open`. */
+const clientEvents = new EventEmitter();
 
 const builds: Build[] = [];
 const lines: { event: string; fields: unknown }[] = [];
@@ -24,10 +28,11 @@ let answer: (build: Build) => Promise<unknown> = () => Promise.resolve("built");
 
 const DB_DOUBLE = {
   client: {
+    once: (event: string, listener: () => void) => clientEvents.once(event, listener),
     db: () => ({
       collection: (collection: string) => ({
-        createIndex: async (_key: unknown, options: { name: string }) => {
-          const build = { collection: collection, name: options.name };
+        createIndex: async (_key: unknown, options: { name: string; timeoutMS?: number }) => {
+          const build = { collection: collection, name: options.name, timeoutMS: options.timeoutMS };
           builds.push(build);
           running.set(collection, (running.get(collection) ?? 0) + 1);
           mostAtOnceInOneCollection = Math.max(mostAtOnceInOneCollection, running.get(collection) ?? 0);
@@ -78,6 +83,21 @@ const DUPLICATE_ADDRESS = new MongoServerError({
   keyValue: { email: "vorstand@example.org" },
 });
 
+/** What an unreachable store answers every build: no server code at all. */
+const UNANSWERED = new MongoServerSelectionError("Server selection timed out after 3000 ms", { type: "Unknown" } as never);
+
+/**
+ * Emits the client's `open` and waits out whatever run it starts, a turn at a time: until one has begun
+ * and every build of it settled, or a bounded number of turns where none begins.
+ */
+async function afterOpen(): Promise<void> {
+  const before = builds.length;
+  clientEvents.emit("open");
+  for (let turn = 0; turn < 200 && (builds.length === before || [...running.values()].some((open) => open > 0)); turn += 1) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+}
+
 beforeEach(() => {
   builds.length = 0;
   lines.length = 0;
@@ -106,12 +126,55 @@ describe("the sign-in store's index build (`docs/frontend/spec.md :: I498`)", ()
 
   // A store unreachable at boot refuses every build, and the boot's unawaited call must not end the process.
   it("settles rather than rejecting when every build fails, logging each one", async () => {
-    answer = () => Promise.reject(new MongoServerSelectionError("Server selection timed out after 3000 ms", { type: "Unknown" } as never));
+    answer = () => Promise.reject(UNANSWERED);
 
     await buildAuthIndexes();
 
     assert.equal(lines.length, builds.length);
     assert.deepEqual(new Set(lines.map(({ fields }) => (fields as { name: string }).name)), new Set(["MongoServerSelectionError"]));
+
+    // The rebuild it arms is the next case's subject; run it out here, so no case inherits it.
+    answer = () => Promise.resolve("built");
+    await afterOpen();
+  });
+
+  /* The client reconnects once the store answers (`docs/frontend/spec.md :: I364`), and a restart is
+     what the build waited for otherwise. */
+  it("builds every index again once a store that did not answer opens, and not before", async () => {
+    answer = () => Promise.reject(UNANSWERED);
+    await buildAuthIndexes();
+    const first = builds.length;
+
+    answer = () => Promise.resolve("built");
+    for (let turn = 0; turn < 20; turn += 1) await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(builds.length, first, "the build ran again before the store opened");
+
+    await afterOpen();
+
+    const names = (from: Build[]) => from.map(({ name }) => name).sort();
+    assert.deepEqual(names(builds.slice(first)), names(builds.slice(0, first)));
+  });
+
+  // A refusal the server answered meets the same answer on every open, so it waits for the next release.
+  it("waits for no open where the server itself refused an index", async () => {
+    answer = (build) => (build.collection === "user" ? Promise.reject(DUPLICATE_ADDRESS) : Promise.resolve("built"));
+    await buildAuthIndexes();
+    const first = builds.length;
+
+    await afterOpen();
+
+    assert.equal(builds.length, first, "a refusal the server answered was built again on an open");
+  });
+
+  /* The client's `timeoutMS` is a visitor's, and a build cut short by it is abandoned by the server. */
+  it("gives every build a time budget of its own", async () => {
+    await buildAuthIndexes();
+
+    assert.ok(builds.length > 0);
+    assert.ok(
+      builds.every(({ timeoutMS }) => typeof timeoutMS === "number"),
+      "a build took the client's per-request budget",
+    );
   });
 
   // MongoDB documents nothing about two builds racing on one collection.

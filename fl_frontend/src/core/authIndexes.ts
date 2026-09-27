@@ -1,6 +1,6 @@
 import "server-only";
 
-import { MongoError } from "mongodb";
+import { MongoError, MongoServerError } from "mongodb";
 
 import { client } from "./db";
 import { logger } from "./logging";
@@ -41,12 +41,27 @@ const AUTH_INDEXES: readonly AuthIndex[] = [
   { collection: "verification", key: { identifier: 1 }, options: { name: "verification_identifier_idx" } },
 ];
 
+// A build waits on no visitor, so the client's per-request `timeoutMS` never holds it: cut short, the
+// server abandons it unmade. Chosen, not measured, and bounded so an unanswered build lets its connection go.
+const INDEX_BUILD_TIMEOUT_MS = 60_000;
+
+/** The run in flight, which the next waits out, for the reason one collection's builds run in order. */
+let running: Promise<void> = Promise.resolve();
+
+/** Whether a rebuild already waits on the client's next `open`, so one outage arms one. */
+let rebuildArmed = false;
+
 /**
  * One collection's builds in order and the collections side by side: MongoDB documents nothing about
  * two builds racing on one collection. Never rejects, so the boot's unawaited call leaves no rejection
  * unhandled (`docs/frontend/spec.md :: I498`).
  */
-export async function buildAuthIndexes(): Promise<void> {
+export function buildAuthIndexes(): Promise<void> {
+  running = running.then(buildOnce);
+  return running;
+}
+
+async function buildOnce(): Promise<void> {
   const database = client.db(MONGO_DB_NAME);
   const lanes = Map.groupBy(AUTH_INDEXES, (index) => index.collection);
 
@@ -54,13 +69,28 @@ export async function buildAuthIndexes(): Promise<void> {
     [...lanes].map(async ([collection, indexes]) => {
       for (const { key, options } of indexes) {
         try {
-          await database.collection(collection).createIndex(key, options);
+          await database.collection(collection).createIndex(key, { ...options, timeoutMS: INDEX_BUILD_TIMEOUT_MS });
         } catch (failed) {
           logUnbuilt(options.name, failed);
+          // No server code is a store that did not answer, which a restart would only meet again.
+          if (!(failed instanceof MongoServerError)) rebuildOnOpen();
         }
       }
     }),
   );
+}
+
+/**
+ * The client reconnects on its own once the store answers (`docs/frontend/spec.md :: I364`), and
+ * `open` marks it: the build runs again then, rather than waiting for the next boot.
+ */
+function rebuildOnOpen(): void {
+  if (rebuildArmed) return;
+  rebuildArmed = true;
+  client.once("open", () => {
+    rebuildArmed = false;
+    void buildAuthIndexes();
+  });
 }
 
 /**
