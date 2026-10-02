@@ -4,6 +4,7 @@ import { afterEach, beforeEach } from "node:test";
 
 import { dispatchRequest, sentRequestOf } from "@/core/apiDispatch.ts";
 import { replacingModule } from "@/core/exportingModule.ts";
+import { judging } from "@/core/verdicts.ts";
 
 /** One request a module handed the backend client: the path, and what it went with. */
 export type ApiCall = {
@@ -105,8 +106,10 @@ export function doubleApiAnswers(answer: ApiAnswer = () => Promise.resolve({ ack
   });
   // Judged after the case, not at the call: the action catches the parse's throw and may answer just
   // as the case expects of a real failure. A fixture error, never the client's malformed-data error.
-  afterEach(() => {
-    assert.deepEqual(malformed, [], "the case answered these calls with a body the real client refuses as malformed");
+  afterEach((t) => {
+    judging(t.fullName, () =>
+      assert.deepEqual(malformed, [], "the case answered these calls with a body the real client refuses as malformed"),
+    );
   });
 
   return { calls, answerWith: (next) => void (answering = next) };

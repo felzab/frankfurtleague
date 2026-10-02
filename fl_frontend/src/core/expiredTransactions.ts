@@ -1,5 +1,7 @@
 import { MongoClient } from "mongodb";
 
+import { recordVerdict } from "./verdicts.ts";
+
 import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
 
 const EXPIRED = (killed: number): string =>
@@ -55,10 +57,8 @@ export async function closeJudgingExpiredTransactions(mongod: StartedMongoDBCont
     // Never watched is a file that failed before its first case, which has its own failure to report.
     if (mongod !== undefined && atStart.has(mongod)) refusal = expiredTransactionsRefusal(atStart.get(mongod) ?? null, await readKills(mongod));
   } finally {
-    // Before any throw: node:test runs a file's `after` hooks in turn and runs none after one that
-    // throws, so a refusal thrown ahead of this left a client open and the run hanging.
     await close();
   }
 
-  if (refusal !== null) throw new Error(refusal);
+  if (refusal !== null) recordVerdict("this file's teardown", refusal);
 }

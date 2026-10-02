@@ -916,6 +916,13 @@ teardown reading the count before it closes every client and stops the container
 server stops reporting fails it as unjudged. A case that deadlocks on a transaction, or leaves a
 commit the server never received, can pass while another waits the abort out.
 
+**No hook that judges can skip a cleanup registered after it.** node:test runs a file's hooks of
+one kind in the order they were registered and runs none after one that throws, which its
+documentation does not state, so a verdict thrown from a hook left the later hook's resource open
+and the run hanging. A judging hook records its failure (`fl_frontend/src/core/verdicts.ts ::
+judging`), and the file fails once every hook has run and its event loop is empty, naming each
+case or hook that recorded one (`fl_frontend/src/core/verdicts.test.ts`).
+
 **An application module imports a HeroUI component from `@heroui/react/<component>` and an icon
 from `@gravity-ui/icons/<Name>`**, because `node --test` has no bundler to narrow a package root: a
 root import loads every component or every icon into each test file's process that reaches it.

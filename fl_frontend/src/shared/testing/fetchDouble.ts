@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { after, afterEach, beforeEach, mock } from "node:test";
 
+import { judgeAtProcessEnd, judging } from "@/core/verdicts.ts";
+
 import type { Mock } from "node:test";
 
 type Fetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -32,11 +34,10 @@ export function doubleFetch(): { readonly mock: Mock<Fetch>["mock"] } {
     judge("a request was sent between two cases, after the one before had ended");
     current = unansweredDouble();
   });
-  afterEach(() => judge("the case sent a request it never answered"));
-  after(() => judge("a request was sent after the file's last case had ended"));
-  // A timer queued as the last case ends fires after every hook, so the process's end judges once
-  // more: the throw ends it non-zero, and the runner fails the file.
-  process.once("beforeExit", () => judge("a request was sent after the file's hooks had run"));
+  afterEach((t) => judging(t.fullName, () => judge("the case sent a request it never answered")));
+  after(() => judging("the file's last case", () => judge("a request was sent after the file's last case had ended")));
+  // A timer queued as the last case ends fires after every hook, so the process's end judges once more.
+  judgeAtProcessEnd(() => judge("a request was sent after the file's hooks had run"));
 
   return {
     get mock() {

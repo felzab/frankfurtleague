@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
 import { afterEach } from "node:test";
 
+import { judging } from "@/core/verdicts.ts";
 import { AENDERUNG_STEHT_WEITERHIN, KONFLIKT_MIT_BESTEHENDEM } from "@/shared/utils/actionError.ts";
 
 import { ACTION_ONLY_INVALIDATIONS, cacheCalls, doubleActionRequest, ROUTE_NEXT_CACHE_DOUBLE } from "./actionDoubles.ts";
@@ -28,9 +29,11 @@ export function doubleRouteRequest(): ReturnType<typeof doubleActionRequest> {
   });
   // After every case rather than at the throw: the undo spine catches an invalidation's throw and logs
   // it, so a route calling one answers its press as cleared while the running Next refuses the call.
-  afterEach(() => {
+  afterEach((t) => {
     const refused = cacheCalls.filter(({ name }) => ACTION_ONLY_INVALIDATIONS.includes(name)).map(({ name }) => name);
-    assert.deepEqual(refused, [], "the route called what Next refuses outside a Server Action; a route handler clears with revalidateTag");
+    judging(t.fullName, () =>
+      assert.deepEqual(refused, [], "the route called what Next refuses outside a Server Action; a route handler clears with revalidateTag"),
+    );
   });
 
   return request;

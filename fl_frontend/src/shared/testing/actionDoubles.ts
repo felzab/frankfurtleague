@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import { blankComments } from "@/core/blankComments.ts";
 import { exportedNames, exportingModule, registerDoubles, replacingPackage } from "@/core/exportingModule.ts";
+import { judging } from "@/core/verdicts.ts";
 
 import type { AdminRefusal } from "@/core/auth.ts";
 import type { SubjectSession } from "@/core/subject.ts";
@@ -51,11 +52,13 @@ export function doubleActions({
   });
   // A call left unanswered holds its transition past the case, where React can hold a later case's
   // transition behind it, so it fails the case that left it rather than the one it next reaches.
-  afterEach(() => {
+  afterEach((t) => {
     const left = [...pending].map(({ action }) => action);
     pending.clear();
     if (!mayLeavePending) {
-      assert.deepEqual(left, [], "the case left these actions pending: answer them with `answerPending`, or name why with `leavePending`");
+      judging(t.fullName, () =>
+        assert.deepEqual(left, [], "the case left these actions pending: answer them with `answerPending`, or name why with `leavePending`"),
+      );
     }
   });
   const answerOf = (action: string): Promise<unknown> => {
