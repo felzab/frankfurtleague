@@ -773,6 +773,15 @@ const LANDINGS: Record<string, Landing> = {
     after: () => bewerbungPage(MIT_OFFENEN_SITZEN),
     lands: () => screen.getByRole("button", { name: "E-Mail-Adresse von Bernd Meier korrigieren" }),
   },
+  "a reseating's cancel, on the control that opened the box": {
+    before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
+    press: async (user) => {
+      await user.click(screen.getByRole("button", { name: "Trainer neu besetzen" }));
+      await user.click(screen.getByRole("button", { name: "Abbrechen" }));
+    },
+    after: () => bewerbungPage(MIT_OFFENEN_SITZEN),
+    lands: () => screen.getByRole("button", { name: "Trainer neu besetzen" }),
+  },
   /* No other seat can be reseated, so the strip's heading takes the focus once the declined seat is filled. */
   "a reseated seat, on the strip's heading": {
     answers: { besetzeKontaktSitzAction: { success: true, verschickt: true, message: "Besetzt." } },
@@ -863,6 +872,16 @@ const LANDINGS: Record<string, Landing> = {
     after: () => h(HeldSpielplan, SPIELPLAN_DRAWN),
     remount: true,
     lands: () => openStop("Spielplan neu anlegen"),
+  },
+  "a plan's withdrawal, on the plan's control drawn anew": {
+    before: () => h(HeldSpielplan, SPIELPLAN_DRAWN),
+    press: async (user) => {
+      await user.click(screen.getByRole("radio", { name: "Zurücknehmen" }));
+      await pressTwice(user, { resting: "Spielplan zurücknehmen", armed: "Ja, Spielplan zurücknehmen" });
+    },
+    after: () => h(HeldSpielplan, SPIELPLAN_UNDRAWN),
+    remount: true,
+    lands: () => openStop("Spielplan anlegen"),
   },
   "a club's group swap from its editor, on its control drawn anew": {
     before: () => teamEditor(null, { locked: true }),

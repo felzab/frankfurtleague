@@ -553,6 +553,18 @@ describe("confirming by a code mailed to the holder", () => {
     await waitFor(() => assert.deepEqual(reached, ["addPasskey"]));
   });
 
+  /* The confirmed code step leaves the page with the field the reader typed in. */
+  it("hands the focus to the add control the code's confirmation opens", async () => {
+    const user = userEvent.setup();
+    answers.pruefeInhaberAction = { success: true, gleich: true };
+    open({ passkeys: [], freshUntil: null, enrolmentUntil: null });
+
+    await confirmByCode(user, screen);
+
+    const einrichten = await screen.findByRole("button", { name: "Passkey einrichten" });
+    await waitFor(() => assert.ok(document.activeElement === einrichten, "the confirmation left the focus off the control it opened"));
+  });
+
   /* An administrator's confirmation is the passkey's alone (`docs/frontend/spec.md :: I422`). */
   it("offers an administrator no code", async () => {
     const user = userEvent.setup();
