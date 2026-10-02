@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import { memoryAdapter } from "better-auth/adapters/memory";
 import { isAPIError } from "better-auth/api";
 import { jwtVerify } from "jose";
+import { ObjectId } from "mongodb";
 
 import {
   ACTOR_KEY_PAIR,
@@ -64,8 +65,14 @@ const ADAPTER_DOUBLE = {
   mongodbAdapter: (db: unknown, config?: { client?: unknown }) => {
     adapterCalls.pairs.push({ db, config });
     const factory = memoryAdapter(store as unknown as MemoryDB);
+    // Ids minted as the Mongo adapter mints them, an `ObjectId` rising with each insert: two sessions
+    // stamped in one millisecond are told apart by it (`fl_frontend/src/core/auth.ts :: mintedBefore`).
+    const mintingObjectIds = (options: Parameters<typeof factory>[0]): Parameters<typeof factory>[0] => ({
+      ...options,
+      advanced: { ...options.advanced, database: { ...options.advanced?.database, generateId: () => new ObjectId().toHexString() } },
+    });
     return (options: Parameters<typeof factory>[0]) =>
-      new Proxy(factory(options), {
+      new Proxy(factory(mintingObjectIds(options)), {
         get: (target, key) => {
           const value: unknown = Reflect.get(target, key);
           if (typeof value !== "function" || typeof key !== "string") return value;
@@ -2024,24 +2031,28 @@ describe("which session a new sign-in replaces", () => {
 
   /* The library stamps a mint before the gate's backend read, so the mint stamped first can be admitted
      last: ordered by that stamp, neither after hook ends the other. */
-  it("leaves one session where the step-up stamped first is admitted last", async () => {
-    const { cookie, row } = await signIn(ADMIN_EMAIL);
-    store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
-    const before = [...store.session];
+  for (const oneMillisecond of [false, true]) {
+    it(`leaves one session where the step-up stamped first is admitted last${oneMillisecond ? ", both stamped in one millisecond" : ""}`, async (t) => {
+      // Frozen, the two stamps tie on every run, which a running clock gives on a rare one.
+      if (oneMillisecond) t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+      const { cookie, row } = await signIn(ADMIN_EMAIL);
+      store.passkey.push({ ...aPasskeyFor(row.userId), credentialID: CREDENTIAL_ID, publicKey: COSE_KEY.toString("base64") });
+      const before = [...store.session];
 
-    // The assertion's first backend read is its mint's gate: nothing before it on that path asks one.
-    const gate = holdNext((hold) => (heldRead = hold));
-    const byPasskey = assertPasskey(cookie, true);
-    await gate.arrived;
-    await signInByCode(auth, ADMIN_EMAIL, { ...ORIGIN, cookie });
-    gate.release();
-    const answered = await byPasskey;
-    assert.equal(answered.status, 200, "the assertion was refused, so no race was run");
+      // The assertion's first backend read is its mint's gate: nothing before it on that path asks one.
+      const gate = holdNext((hold) => (heldRead = hold));
+      const byPasskey = assertPasskey(cookie, true);
+      await gate.arrived;
+      await signInByCode(auth, ADMIN_EMAIL, { ...ORIGIN, cookie });
+      gate.release();
+      const answered = await byPasskey;
+      assert.equal(answered.status, 200, "the assertion was refused, so no race was run");
 
-    assert.equal(writtenSince(before).length, 1, "both step-ups left their session standing");
-    // The response answered last is the cookie the browser keeps, so its session is the one that stands.
-    assert.notEqual(await served(cookieHeader(answered)), null, "the session the last response set was the one ended");
-  });
+      assert.equal(writtenSince(before).length, 1, "both step-ups left their session standing");
+      // The response answered last is the cookie the browser keeps, so its session is the one that stands.
+      assert.notEqual(await served(cookieHeader(answered)), null, "the session the last response set was the one ended");
+    });
+  }
 
   /* Stamped past its gate, a mint can still be inserted after a later one has run its after hook, which
      then saw only itself: the earlier mint's own hook is the last to run, and ends itself. */

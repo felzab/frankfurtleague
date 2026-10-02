@@ -418,7 +418,10 @@ function lineageOf(replaced: string, secret: string): Promise<string> {
   return makeSignature(`replaced-session:${replaced}`, secret);
 }
 
-/** Whether `row` was minted before `minted`, the id settling a tie so exactly one of two survives. */
+/**
+ * Whether `row` was minted before `minted`, the id settling a tie in the millisecond by order of insert:
+ * the Mongo adapter's `ObjectId`s rise with each insert this process makes, so the later mint stands.
+ */
 function mintedBefore(row: { id: string; createdAt: Date | string }, minted: { id: string; createdAt: Date | string }): boolean {
   const rowAt = new Date(row.createdAt).getTime();
   const mintedAt = new Date(minted.createdAt).getTime();
