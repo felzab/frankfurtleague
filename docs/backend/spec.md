@@ -202,7 +202,8 @@ link `gesperrt` (I515), the tier change, whose promotion of a barred address it 
 `REQ-BERECHTIGUNG-003` and whose demotion counts no barred owner (I479), the grants' revoke and claim and every
 admin read naming an author, which withhold what it finds (I452), the actor check on every
 admin-tier request, which admits no barred holder (I463), the person check every person's
-binder carries, which serves no barred person (I488), and `POST /identitaet/gesperrt`, which the
+binder carries, which serves no barred person (I488), the season's invite press and its preview,
+which skip a team whose every confirmed address it holds (I544), and `POST /identitaet/gesperrt`, which the
 frontend's mailer asks about every address it sends to and which answers it as `gesperrt` (I543).
 Each asks through the request's `fl_backend/app/api/sperrliste/lookup.py :: get_ban_list`, which reads the season a ban is judged
 against unless its caller already holds it. **The two sweeps' reminders withhold rather than refuse**
