@@ -356,6 +356,13 @@
 # measured locally on 2026-09-28 on a sixteen-core Windows machine carrying other agent sessions,
 # so upper bounds; each sits inside its row, and no row moves.
 #
+# `ops` gained an upstream in `nginx/edge_test.sh` that records what reaches Next, to hold the edge
+# dropping an empty `Next-Action`: CI's `ops` job took 34 s of its 45 s on run 36975648222
+# (2026-10-02) against 15-18 s before it, and the edge test locally 44 and 100 s against 13 and 31
+# s, two interleaved rounds on a sixteen-core Windows machine carrying other agent sessions, so upper
+# bounds. `ops` is not the gate's longest job, so its total does not move; it sits inside its row,
+# and no row moves.
+#
 # `scripts` lost the comment classifier, its cases and its self-check step, and the cases that
 # listed a fixture branch or ran `verify.sh` over it. `scripts/tests/test_gate_pool.py`, whose
 # order case holds one unit open for a second, took 5.9-7.4 s against 4.9-10.4 s, three interleaved
