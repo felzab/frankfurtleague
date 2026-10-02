@@ -246,6 +246,35 @@ describe("a change past the step-up window", () => {
   });
 });
 
+describe("where renaming a passkey leaves the focus", () => {
+  /* The rename swaps the card's controls for a form and back, each from under the press that asked;
+     booleans rather than nodes, since a failing report inspects a jsdom node's whole window. */
+  it("hands the name field the focus when the form opens, and the rename control when it is cancelled", async () => {
+    const user = userEvent.setup();
+    open();
+
+    await user.click(screen.getByRole("button", { name: LAPTOP_UMBENENNEN }));
+    const imFeld = document.activeElement === screen.getByRole("textbox", { name: "Name" });
+    await user.click(screen.getByRole("button", { name: "Abbrechen" }));
+    const zurueck = document.activeElement === screen.getByRole("button", { name: LAPTOP_UMBENENNEN });
+
+    assert.ok(imFeld, "the form replaced the pressed control and the focus fell to the page");
+    assert.ok(zurueck, "the cancelled form unmounted under the caret and the focus fell to the page");
+  });
+
+  it("hands the rename control the focus once a stored name closes the form", async () => {
+    const user = userEvent.setup();
+    open();
+
+    await user.click(screen.getByRole("button", { name: LAPTOP_UMBENENNEN }));
+    await user.type(screen.getByRole("textbox", { name: "Name" }), " Pro");
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await waitFor(() => assert.ok(screen.queryByRole("textbox", { name: "Name" }) === null));
+
+    assert.ok(document.activeElement === screen.getByRole("button", { name: /umbenennen$/ }), "the saved form left the focus on the page");
+  });
+});
+
 describe("removing a passkey", () => {
   /* The removal ended the session this page ran in, so the page itself has nothing left to show. */
   it("leaves for the sign-in page once the passkey this device signed in with is gone", async (t) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import PencilToLine from "@gravity-ui/icons/PencilToLine";
 import TrashBin from "@gravity-ui/icons/TrashBin";
@@ -84,6 +84,15 @@ export function PasskeyKarteView({
   const twoPress = useTwoPressConfirm();
   const [isRenaming, setIsRenaming] = useState(false);
 
+  // The form unmounts from under its own cancel or save, so the control that opened it takes the
+  // focus back; never on the card's first render, before any rename has opened.
+  const umbenennenRef = useRef<HTMLButtonElement>(null);
+  const warOffen = useRef(false);
+  useEffect(() => {
+    if (isRenaming) warOffen.current = true;
+    else if (warOffen.current) umbenennenRef.current?.focus();
+  }, [isRenaming]);
+
   return (
     <li className={`${card()} flex flex-col gap-3 p-4 sm:p-5`}>
       <div className="flex min-w-0 flex-col gap-1">
@@ -123,6 +132,7 @@ export function PasskeyKarteView({
           <ConfirmActionRow confirm={twoPress}>
             {!twoPress.isConfirming && (
               <Button
+                ref={umbenennenRef}
                 type="button"
                 variant="secondary"
                 aria-label={kontrollname(karte, "umbenennen")}
@@ -164,6 +174,13 @@ function PasskeyNameForm({ karte, onCancel, onSave }: { karte: PasskeyKarte; onC
 
   useForgiveFixed({ umbenennen: { name } });
 
+  // Moved on mount, which a press of the card's rename control is the only way to: the form replaced
+  // that control under the caret.
+  const nameRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    nameRef.current?.focus();
+  }, []);
+
   const speichere = () => {
     if (isPending) return;
     guardSubmit({ umbenennen: { name } }, () => {
@@ -185,7 +202,10 @@ function PasskeyNameForm({ karte, onCancel, onSave }: { karte: PasskeyKarte; onC
         maxLength={PASSKEY_NAME_MAX}
         isReadOnly={isPending}>
         <Label className={FIELD_LABEL_CLASSES}>Name</Label>
-        <Input className={FIELD_INPUT_CLASSES} />
+        <Input
+          ref={nameRef}
+          className={FIELD_INPUT_CLASSES}
+        />
         <Description className="muted-hint">Zum Beispiel „Mein iPhone“.</Description>
         <FieldError className={FIELD_ERROR_CLASSES} />
       </TextField>
