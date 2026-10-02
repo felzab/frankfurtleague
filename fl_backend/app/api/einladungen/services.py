@@ -5,7 +5,7 @@ One planner decides who a season's press mails, and the preview answers the same
 of one rule is how a preview starts telling an administrator something the press then contradicts.
 """
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from http import HTTPStatus
 from typing import Any, NamedTuple
 
@@ -207,8 +207,13 @@ class EinladungVersandPlan(NamedTuple):
     ersetzt_link: bool
 
 
-def plan_einladung_versand(*, austritt: Any, kontakte: Any, einladung_raw: Mapping[str, Any] | None, erneut: bool) -> EinladungVersandPlan:
-    """Who this team's link goes to, or why it is skipped. The preview and the press both read it."""
+def plan_einladung_versand(
+    *, austritt: Any, kontakte: Any, einladung_raw: Mapping[str, Any] | None, erneut: bool, gesperrt: Collection[str]
+) -> EinladungVersandPlan:
+    """Who this team's link goes to, or why it is skipped. The preview and the press both read it.
+
+    `gesperrt` holds the stored addresses a standing ban holds, as `app/api/sperrliste/lookup.py :: adressen_gesperrt` answers them.
+    """
 
     # The record's PRESENCE, never its `type` and never a flag beside it: a team is out of the
     # season by either route, and a skip naming the contact block would send somebody to repair it.
@@ -221,6 +226,12 @@ def plan_einladung_versand(*, austritt: Any, kontakte: Any, einladung_raw: Mappi
     empfaenger = bestaetigte_empfaenger(kontakte=kontakte)
     if not empfaenger:
         return EinladungVersandPlan([], "keine_bestaetigte_kontaktperson", False)
+
+    # Ahead of the delivery record: the frontend's mailer sends a barred address nothing and records
+    # nothing, so a team reached by nobody else would be re-minted, its link revoked, at every press
+    # for as long as the ban stands (`docs/backend/spec.md :: I544`).
+    if all(person.email in gesperrt for person in empfaenger):
+        return EinladungVersandPlan([], "kontakte_gesperrt", False)
 
     # The delivery record and never the row: a team holding a live link nobody sent is a team this
     # press exists to reach, and skipping on the row would leave sixteen links unsent for ever.

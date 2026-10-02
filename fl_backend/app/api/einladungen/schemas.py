@@ -97,7 +97,7 @@ class FLEinladungEmpfaenger(BaseModel):
     email: CustomNonEmptyString
 
 
-# Four ordinary states, a failure and an unknown: `erzeugung_fehlgeschlagen` says the league failed
+# Five ordinary states, a failure and an unknown: `erzeugung_fehlgeschlagen` says the league failed
 # that team and `erzeugung_ungewiss` that it cannot tell, and a surface words both apart from the
 # rest (`docs/backend/spec.md :: I282`).
 FLEinladungVersandGrund = Literal[
@@ -106,6 +106,7 @@ FLEinladungVersandGrund = Literal[
     "erzeugung_ungewiss",
     "kein_kontaktblock",
     "keine_bestaetigte_kontaktperson",
+    "kontakte_gesperrt",
     "bereits_gesendet",
 ]
 

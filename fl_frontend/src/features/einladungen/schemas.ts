@@ -130,6 +130,7 @@ export const FLEinladungVersandGrundSchema = z.enum(
     "erzeugung_ungewiss",
     "kein_kontaktblock",
     "keine_bestaetigte_kontaktperson",
+    "kontakte_gesperrt",
     "bereits_gesendet",
   ],
   { error: "Diesen Grund gibt es nicht." },

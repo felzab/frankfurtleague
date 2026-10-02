@@ -17,6 +17,7 @@ from app.api.einladungen.schemas import (
 )
 from app.api.einladungen.services import (
     WITHOUT_TOKEN_HASH,
+    bestaetigte_empfaenger,
     build_live_team_filter,
     compose_einladung,
     compose_widerruf_update,
@@ -55,6 +56,7 @@ from app.api.saisons.services import (
     with_schedule,
 )
 from app.api.saisons.spielplan import EnteredTeam, draw_spielplan
+from app.api.sperrliste.lookup import BanList, SperrlisteLookup, adressen_gesperrt
 from app.api.spiele.schemas import KNOCKOUT_PHASES, FLSpielListAdapter
 from app.api.teams.schemas import FLGruppenNames
 from app.api.teams.services import (
@@ -1096,6 +1098,14 @@ async def _entered_teams(*, saison_teams_collection: AsyncCollection, saison_id:
     return entered
 
 
+async def _gesperrte_empfaenger(sperrliste: BanList, entered: Sequence[Mapping[str, Any]]) -> set[str]:
+    """Every stored address of the season's confirmed seats a standing ban holds, one read for all its teams."""
+
+    adressen = [person.email for team in entered for person in bestaetigte_empfaenger(kontakte=team.get("kontakte"))]
+
+    return await adressen_gesperrt(sperrliste, adressen) if adressen else set()
+
+
 async def _mail_one_team(
     *,
     einladungen_collection: AsyncCollection,
@@ -1103,6 +1113,7 @@ async def _mail_one_team(
     saison_id: str,
     team: Mapping[str, Any],
     erneut: bool,
+    gesperrt: set[str],
     erstellt_von: str,
     today: str,
 ) -> FLEinladungVersandZeile:
@@ -1140,7 +1151,11 @@ async def _mail_one_team(
             session=session,
         )
         plan = plan_einladung_versand(
-            austritt=team.get("austritt"), kontakte=team.get("kontakte"), einladung_raw=live[0] if live else None, erneut=erneut
+            austritt=team.get("austritt"),
+            kontakte=team.get("kontakte"),
+            einladung_raw=live[0] if live else None,
+            erneut=erneut,
+            gesperrt=gesperrt,
         )
         ersetzt_link, hatte_link = plan.ersetzt_link, bool(live)
 
@@ -1230,6 +1245,7 @@ async def preview_einladungen_versand(
     saison_teams_collection: SaisonTeamsCollection,
     einladungen_collection: EinladungenCollection,
     saisons_collection: SaisonsCollection,
+    sperrliste: SperrlisteLookup,
     erneut: bool = False,
 ) -> FLEinladungVersandVorschauResponse:
     """
@@ -1243,8 +1259,9 @@ async def preview_einladungen_versand(
     link REVOKED and the copy in somebody's inbox opens nothing from that moment. A row carries no trace of the invitation the team holds,
     so a page offering the press reads that fact here or nowhere.
 
-    Four skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that
-    block has been confirmed by its own person, or its live link already carries a delivery record and `erneut` is false. A season holding
+    Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that
+    block has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a
+    delivery record and `erneut` is false. A season holding
     no team answers an empty list. One row per MAILBOX, so a person sitting in two seats is named once. 404 where no season holds that id.
     """
 
@@ -1262,11 +1279,16 @@ async def preview_einladungen_versand(
         projection=dict(WITHOUT_TOKEN_HASH),
     )
     by_team = {row["team_id"]: row for row in live}
+    gesperrt = await _gesperrte_empfaenger(sperrliste, entered)
 
     zeilen: list[FLEinladungVersandVorschauZeile] = []
     for team in entered:
         plan = plan_einladung_versand(
-            austritt=team.get("austritt"), kontakte=team.get("kontakte"), einladung_raw=by_team.get(team["team_id"]), erneut=erneut
+            austritt=team.get("austritt"),
+            kontakte=team.get("kontakte"),
+            einladung_raw=by_team.get(team["team_id"]),
+            erneut=erneut,
+            gesperrt=gesperrt,
         )
         zeilen.append(
             FLEinladungVersandVorschauZeile(
@@ -1294,6 +1316,7 @@ async def post_einladungen_versand(
     saison_teams_collection: SaisonTeamsCollection,
     einladungen_collection: EinladungenCollection,
     saisons_collection: SaisonsCollection,
+    sperrliste: SperrlisteLookup,
     db: DBClient,
     erstellt_von: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
@@ -1306,8 +1329,10 @@ async def post_einladungen_versand(
     made; there is nothing to re-send. `ersetzt_link` says of each row whether a link died for it, and the preview answers it before the
     press. A team this skips is left exactly as it was.
 
-    Four skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
-    has been confirmed by its own person, or its live link already carries a delivery record and `erneut` is false. **The fourth is read off
+    Five skips, each an ordinary state rather than a refusal: the team has left this season, it holds no contact block, no seat of that block
+    has been confirmed by its own person, every confirmed seat's address is on the ban list, or its live link already carries a delivery
+    record and `erneut` is false. **The ban is read once ahead of every team**, so a team the mailer could reach nobody of keeps the link it
+    holds rather than losing it to a press that mails nobody. **The fifth is read off
     the delivery record**, which only `POST /zustellung/angenommen` writes — so pressing twice mails nobody twice, while a link minted and
     never sent is still sent. **The first is read off the junction row's `austritt` record**, so a team out of the season by either route is
     passed over; minting for one team by hand is not refused, that being a deliberate act rather than a bulk one.
@@ -1320,6 +1345,8 @@ async def post_einladungen_versand(
     refuse(find_saison_vorbei_refusal(saison_status=str(saison_raw["status"])))
 
     entered = await _entered_teams(saison_teams_collection=saison_teams_collection, saison_id=saison_id)
+    # Read once ahead of the loop, as the withdrawal and the contacts are: a retry re-decides on them as they stood.
+    gesperrt = await _gesperrte_empfaenger(sperrliste, entered)
 
     # Sequential rather than gathered: each team opens its own session, and sixteen at once would
     # hold sixteen against a pool sized for the whole application.
@@ -1330,6 +1357,7 @@ async def post_einladungen_versand(
             saison_id=saison_id,
             team=team,
             erneut=versand_data.erneut,
+            gesperrt=gesperrt,
             erstellt_von=erstellt_von,
             today=today,
         )

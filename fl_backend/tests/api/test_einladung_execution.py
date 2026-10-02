@@ -202,6 +202,7 @@ async def preview(database: AsyncDatabase, *, erneut: bool = False) -> Any:
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         einladungen_collection=database[Collection.EINLADUNGEN],
         saisons_collection=database[Collection.SAISONS],
+        sperrliste=ban_list(database),
         erneut=erneut,
     )
 
@@ -213,6 +214,7 @@ async def press(database: AsyncDatabase, *, erneut: bool = False) -> Any:
         saison_teams_collection=database[Collection.SAISON_TEAMS],
         einladungen_collection=database[Collection.EINLADUNGEN],
         saisons_collection=database[Collection.SAISONS],
+        sperrliste=ban_list(database),
         db=database.client,
         erstellt_von=ADMIN,
         today=TODAY,
@@ -787,6 +789,45 @@ class TestTheSeasonWidePress:
         # The withdrawn team's own seat IS confirmed, so an empty list here is the withdrawal's doing.
         assert addressed[str(WITHDRAWN)] == ()
 
+    def test_a_team_whose_every_confirmed_address_is_barred_keeps_the_link_it_holds_at_every_press(self, mongo_replica_set_url: str):
+        """`docs/backend/spec.md :: I544`. A link nobody sent stands, as the mailer leaves a barred team's: two presses, and it still opens.
+
+        One seat is banned in another spelling than the row stores, as the ban list is read off stored addresses.
+        """
+
+        bound = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
+
+        async def body(database: AsyncDatabase) -> Any:
+            await database[Collection.SPERRLISTE].insert_many(
+                [ban_document("Bramblewick@Example.com", bis=bound), ban_document("quillhilde@example.com", bis=bound)]
+            )
+            await database[Collection.EINLADUNGEN].insert_one(einladung_row(TWO_SEATS, versand={}))
+            shown = await preview(database)
+            first = await press(database)
+            second = await press(database)
+
+            return decided(shown.zeilen), [decided(done.zeilen) for done in (first, second)], await live_count(database, TWO_SEATS)
+
+        shown, presses, live = on_a_league(mongo_replica_set_url, body)
+
+        row = (str(TWO_SEATS), (), "kontakte_gesperrt", False)
+        assert row in shown
+        assert all(row in done for done in presses)
+        assert live == 1
+
+    def test_a_team_one_of_whose_confirmed_addresses_is_barred_is_still_mailed(self, mongo_replica_set_url: str):
+        """The control: one reachable person is a team the press exists to reach; the mailer keeps the barred seat out."""
+
+        async def body(database: AsyncDatabase) -> Any:
+            await database[Collection.SPERRLISTE].insert_one(
+                ban_document("bramblewick@example.com", bis=compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID))
+            )
+            done = await press(database)
+
+            return {str(zeile.team_id): zeile.uebersprungen for zeile in done.zeilen}
+
+        assert on_a_league(mongo_replica_set_url, body)[str(TWO_SEATS)] is None
+
     def test_it_mints_for_the_team_it_mails_and_for_no_other(self, mongo_replica_set_url: str):
         """Per team, the count the plan asks for: one live invitation where it minted, one where it skipped a mailed team, none elsewhere."""
 
@@ -973,6 +1014,7 @@ class TestTheSeasonWidePress:
                 saison_teams_collection=database[Collection.SAISON_TEAMS],
                 einladungen_collection=collection,
                 saisons_collection=database[Collection.SAISONS],
+                sperrliste=ban_list(database),
                 db=database.client,
                 erstellt_von=ADMIN,
                 today=TODAY,
