@@ -1046,6 +1046,43 @@ def test_the_moved_names_are_the_secret_files_names() -> None:
     assert set(_lib_array("MOVED_ENV_NAMES")) == renamed
 
 
+# --- compose's own `.env`, beside the compose file -----------------------------------------------------
+
+STRAY: Final = """printf 'COMPOSE_PROJECT_NAME=a value no case reads\\n' > .env
+refuse_compose_dotenv
+echo stray-passed
+"""
+
+
+def test_a_dotenv_beside_the_compose_file_refuses_naming_the_file_and_no_line_of_it() -> None:
+    code, output, _ = _run(STRAY)
+
+    assert code == 2, output
+    assert "stray-passed" not in output, output
+    assert "/.env" in output, output
+    assert "COMPOSE_PROJECT_NAME" not in output, output
+    assert "a value no case reads" not in output, output
+
+
+def test_a_checkout_without_one_passes_in_silence() -> None:
+    code, output, _ = _run(STRAY.split("\n", 1)[1])
+
+    assert code == 0, output
+    assert output.strip() == "stray-passed", output
+
+
+@pytest.mark.parametrize(
+    ("script", "first_mode"),
+    [(DEPLOY, "\nif (( STATUS_ONLY )); then\n"), (LOCAL, "\nif (( DOWN )); then\n")],
+    ids=["deploy", "local"],
+)
+def test_each_script_refuses_one_before_any_mode_asks_compose(script: Path, first_mode: str) -> None:
+    """`--status` and `--down` branch off before the preflight, and a renamed project aims them at another stack too."""
+    text = script.read_text(encoding="utf-8")
+
+    assert text.index("\nrefuse_compose_dotenv\n") < text.index(first_mode), script.name
+
+
 # --- the copy of production a development machine takes -----------------------------------------------
 
 DUMP: Final = (

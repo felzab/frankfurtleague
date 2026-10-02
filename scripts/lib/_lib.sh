@@ -986,6 +986,18 @@ Keep them until this release runs healthy, for the image a rollback restores; th
 (docs/ops/runbooks.md §16)."
 }
 
+# Compose loads a `.env` here unasked, for its `COMPOSE_*` settings and a bare `NAME` line's value:
+# a project name there aims every command, `down -v` included, at another stack. Named and never
+# read: one may hold credentials.
+refuse_compose_dotenv() {
+  [[ -e .env || -L .env ]] || return 0
+  refuse "a .env stands beside the compose files: ${PWD}/.env
+Compose loads it unasked, for its own settings and for any bare name in an environment file, and
+nothing in this repository writes or reads one. A line there can rename the compose project, which
+points every compose command at another stack's containers. Move it out of the checkout.
+NOTHING was asked of compose."
+}
+
 # --- The rendered compose models ----------------------------------------------------------------------
 
 # Every environment file the compose files name. Compose refuses to parse a stack whose file is

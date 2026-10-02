@@ -44,6 +44,10 @@ the machine is outside the repository. What it does tell you:
 - **A line naming a value a secret file holds draws a warning, and nothing more**: the image a
   rollback restores reads it, so it stays until the deploy that follows it runs healthy, and is then
   deleted (§16).
+- **A `.env` beside the compose file refuses every run at exit 2 before compose is asked anything**,
+  `--status` included (`scripts/lib/_lib.sh :: refuse_compose_dotenv`). Git ignores the name, so
+  `git status` never shows it; move it out of the checkout, keeping it only if it holds something
+  you still need ([`spec.md`](spec.md) §1.5).
 - **Compose is asked whether it can parse its own configuration before anything is pulled**
   (`scripts/ops/deploy.sh :: check_compose_config`). **It refuses at exit 2 with nothing pulled or
   recreated**, and names the compose file and the two environment files without printing what compose

@@ -88,6 +88,7 @@ fi
 require_platform linux
 require_docker
 require_file "$COMPOSE"
+refuse_compose_dotenv
 
 # `version`, never `revision`: the version label is the tag the build was pushed under, and the
 # revision is the full commit, which no tag spells.

@@ -187,6 +187,7 @@ require_platform windows
 require_docker
 require_file "docker-compose.yml"
 require_file "docker-compose.local.yml"
+refuse_compose_dotenv
 
 if (( DOWN )); then
   section "down"

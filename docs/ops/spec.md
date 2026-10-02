@@ -452,7 +452,11 @@ platform.
 is a file under `secrets/` (§1.2), so the two services share no name an environment file could hold.
 **A `.env` beside the compose file is compose's own**, read for interpolation, for a bare
 pass-through's value and for compose's `COMPOSE_*` settings, and nothing in this repository writes
-or reads one: a line there steers compose itself. **The frontend's `dev` script sets two names of
+or reads one: a line there steers compose itself, a project name aiming every command at another
+stack. **The deploy and the local stack refuse to start while one stands there**, naming the file
+and printing none of it (`scripts/lib/_lib.sh :: refuse_compose_dotenv`), since git ignores it and
+nothing else shows it. Pinning the project name on each call is no substitute: it answers the name
+alone, the file's other settings and pass-through values still reaching compose. **The frontend's `dev` script sets two names of
 its own** before `next dev` starts, over the shell and `fl_frontend/.env`: `ACTOR_SIGNING_KEY_FILE`
 to the checkout's `secrets/fl_actor_signing_key` and `SECRETS_DIR` to the checkout's `secrets/`,
 because `fl_frontend/.env` also reaches the frontend container, where a path written there would
