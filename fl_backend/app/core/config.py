@@ -280,6 +280,9 @@ class BackendSecrets(BaseSettings, _SecretFields):
     variable left behind would win over its file in silence (`docs/backend/spec.md` §1.5).
     """
 
+    # No `env_prefix` and no by-name read: pydantic-settings applies both to a secret file's name, and
+    # `SECRET_FILES` and the compose check name each file without them
+    # (`fl_backend/tests/core/test_config.py :: TestTheSecretFiles`).
     model_config = SettingsConfigDict(extra="forbid")
 
     # The directory is the one argument, for `BackendEnvironment.__init__`'s reason; pydantic-settings

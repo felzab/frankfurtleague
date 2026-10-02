@@ -462,6 +462,27 @@ class TestTheSecretFiles:
         """The fixture above writes exactly the files the class reads, so a field added without a file fails here first."""
         assert sorted(SECRET_FILES) == sorted(FILES)
 
+    def test_each_field_holds_the_file_secret_files_names_it_by(self, monkeypatch, tmp_path):
+        """Every field to its own file, which no other case pins.
+
+        An `env_prefix`, which pydantic-settings puts on a secret file's name too, refuses here.
+        """
+        an_environment(monkeypatch, tmp_path)
+
+        config = get_config()
+
+        held = {file: getattr(config, name).get_secret_value() for name, file in zip(BackendSecrets.model_fields, SECRET_FILES, strict=True)}
+        assert held == FILES
+
+    @pytest.mark.parametrize(
+        ("field", "file"), [(name, file) for name, file in zip(BackendSecrets.model_fields, SECRET_FILES, strict=True) if name != file]
+    )
+    def test_no_file_under_an_aliased_fields_own_name_stands_in_for_its_own(self, monkeypatch, tmp_path, field, file):
+        """`validate_by_name` or `populate_by_name` reads it, booting on a file `SECRET_FILES` omits and the compose check holds nothing to."""
+        refused = refusal(monkeypatch, tmp_path, {file: None, field: FILES[file].encode()})
+
+        assert refused == f"Invalid secret files: {file}"
+
 
 class TestTheRetiredVariables:
     """The names the secrets were read from before they became files, accepted for one release (`docs/backend/spec.md` §1.5)."""

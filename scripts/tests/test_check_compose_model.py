@@ -961,7 +961,11 @@ def settings_file(body: str) -> Path:
 
 
 def test_the_backend_s_files_are_read_off_config_py_as_the_backend_itself_names_them():
-    """Held to `SECRET_FILES` as pydantic computes it, a route the parse shares nothing with, so a field shape it misreads fails here."""
+    """Held to `SECRET_FILES` over pydantic's merged fields, so a field shape the parse misreads fails here.
+
+    Both name a file by its alias or its own name, a rule
+    `fl_backend/tests/core/test_config.py :: TestTheSecretFiles` holds to what pydantic-settings reads.
+    """
     imported = subprocess.run(
         [sys.executable, "-c", "import json\nfrom app.core.config import SECRET_FILES\nprint(json.dumps(sorted(SECRET_FILES)))"],
         cwd=checker.REPO_ROOT / "fl_backend",
