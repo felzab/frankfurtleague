@@ -171,10 +171,11 @@ export type Doubles = {
 /** How `registerDoubles` judges the doubles it registers. */
 export type Registration = {
   /**
-   * For a helper standing one set under every suite of a kind, whose subjects each reach part of it:
-   * a double no subject reaches then fails nothing. A suite's own doubles never take it.
+   * The doubles, by path or specifier, a helper's standing set may leave unserved because only some of
+   * its subjects reach them. A suite's own doubles never take it, nor does a double every subject
+   * reaches.
    */
-  readonly mayGoUnserved?: boolean;
+  readonly mayGoUnserved?: readonly string[];
 };
 
 const SOURCE_ROOT = new URL("../", import.meta.url);
@@ -184,13 +185,17 @@ const SOURCE_ROOT = new URL("../", import.meta.url);
  * a static one resolves before the hooks exist. `server-only` always loads empty, its real module
  * throwing outside a React server build.
  */
-export function registerDoubles({ modules = {}, specifiers = {} }: Doubles = {}, { mayGoUnserved = false }: Registration = {}): void {
+export function registerDoubles({ modules = {}, specifiers = {} }: Doubles = {}, { mayGoUnserved = [] }: Registration = {}): void {
   // A path naming no module would double nothing, and the suite would run against the real one.
   const missing = Object.keys(modules).filter((at) => !existsSync(new URL(at, SOURCE_ROOT)));
   if (missing.length > 0) throw new Error(`No module under fl_frontend/src at ${missing.join(", ")}`);
+  const registered = [...Object.keys(modules), ...Object.keys(specifiers)];
+  // A mistyped exemption would loosen nothing and read as if it did.
+  const strays = mayGoUnserved.filter((name) => !registered.includes(name));
+  if (strays.length > 0) throw new Error(`mayGoUnserved names no double this registers: ${strays.join(", ")}`);
   // Nor may one name a module the subject never loads, or loads past the match below: the suite would
   // believe it doubled what it never reached. Judged at the process's end, after every case's imports.
-  const unserved = new Set(mayGoUnserved ? [] : [...Object.keys(modules), ...Object.keys(specifiers)]);
+  const unserved = new Set(registered.filter((name) => !mayGoUnserved.includes(name)));
   if (unserved.size > 0) {
     judgeAtProcessEnd(() => assert.deepEqual([...unserved], [], "these doubles were registered and never served: drop each, or reach it"));
   }

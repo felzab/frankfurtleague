@@ -885,8 +885,10 @@ refuses a path naming no module, where a mistyped match in a hand-written hook d
 leaves the suite passing against the real module. For the same reason a file fails, naming the
 double, where one it registered was never served by the time its process ends. A helper standing one
 set under every suite of a kind, as `fl_frontend/src/shared/testing/actionDoubles.ts ::
-doubleActionRequest` and the page harness do, registers it with `mayGoUnserved`, each subject
-reaching a part of it; a suite's own doubles never do.
+doubleActionRequest` and the page harness do, names in `mayGoUnserved` only the doubles some of its
+subjects never reach, and holds the rest; a suite's own doubles are never named there. A suite that
+reaches too little of a helper's set takes a narrower helper, as the team pages take `::
+doubleSubjectLookup`.
 
 **A source-text assertion is for what neither a rendering, a call nor a lint selector can show, and
 only where breaking it is a defect someone meets** — a mirror of a file no tool reads, such as a

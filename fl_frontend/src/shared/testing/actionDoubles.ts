@@ -280,7 +280,7 @@ const signInStore = (answers: SignInAnswers) => ({
  * The subject lookup answering what `doubleActionRequest` holds, counting every read: the real one
  * calls the sign-in store this file replaces, and reads the doubled `auth` it cannot build.
  */
-const subjectLookup = (answers: SignInAnswers) => ({
+const subjectLookup = (answers: Pick<SignInAnswers, "subject" | "subjectReads">) => ({
   getSubjectSession: () => {
     answers.subjectReads += 1;
     return answering(answers.subject);
@@ -347,13 +347,14 @@ export function doubleActionRequest({
     answers.fresh = true;
     answers.refusal = null;
   });
-  // The request every action runs in, each action reaching what its own guard and writes read.
+  // The request every action runs in, each action reaching what its own guard and writes read; every
+  // action reaches the sign-in store, which is held.
   registerDoubles(
     {
       modules: { "core/auth.ts": signInStore(answers), "core/subject.ts": subjectLookup(answers), "core/logging.ts": SILENT_LOGGER },
       specifiers: REQUEST_PACKAGES,
     },
-    { mayGoUnserved: true },
+    { mayGoUnserved: ["core/subject.ts", "core/logging.ts", ...Object.keys(REQUEST_PACKAGES)] },
   );
 
   return {
@@ -366,6 +367,24 @@ export function doubleActionRequest({
     holdNoAccount: () => void (answers.accountHeld = false),
     setRefusal: (next) => void (answers.refusal = next),
   };
+}
+
+/**
+ * The subject lookup alone, for a suite whose pages read who the person is and never the sign-in
+ * store, which `doubleActionRequest` holds to being reached.
+ */
+export function doubleSubjectLookup(subject: SubjectDouble = null): {
+  /** What the lookup answers for the rest of that case; `null` for no person. */
+  setSubject: (next: SubjectDouble) => void;
+} {
+  const answers = { subject, subjectReads: 0 };
+  beforeEach(() => {
+    answers.subject = subject;
+    answers.subjectReads = 0;
+  });
+  registerDoubles({ modules: { "core/subject.ts": subjectLookup(answers) } });
+
+  return { setSubject: (next) => void (answers.subject = next) };
 }
 
 /** One announcement a component raised: the severity it chose, and the words it handed the reader. */

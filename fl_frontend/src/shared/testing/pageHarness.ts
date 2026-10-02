@@ -37,7 +37,8 @@ export type ReadAnswer = (endpoint: string, schema: AnswerSchema, params: Record
 /** What a page is handed of an answer its schema took, given the parse the client hands on. */
 export type HandOver = (endpoint: string, parsed: unknown) => unknown;
 
-// The request every page renders in, each page reaching what its own reads and guard call.
+// The request every page renders in, each page reaching what its own reads and guard call; every page
+// reaches `next/server`, which is held.
 registerDoubles(
   {
     specifiers: {
@@ -46,7 +47,7 @@ registerDoubles(
       "next/server": { connection: () => Promise.resolve(void steps.push({ kind: "connection" })) },
     },
   },
-  { mayGoUnserved: true },
+  { mayGoUnserved: Object.keys(REQUEST_PACKAGES) },
 );
 
 const asModule = (source: string): string => `data:text/javascript,${encodeURIComponent(source)}`;

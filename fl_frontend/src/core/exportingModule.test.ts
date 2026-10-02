@@ -227,12 +227,12 @@ describe("the doubles a suite registers", () => {
   });
 
   /* Judged as the process ends, which no case in this file can observe of itself: a child runs a file
-     that leaves one double unserved, beside one it serves and one a helper may leave. */
-  it("fails a file that registered a double its subject never reached, naming that double alone", () => {
+     that leaves doubles unserved, beside one it serves and one a helper names as one it may leave. */
+  it("fails a file that registered a double its subject never reached, naming each such double alone", () => {
     const { status, output } = runAsTestFile(`import { it } from "node:test";
 import { registerDoubles } from "@/core/exportingModule.ts";
 registerDoubles({ modules: { "core/joinUnd.ts": {} }, specifiers: { "fl-probe-served": "export const answer = 1;" } });
-registerDoubles({ modules: { "core/errors.ts": {} } }, { mayGoUnserved: true });
+registerDoubles({ modules: { "core/errors.ts": {}, "core/blankComments.ts": {} } }, { mayGoUnserved: ["core/errors.ts"] });
 await import("fl-probe-served");
 it("runs", () => {});
 `);
@@ -241,7 +241,15 @@ it("runs", () => {});
     assert.equal(status, 1, output);
     assert.match(output, /registered and never served/);
     assert.match(output, /core\/joinUnd\.ts/);
+    assert.match(output, /core\/blankComments\.ts/);
     assert.doesNotMatch(output, /fl-probe-served|core\/errors\.ts/);
+  });
+
+  it("refuses an exemption naming no double the registration holds", () => {
+    assert.throws(
+      () => registerDoubles({ modules: { "core/joinUnd.ts": {} } }, { mayGoUnserved: ["core/joinUnt.ts"] }),
+      /mayGoUnserved names no double this registers: core\/joinUnt\.ts/,
+    );
   });
 
   it("stands every component a pattern matches in for one rendering nothing, named by its file", async () => {

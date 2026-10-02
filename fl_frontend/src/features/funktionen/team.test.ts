@@ -12,14 +12,14 @@ import { userEvent } from "@testing-library/user-event";
 
 import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
-import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
+import { doubleEveryAction, doubleSubjectLookup } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { callPage, clearSteps, pageBody, readsOf, redirectTarget, renderPage, steps } from "@/shared/testing/pageHarness.ts";
 import { textOf } from "@/shared/testing/renderTest.ts";
 
 import type { ReactNode } from "react";
 
-const { setSubject } = doubleActionRequest();
+const { setSubject } = doubleSubjectLookup();
 // The shell hands a sign-out action to the bar, whose real module reaches `next/server` past the harness.
 doubleEveryAction();
 
