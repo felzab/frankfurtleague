@@ -2165,6 +2165,19 @@ describe("what a ban ends in the sign-in store", () => {
 
     assert.equal(store.session.length, sessions);
   });
+
+  /* A read that failed is no answer: taken for `false`, a ban would go unmailed and its administrator be
+     told the address holds no account, and a grant's sign-out would report a success. */
+  it("throws where the store does not say whether an account holds the address", async () => {
+    await signIn(PERSON_EMAIL);
+    adapterCalls.refusing = (_key, args) => (args[0] as { model?: unknown } | undefined)?.model === "user";
+
+    try {
+      await assert.rejects(endSessionsOfAddress(PERSON_EMAIL));
+    } finally {
+      adapterCalls.refusing = undefined;
+    }
+  });
 });
 
 describe("what the library's own log stream reaches this application as", () => {
