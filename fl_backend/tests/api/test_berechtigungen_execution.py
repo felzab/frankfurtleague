@@ -542,7 +542,10 @@ class TestOnlyAnOwnerRevokes:
 
             racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], demote)
 
-            return await outcome_of(revoke(database, client, BERND_ID, berechtigungen=racing)), await addresses(database)
+            outcome = await outcome_of(revoke(database, client, BERND_ID, berechtigungen=racing))
+            racing.assert_landed_inside(serially=1)
+
+            return outcome, await addresses(database)
 
         assert on_a_league(mongo_replica_set_url, body) == (BERECHTIGUNG_NUR_INHABER, sorted([OWNER, ANNA, BERND]))
 
@@ -554,6 +557,7 @@ class TestAnActorRevokedMidRequest:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, list[str]]:
             racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: revoke(database, client, ANNA_ID))
             outcome = await outcome_of(grant(database, client, als=ANNA, berechtigungen=racing))
+            racing.assert_landed_inside(serially=1)
 
             return racing.rival_outcome, outcome, await addresses(database)
 
@@ -563,6 +567,7 @@ class TestAnActorRevokedMidRequest:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, int]:
             racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: revoke(database, client, ANNA_ID))
             outcome = await outcome_of(ban(database, client, als=ANNA, berechtigungen=racing))
+            racing.assert_landed_inside(serially=1)
 
             return racing.rival_outcome, outcome, await database[Collection.SPERRLISTE].count_documents({})
 
@@ -809,6 +814,7 @@ class TestTheAnchorClosesEachRace:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, list[str]]:
             racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: revoke(database, client, BERND_ID))
             outcome = await outcome_of(revoke(database, client, ANNA_ID, berechtigungen=racing))
+            racing.assert_landed_inside(serially=1)
 
             return racing.rival_outcome, outcome, await addresses(database)
 
@@ -818,6 +824,7 @@ class TestTheAnchorClosesEachRace:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, list[str]]:
             racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: ban(database, client))
             outcome = await outcome_of(grant(database, client, berechtigungen=racing))
+            racing.assert_landed_inside(serially=1)
 
             return racing.rival_outcome, outcome, await addresses(database)
 
@@ -827,6 +834,7 @@ class TestTheAnchorClosesEachRace:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str | None, str, int]:
             racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: grant(database, client))
             outcome = await outcome_of(ban(database, client, berechtigungen=racing))
+            racing.assert_landed_inside(serially=1)
 
             return racing.rival_outcome, outcome, await database[Collection.SPERRLISTE].count_documents({})
 
@@ -841,6 +849,7 @@ class TestTheAnchorClosesEachRace:
             await database[Collection.BERECHTIGUNGEN].delete_one({"_id": DEAD_ID})
             racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: ban(database, client, NEU))
             outcome = await outcome_of(claimed(database, client, berechtigungen=racing))
+            racing.assert_landed_inside(serially=2)
 
             return racing.rival_outcome, outcome, await queued(database)
 
@@ -857,6 +866,7 @@ class TestTheAnchorClosesEachRace:
             await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(DEAD_ID, NEU, "administration"))
             racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: revoke(database, client, DEAD_ID))
             answer = await claimed(database, client, berechtigungen=racing)
+            racing.assert_landed_inside(serially=1)
 
             return (
                 racing.rival_outcome,
@@ -876,6 +886,7 @@ class TestTheAnchorClosesEachRace:
                 database[Collection.BERECHTIGUNGEN], lambda: change(database, client, OWNER_ID, "administration", als=ANNA)
             )
             outcome = await outcome_of(change(database, client, ANNA_ID, "administration", berechtigungen=racing))
+            racing.assert_landed_inside(serially=1)
 
             return racing.rival_outcome, outcome, await tiers(database)
 
@@ -894,6 +905,7 @@ class TestTheAnchorClosesEachRace:
                 database[Collection.BERECHTIGUNGEN], lambda: change(database, client, OWNER_ID, "administration", als=ANNA)
             )
             outcome = await outcome_of(revoke(database, client, BERND_ID, berechtigungen=racing))
+            racing.assert_landed_inside(serially=1)
 
             return racing.rival_outcome, outcome, await addresses(database)
 
@@ -907,6 +919,7 @@ class TestTheAnchorClosesEachRace:
             await grant(database, client)
             racing = GrantsRunningARivalAfterTheFirstRead(database[Collection.BERECHTIGUNGEN], lambda: claimed(database, client))
             answer = await claimed(database, client, berechtigungen=racing)
+            racing.assert_landed_inside(serially=1)
 
             return racing.rival_outcome, len(answer.aenderungen), [row["versuche"] for row in await queued(database)]
 

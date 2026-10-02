@@ -1,6 +1,8 @@
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+import pytest
+
 from app.core.exceptions import WriteRefusalException
 
 # What a case reports where nothing refused at all. Reported rather than raised, so a write that
@@ -35,13 +37,24 @@ class InterleavedCollection:
     def __init__(self, collection: Any, rival: Rival) -> None:
         self._collection = collection
         self._rival: Rival | None = rival
-        # Every arrival at the rival's point. A second is the write's retry, which a rival committing
-        # before the write's first read never causes: a case asserting it tells an interleaving from a
-        # serial order with the same outcome.
+        # Every arrival at the rival's point, the rival's own included.
         self.passes = 0
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._collection, name)
+
+    def assert_landed_inside(self, *, serially: int) -> None:
+        """`serially` is how often the write arrives at the rival's point with the rival committed before it.
+
+        A rival landing inside takes the write further, to a retry or past a refusal, exceeding that
+        count where the outcomes can match.
+        """
+
+        if self.passes <= serially:
+            pytest.fail(
+                f"the write arrived at the rival's point {self.passes} times, no more than with the rival committed "
+                f"before it ({serially}): the rival landed outside the write"
+            )
 
     async def run_the_rival(self) -> None:
         self.passes += 1

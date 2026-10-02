@@ -186,7 +186,7 @@ class TestTwoBansOfOneAddressInsideOneWindow:
         this ban: a minute or more for the same outcome.
         """
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, str, list[str], int]:
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, str, list[str]]:
             results: dict[str, str] = {}
 
             async def the_rival() -> None:
@@ -194,11 +194,11 @@ class TestTwoBansOfOneAddressInsideOneWindow:
 
             grants = GrantsRunningARivalAfterTheirRead(database[Collection.BERECHTIGUNGEN], the_rival)
             outcome = await ban(database, client, berechtigungen=grants)
+            grants.assert_landed_inside(serially=1)
             _, bounds = await active_and_bounds(database)
 
-            return results["rival"], outcome, bounds, grants.passes
+            return results["rival"], outcome, bounds
 
-        rival, outcome, bounds, grants_reads = on_a_league(mongo_replica_set_url, body, target=NEXT, lapsing=False)
+        rival, outcome, bounds = on_a_league(mongo_replica_set_url, body, target=NEXT, lapsing=False)
 
         assert (rival, outcome, bounds) == ("banned through 2031", SPERRLISTE_ADRESSE_GESPERRT, ["2031"])
-        assert grants_reads == 2, "only a rival landing inside the ban forces the retry that reads the grants a second time"
