@@ -21,14 +21,23 @@ SURFACES: Final = {
     "middleware": ("app.user_middleware.append(app.user_middleware[0])", "its middleware"),
     "routes": ("app.router.routes.pop()", "its route table"),
     "document": ('app.openapi()["info"]["title"] = "edited"', "its published document"),
+    # One route edited in place, which leaves every entry of the table its own object.
+    "route_dependencies": ("route.dependencies.append(object())", "its routes at GET /api/v0/spiele ['dependencies']"),
+    "route_path": ('route.path = "/edited"', "its routes at GET /api/v0/spiele ['path']"),
+    "route_methods": ('route.methods.add("PUT")', "its routes at GET /api/v0/spiele ['methods']"),
+    "route_response_model": ("route.response_model = object", "its routes at GET /api/v0/spiele ['response_model']"),
+    # What a request is actually checked against: cleared, the route serves without its key.
+    "route_dependant": ("route.dependant.dependencies.clear()", "its routes at GET /api/v0/spiele dependant ['dependencies']"),
 }
 
 PRELUDE: Final = """from fastapi.testclient import TestClient
 
 from app.core.dependencies import get_germany_now
-from tests.core.app_source import application
+from tests.core.app_source import api_routes, application
 
 app = application()
+# By its operation id, which no edit below touches, so one left standing cannot hide the route from the next module.
+route = next(found for found in api_routes(app) if found.unique_id == "get_spiele_api_v0_spiele_get")
 """
 
 
