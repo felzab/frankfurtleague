@@ -315,6 +315,73 @@ def test_every_refusal_the_table_publishes_is_met_by_a_request():
     assert len(derived) >= PROBED_OPERATIONS_FLOOR
 
 
+STEP_UP_EXECUTION = Path(__file__).with_name("test_step_up_execution.py")
+
+_HTTP_METHODS = frozenset({"get", "post", "put", "patch", "delete"})
+
+
+def _template_pattern(template: ast.expr) -> re.Pattern[str] | None:
+    """A class's `URL`, each interpolated value standing for one path segment's worth of characters."""
+
+    parts = template.values if isinstance(template, ast.JoinedStr) else [template]
+    pattern = ""
+    for part in parts:
+        if isinstance(part, ast.Constant) and isinstance(part.value, str):
+            pattern += re.escape(part.value)
+        elif isinstance(part, ast.FormattedValue):
+            pattern += "[^/]+"
+        else:
+            return None
+
+    return re.compile(pattern)
+
+
+def _driven_past_the_step_up_window() -> set[tuple[str, str]]:
+    """Each operation the execution suite sends a request from a sign-in past the step-up window, read off its source.
+
+    Read rather than listed, so a class leaving the suite takes its operation out of the set.
+    """
+
+    served = [(route.path_format, method.lower()) for route in api_routes(APP) for method in route.methods or ()]
+    driven: set[tuple[str, str]] = set()
+    for suite in ast.walk(ast.parse(STEP_UP_EXECUTION.read_bytes())):
+        if not isinstance(suite, ast.ClassDef):
+            continue
+        urls = [
+            _template_pattern(statement.value)
+            for statement in suite.body
+            if isinstance(statement, ast.Assign) and [ast.unparse(target) for target in statement.targets] == ["URL"]
+        ]
+        for call in ast.walk(suite):
+            if not (
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Attribute)
+                and ast.unparse(call.func.value) == "http"
+                and call.func.attr in _HTTP_METHODS
+                and [ast.unparse(argument) for argument in call.args[:1]] == ["self.URL"]
+                and any(keyword.arg == "headers" and ast.unparse(keyword.value) == "OLDER" for keyword in call.keywords)
+            ):
+                continue
+            assert len(urls) == 1 and urls[0] is not None, f"{suite.name} names no URL this reader can match"
+            matched = [(path, method) for path, method in served if method == call.func.attr and urls[0].fullmatch(path)]
+            assert len(matched) == 1, f"{suite.name}'s {call.func.attr} matches {matched}, not one served operation"
+            driven.add(matched[0])
+
+    return driven
+
+
+def test_the_execution_suite_drives_exactly_the_operations_a_handler_judged_refusal_is_published_on():
+    """A handler taking the step-up check and never calling it still publishes the check's 401, which then cannot occur.
+
+    `test_every_refusal_the_table_publishes_is_met_by_a_request` leaves these operations to that suite.
+    """
+
+    published = set(dependency_refusals(APP, (HANDLER_JUDGED_REFUSALS,)))
+
+    assert published, "no operation publishes a handler-judged refusal, so the comparison below is vacuous"
+    assert _driven_past_the_step_up_window() == published
+
+
 def _own_nodes(node: ast.AST) -> Iterator[ast.AST]:
     """Every node inside `node` and outside any function it declares, which answers for its own."""
 
