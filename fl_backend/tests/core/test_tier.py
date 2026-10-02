@@ -210,6 +210,22 @@ def test_a_count_that_did_not_move_passes() -> None:
     assert expired_transactions_refusal(2, 2) is None
 
 
+def test_a_refusal_carries_the_cases_named_for_each_abort() -> None:
+    refusal = expired_transactions_refusal(2, 3, lambda: ["\n  running as it opened: ['tests/a.py::test_left_open']"])
+
+    assert refusal is not None
+    assert refusal.endswith("running as it opened: ['tests/a.py::test_left_open']"), refusal
+
+
+def test_an_unmoved_count_never_reads_the_server_s_log() -> None:
+    """The naming reads the container's whole log, a cost no passing run pays."""
+
+    def refuse_to_read() -> list[str]:
+        raise AssertionError("the log was read for a count that did not move")
+
+    assert expired_transactions_refusal(2, 2, refuse_to_read) is None
+
+
 @pytest.mark.parametrize(("at_start", "now"), [(None, 0), (0, None), (None, None), (3, 1)], ids=["start", "end", "both", "reset"])
 def test_a_count_not_read_at_either_end_or_reset_between_is_named_unjudged(at_start: int | None, now: int | None) -> None:
     refusal = expired_transactions_refusal(at_start, now)

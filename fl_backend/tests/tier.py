@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
@@ -184,8 +184,8 @@ TIER_GUARD = TierGuard()
 
 _EXPIRED = (
     "the db tier's replica set aborted {killed} transaction(s) that outlived MongoDB's transaction lifetime limit. A case deadlocked"
-    " on its own transaction passes once that abort frees it, a minute or more later, so every test can pass while one waited it out:"
-    " the case to read is the slowest in `--durations` (`docs/backend/spec.md` §1.6)."
+    " on its own transaction passes once that abort frees it, a minute or more later, so every test can pass while one waited it out"
+    " (`docs/backend/spec.md` §1.6).{named}"
 )
 
 _KILLS_UNREAD = (
@@ -204,10 +204,12 @@ def expired_transaction_kills(status: Mapping[str, Any]) -> int | None:
     return kills if isinstance(kills, int) else None
 
 
-def expired_transactions_refusal(at_start: int | None, now: int | None) -> str | None:
+def expired_transactions_refusal(at_start: int | None, now: int | None, named: Callable[[], Iterable[str]] = tuple) -> str | None:
+    """`named` lines each abort's cases, asked only once the count rose: it reads the server's whole log."""
+
     # A count lower than at the start is a server that restarted mid-run, whose aborts before it nobody can count.
     if at_start is None or now is None or now < at_start:
         return _KILLS_UNREAD
 
     killed = now - at_start
-    return _EXPIRED.format(killed=killed) if killed else None
+    return _EXPIRED.format(killed=killed, named="".join(named())) if killed else None

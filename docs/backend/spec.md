@@ -702,9 +702,11 @@ collection.
 
 **A transaction the replica set aborts at MongoDB's lifetime limit fails the run**
 (`fl_backend/tests/conftest.py :: _expired_since_start`), read by the controller under `-n` and by
-the session fixture serially. A case deadlocked on its own transaction — a rival injected after the
-outer transaction's first write — waits for that abort and then passes, so the server's own count is
-the only witness. A count the server stops reporting fails the run as unjudged rather than reading as
+the session fixture serially, and it names the cases running as each such transaction opened and as
+the server aborted it (`fl_backend/tests/conftest.py :: _named_aborts`). Two shapes reach it: a case
+deadlocked on its own transaction — a rival injected after the outer transaction's first write —
+waits for that abort and then passes; and a transaction a case leaves open, as one the request
+deadline cut is, blocks the next case dropping its database until the abort. A count the server stops reporting fails the run as unjudged rather than reading as
 none aborted (`fl_backend/tests/tier.py :: expired_transactions_refusal`). A transaction left open
 that nothing waits on can expire after the run, unseen.
 

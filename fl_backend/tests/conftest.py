@@ -1,5 +1,6 @@
 import copy
 import io
+import json
 import logging
 import re
 import sys
@@ -7,6 +8,7 @@ import time
 from collections.abc import Callable, Generator, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, ExitStack, contextmanager
+from datetime import datetime
 from typing import Any
 
 import pytest
@@ -320,7 +322,20 @@ _UNSTARTABLE = "the xdist controller could not start the db tier's servers, so n
 # Each replica set's count as it became primary, so only the run's own expired transactions count.
 _KILLS_AT_START: dict[str, int | None] = {}
 
-# Set by the controller's check, printed in its summary: the refusal has no test to be reported against.
+# Each replica set's container, so a refusal can read when the server aborted each transaction.
+_REPLICA_SET_CONTAINERS: dict[str, Any] = {}
+
+# Each case's span, its setup's start to its teardown's end, on the clock the worker reports.
+_CASE_SPANS: dict[str, list[float]] = {}
+
+# mongod's log ids: the expired-transaction pass aborting one, and any transaction's record as it ends.
+_EXPIRED_ABORT_LOG_ID = 20707
+_TRANSACTION_LOG_ID = 51802
+
+# The server's clock is the container's, which can sit a moment off the host's.
+_CLOCK_SLACK_S = 2.0
+
+# Set by the controller's check, printed after pytest's closing line: the refusal has no test to be reported against.
 _EXPIRED_REFUSAL: list[str] = []
 
 
@@ -333,7 +348,42 @@ def _expired_since_start(url: str) -> str | None:
     finally:
         client.close()
 
-    return expired_transactions_refusal(_KILLS_AT_START.get(url), now)
+    return expired_transactions_refusal(_KILLS_AT_START.get(url), now, lambda: _named_aborts(url))
+
+
+def _running_at(moment: float) -> list[str]:
+    return sorted(case for case, (start, stop) in _CASE_SPANS.items() if start - _CLOCK_SLACK_S <= moment <= stop + _CLOCK_SLACK_S)
+
+
+def _named_aborts(url: str) -> Iterator[str]:
+    """Time spent inside an operation means a case waited on it, the deadlock; time spent idle means the case that opened it went on."""
+
+    container = _REPLICA_SET_CONTAINERS.get(url)
+    if container is None:
+        return
+    stdout, _ = container.get_logs()
+    entries = [json.loads(line) for line in stdout.decode("utf-8", errors="replace").splitlines() if line.startswith("{")]
+    # The abort names the session; the transaction's own record, logged by whichever thread unwinds it, carries its times.
+    records = {
+        (entry["attr"]["parameters"]["lsid"]["id"]["$uuid"], entry["attr"]["parameters"]["txnNumber"]): entry["attr"]
+        for entry in entries
+        if entry.get("id") == _TRANSACTION_LOG_ID and "parameters" in entry.get("attr", {})
+    }
+    for entry in entries:
+        if entry.get("id") != _EXPIRED_ABORT_LOG_ID:
+            continue
+        session = (entry["attr"]["sessionId"]["uuid"]["$uuid"], entry["attr"]["txnNumberAndRetryCounter"]["txnNumber"])
+        record = records.get(session, {})
+        aborted = datetime.fromisoformat(entry["t"]["$date"]).timestamp()
+        active_s = record.get("timeActiveMicros", 0) / 1e6
+        inactive_s = record.get("timeInactiveMicros", 0) / 1e6
+        writes = {key: value for key, value in record.items() if key in {"ninserted", "nModified", "ndeleted"}}
+        opened = aborted - active_s - inactive_s
+        yield (
+            f"\n  aborted at {entry['t']['$date']} after {active_s + inactive_s:.1f} s open, {active_s:.1f} s of it inside an"
+            f" operation, {writes or 'no writes recorded'}:\n    running as it opened: {_running_at(opened) or 'none recorded'}"
+            f"\n    running as it was aborted: {_running_at(aborted) or 'none recorded'}"
+        )
 
 
 @contextmanager
@@ -387,7 +437,11 @@ def _replica_set_mongod() -> Iterator[str]:
         finally:
             client.close()
 
-        yield url
+        _REPLICA_SET_CONTAINERS[url] = container
+        try:
+            yield url
+        finally:
+            _REPLICA_SET_CONTAINERS.pop(url, None)
 
 
 def _entered(factory: Callable[[], AbstractContextManager[str]]) -> tuple[AbstractContextManager[str], str]:
@@ -532,6 +586,14 @@ def pytest_sessionfinish(session: pytest.Session) -> Generator[None, object, obj
             reporter.write_line(f"FAILED {refusal}", red=True)
 
     return finished
+
+
+def pytest_runtest_logreport(report: pytest.TestReport) -> None:
+    """Under `-n` the controller hears every worker's reports, so it holds every case's span when the check asks."""
+
+    span = _CASE_SPANS.setdefault(report.nodeid, [report.start, report.stop])
+    span[0] = min(span[0], report.start)
+    span[1] = max(span[1], report.stop)
 
 
 def pytest_unconfigure(config: pytest.Config) -> None:
