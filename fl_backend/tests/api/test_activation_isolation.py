@@ -17,6 +17,7 @@ from app.core.exceptions import WriteRefusalException
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, saison_team_document
+from tests.isolation import InterleavedCollection, Rival
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -74,36 +75,24 @@ def entry_rows(saison_id: str) -> list[dict[str, Any]]:
     ]
 
 
-class SeasonsRunningAHookBeforeTheRollover:
-    """A `saisons` stand-in running one hook just before the demotion, so the interleaving is a fact rather than a race.
+class SeasonsRunningAHookBeforeTheRollover(InterleavedCollection):
+    """A `saisons` stand-in running one hook just before the demotion, so the interleaving is a fact rather than a race."""
 
-    Not a subclass: the driver builds a collection off a database handle, so it has to answer every
-    other call by delegating.
-    """
-
-    def __init__(self, inner: Any, hook: Callable[[], Awaitable[Any]]) -> None:
-        self._inner = inner
-        self._hook: Callable[[], Awaitable[Any]] | None = hook
+    def __init__(self, collection: Any, hook: Rival) -> None:
+        super().__init__(collection, hook)
         # Every `find_one`. A REFUSED rollover reads no echo back, so there the count is one per
         # entry into the endpoint's callback and a second one is the retry.
         self.season_reads = 0
 
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._inner, name)
-
     async def find_one(self, *args: Any, **kwargs: Any) -> Any:
         self.season_reads += 1
 
-        return await self._inner.find_one(*args, **kwargs)
+        return await self._collection.find_one(*args, **kwargs)
 
     async def update_many(self, *args: Any, **kwargs: Any) -> Any:
-        # ONE-SHOT: the retry has to re-judge against what landed rather than run the interference
-        # again, and a second draw or rollover would be refused on its own account and mask this one.
-        if self._hook is not None:
-            hook, self._hook = self._hook, None
-            await hook()
+        await self.run_the_rival()
 
-        return await self._inner.update_many(*args, **kwargs)
+        return await self._collection.update_many(*args, **kwargs)
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]

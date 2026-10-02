@@ -1,6 +1,6 @@
 from collections.abc import Awaitable, Callable, Sequence
 from itertools import product
-from typing import Any
+from typing import Any, Literal
 
 import pytest
 from bson import ObjectId
@@ -32,6 +32,7 @@ from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException, W
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.isolation import InterleavedCollection, Rival
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -130,47 +131,31 @@ def squad_rows(count: int) -> list[dict[str, Any]]:
     ]
 
 
-Hook = Callable[[], Awaitable[Any]]
+class SeasonsRunningOneHook(InterleavedCollection):
+    """The seasons collection, running one hook once at whichever of two points a case names."""
 
-
-class SeasonsRunningOneHook:
-    """The seasons collection, running one hook once at whichever of two points a case names.
-
-    A stand-in rather than a subclass: the driver builds a collection off a database handle, so the
-    endpoint's handle must delegate every other call.
-    """
-
-    def __init__(self, inner: Any, *, after_the_first_read: Hook | None = None, before_the_write: Hook | None = None) -> None:
-        self._inner = inner
-        self._after_the_first_read = after_the_first_read
-        self._before_the_write = before_the_write
+    def __init__(self, collection: Any, hook: Rival, *, at: Literal["after_the_first_read", "before_the_write"]) -> None:
+        super().__init__(collection, hook)
+        self._at = at
         # Every `find_one` answered. A REFUSED patch reads no echo back, so there the count is one
         # per entry into the endpoint's callback and a second one is the retry.
         self.season_reads = 0
 
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._inner, name)
-
     async def find_one(self, *args: Any, **kwargs: Any) -> Any:
         self.season_reads += 1
-        found = await self._inner.find_one(*args, **kwargs)
+        found = await self._collection.find_one(*args, **kwargs)
 
-        # AFTER the read returns, and once: the rival lands between the season row's read and the
-        # write resting on it, where a second one would land after the retry had judged.
-        hook, self._after_the_first_read = self._after_the_first_read, None
-        if hook is not None:
-            await hook()
+        # AFTER the read returns: the rival lands between the season row's read and the write resting on it.
+        if self._at == "after_the_first_read":
+            await self.run_the_rival()
 
         return found
 
     async def find_one_and_update(self, *args: Any, **kwargs: Any) -> Any:
-        # ONE-SHOT: the retry has to re-judge against the draw rather than draw again, and a second
-        # draw would be refused on its own account and mask the refusal this proves.
-        hook, self._before_the_write = self._before_the_write, None
-        if hook is not None:
-            await hook()
+        if self._at == "before_the_write":
+            await self.run_the_rival()
 
-        return await self._inner.find_one_and_update(*args, **kwargs)
+        return await self._collection.find_one_and_update(*args, **kwargs)
 
 
 Body = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[Any]]
@@ -351,7 +336,7 @@ class TestAPlayerAddedMidPatchIsJudgedAgain:
             async def add_between() -> None:
                 await call_add_a_player(database)
 
-            seasons = SeasonsRunningOneHook(database[Collection.SAISONS], before_the_write=add_between)
+            seasons = SeasonsRunningOneHook(database[Collection.SAISONS], add_between, at="before_the_write")
 
             with pytest.raises(WriteRefusalException) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, max_kadergroesse=SEEDED_SQUAD)
@@ -401,7 +386,7 @@ class TestADrawLandingMidPatchIsJudgedAgain:
             async def draw_between() -> None:
                 drawn.append(await call_draw(database, client))
 
-            seasons = SeasonsRunningOneHook(database[Collection.SAISONS], before_the_write=draw_between)
+            seasons = SeasonsRunningOneHook(database[Collection.SAISONS], draw_between, at="before_the_write")
 
             with pytest.raises(WriteRefusalException) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, teams_per_group=WIDER_PER_GROUP)
@@ -448,7 +433,7 @@ class TestAKnockoutResultLandingMidPatchIsJudgedAgain:
             async def abandon_between() -> None:
                 await call_abandon_a_knockout(database)
 
-            seasons = SeasonsRunningOneHook(database[Collection.SAISONS], before_the_write=abandon_between)
+            seasons = SeasonsRunningOneHook(database[Collection.SAISONS], abandon_between, at="before_the_write")
 
             with pytest.raises(WriteRefusalException) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, tiebreak_order=REORDERED_TIEBREAK)
@@ -505,7 +490,7 @@ class TestARolloverLandingMidPatchIsJudgedAgain:
                 # Demoting the incumbent is what makes the season under test `past`.
                 promoted.append(await call_roll_the_league_over(database, client))
 
-            seasons = SeasonsRunningOneHook(database[Collection.SAISONS], after_the_first_read=roll_over_between)
+            seasons = SeasonsRunningOneHook(database[Collection.SAISONS], roll_over_between, at="after_the_first_read")
 
             with pytest.raises(WriteRefusalException) as refusal:
                 await call_patch_rules(database, client, saisons_collection=seasons, tiebreak_order=REORDERED_TIEBREAK)

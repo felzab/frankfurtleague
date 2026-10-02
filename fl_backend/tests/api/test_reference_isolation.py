@@ -45,7 +45,7 @@ from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
-from tests.isolation import COMMITTED, outcome_of
+from tests.isolation import COMMITTED, InterleavedCollection, outcome_of
 from tests.payloads import spiel_patch_body
 from tests.worker import worker_database
 
@@ -560,30 +560,17 @@ REFUSING_RACES = [
 ERASURE_RACES = races(REFEREE_ROW, ERASE_THE_REFEREE, REFEREE_BOOKINGS)
 
 
-class RunningARivalMidWrite:
+class RunningARivalMidWrite(InterleavedCollection):
     """Never after this request writes here: a rival landing on a document it holds waits on its lock, while this request awaits the rival.
 
     After a read, once the request has judged it; before a write.
     """
 
-    def __init__(self, inner: Any, rival: Callable[[], Awaitable[None]]) -> None:
-        self._inner = inner
-        self._rival: Callable[[], Awaitable[None]] | None = rival
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._inner, name)
-
-    async def run_the_rival(self) -> None:
-        # ONE-SHOT: the retry has to judge what the rival committed rather than run it again.
-        if self._rival is not None:
-            rival, self._rival = self._rival, None
-            await rival()
-
     def find(self, *args: Any, **kwargs: Any) -> CursorRunningARivalAfterItsRead:
-        return CursorRunningARivalAfterItsRead(self._inner.find(*args, **kwargs), self)
+        return CursorRunningARivalAfterItsRead(self._collection.find(*args, **kwargs), self)
 
     async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        found = await self._inner.find_one(*args, **kwargs)
+        found = await self._collection.find_one(*args, **kwargs)
         await self.run_the_rival()
 
         return found
@@ -591,7 +578,7 @@ class RunningARivalMidWrite:
     async def update_many(self, *args: Any, **kwargs: Any) -> Any:
         await self.run_the_rival()
 
-        return await self._inner.update_many(*args, **kwargs)
+        return await self._collection.update_many(*args, **kwargs)
 
 
 class CursorRunningARivalAfterItsRead:

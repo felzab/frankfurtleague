@@ -23,6 +23,7 @@ from tests import documents
 from tests.bans import ban_through_the_route
 from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
+from tests.isolation import InterleavedCollection
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
@@ -48,51 +49,25 @@ DUPLICATE = "duplicate key"
 TEAM_ID = ObjectId("6890a1b2c3d4e5f607250001")
 SPIELTAG_ID = ObjectId("6890a1b2c3d4e5f6072500a1")
 
-Rival = Callable[[], Awaitable[Any]]
 Outcome = tuple[str, list[str]]
 
 
-class SeasonsRunningARivalAfterTheFirstRead:
-    """Runs a rival write once, just after the first `find_one`: the ban's reference season, so the rival lands before the list check.
-
-    Not a subclass: the driver builds a collection off a database handle, so every other call delegates.
-    """
-
-    def __init__(self, inner: Any, rival: Rival) -> None:
-        self._inner = inner
-        self._rival: Rival | None = rival
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._inner, name)
+class SeasonsRunningARivalAfterTheFirstRead(InterleavedCollection):
+    """Runs a rival write once, just after the first `find_one`: the ban's reference season, so the rival lands before the list check."""
 
     async def find_one(self, *args: Any, **kwargs: Any) -> Any:
-        found = await self._inner.find_one(*args, **kwargs)
-
-        # ONE-SHOT: a retry of the ban's transaction has to meet what landed rather than run the rival again.
-        if self._rival is not None:
-            rival, self._rival = self._rival, None
-            await rival()
+        found = await self._collection.find_one(*args, **kwargs)
+        await self.run_the_rival()
 
         return found
 
 
-class GrantsRunningARivalAfterTheirRead:
+class GrantsRunningARivalAfterTheirRead(InterleavedCollection):
     """Runs a rival write once, after the grants' read and before their anchor, which is this transaction's first write."""
 
-    def __init__(self, inner: Any, rival: Rival) -> None:
-        self._inner = inner
-        self._rival: Rival | None = rival
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self._inner, name)
-
     async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
-        cursor = await self._inner.aggregate(*args, **kwargs)
-
-        # ONE-SHOT: a retry of the ban's transaction has to meet what landed rather than run the rival again.
-        if self._rival is not None:
-            rival, self._rival = self._rival, None
-            await rival()
+        cursor = await self._collection.aggregate(*args, **kwargs)
+        await self.run_the_rival()
 
         return cursor
 

@@ -19,7 +19,7 @@ them.
 | `documents.py`                                             | The stored shapes both tiers build from: seeds, and the rules and consent payload fixtures and rules models take        |
 | `payloads.py`                                              | The request bodies a test submits, built from a stored document                                                         |
 | `bans.py`                                                  | The ban list under the suite's key, and a ban entered through its route rather than seeded                              |
-| `isolation.py`                                             | What a write raced by a rival reports: its refusal's code, or that it committed                                         |
+| `isolation.py`                                             | A rival run once inside a write, and what the write reports: its refusal's code, or that it committed                   |
 | `bracket_reference.py`                                     | The hand-written bracket rows the draw's construction is held to                                                        |
 | `shared/`                                                  | The custom types and shared schemas under `app/shared/`                                                                 |
 | `core/`                                                    | What `app/core/` declares, and what a real `mongod` does with it                                                        |
