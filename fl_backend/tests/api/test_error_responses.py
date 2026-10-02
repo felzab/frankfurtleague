@@ -4,12 +4,14 @@ import logging
 import re
 import subprocess
 import sys
+from collections.abc import AsyncIterator
 from http import HTTPStatus
 from typing import Any
 
 import pytest
 from bson import ObjectId
 from fastapi import APIRouter, FastAPI, Request
+from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, Field, ValidationError
 from pymongo.errors import BulkWriteError, DuplicateKeyError, PyMongoError, WriteError
@@ -873,6 +875,15 @@ async def crash_beside_a_refused_write() -> None:
     await gather_cancelling(crashing(), refused_write())
 
 
+@VALIDATION_APP.get("/broken-stream")
+async def break_after_the_status() -> StreamingResponse:
+    async def body() -> AsyncIterator[bytes]:
+        yield b"{"
+        raise RuntimeError("the body failed after its status was sent")
+
+    return StreamingResponse(body())
+
+
 class TestValidationLoggingWithholdsTheValue:
     """The refusal reaches the log naming its field, with the value gone (`docs/logging/spec.md :: L9`).
 
@@ -1039,6 +1050,24 @@ class TestAccessLine:
         # This hop's OWN span, never the one the header carried (L12).
         assert line.span_id != "ab" * 8
         assert re.fullmatch(r"[a-f0-9]{16}", line.span_id)
+
+    @pytest.mark.parametrize(
+        ("path", "status"),
+        [
+            pytest.param("/gathered-crash", 500, id="a crash no handler inside the middleware answers"),
+            pytest.param("/broken-stream", 200, id="a body failing after its status was sent"),
+        ],
+    )
+    def test_a_failure_reaching_the_middleware_still_writes_one_line(self, caplog, path: str, status: int):
+        """Starlette runs the catch-all handler outside every added middleware, so a crash meets this one before any status is sent.
+
+        The stream's line keeps the status the client was already sent.
+        """
+
+        with caplog.at_level(logging.INFO, logger="frankfurtleague"):
+            TestClient(VALIDATION_APP, raise_server_exceptions=False).get(path)
+
+        assert [record.status for record in caplog.records if getattr(record, "method", None) is not None] == [status]
 
     def test_the_query_string_is_part_of_the_logged_path(self, caplog):
         with caplog.at_level(logging.INFO, logger="frankfurtleague"):
