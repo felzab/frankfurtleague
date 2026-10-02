@@ -344,9 +344,9 @@ describe("the holder's passkeys, with another account's beside them in the store
   });
 });
 
-/* The account row reaches the guards through the session read's own `$lookup`, which the memory
-   adapter of the unit tier implements apart: a stamp or a missing row lost in that join serves a
-   session the ending ended (`docs/frontend/spec.md :: I528`). */
+/* The account row reaches the guards through the session read's own `$lookup`, which the unit tier's
+   memory adapter implements apart: a stamp or a row lost in that join serves a session the ending
+   ended (`docs/frontend/spec.md :: I528`). */
 describe("the account row the session read joins, against a real store", () => {
   it("refuses a session its account's ending stamp postdates, at every guard and at the proxy's slide", async () => {
     const { readServedSession, servedSessionOf, slideSession } = await import("@/core/auth.ts");
