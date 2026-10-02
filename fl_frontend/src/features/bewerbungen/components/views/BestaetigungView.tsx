@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { joinUnd } from "@/core/joinUnd";
+import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import { BEWERBUNG_BESTAETIGUNG_FRIST_TAGE } from "@/features/bewerbungen/constants";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
 import { KONTAKT_ROLLEN } from "@/features/teams/constants";
@@ -18,7 +19,6 @@ import {
   FaktenBanner,
   FrageStellen,
   GespeicherteAngaben,
-  SEITE_CLASSES,
   useLinkSeite,
   Wert,
   ZurLiga,

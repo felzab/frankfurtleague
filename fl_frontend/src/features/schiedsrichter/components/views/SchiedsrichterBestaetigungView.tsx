@@ -14,6 +14,7 @@ import { ToggleButtonGroup } from "@heroui/react/toggle-button-group";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { SCHIEDSRICHTER_EINWILLIGUNG } from "@/core/einwilligung";
+import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
   ABSATZ_CLASSES,
   AdresseGesperrt,
@@ -22,7 +23,6 @@ import {
   FrageStellen,
   Gefuellt,
   GespeicherteAngaben,
-  SEITE_CLASSES,
   useLinkSeite,
   Wert,
   ZurLiga,

@@ -8,10 +8,11 @@ import { createRef } from "react";
 
 import { act, renderHook } from "@testing-library/react";
 
+import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { AdresseGesperrt, Gefuellt, SEITE_CLASSES, useLinkSeite } = await import("./BestaetigungPanels.tsx");
+const { AdresseGesperrt, Gefuellt, useLinkSeite } = await import("./BestaetigungPanels.tsx");
 
 const PFAD = "/bestaetigung/kontakt";
 const MIT_TOKEN = `${PFAD}?token=kein-echtes-token`;

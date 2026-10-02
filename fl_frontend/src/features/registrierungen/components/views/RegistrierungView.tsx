@@ -4,12 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import {
   ABSATZ_CLASSES,
   BestaetigungErgebnis,
   FaktenBanner,
   FrageStellen,
-  SEITE_CLASSES,
   useLinkSeite,
   Wert,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";

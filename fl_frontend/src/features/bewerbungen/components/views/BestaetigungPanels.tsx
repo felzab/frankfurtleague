@@ -6,6 +6,7 @@ import TriangleExclamation from "@gravity-ui/icons/TriangleExclamation";
 import { tv } from "tailwind-variants";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
+import { SEITE_CLASSES } from "@/features/bewerbungen/components/ui/seite";
 import { ctaButton } from "@/shared/components/ui/formButtons";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { NAME_WRAP_CLASSES } from "@/shared/components/ui/nameWrap";
@@ -20,9 +21,6 @@ import type { ReactNode, RefObject } from "react";
  * reader has to get through, so they take the paragraph grade rather than a caption's meta grade.
  */
 export const ABSATZ_CLASSES = "max-w-2xl fluid-sm leading-relaxed font-medium text-pretty text-foreground";
-
-/** The application page's own column, so both ends of every public workflow are one page wide. */
-export const SEITE_CLASSES = "flex w-full max-w-meta flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
 
 /** Shared by every page a token link opens, so none of them alone keeps its token in the address or drops the answer's focus. */
 export function useLinkSeite(zustand: string): { ergebnisRef: RefObject<HTMLElement | null>; beantwortet: () => void } {
