@@ -8,7 +8,7 @@ from typing import Annotated, Final, Literal, Self
 from fastapi import Request
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_core import PydanticCustomError
-from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict, SettingsError
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SecretsSettingsSource, SettingsConfigDict, SettingsError
 
 from app.core.actor_token import ActorTokenKey
 
@@ -327,28 +327,43 @@ def read_environment() -> BackendEnvironment:
         raise EnvironmentValidationError(f"The environment could not be read: {type(error).__name__}") from None
 
 
-def _what_could_not_be_read(failure: Warning | SettingsError, directory: Path) -> str:
-    """The path and the errno's name, as the frontend's refusal prints a read's failure; never the library's text.
+def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:
+    """Every file the secret half cannot read, as `<path> (<errno>)`, and every one missing or blank, by name.
 
-    The source chains what a field's read raised into a `SettingsError`, so an unreadable file's
-    `OSError` arrives as its cause.
+    Asked before the build, whose source stops at the first failing read; never a decode error's
+    text, which quotes the file.
     """
-    cause = failure.__cause__ if isinstance(failure, SettingsError) else failure
-    if isinstance(cause, OSError):
-        return f"{cause.filename} ({errno.errorcode.get(cause.errno or 0, type(cause).__name__)})"
-    # A file that is not UTF-8: its decode error quotes the bytes it choked on, so the type alone leaves.
-    if isinstance(cause, ValueError):
-        return f"{directory} ({type(cause).__name__})"
-    # What is left is the directory's own shape: missing or a file, which the source raises or warns
-    # about unchained, or a directory standing at a file's path, a warning chained from the read.
     if not directory.is_dir():
-        return f"{directory} ({'ENOTDIR' if directory.exists() else 'ENOENT'})"
-    shadowed = [f"{directory / name} (EISDIR)" for name in SECRET_FILES if (directory / name).is_dir()]
-    return ", ".join(shadowed) or f"{directory} ({type(cause).__name__})"
+        return [f"{directory} ({'ENOTDIR' if directory.exists() else 'ENOENT'})"], []
+    unreadable: list[str] = []
+    absent: list[str] = []
+    for name in SECRET_FILES:
+        # Found as the source finds it, so a name it reads in another letter case is no absence here.
+        path = SecretsSettingsSource.find_case_path(directory, name, case_sensitive=False)
+        if path is None:
+            absent.append(name)
+            continue
+        # What Docker leaves where a bind mount's source file was missing; Windows would read it as EACCES.
+        if path.is_dir():
+            unreadable.append(f"{path} (EISDIR)")
+            continue
+        try:
+            if path.read_text(encoding="utf-8").strip() == "":
+                absent.append(name)
+        except OSError as failure:
+            unreadable.append(f"{path} ({errno.errorcode.get(failure.errno or 0, type(failure).__name__)})")
+        except ValueError as failure:
+            unreadable.append(f"{path} ({type(failure).__name__})")
+    return unreadable, absent
 
 
 def read_secrets(directory: Path) -> BackendSecrets:
     """The secret half, read from `directory` alone and refused by file name, never by value."""
+    unreadable, absent = _unusable_files(directory)
+    if unreadable:
+        # The missing and the blank beside them, which the build would never reach.
+        also = f"; Invalid secret files: {', '.join(absent)}" if absent else ""
+        raise EnvironmentValidationError(f"Unreadable secret files: {', '.join(unreadable)}{also}") from None
     try:
         # Raised rather than printed: the source only WARNS for a missing directory and for a
         # directory at a file's path, and a warning leaves outside the log envelope.
@@ -356,8 +371,10 @@ def read_secrets(directory: Path) -> BackendSecrets:
             return BackendSecrets(directory)
     except ValidationError as error:
         raise EnvironmentValidationError(f"Invalid secret files: {', '.join(_failing_names(error))}") from None
-    except (Warning, SettingsError) as failure:
-        raise EnvironmentValidationError(f"Unreadable secret files: {_what_could_not_be_read(failure, directory)}") from None
+    except Warning, SettingsError:
+        # A file that became unreadable after the question above was asked: asked again.
+        unreadable, _ = _unusable_files(directory)
+        raise EnvironmentValidationError(f"Unreadable secret files: {', '.join(unreadable) or directory}") from None
 
 
 @lru_cache

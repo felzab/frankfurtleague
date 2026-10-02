@@ -392,6 +392,32 @@ class TestTheSecretFiles:
         assert raised.value.__cause__ is None and raised.value.__suppress_context__
         assert marker not in str(raised.value) + "".join(capsys.readouterr())
 
+    def test_every_unreadable_file_is_named_beside_every_missing_or_blank_one(self, monkeypatch, tmp_path):
+        """The source stops at the first read that fails, so one boot would otherwise name one fault per restart."""
+        directory = an_environment(monkeypatch, tmp_path, {MONGODB_URI_FILE: None, "sperrliste_schluessel": b" \r\n"})
+        unreadable = [directory / "internal_api_key_base", directory / "internal_api_key_admin"]
+        read_text = Path.read_text
+
+        def refusing(path: Path, *args: Any, **kwargs: Any) -> str:
+            if path in unreadable:
+                raise PermissionError(errno.EACCES, "Permission denied", str(path))
+            return read_text(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "read_text", refusing)
+
+        with pytest.raises(EnvironmentValidationError) as raised:
+            get_config()
+
+        assert str(raised.value) == (
+            f"Unreadable secret files: {unreadable[0]} (EACCES), {unreadable[1]} (EACCES); "
+            f"Invalid secret files: {MONGODB_URI_FILE}, sperrliste_schluessel"
+        )
+
+    def test_every_missing_or_blank_file_is_named_where_none_is_unreadable(self, monkeypatch, tmp_path):
+        refused = refusal(monkeypatch, tmp_path, {MONGODB_URI_FILE: None, "internal_api_key_system": b"", "sperrliste_schluessel": b" \r\n"})
+
+        assert refused == f"Invalid secret files: {MONGODB_URI_FILE}, internal_api_key_system, sperrliste_schluessel"
+
     def test_a_directory_standing_at_a_files_path_refuses_naming_that_path(self, monkeypatch, tmp_path):
         """What Docker leaves where a bind mount's source file was missing, and a warning alone in the library."""
         directory = an_environment(monkeypatch, tmp_path, {"internal_api_key_system": None})
@@ -570,7 +596,7 @@ class TestTheNamesOnlyErrorPath:
         with pytest.raises(EnvironmentValidationError) as raised:
             get_config()
 
-        assert str(raised.value) == f"Unreadable secret files: {directory} (UnicodeDecodeError)"
+        assert str(raised.value) == f"Unreadable secret files: {directory / 'sperrliste_schluessel'} (UnicodeDecodeError)"
 
     def test_a_well_formed_environment_still_builds(self, monkeypatch, tmp_path):
         an_environment(monkeypatch, tmp_path)

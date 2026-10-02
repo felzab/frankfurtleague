@@ -524,7 +524,9 @@ dotenv file as a source: pydantic-settings ranks both above a secrets directory,
 behind would win over its file in silence. A missing file therefore refuses the boot as
 `Invalid secret files: <FILES>`, whatever the environment carries, and a file that cannot be read —
 a missing `SECRETS_DIR` included — as `Unreadable secret files: <PATH> (<ERRNO>)`, neither printing a
-value. The whitespace around a file's value is stripped, so the line break an editor leaves is no
+value. **Each refusal names every file at fault, never the first alone**: beside an unreadable file,
+every missing or blank one follows as `; Invalid secret files: <FILES>`
+(`fl_backend/app/core/config.py :: read_secrets`), so one restart shows the whole of what to fix. The whitespace around a file's value is stripped, so the line break an editor leaves is no
 part of a key. **The file names are the same on the host, in the container and in development**,
 which is why the database login carries its service's prefix: the frontend's is `frontend_mongodb_uri`.
 
