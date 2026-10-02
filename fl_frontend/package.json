@@ -15,7 +15,7 @@
   },
   "packageManager": "pnpm@11.27.1",
   "scripts": {
-    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 dotenv -e ../.env --no-expand -v ACTOR_SIGNING_KEY_FILE=../secrets/fl_actor_signing_key -v SECRETS_DIR=../secrets -- next dev --turbo",
+    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 ACTOR_SIGNING_KEY_FILE=../secrets/fl_actor_signing_key SECRETS_DIR=../secrets next dev --turbo",
     "build": "next build",
     "environment-names": "node --conditions=react-server --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./scripts/tsconfig-alias-hook.mjs scripts/emit-environment-names.mjs",
     "start": "next start",

@@ -318,15 +318,11 @@ def joined(*networks: str) -> dict[str, Any]:
 
 
 def env_file(*paths: str) -> dict[str, Any]:
-    """A service's environment as Compose resolves it from the gate's stand-ins for `paths`, read in that order.
+    """A service's environment as Compose resolves it from the gate's stand-ins for `paths`.
 
     Each stand-in's own name is suffixed by its position here; the checker reads only the values.
     """
-    environment: dict[str, str] = {}
-    for position, path in enumerate(paths, start=1):
-        environment[f"{checker.STAND_IN_READ}{position}"] = path
-        environment[checker.STAND_IN_LAST] = path
-    return {"environment": environment}
+    return {"environment": {f"{checker.STAND_IN_READ}{position}": path for position, path in enumerate(paths, start=1)}}
 
 
 def rendered_stack(project: Path, conf_dir: str, **extra: dict[str, Any]) -> dict[str, Any]:
@@ -340,8 +336,8 @@ def rendered_stack(project: Path, conf_dir: str, **extra: dict[str, Any]) -> dic
         {"type": "bind", "source": str(project / "nginx/shared"), "target": "/etc/nginx/shared"},
     ]
     nginx = {"volumes": edge_volumes, "command": LISTENING, "tmpfs": ["/run/nginx-control:mode=700"], **joined(EDGE, APP)}
-    frontend = env_file("fl_frontend/.env", ".env") | joined(APP)
-    backend = env_file("fl_backend/.env", ".env") | joined(APP)
+    frontend = env_file("fl_frontend/.env") | joined(APP)
+    backend = env_file("fl_backend/.env") | joined(APP)
     # The local stack's database, which its logins name.
     database = {"mongo": joined(APP)} if stack_name == "local" else {}
     stack = {"nginx": nginx, "frontend": frontend, "backend": backend, **database, **extra}
@@ -398,13 +394,13 @@ def test_both_edges_of_this_checkout_are_judged_and_trust_the_connector_alone():
 
 
 def test_main_judges_the_environment_files_of_both_models():
-    """The rule's own cases drive it directly; a service reading its package's file alone, in either model, fails the run."""
+    """The rule's own cases drive it directly; a service reading a second file, in either model, fails the run."""
     project = new_root("fl-compose-main-env-")
 
     for broken in ("production", "local"):
         production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
         local = rendered_stack(project, "nginx/local")
-        ({"production": production, "local": local}[broken])["services"]["backend"] = env_file("fl_backend/.env") | joined(APP)
+        ({"production": production, "local": local}[broken])["services"]["backend"] = env_file("fl_backend/.env", ".env") | joined(APP)
 
         code, said = run_main(production, local, project)
 
@@ -415,29 +411,24 @@ def test_main_judges_the_environment_files_of_both_models():
 # --- the environment files each application service reads ---------------------------------------------
 
 
-def test_each_service_reading_its_package_file_then_the_checkouts_is_clean():
-    rendered = model(frontend=env_file("fl_frontend/.env", ".env"), backend=env_file("fl_backend/.env", ".env"))
+def test_each_service_reading_its_package_file_alone_is_clean():
+    rendered = model(frontend=env_file("fl_frontend/.env"), backend=env_file("fl_backend/.env"))
 
     assert checker.env_files(rendered, "p") == []
 
 
-def test_the_checkouts_file_listed_first_fails():
-    """Compose would then hand a name both carry the package's value, and the deploy's readers judge the other."""
-    rendered = model(frontend=env_file(".env", "fl_frontend/.env"), backend=env_file("fl_backend/.env", ".env"))
+@pytest.mark.parametrize("second", ["fl_backend/.env", ".env"], ids=["the-other-package-s", "the-checkout-s"])
+def test_a_second_file_beside_the_package_s_fails(second: str):
+    """The deploy's reader judges the package's file alone, so a name the second file hands the container is one nothing judged."""
+    rendered = model(frontend=env_file("fl_frontend/.env", second), backend=env_file("fl_backend/.env"))
 
-    assert len(checker.env_files(rendered, "p")) == 1
+    found = checker.env_files(rendered, "p")
 
-
-def test_a_service_without_the_checkouts_file_fails():
-    """Its container starts without the keys the deploy's reader found in the union, and the boot gate refuses after the recreate."""
-    rendered = model(frontend=env_file("fl_frontend/.env", ".env"), backend=env_file("fl_backend/.env"))
-
-    assert len(checker.env_files(rendered, "p")) == 1
+    assert len(found) == 1 and "p: frontend reads the environment files" in found[0].detail, found
 
 
-def test_a_third_file_between_the_two_fails():
-    """The root's still read last, so only the count of files read catches the one the deploy never joins."""
-    rendered = model(frontend=env_file("fl_frontend/.env", "fl_backend/.env", ".env"), backend=env_file("fl_backend/.env", ".env"))
+def test_another_package_s_file_in_place_of_its_own_fails():
+    rendered = model(frontend=env_file("fl_backend/.env"), backend=env_file("fl_backend/.env"))
 
     assert len(checker.env_files(rendered, "p")) == 1
 
@@ -453,7 +444,7 @@ def test_a_model_whose_environment_compose_left_unresolved_fails():
 def test_an_environment_that_is_no_mapping_refuses():
     """Compose renders `environment` as a mapping; a list is a model written some other way, whose names this cannot read."""
     with pytest.raises(ValueError, match="not its rendered model"):
-        checker.env_files(model(frontend={"environment": [f"{checker.STAND_IN_LAST}=.env"]}, backend={}), "p")
+        checker.env_files(model(frontend={"environment": [f"{checker.STAND_IN_READ}1=fl_frontend/.env"]}, backend={}), "p")
 
 
 def test_a_connector_without_one_static_address_refuses():
@@ -839,9 +830,7 @@ def test_the_preflights_lists_are_the_tables():
 
 
 def test_the_stand_ins_alone_in_an_environment_are_clean():
-    rendered = model(
-        frontend=env_file("fl_frontend/.env", ".env"), backend=env_file("fl_backend/.env", ".env") | {"environment": {"LOG_FORMAT": "json"}}
-    )
+    rendered = model(frontend=env_file("fl_frontend/.env"), backend=env_file("fl_backend/.env") | {"environment": {"LOG_FORMAT": "json"}})
 
     assert checker.moved_names(rendered, "p") == []
 
@@ -951,9 +940,9 @@ def test_each_stand_in_names_itself_in_the_names_the_checker_reads():
     """`env_files` judges a service by what its stand-ins resolved to, so a stand-in the checker cannot read judges nothing."""
     staged, _ = _staged_and_rendered()
 
-    for number, env_file in enumerate(("fl_backend/.env", "fl_frontend/.env", ".env"), start=1):
+    for number, env_file in enumerate(("fl_backend/.env", "fl_frontend/.env"), start=1):
         text = (staged / env_file).read_bytes().decode()
-        assert text == f"{checker.STAND_IN_READ}{number}={env_file}\n{checker.STAND_IN_LAST}={env_file}\n", env_file
+        assert text == f"{checker.STAND_IN_READ}{number}={env_file}\n", env_file
     assert (staged / "docker-compose.yml").read_bytes() == (checker.REPO_ROOT / "docker-compose.yml").read_bytes()
     assert (staged / "docker-compose.local.yml").read_bytes() == (checker.REPO_ROOT / "docker-compose.local.yml").read_bytes()
 

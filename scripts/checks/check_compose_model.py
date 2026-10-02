@@ -602,20 +602,18 @@ def trusted_connector(conf: str, address: str, name: str) -> list[Finding]:
     return findings
 
 
-# Each application service's environment files, in order, relative to the checkout: its package's
-# file, then the root's, which holds the names the two must hold equal (`docs/ops/spec.md :: I429`).
-ENV_FILES: Final = {"frontend": ("fl_frontend/.env", ".env"), "backend": ("fl_backend/.env", ".env")}
-# The names the gate's stand-in environment files carry, each valued with that file's path: a
-# `STAND_IN_READ` name of each file's own, and `STAND_IN_LAST`, which every stand-in sets.
+# Each application service's environment file, relative to the checkout (`docs/ops/spec.md :: I429`).
+ENV_FILES: Final = {"frontend": "fl_frontend/.env", "backend": "fl_backend/.env"}
+# The prefix of the name each of the gate's stand-in environment files carries, a name of its own
+# valued with its path.
 STAND_IN_READ: Final = "FL_STAND_IN_READ_"
-STAND_IN_LAST: Final = "FL_STAND_IN_LAST"
 
 
 def env_files(model: dict[str, Any], name: str) -> list[Finding]:
-    """Each service reads its package's file, then the checkout root's, and no other.
+    """Each service reads its package's file and no other.
 
-    `scripts/ops/deploy.sh :: ENV_UNION_BUILD` joins exactly that pair, so any other list passes the
-    preflight and meets the boot gate after the recreate.
+    `scripts/ops/deploy.sh :: read_env_names` hands each reader that file alone, so any other list
+    passes the preflight and meets the boot gate after the recreate.
     """
     findings: list[Finding] = []
     declared = services(model, name)
@@ -627,14 +625,12 @@ def env_files(model: dict[str, Any], name: str) -> list[Finding]:
         if not isinstance(environment, dict):
             raise ValueError(f"{name}: {service} has an environment Compose did not render as a mapping, so this is not its rendered model")
         read = sorted(str(value) for key, value in environment.items() if key.startswith(STAND_IN_READ))
-        last = environment.get(STAND_IN_LAST)
-        # Exactly the two, the root's read last: with two, that is the order, the last file read winning.
-        if read != sorted(expected) or last != expected[-1]:
+        if read != [expected]:
             findings.append(
                 Finding(
                     "fail",
-                    f"{name}: {service} reads the environment files {read}, {last} last, not {list(expected)} in that order\n"
-                    f"{CONTINUATION}the deploy judges the package's file joined to the checkout's, in that order (I429)",
+                    f"{name}: {service} reads the environment files {read}, not {expected} alone\n"
+                    f"{CONTINUATION}the deploy judges the package's file as the whole of what the container is handed (I429)",
                 )
             )
     return findings
@@ -678,7 +674,7 @@ def main() -> int:
         print(f"      both edges mount {EDGE_CONFIG_ROOT}/ by directory, production's the pairs the deploy compares")
         print("      both edges open the Control API where the deploy asks it, in a tmpfs of mode 700")
         print(f"      either edge trusts the {CONNECTOR_SERVICE} address alone, and marks it as the fallback")
-        print("      each application service reads its package's environment file, then the checkout's")
+        print("      each application service reads its package's environment file alone")
         print(f"      the connector shares a network with {EDGE_SERVICE} alone, and the application pair with {EDGE_SERVICE} alone")
         print(f"      every service drops every capability and gains no privilege, {EDGE_SERVICE} adding back its master's four")
         print("      each secret is held by the services SECRET_HOLDERS names alone, read from its own file, in both stacks")

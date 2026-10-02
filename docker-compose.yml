@@ -25,12 +25,9 @@ x-logging: &default-logging
 
 services:
   frontend:
-    # The package's own file, then the checkout root's, which holds the internal keys an image from
-    # before the secret files reads, or nothing (`docs/ops/spec.md :: I429`). The deploy's readers
-    # join the two in this order (`scripts/ops/deploy.sh :: ENV_UNION_BUILD`).
-    env_file:
-      - ./fl_frontend/.env
-      - ./.env
+    # The package's file alone, the one the deploy's readers judge as the container is handed it
+    # (`scripts/checks/check_compose_model.py :: env_files`).
+    env_file: ./fl_frontend/.env
     # A moving tag, on each package's image below: `publish.yml` re-points it at every publish, so
     # `deploy.sh` with no argument means the newest published image. A rollback pins the immutable
     # `:sha-<commit>` instead. Both packages are public, so neither pull needs credentials.
@@ -88,10 +85,8 @@ services:
           memory: "512M"
 
   backend:
-    # The frontend's order, for its reason.
-    env_file:
-      - ./fl_backend/.env
-      - ./.env
+    # The frontend's reason.
+    env_file: ./fl_backend/.env
     image: ghcr.io/felzab/frankfurtleague-backend:latest
     restart: unless-stopped
     # The frontend's reason, and its group for the three internal keys.

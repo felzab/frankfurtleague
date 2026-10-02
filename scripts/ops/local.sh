@@ -187,10 +187,6 @@ require_platform windows
 require_docker
 require_file "docker-compose.yml"
 require_file "docker-compose.local.yml"
-# Before `--down` too, whose compose call would otherwise honour a `COMPOSE_*` line in it.
-require_file ".env" "Both containers read it via env_file, last, and it may be empty: docs/ops/runbooks.md §16."
-check_root_env ".env"
-check_env_spellings ".env"
 
 if (( DOWN )); then
   section "down"
@@ -224,12 +220,12 @@ require_file "fl_backend/.env"  "The backend container reads it via env_file."
 check_env_spellings "fl_frontend/.env"
 check_env_spellings "fl_backend/.env"
 # Nothing here restores an older image, so a line kept for a rollback is a line to delete.
-check_moved_names refuse fl_frontend/.env fl_backend/.env .env
+check_moved_names refuse fl_frontend/.env fl_backend/.env
 require_file "$SIGNING_KEY_FILE" "The frontend signs every admin and person call with it. Generate this machine's pair: docs/ops/runbooks.md §16."
 for secret_file in $(printf '%s\n' "${LOCAL_FRONTEND_SECRETS[@]}" "${LOCAL_BACKEND_SECRETS[@]}" | sort -u); do
   require_file "secrets/${secret_file}" "The stack mounts it at /run/secrets/${secret_file}. Make this machine's own: docs/ops/runbooks.md §16."
 done
-ok "the three .env files, the actor token's signing key and this machine's secret files are in place"
+ok "both packages' .env files, the actor token's signing key and this machine's secret files are in place"
 
 step "Anything holding the build's files open"
 # A running `next dev` holds .next open and makes the build fail with EBUSY on Windows. Never

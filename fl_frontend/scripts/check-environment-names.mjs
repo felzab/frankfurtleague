@@ -94,8 +94,8 @@ export function undeclaredNames(found, declared) {
 }
 
 /**
- * A required name the file gives no value. A bare pass-through takes its value from the shell or the
- * root `.env`, neither holding one on a deploy (`docs/ops/spec.md` §1.5), so the variable never
+ * A required name the file gives no value. A bare pass-through takes its value from the environment
+ * compose resolves, which holds none on a deploy (`docs/ops/spec.md` §1.5), so the variable never
  * reaches the container.
  */
 function missingNames(valued, required) {

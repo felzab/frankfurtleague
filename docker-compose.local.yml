@@ -22,19 +22,20 @@ services:
       context: ./fl_frontend
       dockerfile: Dockerfile
     environment:
-      # Overrides whatever .env holds, because inside the compose network the backend is not on
-      # localhost -- it is reachable by service name.
+      # Overrides whatever `fl_frontend/.env` holds, because inside the compose network the backend is
+      # not on localhost -- it is reachable by service name.
       - API_URL=http://backend:8000
-      # The stack's own declaration, overriding whatever .env holds, which `pnpm dev` reads as well and
-      # may declare otherwise. Nothing else stops this stack mailing the league's real contact people.
+      # The stack's own declaration, overriding whatever `fl_frontend/.env` holds, which `pnpm dev`
+      # reads as well and may declare otherwise. Nothing else stops this stack mailing the league's
+      # real contact people.
       - APP_ENV=local
       # http:// and localhost specifically: `fl_frontend/src/core/config.ts` refuses a non-loopback
       # http URL, because the sign-in library derives the session cookie's Secure prefix from this
       # protocol. Loopback is the one exemption.
       - AUTH_URL=http://localhost:3000
-      # The point of this stack is the production behaviour, and the developer's .env legitimately
-      # holds `console` for `pnpm dev` -- overridden so the stack always writes the production
-      # stream (docs/logging/spec.md).
+      # The point of this stack is the production behaviour, and the developer's `fl_frontend/.env`
+      # legitimately holds `console` for `pnpm dev` -- overridden so the stack always writes the
+      # production stream (docs/logging/spec.md).
       - LOG_FORMAT=json
       # This stack runs the production build, so nothing but this line holds the sweep off. An armed
       # pass deletes applications and stamps rows in the copy below; APP_ENV withholds every notice
@@ -69,7 +70,7 @@ services:
       dockerfile: Dockerfile
     environment:
       # Same reason as the frontend's override above: the stack shows the production stream even
-      # when the developer's .env selects the console format for `fastapi dev`.
+      # when the developer's `fl_backend/.env` selects the console format for `fastapi dev`.
       - LOG_FORMAT=json
     # Production's list without the login, which the config below replaces as the frontend's does.
     secrets: !override

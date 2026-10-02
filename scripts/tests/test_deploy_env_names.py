@@ -72,7 +72,7 @@ def _run(body: str, **overrides: str) -> tuple[int, str, _Fixture]:
     lines = (
         "#!/usr/bin/env bash",
         f'source "{LIB.as_posix()}"',
-        *(lift_assignment(DEPLOY, name) for name in ("SHARED_ENV", "ENV_MOUNTS", "ENV_UNION_DIR", "ENV_UNION_BUILD")),
+        lift_assignment(DEPLOY, "ENV_MOUNTS"),
         lift_function(DEPLOY, "read_env_names"),
         lift_function(DEPLOY, "check_frontend_env_names"),
         body,
@@ -88,7 +88,7 @@ def test_a_name_the_frontend_does_not_declare_refuses_with_nothing_recreated() -
 
     assert code == 2, output
     assert "AUTH_URL_" in output, output
-    assert "the frontend refuses this host's environment files" in output, output
+    assert "the frontend refuses this host's fl_frontend/.env" in output, output
     assert "NOTHING has been recreated" in output, output
 
 
@@ -102,7 +102,7 @@ def test_any_other_answer_from_the_frontend_image_is_an_advisory_the_deploy_surv
 
 
 def test_a_line_number_the_reader_names_is_sent_to_the_package_file_it_counts() -> None:
-    """The reader counts lines of the join, which opens with the package's file, so that is the one an operator opens."""
+    """The reader names the file by its mount, which is no path on the host, so the package's file is named for it."""
     code, output, _ = _run(FRONTEND_ARM, FL_DEPLOY_RUN_RC="4", FL_DEPLOY_RUN_SAYS="line(s) this reader cannot parse: 3")
 
     assert code == 0, output
@@ -119,8 +119,8 @@ def test_what_the_frontend_container_said_goes_through_the_credential_filter() -
     assert "<redacted>@cluster.example.net" in output, output
 
 
-def test_the_frontend_file_and_the_checkouts_are_mounted_read_only_and_the_reader_is_handed_their_union() -> None:
-    """The reader's default is a `.env` beside it in the image, which holds nothing compose hands the container; it is handed the join."""
+def test_the_frontend_file_alone_is_mounted_read_only_and_the_reader_is_handed_it() -> None:
+    """The reader's default is a `.env` beside it in the image, which holds nothing compose hands the container; it is handed the mount."""
     code, output, fixture = _run(FRONTEND_ARM)
     argv = fixture.argv.read_text(encoding="utf-8").splitlines()
 
@@ -128,13 +128,11 @@ def test_the_frontend_file_and_the_checkouts_are_mounted_read_only_and_the_reade
     mounts = [arg for arg in argv if arg.endswith(":ro")]
     # The frontend's own file, not the backend's: one function serves both arms, and the package it
     # was handed is the only thing separating them.
-    package, shared = (mount.rsplit(":", 2) for mount in mounts)
-    assert package[1:] == ["/run/fl-env/package", "ro"], argv
-    assert shared[1:] == ["/run/fl-env/shared", "ro"], argv
-    # The checkout's own file, beside the package directory rather than inside it.
-    assert package[0] == shared[0].removesuffix(".env") + "fl_frontend/.env", argv
-    # The file the join wrote, rather than the reader's default beside it in the image.
-    assert argv[-1] == "/tmp/.env", argv
+    [package] = (mount.rsplit(":", 2) for mount in mounts)
+    assert package[1:] == ["/run/fl-env/.env", "ro"], argv
+    assert package[0].replace("\\", "/").endswith("/fl_frontend/.env"), argv
+    # The mounted file, rather than the reader's default beside it in the image.
+    assert argv[-1] == "/run/fl-env/.env", argv
     # Neither the image's own user, whose uid this host does not have, nor root.
     assert "--user" in argv, argv
     assert argv[argv.index("--user") + 1] not in ("0:0", "root"), argv
@@ -152,7 +150,7 @@ def test_the_reader_the_arm_runs_is_the_one_the_frontend_image_carries() -> None
     # Left to the builder's umask, a 0600 reader would answer this arm's advisory on every deploy
     # forever -- the one verdict no other case here can tell from a pass.
     assert copied.group(1) == "--chmod=644", copied.group(0)
-    # Located rather than sliced off the end, so a flag added after it fails the union case above and
+    # Located rather than sliced off the end, so a flag added after it fails the mount case above and
     # not this one.
     reader = Path(copied.group(3)).name
     assert reader in argv, argv

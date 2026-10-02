@@ -448,38 +448,20 @@ gate, a header nginx does not set — is visible before a deploy: **dev** exerci
 machinery, and **prod** only pulls (I6). Machine-specific scripts will not start on the wrong
 platform.
 
-**The checkout root's `.env` holds the three internal keys, or nothing** (I429). The keys are
-files under `secrets/` (§1.2), and the root file stays for the one release that moved them: an image
-from before the move reads the keys there, and the deploy's automatic rollback restores such an image
-under the checkout's own compose file ([`runbooks.md`](runbooks.md) §1). A host therefore empties it
-rather than deleting it, once the release reading the files runs healthy: the deploy's readers mount
-it by path, and a missing source becomes an empty directory. `docker-compose.yml` lists it after
-each package's own file, and the two dev commands read it the same way, the backend through
-`fl_backend/app/core/config.py :: model_config` and the frontend through the `dev` script in
-`fl_frontend/package.json`. That script loads the root file with dotenv-cli before `next dev`
-starts, so a variable the shell already set wins, then the root file, then Next's own reading of
-`fl_frontend/.env`. **One name is the script's own**: it sets `ACTOR_SIGNING_KEY_FILE` to the
-checkout's `secrets/fl_actor_signing_key` over the shell and both files, because `fl_frontend/.env`
-also reaches the frontend container, where a path written there would turn the frontend away from
-the secret's mount (I472) and its boot refuses. **It holds all three keys or none, each once, as
-`NAME=value`**, and `deploy.sh` and `local.sh` refuse any other content before their first compose
-call, `--status` and `--down` included (`scripts/lib/_lib.sh :: check_root_env`):
-
-- **Another name both services declare still does not belong there.** `MONGODB_URI` would give the
-  two services one database login, which [`overview.md`](overview.md) forbids.
-- **It is also compose's own `.env`**, read for interpolation and for compose's `COMPOSE_*`
-  settings, so a `COMPOSE_*` line would steer compose itself, a `--status` naming another project's
-  containers among it. A compose setting goes in the shell or on the command line instead.
-- **A value there is the key its file under `secrets/` holds**, byte for byte: the image a rollback
-  restores reads it, and nothing compares the two, so a key replaced in its file is replaced here in
-  the same edit ([`runbooks.md`](runbooks.md) §16).
-
-A name a package file repeats is refused apart (I430), compose handing the container the root's.
+**Each application service reads its own package's `.env` and no other** (I429): every credential
+is a file under `secrets/` (§1.2), so the two services share no name an environment file could hold.
+**A `.env` beside the compose file is compose's own**, read for interpolation, for a bare
+pass-through's value and for compose's `COMPOSE_*` settings, and nothing in this repository writes
+or reads one: a line there steers compose itself. **The frontend's `dev` script sets two names of
+its own** before `next dev` starts, over the shell and `fl_frontend/.env`: `ACTOR_SIGNING_KEY_FILE`
+to the checkout's `secrets/fl_actor_signing_key` and `SECRETS_DIR` to the checkout's `secrets/`,
+because `fl_frontend/.env` also reaches the frontend container, where a path written there would
+turn the frontend away from the secret's mount (I472) and its boot refuses.
 
 **A line naming a value `secrets/` holds is kept for one release alone**
 (`scripts/lib/_lib.sh :: MOVED_ENV_NAMES`). The deploy warns, naming each such line and never its
 value, because the image a rollback restores reads it; `local.sh` refuses it, restoring no image
-(`scripts/lib/_lib.sh :: check_moved_names`). The two images' own readers of the joined files name
+(`scripts/lib/_lib.sh :: check_moved_names`). The two images' own readers of the package files name
 such a line as well and pass it (`fl_backend/app/core/config.py :: read_environment`). Each machine holds its own files and keys: they
 authenticate one machine's processes to each other, so a development machine generates fresh ones
 rather than copying production's ([`runbooks.md`](runbooks.md) §16).
@@ -488,15 +470,14 @@ rather than copying production's ([`runbooks.md`](runbooks.md) §16).
 alters each, so the two sides would hold different keys:
 
 - `$` is interpolated by compose and by Next's `@next/env`, and `${` by python-dotenv.
-- `#` ends the value wherever it stands for dotenv, which both `@next/env` and the `dev` script's
-  dotenv-cli run.
+- `#` ends the value wherever it stands for dotenv, which `@next/env` runs.
 - A leading `"` or `'` opens a quoted value for every reader, and a backtick does for dotenv alone.
 - `\` inside a quoted value is an escape to python-dotenv, and inside a double-quoted one to
   compose, while dotenv keeps it.
 
 Every other printable ASCII character reaches each reader as written, bare or quoted, so a key from
 `openssl rand -hex`, base64 or `secrets.token_urlsafe` is always one of the class. A key in its file
-is held to the same class, the root file a rollback reads carrying the same key. **The deploy's
+is held to the same class. **The deploy's
 preflight judges a key with the pulled backend image's own validator**, in the backend's container
 (I510), so a key outside the class refuses the deploy at exit 2 before anything is recreated; the
 remedy is a new key ([`runbooks.md`](runbooks.md) §16).
@@ -559,18 +540,15 @@ source carries a different one.
 **`deploy.sh` reads the server's Docker Engine version in preflight, before it stops or pulls
 anything**, the compose files' `start_interval` being what needs it
 (`scripts/ops/deploy.sh :: ENGINE_MIN`). **It then asks the pulled backend image to read
-`fl_backend/.env` joined to the root's `.env`**, which is the only place those files are read as
-files rather than handed to a container as variables (`scripts/ops/deploy.sh :: check_env_names`):
-the two are joined in the order compose lists them, inside a tmpfs of a throwaway container, so
-the join is that container's whole environment and is never a file on the host, though a tmpfs's
-pages can be swapped like any process memory. A name the
-backend does not declare, a value it will not accept and a required variable both files omit all
+`fl_backend/.env`**, which is the only place the file is read as a file rather than handed to a
+container as variables (`scripts/ops/deploy.sh :: check_env_names`): it is mounted read-only into a
+throwaway container with no network, as the whole of what compose hands the service. A name the
+backend does not declare, a value it will not accept and a required variable the file omits all
 refuse the deploy at exit 2 with nothing recreated, and a check that could not be made is an
-advisory (I181, [`runbooks.md`](runbooks.md) §1). **Before either read, a name both a package file
-and the root's hold refuses too** (`scripts/ops/deploy.sh :: check_env_names_held_once`, I430).
+advisory (I181, [`runbooks.md`](runbooks.md) §1).
 
-**The pulled frontend image is asked the same of `fl_frontend/.env` joined to the root's, and
-answers about names alone**
+**The pulled frontend image is asked the same of `fl_frontend/.env`, and answers about names
+alone**
 (`scripts/ops/deploy.sh :: check_frontend_env_names`): the image carries the schema's key sets
 rather than the schema, emitted at build from
 `fl_frontend/src/core/config.ts :: DECLARED_ENVIRONMENT_NAMES` and `:: REQUIRED_ENVIRONMENT_NAMES`,
@@ -585,10 +563,10 @@ value to decide: the mail provider's sending key and its webhook's signing key, 
 file reader asks for on the deploy, told `--production`, and never on the local stack, which sends no
 mail and is sent no event (I510). **The bare
 pass-through `KEY` declares a name and satisfies no required one**: compose resolves that form's
-value from the shell that ran it, and failing that from the checkout root's `.env` (Docker's
-environment-variable precedence table, rows 8 and 9, read 2026-09-27). A deploy's shell holds none,
-and the root file holds only the three keys, which no package file may name (I430), so a
-pass-through there is never resolved and is dropped from the container's environment altogether —
+value from the shell that ran it, and failing that from compose's own `.env` beside the compose
+file (Docker's environment-variable precedence table, rows 8 and 9, read 2026-09-27). A deploy's
+shell holds none and the server's checkout carries no such file, so a pass-through there is never
+resolved and is dropped from the container's environment altogether —
 which is worse than the empty value, arriving as an empty string. **3 is each reader's own answer
 for a refusal, and the one code each of the three arms grades as one**; the deploy's own exit is
 §1.7's 2, and a reader ending any other way leaves the deploy where it stood. Its reader takes a comment, a blank line, `KEY=value`, the bare
@@ -604,12 +582,10 @@ looks up: Node and Next read `TZ`, `NODE_OPTIONS`, `PORT` and `HOSTNAME` of thei
 correct, or a name to declare in the schema — the same three the backend's arm offers for its
 settings class.
 
-**What that check proves stops at the names.** The preflight parses each package's file, joined to
-the root's, as python-dotenv does, and the running container gets the two parsed as Compose does;
-the two agree on which names a file declares and not on every quoting form, so a value the
-preflight accepted is not proven identical to the one the container will see. The root file's keys
-are the exception: a key carries no character any of the readers alters (I11), so two readers
-parsing one apart leave a character outside the alphabet on one side, which the preflight refuses.
+**What that check proves stops at the names.** The preflight parses each package's file as
+python-dotenv does, and the running container gets it parsed as Compose does; the two agree on which
+names a file declares and not on every quoting form, so a value the preflight accepted is not proven
+identical to the one the container will see.
 
 **The containers about to run then judge their own secret files** (I510), each service's through
 `docker compose run`, so as the user and in the group the stack starts it with, and each by its own
@@ -986,8 +962,8 @@ production's to the pairs `scripts/ops/deploy.sh :: EDGE_CONFIG_DIRS` compares (
 edge's Control API socket and tmpfs to the deploy's. Over every file either edge mounts, the shared
 `nginx/shared/http.conf` among them, it holds both edges to trusting the connector's rendered
 address alone and to declaring the real-address header and recursion once (I18). It holds each
-application service to reading its package's `.env`, then the root's, and no other, judged off the
-environment Compose resolves from the stand-ins the gate writes in place of the three files (I429),
+application service to reading its package's `.env` and no other, judged off the environment
+Compose resolves from the stand-ins the gate writes in place of the two files (I429),
 and every service to exactly its networks, so only nginx shares one with the connector or with the
 application pair (I471). It holds every secret to exactly the services
 `scripts/checks/check_compose_model.py :: SECRET_HOLDERS` names, read from its own file, the actor token's signing key the frontend's alone, with no bind mount or
@@ -1283,17 +1259,16 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I177 | A Cloudflare challenge may meet a top-level navigation and never a server action's POST or an `/api/*` route, which cannot render an interstitial (§1.3)                      | unenforced — nothing in this repository can read a Cloudflare rule                                                                                                                                                                                                                                      |
 | I178 | Of the frontend's secrets and the tunnel token, preflight judges the signing key's pair alone by value (I473); every other value is the boot's                                | `scripts/lib/_lib.sh :: require_file`, `:: check_frontend_secret_files` and `:: check_actor_key`; the frontend's values are `fl_frontend/src/core/config.ts :: frontend_config`'s                                                                                                                       |
 | I179 | A startup refusal names the failing variables or secret files, or a failure type where no variable was judged, and never a value                                              | `fl_backend/app/core/config.py :: get_config` and `fl_frontend/src/core/config.ts :: refuseInvalidEnvironment`; `fl_backend/tests/core/test_config.py :: TestTheNamesOnlyErrorPath`, `:: TestTheStartupPing`, `:: TestTheSecretFiles` and `fl_frontend/src/core/config.test.ts` assert no value appears |
-| I181 | The pulled backend image reads `fl_backend/.env` joined to `.env` in preflight, refusing at exit 2 any name or value `read_environment` rejects, missing ones included        | `scripts/ops/deploy.sh :: check_env_names`, whose refusal and advisory arms `scripts/tests/test_deploy_streams.py` drives, the snippet run for real                                                                                                                                                     |
+| I181 | The pulled backend image reads `fl_backend/.env` in preflight, refusing at exit 2 any name or value `read_environment` rejects, missing ones included                         | `scripts/ops/deploy.sh :: check_env_names`, whose refusal and advisory arms `scripts/tests/test_deploy_streams.py` drives, the snippet run for real                                                                                                                                                     |
 | I182 | Every file under `fl_frontend/src/app/` answering a URL is accounted for: a handler against the edge's locations, a metadata convention against its recorded decision         | `scripts/checks/check_public_routes.py :: METADATA` and `:: METADATA_IMAGES`, driven red in `scripts/tests/test_check_public_routes.py`; a reserved name it cannot place refuses                                                                                                                        |
-| I183 | In preflight the pulled frontend image reads `fl_frontend/.env` joined to `.env`, refusing at exit 2 undeclared or missing required names; values stay the boot gate's        | `scripts/ops/deploy.sh :: check_frontend_env_names` over the key sets `fl_frontend/scripts/emit-environment-names.mjs` writes into the image; driven by `scripts/tests/test_deploy_env_names.py`, `fl_frontend/scripts/check-environment-names.test.mjs` and `fl_frontend/src/core/config.test.ts`      |
+| I183 | In preflight the pulled frontend image reads `fl_frontend/.env`, refusing at exit 2 undeclared or missing required names; values stay the boot gate's                         | `scripts/ops/deploy.sh :: check_frontend_env_names` over the key sets `fl_frontend/scripts/emit-environment-names.mjs` writes into the image; driven by `scripts/tests/test_deploy_env_names.py`, `fl_frontend/scripts/check-environment-names.test.mjs` and `fl_frontend/src/core/config.test.ts`      |
 | I352 | Nothing the edge writes to its container's stdout or stderr names a visitor; every line that does lands in a host file `docs/ops/runbooks.md` §7 rotates                      | `nginx/edge_test.sh`, serving `nginx/local/local.conf`, whose logging directives are `nginx/shared/http.conf`'s, which `nginx/prod/prod.conf` includes too                                                                                                                                              |
 | I353 | A published build is `main`'s tip, and every job that ran in its own push run of `verify` passed, the wall-clock budget step alone excepted                                   | `scripts/checks/check_publish_verdict.py`, which `.github/workflows/publish.yml` runs before building, after its ref check; `scripts/tests/test_check_publish_verdict.py` drives every refusal and holds the budget and advisory step names to `.github/workflows/verify.yml`                           |
 | I354 | The commit hook commits no file's unstaged half, writes no partly staged file's working copy, and never stashes, hides or resets the working tree (§1.6)                      | `scripts/tests/test_pre_commit_format.py`                                                                                                                                                                                                                                                               |
 | I355 | nginx loads its configuration through directory mounts, and a deploy or `--status` finding it holding anything but this checkout's files ends in a finding (§1.2)             | `scripts/ops/deploy.sh :: edge_reads_checkout`, over nginx's own dump, after every reload and in `--status`; `scripts/checks/check_compose_model.py :: edge_mounts` holds both stacks' mounts                                                                                                           |
 | I365 | A pushed image has passed the images scope's three assertions, and `:latest` moves only onto one whose layers and user match the checked image                                | `.github/workflows/publish.yml`'s check step, calling the images scope's assertions in `scripts/lib/_lib.sh`, and its comparison step; `scripts/tests/test_image_assertions.py` runs both steps' own text                                                                                               |
 | I367 | Every base, stack, script-run and test-tier image this repository does not build is pinned by tag and digest, the frontend db tier's `mongo` alone excepted                   | `scripts/tests/test_image_pins.py`, over both Dockerfiles, both compose files, `scripts/gate/selfcheck.sh`, `scripts/ops/local.sh` and `fl_backend/tests/conftest.py`, and holding the frontend db tier's tag to the backend's                                                                          |
-| I429 | The checkout root's `.env` holds the three internal keys or nothing, and both application services list it last, as both dev commands read it                                 | `scripts/lib/_lib.sh :: check_root_env` for what it holds; `scripts/checks/check_compose_model.py :: env_files`; `fl_backend/tests/core/test_config.py :: TestTheCheckoutRootsFile`; `fl_frontend/scripts/dev-script.test.mjs`                                                                          |
-| I430 | No package's `.env` repeats a name the checkout root's holds, in any letter case: the backend folds case, and compose hands the container both                                | `scripts/ops/deploy.sh :: check_env_names_held_once`, driven by `scripts/tests/test_deploy_streams.py`, the snippet run for real; the local stack and dev mode unenforced                                                                                                                               |
+| I429 | Each application service reads its own package's `.env` and no other file, the one the deploy's readers are handed                                                            | `scripts/checks/check_compose_model.py :: env_files`, over the models `docker compose config` renders from the gate's stand-ins                                                                                                                                                                         |
 | I471 | Only nginx shares a network with the connector, and only nginx with the application pair, in both stacks                                                                      | `scripts/checks/check_compose_model.py :: networks`, over the models `docker compose config` renders                                                                                                                                                                                                    |
 | I472 | The actor token's signing key reaches the frontend alone, at `/run/secrets/fl_actor_signing_key`, read from `./secrets/fl_actor_signing_key`                                  | `scripts/checks/check_compose_model.py :: secret_holders` and `:: secrets_directory`, over the models `docker compose config` renders                                                                                                                                                                   |
 | I473 | Before containers start, both preflights refuse a signing key the frontend cannot read or a mismatched public half, printing no value; an unrunnable check warns              | `scripts/lib/_lib.sh :: check_actor_key`, called by `scripts/ops/deploy.sh` and `scripts/ops/local.sh`; `scripts/tests/test_deploy_streams.py` runs its snippet for real                                                                                                                                |
@@ -1313,7 +1288,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | `Invalid environment variables: <NAMES>` then no traffic                                          | Startup environment gate                                                                                                                        | Fix those names in the relevant `.env`                                                                                                                                                                               |
 | `Invalid secret files: <FILES>` then no traffic                                                   | A secret file is missing, or holds a value the gate refuses                                                                                     | Write the file named; its value is never printed (I179)                                                                                                                                                              |
 | `Unreadable secret files: <PATH> (<ERRNO>)` then no traffic                                       | The service's user cannot read the file or `SECRETS_DIR`: `EACCES` its owner or mode, `EISDIR` a directory at its path, `ENOENT` no directory   | Give it the user and mode §1.2 names, or write the file                                                                                                                                                              |
-| `The environment could not be read: <TYPE>` then no traffic                                       | The backend's settings reader failed before any variable was judged — a `.env` file it cannot decode is the reachable case                      | Read `fl_backend/.env` and the root's `.env` as utf-8; no variable is named because none was reached (I179)                                                                                                          |
+| `The environment could not be read: <TYPE>` then no traffic                                       | The backend's settings reader failed before any variable was judged — a `.env` file it cannot decode is the reachable case                      | Read `fl_backend/.env` as utf-8; no variable is named because none was reached (I179)                                                                                                                                |
 | Deploy reports healthy but the site is unreachable                                                | nginx, or the connector in front of it (§1.1)                                                                                                   | prod: `docker compose logs nginx` for startup, `/var/log/frankfurtleague/nginx/error.log` for requests, then `docker compose logs cloudflared`                                                                       |
 | No tunnel registers, or the connector restarts in a loop                                          | The token file is missing, unreadable by the connector's uid 65532, or not this tunnel's, or the release rejects the run arguments              | `docker compose logs cloudflared`. Preflight refuses a missing `./secrets/tunnel_token` by name, so a loop means its owner and mode, the value or the arguments (§1.2)                                               |
 | A container refuses to boot naming a file under `/run/secrets`                                    | The host file is missing, owned by another user or blank; compose hands it over with the host's owner and mode (§1.2)                           | Give it the user and mode §1.2's table names, or write it again ([`runbooks.md`](runbooks.md) §16); the deploy's preflight names it first (I510)                                                                     |
@@ -1322,7 +1297,6 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | `failed to connect to the docker API at npipe:...`                                                | Docker Desktop is not running                                                                                                                   | Start it and wait for it to settle                                                                                                                                                                                   |
 | Deploy stops in preflight naming the Docker Engine version                                        | The host's engine is below what the compose files' `start_interval` needs                                                                       | Nothing was stopped or pulled. Upgrade the engine, or drop `start_interval` from both compose files (§1.5)                                                                                                           |
 | Deploy refuses in preflight saying compose could not read its configuration                       | The compose file or an environment file will not parse — an unterminated quote is the reachable case                                            | Nothing was pulled or recreated. Read the message by hand: `docker compose -f docker-compose.yml config --quiet`, whose output can carry a value (§1.5)                                                              |
-| Deploy refuses in preflight: `<package>/.env and .env both hold: <NAMES>`                         | A name the root's `.env` holds was left in a package file, where nothing reads it (I430)                                                        | Delete the line from the package file; the value in the root's `.env` is the one both containers get                                                                                                                 |
 | `./scripts/ops/deploy.sh --status` exits 1 naming two different builds                            | A publish moved one package's `:latest` and failed on the other, so this host pulled a pair no build names                                      | Deploy the build both packages have: `./scripts/ops/deploy.sh <tag>`, the tag the report names                                                                                                                       |
 | A bare `./scripts/ops/deploy.sh` refuses: a pulled `:latest` image carries no published-tag label | An image `publish.yml` did not build holds `:latest`                                                                                            | Nothing was recreated. Publish a build, or deploy one by tag: `./scripts/ops/deploy.sh <tag>` (I7)                                                                                                                   |
 | `./scripts/ops/deploy.sh --status` exits 1 over a pair it has just called healthy                 | The edge is not serving them — nginx resolved its upstreams as it loaded, and nothing has re-resolved them since those containers were replaced | Reload the edge, then re-run `--status`; the report's own detail line names the command (`scripts/ops/deploy.sh :: serve_through_nginx`)                                                                             |

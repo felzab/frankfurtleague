@@ -3,8 +3,8 @@
 `--force-recreate` discards a container's `json-file` stream and a failed deploy recreates the
 application pair twice, so `:: copy_streams` runs on both paths -- refusing where nothing has been
 recreated yet, and warning inside `:: roll_back`, where the site is already down and a log file is
-not worth leaving it there. `:: check_env_names` and `:: check_env_names_held_once` read the
-environment files before the recreate, the one place they are files, and print names alone.
+not worth leaving it there. `:: check_env_names` reads the backend's environment file before the
+recreate, the one place it is a file, and prints names alone.
 `scripts/lib/_lib.sh :: wait_healthy`, sourced whole, is the read after it.
 Each is driven behind a stand-in `docker`, so no daemon and no compose file of this machine; the
 snippet that reader hands the image is run for real instead, because a stub records an argv and
@@ -94,7 +94,7 @@ def _assignment(name: str) -> str:
 
 
 # Every assignment the environment readers build their containers from.
-ENV_ASSIGNMENTS: Final = ("SHARED_ENV", "ENV_MOUNTS", "ENV_UNION_DIR", "ENV_UNION_BUILD", "ENV_NAME_CHECK", "ENV_OVERLAP_CHECK")
+ENV_ASSIGNMENTS: Final = ("ENV_MOUNTS", "ENV_NAME_CHECK")
 
 
 class _Fixture:
@@ -148,7 +148,6 @@ def _run(body: str, **overrides: str) -> tuple[int, str, _Fixture]:
         _lifted("copy_streams"),
         _lifted("read_env_names"),
         _lifted("check_env_names"),
-        _lifted("check_env_names_held_once"),
         body,
         "",
     )
@@ -302,8 +301,8 @@ def test_what_the_container_said_goes_through_the_credential_filter() -> None:
     assert "<redacted>@cluster.example.net" in output, output
 
 
-def test_both_files_are_mounted_read_only_and_joined_in_a_tmpfs_the_reader_is_pointed_at() -> None:
-    """The backend's own file alone would leave every name the checkout's holds reading as missing, and refuse every deploy."""
+def test_the_backend_file_alone_is_mounted_read_only_where_the_reader_is_pointed() -> None:
+    """The container is handed the package's file and nothing else, which is the whole of what compose hands the service."""
     code, output, fixture = _run(f'printf "identity=%s:%s\\n" "$(id -u)" "$(id -g)" ; {NAMES}')
     argv = fixture.argv.read_text(encoding="utf-8").splitlines()
     identity = re.search(r"^identity=(\S+)$", output, re.MULTILINE)
@@ -311,50 +310,16 @@ def test_both_files_are_mounted_read_only_and_joined_in_a_tmpfs_the_reader_is_po
     assert code == 0, output
     assert identity is not None, output
     mounts = [arg for arg in argv if arg.endswith(":ro")]
-    # The HOST halves, which nothing else reaches: the backend's file for the package half, and the
-    # checkout's own, not a package's, for the shared half.
-    assert len(mounts) == 2, argv
-    assert mounts[0].endswith("/checkout/fl_backend/.env:/run/fl-env/package:ro"), argv
-    assert mounts[1].endswith("/checkout/.env:/run/fl-env/shared:ro"), argv
-    assert ["--tmpfs", "/tmp"] == argv[argv.index("--tmpfs") : argv.index("--tmpfs") + 2], argv
-    # The join runs first and hands over to the snippet, which is told the directory it wrote into.
-    # The snippet spans lines of the recorded argv, so only its neighbours are compared.
-    joined = argv.index("-c")
-    build = _assignment("ENV_UNION_BUILD").split("=", 1)[1][1:-1]
-    assert argv[joined - 1 : joined + 5] == ["sh", "-c", build, "/run/fl-env", "/tmp", "python"], argv
-    assert argv[-1] == "/tmp", argv
+    assert len(mounts) == 1 and mounts[0].endswith("/checkout/fl_backend/.env:/run/fl-env/.env:ro"), argv
+    assert "--tmpfs" not in argv, argv
+    # The image runs the reader itself, told the directory the file is mounted in. The snippet spans
+    # lines of the recorded argv, so only its neighbours are compared.
+    assert argv[argv.index("backend-image") + 1 : argv.index("backend-image") + 3] == ["python", "-c"], argv
+    assert argv[-1] == "/run/fl-env", argv
     # The identity of whoever ran the script, rather than a uid spelled here: a `sudo` deploy mounts
     # as root, so what is asserted is that the script asks, not which answer it gets.
     assert "--user" in argv, argv
     assert argv[argv.index("--user") + 1] == identity.group(1), (argv, identity.group(1))
-
-
-# The join as the reader's container runs it, over two files of the fixture's own: the package's
-# ending without a newline, which is the case the separator is for.
-UNION: Final = """mkdir -p mounts union
-printf 'PACKAGE_NAME=one' > mounts/package
-printf 'SHARED_NAME=two\\n' > mounts/shared
-sh -c "$ENV_UNION_BUILD" mounts union cat union/.env
-"""
-
-
-def test_the_join_puts_the_package_file_first_and_parts_it_from_the_checkouts_by_a_line() -> None:
-    """Compose lets the last file listed win, and a package file ending without a newline would otherwise run into the checkout's first name."""
-    code, output, _ = _run(UNION)
-
-    assert code == 0, output
-    assert output.splitlines()[-2:] == ["PACKAGE_NAME=one", "SHARED_NAME=two"], output
-
-
-@pytest.mark.parametrize("half", ["package", "shared"])
-def test_a_half_the_join_cannot_read_ends_it_as_a_read_failure_before_any_reader(half: str) -> None:
-    """A join of one half would be judged as a file missing the other's names, a refusal pointing at the wrong remedy."""
-    body = UNION.replace("sh -c", f"rm mounts/{half}\njoin_rc=0\nsh -c").replace("cat union/.env\n", "cat union/.env || join_rc=$?\n")
-    code, output, _ = _run(body + 'printf "join=%s\\n" "$join_rc"\n')
-
-    assert code == 0, output
-    assert "join=4" in output, output
-    assert "PACKAGE_NAME=one" not in output and "SHARED_NAME=two" not in output, output
 
 
 def test_the_snippet_reaches_its_refusal_through_the_names_only_path() -> None:
@@ -408,7 +373,7 @@ export SECRETS_DIR=run-secrets
 """
 
 
-def test_the_snippet_names_a_retired_line_and_passes_the_join_holding_it() -> None:
+def test_the_snippet_names_a_retired_line_and_passes_the_file_holding_it() -> None:
     """The image a rollback restores reads the line, so the release reading files says so and deploys."""
     retired = KEY_OUTSIDE_THE_CLASS.split("mkdir -p", 1)[0] + "printf 'MONGODB_URI=a value no case reads\\n' >> fl_backend/.env\n"
     code, output, _ = _run(retired + SNIPPET, PYTHONPATH=(REPO_ROOT / "fl_backend").as_posix(), PAIR_JS=PAIR)
@@ -445,146 +410,7 @@ def test_a_settings_module_the_snippet_cannot_import_answers_the_advisory_arm() 
     assert "Traceback" not in output, output
 
 
-# --- a name a package file and the checkout's both hold -------------------------------------------------
-
-HELD_ONCE: Final = "check_env_names_held_once"
-
-
-def test_a_name_both_files_hold_refuses_with_nothing_recreated() -> None:
-    """Exit 3 is the snippet's own answer, and the names are all it prints."""
-    said = "fl_backend/.env and .env both hold: INTERNAL_API_KEY_BASE"
-    code, output, _ = _run(HELD_ONCE, FL_DEPLOY_RUN_RC="3", FL_DEPLOY_RUN_SAYS=said)
-
-    assert code == 2, output
-    assert said in output, output
-    assert "keeping the one in .env" in output, output
-    assert "NOTHING has been recreated" in output, output
-
-
-def test_a_held_once_check_that_could_not_be_made_is_an_advisory() -> None:
-    code, output, _ = _run(HELD_ONCE, FL_DEPLOY_RUN_RC="125", FL_DEPLOY_RUN_SAYS="Error")
-
-    assert code == 0, output
-    assert "(exit 125)" in output, output
-
-
-def test_the_three_files_are_mounted_read_only_into_a_container_with_no_network() -> None:
-    code, output, fixture = _run(HELD_ONCE)
-    argv = fixture.argv.read_text(encoding="utf-8").splitlines()
-
-    assert code == 0, output
-    mounts = [arg for arg in argv if arg.endswith(":ro")]
-    assert [mount.rsplit("/checkout/", 1)[1] for mount in mounts] == [
-        ".env:/run/fl-env/.env:ro",
-        "fl_frontend/.env:/run/fl-env/fl_frontend/.env:ro",
-        "fl_backend/.env:/run/fl-env/fl_backend/.env:ro",
-    ], argv
-    assert ["--network", "none"] == argv[argv.index("--network") : argv.index("--network") + 2], argv
-    assert argv[-3:] == ["/run/fl-env", "fl_frontend", "fl_backend"], argv
-
-
-# The snippet over three files of the fixture's own, one name in two of them.
-OVERLAP: Final = """mkdir -p fl_frontend
-printf 'SHARED_KEY=a value no case prints\\n' > .env
-printf 'SHARED_KEY=another value no case prints\\nFRONTEND_ONLY=x\\n' > fl_frontend/.env
-snippet_rc=0
-"$(venv_python)" -c "$ENV_OVERLAP_CHECK" . fl_frontend fl_backend || snippet_rc=$?
-printf 'snippet=%s\\n' "$snippet_rc"
-"""
-
-
-def test_the_overlap_snippet_answers_3_naming_the_file_and_the_name_and_never_a_value() -> None:
-    """Every stubbed case proves what the script asks; this proves what the image's python-dotenv answers."""
-    code, output, _ = _run(OVERLAP)
-
-    assert code == 0, output
-    assert "snippet=3" in output, output
-    assert "fl_frontend/.env and .env both hold: SHARED_KEY" in output, output
-    assert "fl_backend/.env and" not in output, output
-    assert "value no case prints" not in output, output
-
-
-def test_the_held_once_check_runs_in_preflight_ahead_of_both_readers_and_before_the_recreate() -> None:
-    """Every case above drives the lifted function; this is the call the deploy itself makes."""
-    text = DEPLOY.read_text(encoding="utf-8")
-    held_once = text.index("\ncheck_env_names_held_once\n")
-    read = text.index("\ncheck_env_names\n")
-    recreated = text.index('step "Recreating the application containers"')
-
-    assert held_once < read < recreated, "scripts/ops/deploy.sh asks whether a name is held twice after a reader or not at all"
-
-
-def test_the_overlap_snippet_refuses_a_package_name_differing_from_the_roots_in_case_alone() -> None:
-    """pydantic-settings lowercases every name, so `shared_key` in a package file is the same variable to the backend."""
-    code, output, _ = _run(OVERLAP.replace("SHARED_KEY=another", "shared_key=another"))
-
-    assert code == 0, output
-    assert "snippet=3" in output, output
-    assert "fl_frontend/.env and .env both hold: shared_key" in output, output
-
-
-def test_the_overlap_snippet_answers_0_where_no_name_repeats() -> None:
-    code, output, _ = _run(OVERLAP.replace("SHARED_KEY=another", "OTHER_KEY=another"))
-
-    assert code == 0, output
-    assert "snippet=0" in output, output
-
-
-# --- the checkout root's `.env`, judged as text before compose or any reader ---------------------------
-
-# The three keys, each a fabricated 64 `k`, written as the runbook's command writes them.
-ROOT_KEYS: Final = "".join(f"INTERNAL_API_KEY_{tier}={'k' * 64}\n" for tier in ("BASE", "SYSTEM", "ADMIN"))
-
-
-def _root_env(text: str) -> tuple[int, str]:
-    """`scripts/lib/_lib.sh :: check_root_env` over a root file holding `text`, the fixture's own."""
-    body = f"printf '%s' {shlex.quote(text)} > .env\ncheck_root_env .env\necho judged-clean\n"
-    code, output, _ = _run(body)
-    return code, output
-
-
-def test_a_root_file_holding_the_three_keys_alone_is_clean() -> None:
-    code, output = _root_env("# the keys\n\n" + ROOT_KEYS)
-
-    assert code == 0, output
-    assert "judged-clean" in output, output
-
-
-@pytest.mark.parametrize(
-    ("line", "said"),
-    [
-        ("COMPOSE_PROJECT_NAME=other", "COMPOSE_PROJECT_NAME is a compose setting"),
-        ("MONGODB_URI=mongodb://no-login-here", "MONGODB_URI is not one of"),
-        (f"INTERNAL_API_KEY_BASE={'k' * 64}", "INTERNAL_API_KEY_BASE is written a second time"),
-        ("export OTHER=1", "is not NAME=value"),
-    ],
-    ids=["compose-setting", "one-service-name", "twice", "not-name-value"],
-)
-def test_a_root_file_holding_anything_else_refuses_before_compose_is_asked(line: str, said: str) -> None:
-    """A compose setting is acted on by compose itself, and `MONGODB_URI` here would give both services one login."""
-    code, output = _root_env(ROOT_KEYS + line + "\n")
-
-    assert code == 2, output
-    assert said in output, output
-    assert "judged-clean" not in output, output
-
-
-def test_a_root_file_missing_a_key_refuses() -> None:
-    code, output = _root_env(ROOT_KEYS.replace(f"INTERNAL_API_KEY_ADMIN={'k' * 64}\n", ""))
-
-    assert code == 2, output
-    assert "INTERNAL_API_KEY_ADMIN is missing" in output, output
-
-
-@pytest.mark.parametrize(("script", "first_compose"), [(DEPLOY, "\nif (( STATUS_ONLY )); then"), (LOCAL, "\nif (( DOWN )); then")])
-def test_the_root_file_is_judged_before_the_first_compose_call(script: Path, first_compose: str) -> None:
-    """`--status` and `--down` call compose too, which would take a `COMPOSE_*` line as its own."""
-    text = script.read_text(encoding="utf-8")
-
-    assert text.index("\ncheck_root_env ") < text.index(first_compose), script.name
-
-
-# --- every `.env` compose reads, judged as text for the spellings its readers disagree on -----------------
+# --- each package's `.env`, judged as text for the spellings its readers disagree on -----------------
 
 
 def _env_spellings(text: str) -> tuple[int, str]:
@@ -633,14 +459,11 @@ def test_a_spelling_the_readers_disagree_on_refuses_naming_the_line_never_the_va
 
 @pytest.mark.parametrize("script", [DEPLOY, LOCAL], ids=["deploy", "local"])
 def test_every_file_is_judged_before_the_first_compose_call_that_reads_it(script: Path) -> None:
-    """The root file before `--status` and `--down` as well, which read it for interpolation."""
+    """Compose and the dev server read each file their own way, so the spellings are judged before either does."""
     text = script.read_text(encoding="utf-8")
     readers = ("\ncheck_compose_config\n", "docker compose build", "\ncheck_actor_key ")
     first_read = min(text.index(marker) for marker in readers if marker in text)
-    root = "$SHARED_ENV" if script == DEPLOY else ".env"
-    first_compose = "\nif (( STATUS_ONLY )); then" if script == DEPLOY else "\nif (( DOWN )); then"
 
-    assert text.index("\ncheck_root_env ") < text.index(f'\ncheck_env_spellings "{root}"') < text.index(first_compose), script.name
     for package in ("fl_frontend", "fl_backend"):
         judged = text.index(f'\ncheck_env_spellings "{package}/.env"')
         assert text.index(f'\nrequire_file "{package}/.env"') < judged < first_read, (script.name, package)
@@ -898,11 +721,11 @@ def test_a_configuration_compose_cannot_read_refuses_with_nothing_pulled_or_recr
     assert code == 2, output
     assert "(exit 15)" in output, output
     assert "NOTHING has been pulled or recreated, and the site is untouched" in output, output
-    # The four files, because the refusal cannot say which of them the message named.
+    # The three files, because the refusal cannot say which of them the message named.
     assert "docker-compose.yml" in output, output
     assert "fl_backend/.env" in output, output
     assert "fl_frontend/.env" in output, output
-    assert "fl_backend/.env and .env." in output, output
+    assert "fl_frontend/.env and fl_backend/.env." in output, output
     # `redact_uri_credentials` is for a container's log and reaches none of this, and a parse error
     # quotes the line it could not read -- which in an environment file is a value.
     assert "A_VALUE_NO_CASE_READS" not in output, output
@@ -1172,8 +995,9 @@ def test_the_rollback_names_a_tag_only_for_a_build_this_checkout_deploys_by_one(
 # --- a line the secret files replace, still in an environment file ----------------------------------------
 
 MOVED: Final = """printf 'LOG_FORMAT=json\\nmongodb_uri=a value no case reads\\n' > fl_backend/.env
-printf 'INTERNAL_API_KEY_BASE=a value no case reads\\n' > .env
-check_moved_names {verb} fl_backend/.env .env
+mkdir -p fl_frontend
+printf 'INTERNAL_API_KEY_BASE=a value no case reads\\n' > fl_frontend/.env
+check_moved_names {verb} fl_backend/.env fl_frontend/.env
 echo moved-names-passed
 """
 
@@ -1185,7 +1009,7 @@ def test_the_deploy_warns_naming_every_moved_line_in_any_case_and_goes_on() -> N
     assert code == 0, output
     assert "moved-names-passed" in output, output
     assert "fl_backend/.env: mongodb_uri" in output, output
-    assert ".env: INTERNAL_API_KEY_BASE" in output, output
+    assert "fl_frontend/.env: INTERNAL_API_KEY_BASE" in output, output
     assert "LOG_FORMAT" not in output, output
     assert "a value no case reads" not in output, output
 
@@ -1212,27 +1036,6 @@ def test_the_moved_names_are_the_secret_files_names() -> None:
     renamed = {name.replace("FRONTEND_", "").replace("BACKEND_", "") for name in files}
 
     assert set(_lib_array("MOVED_ENV_NAMES")) == renamed
-
-
-# --- the checkout root's `.env` while the secret files replace it -----------------------------------------
-
-
-@pytest.mark.parametrize("text", ["", "# emptied\n\n"], ids=["empty", "comments-alone"])
-def test_a_root_file_holding_no_key_is_clean(text: str) -> None:
-    """The host empties it once the release reading the files runs healthy, and compose still lists it."""
-    code, output = _root_env(text)
-
-    assert code == 0, output
-    assert "judged-clean" in output, output
-
-
-def test_a_root_file_holding_some_keys_refuses_naming_the_rest() -> None:
-    """A rollback's image reads the three together, so a part of the set is a deploy that restores nothing working."""
-    code, output = _root_env(f"INTERNAL_API_KEY_BASE={'k' * 64}\n")
-
-    assert code == 2, output
-    assert "INTERNAL_API_KEY_SYSTEM is missing, beside the key(s) the file does hold" in output, output
-    assert "INTERNAL_API_KEY_ADMIN is missing" in output, output
 
 
 # --- the copy of production a development machine takes -----------------------------------------------

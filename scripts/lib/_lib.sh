@@ -770,49 +770,6 @@ $2}"; }
 require_dir()  { [[ -d "$1" ]] || refuse "Missing required directory: $1${2:+
 $2}"; }
 
-# The whole of what the checkout root's `.env` may hold (`docs/ops/spec.md :: I429`): the internal
-# keys, which an image from before the secret files reads there, or nothing at all.
-ROOT_ENV_NAMES=(INTERNAL_API_KEY_BASE INTERNAL_API_KEY_SYSTEM INTERNAL_API_KEY_ADMIN)
-
-# Read as text before any compose call or reader, since compose takes a `COMPOSE_*` line there as its
-# own setting (`docs/ops/spec.md` §1.5). All three keys or none, a rollback's image reading the three
-# together. Prints names, never a value.
-check_root_env() { # $1 the file
-  local line name number=0 IFS=' '
-  local -A seen=()
-  local -a wrong=()
-  while IFS= read -r line || [[ -n "$line" ]]; do
-    number=$(( number + 1 ))
-    # Every reader drops a line's closing carriage return, so it is no finding here.
-    line="${line%$'\r'}"
-    [[ "$line" =~ ^[[:space:]]*(#.*)?$ ]] && continue
-    if [[ ! "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)= ]]; then
-      wrong+=("line ${number} is not NAME=value, the one form every reader takes alike")
-      continue
-    fi
-    name="${BASH_REMATCH[1]}"
-    if [[ "$name" == COMPOSE_* ]]; then
-      wrong+=("line ${number}: ${name} is a compose setting, which compose would act on here; set it in the shell instead")
-    elif [[ " ${ROOT_ENV_NAMES[*]} " != *" ${name} "* ]]; then
-      wrong+=("line ${number}: ${name} is not one of ${ROOT_ENV_NAMES[*]}; it belongs in the package file of the service that reads it")
-    elif [[ -n "${seen[$name]:-}" ]]; then
-      wrong+=("line ${number}: ${name} is written a second time, after line ${seen[$name]}")
-    else
-      seen[$name]="$number"
-    fi
-  done < "$1"
-  if (( ${#seen[@]} )); then
-    for name in "${ROOT_ENV_NAMES[@]}"; do
-      [[ -n "${seen[$name]:-}" ]] || wrong+=("${name} is missing, beside the key(s) the file does hold")
-    done
-  fi
-  if (( ${#wrong[@]} )); then
-    refuse "$1 holds what nothing here may read, so nothing was asked of compose or of either service:
-$(printf '  %s\n' "${wrong[@]}")
-It holds the three internal keys or nothing, emptied rather than deleted (docs/ops/runbooks.md §16)."
-  fi
-}
-
 # Each environment file reaches a service through compose and a dev server through that package's own
 # reader, which read four spellings differently (`docs/ops/spec.md :: I487`). Read as text before any
 # compose call; prints names and line numbers, never a value.
@@ -1032,7 +989,7 @@ Keep them until this release runs healthy, for the image a rollback restores; th
 # Every environment file the compose files name. Compose refuses to parse a stack whose file is
 # missing, and the real ones are never copied: each is replaced by a stand-in naming itself
 # (`scripts/checks/check_compose_model.py :: STAND_IN_READ`).
-COMPOSE_STAND_INS=(fl_backend/.env fl_frontend/.env .env)
+COMPOSE_STAND_INS=(fl_backend/.env fl_frontend/.env)
 
 # One staging for the gate's ops scope and `nginx/edge_test.sh`, so a change to the files compose reads
 # reaches both. `$1` is an empty scratch directory.
@@ -1042,7 +999,7 @@ stage_compose_models() {
   cp docker-compose.yml docker-compose.local.yml "${directory}/"
   for env_file in "${COMPOSE_STAND_INS[@]}"; do
     number=$(( number + 1 ))
-    printf 'FL_STAND_IN_READ_%s=%s\nFL_STAND_IN_LAST=%s\n' "$number" "$env_file" "$env_file" > "${directory}/${env_file}"
+    printf 'FL_STAND_IN_READ_%s=%s\n' "$number" "$env_file" > "${directory}/${env_file}"
   done
 }
 

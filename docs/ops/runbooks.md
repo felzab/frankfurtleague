@@ -23,7 +23,7 @@ The contracts these depend on — the services, the scripts, the gate scopes and
 | [13. After a restore from a snapshot](#13-after-a-restore-from-a-snapshot)                                                                      | Who is re-erased, and what the restore took the record of      |
 | [14. The `auth` database's indexes](#14-the-auth-databases-indexes)                                                                             | What builds them, and what a boot that could not leaves        |
 | [15. When a sign-in code does not arrive](#15-when-a-sign-in-code-does-not-arrive)                                                              | What the person cannot tell apart, and the line that can       |
-| [16. The secret files and the checkout root's `.env`](#16-the-secret-files-and-the-checkout-roots-env)                                          | What each holds, and how each machine makes its own            |
+| [16. The secret files](#16-the-secret-files)                                                                                                    | What each holds, and how each machine makes its own            |
 | [17. Clearing an address's code lock](#17-clearing-an-addresss-code-lock)                                                                       | Who meets it, when it lifts, and what clearing it costs        |
 | [18. The Node a checkout runs](#18-the-node-a-checkout-runs)                                                                                    | What `pnpm install` fetches, and what a bare `node` still runs |
 
@@ -37,16 +37,16 @@ the machine is outside the repository. What it does tell you:
 - `deploy.sh` refuses to run anywhere but Linux, and runs from a **checkout of this repository on the
   server** — so putting a merge live is `git pull && ./scripts/ops/deploy.sh`, the pull being what brings the
   compose file, `nginx/prod/` and `nginx/shared/` up to date before the containers are recreated.
-- `fl_frontend/.env`, `fl_backend/.env`, `./.env`, `./nginx/prod/`, `./nginx/shared/`, every file
-  under `./secrets/` the stack mounts, and `./certs/` must all exist beside the compose file —
-  preflight checks each before anything is pulled. What each secret file holds, who owns it, how it
-  is made and what the root's `.env` still holds, is §16.
+- `fl_frontend/.env`, `fl_backend/.env`, `./nginx/prod/`, `./nginx/shared/`, every file under
+  `./secrets/` the stack mounts, and `./certs/` must all exist beside the compose file — preflight
+  checks each before anything is pulled. What each secret file holds, who owns it and how it is
+  made, is §16.
 - **A line naming a value a secret file holds draws a warning, and nothing more**: the image a
   rollback restores reads it, so it stays until the deploy that follows it runs healthy, and is then
   deleted (§16).
 - **Compose is asked whether it can parse its own configuration before anything is pulled**
   (`scripts/ops/deploy.sh :: check_compose_config`). **It refuses at exit 2 with nothing pulled or
-  recreated**, and names the compose file and the three environment files without printing what compose
+  recreated**, and names the compose file and the two environment files without printing what compose
   said, a parse error quoting the line it could not read ([`spec.md`](spec.md) §1.5). To see that
   message, run the same check on the server, where its answer is not being captured:
   `docker compose -f docker-compose.yml config --quiet`.
@@ -54,11 +54,7 @@ the machine is outside the repository. What it does tell you:
   image is pulled** (`scripts/ops/deploy.sh :: fetch_edge_images`): a fetch that fails refuses at
   exit 2 with nothing recreated, and compose's own reason is printed above the refusal
   ([`spec.md`](spec.md) §1.5).
-- **A name the root's `.env` holds that a package file repeats refuses the deploy at exit 2** before
-  either image reads anything (`scripts/ops/deploy.sh :: check_env_names_held_once`): the container
-  gets the root's value, so the package's line is one nothing reads. Delete it from the package file.
-- **The pulled backend image is then asked to read `fl_backend/.env` joined to the root's `.env`**
-  before anything is recreated
+- **The pulled backend image is then asked to read `fl_backend/.env`** before anything is recreated
   (`scripts/ops/deploy.sh :: check_env_names`): compose hands the container its keys as variables,
   and the settings class looks up none but its own, so a typo there reads as an omission and the
   shipped default serves production. **A name the backend does not declare, or a value it will not
@@ -68,15 +64,15 @@ the machine is outside the repository. What it does tell you:
   past. It does not catch a misspelling whose value is EMPTY, which the settings reader drops before
   the check judges it ([`../backend/spec.md`](../backend/spec.md) §1.5); a spelling the two parsers
   read differently was refused before either image was asked ([`spec.md`](spec.md) I487).
-- **The pulled frontend image is asked the same of `fl_frontend/.env` joined to the root's**
+- **The pulled frontend image is asked the same of `fl_frontend/.env`**
   (`scripts/ops/deploy.sh :: check_frontend_env_names`), and answers about names alone: **a name the
   frontend does not declare, and a name it requires that the file gives no value, each refuse the
   deploy at exit 2
   with nothing recreated**. The remedy differs by kind — delete an undeclared line, correct its
   spelling, or declare the name in the schema, nothing in that schema reading an undeclared one;
   **write a missing required one into the file WITH a value**, a bare `NAME` line taking its value
-  from the shell that ran compose or the root `.env`, which hold none for it, and reaching the
-  container as nothing at all. That is where a
+  from the shell that ran compose, which holds none for it, and reaching the container as nothing at
+  all. That is where a
   release adding a required name meets a host nobody edited. Every VALUE is judged at boot and
   nowhere else, a sign-in secret below its library's floor of 32 characters among them — each a
   refusal this reader and the secret files' reader both pass and the recreated container meets. It does catch the misspelling whose value is EMPTY
@@ -155,7 +151,6 @@ own:
 docker run --rm --network <compose-network> --user 0:0 \
   -v "$PWD/fl_backend/app:/app/app:ro" \
   -v "$PWD/fl_backend/.env:/app/.env:ro" \
-  -v "$PWD/.env:/.env:ro" \
   -v "$PWD/secrets/backend_mongodb_uri:/run/secrets/backend_mongodb_uri:ro" \
   -v "$PWD/secrets/sperrliste_schluessel:/run/secrets/sperrliste_schluessel:ro" \
   -v "$PWD/secrets/internal_api_key_base:/run/secrets/internal_api_key_base:ro" \
@@ -164,18 +159,18 @@ docker run --rm --network <compose-network> --user 0:0 \
   <backend-image> python -m app.core.constraints --check
 ```
 
-**`--user 0:0` is not optional.** The image runs as uid 1002, the root `.env` is mode 600 and owned
-by the deploying user, and the internal keys are root's and group 1003's (§16), so without it the
-run cannot read them and exits on a permission error before it checks anything. Root inside the
+**`--user 0:0` is not optional.** The image runs as uid 1002, and the internal keys are root's and
+group 1003's (§16), a group a bare `docker run` does not add, so without it the run cannot read them
+and exits on a permission error before it checks anything. Root inside the
 container reads them; `--check` writes nothing either way. **Each of the backend's five files is
 mounted by name, and never `secrets/` whole**, which would hand this container the frontend's
 credentials and the signing key besides.
 
-**Every setting given no default is required, and the two environment files and the five secret
-files are what supply them.** A run reaching none of them exits 1 on a validation error naming each;
-the settings class reads the package's file from the image's own working directory, the checkout
-root's from the directory above it (`fl_backend/app/core/config.py :: model_config`) and the secret
-files from `/run/secrets`, which is where the mounts land them.
+**Every setting given no default is required, and the environment file and the five secret files
+are what supply them.** A run reaching none of them exits 1 on a validation error naming each; the
+settings class reads the package's file from the image's own working directory
+(`fl_backend/app/core/config.py :: model_config`) and the secret files from `/run/secrets`, which is
+where the mounts land them.
 **Mounted rather than retyped, because the URI carries the cluster's credential**: passing them as
 `-e` values instead puts that one in the shell's history and in the process list, and sends the
 operator looking up values `--check` never reads — the run touches the database URI and
@@ -1260,7 +1255,7 @@ reports (§10). An administrator's grant is read on that same call
 (`fl_frontend/src/core/signInGate.ts :: mayReceiveSignIn`), so an administrator too is mailed
 nothing while the backend does not answer.
 
-## 16. The secret files and the checkout root's `.env`
+## 16. The secret files
 
 **Every credential is a file under `secrets/`, beside the compose file**, under one name on the
 host, at `/run/secrets/` in its container and in development ([`spec.md`](spec.md) §1.2, I508).
@@ -1292,17 +1287,10 @@ reads the application database and nothing else: `./scripts/ops/local.sh --seed`
 with it and with no other login. Copy its URI out of the password manager into the file in an
 editor, never through a shell command that echoes it.
 
-**The checkout root's `.env` holds `INTERNAL_API_KEY_BASE`, `INTERNAL_API_KEY_SYSTEM` and
-`INTERNAL_API_KEY_ADMIN`, or nothing** ([`spec.md`](spec.md) §1.5, I429), one `NAME=value` line each.
-A development machine leaves it empty. On the server it keeps production's three until the release
-reading the keys from `secrets/` has run healthy, because the image a failed deploy is rolled back
-to reads them there; then `: > .env` empties it. **Empty it, never delete it**: compose lists it,
-and the deploy mounts it by path. `deploy.sh` and `local.sh` read it before anything else and refuse
-a partial set or any other line, naming its line number and never a value.
-
-**The same holds for every line the secret files replace in the package files**
-(`scripts/lib/_lib.sh :: MOVED_ENV_NAMES`): on the server the
-deploy warns while they are there, and once the release reading the files runs healthy they are
+**Every line the secret files replace in the package files stays on the server for one release**
+(`scripts/lib/_lib.sh :: MOVED_ENV_NAMES`), the three `INTERNAL_API_KEY_*` lines in both of them
+among it, because the image a failed deploy is rolled back to reads them there: the deploy warns
+while they are there, and once the release reading the files runs healthy they are
 deleted in an editor, never with `cat`, and a second `./scripts/ops/deploy.sh` recreates both
 containers without them. `local.sh` refuses them outright, since the local stack restores no older
 image. Keep their password-manager entries: a rollback by hand across that release needs them, as
@@ -1324,8 +1312,8 @@ which fault: a missing one is written, an unreadable one is given the user and m
 one is written again. **Where it names an `INTERNAL_API_KEY_*`, that key carries a character outside
 the class** ([`spec.md`](spec.md) §1.5): generate all three again on the server, each with
 `openssl rand -hex 32 | tr -d '\r\n' | sudo install -o root -g 1003 -m 440 /dev/stdin secrets/<key>`,
-and update the password-manager entry and, while it still holds the keys, the root `.env`: nothing
-compares the two, and a rollback's image reads the root's. Both containers are recreated by the same deploy, so the new
+and update the password-manager entry and, while they still hold the keys, both package files'
+`INTERNAL_API_KEY_*` lines: nothing compares the two, and a rollback's image reads the lines. Both containers are recreated by the same deploy, so the new
 keys never meet the old. **`sperrliste_schluessel` is never replaced**: every ban is stored under it,
 and a new one disarms them all in silence (§5). **A new `auth_secret` signs everybody out.**
 
@@ -1354,7 +1342,7 @@ Then put the private half in place:
 - **On a development machine**:
   `mv secrets/fl_actor_signing_key.new secrets/fl_actor_signing_key`.
 - **For `pnpm dev`**, write nothing more: the `dev` script names the file itself
-  ([`spec.md`](spec.md) I429). Never name it in `fl_frontend/.env`, which the frontend container
+  ([`spec.md`](spec.md) §1.5). Never name it in `fl_frontend/.env`, which the frontend container
   reads too: it would look for the key at that path rather than at its mount, and refuse to start.
 - **Rotating** is the same two steps and a deploy, after deleting the old `ACTOR_TOKEN_PUBLIC_KEY`
   line from `fl_backend/.env`. A token lives sixty seconds, and the deploy recreates both containers
@@ -1385,20 +1373,18 @@ at the checkout root:
 2. Put each moved line back from its file, printing nothing — for the backend's database URI,
    `{ printf 'MONGODB_URI='; sudo cat secrets/backend_mongodb_uri; echo; } >> fl_backend/.env`, and
    the same shape for every other line into the package file of the service that reads it, the
-   three internal keys into the root `.env`.
+   three internal keys into both.
 3. `./scripts/ops/deploy.sh sha-<commit>`.
 
 Rolling forward undoes each step before deploying: check out the newer commit, then deploy, and
 delete the lines again once it runs healthy.
 
-**A build from before the root `.env` and the actor token takes two steps more**, and every build
-published before the secret files is one, the three arriving in one release. Its backend's settings
-forbid a name they do not declare, so its own preflight refuses `ACTOR_TOKEN_PUBLIC_KEY`: turn that
-line in `fl_backend/.env` into a comment by putting `#` in front of it, and put the three `INTERNAL_API_KEY_*` lines into both package files rather than the root's,
-since that build's compose file reads each package's file alone; its frontend also requires the
-`ALLOWED_ADMIN_EMAILS` line §3 keeps in `fl_frontend/.env`. Rolling forward deletes the copied keys
-from both package files, which the deploy otherwise refuses as a name held twice (I430), and
-restores the `ACTOR_TOKEN_PUBLIC_KEY` line.
+**A build from before the actor token takes a step more**, and every build published before the
+secret files is one, the two arriving in one release. Its backend's settings forbid a name they do
+not declare, so its own preflight refuses `ACTOR_TOKEN_PUBLIC_KEY`: turn that line in
+`fl_backend/.env` into a comment by putting `#` in front of it; its frontend also requires the
+`ALLOWED_ADMIN_EMAILS` line §3 keeps in `fl_frontend/.env`. Rolling forward restores the
+`ACTOR_TOKEN_PUBLIC_KEY` line.
 
 ## 17. Clearing an address's code lock
 
