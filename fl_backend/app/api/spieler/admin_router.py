@@ -59,6 +59,7 @@ from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_K
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
+from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
 
 router = APIRouter(
@@ -343,7 +344,7 @@ async def erase_spieler(
 
     # ONE transaction over all THREE (`docs/backend/spec.md :: I42`): a person removed while the log
     # still holds their values reports an erasure that did not happen.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         # `with_transaction` over a bare one -- the callback re-reads everything it judges, so a
         # retry is safe.
         return await session.with_transaction(erase_the_person_and_their_record)
@@ -428,7 +429,7 @@ async def post_saison_spieler(
         # One transaction over the row and the season write inside `_refuse_a_full_squad`, which is what
         # makes two writers into one squad contend, and a re-date of matchday 1 contend with the marker
         # (`app/api/spieltage/admin_router.py :: _refuse_an_out_of_order_beginn` writes the same season).
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             entered = await session.with_transaction(add_the_player)
 
     return _as_junction(entered)
@@ -506,7 +507,7 @@ async def patch_saison_spieler(
     # Whatever field the refusal helper's own write moved: every season write drops the cache
     # (`docs/backend/spec.md :: I131`).
     with dropping_the_saison_cache():
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             moved = await session.with_transaction(move_the_player)
 
     return _as_junction(moved)
@@ -614,7 +615,7 @@ async def reactivate_saison_spieler(
     # Whatever field the refusal helper's own write moved: every season write drops the cache
     # (`docs/backend/spec.md :: I131`).
     with dropping_the_saison_cache():
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             revived = await session.with_transaction(bring_the_player_back)
 
     return _as_junction(revived)

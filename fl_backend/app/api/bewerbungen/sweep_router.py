@@ -62,7 +62,7 @@ from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_K
 from app.core.logging import fl_logger
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
-from app.core.transactions import drain, refuse_a_stalled_page
+from app.core.transactions import drain, refuse_a_stalled_page, transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 
 # System tier and the system actor: the sweep holds no session, so `bind_actor` would refuse it,
@@ -447,7 +447,7 @@ async def sweep_saison(
     if season_after_has_ended(next_saison_status=next_saison_status):
         angenommene, redacted_accepted = await drain(db=db, page_of=lambda session: session.with_transaction(erase_accepted), page=SWEEP_PAGE)
 
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             geleert, redacted_blocks = await session.with_transaction(clear_the_blocks)
         redacted_accepted += redacted_blocks
 
@@ -488,7 +488,7 @@ async def sweep_saison(
 
     # The run's day is a season write, which the cache serves.
     with dropping_the_saison_cache():
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             erinnerungen, withheld = await session.with_transaction(remind)
 
     # After the commit, so a retried transaction writes no second line. A count and never an id: a
@@ -560,7 +560,7 @@ async def angekuendigt_bewerbungen(
 
         return stamped
 
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         angekuendigt = await session.with_transaction(stamp_the_notified)
 
     return FLBewerbungSweepAngekuendigtResponse(saison_id=saison_id, angekuendigt=angekuendigt)
@@ -617,7 +617,7 @@ async def loeschen_bewerbungen(
 
         return result.deleted_count, redacted
 
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         geloescht, redigiert = await session.with_transaction(erase_the_notified)
 
     return FLBewerbungSweepLoeschenResponse(saison_id=saison_id, geloescht=geloescht, redigierte_aktionen=redigiert)

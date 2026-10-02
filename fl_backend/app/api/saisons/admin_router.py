@@ -102,6 +102,7 @@ from app.core.security import (
     verify_actor_is_admin,
     verify_step_up,
 )
+from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
 router = APIRouter(
@@ -474,7 +475,7 @@ async def patch_saison(
     # so one landing under a `$set` that changes something conflicts, and the retry judges the
     # season as that rival left it (I53).
     with dropping_the_saison_cache():
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             patched = await session.with_transaction(judge_and_write_the_rules)
 
     return patched
@@ -615,7 +616,7 @@ async def activate_saison(
     # undraw emptying the target writes a season this one writes too, so it conflicts and the
     # retry judges the league again rather than closing it blind.
     with dropping_the_saison_cache():
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             rolled_over = await session.with_transaction(judge_and_roll_the_league_over)
 
     return rolled_over
@@ -768,7 +769,7 @@ async def swap_gruppen(
 
     # `with_transaction`, not a bare `start_transaction`: two admins on one season can write-conflict,
     # and a retry judges these rows as the rival left them.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(exchange_the_two_gruppen)
 
 
@@ -980,7 +981,7 @@ async def generate_spielplan(
     # `with_transaction`, not a bare `start_transaction`, and a retry is safe because the draw
     # generates its own ids and wires by `spiel_nr`, never by one.
     with dropping_the_saison_cache():
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             drawn_response = await session.with_transaction(draw_the_whole_season)
 
     return drawn_response
@@ -1067,7 +1068,7 @@ async def undraw_spielplan(
     # `with_transaction`, not a bare `start_transaction`, and a retry is safe because the undraw
     # removes a set by filter rather than by any id it read.
     with dropping_the_saison_cache():
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             undrawn = await session.with_transaction(undraw_the_whole_season)
 
     return undrawn
@@ -1188,32 +1189,34 @@ async def _mail_one_team(
             hatte_link=bool(live),
         )
 
-    async with db.start_session() as session:
-        try:
+    # Caught outside the session: a failure the session never sees leaves the transaction open on the
+    # server (`docs/backend/spec.md :: I539`).
+    try:
+        async with transaction_session(db) as session:
             return await session.with_transaction(mint_where_the_team_qualifies)
-        except PyMongoError as failure:
-            # Per TEAM: every team already done holds a fresh link whose raw value exists only in this
-            # list. A commit sent and never answered may have revoked this team's link too, so its
-            # row says unknown rather than failed.
-            ungewiss = failure.has_error_label("UnknownTransactionCommitResult")
-            fl_logger.error(
-                f"The registration link for team {team['team_id']} in season {saison_id} was "
-                f"{'minted or not, the commit unanswered' if ungewiss else 'not minted'}: {type(failure).__name__}",
-                extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
-            )
+    except PyMongoError as failure:
+        # Per TEAM: every team already done holds a fresh link whose raw value exists only in this
+        # list. A commit sent and never answered may have revoked this team's link too, so its
+        # row says unknown rather than failed.
+        ungewiss = failure.has_error_label("UnknownTransactionCommitResult")
+        fl_logger.error(
+            f"The registration link for team {team['team_id']} in season {saison_id} was "
+            f"{'minted or not, the commit unanswered' if ungewiss else 'not minted'}: {type(failure).__name__}",
+            extra={"error_code": UNKNOWN_OUTCOME if ungewiss else DATABASE_FAILED},
+        )
 
-            return FLEinladungVersandZeile(
-                team_id=team["team_id"],
-                team_name=team["name"],
-                einladung_id=None,
-                token=None,
-                empfaenger=[],
-                uebersprungen="erzeugung_ungewiss" if ungewiss else "erzeugung_fehlgeschlagen",
-                # A failed commit replaced nothing; an unanswered one may have replaced the link the
-                # plan found, and a team that held none must not read about one.
-                ersetzt_link=ungewiss and ersetzt_link,
-                hatte_link=hatte_link,
-            )
+        return FLEinladungVersandZeile(
+            team_id=team["team_id"],
+            team_name=team["name"],
+            einladung_id=None,
+            token=None,
+            empfaenger=[],
+            uebersprungen="erzeugung_ungewiss" if ungewiss else "erzeugung_fehlgeschlagen",
+            # A failed commit replaced nothing; an unanswered one may have replaced the link the
+            # plan found, and a team that held none must not read about one.
+            ersetzt_link=ungewiss and ersetzt_link,
+            hatte_link=hatte_link,
+        )
 
 
 @router.get(

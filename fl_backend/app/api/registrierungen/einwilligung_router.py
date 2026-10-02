@@ -40,6 +40,7 @@ from app.core.dependencies import (
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.security import bind_public_actor, verify_access_base
+from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 
@@ -218,5 +219,5 @@ async def post_bestaetigung(
             medien=antwort_data.medien,
         )
 
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(answer_for_the_pupil)

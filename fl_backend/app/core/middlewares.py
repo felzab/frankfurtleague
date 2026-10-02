@@ -1,6 +1,7 @@
 import re
 import secrets
 import time
+from contextvars import ContextVar
 from typing import Final
 
 import pymongo
@@ -21,6 +22,10 @@ ZERO_SPAN_ID = "0" * 16
 # this one cannot: the hop in, the queue before this runs, the answer's way back
 # (`docs/backend/spec.md :: I320`).
 REQUEST_DEADLINE_S: Final = 10.0
+
+# Where the request's deadline falls, which pymongo holds and publishes no getter for: every abort
+# the request sends past it shares one grace after this instant (`docs/backend/spec.md :: I539`).
+request_deadline_var: ContextVar[float | None] = ContextVar("request_deadline", default=None)
 
 
 def resolve_trace_id(header_value: str | None) -> str:
@@ -52,6 +57,7 @@ class TraceContextMiddleware(BaseHTTPMiddleware):
         # answer another request's write as this one's.
         writes_token = writes_sent_var.set(WritesSent())
         started = time.perf_counter()
+        deadline_token = request_deadline_var.set(time.monotonic() + REQUEST_DEADLINE_S)
 
         try:
             # Nothing is echoed on the response: the failure body carries the trace id, and a
@@ -72,6 +78,7 @@ class TraceContextMiddleware(BaseHTTPMiddleware):
             raise
         finally:
             # Reset, or the ids bleed onto the log lines of whichever request the loop runs next.
+            request_deadline_var.reset(deadline_token)
             writes_sent_var.reset(writes_token)
             span_id_var.reset(span_token)
             trace_id_var.reset(trace_token)

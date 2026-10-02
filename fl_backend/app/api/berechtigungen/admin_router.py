@@ -48,6 +48,7 @@ from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_K
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_recent_confirmation
+from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
@@ -172,7 +173,7 @@ async def post_berechtigung(
 
         return created
 
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         post_operation = await session.with_transaction(judge_and_grant)
 
     return FLPostBerechtigungResponse(acknowledged=1 if post_operation.acknowledged else 0, created_id=post_operation.inserted_id)
@@ -263,7 +264,7 @@ async def delete_berechtigung(
         # none (`docs/backend/spec.md :: I465`).
         await erase_many_from_db(collection=berechtigungen_angekuendigt_collection, db_filter={"_id": berechtigung_id}, session=session)
 
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         await session.with_transaction(judge_and_revoke)
 
     return FLBerechtigungWriteResponse(berechtigung_id=berechtigung_id)
@@ -378,7 +379,7 @@ async def patch_berechtigung(
             session=session,
         )
 
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         await session.with_transaction(judge_and_change)
 
     return FLBerechtigungWriteResponse(berechtigung_id=berechtigung_id)

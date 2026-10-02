@@ -46,6 +46,7 @@ from app.core.dependencies import (
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.exceptions import DocumentNotFoundException
 from app.core.security import bind_public_actor, verify_access_base
+from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE
 
 # `bind_public_actor`, never `bind_actor`: no browser sends `X-FL-Actor`, so that guard would refuse
@@ -362,5 +363,5 @@ async def post_registrierung(
 
     # The key lookup is the transaction's first read: a first press committed before this snapshot is
     # found, and one committed after it makes the insert a write conflict `with_transaction` retries.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(store_or_replay)

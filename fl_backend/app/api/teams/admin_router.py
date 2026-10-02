@@ -93,6 +93,7 @@ from app.core.security import (
     verify_actor_is_admin,
     verify_step_up,
 )
+from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.custom import CustomRouteObjectId
 
@@ -284,7 +285,7 @@ async def patch_team(
 
     # One transaction over every write here: a rename reaching some and not the rest leaves a season
     # disagreeing with itself. `with_transaction` is safe to retry, every write deriving from the payload.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(rename_and_fan_out)
 
 
@@ -333,7 +334,7 @@ async def delete_team(
 
     # The stamp inside the judgement's transaction: an entry writes nothing read here, so the club it
     # anchors (`app/api/teams/crud.py :: pull_a_club_to_enter`) is the one document the two conflict on.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         updated_raw = await session.with_transaction(retire_the_club)
 
     return FLTeamWriteResponse(updated_document=FLTeamRecord.model_validate(updated_raw))
@@ -430,7 +431,7 @@ async def post_saison_team(
         # One transaction over the entry and the season write inside `refuse_a_full_gruppe`, which is
         # what makes two entrants contend. `with_transaction` is safe to retry, the callback re-reading
         # everything it judges.
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             entered = await session.with_transaction(enter_the_club)
 
     return FLSaisonTeamResponse(
@@ -516,7 +517,7 @@ async def patch_saison_team(
     with dropping_the_saison_cache():
         # One transaction, because a group change makes two writes: this row and the season the group's
         # count is scoped by. `with_transaction` is safe to retry, the callback re-reading both.
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             existing_raw, updated_raw = await session.with_transaction(move_the_club)
 
     # `kontakte` below is the one field read off the AFTER image, no payload carrying the block.
@@ -603,7 +604,7 @@ async def patch_saison_team_kontakte(
 
     # `with_transaction`, not a bare `start_transaction`: the callback re-reads the block it judges,
     # so a retry after a write conflict refuses on what the winner left rather than on a stale read.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(rewrite_the_block)
 
 
@@ -742,7 +743,7 @@ async def replace_saison_team(
     # One transaction over every write: a row handed over while its fixtures are not leaves the
     # season fielding a club that holds no place in it. `with_transaction` is safe to retry, the
     # callback re-reading everything it judges on.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(hand_the_row_over)
 
 
@@ -826,7 +827,7 @@ async def post_einladung(
 
     # One transaction over the revoke and the mint: `uniq_einladung_live` refuses the second live row
     # outright, so the two landing apart would leave the mint failing against the team's own old link.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         einladung_id = await session.with_transaction(mint_the_link)
 
     return FLEinladungMintResponse(

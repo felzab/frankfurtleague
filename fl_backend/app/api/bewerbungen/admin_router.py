@@ -59,6 +59,7 @@ from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_K
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_step_up
+from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -229,7 +230,7 @@ async def annehmen_bewerbung(
     with dropping_the_saison_cache():
         # `with_transaction`, not a bare `start_transaction`: the callback re-reads everything it judges,
         # so a retry after a write conflict judges the season as it stands then rather than as it stood.
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             accepted = await session.with_transaction(accept_and_enter_the_school)
 
     return accepted
@@ -373,7 +374,7 @@ async def erneut_einwilligung(
 
             return matched
 
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             return await session.with_transaction(mint_unless_gesperrt)
 
     try:
@@ -478,7 +479,7 @@ async def korrigiere_kontakt_email(
 
     # A transaction where the re-send beside it takes none: this write moves an address as well as a
     # credential, so a decision landing mid-request must leave neither half standing.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(correct_and_mint)
 
 
@@ -574,5 +575,5 @@ async def besetze_kontakt_sitz(
 
     # A transaction for the correction's reason: this write seats a person as well as a credential,
     # so a decision landing mid-request must leave neither half standing.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(seat_and_mint)

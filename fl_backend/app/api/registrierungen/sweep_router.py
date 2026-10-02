@@ -41,7 +41,7 @@ from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_K
 from app.core.logging import fl_logger
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_system_actor, verify_access_system
-from app.core.transactions import drain, refuse_a_stalled_page
+from app.core.transactions import drain, refuse_a_stalled_page, transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_MAX
 
 # System tier and the system actor, as the application sweep's own router is: this pass holds no
@@ -348,7 +348,7 @@ async def sweep_registrierungen(
             while True:
                 # Accepted: this commit going unanswered erases a page and loses whom it owed a
                 # message (`docs/backend/spec.md :: "An unanswered last commit"`).
-                async with db.start_session() as session:
+                async with transaction_session(db) as session:
                     told, erased, redacted, last = await session.with_transaction(erase_the_undecided)
                 benachrichtigt.extend(told)
                 ohne_entscheidung += erased
@@ -360,7 +360,7 @@ async def sweep_registrierungen(
                 db=db, page_of=lambda session: session.with_transaction(erase_the_unconfirmed), page=SWEEP_PAGE
             )
 
-            async with db.start_session() as session:
+            async with transaction_session(db) as session:
                 erinnerungen, withheld = await session.with_transaction(remind)
 
             # After the commit, so a retried transaction writes no second line. A count and never an id:

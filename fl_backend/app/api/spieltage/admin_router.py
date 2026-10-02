@@ -34,6 +34,7 @@ from app.core.dependencies import DBClient, SaisonsCollection, SpieleCollection,
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
+from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -238,7 +239,7 @@ async def patch_spieltag(
         # One transaction over the span and the season write inside `_refuse_an_out_of_order_beginn`,
         # which is what makes two matchdays of one phase contend. `with_transaction` is safe to retry,
         # the callback re-reading its neighbours.
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             updated_raw, rules = await session.with_transaction(redate_the_matchday)
 
     return FLSpieltagWriteResponse(

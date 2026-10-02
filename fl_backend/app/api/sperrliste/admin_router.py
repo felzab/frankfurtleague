@@ -41,6 +41,7 @@ from app.core.dependencies import (
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, get_actor_email, verify_access_admin, verify_actor_is_admin, verify_step_up
+from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomRouteObjectId
@@ -187,7 +188,7 @@ async def post_sperrliste_eintrag(
     # Whatever field the anchor's own write moved: every season write drops the cache
     # (`docs/backend/spec.md :: I131`).
     with dropping_the_saison_cache():
-        async with db.start_session() as session:
+        async with transaction_session(db) as session:
             post_operation, gesperrt_bis_saison_id = await session.with_transaction(judge_and_ban)
 
     return FLPostSperrlisteResponse(
@@ -230,7 +231,7 @@ async def delete_sperrliste_eintrag(
 
         await delete_many_from_db(collection=sperrliste_collection, db_filter={"_id": sperrliste_id}, session=session)
 
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         await session.with_transaction(lift_the_ban)
 
     return FLSperrlisteWriteResponse(sperrliste_id=sperrliste_id)

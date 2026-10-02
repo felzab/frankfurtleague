@@ -1,18 +1,19 @@
 import ast
 import asyncio
+import enum
 import functools
 import logging
 import re
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from contextvars import ContextVar
-from typing import Any
+from typing import Any, NamedTuple
 
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI, Request
 from httpx2 import ASGITransport, AsyncClient, Response  # noqa: TID251
-from pymongo import ReturnDocument
+from pymongo import AsyncMongoClient, ReturnDocument
 from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 from pymongo.errors import (
@@ -47,6 +48,7 @@ from app.core.exception_handlers import (
 )
 from app.core.logging import fl_logger
 from app.core.middlewares import REQUEST_DEADLINE_S
+from app.core.transactions import ABORT_GRACE_S, transaction_session
 from app.main import STORES_NOTHING_EXTENSION, create_app
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
@@ -77,14 +79,18 @@ ADMIN_HEADERS = SignedActor("admin@frankfurtleague.de", ADMIN_KEY)
 DATABASE_NAME = worker_database("fl_request_deadline_test")
 
 # A `pymongo.timeout(None)` or `(0)` anywhere else LIFTS this deadline rather than adding one, so the
-# driver's deadline is spelled once, in the middleware.
+# driver's deadline is spelled at the middleware and at the abort past it, which runs in a context
+# the request's deadline does not reach.
 DEADLINE_SPELLING = "pymongo.timeout("
-REQUEST_DEADLINE = [("app/core/middlewares.py", "with pymongo.timeout(REQUEST_DEADLINE_S):")]
+DEADLINES = [
+    ("app/core/middlewares.py", "with pymongo.timeout(REQUEST_DEADLINE_S):"),
+    ("app/core/transactions.py", "with pymongo.timeout(budget):"),
+]
 
 
-class TestTheRequestDeadlineIsTheOnlyOne:
-    def test_the_application_sets_it_once_and_no_other(self):
-        """`docs/backend/spec.md :: I320`. The whole list rather than a count, so finding nothing fails as a second spelling does."""
+class TestTheDeadlinesTheApplicationSets:
+    def test_the_request_s_and_the_aborts_past_it_are_the_only_two(self):
+        """`docs/backend/spec.md :: I320`. The whole list rather than a count, so finding nothing fails as a third spelling does."""
 
         spelled = [
             (path.relative_to(BACKEND_ROOT).as_posix(), line.strip())
@@ -93,14 +99,17 @@ class TestTheRequestDeadlineIsTheOnlyOne:
             if DEADLINE_SPELLING in line
         ]
 
-        assert spelled == REQUEST_DEADLINE
+        assert spelled == DEADLINES
 
     def test_it_is_positive_and_ends_before_the_page_stops_waiting(self):
+        """The aborts' grace inside the margin the deadline leaves, since a request cut at its deadline answers only after them."""
+
         ceiling = FETCH_CEILING.search(FRONTEND_API.read_text(encoding="utf-8"))
         assert ceiling is not None, f"{FRONTEND_API} no longer declares `BASE_FETCH_TIMEOUT_MS` where `FETCH_CEILING` looks"
 
         # Positive, because pymongo reads a zero deadline as none at all.
         assert 0 < REQUEST_DEADLINE_S < int(ceiling[1]) / 1000
+        assert 0 < ABORT_GRACE_S < int(ceiling[1]) / 1000 - REQUEST_DEADLINE_S
 
 
 def _erasure_answered() -> tuple[Response, float]:
@@ -153,13 +162,42 @@ class TestAnUnreachableServerIsAnsweredWithinTheDeadline:
         assert elapsed < ANSWERED_WITHIN_S
 
 
-def _transacted(url: str, *, outlives: bool) -> tuple[int, str | None, int]:
-    """One transaction run by a route of the real app, so the deadline around it is the one the middleware sets.
+class _Cut(enum.Enum):
+    """Where the deadline falls on a transaction, each reaching the driver's commit or its abort."""
 
-    Answers the status, the error code and how many of the transaction's writes stand.
-    """
+    NOWHERE = "nowhere"
+    # The callback returns past the deadline, so the commit is what the deadline refuses.
+    AT_THE_COMMIT = "at the commit"
+    # The callback's own second write is refused, so the driver aborts rather than commits.
+    INSIDE_THE_CALLBACK = "inside the callback"
 
-    async def body() -> tuple[int, str | None, int]:
+
+class _Transacted(NamedTuple):
+    status: int
+    error_code: str | None
+    standing: int
+    # The server's own record of the route's session, read once the request is answered.
+    transactions_held: list[Mapping[str, Any]]
+
+
+async def _transactions_held(url: str, session_ids: list[Mapping[str, Any]]) -> list[Mapping[str, Any]]:
+    """Through a client of its own: the route's would hand this read the session it asks about, then listed as this read rather than idle."""
+
+    async with AsyncMongoClient(url, serverMonitoringMode="poll") as probe:
+        listed = await probe.admin.aggregate(
+            [
+                {"$currentOp": {"allUsers": True, "idleSessions": True}},
+                {"$match": {"lsid.id": {"$in": [session_id["id"] for session_id in session_ids]}, "transaction": {"$exists": True}}},
+                {"$project": {"type": 1, "transaction.parameters": 1}},
+            ]
+        )
+        return await listed.to_list()
+
+
+def _transacted(url: str, cut: _Cut) -> _Transacted:
+    """One transaction run by a route of the real app, so the deadline around it is the one the middleware sets."""
+
+    async def body() -> _Transacted:
         fresh = a_clean_database(url, DATABASE_NAME, constraints=False, collections=(Collection.AKTIONEN,))
         async with fresh as (client, database):
             written = database[Collection.AKTIONEN]
@@ -167,49 +205,51 @@ def _transacted(url: str, *, outlives: bool) -> tuple[int, str | None, int]:
             async def write_then_wait(session: AsyncClientSession) -> None:
                 # Through the helper every route writes through, which is what marks the request as having sent one.
                 await post_one_to_db(collection=written, document={"_id": ObjectId()}, session=session)
-                if outlives:
+                if cut is not _Cut.NOWHERE:
                     await asyncio.sleep(SHORT_DEADLINE_S * 2)
+                if cut is _Cut.INSIDE_THE_CALLBACK:
+                    await post_one_to_db(collection=written, document={"_id": ObjectId()}, session=session)
 
             sessions: list[Mapping[str, Any]] = []
 
             async def transacting() -> None:
-                async with client.start_session() as session:
+                async with transaction_session(client) as session:
                     sessions.append(session.session_id)
                     await session.with_transaction(write_then_wait)
 
             served = create_app(build_test_config())
             served.add_api_route("/transacting", transacting, methods=["POST"])
             transport = ASGITransport(app=served, raise_app_exceptions=False)
-            try:
-                async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                    response = await http.post("/transacting")
-            finally:
-                # The driver sends no abort once the deadline has passed, so the server keeps the
-                # transaction and its write until it reaps it a minute later; a later case dropping this
-                # database would wait that minute on it.
-                if sessions:
-                    # Never an empty list, which kills every session on the server, other workers' included.
-                    await client.admin.command("killSessions", sessions)
+            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+                response = await http.post("/transacting")
 
+            # Read before anything else runs through `client`, whose next call would take the route's session.
+            held = await _transactions_held(url, sessions)
             error_code = None if response.status_code == 200 else response.json()["error_code"]
-            return response.status_code, error_code, await written.count_documents({})
+            return _Transacted(response.status_code, error_code, await written.count_documents({}), held)
 
     return on_the_seed_loop(body())
 
 
 @pytest.mark.db
 class TestATransactionPastTheRequestDeadlineCommitsNothing:
-    def test_a_callback_outliving_the_deadline_leaves_no_write(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch):
+    @pytest.mark.parametrize("cut", [_Cut.AT_THE_COMMIT, _Cut.INSIDE_THE_CALLBACK], ids=lambda cut: cut.value)
+    def test_a_callback_outliving_the_deadline_leaves_no_write(self, mongo_replica_set_url: str, monkeypatch: pytest.MonkeyPatch, cut: _Cut):
         """Unknown though nothing stands: the answer errs toward unknown on a write the deadline cut, its commit sent or not."""
 
         monkeypatch.setattr(middlewares, "REQUEST_DEADLINE_S", SHORT_DEADLINE_S)
 
-        assert _transacted(mongo_replica_set_url, outlives=True) == (500, UNKNOWN_OUTCOME, 0)
+        transacted = _transacted(mongo_replica_set_url, cut)
+
+        assert (transacted.status, transacted.error_code, transacted.standing) == (500, UNKNOWN_OUTCOME, 0)
+        # Nothing standing is not nothing held: an open transaction keeps its write from every reader
+        # and from every rival writer, until MongoDB's lifetime limit aborts it a minute on.
+        assert transacted.transactions_held == []
 
     def test_the_same_write_inside_the_deadline_commits(self, mongo_replica_set_url: str):
         """The control, under the shipped deadline: without it, a write that never landed at all would pass the case above."""
 
-        assert _transacted(mongo_replica_set_url, outlives=False) == (200, None, 1)
+        assert _transacted(mongo_replica_set_url, _Cut.NOWHERE) == (200, None, 1, [])
 
 
 # Named in the order the send walks them, which is by name: the stall falls on the middle team, so

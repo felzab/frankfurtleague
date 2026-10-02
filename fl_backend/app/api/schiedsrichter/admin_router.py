@@ -76,6 +76,7 @@ from app.core.security import (
     verify_step_up,
 )
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
+from app.core.transactions import transaction_session
 from app.shared.schemas.custom import CustomRouteObjectId
 
 router = APIRouter(
@@ -139,7 +140,7 @@ async def post_schiedsrichter(
 
     # ONE transaction over the judgement and the insert: a row written outside it would stand with a
     # live link an administrator was then told had been refused.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         post_operation = await session.with_transaction(judge_and_create)
 
     return FLPostSchiedsrichterResponse(
@@ -239,7 +240,7 @@ async def patch_schiedsrichter(
     # One transaction: a rename landing on the referee and not on their fixtures is the stale copy
     # the fan-out exists to prevent. Every write derives from the payload and an in-session read,
     # so a `with_transaction` retry is safe.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         answer, re_minted = await session.with_transaction(rename_and_fan_out)
 
     if re_minted:
@@ -297,7 +298,7 @@ async def delete_schiedsrichter(
     # The stamp inside the judgement's transaction, so a booking committing after the read of the
     # fixtures conflicts on the referee it anchors rather than landing unseen
     # (`app/api/spiele/crud.py :: anchor_a_booked_referee`).
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         updated_document_raw = await session.with_transaction(retire_the_referee)
 
     return FLSchiedsrichterWriteResponse(updated_document=FLSchiedsrichter(**updated_document_raw))
@@ -366,7 +367,7 @@ async def reactivate_schiedsrichter(
         return updated, email
 
     # One transaction, so a row never comes back with the link it was owed unminted.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         updated_document_raw, gemintet_fuer = await session.with_transaction(reactivate_and_ask)
 
     return FLSchiedsrichterReactivateResponse(
@@ -452,7 +453,7 @@ async def einladen_schiedsrichter(
 
     # The address ANSWERED is the one read in-session above, never one the caller read before this
     # request: a save moving it in between would otherwise send the link to the previous mailbox.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         gemintet_fuer = await session.with_transaction(judge_and_mint)
 
     return FLSchiedsrichterMintResponse(
@@ -555,7 +556,7 @@ async def anonymise_schiedsrichter(
     # ONE transaction over all of it (`docs/backend/spec.md :: I42`): a referee deleted while a
     # fixture still names them strands that fixture, and one deleted while the log still holds their
     # details reports an erasure that did not happen.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         # `with_transaction` over a bare one -- the callback derives every write from the path id,
         # so a retry is safe.
         return await session.with_transaction(erase_the_referee)

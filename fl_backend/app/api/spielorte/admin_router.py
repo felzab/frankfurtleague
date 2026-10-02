@@ -20,6 +20,7 @@ from app.core.dependencies import DBClient, SpieleCollection, SpielorteCollectio
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
+from app.core.transactions import transaction_session
 from app.shared.schemas.addresses import FLAddress
 from app.shared.schemas.custom import CustomRouteObjectId
 
@@ -99,7 +100,7 @@ async def patch_spielort(
     # One transaction: a rename landing on the venue and not on its fixtures is the stale copy the
     # fan-out exists to prevent. `with_transaction` over a bare `start_transaction` -- the callback
     # derives both writes from the payload, so a retry is safe.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(rename_and_fan_out)
 
 
@@ -139,7 +140,7 @@ async def delete_spielort(
     # The stamp inside the judgement's transaction, so a booking committing after the read above
     # conflicts on the venue it anchors rather than landing unseen
     # (`app/api/spiele/crud.py :: anchor_a_booked_venue`).
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         updated_document_raw = await session.with_transaction(retire_the_venue)
 
     return FLSpielortWriteResponse(updated_document=FLSpielort(**updated_document_raw))

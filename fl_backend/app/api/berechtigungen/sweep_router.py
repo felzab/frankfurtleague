@@ -42,6 +42,7 @@ from app.core.dependencies import (
 )
 from app.core.exception_handlers import DUPLICATE_KEY_RESPONSE
 from app.core.security import bind_system_actor, verify_access_system
+from app.core.transactions import transaction_session
 
 # System tier and the system actor, as the application sweep's own router is: the pass holds no
 # session, and an out-of-band change has no administrator to attribute its rows to.
@@ -173,7 +174,7 @@ async def post_berechtigungen_abgleich(
 
         return answered, recipients, len(grants) - len(live), token
 
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         answered, recipients, uebersprungen, token = await session.with_transaction(queue_and_claim)
 
     return FLBerechtigungAbgleichResponse(
@@ -248,7 +249,7 @@ async def post_berechtigungen_angekuendigt(
 
         return removed.deleted_count
 
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         angekuendigt = await session.with_transaction(stamp)
 
     return FLBerechtigungAngekuendigtResponse(angekuendigt=angekuendigt, ignoriert=len(ids) - angekuendigt)

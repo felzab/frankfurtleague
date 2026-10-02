@@ -48,6 +48,7 @@ from app.core.dependencies import (
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_public_actor, verify_access_base
+from app.core.transactions import transaction_session
 
 # A THIRD router on the prefix, beside the admin one and the public create: the token is the whole
 # credential, as a sign-in code is, so both endpoints are base-tier and bound to the public actor
@@ -275,5 +276,5 @@ async def post_einwilligung(
             ansprechperson_rollen=abgelehnt_rollen,
         )
 
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(answer_for_the_person)

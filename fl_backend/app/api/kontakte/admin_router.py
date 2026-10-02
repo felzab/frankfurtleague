@@ -29,6 +29,7 @@ from app.core.dependencies import AktionenCollection, BewerbungenCollection, DBC
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE, stores_nothing
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin, verify_step_up
+from app.core.transactions import transaction_session
 from app.shared.folding import sign_in_identifier
 
 router = APIRouter(
@@ -192,5 +193,5 @@ async def erase_kontaktperson(
     # ONE transaction over all of it (`docs/backend/spec.md :: I42`): rows cleared while the log
     # still holds the block reports an erasure that did not happen, and clearing one collection
     # without the other answers the request in name only.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(clear_the_person_and_their_record)

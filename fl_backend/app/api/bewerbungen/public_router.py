@@ -56,6 +56,7 @@ from app.core.dependencies import (
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.security import bind_public_actor, verify_access_base
+from app.core.transactions import transaction_session
 
 # Base-tier at a prefix whose other two routers are admin: a member of the public applies here, and
 # nothing served below reaches a stored application (`READ-BEWERBUNG-001`).
@@ -477,5 +478,5 @@ async def post_bewerbung(
 
     # The key lookup is the transaction's first read: a first press committed before this snapshot is
     # found, and one committed after it makes the insert a write conflict `with_transaction` retries.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(store_or_replay)

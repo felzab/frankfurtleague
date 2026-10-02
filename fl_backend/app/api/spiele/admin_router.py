@@ -77,6 +77,7 @@ from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_K
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException
 from app.core.routing import by_id
 from app.core.security import bind_actor, verify_access_admin, verify_actor_is_admin
+from app.core.transactions import transaction_session
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 from app.shared.schemas.custom import CustomObjectId, CustomRouteObjectId
 
@@ -466,7 +467,7 @@ async def _write_spiel_data(
     # `with_transaction` rather than a bare `start_transaction`: two saves in one season can
     # write-conflict on the same advanced fixture, and the callback is safe to retry, every pass
     # re-reading what it judges.
-    async with db.start_session() as session:
+    async with transaction_session(db) as session:
         return await session.with_transaction(write_and_resolve_the_bracket)
 
 

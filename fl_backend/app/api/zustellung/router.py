@@ -22,6 +22,7 @@ from app.core.crud import patch_one_in_db, pull_one_from_db
 from app.core.dependencies import DB, DBClient
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
 from app.core.security import bind_system_actor, verify_access_system
+from app.core.transactions import transaction_session
 
 # Beside the application's own delivery router rather than replacing it: moving that one would
 # rewrite its tests for no behaviour. System tier and the system actor because no session stands
@@ -70,7 +71,7 @@ async def _apply(
 
         return True
 
-    async with db_client.start_session() as session:
+    async with transaction_session(db_client) as session:
         return FLZustellungResponse(angewendet=await session.with_transaction(write_the_state))
 
 
