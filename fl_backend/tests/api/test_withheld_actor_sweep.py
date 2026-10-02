@@ -23,6 +23,7 @@ from pymongo import MongoClient
 from app.api.einladungen.services import compose_einladung
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
+from app.core.exception_handlers import STORES_NOTHING_WHEN, stores_nothing
 from app.core.security import verify_access_admin
 from app.main import create_app
 from tests.actor_tokens import SignedActor
@@ -53,13 +54,22 @@ AKTION_OID = ObjectId("6890a1b2c3d4e5f607510002")
 REGISTRIERUNG_OID = ObjectId("6890a1b2c3d4e5f607510003")
 BEWERBUNG_OID = ObjectId(bewerbung_document(1)["_id"])
 
+
+def _serves_a_read(route: APIRoute) -> bool:
+    """By what it serves rather than its method: a read over POST declares it stores nothing (`docs/backend/spec.md :: I327`)."""
+
+    calls = {dependency.call for dependency in route.dependant.dependencies}
+
+    return "GET" in (route.methods or ()) or stores_nothing in calls or bool(calls & STORES_NOTHING_WHEN.keys())
+
+
 # The mounted spelling, convertors included, and never a list: a read added later is swept without an edit here.
 ADMIN_READS = sorted(
     route.path
     for route in api_routes(create_app(build_test_config()))
     if isinstance(route, APIRoute)
     and route.include_in_schema
-    and "GET" in (route.methods or ())
+    and _serves_a_read(route)
     and verify_access_admin in {dependency.call for dependency in route.dependant.dependencies}
 )
 
@@ -79,12 +89,14 @@ _PERSON_RECORDS = "a person's own record, whose address a ban withholds nowhere:
 
 # Each read no answer of which names an administrator, and what it serves instead.
 NAMES_NO_ADMINISTRATOR: dict[str, str] = {
+    "/api/v0/kontakte/erasure/ansicht": "the seats an erasure would clear, by name and season and with no address",
     "/api/v0/saisons/list/admin": "seasons and their rules",
     "/api/v0/saisons/{saison_id}/einladungen/versand/vorschau": f"the teams a mailing would reach, their seats being {_PERSON_RECORDS}",
     "/api/v0/schiedsrichter": f"referees, {_PERSON_RECORDS}",
     "/api/v0/schiedsrichter/{schiedsrichter_id:objectid}": f"one referee, {_PERSON_RECORDS}",
     "/api/v0/spiele/action_required": "fixtures",
     "/api/v0/spiele/list/admin": "fixtures",
+    "/api/v0/spiele/{spiel_id:objectid}": "a save's dry run, which reports the fixtures it would move",
     "/api/v0/spiele/{spiel_id:objectid}/admin": "one fixture",
     "/api/v0/spieler/memberships": f"players and their squad rows, {_PERSON_RECORDS}",
     "/api/v0/spieler/nachnominierung/{saison_id}": "a season's late-entry window",
