@@ -172,7 +172,7 @@ function inExportedAction(node: ts.Node): boolean {
 }
 
 /** One module's reach into the slices' requests: every request it names, and every way it names one that `read` would miss. */
-type Reach = { readonly referenced: readonly string[]; readonly unread: readonly string[] };
+type Reach = { readonly referenced: readonly string[]; readonly unread: readonly string[]; readonly reexportedWhole: readonly string[] };
 
 /**
  * Every request `source` names as `slice :: export`, found by a walk of its own rather than by the
@@ -181,7 +181,23 @@ type Reach = { readonly referenced: readonly string[]; readonly unread: readonly
 function reachOf(source: ts.SourceFile, ownSlice: string, read: (call: ts.Node) => boolean): Reach {
   const bindings = new Map<string, string>();
   const unread: string[] = [];
+  const referenced = new Set<string>();
+  const reexportedWhole: string[] = [];
   for (const statement of source.statements) {
+    // A re-export hands a request to every importer of this module, none of which the reader follows.
+    if (ts.isExportDeclaration(statement) && statement.moduleSpecifier !== undefined && ts.isStringLiteral(statement.moduleSpecifier)) {
+      const specifier = statement.moduleSpecifier.text;
+      if (!ANY_MUTATIONS_MODULE.test(specifier) || statement.isTypeOnly) continue;
+      const clause = statement.exportClause;
+      if (clause === undefined || !ts.isNamedExports(clause)) reexportedWhole.push(specifier);
+      for (const element of clause !== undefined && ts.isNamedExports(clause) ? clause.elements : []) {
+        if (element.isTypeOnly) continue;
+        const request = `${sliceNamed(specifier, ownSlice)} :: ${(element.propertyName ?? element.name).text}`;
+        referenced.add(request);
+        unread.push(`${request} re-exported, where the reader reads no call of it`);
+      }
+      continue;
+    }
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
     const specifier = statement.moduleSpecifier.text;
     const clause = statement.importClause;
@@ -198,9 +214,8 @@ function reachOf(source: ts.SourceFile, ownSlice: string, read: (call: ts.Node) 
     }
   }
 
-  const referenced = new Set<string>();
   const visit = (node: ts.Node): void => {
-    if (ts.isImportDeclaration(node)) return;
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) return;
     const request = ts.isIdentifier(node) && namesTheBinding(node) ? bindings.get(node.text) : undefined;
     if (request !== undefined) {
       referenced.add(request);
@@ -211,7 +226,11 @@ function reachOf(source: ts.SourceFile, ownSlice: string, read: (call: ts.Node) 
   };
   visit(source);
 
-  return { referenced: [...referenced], unread };
+  return {
+    referenced: [...referenced],
+    unread: [...unread, ...reexportedWhole.map((specifier) => `${specifier} re-exported whole`)],
+    reexportedWhole,
+  };
 }
 
 const SOURCE_ROOT = path.resolve(import.meta.dirname, "..", "..");
@@ -233,19 +252,24 @@ const REPLAY_REACH = [...UNDO_ROUTE_SOURCES].map(([slice, source]) => ({
 }));
 
 /**
- * Every other module naming a step-up write's request: a helper an action calls is read by nobody,
- * so the write it sends would reach the backend through a door no listing above names.
+ * Each step-up write's request a module the reader skips names, and each mutations module it re-exports
+ * whole: an action calling that module sends the write through a door no listing above names.
  */
+export function helperReachOf(source: ts.SourceFile, slice: string): string[] {
+  const { referenced, reexportedWhole } = reachOf(source, slice, () => false);
+  return [
+    ...referenced.filter((request) => STEP_UP_REQUESTS.has(request)).map((request) => `${request}, a step-up write's request`),
+    ...reexportedWhole.map((specifier) => `${specifier} re-exported whole`),
+  ];
+}
+
 const HELPER_SENDS = filesUnder(SOURCE_ROOT, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 500).flatMap((file) => {
   if ([...ACTION_REACH, ...REPLAY_REACH].some((read) => read.file === file)) return [];
   const text = readFileSync(file, "utf8");
   if (!text.includes("mutations")) return [];
 
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
-  const { referenced } = reachOf(source, path.basename(path.dirname(file)), () => false);
-  return referenced
-    .filter((request) => STEP_UP_REQUESTS.has(request))
-    .map((request) => `${relative(file)}: ${request}, a step-up write's request`);
+  return helperReachOf(source, path.basename(path.dirname(file))).map((why) => `${relative(file)}: ${why}`);
 });
 
 /**

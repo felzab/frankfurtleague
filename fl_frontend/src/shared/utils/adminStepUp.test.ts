@@ -15,6 +15,7 @@ import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import {
   actionReachOf,
   CONDITIONALLY_STEPPED_UP,
+  helperReachOf,
   REQUESTS_NAMED,
   STEP_UP_CALLERS,
   STEP_UP_REQUESTS,
@@ -200,6 +201,7 @@ describe("an administrator write the server holds to the step-up window", () => 
       {
         referenced: ["teams :: postSaisonTeam"],
         unread: UNREAD,
+        reexportedWhole: [],
       },
     );
     assert.deepEqual(reachOf("export async function a(p: never): ReturnType<typeof postSaisonTeam> { return postSaisonTeam(p); }").unread, []);
@@ -220,6 +222,25 @@ describe("an administrator write the server holds to the step-up window", () => 
       imported('import { postSaisonTeam } from "../teams/mutations.ts";\nexport async function a(p: never) { return postSaisonTeam(p); }'),
       ["../teams/mutations.ts, a specifier the reader does not take"],
     );
+  });
+
+  /* A re-export hands the request to whoever imports this module, which the reader follows no further:
+     the planted escape was a `queries.ts` re-exporting a step-up write's request to an undeclared action. */
+  it("refuses a request re-exported from a mutations module, by name or whole, and no type", () => {
+    const sourceOf = (file: string, line: string) => ts.createSourceFile(file, line, ts.ScriptTarget.Latest, true);
+    const inActions = (line: string) => actionReachOf(sourceOf("actions.ts", line), "teams").unread;
+
+    assert.deepEqual(inActions('export { postSaisonTeam as send } from "./mutations";'), [
+      "teams :: postSaisonTeam re-exported, where the reader reads no call of it",
+    ]);
+    assert.deepEqual(inActions('export * from "./mutations";'), ["./mutations re-exported whole"]);
+    assert.deepEqual(inActions('export type { FLSaisonTeam } from "./mutations";'), []);
+
+    const inQueries = (line: string) => helperReachOf(sourceOf("queries.ts", line), "teams");
+    assert.deepEqual(inQueries('export { postSaisonTeam as plantedSend } from "./mutations";'), [
+      "teams :: postSaisonTeam, a step-up write's request",
+    ]);
+    assert.deepEqual(inQueries('export * as requests from "@/features/teams/mutations";'), ["@/features/teams/mutations re-exported whole"]);
   });
 
   /* Each export called, never its source read: an action that dropped its declaration validates the

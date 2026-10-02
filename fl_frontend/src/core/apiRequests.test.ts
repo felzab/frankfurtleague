@@ -482,6 +482,21 @@ describe("the reader sees every call site", () => {
     assert.deepEqual(unreadable, [], `These calls could not be read statically, so nothing compares them:\n  ${unreadable.join("\n  ")}`);
   });
 
+  /* The step-up sweep (`fl_frontend/src/shared/testing/stepUpWrites.ts`) reads a write's request off a
+     slice's mutations module alone: a write sent from anywhere else reaches the backend with no listing
+     naming whether it steps up (`docs/frontend/spec.md :: I432`). */
+  it("sends every write from a slice's mutations module", () => {
+    const writes = calls.filter((call) => call.method !== "GET" && !call.readOnly);
+    const strays = writes.filter((call) => !/^features\/\w+\/mutations\.ts:\d+$/.test(call.where)).map((call) => call.where);
+
+    assert.ok(writes.length > strays.length, "the reader found no write in any mutations module, so the case below proves nothing");
+    assert.deepEqual(
+      strays,
+      [],
+      `These writes are sent outside a mutations module, where the step-up sweep reads none:\n  ${strays.join("\n  ")}`,
+    );
+  });
+
   it("finds a call in every queries and mutations module", () => {
     const yields = (file: string): boolean => calls.some((call) => call.where.startsWith(`${file}:`));
     const silent = expectedCallerFiles.map(asPosix).filter((file) => !yields(file) && !(file in DELEGATING_CALLERS));
