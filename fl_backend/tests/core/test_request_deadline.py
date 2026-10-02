@@ -170,15 +170,26 @@ def _transacted(url: str, *, outlives: bool) -> tuple[int, str | None, int]:
                 if outlives:
                     await asyncio.sleep(SHORT_DEADLINE_S * 2)
 
+            sessions: list[Mapping[str, Any]] = []
+
             async def transacting() -> None:
                 async with client.start_session() as session:
+                    sessions.append(session.session_id)
                     await session.with_transaction(write_then_wait)
 
             served = create_app(build_test_config())
             served.add_api_route("/transacting", transacting, methods=["POST"])
             transport = ASGITransport(app=served, raise_app_exceptions=False)
-            async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
-                response = await http.post("/transacting")
+            try:
+                async with AsyncClient(transport=transport, base_url=TEST_BASE_URL) as http:
+                    response = await http.post("/transacting")
+            finally:
+                # The driver sends no abort once the deadline has passed, so the server keeps the
+                # transaction and its write until it reaps it a minute later; a later case dropping this
+                # database would wait that minute on it.
+                if sessions:
+                    # Never an empty list, which kills every session on the server, other workers' included.
+                    await client.admin.command("killSessions", sessions)
 
             error_code = None if response.status_code == 200 else response.json()["error_code"]
             return response.status_code, error_code, await written.count_documents({})
