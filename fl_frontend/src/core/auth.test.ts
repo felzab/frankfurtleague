@@ -899,13 +899,19 @@ describe("why the admin guard refused", () => {
 describe("a passkey session made before its grant", () => {
   afterEach(() => BACKENDS.delete(ADMIN_EMAIL));
 
-  async function aPasskeySessionGranted(grantedAfterMs: number | null): Promise<void> {
+  async function aPasskeySessionGranted(
+    grantedAfterMs: number | null,
+    { onASecond = false } = {},
+  ): Promise<{ created: Date; granted: string | null }> {
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
     ageRow(row, { created: HOUR_MS });
+    if (onASecond) row.createdAt = new Date(Math.floor(row.createdAt.getTime() / 1000) * 1000);
     const berechtigtSeit = grantedAfterMs === null ? null : new Date(row.createdAt.getTime() + grantedAfterMs).toISOString();
     BACKENDS.set(ADMIN_EMAIL, { ...A_GRANT, berechtigt_seit: berechtigtSeit });
     arriveAs(cookie);
+
+    return { created: row.createdAt, granted: berechtigtSeit };
   }
 
   it("administers on no lane, and is told to sign in", async () => {
@@ -923,6 +929,23 @@ describe("a passkey session made before its grant", () => {
     assert.ok(await getAdminSession(), "the control was refused, so the case above proves nothing");
     assert.ok(await getKontoSession());
     assert.equal(await getSignInDestination(), "/bereich");
+  });
+
+  it("is judged to the millisecond: refused a millisecond before its grant, admitted at it", async () => {
+    await aPasskeySessionGranted(1);
+    assert.equal(await getAdminSession(), null, "a session a millisecond older than its grant administered");
+
+    await aPasskeySessionGranted(0);
+    assert.ok(await getAdminSession(), "a session made at the instant of its grant was refused");
+  });
+
+  /* Stricter than the backend, never looser: `fl_backend/app/core/security.py :: verify_actor_is_admin`
+     compares whole seconds and admits the same row, so the page refuses what a request would be served. */
+  it("is refused inside the second its grant falls in, which the backend's whole seconds admit", async () => {
+    const { created, granted } = await aPasskeySessionGranted(999, { onASecond: true });
+
+    assert.equal(Math.floor(created.getTime() / 1000), Math.floor(new Date(String(granted)).getTime() / 1000));
+    assert.equal(await getAdminSession(), null);
   });
 
   /* The backend dates every grant; one answered with none is a contract the two services broke, which
