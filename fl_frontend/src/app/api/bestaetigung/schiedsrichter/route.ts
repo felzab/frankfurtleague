@@ -11,8 +11,8 @@ import { ANTWORT_NEU_OEFFNEN } from "@/shared/utils/reopenLink";
 
 import type { NextRequest } from "next/server";
 
-// Never resolved in front of the mapper: this read answers no floor for the three states that ARE
-// the answer, so a caller asking first gives up on them.
+// Never resolved in front of the mapper: this read answers no floor for the states that ARE the
+// answer, so a caller asking first gives up on them.
 /**
  * The floor this link's own read answered, for the one refusal that names a number. A failed read
  * leaves that refusal unworded rather than guessing a floor.

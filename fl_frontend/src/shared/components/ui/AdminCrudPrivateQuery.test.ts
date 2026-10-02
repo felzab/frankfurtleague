@@ -85,8 +85,8 @@ describe("the query a page holds rather than writing", () => {
     assert.equal(rowsIn(container), 0, "the typed query never reached the list, so the two halves are joined by nothing");
   });
 
-  /* The control the case above needs, and the neighbours' own behaviour: eight routes narrow through
-     `?q=`, where back and forward are what the reader expects to work. */
+  /* The control the case above needs, and the neighbours' own behaviour: every other route narrows
+     through `?q=`, where back and forward are what the reader expects to work. */
   it("still reaches the URL on a page that asks for none", async () => {
     const user = userEvent.setup();
     const { seen, container } = mount(false);

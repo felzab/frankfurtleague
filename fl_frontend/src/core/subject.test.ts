@@ -117,7 +117,7 @@ after(() => {
   globalThis.fetch = ORIGINAL_FETCH;
 });
 
-/** The two modules whose `cache` this suite counts through, each built as Next renders it. */
+/** The modules whose `cache` this suite counts through, each built as Next renders it. */
 const MEMOIZED = ["/src/core/subject.ts", "/src/core/signInGate.ts", "/src/core/auth.ts"];
 
 // The server build for these alone: the client build's `cache` passes through, so a guard or a

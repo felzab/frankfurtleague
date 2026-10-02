@@ -41,8 +41,8 @@ export type FLEinladungMailPayload = z.infer<typeof FLEinladungMailPayloadSchema
  */
 export const FLEinladungVersandSchema = z.object({
   // Nullable and never optional: the mint writes the carrier EMPTY, but FastAPI serialises the
-  // default, so the key rides on every invitation with `null` in it. The three sibling mirrors of
-  // this same backend model spell it the same way.
+  // default, so the key rides on every invitation with `null` in it. Its sibling mirrors of this
+  // same backend model spell it the same way.
   zustellung: FLBewerbungZustellungSchema.nullable(),
 });
 export type FLEinladungVersand = z.infer<typeof FLEinladungVersandSchema>;

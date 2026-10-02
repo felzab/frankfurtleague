@@ -77,7 +77,7 @@ registerDoubles({ modules: PAGE_DOUBLES });
 const { default: AdminSpielerEditPage } = await import("@/app/bereich/admin/spieler/[spieler_id]/page.tsx");
 const { default: AdminSpielerPage } = await import("@/app/bereich/admin/spieler/page.tsx");
 
-/** A tree under all three contexts, on the season the sidemenu names. */
+/** A tree under every context `next/navigation` reads, on the season the sidemenu names. */
 const underSaison = (tree: ReactNode, router = recordingRouter().router): ReactNode =>
   underNext(tree, { router, search: `saison_id=${SAISON_ID}` });
 

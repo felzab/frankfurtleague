@@ -147,8 +147,8 @@ export type FLBewerbungBestaetigungen = z.infer<typeof FLBewerbungBestaetigungen
 
 /**
  * Mirrors `FLBewerbung` — one school's application to play one season, as it is stored. What the
- * school typed stands, bar four fields: `status`, `entscheidung` and `team_id` through the triage,
- * and a contact seat's `email` through the correction beside the re-send.
+ * school typed stands, bar the triage's `status`, `entscheidung` and `team_id`, the correction's seat
+ * `email`, and a seat its holder emptied, which a replacement fills.
  */
 export const FLBewerbungSchema = z.object({
   id: CustomObjectIdStringSchema,
@@ -987,7 +987,7 @@ export const FLBewerbungSweepLoeschungSchema = z.object({
 });
 export type FLBewerbungSweepLoeschung = z.infer<typeof FLBewerbungSweepLoeschungSchema>;
 
-/** One season's pass: the reminders already stamped, the deletions still to notify, and the four silent clocks' counts. */
+/** One season's pass: the reminders already stamped, the deletions still to notify, and each silent clock's count. */
 export const FLBewerbungSweepResponseSchema = BaseAPIResponseSchema.extend({
   saison_id: z.string(),
   erinnerungen: z.array(FLBewerbungSweepErinnerungSchema),

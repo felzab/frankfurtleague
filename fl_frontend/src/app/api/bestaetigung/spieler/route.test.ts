@@ -88,7 +88,7 @@ function antwortFuer(endpoint: string): unknown {
 const bodyOf = async (request: Parameters<typeof POST>[0]): Promise<Record<string, unknown>> =>
   (await POST(request)) as unknown as Record<string, unknown>;
 
-/** How many times the link's own view was opened; three of the four refusals owe it nothing. */
+/** How many times the link's own view was opened, which every refusal but the age refusal owes nothing. */
 const ansichten = () => calls.filter((call) => call.endpoint === "/registrierungen/bestaetigung/ansicht").length;
 
 beforeEach(() => {

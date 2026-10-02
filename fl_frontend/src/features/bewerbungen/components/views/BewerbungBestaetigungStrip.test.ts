@@ -22,7 +22,7 @@ import type { FLBewerbung } from "@/features/bewerbungen/schemas.ts";
 
 type Answer = { success: boolean; message?: string; error?: string; verschickt?: boolean };
 
-/** The strip's two writes, replaced at the module boundary: a real one needs a session and a backend. */
+/** The strip's writes, replaced at the module boundary: a real one needs a session and a backend. */
 const { calls, answerWith, answerPending } = doubleActions({
   modules: ["/src/features/bewerbungen/actions.ts"],
   answer: () => new Promise(() => undefined),

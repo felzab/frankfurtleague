@@ -50,7 +50,7 @@ export function AdminCrudShell({
           it animates inherits to `children`. */}
       <div className="mx-auto flex w-full max-w-page animate-admin-placeholder-hold flex-col gap-8">
         {/* Mounted only where a page asks for it: the provider renders no element, but it is a client
-            island, and eight routes have no use for one. */}
+            island, and every other route has no use for one. */}
         {privateQuery ? <AdminCrudPrivateQuery>{column}</AdminCrudPrivateQuery> : column}
       </div>
     </div>

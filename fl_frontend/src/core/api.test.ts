@@ -6,7 +6,7 @@ import { z } from "zod";
 import { registerDoubles } from "./exportingModule.ts";
 import { documentsWrittenByAsync } from "./stdoutCapture.ts";
 
-// Replaced at the module boundary: the real config reads three credentials no test run holds, and
+// Replaced at the module boundary: the real config reads credentials no test run holds, and
 // the client composes its base URL from `API_URL` at import.
 const CONFIG_DOUBLE = {
   frontend_config: {

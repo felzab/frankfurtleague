@@ -433,7 +433,7 @@ describe("buildSpieltagBound", () => {
 });
 
 describe("the German the two windows share", () => {
-  /* One sentence behind six call sites, so the panels and the two refusals cannot come to name
+  /* One sentence behind every call site, so the panels and the two refusals cannot come to name
      different categories. Both articles are checked: German inflects the list, not just joins it. */
   it("names every category the endpoint counts, in both articles", () => {
     for (const [none, any] of [

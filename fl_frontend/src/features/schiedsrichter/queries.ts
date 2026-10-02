@@ -72,7 +72,7 @@ export type SchiedsrichterBestaetigungRefusal = {
 };
 
 // A thunk, never a number: the floor is read for the age arm alone, and a caller resolving it first
-// answers the three arms that SPEND the link out of a second read, which finds nothing to read.
+// answers every arm naming the link's state out of a second read, which finds nothing to read.
 /**
  * `null` where the code is none of these. The floor comes from the token's own read: a number of
  * this mapper's own would be a second copy of one the endpoint alone decides.

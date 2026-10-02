@@ -130,7 +130,7 @@ function StandAbsatz({ schluessel, werte }: { schluessel: Schluessel; werte: Slo
 
 /**
  * Rendered in the order a reader meets it rather than the legal draft's order: the media paragraph
- * sits at its switch and the four points at the button. **One column**, as the contact page keeps.
+ * sits at its switch and the points at the button. **One column**, as the contact page keeps.
  */
 function SchiedsrichterHinweise({ werte }: { werte: Slots }) {
   return (

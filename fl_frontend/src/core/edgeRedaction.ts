@@ -12,7 +12,7 @@ function armAlternations(arms: string): string[][] {
     .map((line) => [...line.matchAll(/\(([a-z]+(?:\|[a-z]+)+)\)/g)].flatMap((treffer) => (treffer[1] ?? "").split("|")));
 }
 
-// In `core` rather than `shared/testing`: three of the five callers are `core`'s own tests, and
+// In `core` rather than `shared/testing`: `core`'s own tests call it, and
 // `eslint.config.mjs :: LAYER_BOUNDARY` lets nothing there reach `shared`. It reads the tree off
 // disk, so `:: TEST_ONLY` keeps production code out.
 

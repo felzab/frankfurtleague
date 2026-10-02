@@ -1,6 +1,6 @@
 /**
- * The words a contact person is shown, and the label a record stamps to name them. In `core` because
- * the two public forms render them and the admin editor stamps the label: a copy per surface can drift.
+ * The words a person is shown, and the label a record stamps to name them. In `core` because the
+ * public pages render them and the admin surfaces stamp and read the label: a copy per surface can drift.
  */
 export type EinwilligungFassung = {
   readonly absaetze: readonly string[];

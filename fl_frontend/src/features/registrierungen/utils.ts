@@ -128,9 +128,8 @@ export function abgewiesenerVersand(): { error?: string; fieldErrors?: FieldErro
 /** What one refused confirmation asks its caller to do. */
 export type BestaetigungRefusal = { error?: string; fieldErrors?: FieldErrors; unplacedError?: string; zustand?: SpielerLinkZustand };
 
-// A THUNK and never a resolved number: three of the four codes below are link states, and a
-// caller reading the floor in front of the switch spends a second backend read on every one of
-// them.
+// A THUNK and never a resolved number: every code below but the age refusal is a link state, and a
+// caller reading the floor in front of the switch spends a second backend read on each of them.
 /**
  * A confirmation refusal as what the page should show, or `null` where the code is none of these.
  *

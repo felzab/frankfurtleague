@@ -388,7 +388,7 @@ export function buildBewerbungAbsageEmail({ teamName, saisonId, origin, rollenTe
       { label: "Entscheidung", value: "Absage" },
       { label: "Team", value: team },
       { label: "Saison", value: saisonId, akzent: true },
-      // In the same place as in the other two, and identification rather than a verdict: it says why
+      // Last of the facts, as on the acceptance, and identification rather than a verdict: it says why
       // the message reached this reader, and never what they were down for.
       { label: "Eingetragen als", value: rollenText },
       // Unabridged and last, where the panel can give it the full width: it is the one thing the

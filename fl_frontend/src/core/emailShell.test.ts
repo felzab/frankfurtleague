@@ -216,14 +216,14 @@ describe("the shared email shell", () => {
   /* Both directions, so neither side can be satisfied by the other shrinking: a builder with no
      fixture fails here rather than dropping out of every sweep, and a stale fixture fails too. */
   it("sweeps every message builder the mail modules export", () => {
-    // The sign-in code, the two decisions and the confirmation workflow's six. A walk finding fewer
-    // has stopped reading the modules, and every sweep below then runs over nothing.
+    // A floor under what the modules export: a walk finding fewer has stopped reading them, and every
+    // sweep below then runs over nothing.
     assert.ok(BUILT_MESSAGES.length >= 9, `expected at least 9 message builders, found ${String(BUILT_MESSAGES.length)}`);
     assert.deepEqual(BUILT_MESSAGES, Object.keys(FIXTURES).sort(), "a message builder has no fixture, or a fixture names no builder");
   });
 
   /* The one origin every close is built on. Read over the walked register rather than per builder:
-     a tenth message added tomorrow reaches this on the edit that adds it. */
+     a message added tomorrow reaches this on the edit that adds it. */
   it("builds every message's close on the origin the builder was handed", () => {
     const foreign = "https://beispiel.test";
 
@@ -493,9 +493,9 @@ describe("the shared email shell", () => {
     assert.ok(pair[1]?.anchor.includes(`color:${token(LIGHT, "--fg-base")};`), "the outline control's label is not text-foreground");
   });
 
-  /* `Aktion.href` and `Aktion.label` are interface fields. Today's two callers hand them module
-     constants, so no rendered message reaches this guard -- and no fixture reaches it either,
-     which is exactly where a third caller would lean on it. */
+  /* `Aktion.href` and `Aktion.label` are interface fields. Today's callers hand them constants and
+     origin-built links, so no rendered message reaches this guard -- and no fixture reaches it either,
+     which is exactly where a new caller would lean on it. */
   it("escapes a control's own destination and label", () => {
     const card = renderKarte({
       titel: "Anmeldung",
