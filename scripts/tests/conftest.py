@@ -30,6 +30,10 @@ from typing import Any, Final
 
 REPO_ROOT: Final = Path(__file__).resolve().parent.parent.parent
 
+# pytest's own, for the guard's test to run a session through it; and the refusal of a test module
+# that collects nothing.
+pytest_plugins = ("pytester", "collection")
+
 # So no case depends on the machine's git config.
 IDENTITY: Final[tuple[tuple[str, str], ...]] = (
     ("user.name", "fixture"),

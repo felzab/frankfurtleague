@@ -17,6 +17,7 @@ them.
 | `database.py`                                              | The database a db test opens for itself: built once, emptied per call                                                                  |
 | `worker.py`                                                | The per-worker database naming, and the guard that holds every open to it                                                              |
 | `tier.py`                                                  | The refusal of a test that uses a database without `@pytest.mark.db`                                                                   |
+| `collection.py`                                            | The refusal of a test module that collects no test                                                                                     |
 | `documents.py`                                             | The stored shapes both tiers build from: seeds, and the rules and consent payload fixtures and rules models take                       |
 | `payloads.py`                                              | The request bodies a test submits, built from a stored document                                                                        |
 | `bans.py`                                                  | The ban list under the suite's key, and a ban entered through its route rather than seeded                                             |

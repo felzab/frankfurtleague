@@ -563,6 +563,26 @@
 # spanned 50 s against 27 s for the two that restored one, and six uncached pull-request runs to
 # 2026-09-26 spanned 41-56 s, which the rule above makes 70 s.
 #
+# `frontend-units`, `db`, `backend` and `scripts` gained the refusal of a test file that runs no
+# case, each figure measured locally on 2026-10-02 on a sixteen-core Windows machine carrying a fleet
+# of agent sessions, another of them running frontend suites, so every figure is an upper bound:
+#
+# - `fl_frontend/scripts/case-count-reporter.mjs`, which every `test:base` run loads: 31-50 ms over
+#   a synthetic stream of 400 files of twenty cases against 10-16 ms to drain it bare, five rounds;
+#   over the 47 test files of `fl_frontend/src/core/`, 52.1-73.5 s with it against 53.6-63.3 s
+#   without, four interleaved rounds whose arms overlap
+# - `fl_frontend/scripts/case-count-reporter.test.mjs`, 5.1-10.1 s alone through `test:base`, five
+#   runs
+# - the collection hook, `fl_backend/tests/collection.py` and `scripts/tests/collection.py`: the
+#   backend's collection took 12.2-15.8 s with it against 11.6-16.4 s blocked, and the scripts
+#   suite's 1.6-3.2 s against 1.7-2.5 s, four interleaved rounds whose arms overlap
+# - `fl_backend/tests/core/test_collection.py`, 1.7-3.3 s of its cases' own time, and
+#   `scripts/tests/test_collection_guard.py`, 1.5-2.5 s, each driving a pytest run inside the test's
+#   own process, and xdist's workers beside it; driving it through a subprocess instead, the two took
+#   3.5-5.9 s and 3.9-5.7 s, four interleaved rounds
+#
+# The arms that overlap cost less than this machine resolves. No row moves and none takes a stamp.
+#
 # The total row is the sum of the seconds above it, compared the same way where it carries a floor.
 # Its floor is `-` while `ops` is the one row holding a reference: the sum is then that row's own
 # median, which its row already compares against its own floor, so a floor here would only print

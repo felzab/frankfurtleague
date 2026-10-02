@@ -902,6 +902,15 @@ it by invoking `pnpm test` or `pnpm run test:db` rather than spelling it — the
 default set, the db tier's `*.db.test.*` files among it, so it is never run without a tier's
 patterns.
 
+**A test file that runs no case fails the run, by name**: node:test counts it a pass, whether it
+declares none or its process ends while it is imported. `fl_frontend/scripts/case-count-reporter.mjs`
+is the reporter `test:base` loads beside the spec reporter to refuse it, so a reporter added on the
+command line names its own destination too. A file whose suite is skipped with a reason stands, as a
+skipped case does. **A subset is run by naming its files**, never by filtering the whole suite: a
+name pattern, a skip pattern or `only` over every file fails the run, naming each file it left with
+no case, since node:test tells a reporter nothing that would set a filtered file apart from one gone
+quiet.
+
 **A property only a database enforces is tested against one, in a `*.db.test.*` file `pnpm test`
 never collects.** The `test` script's patterns are Node's own default set with that suffix cut from
 the `.test` family alone, and `pnpm run test:db` collects the suffix in every extension that family
