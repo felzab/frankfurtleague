@@ -504,7 +504,10 @@ key to the mail provider. The database is a copy of production, so
 an armed pass here deletes real applications and stamps real rows; `APP_ENV` is what keeps the
 notices it raises off the people those rows name, each landing in the sink instead
 ([`docs/frontend/spec.md`](../frontend/spec.md) I228). One checked-in line is what a developer
-flips to exercise the sweep (§1.1).
+flips to exercise the sweep (§1.1). **Every start empties the sink of what earlier runs filed**, so
+no code there reads as current that is not (`scripts/ops/local.sh :: empty_mail_sink`): the
+directory is compose's own bind source for the frontend's sink, refused outside the checkout, and
+only a name the sink writes is removed.
 
 **`./scripts/ops/local.sh --seed` fills it from production with a read-only login**, whose URI is
 the machine's `secrets/dump_mongodb_uri` and which reads the application database and nothing else:

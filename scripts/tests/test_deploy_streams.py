@@ -1083,6 +1083,74 @@ def test_each_script_refuses_one_before_any_mode_asks_compose(script: Path, firs
     assert text.index("\nrefuse_compose_dotenv\n") < text.index(first_mode), script.name
 
 
+# --- the mail sink a start empties -------------------------------------------------------------------
+
+# Compose's model as `docker compose config --format json` prints it, its frontend's sink mounted from
+# `$1` relative to the fixture's checkout and spelled as the platform spells a path, which on Windows
+# is the JSON-escaped drive form `empty_mail_sink` reads back.
+SINK_MODEL: Final = """sink_model() {
+  local source="$PWD/$1"
+  if command -v cygpath >/dev/null 2>&1; then source="$(cygpath -w "$source")"; source="${source//\\\\/\\\\\\\\}"; fi
+  printf '{\n  "services": {\n    "frontend": {\n      "volumes": [\n        {\n          "type": "bind",\n'
+  printf '          "source": "%s",\n          "target": "/app/.tmp-mail",\n' "$source"
+  printf '          "bind": {}\n        }\n      ]\n    }\n  }\n}\n'
+}
+"""
+
+SINK: Final = (
+    SINK_MODEL + 'REPO_ROOT="$PWD"\n' + f"{lift_assignment(LOCAL, 'MAIL_SINK_TARGET')}\n" + f"{lift_function(LOCAL, 'empty_mail_sink')}\n"
+)
+
+FILED: Final = ("2026-10-02T07-15-30.123Z-dein-anmeldecode.html", "2026-10-02T07-15-30.123Z-dein-anmeldecode-2.html")
+
+
+def test_a_start_removes_every_message_an_earlier_run_filed_and_nothing_else() -> None:
+    """A code an earlier run filed reads as current beside this run's, and the sink is the developer's directory too."""
+    body = SINK + (
+        "mkdir -p .tmp-mail\n"
+        + "".join(f"printf x > .tmp-mail/{name}\n" for name in FILED)
+        + "printf x > .tmp-mail/notizen.txt\nprintf x > .tmp-mail/behalten.html\n"
+        + 'export FL_DEPLOY_CONFIG_SAYS="$(sink_model .tmp-mail)"\n'
+        + "empty_mail_sink\nls .tmp-mail\n"
+    )
+    code, output, fixture = _run(body)
+
+    assert code == 0, output
+    assert "2 message(s) an earlier run filed removed" in output, output
+    assert sorted(path.name for path in (fixture.root / "checkout" / ".tmp-mail").iterdir()) == ["behalten.html", "notizen.txt"], output
+
+
+def test_a_sink_compose_mounts_from_outside_the_checkout_is_refused_and_never_made() -> None:
+    body = SINK + 'export FL_DEPLOY_CONFIG_SAYS="$(sink_model ../anderswo)"\nempty_mail_sink\necho sink-emptied\n'
+    code, output, fixture = _run(body)
+
+    assert code == 2, output
+    assert "outside the checkout" in output, output
+    assert "sink-emptied" not in output, output
+    assert not (fixture.root / "anderswo").exists(), "the refused directory was created"
+
+
+def test_a_sink_outside_the_checkout_keeps_every_file_in_it() -> None:
+    body = SINK + (
+        "mkdir -p ../anderswo\n"
+        + f"printf x > ../anderswo/{FILED[0]}\n"
+        + 'export FL_DEPLOY_CONFIG_SAYS="$(sink_model ../anderswo)"\nempty_mail_sink\n'
+    )
+    code, output, fixture = _run(body)
+
+    assert code == 2, output
+    assert (fixture.root / "anderswo" / FILED[0]).exists(), "a file outside the checkout was removed"
+
+
+def test_a_model_mounting_no_sink_is_refused_naming_the_mount() -> None:
+    body = SINK + "export FL_DEPLOY_CONFIG_SAYS='{\"services\": {}}'\nempty_mail_sink\necho sink-emptied\n"
+    code, output, _ = _run(body)
+
+    assert code == 2, output
+    assert "mounts nothing at /app/.tmp-mail" in output, output
+    assert "sink-emptied" not in output, output
+
+
 # --- the copy of production a development machine takes -----------------------------------------------
 
 DUMP: Final = (

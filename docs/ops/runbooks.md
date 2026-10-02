@@ -1260,6 +1260,8 @@ carries the address. Ask when they tried and read that window
   so a run of these is a flood over members' addresses or an evening outgrowing the figure; it lifts
   within the hour, or at once by the sweep in §17.
 - `mail.withheld`: a stack that is not production mails nothing, and the message is in its sink.
+  On the local stack that is `.tmp-mail/`, which every `./scripts/ops/local.sh` start empties of what
+  earlier runs filed, so a code there is this run's.
 
 **A refusal by the gate writes no line.** It refuses an address that is barred, that holds nothing
 live, or whose only seat is on a `past` season; an address whose records all await confirmation is

@@ -116,6 +116,52 @@ clear_dump() {
   rm -f "$DUMP_MARK" && rm -rf "${DUMP_DIR:?}" && mkdir -p "$DUMP_DIR"
 }
 
+# Where `docker-compose.local.yml` mounts the directory `fl_frontend/src/core/mail.ts :: MAIL_SINK_DIR`
+# names inside the frontend's container.
+MAIL_SINK_TARGET="/app/.tmp-mail"
+
+# Emptied on every start, so a code an earlier run filed never reads as current
+# (`docs/ops/spec.md` §1.5).
+empty_mail_sink() {
+  local model="" rc=0 source="" probe="" rest="" root="" sink="" file removed=0
+  model="$(docker compose config --format json 2>/dev/null)" || rc=$?
+  if (( rc )); then
+    refuse "compose could not render the local stack's model (exit ${rc}), so the mail sink was not found
+and nothing in it was removed. NOTHING has been started. Ask it directly:  docker compose config"
+  fi
+  # A bind's source precedes its target inside its own object in compose's model.
+  local mount='"source": "([^"]*)",[^{}]*"target": "'"${MAIL_SINK_TARGET//./\\.}"'"'
+  if [[ ! "$model" =~ $mount ]]; then
+    refuse "compose's model mounts nothing at ${MAIL_SINK_TARGET}, so the mail sink was not found and nothing
+was removed. NOTHING has been started."
+  fi
+  # JSON doubles a Windows path's backslashes; forward slashes are a path both shells read.
+  source="${BASH_REMATCH[1]//\\\\/\\}"
+  source="${source//\\//}"
+  # Through the deepest directory that exists, followed to where its links lead: judged before
+  # anything is made, so a source outside the checkout is never created either.
+  probe="$source"
+  while [[ -n "$probe" && ! -d "$probe" ]]; do rest="/${probe##*/}${rest}"; probe="${probe%/*}"; done
+  root="$(cd "$REPO_ROOT" && pwd -P)"
+  if [[ -n "$probe" ]]; then sink="$(cd "$probe" && pwd -P)${rest}"; fi
+  if [[ "$sink" != "$root"/* ]]; then
+    refuse "the mail sink compose mounts is ${source}, which leads outside the checkout ${root}, so nothing
+there was removed. Point the frontend's ${MAIL_SINK_TARGET} mount in docker-compose.local.yml back
+inside it. NOTHING has been started."
+  fi
+  # Never left to the engine: a bind-mount source it creates is root-owned, and the frontend writes
+  # as `nextjs` (`docs/ops/spec.md` §1.2 records the same decision for the access log).
+  mkdir -p "$sink" || die "the mail sink's directory could not be created, and the frontend cannot make
+it either: it runs as a non-root user under a root-owned /app. mkdir's own account is above."
+  # `fl_frontend/src/core/mail.ts :: sinkFileStem`'s names: a timestamp, then `.html`.
+  for file in "$sink"/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*.html; do
+    [[ -f "$file" && ! -L "$file" ]] || continue
+    rm -f -- "$file" || die "a message an earlier run filed could not be removed from ${sink}; rm's own account is above."
+    removed=$(( removed + 1 ))
+  done
+  ok "emptied — ${removed} message(s) an earlier run filed removed; this run's withheld mail lands in ${sink#"$root"/}"
+}
+
 restore_dump() {
   # Inside the mongo container, which holds the tools and the copy mount: no plumbing, no
   # credential. MSYS_NO_PATHCONV because MSYS rewrites `/dump`. Never --quiet, which hides the
@@ -250,12 +296,7 @@ if (( FRESH )); then
 fi
 
 step "Where the frontend writes the mail it does not send"
-# Never left to the engine: a bind-mount source it creates is root-owned, and the frontend writes as
-# `nextjs` (`docs/ops/spec.md` §1.2 records the same decision for the access log).
-mkdir -p "${REPO_ROOT:?}/.tmp-mail" || die "the mail sink's directory could not be created, and the
-frontend cannot make it either: it runs as a non-root user under a root-owned /app. mkdir's own
-account is above."
-ok "ready — a message this stack withholds lands in .tmp-mail in the checkout"
+empty_mail_sink
 
 section "build"
 
