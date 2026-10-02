@@ -9,6 +9,7 @@ import { getDefaultSelectors } from "eslint-plugin-better-tailwindcss/defaults";
 import { MatcherType, SelectorKind } from "eslint-plugin-better-tailwindcss/types";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import { defineConfig, globalIgnores } from "eslint/config";
+import ts from "typescript";
 
 const HERE = import.meta.dirname;
 
@@ -399,31 +400,6 @@ const PASSKEY_DELETION = {
     "The passkey plugin's own deletion writes outside the transaction a removal holds. Remove through `removePasskey` in src/core/auth.ts (docs/frontend/spec.md :: I312).",
 };
 
-/** Every comparison whose failure prints both operands, the negated and the partial forms among them. */
-const ASSERT_EQUALITY =
-  'CallExpression[callee.object.name="assert"][callee.property.name=/^(equal|strictEqual|notEqual|notStrictEqual|deepEqual|deepStrictEqual|notDeepEqual|notDeepStrictEqual|partialDeepStrictEqual)$/]';
-
-/** A call answering a node: a Testing Library query, `within`'s included, or the DOM's own lookups. */
-const NODE_CALL = "/^((query|get|find)(All)?By|querySelector(All)?|closest)/";
-
-/** The DOM's own properties holding a node. */
-const NODE_PROPERTIES =
-  "activeElement|parentElement|parentNode|firstChild|lastChild|firstElementChild|lastElementChild|nextSibling|previousSibling|nextElementSibling|previousElementSibling|offsetParent";
-
-/** The operand at `index` in each literal shape answering a node: a node held in a plain name passes. */
-const nodeOperand = (index) => {
-  const operand = `arguments.${index}`;
-  return [
-    ...["callee.property.name", "callee.name"].flatMap((path) => [
-      `[${operand}.type="CallExpression"][${operand}.${path}=${NODE_CALL}]`,
-      `[${operand}.type="AwaitExpression"][${operand}.argument.type="CallExpression"][${operand}.argument.${path}=${NODE_CALL}]`,
-    ]),
-    // A ref's `current` too, but never read optionally: a ref is always there, and a record's `?.current` is a flag.
-    `[${operand}.type="MemberExpression"][${operand}.property.name=/^(${NODE_PROPERTIES}|current)$/]`,
-    `[${operand}.type="ChainExpression"][${operand}.expression.property.name=/^(${NODE_PROPERTIES})$/]`,
-  ];
-};
-
 /** A failure's own sentence handed to a danger's description: an `error` read off a name, bare or behind a `??`. */
 const handedOnError = (object) =>
   [
@@ -443,16 +419,6 @@ const FAILURE_BY_HAND = {
   ].join(", "),
   message:
     "Hand an action's failure to `appToast.failure`, never to a danger titled here: a write of unknown outcome is titled neutrally there (docs/frontend/spec.md :: I325).",
-};
-
-/**
- * A failing equality builds its diff when it throws, with custom inspection off, and a rendered node's
- * React fibres reach the whole tree: one failing focus case grew its process to 12 GB.
- */
-const NODE_IN_EQUALITY = {
-  selector: [...nodeOperand(0), ...nodeOperand(1)].map((operand) => `${ASSERT_EQUALITY}${operand}`).join(", "),
-  message:
-    "A failing equality over a DOM node serialises the whole rendered tree, React's fibres with it. Compare by identity or reduce to a value instead: `assert.ok(<node> === <other>, <message>)`, `<queryAll…>.length`, or `<node>.getAttribute(…)`.",
 };
 
 /**
@@ -618,6 +584,36 @@ const UNSEASONED_ADMIN_LINKS = [
   String.raw`TemplateLiteral:matches([quasis.0.value.raw=/^\x2Fbereich\x2Fadmin/], [quasis.0.value.raw=""][quasis.1.value.raw=/^\x2Fbereich\x2Fadmin/]):not(:has(> TemplateElement[value.raw=/[?&]saison_id=/])):not(CallExpression[callee.name=/^(?:saisonHref|withSaisonId)$/] > TemplateLiteral.arguments:first-child):not(JSXOpeningElement[name.name="ShellNotFound"] > JSXAttribute > JSXExpressionContainer > TemplateLiteral)`,
 ];
 
+/** Every comparison whose failure prints both operands, the negated and the partial forms among them. */
+const PRINTING_EQUALITIES = new Set([
+  "equal",
+  "strictEqual",
+  "notEqual",
+  "notStrictEqual",
+  "deepEqual",
+  "deepStrictEqual",
+  "notDeepEqual",
+  "notDeepStrictEqual",
+  "partialDeepStrictEqual",
+]);
+
+/** By type, which no selector reads: a node held in a name, cast or fallen back to is still a node. */
+function holdsNode(checker, nodeType, type, depth) {
+  if (depth > 3) return false;
+  if (type.isUnion() || type.isIntersection()) return type.types.some((member) => holdsNode(checker, nodeType, member, depth + 1));
+  if (type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.Never | ts.TypeFlags.Null | ts.TypeFlags.Undefined)) return false;
+  if (checker.isTypeAssignableTo(type, nodeType)) return true;
+  const element = checker.getIndexTypeOfType(type, ts.IndexKind.Number);
+  if (element !== undefined && holdsNode(checker, nodeType, element, depth + 1)) return true;
+  if ((type.flags & ts.TypeFlags.Object) === 0) return false;
+  return checker.getPropertiesOfType(type).some((property) => {
+    const declaration = property.valueDeclaration;
+    // The suite's own shapes alone, so a response or a mock is never read as one.
+    if (declaration === undefined || declaration.getSourceFile().isDeclarationFile) return false;
+    return holdsNode(checker, nodeType, checker.getTypeOfSymbolAtLocation(property, declaration), depth + 1);
+  });
+}
+
 /**
  * The admin-link ban is a rule of its own because its sites are excused one by one, and a disable
  * comment names a rule: one naming `no-restricted-syntax` would excuse every syntax ban on its line.
@@ -634,7 +630,33 @@ const LOCAL_RULES = {
     create: (context) =>
       Object.fromEntries(UNSEASONED_ADMIN_LINKS.map((selector) => [selector, (node) => context.report({ node, messageId: "unseasoned" })])),
   },
+  // A failing equality builds its diff when it throws, with custom inspection off, and a rendered node's
+  // React fibres reach the whole tree: one failing focus case grew its process to 12 GB.
+  "node-in-equality": {
+    meta: {
+      type: "problem",
+      messages: {
+        printed:
+          "A failing equality over a DOM node serialises the whole rendered tree, React's fibres with it. Compare by identity or reduce to a value instead: `assert.ok(<node> === <other>, <message>)`, `<queryAll…>.length`, or `<node>.getAttribute(…)`.",
+      },
+      schema: [],
+    },
+    create: (context) => {
+      const { program, esTreeNodeToTSNodeMap } = context.sourceCode.parserServices ?? {};
+      if (program == null) throw new Error(`local/node-in-equality reads types, and ${context.filename} was parsed without them.`);
+      const checker = program.getTypeChecker();
+      const nodeType = checker.getDeclaredTypeOfSymbol(checker.resolveName("Node", undefined, ts.SymbolFlags.Type, false));
+      return {
+        'CallExpression[callee.type="MemberExpression"][callee.object.name="assert"]': (call) => {
+          if (!PRINTING_EQUALITIES.has(call.callee.property.name)) return;
+          const operands = call.arguments.slice(0, 2).map((operand) => checker.getTypeAtLocation(esTreeNodeToTSNodeMap.get(operand)));
+          if (operands.some((type) => holdsNode(checker, nodeType, type, 0))) context.report({ node: call, messageId: "printed" });
+        },
+      };
+    },
+  },
 };
+const LOCAL_PLUGIN = { rules: LOCAL_RULES };
 
 /** The segmented date and time controls, which judge each keystroke: a bound belongs on the Calendar. */
 const JUDGING_DATE_CONTROLS = ["DatePicker", "DateField", "TimeField"];
@@ -672,7 +694,6 @@ const SOURCE_BANS = [
   },
   // `src/core/auth.test.ts` calls the plugin's deletion to hold it closed, so tests stay outside.
   PASSKEY_DELETION,
-  { ...NODE_IN_EQUALITY, tests: true, production: false },
   ...DYNAMIC_LOADS.map((ban) => ({ ...ban, tests: true })),
   {
     // A module double's source text, or a specifier held in a name for a later load. A path assembled
@@ -1010,7 +1031,15 @@ const eslintConfig = defineConfig([
   ...SOURCE_BAN_BLOCKS,
   // The one file outside `src` naming page paths: a redirect to the old prefix ships a 404 unseen.
   { files: ["next.config.ts"], rules: syntaxBans([STALE_ADMIN_BAN]) },
-  { files: ["src/**/*.{ts,tsx}"], ignores: TEST_FILES, plugins: { local: { rules: LOCAL_RULES } }, rules: { "local/admin-link": "error" } },
+  { files: ["src/**/*.{ts,tsx}"], ignores: TEST_FILES, plugins: { local: LOCAL_PLUGIN }, rules: { "local/admin-link": "error" } },
+  // Types for the tests alone, which the one typed rule reads. `--cache` keys a file on its own text, so
+  // a local run may keep a verdict whose types moved in an import; CI lints cold.
+  {
+    files: TEST_FILES,
+    languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: HERE } },
+    plugins: { local: LOCAL_PLUGIN },
+    rules: { "local/node-in-equality": "error" },
+  },
 
   // A dedicated rule wherever one states the ban. `useEditorExit.ts` is exempt from the history ban
   // because it IS the guard.

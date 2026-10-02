@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { isDeepStrictEqual } from "node:util";
@@ -142,7 +142,29 @@ const statements = config.flatMap((block, index) =>
 
 const isTestPath = (file) => /\.test\.tsx?$/.test(file);
 
-const eslint = new ESLint({ cwd: FRONTEND });
+/** Each file a syntax ban exempts, which is a block of its own naming one path, beside the sibling linted in its place. */
+const exempt = config
+  .filter((block) => block.files?.length === 1 && !/[*{]/.test(block.files[0]) && block.rules?.["no-restricted-syntax"] !== undefined)
+  .map(({ files: [file] }) => ({
+    file,
+    sibling: path.posix.join(path.posix.dirname(file), `zzExemptionCheck${isTestPath(file) ? ".test" : ""}${path.posix.extname(file)}`),
+  }));
+
+/**
+ * The test paths linted here that no file on disk holds, so `tsconfig.json` lists none of them: the
+ * type-aware rules read each through a default project carrying its options, as they read a suite.
+ */
+const UNLISTED = [...plants.map((plant) => plant.lintedAs), ...exempt.map(({ sibling }) => sibling)].filter(
+  (file) => file !== undefined && isTestPath(file) && !existsSync(path.join(FRONTEND, file)),
+);
+
+const eslint = new ESLint({
+  cwd: FRONTEND,
+  overrideConfig: {
+    files: UNLISTED,
+    languageOptions: { parserOptions: { projectService: { allowDefaultProject: UNLISTED, defaultProject: "tsconfig.json" } } },
+  },
+});
 const reports = new Map();
 const resolved = new Map();
 for (const plant of plants) {
@@ -163,23 +185,17 @@ for (const plant of plants) {
 const syntaxMessages = (rules) => new Set((rules?.["no-restricted-syntax"] ?? []).slice(1).map((ban) => ban.message));
 
 /**
- * Each file a syntax ban exempts, which is a block of its own naming one path, with the bans it
- * escapes: the ones a sibling path in its directory and population is held to and it is not.
+ * Each exempt file with the bans it escapes: the ones a sibling path in its directory and population
+ * is held to and it is not.
  */
 const exemptions = await Promise.all(
-  config
-    .filter((block) => block.files?.length === 1 && !/[*{]/.test(block.files[0]) && block.rules?.["no-restricted-syntax"] !== undefined)
-    .map(async ({ files: [file] }) => {
-      const sibling = path.posix.join(
-        path.posix.dirname(file),
-        `zzExemptionCheck${isTestPath(file) ? ".test" : ""}${path.posix.extname(file)}`,
-      );
-      const own = syntaxMessages((await eslint.calculateConfigForFile(path.join(FRONTEND, file))).rules);
-      const held = syntaxMessages((await eslint.calculateConfigForFile(path.join(FRONTEND, sibling))).rules);
-      const [result] = await eslint.lintText(readFileSync(path.join(FRONTEND, file), "utf8"), { filePath: path.join(FRONTEND, sibling) });
-      const reported = new Set(result.messages.map((message) => message.message));
-      return { file, escaped: [...held].filter((message) => !own.has(message)), reported };
-    }),
+  exempt.map(async ({ file, sibling }) => {
+    const own = syntaxMessages((await eslint.calculateConfigForFile(path.join(FRONTEND, file))).rules);
+    const held = syntaxMessages((await eslint.calculateConfigForFile(path.join(FRONTEND, sibling))).rules);
+    const [result] = await eslint.lintText(readFileSync(path.join(FRONTEND, file), "utf8"), { filePath: path.join(FRONTEND, sibling) });
+    const reported = new Set(result.messages.map((message) => message.message));
+    return { file, escaped: [...held].filter((message) => !own.has(message)), reported };
+  }),
 );
 
 describe("the lint bans, driven against planted source", () => {
