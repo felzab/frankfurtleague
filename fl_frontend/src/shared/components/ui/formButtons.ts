@@ -1,13 +1,10 @@
 import { tv } from "tailwind-variants";
 
-/**
- * Both recipes wrap a label too long for its box rather than letting it run out through the side: `whitespace-normal`
- * lifts HeroUI's `nowrap`, and the height is a floor at the fixed step it replaces. `h-fit`, never `h-auto`, so a row
- * stretching its items still leaves the button its own height, as that fixed step did.
- */
 // A transition list says `scale`, never `transform`: v4 emits `scale-*` as the standalone `scale`
 // property, so a `transform` list interpolates nothing and the press snaps.
 const ctaButtonStyle = tv({
+  // `whitespace-normal` lifts HeroUI's `nowrap`, so a long label wraps inside the box, whose height is a floor. `h-fit`,
+  // never `h-auto`: a row stretching its items still leaves the button its own height, as a fixed one had.
   base: "flex h-fit min-h-12 transform-none items-center justify-center rounded-xl px-6 py-2 text-center fluid-sm font-bold whitespace-normal transition-[scale,background-color] duration-(--motion-base) active:scale-95",
   variants: {
     intent: {
@@ -47,7 +44,8 @@ export function ctaButton(options: {
 
 /**
  * The height and `transform-none` beat `@heroui/styles`, which fixes a height and scales on `[data-pressed]` where
- * no `scale-*` can cancel it. Neither is visible to the toolchain, so `formButtons.test.ts` asserts both.
+ * no `scale-*` can cancel it. Neither is visible to the toolchain, so `formButtons.test.ts` asserts both. The label
+ * wraps as `ctaButton`'s does.
  */
 export const formButton = tv({
   // `active:scale-95` must stay spelled exactly that: `globals.css` names the class, unlayered, to escape
@@ -78,10 +76,11 @@ export const formButton = tv({
     fullWidth: { true: "w-full" },
     /** For a control in a row that is a column below `sm`: it fills that column, and stretches to its row's height. */
     stacks: { true: "h-auto w-full sm:w-auto" },
+    // The padding shrinks with the floor, so an icon's 24px still seats in the smallest.
     /**
      * Height alone, so page chrome stays under the action bar's — except `xs`, which takes the
      * badge's type step too: it stands in a row of `labelBadge` chips, where a taller control is
-     * what makes the row read as ragged. The padding shrinks with the floor, so an icon's 24px still seats.
+     * what makes the row read as ragged.
      */
     size: { sm: "min-h-10 py-1", xs: "min-h-7 px-3 py-0 fluid-xxs" },
   },
