@@ -50,7 +50,7 @@ class MailWithheldError extends Error {
 
 class MailRecipientError extends Error {
   constructor() {
-    super("The recipient's domain cannot be written in ASCII.");
+    super("The recipient is not one mailbox with an ASCII domain.");
     this.name = "MailRecipientError";
   }
 }

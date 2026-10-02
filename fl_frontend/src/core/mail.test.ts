@@ -362,6 +362,20 @@ describe("the ban list's gate at the one send", () => {
     assert.deepEqual(gateAsked, ["erste@schule.de", "zweite@schule.de"]);
   });
 
+  /* The list's keying answers each of these unbarred while a provider may still deliver to the
+     mailbox inside, so the gate is never asked about one: the stack that files mail files none. */
+  it("refuses a spelling around a mailbox before the gate is asked", async () => {
+    appEnv = "local";
+
+    for (const spelled of [`Gerda <${MESSAGE.to}>`, `<${MESSAGE.to}>`, `${MESSAGE.to}.`, `${MESSAGE.to}, x@schule.de`, ` ${MESSAGE.to}`]) {
+      await assert.rejects(sendMail({ ...MESSAGE, to: spelled }), (error: Error) => error instanceof MailRecipientError, spelled);
+    }
+
+    assert.deepEqual(gateAsked, []);
+    assert.equal(sends.length, 0);
+    assert.deepEqual(sinkNames(), []);
+  });
+
   it("sends nothing to a barred address and records no write", async () => {
     gate = "barred";
 
@@ -462,6 +476,16 @@ describe("the ban's own notice", () => {
     assert.equal(body.to, MESSAGE.to);
     assert.match(body.text, /Falsches Geburtsdatum/);
     assert.match(body.text, /2930/);
+  });
+
+  /* Skipping the gate is no licence for a list: the notice goes to the one mailbox the ban names. */
+  it("refuses a recipient that is not one bare mailbox", async () => {
+    await assert.rejects(
+      sendSperreNotice({ to: `${MESSAGE.to}, x@schule.de`, ...FACTS }),
+      (error: Error) => error instanceof MailRecipientError,
+    );
+
+    assert.equal(sends.length, 0);
   });
 
   /* The one delivery path both entries share: the notice is withheld and filed off production as

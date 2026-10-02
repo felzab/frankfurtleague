@@ -573,7 +573,7 @@ Every ruling below is the sign-up flow as it stands for the next season.
   the person it bars is told so at the moment it is entered where the address holds an account; an
   address holding none is mailed nothing** (`docs/frontend/spec.md :: I517`). Ruled 2026-09-27.
   While the ban stands the application sends the address nothing else, that notice being the one
-  kind its mailer lets through (`docs/frontend/spec.md :: I541`); the league's confirmations to a
+  message its mailer sends without asking the ban list (`docs/frontend/spec.md :: I541`); the league's confirmations to a
   barred address, below, are written by hand. The row records the last season it
   covers and the activation of the season after that removes it
   (`docs/backend/spec.md :: I273`); nothing is counted in days, the bound being the thing the

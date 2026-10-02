@@ -56,6 +56,24 @@ function asAsciiHost(host: string): string | undefined {
 /** A host already inside ASCII, which `withAsciiDomain` hands back rather than rebuilding. */
 const ASCII_HOST_REGEX = /^\p{ASCII}+$/u;
 
+/**
+ * One run of characters no mailbox syntax gives a meaning: whitespace, controls, and RFC 5322's
+ * specials, which open a display name, a group, a list, a comment, a quoted string or a literal.
+ */
+const MAILBOX_ATOM = String.raw`[^\p{Z}\p{C}\s"(),:;<>@[\]\\.]+`;
+
+/** Dot-separated runs on both sides of one at sign, a dot never leading, trailing or doubled, the domain dotted. */
+const ONE_BARE_MAILBOX_REGEX = new RegExp(`^${MAILBOX_ATOM}(?:\\.${MAILBOX_ATOM})*@${MAILBOX_ATOM}(?:\\.${MAILBOX_ATOM})+$`, "u");
+
+/**
+ * Whether the value is one mailbox and nothing around it. Read before the ban list is asked: a
+ * provider reads a display name, a list or a trailing dot as the mailbox inside it, where the list's
+ * keying refuses the spelling and answers it unbarred (`docs/frontend/spec.md :: I541`).
+ */
+export function isOneBareMailbox(value: string): boolean {
+  return ONE_BARE_MAILBOX_REGEX.test(value);
+}
+
 /** The address with its domain in the ASCII form every mail system carries, or `undefined` where the domain has none. */
 export function withAsciiDomain(address: string): string | undefined {
   const at = address.lastIndexOf("@");

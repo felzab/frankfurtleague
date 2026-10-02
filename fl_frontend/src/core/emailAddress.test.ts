@@ -5,7 +5,14 @@ import { describe, it } from "node:test";
 
 import { z } from "zod";
 
-import { asSignInIdentifier, hasAsciiLocalPart, isDeliverableAddress, mailboxKey, withAsciiDomain } from "@/core/emailAddress";
+import {
+  asSignInIdentifier,
+  hasAsciiLocalPart,
+  isDeliverableAddress,
+  isOneBareMailbox,
+  mailboxKey,
+  withAsciiDomain,
+} from "@/core/emailAddress";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 
@@ -147,6 +154,48 @@ describe("the domain the conversion is willing to rewrite", () => {
   it("refuses a host the parse throws over too", () => {
     for (const middle of REFUSED_BY_THE_PARSE) {
       assert.equal(withAsciiDomain(convertedHostOf(middle)), undefined, `expected a host carrying ${JSON.stringify(middle)} to be refused`);
+    }
+  });
+});
+
+describe("one bare mailbox, the only recipient the mailer takes", () => {
+  /* Each a spelling the ban list's keying answers unbarred where a provider may still find a mailbox
+     in it: handed on, it reached a barred person past the gate (`docs/frontend/spec.md :: I541`). */
+  const AROUND_A_MAILBOX: readonly (readonly [string, string])[] = [
+    ["a display name", "Gerda <gerda.gesperrt@schule.de>"],
+    ["angle brackets", "<gerda.gesperrt@schule.de>"],
+    ["a trailing dot", "gerda.gesperrt@schule.de."],
+    ["a list", "gerda.gesperrt@schule.de, x@schule.de"],
+    ["a semicolon list", "gerda.gesperrt@schule.de;x@schule.de"],
+    ["leading whitespace", " gerda.gesperrt@schule.de"],
+    ["trailing whitespace", "gerda.gesperrt@schule.de\n"],
+    ["a quoted local part", '"gerda gesperrt"@schule.de'],
+    ["a comment", "gerda.gesperrt(x)@schule.de"],
+    ["a domain literal", "gerda@[192.0.2.1]"],
+    ["a leading dot", ".gerda@schule.de"],
+    ["a doubled dot", "gerda..gesperrt@schule.de"],
+    ["two at signs", "gerda@x@schule.de"],
+    ["no at sign", "gerda.gesperrt"],
+    ["an undotted domain", "gerda@localhost"],
+  ];
+
+  for (const [what, spelled] of AROUND_A_MAILBOX) {
+    it(`refuses ${what}`, () => {
+      assert.equal(isOneBareMailbox(spelled), false);
+    });
+  }
+
+  /* The control: a rule refusing an alphabet rather than the spelling around a mailbox fails here,
+     and an address the stores hold would never reach its recipient. */
+  it("takes every bare mailbox, whatever its alphabet", () => {
+    for (const address of [
+      "trainer@example.org",
+      "Trainer@Example.ORG",
+      "anna+u12@schule.de",
+      "vorstand@münchen-schule.de",
+      "jörg@schule.de",
+    ]) {
+      assert.equal(isOneBareMailbox(address), true, address);
     }
   });
 });

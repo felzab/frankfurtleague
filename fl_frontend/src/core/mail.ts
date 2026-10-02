@@ -4,7 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { frontend_config } from "./config";
-import { withAsciiDomain } from "./emailAddress";
+import { isOneBareMailbox, withAsciiDomain } from "./emailAddress";
 import { APINetworkError, MailSendError } from "./errors";
 import { logger } from "./logging";
 import { mayReceiveMail } from "./mailGate";
@@ -89,12 +89,12 @@ export class MailBarredError extends Error {
 }
 
 /**
- * Raised where the recipient's domain has no ASCII form. Beside `MailWithheldError` rather than in
- * `errors.ts` for its reason, and carrying no address for the same one.
+ * Raised where the recipient is not one bare mailbox, or its domain has no ASCII form. Beside
+ * `MailWithheldError` rather than in `errors.ts` for its reason, and carrying no address for the same one.
  */
 export class MailRecipientError extends Error {
   constructor() {
-    super("The recipient's domain cannot be written in ASCII.");
+    super("The recipient is not one mailbox with an ASCII domain.");
 
     this.name = "MailRecipientError";
   }
@@ -215,6 +215,10 @@ function pause(ms: number, signal: AbortSignal): Promise<void> {
 
 /** Every message the league sends but the ban's own notice, each asked of the ban list first (`docs/frontend/spec.md :: I541`). */
 export async function sendMail(mail: OutboundMail): Promise<MailAccepted> {
+  // Ahead of the gate, which a spelling around a mailbox would pass unbarred while the provider still
+  // reached the mailbox inside it.
+  if (!isOneBareMailbox(mail.to)) throw new MailRecipientError();
+
   // Ahead of the sink, so a stack that does not mail files only what production would send and the
   // ban can be checked there.
   const verdict = await mayReceiveMail(mail.to);
@@ -229,6 +233,8 @@ export async function sendMail(mail: OutboundMail): Promise<MailAccepted> {
  * nothing a caller hands over can travel past the ban list under it.
  */
 export async function sendSperreNotice({ to, ...facts }: { to: string } & Parameters<typeof buildSperreEmail>[0]): Promise<MailAccepted> {
+  if (!isOneBareMailbox(to)) throw new MailRecipientError();
+
   return deliver({ to: to, ...buildSperreEmail(facts) });
 }
 
