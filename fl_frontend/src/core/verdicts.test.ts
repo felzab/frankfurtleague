@@ -154,6 +154,8 @@ it("passes", () => {});
     assert.equal(run.timedOut, false, `the child was held open past its timeout:\n${run.output}`);
     assert.equal(run.status, 1, run.output);
     assert.ok(run.output.includes("this file's teardown: this file's replica set was started but its count was never read"), run.output);
+    // The one cause left: a read that fails ends its file before the helper registers any teardown.
+    assert.ok(run.output.includes("not judged: the container was started past `startJudgedReplicaSet`."), run.output);
   });
 
   it("leaves every later `afterEach` to run, and names the case it judged", () => {

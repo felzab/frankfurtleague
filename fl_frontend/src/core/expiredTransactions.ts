@@ -18,8 +18,7 @@ const UNREAD =
 
 const UNWATCHED =
   "this file's replica set was started but its count was never read, so whether a transaction ran to MongoDB's lifetime " +
-  "limit was not judged: the read failed, which this file reports as its own failure, or the container was started past " +
-  "`startJudgedReplicaSet`.";
+  "limit was not judged: the container was started past `startJudgedReplicaSet`.";
 
 /** `null` where the status carries no count, which a passing file must never read as none aborted. */
 export function expiredTransactionKills(status: Record<string, unknown>): number | null {
