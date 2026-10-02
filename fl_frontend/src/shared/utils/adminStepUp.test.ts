@@ -4,6 +4,8 @@ import path from "node:path";
 import { beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import ts from "typescript";
+
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
 import { publishedOperations } from "@/core/openapiDocument.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
@@ -11,13 +13,16 @@ import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 import { refusedOn } from "@/shared/testing/publishedRefusals.ts";
 import {
+  actionReachOf,
   CONDITIONALLY_STEPPED_UP,
+  REQUESTS_NAMED,
   STEP_UP_CALLERS,
   STEP_UP_REQUESTS,
   STEP_UP_ROUTES,
   STEP_UP_WRITES,
   UNDECLARED_SENDS,
   UNDO_REPLAYS,
+  UNREAD_SENDS,
 } from "@/shared/testing/stepUpWrites.ts";
 import { undo } from "@/shared/testing/undoRoutes.ts";
 
@@ -170,6 +175,51 @@ describe("an administrator write the server holds to the step-up window", () => 
       .map(([name, sent]) => `${name} sends ${sent.filter((request) => STEP_UP_REQUESTS.has(request)).join(", ")}`);
 
     assert.deepEqual(undeclared, []);
+  });
+
+  /* The case above sees what the reader attributes, and the reader reads direct calls alone: a request
+     sent any other way is undeclared and unseen, so every way of naming one is held to a call it reads. */
+  it("sends every request it names where the reader reads it", () => {
+    const read = new Set([...STEP_UP_REQUESTS, ...Object.values(UNDECLARED_SENDS).flat(), ...Object.values(UNDO_REPLAYS).flat()]);
+
+    assert.deepEqual(UNREAD_SENDS, []);
+    assert.deepEqual([...REQUESTS_NAMED].sort(), [...read].sort(), "the walk and the reader disagree on what the tree sends");
+  });
+
+  /* Over a synthetic sample, since the tree holds none of these shapes and a walk finding nothing passes it. */
+  it("refuses each way of naming a request the reader cannot read, and no direct call", () => {
+    const reachOf = (body: string) =>
+      actionReachOf(
+        ts.createSourceFile("actions.ts", `import { postSaisonTeam } from "./mutations";\n${body}`, ts.ScriptTarget.Latest, true),
+        "teams",
+      );
+    const UNREAD = ["teams :: postSaisonTeam named where the reader reads no call of it"];
+
+    assert.deepEqual(
+      reachOf("export async function a(p: never) { const t: typeof postSaisonTeam = postSaisonTeam; return postSaisonTeam(p); }"),
+      {
+        referenced: ["teams :: postSaisonTeam"],
+        unread: UNREAD,
+      },
+    );
+    assert.deepEqual(reachOf("export async function a(p: never): ReturnType<typeof postSaisonTeam> { return postSaisonTeam(p); }").unread, []);
+    // Through a local helper, as an exported const, as a const re-exported by name, and handed on as a value.
+    for (const body of [
+      "async function send(p: never) { return postSaisonTeam(p); }\nexport async function a(p: never) { return send(p); }",
+      "export const a = async (p: never) => postSaisonTeam(p);",
+      "const a = async (p: never) => postSaisonTeam(p);\nexport { a };",
+      "export async function a(p: never) { return run(postSaisonTeam, p); }",
+    ]) {
+      assert.deepEqual(reachOf(body).unread, UNREAD, body);
+    }
+
+    const imported = (line: string) => actionReachOf(ts.createSourceFile("actions.ts", line, ts.ScriptTarget.Latest, true), "teams").unread;
+    assert.deepEqual(imported('import * as requests from "./mutations";'), ["./mutations as a namespace"]);
+    assert.deepEqual(imported('import send from "./mutations";'), ["./mutations's default import"]);
+    assert.deepEqual(
+      imported('import { postSaisonTeam } from "../teams/mutations.ts";\nexport async function a(p: never) { return postSaisonTeam(p); }'),
+      ["../teams/mutations.ts, a specifier the reader does not take"],
+    );
   });
 
   /* Each export called, never its source read: an action that dropped its declaration validates the

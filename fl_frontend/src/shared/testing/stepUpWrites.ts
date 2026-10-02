@@ -3,7 +3,7 @@ import path from "node:path";
 
 import ts from "typescript";
 
-import { filesUnder } from "@/core/treeWalk.ts";
+import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 
 const SLICES = path.resolve(import.meta.dirname, "..", "..", "features");
 
@@ -45,10 +45,7 @@ function mutationImports(source: ts.SourceFile, ownSlice: string): Map<string, s
   return imported;
 }
 
-/**
- * Direct calls alone: a request sent through a helper module is not seen, which the floor in
- * `fl_frontend/src/shared/utils/adminStepUp.test.ts` catches only where a replay sends nothing else.
- */
+/** Direct calls alone: `UNREAD_SENDS` refuses every other way a module could reach a request. */
 function requestsSent(node: ts.Node, imported: ReadonlyMap<string, string>): string[] {
   const sent = new Set<string>();
   const visit = (child: ts.Node): void => {
@@ -62,15 +59,24 @@ function requestsSent(node: ts.Node, imported: ReadonlyMap<string, string>): str
   return [...sent];
 }
 
+function isExported(statement: ts.Statement): boolean {
+  return ts.canHaveModifiers(statement) && (ts.getModifiers(statement)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false);
+}
+
+/** Every slice's `actions.ts`, by the slice its directory names, with its syntax tree. */
+const ACTION_SOURCES = filesUnder(SLICES, (name) => name === "actions.ts", 10).map((file) => ({
+  file,
+  slice: path.basename(path.dirname(file)),
+  source: ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true),
+}));
+
 /** Every exported action of every slice, how it declares its step-up and the requests it sends, read off each `actions.ts`'s syntax tree. */
-const ACTIONS = filesUnder(SLICES, (name) => name === "actions.ts", 10).flatMap((file) => {
-  const slice = path.basename(path.dirname(file));
-  const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
+const ACTIONS = ACTION_SOURCES.flatMap(({ slice, source }) => {
   const imported = mutationImports(source, slice);
 
   return source.statements.flatMap((statement) => {
-    const exported = ts.canHaveModifiers(statement) && ts.getModifiers(statement)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
-    if (!exported || !ts.isFunctionDeclaration(statement) || statement.name === undefined || statement.body === undefined) return [];
+    if (!isExported(statement) || !ts.isFunctionDeclaration(statement) || statement.name === undefined || statement.body === undefined)
+      return [];
     return [{ name: statement.name.text, slice, declaration: declarationOf(statement.body), sends: requestsSent(statement.body, imported) }];
   });
 });
@@ -138,6 +144,121 @@ export const UNDECLARED_SENDS: Readonly<Record<string, readonly string[]>> = Obj
 export const CONDITIONALLY_STEPPED_UP: ReadonlySet<string> = new Set(
   DECLARED.filter(({ declaration }) => declaration === "conditional").map(({ name }) => name),
 );
+
+/** A module named `mutations`, however its specifier spells it: wider than `MUTATIONS_MODULE`, so a spelling that reader misses is met here. */
+const ANY_MUTATIONS_MODULE = /(?:^|\/)mutations(?:\.[cm]?[jt]s)?$/;
+
+/** The slice a mutations specifier names, read off its path rather than off the reader's pattern. */
+function sliceNamed(specifier: string, ownSlice: string): string {
+  const segments = specifier.split("/");
+  return segments.length === 2 && segments[0] === "." ? ownSlice : (segments.at(-2) ?? ownSlice);
+}
+
+/** Whether `node` is a value naming its binding: a property's own name and a type position send nothing. */
+function namesTheBinding(node: ts.Identifier): boolean {
+  const { parent } = node;
+  if ((ts.isPropertyAccessExpression(parent) || ts.isPropertyAssignment(parent)) && parent.name === node) return false;
+  if (ts.isQualifiedName(parent) && parent.right === node) return false;
+  for (let at: ts.Node = parent; !ts.isSourceFile(at); at = at.parent) if (ts.isTypeNode(at)) return false;
+  return true;
+}
+
+/** Whether `node` sits in the body of a top-level exported function declaration, the one place `ACTIONS` reads. */
+function inExportedAction(node: ts.Node): boolean {
+  let statement: ts.Node = node;
+  while (!ts.isSourceFile(statement.parent)) statement = statement.parent;
+  const body = ts.isFunctionDeclaration(statement) && isExported(statement) ? statement.body : undefined;
+  return body !== undefined && node.getStart() >= body.getStart() && node.getEnd() <= body.getEnd();
+}
+
+/** One module's reach into the slices' requests: every request it names, and every way it names one that `read` would miss. */
+type Reach = { readonly referenced: readonly string[]; readonly unread: readonly string[] };
+
+/**
+ * Every request `source` names as `slice :: export`, found by a walk of its own rather than by the
+ * reader's, and each reference the reader cannot attribute: `read` is where a direct call is read.
+ */
+function reachOf(source: ts.SourceFile, ownSlice: string, read: (call: ts.Node) => boolean): Reach {
+  const bindings = new Map<string, string>();
+  const unread: string[] = [];
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue;
+    const specifier = statement.moduleSpecifier.text;
+    const clause = statement.importClause;
+    if (!ANY_MUTATIONS_MODULE.test(specifier) || clause === undefined || clause.isTypeOnly) continue;
+
+    if (!MUTATIONS_MODULE.test(specifier)) unread.push(`${specifier}, a specifier the reader does not take`);
+    if (clause.name !== undefined) unread.push(`${specifier}'s default import`);
+    const named = clause.namedBindings;
+    if (named !== undefined && ts.isNamespaceImport(named)) unread.push(`${specifier} as a namespace`);
+    if (named === undefined || !ts.isNamedImports(named)) continue;
+    for (const element of named.elements) {
+      if (!element.isTypeOnly)
+        bindings.set(element.name.text, `${sliceNamed(specifier, ownSlice)} :: ${(element.propertyName ?? element.name).text}`);
+    }
+  }
+
+  const referenced = new Set<string>();
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node)) return;
+    const request = ts.isIdentifier(node) && namesTheBinding(node) ? bindings.get(node.text) : undefined;
+    if (request !== undefined) {
+      referenced.add(request);
+      const called = ts.isCallExpression(node.parent) && node.parent.expression === node;
+      if (!called || !read(node)) unread.push(`${request} named where the reader reads no call of it`);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+
+  return { referenced: [...referenced], unread };
+}
+
+const SOURCE_ROOT = path.resolve(import.meta.dirname, "..", "..");
+
+const relative = (file: string): string => path.relative(SOURCE_ROOT, file).split(path.sep).join("/");
+
+/** An `actions.ts`'s reach, read where `ACTIONS` reads one: a direct call inside an exported function's body. */
+export function actionReachOf(source: ts.SourceFile, slice: string): Reach {
+  return reachOf(source, slice, inExportedAction);
+}
+
+const ACTION_REACH = ACTION_SOURCES.map(({ file, slice, source }) => ({ file, reach: actionReachOf(source, slice) }));
+
+// The whole file: `UNDO_REPLAYS` reads a replay's every direct call, wherever in the route it sits.
+// Resolved again, `fileName` being the compiler's own spelling of the path, which on Windows the walk's is not.
+const REPLAY_REACH = [...UNDO_ROUTE_SOURCES].map(([slice, source]) => ({
+  file: path.resolve(source.fileName),
+  reach: reachOf(source, slice, () => true),
+}));
+
+/**
+ * Every other module naming a step-up write's request: a helper an action calls is read by nobody,
+ * so the write it sends would reach the backend through a door no listing above names.
+ */
+const HELPER_SENDS = filesUnder(SOURCE_ROOT, (name) => /\.tsx?$/.test(name) && !isTestFile(name), 500).flatMap((file) => {
+  if ([...ACTION_REACH, ...REPLAY_REACH].some((read) => read.file === file)) return [];
+  const text = readFileSync(file, "utf8");
+  if (!text.includes("mutations")) return [];
+
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
+  const { referenced } = reachOf(source, path.basename(path.dirname(file)), () => false);
+  return referenced
+    .filter((request) => STEP_UP_REQUESTS.has(request))
+    .map((request) => `${relative(file)}: ${request}, a step-up write's request`);
+});
+
+/**
+ * Every reach into a request the reader above cannot attribute: an action's, a replay's, or a helper's
+ * sending a step-up write's request. Empty, or `UNDECLARED_SENDS` and `UNDO_REPLAYS` answer for less than the tree sends.
+ */
+export const UNREAD_SENDS: readonly string[] = [
+  ...[...ACTION_REACH, ...REPLAY_REACH].flatMap(({ file, reach }) => reach.unread.map((why) => `${relative(file)}: ${why}`)),
+  ...HELPER_SENDS,
+];
+
+/** Every request an action or a replay names, by the walk above: the second listing the reader's own is held to. */
+export const REQUESTS_NAMED: ReadonlySet<string> = new Set([...ACTION_REACH, ...REPLAY_REACH].flatMap(({ reach }) => reach.referenced));
 
 /**
  * How a caller's press asks: on its armed press, on its only one, through the create form it declares
