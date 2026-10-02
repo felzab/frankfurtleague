@@ -8,11 +8,12 @@ caller reshaped would be the next caller's answer.
 Invariants:
 - Nothing inside a test process changes the file set under `app/` or rebinds `APP_ROOT`, or a
   cached sweep answers the first tree.
-- Nothing edits `application()`'s app -- an override, a route, its `state` -- or every module
-  reading it later in the process meets the edit.
+- Nothing edits `application()`'s app -- an override, a route, its `state`, the document
+  `app.openapi()` hands out -- or every module reading it later in the process meets the edit.
 """
 
 import ast
+import copy
 import functools
 import inspect
 import re
@@ -716,6 +717,10 @@ def session_carriers() -> tuple[SessionCarrier, ...]:
 # What `application()` mounted, so a route a caller adds or drops is told from what it built.
 _BUILT_ROUTES: list[BaseRoute] = []
 
+# What `application()` published. `app.openapi()` hands every reader the one document it cached on
+# the app, so an edit to it is told from a read only against this copy.
+_BUILT_DOCUMENT: dict[str, Any] = {}
+
 
 @functools.cache
 def application() -> FastAPI:
@@ -727,6 +732,10 @@ def application() -> FastAPI:
 
     app = create_app(build_test_config())
     _BUILT_ROUTES[:] = app.routes
+    # Published now rather than at the first reader's call, which could follow an edit to the routes
+    # and cache a document no build publishes.
+    _BUILT_DOCUMENT.clear()
+    _BUILT_DOCUMENT.update(copy.deepcopy(app.openapi()))
 
     return app
 
@@ -747,6 +756,9 @@ def undo_edits_to_application() -> list[str]:
     if app.routes != _BUILT_ROUTES:
         edits.append("its route table")
         app.router.routes[:] = _BUILT_ROUTES
+    if app.openapi_schema != _BUILT_DOCUMENT:
+        edits.append("its published document")
+        app.openapi_schema = copy.deepcopy(_BUILT_DOCUMENT)
 
     return edits
 
