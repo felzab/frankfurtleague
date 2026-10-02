@@ -790,6 +790,9 @@ def undo_edits_to_application() -> list[str]:
     if app.openapi_schema != _BUILT_DOCUMENT:
         edits.append("its published document")
         app.openapi_schema = copy.deepcopy(_BUILT_DOCUMENT)
+    # Dropped whether or not an edit stands: Starlette keeps the stack it builds at the first request, so
+    # an edit served and then put back leaves a stack built over it that nothing above sees.
+    app.middleware_stack = None
 
     return edits
 
