@@ -15,7 +15,7 @@ from pymongo import MongoClient, monitoring
 from pymongo.database import Database
 
 from tests.documents import EINWILLIGUNG, rules_document
-from tests.tier import TIER_GUARD, UNMARKED_USE
+from tests.tier import TIER_GUARD, UNMARKED_USE, expired_transaction_kills, expired_transactions_refusal
 from tests.worker import guard_every_database, release_every_database, worker_database
 
 # testcontainers' reaper teardown logs after pytest closes its capture stream, printing a traceback on
@@ -318,20 +318,10 @@ _NO_SERVER = (
 _UNSTARTABLE = "the xdist controller could not start the db tier's servers, so no test needing one can run in this worker -- {reason}"
 
 # Each replica set's count as it became primary, so only the run's own expired transactions count.
-_KILLS_AT_START: dict[str, int] = {}
-
-_EXPIRED = (
-    "the db tier's replica set aborted {killed} transaction(s) that outlived MongoDB's transaction lifetime limit. A case deadlocked"
-    " on its own transaction passes once that abort frees it, a minute or more later, so every test can pass while one waited it out:"
-    " the case to read is the slowest in `--durations` (`docs/backend/spec.md` §1.6)."
-)
+_KILLS_AT_START: dict[str, int | None] = {}
 
 # Set by the controller's check, printed in its summary: the refusal has no test to be reported against.
 _EXPIRED_REFUSAL: list[str] = []
-
-
-def _expired_transaction_kills(client: MongoClient) -> int:
-    return int(client.admin.command("serverStatus")["metrics"]["abortExpiredTransactions"]["successfulKills"])
 
 
 def _expired_since_start(url: str) -> str | None:
@@ -339,11 +329,11 @@ def _expired_since_start(url: str) -> str | None:
 
     client = MongoClient(url)
     try:
-        killed = _expired_transaction_kills(client) - _KILLS_AT_START.get(url, 0)
+        now = expired_transaction_kills(client.admin.command("serverStatus"))
     finally:
         client.close()
 
-    return _EXPIRED.format(killed=killed) if killed else None
+    return expired_transactions_refusal(_KILLS_AT_START.get(url), now)
 
 
 @contextmanager
@@ -393,7 +383,7 @@ def _replica_set_mongod() -> Iterator[str]:
                     # `except Exception` misses.
                     raise TimeoutError(f"the single-node replica set did not become primary within {REPLICA_SET_ELECTION_TIMEOUT_S}s")
                 time.sleep(0.25)
-            _KILLS_AT_START[url] = _expired_transaction_kills(client)
+            _KILLS_AT_START[url] = expired_transaction_kills(client.admin.command("serverStatus"))
         finally:
             client.close()
 

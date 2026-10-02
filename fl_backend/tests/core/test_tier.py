@@ -8,7 +8,7 @@ from pymongo.database import Database
 from pymongo.errors import ServerSelectionTimeoutError
 
 from tests.config import UNANSWERED_URI
-from tests.tier import UNMARKED_USE, refuse_server_fixtures
+from tests.tier import UNMARKED_USE, expired_transaction_kills, expired_transactions_refusal, refuse_server_fixtures
 
 PLANTED = "tests/planted.py::test_planted"
 MARKED = "tests/planted.py::test_marked"
@@ -175,3 +175,44 @@ def test_a_session_s_teardown_is_charged_to_the_test_each_command_belongs_to(
     assert "as `built_by_an_unmarked_test` tore down" in output, output
     assert "test_unmarked_and_last carries no `@pytest.mark.db`" in output, output
     assert f"{MARKED_FIXTURE}` tore down" not in output, output
+
+
+# --- a transaction the replica set aborted at its lifetime limit ------------------------------------------
+
+
+def _status(kills: object) -> dict[str, object]:
+    """`serverStatus` as the replica set answers it, cut to the one count the check reads."""
+    return {"metrics": {"abortExpiredTransactions": {"passes": 4, "successfulKills": kills, "timedOutKills": 0}}}
+
+
+@pytest.mark.parametrize(
+    ("status", "kills"),
+    [
+        pytest.param(_status(3), 3, id="reported"),
+        pytest.param({"metrics": {}}, None, id="metric-absent"),
+        pytest.param({}, None, id="metrics-absent"),
+        pytest.param(_status("3"), None, id="not-a-count"),
+    ],
+)
+def test_the_count_is_read_off_the_status_or_named_unread(status: dict[str, object], kills: int | None) -> None:
+    """An absent count read as zero would pass every run the server stops reporting it on."""
+    assert expired_transaction_kills(status) == kills
+
+
+def test_a_count_that_rose_during_the_run_fails_it_with_how_many() -> None:
+    refusal = expired_transactions_refusal(2, 3)
+
+    assert refusal is not None
+    assert "aborted 1 transaction(s)" in refusal, refusal
+
+
+def test_a_count_that_did_not_move_passes() -> None:
+    assert expired_transactions_refusal(2, 2) is None
+
+
+@pytest.mark.parametrize(("at_start", "now"), [(None, 0), (0, None), (None, None), (3, 1)], ids=["start", "end", "both", "reset"])
+def test_a_count_not_read_at_either_end_or_reset_between_is_named_unjudged(at_start: int | None, now: int | None) -> None:
+    refusal = expired_transactions_refusal(at_start, now)
+
+    assert refusal is not None
+    assert "was not judged" in refusal, refusal

@@ -1,6 +1,7 @@
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from typing import Any
 
 import pytest
 from pymongo import monitoring
@@ -179,3 +180,34 @@ class TierGuard:
 
 
 TIER_GUARD = TierGuard()
+
+
+_EXPIRED = (
+    "the db tier's replica set aborted {killed} transaction(s) that outlived MongoDB's transaction lifetime limit. A case deadlocked"
+    " on its own transaction passes once that abort frees it, a minute or more later, so every test can pass while one waited it out:"
+    " the case to read is the slowest in `--durations` (`docs/backend/spec.md` §1.6)."
+)
+
+_KILLS_UNREAD = (
+    "the db tier's replica set reported no `metrics.abortExpiredTransactions.successfulKills` in `serverStatus`, so whether a"
+    " transaction ran to MongoDB's lifetime limit during this run was not judged: find where this server version reports it"
+    " (`docs/backend/spec.md` §1.6)."
+)
+
+
+def expired_transaction_kills(status: Mapping[str, Any]) -> int | None:
+    """`None` where `serverStatus` carries no count, which a passing run must never read as none aborted."""
+
+    metrics = status.get("metrics")
+    expired = metrics.get("abortExpiredTransactions") if isinstance(metrics, Mapping) else None
+    kills = expired.get("successfulKills") if isinstance(expired, Mapping) else None
+    return kills if isinstance(kills, int) else None
+
+
+def expired_transactions_refusal(at_start: int | None, now: int | None) -> str | None:
+    # A count lower than at the start is a server that restarted mid-run, whose aborts before it nobody can count.
+    if at_start is None or now is None or now < at_start:
+        return _KILLS_UNREAD
+
+    killed = now - at_start
+    return _EXPIRED.format(killed=killed) if killed else None
