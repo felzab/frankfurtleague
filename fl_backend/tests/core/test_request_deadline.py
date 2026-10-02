@@ -2,6 +2,7 @@ import ast
 import asyncio
 import enum
 import functools
+import json
 import logging
 import re
 import time
@@ -110,6 +111,46 @@ class TestTheDeadlinesTheApplicationSets:
         # Positive, because pymongo reads a zero deadline as none at all.
         assert 0 < REQUEST_DEADLINE_S < int(ceiling[1]) / 1000
         assert 0 < ABORT_GRACE_S < int(ceiling[1]) / 1000 - REQUEST_DEADLINE_S
+
+
+DOCKERFILE = BACKEND_ROOT / "Dockerfile"
+COMPOSE_FILE = BACKEND_ROOT.parent / "docker-compose.yml"
+GRACEFUL_WAIT = "--timeout-graceful-shutdown"
+STOP_GRACE = re.compile(r"^    stop_grace_period: (\d+)s$", re.MULTILINE)
+SERVICE = re.compile(r"^  (\w+):$", re.MULTILINE)
+
+# uvicorn notices the signal on a 0.1 s tick and pauses 0.1 s after closing its connections before its
+# wait starts (its `Server.shutdown`, read in uvicorn 0.53), so the engine's kill falls a whole second later.
+UVICORN_STEPS_BEFORE_ITS_WAIT_S = 1
+
+
+def _uvicorn_s_graceful_wait() -> int:
+    command = [line for line in DOCKERFILE.read_text(encoding="utf-8").splitlines() if line.startswith("CMD [")]
+    assert len(command) == 1, f"{DOCKERFILE} holds {len(command)} exec-form CMD lines, where this reads exactly one"
+    arguments = json.loads(command[0].removeprefix("CMD "))
+    assert GRACEFUL_WAIT in arguments, f"the backend's CMD sets no {GRACEFUL_WAIT}, so uvicorn waits on a stopping request without limit"
+
+    return int(arguments[arguments.index(GRACEFUL_WAIT) + 1])
+
+
+def _backend_stop_grace() -> int:
+    text = COMPOSE_FILE.read_text(encoding="utf-8")
+    starts = [(match.group(1), match.start()) for match in SERVICE.finditer(text)]
+    blocks = {name: text[start:next_start] for (name, start), (_, next_start) in zip(starts, [*starts[1:], ("", len(text))], strict=True)}
+    grace = STOP_GRACE.findall(blocks.get("backend", ""))
+    assert len(grace) == 1, f"the backend service in {COMPOSE_FILE} sets {len(grace)} whole-second stop_grace_period lines, not one"
+
+    return int(grace[0])
+
+
+class TestAStoppedContainerOutlastsEveryRequest:
+    """`docs/ops/spec.md :: I540`: three budgets nested, each inside the next, or the outer one cuts what the inner one allows."""
+
+    def test_uvicorn_waits_out_a_request_s_whole_bound(self):
+        assert _uvicorn_s_graceful_wait() >= REQUEST_DEADLINE_S + ABORT_GRACE_S
+
+    def test_the_engine_kills_only_after_uvicorn_s_wait(self):
+        assert _backend_stop_grace() >= _uvicorn_s_graceful_wait() + UVICORN_STEPS_BEFORE_ITS_WAIT_S
 
 
 def _erasure_answered() -> tuple[Response, float]:

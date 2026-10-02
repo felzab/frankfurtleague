@@ -69,4 +69,8 @@ EXPOSE 8000
 # --no-access-log because TraceContextMiddleware writes the per-request line, carrying the trace
 # and span ids uvicorn's could not; --log-config routes what uvicorn still logs through the app's
 # own handler (docs/logging/spec.md).
-CMD ["tini", "--", "uvicorn", "app.asgi:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--log-config", "app/core/uvicorn_logging.json"]
+
+# --timeout-graceful-shutdown at a request's whole bound, the deadline and its aborts' grace, so a
+# stop cancels no request still inside it; unset, uvicorn waits without limit
+# (`docs/ops/spec.md :: I540`).
+CMD ["tini", "--", "uvicorn", "app.asgi:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--log-config", "app/core/uvicorn_logging.json", "--timeout-graceful-shutdown", "11"]

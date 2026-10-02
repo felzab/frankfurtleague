@@ -89,6 +89,10 @@ services:
     env_file: ./fl_backend/.env
     image: ghcr.io/felzab/frankfurtleague-backend:latest
     restart: unless-stopped
+    # Past uvicorn's own graceful wait (`fl_backend/Dockerfile :: CMD`), which the engine's 10 s
+    # default falls short of: killed sooner, a request still inside its bound sends no abort
+    # (`docs/ops/spec.md :: I540`).
+    stop_grace_period: 12s
     # The frontend's reason, and its group for the three internal keys.
     secrets:
       - backend_mongodb_uri
