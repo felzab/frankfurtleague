@@ -597,21 +597,36 @@ const PRINTING_EQUALITIES = new Set([
   "partialDeepStrictEqual",
 ]);
 
+/** The declarations of Node's own assertion module, whichever import or test context reaches them. */
+const NODE_ASSERT = /[\\/]@types[\\/]node[\\/]assert(?:[\\/]strict)?\.d\.ts$/;
+
 /** By type, which no selector reads: a node held in a name, cast or fallen back to is still a node. */
-function holdsNode(checker, nodeType, type, depth) {
+function holdsNode(dom, type, depth) {
   if (depth > 3) return false;
-  if (type.isUnion() || type.isIntersection()) return type.types.some((member) => holdsNode(checker, nodeType, member, depth + 1));
+  if (type.isUnion() || type.isIntersection()) return type.types.some((member) => holdsNode(dom, member, depth + 1));
   if (type.flags & (ts.TypeFlags.Any | ts.TypeFlags.Unknown | ts.TypeFlags.Never | ts.TypeFlags.Null | ts.TypeFlags.Undefined)) return false;
-  if (checker.isTypeAssignableTo(type, nodeType)) return true;
-  const element = checker.getIndexTypeOfType(type, ts.IndexKind.Number);
-  if (element !== undefined && holdsNode(checker, nodeType, element, depth + 1)) return true;
+  // An event's `target` is typed as the bare EventTarget, and on a page it is a node.
+  if (type === dom.eventTarget || dom.checker.isTypeAssignableTo(type, dom.node)) return true;
+  const element = dom.checker.getIndexTypeOfType(type, ts.IndexKind.Number);
+  if (element !== undefined && holdsNode(dom, element, depth + 1)) return true;
   if ((type.flags & ts.TypeFlags.Object) === 0) return false;
-  return checker.getPropertiesOfType(type).some((property) => {
+  return dom.checker.getPropertiesOfType(type).some((property) => {
     const declaration = property.valueDeclaration;
-    // The suite's own shapes alone, so a response or a mock is never read as one.
-    if (declaration === undefined || declaration.getSourceFile().isDeclarationFile) return false;
-    return holdsNode(checker, nodeType, checker.getTypeOfSymbolAtLocation(property, declaration), depth + 1);
+    const file = declaration?.getSourceFile();
+    // The suite's own shapes and the DOM's, an event or a mutation record among them, but no library's, so a
+    // response double or a mock is never read as one.
+    if (file === undefined || (file.isDeclarationFile && !dom.program.isSourceFileDefaultLibrary(file))) return false;
+    return holdsNode(dom, dom.checker.getTypeOfSymbolAtLocation(property, declaration), depth + 1);
   });
+}
+
+/** The assertion a call reaches, by its symbol: a method of `node:assert`, imported, namespaced or a test's own. */
+function assertionCalled(checker, callee) {
+  const name = ts.isPropertyAccessExpression(callee) ? callee.name : callee;
+  let symbol = checker.getSymbolAtLocation(name);
+  if (symbol !== undefined && symbol.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
+  if (symbol === undefined || !PRINTING_EQUALITIES.has(symbol.getName())) return false;
+  return (symbol.declarations ?? []).some((declaration) => NODE_ASSERT.test(declaration.getSourceFile().fileName));
 }
 
 /**
@@ -645,12 +660,17 @@ const LOCAL_RULES = {
       const { program, esTreeNodeToTSNodeMap } = context.sourceCode.parserServices ?? {};
       if (program == null) throw new Error(`local/node-in-equality reads types, and ${context.filename} was parsed without them.`);
       const checker = program.getTypeChecker();
-      const nodeType = checker.getDeclaredTypeOfSymbol(checker.resolveName("Node", undefined, ts.SymbolFlags.Type, false));
+      const declared = (name) => checker.getDeclaredTypeOfSymbol(checker.resolveName(name, undefined, ts.SymbolFlags.Type, false));
+      const dom = { checker, program, node: declared("Node"), eventTarget: declared("EventTarget") };
       return {
-        'CallExpression[callee.type="MemberExpression"][callee.object.name="assert"]': (call) => {
-          if (!PRINTING_EQUALITIES.has(call.callee.property.name)) return;
+        CallExpression: (call) => {
+          // Named first, so the checker resolves only a call that can reach an equality.
+          const named =
+            call.callee.type === "Identifier" ||
+            (call.callee.type === "MemberExpression" && PRINTING_EQUALITIES.has(call.callee.property.name));
+          if (!named || !assertionCalled(checker, esTreeNodeToTSNodeMap.get(call.callee))) return;
           const operands = call.arguments.slice(0, 2).map((operand) => checker.getTypeAtLocation(esTreeNodeToTSNodeMap.get(operand)));
-          if (operands.some((type) => holdsNode(checker, nodeType, type, 0))) context.report({ node: call, messageId: "printed" });
+          if (operands.some((type) => holdsNode(dom, type, 0))) context.report({ node: call, messageId: "printed" });
         },
       };
     },
