@@ -72,7 +72,8 @@ registry comparison would refuse pins that are right. The tag is an unverified l
 keeps beside the digest it rewrites, and a hand edit moving one without the other goes unnoticed.
 
 **The frontend's database test tier names mongo by tag alone**, the release
-`fl_backend/tests/conftest.py :: MONGO_IMAGE` pins, in its `*.db.test.ts` files:
+`fl_backend/tests/conftest.py :: MONGO_IMAGE` pins, at the one start its files reach a replica set
+through (`fl_frontend/src/core/expiredTransactions.ts :: startJudgedReplicaSet`):
 `@testcontainers/mongodb` reads the server's version off the tag, and a digest reference hands it
 the digest instead, so its health check falls back to the `mongo` shell a MongoDB 8 image does not
 carry and the container never reports healthy. The backend's tier takes the digest, its library

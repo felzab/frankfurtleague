@@ -8,6 +8,7 @@ is the one reference named by tag alone, for the library reason at its case.
 
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 import sys
@@ -188,26 +189,46 @@ def test_the_edge_s_nginx_is_a_release_with_the_control_api() -> None:
 # The one reference with no digest: testcontainers-node's `ImageName` keeps a digest as its tag
 # (`testcontainers/build/container-runtime/image-name.js`), so `MongoDBContainer.isV5OrLater` reads
 # no version and waits on the `mongo` shell MongoDB 8 does not ship.
-FRONTEND_SOURCE: Final = REPO_ROOT / "fl_frontend" / "src"
-DB_TIER_FILE_RE: Final = re.compile(r"\.db\.test\.[cm]?[jt]sx?$")
+FRONTEND: Final = REPO_ROOT / "fl_frontend"
+# Read by content, never by a file's name: a start moved into a shared helper leaves a reader keyed on
+# the db tier's suffix finding nothing. The installed and the built trees hold no call this repo wrote.
+UNREAD_DIRS: Final = frozenset({"node_modules", ".next"})
+SOURCE_SUFFIXES: Final = frozenset({".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"})
 CONTAINER_CALL_RE: Final = re.compile(r"\bMongoDBContainer\(")
 CONTAINER_IMAGE_RE: Final = re.compile(r'\bMongoDBContainer\("([^"]+)"\)')
+
+
+def frontend_sources() -> list[Path]:
+    """Every source file under `fl_frontend`, its installed and built trees aside."""
+    found: list[Path] = []
+    for root, dirs, files in os.walk(FRONTEND):
+        dirs[:] = [name for name in dirs if name not in UNREAD_DIRS]
+        found += [Path(root) / name for name in files if Path(name).suffix in SOURCE_SUFFIXES]
+    return sorted(found)
+
+
+def container_starts(sources: list[Path]) -> list[tuple[str, list[str]]]:
+    """Each file starting a `MongoDBContainer`, with the literal image of every start it spells; a start not naming one reads as `?`."""
+    starts: list[tuple[str, list[str]]] = []
+    for path in sources:
+        text = path.read_text(encoding="utf-8")
+        calls = len(CONTAINER_CALL_RE.findall(text))
+        if calls:
+            named = CONTAINER_IMAGE_RE.findall(text)
+            starts.append((path.relative_to(REPO_ROOT).as_posix(), named + ["?"] * (calls - len(named))))
+    return starts
 
 
 def test_the_frontend_db_tier_names_the_backend_pin_s_release_by_tag_alone() -> None:
     """A second release under the frontend's tier runs its db tests against a server the backend's never meets."""
     _, backend = script_references()["fl_backend/tests/conftest.py:mongo"]
     release = backend.split("@", 1)[0]
-    files = [path for path in sorted(FRONTEND_SOURCE.rglob("*")) if DB_TIER_FILE_RE.search(path.name)]
-    started = {path: path.read_text(encoding="utf-8") for path in files}
-    started = {path: text for path, text in started.items() if CONTAINER_CALL_RE.search(text)}
-    assert started, "no frontend db-tier file starts a MongoDBContainer: this reader went inert"
-    wrong = [
-        f"{path.relative_to(REPO_ROOT).as_posix()}: {len(CONTAINER_CALL_RE.findall(text))} call(s), images {CONTAINER_IMAGE_RE.findall(text)}"
-        for path, text in started.items()
-        if CONTAINER_IMAGE_RE.findall(text) != [release] * len(CONTAINER_CALL_RE.findall(text))
-    ]
-    assert wrong == [], f"each MongoDBContainer is to name `{release}` as a literal:\n" + "\n".join(wrong)
+    starts = container_starts(frontend_sources())
+    # One place, so a second start cannot name another release where no case reads it.
+    assert sum(len(images) for _, images in starts) == 1, (
+        f"the frontend starts a MongoDBContainer at {starts}, where the case reads exactly one"
+    )
+    assert starts[0][1] == [release], f"{starts[0][0]} starts {starts[0][1][0]}, where it is to name `{release}` as a literal"
 
 
 # The db job's pull step reads the pin itself and sits behind `continue-on-error`, so a pin moved
