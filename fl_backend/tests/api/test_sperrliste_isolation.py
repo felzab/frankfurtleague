@@ -16,22 +16,18 @@ from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
 from app.api.saisons.admin_router import activate_saison
-from app.api.sperrliste.admin_router import post_sperrliste_eintrag
-from app.api.sperrliste.lookup import BanList
-from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from tests import documents
-from tests.config import build_test_config, grants_for_the_suite
+from tests.bans import ban_through_the_route
+from tests.config import grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_sperrliste_isolation_test")
-
-CONFIG = build_test_config()
 
 TODAY = "2026-04-01"
 ADMIN = "admin@frankfurtleague.de"
@@ -123,19 +119,8 @@ def the_lapsing_ban() -> dict[str, Any]:
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, saisons: Any = None, berechtigungen: Any = None) -> str:
     try:
-        created = await post_sperrliste_eintrag(
-            sperrliste_data=FLPostSperrlistePayload(email=BANNED, grund=GRUND),
-            sperrliste_collection=database[Collection.SPERRLISTE],
-            sperrliste=BanList(
-                database[Collection.SPERRLISTE], saisons if saisons is not None else database[Collection.SAISONS], CONFIG.sperrliste_schluessel
-            ),
-            saisons_collection=saisons if saisons is not None else database[Collection.SAISONS],
-            berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
-            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
-            db=client,
-            config=CONFIG,
-            erstellt_von=ADMIN,
-            today=TODAY,
+        created = await ban_through_the_route(
+            database, client, email=BANNED, grund=GRUND, von=ADMIN, today=TODAY, saisons=saisons, berechtigungen=berechtigungen
         )
     except WriteRefusalException as refusal:
         return str(refusal.error_code)

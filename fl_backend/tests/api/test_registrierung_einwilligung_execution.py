@@ -19,13 +19,12 @@ from app.api.registrierungen.services import (
     compose_bestaetigung,
 )
 from app.api.saisons.cache import invalidate_saison_cache
-from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS, REGISTRIERUNG_MIN_ALTER_JAHRE
 from tests import documents
-from tests.config import build_test_config
+from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -162,7 +161,7 @@ async def ansicht(database: AsyncDatabase, token: str) -> Any:
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
         teams_collection=database[Collection.TEAMS],
         spieler_collection=database[Collection.SPIELER],
-        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
+        sperrliste=ban_list(database),
         today=TODAY,
     )
 
@@ -181,7 +180,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
     return await post_bestaetigung(
         antwort_data=FLRegistrierungBestaetigungPayload.model_validate(body),
         registrierungen_collection=database[Collection.REGISTRIERUNGEN],
-        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
+        sperrliste=ban_list(database),
         db=client,
         today=TODAY,
     )

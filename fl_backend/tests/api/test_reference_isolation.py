@@ -30,7 +30,6 @@ from app.api.bewerbungen.schemas import FLAnnehmenBewerbungPayload
 from app.api.schiedsrichter.admin_router import anonymise_schiedsrichter, delete_schiedsrichter, patch_schiedsrichter
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload
 from app.api.schiedsrichter.services import REFEREE_STILL_ASSIGNED
-from app.api.sperrliste.lookup import BanList
 from app.api.spiele.admin_router import patch_spiel_data, patch_spiele_paarungen
 from app.api.spiele.schemas import FLPatchSpielDataPayload, FLPatchSpielePaarungenPayload, unplayed_filter
 from app.api.spiele.services import BOOKING_UNKNOWN_RESOURCE, FIXTURE_DOUBLE_BOOKED
@@ -44,7 +43,7 @@ from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from tests import documents
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
-from tests.config import build_test_config
+from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, outcome_of
 from tests.payloads import spiel_patch_body
@@ -53,8 +52,6 @@ from tests.worker import worker_database
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_reference_isolation_test")
-
-CONFIG = build_test_config()
 
 TODAY = "2026-04-01"
 
@@ -404,7 +401,7 @@ async def rename_the_referee(client: AsyncMongoClient, handles: Mapping[Collecti
         ),
         schiedsrichter_collection=handles[Collection.SCHIEDSRICHTER],
         spiele_collection=handles[Collection.SPIELE],
-        sperrliste=BanList(handles[Collection.SPERRLISTE], handles[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+        sperrliste=ban_list(handles),
         db=client,
         today=TODAY,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,

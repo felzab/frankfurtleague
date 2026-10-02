@@ -17,14 +17,13 @@ from pymongo.errors import OperationFailure
 
 from app.api.saisons.admin_router import activate_saison
 from app.api.saisons.crud import pull_massgebliche_saison_id
-from app.api.sperrliste.admin_router import get_sperrliste, post_sperrliste_eintrag
+from app.api.sperrliste.admin_router import get_sperrliste
 from app.api.sperrliste.crud import address_is_gesperrt
-from app.api.sperrliste.lookup import BanList
-from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import SPERRLISTE_KEINE_SAISON, adresse_hash
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from tests import documents
+from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -103,23 +102,12 @@ async def listed(database: AsyncDatabase) -> Any:
 
     return await get_sperrliste(
         sperrliste_collection=database[Collection.SPERRLISTE],
-        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+        sperrliste=ban_list(database),
     )
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED) -> Any:
-    return await post_sperrliste_eintrag(
-        sperrliste_data=FLPostSperrlistePayload(email=email, grund=GRUND),
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
-        saisons_collection=database[Collection.SAISONS],
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-        berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
-        db=client,
-        config=CONFIG,
-        erstellt_von=ADMIN,
-        today=TODAY,
-    )
+    return await ban_through_the_route(database, client, email=email, grund=GRUND, von=ADMIN, today=TODAY)
 
 
 async def is_gesperrt(database: AsyncDatabase, *, against: str | None, email: str = BANNED) -> bool:

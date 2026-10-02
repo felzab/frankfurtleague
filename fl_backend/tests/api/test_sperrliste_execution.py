@@ -10,14 +10,13 @@ from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 from pymongo.errors import DuplicateKeyError
 
-from app.api.sperrliste.admin_router import delete_sperrliste_eintrag, get_sperrliste, post_sperrliste_eintrag
+from app.api.sperrliste.admin_router import delete_sperrliste_eintrag, get_sperrliste
 from app.api.sperrliste.crud import address_is_gesperrt, read_sperrliste_page
-from app.api.sperrliste.lookup import BanList
-from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import SPERRLISTE_ADRESSE_GESPERRT, SPERRLISTE_SCHLUESSEL_VERSION, SPERRLISTE_VERWALTUNG, adresse_hash
 from app.api.spieler.admin_router import delete_spieler, erase_spieler
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
+from tests.bans import ban_list, ban_through_the_route
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document
@@ -81,23 +80,12 @@ async def listed(database: AsyncDatabase) -> Any:
 
     return await get_sperrliste(
         sperrliste_collection=database[Collection.SPERRLISTE],
-        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+        sperrliste=ban_list(database),
     )
 
 
 async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, email: str = BANNED, grund: str = GRUND, von: str = ADMIN) -> Any:
-    return await post_sperrliste_eintrag(
-        sperrliste_data=FLPostSperrlistePayload(email=email, grund=grund),
-        sperrliste_collection=database[Collection.SPERRLISTE],
-        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
-        saisons_collection=database[Collection.SAISONS],
-        berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-        berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
-        db=client,
-        config=CONFIG,
-        erstellt_von=von,
-        today=TODAY,
-    )
+    return await ban_through_the_route(database, client, email=email, grund=grund, von=von, today=TODAY)
 
 
 async def rows_of(database: AsyncDatabase) -> list[Mapping[str, Any]]:

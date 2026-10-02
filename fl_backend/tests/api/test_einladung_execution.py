@@ -19,13 +19,12 @@ from app.api.einladungen.services import (
     find_unknown_einladung_refusal,
 )
 from app.api.saisons.admin_router import post_einladungen_versand, preview_einladungen_versand
-from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import delete_einladung, get_einladung, post_einladung
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
-from tests.config import build_test_config
+from tests.bans import ban_list
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document, saison_team_document
 from tests.holds import HeldCollection
@@ -192,7 +191,7 @@ async def read_state(database: AsyncDatabase, team_id: ObjectId, *, today: str =
         saison_id=SAISON_ID,
         einladungen_collection=database[Collection.EINLADUNGEN],
         saisons_collection=database[Collection.SAISONS],
-        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
+        sperrliste=ban_list(database),
         today=today,
     )
 

@@ -14,10 +14,9 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.bewerbungen.router import FLBewerbungenFilters, get_bewerbungen
 from app.api.bewerbungen.schemas import FLBewerbungenFilterParams
 from app.api.bewerbungen.services import dubletten_schluessel_of
-from app.api.sperrliste.lookup import BanList
 from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT, LIST_LIMIT_MAX
-from tests.config import build_test_config
+from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS
 from tests.worker import worker_database
@@ -209,9 +208,7 @@ def run_list(collection: _ArchiveCollection, **filters: Any) -> Any:
     return asyncio.run(
         get_bewerbungen(
             bewerbungen_collection=cast(AsyncCollection, collection),
-            sperrliste=BanList(
-                cast(AsyncCollection, _NothingStored()), cast(AsyncCollection, _NothingStored()), build_test_config().sperrliste_schluessel
-            ),
+            sperrliste=ban_list({Collection.SPERRLISTE: _NothingStored(), Collection.SAISONS: _NothingStored()}),
             filters=FLBewerbungenFilterParams.model_validate(filters),
         )
     )
@@ -572,9 +569,7 @@ class TestTheCollisionSurvivesTheReadsCap:
 
                 return await get_bewerbungen(
                     bewerbungen_collection=collection,
-                    sperrliste=BanList(
-                        database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel
-                    ),
+                    sperrliste=ban_list(database),
                     filters=FLBewerbungenFilterParams.model_validate({}),
                 )
 

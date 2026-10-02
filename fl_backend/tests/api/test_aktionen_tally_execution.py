@@ -5,11 +5,10 @@ from bson import ObjectId
 
 from app.api.aktionen.admin_router import get_aktionen
 from app.api.aktionen.schemas import FLAktionenFilterParams, FLAktionenListResponse
-from app.api.sperrliste.lookup import BanList
 from app.core.collections import Collection
 from app.core.recording import PUBLIC_ACTOR_EMAIL, SYSTEM_ACTOR_EMAIL
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from tests.config import build_test_config
+from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -158,7 +157,7 @@ def answered(mongo_url: str, **filters: Any) -> FLAktionenListResponse:
 
             return await get_aktionen(
                 aktionen_collection=database[Collection.AKTIONEN],
-                sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
+                sperrliste=ban_list(database),
                 filters=FLAktionenFilterParams.model_validate(filters),
             )
 

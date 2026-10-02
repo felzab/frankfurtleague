@@ -39,7 +39,6 @@ from app.api.bewerbungen.sweep_router import (
     sweep_saison,
 )
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
-from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.core.collections import Collection
 from app.core.config import API_VERSION
@@ -48,6 +47,7 @@ from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.logging import FL_LOGGER_NAME
 from app.core.recording import SYSTEM_ACTOR_EMAIL
 from tests.app_client import app_client
+from tests.bans import ban_list
 from tests.config import ADMIN_AUTH, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.database import a_clean_database, a_clean_database_sync, on_the_seed_loop
 from tests.documents import ADDRESS, ban_document, kontaktperson_document, rules_document, saison_document, saison_team_document, team_document
@@ -57,7 +57,6 @@ from tests.worker import worker_database
 pytestmark = pytest.mark.db
 
 DATABASE_NAME = worker_database("fl_bewerbung_sweep_test")
-CONFIG = build_test_config()
 
 SAISON_ID = "2026"
 NEXT_SAISON_ID = "2027"
@@ -209,7 +208,7 @@ async def sweep(database: AsyncDatabase, client: AsyncMongoClient, saison_id: st
         saisons_collection=database[Collection.SAISONS],
         teams_collection=database[Collection.TEAMS],
         aktionen_collection=database[Collection.AKTIONEN],
-        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+        sperrliste=ban_list(database),
         db=client,
         today=today,
         germany_now=NOW,
@@ -247,7 +246,7 @@ async def ansicht(database: AsyncDatabase, token: str) -> Any:
         ansicht_data=FLBewerbungEinwilligungAnsichtPayload(token=token),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         teams_collection=database[Collection.TEAMS],
-        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+        sperrliste=ban_list(database),
         today=TODAY,
     )
 
@@ -380,7 +379,7 @@ class TestTheReminderClock:
                 bewerbung_id=REMIND_OID,
                 seat="trainer",
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+                sperrliste=ban_list(database),
                 db=database.client,
                 today=TODAY,
             )

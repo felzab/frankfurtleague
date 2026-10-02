@@ -47,7 +47,6 @@ from app.api.bewerbungen.services import (
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
 from app.api.kontakte.admin_router import erase_kontaktperson
 from app.api.kontakte.schemas import FLKontaktErasurePayload
-from app.api.sperrliste.lookup import BanList
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import post_team
 from app.api.teams.schemas import FLPostTeamPayload
@@ -59,7 +58,8 @@ from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
-from tests.config import ADMIN_AUTH, ADMIN_KEY, build_test_config, grants_for_the_suite
+from tests.bans import ban_list
+from tests.config import ADMIN_AUTH, ADMIN_KEY, grants_for_the_suite
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, ban_document, rules_document, saison_document, saison_team_document, team_document
 from tests.worker import worker_database
@@ -1047,7 +1047,7 @@ class TestTheQueueTheTriageIsWorkedDown:
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
             response = await get_bewerbungen(
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
+                sperrliste=ban_list(database),
                 filters=FLBewerbungenFilterParams(),
             )
 
@@ -1223,8 +1223,6 @@ CORRECTION_BEWERBUNG = ObjectId("6890a1b2c3d4e5f60792000a")
 
 CORRECTED_EMAIL = "sekretariat@zorbanax.example.de"
 
-CONFIG = build_test_config()
-
 
 # Composed by the production helper rather than spelled, so a drifted bound cannot leave these cases passing over a lapsed row.
 STANDING = compose_gesperrt_bis_saison_id(massgebliche_saison_id=SAISON_ID)
@@ -1239,7 +1237,7 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, seat: str, 
         seat=seat,
         email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": email}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+        sperrliste=ban_list(database),
         db=client,
         today=TODAY,
     )
@@ -1531,9 +1529,7 @@ async def resend(
         bewerbung_id=ERNEUT_BEWERBUNG,
         seat=seat,
         bewerbungen_collection=collection if as_read is None else as_the_loser_read_it(collection, as_read),
-        sperrliste=BanList(
-            database[Collection.SPERRLISTE], database[Collection.SAISONS] if saisons is None else saisons, CONFIG.sperrliste_schluessel
-        ),
+        sperrliste=ban_list(database, saisons=saisons),
         db=database.client,
         today=TODAY,
     )
@@ -1628,7 +1624,7 @@ class TestAResendRacingAnAnswer:
                 seat="ansprechperson",
                 email_data=FLBewerbungKontaktEmailPayload.model_validate({"email": CORRECTED_EMAIL}),
                 bewerbungen_collection=database[Collection.BEWERBUNGEN],
-                sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+                sperrliste=ban_list(database),
                 db=client,
                 today=TODAY,
             )
@@ -1730,7 +1726,7 @@ async def reseat(database: AsyncDatabase, client: AsyncMongoClient, seat: str, *
         seat=seat,
         sitz_data=FLBewerbungKontaktSitzPayload.model_validate({**RESEAT_PERSON, "email": email, "text_version": RESEAT_TEXT_VERSION}),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
-        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+        sperrliste=ban_list(database),
         db=client,
         today=TODAY,
     )
@@ -1749,7 +1745,7 @@ async def answer_for(database: AsyncDatabase, client: AsyncMongoClient, token: s
         ),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         aktionen_collection=database[Collection.AKTIONEN],
-        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
+        sperrliste=ban_list(database),
         db=client,
         today=TODAY,
         germany_now=NOW,

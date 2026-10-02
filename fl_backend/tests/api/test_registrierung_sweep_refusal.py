@@ -30,13 +30,12 @@ from app.api.registrierungen.services import (
     undecided_erasure_is_due,
 )
 from app.api.saisons.crud import pull_current_saison
-from app.api.sperrliste.lookup import BanList
 from app.core.collections import Collection
 from app.core.constraints import COLLECTION_VALIDATORS
 from app.core.middlewares import REQUEST_DEADLINE_S
 from app.core.transactions import drain, refuse_a_stalled_page
 from app.shared.schemas.bounds import REGISTRIERUNG_BESTAETIGUNG_FRIST_TAGE, REGISTRIERUNG_ERINNERUNG_TAGE
-from tests.config import build_test_config
+from tests.bans import ban_list
 
 TODAY = "2026-04-01"
 YESTERDAY = "2026-03-31"
@@ -564,7 +563,7 @@ class TestTheStampDropsTheCachedSeason:
                 saisons_collection=saisons,  # pyright: ignore[reportArgumentType]
                 teams_collection=_Collection("teams", [], database),  # pyright: ignore[reportArgumentType]
                 aktionen_collection=aktionen,  # pyright: ignore[reportArgumentType]
-                sperrliste=BanList(_Collection("sperrliste", [], database), saisons, build_test_config().sperrliste_schluessel),  # pyright: ignore[reportArgumentType]
+                sperrliste=ban_list({Collection.SPERRLISTE: _Collection("sperrliste", [], database), Collection.SAISONS: saisons}),
                 db=_Db(),  # pyright: ignore[reportArgumentType]
                 today=TODAY,
                 germany_now=_NOW,
@@ -628,7 +627,7 @@ class TestTheClocksDrain:
                 saisons_collection=saisons,  # pyright: ignore[reportArgumentType]
                 teams_collection=_Collection("teams", [], database, answers_reads=False),  # pyright: ignore[reportArgumentType]
                 aktionen_collection=aktionen,  # pyright: ignore[reportArgumentType]
-                sperrliste=BanList(_Collection("sperrliste", [], database), saisons, build_test_config().sperrliste_schluessel),  # pyright: ignore[reportArgumentType]
+                sperrliste=ban_list({Collection.SPERRLISTE: _Collection("sperrliste", [], database), Collection.SAISONS: saisons}),
                 db=_Db(),  # pyright: ignore[reportArgumentType]
                 today=TODAY,
                 germany_now=_NOW,

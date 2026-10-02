@@ -11,10 +11,9 @@ from pymongo.asynchronous.database import AsyncDatabase
 from app.api.bewerbungen.einwilligung_router import post_einwilligung
 from app.api.bewerbungen.schemas import FLBewerbungEinwilligungAntwortPayload
 from app.api.bewerbungen.services import BEWERBUNG_KONTAKT_ALTER, KONTAKT_SEATS, compose_bestaetigungen, hash_token
-from app.api.sperrliste.lookup import BanList
 from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
-from tests.config import build_test_config
+from tests.bans import ban_list
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, kontaktperson_document
 from tests.worker import worker_database
@@ -100,7 +99,7 @@ async def answer(database: AsyncDatabase, client: AsyncMongoClient, token: str, 
         antwort_data=FLBewerbungEinwilligungAntwortPayload.model_validate(body),
         bewerbungen_collection=database[Collection.BEWERBUNGEN],
         aktionen_collection=database[Collection.AKTIONEN],
-        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], build_test_config().sperrliste_schluessel),
+        sperrliste=ban_list(database),
         db=client,
         today=TODAY,
         germany_now=NOW,

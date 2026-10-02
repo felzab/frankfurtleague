@@ -13,9 +13,9 @@ from pymongo.asynchronous.collection import AsyncCollection
 from app.api.aktionen.admin_router import get_aktionen
 from app.api.aktionen.schemas import FLAktion, FLAktionenFilterParams, FLAktionenListAdapter, FLAktionMitStand
 from app.api.aktionen.services import akteur_adressen, mit_vorenthaltenem_akteur
-from app.api.sperrliste.lookup import BanList
+from app.core.collections import Collection
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from tests.config import build_test_config
+from tests.bans import ban_list
 
 # A `spiele` document as Mongo returns it: ids at the top, nested inside the embedded copies, and one
 # in a list. A pass over the top level alone would leave every id that actually breaks serialization.
@@ -335,9 +335,7 @@ def run_list(log: _LogCollection, **filters: Any) -> Any:
     return asyncio.run(
         get_aktionen(
             aktionen_collection=cast(AsyncCollection, log),
-            sperrliste=BanList(
-                cast(AsyncCollection, _NothingStored()), cast(AsyncCollection, _NothingStored()), build_test_config().sperrliste_schluessel
-            ),
+            sperrliste=ban_list({Collection.SPERRLISTE: _NothingStored(), Collection.SAISONS: _NothingStored()}),
             filters=FLAktionenFilterParams.model_validate(filters),
         )
     )

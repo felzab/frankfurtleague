@@ -9,21 +9,18 @@ from pymongo.errors import OperationFailure
 
 from app.api.schiedsrichter.admin_router import patch_schiedsrichter
 from app.api.schiedsrichter.schemas import FLPatchSchiedsrichterPayload, FLPatchSchiedsrichterResponse
-from app.api.sperrliste.lookup import BanList
 from app.api.spielorte.admin_router import patch_spielort
 from app.api.spielorte.schemas import FLPatchSpielortPayload, FLPatchSpielortResponse
 from app.api.teams.admin_router import patch_team
 from app.api.teams.schemas import FLPatchTeamPayload, FLPatchTeamResponse
 from app.core.collections import Collection
 from tests.actor_tokens import FRESH_STEP_UP_CHECK
-from tests.config import build_test_config
+from tests.bans import ban_list
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ADDRESS, saison_document, saison_team_document, spiel_document, team_document
 from tests.worker import worker_database
 
 DATABASE_NAME = worker_database("fl_reference_fanout_test")
-
-CONFIG = build_test_config()
 
 TODAY = "2026-04-01"
 
@@ -277,7 +274,7 @@ async def rename_the_referee(
         ),
         schiedsrichter_collection=database[Collection.SCHIEDSRICHTER],
         spiele_collection=database[Collection.SPIELE],
-        sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
+        sperrliste=ban_list(database),
         db=client,
         today=TODAY,
         refuse_unconfirmed=FRESH_STEP_UP_CHECK,
