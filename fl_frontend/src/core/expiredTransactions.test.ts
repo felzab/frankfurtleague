@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
@@ -92,21 +92,34 @@ describe("what a db suite's teardown answers", () => {
   });
 });
 
-const SRC = path.resolve(import.meta.dirname, "..");
+const FRONTEND = path.resolve(import.meta.dirname, "..", "..");
+/** Installed and built: nothing in them is a db suite or a module one of this repository's imports. */
+const UNWALKED = new Set(["node_modules", ".next"]);
+const isCode = (name: string): boolean => /\.[cm]?[jt]sx?$/.test(name);
 
-/** A run-time import of any testcontainers package, the one way to start a container, a type import aside. */
+/** Every module under `fl_frontend`, the whole of what `pnpm run test:db` can collect and its files import. */
+function frontendCode(): string[] {
+  return readdirSync(FRONTEND, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(FRONTEND, entry.name);
+    // Each subtree's floor is none of its own: the floor that holds is the whole walk's, asserted below.
+    if (entry.isDirectory()) return UNWALKED.has(entry.name) ? [] : filesUnder(full, isCode, 0);
+    return isCode(entry.name) ? [full] : [];
+  });
+}
+
+/** A run-time import, re-export or require of any testcontainers package, the one way to a container; a type aside. */
 const STARTS_CONTAINERS =
-  /^import (?!type\b)[^;]*? from "(?:testcontainers|@testcontainers\/[\w.-]+)"|import\("(?:testcontainers|@testcontainers\/[\w.-]+)"\)/m;
+  /^(?:import|export) (?!type\b)[^;]*? from "(?:testcontainers|@testcontainers\/[\w.-]+)"|(?:import|require)\("(?:testcontainers|@testcontainers\/[\w.-]+)"\)/m;
 
 /* The helper hands the judging teardown the container it started, so a file reaching a container only
    through it can neither leave the teardown out nor hand it nothing to judge. */
 describe("every db suite", () => {
   it("starts no container but through the judging helper", () => {
     const helper = path.join(import.meta.dirname, "expiredTransactions.ts");
-    const starting = filesUnder(SRC, (name) => /\.[cm]?[jt]sx?$/.test(name), 1000).filter(
-      (file) => file !== helper && STARTS_CONTAINERS.test(readFileSync(file, "utf8")),
-    );
+    const code = frontendCode();
+    const starting = code.filter((file) => file !== helper && STARTS_CONTAINERS.test(readFileSync(file, "utf8")));
 
+    assert.ok(code.length >= 1000, `the walk read ${String(code.length)} modules, under its floor of 1000`);
     assert.deepEqual(starting, []);
   });
 });
