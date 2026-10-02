@@ -16,6 +16,14 @@ overrides:
   # runtime-reachable, via libvips on /_next/image.
   sharp: "^0.35.4"
   postcss: "^8.5.26"
+# A version published with weaker trust evidence than its package's earlier ones (a trusted CI
+# publisher replaced by a bare token) fails resolution: the shape of a hijacked maintainer account.
+trustPolicy: no-downgrade
+# Each is an older line's backport its long-standing maintainer published by hand while the current
+# line publishes from CI: read in the registry's publish history before excepting it, never after.
+trustPolicyExclude:
+  - eslint-import-resolver-typescript@3.10.1
+  - semver@6.3.1
 # Not the default `install`, under which a `pnpm run` over a drifted manifest rewrites pnpm-lock.yaml,
 # so a check writes the tree and races the gate's lockfile step. `pnpm install` is the one writer.
 verifyDepsBeforeRun: error
