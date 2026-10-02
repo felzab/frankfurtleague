@@ -503,8 +503,9 @@ no run is left aimed at the wrong cluster (I508).
 The same override sets `BEWERBUNG_SWEEP` off and `APP_ENV` to `local`, and hands the frontend no
 key to the mail provider. The database is a copy of production, so
 an armed pass here deletes real applications and stamps real rows; `APP_ENV` is what keeps the
-notices it raises off the people those rows name, each landing in the sink instead
-([`docs/frontend/spec.md`](../frontend/spec.md) I228). One checked-in line is what a developer
+notices it raises off the people those rows name, each landing in the sink instead but one to an
+address the ban list holds, which is filed nowhere ([`docs/frontend/spec.md`](../frontend/spec.md)
+I228, I541). One checked-in line is what a developer
 flips to exercise the sweep (§1.1). **Every start empties the sink of what earlier runs filed**, so
 no code there reads as current that is not (`scripts/ops/local.sh :: empty_mail_sink`): the
 directory is compose's own bind source for the frontend's sink, refused outside the checkout, and

@@ -1,5 +1,5 @@
 /**
- * The two sentences the invite's presses report, in their own module rather than inside
+ * The sentences the invite's presses report, in their own module rather than inside
  * `fl_frontend/src/features/einladungen/actions.ts`: every export of an `actions.ts` is a
  * `runAdminMutation` callback, and a sentence per count is what a case has to reach.
  */

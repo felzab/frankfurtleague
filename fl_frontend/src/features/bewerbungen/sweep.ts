@@ -287,12 +287,15 @@ async function mailLoeschung(loeschung: FLBewerbungSweepLoeschung): Promise<bool
       }),
   });
 
-  // Off production a filed notice is as told as anyone there is; waiting on a send that never comes
-  // would re-file it hourly. Production waits for a real send: withheld there means a missing key.
-
-  // A barred mailbox is as told as the league may make it, anywhere: waiting on it would keep the
-  // application for as long as the ban stands (`docs/frontend/spec.md :: I538`).
-  return delivered.length > 0 || gesperrt > 0 || (withheld.length > 0 && frontend_config.APP_ENV !== "production");
+  return (
+    delivered.length > 0 ||
+    // A barred mailbox is as told as the league may make it, anywhere: waiting on it would keep the
+    // application for as long as the ban stands (`docs/frontend/spec.md :: I538`).
+    gesperrt > 0 ||
+    // Off production a filed notice is as told as anyone there is; waiting on a send that never comes
+    // would re-file it hourly. Production waits for a real send: withheld there means a missing key.
+    (withheld.length > 0 && frontend_config.APP_ENV !== "production")
+  );
 }
 
 /** The half, the season and the error's name, never a person: this line is written for a season nobody swept. */

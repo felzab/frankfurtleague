@@ -66,7 +66,7 @@ const UNGEWISS_FOLGE = "Ein neuer Versand schickt dem Team einen Link, wenn sein
 /** Only beside a link the press found: a team that held none must not read about one. */
 const UNGEWISS_BISHERIGER = "Der bisherige Link dieses Teams gilt vielleicht nicht mehr.";
 
-/** The two states where the league, not the team, is why nothing reached the team, and what each leaves standing. */
+/** A mint that failed or may have, where the league's own write and not the team is why nothing reached it, and what each leaves standing. */
 const folgeSaetze = (zeile: EinladungVersandErgebnis): readonly string[] => {
   // `true` alone: a null says the press failed before it read the team's link, which is no evidence of one.
   if (zeile.uebersprungen === "erzeugung_fehlgeschlagen")
