@@ -3,12 +3,12 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answer, answerReadsWith, clearSteps, EMPTIEST_ANSWER, readsOf, renderPage, steps } from "@/shared/testing/pageHarness.ts";
 
-import type { FLSubjektResponse, FLSubjektSitz } from "@/core/schemas.ts";
-import type { SubjectSession } from "@/core/subject.ts";
+import type { FLSubjektResponse } from "@/core/schemas.ts";
 import type { ReactElement } from "react";
 
 const { setSession, setSubject, subjectReads } = doubleActionRequest();
@@ -24,32 +24,7 @@ const { default: PersoenlichStartPage } = await import("@/app/bereich/(persoenli
 const { funktionenOf } = await import("@/core/funktionen.ts");
 const { funktionOrteOf } = await import("./utils.ts");
 
-const TEAM_A = "6890a1b2c3d4e5f607250011";
-
-const sitz = (fields: Partial<FLSubjektSitz> = {}): FLSubjektSitz => ({
-  saison_id: "2526",
-  team_id: TEAM_A,
-  rolle: "ansprechperson",
-  team_name: "Goethe-Gymnasium",
-  saison_status: "active",
-  ...fields,
-});
-
-/** A person holding what `records` names and nothing else. */
-const person = (records: Partial<SubjectSession["subjekt"]> = {}): SubjectSession => ({
-  email: "pia@example.org",
-  admin: false,
-  subjekt: {
-    sitze: [],
-    spieler: [],
-    schiedsrichter: [],
-    unbestaetigt: false,
-    gesperrt: false,
-    verwaltung: null,
-    berechtigt_seit: null,
-    ...records,
-  },
-});
+const TEAM_A = SITZ.team_id;
 
 const SPIELER_ROW = { spieler_id: TEAM_A };
 const SCHIEDSRICHTER_ROW = { schiedsrichter_id: TEAM_A };

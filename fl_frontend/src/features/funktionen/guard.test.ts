@@ -7,13 +7,13 @@ import { pathToFileURL } from "node:url";
 import { createElement as h } from "react";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
+import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { callPage, clearSteps, readsOf, redirectTarget, renderPage, steps } from "@/shared/testing/pageHarness.ts";
 import { textOf } from "@/shared/testing/renderTest.ts";
 
-import type { FLSubjektSitz } from "@/core/schemas.ts";
 import type { SubjectSession } from "@/core/subject.ts";
 import type { ReactNode } from "react";
 
@@ -40,33 +40,8 @@ const APP_DIR = path.resolve(import.meta.dirname, "..", "..", "app");
 /** Every layout under the person area, the area's own among them, which is the floor. */
 const PERSON_LAYOUTS = filesUnder(path.join(APP_DIR, "bereich", "(persoenlich)"), (name) => name === "layout.tsx", 1);
 
-const TEAM_A = "6890a1b2c3d4e5f607250011";
+const TEAM_A = SITZ.team_id;
 const TEAM_B = "6890a1b2c3d4e5f607250012";
-
-const sitz = (fields: Partial<FLSubjektSitz> = {}): FLSubjektSitz => ({
-  saison_id: "2526",
-  team_id: TEAM_A,
-  rolle: "ansprechperson",
-  team_name: "Goethe-Gymnasium",
-  saison_status: "active",
-  ...fields,
-});
-
-/** A person holding what `records` names and nothing else. */
-const person = (records: Partial<SubjectSession["subjekt"]> = {}, admin = false): SubjectSession => ({
-  email: "pia@example.org",
-  admin: admin,
-  subjekt: {
-    sitze: [],
-    spieler: [],
-    schiedsrichter: [],
-    unbestaetigt: false,
-    gesperrt: false,
-    verwaltung: null,
-    berechtigt_seit: null,
-    ...records,
-  },
-});
 
 const NO_PROPS = { params: Promise.resolve({}), searchParams: Promise.resolve({}) };
 

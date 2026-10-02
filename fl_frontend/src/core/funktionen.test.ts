@@ -7,9 +7,7 @@ import { z } from "zod";
 
 import { funktionenOf, grantsAPanel } from "./funktionen.ts";
 import { FLSubjektSitzSchema } from "./schemas.ts";
-
-import type { FLSubjektSitz } from "./schemas.ts";
-import type { SubjectSession } from "./subject.ts";
+import { person, sitz, SITZ } from "./subjectFixtures.ts";
 
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 
@@ -21,51 +19,16 @@ const VERDICTS = z
   .array(z.object({ saison_status: STATUS, grants_a_panel: z.boolean() }))
   .parse(JSON.parse(readFileSync(path.resolve(REPO_ROOT, "fl_backend", "tests", "shared", "grants_a_panel.json"), "utf8")));
 
-const TEAM_ID = "a".repeat(24);
-
-const sitz = (overrides: Partial<FLSubjektSitz> = {}): FLSubjektSitz => ({
-  saison_id: "2025/26",
-  team_id: TEAM_ID,
-  rolle: "trainer",
-  team_name: "SV Bornheim 1945",
-  saison_status: "active",
-  ...overrides,
-});
-
-/** A subject holding exactly what a case names, as `getSubjectSession` answers one. */
-const subject = ({
-  admin = false,
-  sitze = [],
-  spieler = [],
-  schiedsrichter = [],
-  unbestaetigt = false,
-  gesperrt = false,
-  verwaltung = null,
-  berechtigt_seit = null,
-}: Partial<SubjectSession["subjekt"]> & { admin?: boolean } = {}): SubjectSession => ({
-  email: "person@example.org",
-  admin: admin,
-  subjekt: {
-    sitze: sitze,
-    spieler: spieler,
-    schiedsrichter: schiedsrichter,
-    unbestaetigt: unbestaetigt,
-    gesperrt: gesperrt,
-    verwaltung: verwaltung,
-    berechtigt_seit: berechtigt_seit,
-  },
-});
-
 describe("which of a subject's seats grant a panel", () => {
   it("grants nothing for a seat on a past season", () => {
-    assert.deepEqual(funktionenOf(subject({ sitze: [sitz({ saison_status: "past" })] })).funktionen, []);
+    assert.deepEqual(funktionenOf(person({ sitze: [sitz({ saison_status: "past" })] })).funktionen, []);
   });
 
   /* Judged seat by seat: a resolver reading one seat's status for all, or keeping every seat once any
      grants, passes each single-seat case. */
   it("keeps the granting seat alone of a past and an active one", () => {
     const { funktionen } = funktionenOf(
-      subject({ sitze: [sitz({ saison_id: "2024/25", saison_status: "past" }), sitz({ saison_id: "2025/26", saison_status: "active" })] }),
+      person({ sitze: [sitz({ saison_id: "2024/25", saison_status: "past" }), sitz({ saison_id: "2025/26", saison_status: "active" })] }),
     );
 
     assert.deepEqual(
@@ -76,8 +39,15 @@ describe("which of a subject's seats grant a panel", () => {
 
   for (const status of ["active", "future"] as const) {
     it(`grants one Funktion for a seat whose season is ${status}, carrying its team's name and its season's status`, () => {
-      assert.deepEqual(funktionenOf(subject({ sitze: [sitz({ saison_status: status })] })).funktionen, [
-        { art: "kontakt", rolle: "trainer", team_id: TEAM_ID, saison_id: "2025/26", team_name: "SV Bornheim 1945", saison_status: status },
+      assert.deepEqual(funktionenOf(person({ sitze: [sitz({ saison_status: status })] })).funktionen, [
+        {
+          art: "kontakt",
+          rolle: "ansprechperson",
+          team_id: SITZ.team_id,
+          saison_id: "2526",
+          team_name: "Goethe-Gymnasium",
+          saison_status: status,
+        },
       ]);
     });
   }
@@ -85,10 +55,10 @@ describe("which of a subject's seats grant a panel", () => {
   /* Per seat and never per team: a resolver collapsing one junction row's two seats into one drops
      the second seat's `rolle`. */
   it("answers two seats on one team as two Funktionen naming that one team", () => {
-    const { funktionen } = funktionenOf(subject({ sitze: [sitz({ rolle: "trainer" }), sitz({ rolle: "ansprechperson" })] }));
+    const { funktionen } = funktionenOf(person({ sitze: [sitz({ rolle: "trainer" }), sitz({ rolle: "ansprechperson" })] }));
 
     assert.equal(funktionen.length, 2);
-    assert.deepEqual(new Set(funktionen.map((funktion) => (funktion.art === "kontakt" ? funktion.team_id : null))), new Set([TEAM_ID]));
+    assert.deepEqual(new Set(funktionen.map((funktion) => (funktion.art === "kontakt" ? funktion.team_id : null))), new Set([SITZ.team_id]));
     assert.deepEqual(
       new Set(funktionen.map((funktion) => (funktion.art === "kontakt" ? funktion.rolle : null))),
       new Set(["trainer", "ansprechperson"]),
@@ -97,7 +67,7 @@ describe("which of a subject's seats grant a panel", () => {
 
   it("answers one team's seats in two granting seasons as two Funktionen", () => {
     const { funktionen } = funktionenOf(
-      subject({ sitze: [sitz({ saison_id: "2025/26" }), sitz({ saison_id: "2026/27", saison_status: "future" })] }),
+      person({ sitze: [sitz({ saison_id: "2025/26" }), sitz({ saison_id: "2026/27", saison_status: "future" })] }),
     );
 
     assert.deepEqual(
@@ -110,7 +80,7 @@ describe("which of a subject's seats grant a panel", () => {
 describe("the Funktionen no season narrows", () => {
   it("passes every pupil and referee row through", () => {
     const { funktionen } = funktionenOf(
-      subject({ spieler: [{ spieler_id: "b".repeat(24) }], schiedsrichter: [{ schiedsrichter_id: "c".repeat(24) }] }),
+      person({ spieler: [{ spieler_id: "b".repeat(24) }], schiedsrichter: [{ schiedsrichter_id: "c".repeat(24) }] }),
     );
 
     assert.deepEqual(funktionen, [
@@ -120,16 +90,16 @@ describe("the Funktionen no season narrows", () => {
   });
 
   it("answers the administrator's verdict as the administration Funktion, and nothing without it", () => {
-    assert.deepEqual(funktionenOf(subject({ admin: true })).funktionen, [{ art: "administration" }]);
-    assert.deepEqual(funktionenOf(subject({ admin: false })).funktionen, []);
+    assert.deepEqual(funktionenOf(person({}, true)).funktionen, [{ art: "administration" }]);
+    assert.deepEqual(funktionenOf(person()).funktionen, []);
   });
 });
 
 describe("the pending flag", () => {
   /* Both values: a resolver answering a constant passes whichever single one a case asked about. */
   it("passes the lookup's flag through unchanged", () => {
-    assert.equal(funktionenOf(subject({ unbestaetigt: true })).unbestaetigt, true);
-    assert.equal(funktionenOf(subject({ unbestaetigt: false })).unbestaetigt, false);
+    assert.equal(funktionenOf(person({ unbestaetigt: true })).unbestaetigt, true);
+    assert.equal(funktionenOf(person({ unbestaetigt: false })).unbestaetigt, false);
   });
 });
 

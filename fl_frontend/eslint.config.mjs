@@ -140,6 +140,11 @@ const TEST_ONLY = [
       "cacheScope installs a render pass's memo table on the server React for the process: a *.test.ts(x) file may import it, production code may not.",
   },
   {
+    // In core for `mailDouble.ts`'s reason: the core suites build their subjects with it too.
+    group: ["**/subjectFixtures.ts", "**/subjectFixtures"],
+    message: "subjectFixtures builds the subjects a suite's doubles answer with: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
     // Any `testing` directory, so a relative path from inside `shared`, which names no `shared`, is read too.
     group: ["**/testing/**"],
     message: "src/shared/testing is the suite's harness: a *.test.ts(x) file may import it, production code may not.",

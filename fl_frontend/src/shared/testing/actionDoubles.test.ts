@@ -6,6 +6,8 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { person } from "@/core/subjectFixtures.ts";
+
 import { cacheCalls, doubleActionRequest, doubleActions, doubleToasts } from "./actionDoubles.ts";
 
 const SRC = path.resolve(import.meta.dirname, "..", "..");
@@ -241,19 +243,7 @@ describe("the request double", () => {
   /* The real lookup reads the sign-in store this double replaces, so a page reaching it would crash
      on the doubled `auth` rather than answer. */
   it("answers the subject a case names, and counts every read of it", async () => {
-    const subject = {
-      email: "pia@example.org",
-      admin: false,
-      subjekt: {
-        sitze: [],
-        spieler: [{ spieler_id: "6890a1b2c3d4e5f607250001" }],
-        schiedsrichter: [],
-        unbestaetigt: false,
-        gesperrt: false,
-        verwaltung: null,
-        berechtigt_seit: null,
-      },
-    };
+    const subject = person({ spieler: [{ spieler_id: "6890a1b2c3d4e5f607250001" }] });
     setSubject(subject);
 
     assert.deepEqual(await getSubjectSession(), subject);

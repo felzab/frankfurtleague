@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
 
+import { person } from "@/core/subjectFixtures.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { callPage, pageBody, redirectTarget } from "@/shared/testing/pageHarness.ts";
@@ -29,11 +30,7 @@ const { KONTO_HREF } = await import("@/core/kontoHref.ts");
 const NO_PROPS = { params: Promise.resolve({}), searchParams: Promise.resolve({}) };
 
 /** A person holding nothing the league records: the account page is theirs all the same. */
-const OHNE_FUNKTION: SubjectSession = {
-  email: "pia@example.org",
-  admin: false,
-  subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: true, gesperrt: false, verwaltung: null, berechtigt_seit: null },
-};
+const OHNE_FUNKTION = person({ unbestaetigt: true });
 
 /** The same person holding a grant: the administrator's lane decides what the page shows them. */
 const MIT_ZUGANG: SubjectSession = {

@@ -8,6 +8,7 @@ import {
   ADMIN_EMAIL,
   configDouble,
   cookieHeader,
+  HOLDS_NOTHING,
   madeByPasskey,
   memoryAdapterDouble,
   ORIGIN,
@@ -74,25 +75,14 @@ globals[STORE] = store;
 /** One record set the league holds, as the endpoint answers it. */
 type Subjekt = {
   acknowledged: 0 | 1;
-  sitze: { saison_id: string; team_id: string; rolle: string; team_name: string; saison_status: string }[];
-  spieler: { spieler_id: string }[];
-  schiedsrichter: { schiedsrichter_id: string }[];
+  sitze: readonly { saison_id: string; team_id: string; rolle: string; team_name: string; saison_status: string }[];
+  spieler: readonly { spieler_id: string }[];
+  schiedsrichter: readonly { schiedsrichter_id: string }[];
   unbestaetigt: boolean;
   gesperrt: boolean;
   verwaltung: "owner" | "administration" | null;
   berechtigt_seit: string | null;
 };
-
-const empty = (): Subjekt => ({
-  acknowledged: 1,
-  sitze: [],
-  spieler: [],
-  schiedsrichter: [],
-  unbestaetigt: false,
-  gesperrt: false,
-  verwaltung: null,
-  berechtigt_seit: null,
-});
 
 const SEAT = { saison_id: "2025/26", team_id: "a".repeat(24), rolle: "trainer", team_name: "SV Bornheim 1945", saison_status: "active" };
 const PUPIL = { spieler_id: "b".repeat(24) };
@@ -100,9 +90,9 @@ const PUPIL = { spieler_id: "b".repeat(24) };
 /* Keyed by the FOLDED identifier, as the endpoint's own join is: a guard sending the address as the
    session holds it then asks about a mailbox this holds nothing for. */
 const RECORDS = new Map<string, Subjekt>([
-  [ADMIN_EMAIL, { ...empty(), sitze: [SEAT], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" }],
-  [PERSON_EMAIL, { ...empty(), spieler: [PUPIL] }],
-  [FOLDED_EMAIL, { ...empty(), spieler: [PUPIL] }],
+  [ADMIN_EMAIL, { ...HOLDS_NOTHING, sitze: [SEAT], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" }],
+  [PERSON_EMAIL, { ...HOLDS_NOTHING, spieler: [PUPIL] }],
+  [FOLDED_EMAIL, { ...HOLDS_NOTHING, spieler: [PUPIL] }],
 ]);
 
 /** One call the guard put on the wire. */
@@ -136,7 +126,7 @@ globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) =>
 
   const asked = (JSON.parse(body) as { email?: string }).email ?? "";
 
-  return new Response(JSON.stringify(RECORDS.get(asked) ?? empty()), { status: 200, headers: { "content-type": "application/json" } });
+  return new Response(JSON.stringify(RECORDS.get(asked) ?? HOLDS_NOTHING), { status: 200, headers: { "content-type": "application/json" } });
 }) as typeof globalThis.fetch;
 after(() => {
   globalThis.fetch = ORIGINAL_FETCH;
@@ -260,7 +250,7 @@ describe("who the seam answers for", () => {
      gated on this mark offers it nothing either; the person's records stand. */
   it("drops that mark from a passkey session made before its grant, and keeps it once the grant is dated before", async (t) => {
     t.after(() =>
-      RECORDS.set(ADMIN_EMAIL, { ...empty(), sitze: [SEAT], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" }),
+      RECORDS.set(ADMIN_EMAIL, { ...HOLDS_NOTHING, sitze: [SEAT], verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" }),
     );
     const { cookie, row } = await signIn(ADMIN_EMAIL);
     madeByPasskey(store, row);
@@ -269,7 +259,7 @@ describe("who the seam answers for", () => {
     const marks = [];
     for (const grantedAfterMs of [60 * 1000, -60 * 1000]) {
       RECORDS.set(ADMIN_EMAIL, {
-        ...empty(),
+        ...HOLDS_NOTHING,
         sitze: [SEAT],
         verwaltung: "administration",
         berechtigt_seit: new Date(row.createdAt.getTime() + grantedAfterMs).toISOString(),
@@ -322,22 +312,10 @@ describe("who the seam answers for", () => {
   it("carries the lookup's pending flag as the lookup answered it", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    nextAnswer = new Response(
-      JSON.stringify({
-        acknowledged: 1,
-        sitze: [],
-        spieler: [],
-        schiedsrichter: [],
-        unbestaetigt: true,
-        gesperrt: false,
-        verwaltung: null,
-        berechtigt_seit: null,
-      }),
-      {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      },
-    );
+    nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, unbestaetigt: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
 
     assert.equal((await getSubjectSession())?.subjekt.unbestaetigt, true);
   });
@@ -347,22 +325,10 @@ describe("who the seam answers for", () => {
   it("carries a lowered pending flag where the lookup matched nothing at all", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    nextAnswer = new Response(
-      JSON.stringify({
-        acknowledged: 1,
-        sitze: [],
-        spieler: [],
-        schiedsrichter: [],
-        unbestaetigt: false,
-        gesperrt: false,
-        verwaltung: null,
-        berechtigt_seit: null,
-      }),
-      {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      },
-    );
+    nextAnswer = new Response(JSON.stringify(HOLDS_NOTHING), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
 
     assert.equal((await getSubjectSession())?.subjekt.unbestaetigt, false);
   });
@@ -372,19 +338,10 @@ describe("who the seam answers for", () => {
   it("answers a barred subject no session, and records no actor for it", async () => {
     const { cookie } = await signIn(PERSON_EMAIL);
     arriveAs(cookie);
-    nextAnswer = new Response(
-      JSON.stringify({
-        acknowledged: 1,
-        sitze: [],
-        spieler: [PUPIL],
-        schiedsrichter: [],
-        unbestaetigt: false,
-        gesperrt: true,
-        verwaltung: null,
-        berechtigt_seit: null,
-      }),
-      { status: 200, headers: { "content-type": "application/json" } },
-    );
+    nextAnswer = new Response(JSON.stringify({ ...HOLDS_NOTHING, spieler: [PUPIL], gesperrt: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
 
     const { answer, actor } = await guardInScope();
 

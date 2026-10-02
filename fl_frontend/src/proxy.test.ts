@@ -10,6 +10,7 @@ import {
   configDouble,
   cookieHeader,
   GATE_BACKEND_CONFIG,
+  HOLDS_NOTHING,
   madeByPasskey,
   memoryAdapterDouble,
   ORIGIN,
@@ -418,20 +419,7 @@ describe("where a session that is only read slides (`docs/frontend/spec.md :: I4
   it("leaves a barred person refused by the landing, the person guard and the account guard once their session slid", async (t) => {
     const { cookie, row } = await signIn("gesperrt@example.org");
     refreshedAgo(row, UPDATE_AGE_MS + MINUTE_MS);
-    t.mock.method(globalThis, "fetch", () =>
-      Promise.resolve(
-        Response.json({
-          acknowledged: 1,
-          sitze: [],
-          spieler: [],
-          schiedsrichter: [],
-          unbestaetigt: false,
-          gesperrt: true,
-          verwaltung: null,
-          berechtigt_seit: null,
-        }),
-      ),
-    );
+    t.mock.method(globalThis, "fetch", () => Promise.resolve(Response.json({ ...HOLDS_NOTHING, gesperrt: true })));
 
     assert.ok(setSessionCookie(await visit(PERSON_URL, cookie), cookie), "nothing slid, so the case proves nothing");
 

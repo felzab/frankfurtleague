@@ -3,7 +3,8 @@ import { describe, it } from "node:test";
 
 import { answerReadsWith, callPage, EMPTIEST_ANSWER, pageBody, redirectTarget } from "@/shared/testing/pageHarness.ts";
 
-import { cookieHeader, memoryAdapterDouble, ORIGIN, registerAuthDoubles, signInByCode } from "../../core/authDoubles.ts";
+import { cookieHeader, HOLDS_NOTHING, memoryAdapterDouble, ORIGIN, registerAuthDoubles, signInByCode } from "../../core/authDoubles.ts";
+import { SITZ } from "../../core/subjectFixtures.ts";
 
 const STORE = "__flOfferLaterStore";
 /** What the request a case arrives as carries. */
@@ -11,7 +12,7 @@ let requestHeaders: Headers | undefined;
 
 /** Granted nothing: the person the offer is made to. */
 const PERSON_EMAIL = "spielerin@example.org";
-const TEAM_ID = "6890a1b2c3d4e5f607250011";
+const TEAM_ID = SITZ.team_id;
 
 const globals = globalThis as unknown as Record<string, unknown>;
 const store = { user: [], session: [] as { createdAt: Date }[], account: [], verification: [] as unknown[], passkey: [] };
@@ -28,18 +29,7 @@ registerAuthDoubles({
 
 // The one backend read on this path, the sign-in gate's and the landing's alike: a live seat.
 answerReadsWith((endpoint, schema, params) =>
-  endpoint === "/identitaet/subjekt"
-    ? {
-        acknowledged: 1,
-        sitze: [{ saison_id: "2526", team_id: TEAM_ID, rolle: "ansprechperson", team_name: "Goethe-Gymnasium", saison_status: "active" }],
-        spieler: [],
-        schiedsrichter: [],
-        unbestaetigt: false,
-        gesperrt: false,
-        verwaltung: null,
-        berechtigt_seit: null,
-      }
-    : EMPTIEST_ANSWER(endpoint, schema, params),
+  endpoint === "/identitaet/subjekt" ? { ...HOLDS_NOTHING, sitze: [SITZ] } : EMPTIEST_ANSWER(endpoint, schema, params),
 );
 
 // After the doubles, so each import resolves through them.

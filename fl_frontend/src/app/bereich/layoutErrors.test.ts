@@ -13,6 +13,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
+import { person } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
@@ -221,11 +222,7 @@ describe("the chrome under a person lane's guard", () => {
      request already awaited. */
   it("awaits the request before its own session read, whatever is mounted above it", async () => {
     for (const area of AREAS.filter(({ boundary }) => boundary !== AdminAreaBoundary)) {
-      setSubject({
-        email: "pia@example.org",
-        admin: false,
-        subjekt: { sitze: [], spieler: [], schiedsrichter: [], unbestaetigt: false, gesperrt: false, verwaltung: null, berechtigt_seit: null },
-      });
+      setSubject(person());
       // What the guard hands on: the chrome's element, called below on its own.
       const guarded = (await pageBody(area.layout, {})) as ReactElement<{ children: ReactElement<Record<string, unknown>> }>;
       const chrome = guarded.props.children as ReactElement<Record<string, unknown>> & { type: (props: unknown) => Promise<unknown> };

@@ -10,14 +10,13 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
+import { person, sitz, SITZ } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { callPage, clearSteps, pageBody, readsOf, redirectTarget, renderPage, steps } from "@/shared/testing/pageHarness.ts";
 import { textOf } from "@/shared/testing/renderTest.ts";
 
-import type { FLSubjektSitz } from "@/core/schemas.ts";
-import type { SubjectSession } from "@/core/subject.ts";
 import type { ReactNode } from "react";
 
 const { setSubject } = doubleActionRequest();
@@ -31,7 +30,7 @@ const { default: TeamStartPage } = await import("@/app/bereich/team/[team_id]/[s
 const { KONTO_HREF } = await import("@/core/kontoHref.ts");
 const { TEAM_SHELL_FALLBACK, TEAM_SHELL_REFUSAL } = await import("@/features/funktionen/constants.ts");
 
-const TEAM_A = "6890a1b2c3d4e5f607250011";
+const TEAM_A = SITZ.team_id;
 const TEAM_B = "6890a1b2c3d4e5f607250012";
 
 const TEAM_DIR = path.resolve(import.meta.dirname, "..", "..", "app", "bereich", "team", "[team_id]", "[saison_id]");
@@ -46,31 +45,6 @@ const TEAM_LAYOUTS = filesUnder(TEAM_DIR, (name) => name === "layout.tsx", 1);
 
 /** Team A's address this season, which the person below holds nothing on. */
 const HELD_BY_NOBODY = { params: Promise.resolve({ team_id: TEAM_A, saison_id: "2526" }), searchParams: Promise.resolve({}) };
-
-const sitz = (fields: Partial<FLSubjektSitz> = {}): FLSubjektSitz => ({
-  saison_id: "2526",
-  team_id: TEAM_A,
-  rolle: "ansprechperson",
-  team_name: "Goethe-Gymnasium",
-  saison_status: "active",
-  ...fields,
-});
-
-/** A person holding what `records` names and nothing else. */
-const person = (records: Partial<SubjectSession["subjekt"]> = {}): SubjectSession => ({
-  email: "pia@example.org",
-  admin: false,
-  subjekt: {
-    sitze: [],
-    spieler: [],
-    schiedsrichter: [],
-    unbestaetigt: false,
-    gesperrt: false,
-    verwaltung: null,
-    berechtigt_seit: null,
-    ...records,
-  },
-});
 
 /** The landing as the team area mounts it at one address: under its layout, whose guard runs first. */
 const landingAt = (teamId: string, saisonId: string) => {

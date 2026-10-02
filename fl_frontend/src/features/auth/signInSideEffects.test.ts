@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { ADMIN_EMAIL, asDataUrl, memoryAdapterDouble, ORIGIN, registerAuthDoubles } from "@/core/authDoubles.ts";
+import { ADMIN_EMAIL, asDataUrl, HOLDS_NOTHING, memoryAdapterDouble, ORIGIN, registerAuthDoubles } from "@/core/authDoubles.ts";
 import { overridingModule } from "@/core/exportingModule.ts";
 import { doubleApiAnswers } from "@/shared/testing/apiClientDouble.ts";
 
@@ -32,15 +32,6 @@ const UNCONFIRMED = "unbestaetigte@example.org";
 /** What the backend's one read answers an address with, or that it threw. */
 type Backend = Record<string, unknown> | "throws";
 
-const NOTHING_HELD = {
-  sitze: [],
-  spieler: [],
-  schiedsrichter: [],
-  unbestaetigt: false,
-  gesperrt: false,
-  verwaltung: null,
-  berechtigt_seit: null,
-};
 const A_SEAT = {
   saison_id: "2026",
   team_id: "0123456789abcdef01234567",
@@ -50,21 +41,21 @@ const A_SEAT = {
 };
 
 const BACKENDS: Readonly<Record<string, Backend>> = {
-  [GRANTED]: { ...NOTHING_HELD, verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" },
-  [BARRED]: { ...NOTHING_HELD, sitze: [A_SEAT], gesperrt: true },
-  [PAST_SEATED]: { ...NOTHING_HELD, sitze: [{ ...A_SEAT, saison_status: "past" }] },
+  [GRANTED]: { ...HOLDS_NOTHING, verwaltung: "administration", berechtigt_seit: "2026-01-01T00:00:00Z" },
+  [BARRED]: { ...HOLDS_NOTHING, sitze: [A_SEAT], gesperrt: true },
+  [PAST_SEATED]: { ...HOLDS_NOTHING, sitze: [{ ...A_SEAT, saison_status: "past" }] },
   [UNREACHED]: "throws",
-  [UNCONFIRMED]: { ...NOTHING_HELD, unbestaetigt: true },
-  [SEATED]: { ...NOTHING_HELD, sitze: [A_SEAT] },
+  [UNCONFIRMED]: { ...HOLDS_NOTHING, unbestaetigt: true },
+  [SEATED]: { ...HOLDS_NOTHING, sitze: [A_SEAT] },
 };
 
 /** Answers the backend read for the address its body names; an address named nowhere holds nothing. */
 function answerFromTheBackend(call: ApiCall): Promise<unknown> {
   const asked = (JSON.parse(call.body ?? "{}") as { email?: string }).email ?? "";
-  const backend = BACKENDS[asked] ?? NOTHING_HELD;
+  const backend = BACKENDS[asked] ?? HOLDS_NOTHING;
   if (backend === "throws") return Promise.reject(new Error("the backend answered nothing"));
 
-  return Promise.resolve({ acknowledged: 1, ...backend });
+  return Promise.resolve(backend);
 }
 
 // Registered ahead of the imports below, whose graph reaches the real client through the gate.
