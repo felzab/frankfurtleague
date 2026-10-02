@@ -36,6 +36,7 @@ import { RetiredBadge } from "@/shared/components/ui/RetiredBadge";
 import { RowActionDelete, RowActionLink, RowActionRestore, RowActions } from "@/shared/components/ui/RowActions";
 import { textLink } from "@/shared/components/ui/textLink";
 import { useReactivation } from "@/shared/hooks/useReactivation";
+import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
@@ -118,7 +119,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     const row = spieler.selected;
 
     return (
-      <RowActions>
+      <RowActions row={spieler.id}>
         <RowActionLink
           href={withSaisonId(`/bereich/admin/spieler/${spieler.id}`, selectedFromUrl)}
           label="Bearbeiten"
@@ -138,6 +139,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
             // out of the season and leaves the squad rows still naming it.
             disabledReason={RETURN_REFUSAL[judgeRowReturn(row.team_id, saisonTeams)]}
             isPending={squadRow.isReactivating}
+            place="kadereintrag"
             onPress={() => squadRow.reactivate({ spieler_id: spieler.id, saison_id: selectedSaisonId })}
           />
         )}
@@ -229,7 +231,9 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
     <>
       {/* The table below `md` forced the whole grid sideways; a stacked card holds the same data and
           the same controls at reading width. */}
-      <div className="flex w-full flex-col gap-3 md:hidden">
+      <div
+        className="flex w-full flex-col gap-3 md:hidden"
+        {...focusSection("spieler-karten")}>
         {filteredSpieler.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
         {filteredSpieler.map((spieler) => (
           <div
@@ -242,7 +246,9 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
         ))}
       </div>
 
-      <div className="hidden w-full md:block">
+      <div
+        className="hidden w-full md:block"
+        {...focusSection("spieler-tabelle")}>
         <Table className={`${card()} h-fit w-full p-0`}>
           {/* Never scrolled at a width this table renders at
               (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform

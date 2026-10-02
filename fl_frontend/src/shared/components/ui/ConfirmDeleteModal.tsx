@@ -38,6 +38,7 @@ const RETIRE_RUNNING = "Legt still...";
 export function ConfirmDeleteModal({
   isOpen,
   onClose,
+  onRetired,
   heading,
   entityLabel,
   entityName,
@@ -48,6 +49,8 @@ export function ConfirmDeleteModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
+  /** The list's landing for the row control that opened this, its replacement taking the focus the dialog hands back. */
+  onRetired: () => void;
   /** "Spielort stilllegen" */
   heading: string;
   /** "den Spielort" — reads as "Möchtest Du {entityLabel} <name> wirklich stilllegen?" */
@@ -91,6 +94,7 @@ export function ConfirmDeleteModal({
         return;
       }
 
+      onRetired();
       // The server's sentence as the body (`docs/frontend/spec.md` §1.12), and never a second copy of
       // the title: an action with nothing to add sends the title's own words.
       appToast.success(successMessage, { description: res.message === successMessage ? undefined : res.message });

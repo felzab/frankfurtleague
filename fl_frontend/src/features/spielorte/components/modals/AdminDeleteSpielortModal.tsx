@@ -7,7 +7,17 @@ import { useRetainedValue } from "@/shared/hooks/useRetainedValue";
 
 import type { FLSpielort } from "@/features/spielorte/schemas";
 
-export function AdminDeleteSpielortModal({ ortData, isOpen, onClose }: { ortData: FLSpielort | null; isOpen: boolean; onClose: () => void }) {
+export function AdminDeleteSpielortModal({
+  ortData,
+  isOpen,
+  onClose,
+  onRetired,
+}: {
+  ortData: FLSpielort | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onRetired: () => void;
+}) {
   const ort = useRetainedValue(ortData);
 
   if (!ort) return null;
@@ -16,6 +26,7 @@ export function AdminDeleteSpielortModal({ ortData, isOpen, onClose }: { ortData
     <ConfirmDeleteModal
       isOpen={isOpen}
       onClose={onClose}
+      onRetired={onRetired}
       heading="Spielort stilllegen"
       entityLabel="den Spielort"
       entityName={ort.name}

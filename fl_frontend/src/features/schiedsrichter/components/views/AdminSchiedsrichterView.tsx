@@ -24,11 +24,12 @@ export function AdminSchiedsrichterView({ schiedsrichter }: { schiedsrichter: FL
           setDeletingSchiedsrichter={onDelete}
         />
       )}
-      renderDeleteModal={({ item, isOpen, onClose }) => (
+      renderDeleteModal={({ item, isOpen, onClose, onRetired }) => (
         <AdminDeleteSchiedsrichterModal
           schiedsrichterData={item}
           isOpen={isOpen}
           onClose={onClose}
+          onRetired={onRetired}
         />
       )}
     />

@@ -5,6 +5,7 @@ import Link from "next/link";
 import Bars from "@gravity-ui/icons/Bars";
 import PersonGear from "@gravity-ui/icons/PersonGear";
 
+import { FOCUS_HEADING } from "../../../utils/focusAfterWrite";
 import { BrandLink } from "../../ui/BrandLink";
 import { InfoHint } from "../../ui/InfoHint";
 import { ThemeSwitch } from "../../ui/ThemeSwitch";
@@ -89,7 +90,11 @@ export function AppTopBar({
         <div className="min-w-0 truncate fluid-base">
           {/* The glyph beside the h1 and not inside it, or a screen reader names the page with the hint's label. Both
               inline in one block, whose size reaches `InfoHint`'s 1em icon on the title's line box (`docs/frontend/spec.md` I81). */}
-          <h1 className="inline font-semibold tracking-wide text-foreground">{title}</h1>
+          <h1
+            {...FOCUS_HEADING}
+            className="inline font-semibold tracking-wide text-foreground">
+            {title}
+          </h1>
           {/* `InfoHint` rather than `IconTooltip`: react-aria's tooltip never opens on tap, so a phone could not reach it. */}
           {hint && (
             <InfoHint label={`Was auf „${title}“ zu finden ist`}>

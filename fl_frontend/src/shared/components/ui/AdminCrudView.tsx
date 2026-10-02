@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useFacetSelection } from "../../hooks/useFacetSelection";
 import { useFuzzySearch } from "../../hooks/useFuzzySearch";
 import { applyFacets } from "../../utils/facets";
+import { focusAfterWrite } from "../../utils/focusAfterWrite";
 import { AdminCrudFallback } from "./AdminCrudFallback";
 import { useCrudListQuery } from "./AdminCrudPrivateQuery";
 import { FilterLeiste } from "./FilterLeiste";
@@ -83,13 +84,18 @@ export function AdminCrudView<TItem extends { id: string }>({
     emptiness: CrudEmptiness;
     onDelete: (item: TItem) => void;
   }) => ReactNode;
-  /** Optional: a season is never deleted, since removing it would orphan every row carrying its id. */
-  renderDeleteModal?: (args: { item: TItem | null; isOpen: boolean; onClose: () => void }) => ReactNode;
+  /**
+   * Optional: a season is never deleted, since removing it would orphan every row carrying its id. `onRetired` is
+   * the dialog's to call once the retirement landed.
+   */
+  renderDeleteModal?: (args: { item: TItem | null; isOpen: boolean; onClose: () => void; onRetired: () => void }) => ReactNode;
 }) {
   // The narrowing controls live above and below this component; where they meet it is the shell's.
   const query = useCrudListQuery();
   const selection = useFacetSelection(facets);
-  const [deletingItem, setDeletingItem] = useState<TItem | null>(null);
+  const [deleting, setDeleting] = useState<{ item: TItem; landing: ReturnType<typeof focusAfterWrite> } | null>(null);
+  // Read as the row's control opens the dialog, which takes the focus off that control the moment it opens.
+  const openRetirement = (item: TItem) => setDeleting({ item, landing: focusAfterWrite() });
 
   const hasFacets = facets.length > 0;
 
@@ -114,9 +120,14 @@ export function AdminCrudView<TItem extends { id: string }>({
           leserichtung={leserichtung}
         />
 
-        {renderTable({ filteredItems, emptiness, onDelete: setDeletingItem })}
+        {renderTable({ filteredItems, emptiness, onDelete: openRetirement })}
 
-        {renderDeleteModal?.({ item: deletingItem, isOpen: deletingItem !== null, onClose: () => setDeletingItem(null) })}
+        {renderDeleteModal?.({
+          item: deleting?.item ?? null,
+          isOpen: deleting !== null,
+          onClose: () => setDeleting(null),
+          onRetired: () => deleting?.landing.landed(),
+        })}
       </div>
 
       {/* The same placeholder the route already drew, over the whole region rather than the table alone,

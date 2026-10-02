@@ -39,6 +39,7 @@ import {
   RowActions,
 } from "@/shared/components/ui/RowActions";
 import { useReactivation } from "@/shared/hooks/useReactivation";
+import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { withSaisonId } from "@/shared/utils/saisonHref";
 
 import type { CrudEmptiness } from "@/shared/components/ui/AdminCrudView";
@@ -111,7 +112,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
     team.selected ? <span className="fluid-sm font-semibold text-foreground">{team.selected.gruppe}</span> : null;
 
   const renderActions = (team: AdminTeamRow) => (
-    <RowActions>
+    <RowActions row={team.id}>
       <RowActionLink
         href={withSaisonId(`/bereich/admin/teams/${team.id}`, selectedFromUrl)}
         label="Bearbeiten"
@@ -198,7 +199,9 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
     <>
       {/* The table below `md` forced the whole grid sideways; a stacked card holds the same data and
           the same controls at reading width. */}
-      <div className="flex w-full flex-col gap-3 md:hidden">
+      <div
+        className="flex w-full flex-col gap-3 md:hidden"
+        {...focusSection("teams-karten")}>
         {filteredTeams.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
         {filteredTeams.map((team) => (
           <div
@@ -211,7 +214,9 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
         ))}
       </div>
 
-      <div className="hidden w-full md:block">
+      <div
+        className="hidden w-full md:block"
+        {...focusSection("teams-tabelle")}>
         <Table className={`${card()} h-fit w-full p-0`}>
           {/* Never scrolled at a width this table renders at
               (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform

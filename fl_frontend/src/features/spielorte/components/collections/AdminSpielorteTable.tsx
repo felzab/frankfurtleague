@@ -39,6 +39,7 @@ import { useReactivation } from "@/shared/hooks/useReactivation";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
+import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatAddressFull, formatEuro } from "@/shared/utils/format";
 
 import { formatMapsLink } from "../../utils";
@@ -114,7 +115,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   );
 
   const renderActions = (ort: FLSpielort) => (
-    <RowActions>
+    <RowActions row={ort.id}>
       <RowActionCopy
         label="Adresse kopieren"
         ariaLabel={`Adresse von ${ort.name} kopieren`}
@@ -174,7 +175,9 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   return (
     <>
       {/* One card per venue, so nothing scrolls horizontally. */}
-      <div className="flex w-full flex-col gap-3 md:hidden">
+      <div
+        className="flex w-full flex-col gap-3 md:hidden"
+        {...focusSection("spielorte-karten")}>
         {filteredSpielorte.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
         {filteredSpielorte.map((ort) => (
           <div
@@ -189,7 +192,9 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
         ))}
       </div>
 
-      <div className="hidden w-full md:block">
+      <div
+        className="hidden w-full md:block"
+        {...focusSection("spielorte-tabelle")}>
         <Table className={`${card()} h-fit w-full p-0`}>
           {/* Never scrolled at a width this table renders at
               (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform

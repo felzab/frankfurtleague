@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { STEP_UP_REFUSED } from "@/shared/components/ui/stepUp";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
 import { useStepUp } from "./useStepUp";
 
@@ -34,6 +35,8 @@ export function useReactivation<TPayload>({
   const router = useRouter();
 
   const reactivate = (payload: TPayload, { stepUp: due }: { stepUp: boolean } = { stepUp: false }) => {
+    // Read ahead of the passkey prompt, which takes the focus off the pressed control while it is open.
+    const landing = focusAfterWrite();
     stepUp.confirmThen(
       due,
       () =>
@@ -46,6 +49,7 @@ export function useReactivation<TPayload>({
             return;
           }
 
+          landing.landed();
           const title = `${noun} reaktiviert`;
           // A warning where the link the return minted did not leave, graded and titled as the save's
           // `offerUndo` grades the same send: the person holds no working link and nobody else is told.

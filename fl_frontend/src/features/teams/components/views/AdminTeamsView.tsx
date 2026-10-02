@@ -30,11 +30,12 @@ export function AdminTeamsView({ teams, numberOfGroups }: { teams: AdminTeamRow[
           setDeletingTeam={onDelete}
         />
       )}
-      renderDeleteModal={({ item, isOpen, onClose }) => (
+      renderDeleteModal={({ item, isOpen, onClose, onRetired }) => (
         <AdminDeleteTeamModal
           teamData={item}
           isOpen={isOpen}
           onClose={onClose}
+          onRetired={onRetired}
         />
       )}
     />

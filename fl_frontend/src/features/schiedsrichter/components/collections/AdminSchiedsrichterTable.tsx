@@ -33,6 +33,7 @@ import { useReactivation } from "@/shared/hooks/useReactivation";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
+import { focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatEuro } from "@/shared/utils/format";
 
 import { hatAdresse } from "../../schemas";
@@ -136,7 +137,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
     const hasKontakt = Boolean(email) || Boolean(schiedsrichter.kontakt.telefon);
 
     return (
-      <RowActions>
+      <RowActions row={schiedsrichter.id}>
         {/* On the row's OWN id: this list serves no erased person and never the ghost, so no row here
             stands for more fixtures than its own. Inline, and admin-only. */}
         <RowActionLink
@@ -190,7 +191,9 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   return (
     <>
       {/* One card per referee, so nothing scrolls horizontally. */}
-      <div className="flex w-full flex-col gap-3 md:hidden">
+      <div
+        className="flex w-full flex-col gap-3 md:hidden"
+        {...focusSection("schiedsrichter-karten")}>
         {filteredSchiedsrichter.length === 0 && <AdminCrudEmptyCard message={EMPTY_MESSAGES[emptiness]} />}
         {filteredSchiedsrichter.map((schiedsrichter) => (
           <div
@@ -205,7 +208,9 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
         ))}
       </div>
 
-      <div className="hidden w-full md:block">
+      <div
+        className="hidden w-full md:block"
+        {...focusSection("schiedsrichter-tabelle")}>
         <Table className={`${card()} h-fit w-full p-0`}>
           {/* Never scrolled at a width this table renders at
               (`fl_frontend/src/shared/components/ui/adminCrudEmpty.test.ts`). It stays for a platform

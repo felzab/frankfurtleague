@@ -32,6 +32,7 @@ describe("a control whose write is running", () => {
         h(ConfirmDeleteModal, {
           isOpen: true,
           onClose: () => undefined,
+          onRetired: () => undefined,
           heading: "Spielort stilllegen",
           entityLabel: "den Spielort",
           entityName: "Halle West",

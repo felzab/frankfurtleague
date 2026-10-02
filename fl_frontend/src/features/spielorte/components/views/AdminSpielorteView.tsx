@@ -24,11 +24,12 @@ export function AdminSpielorteView({ spielorte }: { spielorte: FLSpielort[] }) {
           setDeletingOrt={onDelete}
         />
       )}
-      renderDeleteModal={({ item, isOpen, onClose }) => (
+      renderDeleteModal={({ item, isOpen, onClose, onRetired }) => (
         <AdminDeleteSpielortModal
           ortData={item}
           isOpen={isOpen}
           onClose={onClose}
+          onRetired={onRetired}
         />
       )}
     />
