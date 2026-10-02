@@ -79,8 +79,10 @@ async def get_subjekt(
     administrator is decided by a grant rather than derived from a league record, and it narrows none of the records beside it.
 
     `berechtigt_seit` is when that grant took effect, null exactly where `verwaltung` is: the moment `POST /berechtigungen/abgleich`
-    first found a grant made in the database directly, and the grant's own `erteilt_am` for one made through the application or not
-    yet found. A tier change leaves it standing. An admin-tier request from a sign-in older than it is refused.
+    first found a grant made in the database directly, the grant's own `erteilt_am` for one made through the application, and for one
+    made in the database and not yet found, its `erteilt_am` or the moment its id was generated, whichever is later. An address
+    changed in place in the database is no grant, `verwaltung` null, until that endpoint finds the change. A tier change leaves it
+    standing. An admin-tier request from a sign-in older than it is refused.
 
     Each list may be empty and each may hold more than one entry: one person holds seats at two clubs, and nothing enforces one pupil
     record per address.

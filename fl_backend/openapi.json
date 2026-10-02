@@ -2310,9 +2310,6 @@
               }
             }
           },
-          "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
-          },
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
@@ -2327,6 +2324,9 @@
           },
           "400": {
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
@@ -3742,9 +3742,6 @@
               }
             }
           },
-          "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
-          },
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
@@ -3759,6 +3756,9 @@
           },
           "400": {
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
@@ -3892,9 +3892,6 @@
               }
             }
           },
-          "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
-          },
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001.REQ-EINLADUNG-001"
           },
@@ -3909,6 +3906,9 @@
           },
           "400": {
             "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
@@ -5026,9 +5026,6 @@
               }
             }
           },
-          "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
-          },
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
@@ -5043,6 +5040,9 @@
           },
           "400": {
             "$ref": "#/components/responses/400.REQ-AUTH-005.REQ-VAL-002"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
@@ -5343,9 +5343,6 @@
               }
             }
           },
-          "401": {
-            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
-          },
           "404": {
             "$ref": "#/components/responses/404.DB-COMMON-001"
           },
@@ -5360,6 +5357,9 @@
           },
           "400": {
             "$ref": "#/components/responses/400.REQ-AUTH-005"
+          },
+          "401": {
+            "$ref": "#/components/responses/401.REQ-AUTH-001.REQ-AUTH-004.REQ-AUTH-007.REQ-AUTH-009"
           },
           "403": {
             "$ref": "#/components/responses/403.REQ-AUTH-006"
@@ -7729,7 +7729,7 @@
     "/api/v0/identitaet/subjekt": {
       "post": {
         "summary": "Say which league records one mailbox holds",
-        "description": "Answer which confirmed contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /kontakte/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival\nand compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain\nasked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de`\nare two domains here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.\n\nA contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode --\nso both are read in two steps: the database narrows to the rows holding the identifier whatever the case of its letters, and the\nfold decides on each candidate's own stored value.\n\nNeither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by\nevery writer that touches either.\n\nA record is answered only once its own person has confirmed it -- a seat's `einwilligung.bestaetigt_am`, judged per seat, and the\nsame stamp on a pupil's and a referee's consent record, an empty stamp confirming nothing -- and only while its row is live: a\nretired pupil or referee is answered nothing, and so is the placeholder every erased referee's fixtures name. A seat on a season\nits team withdrew from, by disqualification or withdrawal alike, is answered nothing either; its seats on other seasons stand.\nA seat on a `past` season is still answered, carrying its `saison_status`: which seasons grant a panel is each caller's to decide.\n\n`unbestaetigt` is true exactly where the mailbox holds records that could grant a panel -- a live pupil or referee row, or a seat\non an `active` or `future` season -- and none of them is confirmed, so an unconfirmed person is told apart from one the league\nholds nothing for. A seat on a `past` season counts toward neither answer: confirming it would open nothing.\n\n`gesperrt` says whether the address is on the ban list, judged as a sign-up is: the address in any spelling that folds to the same\nmailbox, and a ban only while the running season is within its bound. It narrows none of the records beside it.\n\n`verwaltung` is the grant the mailbox holds in `berechtigungen` -- `owner`, `administration`, or null for none -- matched on the\nfolded identifier alone, the one spelling a grant is stored in. It is the one stored answer here: whether a person is an\nadministrator is decided by a grant rather than derived from a league record, and it narrows none of the records beside it.\n\n`berechtigt_seit` is when that grant took effect, null exactly where `verwaltung` is: the moment `POST /berechtigungen/abgleich`\nfirst found a grant made in the database directly, and the grant's own `erteilt_am` for one made through the application or not\nyet found. A tier change leaves it standing. An admin-tier request from a sign-in older than it is refused.\n\nEach list may be empty and each may hold more than one entry: one person holds seats at two clubs, and nothing enforces one pupil\nrecord per address.\nAn address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.",
+        "description": "Answer which confirmed contact seats, pupil records and referee records the league holds for one mailbox.\n\nStores nothing, and a POST all the same: the identifier travels in the body so that no path or query carries an address into an\naccess line, which is `POST /kontakte/erasure/ansicht`'s reason too.\n\nThe address is folded to the sign-in identifier -- trimmed, its domain in punycode, its ASCII letters lower-cased -- on arrival\nand compared in that form, so `Anna.Mueller@Schule.de` in a contact seat answers for `anna.mueller@schule.de`, and a domain\nasked as `müller.de` for the `xn--mller-kva.de` a record stores. `ß` is not folded to `ss`, so `poststrasse.de` and `poststraße.de`\nare two domains here as they are at sign-in. A `spieler` row is joined by equality instead, that field storing the folded form already.\n\nA contact seat and a referee record store the address as its payload wrote it -- the local part as typed, the domain in punycode --\nso both are read in two steps: the database narrows to the rows holding the identifier whatever the case of its letters, and the\nfold decides on each candidate's own stored value.\n\nNeither collection stores a folded copy beside the address it holds: a second copy on two collections has to be kept true by\nevery writer that touches either.\n\nA record is answered only once its own person has confirmed it -- a seat's `einwilligung.bestaetigt_am`, judged per seat, and the\nsame stamp on a pupil's and a referee's consent record, an empty stamp confirming nothing -- and only while its row is live: a\nretired pupil or referee is answered nothing, and so is the placeholder every erased referee's fixtures name. A seat on a season\nits team withdrew from, by disqualification or withdrawal alike, is answered nothing either; its seats on other seasons stand.\nA seat on a `past` season is still answered, carrying its `saison_status`: which seasons grant a panel is each caller's to decide.\n\n`unbestaetigt` is true exactly where the mailbox holds records that could grant a panel -- a live pupil or referee row, or a seat\non an `active` or `future` season -- and none of them is confirmed, so an unconfirmed person is told apart from one the league\nholds nothing for. A seat on a `past` season counts toward neither answer: confirming it would open nothing.\n\n`gesperrt` says whether the address is on the ban list, judged as a sign-up is: the address in any spelling that folds to the same\nmailbox, and a ban only while the running season is within its bound. It narrows none of the records beside it.\n\n`verwaltung` is the grant the mailbox holds in `berechtigungen` -- `owner`, `administration`, or null for none -- matched on the\nfolded identifier alone, the one spelling a grant is stored in. It is the one stored answer here: whether a person is an\nadministrator is decided by a grant rather than derived from a league record, and it narrows none of the records beside it.\n\n`berechtigt_seit` is when that grant took effect, null exactly where `verwaltung` is: the moment `POST /berechtigungen/abgleich`\nfirst found a grant made in the database directly, the grant's own `erteilt_am` for one made through the application, and for one\nmade in the database and not yet found, its `erteilt_am` or the moment its id was generated, whichever is later. An address\nchanged in place in the database is no grant, `verwaltung` null, until that endpoint finds the change. A tier change leaves it\nstanding. An admin-tier request from a sign-in older than it is refused.\n\nEach list may be empty and each may hold more than one entry: one person holds seats at two clubs, and nothing enforces one pupil\nrecord per address.\nAn address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.",
         "operationId": "get_subjekt_api_v0_identitaet_subjekt_post",
         "requestBody": {
           "content": {
