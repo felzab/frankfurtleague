@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 
 import { Button } from "@heroui/react/button";
 
@@ -47,6 +47,13 @@ export function CodeConfirmation({
     appToast.failure("Code nicht gesendet", state);
   }, [state]);
 
+  // The refusal unmounts the code step from under its focused field, so focus would fall to `<body>`;
+  // the control that sends the next code takes it, and the refusal's `role="alert"` reads out.
+  const sendRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (refused) sendRef.current?.focus();
+  }, [refused]);
+
   const send = () => {
     setSends((count) => count + 1);
     setRefused(false);
@@ -86,6 +93,7 @@ export function CodeConfirmation({
   return (
     <div className="flex flex-col gap-2">
       <Button
+        ref={sendRef}
         type="button"
         variant="secondary"
         isPending={isSending}
