@@ -320,8 +320,9 @@ every file this Scope names.
   an unmarked path is how a dead one survives a green gate. A roadmap id, a review reference and an
   issue number are narrower:
   `scripts/checks/docs_gate/branch.py :: check_added_citations` reads the branch's added comments
-  in `scripts/checks/docs_gate/kernel.py :: SOURCE_SUFFIXES` alone, so none of the three is caught
-  in a Dockerfile, a workflow, an nginx configuration or a manifest. Naming the issue-number shape
+  alone, though in every kind those two registers select, a Dockerfile, a workflow and a manifest
+  among them, and it takes an issue number spelled with a hash or after a tracker's word, "issue"
+  or "pull request" or "PR". Naming the issue-number shape
   to ban it is a mention rather than a use, and is written in double quotes — straight or curly —
   which that reader spares; backticks spare nothing there, a number marked up as code reading as a
   citation of it. A hex colour named in a comment takes those quotes too, the punctuation that makes

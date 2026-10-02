@@ -52,6 +52,8 @@ UMLAUT_PAGE: Final = "docs/prüfung.md"
 ROADMAP: Final = "docs/_roadmap/items.md"
 ENTRYPOINT: Final = "nginx/entrypoint.sh"
 TOML: Final = "fl_backend/pyproject.toml"
+# A yaml manifest, the kind a package manager reads and a comment in it cites from like any other.
+WORKSPACE: Final = "fl_frontend/pnpm-workspace.yaml"
 # A tracked file outside every scanned suffix: the diff must see it and every check must not.
 PLAIN: Final = "notes.txt"
 IGNORED: Final = "ignored/scratch.py"
@@ -79,6 +81,10 @@ QUALIFIED_ISSUE: Final = "owner/repo" + ISSUE_REF
 ENTITY: Final = "&" + HASH + "39;"
 ANCHOR: Final = "docs/backend/spec.md" + HASH + "2-invariants"
 QUOTED_BAN: Final = '"closes ' + HASH + '12"'
+# The same number after a tracker's word, as a comment names an upstream entry, and that spelling
+# quoted to name the ban.
+SPELLED_ISSUE: Final = "pull request 412"
+QUOTED_SPELLED_ISSUE: Final = '"issue 12"'
 # Three spellings of one number, each an issue number outside a stylesheet: the form GitHub appends
 # to a squash subject, the terminated one, and the one a comment marks up as code.
 PAREN_ISSUE: Final = "(" + ISSUE_REF + ")"
@@ -325,6 +331,7 @@ def _corpus() -> dict[str, str]:
         OPENAPI: json.dumps({"paths": {"/read": {"get": {"description": PUBLISHED_TEXT}}}}, indent=2) + "\n",
         ENTRYPOINT: _page(HASH + "!/bin/sh", "exec true"),
         TOML: _page("[tool.sample]", "key = 1"),
+        WORKSPACE: _page("packages: []"),
         PLAIN: _page("plain text outside every scanned suffix"),
     }
 
@@ -501,7 +508,7 @@ def test_a_clean_branch_arms_nothing_and_reports_nothing() -> None:
 
 
 def test_an_added_comment_citation_fails_on_the_review_reference_and_the_roadmap_id() -> None:
-    """The same id added to a markdown page stays outside this check, which reads source suffixes alone."""
+    """The same id added to a markdown page stays outside this check, which reads comments alone."""
     _reset()
     _append(MOD, HASH + " " + ROADMAP_ID + " says so", HASH + " the last session shaped this")
     _append(NOTES, ROADMAP_ID + " sits in this prose line as well.")
@@ -1074,7 +1081,7 @@ def test_a_source_file_outside_the_named_trees_is_reached_by_its_kind() -> None:
 
 
 def test_a_scanned_config_suffix_feeds_the_prose_checks_and_not_the_source_ones() -> None:
-    """A toml comment is inside history's reach, and outside comment-citation's and the bounds'."""
+    """A toml comment is inside history's and comment-citation's reach, and outside the bounds'."""
     _reset()
     _append(TOML, HASH + " the table was renamed", HASH + " it holds the rows", HASH + " " + ROADMAP_ID + " sits here")
     try:
@@ -1083,7 +1090,40 @@ def test_a_scanned_config_suffix_feeds_the_prose_checks_and_not_the_source_ones(
         _reset()
     assert sorted(data["additions"]) == [TOML]
     assert _findings(data) == [
-        ("fail", "history", TOML, "1 added line(s) match a COR-3 history phrase ('was renamed') -- rewrite them in the present")
+        ("fail", "history", TOML, "1 added line(s) match a COR-3 history phrase ('was renamed') -- rewrite them in the present"),
+        ("fail", "comment-citation", TOML, "roadmap id " + ROADMAP_ID + " in an added comment -- state the constraint (INC-6)"),
+    ]
+
+
+def test_a_manifest_comment_is_held_to_the_issue_number_ban() -> None:
+    """A manifest is where a patched dependency's comment names the upstream entry it waits on.
+
+    Both spellings, so a reader narrowed back to source suffixes or to the hash alone fails here.
+    """
+    _reset()
+    _append(WORKSPACE, HASH + " the hunk stays until " + SPELLED_ISSUE + " lands", HASH + " as " + ISSUE_REF + " says")
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert sorted(data["additions"]) == [WORKSPACE]
+    assert _findings(data) == [
+        ("fail", "comment-citation", WORKSPACE, "issue number " + ISSUE_REF + " in an added comment -- state the constraint (INC-6)"),
+        ("fail", "comment-citation", WORKSPACE, "issue number " + SPELLED_ISSUE + " in an added comment -- state the constraint (INC-6)"),
+    ]
+
+
+def test_a_spelled_issue_number_is_one_until_it_is_quoted() -> None:
+    """The quoted run is the mention a file documenting the ban writes; the bare one is a citation."""
+    _reset()
+    _append(MOD, HASH + " the ban names " + QUOTED_SPELLED_ISSUE + " and the shape waits on " + SPELLED_ISSUE)
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert MOD in data["additions"]
+    assert _findings(data) == [
+        ("fail", "comment-citation", MOD, "issue number " + SPELLED_ISSUE + " in an added comment -- state the constraint (INC-6)")
     ]
 
 

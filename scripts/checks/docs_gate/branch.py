@@ -19,7 +19,6 @@ from .kernel import (
     QUOTED_SPAN_RE,
     REPO_ROOT,
     SCANNED_SUFFIXES,
-    SOURCE_SUFFIXES,
     SPEC_GLOB,
     UNPARSEABLE,
     Finding,
@@ -337,6 +336,9 @@ ISSUE_REF_RE: Final = re.compile(r"(?<!&)#\d+(?![\w\-])")
 # The third belongs to the file kind rather than to the punctuation: "#000;" and "#000)" are a
 # colour where a stylesheet writes them, and "(#412)" is what GitHub appends to a squash subject.
 STYLESHEET_ISSUE_REF_RE: Final = re.compile(r"(?<!&)#\d+(?![\w\-;)])")
+# The same number written out, as a comment names an upstream tracker's entry rather than linking
+# it: a tracker's word before the digits is what makes them one.
+SPELLED_ISSUE_REF_RE: Final = re.compile(r"\b(?:[Ii]ssue|[Pp]ull request|PR)s?\s+#?\d+\b")
 
 # A fourth and a fifth, which the run in FRONT of the hash is what separates: a scheme anywhere in
 # it makes a URL fragment, and a corpus suffix at its end makes an anchor into a page.
@@ -367,7 +369,9 @@ def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
     """
     found: list[Finding] = []
     for rel in sorted(additions):
-        if not has_suffix(rel, SOURCE_SUFFIXES):
+        # Every kind whose comments the In-code Scope reads, a manifest's, a workflow's and a
+        # Dockerfile's included; a file read whole as prose holds no comment to cite from.
+        if not (has_suffix(rel, SCANNED_SUFFIXES) or has_name(rel, OPS_FILENAMES)):
             continue
         body = "\n".join(additions[rel])
         for match in REVIEW_REF_RE.finditer(body):
@@ -384,6 +388,7 @@ def check_added_citations(additions: dict[str, list[str]]) -> list[Finding]:
         mentions = QUOTED_SPAN_RE.sub("", TRIPLE_QUOTE_RE.sub("", body))
         pattern = STYLESHEET_ISSUE_REF_RE if has_suffix(rel, (".css",)) else ISSUE_REF_RE
         issues = {hit.group(0) for hit in pattern.finditer(mentions) if not _locates(mentions[: hit.start()])}
+        issues |= {hit.group(0) for hit in SPELLED_ISSUE_REF_RE.finditer(mentions)}
         for issue in sorted(issues):
             found.append(Finding("fail", "comment-citation", rel, f"issue number {issue} in an added comment -- state the constraint (INC-6)"))
     return found

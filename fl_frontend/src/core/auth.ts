@@ -159,8 +159,8 @@ class SessionFromUnlistedPath extends Error {
 // the check on.
 
 // The assertion's ask travels through `patches/@better-auth__passkey@1.7.5.patch`, whose hunk in
-// `generatePasskeyAuthenticationOptions` better-auth pull request 11155 retires; the check is ours
-// either way, both verifiers being called with `requireUserVerification` off.
+// `generatePasskeyAuthenticationOptions` a release reading `authenticatorSelection` there retires;
+// the check is ours either way, both verifiers being called with `requireUserVerification` off.
 const USER_VERIFICATION: "required" | "preferred" = "required";
 
 /** Both ceremonies, at the point the plugin reaches before it writes a row or mints a session. */
@@ -1149,9 +1149,9 @@ const authOptions = (origin: URL, client: MongoClient) =>
 
       passkeyLastUse(),
 
-      // No `customSession` while its read answers a store that does not answer as no session, which
-      // better-auth pull request 11391 retires: until then `projected` below builds the guards' copy over
-      // the library's own read (`docs/frontend/spec.md :: I519`).
+      // No `customSession` while its read answers a store that does not answer as no session: until a
+      // release lets that failure throw, `projected` below builds the guards' copy over the library's
+      // own read (`docs/frontend/spec.md :: I519`).
 
       // Last, which the library warns about: it copies a response's `set-cookie` into Next's store.
       nextCookies(),
