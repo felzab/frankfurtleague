@@ -44,6 +44,8 @@ GETFIXTUREVALUE: Final = "getfixturevalue"
 # The attribute pytest reads to skip a module or a class, and the methods that keep it from collecting a class.
 TEST_SWITCH: Final = "__test__"
 CONSTRUCTORS: Final = frozenset({"__init__", "__new__"})
+# The one decorator spelling a class may carry and still be judged.
+MARK_PREFIX: Final = "pytest.mark."
 
 # The mark that hands a test an argument itself, so pytest asks no fixture of that name for it.
 PARAMETRIZE_MARK: Final = "parametrize"
@@ -255,10 +257,19 @@ def _test_switch(body: list[ast.stmt]) -> bool | None:
 def _uncollected(node: ast.ClassDef, classes: dict[str, ast.ClassDef]) -> bool:
     """Whether pytest skips this class: its own or an inherited constructor, or a false `__test__`.
 
-    As its `Class.collect` decides, read at release 9.1.1.
+    As its `Class.collect` decides, read at release 9.1.1. Refused where a decorator or a class keyword
+    may decide it instead.
     """
     if _test_switch(node.body) is False:
         return True
+    for decorator in node.decorator_list:
+        # A mark hands back the class it was given, so the class alone still decides.
+        if not ast.unparse(decorator).startswith(MARK_PREFIX):
+            raise Unfollowed(f"line {node.lineno} decorates `{node.name}` with {ast.unparse(decorator)}, which may give it a constructor")
+    if node.keywords:
+        raise Unfollowed(
+            f"line {node.lineno} gives `{node.name}` {ast.unparse(node.keywords[0])}, which may give it a constructor or make it abstract"
+        )
     for statement in node.body:
         named = [statement.name] if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)) else []
         named += [target.id for target in getattr(statement, "targets", []) if isinstance(target, ast.Name)]

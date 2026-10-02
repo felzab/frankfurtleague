@@ -38,8 +38,13 @@ def corpus(body: str, shared: str) -> Any:
 
 
 def fixtures(body: str) -> list[str]:
-    """What the dead-fixture rule says about that module."""
-    return [finding.detail for finding in estate.check_dead_fixtures(corpus(body, PLAIN_CONFTEST))]
+    """What the dead-fixture rule says about that module, which must be one the estate judges.
+
+    A module it refuses defines no fixture, so it would answer no finding for any body at all.
+    """
+    built = corpus(body, PLAIN_CONFTEST)
+    assert built.unfollowed == [], built.unfollowed
+    return [finding.detail for finding in estate.check_dead_fixtures(built)]
 
 
 def test_a_fixture_no_test_consumes_is_refused():
@@ -344,6 +349,7 @@ ASKS_IN_A_CLASS = "    def test_reads(self, league):\n        assert league\n"
         pytest.param("__test__ = False\n\n\n" + ASKS_LEAGUE, ["league"], id="a-false-test-switch-on-the-module"),
         pytest.param("class TestBuilt:\n    __test__ = True\n\n" + ASKS_IN_A_CLASS, [], id="a-true-test-switch"),
         pytest.param("class TestBuilt(object):\n" + ASKS_IN_A_CLASS, [], id="based-on-object"),
+        pytest.param("@pytest.mark.db\nclass TestMarked:\n" + ASKS_IN_A_CLASS, [], id="a-mark"),
         pytest.param(
             "class Base:\n    def helper(self):\n        return 1\n\n\nclass TestBuilt(Base):\n" + ASKS_IN_A_CLASS,
             [],
@@ -361,6 +367,19 @@ def test_a_test_class_pytest_never_collects_asks_for_nothing(asking: str, dead: 
     [
         pytest.param("from support import Base\n\n\nclass TestBuilt(Base):\n" + ASKS_IN_A_CLASS, "whose constructor", id="imported-base"),
         pytest.param("class TestBuilt:\n    __test__ = bool(1)\n\n" + ASKS_IN_A_CLASS, "`__test__`", id="computed-test-switch"),
+        pytest.param("from dataclasses import dataclass\n\n\n@dataclass\nclass TestBuilt:\n" + ASKS_IN_A_CLASS, "decorates", id="a-dataclass"),
+        pytest.param(
+            "from dataclasses import dataclass\n\n\n@dataclass\nclass Base:\n    league: int = 1\n\n\nclass TestBuilt(Base):\n"
+            + ASKS_IN_A_CLASS,
+            "decorates",
+            id="based-on-a-dataclass",
+        ),
+        pytest.param(
+            "from abc import ABCMeta, abstractmethod\n\n\nclass TestBuilt(metaclass=ABCMeta):\n    @abstractmethod\n    def build(self):\n"
+            "        return 1\n\n" + ASKS_IN_A_CLASS,
+            "metaclass=ABCMeta",
+            id="an-abstract-class",
+        ),
     ],
 )
 def test_a_class_whose_collection_this_cannot_read_leaves_the_module_unjudged(asking: str, said: str):
@@ -457,7 +476,8 @@ def test_an_argument_pytest_fills_itself_asks_no_fixture(consumer: str, dead: li
         pytest.param(
             'from unittest import mock\n\n\n@mock.patch("os.getcwd")\nclass TestPatched:\n'
             "    def test_reads(self, league):\n        assert league\n",
-            "patches `test_reads`",
+            # Refused as a class decorator before its patch is read, either refusal leaving the module unjudged.
+            "decorates `TestPatched`",
             id="patch-on-the-class",
         ),
         pytest.param(

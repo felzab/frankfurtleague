@@ -870,8 +870,9 @@ same-named argument elsewhere, a helper's parameter, or the string of a helper, 
 a lambda nothing calls therefore excuses nothing, and so does a test in a class pytest never
 collects, for a constructor or a false `__test__`. A fixture spelled in a way the check cannot
 follow, a test a `mock.patch` decorator hands arguments pytest then strips, a test class based on a
-class from another module, or a collection of the configuration's own, is a refusal at 2 rather than
-a verdict. A test
+class from another module or carrying a decorator other than a mark or a keyword such as
+`metaclass=`, either of which can give it a constructor, or a collection of the configuration's
+own, is a refusal at 2 rather than a verdict. A test
 reaching a database without `@pytest.mark.db` is the suite's own to refuse, as it runs
 ([`docs/backend/spec.md`](../backend/spec.md#16-the-test-suite)).
 
