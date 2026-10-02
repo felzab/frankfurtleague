@@ -476,7 +476,7 @@ describe("what the mounted HTTP surface answers", () => {
     for (const body of [await readServedSession(new Headers({ ...ORIGIN, cookie })), await slideSession(new Headers({ ...ORIGIN, cookie }))]) {
       assert.ok(body);
       assert.deepEqual(Object.keys(body).sort(), ["session", "user"]);
-      assert.deepEqual(Object.keys(body.user).sort(), ["email", "id"]);
+      assert.deepEqual(Object.keys(body.user).sort(), ["email", "id", "sessionsEndedAt"]);
       assert.deepEqual(Object.keys(body.session).sort(), ["authFactor", "createdAt", "id", "passkeyCredentialId", "updatedAt"]);
       assert.ok(!JSON.stringify(body).includes(row.token), "the served session carries the cookie's own value");
     }
@@ -2167,7 +2167,7 @@ describe("what a ban ends in the sign-in store", () => {
   });
 
   /* A read that failed is no answer: taken for `false`, a ban would go unmailed and its administrator be
-     told the address holds no account, and a grant's sign-out would report a success. */
+     told the address holds no account. */
   it("throws where the store does not say whether an account holds the address", async () => {
     await signIn(PERSON_EMAIL);
     adapterCalls.refusing = (_key, args) => (args[0] as { model?: unknown } | undefined)?.model === "user";
@@ -2177,6 +2177,65 @@ describe("what a ban ends in the sign-in store", () => {
     } finally {
       adapterCalls.refusing = undefined;
     }
+  });
+
+  /* The ban's notice is sent on this answer (`docs/frontend/spec.md :: I517`): a deletion failing after
+     the account was found must not take the answer with it. */
+  it("answers that an account holds the address where only the deletion of its sessions failed", async () => {
+    const { row } = await signIn(PERSON_EMAIL);
+    adapterCalls.refusing = (key, args) => key === "deleteMany" && (args[0] as { model?: unknown } | undefined)?.model === "session";
+    logged.length = 0;
+
+    try {
+      assert.equal(await endSessionsOfAddress(PERSON_EMAIL), true);
+    } finally {
+      adapterCalls.refusing = undefined;
+    }
+
+    assert.ok(store.session.includes(row), "the deletion was not refused, so the case proves nothing");
+    assert.deepEqual(
+      logged.map(({ message, meta }) => [message, meta]),
+      [["auth.ended_sessions_not_deleted", { error_code: "FE-AUTH-006", name: "Error" }]],
+    );
+  });
+
+  /* The case a one-shot deletion lost: its failure told, the browser never back during the ban, and the
+     ban lifted inside the session's windows (`docs/frontend/spec.md :: I528`). */
+  it("serves no session the ending stamped on any lane once the ban is lifted, and the landing deletes its row", async () => {
+    const { cookie, row } = await signIn(PERSON_EMAIL);
+    adapterCalls.refusing = (key, args) => key === "deleteMany" && (args[0] as { model?: unknown } | undefined)?.model === "session";
+
+    try {
+      await endSessionsOfAddress(PERSON_EMAIL);
+    } finally {
+      adapterCalls.refusing = undefined;
+    }
+
+    // Lifted: the lookup answers the person unbarred, holding the seat they held before.
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    try {
+      arriveAs(cookie);
+      assert.equal(await readServedSession(new Headers({ ...ORIGIN, cookie })), null, "the lift served the stamped session again");
+      assert.equal(await getKontoSession(), null);
+      assert.equal(await getSignInDestination(), "/signin");
+      assert.ok(!store.session.includes(row), "the landing left the stamped row standing");
+    } finally {
+      BACKENDS.delete(PERSON_EMAIL);
+    }
+  });
+
+  // The control: every refusal above would pass on a stamp refusing every session the account ever makes.
+  it("serves a session signed in after the ending", async () => {
+    await signIn(PERSON_EMAIL);
+    await endSessionsOfAddress(PERSON_EMAIL);
+    const account = store.user.find((user) => user.email === PERSON_EMAIL);
+    assert.ok(account !== undefined && Reflect.get(account, "sessionsEndedAt") instanceof Date, "the ending stamped nothing");
+    // A second back, so the sign-in below cannot share the stamp's millisecond.
+    Reflect.set(account, "sessionsEndedAt", new Date(Date.now() - 1000));
+
+    const after = await signIn(PERSON_EMAIL);
+
+    assert.ok((await readServedSession(new Headers({ ...ORIGIN, cookie: after.cookie }))) !== null);
   });
 });
 

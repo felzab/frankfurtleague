@@ -409,7 +409,9 @@ Every ruling below is the sign-up flow as it stands for the next season.
   its row is refreshed (`fl_frontend/src/core/auth.ts :: SESSION_UPDATE_AGE_SECONDS`), and the
   account page shows that as „Zuletzt aktiv“ beside each sign-in
   (`fl_frontend/src/features/konto/sicherheit.ts`). A `user` row's `updatedAt` records when that account, or any of its passkeys, last
-  changed, a removal included (`fl_frontend/src/core/auth.ts :: claimAccount`). **A session and a sign-in code each carry an expiry set at that
+  changed, a removal included (`fl_frontend/src/core/auth.ts :: claimAccount`), and where a ban
+  ended the account's sessions, the row keeps when it did (`fl_frontend/src/core/auth.ts :: endSessionsOfAddress`), so that no session made before it
+  is served again once the ban is lifted. **A session and a sign-in code each carry an expiry set at that
   configuration, and the expiry bounds the credential rather than the row**: the library drops a
   session row when its holder presents the stale cookie and leaves it standing where nobody comes
   back, and it consumes a code's row when the code is typed, live or expired, sweeping expired

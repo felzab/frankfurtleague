@@ -136,6 +136,9 @@ type AuthFactor = typeof PASSKEY_FACTOR | typeof CODE_FACTOR;
 /** The session field naming, by `lineageOf`, the session a sign-in replaced. */
 const REPLACED_SESSION_FIELD = "replacedSession";
 
+/** The account field holding when its sessions were last ended: every session made at or before it is no session. */
+const SESSIONS_ENDED_FIELD = "sessionsEndedAt";
+
 // Every endpoint that mints a session, with the factor it proves. A path missing here mints nothing,
 // so one a release adds fails closed rather than handing out a session no guard has classified
 // (`docs/frontend/spec.md :: I398`).
@@ -742,6 +745,14 @@ const sessionOptions = {
   },
 } satisfies BetterAuthOptions["session"];
 
+const userOptions = {
+  additionalFields: {
+    // Returned, so the session read already holds the instant every guard compares a session with;
+    // `input: false`, so no session writes it for itself.
+    [SESSIONS_ENDED_FIELD]: { type: "date", required: false, input: false },
+  },
+} satisfies BetterAuthOptions["user"];
+
 // Called by `build`, never at import: `next build` imports this module in every page-data worker
 // holding no environment, where neither the URL nor the client can be built
 // (`docs/frontend/spec.md :: I45`). `origin` gives both halves of the WebAuthn binding.
@@ -757,6 +768,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
     secret: frontend_config.AUTH_SECRET,
 
     session: sessionOptions,
+    user: userOptions,
 
     // Left to its default, the library would store the caller's address on every session row; the switch
     // below stores none, and nothing here would read one, the limiter that would being off (`docs/ops/spec.md :: I4`).
@@ -949,7 +961,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // Refused rather than left to the plugin's `freshSessionMiddleware`, which is mounted only
         // while `registration.requireSession` keeps its default: this arm judges nothing about a
         // session it cannot read, and the in-process arm already refuses one.
-        if (caller === null) throw APIError.fromStatus("NOT_FOUND");
+        if (caller === null || endedByItsAccount(caller)) throw APIError.fromStatus("NOT_FOUND");
 
         await refuseEnrolment(
           ctx.context.adapter,
@@ -1236,13 +1248,13 @@ type LibraryRead = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
  * carries its own `token`, which is the value of the `httpOnly` cookie (`docs/frontend/spec.md :: I198`).
  */
 type ServedSession = {
-  user: { id: string; email: string };
+  user: { id: string; email: string; sessionsEndedAt?: Date | null };
   session: Pick<LibraryRead["session"], "id" | "createdAt" | "updatedAt" | "authFactor" | "passkeyCredentialId">;
 };
 
 function projected({ user, session }: LibraryRead): ServedSession {
   return {
-    user: { id: user.id, email: user.email },
+    user: { id: user.id, email: user.email, sessionsEndedAt: user.sessionsEndedAt ?? null },
     session: {
       // The row's id and never its token: the passkey removal keeps the one session it ran in by it.
       id: session.id,
@@ -1299,11 +1311,29 @@ export async function slideSession(requestHeaders: Headers): Promise<ServedSessi
 }
 
 /**
- * `null` where a passkey no row holds made the session: a sign-in racing that passkey's removal
- * inserts its session after the removal's sign-out ran (`docs/frontend/spec.md :: I313`).
+ * Whether the account's sessions were ended at or after this one was made, whatever deleted or kept its
+ * row (`docs/frontend/spec.md :: I528`).
+ */
+function endedByItsAccount({ user, session }: { user: object; session: object }): boolean {
+  // Through `Reflect`, as `asStepUpCaller` reads a stamp: the library types a ceremony's read to its own base shape.
+  const stamp: unknown = Reflect.get(user, SESSIONS_ENDED_FIELD);
+  if (stamp === null || stamp === undefined) return false;
+
+  const created = new Date(Reflect.get(session, "createdAt") as Date | string).getTime();
+  const ended = new Date(stamp as Date | string).getTime();
+
+  // An unreadable instant on either side serves nothing, as `withinLifetime` reads an unreadable stamp.
+  return !Number.isFinite(created) || !Number.isFinite(ended) || created <= ended;
+}
+
+/**
+ * `null` where the account's sessions were ended after this one was made, or where a passkey no row
+ * holds made it: a sign-in racing that passkey's removal inserts its session after the removal's
+ * sign-out ran (`docs/frontend/spec.md :: I313`).
  */
 export async function servedSessionOf(served: ServedSession | null): Promise<ServedSession | null> {
-  if (served === null || served.session.authFactor !== PASSKEY_FACTOR) return served;
+  if (served === null || endedByItsAccount(served)) return null;
+  if (served.session.authFactor !== PASSKEY_FACTOR) return served;
 
   const credentialID: unknown = served.session.passkeyCredentialId;
   if (typeof credentialID !== "string" || credentialID === "") return null;
@@ -1559,14 +1589,26 @@ export async function endSessionsOfAddress(address: string): Promise<boolean> {
 
   const { adapter } = await auth.$context;
 
-  // Equality on the stored address: every sign-in hands the library the folded form, which it stores
-  // lower-cased and so unchanged.
-  const account = await adapter.findOne<{ id: string }>({ model: "user", where: [{ field: "email", value: folded }] });
-  // The answer is whether an account holds the address, which decides whether a ban mails it
-  // (`docs/frontend/spec.md :: I517`).
+  // The stamp ends them, and before any row is deleted: a deletion failing below leaves rows no guard
+  // serves, a lift of the ban included (`docs/frontend/spec.md :: I528`). Equality on the stored
+  // address, which every sign-in stores folded.
+  const account = await adapter.update<{ id: string }>({
+    model: "user",
+    where: [{ field: "email", value: folded }],
+    update: { [SESSIONS_ENDED_FIELD]: new Date() },
+  });
+  // Answered from the stamp, never the deletion, so a failed deletion keeps the mail it owes (`:: I517`).
   if (account === null) return false;
 
-  // By the account, never by a token: no session's cookie value leaves the store for this.
-  await adapter.deleteMany({ model: "session", where: [{ field: "userId", value: account.id }] });
+  try {
+    // By the account, never by a token: no session's cookie value leaves the store for this.
+    await adapter.deleteMany({ model: "session", where: [{ field: "userId", value: account.id }] });
+  } catch (failed) {
+    // Logged and left: the rows stand served by no lane, and the landing deletes each its browser brings back.
+    logger.error("auth.ended_sessions_not_deleted", undefined, {
+      error_code: "FE-AUTH-006",
+      name: failed instanceof Error ? failed.name : "unknown",
+    });
+  }
   return true;
 }
