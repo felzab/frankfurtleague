@@ -238,24 +238,24 @@ function enrolmentGrant(subjekt: SubjectRecords): boolean {
  * The caller's records, read in the registration's before hook and carried on the endpoint's context
  * into its transaction, whose checks then decide without a backend round trip holding it open.
  */
-type EnrolmentRead = { readonly userId: string; readonly subjekt: SubjectRecords };
+type EnrolmentRead = { readonly userId: string; readonly subjekt: SubjectRecords; readonly sentAt: Date };
 
 /** The context key the carried read travels under; a string, the library merging no symbol key. */
 const ENROLMENT_READ = "flEnrolmentRead";
 
 /** The read the before hook carried for `userId`, or `undefined` where it carried none for them. */
-function carriedEnrolmentRead(ctx: object | undefined, userId: string): SubjectRecords | undefined {
+function carriedEnrolmentRead(ctx: object | undefined, userId: string): EnrolmentRead | undefined {
   const read: unknown = ctx === undefined ? undefined : Reflect.get(ctx, ENROLMENT_READ);
   if (typeof read !== "object" || read === null) return undefined;
 
-  return Reflect.get(read, "userId") === userId ? (Reflect.get(read, "subjekt") as SubjectRecords) : undefined;
+  return Reflect.get(read, "userId") === userId ? (read as EnrolmentRead) : undefined;
 }
 
 /** The carried read, or the default-deny net's refusal where the hook carried none for this caller. */
 function carriedOrRefuse(ctx: object, userId: string): SubjectRecords {
   const read = carriedEnrolmentRead(ctx, userId);
   if (read === undefined) throw APIError.fromStatus("NOT_FOUND");
-  return read;
+  return read.subjekt;
 }
 
 /** The records where an unread read offers nothing: `null` where the backend could not say. */
@@ -419,12 +419,13 @@ function lineageOf(replaced: string, secret: string): Promise<string> {
 }
 
 /**
- * Whether `row` was minted before `minted`, the id settling a tie in the millisecond by order of insert:
- * the Mongo adapter's `ObjectId`s rise with each insert this process makes, so the later mint stands.
+ * Whether `row` was inserted before `minted`: by `updatedAt`, stamped at the insert where `createdAt` dates
+ * the gate read, a tie in the millisecond going by id, as the Mongo adapter's `ObjectId`s rise with each
+ * insert this process makes.
  */
-function mintedBefore(row: { id: string; createdAt: Date | string }, minted: { id: string; createdAt: Date | string }): boolean {
-  const rowAt = new Date(row.createdAt).getTime();
-  const mintedAt = new Date(minted.createdAt).getTime();
+function mintedBefore(row: { id: string; updatedAt: Date | string }, minted: { id: string; updatedAt: Date | string }): boolean {
+  const rowAt = new Date(row.updatedAt).getTime();
+  const mintedAt = new Date(minted.updatedAt).getTime();
   return rowAt < mintedAt || (rowAt === mintedAt && row.id < minted.id);
 }
 
@@ -434,10 +435,10 @@ function mintedBefore(row: { id: string; createdAt: Date | string }, minted: { i
  */
 async function endEarlierSiblings(
   context: Pick<AuthContext, "adapter">,
-  minted: { id: string; userId: string; createdAt: Date | string },
+  minted: { id: string; userId: string; updatedAt: Date | string },
   lineage: string,
 ): Promise<void> {
-  const siblings = await context.adapter.findMany<{ id: string; createdAt: Date | string }>({
+  const siblings = await context.adapter.findMany<{ id: string; updatedAt: Date | string }>({
     model: "session",
     where: [
       { field: "userId", value: minted.userId },
@@ -463,7 +464,7 @@ async function endEarlierSiblings(
  */
 async function endReplacedSession(
   ctx: GenericEndpointContext,
-  minted: { id: string; token: string; userId: string; createdAt: Date | string },
+  minted: { id: string; token: string; userId: string; updatedAt: Date | string },
 ): Promise<void> {
   const replaced = await replacedToken(ctx);
   if (replaced === null || replaced === minted.token) return;
@@ -485,17 +486,19 @@ async function endReplacedSession(
  * The send gate's verdict, asked again of the account a session is about to be minted for: a code
  * mailed before a ban, and every passkey, would otherwise sign in past it. Only `admitted` mints.
  */
-async function refuseUnadmitted(ctx: GenericEndpointContext, userId: string): Promise<void> {
+async function refuseUnadmitted(ctx: GenericEndpointContext, userId: string): Promise<Date> {
   const account = await ctx.context.internalAdapter.findUserById(userId);
   // Inside a registration's transaction the before hook's read decides, never a second round trip.
   const carried = carriedEnrolmentRead(ctx, userId);
+  // Answered to date the session it admits: taken before the read is sent, so a ban the read missed ends it.
+  const sentAt = carried?.sentAt ?? new Date();
   const verdict =
     account === null
       ? "failed"
       : carried === undefined
         ? await mayReceiveSignIn(account.email)
-        : signInVerdictOf(asSignInIdentifier(account.email), carried);
-  if (verdict === "admitted") return;
+        : signInVerdictOf(asSignInIdentifier(account.email), carried.subjekt);
+  if (verdict === "admitted") return sentAt;
 
   // Worded where the ceremony starts (`fl_frontend/src/features/auth/passkeyAnswers.ts`); a failed
   // read is the backend's and not the person's, so it answers as a retry would.
@@ -821,7 +824,7 @@ const authOptions = (origin: URL, client: MongoClient) =>
             // Here, where every sign-in passes -- a code, a passkey, a set-up that signs in, a step-up --
             // and never at one method's own callback, which the next method would walk past
             // (`docs/frontend/spec.md :: I403`).
-            await refuseUnadmitted(ctx, session.userId);
+            const admittedAsOf = await refuseUnadmitted(ctx, session.userId);
 
             const credential = factor === PASSKEY_FACTOR ? { passkeyCredentialId: ceremonyCredentialId(ctx) } : {};
             const replaced = await replacedToken(ctx);
@@ -835,7 +838,10 @@ const authOptions = (origin: URL, client: MongoClient) =>
             return {
               data: {
                 ...session,
-                createdAt: stamped,
+                // As of the gate read, never its insert: a ban committing between the two ends the
+                // account's sessions before this row exists, and dated past it the row outlives the lift
+                // (`docs/frontend/spec.md :: I528`).
+                createdAt: admittedAsOf,
                 updatedAt: stamped,
                 expiresAt: new Date(stamped.getTime() + lifetime),
                 // Emptied here because the library offers no switch for it, beside the one above that
@@ -936,8 +942,10 @@ const authOptions = (origin: URL, client: MongoClient) =>
         // Above the in-process return, so both arms carry it: the registration's transaction opens later,
         // and a backend round trip inside it would hold it open (`docs/frontend/spec.md :: I482`).
         const enrolling = ctx.path === PASSKEY_REGISTRATION_PATH ? await getSessionFromCtx(ctx) : null;
+        // Taken before the read is sent: the session a set-up mints is dated by it.
+        const sentAt = new Date();
         const enrolmentRead: EnrolmentRead | undefined =
-          enrolling === null ? undefined : { userId: enrolling.user.id, subjekt: await enrolmentSubjekt(enrolling.user.email) };
+          enrolling === null ? undefined : { userId: enrolling.user.id, subjekt: await enrolmentSubjekt(enrolling.user.email), sentAt: sentAt };
         const carried = enrolmentRead === undefined ? undefined : { context: { [ENROLMENT_READ]: enrolmentRead } };
 
         // An absent `ctx.request` is the library's own test for a call that did not arrive over HTTP,

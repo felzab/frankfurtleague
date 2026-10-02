@@ -3234,3 +3234,62 @@ describe("which spelling of an administrator a write is attributed to", () => {
     assert.equal(payload.auth_time, Math.floor(new Date(row.createdAt).getTime() / 1000));
   });
 });
+
+/* A ban committing between a mint's gate read and its insert ends the account's sessions before the
+   row exists; dated past the read, the row postdates the stamp and is served again after a lift
+   (`docs/frontend/spec.md :: I528`). */
+describe("a sign-in the ban's ending overtook between its gate read and its row", () => {
+  const OVERTAKEN_EMAIL = "ueberholt@example.org";
+
+  it("mints by code a session no lane serves once the ending has passed its gate read", async () => {
+    await signIn(OVERTAKEN_EMAIL);
+    BACKENDS.set(OVERTAKEN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+
+    try {
+      const read = holdNext((hold) => (heldRead = hold));
+      const minting = signInByCode(auth, OVERTAKEN_EMAIL);
+      await read.arrived;
+      // The gate read answers the address unbarred, as one sent before the ban committed did.
+      assert.equal(await endSessionsOfAddress(OVERTAKEN_EMAIL), true, "the ending found no account");
+      read.release();
+      const cookie = cookieHeader(await minting);
+
+      assert.equal(await readServedSession(new Headers({ ...ORIGIN, cookie })), null, "the overtaken sign-in is served past the ending");
+    } finally {
+      heldRead = undefined;
+      BACKENDS.delete(OVERTAKEN_EMAIL);
+    }
+  });
+
+  /* The set-up that signs in reads the gate in its before hook and mints inside the registration's
+     transaction later, so its row is dated by that earlier read. */
+  it("dates a passkey set-up's session no later than the read its before hook carried", async () => {
+    const { cookie, row } = await signIn(OVERTAKEN_EMAIL);
+    BACKENDS.set(OVERTAKEN_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+
+    try {
+      const offered = await overHttp("/passkey/generate-register-options", { cookie });
+      const { challenge } = (await offered.json()) as { challenge: string };
+      const read = holdNext((hold) => (heldRead = hold));
+      const answering = overHttp("/passkey/verify-registration", {
+        method: "POST",
+        cookie: `${cookie}; ${cookieHeader(offered)}`,
+        body: { response: registrationFor(challenge, true), createSession: true },
+      });
+      await read.arrived;
+      const readBy = Date.now();
+      // Long enough that a row dated past the read is told from one dated before it.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      read.release();
+      const answer = await answering;
+      assert.equal(answer.status, 200, await answer.clone().text());
+
+      const minted = store.session.find((stored) => stored.authFactor === "passkey" && stored.userId === row.userId);
+      assert.ok(minted !== undefined, "the set-up minted no session");
+      assert.ok(new Date(minted.createdAt).getTime() <= readBy, "the set-up's session is dated past the read it was admitted by");
+    } finally {
+      heldRead = undefined;
+      BACKENDS.delete(OVERTAKEN_EMAIL);
+    }
+  });
+});
