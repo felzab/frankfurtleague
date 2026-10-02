@@ -1,4 +1,3 @@
-import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Depends
@@ -7,6 +6,7 @@ from app.api.berechtigungen.crud import verwaltung_of
 from app.api.identitaet.crud import find_subjekt
 from app.api.identitaet.schemas import FLSubjektPayload, FLSubjektResponse
 from app.api.sperrliste.lookup import SperrlisteLookup, hash_gesperrt
+from app.core.concurrency import gather_cancelling
 from app.core.config import API_VERSION
 from app.core.dependencies import (
     BerechtigungenCollection,
@@ -91,9 +91,13 @@ async def get_subjekt(
     # value compared as it arrived is half-folded and misses a seat over the local part's case.
     identifier = sign_in_identifier(str(subjekt_data.email))
 
+    # Keyed from the payload's own value, as the ban write keys it: that payload type runs the rule
+    # `canonical_address` runs, so an address the hash would refuse was answered 422 before here.
+    ban_key = sperrliste.hash_of(str(subjekt_data.email))
+
     # Concurrently, every page a signed-in person or an administrator renders waiting on this answer:
     # the records, the ban and the grant cost the longest of the three rather than their sum.
-    subjekt, gesperrt, grant = await asyncio.gather(
+    subjekt, gesperrt, grant = await gather_cancelling(
         find_subjekt(
             identifier,
             saison_teams_collection=saison_teams_collection,
@@ -104,9 +108,7 @@ async def get_subjekt(
             # operation at a time. The parameter exists for the caller that judges a Funktion inside its own.
             session=None,
         ),
-        # Keyed from the payload's own value, as the ban write keys it: that payload type runs the rule
-        # `canonical_address` runs, so an address the hash would refuse was answered 422 before here.
-        hash_gesperrt(sperrliste, sperrliste.hash_of(str(subjekt_data.email))),
+        hash_gesperrt(sperrliste, ban_key),
         verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=identifier),
     )
     verwaltung, berechtigt_seit = (None, None) if grant is None else grant

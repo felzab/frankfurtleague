@@ -5,7 +5,6 @@ The anchor lives here beside the read it protects, so no caller can judge the li
 every row of it (`docs/backend/spec.md :: I53`).
 """
 
-import asyncio
 from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
@@ -18,6 +17,7 @@ from app.api.berechtigungen.schemas import FLVerwaltung
 from app.api.berechtigungen.services import berechtigt_seit, lebendige_adresse
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.core.collections import Collection
+from app.core.concurrency import gather_cancelling
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_from_db
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
 
@@ -121,7 +121,7 @@ async def live_unbarred_grant_since(
 
     # Both at once rather than the ban after a grant is found: an admin-tier caller passed the
     # frontend's own grant read moments before, so the ban read that order would spare is almost never spared.
-    grant, barred = await asyncio.gather(
+    grant, barred = await gather_cancelling(
         _grant_and_its_record(berechtigungen_collection=berechtigungen_collection, adresse=identifier, fields=[]),
         adressen_gesperrt(sperrliste, [identifier]),
     )

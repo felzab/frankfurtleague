@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Coroutine, Mapping
 from contextlib import nullcontext
 from datetime import UTC, datetime
 from types import SimpleNamespace
@@ -56,6 +56,38 @@ class _Reads:
         return await self.answer(collection, self.rows.get(collection, []), session)
 
 
+class _Stalled:
+    """Reads that answer only after the loop has turned far past a sibling's failure, recording each cancelled."""
+
+    def __init__(self) -> None:
+        self.cancelled: list[str] = []
+
+    async def read(self, name: str) -> Any:
+        try:
+            for _ in range(50):
+                await asyncio.sleep(0)
+        except asyncio.CancelledError:
+            self.cancelled.append(name)
+            raise
+        raise AssertionError(f"the {name} read ran to its end past a sibling's failure")
+
+    def failure_and_cancelled_by_then(self, call: Coroutine[Any, Any, Any]) -> tuple[BaseException, list[str]]:
+        """What `call` raised, and which reads were cancelled by the moment it did.
+
+        Read inside the loop: `asyncio.run` cancels every task still pending once it returns, so a read
+        left running would read as cancelled after it.
+        """
+
+        async def answered() -> tuple[BaseException, list[str]]:
+            try:
+                await call
+            except Exception as failed:
+                return failed, list(self.cancelled)
+            raise AssertionError("the call answered past a failed read")
+
+        return asyncio.run(answered())
+
+
 def _find_subjekt(reads: _Reads, session: object = None) -> FLSubjekt:
     return asyncio.run(
         identitaet_crud.find_subjekt(
@@ -103,6 +135,39 @@ class TestTheSubjectLookupsReads:
 
         assert sorted(reads.issued) == ["ban", "grant", "records"]
         assert reads.peak == 3, "the endpoint awaited one read before sending the next"
+
+    def test_a_failed_read_cancels_the_two_still_running_and_reaches_the_caller_as_itself(self, monkeypatch: pytest.MonkeyPatch):
+        stalled = _Stalled()
+
+        async def find_subjekt(_identifier: str, **_: Any) -> FLSubjekt:
+            await asyncio.sleep(0)
+            raise ConnectionError("the records read failed")
+
+        async def hash_gesperrt(*_: Any, **__: Any) -> bool:
+            return await stalled.read("ban")
+
+        async def verwaltung_of(**_: Any) -> None:
+            return await stalled.read("grant")
+
+        monkeypatch.setattr(identitaet_router, "find_subjekt", find_subjekt)
+        monkeypatch.setattr(identitaet_router, "hash_gesperrt", hash_gesperrt)
+        monkeypatch.setattr(identitaet_router, "verwaltung_of", verwaltung_of)
+
+        stand_in = cast(Any, None)
+        failed, cancelled = stalled.failure_and_cancelled_by_then(
+            identitaet_router.get_subjekt(
+                subjekt_data=FLSubjektPayload(email=IDENTIFIER),
+                saison_teams_collection=stand_in,
+                saisons_collection=stand_in,
+                spieler_collection=stand_in,
+                schiedsrichter_collection=stand_in,
+                sperrliste=ban_list({Collection.SPERRLISTE: stand_in, Collection.SAISONS: stand_in}),
+                berechtigungen_collection=stand_in,
+            )
+        )
+
+        assert (type(failed), str(failed)) == (ConnectionError, "the records read failed")
+        assert sorted(cancelled) == ["ban", "grant"], "a read was left running past the endpoint's answer"
 
     def test_the_three_record_reads_are_in_flight_together_outside_a_transaction(self, monkeypatch: pytest.MonkeyPatch):
         reads = _Reads()
@@ -173,3 +238,24 @@ class TestTheActorChecksTwoReads:
 
         assert sorted(reads.issued) == ["ban", BERECHTIGUNGEN]
         assert reads.peak == 2, "the check awaited the grant before asking the ban list"
+
+    def test_a_failed_grant_read_cancels_the_ban_read_and_reaches_the_caller_as_itself(self, monkeypatch: pytest.MonkeyPatch):
+        stalled = _Stalled()
+
+        async def aggregate_many_from_db(**_: Any) -> list[Mapping[str, Any]]:
+            await asyncio.sleep(0)
+            raise ConnectionError("the grant read failed")
+
+        async def adressen_gesperrt(*_: Any, **__: Any) -> set[str]:
+            return await stalled.read("ban")
+
+        monkeypatch.setattr(berechtigungen_crud, "aggregate_many_from_db", aggregate_many_from_db)
+        monkeypatch.setattr(berechtigungen_crud, "adressen_gesperrt", adressen_gesperrt)
+
+        grants = SimpleNamespace(database=SimpleNamespace(client=SimpleNamespace(start_session=lambda **_: nullcontext())))
+        failed, cancelled = stalled.failure_and_cancelled_by_then(
+            berechtigungen_crud.live_unbarred_grant_since(IDENTIFIER, berechtigungen_collection=cast(Any, grants), sperrliste=cast(Any, None))
+        )
+
+        assert (type(failed), str(failed)) == (ConnectionError, "the grant read failed")
+        assert cancelled == ["ban"], "the ban read was left running past the check's answer"
