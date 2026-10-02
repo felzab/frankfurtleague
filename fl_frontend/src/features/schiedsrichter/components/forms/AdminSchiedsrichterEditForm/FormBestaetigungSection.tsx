@@ -18,6 +18,7 @@ import {
   SCHIEDSRICHTER_UMFANG_LABELS,
 } from "@/features/schiedsrichter/constants";
 import { labelBadge } from "@/shared/components/ui/badges";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_PAIR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -29,6 +30,7 @@ import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FLSchiedsrichterBestaetigung } from "@/features/schiedsrichter/schemas";
@@ -181,6 +183,8 @@ export function FormBestaetigungSection({
   const sende = async () => {
     if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
 
+    // The page re-keys on the minted link's record, drawing this control anew under its next label.
+    const landing = focusAfterWrite();
     setSendet(true);
     // A new link voids the one the referee holds (`docs/frontend/spec.md :: I432`).
     if (!(await stepUp.confirm(true))) {
@@ -200,11 +204,14 @@ export function FormBestaetigungSection({
       return;
     }
 
+    landing.landed();
     appToast.success("Bestätigungslink gesendet", { description: res.message });
   };
 
   return (
-    <section className={panel.root()}>
+    <section
+      className={panel.root()}
+      {...focusSection("bestaetigung")}>
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}
@@ -253,23 +260,25 @@ export function FormBestaetigungSection({
         <div className="flex w-full flex-col items-start">
           {/* Closed rather than withheld, so the refusal can name what to repair. `sendet` is left
               out of the reason: it ends by itself. */}
-          <Hint
-            mode="refusal"
-            reason={verweigerung}
-            label={sendeLabel}>
-            <Button
-              type="button"
-              isPending={sendet}
-              isDisabled={verweigerung !== null}
-              onPress={() => void sende()}
-              className={`${formButton({ intent: "nav", size: "xs" })} gap-x-2`}>
-              <PaperPlane
-                className="size-3.5"
-                aria-hidden="true"
-              />
-              <span>{sendet ? stepUp.running("Sendet...") : sendeLabel}</span>
-            </Button>
-          </Hint>
+          <FocusSlot name="einladen">
+            <Hint
+              mode="refusal"
+              reason={verweigerung}
+              label={sendeLabel}>
+              <Button
+                type="button"
+                isPending={sendet}
+                isDisabled={verweigerung !== null}
+                onPress={() => void sende()}
+                className={`${formButton({ intent: "nav", size: "xs" })} gap-x-2`}>
+                <PaperPlane
+                  className="size-3.5"
+                  aria-hidden="true"
+                />
+                <span>{sendet ? stepUp.running("Sendet...") : sendeLabel}</span>
+              </Button>
+            </Hint>
+          </FocusSlot>
           <StepUpRefused refused={stepUp.refused} />
         </div>
       </div>

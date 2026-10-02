@@ -877,6 +877,20 @@ const LANDINGS: Record<string, Landing> = {
     remount: true,
     lands: () => heading("Kader 2026"),
   },
+  "a referee's confirmation link, on its control drawn anew to send another": {
+    before: () => h(AdminSchiedsrichterEditView, { schiedsrichter: SR_RECORD, inactiveSince: null }),
+    press: (user) => user.click(screen.getByRole("button", { name: "Bestätigungslink senden" })),
+    after: () =>
+      h(AdminSchiedsrichterEditView, {
+        schiedsrichter: {
+          ...SR_RECORD,
+          bestaetigung: { verschickt_am: "2026-09-21", erinnert_am: null, frist: "2026-10-05", zustellung: null },
+        },
+        inactiveSince: null,
+      }),
+    remount: true,
+    lands: () => screen.getByRole("button", { name: "Link erneut senden" }),
+  },
   "a club editor's reactivation, on the editor's heading": {
     before: () => teamEditor(RETIRED_ON),
     press: (user) => user.click(screen.getByRole("button", { name: "Reaktivieren" })),
