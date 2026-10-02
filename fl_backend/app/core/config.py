@@ -348,8 +348,8 @@ def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:
     for name, field in zip(SECRET_FILES, BackendSecrets.model_fields.values(), strict=True):
         path = SecretsSettingsSource.find_case_path(directory, name, case_sensitive=case_sensitive)
         if path is None:
-            # Refused here rather than left to the build, where the library's lookup rules decide what
-            # stands in for a missing file (`fl_backend/tests/core/test_config.py :: TestTheSecretFiles`).
+            # Counted here as well as by the build, whose lookup may find a stand-in for a missing file
+            # (`fl_backend/tests/core/test_config.py :: TestTheSecretFiles`).
             if field.is_required():
                 absent.append(name)
             continue
@@ -370,24 +370,28 @@ def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:
 def read_secrets(directory: Path) -> BackendSecrets:
     """The secret half, read from `directory` alone and refused by file name, never by value."""
     unreadable, absent = _unusable_files(directory)
-    refused = [
-        f"{sentence}: {', '.join(names)}"
-        for sentence, names in (("Unreadable secret files", unreadable), ("Invalid secret files", sorted(absent)))
-        if names
-    ]
-    if refused:
-        raise EnvironmentValidationError("; ".join(refused)) from None
+    if unreadable:
+        # The missing and the blank beside them, which the build would never reach.
+        also = f"; Invalid secret files: {', '.join(sorted(absent))}" if absent else ""
+        raise EnvironmentValidationError(f"Unreadable secret files: {', '.join(unreadable)}{also}") from None
+    # Built even where a file is missing, so every present file's value is judged as well; a missing
+    # one is refused whatever the library found to stand in for it.
     try:
         # Raised rather than printed: the source only WARNS for a missing directory and for a
         # directory at a file's path, and a warning leaves outside the log envelope.
         with warnings.catch_warnings(action="error"):
-            return BackendSecrets(directory)
+            secrets = BackendSecrets(directory)
     except ValidationError as error:
-        raise EnvironmentValidationError(f"Invalid secret files: {', '.join(_failing_names(error))}") from None
+        invalid = {*absent, *_failing_names(error)}
     except Warning, SettingsError:
         # A file that became unreadable after the question above was asked: asked again.
         unreadable, _ = _unusable_files(directory)
         raise EnvironmentValidationError(f"Unreadable secret files: {', '.join(unreadable) or directory}") from None
+    else:
+        if not absent:
+            return secrets
+        invalid = set(absent)
+    raise EnvironmentValidationError(f"Invalid secret files: {', '.join(sorted(invalid))}") from None
 
 
 @lru_cache

@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 from fastapi.dependencies.models import Dependant
-from pydantic import SecretStr, ValidationError
+from pydantic import Field, SecretStr, ValidationError
 from pymongo import MongoClient
 from pymongo.errors import ConfigurationError, InvalidURI, OperationFailure, ServerSelectionTimeoutError
 
@@ -483,42 +483,51 @@ class TestTheSecretFiles:
 
         assert refused == f"Invalid secret files: {file}"
 
-    @pytest.fixture
-    def an_unasked_library(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """The settings class failing the case when built, so a refusal is shown to be the preflight's."""
+    def test_a_missing_file_and_a_refused_value_are_named_together(self, monkeypatch, tmp_path):
+        """The missing file is the preflight's to see and the short key the build's, so one restart shows both."""
+        refused = refusal(monkeypatch, tmp_path, {"internal_api_key_admin": None, "sperrliste_schluessel": b"short"})
 
-        def asked(self: BackendSecrets, directory: Path) -> None:
-            raise AssertionError(f"the library was asked to read {directory}, which the preflight should have refused")
+        assert refused == "Invalid secret files: internal_api_key_admin, sperrliste_schluessel"
 
-        monkeypatch.setattr(BackendSecrets, "__init__", asked)
+    # The cases below lend the boot a subclass of the secret half under an option the shipped class
+    # leaves alone, so the library's own lookup, stand-ins included, is what the preflight is held to.
 
-    @pytest.mark.parametrize("content", [None, b" \r\n"], ids=["missing", "blank"])
-    @pytest.mark.parametrize("file", SECRET_FILES)
-    @pytest.mark.usefixtures("an_unasked_library")
-    def test_a_required_file_missing_or_blank_is_refused_before_the_library_looks(self, monkeypatch, tmp_path, file, content):
-        """Over every file: left to the build, the library's lookup rules decide what stands in for a missing one."""
-        assert refusal(monkeypatch, tmp_path, {file: content}) == f"Invalid secret files: {file}"
+    def test_a_missing_file_is_refused_where_the_library_reads_a_stand_in_for_it(self, monkeypatch, tmp_path):
+        """Under `validate_by_name` the library builds from a file under the field's own name, which the compose check holds nothing to."""
 
-    @pytest.mark.usefixtures("an_unasked_library")
-    def test_a_file_in_a_letter_case_the_library_would_not_find_is_missing(self, monkeypatch, tmp_path):
-        """The library's own `case_sensitive`: a preflight finding what the library cannot passes a directory the boot then refuses."""
-        monkeypatch.setitem(BackendSecrets.model_config, "case_sensitive", True)
+        class ByName(BackendSecrets, validate_by_name=True):
+            pass
 
-        refused = refusal(monkeypatch, tmp_path, {MONGODB_URI_FILE: None, MONGODB_URI_FILE.upper(): FILES[MONGODB_URI_FILE].encode()})
+        monkeypatch.setattr("app.core.config.BackendSecrets", ByName)
+
+        refused = refusal(monkeypatch, tmp_path, {MONGODB_URI_FILE: None, "mongodb_uri": FILES[MONGODB_URI_FILE].encode()})
 
         assert refused == f"Invalid secret files: {MONGODB_URI_FILE}"
 
-    @pytest.mark.usefixtures("an_unasked_library")
-    def test_a_missing_file_whose_field_has_a_default_is_left_to_the_library(self, monkeypatch, tmp_path):
-        """No secret field carries a default, so one is lent here: the compose check lets such a file go unmounted.
+    def test_a_file_in_a_letter_case_the_library_would_not_find_is_missing(self, monkeypatch, tmp_path):
+        """The library's own `case_sensitive`: a preflight finding the upper-cased file would let the stand-in beside it boot."""
 
-        `scripts/checks/check_compose_model.py :: backend_files` reads the same defaults.
-        """
-        monkeypatch.setattr(BackendSecrets.model_fields["sperrliste_schluessel"], "default", None)
+        class Spelled(BackendSecrets, validate_by_name=True, case_sensitive=True):
+            pass
+
+        monkeypatch.setattr("app.core.config.BackendSecrets", Spelled)
+        value = FILES[MONGODB_URI_FILE].encode()
+
+        refused = refusal(monkeypatch, tmp_path, {MONGODB_URI_FILE: None, MONGODB_URI_FILE.upper(): value, "mongodb_uri": value})
+
+        assert refused == f"Invalid secret files: {MONGODB_URI_FILE}"
+
+    def test_a_missing_file_whose_field_has_a_default_boots_on_the_default(self, monkeypatch, tmp_path):
+        """No secret field carries one, so one is lent: `scripts/checks/check_compose_model.py :: backend_files` lets its file go unmounted."""
+        lent = "lent".ljust(SPERRLISTE_KEY_MIN_LENGTH, "0")
+
+        class Defaulted(BackendSecrets):
+            sperrliste_schluessel: SecretStr = Field(default=SecretStr(lent), min_length=SPERRLISTE_KEY_MIN_LENGTH)
+
+        monkeypatch.setattr("app.core.config.BackendSecrets", Defaulted)
         an_environment(monkeypatch, tmp_path, {"sperrliste_schluessel": None})
 
-        with pytest.raises(AssertionError, match="the library was asked"):
-            get_config()
+        assert get_config().sperrliste_schluessel.get_secret_value() == lent
 
 
 class TestTheRetiredVariables:
