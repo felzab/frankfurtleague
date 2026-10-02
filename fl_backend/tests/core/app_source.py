@@ -23,6 +23,7 @@ from typing import Any
 
 from fastapi import FastAPI
 from fastapi.routing import APIRoute, iter_route_contexts
+from starlette.routing import BaseRoute
 
 from app.core.collections import Collection
 from app.main import create_app
@@ -712,6 +713,10 @@ def session_carriers() -> tuple[SessionCarrier, ...]:
     return tuple(sorted(found, key=lambda carrier: carrier.where))
 
 
+# What `application()` mounted, so a route a caller adds or drops is told from what it built.
+_BUILT_ROUTES: list[BaseRoute] = []
+
+
 @functools.cache
 def application() -> FastAPI:
     """One build a process for every module reading what the application mounts.
@@ -720,7 +725,30 @@ def application() -> FastAPI:
     build per module is paid by each worker for each module.
     """
 
-    return create_app(build_test_config())
+    app = create_app(build_test_config())
+    _BUILT_ROUTES[:] = app.routes
+
+    return app
+
+
+def undo_edits_to_application() -> list[str]:
+    """What a caller changed on `application()`'s app, each undone so only the module making it is charged; empty where none was built."""
+
+    if not application.cache_info().currsize:
+        return []
+    app = application()
+    edits: list[str] = []
+    if app.dependency_overrides:
+        edits.append(f"dependency overrides for {sorted(getattr(call, '__name__', repr(call)) for call in app.dependency_overrides)}")
+        app.dependency_overrides.clear()
+    if hasattr(app.state, "db_client"):
+        edits.append("a bound `db_client`")
+        del app.state.db_client
+    if app.routes != _BUILT_ROUTES:
+        edits.append("its route table")
+        app.router.routes[:] = _BUILT_ROUTES
+
+    return edits
 
 
 def api_routes(app: FastAPI) -> Iterator[APIRoute]:
