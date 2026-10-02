@@ -17,7 +17,7 @@ import { ANMELDUNG_CODE, ANMELDUNG_TAG } from "./anmeldeTag";
 import { buildCodeEmail, CODE_VALIDITY_MINUTES } from "./authEmail";
 import { MONGO_DB_NAME } from "./authIndexes";
 import { frontend_config } from "./config";
-import { client } from "./db";
+import { signInStore } from "./db";
 import { asSignInIdentifier } from "./emailAddress";
 import { BRAND_NAME } from "./emailShell";
 import { RolledBackError } from "./errors";
@@ -42,6 +42,7 @@ import { lookUpSubjekt, mayReceiveSignIn, signInVerdictOf } from "./signInGate";
 import { verwaltungOf } from "./verwaltung";
 
 import type { AuthContext, BetterAuthOptions, DBTransactionAdapter, GenericEndpointContext } from "better-auth";
+import type { MongoClient } from "mongodb";
 import type { PasskeyEmail } from "./passkeyEmail";
 import type { RequestActor } from "./requestScope";
 import type { Lifetime } from "./sessionLifetimes";
@@ -695,9 +696,12 @@ async function notify(message: PasskeyEmail, email: string): Promise<void> {
   }
 }
 
-/** Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens. */
+/**
+ * Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens. Composed
+ * on the serving origin, never `brand.ts :: SITE_URL` (I186).
+ */
 export async function notifyPasskeyRemoved(email: string): Promise<void> {
-  await notify(buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(), origin: MAIL_ORIGIN, konto: KONTO_HREF }), email);
+  await notify(buildPasskeyGeloeschtEmail({ zeitpunkt: new Date(), origin: frontend_config.AUTH_URL, konto: KONTO_HREF }), email);
 }
 
 // Matched on the OPENING of the library's own message, because each of these ends in the value it
@@ -715,16 +719,6 @@ const LIBRARY_EVENTS: readonly (readonly [string, string])[] = [
 ];
 
 const LIBRARY_EVENT_UNKNOWN = "auth.library_failed";
-
-// Both halves of the WebAuthn binding come from here.
-
-// The fallback is reached only while the image builds, where the environment is empty
-// (`docs/frontend/spec.md :: I45`); its `.invalid` host matches no browser's origin, so one that
-// escaped the builder would refuse rather than enrol.
-const AUTH_ORIGIN = new URL(frontend_config.AUTH_URL ?? "https://auth-url-unset.invalid");
-
-/** The serving origin a notice below is composed on, never `brand.ts :: SITE_URL` (I186). */
-const MAIL_ORIGIN = frontend_config.AUTH_URL ?? AUTH_ORIGIN.origin;
 
 const sessionOptions = {
   expiresIn: SESSION_EXPIRES_IN_SECONDS,
@@ -747,381 +741,388 @@ const sessionOptions = {
   },
 } satisfies BetterAuthOptions["session"];
 
-const authOptions = {
-  // The `Db` off the one client this process opens, never a second connection
-  // (`docs/frontend/spec.md :: I120`).
-  database: mongodbAdapter(client.db(MONGO_DB_NAME), { client }),
+// Called by `build`, never at import: `next build` imports this module in every page-data worker
+// holding no environment, where neither the URL nor the client can be built
+// (`docs/frontend/spec.md :: I45`). `origin` gives both halves of the WebAuthn binding.
+const authOptions = (origin: URL, client: MongoClient) =>
+  ({
+    // The `Db` off the one client this process opens, never a second connection
+    // (`docs/frontend/spec.md :: I120`).
+    database: mongodbAdapter(client.db(MONGO_DB_NAME), { client }),
 
-  // Passed rather than left to the environment: the library reads no bare `AUTH_URL`, and this
-  // value's origin also decides the `__Host-` cookie prefix below and the passkey relying-party id.
-  baseURL: frontend_config.AUTH_URL ?? AUTH_ORIGIN.origin,
-  secret: frontend_config.AUTH_SECRET,
+    // Passed rather than left to the environment: the library reads no bare `AUTH_URL`, and this
+    // value's origin also decides the `__Host-` cookie prefix below and the passkey relying-party id.
+    baseURL: frontend_config.AUTH_URL,
+    secret: frontend_config.AUTH_SECRET,
 
-  session: sessionOptions,
+    session: sessionOptions,
 
-  // Left to its default, the library would store the caller's address on every session row; the switch
-  // below stores none, and nothing here would read one, the limiter that would being off (`docs/ops/spec.md :: I4`).
+    // Left to its default, the library would store the caller's address on every session row; the switch
+    // below stores none, and nothing here would read one, the limiter that would being off (`docs/ops/spec.md :: I4`).
 
-  advanced: {
-    // The edge's own access line already carries the address, under a bound (`docs/datenschutz.md` §6).
-    ipAddress: { disableIpTracking: true },
-    // Host-bound over https (`docs/frontend/spec.md :: I401`). Through the prefix and never a cookie
-    // name: the library puts `__Secure-` ahead of any name while `useSecureCookies` is on, and a
-    // `__Secure-__Host-` cookie is bound to no host.
-    ...(AUTH_ORIGIN.protocol === "https:" ? { useSecureCookies: false, cookiePrefix: `__Host-${MONGO_DB_NAME}` } : {}),
-  },
+    advanced: {
+      // The edge's own access line already carries the address, under a bound (`docs/datenschutz.md` §6).
+      ipAddress: { disableIpTracking: true },
+      // Host-bound over https (`docs/frontend/spec.md :: I401`). Through the prefix and never a cookie
+      // name: the library puts `__Secure-` ahead of any name while `useSecureCookies` is on, and a
+      // `__Secure-__Host-` cookie is bound to no host.
+      ...(origin.protocol === "https:" ? { useSecureCookies: false, cookiePrefix: `__Host-${MONGO_DB_NAME}` } : {}),
+    },
 
-  // Never "hashed": the hook below matches a code row by its plain prefix, and each bound writes through
-  // the library but counts through the raw adapter, so hashing would stamp no code and count nothing.
-  verification: { storeIdentifier: "plain" },
+    // Never "hashed": the hook below matches a code row by its plain prefix, and each bound writes through
+    // the library but counts through the raw adapter, so hashing would stamp no code and count nothing.
+    verification: { storeIdentifier: "plain" },
 
-  databaseHooks: {
-    verification: {
-      create: {
-        // A wrong guess writes its code back stamped now, and the plugin takes the newest stamp for the
-        // live code, so a send racing the guess would lose to it: stamped with its issue time instead
-        // (`docs/frontend/spec.md :: I486`).
-        before: async (row, ctx) => {
-          if (!row.identifier.startsWith(CODE_ROW_PREFIX)) return;
-          const issued = new Date(row.expiresAt).getTime() - CODE_VALIDITY_SECONDS * 1000;
-          // The write-back keeps the stamp its code was issued under, the expiry carrying it.
-          const stamp = ctx?.path === CODE_SIGN_IN_PATH ? issued : nextCodeStamp(issued);
-          return { data: { ...row, createdAt: new Date(stamp), expiresAt: new Date(stamp + CODE_VALIDITY_SECONDS * 1000) } };
+    databaseHooks: {
+      verification: {
+        create: {
+          // A wrong guess writes its code back stamped now, and the plugin takes the newest stamp for the
+          // live code, so a send racing the guess would lose to it: stamped with its issue time instead
+          // (`docs/frontend/spec.md :: I486`).
+          before: async (row, ctx) => {
+            if (!row.identifier.startsWith(CODE_ROW_PREFIX)) return;
+            const issued = new Date(row.expiresAt).getTime() - CODE_VALIDITY_SECONDS * 1000;
+            // The write-back keeps the stamp its code was issued under, the expiry carrying it.
+            const stamp = ctx?.path === CODE_SIGN_IN_PATH ? issued : nextCodeStamp(issued);
+            return { data: { ...row, createdAt: new Date(stamp), expiresAt: new Date(stamp + CODE_VALIDITY_SECONDS * 1000) } };
+          },
+        },
+      },
+      session: {
+        create: {
+          // Every sign-in writes an identical row, so the endpoint path is the only thing separating
+          // them. This stamps; the guards below decide.
+          before: async (session, ctx) => {
+            // Absent on a mint no endpoint made, which is no sign-in this league offers. Tested for
+            // falsiness: the library hands `undefined` there, whatever its type says.
+            const factor = ctx ? SESSION_FACTOR_BY_PATH.get(ctx.path) : undefined;
+            if (!ctx || factor === undefined) throw new SessionFromUnlistedPath();
+
+            // Here, where every sign-in passes -- a code, a passkey, a set-up that signs in, a step-up --
+            // and never at one method's own callback, which the next method would walk past
+            // (`docs/frontend/spec.md :: I403`).
+            await refuseUnadmitted(ctx, session.userId);
+
+            const credential = factor === PASSKEY_FACTOR ? { passkeyCredentialId: ceremonyCredentialId(ctx) } : {};
+            const replaced = await replacedToken(ctx);
+            const lineage = replaced === null ? {} : { [REPLACED_SESSION_FIELD]: await lineageOf(replaced, ctx.context.secret) };
+
+            // Stamped again past every await, so the order of two mints is their order of insert, one write
+            // apart, and not of a backend round trip: `endEarlierSiblings` keeps the latest by it.
+            const stamped = new Date();
+            const lifetime = new Date(session.expiresAt).getTime() - new Date(session.createdAt).getTime();
+
+            return {
+              data: {
+                ...session,
+                createdAt: stamped,
+                updatedAt: stamped,
+                expiresAt: new Date(stamped.getTime() + lifetime),
+                // Emptied here because the library offers no switch for it, beside the one above that
+                // empties the address: a second copy of the caller under no retention clock.
+                userAgent: "",
+                authFactor: factor,
+                ...credential,
+                ...lineage,
+              },
+            };
+          },
+          // Right after the insert, past every refusal; after the commit only for a set-up that signs in.
+          // On the assertion and code paths a failed user read or cookie write still signs the caller out.
+          after: async (session, ctx) => {
+            if (!ctx) return;
+            await endReplacedSession(ctx, session);
+            await unlessUnsettled(() => clearCodeFailures(ctx.context, session.userId));
+          },
         },
       },
     },
-    session: {
-      create: {
-        // Every sign-in writes an identical row, so the endpoint path is the only thing separating
-        // them. This stamps; the guards below decide.
-        before: async (session, ctx) => {
-          // Absent on a mint no endpoint made, which is no sign-in this league offers. Tested for
-          // falsiness: the library hands `undefined` there, whatever its type says.
-          const factor = ctx ? SESSION_FACTOR_BY_PATH.get(ctx.path) : undefined;
-          if (!ctx || factor === undefined) throw new SessionFromUnlistedPath();
 
-          // Here, where every sign-in passes -- a code, a passkey, a set-up that signs in, a step-up --
-          // and never at one method's own callback, which the next method would walk past
-          // (`docs/frontend/spec.md :: I403`).
-          await refuseUnadmitted(ctx, session.userId);
+    // Off everywhere: the edge meters these paths (`docs/ops/spec.md :: I4`), and the library's own
+    // rules key on a network address it does not store and reach no in-process call; `withinBound`
+    // stands in for them.
+    rateLimit: { enabled: false },
 
-          const credential = factor === PASSKEY_FACTOR ? { passkeyCredentialId: ceremonyCredentialId(ctx) } : {};
-          const replaced = await replacedToken(ctx);
-          const lineage = replaced === null ? {} : { [REPLACED_SESSION_FIELD]: await lineageOf(replaced, ctx.context.secret) };
+    disabledPaths: [...DISABLED_PATHS],
 
-          // Stamped again past every await, so the order of two mints is their order of insert, one write
-          // apart, and not of a backend round trip: `endEarlierSiblings` keeps the latest by it.
-          const stamped = new Date();
-          const lifetime = new Date(session.expiresAt).getTime() - new Date(session.createdAt).getTime();
+    // Shaped rather than left to the library's default, which prints whole error objects and a
+    // rejected `callbackURL` or `origin` VALUE, both of them submitted (`docs/logging/spec.md :: L9`).
+    logger: {
+      // Below this the library has only static boot notes, and a line this handler may not quote is
+      // a line with nothing in it.
+      level: "error",
+      log: (_level, message, ...args: unknown[]) => {
+        // Matched to an event of this repository's own and never forwarded, because the library
+        // interpolates the rejected value into the message itself.
+        const event = LIBRARY_EVENTS.find(([opening]) => message.startsWith(opening))?.[1] ?? LIBRARY_EVENT_UNKNOWN;
 
-          return {
-            data: {
-              ...session,
-              createdAt: stamped,
-              updatedAt: stamped,
-              expiresAt: new Date(stamped.getTime() + lifetime),
-              // Emptied here because the library offers no switch for it, beside the one above that
-              // empties the address: a second copy of the caller under no retention clock.
-              userAgent: "",
-              authFactor: factor,
-              ...credential,
-              ...lineage,
-            },
-          };
-        },
-        // Right after the insert, past every refusal; after the commit only for a set-up that signs in.
-        // On the assertion and code paths a failed user read or cookie write still signs the caller out.
-        after: async (session, ctx) => {
-          if (!ctx) return;
-          await endReplacedSession(ctx, session);
-          await unlessUnsettled(() => clearCodeFailures(ctx.context, session.userId));
-        },
+        // `args` is dropped whole: it carries the error object itself, which
+        // `fl_frontend/src/core/logFormat.ts :: serializeError` writes with its message and stack.
+        const raised = args.find((argument) => argument instanceof Error);
+
+        logger.error(event, undefined, { error_code: "FE-AUTH-003", name: raised?.name ?? "unknown" });
       },
     },
-  },
 
-  // Off everywhere: the edge meters these paths (`docs/ops/spec.md :: I4`), and the library's own
-  // rules key on a network address it does not store and reach no in-process call; `withinBound`
-  // stands in for them.
-  rateLimit: { enabled: false },
-
-  disabledPaths: [...DISABLED_PATHS],
-
-  // Shaped rather than left to the library's default, which prints whole error objects and a
-  // rejected `callbackURL` or `origin` VALUE, both of them submitted (`docs/logging/spec.md :: L9`).
-  logger: {
-    // Below this the library has only static boot notes, and a line this handler may not quote is
-    // a line with nothing in it.
-    level: "error",
-    log: (_level, message, ...args: unknown[]) => {
-      // Matched to an event of this repository's own and never forwarded, because the library
-      // interpolates the rejected value into the message itself.
-      const event = LIBRARY_EVENTS.find(([opening]) => message.startsWith(opening))?.[1] ?? LIBRARY_EVENT_UNKNOWN;
-
-      // `args` is dropped whole: it carries the error object itself, which
-      // `fl_frontend/src/core/logFormat.ts :: serializeError` writes with its message and stack.
-      const raised = args.find((argument) => argument instanceof Error);
-
-      logger.error(event, undefined, { error_code: "FE-AUTH-003", name: raised?.name ?? "unknown" });
-    },
-  },
-
-  hooks: {
-    before: createAuthMiddleware(async (ctx) => {
-      // Above the in-process return below, because the route handler's own call is in process and
-      // is the only caller. Counted whatever the address holds: a lock only members met would be a
-      // membership oracle.
-      const address = ctx.path === CODE_SIGN_IN_PATH ? codeSignInAddress(ctx.body) : null;
-      if (address !== null) {
-        const own = await withinBound(
-          ctx.context,
-          await boundIdentifier(FAILURE_ROW_PREFIX, address, ctx.context.secret),
-          CODE_FAILURE_LIMIT,
-          CODE_FAILURE_WINDOW_HOURS * HOUR_MS,
-        );
-        if (own === null) {
-          logger.info("auth.code_attempts_exhausted");
-          throw new APIError("TOO_MANY_REQUESTS", { code: ADDRESS_ATTEMPTS_EXHAUSTED, message: "Too many failed codes for this address." });
-        }
-        if (typeof ctx.body === "object" && ctx.body !== null) attemptRows.set(ctx.body, own);
-      }
-
-      // Ahead of the plugin, which writes each new code before its send callback runs: capped there,
-      // a send voids the held code and mails none. Ahead of the gate, so the store's rows never tell a
-      // member from a stranger.
-      const recipient = ctx.path === CODE_SEND_PATH ? codeSendAddress(ctx.body) : null;
-
-      // The total read ahead of the plugin as well, so a full hour voids no held code; writing nothing
-      // and naming nobody, it answers members and strangers alike. The counted row comes past the gate.
-      if (recipient !== null && (await mailTotalReached(ctx.context))) {
-        logger.warn("auth.code_mail_total_capped", { error_code: "FE-AUTH-008" });
-        return ctx.json({ success: true });
-      }
-
-      if (
-        recipient !== null &&
-        (await withinBound(
-          ctx.context,
-          await boundIdentifier(MAIL_ROW_PREFIX, recipient, ctx.context.secret),
-          CODE_MAIL_LIMIT,
-          CODE_MAIL_WINDOW_HOURS * HOUR_MS,
-        )) === null
-      ) {
-        logger.info("auth.code_mail_capped");
-        // The plugin's own answer to a send, so a capped one reads as a mailed one.
-        return ctx.json({ success: true });
-      }
-
-      // Both arms: an in-process assertion answered by another account's passkey is no less that account's.
-      if (ctx.path === PASSKEY_ASSERTION_PATH) await refuseAnotherAccountsPasskey(ctx);
-
-      // Above the in-process return, so both arms carry it: the registration's transaction opens later,
-      // and a backend round trip inside it would hold it open (`docs/frontend/spec.md :: I482`).
-      const enrolling = ctx.path === PASSKEY_REGISTRATION_PATH ? await getSessionFromCtx(ctx) : null;
-      const enrolmentRead: EnrolmentRead | undefined =
-        enrolling === null ? undefined : { userId: enrolling.user.id, subjekt: await enrolmentSubjekt(enrolling.user.email) };
-      const carried = enrolmentRead === undefined ? undefined : { context: { [ENROLMENT_READ]: enrolmentRead } };
-
-      // An absent `ctx.request` is the library's own test for a call that did not arrive over HTTP,
-      // taken by `originCheckMiddleware` and by `requestOnlySessionMiddleware`. Nothing in process
-      // is filtered here: those callers are this repository's own code.
-      if (ctx.request === undefined) return carried;
-
-      // The switch above is a denylist, so an endpoint the next upgrade mounts arrives open; this
-      // is the default-deny net behind it, over `ctx.path`, the endpoint's own declared route
-      // rather than a string derived from the URL a caller sent.
-      if (!BROWSER_PATHS.has(ctx.path)) throw APIError.fromStatus("NOT_FOUND");
-
-      if (!ENROLMENT_PATHS.has(ctx.path)) return carried;
-
-      // Refused rather than dropped: a caller who read the plugin's own body schema is answered,
-      // and a request reshaped behind its back is how the next reader believes the field works.
-      const asked: unknown = ctx.body;
-      for (const field of ENROLMENT_FIELDS_REFUSED) {
-        if (typeof asked === "object" && asked !== null && field in asked) throw APIError.fromStatus("BAD_REQUEST");
-        // The options half takes `name` on the query string instead, where it becomes the account
-        // name the browser's own prompt shows.
-        if (Reflect.get(ctx.query ?? {}, field) !== undefined) throw APIError.fromStatus("BAD_REQUEST");
-      }
-
-      // The plugin gates both halves on `freshAge` alone, which a code-borne session is inside.
-      const caller = enrolling ?? (await getSessionFromCtx(ctx));
-
-      // Refused rather than left to the plugin's `freshSessionMiddleware`, which is mounted only
-      // while `registration.requireSession` keeps its default: this arm judges nothing about a
-      // session it cannot read, and the in-process arm already refuses one.
-      if (caller === null) throw APIError.fromStatus("NOT_FOUND");
-
-      await refuseEnrolment(
-        ctx.context.adapter,
-        caller.user.id,
-        asStepUpCaller(caller, enrolmentGrant(enrolmentRead?.subjekt ?? (await enrolmentSubjekt(caller.user.email)))),
-      );
-
-      return carried;
-    }),
-
-    // The `Set-Cookie` the endpoint wrote is untouched: `runAfterHooks` merges this hook's own
-    // headers into the response's rather than replacing them, so the credential still travels.
-    after: createAuthMiddleware(async (ctx) => {
-      // Logged and left on a failure: by now the rotation has ended the browser's old session, so a
-      // throw here would answer a right code with a 500 and no cookie.
-      if (ctx.path === CODE_SIGN_IN_PATH && typeof ctx.body === "object" && ctx.body !== null) {
-        const own = attemptRows.get(ctx.body);
-        await unlessUnsettled(() => settleCodeAttempt(ctx.context, own, ctx.context.returned));
-      }
-
-      if (!CEREMONY_VERIFY_PATHS.has(ctx.path)) return undefined;
-
-      // Left standing where the ceremony was refused, or a refusal is answered as a success.
-      if (isAPIError(ctx.context.returned)) return undefined;
-
-      // Here rather than in the callback above, which runs BEFORE the write: a notice sent there
-      // would name an enrolment a later refusal never made.
-      if (ctx.path === PASSKEY_REGISTRATION_PATH) {
-        const enrolled = await getSessionFromCtx(ctx);
-        if (enrolled !== null) {
-          await notify(buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date(), origin: MAIL_ORIGIN, konto: KONTO_HREF }), enrolled.user.email);
-        }
-      }
-
-      // The browser client reads nothing off either body but whether it is there
-      // (`@better-auth/passkey/client :: getPasskeyActions`).
-      return ctx.json(CEREMONY_DONE);
-    }),
-  },
-
-  plugins: [
-    // `disableSignUp` stays off: every person's row is written at their first verification, so set
-    // it the first correct code dies, and the gate below is the only barrier.
-
-    // A code row for EVERY address typed, and the send below handed each one, so a verify reads alike
-    // for a member and a stranger and the gate decides only the mail (`docs/frontend/spec.md :: I443`).
-    emailOTP({
-      otpLength: SIGN_IN_CODE_LENGTH,
-      expiresIn: CODE_VALIDITY_SECONDS,
-      allowedAttempts: 3,
-      // Encrypted under the secret rather than hashed: an unkeyed hash of six digits is undone by
-      // trying all million of them.
-      storeOTP: "encrypted",
-      // Every send mints a new code, valid ten minutes from its own mail, and voids the one before.
-      // "reuse" moved a live code's expiry on every send, so a code asked for again every few minutes
-      // never lapsed.
-      resendStrategy: "rotate",
-      async sendVerificationOTP({ email, otp, type }, ctx) {
-        // The one type this application asks for: every endpoint minting another is refused over
-        // HTTP and never called in process.
-        if (type !== "sign-in") return;
-
-        // The refusal, whole: an address the gate refuses, for whatever reason, is mailed nothing
-        // and this returns as though it had, so every branch is one answer.
-        if ((await mayReceiveSignIn(email)) !== "admitted") return;
-
-        // Mails sent, past the gate: a count of requests would let invented addresses close sign-in
-        // for everyone. Its rows carry no address and no hash of one, so the aggregate tells nobody who
-        // is a member.
-        if (
-          ctx === undefined ||
-          (await withinBound(ctx.context, MAIL_TOTAL_IDENTIFIER, CODE_MAIL_TOTAL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS)) === null
-        ) {
-          logger.warn("auth.code_mail_total_capped", { error_code: "FE-AUTH-008" });
-          return;
-        }
-
-        // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is
-        // not production must not mail production links (`docs/frontend/spec.md :: I186`).
-        const { subject, html, text } = buildCodeEmail(otp, frontend_config.AUTH_URL);
-
-        try {
-          // Tagged so the delivery webhook can tell this lane from the application flow's and put
-          // a bounce on the stream: a mailbox refusing the code locks out whoever holds no passkey,
-          // and an untagged event reaches no reader at all.
-          await sendMail({ to: email, subject, html, text, tags: { [ANMELDUNG_TAG]: ANMELDUNG_CODE } });
-        } catch (failed) {
-          // Name only: a failure on this path routinely carries the submitted address, and
-          // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and stack in full.
-          logger.error("auth.code_send_failed", undefined, {
-            error_code: "FE-AUTH-002",
-            name: failed instanceof Error ? failed.name : "unknown",
-          });
-        }
-      },
-    }),
-
-    // `rpName` is what the browser's own passkey prompt shows, and the plugin's default names the
-    // library rather than this league.
-
-    // `authenticatorSelection` carries the ask into both ceremonies' options; the library verifies
-    // the flag on neither response, so `afterVerification` below is the whole of the check.
-    passkey({
-      rpName: BRAND_NAME,
-      // Named rather than left to the plugin's own derivation, which answers this same host off
-      // `baseURL`: what an enrolled passkey is bound to for life outlives that option.
-      rpID: AUTH_ORIGIN.hostname,
-      // Unset, this is the caller's own `Origin` header -- a ceremony checked against the value its
-      // own sender chose.
-      origin: AUTH_ORIGIN.origin,
-      authenticatorSelection: { userVerification: USER_VERIFICATION, residentKey: "required" },
-      // Both callbacks run before the plugin writes anything -- ahead of the passkey row, and ahead
-      // of the counter and the session -- so a refusal here leaves the store as it found it.
-      registration: {
-        afterVerification: async ({ ctx, verification, user }) => {
-          refuseUnverified(verification.registrationInfo?.userVerified === true);
-
-          // The verifier holds the posted `id` to `rawId` and neither to the attested credential, so
-          // a session this enrolment mints would otherwise name whichever passkey its caller chose.
-          if (declaredCredentialId(ctx) !== verification.registrationInfo?.credential.id) throw APIError.fromStatus("BAD_REQUEST");
-
-          // The transaction `patches/@better-auth__passkey@1.7.5.patch` opens around every
-          // registration. Outside one the claim below conflicts with nothing, so an enrolment
-          // arriving without it is refused rather than admitted unguarded.
-          const adapter = await getCurrentAdapter(ctx.context.adapter);
-          if (adapter === ctx.context.adapter) throw new EnrolmentOutsideTransaction();
-
-          // Judged again here, the last point before the row is written, and reached by an `auth.api`
-          // call the hook lets through; off the hook's carried read, and nothing where it carried none.
-
-          // `ctx.context.session` is put there by the plugin's own `freshSessionMiddleware`, which it
-          // mounts only while `registration.requireSession` keeps its default: unset it and this arm
-          // sees no factor at all and refuses every enrolment.
-          const enrolling = ctx.context.session ?? null;
-          await refuseEnrolment(
-            adapter,
-            user.id,
-            enrolling === null ? null : asStepUpCaller(enrolling, enrolmentGrant(carriedOrRefuse(ctx, enrolling.user.id))),
-            verification.registrationInfo?.credential.id,
+    hooks: {
+      before: createAuthMiddleware(async (ctx) => {
+        // Above the in-process return below, because the route handler's own call is in process and
+        // is the only caller. Counted whatever the address holds: a lock only members met would be a
+        // membership oracle.
+        const address = ctx.path === CODE_SIGN_IN_PATH ? codeSignInAddress(ctx.body) : null;
+        if (address !== null) {
+          const own = await withinBound(
+            ctx.context,
+            await boundIdentifier(FAILURE_ROW_PREFIX, address, ctx.context.secret),
+            CODE_FAILURE_LIMIT,
+            CODE_FAILURE_WINDOW_HOURS * HOUR_MS,
           );
+          if (own === null) {
+            logger.info("auth.code_attempts_exhausted");
+            throw new APIError("TOO_MANY_REQUESTS", { code: ADDRESS_ATTEMPTS_EXHAUSTED, message: "Too many failed codes for this address." });
+          }
+          if (typeof ctx.body === "object" && ctx.body !== null) attemptRows.set(ctx.body, own);
+        }
+
+        // Ahead of the plugin, which writes each new code before its send callback runs: capped there,
+        // a send voids the held code and mails none. Ahead of the gate, so the store's rows never tell a
+        // member from a stranger.
+        const recipient = ctx.path === CODE_SEND_PATH ? codeSendAddress(ctx.body) : null;
+
+        // The total read ahead of the plugin as well, so a full hour voids no held code; writing nothing
+        // and naming nobody, it answers members and strangers alike. The counted row comes past the gate.
+        if (recipient !== null && (await mailTotalReached(ctx.context))) {
+          logger.warn("auth.code_mail_total_capped", { error_code: "FE-AUTH-008" });
+          return ctx.json({ success: true });
+        }
+
+        if (
+          recipient !== null &&
+          (await withinBound(
+            ctx.context,
+            await boundIdentifier(MAIL_ROW_PREFIX, recipient, ctx.context.secret),
+            CODE_MAIL_LIMIT,
+            CODE_MAIL_WINDOW_HOURS * HOUR_MS,
+          )) === null
+        ) {
+          logger.info("auth.code_mail_capped");
+          // The plugin's own answer to a send, so a capped one reads as a mailed one.
+          return ctx.json({ success: true });
+        }
+
+        // Both arms: an in-process assertion answered by another account's passkey is no less that account's.
+        if (ctx.path === PASSKEY_ASSERTION_PATH) await refuseAnotherAccountsPasskey(ctx);
+
+        // Above the in-process return, so both arms carry it: the registration's transaction opens later,
+        // and a backend round trip inside it would hold it open (`docs/frontend/spec.md :: I482`).
+        const enrolling = ctx.path === PASSKEY_REGISTRATION_PATH ? await getSessionFromCtx(ctx) : null;
+        const enrolmentRead: EnrolmentRead | undefined =
+          enrolling === null ? undefined : { userId: enrolling.user.id, subjekt: await enrolmentSubjekt(enrolling.user.email) };
+        const carried = enrolmentRead === undefined ? undefined : { context: { [ENROLMENT_READ]: enrolmentRead } };
+
+        // An absent `ctx.request` is the library's own test for a call that did not arrive over HTTP,
+        // taken by `originCheckMiddleware` and by `requestOnlySessionMiddleware`. Nothing in process
+        // is filtered here: those callers are this repository's own code.
+        if (ctx.request === undefined) return carried;
+
+        // The switch above is a denylist, so an endpoint the next upgrade mounts arrives open; this
+        // is the default-deny net behind it, over `ctx.path`, the endpoint's own declared route
+        // rather than a string derived from the URL a caller sent.
+        if (!BROWSER_PATHS.has(ctx.path)) throw APIError.fromStatus("NOT_FOUND");
+
+        if (!ENROLMENT_PATHS.has(ctx.path)) return carried;
+
+        // Refused rather than dropped: a caller who read the plugin's own body schema is answered,
+        // and a request reshaped behind its back is how the next reader believes the field works.
+        const asked: unknown = ctx.body;
+        for (const field of ENROLMENT_FIELDS_REFUSED) {
+          if (typeof asked === "object" && asked !== null && field in asked) throw APIError.fromStatus("BAD_REQUEST");
+          // The options half takes `name` on the query string instead, where it becomes the account
+          // name the browser's own prompt shows.
+          if (Reflect.get(ctx.query ?? {}, field) !== undefined) throw APIError.fromStatus("BAD_REQUEST");
+        }
+
+        // The plugin gates both halves on `freshAge` alone, which a code-borne session is inside.
+        const caller = enrolling ?? (await getSessionFromCtx(ctx));
+
+        // Refused rather than left to the plugin's `freshSessionMiddleware`, which is mounted only
+        // while `registration.requireSession` keeps its default: this arm judges nothing about a
+        // session it cannot read, and the in-process arm already refuses one.
+        if (caller === null) throw APIError.fromStatus("NOT_FOUND");
+
+        await refuseEnrolment(
+          ctx.context.adapter,
+          caller.user.id,
+          asStepUpCaller(caller, enrolmentGrant(enrolmentRead?.subjekt ?? (await enrolmentSubjekt(caller.user.email)))),
+        );
+
+        return carried;
+      }),
+
+      // The `Set-Cookie` the endpoint wrote is untouched: `runAfterHooks` merges this hook's own
+      // headers into the response's rather than replacing them, so the credential still travels.
+      after: createAuthMiddleware(async (ctx) => {
+        // Logged and left on a failure: by now the rotation has ended the browser's old session, so a
+        // throw here would answer a right code with a 500 and no cookie.
+        if (ctx.path === CODE_SIGN_IN_PATH && typeof ctx.body === "object" && ctx.body !== null) {
+          const own = attemptRows.get(ctx.body);
+          await unlessUnsettled(() => settleCodeAttempt(ctx.context, own, ctx.context.returned));
+        }
+
+        if (!CEREMONY_VERIFY_PATHS.has(ctx.path)) return undefined;
+
+        // Left standing where the ceremony was refused, or a refusal is answered as a success.
+        if (isAPIError(ctx.context.returned)) return undefined;
+
+        // Here rather than in the callback above, which runs BEFORE the write: a notice sent there
+        // would name an enrolment a later refusal never made.
+        if (ctx.path === PASSKEY_REGISTRATION_PATH) {
+          const enrolled = await getSessionFromCtx(ctx);
+          if (enrolled !== null) {
+            await notify(
+              buildPasskeyHinzugefuegtEmail({ zeitpunkt: new Date(), origin: frontend_config.AUTH_URL, konto: KONTO_HREF }),
+              enrolled.user.email,
+            );
+          }
+        }
+
+        // The browser client reads nothing off either body but whether it is there
+        // (`@better-auth/passkey/client :: getPasskeyActions`).
+        return ctx.json(CEREMONY_DONE);
+      }),
+    },
+
+    plugins: [
+      // `disableSignUp` stays off: every person's row is written at their first verification, so set
+      // it the first correct code dies, and the gate below is the only barrier.
+
+      // A code row for EVERY address typed, and the send below handed each one, so a verify reads alike
+      // for a member and a stranger and the gate decides only the mail (`docs/frontend/spec.md :: I443`).
+      emailOTP({
+        otpLength: SIGN_IN_CODE_LENGTH,
+        expiresIn: CODE_VALIDITY_SECONDS,
+        allowedAttempts: 3,
+        // Encrypted under the secret rather than hashed: an unkeyed hash of six digits is undone by
+        // trying all million of them.
+        storeOTP: "encrypted",
+        // Every send mints a new code, valid ten minutes from its own mail, and voids the one before.
+        // "reuse" moved a live code's expiry on every send, so a code asked for again every few minutes
+        // never lapsed.
+        resendStrategy: "rotate",
+        async sendVerificationOTP({ email, otp, type }, ctx) {
+          // The one type this application asks for: every endpoint minting another is refused over
+          // HTTP and never called in process.
+          if (type !== "sign-in") return;
+
+          // The refusal, whole: an address the gate refuses, for whatever reason, is mailed nothing
+          // and this returns as though it had, so every branch is one answer.
+          if ((await mayReceiveSignIn(email)) !== "admitted") return;
+
+          // Mails sent, past the gate: a count of requests would let invented addresses close sign-in
+          // for everyone. Its rows carry no address and no hash of one, so the aggregate tells nobody who
+          // is a member.
+          if (
+            ctx === undefined ||
+            (await withinBound(ctx.context, MAIL_TOTAL_IDENTIFIER, CODE_MAIL_TOTAL_LIMIT, CODE_MAIL_WINDOW_HOURS * HOUR_MS)) === null
+          ) {
+            logger.warn("auth.code_mail_total_capped", { error_code: "FE-AUTH-008" });
+            return;
+          }
+
+          // The serving origin, never `fl_frontend/src/core/brand.ts :: SITE_URL`: a stack that is
+          // not production must not mail production links (`docs/frontend/spec.md :: I186`).
+          const { subject, html, text } = buildCodeEmail(otp, frontend_config.AUTH_URL);
 
           try {
-            await claimAccount(adapter, user.id);
+            // Tagged so the delivery webhook can tell this lane from the application flow's and put
+            // a bounce on the stream: a mailbox refusing the code locks out whoever holds no passkey,
+            // and an untagged event reaches no reader at all.
+            await sendMail({ to: email, subject, html, text, tags: { [ANMELDUNG_TAG]: ANMELDUNG_CODE } });
           } catch (failed) {
-            if (!isWriteConflict(failed)) throw failed;
-
-            // The line is the record: under a stolen mailbox racing the administrator, this refusal
-            // is the only trace that a second enrolment ran.
-            logger.warn("auth.passkey_enrolment_conflict", { error_code: "FE-AUTH-005" });
-            throw new APIError("CONFLICT", {
-              code: ENROLMENT_CONFLICT,
-              message: "Another change to this account's passkeys ran at the same time.",
+            // Name only: a failure on this path routinely carries the submitted address, and
+            // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and stack in full.
+            logger.error("auth.code_send_failed", undefined, {
+              error_code: "FE-AUTH-002",
+              name: failed instanceof Error ? failed.name : "unknown",
             });
           }
         },
-      },
-      authentication: { afterVerification: ({ verification }) => refuseUnverified(verification.authenticationInfo.userVerified) },
-    }),
+      }),
 
-    passkeyLastUse(),
+      // `rpName` is what the browser's own passkey prompt shows, and the plugin's default names the
+      // library rather than this league.
 
-    // No `customSession` while its read answers a store that does not answer as no session, which
-    // better-auth pull request 11391 retires: until then `projected` below builds the guards' copy over
-    // the library's own read (`docs/frontend/spec.md :: I519`).
+      // `authenticatorSelection` carries the ask into both ceremonies' options; the library verifies
+      // the flag on neither response, so `afterVerification` below is the whole of the check.
+      passkey({
+        rpName: BRAND_NAME,
+        // Named rather than left to the plugin's own derivation, which answers this same host off
+        // `baseURL`: what an enrolled passkey is bound to for life outlives that option.
+        rpID: origin.hostname,
+        // Unset, this is the caller's own `Origin` header -- a ceremony checked against the value its
+        // own sender chose.
+        origin: origin.origin,
+        authenticatorSelection: { userVerification: USER_VERIFICATION, residentKey: "required" },
+        // Both callbacks run before the plugin writes anything -- ahead of the passkey row, and ahead
+        // of the counter and the session -- so a refusal here leaves the store as it found it.
+        registration: {
+          afterVerification: async ({ ctx, verification, user }) => {
+            refuseUnverified(verification.registrationInfo?.userVerified === true);
 
-    // Last, which the library warns about: it copies a response's `set-cookie` into Next's store.
-    nextCookies(),
-  ],
-} satisfies BetterAuthOptions;
+            // The verifier holds the posted `id` to `rawId` and neither to the attested credential, so
+            // a session this enrolment mints would otherwise name whichever passkey its caller chose.
+            if (declaredCredentialId(ctx) !== verification.registrationInfo?.credential.id) throw APIError.fromStatus("BAD_REQUEST");
 
-const build = () => betterAuth(authOptions);
+            // The transaction `patches/@better-auth__passkey@1.7.5.patch` opens around every
+            // registration. Outside one the claim below conflicts with nothing, so an enrolment
+            // arriving without it is refused rather than admitted unguarded.
+            const adapter = await getCurrentAdapter(ctx.context.adapter);
+            if (adapter === ctx.context.adapter) throw new EnrolmentOutsideTransaction();
+
+            // Judged again here, the last point before the row is written, and reached by an `auth.api`
+            // call the hook lets through; off the hook's carried read, and nothing where it carried none.
+
+            // `ctx.context.session` is put there by the plugin's own `freshSessionMiddleware`, which it
+            // mounts only while `registration.requireSession` keeps its default: unset it and this arm
+            // sees no factor at all and refuses every enrolment.
+            const enrolling = ctx.context.session ?? null;
+            await refuseEnrolment(
+              adapter,
+              user.id,
+              enrolling === null ? null : asStepUpCaller(enrolling, enrolmentGrant(carriedOrRefuse(ctx, enrolling.user.id))),
+              verification.registrationInfo?.credential.id,
+            );
+
+            try {
+              await claimAccount(adapter, user.id);
+            } catch (failed) {
+              if (!isWriteConflict(failed)) throw failed;
+
+              // The line is the record: under a stolen mailbox racing the administrator, this refusal
+              // is the only trace that a second enrolment ran.
+              logger.warn("auth.passkey_enrolment_conflict", { error_code: "FE-AUTH-005" });
+              throw new APIError("CONFLICT", {
+                code: ENROLMENT_CONFLICT,
+                message: "Another change to this account's passkeys ran at the same time.",
+              });
+            }
+          },
+        },
+        authentication: { afterVerification: ({ verification }) => refuseUnverified(verification.authenticationInfo.userVerified) },
+      }),
+
+      passkeyLastUse(),
+
+      // No `customSession` while its read answers a store that does not answer as no session, which
+      // better-auth pull request 11391 retires: until then `projected` below builds the guards' copy over
+      // the library's own read (`docs/frontend/spec.md :: I519`).
+
+      // Last, which the library warns about: it copies a response's `set-cookie` into Next's store.
+      nextCookies(),
+    ],
+  }) satisfies BetterAuthOptions;
+
+const build = () => betterAuth(authOptions(new URL(frontend_config.AUTH_URL), signInStore()));
 let built: ReturnType<typeof build> | undefined;
 
 // Built on first use rather than at import: `next build` loads this module in every page-data worker with the secret

@@ -55,7 +55,8 @@ registerHooks({
 });
 
 // Imported after the hooks above are registered: a static import resolves before they exist.
-const { client } = (await import(PRODUCTION_DB)) as { client: MongoClient };
+const { signInStore } = (await import(PRODUCTION_DB)) as { signInStore: () => MongoClient };
+const client = signInStore();
 opened.client = client;
 const { auth, getAdminSession } = await import("@/core/auth.ts");
 const { buildAuthIndexes } = await import("@/core/authIndexes.ts");

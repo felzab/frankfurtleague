@@ -24,18 +24,22 @@ const LIBRARY_DOUBLE = overridingModule(import.meta.resolve("better-auth"), {
 const globals = globalThis as unknown as Record<string, unknown>;
 globals[STORE] = { user: [], session: [], account: [], verification: [], passkey: [] };
 
+// The config `next build` loads the module under, in every page-data worker
+// (`docs/frontend/spec.md :: I45`).
+const CONFIG = configDouble({ AUTH_SECRET: undefined, AUTH_URL: undefined });
+
 registerAuthDoubles({
-  // The config `next build` loads the module under, in every page-data worker
-  // (`docs/frontend/spec.md :: I45`).
-  core: { config: configDouble({ AUTH_SECRET: undefined }) },
+  core: { config: CONFIG },
   specifiers: { "better-auth": asDataUrl(LIBRARY_DOUBLE), "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) },
 });
 
 describe("when `fl_frontend/src/core/auth.ts :: auth` is built", () => {
-  it("builds nothing at import where the secret is absent, and builds once on first use", async () => {
+  it("builds nothing at import where the secret and the serving URL are absent, and builds once on first use", async () => {
     const { auth } = await import("./auth.ts");
     assert.equal(built, 0, "importing the module built the library");
 
+    // What the boot gate guarantees before a request reaches the library.
+    Reflect.set(CONFIG.frontend_config as object, "AUTH_URL", "https://frankfurtleague.de");
     assert.ok("handler" in auth);
     assert.ok(auth.api);
     assert.equal(built, 1);

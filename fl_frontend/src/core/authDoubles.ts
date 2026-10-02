@@ -55,7 +55,7 @@ export function configDouble(overrides: Readonly<Record<string, unknown>> = {}):
 /* Replaced here rather than the adapter being given a seam: the real client needs a `MONGODB_URI`
    the config above omits, and with one a suite left on the real adapter would reach for a server
    rather than fail at once. */
-const DB_DOUBLE: DoubledExports = { client: { db: () => ({}) } };
+const DB_DOUBLE: DoubledExports = { signInStore: () => ({ db: () => ({}) }) };
 
 /**
  * The Mongo adapter reaches a real server through aggregation pipelines, so the store under the real

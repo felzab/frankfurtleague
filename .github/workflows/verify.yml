@@ -259,12 +259,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
-    # CI runs `pnpm build` on the runner host, never inside the image, so none of the Dockerfile's
-    # ENV lines apply. These reproduce them across its base and builder stages;
-    # `fl_frontend/Dockerfile` is the authority, and the two move together.
+    # Every `next` command a step runs, the build's own variables set on its command alone
+    # (`scripts/gate/verify.sh :: do_next_build`).
     env:
-      SKIP_ENV_VALIDATION: "true"
-      SECRETS_DIR: ${{ github.workspace }}/fl_frontend/placeholder-secrets
       NEXT_TELEMETRY_DISABLED: "1"
 
     steps:

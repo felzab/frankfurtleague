@@ -2,7 +2,7 @@ import "server-only";
 
 import { MongoError, MongoServerError } from "mongodb";
 
-import { client } from "./db";
+import { signInStore } from "./db";
 import { logger } from "./logging";
 
 import type { CreateIndexesOptions, IndexSpecification } from "mongodb";
@@ -62,7 +62,7 @@ export function buildAuthIndexes(): Promise<void> {
 }
 
 async function buildOnce(): Promise<void> {
-  const database = client.db(MONGO_DB_NAME);
+  const database = signInStore().db(MONGO_DB_NAME);
   const lanes = Map.groupBy(AUTH_INDEXES, (index) => index.collection);
 
   await Promise.all(
@@ -87,7 +87,7 @@ async function buildOnce(): Promise<void> {
 function rebuildOnOpen(): void {
   if (rebuildArmed) return;
   rebuildArmed = true;
-  client.once("open", () => {
+  signInStore().once("open", () => {
     rebuildArmed = false;
     void buildAuthIndexes();
   });

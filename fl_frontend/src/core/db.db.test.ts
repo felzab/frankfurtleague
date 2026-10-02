@@ -172,28 +172,32 @@ registerAuthDoubles({
   },
 });
 
+/** The client a fresh evaluation of `db.ts` builds, the URL's suffix naming the evaluation. */
+async function storeOf(url: string): Promise<MongoClient> {
+  const { signInStore } = (await import(url)) as { signInStore: () => MongoClient };
+  const client = signInStore();
+  opened.clients.push(client);
+  return client;
+}
+
 // Imported after the hooks above are registered: a static import resolves before they exist.
-const { client } = (await import(PRODUCTION_DB)) as { client: MongoClient };
-opened.clients.push(client);
+const client = await storeOf(PRODUCTION_DB);
 const { auth, readServedSession } = await import("./auth.ts");
 // The same module evaluated again, so further clients built by the same code, each connecting first
 // inside its own case.
-const { client: coldClient } = (await import(`${import.meta.resolve("./db.ts")}?cold-start`)) as { client: MongoClient };
-opened.clients.push(coldClient);
+const coldClient = await storeOf(`${import.meta.resolve("./db.ts")}?cold-start`);
 // Built by the development branch, which caches its client on `global`: the cold start above holds the
-// production branch's. Next declares `NODE_ENV` read-only, which is true of a build and not of this process.
+// production branch's. Set around the first call, where the branch is taken, and never the import.
 const env = process.env as Record<string, string | undefined>;
 const nodeEnv = env.NODE_ENV;
+// Next declares `NODE_ENV` read-only, which is true of a build and not of this process.
 env.NODE_ENV = "development";
-const { client: recoveringClient } = (await import(`${import.meta.resolve("./db.ts")}?development`).finally(() => {
+const recoveringClient = await storeOf(`${import.meta.resolve("./db.ts")}?development`).finally(() => {
   if (nodeEnv === undefined) delete env.NODE_ENV;
   else env.NODE_ENV = nodeEnv;
-})) as { client: MongoClient };
-opened.clients.push(recoveringClient);
-const { client: handshakeClient } = (await import(`${import.meta.resolve("./db.ts")}?handshake`)) as { client: MongoClient };
-opened.clients.push(handshakeClient);
-const { client: closingClient } = (await import(`${import.meta.resolve("./db.ts")}?closing`)) as { client: MongoClient };
-opened.clients.push(closingClient);
+});
+const handshakeClient = await storeOf(`${import.meta.resolve("./db.ts")}?handshake`);
+const closingClient = await storeOf(`${import.meta.resolve("./db.ts")}?closing`);
 
 // What a timer firing late on a loaded machine adds to the bound.
 const LATENESS_MS = 2000;
@@ -351,7 +355,7 @@ describe("the sign-in store's client recovers from a cold start it could not com
         import.meta.resolve("../../scripts/tsconfig-alias-hook.mjs"),
         "--input-type=module",
         "--eval",
-        `const { client } = await import("@/core/db.ts");
+        `const client = (await import("@/core/db.ts")).signInStore();
 await client.db("store_bound").collection("probe").findOne({}).catch(() => undefined);
 process.stdout.write(process.env.FL_CHILD_SETTLED ?? "");`,
       ],

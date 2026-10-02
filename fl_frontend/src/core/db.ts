@@ -70,20 +70,22 @@ class SignInStoreClient extends MongoClient {
   }
 }
 
-let client: MongoClient;
+let client: MongoClient | undefined;
 
-// The development branch caches the client on `global`, or hot reloads exhaust the pool.
-if (process.env.NODE_ENV === "development") {
-  const globalWithMongo = global as typeof globalThis & {
-    _mongoClient?: MongoClient;
-  };
+/**
+ * The one client this process opens, built on the first call rather than at import: `next build` and
+ * the unit tier import this module holding no URI, and the driver connects on first use either way.
+ */
+export function signInStore(): MongoClient {
+  if (client !== undefined) return client;
 
-  if (!globalWithMongo._mongoClient) {
-    globalWithMongo._mongoClient = new SignInStoreClient(frontend_config.MONGODB_URI);
+  // The development branch caches the client on `global`, or hot reloads exhaust the pool.
+  if (process.env.NODE_ENV === "development") {
+    const globalWithMongo = global as typeof globalThis & { _mongoClient?: MongoClient };
+    globalWithMongo._mongoClient ??= new SignInStoreClient(frontend_config.MONGODB_URI);
+    client = globalWithMongo._mongoClient;
+  } else {
+    client = new SignInStoreClient(frontend_config.MONGODB_URI);
   }
-  client = globalWithMongo._mongoClient;
-} else {
-  client = new SignInStoreClient(frontend_config.MONGODB_URI);
+  return client;
 }
-
-export { client };

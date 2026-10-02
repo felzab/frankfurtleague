@@ -28,14 +28,14 @@ import type { MemoryDB } from "better-auth/adapters/memory";
 const PERSON_EMAIL = "spielerin@example.org";
 
 /* Replaced at the module boundary rather than the adapter being given a seam: the real module opens
-   a `MongoClient` at import, so loading it would reach for a server no test run holds. */
+   a `MongoClient` on the library's first use, which would reach for a server no test run holds. */
 const DB_DOUBLE = {
-  client: {
+  signInStore: () => ({
     db: (name: string) => {
       adapterCalls.databases.push(name);
       return { name };
     },
-  },
+  }),
 };
 
 /** What the request a case arrives as carries, which `arriveAs` sets. */

@@ -88,15 +88,16 @@ const wrapDb = (db: object): object =>
 /* The real client, held where a request makes its first write after its judgement: the passkey row
    where nothing claims the account, the account's own row where something does. */
 const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
-  client: (db) => {
-    productionClient = db.client;
-    return new Proxy(db.client as object, {
+  signInStore: (db) => {
+    productionClient = (db.signInStore as () => object)();
+    const wrapped = new Proxy(productionClient as object, {
       get(target, prop) {
         const value: unknown = Reflect.get(target, prop, target);
         if (prop === "db") return (name: string, options?: unknown) => wrapDb((value as Method).call(target, name, options) as object);
         return bound(target, value);
       },
     });
+    return () => wrapped;
   },
 });
 

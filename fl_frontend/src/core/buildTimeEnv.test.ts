@@ -10,20 +10,17 @@ import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 const SRC_DIR = path.resolve(import.meta.dirname, "..");
 
 /**
- * The names the builder stage sets, its base image's `NODE_VERSION` and the value it reads from the
- * placeholder file `SECRETS_DIR` names among them; a name added here is a claim about the Dockerfile
- * and that image (`docs/frontend/spec.md :: I84`).
+ * The names the builder stage sets, its base image's `NODE_VERSION` among them; a name added here is a
+ * claim about the Dockerfile and that image (`docs/frontend/spec.md :: I84`).
  */
 const PROVIDED_WHILE_BUILDING = new Set([
   "CI",
-  "MONGODB_URI",
   "NEXT_RUNTIME",
   "NEXT_TELEMETRY_DISABLED",
   "NODE_ENV",
   "NODE_VERSION",
   "PATH",
   "PNPM_HOME",
-  "SECRETS_DIR",
   "SKIP_ENV_VALIDATION",
 ]);
 
@@ -155,13 +152,44 @@ function moduleScopeConsumers(fileName: string, source: string): Finding[] {
     return values.some((value) => (resolvesToEnv(value) && !(written && isFallback(unwrap(value)))) || carriesEnv(value, written));
   }
 
-  /** A fallback or a branch stands something else in where the value is missing, and nothing throws. */
+  /** The environment names an expression reads, and the module-scope names it reads that hold one. */
+  function namesRead(node: ts.Node): Set<string> {
+    const names = new Set<string>();
+    const walk = (candidate: ts.Node): void => {
+      if (ts.isPropertyAccessExpression(candidate) && isEnvRead(candidate)) names.add(candidate.name.text);
+      else if (ts.isIdentifier(candidate) && derived.has(candidate.text)) names.add(candidate.text);
+      ts.forEachChild(candidate, walk);
+    };
+    walk(node);
+    return names;
+  }
+
+  /** The test that decides whether `child` runs at all, where `ancestor` is a branch or a short circuit holding it. */
+  function testOf(ancestor: ts.Node, child: ts.Node): ts.Node | undefined {
+    if (ts.isIfStatement(ancestor) && child !== ancestor.expression) return ancestor.expression;
+    if (ts.isConditionalExpression(ancestor) && child !== ancestor.condition) return ancestor.condition;
+    if (!ts.isBinaryExpression(ancestor) || child !== ancestor.right) return undefined;
+    const operator = ancestor.operatorToken.kind;
+    const shortCircuits = [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.AmpersandAmpersandToken].includes(
+      operator,
+    );
+    return shortCircuits ? ancestor.left : undefined;
+  }
+
+  /**
+   * A fallback stands in where the value is missing; a branch or a short circuit guards a site only
+   * where its test reads a value the site consumes, one testing another name leaving the site to throw.
+   */
   function isGuarded(node: ts.Node): boolean {
     if (isFallback(unwrap(node))) return true;
 
+    const consumed = namesRead(node);
+    let child = node;
     let ancestor: ts.Node | undefined = node.parent;
     while (ancestor !== undefined && !isFunctionLike(ancestor)) {
-      if (isFallback(ancestor) || ts.isConditionalExpression(ancestor) || ts.isIfStatement(ancestor)) return true;
+      const test = testOf(ancestor, child);
+      if (test !== undefined && [...namesRead(test)].some((name) => consumed.has(name))) return true;
+      child = ancestor;
       ancestor = ancestor.parent;
     }
     return false;
@@ -236,6 +264,7 @@ describe("what a module does with the environment while the image builds", () =>
       "",
       'const fromALiteral = new URL("https://example.test/api/v1");',
       "",
+      // The store's client, built at load.
       "const client = new MongoClient(frontend_config.MONGODB_URI);",
       "",
       "const auth = betterAuth({ database: client, secret: frontend_config.AUTH_SECRET });",
@@ -252,14 +281,23 @@ describe("what a module does with the environment while the image builds", () =>
       "",
       'const fallbackHeld = { from: frontend_config.AUTH_URL ?? "" };',
       "",
+      // A fallback handed on away from its site.
       "const handedOn = createMailer(fallbackHeld);",
       "",
+      // A parse inside the validator's own input.
       "export const frontend_config = createEnv({ runtimeEnv: { AUTH_URL: process.env.AUTH_URL, API_URL: new URL(process.env.API_URL).href } });",
+      "",
+      // Two branches testing another value than the one they parse.
+      'if (process.env.NODE_ENV === "development") new URL(frontend_config.API_URL);',
+      "",
+      "const branched = frontend_config.AUTH_URL ? new URL(frontend_config.API_URL) : undefined;",
+      "",
+      // A short circuit testing the value it parses, and no subject.
+      "const tested = frontend_config.API_URL && new URL(frontend_config.API_URL);",
     ].join("\n");
 
-    /* Composed, deferred, guarded, branched, builder-set, a LITERAL parse, a literal holding a value,
-       and the validator's own input: none is a subject. Line 33 hands on a fallback away from its
-       site; line 35 parses inside the validator's input. */
+    /* Composed, deferred, guarded, branched on the value itself, a LITERAL parse, a literal holding a
+       value, and the validator's own input: none is a subject. Each line that is one says why beside it. */
     const found = moduleScopeConsumers("sample.ts", sample);
 
     assert.deepEqual(
@@ -267,11 +305,14 @@ describe("what a module does with the environment while the image builds", () =>
       [
         "5 passed to a call",
         "9 reached through",
+        "17 passed to a call",
         "19 passed to a call",
         "23 passed to a call",
         "25 reached through",
         "33 passed to a call",
         "35 passed to a call",
+        "37 passed to a call",
+        "39 passed to a call",
       ],
       `the reader saw: ${found.map((finding) => `${String(finding.line)}:${finding.source}`).join(" | ")}`,
     );

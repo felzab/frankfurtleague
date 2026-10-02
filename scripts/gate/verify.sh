@@ -329,11 +329,10 @@ do_knip()       { ( cd fl_frontend && pnpm knip ); }
 do_unit_tests() {
   ( cd fl_frontend && NODE_OPTIONS="${NODE_OPTIONS:+$NODE_OPTIONS }${VERIFY_TEST_SHARD:+--test-shard=$VERIFY_TEST_SHARD}" pnpm test )
 }
-# The build's placeholders, for `fl_frontend/Dockerfile`'s reason; on this command alone. The type
-# pass is skipped because this scope's tsc, run after typegen, has just checked this working tree.
+# The builder's skipped validation, for `fl_frontend/Dockerfile`'s reason; on this command alone. The
+# type pass is skipped because this scope's tsc, run after typegen, has just checked this working tree.
 do_next_build() {
-  ( cd fl_frontend && SKIP_ENV_VALIDATION=true SECRETS_DIR=placeholder-secrets \
-      NEXT_TELEMETRY_DISABLED=1 SKIP_BUILD_TYPE_CHECK=true pnpm build )
+  ( cd fl_frontend && SKIP_ENV_VALIDATION=true NEXT_TELEMETRY_DISABLED=1 SKIP_BUILD_TYPE_CHECK=true pnpm build )
 }
 
 # The two phases: a pooled unit may read `fl_frontend/tsconfig.json`, and each writer rewrites it

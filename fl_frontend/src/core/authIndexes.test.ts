@@ -27,7 +27,7 @@ let mostAtOnceInOneCollection = 0;
 let answer: (build: Build) => Promise<unknown> = () => Promise.resolve("built");
 
 const DB_DOUBLE = {
-  client: {
+  signInStore: () => ({
     once: (event: string, listener: () => void) => clientEvents.once(event, listener),
     db: () => ({
       collection: (collection: string) => ({
@@ -46,7 +46,7 @@ const DB_DOUBLE = {
         },
       }),
     }),
-  },
+  }),
 };
 
 const LOGGING_DOUBLE = {

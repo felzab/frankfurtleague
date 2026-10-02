@@ -45,8 +45,8 @@ const scans: string[] = [];
 const started = new Map<number, CommandStartedEvent>();
 
 const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
-  client: (real) => {
-    const client = real.client as MongoClient;
+  signInStore: (real) => {
+    const client = (real.signInStore as () => MongoClient)();
     // Set before the first operation opens a connection, which is when the pool reads it; the option is
     // the client's own, left out of its published type.
     Reflect.set(client, "monitorCommands", true);
@@ -56,7 +56,7 @@ const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
       if (Reflect.get(event.failure, "code") === NO_QUERY_EXECUTION_PLANS) scans.push(JSON.stringify(command));
     });
     opened.client = client;
-    return client;
+    return () => client;
   },
 });
 
