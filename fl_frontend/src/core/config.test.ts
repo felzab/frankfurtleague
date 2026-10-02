@@ -20,7 +20,6 @@ const {
   failingVariableNames,
   INTERNAL_API_KEY,
   PRODUCTION_REQUIRED_SECRET_FILES,
-  readSecretFiles,
   refuseInvalidEnvironment,
   REQUIRED_ENVIRONMENT_NAMES,
   REQUIRED_SECRET_FILES,
@@ -414,15 +413,6 @@ describe("the secret files the frontend reads", () => {
   it("refuses a shared key the two languages strip apart, naming its file", async () => {
     assert.equal(await refusedFiles({ internal_api_key_base: `${"b".repeat(LENGTH)}\u0085` }), "internal_api_key_base");
     assert.equal(await refusedFiles({ internal_api_key_base: `\u001c${"b".repeat(LENGTH)}` }), "internal_api_key_base");
-  });
-
-  it("leaves out a file that does not exist, for the schema to judge", () => {
-    const directory = aSecretsDirectory({ auth_resend_key: undefined });
-
-    const { values, unreadable } = readSecretFiles(directory);
-
-    assert.equal(values.AUTH_RESEND_KEY, undefined);
-    assert.deepEqual(unreadable, []);
   });
 
   /* What Docker leaves where a bind mount's source file was missing. */

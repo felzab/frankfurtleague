@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 
 import { isAPIError } from "better-auth/api";
 
-import { auth, notifyPasskeyRemoved, PASSKEY_LIMIT, passkeysOf, removePasskey } from "@/core/auth";
+import { notifyPasskeyRemoved, PASSKEY_LIMIT, passkeysOf, removePasskey, renamePasskey } from "@/core/auth";
 import { recordWriteSent } from "@/core/requestScope";
 import { stepUpRequired } from "@/shared/utils/adminMutation";
 import { enrolmentUntil, runKontoMutation } from "@/shared/utils/kontoMutation";
@@ -69,7 +69,7 @@ export async function renamePasskeyAction(id: string, name: string): Promise<Act
     recordWriteSent();
 
     try {
-      await auth.api.updatePasskey({ body: { id: id, name: parsed.data.name }, headers: await headers() });
+      await renamePasskey(id, parsed.data.name, await headers());
     } catch (failed) {
       // The plugin refuses a row that is gone and a row that is another person's alike, both before it
       // writes: to the holder either is a stale list.

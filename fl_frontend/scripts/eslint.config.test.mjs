@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 import { isDeepStrictEqual } from "node:util";
 
 import { ESLint } from "eslint";
+import ts from "typescript";
 
 import config from "../eslint.config.mjs";
 
@@ -82,6 +83,12 @@ const BANS = [
   ["secret-backend", /hand out the backend's keys/],
   ["config-load", /config\.ts loaded at run time hands over every secret's reader/],
   ["next-after", /Schedule work behind the response through/],
+  ["config-taken", /A loaded fl_frontend\/src\/core\/config\.ts is taken apart/],
+  ["auth-taken", /A loaded fl_frontend\/src\/core\/auth\.ts is taken apart/],
+  ["store-taken", /A loaded fl_frontend\/src\/core\/db\.ts is taken apart/],
+  ["auth-instance", /auth carries the session key in its options and its context/],
+  ["sign-in-store", /signInStore hands out a client holding the store's login/],
+  ["secret-name", /A secret is read through its reader in/],
   ["test-only", /a \*\.test\.ts\(x\) file may import it, production code may not/],
   ["test-only-load", /loaded at run time stays the suite's/],
   ["hint-internals-load", /Load the popover or the panel through Hint/],
@@ -254,15 +261,31 @@ describe("the lint bans, driven against planted source", () => {
     assert.deepEqual(stale, []);
   });
 
-  // A reader the config exports and no ban names is one every module may import.
-  it("bans the import of every secret reader the config exports", () => {
-    const configSource = readFileSync(path.join(FRONTEND, "src", "core", "config.ts"), "utf8");
-    const exported = [...configSource.matchAll(/^export const (\w+) = [^\n]*\bvalidated\./gm)].map((match) => match[1]).sort();
+  // A reader the config exports and no ban names is one every module may import. Read off the syntax
+  // tree, so a function, a multi-line arrow or a wrapper over the file reader counts as an arrow does.
+  it("bans the import of every export of the config that reaches a secret's value", () => {
+    const file = path.join(FRONTEND, "src", "core", "config.ts");
+    const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
+    const isExported = (statement) => (ts.getModifiers(statement) ?? []).some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword);
+    const namesOf = (statement) =>
+      ts.isVariableStatement(statement)
+        ? statement.declarationList.declarations.map((declaration) => declaration.name.getText(source))
+        : [statement.name?.getText(source)];
+    // What holds a secret's value inside the module: the validated object, the files read, and their reader.
+    const reachesASecret = (statement) => /\b(?:validated|secrets|readSecretFiles)\b/.test(statement.getText(source));
+    const exported = source.statements
+      .filter((statement) => ts.canHaveModifiers(statement) && isExported(statement) && reachesASecret(statement))
+      .flatMap(namesOf)
+      // The settings, which `fl_frontend/src/core/config.test.ts` holds to carry no secret.
+      .filter((name) => name !== "frontend_config")
+      .sort();
     const banned = config
       .flatMap((block) =>
-        (block.rules?.["no-restricted-imports"]?.[1]?.patterns ?? []).filter((pattern) => pattern.group?.includes("**/config")),
+        (block.rules?.["no-restricted-imports"]?.[1]?.patterns ?? []).filter(
+          (pattern) => pattern.regex !== undefined && new RegExp(pattern.regex).test("@/core/config") && pattern.importNames !== undefined,
+        ),
       )
-      .flatMap((pattern) => pattern.importNames ?? []);
+      .flatMap((pattern) => pattern.importNames);
 
     assert.ok(exported.length > 0, "no reader read off fl_frontend/src/core/config.ts: the reader has lost them");
     assert.deepEqual([...new Set(banned)].sort(), exported);

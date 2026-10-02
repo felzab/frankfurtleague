@@ -41,7 +41,9 @@ export async function registerOnNode() {
 /** The two boot gates, each writing its own CRITICAL line before it throws: the environment and the secret files, then the signing key. */
 async function passBootGates() {
   // Importing it *is* the gate — validation runs during this module load, before anything is served.
-  const config = await import("./core/config");
+  // Taken apart where it loads, as lint holds every load of it to: the whole namespace would carry
+  // every secret's reader.
+  const { frontend_config, retiredVariablesSet } = await import("./core/config");
 
   // Installed before the first request can error, so Next's own multi-line console dumps still
   // reach the log as one JSON document per line; the shim itself stands down under the console
@@ -54,5 +56,5 @@ async function passBootGates() {
   const { loadActorSigningKeyAtBoot } = await import("./core/actorToken");
   await loadActorSigningKeyAtBoot();
 
-  return config;
+  return { frontend_config, retiredVariablesSet };
 }

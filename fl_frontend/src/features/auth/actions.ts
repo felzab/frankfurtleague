@@ -6,7 +6,7 @@ import { unstable_rethrow } from "next/navigation";
 import { APIError } from "better-auth/api";
 
 import { afterTheResponse } from "@/core/afterResponse";
-import { auth } from "@/core/auth";
+import { sendSignInCode, signOutHere } from "@/core/auth";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
 import { SignInPayloadSchema } from "@/features/auth/schemas";
@@ -69,7 +69,7 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
         // No `request`, so the endpoint's own form-CSRF check never runs: what stands in its place
         // is Next's server-action origin check, which refuses a mismatched `Origin` and lets a
         // request carrying none through with a warning.
-        await auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: requestHeaders });
+        await sendSignInCode(email, requestHeaders);
       } catch (failed) {
         // Name only: an error on this path routinely carries the submitted address, and
         // `fl_frontend/src/core/logFormat.ts :: serializeError` writes a message and stack in full.
@@ -89,7 +89,7 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
 export async function signOutAction(): Promise<FormState> {
   return runWithIncomingTrace(async () => {
     try {
-      await auth.api.signOut({ headers: await headers() });
+      await signOutHere(await headers());
 
       return { success: true, message: "Abgemeldet" };
     } catch (error) {

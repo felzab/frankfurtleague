@@ -63,6 +63,8 @@ const HASHED_CONTENTS = [
   "pnpm-lock.yaml",
   // For `LOCAL_RULES`, whose selectors live in the functions `stringify` drops, as the third input's do.
   "eslint.config.mjs",
+  // For `SECRET_NAMES`, read off its `SECRET_FILES`.
+  "src/core/config.ts",
   ...filesUnder("src").filter((file) => file.endsWith(".css")),
 ];
 
@@ -196,12 +198,19 @@ const TEST_ONLY = [
 ];
 
 /**
+ * A specifier naming the module `name` by any path, with or without `.ts`, and with any query: Next's
+ * bundler resolves `<module>?<anything>` to the module itself, which a glob ending at the name never
+ * reads.
+ */
+const moduleNamed = (name) => String.raw`(?:^|\x2F)${name}(?:\.ts)?(?:\?.*)?$`;
+
+/**
  * The actor's signing key, loaded by the two session guards and the boot alone: a module reaching it
  * from anywhere else could mint an actor no guard judged, and a client module would put the key
  * reader in a bundle.
  */
 const ACTOR_SIGNING = {
-  group: ["**/actorToken.ts", "**/actorToken"],
+  regex: moduleNamed("actorToken"),
   message:
     "actorToken signs the actor the backend believes: fl_frontend/src/core/auth.ts, fl_frontend/src/core/subject.ts and fl_frontend/src/instrumentation-node.ts load it, and a *.test.ts(x) file may; nothing else may.",
 };
@@ -220,7 +229,7 @@ const NEXT_AFTER = {
 const ACTOR_SIGNING_BOOT = "src/instrumentation-node.ts";
 
 /** The settings module, which every server module imports and whose secret readers lint deals out one owner each. */
-const CONFIG_MODULE = ["**/config", "**/config.ts"];
+const CONFIG_MODULE = moduleNamed("config");
 
 /**
  * Each secret's reader in `fl_frontend/src/core/config.ts`, keyed by the one module that may import it:
@@ -238,12 +247,45 @@ const SECRET_READERS = Object.fromEntries(
   ].map(([owner, importNames, secret]) => [
     owner,
     {
-      group: CONFIG_MODULE,
+      regex: CONFIG_MODULE,
       importNames,
       message: `${importNames.join(", ")} ${importNames.length === 1 ? "hands" : "hand"} out ${secret}: fl_frontend/${owner} imports ${importNames.length === 1 ? "it" : "them"}, and a *.test.ts(x) file may; nothing else may.`,
     },
   ]),
 );
+
+/**
+ * The sign-in library's instance, whose options and context both carry the session key: its own route
+ * handler needs it whole, and every other module calls a narrow function `fl_frontend/src/core/auth.ts`
+ * exports instead.
+ */
+const AUTH_INSTANCE = {
+  regex: moduleNamed("auth"),
+  importNames: ["auth"],
+  message:
+    "auth carries the session key in its options and its context: fl_frontend/src/app/api/auth/[...all]/route.ts imports it, and a *.test.ts(x) file may; nothing else may. Call a narrow function fl_frontend/src/core/auth.ts exports.",
+};
+// Brackets in a class of their own, which a `files` glob otherwise reads as one.
+const AUTH_ROUTE = "src/app/api/auth/[[]...all[]]/route.ts";
+
+/** The store's client, whose driver keeps the store's login for its re-authentication, so nothing scrubs it off. */
+const SIGN_IN_STORE = {
+  regex: moduleNamed("db"),
+  importNames: ["signInStore"],
+  message:
+    "signInStore hands out a client holding the store's login: fl_frontend/src/core/auth.ts and fl_frontend/src/core/authIndexes.ts import it, and a *.test.ts(x) file may; nothing else may.",
+};
+
+/**
+ * Each secret's own name, read off `fl_frontend/src/core/config.ts :: SECRET_FILES`: a host may still
+ * carry the retired variable of one, a live value no file check judges.
+ */
+const SECRET_NAMES = (() => {
+  const files = /^const SECRET_FILES = \{\n([^}]*)\} as const;$/m.exec(readFileSync(path.join(HERE, "src", "core", "config.ts"), "utf8"));
+  const names = [...(files?.[1] ?? "").matchAll(/^ {2}([A-Z][A-Z0-9_]*): "/gm)].map((match) => match[1]);
+  if (names.length === 0) throw new Error("src/core/config.ts declares no SECRET_FILES to ban the names of");
+  return names;
+})();
 
 const TEST_FILES = ["src/**/*.test.{ts,tsx}"];
 
@@ -740,7 +782,33 @@ const PRODUCTION_IMPORTS = [
   ACTOR_SIGNING,
   NEXT_AFTER,
   ...Object.values(SECRET_READERS),
+  AUTH_INSTANCE,
+  SIGN_IN_STORE,
 ];
+
+/**
+ * A load of the module `pattern` names that is held whole, or taken apart into one of `names`: a loaded
+ * namespace hands on every name it holds, and no import ban reads a load.
+ */
+function takenFromLoad(pattern, names) {
+  const named = `/^(?:${names.join("|")})$/`;
+  const sources = (at) => [`[${at}.value=/${pattern}/]`, `[${at}.expressions.length=0][${at}.quasis.0.value.cooked=/${pattern}/]`];
+  // An `import()` is taken apart once awaited: a member of its promise is a `.then`, whose callback
+  // holds the namespace whole. A `createRequire` load is the module itself.
+  const awaitedApart = [
+    'VariableDeclarator[id.type="ObjectPattern"] > AwaitExpression.init > .argument',
+    "MemberExpression > AwaitExpression.object > .argument",
+  ].join(", ");
+  const requiredApart = ['VariableDeclarator[id.type="ObjectPattern"] > .init', "MemberExpression > .object"].join(", ");
+  return [
+    ...["init", "init.argument"].flatMap((at) =>
+      loadAt(at, pattern).map((load) => `VariableDeclarator${load} > ObjectPattern.id > :matches(Property[key.name=${named}], RestElement)`),
+    ),
+    ...["object", "object.argument"].flatMap((at) => loadAt(at, pattern).map((load) => `MemberExpression${load}[property.name=${named}]`)),
+    ...sources("source").map((source) => `ImportExpression${source}:not(${awaitedApart})`),
+    ...sources("arguments.0").map((source) => `CallExpression[callee.callee.name="createRequire"]${source}:not(${requiredApart})`),
+  ].join(", ");
+}
 
 /**
  * Bans no dedicated rule states, each one syntax selector: `exempt` names the file whose job is to
@@ -766,15 +834,46 @@ const SOURCE_BANS = [
     tests: true,
   },
   {
-    selector: loadOf(specifiersOf(ACTOR_SIGNING.group)),
+    selector: loadOf(ACTOR_SIGNING.regex),
     message: `${ACTOR_SIGNING.message} The boot alone loads it by \`import()\`.`,
     exempt: [ACTOR_SIGNING_BOOT],
   },
   {
     // A loaded module's namespace carries every reader, which no import ban reads.
-    selector: loadOf(specifiersOf(CONFIG_MODULE)),
+    selector: loadOf(CONFIG_MODULE),
     message: "fl_frontend/src/core/config.ts loaded at run time hands over every secret's reader: the boot alone loads it by `import()`.",
     exempt: [ACTOR_SIGNING_BOOT],
+  },
+  {
+    // The boot's own load included, which the ban above leaves it.
+    selector: takenFromLoad(
+      CONFIG_MODULE,
+      Object.values(SECRET_READERS).flatMap((reader) => reader.importNames),
+    ),
+    message: "A loaded fl_frontend/src/core/config.ts is taken apart where it is loaded, and never into a secret's reader.",
+  },
+  {
+    selector: takenFromLoad(AUTH_INSTANCE.regex, AUTH_INSTANCE.importNames),
+    message: "A loaded fl_frontend/src/core/auth.ts is taken apart where it is loaded, and never into `auth`, which carries the session key.",
+  },
+  {
+    selector: takenFromLoad(SIGN_IN_STORE.regex, SIGN_IN_STORE.importNames),
+    message:
+      "A loaded fl_frontend/src/core/db.ts is taken apart where it is loaded, and never into `signInStore`, whose client holds the store's login.",
+  },
+  {
+    // `process.env.<name>` and every other spelling of one: the retired variable is a host's live value.
+    selector: [
+      "MemberExpression[property.name=NAMES]",
+      "ObjectPattern > Property[key.name=NAMES]",
+      "Literal[value=NAMES]",
+      "TemplateElement[value.cooked=NAMES]",
+    ]
+      .map((site) => site.replace("NAMES", `/^(?:${SECRET_NAMES.join("|")})$/`))
+      .join(", "),
+    message:
+      "A secret is read through its reader in fl_frontend/src/core/config.ts alone: a host may still carry its retired variable, a live value no file check judges (docs/frontend/spec.md :: I545).",
+    exempt: ["src/core/config.ts"],
   },
   {
     selector: loadOf(String.raw`(?:${specifiersOf(TEST_ONLY.flatMap((entry) => entry.group))}|^(?:node:)?module$)`),
@@ -1184,8 +1283,11 @@ const eslintConfig = defineConfig([
     [["src/core/providers/RootProviders.tsx"], [LOCALE_PROVIDER], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
     // The two session guards, which import the actor's signing module statically; the boot loads it by `import()`.
     [["src/core/subject.ts"], [ACTOR_SIGNING], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
-    // The guard building the sign-in library also holds the key every session is signed with.
-    [["src/core/auth.ts"], [ACTOR_SIGNING, SECRET_READERS["src/core/auth.ts"]], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
+    // The guard building the sign-in library also holds the key every session is signed with, and the
+    // store's client it builds the library over.
+    [["src/core/auth.ts"], [ACTOR_SIGNING, SECRET_READERS["src/core/auth.ts"], SIGN_IN_STORE], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
+    [["src/core/authIndexes.ts"], [SIGN_IN_STORE], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
+    [[AUTH_ROUTE], [AUTH_INSTANCE], PRODUCTION_IMPORTS],
     ...Object.entries(SECRET_READERS)
       .filter(([owner]) => owner !== "src/core/auth.ts")
       .map(([owner, reader]) => [

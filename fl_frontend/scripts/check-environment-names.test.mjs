@@ -268,7 +268,7 @@ describe("the key set the image carries", () => {
 
     const emitted = JSON.parse(readFileSync(destination, "utf8"));
 
-    assert.ok(wired.length >= 5, `expected the schema to wire at least 5 settings, read ${String(wired.length)}`);
+    assert.ok(wired.length >= 8, `expected the schema to wire at least 8 settings, read ${String(wired.length)}`);
     // Every key wired is a variable, and the file declares those and the retired names, each a key now
     // read from its file, and nothing else.
     assert.deepEqual(emitted.declared, [...new Set([...wired, ...emitted.retired])].sort());

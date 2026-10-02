@@ -24,7 +24,7 @@ const PACKAGE_DOUBLES = {
   "next/server": { after: (task: () => Promise<void>) => void deferred.push(task) },
 };
 
-const AUTH_DOUBLE = { auth: { api: { sendVerificationOTP: () => signingIn() } } };
+const AUTH_DOUBLE = { sendSignInCode: () => signingIn() };
 const inert = (): undefined => undefined;
 
 /* The sign-in store replaced whole: which outcome the library reaches for an address is

@@ -12,6 +12,8 @@ import { captureStdout } from "./stdoutCapture"; // expect: test-only
 import { createRequire as loadVia } from "node:module"; // expect: node-module
 import { SITE_URL } from "./brand"; // expect: site-origin
 import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret } from "./config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
+import { auth } from "./auth"; // expect: auth-instance
+import { signInStore } from "./db?probe"; // expect: sign-in-store
 import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect: marked-field
 import { after } from "next/server"; // expect: next-after
 
@@ -21,3 +23,4 @@ export const SECRETS_USED = [authResendKey, authSecret, internalApiKeySystem, mo
 // The guards import it statically; a load at run time stays the boot's alone.
 export const SIGNING_LOADED = import("./actorToken"); // expect: actor-signing-load
 export const AFTER_USED = after;
+export const HOLDERS_USED = [auth, signInStore];

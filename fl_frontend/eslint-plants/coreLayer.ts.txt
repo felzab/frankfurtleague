@@ -59,6 +59,8 @@ import { SITE_URL } from "./brand"; // expect: site-origin
 import { SITE_URL as SITE_URL_TYPED } from "./brand.ts"; // expect: site-origin
 import { mintRequestActor } from "./actorToken"; // expect: actor-signing
 import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret } from "./config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
+import { auth } from "./auth"; // expect: auth-instance
+import { signInStore } from "./db?probe"; // expect: sign-in-store
 import { mintRequestActor as mintTyped } from "./actorToken.ts"; // expect: actor-signing
 import { after } from "next/server"; // expect: next-after
 
@@ -80,3 +82,4 @@ export const SIGNING_USED = [mintRequestActor, mintTyped];
 export const SIGNING_LOADED = import("./actorToken.ts"); // expect: actor-signing-load
 export const SECRETS_USED = [authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret];
 export const AFTER_USED = after;
+export const HOLDERS_USED = [auth, signInStore];

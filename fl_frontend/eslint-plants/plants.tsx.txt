@@ -56,6 +56,13 @@ import * as wholeConfig from "@/core/config"; // expect: secret-store expect: se
 export * from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
 export { authResendKey } from "@/core/config"; // expect: secret-mail
 import { after } from "next/server"; // expect: next-after
+// The bundler resolves a query suffix to the module itself, so each confined module is read through one.
+import { mongodbUri as viaQuery } from "@/core/config?probe"; // expect: secret-store
+// Each holder's instance or client, which only its owners import.
+import { auth as heldAuth } from "@/core/auth"; // expect: auth-instance
+import { signInStore as heldStore } from "@/core/db"; // expect: sign-in-store
+export const HOLDERS_USED = [heldAuth, heldStore];
+import { mintRequestActor as signViaQuery } from "@/core/actorToken.ts?probe"; // expect: actor-signing
 
 export const FADE = "p-2 data-hovered:opacity-60"; // expect: hover-opacity
 export const TINT = "hover:bg-brand/20"; // expect: hover-alpha
@@ -75,8 +82,26 @@ export const TALL = "min-h-[100vh]"; // expect: vh
 export const ENDPOINT = "https://api.resend.com/emails"; // expect: resend
 export const SETTINGS_READ = frontend_config.APP_ENV;
 export const SECRETS_USED = [mongodbUri, authSecret, heldKey, resendWebhookSecret, internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem, wholeConfig];
-export const CONFIG_LOADED = import("@/core/config"); // expect: config-load
-export const CONFIG_LOADED_TEMPLATE = import(`../../core/config.ts`); // expect: config-load
+export const CONFIG_LOADED = import("@/core/config"); // expect: config-load expect: config-taken
+export const CONFIG_LOADED_TEMPLATE = import(`../../core/config.ts`); // expect: config-load expect: config-taken
+export const SIGNING_VIA_QUERY = import("@/core/actorToken?probe"); // expect: actor-signing-load
+export const QUERY_USED = [viaQuery, signViaQuery];
+// A secret's retired variable, in every spelling that reaches the value.
+export const RETIRED_READ = process.env.AUTH_RESEND_KEY; // expect: secret-name
+export const RETIRED_INDEXED = process.env["INTERNAL_API_KEY_SYSTEM"]; // expect: secret-name
+export const { MONGODB_URI: RETIRED_TAKEN } = process.env; // expect: secret-name
+export const RETIRED_TEMPLATE = Reflect.get(process.env, `AUTH_SECRET`); // expect: secret-name
+// Taken apart where it is loaded, each holder is refused its secret and passes its other names.
+const { getAdminSession } = await import("@/core/auth");
+const { auth: loadedAuth } = await import("@/core/auth"); // expect: auth-taken
+const { ...wholeAuth } = await import("@/core/auth"); // expect: auth-taken
+export const AUTH_HELD = import("@/core/auth"); // expect: auth-taken
+export const AUTH_THEN = import("@/core/auth").then((loaded) => loaded.auth); // expect: auth-taken
+export const AUTH_MEMBER = (await import("@/core/auth")).auth; // expect: auth-taken
+export const AUTH_SAFE_MEMBER = (await import("@/core/auth")).getAdminSession;
+const { signInStore: loadedStore } = await import("@/core/db"); // expect: store-taken
+const { frontend_config: loadedSettings, mongodbUri: loadedReader } = await import("@/core/config"); // expect: config-load expect: config-taken
+export const LOADED_USED = [getAdminSession, loadedAuth, wholeAuth, loadedStore, loadedSettings, loadedReader];
 export const STALE = "/bestaetigung?token=x"; // expect: stale-path
 export const STALE_HANDLER = "/api/bestaetigung"; // expect: stale-path
 export const STALE_ADMIN = "/admin/teams"; // expect: stale-admin

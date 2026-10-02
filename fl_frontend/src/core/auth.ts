@@ -1166,11 +1166,79 @@ let built: ReturnType<typeof build> | undefined;
 // Built on first use rather than at import: `next build` loads this module in every page-data worker with the secret
 // undefined (`docs/frontend/spec.md :: I45`), and constructing the library starts a check that rejects there with nobody
 // awaiting it.
+/**
+ * The library's instance, whose options and context both carry the session key: the library's own route
+ * handler imports it, and every other module calls one of the narrow functions below
+ * (`docs/frontend/spec.md :: I545`).
+ */
 export const auth = new Proxy({} as ReturnType<typeof build>, {
   get: (_, key) => Reflect.get((built ??= build()), key),
   // `toNextJsHandler` asks `"handler" in auth` on every request.
   has: (_, key) => Reflect.has((built ??= build()), key),
 });
+
+type CodeSignIn = { readonly email: string; readonly otp: string };
+
+// The body is handed on as it came: `forgiveCodeAttempt` keeps the attempt's failure against that object.
+export const signInWithCode = (body: CodeSignIn, requestHeaders: Headers) => auth.api.signInEmailOTP({ body, headers: requestHeaders });
+
+export const sendSignInCode = (email: string, requestHeaders: Headers) =>
+  auth.api.sendVerificationOTP({ body: { email, type: "sign-in" }, headers: requestHeaders });
+
+export const signOutHere = (requestHeaders: Headers) => auth.api.signOut({ headers: requestHeaders });
+
+export const revokeOtherSessions = (requestHeaders: Headers) => auth.api.revokeOtherSessions({ headers: requestHeaders });
+
+export const renamePasskey = (id: string, name: string, requestHeaders: Headers) =>
+  auth.api.updatePasskey({ body: { id, name }, headers: requestHeaders });
+
+/** The fields of a stored session row the account's security page touches; `token` is deliberately not among them. */
+export type LiveSessionRow = {
+  readonly id: string;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+  readonly expiresAt: Date;
+  readonly authFactor?: unknown;
+  readonly passkeyCredentialId?: unknown;
+};
+
+/**
+ * Every live row: a limit left unnamed is the adapter's default of 100, and a sign-in past it would be
+ * missing from the list a holder searches for a device they do not know (`docs/frontend/spec.md :: I425`).
+ */
+const EVERY_ROW = Number.MAX_SAFE_INTEGER;
+
+/**
+ * Through the store's own adapter rather than the library's `/list-sessions`, which answers every row
+ * whole, `token` included, and that value is the session cookie (`docs/frontend/spec.md :: I420`).
+ */
+export async function liveSessionsOf(userId: string): Promise<LiveSessionRow[]> {
+  const { adapter } = await auth.$context;
+  return adapter.findMany<LiveSessionRow>({
+    model: "session",
+    // Past the library's own expiry a row is dead whatever else holds, so the store never sends it.
+    where: [
+      { field: "userId", value: userId },
+      { field: "expiresAt", operator: "gt", value: new Date() },
+    ],
+    limit: EVERY_ROW,
+  });
+}
+
+/**
+ * Deletes the holder's session row `id`, by the holder's own user id too, so an id belonging to another
+ * person ends nothing (`docs/frontend/spec.md :: I421`); answers how many rows went.
+ */
+export async function endSessionOf(userId: string, id: string): Promise<number> {
+  const { adapter } = await auth.$context;
+  return adapter.deleteMany({
+    model: "session",
+    where: [
+      { field: "id", value: id },
+      { field: "userId", value: userId },
+    ],
+  });
+}
 
 /**
  * The holder's passkeys, through the store's adapter by the user id a guard served. Never through

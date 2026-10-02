@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 
-import { auth } from "@/core/auth";
+import { endSessionOf, revokeOtherSessions } from "@/core/auth";
 import { recordWriteSent } from "@/core/requestScope";
 import { isHeldBy, runKontoMutation } from "@/shared/utils/kontoMutation";
 import { VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -25,17 +25,10 @@ export async function endAnmeldungAction(id: string): Promise<ActionResult> {
     // clears the cookie this row would leave dangling.
     if (id === served.session.id) return { success: false, error: VALIDATION_FAILED };
 
-    const { adapter } = await auth.$context;
     // Named here because the sign-in store is written past the API client, which records its own writes.
     recordWriteSent();
 
-    const ended = await adapter.deleteMany({
-      model: "session",
-      where: [
-        { field: "id", value: id },
-        { field: "userId", value: served.user.id },
-      ],
-    });
+    const ended = await endSessionOf(served.user.id, id);
 
     if (ended === 0) return { success: false, error: SCHON_BEENDET };
 
@@ -47,7 +40,7 @@ export async function endAnmeldungAction(id: string): Promise<ActionResult> {
 export async function endAndereAnmeldungenAction(): Promise<ActionResult> {
   return runKontoMutation("endAndereAnmeldungenAction", async () => {
     recordWriteSent();
-    await auth.api.revokeOtherSessions({ headers: await headers() });
+    await revokeOtherSessions(await headers());
 
     return { success: true, message: "Alle anderen abgemeldet" };
   });

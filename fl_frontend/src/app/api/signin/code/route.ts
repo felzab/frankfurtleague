@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { isAPIError } from "better-auth/api";
 import { z } from "zod";
 
-import { ADDRESS_ATTEMPTS_EXHAUSTED, auth, forgiveCodeAttempt, readAdmittedSession } from "@/core/auth";
+import { ADDRESS_ATTEMPTS_EXHAUSTED, forgiveCodeAttempt, readAdmittedSession, signInWithCode } from "@/core/auth";
 import { CODE_VALIDITY_MINUTES } from "@/core/authEmail";
 import { frontend_config } from "@/core/config";
 import { asSignInIdentifier } from "@/core/emailAddress";
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     // may hold is the cookie `nextCookies()` writes.
 
     // No `request`, so the library's own origin check never runs: the pair above stands in for it.
-    await auth.api.signInEmailOTP({ body, headers: requestHeaders });
+    await signInWithCode(body, requestHeaders);
   } catch (error) {
     // Anything the library did not raise is this application failing: never a wrong code, and never a
     // throw, whose 500 the page words as an answer that was not this application's. The NAME alone,

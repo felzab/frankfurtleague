@@ -1,50 +1,18 @@
 import "server-only";
 
-import { auth, CODE_FACTOR, endedByItsAccount, isWithinPersonLifetime, PASSKEY_FACTOR, passkeysOf } from "@/core/auth";
+import { CODE_FACTOR, endedByItsAccount, isWithinPersonLifetime, liveSessionsOf, PASSKEY_FACTOR, passkeysOf } from "@/core/auth";
 import { PERSON_LIFETIME } from "@/core/sessionLifetimes";
 import { passkeyBestandOf, passkeyNamenOf } from "@/features/passkeys/bestand";
 import { passkeyAnzeigename } from "@/features/passkeys/utils";
 import { confirmedUntil } from "@/shared/utils/kontoMutation";
 
+import type { LiveSessionRow } from "@/core/auth";
 import type { PasskeyRow } from "@/features/passkeys/bestand";
 import type { KontoSession } from "@/shared/utils/kontoMutation";
 import type { Anmeldung, AnmeldungFaktor, Sicherheit } from "./types";
 
-/** The fields of a stored session row this read touches; `token` is deliberately not among them. */
-type SessionRow = {
-  readonly id: string;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-  readonly expiresAt: Date;
-  readonly authFactor?: unknown;
-  readonly passkeyCredentialId?: unknown;
-};
-
-/**
- * Every live row: a limit left unnamed is the adapter's default of 100, and a sign-in past it would be
- * missing from the list a holder searches for a device they do not know (`docs/frontend/spec.md :: I425`).
- */
-const EVERY_ROW = Number.MAX_SAFE_INTEGER;
-
-/**
- * Through the store's own adapter rather than the library's `/list-sessions`, which answers every row
- * whole, `token` included, and that value is the session cookie (`docs/frontend/spec.md :: I420`).
- */
 export async function readSicherheit(served: KontoSession): Promise<Sicherheit> {
-  const [held, rows] = await Promise.all([
-    passkeysOf(served.user.id),
-    auth.$context.then(({ adapter }) =>
-      adapter.findMany<SessionRow>({
-        model: "session",
-        // Past the library's own expiry a row is dead whatever else holds, so the store never sends it.
-        where: [
-          { field: "userId", value: served.user.id },
-          { field: "expiresAt", operator: "gt", value: new Date() },
-        ],
-        limit: EVERY_ROW,
-      }),
-    ),
-  ]);
+  const [held, rows] = await Promise.all([passkeysOf(served.user.id), liveSessionsOf(served.user.id)]);
 
   const { karten, kannHinzufuegen } = passkeyBestandOf(held, served);
 
@@ -59,7 +27,7 @@ export async function readSicherheit(served: KontoSession): Promise<Sicherheit> 
   };
 }
 
-function anmeldungenOf(rows: readonly SessionRow[], held: readonly PasskeyRow[], served: KontoSession): Anmeldung[] {
+function anmeldungenOf(rows: readonly LiveSessionRow[], held: readonly PasskeyRow[], served: KontoSession): Anmeldung[] {
   return (
     rows
       // The person lifetime for an administrator's address too: the person area admits their session
@@ -90,7 +58,7 @@ function anmeldungenOf(rows: readonly SessionRow[], held: readonly PasskeyRow[],
   );
 }
 
-function faktorOf(row: SessionRow, held: readonly PasskeyRow[]): AnmeldungFaktor | null {
+function faktorOf(row: LiveSessionRow, held: readonly PasskeyRow[]): AnmeldungFaktor | null {
   if (row.authFactor === CODE_FACTOR) return { art: "code" };
   if (row.authFactor !== PASSKEY_FACTOR) return null;
 

@@ -45,22 +45,17 @@ const AUTH_DOUBLE = {
     return Promise.resolve();
   },
   readAdmittedSession: () => (storeDown ? Promise.reject(new Error("the store answered nothing")) : Promise.resolve(admitted)),
-  auth: {
-    api: {
-      signInEmailOTP: ({ body }: { body: { email: string; otp: string } }) => {
-        calls.push(body);
-        if (outcome === "signed-in") return Promise.resolve({ token: MINTED, user: {} });
-        if (outcome === "broken") return Promise.reject(new Error("the store answered nothing"));
-        const refusal = Object.assign(new Error(outcome), {
-          name: "APIError",
-          // A status-only refusal, as `APIError.fromStatus` raises one, carries no code.
-          body: outcome === "SERVICE_UNAVAILABLE" ? undefined : { code: outcome, message: outcome },
-          status: outcome === "SERVICE_UNAVAILABLE" ? "SERVICE_UNAVAILABLE" : "BAD_REQUEST",
-        });
-        return Promise.reject(refusal);
-      },
-      getSession: () => Promise.resolve(served),
-    },
+  signInWithCode: (body: { email: string; otp: string }) => {
+    calls.push(body);
+    if (outcome === "signed-in") return Promise.resolve({ token: MINTED, user: {} });
+    if (outcome === "broken") return Promise.reject(new Error("the store answered nothing"));
+    const refusal = Object.assign(new Error(outcome), {
+      name: "APIError",
+      // A status-only refusal, as `APIError.fromStatus` raises one, carries no code.
+      body: outcome === "SERVICE_UNAVAILABLE" ? undefined : { code: outcome, message: outcome },
+      status: outcome === "SERVICE_UNAVAILABLE" ? "SERVICE_UNAVAILABLE" : "BAD_REQUEST",
+    });
+    return Promise.reject(refusal);
   },
 };
 

@@ -1,9 +1,8 @@
-// Linted as src/app/api/mail/zustellung/route.ts.
-// The provider's delivery report route may import the key it verifies a report with, and every other import ban still reaches it.
-import { resendWebhookSecret } from "@/core/config";
-import { authResendKey, authSecret, internalApiKeySystem, mongodbUri } from "@/core/config"; // expect: secret-mail expect: secret-session expect: secret-backend expect: secret-store
-import { auth } from "@/core/auth"; // expect: auth-instance
-import { signInStore } from "@/core/db?probe"; // expect: sign-in-store
+// Linted as src/app/api/auth/[...all]/route.ts.
+// The library's own route handler may import its instance whole, and every other import ban still reaches it.
+import { auth } from "@/core/auth";
+import { signInStore } from "@/core/db"; // expect: sign-in-store
+import { authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret } from "@/core/config"; // expect: secret-mail expect: secret-session expect: secret-backend expect: secret-store expect: secret-webhook
 import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 import { Button } from "@heroui/react"; // expect: vendor-root
 import { Form } from "@heroui/react/form"; // expect: heroui-form
@@ -18,7 +17,7 @@ import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect:
 import { mintRequestActor } from "@/core/actorToken"; // expect: actor-signing
 import { after } from "next/server"; // expect: next-after
 
-export const USED = [resendWebhookSecret, authResendKey, authSecret, internalApiKeySystem, mongodbUri, PinnedLocale, Button, Form];
-export const MORE_USED = [AppRouterContext, DateField, NumberField, HintPopover, captureStdout, loadVia, SITE_URL, HeroTextField, mintRequestActor];
+export const USED = [auth, signInStore, authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret, PinnedLocale];
+export const MORE_USED = [Button, Form, AppRouterContext, DateField, NumberField, HintPopover, captureStdout, loadVia, SITE_URL];
+export const LAST_USED = [HeroTextField, mintRequestActor];
 export const AFTER_USED = after;
-export const HOLDERS_USED = [auth, signInStore];

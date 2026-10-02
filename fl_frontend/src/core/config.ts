@@ -26,9 +26,9 @@ const DEFAULT_SECRETS_DIR = "/run/secrets";
 // One `KEY: "file",` a line, which `scripts/checks/check_compose_model.py :: frontend_schema_files`
 // holds the compose files to, as it does `PRODUCTION_ONLY_REQUIRED` below.
 /**
- * Each value read from a file rather than the environment, keyed as `frontend_config` holds it. One file
- * name serves the host, the container and development, so the database login carries this service's
- * prefix: the backend holds another.
+ * Each value read from a file rather than the environment, by the schema's key. One file name serves the
+ * host, the container and development, so the database login carries this service's prefix: the backend
+ * holds another.
  */
 const SECRET_FILES = {
   MONGODB_URI: "frontend_mongodb_uri",
@@ -55,11 +55,12 @@ function failureName(error: unknown): string {
   return error instanceof Error ? error.constructor.name : "unknown failure";
 }
 
+// Never exported: it hands back every secret's value, so a suite drives it through the boot alone.
 /**
  * What the secrets directory holds for each key, and each read that failed as `<path> (<errno>)`. A file
  * that does not exist is left out rather than failed, so the schema decides whether it was required.
  */
-export function readSecretFiles(directory: string): { values: Partial<Record<SecretKey, string>>; unreadable: string[] } {
+function readSecretFiles(directory: string): { values: Partial<Record<SecretKey, string>>; unreadable: string[] } {
   const values: Partial<Record<SecretKey, string>> = {};
 
   // The directory's own shape first, as the backend names it: missing, it would otherwise read as
