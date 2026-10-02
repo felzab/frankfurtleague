@@ -914,7 +914,8 @@ through `NODE_OPTIONS` (`scripts/gate/verify.sh :: do_unit_tests`).
 (`fl_frontend/src/core/expiredTransactions.ts :: closeJudgingExpiredTransactions`), its one
 teardown reading the count before it closes every client and stops the container, and a count the
 server stops reporting fails it as unjudged. A case that deadlocks on a transaction, or leaves a
-commit the server never received, can pass while another waits the abort out.
+commit the server never received, can pass while another waits the abort out. That teardown
+answers an expiry and a close that failed together (`:: teardownFailure`).
 
 **No hook that judges can skip a cleanup registered after it.** node:test runs a file's hooks of
 one kind in the order they were registered and runs none after one that throws, which its

@@ -48,17 +48,37 @@ export async function watchExpiredTransactions(mongod: StartedMongoDBContainer):
 }
 
 /**
+ * Every failure of a teardown, its judgement's and its close's, the close run whatever the judgement
+ * did: one replacing the other would hide either an expiry or a client left open.
+ */
+export async function teardownFailure(judge: () => Promise<string | null>, close: () => Promise<void>): Promise<Error | null> {
+  const failures: Error[] = [];
+  try {
+    const refusal = await judge();
+    if (refusal !== null) failures.push(new Error(refusal));
+  } catch (failure) {
+    failures.push(failure instanceof Error ? failure : new Error(String(failure)));
+  }
+  try {
+    await close();
+  } catch (failure) {
+    failures.push(failure instanceof Error ? failure : new Error(String(failure)));
+  }
+
+  if (failures.length <= 1) return failures[0] ?? null;
+  return new AggregateError(failures, failures.map(({ message }) => message).join("\n"));
+}
+
+/**
  * The file's one teardown, every client's close inside `close` (`docs/frontend/spec.md` §1.9). Each
  * db suite owns its container, so nothing else moves the count.
  */
 export async function closeJudgingExpiredTransactions(mongod: StartedMongoDBContainer | undefined, close: () => Promise<void>): Promise<void> {
-  let refusal: string | null = null;
-  try {
+  const failure = await teardownFailure(async () => {
     // Never watched is a file that failed before its first case, which has its own failure to report.
-    if (mongod !== undefined && atStart.has(mongod)) refusal = expiredTransactionsRefusal(atStart.get(mongod) ?? null, await readKills(mongod));
-  } finally {
-    await close();
-  }
+    if (mongod === undefined || !atStart.has(mongod)) return null;
+    return expiredTransactionsRefusal(atStart.get(mongod) ?? null, await readKills(mongod));
+  }, close);
 
-  if (refusal !== null) recordVerdict("this file's teardown", refusal);
+  if (failure !== null) recordVerdict("this file's teardown", failure);
 }

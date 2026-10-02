@@ -86,6 +86,21 @@ it("sends a request it never answers", () => { void fetch("http://backend.invali
     assert.ok(run.output.includes("the case sent a request it never answered"), run.output);
   });
 
+  it("leaves every later `after` to run after a db suite's teardown whose close failed", () => {
+    const run = runAsFile(`import { after, it } from "node:test";
+import { closeJudgingExpiredTransactions } from "@/core/expiredTransactions.ts";
+after(() => closeJudgingExpiredTransactions(undefined, () => Promise.reject(new Error("planted close failure"))));
+const held = setInterval(() => undefined, 1000);
+after(() => { clearInterval(held); process.stderr.write("LATER AFTER RAN"); });
+it("passes", () => {});
+`);
+
+    assert.equal(run.timedOut, false, `the child was held open past its timeout:\n${run.output}`);
+    assert.equal(run.status, 1, run.output);
+    assert.ok(run.output.includes("LATER AFTER RAN"), run.output);
+    assert.ok(run.output.includes("this file's teardown: planted close failure"), run.output);
+  });
+
   it("leaves every later `afterEach` to run, and names the case it judged", () => {
     const run = runAsFile(AFTER_EACH_SHAPE);
 

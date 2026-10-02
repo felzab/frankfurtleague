@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { expiredTransactionKills, expiredTransactionsRefusal } from "./expiredTransactions.ts";
+import { expiredTransactionKills, expiredTransactionsRefusal, teardownFailure } from "./expiredTransactions.ts";
 
 /** `serverStatus` as a replica set answers it, cut to the one count the check reads. */
 const status = (kills: unknown): Record<string, unknown> => ({
@@ -39,5 +39,46 @@ describe("what a db suite's file is answered once its cases are done", () => {
     ] as const) {
       assert.match(String(expiredTransactionsRefusal(atStart, now)), /was not judged/, `${String(atStart)} → ${String(now)}`);
     }
+  });
+});
+
+describe("what a db suite's teardown answers", () => {
+  const refusing = (): Promise<string | null> => Promise.resolve("aborted 1 transaction(s)");
+  const failingClose = (): Promise<void> => Promise.reject(new Error("the client would not close"));
+
+  // One replacing the other would hide either an expiry or a client left open.
+  it("answers both an expiry and a close that failed", async () => {
+    const failure = await teardownFailure(refusing, failingClose);
+
+    assert.ok(failure instanceof AggregateError, String(failure));
+    assert.deepEqual(
+      failure.errors.map((error: Error) => error.message),
+      ["aborted 1 transaction(s)", "the client would not close"],
+    );
+    assert.match(failure.message, /aborted 1 transaction\(s\)\nthe client would not close/);
+  });
+
+  it("closes whatever the judgement does, and answers the judgement's own failure", async () => {
+    let closed = false;
+    const failure = await teardownFailure(
+      () => Promise.reject(new Error("the server did not answer")),
+      () => {
+        closed = true;
+        return Promise.resolve();
+      },
+    );
+
+    assert.equal(closed, true, "the close was skipped");
+    assert.equal(failure?.message, "the server did not answer");
+  });
+
+  it("answers nothing where the count held and every client closed", async () => {
+    assert.equal(
+      await teardownFailure(
+        () => Promise.resolve(null),
+        () => Promise.resolve(),
+      ),
+      null,
+    );
   });
 });
