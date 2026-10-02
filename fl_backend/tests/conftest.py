@@ -4,7 +4,7 @@ import logging
 import re
 import sys
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Generator, Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import AbstractContextManager, ExitStack, contextmanager
 from typing import Any
@@ -317,6 +317,34 @@ _NO_SERVER = (
 
 _UNSTARTABLE = "the xdist controller could not start the db tier's servers, so no test needing one can run in this worker -- {reason}"
 
+# Each replica set's count as it became primary, so only the run's own expired transactions count.
+_KILLS_AT_START: dict[str, int] = {}
+
+_EXPIRED = (
+    "the db tier's replica set aborted {killed} transaction(s) that outlived MongoDB's transaction lifetime limit. A case deadlocked"
+    " on its own transaction passes once that abort frees it, a minute or more later, so every test can pass while one waited it out:"
+    " the case to read is the slowest in `--durations` (`docs/backend/spec.md` §1.6)."
+)
+
+# Set by the controller's check, printed in its summary: the refusal has no test to be reported against.
+_EXPIRED_REFUSAL: list[str] = []
+
+
+def _expired_transaction_kills(client: MongoClient) -> int:
+    return int(client.admin.command("serverStatus")["metrics"]["abortExpiredTransactions"]["successfulKills"])
+
+
+def _expired_since_start(url: str) -> str | None:
+    """The refusal for a transaction the server aborted at its lifetime limit during this run, or `None`."""
+
+    client = MongoClient(url)
+    try:
+        killed = _expired_transaction_kills(client) - _KILLS_AT_START.get(url, 0)
+    finally:
+        client.close()
+
+    return _EXPIRED.format(killed=killed) if killed else None
+
 
 @contextmanager
 def _standalone_mongod() -> Iterator[str]:
@@ -363,6 +391,7 @@ def _replica_set_mongod() -> Iterator[str]:
                     # `except Exception` misses.
                     raise TimeoutError(f"the single-node replica set did not become primary within {REPLICA_SET_ELECTION_TIMEOUT_S}s")
                 time.sleep(0.25)
+            _KILLS_AT_START[url] = _expired_transaction_kills(client)
         finally:
             client.close()
 
@@ -478,6 +507,28 @@ def pytest_configure_node(node: Any) -> None:
     node.workerinput.update(_SHARED_SERVERS or _UNSTARTED)
 
 
+@pytest.hookimpl(wrapper=True)
+def pytest_runtestloop(session: pytest.Session) -> Generator[None, object, object]:
+    """Under `-n`, after every worker's last test and while the controller still holds the servers.
+
+    A failure counted here is what pytest's own exit code reads, as `--cov-fail-under` does it.
+    """
+
+    finished = yield
+    url = _SHARED_SERVERS.get(REPLICA_SET_KEY)
+    expired = None if url is None else _expired_since_start(url)
+    if expired is not None:
+        _EXPIRED_REFUSAL.append(expired)
+        session.testsfailed += 1
+
+    return finished
+
+
+def pytest_terminal_summary(terminalreporter: pytest.TerminalReporter) -> None:
+    for refusal in _EXPIRED_REFUSAL:
+        terminalreporter.write_line(f"FAILED {refusal}", red=True)
+
+
 def pytest_unconfigure(config: pytest.Config) -> None:
     release_every_database()
     _UNSTARTED.clear()
@@ -529,6 +580,11 @@ def mongo_replica_set_url(request: pytest.FixtureRequest) -> Iterator[str]:
 
     with _replica_set_mongod() as url:
         yield url
+        # The serial run's half of the check `pytest_runtestloop` makes under `-n`: this server stops
+        # before that hook would ask it.
+        expired = _expired_since_start(url)
+        if expired is not None:
+            pytest.fail(expired, pytrace=False)
 
 
 @pytest.fixture(scope="session")

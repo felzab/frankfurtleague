@@ -700,6 +700,12 @@ a run correct under `--dist load`, which splits a file, as well.
 whether or not they start**, a failed start travelling to the fixtures rather than ending
 collection.
 
+**A transaction the replica set aborts at MongoDB's lifetime limit fails the run**
+(`fl_backend/tests/conftest.py :: _expired_since_start`), read by the controller under `-n` and by
+the session fixture serially. A case deadlocked on its own transaction — a rival injected after the
+outer transaction's first write — waits for that abort and then passes, so the server's own count is
+the only witness. A transaction left open that nothing waits on can expire after the run, unseen.
+
 **Every database the tier names is that worker's own** — `fl_backend/tests/worker.py :: worker_database`
 issues the name, and `:: guard_every_database` holds the driver's own constructor to it, so a suite
 hand-rolling `client[name]` cannot sidestep the rule by seeding for itself. Two base names are read
