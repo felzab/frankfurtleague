@@ -32,33 +32,52 @@ export function mapAlreadyEnteredRefusal(error: unknown): string | null {
   return "Dieses Team ist schon in dieser Saison. Lade die Seite neu.";
 }
 
+/**
+ * What each entry rule refused, the sentence before any repair. Apart from the repairs because a repair
+ * names a control, and the club editor and the team create have different ones.
+ */
+const ENTRY_REASONS = {
+  // `REQ-ENTER-001` to `-003` open with the sentence
+  // `fl_frontend/src/features/bewerbungen/refusals.ts :: mapTriageRefusal` renders too;
+  // `fl_frontend/src/features/bewerbungen/actions.test.ts` holds the pairs equal.
+  "REQ-ENTER-001": "Diese Saison ist nicht mehr in Planung, und aufgenommen wird nur in eine geplante Saison",
+  "REQ-ENTER-002": "Diese Gruppe gibt es in dieser Saison nicht",
+  "REQ-ENTER-003": "Diese Gruppe ist schon voll",
+  "REQ-ENTER-004": "Für dieses Team sind in dieser Saison schon Spiele angelegt, deshalb kann es die Gruppe nicht allein wechseln",
+  "REQ-ENTER-005": "Dieses Team ist inzwischen stillgelegt und kann in keine Saison aufgenommen werden",
+} as const;
+
+const isEntryCode = (code: string | undefined): code is keyof typeof ENTRY_REASONS => code !== undefined && Object.hasOwn(ENTRY_REASONS, code);
+
+/** One entry rule's reason as a closed sentence and no repair, or `null` where no entry rule refused. */
+export function mapEntryReason(error: unknown): string | null {
+  if (!isRefusal(error) || !isEntryCode(error.serverErrorCode)) return null;
+
+  return `${ENTRY_REASONS[error.serverErrorCode]}.`;
+}
+
+/** The club editor's answer to an entry rule: the reason, and the repair its own page offers. */
 export function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?: FieldErrors } | null {
   if (!isRefusal(error)) return null;
   if (error.serverErrorCode === "REQ-ENTER-001") {
-    // `REQ-ENTER-001` to `-003` open with the sentence
-    // `fl_frontend/src/features/bewerbungen/refusals.ts :: mapTriageRefusal` renders too, so only the
-    // repair below is this one's own; `fl_frontend/src/features/bewerbungen/actions.test.ts` holds the pairs equal.
-    return {
-      error: buildRefusal({
-        reason: "Diese Saison ist nicht mehr in Planung, und aufgenommen wird nur in eine geplante Saison",
-        repair: "Nimm das Team in eine geplante Saison auf",
-      }),
-    };
+    return { error: buildRefusal({ reason: ENTRY_REASONS["REQ-ENTER-001"], repair: "Nimm das Team in eine geplante Saison auf" }) };
   }
   // Both land under the `gruppe` picker, which is itself the way out, so neither carries a repair
   // sentence (`docs/frontend/spec.md` §1.12).
   if (error.serverErrorCode === "REQ-ENTER-002") {
-    return { fieldErrors: { gruppe: "Diese Gruppe gibt es in dieser Saison nicht." } };
+    return { fieldErrors: { gruppe: `${ENTRY_REASONS["REQ-ENTER-002"]}.` } };
   }
   if (error.serverErrorCode === "REQ-ENTER-003") {
-    return { fieldErrors: { gruppe: "Diese Gruppe ist schon voll." } };
+    return { fieldErrors: { gruppe: `${ENTRY_REASONS["REQ-ENTER-003"]}.` } };
   }
   if (error.serverErrorCode === "REQ-ENTER-004") {
     // Names the route still open rather than stopping at the refusal: the swap control sits under
     // the locked Gruppe row on the page this message lands on.
     return {
-      error:
-        "Für dieses Team sind in dieser Saison schon Spiele angelegt, deshalb kann es die Gruppe nicht allein wechseln. Tausche die Gruppe stattdessen mit einem zweiten Team, unter der gesperrten Gruppe auf dieser Seite.",
+      error: buildRefusal({
+        reason: ENTRY_REASONS["REQ-ENTER-004"],
+        repair: "Tausche die Gruppe stattdessen mit einem zweiten Team, unter der gesperrten Gruppe auf dieser Seite",
+      }),
     };
   }
   if (error.serverErrorCode === "REQ-ENTER-005") {
@@ -66,8 +85,10 @@ export function mapEntryRefusal(error: unknown): { error?: string; fieldErrors?:
     // is active — so the words are `buildTeamBanners`'s, which the same panel shows once the page
     // catches up.
     return {
-      error:
-        "Dieses Team ist inzwischen stillgelegt und kann in keine Saison aufgenommen werden. Reaktiviere es über den Kopf der Seite und nimm es danach hier auf.",
+      error: buildRefusal({
+        reason: ENTRY_REASONS["REQ-ENTER-005"],
+        repair: "Reaktiviere es über den Kopf der Seite und nimm es danach hier auf",
+      }),
     };
   }
   return null;
