@@ -221,7 +221,7 @@ RETIRED_PREFIX: Final = "retired_"
 
 
 class BackendEnvironment(BaseSettings, _EnvironmentFields):
-    """The environment half of the boot's settings: the process environment and the two dotenv files, never a secret file."""
+    """The environment half of the boot's settings: the process environment and the package's dotenv file, never a secret file."""
 
     # A path and never a secret: the directory the secret half reads each credential from.
     secrets_dir: str = Field(default=DEFAULT_SECRETS_DIR, description="The directory each secret file is read from")
@@ -240,10 +240,9 @@ class BackendEnvironment(BaseSettings, _EnvironmentFields):
     # default serves production. Only the dotenv source hands this class an undeclared name, and it
     # drops one carrying no value (`docs/backend/spec.md` §1.5).
 
-    # The checkout root's file last, as `docker-compose.yml` lists it, so a run from `fl_backend/`
-    # reads what compose hands the container. A container has neither file: compose hands it both
-    # as variables.
-    model_config = SettingsConfigDict(env_file=(".env", "../.env"), env_file_encoding="utf-8", extra="forbid")
+    # The package's file, the one `docker-compose.yml` lists, so a run from `fl_backend/` reads what
+    # compose hands the container. A container has no file: compose hands it the names as variables.
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="forbid")
 
     @classmethod
     def settings_customise_sources(
