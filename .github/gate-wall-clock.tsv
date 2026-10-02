@@ -21,8 +21,8 @@
 #
 # Budget: the highest single-run span in the stamped population, plus a quarter of it or ten
 # seconds, whichever is more, rounded up to the next five. A single run swings far wider than a
-# median does -- `db` reached twice its median inside its stamped runs, `ops` 1.9 times --
-# so a ceiling that never cries wolf on a quiet runner sits well above the reference, and a run
+# median does -- `ops` reached 1.9 times its median inside its stamped runs, `frontend` 1.5 times
+# -- so a ceiling that never cries wolf on a quiet runner sits well above the reference, and a run
 # over it is a re-run or a regression, in that order. Raising one costs the runs that justify it: a
 # budget or a reference that rises against main carries a new stamp, refused otherwise by
 # `scripts/checks/check_gate_budget.py` in the pull request's `docs` job. Lowering one is free.
@@ -37,29 +37,24 @@
 # Dockerfile change most worth catching is the one that empties that cache, and the median report
 # is the only guard a row like this has, so it has none while the row carries no reference.
 #
-# `docs`, `format`, `frontend`, the `frontend-units` shards, `images` and `scripts` are cut from the
-# main push runs their stamps count, every one of them carrying the backend's tier over workers and
-# the db scope's two suites started together. A population as short as theirs cannot be cut into two
-# windows of twelve, and drawn with replacement it reads its own smallness rather than the job --
-# five runs of `frontend` answered 5 percent that way. A floor cut before these jobs took their
-# present shape measures a gate they are not, as the `ops` paragraph below says of a run from
-# before its merge, and a reference with no floor beside it is a median the report cannot judge. So
-# each of these rows carries `-` for both, is held by its budget alone where it has one, and is
-# listed by the report as measured rather than compared; its reference and floor are cut once
-# twelve runs of its population exist.
+# `backend`, `db`, `docs`, `format`, `frontend`, the `frontend-units` shards, `images` and `scripts`
+# are cut from the main push runs their stamps count, every one of them carrying the backend's tier
+# over workers and the db scope's two suites started together. A population as short as theirs
+# cannot be cut into two windows of twelve, and drawn with replacement it reads its own smallness
+# rather than the job -- five runs of `frontend` answered 5 percent that way. A floor cut before
+# these jobs took their present shape measures a gate they are not, as the `ops` paragraph below
+# says of a run from before its merge, and a reference with no floor beside it is a median the
+# report cannot judge. So each of these rows carries `-` for both, is held by its budget alone where
+# it has one, and is listed by the report as measured rather than compared; its reference and floor
+# are cut once twelve runs of its population exist.
 #
-# `ops` answers to a shorter population than `backend` and `db`, counted in its own stamp.
-# `nginx/edge_test.sh` joined that scope partway through the window those two rows were cut from,
-# and a run from before that merge measures a gate this one is not. A population that short cannot
-# be cut into two windows of twelve, so its floor is the p95 movement between two 12-run medians
-# drawn with replacement from it. On the three rows computable both ways that draw lands within a
-# point of the reshuffle -- once narrower -- and on `images` about half again as wide, so it is the
-# method a short population leaves rather than a systematically looser one.
-#
-# `db`'s floor is wide because its window straddles the database tier's move to PyMongo and
-# its distribution over workers: a reshuffle drawing runs from both sides of that merge moves the
-# median about as far as the merge itself did. It narrows once the window clears the merge, and
-# until then only a large change reaches the report on that row.
+# `ops` answers to the main push runs to 2026-09-07 its own stamp counts, fewer than the 24 that
+# end on that day: `nginx/edge_test.sh` joined that scope partway through those 24, and a run from
+# before that merge measures a gate this one is not. A population that short cannot be cut into two
+# windows of twelve, so its floor is the p95 movement between two 12-run medians drawn with
+# replacement from it. Over those 24 runs, on the three rows computable both ways, that draw landed
+# within a point of the reshuffle -- once narrower -- and on `images` about half again as wide, so
+# it is the method a short population leaves rather than a systematically looser one.
 #
 # `docs` gained two checks: `cell-prose` costs 0.05 s and `echo` 1.01 s over the whole corpus,
 # measured locally on 2026-09-02 with the file listing already warmed, so the figures are the
@@ -78,7 +73,7 @@
 # returning exit 0, measured locally on 2026-09-03 on a sixteen-core machine carrying ten other
 # workloads, so both ends are upper bounds reading that contention as much as the check. It is
 # pooled with the scope's other units, so the job pays that span only where the pool cannot start
-# them all at once, and either way it sits inside the floor the `backend` row carries.
+# them all at once, and every run the `backend` row's stamp counts carries it.
 #
 # `docs` gained five checks -- `diagram`, `error-codes`, `invariant-number`, `output-verbs` and
 # `wrapped-path` -- and widened two populations, the module-header scope to every file the hash
@@ -100,10 +95,10 @@
 # than letting it run beside the first. Measured locally on 2026-09-07 over five interleaved rounds
 # of two hundred iterations, on a Windows machine carrying a dozen agent sessions -- 22.6-26.5 ms to
 # take the claim and 22.8-27.5 ms to give it back, both ends reading that machine's process spawn as
-# much as the guard, and each paid once per run. Their 0.05 s is a thousandth of the row's 49 s
-# reference, against a floor of 40 percent of it, so neither the reference nor the 125 s budget
-# moves and neither takes a new stamp. The figure is a development machine's, which is what the
-# guard's own cost can be measured on: it runs before the tier rather than in it.
+# much as the guard, and each paid once per run. Every run the `db` row's stamp counts carries the
+# guard, so the budget cut from them already holds its 0.05 s. The figure is a development
+# machine's, which is what the guard's own cost can be measured on: it runs before the tier rather
+# than in it.
 #
 # `scripts`' binding unit measured three ways on 2026-09-07 on the sixteen-core machine: alone and
 # idle, `selfcheck.sh` took 45.2-45.9 s over five runs; inside one full-form run it took 97 s beside
@@ -257,17 +252,16 @@
 # gate run with every scope started together, the frontend's files took 129 s and six cases
 # overran the sign-in store's 3 s bounds. Measured locally on 2026-09-26 on a sixteen-core Windows
 # machine running nothing else. On a runner the `db` job spanned 140-149 s, median 144.5 s,
-# against its 125 s budget over the four pull-request runs of 2026-09-25 that ran the suites one
-# after the other, and 90-114 s, median 99 s, over the thirteen pull-request and main runs from
-# 2026-09-26 that start them together.
+# every run over the row's budget, over the four pull-request runs of 2026-09-25 that ran the
+# suites one after the other, and 90-114 s, median 99 s, over the thirteen pull-request and main
+# runs from 2026-09-26 that start them together.
 #
 # `format`, `frontend`, the `frontend-units` shards and `db` gained a guard ahead of their
 # scopes: `fl_frontend/node_modules` must exist, so a run without the install refuses rather than
 # grading its absence. 58-60 microseconds a call over five interleaved rounds of two thousand calls
 # against an empty loop, measured locally on 2026-09-23 on a sixteen-core Windows machine carrying
 # a fleet of agent sessions, so an upper bound; it is paid once in each gate process those scopes
-# start. That is far inside the `db` floor, and the main runs the other rows' budgets are cut from
-# already paid it.
+# start. Every main run those jobs' budgets are cut from already paid it.
 #
 # `scripts` gained ten cases and lost eleven. `scripts/tests/test_pre_commit.py` commits through
 # `.githooks/pre-commit` in fresh repositories, two on `main` and one on a branch, 1.26-1.34 s for the
@@ -287,9 +281,8 @@
 # took 49.8-55.6 s without it and 50.5-66.3 s with it, three interleaved rounds each in the gate's
 # own serial form with `tests/core/test_tier.py` left out of both, the two quieter rounds putting
 # the guard at 0.5-0.7 s. Measured locally on 2026-09-25 on a sixteen-core Windows machine carrying
-# a fleet of agent sessions, so both spreads are upper bounds. The guard's cost sits inside the
-# floor the `backend` row carries; neither the reference nor the budget moves and neither takes a
-# new stamp.
+# a fleet of agent sessions, so both spreads are upper bounds. Every run the `backend` row's stamp
+# counts carries the guard.
 #
 # `ops` traded three mirror checkers for one exposure check and a header block in the edge test.
 # `nginx/edge_test.sh`, its header block now asking every location, took 3.21-3.33 s against
@@ -396,9 +389,8 @@
 # one warm run of each, every run returning exit 0. Measured locally on 2026-09-24 on a sixteen-core
 # Windows machine carrying a fleet of agent sessions, so both ends are upper bounds reading that
 # contention as much as the check. It is pooled with the scope's other units, so the job pays that
-# span only where the pool cannot start them all at once, and either way it sits inside the floor
-# the `backend` row carries, so neither the reference nor the budget moves and neither takes a new
-# stamp.
+# span only where the pool cannot start them all at once, and every run the `backend` row's stamp
+# counts carries it.
 #
 # `images` gained two steps: each image's layer cache is exported to the Actions cache by a buildx
 # run of its own after the probes, where the build carried the export before. On two pull-request
@@ -496,11 +488,11 @@
 # documented path, 0.94-0.95 s, and every refusal's field against its operations' bodies, 0.18 s.
 # Five interleaved rounds each, measured locally on 2026-09-26 on a sixteen-core Windows machine
 # running nothing else. On a runner, over the four pull-request runs of 2026-09-25, the serial tier
-# took 53-81 s and the job 62-90 s against its 60 s budget; over the thirteen pull-request and main
-# runs from 2026-09-26, the tier over workers took 32-49 s, median 44 s, and the job 40-60 s, median
-# 52 s. The import index landed in the same runs, so the workers' own share is not separable from
-# it. Pyright, pooled beside the tier, went from 16-24 s to 23-41 s, median 32 s, its four workers
-# sharing the runner's four processors with it.
+# took 53-81 s and the job 62-90 s; over the thirteen pull-request and main runs from 2026-09-26,
+# the tier over workers took 32-49 s, median 44 s, and the job 40-60 s, median 52 s. The import
+# index landed in the same runs, so the workers' own share is not separable from it. Pyright, pooled
+# beside the tier, went from 16-24 s to 23-41 s, median 32 s, its four workers sharing the runner's
+# four processors with it.
 #
 # `frontend-units` shards by position: cold, at a runner's width of three files, over five
 # interleaved rounds, shard 1 took 74.2-74.5 s, 2 54.6-55.4 s, 3 101.1-101.6 s and 4 53.2-53.3 s, on
@@ -522,8 +514,7 @@
 # ""` in `fl_frontend` (`scripts/gate/verify.sh :: pnpm_starts`), once in each gate process those
 # scopes start. It took 1.26 s a call over five rounds of ten calls against 0.06 s for `node -e ""`
 # alone, measured locally on 2026-09-26 on a sixteen-core Windows machine running nothing else, so
-# each of those jobs pays about 1.2 s. That sits inside the `db` floor, and the main runs the other
-# rows' budgets are cut from already paid it.
+# each of those jobs pays about 1.2 s. Every main run their budgets are cut from already paid it.
 #
 # `frontend` gained the syntax bans, the `local/admin-link` rule and the date controls' prop rules
 # in `fl_frontend/eslint.config.mjs`. eslint over `fl_frontend` at a runner's four threads, with no
@@ -557,13 +548,16 @@
 # spanned 50 s against 27 s for the two that restored one, and six uncached pull-request runs to
 # 2026-09-26 spanned 41-56 s, which the rule above makes 70 s.
 #
-# The total row is the sum of the seconds above it, compared the same way. Move a job's seconds and
-# move the total with it: where the two disagree `scripts/checks/check_gate_budget.py` refuses the
-# file at parse, in any of its modes, and compares nothing at all.
+# The total row is the sum of the seconds above it, compared the same way where it carries a floor.
+# Its floor is `-` while `ops` is the one row holding a reference: the sum is then that row's own
+# median, which its row already compares against its own floor, so a floor here would only print
+# `ops` moving under the whole gate's name. Move a job's seconds and move the total with it: where
+# the two disagree `scripts/checks/check_gate_budget.py` refuses the file at parse, in any of its
+# modes, and compares nothing at all.
 #
 # job	seconds	floor	budget	measured
-backend	35	14	60	24@2026-09-07
-db	49	40	125	24@2026-09-07
+backend	-	-	70	3@2026-09-26
+db	-	-	135	3@2026-09-26
 docs	-	-	40	3@2026-09-26
 format	-	-	70	3@2026-09-26
 frontend	-	-	145	3@2026-09-26
@@ -574,4 +568,4 @@ frontend-units (4)	-	-	150	3@2026-09-26
 images	-	-	-	3@2026-09-26
 ops	17	29	45	13@2026-09-07
 scripts	-	-	60	3@2026-09-26
-total	101	10	-	-
+total	17	-	-	-
