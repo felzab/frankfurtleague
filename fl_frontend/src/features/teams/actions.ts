@@ -50,7 +50,9 @@ export async function postTeamAction(
   // that into a field error rather than a type error.
   rawPayload: TeamCreateDraft,
 ): Promise<ActionResult<{ created_id: string }>> {
-  // Every create enters the club into a season, which nothing reverses: the entry's own step-up.
+  // Every create enters the club into a season, which nothing reverses: the entry's own step-up. The
+  // backend declares it on the entry alone, and both calls carry one token judged at its `iat`
+  // (`docs/backend/spec.md :: I527`).
   return runAdminMutation("postTeamAction", { stepUp: true }, async () => {
     const validated = FLCreateTeamFormPayloadSchema.safeParse(rawPayload);
 
@@ -74,8 +76,9 @@ export async function postTeamAction(
       return { success: false, error: buildRefusal({ reason: "Das Team wurde nicht angelegt", repair: "Versuche es erneut" }) };
     }
 
-    // The junction row, in the same action: without one the club is invisible to every
-    // season-scoped read (backend spec I11). A failure here leaves the club EXISTING.
+    // A refused entry leaves the club EXISTING in no season (`docs/backend/spec.md :: I11`), which the
+    // admin teams list shows and the club's page enters: recoverable, so two requests stand rather
+    // than one transaction.
     try {
       await postSaisonTeam({ team_id: postOperation.created_id, saison_id, gruppe });
     } catch (error) {
