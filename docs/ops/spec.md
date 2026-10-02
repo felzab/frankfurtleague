@@ -848,10 +848,13 @@ invisible characters are the file's subject; an entry naming a file that carries
 the list cannot outlive its reason.
 
 **The estate check refuses two silences the backend suite would otherwise pass**
-(`scripts/checks/check_test_estate.py`): a fixture whose name no parameter and no `usefixtures`
-string anywhere under `fl_backend/tests/` repeats, so a name an unrelated helper's parameter
-happens to share reads as consumed; and a pytest configuration leaving `empty_parameter_set_mark` at
-its default, where a parametrised sweep whose discovery found nothing passes as one skip. A test
+(`scripts/checks/check_test_estate.py`): a fixture whose name nothing pytest hands a fixture to
+asks for anywhere under `fl_backend/tests/` — a collected test's or a fixture's parameter, a
+`usefixtures` or `getfixturevalue` string, the configuration's own `usefixtures` — so a helper's
+parameter sharing the name excuses nothing; and a pytest configuration leaving
+`empty_parameter_set_mark` at its default, where a parametrised sweep whose discovery found nothing
+passes as one skip. A fixture spelled in a way it cannot follow, or a collection of the
+configuration's own, is a refusal at 2 rather than a verdict. A test
 reaching a database without `@pytest.mark.db` is the suite's own to refuse, as it runs
 ([`docs/backend/spec.md`](../backend/spec.md#16-the-test-suite)).
 

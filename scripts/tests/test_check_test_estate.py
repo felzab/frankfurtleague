@@ -13,7 +13,9 @@ from __future__ import annotations
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
+import pytest
 from conftest import REPO_ROOT, copy_scripts, import_scripts, new_root, write
 
 SCRIPTS = Path(__file__).resolve().parents[1]
@@ -27,7 +29,7 @@ LOUD_CONFIG = '[tool.pytest.ini_options]\nempty_parameter_set_mark = "fail_at_co
 SILENT_CONFIG = '[tool.pytest.ini_options]\naddopts = "--strict-markers"\n'
 
 
-def corpus(body: str, shared: str) -> object:
+def corpus(body: str, shared: str) -> Any:
     """An estate holding that conftest and one test module with that body."""
     root = new_root("estate-")
     write(root, "conftest.py", shared)
@@ -63,6 +65,81 @@ def test_a_renamed_fixture_is_read_under_the_name_pytest_registers():
 
     assert fixtures(live) == []
     assert "`league`" in fixtures(dead)[0]
+
+
+ORPHAN = "import pytest\n\n\n@pytest.fixture\ndef league():\n    return 1\n\n\n"
+
+
+def test_a_helper_parameter_sharing_the_fixture_s_name_excuses_nothing():
+    """Neither a module function nor a method outside a `Test` class is collected, so pytest hands neither a fixture."""
+    body = ORPHAN + "def build(league):\n    return league\n\n\nclass Helper:\n    def test_reads(self, league):\n        return league\n"
+    found = fixtures(body)
+
+    assert len(found) == 1 and "`league`" in found[0], found
+
+
+def test_a_test_function_outside_a_test_file_excuses_nothing():
+    """pytest collects `test_*.py` and `*_test.py` alone, so a `test` function in a helper module is no test."""
+    root = new_root("estate-helper-")
+    write(root, "conftest.py", PLAIN_CONFTEST)
+    write(root, "api/test_case.py", ORPHAN + "def test_nothing():\n    assert True\n")
+    write(root, "api/helpers.py", "def test_like(league):\n    return league\n")
+
+    found = [finding.detail for finding in estate.check_dead_fixtures(estate.Estate(root))]
+
+    assert len(found) == 1 and "`league`" in found[0], found
+
+
+def test_every_consumer_pytest_hands_a_fixture_to_excuses_it():
+    """A test, a test method at any `Test` class depth, another fixture, a `usefixtures` and a `getfixturevalue` string."""
+    for consumer in (
+        "def test_reads(league):\n    assert league\n",
+        "class TestOuter:\n    class TestInner:\n        def test_reads(self, league):\n            assert league\n",
+        "@pytest.fixture\ndef season(league):\n    return league\n\n\ndef test_reads(season):\n    assert season\n",
+        '@pytest.mark.usefixtures("league")\ndef test_reads():\n    assert True\n',
+        'def test_reads(request):\n    assert request.getfixturevalue("league")\n',
+    ):
+        assert fixtures(ORPHAN + consumer) == [], consumer
+
+
+def test_the_configuration_s_usefixtures_excuses_a_fixture_no_test_names():
+    """pytest hands it every test (https://docs.pytest.org/en/stable/how-to/fixtures.html#use-fixtures-in-classes-and-modules-with-usefixtures)."""
+    tree = corpus(ORPHAN + "def test_nothing():\n    assert True\n", PLAIN_CONFTEST)
+
+    assert estate.check_dead_fixtures(tree, estate.configured_fixtures({"usefixtures": ["league"]})) == []
+
+
+@pytest.mark.parametrize(
+    ("body", "said"),
+    [
+        pytest.param("from pytest import fixture\n", "imports `fixture` by name", id="imported-by-name"),
+        pytest.param(
+            "import pytest\nfixture = pytest.fixture\n\n\n@fixture\ndef league():\n    return 1\n", "a bare `fixture`", id="bare-decorator"
+        ),
+        pytest.param(
+            "import pytest\nNAME = 'league'\n\n\n@pytest.fixture(name=NAME)\ndef _league():\n    return 1\n",
+            "by an expression",
+            id="computed-name",
+        ),
+        pytest.param(
+            "import pytest\nNAME = 'league'\n\n\n@pytest.mark.usefixtures(NAME)\ndef test_reads():\n    assert True\n",
+            "no string literal",
+            id="computed-request",
+        ),
+    ],
+)
+def test_a_spelling_this_cannot_follow_leaves_the_module_unjudged(body: str, said: str):
+    """Judged, each would read a live fixture as dead or a dead one as live."""
+    tree = corpus(body, PLAIN_CONFTEST)
+
+    assert [path.name for path, _ in tree.unfollowed] == ["test_case.py"]
+    assert said in tree.unfollowed[0][1]
+
+
+@pytest.mark.parametrize("key", ["python_files", "python_classes", "python_functions"])
+def test_a_collection_of_the_configuration_s_own_is_refused(key: str):
+    with pytest.raises(estate.Unfollowed, match=key):
+        estate.configured_fixtures({key: ["check_*"]})
 
 
 def repository(config: str) -> Path:
@@ -132,3 +209,29 @@ def test_a_module_that_will_not_parse_is_refused_rather_than_crashing():
 
     assert done.returncode == 2
     assert "could not be parsed" in done.stderr
+
+
+def test_a_fixture_this_cannot_follow_is_refused_at_2_rather_than_judged():
+    """The exit contract's refusal, never a finding: the tree may be correct, and this could not tell."""
+    root = repository(LOUD_CONFIG)
+    write(root, "fl_backend/tests/api/test_bare.py", "from pytest import fixture\n")
+    done = run_main(root)
+
+    assert done.returncode == 2
+    assert "imports `fixture` by name" in done.stderr
+
+
+def test_a_collection_of_the_configuration_s_own_exits_two():
+    done = run_main(repository(LOUD_CONFIG + 'python_functions = ["check_*"]\n'))
+
+    assert done.returncode == 2
+    assert "python_functions" in done.stderr
+
+
+def test_main_reads_the_configuration_s_usefixtures():
+    """The configured fixture is named by no test, so only the settings `main` reads can excuse it."""
+    root = repository(LOUD_CONFIG + 'usefixtures = ["league"]\n')
+    write(root, "fl_backend/tests/conftest.py", ORPHAN)
+    done = run_main(root)
+
+    assert done.returncode == 0, done.stdout + done.stderr
