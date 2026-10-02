@@ -730,6 +730,8 @@ const LIBRARY_EVENTS: readonly (readonly [string, string])[] = [
   ["Invalid errorCallbackURL", "auth.callback_refused"],
   ["Invalid newUserCallbackURL", "auth.callback_refused"],
   ["Blocked cross-site navigation login attempt", "auth.cross_site_login_blocked"],
+  // The adapter's own line, `fl_frontend/patches/@better-auth__mongo-adapter@1.7.5.patch` (`docs/frontend/spec.md :: I537`).
+  ["Transaction left open", "auth.transaction_left_open"],
 ];
 
 const LIBRARY_EVENT_UNKNOWN = "auth.library_failed";

@@ -337,13 +337,16 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
 
     assert.ok(relay.triggered, "the sign-in sent no commit, so nothing here was hung");
     assert.ok(outcome instanceof MongoOperationTimeoutError, `the hung commit settled with ${String(outcome)}`);
-    assert.deepEqual(logged, []);
+    // The abort the hang swallowed too: the one line saying the server may hold the transaction, the
+    // commit's own failure being its caller's to log.
+    assert.deepEqual(logged, [{ event: "auth.transaction_left_open", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }]);
   });
 
   /* One request lost on its way to a store that answers everything else: the case above's whole hang
      leaves no abort a way through, and this one does. */
   it("leaves the server no transaction open when the adapter's commit is lost on its way", async () => {
     const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
+    logged.length = 0;
 
     await relay.dropOne("commitTransaction", () =>
       settledWithin(OPERATION_BOUND * 2, "the lost commit", () =>
@@ -353,6 +356,8 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
 
     assert.ok(relay.dropped, "the sign-in sent no commit, so nothing here was lost");
     assert.deepEqual(await transactionsHeld(), []);
+    // The control for the case above's line: an abort that lands says nothing.
+    assert.deepEqual(logged, []);
   });
 });
 
