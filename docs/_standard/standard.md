@@ -353,7 +353,8 @@ every file this Scope names.
   comment, symbol doc and test docstring alike, so it cannot be avoided by moving a paragraph from
   beside a symbol to above it; an opening block is skipped here as a module header and keeps INC-2's
   bound instead exactly where INC-2's scope admits the kind, and is an ordinary block under this rule
-  in every other kind. **The bound does not reach a docstring the API publishes** (INC-4), which is a
+  in every other kind; a comment above the header, such as one over a Python module's docstring, is
+  no part of the header and an ordinary block too. **The bound does not reach a docstring the API publishes** (INC-4), which is a
   contract read by someone with no code open and so not this rung at all (COR-14); every other
   docstring is a block like any other. **A blank line separates two runs of line comments, or the
   checker reads them as one block**: a bare `#` between them joins the run rather than ending it,

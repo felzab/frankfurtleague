@@ -956,24 +956,15 @@ def is_tool_directive(text: str) -> bool:
     return TOOL_DIRECTIVE_RE.match(text) is not None
 
 
-def _directive_text(line: str) -> str | None:
-    """One raw source line's directive with its marker off, by either marker, or None where it holds none."""
+def is_directive_line(line: str) -> bool:
+    """Whether one raw source line is a comment holding a tool's directive, by either marker."""
     text = line.strip()
     if text.startswith("#"):
-        text = text.lstrip("#").strip()
-    elif text.startswith("//"):
-        text = text[2:].strip()
-    else:
-        return None
-    return text if is_tool_directive(text) else None
+        return is_tool_directive(text.lstrip("#").strip())
+    return text.startswith("//") and is_tool_directive(text[2:].strip())
 
 
-def is_directive_line(line: str) -> bool:
-    """Whether one raw source line is a comment holding a tool's directive."""
-    return _directive_text(line) is not None
-
-
-def _python_runs(raw: str, start_at: int) -> list[tuple[int, list[str]]]:
+def _python_runs(raw: str, outside: frozenset[int]) -> list[tuple[int, list[str]]]:
     """Each run of consecutive comment lines in a Python module, read through its own tokenizer.
 
     A line scan cannot tell a docstring's opening quote from an ordinary string's closing one at
@@ -1001,10 +992,10 @@ def _python_runs(raw: str, start_at: int) -> list[tuple[int, list[str]]]:
             runs.append((first_line, current))
         current = []
 
-    for number in range(start_at + 1, len(lines) + 1):
+    for number in range(1, len(lines) + 1):
         text = lines[number - 1].strip()
         span = spans.get(number, 0)
-        if not span and number not in comments:
+        if number in outside or (not span and number not in comments):
             flush()
             opened_on = 0
             continue
@@ -1026,28 +1017,26 @@ def _python_runs(raw: str, start_at: int) -> list[tuple[int, list[str]]]:
 
 
 def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
-    """Each run of consecutive comment lines below the module header, as (first line, text lines).
+    """Each run of consecutive comment lines outside the module header, as (first line, text lines).
 
     Markers come off, being what the bound does not measure. The header is skipped -- INC-2 caps
     it. A symbol doc is a run like any other (INC-9).
     """
     lines = raw.split("\n")
-    start_at = 0
-    above: list[tuple[int, list[str]]] = []
+    # Only the shebang and the header's own lines: a comment above a Python docstring, or a
+    # directive a shell header stepped over, would otherwise sit under no bound at all.
+    outside = {1} if raw.startswith("#!") else set()
     if (header := _module_header(raw, suffix)) is not None:
         for index in range(len(lines)):
             if lines[index : index + len(header)] == header:
-                start_at = index + len(header)
-                # A directive the header scan stepped over is still a block, or its reason would sit
-                # under neither INC-2's bound nor INC-9's.
-                above = [(number, [text]) for number, line in enumerate(lines[:index], start=1) if (text := _directive_text(line))]
+                outside.update(range(index + 1, index + len(header) + 1))
                 break
     # Python alone has a grammar here a line scan gets wrong; every other kind's comment opens on
     # a marker no literal of its own can carry at the margin.
     if suffix == ".py":
-        return above + _python_runs(raw, start_at)
+        return _python_runs(raw, frozenset(outside))
 
-    runs: list[tuple[int, list[str]]] = above
+    runs: list[tuple[int, list[str]]] = []
     current: list[str] = []
     first_line = 0
     closing: str | None = None
@@ -1059,7 +1048,10 @@ def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
             runs.append((first_line, current))
         current = []
 
-    for number, line in enumerate(lines[start_at:], start=start_at + 1):
+    for number, line in enumerate(lines, start=1):
+        if number in outside:
+            flush()
+            continue
         text = line.strip()
         if closing is not None:  # inside a block comment or a docstring
             current.append(_header_line(text.removesuffix(closing), suffix))

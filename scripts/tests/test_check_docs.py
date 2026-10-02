@@ -2865,6 +2865,20 @@ def test_a_tool_directive_above_a_python_header_stays_out_of_it() -> None:
     assert _header_findings(SAMPLE, raw, ".py") == []
 
 
+@pytest.mark.parametrize(("lines", "words"), [(4, None), (5, 50)], ids=["at-the-bound", "over-it"])
+def test_a_comment_above_a_python_header_is_a_block_like_any_other(lines: int, words: int | None) -> None:
+    """Not header prose, so INC-9's bound and not INC-2's; the shebang over it is the interpreter's and joins nothing."""
+    raw = _page(
+        "#!/usr/bin/env python3",
+        *[HASH + " " + PROSE_LINE] * lines,
+        QUOTES + "BACKEND · a header" + QUOTES,
+        "VALUE = 1",
+    )
+    cap = _module("docs_gate.branch").COMMENT_WORD_CAP
+    expected = [] if words is None else [f"the comment block runs {words} words -- INC-9 caps a block at {cap}, every shape alike"]
+    assert _header_findings(SAMPLE, raw, ".py") == expected
+
+
 @pytest.mark.parametrize("family", ["shellcheck", "pyright"])
 def test_a_directive_above_a_header_is_still_held_to_the_bound(family: str) -> None:
     """The header scan steps over it, so the comment reader must not: otherwise its reason sits under no bound at all."""
