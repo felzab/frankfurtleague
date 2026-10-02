@@ -75,7 +75,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
   saisonTeams: readonly SpielerTeamOption[];
   /** Which season the squad columns describe — the sidemenu selector's, resolved by the page. */
   selectedSaisonId: string;
-  setDeletingSpieler: (spieler: AdminSpielerRow) => void;
+  setDeletingSpieler: (spieler: AdminSpielerRow, pressed: Element) => void;
 }) {
   // Two of them: each control pends on its own write, so reactivating a person leaves the squad row's
   // control pressable and neither announcement can arrive under the other's title.
@@ -140,7 +140,7 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
             disabledReason={RETURN_REFUSAL[judgeRowReturn(row.team_id, saisonTeams)]}
             isPending={squadRow.isReactivating}
             place="kadereintrag"
-            onPress={() => squadRow.reactivate({ spieler_id: spieler.id, saison_id: selectedSaisonId })}
+            onPress={(pressed) => squadRow.reactivate({ spieler_id: spieler.id, saison_id: selectedSaisonId }, { pressed })}
           />
         )}
 
@@ -151,13 +151,13 @@ export const AdminSpielerTable = memo(function AdminSpielerTable({
             label="Spieler reaktivieren"
             ariaLabel={`Spieler ${spieler.fullName} reaktivieren`}
             isPending={person.isReactivating}
-            onPress={() => person.reactivate({ id: spieler.id })}
+            onPress={(pressed) => person.reactivate({ id: spieler.id }, { pressed })}
           />
         ) : (
           <RowActionDelete
             label="Stilllegen"
             ariaLabel={`Spieler ${spieler.fullName} stilllegen`}
-            onPress={() => setDeletingSpieler(spieler)}
+            onPress={(pressed) => setDeletingSpieler(spieler, pressed)}
           />
         )}
       </RowActions>

@@ -56,7 +56,7 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
   filteredSchiedsrichter: FLSchiedsrichter[];
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
-  setDeletingSchiedsrichter: (schiedsrichter: FLSchiedsrichter) => void;
+  setDeletingSchiedsrichter: (schiedsrichter: FLSchiedsrichter, pressed: Element) => void;
 }) {
   const { isReactivating, reactivate } = useReactivation({ action: reactivateSchiedsrichterAction, noun: "Schiedsrichter" });
 
@@ -174,14 +174,14 @@ export const AdminSchiedsrichterTable = memo(function AdminSchiedsrichterTable({
             ariaLabel={`${rowSubject} reaktivieren`}
             isPending={isReactivating}
             // A return that mints the referee a link is a step-up write.
-            onPress={() => reactivate({ id: schiedsrichter.id }, { stepUp: returnMayMint(schiedsrichter) })}
+            onPress={(pressed) => reactivate({ id: schiedsrichter.id }, { stepUp: returnMayMint(schiedsrichter), pressed })}
           />
         )}
         {!isRetired && (
           <RowActionDelete
             label="Stilllegen"
             ariaLabel={`${rowSubject} stilllegen`}
-            onPress={() => setDeletingSchiedsrichter(schiedsrichter)}
+            onPress={(pressed) => setDeletingSchiedsrichter(schiedsrichter, pressed)}
           />
         )}
       </RowActions>

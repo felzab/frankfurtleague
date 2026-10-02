@@ -77,7 +77,8 @@ export function RowActionRestore({
 }: {
   label: string;
   ariaLabel: string;
-  onPress: () => void;
+  /** Handed the pressed control, which a landing anchors on: a grid row takes the focus off a control pressed without a pointer. */
+  onPress: (pressed: Element) => void;
   /** A restore no delete stands in for, as the squad row's beside the person's, names a place of its own. */
   place?: string;
   /**
@@ -98,7 +99,7 @@ export function RowActionRestore({
       // page mid-press, where react-aria's pending state keeps it and ignores the press.
       isPending={isPending}
       className={ACTION_BUTTON_CLASSES}
-      onPress={onPress}>
+      onPress={(event) => onPress(event.target)}>
       <ArrowRotateLeft
         className="size-4.5"
         aria-hidden="true"
@@ -131,7 +132,7 @@ export function RowActionDelete({
 }: {
   label: string;
   ariaLabel: string;
-  onPress: () => void;
+  onPress: (pressed: Element) => void;
   /** The refusal this row can already see, or null while the retirement is offered. */
   disabledReason?: string | null;
 }) {
@@ -142,7 +143,7 @@ export function RowActionDelete({
       variant="ghost"
       isDisabled={disabledReason != null}
       className={DANGER_CLASSES}
-      onPress={onPress}>
+      onPress={(event) => onPress(event.target)}>
       <TrashBin
         className="size-4.5"
         aria-hidden="true"

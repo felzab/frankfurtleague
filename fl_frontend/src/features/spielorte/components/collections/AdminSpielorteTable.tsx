@@ -62,7 +62,7 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
   filteredSpielorte: FLSpielort[];
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
-  setDeletingOrt: (ort: FLSpielort) => void;
+  setDeletingOrt: (ort: FLSpielort, pressed: Element) => void;
 }) {
   const { isReactivating, reactivate } = useReactivation({ action: reactivateSpielortAction, noun: "Spielort" });
 
@@ -136,13 +136,13 @@ export const AdminSpielorteTable = memo(function AdminSpielorteTable({
           label="Reaktivieren"
           ariaLabel={`Spielort ${ort.name} reaktivieren`}
           isPending={isReactivating}
-          onPress={() => reactivate({ id: ort.id })}
+          onPress={(pressed) => reactivate({ id: ort.id }, { pressed })}
         />
       ) : (
         <RowActionDelete
           label="Stilllegen"
           ariaLabel={`Spielort ${ort.name} stilllegen`}
-          onPress={() => setDeletingOrt(ort)}
+          onPress={(pressed) => setDeletingOrt(ort, pressed)}
         />
       )}
       {/* Both leave the row; the copy above acts on it, which is what keeps that one inline. */}

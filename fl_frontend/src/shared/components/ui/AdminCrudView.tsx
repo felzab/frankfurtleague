@@ -82,7 +82,8 @@ export function AdminCrudView<TItem extends { id: string }>({
     filteredItems: TItem[];
     /** Which stage left the table with nothing, for an empty state to name. */
     emptiness: CrudEmptiness;
-    onDelete: (item: TItem) => void;
+    /** The pressed control rides along: the retirement's landing anchors on it, never on the row a grid moved the focus to. */
+    onDelete: (item: TItem, pressed: Element) => void;
   }) => ReactNode;
   /**
    * Optional: a season is never deleted, since removing it would orphan every row carrying its id. `onRetired` is
@@ -95,7 +96,7 @@ export function AdminCrudView<TItem extends { id: string }>({
   const selection = useFacetSelection(facets);
   const [deleting, setDeleting] = useState<{ item: TItem; landing: ReturnType<typeof focusAfterWrite> } | null>(null);
   // Read as the row's control opens the dialog, which takes the focus off that control the moment it opens.
-  const openRetirement = (item: TItem) => setDeleting({ item, landing: focusAfterWrite() });
+  const openRetirement = (item: TItem, pressed: Element) => setDeleting({ item, landing: focusAfterWrite(pressed) });
 
   const hasFacets = facets.length > 0;
 

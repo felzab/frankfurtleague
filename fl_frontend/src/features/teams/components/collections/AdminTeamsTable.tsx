@@ -64,7 +64,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
   filteredTeams: AdminTeamRow[];
   /** `fl_frontend/src/shared/components/ui/AdminCrudView.tsx :: CrudEmptiness` carries what each value means. */
   emptiness: CrudEmptiness;
-  setDeletingTeam: (team: AdminTeamRow) => void;
+  setDeletingTeam: (team: AdminTeamRow, pressed: Element) => void;
 }) {
   const { isReactivating, reactivate } = useReactivation({ action: reactivateTeamAction, noun: "Team" });
 
@@ -127,7 +127,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
           label="Reaktivieren"
           ariaLabel={`Team ${team.name} reaktivieren`}
           isPending={isReactivating}
-          onPress={() => reactivate({ id: team.id })}
+          onPress={(pressed) => reactivate({ id: team.id }, { pressed })}
         />
       ) : (
         /* Present but DISABLED where the write path would refuse (`REQ-RETIRE-001`), so the rule is
@@ -138,7 +138,7 @@ export const AdminTeamsTable = memo(function AdminTeamsTable({
           }
           label="Stilllegen"
           ariaLabel={`Team ${team.name} stilllegen`}
-          onPress={() => setDeletingTeam(team)}
+          onPress={(pressed) => setDeletingTeam(team, pressed)}
         />
       )}
       {/* Every one leaves the row for another list or page, and as inline icons they put six controls

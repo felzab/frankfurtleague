@@ -2,11 +2,11 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { afterEach, describe, it } from "node:test";
 
 import { Fragment, createElement as h, useState } from "react";
 
-import { screen, within } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { registerDoubles } from "@/core/exportingModule.ts";
@@ -85,6 +85,32 @@ const heading = (name: string | RegExp): HTMLElement => screen.getByRole("headin
 /** The retirement a list's dialog confirms, from the row's own control. */
 const retireThroughDialog = (key: string, row: string) => async (user: UserEvent) => {
   await user.click(buttonIn(key, `${row} stilllegen`));
+  await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
+};
+
+/**
+ * A screen reader's activation of a table row's control: it moves the focus there, which react-aria's grid takes
+ * onto a row of its own choosing, then clicks the control with no pointer, so the focus never stands on it.
+ */
+const pressVirtually = async (user: UserEvent, key: string, name: string | RegExp): Promise<void> => {
+  const control = buttonIn(key, name);
+  // react-aria shows the focus unless the last key or pointer event was a pointer's, which an earlier case's click
+  // leaves behind in this process: a key press, as the reader's own, puts the page where a screen reader leaves it.
+  await user.keyboard("{Escape}");
+  act(() => control.focus());
+  await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+  assert.ok(
+    document.activeElement?.getAttribute("role") === "row",
+    `the grid left the focus on ${described(document.activeElement)}, so this press is a pointer's`,
+  );
+  act(() => {
+    control.dispatchEvent(new window.MouseEvent("click", { bubbles: true, cancelable: true, detail: 0 }));
+  });
+};
+
+/** The retirement a table's dialog confirms, opened by a screen reader's activation of the row's own control. */
+const retireVirtually = (key: string, row: string) => async (user: UserEvent) => {
+  await pressVirtually(user, key, `${row} stilllegen`);
   await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
 };
 
@@ -587,6 +613,61 @@ const LANDINGS: Record<string, Landing> = {
     after: () => spielerList([spieler(SP_A, "Lena", RETIRED_ON), spieler(SP_B, "Mia", null)]),
     lands: () => buttonIn("spieler-tabelle", "Spieler Lena Meier reaktivieren"),
   },
+  "a venue table row's reactivation a screen reader activates, on the retirement replacing it": {
+    before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", RETIRED_ON)] }),
+    press: (user) => pressVirtually(user, "spielorte-tabelle", "Spielort Halle B reaktivieren"),
+    after: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", null)] }),
+    lands: () => buttonIn("spielorte-tabelle", "Spielort Halle B stilllegen"),
+  },
+  "a venue table row's retirement a screen reader activates, on the reactivation replacing it": {
+    before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", null)] }),
+    press: retireVirtually("spielorte-tabelle", "Spielort Halle B"),
+    after: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", RETIRED_ON)] }),
+    lands: () => buttonIn("spielorte-tabelle", "Spielort Halle B reaktivieren"),
+  },
+  "a club table row's reactivation a screen reader activates, on the retirement replacing it": {
+    before: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", RETIRED_ON)], numberOfGroups: 2 }),
+    press: (user) => pressVirtually(user, "teams-tabelle", "Team SG Beta reaktivieren"),
+    after: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", null)], numberOfGroups: 2 }),
+    lands: () => buttonIn("teams-tabelle", "Team SG Beta stilllegen"),
+  },
+  "a club table row's retirement a screen reader activates, on the reactivation replacing it": {
+    before: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", null)], numberOfGroups: 2 }),
+    press: retireVirtually("teams-tabelle", "Team SG Beta"),
+    after: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", RETIRED_ON)], numberOfGroups: 2 }),
+    lands: () => buttonIn("teams-tabelle", "Team SG Beta reaktivieren"),
+  },
+  "a referee table row's reactivation a screen reader activates, on the retirement replacing it": {
+    before: () =>
+      h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", RETIRED_ON)] }),
+    press: (user) => pressVirtually(user, "schiedsrichter-tabelle", /Ole Berg reaktivieren$/),
+    after: () =>
+      h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", null)] }),
+    lands: () => buttonIn("schiedsrichter-tabelle", /Ole Berg stilllegen$/),
+  },
+  "a referee table row's retirement a screen reader activates, on the reactivation replacing it": {
+    before: () =>
+      h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", null)] }),
+    press: async (user) => {
+      await pressVirtually(user, "schiedsrichter-tabelle", /Ole Berg stilllegen$/);
+      await pressTwice(user, { resting: "Stilllegen", armed: "Ja, stilllegen" });
+    },
+    after: () =>
+      h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", RETIRED_ON)] }),
+    lands: () => buttonIn("schiedsrichter-tabelle", /Ole Berg reaktivieren$/),
+  },
+  "a player table row's reactivation a screen reader activates, on the retirement replacing it": {
+    before: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", RETIRED_ON)]),
+    press: (user) => pressVirtually(user, "spieler-tabelle", "Spieler Mia Meier reaktivieren"),
+    after: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", null)]),
+    lands: () => buttonIn("spieler-tabelle", "Spieler Mia Meier stilllegen"),
+  },
+  "a player table row's retirement a screen reader activates, on the reactivation replacing it": {
+    before: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", null)]),
+    press: retireVirtually("spieler-tabelle", "Spieler Mia Meier"),
+    after: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", RETIRED_ON)]),
+    lands: () => buttonIn("spieler-tabelle", "Spieler Mia Meier reaktivieren"),
+  },
   /* The list narrowed to retired squad rows drops the row its return revived, as working through them does. */
   "a squad row's return from the list, on the next row's": {
     search: "kader=ausgetragen&saison_id=2026",
@@ -966,6 +1047,11 @@ const described = (element: Element | null): string =>
     : `<${element.tagName.toLowerCase()}> „${element.getAttribute("aria-label") ?? element.textContent?.trim() ?? ""}“`;
 
 describe("where the focus lands once a write takes its control off the page", () => {
+  // A landing a case left watching would take the next case's focus as that case's page draws.
+  afterEach(() => {
+    document.dispatchEvent(new window.KeyboardEvent("keydown"));
+  });
+
   for (const [name, landing] of Object.entries(LANDINGS)) {
     it(name, async () => {
       const user = userEvent.setup();
