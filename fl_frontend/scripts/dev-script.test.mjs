@@ -11,8 +11,9 @@ import { fileURLToPath } from "node:url";
 const FRONTEND = path.join(import.meta.dirname, "..");
 const require = createRequire(import.meta.url);
 const DEV_SCRIPT = JSON.parse(readFileSync(path.join(FRONTEND, "package.json"), "utf8")).scripts.dev;
-// The `dev` script's assignments, between `cross-env` and the `next dev` they are handed to.
-const ASSIGNMENTS = /^cross-env ((?:\S+=\S+ )+)next dev( |$)/.exec(DEV_SCRIPT)?.[1]?.trim().split(" ") ?? [];
+// The `dev` script's assignments, between `cross-env` and the `next dev` they are handed to. A name
+// holds no `=`, so each assignment splits one way only and the match stays linear in the script's length.
+const ASSIGNMENTS = /^cross-env ((?:[^\s=]+=\S+ )+)next dev( |$)/.exec(DEV_SCRIPT)?.[1]?.trim().split(" ") ?? [];
 const CROSS_ENV = fileURLToPath(import.meta.resolve("cross-env/bin/cross-env"));
 
 // Holds no environment file, so nothing but the script and the shell can hand the server a name.
