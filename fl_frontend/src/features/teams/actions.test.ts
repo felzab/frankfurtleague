@@ -132,6 +132,23 @@ describe("the club's writes", () => {
   });
 });
 
+describe("a club created whose entry into the season is refused", () => {
+  it("tells the administrator the club stands and where to enter it, in the approved words", async () => {
+    const refused = refusedOn(ENTRY_OPERATION, "REQ-ENTER-001");
+    answerWith((call) => (call.endpoint === "/teams" ? Promise.resolve(landed(call)) : Promise.reject(refused)));
+    const entry = mapEntryRefusal(refused);
+    const reason = entry?.error ?? entry?.fieldErrors?.gruppe;
+    assert.ok(reason, "the entry's refusal carries no reason, so the sentence below would not name one");
+
+    const result = await postTeamAction({ ...CLUB, saison_id: SAISON_ID, gruppe: "A" });
+
+    assert.deepEqual(result, {
+      success: false,
+      error: `Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden: ${reason} Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.`,
+    });
+  });
+});
+
 describe("the team actions against the codes their endpoints publish", () => {
   /* `POST /teams/{team_id}/saisons` is a prefix of the replacement's operation, and each endpoint's
      mapper answers its own set: the two share `REQ-ENTER-005` and nothing else. */

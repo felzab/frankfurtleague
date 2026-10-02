@@ -90,7 +90,7 @@ export async function postTeamAction(
         success: false,
         error: `Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden${
           reason ? `: ${reason}` : "."
-        } Es ist dadurch auf keiner Seite sichtbar. Melde dies dem Betreiber, bevor Du es erneut versuchst.`,
+        } Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.`,
       };
     }
 
