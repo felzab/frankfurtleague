@@ -14,6 +14,7 @@ import { TextField as HeroTextField } from "@heroui/react/textfield"; // expect:
 import { HintPanel } from "@/shared/components/ui/InfoHint"; // expect: hint-internals
 import { captureStdout } from "@/core/stdoutCapture"; // expect: test-only
 import { createRequire } from "node:module"; // expect: node-module
+import { after } from "next/server"; // expect: next-after
 
 export const USED = [SITE_URL, Button, AppRouterContext, DateField, HeroForm, HintPanel, captureStdout, createRequire];
 export const NUMBER_FIELD_USED = HeroNumberField;
@@ -21,3 +22,4 @@ export const LOCALE_USED = PinnedLocale;
 export const TEXT_FIELD_USED = HeroTextField;
 export const SIGNING_USED = mintRequestActor;
 export const SECRETS_USED = [authResendKey, authSecret, internalApiKeySystem, mongodbUri, resendWebhookSecret];
+export const AFTER_USED = after;

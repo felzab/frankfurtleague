@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
 import { registerDoubles } from "./exportingModule.ts";
 import {
+  AFTER_RESPONSE_DEADLINE_MS,
   boundCall,
   getRequestActor,
   getRequestSpanId,
@@ -15,6 +16,7 @@ import {
   requestOutcomeUnknown,
   requestWriteSent,
   runAnsweringOwnCut,
+  runBehindTheResponse,
   runWithRequestScope,
   setRequestActor,
 } from "./requestScope.ts";
@@ -189,6 +191,7 @@ describe("the one deadline a request runs under", () => {
   };
 
   const OWN_BOUND_MS = 15000;
+  const BEHIND_TRACE = "b".repeat(32);
 
   beforeEach(() => {
     clock = 0;
@@ -261,6 +264,47 @@ describe("the one deadline a request runs under", () => {
 
     assert.equal(aborted, true);
     assert.equal(cut, false, "a call's own timeout was taken for the request's deadline");
+  });
+
+  /* Run from a request whose deadline is spent, as Next runs an `after` callback once the answer has gone. */
+  it("gives work behind the response a deadline of its own, the request's trace and no actor", async () => {
+    const seen: { early: boolean; atDeadline: boolean; trace?: string; actor?: string }[] = [];
+
+    await runWithRequestScope(scope(), async () => {
+      setRequestActor({ email: "vorstand@example.org", lane: "admin", token: "token" });
+      advance(REQUEST_DEADLINE_MS);
+
+      await runBehindTheResponse(BEHIND_TRACE, () => {
+        const { signal } = boundCall(AFTER_RESPONSE_DEADLINE_MS + 1);
+        advance(AFTER_RESPONSE_DEADLINE_MS - 1);
+        const early = signal.aborted;
+        advance(1);
+        seen.push({ early, atDeadline: signal.aborted, trace: getRequestTraceId(), actor: getRequestActor()?.email });
+
+        return Promise.resolve();
+      });
+    });
+
+    assert.deepEqual(seen, [{ early: false, atDeadline: true, trace: BEHIND_TRACE, actor: undefined }]);
+  });
+
+  /* A stopping server waits on the callback's promise, so the deadline holds it whatever the work awaits. */
+  it("settles work behind the response at its deadline, though the work never does", async () => {
+    let settled = false;
+    void runBehindTheResponse(BEHIND_TRACE, () => new Promise<void>(() => {})).then(() => {
+      settled = true;
+    });
+    // A real turn of the loop, which the mocked timers leave alone: every reaction queued by then has run.
+    const drained = () => new Promise((resolve) => setImmediate(resolve));
+
+    advance(AFTER_RESPONSE_DEADLINE_MS - 1);
+    await drained();
+    assert.equal(settled, false, "the work was let go before its deadline");
+
+    // Never awaited: a runner with no cut would hold this case open for ever rather than fail it.
+    advance(1);
+    await drained();
+    assert.equal(settled, true, "the work held its callback past the deadline");
   });
 
   /* A ban's notice is sent after its ban's write was acknowledged, and the create's answer says the notice is
@@ -390,5 +434,30 @@ describe("the budgets a request's calls nest inside", () => {
     assert.ok(found, "nginx/shared/site.conf no longer declares the edge's read timeout");
 
     assert.ok(REQUEST_DEADLINE_MS < Number(found[1]) * 1000, "the request's deadline is not under the edge's cut");
+  });
+});
+
+// Next's own steps around its two waits on a stop (its start-server cleanup: the server's close, a trace flush,
+// the exit), so the engine's kill falls a whole second after both bounds.
+const NEXT_STEPS_AROUND_ITS_WAITS_MS = 1000;
+
+/** The frontend service's whole-second `stop_grace_period`, read as the backend's case reads its own. */
+function frontendStopGraceMs(): number {
+  const compose = readFileSync(path.resolve(import.meta.dirname, "..", "..", "..", "docker-compose.yml"), "utf8");
+  const services = [...compose.matchAll(/^ {2}(\w+):$/gm)];
+  const at = services.findIndex((service) => service[1] === "frontend");
+  const start = services[at]?.index;
+  assert.ok(start !== undefined, "docker-compose.yml names no frontend service");
+  const block = compose.slice(start, services[at + 1]?.index ?? compose.length);
+  const grace = [...block.matchAll(/^ {4}stop_grace_period: (\d+)s$/gm)].map((match) => Number(match[1]));
+  assert.equal(grace.length, 1, "the frontend service sets no whole-second stop_grace_period, or more than one");
+
+  return grace.reduce((seconds) => seconds) * 1000;
+}
+
+describe("the stop a frontend container waits out", () => {
+  /* `docs/ops/spec.md :: I547`: Next drains every open request, then every pending `after` callback, before it exits. */
+  it("falls after a request's bound and the work behind its answer", () => {
+    assert.ok(frontendStopGraceMs() >= REQUEST_DEADLINE_MS + AFTER_RESPONSE_DEADLINE_MS + NEXT_STEPS_AROUND_ITS_WAITS_MS);
   });
 });

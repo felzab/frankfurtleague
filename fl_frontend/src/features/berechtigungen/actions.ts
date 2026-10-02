@@ -1,8 +1,6 @@
 "use server";
 
-import { after } from "next/server";
-
-import { runOutsideRequestScope } from "@/core/requestScope";
+import { afterTheResponse } from "@/core/afterResponse";
 import { refusalResult, runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal, VERSUCHE_ES_ERNEUT } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -23,11 +21,11 @@ import type { FLBerechtigungKeyPayload, FLPatchBerechtigungPayload, FLPostBerech
 const ZUGANG_STEP_UP = { stepUp: "enrolment" } as const;
 
 /**
- * Behind the response, so an in-app change is announced at once rather than at the next tick, and in no
- * request: the action's deadline would cut the sends of a claim that then holds its rows for the lease.
+ * Behind the response, so an in-app change is announced at once rather than at the next tick, under a
+ * deadline of its own: the action's remainder would cut a claim's sends and hold its rows for the lease.
  */
 function ankuendigenNachDerAntwort(): void {
-  after(() => runOutsideRequestScope(runBerechtigungenAbgleich));
+  afterTheResponse(runBerechtigungenAbgleich);
 }
 
 export async function postBerechtigungAction(rawPayload: FLPostBerechtigungPayload): Promise<ActionResult<{ created_id: string }>> {

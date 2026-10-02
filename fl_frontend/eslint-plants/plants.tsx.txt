@@ -55,6 +55,7 @@ import { internalApiKeyAdmin, internalApiKeyBase, internalApiKeySystem } from "@
 import * as wholeConfig from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
 export * from "@/core/config"; // expect: secret-store expect: secret-session expect: secret-mail expect: secret-webhook expect: secret-backend
 export { authResendKey } from "@/core/config"; // expect: secret-mail
+import { after } from "next/server"; // expect: next-after
 
 export const FADE = "p-2 data-hovered:opacity-60"; // expect: hover-opacity
 export const TINT = "hover:bg-brand/20"; // expect: hover-alpha
@@ -192,3 +193,4 @@ export const DERIVED_MARK = <Select isRequired={owed} name="gruppe" />; // expec
 export const COMPUTED_MARK = <Select isRequired={!false} name="gruppe" />; // expect: hand-set-required
 export const SIGNING_USED = mintRequestActor;
 export const SIGNING_LOADED = import("@/core/actorToken"); // expect: actor-signing-load
+export const AFTER_USED = after;

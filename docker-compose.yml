@@ -33,6 +33,10 @@ services:
     # `:sha-<commit>` instead. Both packages are public, so neither pull needs credentials.
     image: ghcr.io/felzab/frankfurtleague-frontend:latest
     restart: unless-stopped
+    # Past a request's bound and the work behind its answer, both of which Next's server waits out on a
+    # stop: killed sooner, a write or a mail already sent answers as a dropped connection
+    # (`docs/ops/spec.md :: I547`).
+    stop_grace_period: 61s
     # The signing key is this service's alone: a holder of it mints any actor the backend trusts
     # (`docs/ops/spec.md :: I472`).
     secrets:

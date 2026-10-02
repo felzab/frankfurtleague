@@ -25,19 +25,19 @@ registerDoubles({ specifiers: { "next/cache": NEXT_CACHE_DOUBLE, "next/server": 
 
 const GRANT_ID = "6890a1b2c3d4e5f6071b0001";
 
-/** The trace each call went out under: the action's own, or none for work run outside any request. */
-const traces: { endpoint: string; trace: string | undefined }[] = [];
+/** The trace and the actor each call went out under: the action's, or the scope behind its answer. */
+const traces: { endpoint: string; trace: string | undefined; actor: string | undefined }[] = [];
 
 const NOTHING_CLAIMED = { acknowledged: 1, beanspruchung: null, beansprucht_bis: null, aenderungen: [], empfaenger: [], uebersprungen: 0 };
 
 const client = doubleApiAnswers(({ endpoint, method }) => {
-  traces.push({ endpoint, trace: getRequestTraceId() });
+  traces.push({ endpoint, trace: getRequestTraceId(), actor: getRequestActor()?.email });
   if (endpoint === "/berechtigungen/abgleich") return Promise.resolve(NOTHING_CLAIMED);
   return Promise.resolve(method === "POST" ? { acknowledged: 1, created_id: GRANT_ID } : { acknowledged: 1, berechtigung_id: GRANT_ID });
 });
 
 const { deleteBerechtigungAction, patchBerechtigungAction, postBerechtigungAction } = await import("./actions.ts");
-const { getRequestTraceId } = await import("@/core/requestScope.ts");
+const { getRequestActor, getRequestTraceId } = await import("@/core/requestScope.ts");
 
 const MINUTE_MS = 60 * 1000;
 
@@ -99,11 +99,12 @@ describe("the announcement a change schedules", () => {
     it(`runs the claim behind the ${name}'s answer, outside the action's request`, async () => {
       assert.equal((await act()).success, true);
       const [write] = traces;
-      assert.ok(write?.trace !== undefined, "the action ran in no request, so the case below proves nothing");
+      assert.ok(write?.actor !== undefined, "the action ran under no actor, so the case below proves nothing");
 
       await Promise.all(deferred.map((task) => task()));
 
-      assert.deepEqual(traces.slice(1), [{ endpoint: "/berechtigungen/abgleich", trace: undefined }]);
+      // The trace joins the claim to the change; the actor would sign the system's claim as the administrator's.
+      assert.deepEqual(traces.slice(1), [{ endpoint: "/berechtigungen/abgleich", trace: write.trace, actor: undefined }]);
     });
   }
 });

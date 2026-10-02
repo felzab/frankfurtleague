@@ -206,6 +206,17 @@ const ACTOR_SIGNING = {
     "actorToken signs the actor the backend believes: fl_frontend/src/core/auth.ts, fl_frontend/src/core/subject.ts and fl_frontend/src/instrumentation-node.ts load it, and a *.test.ts(x) file may; nothing else may.",
 };
 
+/**
+ * Next's `after`, scheduled through the one helper giving its callback the deadline a stopping container waits
+ * out: a callback scheduled bare keeps what is left of the request's deadline, or none, and a stop waits on it.
+ */
+const NEXT_AFTER = {
+  group: ["next/server"],
+  importNames: ["after"],
+  message:
+    "Schedule work behind the response through fl_frontend/src/core/afterResponse.ts :: afterTheResponse, which bounds it by the deadline a stopping container waits out (docs/ops/spec.md :: I547).",
+};
+
 const ACTOR_SIGNING_BOOT = "src/instrumentation-node.ts";
 
 /** The settings module, which every server module imports and whose secret readers lint deals out one owner each. */
@@ -721,7 +732,15 @@ const HINT_NAMES = `/^(?:${HINT_INTERNALS.importNames.join("|")})$/`;
 /** The bans a named module is the one importer of, which reach tests and the harness too. */
 const HOMED_IMPORTS = [NEXT_PRIVATE_CONTEXTS, SEGMENTED_DATE_CONTROLS, HEROUI_FORM, HEROUI_NUMBER_FIELD, HEROUI_MARKED_FIELDS, HINT_INTERNALS];
 
-const PRODUCTION_IMPORTS = [...HOMED_IMPORTS, ...SUITE_IMPORTS, SITE_ORIGIN, LOCALE_PROVIDER, ACTOR_SIGNING, ...Object.values(SECRET_READERS)];
+const PRODUCTION_IMPORTS = [
+  ...HOMED_IMPORTS,
+  ...SUITE_IMPORTS,
+  SITE_ORIGIN,
+  LOCALE_PROVIDER,
+  ACTOR_SIGNING,
+  NEXT_AFTER,
+  ...Object.values(SECRET_READERS),
+];
 
 /**
  * Bans no dedicated rule states, each one syntax selector: `exempt` names the file whose job is to
@@ -1174,6 +1193,7 @@ const eslintConfig = defineConfig([
         [reader],
         owner.startsWith("src/core/") ? [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core] : PRODUCTION_IMPORTS,
       ]),
+    [["src/core/afterResponse.ts"], [NEXT_AFTER], [...PRODUCTION_IMPORTS, LAYER_BOUNDARY.core]],
     // The harness and its own test, which the production bans leave out.
     [
       ["src/shared/testing/nextContexts.ts", "src/shared/testing/nextContexts.test.ts"],

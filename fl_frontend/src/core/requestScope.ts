@@ -2,10 +2,18 @@ import { AsyncLocalStorage } from "node:async_hooks";
 
 import { cache } from "react";
 
+import { mintSpanId } from "./trace";
+
 // Under `nginx/shared/site.conf :: proxy_read_timeout` by the proxy's session read before this scope
 // opens. Next streams an action's answer once it returns, the re-render following in chunks, and nginx
 // times each gap between reads, not the response (`docs/frontend/spec.md :: I366`).
 export const REQUEST_DEADLINE_MS = 30000;
+
+/**
+ * As long as a request's own, counted from when `runBehindTheResponse` starts: its work is a request's half
+ * moved behind the answer, sending the same calls. A stopping container waits out both (`docs/ops/spec.md :: I547`).
+ */
+export const AFTER_RESPONSE_DEADLINE_MS = 30000;
 
 /** Which guard recorded the actor: the administrator's, or a person's. */
 export type ActorLane = "admin" | "person";
@@ -78,11 +86,26 @@ export function oncePerRequest<T>(fn: () => Promise<T>): () => Promise<T> {
 }
 
 /**
- * Runs `fn` outside any request, as a timer's work runs: Next's `after` carries the request's scope
- * into its callback, and with it a deadline the response has already spent.
+ * Runs `work` behind a response, under a deadline of its own from `AFTER_RESPONSE_DEADLINE_MS`: the request's
+ * would leave it only what the request did not use (`docs/frontend/spec.md :: I546`). It keeps the trace, no actor.
  */
-export function runOutsideRequestScope<T>(fn: () => T): T {
-  return storage.exit(fn);
+export function runBehindTheResponse(traceId: string, work: () => Promise<void>): Promise<void> {
+  const scope: RequestScope = {
+    traceId,
+    spanId: mintSpanId(),
+    deadlineAt: performance.now() + AFTER_RESPONSE_DEADLINE_MS,
+    outcomeUnknown: false,
+    writeSent: false,
+    memo: new Map(),
+  };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  // Settled at the deadline whatever the work still awaits: a sign-in store call is bounded by its own
+  // `timeoutMS` and never by this scope, and a stopping server waits on this promise, not the work.
+  const cut = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, AFTER_RESPONSE_DEADLINE_MS);
+  });
+
+  return Promise.race([storage.run(scope, work), cut]).finally(() => clearTimeout(timer));
 }
 
 /**

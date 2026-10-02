@@ -2,10 +2,10 @@
 
 import { headers } from "next/headers";
 import { unstable_rethrow } from "next/navigation";
-import { after } from "next/server";
 
 import { APIError } from "better-auth/api";
 
+import { afterTheResponse } from "@/core/afterResponse";
 import { auth } from "@/core/auth";
 import { asSignInIdentifier } from "@/core/emailAddress";
 import { logger } from "@/core/logging";
@@ -64,7 +64,7 @@ export async function handleSignIn(_prevState: FormState | undefined, formData: 
 
     // The whole call, behind the response: the mail cap, the code write, the gate and the send all
     // sit in the branch-dependent half, so no branch does any of it before the caller is answered.
-    after(async () => {
+    afterTheResponse(async () => {
       try {
         // No `request`, so the endpoint's own form-CSRF check never runs: what stands in its place
         // is Next's server-action origin check, which refuses a mismatched `Origin` and lets a

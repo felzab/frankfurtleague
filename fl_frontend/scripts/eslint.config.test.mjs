@@ -81,6 +81,7 @@ const BANS = [
   ["secret-webhook", /hands out the key the provider's delivery reports are verified with/],
   ["secret-backend", /hand out the backend's keys/],
   ["config-load", /config\.ts loaded at run time hands over every secret's reader/],
+  ["next-after", /Schedule work behind the response through/],
   ["test-only", /a \*\.test\.ts\(x\) file may import it, production code may not/],
   ["test-only-load", /loaded at run time stays the suite's/],
   ["hint-internals-load", /Load the popover or the panel through Hint/],
