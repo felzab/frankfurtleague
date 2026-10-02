@@ -388,19 +388,31 @@ const PASSKEY_DELETION = {
     "The passkey plugin's own deletion writes outside the transaction a removal holds. Remove through `removePasskey` in src/core/auth.ts (docs/frontend/spec.md :: I312).",
 };
 
-const ASSERT_EQUALITY = 'CallExpression[callee.object.name="assert"][callee.property.name=/^(equal|strictEqual|deepEqual|deepStrictEqual)$/]';
-const QUERY_NAME = "/^(query|get|find)(All)?By/";
+/** Every comparison whose failure prints both operands, the negated and the partial forms among them. */
+const ASSERT_EQUALITY =
+  'CallExpression[callee.object.name="assert"][callee.property.name=/^(equal|strictEqual|notEqual|notStrictEqual|deepEqual|deepStrictEqual|notDeepEqual|notDeepStrictEqual|partialDeepStrictEqual)$/]';
 
-const queryOperand = (index) =>
-  ["callee.property.name", "callee.name"].flatMap((path) => [
-    `[arguments.${index}.type="CallExpression"][arguments.${index}.${path}=${QUERY_NAME}]`,
-    `[arguments.${index}.type="AwaitExpression"][arguments.${index}.argument.type="CallExpression"][arguments.${index}.argument.${path}=${QUERY_NAME}]`,
-  ]);
+/** A call answering a node: a Testing Library query, `within`'s included, or the DOM's own lookups. */
+const NODE_CALL = "/^((query|get|find)(All)?By|querySelector(All)?|closest)/";
 
-/**
- * A failed equality serialises both operands, and a query's DOM node reaches the whole React tree: one
- * failing case exhausted the machine's memory. Literal shapes only: a node held in a variable passes.
- */
+/** The DOM's own properties holding a node. */
+const NODE_PROPERTIES =
+  "activeElement|parentElement|parentNode|firstChild|lastChild|firstElementChild|lastElementChild|nextSibling|previousSibling|nextElementSibling|previousElementSibling|offsetParent";
+
+/** The operand at `index` in each literal shape that answers a node: called, awaited, or read off. */
+const nodeOperand = (index) => {
+  const operand = `arguments.${index}`;
+  return [
+    ...["callee.property.name", "callee.name"].flatMap((path) => [
+      `[${operand}.type="CallExpression"][${operand}.${path}=${NODE_CALL}]`,
+      `[${operand}.type="AwaitExpression"][${operand}.argument.type="CallExpression"][${operand}.argument.${path}=${NODE_CALL}]`,
+    ]),
+    // A ref's `current` too, but never read optionally: a ref is always there, and a record's `?.current` is a flag.
+    `[${operand}.type="MemberExpression"][${operand}.property.name=/^(${NODE_PROPERTIES}|current)$/]`,
+    `[${operand}.type="ChainExpression"][${operand}.expression.property.name=/^(${NODE_PROPERTIES})$/]`,
+  ];
+};
+
 /** A failure's own sentence handed to a danger's description: an `error` read off a name, bare or behind a `??`. */
 const handedOnError = (object) =>
   [
@@ -422,10 +434,15 @@ const FAILURE_BY_HAND = {
     "Hand an action's failure to `appToast.failure`, never to a danger titled here: a write of unknown outcome is titled neutrally there (docs/frontend/spec.md :: I325).",
 };
 
-const QUERY_IN_EQUALITY = {
-  selector: [...queryOperand(0), ...queryOperand(1)].map((operand) => `${ASSERT_EQUALITY}${operand}`).join(", "),
+/**
+ * A failing equality builds its diff when it throws, with custom inspection off, and a rendered node's
+ * React fibres reach the whole tree: one failing focus case grew its process to 12 GB. Literal shapes
+ * only: a node held in a variable passes.
+ */
+const NODE_IN_EQUALITY = {
+  selector: [...nodeOperand(0), ...nodeOperand(1)].map((operand) => `${ASSERT_EQUALITY}${operand}`).join(", "),
   message:
-    "A failing equality serialises the whole rendered tree. Assert a boolean or a count instead: `assert.ok(<query> === null)`, or `<queryAll…>.length`.",
+    "A failing equality over a DOM node serialises the whole rendered tree, React's fibres with it. Compare by identity or reduce to a value instead: `assert.ok(<node> === <other>, <message>)`, `<queryAll…>.length`, or `<node>.getAttribute(…)`.",
 };
 
 /**
@@ -645,7 +662,7 @@ const SOURCE_BANS = [
   },
   // `src/core/auth.test.ts` calls the plugin's deletion to hold it closed, so tests stay outside.
   PASSKEY_DELETION,
-  { ...QUERY_IN_EQUALITY, tests: true, production: false },
+  { ...NODE_IN_EQUALITY, tests: true, production: false },
   ...DYNAMIC_LOADS.map((ban) => ({ ...ban, tests: true })),
   {
     // A module double's source text, or a specifier held in a name for a later load. A path assembled

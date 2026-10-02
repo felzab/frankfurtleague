@@ -43,18 +43,33 @@ export const { HintPanel: LoadedPanel } = await import("@/shared/components/ui/I
 export const LOADED_POPOVER = (await import(`@/shared/components/ui/InfoHint`)).HintPopover; // expect: hint-internals-load
 export const { InfoHint: LoadedHint } = await import("@/shared/components/ui/InfoHint.tsx");
 
-declare const assert: { equal: (a: unknown, b: unknown) => void };
+declare const assert: Record<string, (a: unknown, b: unknown, message?: string) => void>;
 declare const screen: { queryByText: (text: string) => unknown; findByText: (text: string) => Promise<unknown> };
 declare const queryByText: (text: string) => unknown;
 declare const findByText: (text: string) => Promise<unknown>;
-assert.equal(screen.queryByText("Titel"), null); // expect: query-in-equality
-assert.equal(await screen.findByText("Titel"), null); // expect: query-in-equality
-assert.equal(queryByText("Titel"), null); // expect: query-in-equality
-assert.equal(await findByText("Titel"), null); // expect: query-in-equality
-assert.equal(null, screen.queryByText("Titel")); // expect: query-in-equality
-assert.equal(null, await screen.findByText("Titel")); // expect: query-in-equality
-assert.equal(null, queryByText("Titel")); // expect: query-in-equality
-assert.equal(null, await findByText("Titel")); // expect: query-in-equality
+declare const container: Element;
+declare const ref: { current: Element | null };
+declare const link: { current: boolean } | undefined;
+assert.equal(screen.queryByText("Titel"), null); // expect: node-in-equality
+assert.equal(await screen.findByText("Titel"), null); // expect: node-in-equality
+assert.equal(queryByText("Titel"), null); // expect: node-in-equality
+assert.equal(await findByText("Titel"), null); // expect: node-in-equality
+assert.equal(null, screen.queryByText("Titel")); // expect: node-in-equality
+assert.equal(null, await screen.findByText("Titel")); // expect: node-in-equality
+assert.equal(null, queryByText("Titel")); // expect: node-in-equality
+assert.equal(null, await findByText("Titel")); // expect: node-in-equality
+assert.strictEqual(document.activeElement, container); // expect: node-in-equality
+assert.notEqual(container.querySelector("p"), null); // expect: node-in-equality
+assert.notStrictEqual(container, container.closest("section")); // expect: node-in-equality
+assert.deepStrictEqual(ref.current, null); // expect: node-in-equality
+assert.notDeepStrictEqual(container.querySelectorAll("p"), []); // expect: node-in-equality
+assert.partialDeepStrictEqual(container.firstElementChild, {}); // expect: node-in-equality
+assert.equal(container?.parentElement, null); // expect: node-in-equality
+// The identity form, a value read off a node, and a record's optional flag are what the ban leaves alone.
+assert.ok(document.activeElement === container, "the focus left the box");
+assert.equal(container.getAttribute("role"), "group");
+assert.equal(container.querySelectorAll("p").length, 0);
+assert.equal(link?.current, false);
 // A test calls the plugin's deletion to hold it closed, so the passkey ban stays out of tests.
 export const HOLDS_IT_CLOSED = "deletePasskey";
 
