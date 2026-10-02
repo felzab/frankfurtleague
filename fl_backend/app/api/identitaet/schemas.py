@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 
-from app.api.berechtigungen.schemas import FLVerwaltung
+from app.api.berechtigungen.schemas import FLUtcInstant, FLVerwaltung
 
 # The wire's spelling of the three seats, imported rather than restated as
 # `app/api/kontakte/schemas.py` imports it: a second closed set here would name a seat no other
@@ -86,3 +86,6 @@ class FLSubjektResponse(FLSubjekt, BaseAPIResponse):
     # The grant this mailbox holds, or null: stored, where the lists beside it are derived, so it is
     # the endpoint's alone for `gesperrt`'s reason too -- no person endpoint authorises against it.
     verwaltung: FLVerwaltung | None
+    # Null exactly where `verwaltung` is. Named for the grant and not the tier: a tier change leaves it
+    # where it stands (`docs/backend/spec.md :: I525`).
+    berechtigt_seit: FLUtcInstant | None

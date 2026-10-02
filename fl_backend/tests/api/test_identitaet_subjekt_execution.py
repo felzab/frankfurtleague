@@ -265,13 +265,20 @@ async def _seed(database: AsyncDatabase) -> None:
             ban_document(ABGELAUFEN, bis=PAST_SAISON, _id=BAN_LAPSED_OID),
         ]
     )
-    await database[Collection.BERECHTIGUNGEN].insert_many([_grant(VERWALTUNG_INHABER, "owner"), _grant(VERWALTUNG_STORED, "administration")])
+    await database[Collection.BERECHTIGUNGEN].insert_many(
+        [_grant(VERWALTUNG_INHABER, "owner") | {"gefunden_am": GRANT_FOUND}, _grant(VERWALTUNG_STORED, "administration")]
+    )
+
+
+# A paste's typed date, and the later moment the reconciliation found it: the `owner` grant's row carries both.
+GRANT_TYPED = datetime(2026, 1, 1, tzinfo=UTC)
+GRANT_FOUND = datetime(2026, 1, 2, 8, 30, tzinfo=UTC)
 
 
 def _grant(adresse: str, verwaltung: str) -> dict[str, Any]:
     """A grant as the Playground or the grant route stores one: the folded identifier and its tier."""
 
-    return {"adresse": adresse, "verwaltung": verwaltung, "erteilt_von": "PLAYGROUND", "erteilt_am": datetime(2026, 1, 1, tzinfo=UTC)}
+    return {"adresse": adresse, "verwaltung": verwaltung, "erteilt_von": "PLAYGROUND", "erteilt_am": GRANT_TYPED}
 
 
 def on_a_league(url: str, body: Body) -> Any:
@@ -526,6 +533,7 @@ def test_the_mounted_route_serves_the_three_kinds_the_corpus_holds(mongo_url: st
         "unbestaetigt": False,
         "gesperrt": False,
         "verwaltung": None,
+        "berechtigt_seit": None,
     }
 
 
@@ -544,6 +552,7 @@ def test_the_mounted_route_flags_a_mailbox_whose_every_record_awaits_its_confirm
         "unbestaetigt": True,
         "gesperrt": False,
         "verwaltung": None,
+        "berechtigt_seit": None,
     }
 
 
@@ -562,6 +571,7 @@ def test_the_mounted_route_answers_a_retired_person_as_it_answers_nobody(mongo_u
         "unbestaetigt": False,
         "gesperrt": False,
         "verwaltung": None,
+        "berechtigt_seit": None,
     }
 
 
@@ -601,5 +611,20 @@ class TestTheGrant:
 
         answer = answered(mongo_url)
 
-        assert answer.verwaltung is None
+        assert (answer.verwaltung, answer.berechtigt_seit) == (None, None)
         assert answer.sitze
+
+    def test_each_grant_is_dated_by_the_reconciliation_s_find_where_it_made_one_and_by_its_own_date_otherwise(self, mongo_url: str):
+        """The `owner` grant's row carries both, the later the find.
+
+        A lookup reading `erteilt_am` alone would date a paste by whatever was typed.
+        """
+
+        assert [answered(mongo_url, email).berechtigt_seit for email in (VERWALTUNG_INHABER, VERWALTUNG_ASKED)] == [GRANT_FOUND, GRANT_TYPED]
+
+    def test_the_instant_is_served_with_its_offset(self, mongo_url: str):
+        """The driver reads a stored instant back with no offset, which the frontend would compare as its own local time."""
+
+        response = served_over_http(mongo_url, VERWALTUNG_STORED)
+
+        assert response.json()["berechtigt_seit"] == "2026-01-01T00:00:00Z"

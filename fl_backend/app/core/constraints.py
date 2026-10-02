@@ -965,6 +965,9 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # A date and not the German day string the ban list stores: the Playground writes
                 # `new Date()`, which is one spelling nobody can mistype.
                 "erteilt_am": {"bsonType": "date"},
+                # Out of `required`: a paste writes no such key, and the comparison stamps it on the
+                # row it finds (`docs/backend/spec.md :: I525`).
+                "gefunden_am": {"bsonType": ["date", "null"]},
             },
         )
     },

@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import secrets
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
+from datetime import datetime
 from http import HTTPStatus
 from typing import Annotated, Final, get_args
 
@@ -10,7 +11,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import SecretStr
 from pymongo.asynchronous.collection import AsyncCollection
 
-from app.api.berechtigungen.crud import holds_a_live_unbarred_grant
+from app.api.berechtigungen.crud import live_unbarred_grant_since
 from app.api.sperrliste.lookup import SperrlisteLookup, adressen_gesperrt
 from app.core.actor_token import (
     ACTOR_TOKEN_MAX_LENGTH,
@@ -154,8 +155,8 @@ def verify_person_actor(
         raise ActorTokenRefusedException(error_code=ACTOR_TOKEN_REFUSED, reason=refusal.reason, jti=refusal.jti) from None
 
 
-# Whether a folded identifier holds a live grant: the one question the actor check asks.
-GrantLookup = Callable[[str], Awaitable[bool]]
+# When the live grant a folded identifier holds took effect, `None` for none: the one question the actor check asks.
+GrantLookup = Callable[[str], Awaitable[datetime | None]]
 
 
 def get_grant_lookup(
@@ -163,26 +164,32 @@ def get_grant_lookup(
 ) -> GrantLookup:
     """The actor check's read: a live grant, and no ban on its address (`docs/backend/spec.md :: I453`, `:: I463`)."""
 
-    async def holds_a_live_grant(identifier: str) -> bool:
-        return await holds_a_live_unbarred_grant(identifier, berechtigungen_collection=berechtigungen_collection, sperrliste=sperrliste)
+    async def grant_since(identifier: str) -> datetime | None:
+        return await live_unbarred_grant_since(identifier, berechtigungen_collection=berechtigungen_collection, sperrliste=sperrliste)
 
-    return holds_a_live_grant
+    return grant_since
 
 
 async def verify_actor_is_admin(
     # First, so an unverified actor is refused before the grant read opens the database.
     actor: Annotated[ActorClaims, Depends(verify_admin_actor)],
-    holds_a_live_grant: Annotated[GrantLookup, Depends(get_grant_lookup)],
+    grant_since: Annotated[GrantLookup, Depends(get_grant_lookup)],
 ) -> None:
-    """Refuse a verified actor an admin-tier route names who holds no live grant, read per request (`docs/backend/spec.md :: I383`)."""
+    """Refuse a verified actor who holds no live grant, read per request, or signed in before it (`docs/backend/spec.md :: I383`, `:: I526`)."""
 
     # Folded, as every grant is stored, or a mixed-case identifier locks an administrator out of the
     # panel. Either tier admits: `owner` holds every power `administration` does.
-    if not await holds_a_live_grant(sign_in_identifier(actor.email)):
+    seit = await grant_since(sign_in_identifier(actor.email))
+    if seit is None:
         # The address stays out of the message, which reaches the log line.
         raise ActorForbiddenException(
             error_code=ACTOR_NOT_ADMIN, message=f"the {ACTOR_HEADER} this request names is not an administrator", jti=actor.jti
         )
+
+    # Against the grant's second, the unit `auth_time` is floored to: a session the frontend's guard
+    # admits to the millisecond is never refused here.
+    if actor.auth_time < int(seit.timestamp()):
+        raise ActorTokenRefusedException(error_code=ACTOR_TOKEN_REFUSED, reason="session older than its grant", jti=actor.jti)
 
 
 ENROLMENT_WINDOW_S: Final = ENROLMENT_WINDOW_MINUTES * 60

@@ -156,6 +156,8 @@ DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
     get_actor_token: (HTTPStatus.BAD_REQUEST, MISSING_ACTOR),
     verify_admin_actor: (HTTPStatus.UNAUTHORIZED, ACTOR_TOKEN_REFUSED),
     verify_person_actor: (HTTPStatus.UNAUTHORIZED, ACTOR_TOKEN_REFUSED),
+    # A session older than its grant is refused here under `verify_admin_actor`'s code, which this
+    # check's own dependency on it publishes on every operation running both.
     verify_actor_is_admin: (HTTPStatus.FORBIDDEN, ACTOR_NOT_ADMIN),
     verify_person_is_unbarred: (HTTPStatus.FORBIDDEN, PERSON_BARRED),
     verify_recent_confirmation: (HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),

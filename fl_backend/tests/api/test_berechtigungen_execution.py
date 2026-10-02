@@ -6,6 +6,7 @@ the actor bound as `bind_actor` binds it; the mounted route is what reads a requ
 class goes through it.
 """
 
+import time
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
@@ -46,9 +47,9 @@ from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.recording import SYSTEM_ACTOR, Actor, actor_var
-from app.core.security import ACTOR_NOT_ADMIN, get_grant_lookup
+from app.core.security import ACTOR_HEADER, ACTOR_NOT_ADMIN, ACTOR_TOKEN_REFUSED, get_grant_lookup
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
-from tests.actor_tokens import SignedActor
+from tests.actor_tokens import SignedActor, actor_claims, sign
 from tests.app_client import app_client
 from tests.config import ADMIN_KEY, SYSTEM_AUTH
 from tests.database import a_clean_database, on_the_seed_loop
@@ -141,7 +142,13 @@ async def acting(actor: Any, call: Callable[[], Awaitable[Any]]) -> Any:
 
 
 async def grant(
-    database: AsyncDatabase, client: AsyncMongoClient, email: str = NEU_TYPED, *, als: str = ANNA, berechtigungen: Any = None
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
+    email: str = NEU_TYPED,
+    *,
+    als: str = ANNA,
+    berechtigungen: Any = None,
+    now: datetime = NOW,
 ) -> ObjectId:
     async def call() -> Any:
         return await post_berechtigung(
@@ -152,7 +159,7 @@ async def grant(
             sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
             db=client,
             erteilt_von=als,
-            now=NOW,
+            now=now,
         )
 
     return (await acting(Actor(kind="admin_session", email=als), call)).created_id
@@ -1235,8 +1242,133 @@ class TestTheClaim:
         assert later == []
 
 
+async def gefunden_am(database: AsyncDatabase) -> dict[ObjectId, Any]:
+    """Each grant's stamp as stored, or `None` where it carries no such key."""
+
+    return {row["_id"]: row.get("gefunden_am") async for row in database[Collection.BERECHTIGUNGEN].find()}
+
+
+# Past `NOW`, for a pass run after the one that found the list.
+LATER = NOW + timedelta(hours=2)
+
+
+class TestWhatTheComparisonStampsOnAGrant:
+    """`gefunden_am`: when a grant the comparison found took effect.
+
+    A paste's `erteilt_am` cannot say, being whatever was typed (`docs/backend/spec.md :: I525`).
+    """
+
+    def test_every_grant_a_pass_finds_is_stamped_with_its_clock_and_a_grant_made_here_with_nothing(self, mongo_replica_set_url: str):
+        """The second pass finds only the grant made here, which queued its own notice, so it stamps nothing and moves no earlier stamp."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[dict[ObjectId, Any], ObjectId]:
+            await told(database, client)
+            created = await grant(database, client)
+            await claimed(database, client, now=LATER)
+
+            return await gefunden_am(database), created
+
+        stamps, created = on_a_league(mongo_replica_set_url, body)
+
+        found = NOW.astimezone(UTC).replace(tzinfo=None)
+        assert stamps == {OWNER_ID: found, ANNA_ID: found, BERND_ID: found, created: None}
+
+    def test_an_address_repointed_in_the_database_is_stamped_anew_and_a_tier_changed_there_is_not(self, mongo_replica_set_url: str):
+        """The new address's grant began at the repoint; the tier's holder held a grant all along."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> dict[ObjectId, Any]:
+            await told(database, client)
+            await database[Collection.BERECHTIGUNGEN].update_one({"_id": BERND_ID}, {"$set": {"adresse": NEU}})
+            await database[Collection.BERECHTIGUNGEN].update_one({"_id": ANNA_ID}, {"$set": {"verwaltung": "owner"}})
+            await claimed(database, client, now=LATER)
+
+            return await gefunden_am(database)
+
+        stamps = on_a_league(mongo_replica_set_url, body)
+
+        assert (stamps[BERND_ID], stamps[ANNA_ID]) == (LATER.astimezone(UTC).replace(tzinfo=None), NOW.astimezone(UTC).replace(tzinfo=None))
+
+    def test_a_tier_change_meeting_a_pasted_grant_stamps_it_as_the_pass_would(self, mongo_replica_set_url: str):
+        """The change moves the announced row, so no later pass finds the paste.
+
+        Unstamped here, it would stay dated by its typed `erteilt_am`.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, list[Any]]:
+            await told(database, client)
+            await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(DEAD_ID, NEU, "administration"))
+            await change(database, client, DEAD_ID, "owner")
+            [stamp] = [value for grant_id, value in (await gefunden_am(database)).items() if grant_id == DEAD_ID]
+
+            return stamp, summary(await claimed(database, client, now=LATER))
+
+        stamp, later = on_a_league(mongo_replica_set_url, body)
+
+        assert stamp == NOW.astimezone(UTC).replace(tzinfo=None)
+        assert later == [("erteilt", NEU, None), ("geaendert", NEU, OWNER)]
+
+
+def since(seconds_ago: int) -> datetime:
+    """An instant `seconds_ago` before the real clock, which the actor tokens below are signed against."""
+
+    return datetime.now(UTC) - timedelta(seconds=seconds_ago)
+
+
+def signed_in_at(email: str, auth_time: int) -> dict[str, str]:
+    """One session's token, minted afresh by each request: its `iat` moves on, its sign-in stays where it was made."""
+
+    return {**ADMIN_KEY, ACTOR_HEADER: sign({**actor_claims(email), "auth_time": auth_time})}
+
+
 class TestTheMountedRouteReadsTheGrants:
     """`app/core/security.py :: verify_actor_is_admin` against a real collection, where every other case calls the handler past it."""
+
+    @pytest.mark.parametrize(
+        ("granted_s_ago", "status", "error_code"),
+        [
+            pytest.param(0, 401, ACTOR_TOKEN_REFUSED, id="granted after the sign-in"),
+            pytest.param(120, 200, None, id="granted before it"),
+        ],
+    )
+    def test_a_session_signed_in_before_a_grant_made_here_administers_nothing(
+        self, mongo_replica_set_url: str, granted_s_ago: int, status: int, error_code: str | None
+    ):
+        """A passkey session a minute old, and the grant the application made either side of it (`docs/backend/spec.md :: I526`)."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[int, str | None]:
+            await grant(database, client, now=since(granted_s_ago))
+            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+                response = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=signed_in_at(NEU, int(time.time()) - 60))
+
+            return response.status_code, response.json().get("error_code")
+
+        assert on_a_league(mongo_replica_set_url, body) == (status, error_code)
+
+    def test_the_first_owner_signs_in_before_the_pass_finds_the_paste_and_once_more_after_it(self, mongo_replica_set_url: str):
+        """A paste nothing has found is dated by its own `erteilt_am`, so no owner waits on a pass.
+
+        The pass's clock then dates it, which the same session predates, and a sign-in after the pass is served.
+        """
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[int, str | None]]:
+            # As the runbook's paste writes it, `new Date()` a moment before its holder signs in.
+            await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(DEAD_ID, NEU, "owner") | {"erteilt_am": since(120)})
+            between = int(time.time()) - 60
+
+            async with app_client(mongo_replica_set_url, config=CONFIG) as http:
+
+                async def asked(auth_time: int) -> tuple[int, str | None]:
+                    response = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=signed_in_at(NEU, auth_time))
+                    return response.status_code, response.json().get("error_code")
+
+                before_the_pass = await asked(between)
+                await claimed(database, client, now=datetime.now(UTC))
+                the_same_session = await asked(between)
+                signed_in_again = await asked(int(time.time()))
+
+            return [before_the_pass, the_same_session, signed_in_again]
+
+        assert on_a_league(mongo_replica_set_url, body) == [(200, None), (401, ACTOR_TOKEN_REFUSED), (200, None)]
 
     @pytest.mark.parametrize(
         ("actor", "status"),
@@ -1358,14 +1490,15 @@ class TestTheMountedRouteReadsTheGrants:
     def test_the_lookup_admits_a_live_row_and_no_dead_one_of_the_same_equality(self, mongo_replica_set_url: str):
         """A folded row the address rule refuses equals its own header and still admits nobody (`docs/backend/spec.md :: I453`)."""
 
-        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[bool]:
-            holds_a_live_grant = get_grant_lookup(
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[datetime | None]:
+            grant_since = get_grant_lookup(
                 database[Collection.BERECHTIGUNGEN],
                 BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
             )
 
-            return [await holds_a_live_grant(ANNA), await holds_a_live_grant("jürgen@frankfurtleague.de")]
+            return [await grant_since(ANNA), await grant_since("jürgen@frankfurtleague.de")]
 
         grants = [*the_three_grants(), grant_document(DEAD_ID, "jürgen@frankfurtleague.de", "administration")]
 
-        assert on_a_league(mongo_replica_set_url, body, grants=grants) == [True, False]
+        # The live row dated as `berechtigt_seit` dates it, the offset marked, for the comparison with `auth_time`.
+        assert on_a_league(mongo_replica_set_url, body, grants=grants) == [datetime(2026, 1, 1, tzinfo=UTC), None]

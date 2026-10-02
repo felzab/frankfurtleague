@@ -77,6 +77,10 @@ async def get_subjekt(
     folded identifier alone, the one spelling a grant is stored in. It is the one stored answer here: whether a person is an
     administrator is decided by a grant rather than derived from a league record, and it narrows none of the records beside it.
 
+    `berechtigt_seit` is when that grant took effect, null exactly where `verwaltung` is: the moment `POST /berechtigungen/abgleich`
+    first found a grant made in the database directly, and the grant's own `erteilt_am` for one made through the application or not
+    yet found. A tier change leaves it standing. An admin-tier request from a sign-in older than it is refused.
+
     Each list may be empty and each may hold more than one entry: one person holds seats at two clubs, and nothing enforces one pupil
     record per address.
     An address the league holds nothing for is answered with three empty lists and `unbestaetigt` false rather than a 404.
@@ -99,6 +103,7 @@ async def get_subjekt(
     # `canonical_address` runs, so an address the hash would refuse was answered 422 before here.
     gesperrt = await hash_gesperrt(sperrliste, sperrliste.hash_of(str(subjekt_data.email)))
 
-    verwaltung = await verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=sign_in_identifier(str(subjekt_data.email)))
+    grant = await verwaltung_of(berechtigungen_collection=berechtigungen_collection, adresse=sign_in_identifier(str(subjekt_data.email)))
+    verwaltung, berechtigt_seit = (None, None) if grant is None else grant
 
-    return FLSubjektResponse(**subjekt.model_dump(), gesperrt=gesperrt, verwaltung=verwaltung)
+    return FLSubjektResponse(**subjekt.model_dump(), gesperrt=gesperrt, verwaltung=verwaltung, berechtigt_seit=berechtigt_seit)

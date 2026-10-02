@@ -25,6 +25,7 @@ from app.api.berechtigungen.services import (
     compare,
     compose_announced,
     compose_postausgang,
+    gefunden,
     lebendige,
     withheld,
 )
@@ -72,7 +73,8 @@ async def post_berechtigungen_abgleich(
     it. What was changed in the database directly is found here, by comparing the grants with the record of what is already
     accounted for, and queued naming nobody: `geaendert_von` and `geaendert_am` null. A database change undone again before any
     call to this endpoint is found by nothing. A row whose address no request can match counts as no grant, and `uebersprungen`
-    counts those rows.
+    counts those rows. A grant found here -- a new row, or an address changed in place -- is stamped `gefunden_am` with this call's
+    time, which `POST /identitaet/subjekt` then answers as `berechtigt_seit`: a session signed in before it administers nothing.
 
     The call then claims, oldest first and a page at a time, every queued change no claim holds or whose claim has lapsed, for ten
     minutes from now. A second call inside that time is answered none of them. The caller mails each change and then hands the ids it
@@ -129,6 +131,15 @@ async def post_berechtigungen_abgleich(
             ]
             if current:
                 await post_many_to_db(collection=berechtigungen_angekuendigt_collection, documents=current, session=session)
+            # This pass's clock and not the row's `erteilt_am`, which a paste typed and a repoint kept
+            # from the address before (`docs/backend/spec.md :: I525`).
+            if found := gefunden(changes):
+                await patch_many_in_db(
+                    collection=berechtigungen_collection,
+                    db_filter={"_id": {"$in": found}},
+                    update={"$set": {"gefunden_am": now}},
+                    session=session,
+                )
 
         claimable = await read_the_claimable(
             berechtigungen_postausgang_collection=berechtigungen_postausgang_collection, now=now, session=session

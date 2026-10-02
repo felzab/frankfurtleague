@@ -5,6 +5,7 @@ import re
 import time
 from collections import Counter
 from collections.abc import AsyncIterator, Callable, Mapping
+from datetime import UTC, datetime
 from typing import Any, cast, get_args
 
 import pytest
@@ -42,6 +43,7 @@ from app.core.security import (
     SAFE_METHODS,
     STEP_UP_WINDOW_S,
     BanLookup,
+    GrantLookup,
     akteur_pseudonym,
     bind_actor,
     bind_public_actor,
@@ -49,6 +51,7 @@ from app.core.security import (
     get_actor_email,
     get_actor_token,
     get_ban_lookup,
+    get_grant_lookup,
     verify_admin_actor,
     verify_person_actor,
     verify_step_up,
@@ -537,6 +540,18 @@ READ_ROUTER_PATH = "/api/v0/spielorte"
 NOT_AN_ADMINISTRATOR = "schueler@example.com"
 
 
+def granted_at(seit: datetime) -> Callable[[], GrantLookup]:
+    """The actor check's read answered for `ACTOR` alone, its grant dated `seit`."""
+
+    def answered() -> GrantLookup:
+        async def grant_since(identifier: str) -> datetime | None:
+            return seit if identifier == ACTOR else None
+
+        return grant_since
+
+    return answered
+
+
 class TestTheGrantsOverAServedRequest:
     """An actor named on an admin-tier route must hold a grant in `berechtigungen`, whatever the method."""
 
@@ -587,6 +602,28 @@ class TestTheGrantsOverAServedRequest:
         response = TestClient(create_app(CONFIG), raise_server_exceptions=False).get(READ_PATH, headers={**ADMIN_KEY, **headers})
 
         assert (response.status_code, response.json()["error_code"]) == (400, MISSING_ACTOR)
+
+    @pytest.mark.parametrize(
+        ("granted_after_s", "status", "error_code"),
+        [
+            pytest.param(0.999, 503, UNREACHED_DATABASE, id="later inside the sign-in's second"),
+            pytest.param(1, 401, ACTOR_TOKEN_REFUSED, id="the second after the sign-in"),
+        ],
+    )
+    def test_a_session_signed_in_before_its_grant_is_refused_to_the_second(self, granted_after_s: float, status: int, error_code: str):
+        """The first case is the control, and pins the floor.
+
+        `auth_time` is a whole second, so a grant later inside it admits what the frontend's millisecond admitted.
+        """
+        claims = actor_claims(ACTOR)
+        app = create_app(CONFIG)
+        app.dependency_overrides[get_grant_lookup] = granted_at(datetime.fromtimestamp(claims["auth_time"] + granted_after_s, UTC))
+
+        response = TestClient(app, raise_server_exceptions=False).get(READ_ROUTER_PATH, headers={**ADMIN_KEY, ACTOR_HEADER: sign(claims)})
+
+        assert (response.status_code, response.json()["error_code"]) == (status, error_code)
+        # The verifier's own challenge, so the refusal reads as the sign-in that repairs it.
+        assert response.headers.get("www-authenticate") == (ACTOR_TOKEN_CHALLENGE if status == 401 else None)
 
     @pytest.mark.parametrize(
         "headers",

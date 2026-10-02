@@ -1,9 +1,13 @@
 from collections.abc import Iterable
+from datetime import UTC, datetime
 
 from fastapi import FastAPI
 
 from app.core.security import GrantLookup, get_grant_lookup
 from tests.config import ADMINISTRATORS
+
+# Before any sign-in a case signs a token for, so the check this answers admits every one of them.
+GRANTED_SINCE = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 def admit(app: FastAPI, addresses: Iterable[str] = ADMINISTRATORS) -> FastAPI:
@@ -15,10 +19,10 @@ def admit(app: FastAPI, addresses: Iterable[str] = ADMINISTRATORS) -> FastAPI:
     granted = frozenset(addresses)
 
     def answered_from_the_set() -> GrantLookup:
-        async def holds_a_live_grant(identifier: str) -> bool:
-            return identifier in granted
+        async def grant_since(identifier: str) -> datetime | None:
+            return GRANTED_SINCE if identifier in granted else None
 
-        return holds_a_live_grant
+        return grant_since
 
     app.dependency_overrides[get_grant_lookup] = answered_from_the_set
 

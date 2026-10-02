@@ -45,6 +45,10 @@ class FLBerechtigung(BaseModel):
     # included, for one made in the Playground. No bound on it: that would hide a live grant.
     erteilt_von: str
     erteilt_am: datetime
+    # Absent until a comparison finds the row new, and never written by a grant made here: a paste's
+    # `erteilt_am` is whatever was typed, and an address changed in place keeps the old one
+    # (`docs/backend/spec.md :: I525`).
+    gefunden_am: datetime | None = None
 
 
 class FLBerechtigungZeile(BaseModel):

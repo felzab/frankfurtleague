@@ -12,7 +12,7 @@ from typing import Any, Final
 
 from bson import ObjectId
 
-from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungStand
+from app.api.berechtigungen.schemas import FLBerechtigungAenderungArt, FLBerechtigungStand, as_utc
 from app.api.sperrliste.services import withheld_actor
 from app.core.exceptions import WriteRefusal
 from app.shared.folding import is_stored_identifier, sign_in_identifier
@@ -60,6 +60,23 @@ def lebendige_adresse(row: Mapping[str, Any]) -> str | None:
     adresse = row.get("adresse")
 
     return adresse if is_stored_identifier(adresse) else None
+
+
+def berechtigt_seit(row: Mapping[str, Any]) -> datetime:
+    """When a stored grant took effect, the one reading the subject lookup and the actor check share (`docs/backend/spec.md :: I525`).
+
+    Two readings would let the frontend's guard and this side judge one session against two instants.
+    """
+
+    return as_utc(row.get("gefunden_am") or row["erteilt_am"])
+
+
+def gefunden(
+    changes: Sequence[tuple[Any, FLBerechtigungAenderungArt, FLBerechtigungStand | None, FLBerechtigungStand | None]],
+) -> list[Any]:
+    """The grant ids a comparison found granted anew, an address changed in place among them, each of which is stamped `gefunden_am`."""
+
+    return [berechtigung_id for berechtigung_id, art, _, _ in changes if art == "erteilt"]
 
 
 def lebendige(grants: Sequence[Mapping[str, Any]]) -> list[Mapping[str, Any]]:

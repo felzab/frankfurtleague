@@ -28,6 +28,7 @@ from app.api.berechtigungen.services import (
     find_nur_inhaber_refusal,
     find_ohne_zugang_refusal,
     find_vorhanden_refusal,
+    gefunden,
     lebendige,
     lebendige_adresse,
     stand_of,
@@ -123,7 +124,8 @@ async def post_berechtigung(
     The address is stored folded to its sign-in identifier, the spelling every admin-tier request is judged by. Refused where a live
     grant already holds the address (`REQ-BERECHTIGUNG-001`) -- a dead row of another spelling blocks nothing -- where the ban list
     holds it (`REQ-BERECHTIGUNG-003`), and where the acting administrator's own grant has gone by the time the write is judged
-    (`REQ-BERECHTIGUNG-006`). The grant takes effect on the next request, and its announcement is queued in the same transaction for
+    (`REQ-BERECHTIGUNG-006`). The grant takes effect on the next request, for a session signed in after it alone -- an older one is
+    refused `REQ-AUTH-007` on every admin-tier route -- and its announcement is queued in the same transaction for
     `POST /berechtigungen/abgleich` to hand out. Like a revoke and a tier change, it takes a passkey sign-in or confirmation no older than
     `ENROLMENT_WINDOW_MINUTES` when the actor token was minted, refused `REQ-AUTH-009` otherwise.
     """
@@ -294,7 +296,8 @@ async def patch_berechtigung(
     anything about the target is answered. 404 where no live grant has the id. A promotion of an address on the ban list is refused
     (`REQ-BERECHTIGUNG-003`), and so is a demotion leaving no live, unbarred owner (`REQ-BERECHTIGUNG-007`). Naming the tier the grant
     holds changes nothing and answers 200. The change takes effect on the next request; its announcement is queued in the same
-    transaction, after any change to the row made in the database and not yet announced. A sign-in or confirmation older than
+    transaction, after any change to the row made in the database and not yet announced, and a grant found that way is stamped
+    `gefunden_am` as `POST /berechtigungen/abgleich` stamps one. A sign-in or confirmation older than
     `ENROLMENT_WINDOW_MINUTES` is refused `REQ-AUTH-009`, as the grant's is.
     """
 
@@ -332,7 +335,8 @@ async def patch_berechtigung(
             collection=berechtigungen_angekuendigt_collection, db_filter={"_id": berechtigung_id}, limit=1, session=session
         )
         # A database edit to this row nobody was told of goes out first, as the revoke's does (`docs/backend/spec.md :: I451`).
-        for changed_id, art, jetzt, vorher in compare(grants=[grant], announced=announced):
+        pending = compare(grants=[grant], announced=announced)
+        for changed_id, art, jetzt, vorher in pending:
             await post_one_to_db(
                 collection=berechtigungen_postausgang_collection,
                 document=compose_postausgang(
@@ -344,7 +348,9 @@ async def patch_berechtigung(
         await patch_one_in_db(
             collection=berechtigungen_collection,
             db_filter={"_id": berechtigung_id},
-            update={"$set": {"verwaltung": verwaltung}},
+            # Stamped as the pass stamps a grant it finds, since the announced row moved below leaves the pass
+            # nothing of this grant to find (`docs/backend/spec.md :: I525`).
+            update={"$set": {"verwaltung": verwaltung, **({"gefunden_am": now} if gefunden(pending) else {})}},
             session=session,
             return_document=ReturnDocument.BEFORE,
         )

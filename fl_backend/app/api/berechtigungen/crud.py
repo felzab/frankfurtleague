@@ -14,7 +14,7 @@ from pymongo.asynchronous.client_session import AsyncClientSession
 from pymongo.asynchronous.collection import AsyncCollection
 
 from app.api.berechtigungen.schemas import FLVerwaltung
-from app.api.berechtigungen.services import lebendige_adresse
+from app.api.berechtigungen.services import berechtigt_seit, lebendige_adresse
 from app.api.sperrliste.lookup import BanList, adressen_gesperrt
 from app.core.crud import aggregate_many_from_db, patch_many_in_db, pull_many_from_db
 from app.shared.schemas.bounds import LIST_LIMIT_DEFAULT
@@ -54,35 +54,42 @@ async def pull_the_list_to_judge(
     return grants
 
 
-async def verwaltung_of(*, berechtigungen_collection: AsyncCollection, adresse: str) -> FLVerwaltung | None:
-    """The tier this folded address holds, or `None`: one equality `uniq_berechtigung_adresse` serves.
+# What `berechtigt_seit` reads, beside what each caller reads for itself.
+_SEIT_FIELDS = ["erteilt_am", "gefunden_am"]
+
+
+async def verwaltung_of(*, berechtigungen_collection: AsyncCollection, adresse: str) -> tuple[FLVerwaltung, datetime] | None:
+    """The tier this folded address holds and when it took effect, or `None`, by one equality.
 
     No dead-row check: its one caller folds an address the address rule admitted, and a row equal to
     that is live (`docs/backend/spec.md :: I453`).
     """
 
-    found = await pull_many_from_db(collection=berechtigungen_collection, db_filter={"adresse": adresse}, limit=1, projection=["verwaltung"])
+    found = await pull_many_from_db(
+        collection=berechtigungen_collection, db_filter={"adresse": adresse}, limit=1, projection=["verwaltung", *_SEIT_FIELDS]
+    )
 
-    return found[0]["verwaltung"] if found else None
+    return (found[0]["verwaltung"], berechtigt_seit(found[0])) if found else None
 
 
-async def holds_a_live_unbarred_grant(
+async def live_unbarred_grant_since(
     identifier: str,
     *,
     berechtigungen_collection: AsyncCollection,
     sperrliste: BanList,
-) -> bool:
-    """The actor check's question: one equality on the grants, then one on the ban list by the identifier's hash.
+) -> datetime | None:
+    """The actor check's question: when the live grant this identifier holds took effect, read by one equality, then the ban list's.
 
-    A barred holder is no administrator, the reason a barred grant holds no floor
-    (`docs/backend/spec.md :: I463`).
+    `None` for a barred holder, who is no administrator (`docs/backend/spec.md :: I463`).
     """
 
-    found = await pull_many_from_db(collection=berechtigungen_collection, db_filter={"adresse": identifier}, limit=1, projection=["adresse"])
+    found = await pull_many_from_db(
+        collection=berechtigungen_collection, db_filter={"adresse": identifier}, limit=1, projection=["adresse", *_SEIT_FIELDS]
+    )
     if not found or lebendige_adresse(found[0]) is None:
-        return False
+        return None
 
-    return not await adressen_gesperrt(sperrliste, [identifier])
+    return None if await adressen_gesperrt(sperrliste, [identifier]) else berechtigt_seit(found[0])
 
 
 async def withhold_in_the_outbox(*, berechtigungen_postausgang_collection: AsyncCollection, adresse: str, session: AsyncClientSession) -> None:
