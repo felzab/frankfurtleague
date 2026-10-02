@@ -607,16 +607,25 @@ def test_a_target_naming_the_default_path_either_way_is_clean(target: str):
     assert checker.secret_holders(stack_of("production", frontend={"secrets": moved}), "p", RENDER, "production") == []
 
 
-@pytest.mark.parametrize("holder", ["backend", "nginx", "cloudflared"])
-def test_a_second_holder_of_the_signing_key_fails(holder: str):
-    """Whoever holds the key mints an actor the backend takes as the frontend's."""
-    rendered = stack_of("production")
-    rendered["services"][holder] = {"secrets": [*(rendered["services"].get(holder) or {}).get("secrets", []), {"source": KEY}]}
+# Every secret of each stack handed to each service of that stack its table leaves out, the edge among them.
+SECOND_HOLDERS: Final = [
+    pytest.param(stack, secret, service, id=f"{stack}-{secret}-{service}")
+    for stack, table in checker.SECRET_HOLDERS.items()
+    for secret, (holders, _) in sorted(table.items())
+    for service in sorted({"nginx", *(held for readers, _ in table.values() for held in readers)} - holders)
+]
 
-    found = checker.secret_holders(rendered, "p", RENDER, "production")
+
+@pytest.mark.parametrize(("stack", "secret", "holder"), SECOND_HOLDERS)
+def test_a_second_holder_of_any_secret_fails(stack: str, secret: str, holder: str):
+    """The signing key is the load-bearing row: whoever holds it mints an actor the backend takes as the frontend's."""
+    rendered = stack_of(stack)
+    rendered["services"][holder] = {"secrets": [*(rendered["services"].get(holder) or {}).get("secrets", []), {"source": secret}]}
+
+    found = checker.secret_holders(rendered, "p", RENDER, stack)
 
     assert len(found) == 1, found
-    assert f"'{holder}'" in found[0].detail and KEY in found[0].detail, found
+    assert f"'{holder}'" in found[0].detail and secret in found[0].detail, found
 
 
 @pytest.mark.parametrize(
