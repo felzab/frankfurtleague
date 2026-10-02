@@ -30,6 +30,9 @@ interface RequestScope {
   // Set when a call that may write is dispatched, answered or not: the admin spine judges by it what its
   // answer leaves standing, where an action declaring it would repeat what each call already says.
   writeSent: boolean;
+  // `oncePerRequest`'s reads, by the function each wraps. Held by reference, so the scope
+  // `runAnsweringOwnCut` derives shares it.
+  memo: Map<() => Promise<unknown>, Promise<unknown>>;
 }
 
 const storage = new AsyncLocalStorage<RequestScope>();
@@ -45,9 +48,33 @@ export function runWithRequestScope<T>(scope: Pick<RequestScope, "traceId" | "sp
   if (storage.getStore() !== undefined) return fn();
 
   const render = scopeOfThisRender();
-  render.scope ??= { ...scope, deadlineAt: performance.now() + REQUEST_DEADLINE_MS, outcomeUnknown: false, writeSent: false };
+  render.scope ??= {
+    ...scope,
+    deadlineAt: performance.now() + REQUEST_DEADLINE_MS,
+    outcomeUnknown: false,
+    writeSent: false,
+    memo: new Map(),
+  };
 
   return storage.run(render.scope, fn);
+}
+
+/**
+ * `fn` read once per request scope, and afresh outside one: React's `cache` keeps nothing in a server
+ * action or a route handler. The render after an action opens a scope of its own, so it reads again.
+ */
+export function oncePerRequest<T>(fn: () => Promise<T>): () => Promise<T> {
+  return () => {
+    const store = storage.getStore();
+    if (store === undefined) return fn();
+
+    const held = store.memo.get(fn) as Promise<T> | undefined;
+    if (held !== undefined) return held;
+
+    const read = fn();
+    store.memo.set(fn, read);
+    return read;
+  };
 }
 
 /**

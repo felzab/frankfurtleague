@@ -27,9 +27,13 @@ const serverReact = (await import(SERVER_REACT_URL)) as unknown as ServerReact;
 const internals = serverReact.__SERVER_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;
 assert.ok(internals, "the react-server build no longer exposes its internals -- this harness needs a new way to open a cache scope");
 
-let memoTable = new Map<unknown, unknown>();
+/** `null` outside a render pass, where every call gets a table of its own. */
+let memoTable: Map<unknown, unknown> | null = new Map<unknown, unknown>();
 internals.A = {
   getCacheForType: <T>(create: () => T): T => {
+    // As Next's dispatcher answers a server action or a route handler, which run outside a render:
+    // `getCacheForType` finds no request there and hands each call a new map.
+    if (memoTable === null) return create();
     if (!memoTable.has(create)) memoTable.set(create, create());
     return memoTable.get(create) as T;
   },
@@ -38,6 +42,11 @@ internals.A = {
 /** Next installs one of these per request, so a fresh table here is the next request arriving. */
 export function beginRenderPass(): void {
   memoTable = new Map();
+}
+
+/** What a server action's body or a route handler meets: React's `cache` memoizing nothing. */
+export function leaveRenderPass(): void {
+  memoTable = null;
 }
 
 export function itOpensAScopeThatMemoizes(): void {

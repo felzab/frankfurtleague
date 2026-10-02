@@ -28,7 +28,7 @@ import { declaredCredentialId, PASSKEY_ASSERTION_PATH } from "./passkeyCeremony"
 import { buildPasskeyGeloeschtEmail, buildPasskeyHinzugefuegtEmail } from "./passkeyEmail";
 import { passkeyLastUse } from "./passkeyLastUse";
 import { ENROLMENT_CONFLICT, SIGN_IN_BARRED, SIGN_IN_HOLDS_NOTHING, USER_VERIFICATION_REFUSED } from "./passkeyRefusal";
-import { setRequestActor } from "./requestScope";
+import { oncePerRequest, setRequestActor } from "./requestScope";
 import {
   ADMIN_LIFETIME,
   isWithinEnrolmentWindow,
@@ -1221,8 +1221,8 @@ export async function removePasskey(holder: { id: string; email: string }, id: s
   }
 }
 
-// React's `cache`, as `getAdminSession` is: the page's sections and a server action's body share one
-// read, and no request another's.
+// React's `cache`: the page's sections share one verdict, and no request another's. A server action
+// runs outside a render and asks it once, through `runKontoMutation`.
 /**
  * The account page's guard, both lanes' own verdict on the served session: an address holding a grant
  * is admitted by the administrator's guard alone, so a session its mailbox made cannot manage that
@@ -1418,11 +1418,11 @@ export function isAdminSession(served: ServedSession, { verwaltung, berechtigt_s
  */
 export type AdminRefusal = "signIn" | "noGrant" | "grantGone" | "unread";
 
-// React's `cache`, never `"use cache"`, which would hand one request's session to another: one read
-// and one signed actor serve every guard of a render pass, and none outside it, where a server action
-// and the proxy each read theirs.
+// React's `cache` within a render and `oncePerRequest` within an action, never `"use cache"`, which
+// would hand one request's session to another: the backend still judges every call's actor
+// (`docs/backend/spec.md :: I383`).
 const readAdminRequest = cache(
-  async (): Promise<{ readonly session: JudgedSession; readonly actor: RequestActor } | { readonly refused: AdminRefusal }> => {
+  oncePerRequest(async (): Promise<{ readonly session: JudgedSession; readonly actor: RequestActor } | { readonly refused: AdminRefusal }> => {
     const served = await readServedSession(await headers());
     if (!served) return { refused: "signIn" };
 
@@ -1438,7 +1438,7 @@ const readAdminRequest = cache(
     if (actor === null) return { refused: "signIn" };
 
     return { session: { ...served, verwaltung: true }, actor: actor };
-  },
+  }),
 );
 
 /**

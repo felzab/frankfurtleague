@@ -327,8 +327,14 @@ the request scope `runAdminMutation` has just seeded — the folded identifier o
 (`fl_frontend/src/core/emailAddress.ts :: asSignInIdentifier`) beside a token signed for it — and
 `apiClient` sends the token, never the address, as `X-FL-Actor` on admin-tier calls alone; the
 ordering is load-bearing. The guard records on every call, its memo answering or not, so a scope
-opened after the render's first read still names the actor. **A read records it too**: every
-admin-tier query asks the guard inside `fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`'s
+opened after the render's first read still names the actor. **The verdict is judged once per
+request**: React's `cache` shares it across a render pass and
+`fl_frontend/src/core/requestScope.ts :: oncePerRequest` across an action's or a route handler's
+scope, so an admin read in an action's body costs no second session read or lookup. The render after
+a write opens a scope of its own and judges afresh, and the backend reads the grant on every call
+whatever the frontend held ([`docs/backend/spec.md`](../backend/spec.md) I383). **A read records it
+too**: every admin-tier query asks the guard inside
+`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`'s
 scope, and `apiClient` refuses to send an admin-tier call whose scope names nobody (I415). A request
 reaching the backend without it comes back 400 with `REQ-AUTH-005`
 ([`docs/backend/spec.md`](../backend/spec.md) I41).

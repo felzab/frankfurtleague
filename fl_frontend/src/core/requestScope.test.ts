@@ -10,6 +10,7 @@ import {
   getRequestActor,
   getRequestSpanId,
   getRequestTraceId,
+  oncePerRequest,
   recordWriteSent,
   REQUEST_DEADLINE_MS,
   requestOutcomeUnknown,
@@ -142,6 +143,49 @@ describe("the one actor a request is attributed to", () => {
     setRequestActor(PERSON);
 
     assert.equal(getRequestActor(), undefined);
+  });
+});
+
+/* What lets a guard's verdict serve every admin read in a server action's body, where React's `cache`
+   keeps nothing, and still never outlive the request: the render after the action opens its own scope. */
+describe("a read made once per request", () => {
+  /** A read counting its own calls, each answered with the count so far. */
+  function counted(): { read: () => Promise<number>; calls: () => number } {
+    let calls = 0;
+    return { read: oncePerRequest(() => Promise.resolve((calls += 1))), calls: () => calls };
+  }
+
+  it("answers every call of one scope from its first, a scope opened inside it included", async () => {
+    const { read, calls } = counted();
+
+    const answers = await runWithRequestScope(scope(), async () => [
+      await read(),
+      await read(),
+      await runWithRequestScope(scope(), () => read()),
+      await runAnsweringOwnCut(() => read()),
+    ]);
+
+    assert.deepEqual(answers, [1, 1, 1, 1]);
+    assert.equal(calls(), 1);
+  });
+
+  it("reads again in the next scope, as the render after an action opens one", async () => {
+    const { read, calls } = counted();
+
+    await runWithRequestScope(scope(), () => read());
+    const next = await runWithRequestScope(scope(), () => read());
+
+    assert.equal(next, 2, "a second request was answered from the first one's read");
+    assert.equal(calls(), 2);
+  });
+
+  it("reads on every call outside a scope, where nothing could end the memo", async () => {
+    const { read, calls } = counted();
+
+    await read();
+    await read();
+
+    assert.equal(calls(), 2);
   });
 });
 
