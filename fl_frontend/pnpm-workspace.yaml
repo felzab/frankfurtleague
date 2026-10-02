@@ -28,6 +28,10 @@ trustPolicyExclude:
 # so a check writes the tree and races the gate's lockfile step. `pnpm install` is the one writer.
 verifyDepsBeforeRun: error
 patchedDependencies:
+  # A transaction whose commit failed is aborted on the server: the driver refuses the adapter's
+  # own abort after a commit, so a lost commit's transaction stood until MongoDB's lifetime limit
+  # (`docs/frontend/spec.md :: I537`). No release of the adapter changes this.
+  "@better-auth/mongo-adapter@1.7.5": patches/@better-auth__mongo-adapter@1.7.5.patch
   # The assertion asks for the user verification `authenticatorSelection` asks of the enrolment,
   # which better-auth pull request 11155 retires; every registration runs in the transaction
   # `fl_frontend/src/core/auth.ts :: claimAccount` needs, which nothing upstream offers.

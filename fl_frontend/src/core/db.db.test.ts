@@ -16,6 +16,7 @@ import {
   MongoOperationTimeoutError,
   MongoServerSelectionError,
   MongoTransactionError,
+  MongoClient as StoreProbe,
 } from "mongodb";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "./authDoubles.ts";
@@ -55,6 +56,10 @@ class Relay {
   private trigger: Buffer | null = null;
   /** Whether `hangFrom`'s command was ever sent, without which its case proves nothing. */
   triggered = false;
+  /** The command whose first request `dropOne` loses, every other passed on. */
+  private dropping: Buffer | null = null;
+  /** Whether `dropOne`'s command was ever sent, without which its case proves nothing. */
+  dropped = false;
   /** Connections `refuse` has closed: none, and the client it was to refuse dialed somewhere else. */
   refused = 0;
   private readonly sockets = new Set<Socket>();
@@ -76,6 +81,11 @@ class Relay {
       socket.on("error", () => undefined);
     }
     inbound.on("data", (chunk: Buffer) => {
+      if (this.dropping !== null && chunk.includes(this.dropping)) {
+        this.dropping = null;
+        this.dropped = true;
+        return;
+      }
       if (this.trigger !== null && chunk.includes(this.trigger)) {
         this.hung = true;
         this.triggered = true;
@@ -114,6 +124,17 @@ class Relay {
       return await body();
     } finally {
       this.resume();
+    }
+  }
+
+  /** Runs `body` losing the first request carrying `command` alone: a store answering all else. */
+  async dropOne<T>(command: string, body: () => Promise<T>): Promise<T> {
+    this.dropped = false;
+    this.dropping = Buffer.from(`${command}\0`);
+    try {
+      return await body();
+    } finally {
+      this.dropping = null;
     }
   }
 
@@ -298,12 +319,14 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
   /* A code's sign-in runs the adapter's own transaction to consume its row. The timeout does not
      surface: the adapter aborts whatever failed, the driver refuses an abort after a commit, and that
      refusal replaces it, unlogged. */
-  it("ends the adapter's own transaction within its `timeoutMS` when the store never answers its commit", async () => {
+  it("ends the adapter's own transaction within two `timeoutMS` when the store never answers its commit", async () => {
     const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
     logged.length = 0;
 
+    // Two bounds: the abort the client sends after a failed commit takes one of its own
+    // (`fl_frontend/patches/@better-auth__mongo-adapter@1.7.5.patch`).
     const outcome = await relay.hangFrom("commitTransaction", () =>
-      settledWithin(OPERATION_BOUND, "the hung commit", () =>
+      settledWithin(OPERATION_BOUND * 2, "the hung commit", () =>
         auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }),
       ),
     );
@@ -322,7 +345,43 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
     );
     assert.deepEqual(logged, []);
   });
+
+  /* One request lost on its way to a store that answers everything else: the case above's whole hang
+     leaves no abort a way through, and this one does. */
+  it("leaves the server no transaction open when the adapter's commit is lost on its way", async () => {
+    const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
+
+    await relay.dropOne("commitTransaction", () =>
+      settledWithin(OPERATION_BOUND * 2, "the lost commit", () =>
+        auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }),
+      ),
+    );
+
+    assert.ok(relay.dropped, "the sign-in sent no commit, so nothing here was lost");
+    assert.deepEqual(await transactionsHeld(), []);
+  });
 });
+
+/**
+ * Every operation the server lists that holds a transaction, idle sessions included. Through a client of
+ * its own: the store's strict Stable API refuses `$currentOp`.
+ */
+async function transactionsHeld(): Promise<unknown[]> {
+  // IPv4: the mapped port answers there, and `localhost` tried as IPv6 first stalls every connect.
+  const probe = new StoreProbe(`${mongod.getConnectionString()}/?directConnection=true`, { family: 4 });
+  try {
+    return await probe
+      .db("admin")
+      .aggregate([
+        { $currentOp: { allUsers: true, idleSessions: true } },
+        { $match: { transaction: { $exists: true } } },
+        { $project: { type: 1, "transaction.parameters": 1 } },
+      ])
+      .toArray();
+  } finally {
+    await probe.close();
+  }
+}
 
 describe("the sign-in store's client recovers from a cold start it could not complete (`docs/frontend/spec.md :: I364`)", () => {
   const probe = () => recoveringClient.db("store_bound").collection("probe").findOne({});
