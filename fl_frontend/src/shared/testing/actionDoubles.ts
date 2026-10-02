@@ -381,7 +381,7 @@ export interface RaisedToast {
   readonly title: string;
   readonly description: string | undefined;
   /** Everything else the call passed: where an undo offer keeps its own `onPress`, and `failure` its marker. */
-  readonly options: { description?: string; actionProps?: { onPress?: () => void }; outcome?: "unknown" } | undefined;
+  readonly options: { description?: string; actionProps?: { onPress?: () => void }; outcome?: ActionFailure["outcome"] } | undefined;
 }
 
 const TOAST_MODULE = "/src/shared/utils/appToast.ts";
@@ -414,7 +414,7 @@ export function doubleToasts(): { raised: RaisedToast[] } {
       raised.push({ variant, title, description: options?.description, options });
       return String(raised.length);
     };
-  // `failure` keeps the site's title: the real module swaps in the neutral one, and
+  // `failure` keeps the site's title: the real module swaps in a marked outcome's own, and
   // `fl_frontend/src/shared/utils/appToast.test.ts` pins that.
   const fail = (title: string, failure?: Pick<ActionFailure, "error" | "unplacedError" | "outcome">): string =>
     raise("danger")(title, { description: failure?.unplacedError ?? failure?.error, outcome: failure?.outcome });

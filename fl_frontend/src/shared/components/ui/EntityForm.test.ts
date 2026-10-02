@@ -128,6 +128,24 @@ describe("the create form", () => {
     );
     assert.ok(screen.queryByRole("textbox", { name: "Name" }) !== null, "the rejection took the dialog off the page");
   });
+
+  /* The team create answers this where its club stands and the season entry was refused: dropped on
+     the way, the toast is titled „nicht gespeichert“ over a club that exists. */
+  it("hands a partly-saved answer's marker to its one failure toast", async () => {
+    const user = userEvent.setup();
+    const error = "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden.";
+    renderTrimmingCaller(async () => ({ success: false, error, outcome: "partial" }));
+    raised.length = 0;
+
+    await user.type(screen.getByRole("textbox", { name: "Name" }), "Lena");
+    await user.click(screen.getByRole("button", { name: "Speichern" }));
+    await waitFor(() => assert.ok(raised.length > 0, "the answer was announced nowhere"));
+
+    assert.deepEqual(
+      raised.map((toast) => [toast.variant, toast.description, toast.options?.outcome]),
+      [["danger", error, "partial"]],
+    );
+  });
 });
 
 /** A create under a page past the step-up window, its prompt answering `answer` and counting each run. */
