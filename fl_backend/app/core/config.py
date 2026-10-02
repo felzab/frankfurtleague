@@ -280,8 +280,8 @@ class BackendSecrets(BaseSettings, _SecretFields):
     variable left behind would win over its file in silence (`docs/backend/spec.md` §1.5).
     """
 
-    # No `env_prefix` and no by-name read: pydantic-settings applies both to a secret file's name, and
-    # `SECRET_FILES` and the compose check name each file without them
+    # No `env_prefix`: pydantic-settings puts it on a secret file's name too, and `SECRET_FILES`, the
+    # preflight and the compose check name each file without one
     # (`fl_backend/tests/core/test_config.py :: TestTheSecretFiles`).
     model_config = SettingsConfigDict(extra="forbid")
 
@@ -334,20 +334,24 @@ def read_environment() -> BackendEnvironment:
 
 
 def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:
-    """Every file the secret half cannot read, as `<path> (<errno>)`, and every one missing or blank, by name.
+    """Each unreadable file as `<path> (<errno>)`, and each required one missing or any one blank, by name.
 
-    Asked before the build, whose source stops at the first failing read; never a decode error's
-    text, which quotes the file.
+    Asked before the build, which stops at its first failing read; never a decode error's text,
+    which quotes the file.
     """
     if not directory.is_dir():
         return [f"{directory} ({'ENOTDIR' if directory.exists() else 'ENOENT'})"], []
     unreadable: list[str] = []
     absent: list[str] = []
-    for name in SECRET_FILES:
-        # Found as the source finds it, so a name it reads in another letter case is no absence here.
-        path = SecretsSettingsSource.find_case_path(directory, name, case_sensitive=False)
+    # The library's own setting rather than its default: a file it would not find must be missing here too.
+    case_sensitive = bool(BackendSecrets.model_config.get("case_sensitive"))
+    for name, field in zip(SECRET_FILES, BackendSecrets.model_fields.values(), strict=True):
+        path = SecretsSettingsSource.find_case_path(directory, name, case_sensitive=case_sensitive)
         if path is None:
-            absent.append(name)
+            # Refused here rather than left to the build, where the library's lookup rules decide what
+            # stands in for a missing file (`fl_backend/tests/core/test_config.py :: TestTheSecretFiles`).
+            if field.is_required():
+                absent.append(name)
             continue
         # What Docker leaves where a bind mount's source file was missing; Windows would read it as EACCES.
         if path.is_dir():
@@ -366,10 +370,13 @@ def _unusable_files(directory: Path) -> tuple[list[str], list[str]]:
 def read_secrets(directory: Path) -> BackendSecrets:
     """The secret half, read from `directory` alone and refused by file name, never by value."""
     unreadable, absent = _unusable_files(directory)
-    if unreadable:
-        # The missing and the blank beside them, which the build would never reach.
-        also = f"; Invalid secret files: {', '.join(absent)}" if absent else ""
-        raise EnvironmentValidationError(f"Unreadable secret files: {', '.join(unreadable)}{also}") from None
+    refused = [
+        f"{sentence}: {', '.join(names)}"
+        for sentence, names in (("Unreadable secret files", unreadable), ("Invalid secret files", sorted(absent)))
+        if names
+    ]
+    if refused:
+        raise EnvironmentValidationError("; ".join(refused)) from None
     try:
         # Raised rather than printed: the source only WARNS for a missing directory and for a
         # directory at a file's path, and a warning leaves outside the log envelope.
