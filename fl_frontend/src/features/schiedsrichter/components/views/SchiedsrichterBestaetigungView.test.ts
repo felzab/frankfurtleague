@@ -24,6 +24,7 @@ import {
 } from "@/features/schiedsrichter/constants.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { renderTree, textOf } from "@/shared/testing/renderTest.ts";
+import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
 import { LINK_ADRESSE_GESPERRT } from "@/shared/utils/reopenLink.ts";
@@ -76,18 +77,15 @@ async function tippeGeburtsdatum(user: ReturnType<typeof userEvent.setup>, datum
   await user.keyboard(getippt(datum));
 }
 
-/**
- * Every slot the page fills, so a paragraph is compared as a reader meets it. `{loeschung}` is left
- * standing on both sides, the account page it names being Programme 2's.
- */
-const gefuellt = (absatz: string): string =>
-  absatz
-    .replaceAll("{minAlter}", String(MINDESTALTER))
-    .replaceAll("{medienMinAlter}", String(MEDIEN_ALTER))
-    .replaceAll("{vorname}", "Anna")
-    .replaceAll("{kontakt}", KONTAKT_EMAIL)
-    .replaceAll("{loeschung}", "Konto löschen")
-    .replaceAll("{datenschutz}", "Datenschutzerklärung");
+/** Every slot the page fills, so a paragraph is compared as a reader meets it. */
+const SLOTS = {
+  minAlter: String(MINDESTALTER),
+  medienMinAlter: String(MEDIEN_ALTER),
+  vorname: "Anna",
+  kontakt: KONTAKT_EMAIL,
+  loeschung: "Konto löschen",
+  datenschutz: "Datenschutzerklärung",
+};
 
 /**
  * The words on screen. Read across element boundaries so a marked name does not fuse with its
@@ -128,7 +126,7 @@ describe("the referee's confirmation page", () => {
     const elemente = [...markup(OFFEN).matchAll(/<(p|li)\b[^>]*>(.*?)<\/\1>/gs)].map((treffer) => words(treffer[2] ?? ""));
 
     for (const [schluessel, absatz] of Object.entries(SCHIEDSRICHTER_ABSAETZE)) {
-      assert.ok(elemente.includes(words(gefuellt(absatz))), `the page renders ${schluessel} inside another element's text`);
+      assert.ok(elemente.includes(words(filledSlots(absatz, SLOTS))), `the page renders ${schluessel} inside another element's text`);
     }
   });
 
@@ -142,7 +140,7 @@ describe("the referee's confirmation page", () => {
       // that differ can be compared.
       if (schluessel.startsWith("klick")) continue;
 
-      assert.ok(!shown.includes(words(gefuellt(absatz))), `the page renders the contact page's ${schluessel}`);
+      assert.ok(!shown.includes(words(filledSlots(absatz, SLOTS))), `the page renders the contact page's ${schluessel}`);
     }
   });
 

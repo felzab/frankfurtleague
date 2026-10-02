@@ -15,6 +15,7 @@ import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { pageBody } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
+import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { FELD_ABGELEHNT } from "@/shared/utils/actionError.ts";
 import { getGermanTodayStr } from "@/shared/utils/date.ts";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
@@ -156,8 +157,6 @@ const SLOTS: Readonly<Record<string, string>> = {
   loeschung: "Konto löschen",
   datenschutz: "Datenschutzerklärung",
 };
-
-const gefuellt = (text: string): string => text.replace(/\{(\w+)\}/g, (slot, name: string) => SLOTS[name] ?? slot);
 
 describe("the state the registration page renders", () => {
   /* First: every case below reads these renders, and a fixture table that had collapsed onto one
@@ -478,7 +477,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
 
     for (const absatz of gerendert) {
       for (const [schluessel, text] of Object.entries(ABSAETZE)) {
-        if (absatz === gefuellt(text)) gezaehlt.set(schluessel, (gezaehlt.get(schluessel) ?? 0) + 1);
+        if (absatz === filledSlots(text, SLOTS)) gezaehlt.set(schluessel, (gezaehlt.get(schluessel) ?? 0) + 1);
       }
     }
 
@@ -503,7 +502,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
       describedBy.some((id) => {
         const from = STANDING.indexOf(`id="${id}"`);
 
-        return from !== -1 && textOf(STANDING.slice(from).split("</div>")[0] ?? "").includes(gefuellt(ABSAETZE.klickIdentitaet));
+        return from !== -1 && textOf(STANDING.slice(from).split("</div>")[0] ?? "").includes(filledSlots(ABSAETZE.klickIdentitaet, SLOTS));
       }),
       "no described element holds the stamped points, so the button promises something written nowhere",
     );
@@ -630,8 +629,8 @@ describe("how a pupil operates the confirmation page without a pointer", () => {
     );
     // The paragraph belonging to each control stands above it, or a reader meets the answer before
     // the question.
-    assert.ok(html.indexOf(gefuellt(ABSAETZE.geburtsdatum)) < stellen[0]!, "the birthdate paragraph stands below its control");
-    assert.ok(html.indexOf(gefuellt(ABSAETZE.veroeffentlichung)) > stellen[0]!, "the publication paragraph stands above the date");
+    assert.ok(html.indexOf(filledSlots(ABSAETZE.geburtsdatum, SLOTS)) < stellen[0]!, "the birthdate paragraph stands below its control");
+    assert.ok(html.indexOf(filledSlots(ABSAETZE.veroeffentlichung, SLOTS)) > stellen[0]!, "the publication paragraph stands above the date");
   });
 
   it("gives each of the three an accessible name and a tab stop", async () => {

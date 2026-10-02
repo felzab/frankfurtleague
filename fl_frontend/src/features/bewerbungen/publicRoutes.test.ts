@@ -22,6 +22,7 @@ import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answerReadsWith, backendNotFound, EMPTIEST_ANSWER, renderPage } from "@/shared/testing/pageHarness.ts";
 import { renderMarkup, renderTree, textOf } from "@/shared/testing/renderTest";
+import { filledSlots } from "@/shared/testing/stampedText.ts";
 import { pressTwice } from "@/shared/testing/twoPress.ts";
 import { getGermanTodayStr } from "@/shared/utils/date";
 import { ANTWORT_UNKLAR } from "@/shared/utils/publicSubmit.ts";
@@ -146,10 +147,6 @@ const classSet = (classes: string): string[] => classes.split(/\s+/).filter(Bool
 
 /** The one emphasis a reader's own value wears, read off `Wert` because its class order is the formatter's. */
 const WERT_CLASS = rootClass(renderMarkup(Wert, { children: "" }));
-
-/** A stamped wording as a reader meets it, a slot no value fills standing as the page leaves it. */
-const gefuellt = (text: string, slots: Readonly<Record<string, string>>): string =>
-  text.replace(/\{(\w+)\}/g, (slot, name: string) => slots[name] ?? slot);
 
 /** The level of the heading a fragment is rendered inside: the last one opened above it. */
 function headingLevelOf(html: string, text: string): number | null {
@@ -778,7 +775,7 @@ describe("which of the confirmation page's words its stamped version covers", ()
 
   type Absatz = keyof typeof BESTAETIGUNG_ABSAETZE;
 
-  const stamped = (key: Absatz): string => gefuellt(BESTAETIGUNG_ABSAETZE[key], SLOTS);
+  const stamped = (key: Absatz): string => filledSlots(BESTAETIGUNG_ABSAETZE[key], SLOTS);
 
   /** Every paragraph and list item a render puts on the page, as a reader reads it. */
   const paragraphsOf = (html: string): string[] =>
@@ -908,7 +905,7 @@ describe("how wide the confirmation page stands, and how many boxes it draws", (
     kontakt: KONTAKT_EMAIL,
     datenschutz: "Datenschutzerklärung",
   };
-  const STAMPED = new Set(Object.values(BESTAETIGUNG_ABSAETZE).map((text) => gefuellt(text, SLOTS)));
+  const STAMPED = new Set(Object.values(BESTAETIGUNG_ABSAETZE).map((text) => filledSlots(text, SLOTS)));
 
   const VALID_PAGE = renderMarkup(BestaetigungView, { start: { zustand: "gueltig", ansicht: OPENED_LINK, token: "kein-echtes-token" } });
   const STATE_PAGES = (["bestaetigt", "abgelehnt", "abgelaufen", "ungueltig", "unlesbar", "gesperrt"] as const).map((zustand) => ({
