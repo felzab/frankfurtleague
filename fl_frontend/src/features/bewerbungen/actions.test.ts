@@ -7,7 +7,7 @@ import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
-import { toActionErrorResult } from "@/shared/utils/actionError.ts";
+import { toActionErrorResult, unansweredAction } from "@/shared/utils/actionError.ts";
 import { formatSpielDatum } from "@/shared/utils/format.ts";
 
 import { labelBadge } from "../../shared/components/ui/badges.ts";
@@ -876,6 +876,16 @@ describe("the re-sent confirmation link", () => {
     assert.equal(result.success, false, "a refused send is still reported as a link on its way");
     assert.match(errorOf(result), /Der alte Link gilt nicht mehr/, "the failure does not say the previous link is spent");
     assert.match(errorOf(result), /Versuche es erneut/, "the failure names no way out");
+  });
+
+  /* A link whose connection broke off may have reached the provider: the re-send's own reading is a
+     link on its way, and only the request's mark keeps the press from reporting one. */
+  it("answers a re-send whose message broke off in transit as of unknown outcome", async () => {
+    answerMailWith(() => "lost");
+    readWith(() => Promise.resolve(VOR_DER_REPARATUR));
+    answerWith(() => Promise.resolve(erneutGeschrieben()));
+
+    assert.deepEqual(await einwilligungErneutSendenAction(ERNEUT), unansweredAction());
   });
 
   /* Outside production every send is withheld, and a refusal there offers a retry no repeat of the

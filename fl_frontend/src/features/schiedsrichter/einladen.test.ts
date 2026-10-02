@@ -53,7 +53,7 @@ const { einladeSchiedsrichterAction, patchSchiedsrichterAction, postSchiedsricht
 const { describeLinkMail } = await import("./notifications.ts");
 const { ZURUECKGEHALTEN } = await import("@/features/einladungen/meldungen.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
-const { FELD_ABGELEHNT } = await import("@/shared/utils/actionError.ts");
+const { FELD_ABGELEHNT, unansweredAction } = await import("@/shared/utils/actionError.ts");
 const { bodyField, refusedPayload } = await import("@/shared/testing/refusedPayload.ts");
 
 const SCHIEDSRICHTER_ID = "6890a1b2c3d4e5f607800001";
@@ -321,6 +321,16 @@ describe("what the save hands the editor about the message it sent", () => {
 
     assert.equal(res.success && res.versandSatz, ZURUECKGEHALTEN);
     assert.equal(res.success && res.versandFehlgeschlagen, false);
+  });
+
+  /* A link whose connection broke off may have reached the provider: `mailSchiedsrichterLink`'s own
+     reading is a failure, and only the request's mark keeps the save from reporting one. */
+  it("answers a save whose link broke off in transit as of unknown outcome", async () => {
+    mail.answerWith(() => "lost");
+
+    const res = await patchSchiedsrichterAction({ ...ENTWURF, id: SCHIEDSRICHTER_ID });
+
+    assert.deepEqual(res, unansweredAction());
   });
 
   it("hands over no sentence where the save minted nothing", async () => {
