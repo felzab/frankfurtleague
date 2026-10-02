@@ -45,9 +45,11 @@
 # Dockerfile change most worth catching is the one that empties that cache, and the median report
 # is the only guard a row like this has, so it has none while the row carries no reference.
 #
-# `backend`, `db`, `docs`, `format`, `frontend`, the `frontend-units` shards, `images` and `scripts`
-# are cut from the main push runs their stamps count, every one of them carrying the backend's tier
-# over workers and the db scope's two suites started together. A population as short as theirs
+# `backend`, `db`, `docs`, `format`, `frontend`, `images` and `scripts` are cut from the main push
+# runs their stamps count, every one of them carrying the backend's tier over workers and the db
+# scope's two suites started together. The `frontend-units` shards are cut from the pull-request
+# run their stamp counts, named in the commit that set it: main carries no run of the tree they are
+# cut for. A population as short as theirs
 # cannot be cut into two windows of twelve, and drawn with replacement it reads its own smallness
 # rather than the job -- five runs of `frontend` answered 5 percent that way. A floor cut before
 # these jobs took their present shape measures a gate they are not, as the `ops` paragraph below
@@ -514,7 +516,7 @@
 # the branch's tree of 2026-09-26, against 62.7-63.2, 85.3-85.5, 62.1-62.4 and 66.4-66.6 s over two
 # rounds on the tree of the 2026-09-25 push, whose shards ran 83, 117 and 99 s on the runner. The
 # four together cost the same on both trees, 284 s against 277 s; the heaviest moved from shard 2
-# to shard 3 with the files added between them. Shard 3 now holds
+# to shard 3 with the files added between them. Shard 3 then held
 # `fl_frontend/src/features/admin/editorWiring.test.ts`, 35.2-35.5 s of its cases and 45 s alone,
 # and the tier gained `fl_frontend/src/features/admin/formMarks.test.ts`, 17.8-17.9 s alone, 8.0-8.3
 # s of it its cases; `fl_frontend/scripts/eslint.config.test.mjs`, the standing lint plants, 8.1-8.2 s
@@ -522,8 +524,16 @@
 # renders or drives what it asserts, so none was cut: a file split to spread its cost pays its
 # imports again in each part, and `editorWiring.test.ts` split four ways would add about 27 s of
 # loading across the shards. Measured locally on 2026-09-26 on a sixteen-core Windows machine
-# running nothing else. On the runner, the main runs the shards' stamp counts spanned 78-102,
+# running nothing else. On the runner, the three main push runs to 2026-09-26 spanned 78-102,
 # 95-99, 102-119 and 69-79 s.
+#
+# On the tree of 2026-10-02 the shards hold 305, 190, 246 and 241 s of their files' own time,
+# against 201, 241, 230 and 201 s on the tree of 2026-09-28: the suite gained 12 percent, and
+# shard 1 took `fl_frontend/src/features/admin/editorWiring.test.ts`, 43 s alone. At a runner's
+# width of three files shard 1 took 103-104 s over two runs against 70 s on the older tree,
+# measured locally on 2026-10-02 on a sixteen-core Windows machine with no other agent running.
+# Of its 305 s, 14 s are files the later tree added; the rest is files moved in by position. On the
+# runner it spanned 151 s, the run the shards' stamp counts.
 #
 # `format`, `frontend`, the `frontend-units` shards and `db` gained a preflight: `pnpm exec node -e
 # ""` in `fl_frontend` (`scripts/gate/verify.sh :: pnpm_starts`), once in each gate process those
@@ -615,10 +625,10 @@ db	-	-	135	3@2026-09-26
 docs	-	-	40	3@2026-09-26
 format	-	-	70	3@2026-09-26
 frontend	-	-	145	3@2026-09-26
-frontend-units (1)	-	-	150	3@2026-09-26
-frontend-units (2)	-	-	150	3@2026-09-26
-frontend-units (3)	-	-	150	3@2026-09-26
-frontend-units (4)	-	-	150	3@2026-09-26
+frontend-units (1)	-	-	190	1@2026-10-02
+frontend-units (2)	-	-	190	1@2026-10-02
+frontend-units (3)	-	-	190	1@2026-10-02
+frontend-units (4)	-	-	190	1@2026-10-02
 images	-	-	-	3@2026-09-26
 ops	17	29	45	13@2026-09-07
 scripts	-	-	60	3@2026-09-26
