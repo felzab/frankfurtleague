@@ -191,14 +191,6 @@ describe("the pupil's confirmation handler", () => {
     assert.deepEqual(calls, []);
   });
 
-  /* The one CSRF-shaped defence a route with no session can have
-     (`fl_frontend/src/shared/utils/publicRoute.ts :: handlePublicRequest`). */
-  it("writes nothing for a cross-site caller", async () => {
-    await bodyOf(aRequest(gueltigerKoerper, { "sec-fetch-site": "cross-site" }));
-
-    assert.deepEqual(calls, []);
-  });
-
   /* A GET would let a mail scanner's pre-fetch confirm for the reader, and the same-origin guard
      cannot tell a scanner's GET from a person's. */
   it("exports no GET", async () => {

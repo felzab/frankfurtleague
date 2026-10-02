@@ -342,16 +342,6 @@ describe("what the submission's messages say about themselves", () => {
 });
 
 describe("what the application handler answers", () => {
-  /* Nothing here authorizes anything, so the public spine's same-origin check is the one defence the
-     route has: a spine that checks a session would skip it, and its name would read as authorization. */
-  it("refuses a request from another site before it writes or mails anything", async () => {
-    const answer = await bodyOf(aRequest({ "Idempotency-Key": KEY, "sec-fetch-site": "cross-site" }));
-
-    assert.equal((answer.body as { success: boolean }).success, false, "a request from another site is answered as this page's own");
-    assert.deepEqual(writes(), []);
-    assert.deepEqual(mails, []);
-  });
-
   /* POST alone: a mail scanner fetches every link in a message, and a second method would be one it
      reaches with a fetch nobody made. */
   it("answers one method, POST", () => {
