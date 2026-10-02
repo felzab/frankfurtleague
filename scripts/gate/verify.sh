@@ -1164,12 +1164,12 @@ written at the rule, never suppressed at this call site." \
     run_checker stop "scripts/checks/check_compose_model.py" "A stack exposes more than its edge, mounts or starts the edge other
 than the deploy reads it, trusts an address that is not the connector's, hands a service other
 environment files than the deploy judges, puts a service on another network than its own, hands a
-secret to a service that does not read it or from another file than its own, names a credential in a
-service's environment, or leaves a service a capability or a privilege it was not shown to need. The
-findings above name the service and the rule:
-docs/ops/spec.md I1, I174, I355, I18, I429, I471, I472, I507, I508 or I509." \
+secret to a service that does not read it or from another file than its own, hands the frontend other
+secret files than its schema reads, names a credential in a service's environment, or leaves a service
+a capability or a privilege it was not shown to need. The findings above name the service and the
+rule: docs/ops/spec.md I1, I174, I355, I18, I429, I430, I471, I472, I507, I508 or I509." \
       "$OPS_PY" scripts/checks/check_compose_model.py "${OPS_SCRATCH}/production.json" "${OPS_SCRATCH}/local.json"
-    ok "production publishes nothing and declares no database; locally only nginx leaves loopback; both edges mount nginx/ by directory and open the Control API where the deploy asks it; either edge trusts the connector alone; each application service reads its package's environment file alone; only nginx shares a network with the connector or the application pair; each secret is held by the services that read it alone, from its own file, and no environment names one; every service drops every capability, nginx adding back its master's four"
+    ok "production publishes nothing and declares no database; locally only nginx leaves loopback; both edges mount nginx/ by directory and open the Control API where the deploy asks it; either edge trusts the connector alone; each application service reads its package's environment file alone; only nginx shares a network with the connector or the application pair; each secret is held by the services that read it alone, from its own file, and no environment names one; the frontend is handed every file its schema requires there and none it never reads; every service drops every capability, nginx adding back its master's four"
   fi
 
   step "ops · nginx accepts prod.conf"

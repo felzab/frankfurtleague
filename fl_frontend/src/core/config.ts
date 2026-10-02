@@ -23,6 +23,8 @@ export const INTERNAL_API_KEY = z
 // Where Compose mounts a file secret, which is where a container finds it with nothing set.
 const DEFAULT_SECRETS_DIR = "/run/secrets";
 
+// One `KEY: "file",` a line, which `scripts/checks/check_compose_model.py :: frontend_schema_files`
+// holds the compose files to, as it does `PRODUCTION_ONLY_REQUIRED` below.
 /**
  * Each value read from a file rather than the environment, keyed as `frontend_config` holds it. One file
  * name serves the host, the container and development, so the database login carries this service's

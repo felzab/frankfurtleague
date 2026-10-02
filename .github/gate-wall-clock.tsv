@@ -347,6 +347,15 @@
 # over three runs. Both measured locally on 2026-09-27 on a sixteen-core Windows machine carrying
 # other agent sessions, so upper bounds; each sits inside its row, and no row moves.
 #
+# `ops` gained two rules in `scripts/checks/check_compose_model.py`: `:: config_holders`,
+# 0.007 ms a call over both stacks, and `:: frontend_files` with `config.ts` read for it, 0.29-0.34
+# ms, against 0.40-0.44 ms for `:: secret_holders` in the same rounds, seven interleaved rounds of
+# five hundred calls over the test suite's rendered stacks. `scripts` gained twenty-seven cases over
+# the two rules, 0.15-0.19 s together over three runs, and lost twenty-two cases, several spawning
+# bash or python, that drove the checkout root's `.env`, its join and its overlap check. Both
+# measured locally on 2026-09-28 on a sixteen-core Windows machine carrying other agent sessions,
+# so upper bounds; each sits inside its row, and no row moves.
+#
 # `scripts` lost the comment classifier, its cases and its self-check step, and the cases that
 # listed a fixture branch or ran `verify.sh` over it. `scripts/tests/test_gate_pool.py`, whose
 # order case holds one unit open for a second, took 5.9-7.4 s against 4.9-10.4 s, three interleaved

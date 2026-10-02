@@ -338,6 +338,69 @@ def config_holders(model: dict[str, Any], name: str, stack: str) -> list[Finding
     return findings
 
 
+# The frontend's schema, the one declaration of the files it reads from `RUN_SECRETS`.
+FRONTEND_CONFIG: Final = REPO_ROOT / "fl_frontend" / "src" / "core" / "config.ts"
+FRONTEND_SERVICE: Final = "frontend"
+
+
+def frontend_schema_files(config: Path) -> tuple[frozenset[str], frozenset[str]]:
+    """Every file the schema reads, and those it demands of production alone.
+
+    Read off `fl_frontend/src/core/config.ts :: SECRET_FILES`, `:: PRODUCTION_ONLY_REQUIRED` and the
+    signing key's path as spelled there, any other line shape refusing, so nothing here is a copy.
+    """
+    text = config.read_bytes().decode()
+    block = re.search(r"^const SECRET_FILES = \{\n(.*?)^\} as const;$", text, re.MULTILINE | re.DOTALL)
+    demanded = re.search(r"^const PRODUCTION_ONLY_REQUIRED = \[([^\]]*)\] as const", text, re.MULTILINE)
+    signing = re.search(r'^\s+ACTOR_SIGNING_KEY_FILE: z\.[^\n]*\.default\("/run/secrets/([a-z_]+)"\),$', text, re.MULTILINE)
+    if block is None or demanded is None or signing is None:
+        raise ValueError(f"{config.name} declares no SECRET_FILES, PRODUCTION_ONLY_REQUIRED or signing key path this reads")
+    lines = [line.strip() for line in block.group(1).splitlines() if line.strip()]
+    pairs = [re.fullmatch(r'([A-Z_]+): "([a-z_]+)",', line) for line in lines]
+    if not pairs or None in pairs:
+        raise ValueError(f'{config.name} :: SECRET_FILES holds a line that is no `KEY: "file",` pair, so its files were not read')
+    files = {match.group(1): match.group(2) for match in pairs if match is not None}
+    production_only = re.findall(r'"([A-Z_]+)"', demanded.group(1))
+    if unknown := sorted(set(production_only) - set(files)):
+        raise ValueError(f"{config.name} :: PRODUCTION_ONLY_REQUIRED names {unknown}, which SECRET_FILES lacks")
+    return frozenset(files.values()) | {signing.group(1)}, frozenset(files[key] for key in production_only)
+
+
+def _mounted_files(definition: dict[str, Any]) -> frozenset[str]:
+    """The files a service's secrets and configs place at `RUN_SECRETS`, by name."""
+    mounted: set[str] = set()
+    for entry in definition.get("secrets") or []:
+        source = str(entry.get("source") if isinstance(entry, dict) else entry)
+        target = str((entry.get("target") if isinstance(entry, dict) else None) or source)
+        mounted.add(target if target.startswith("/") else f"{RUN_SECRETS}/{target}")
+    for entry in definition.get("configs") or []:
+        if isinstance(entry, dict):
+            mounted.add(str(entry.get("target") or f"/{entry.get('source')}"))
+    return frozenset(path.removeprefix(f"{RUN_SECRETS}/") for path in mounted if path.rpartition("/")[0] == RUN_SECRETS)
+
+
+def frontend_files(model: dict[str, Any], name: str, stack: str, schema: tuple[frozenset[str], frozenset[str]]) -> list[Finding]:
+    """The frontend is handed every file its schema requires on this stack and none it never reads (I430).
+
+    Production is handed every file the schema reads; any other stack needs none it demands of production alone.
+    """
+    reads, production_only = schema
+    required = reads if stack == "production" else reads - production_only
+    mounted = _mounted_files(services(model, name).get(FRONTEND_SERVICE) or {})
+    findings: list[Finding] = []
+    if missing := sorted(required - mounted):
+        findings.append(
+            Finding(
+                "fail",
+                f"{name}: the frontend's schema requires {missing} and compose mounts none of it at {RUN_SECRETS}\n"
+                f"{CONTINUATION}its boot refuses, and nothing short of the deploy's preflight on the host says so (I430)",
+            )
+        )
+    if extra := sorted(mounted - reads):
+        findings.append(Finding("fail", f"{name}: compose hands the frontend {extra}, which its schema never reads (I430)"))
+    return findings
+
+
 def moved_names(model: dict[str, Any], name: str) -> list[Finding]:
     """No service is handed a name in `MOVED_ENV_NAMES` through `environment:`, in any letter case (I509).
 
@@ -654,6 +717,8 @@ def main() -> int:
         findings += secret_holders(prod_model, "production", Path(args.production).resolve().parent, "production")
         findings += secret_holders(local_model, "local", Path(args.local).resolve().parent, "local")
         findings += config_holders(prod_model, "production", "production") + config_holders(local_model, "local", "local")
+        schema = frontend_schema_files(FRONTEND_CONFIG)
+        findings += frontend_files(prod_model, "production", "production", schema) + frontend_files(local_model, "local", "local", schema)
         findings += moved_names(prod_model, "production") + moved_names(local_model, "local")
         findings += secrets_directory(prod_model, "production", Path(args.production).resolve().parent)
         findings += secrets_directory(local_model, "local", Path(args.local).resolve().parent)
@@ -680,6 +745,7 @@ def main() -> int:
         print("      each secret is held by the services SECRET_HOLDERS names alone, read from its own file, in both stacks")
         print(f"      the local stack's logins are inline configs naming its own {LOCAL_DATABASE_SERVICE} service alone")
         print("      no service is handed a moved credential's name in its environment")
+        print("      the frontend is handed every file its schema requires on each stack, and none it never reads")
         print(f"      no service mounts {SECRETS_DIRECTORY}/ but through a secret naming its file")
     return code
 

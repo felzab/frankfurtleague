@@ -826,6 +826,117 @@ def test_the_preflights_lists_are_the_tables():
     assert listed("MOVED_ENV_NAMES") == checker.MOVED_ENV_NAMES
 
 
+# --- the files the frontend's schema reads, against what compose hands it -----------------------------
+
+SCHEMA: Final = checker.frontend_schema_files(checker.FRONTEND_CONFIG)
+
+
+def schema_file(secret_files: str, production_only: str = '"AUTH_RESEND_KEY"') -> Path:
+    """A `config.ts` of the case's own, holding the three declarations the reader takes and nothing else."""
+    path = new_root("fl-compose-schema-") / "config.ts"
+    path.write_bytes(
+        (
+            f"const SECRET_FILES = {{\n{secret_files}}} as const;\n"
+            f"const PRODUCTION_ONLY_REQUIRED = [{production_only}] as const satisfies readonly SecretKey[];\n"
+            '  ACTOR_SIGNING_KEY_FILE: z.string().min(1).default("/run/secrets/fl_actor_signing_key"),\n'
+        ).encode()
+    )
+    return path
+
+
+def handed(stack: str) -> dict[str, Any]:
+    """The frontend as Compose renders it on `stack`, holding what the two tables give it."""
+    return holding(stack, "frontend") | configured(stack, "frontend")
+
+
+def test_the_schema_s_files_are_read_off_config_ts():
+    """The real declaration, so a reader matching nothing in it is caught here rather than passing every stack."""
+    reads, production_only = SCHEMA
+
+    assert {"fl_actor_signing_key", "frontend_mongodb_uri"} <= reads, reads
+    assert production_only and production_only < reads, (production_only, reads)
+
+
+def test_a_schema_line_of_another_shape_refuses():
+    """A key this reader cannot read would drop out of the set, and a file compose lacks would pass unasked."""
+    with pytest.raises(ValueError, match="no `KEY"):
+        checker.frontend_schema_files(schema_file('  AUTH_SECRET: "auth_secret",\n  ...OTHER_FILES,\n'))
+
+
+def test_a_production_demand_the_schema_holds_no_file_for_refuses():
+    with pytest.raises(ValueError, match="SECRET_FILES lacks"):
+        checker.frontend_schema_files(schema_file('  AUTH_SECRET: "auth_secret",\n', '"AUTH_RESEND_KEY"'))
+
+
+def test_a_declaration_the_reader_cannot_find_refuses():
+    path = new_root("fl-compose-schema-") / "config.ts"
+    path.write_bytes(b"export const nothing = {};\n")
+
+    with pytest.raises(ValueError, match="declares no SECRET_FILES"):
+        checker.frontend_schema_files(path)
+
+
+@pytest.mark.parametrize("stack", ["production", "local"])
+def test_each_stack_handing_the_frontend_what_its_schema_requires_is_clean(stack: str):
+    """Locally that is every file but production's own, the login arriving as a config."""
+    assert checker.frontend_files(model(frontend=handed(stack)), "p", stack, SCHEMA) == []
+
+
+@pytest.mark.parametrize(("stack", "dropped"), [("production", "auth_resend_key"), ("local", "auth_secret")])
+def test_a_file_the_schema_requires_left_unmounted_fails(stack: str, dropped: str):
+    """The boot refuses it, and without this only the deploy's preflight on the host, or `local.sh`, says so."""
+    frontend = handed(stack)
+    frontend["secrets"] = [entry for entry in frontend["secrets"] if entry["source"] != dropped]
+
+    found = checker.frontend_files(model(frontend=frontend), "p", stack, SCHEMA)
+
+    assert [finding.detail.split("\n")[0] for finding in found] == [
+        f"p: the frontend's schema requires ['{dropped}'] and compose mounts none of it at /run/secrets"
+    ]
+
+
+def test_the_login_left_off_the_local_frontend_fails():
+    """The config reaches the path a secret would, so it counts as the file the schema reads."""
+    found = checker.frontend_files(model(frontend=holding("local", "frontend")), "p", "local", SCHEMA)
+
+    assert len(found) == 1 and "['frontend_mongodb_uri']" in found[0].detail, found
+
+
+def test_a_file_the_schema_never_reads_handed_to_the_frontend_fails():
+    """One more holder of a credential nothing on that side reads."""
+    frontend = handed("production")
+    frontend["secrets"] = [*frontend["secrets"], {"source": "sperrliste_schluessel"}]
+
+    found = checker.frontend_files(model(frontend=frontend), "p", "production", SCHEMA)
+
+    assert [finding.detail for finding in found] == [
+        "p: compose hands the frontend ['sperrliste_schluessel'], which its schema never reads (I430)"
+    ]
+
+
+def test_a_file_the_schema_starts_reading_fails_until_compose_mounts_it():
+    """The drift this rule exists for: a schema change alone, which every other gate step passes."""
+    reads, production_only = SCHEMA
+
+    found = checker.frontend_files(model(frontend=handed("production")), "p", "production", (reads | {"a_new_file"}, production_only))
+
+    assert len(found) == 1 and "['a_new_file']" in found[0].detail, found
+
+
+def test_main_judges_the_frontend_files_of_both_models():
+    project = new_root("fl-compose-main-schema-")
+    for broken in ("production", "local"):
+        production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
+        local = rendered_stack(project, "nginx/local")
+        frontend = ({"production": production, "local": local}[broken])["services"]["frontend"]
+        frontend["secrets"] = [entry for entry in frontend["secrets"] if entry["source"] != "auth_secret"]
+
+        code, said = run_main(production, local, project)
+
+        assert code == 1, said
+        assert f"{broken}: the frontend's schema requires ['auth_secret']" in said, said
+
+
 # --- the names the secret files replace ----------------------------------------------------------------
 
 
