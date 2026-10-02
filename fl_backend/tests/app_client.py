@@ -10,7 +10,7 @@ Invariants:
 """
 
 from collections.abc import AsyncIterator, Iterable
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI
@@ -46,18 +46,25 @@ async def app_client(
     if hasattr(served.state, "db_client"):
         raise RuntimeError("this app is already serving a case: hand each concurrent case an app of its own")
     overrides = dict(served.dependency_overrides)
-    # For a case whose server never answers: the actor check is answered from these addresses instead.
-    if admitting is not None:
-        admit(served, admitting)
-    served.state.db_client = AsyncMongoClient(url)
-    if now is not None:
-        served.dependency_overrides[get_germany_now] = lambda: now
 
-    try:
-        async with AsyncClient(transport=ASGITransport(app=served, raise_app_exceptions=False), base_url=TEST_BASE_URL) as http:
-            yield http
-    finally:
-        await served.state.db_client.close()
-        del served.state.db_client
+    def restore_the_overrides() -> None:
         served.dependency_overrides.clear()
         served.dependency_overrides.update(overrides)
+
+    # Every undo is on the stack before anything after its edit can raise, so the app leaves as it
+    # came: an override applied ahead of a client that failed to build would otherwise meet the next case.
+    async with AsyncExitStack() as undo:
+        undo.callback(restore_the_overrides)
+        # For a case whose server never answers: the actor check is answered from these addresses instead.
+        if admitting is not None:
+            admit(served, admitting)
+        if now is not None:
+            served.dependency_overrides[get_germany_now] = lambda: now
+        client = AsyncMongoClient(url)
+        undo.push_async_callback(client.close)
+        served.state.db_client = client
+        undo.callback(delattr, served.state, "db_client")
+
+        yield await undo.enter_async_context(
+            AsyncClient(transport=ASGITransport(app=served, raise_app_exceptions=False), base_url=TEST_BASE_URL)
+        )
