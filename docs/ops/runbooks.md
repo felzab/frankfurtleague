@@ -689,9 +689,9 @@ address holding a grant is refused (`REQ-SPERRLISTE-003`) until the grant is rev
 ([section 3](#3-granting-or-revoking-admin-access)). **The write
 mails the person itself where the address holds a sign-in account**, naming the reason you typed and
 the last season the ban covers, so there is nothing to send by hand; an address that never signed in
-is mailed nothing. Where the send fails, or the sign-in store could not say whether an account holds
-the address, the page says the notice did not go, and there is then no address left anywhere to try
-again with. **The same write ends every live sign-in of the address**, keeping its
+is mailed nothing, and the page says so. Where the send fails, or the sign-in store could not say
+whether an account holds the address, the page says the notice did not go, and there is then no
+address left anywhere to try again with. **The same write ends every live sign-in of the address**, keeping its
 account and passkeys for the day the ban ends (`docs/frontend/spec.md :: I402`); where that fails the
 page says so too, every person page refuses the sessions as no session at all
 (`docs/frontend/spec.md :: I406`), and each is deleted the next time its browser reaches the sign-in

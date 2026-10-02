@@ -276,13 +276,16 @@ describe("the barred address's live sign-ins", () => {
 });
 
 describe("which barred addresses the notice goes to (`docs/frontend/spec.md :: I517`)", () => {
-  it("mails nothing to an address no account holds, and answers a clean ban", async () => {
+  it("mails nothing to an address no account holds, and tells its administrator so", async () => {
     request.holdNoAccount();
 
     const result = await anAddressIsBanned();
 
     assert.equal(result.success, true);
-    assert.equal("message" in result ? result.message : undefined, SPERRE_ERFOLG);
+    assert.equal(
+      "message" in result ? result.message : undefined,
+      "Die Sperre steht. Die Adresse hat kein Konto, deshalb wurde sie nicht benachrichtigt.",
+    );
     assert.deepEqual(mail.sent, [], "an address holding no account was mailed");
     assert.deepEqual(events, ["post", "refresh"]);
     assert.deepEqual(request.signedOut(), [BARRED], "the store was not asked, so the case proves nothing");

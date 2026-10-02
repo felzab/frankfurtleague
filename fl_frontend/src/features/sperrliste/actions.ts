@@ -22,6 +22,8 @@ import type { FLPostSperrlistePayload, FLSperrlisteKeyPayload } from "./schemas"
 const SPERRE_STEHT = "Die Sperre steht.";
 const NICHT_BENACHRICHTIGT = "Die Benachrichtigung an die Adresse konnte nicht zugestellt werden.";
 const BENACHRICHTIGUNG_UNKLAR = "Ob die Benachrichtigung angekommen ist, ist unklar.";
+// Said rather than left to a clean save, which an administrator reads as the barred person mailed.
+const KEIN_KONTO = "Die Adresse hat kein Konto, deshalb wurde sie nicht benachrichtigt.";
 
 const ANMELDUNGEN_NICHT_BEENDET = "Laufende Anmeldungen der Adresse konnten nicht beendet werden.";
 
@@ -108,17 +110,17 @@ export async function postSperreAction(rawPayload: FLPostSperrlistePayload): Pro
     const abgemeldet = await abmelden(validated.data.email);
 
     // Only an address an account holds is mailed (`docs/frontend/spec.md :: I517`). Where the store did
-    // not say, nobody is, the notice's account sentences being a guess, and the administrator is told.
-    let benachrichtigt: string | null = abgemeldet.konto === null ? NICHT_BENACHRICHTIGT : null;
+    // not say, nobody is, the notice's account sentences being a guess; either way the administrator is told.
+    let benachrichtigt: string | null = abgemeldet.konto === null ? NICHT_BENACHRICHTIGT : KEIN_KONTO;
     if (abgemeldet.konto === true) {
       // On the response's own bound rather than a second read the sweep could beat.
       benachrichtigt = await benachrichtigen(validated.data.email, validated.data.grund, postOperation.gesperrt_bis_saison_id);
     }
 
-    // Each failure is told, and neither undoes the ban: the write is acknowledged and no address
-    // survives to retry either with.
-    const failures = [abgemeldet.satz, benachrichtigt].filter((sentence) => sentence !== null);
-    const message = failures.length === 0 ? SPERRE_ERFOLG : [SPERRE_STEHT, ...failures].join(" ");
+    // Each is told, and none undoes the ban: the write is acknowledged and no address survives to retry
+    // a failure with.
+    const told = [abgemeldet.satz, benachrichtigt].filter((sentence) => sentence !== null);
+    const message = told.length === 0 ? SPERRE_ERFOLG : [SPERRE_STEHT, ...told].join(" ");
 
     return { success: true, created_id: postOperation.created_id, message: message };
   });
