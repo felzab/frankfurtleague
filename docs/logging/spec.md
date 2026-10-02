@@ -249,10 +249,10 @@ convention rather than by enforcement.
 One line per surface:
 
 ```text
-INFO     2026-09-07 14:30:12.345 middlewares:63 - GET /api/v0/spiele?limit=5 -> 200 trace_id=4bf92f3577b34da6a3ce929d0e0e4736 span_id=00f067aa0ba902b7 method=GET path="/api/v0/spiele?limit=5" status=200 duration_ms=1.2
+INFO     2026-09-07 14:30:12.345 middlewares:{line} - GET /api/v0/spiele?limit=5 -> 200 trace_id=4bf92f3577b34da6a3ce929d0e0e4736 span_id=00f067aa0ba902b7 method=GET path="/api/v0/spiele?limit=5" status=200 duration_ms=1.2
 ERROR    2026-09-07 14:30:12.345 fl_frontend - Cache fill failed trace_id=4bf92f3577b34da6a3ce929d0e0e4736 span_id=53ce929d0e0e4736 error_code=FE-NET-001 endpoint=/saisons
     APINetworkError: fetch failed
-        at apiClient (src/core/api.ts:150:11)
+        at apiClient (src/core/api.ts:{line}:{column})
 ```
 
 **There is no nginx in dev, and every line still carries both ids**: whichever service receives the
