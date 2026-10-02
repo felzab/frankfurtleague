@@ -97,6 +97,12 @@ export function EntityForm<TDraft, TPayload = TDraft>({
           if (!res.success) {
             // The hook owns the press's one toast: none where a field shows the refusal.
             reportSubmitFailure(res, { entity: payload });
+            // Closed where the record stands: a second press would create it again. The hook raises a
+            // map-free failure before returning, so the toast outlives the dialog.
+            if (res.outcome === "partial") {
+              setDraft(initialDraft);
+              onClose();
+            }
             return;
           }
 
