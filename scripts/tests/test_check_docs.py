@@ -2822,6 +2822,72 @@ def test_a_directive_s_reason_is_held_to_the_bound_on_its_own(family: str) -> No
     assert [line for line, _ in found] == [3], found
 
 
+def _header_prose(marker: str) -> list[str]:
+    """A header body that, under a four-word title, sits just inside INC-2's bound."""
+    cap = _module("docs_gate.checks").HEADER_WORD_CAP
+    lines = [marker + PROSE_LINE] * ((cap - 4) // len(PROSE_LINE.split()))
+    assert cap - len(PROSE_LINE.split()) < 4 + len(lines) * len(PROSE_LINE.split()) <= cap, "the header must sit at the bound"
+    return lines
+
+
+def _directive(family: str) -> str:
+    form = DIRECTIVES[family]
+    return form.marker + " " + form.text
+
+
+def _header_findings(rel: str, raw: str, suffix: str) -> list[str]:
+    """What INC-2's check and INC-9's say about a file, every line the branch's own.
+
+    Both, because a block the header reader stops recognising passes INC-2's check by being no
+    header at all, and only INC-9's bound then reaches it.
+    """
+    shape = _module("docs_gate.checks").check_module_header(rel, raw, suffix)
+    bounds = _module("docs_gate.branch").check_comment_length(_gate().root / rel, raw, set(range(1, raw.count(NEWLINE) + 1)), lambda: [])
+    return [finding.detail for finding in shape + bounds]
+
+
+def test_a_tool_directive_stands_outside_a_shell_header() -> None:
+    """One above the header as a shebang stands, one ending it below: neither is its title, and neither reason joins its count."""
+    raw = _page(
+        "#!/usr/bin/env bash",
+        _directive("shellcheck"),
+        HASH + " OPS · a header",
+        *_header_prose(HASH + " "),
+        _directive("shellcheck"),
+        "FLAG=1",
+    )
+    assert _header_findings(SHELL_FILE, raw, ".sh") == []
+
+
+def test_a_tool_directive_above_a_python_header_stays_out_of_it() -> None:
+    """The docstring reader steps over every comment above it; this holds it there for a directive."""
+    raw = _page(_directive("pyright"), QUOTES + "BACKEND · a header", "", *_header_prose(""), QUOTES, "VALUE = 1")
+    assert _header_findings(SAMPLE, raw, ".py") == []
+
+
+@pytest.mark.parametrize("family", ["shellcheck", "pyright"])
+def test_a_directive_above_a_header_is_still_held_to_the_bound(family: str) -> None:
+    """The header scan steps over it, so the comment reader must not: otherwise its reason sits under no bound at all."""
+    form = DIRECTIVES[family]
+    title = HASH + " OPS · a header" if form.path == SHELL_FILE else QUOTES + "BACKEND · a header" + QUOTES
+    raw = _page(_directive(family) + " " + " ".join([PROSE_LINE] * 4), title, "", form.code)
+    bounds = _module("docs_gate.branch").check_comment_length
+    found = bounds(_gate().root / form.path, raw, set(range(1, raw.count(NEWLINE) + 1)), lambda: [])
+    assert [finding.line for finding in found] == [1], [finding.detail for finding in found]
+
+
+def test_a_header_shaped_block_under_a_directive_is_placed_as_it_would_be_without_one() -> None:
+    """A directive is no content and no part of the block, so it neither hides a header below the opening nor pushes one off it."""
+    checks = _module("docs_gate.checks")
+    below = _page("FLAG=1", "", _directive("shellcheck"), HASH + " OPS · a header under a statement", "FLAG=2")
+    opening = _page(_directive("eslint"), SLASHES + " FRONTEND · a header opening the file", "const link = base;")
+    placed = [
+        [finding.line for finding in checks.check_module_header(rel, raw, suffix) if finding.line is not None]
+        for rel, raw, suffix in ((SHELL_FILE, below, ".sh"), (TSX_SAMPLE, opening, ".tsx"))
+    ]
+    assert placed == [[4], []], placed
+
+
 def test_a_rule_pattern_reaches_past_the_three_methods_typed_on_it() -> None:
     """`RULE_ID_RE` is exported as a pattern, so every method a caller reaches for is on it.
 

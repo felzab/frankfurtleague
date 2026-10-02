@@ -285,7 +285,8 @@ every file this Scope names.
   bound: a header still over it once every surviving sentence has an answer is holding a fact that
   belongs at a lower rung, and that fact moves (COR-14).
   `scripts/checks/docs_gate/kernel.py :: comment_runs` skips a leading run of comment lines, and it
-  finds one only where the file's first non-blank line below any shebang begins with a marker.
+  finds one only where the file's first non-blank line below any shebang and any tool directive
+  begins with a marker; a directive line ends that run as it ends any block (INC-9).
   **Whether it does is a property of the file and never of its tree**, so what carries a header is
   named by that test rather than listed (COR-4): a hook, a `.githooks/` file, a Dockerfile, a
   `.dockerignore`, an nginx configuration, a compose file, a workflow and a manifest each open

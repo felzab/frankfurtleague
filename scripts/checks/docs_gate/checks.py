@@ -91,6 +91,7 @@ from .kernel import (
     holds_file,
     holds_path,
     invariant_rows,
+    is_directive_line,
     is_entry_token,
     is_gitignored,
     is_placeholder,
@@ -1220,7 +1221,9 @@ def _misplaced_header(raw: str, suffix: str) -> tuple[int, list[str]] | None:
         title = next((text for text in block if text), "")
         if not HEADER_TITLE_RE.fullmatch(title):
             continue
-        if all(not line.strip() or line.startswith("#!") or DIRECTIVE_RE.match(line) for line in lines[: first_line - 1]):
+        if all(
+            not line.strip() or line.startswith("#!") or DIRECTIVE_RE.match(line) or is_directive_line(line) for line in lines[: first_line - 1]
+        ):
             continue
         return first_line, lines[first_line - 1 : first_line - 1 + len(block)]
     return None
@@ -1246,7 +1249,7 @@ def check_module_header(rel: str, raw: str, suffix: str) -> list[Finding]:
         placement = (
             "the module header sits below the first statement -- INC-7 places it above the imports"
             if suffix == ".py"
-            else "the module header sits below the file's opening -- INC-2 puts it first, below a shebang alone"
+            else "the module header sits below the file's opening -- INC-2 puts it first, below a shebang and tool directives alone"
         )
         found.append(Finding("fail", "module-header", rel, placement, first_line))
     stripped = [_header_line(line, suffix) for line in header]

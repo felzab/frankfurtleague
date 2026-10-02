@@ -883,10 +883,12 @@ def _module_header(raw: str, suffix: str) -> list[str] | None:
     lines = raw.split("\n")
     i = 0
     if suffix == ".sh":
-        while i < len(lines) and (not lines[i].strip() or lines[i].startswith("#!")):
+        # A tool's directive stands above the header as the shebang does, and ends it below as it
+        # ends any comment block (INC-9), so neither its words nor its line reach INC-2's shape.
+        while i < len(lines) and (not lines[i].strip() or lines[i].startswith("#!") or is_directive_line(lines[i])):
             i += 1
         start = i
-        while i < len(lines) and lines[i].lstrip().startswith("#"):
+        while i < len(lines) and lines[i].lstrip().startswith("#") and not is_directive_line(lines[i]):
             i += 1
         return lines[start:i] or None
     if suffix == ".py":
@@ -954,6 +956,23 @@ def is_tool_directive(text: str) -> bool:
     return TOOL_DIRECTIVE_RE.match(text) is not None
 
 
+def _directive_text(line: str) -> str | None:
+    """One raw source line's directive with its marker off, by either marker, or None where it holds none."""
+    text = line.strip()
+    if text.startswith("#"):
+        text = text.lstrip("#").strip()
+    elif text.startswith("//"):
+        text = text[2:].strip()
+    else:
+        return None
+    return text if is_tool_directive(text) else None
+
+
+def is_directive_line(line: str) -> bool:
+    """Whether one raw source line is a comment holding a tool's directive."""
+    return _directive_text(line) is not None
+
+
 def _python_runs(raw: str, start_at: int) -> list[tuple[int, list[str]]]:
     """Each run of consecutive comment lines in a Python module, read through its own tokenizer.
 
@@ -1014,17 +1033,21 @@ def comment_runs(raw: str, suffix: str) -> list[tuple[int, list[str]]]:
     """
     lines = raw.split("\n")
     start_at = 0
+    above: list[tuple[int, list[str]]] = []
     if (header := _module_header(raw, suffix)) is not None:
         for index in range(len(lines)):
             if lines[index : index + len(header)] == header:
                 start_at = index + len(header)
+                # A directive the header scan stepped over is still a block, or its reason would sit
+                # under neither INC-2's bound nor INC-9's.
+                above = [(number, [text]) for number, line in enumerate(lines[:index], start=1) if (text := _directive_text(line))]
                 break
     # Python alone has a grammar here a line scan gets wrong; every other kind's comment opens on
     # a marker no literal of its own can carry at the margin.
     if suffix == ".py":
-        return _python_runs(raw, start_at)
+        return above + _python_runs(raw, start_at)
 
-    runs: list[tuple[int, list[str]]] = []
+    runs: list[tuple[int, list[str]]] = above
     current: list[str] = []
     first_line = 0
     closing: str | None = None
