@@ -47,9 +47,7 @@ from app.api.bewerbungen.services import (
 from app.api.bewerbungen.zustellung_router import angenommen_zustellung, post_zustellung
 from app.api.kontakte.admin_router import erase_kontaktperson
 from app.api.kontakte.schemas import FLKontaktErasurePayload
-from app.api.sperrliste.admin_router import post_sperrliste_eintrag
 from app.api.sperrliste.lookup import BanList
-from app.api.sperrliste.schemas import FLPostSperrlistePayload
 from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import post_team
 from app.api.teams.schemas import FLPostTeamPayload
@@ -57,7 +55,7 @@ from app.api.teams.services import CLUB_RETIRED, ENTRY_GRUPPE_FULL, ENTRY_SAISON
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.exceptions import DUPLICATE_KEY, DocumentNotFoundException, WriteRefusalException
-from app.core.recording import SYSTEM_ACTOR_EMAIL, Actor, actor_var
+from app.core.recording import SYSTEM_ACTOR_EMAIL
 from app.shared.schemas.bounds import BEWERBUNG_GRUND_MAX_LENGTH
 from tests.actor_tokens import SignedActor
 from tests.app_client import app_client
@@ -1583,27 +1581,6 @@ async def erase_the_person(database: AsyncDatabase, client: AsyncMongoClient) ->
         db=client,
         germany_now=NOW,
     )
-
-
-async def ban_through_the_route(database: AsyncDatabase, client: AsyncMongoClient, address: str) -> Any:
-    """A ban as an administrator enters it: its own transaction, with the season anchor every ban writes."""
-
-    token = actor_var.set(Actor(kind="admin_session", email=ADMIN_EMAIL))
-    try:
-        return await post_sperrliste_eintrag(
-            sperrliste_data=FLPostSperrlistePayload(email=address, grund="Falsches Geburtsdatum bei der Anmeldung"),
-            sperrliste_collection=database[Collection.SPERRLISTE],
-            sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
-            saisons_collection=database[Collection.SAISONS],
-            berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
-            berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
-            db=client,
-            config=CONFIG,
-            erstellt_von=ADMIN_EMAIL,
-            today=TODAY,
-        )
-    finally:
-        actor_var.reset(token)
 
 
 @pytest.mark.db
