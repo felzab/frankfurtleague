@@ -318,6 +318,58 @@ def test_a_fixture_is_consumed_only_where_pytest_would_supply_it(files: dict[str
     assert dead_in(files) == dead
 
 
+# One test in the class above it, asking for `league`.
+ASKS_IN_A_CLASS = "    def test_reads(self, league):\n        assert league\n"
+
+
+@pytest.mark.parametrize(
+    ("asking", "dead"),
+    [
+        pytest.param("class TestBuilt:\n    def __init__(self):\n        pass\n\n" + ASKS_IN_A_CLASS, ["league"], id="its-own-init"),
+        pytest.param(
+            "class TestBuilt:\n    def __new__(cls):\n        return super().__new__(cls)\n\n" + ASKS_IN_A_CLASS, ["league"], id="its-own-new"
+        ),
+        pytest.param(
+            "class Base:\n    def __init__(self):\n        pass\n\n\nclass TestBuilt(Base):\n" + ASKS_IN_A_CLASS,
+            ["league"],
+            id="an-inherited-init",
+        ),
+        pytest.param("class TestBuilt:\n    __test__ = False\n\n" + ASKS_IN_A_CLASS, ["league"], id="a-false-test-switch"),
+        pytest.param(
+            "class TestOuter:\n    def __init__(self):\n        pass\n\n    class TestInner:\n"
+            "        def test_reads(self, league):\n            assert league\n",
+            ["league"],
+            id="nested-in-an-uncollected-class",
+        ),
+        pytest.param("__test__ = False\n\n\n" + ASKS_LEAGUE, ["league"], id="a-false-test-switch-on-the-module"),
+        pytest.param("class TestBuilt:\n    __test__ = True\n\n" + ASKS_IN_A_CLASS, [], id="a-true-test-switch"),
+        pytest.param("class TestBuilt(object):\n" + ASKS_IN_A_CLASS, [], id="based-on-object"),
+        pytest.param(
+            "class Base:\n    def helper(self):\n        return 1\n\n\nclass TestBuilt(Base):\n" + ASKS_IN_A_CLASS,
+            [],
+            id="based-on-a-class-with-no-constructor",
+        ),
+    ],
+)
+def test_a_test_class_pytest_never_collects_asks_for_nothing(asking: str, dead: list[str]):
+    """pytest skips a class with a constructor of its own or inherited, and a class or module whose `__test__` is false."""
+    assert dead_in({"api/test_case.py": ORPHAN + asking}) == dead
+
+
+@pytest.mark.parametrize(
+    ("asking", "said"),
+    [
+        pytest.param("from support import Base\n\n\nclass TestBuilt(Base):\n" + ASKS_IN_A_CLASS, "whose constructor", id="imported-base"),
+        pytest.param("class TestBuilt:\n    __test__ = bool(1)\n\n" + ASKS_IN_A_CLASS, "`__test__`", id="computed-test-switch"),
+    ],
+)
+def test_a_class_whose_collection_this_cannot_read_leaves_the_module_unjudged(asking: str, said: str):
+    tree = corpus(ORPHAN + asking, PLAIN_CONFTEST)
+
+    assert [path.name for path, _ in tree.unfollowed] == ["test_case.py"]
+    assert said in tree.unfollowed[0][1]
+
+
 def test_a_module_pytest_plugins_names_supplies_every_test():
     """Spelled as `fl_backend/tests/conftest.py` spells its own entry; without the entry the module supplies only itself."""
     root = new_root("estate-plugins-") / "tests"

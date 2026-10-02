@@ -865,9 +865,11 @@ fixture's argument that has no default and that no `parametrize` mark hands over
 or a fixture runs, itself or in a function or a lambda it calls by name, or the configuration's own
 `usefixtures`; a fixture asking for its own name is handed the one it overrides, never itself. A
 same-named argument elsewhere, a helper's parameter, or the string of a helper, a nested function or
-a lambda nothing calls therefore excuses nothing. A fixture spelled in
-a way the check cannot follow, a test a `mock.patch` decorator hands arguments pytest then strips,
-or a collection of the configuration's own, is a refusal at 2 rather than a verdict. A test
+a lambda nothing calls therefore excuses nothing, and so does a test in a class pytest never
+collects, for a constructor or a false `__test__`. A fixture spelled in a way the check cannot
+follow, a test a `mock.patch` decorator hands arguments pytest then strips, a test class based on a
+class from another module, or a collection of the configuration's own, is a refusal at 2 rather than
+a verdict. A test
 reaching a database without `@pytest.mark.db` is the suite's own to refuse, as it runs
 ([`docs/backend/spec.md`](../backend/spec.md#16-the-test-suite)).
 

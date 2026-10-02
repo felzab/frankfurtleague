@@ -41,6 +41,10 @@ CalledNode = ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda
 USEFIXTURES_MARK: Final = "usefixtures"
 GETFIXTUREVALUE: Final = "getfixturevalue"
 
+# The attribute pytest reads to skip a module or a class, and the methods that keep it from collecting a class.
+TEST_SWITCH: Final = "__test__"
+CONSTRUCTORS: Final = frozenset({"__init__", "__new__"})
+
 # The mark that hands a test an argument itself, so pytest asks no fixture of that name for it.
 PARAMETRIZE_MARK: Final = "parametrize"
 
@@ -166,7 +170,9 @@ class Module:
         self.definitions = list(self._defined(tree.body, ()))
         is_test_file = TEST_FILE.fullmatch(path.name) is not None
         module_marks = tuple(_pytestmarks(tree.body))
-        self.tests = list(_tests(tree.body, (), module_marks)) if is_test_file else []
+        declared = {node.name: node for node in tree.body if isinstance(node, ast.ClassDef)}
+        collected = is_test_file and _test_switch(tree.body) is not False
+        self.tests = list(_tests(tree.body, (), module_marks, declared)) if collected else []
         # pytest strips the arguments a `mock.patch` decorator injects (`num_mock_patch_args`, read at its
         # release 9.1.1), and how many depends on values only the run knows, so such a test is never judged.
         patching = {PATCH} | {
@@ -233,7 +239,42 @@ def _pytestmarks(body: list[ast.stmt]) -> Iterator[ast.expr]:
             yield node.value
 
 
-def _tests(body: list[ast.stmt], classes: tuple[str, ...], marks: tuple[ast.expr, ...]) -> Iterator[Test]:
+def _test_switch(body: list[ast.stmt]) -> bool | None:
+    """What a body's own `__test__` says, which pytest reads by truth alone, or `None` where it sets none."""
+    for node in body:
+        value = node.value if isinstance(node, (ast.Assign, ast.AnnAssign)) else None
+        targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
+        if value is None or not any(isinstance(target, ast.Name) and target.id == TEST_SWITCH for target in targets):
+            continue
+        if not isinstance(value, ast.Constant):
+            raise Unfollowed(f"line {node.lineno} sets `{TEST_SWITCH}` to an expression this cannot read")
+        return bool(value.value)
+    return None
+
+
+def _uncollected(node: ast.ClassDef, classes: dict[str, ast.ClassDef]) -> bool:
+    """Whether pytest skips this class: its own or an inherited constructor, or a false `__test__`.
+
+    As its `Class.collect` decides, read at release 9.1.1.
+    """
+    if _test_switch(node.body) is False:
+        return True
+    for statement in node.body:
+        named = [statement.name] if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)) else []
+        named += [target.id for target in getattr(statement, "targets", []) if isinstance(target, ast.Name)]
+        if CONSTRUCTORS & set(named):
+            return True
+    for base in node.bases:
+        if isinstance(base, ast.Name) and base.id == "object":
+            continue
+        if not (isinstance(base, ast.Name) and base.id in classes):
+            raise Unfollowed(f"line {node.lineno} bases `{node.name}` on {ast.unparse(base)}, whose constructor this cannot read")
+        if _uncollected(classes[base.id], classes):
+            return True
+    return False
+
+
+def _tests(body: list[ast.stmt], classes: tuple[str, ...], marks: tuple[ast.expr, ...], declared: dict[str, ast.ClassDef]) -> Iterator[Test]:
     """The tests pytest collects from one body: `test`-prefixed, at module level or in a `Test`-prefixed class at any depth.
 
     Each carries every mark it is given: its own decorators, its classes' decorators and `pytestmark`s, and its module's.
@@ -241,8 +282,8 @@ def _tests(body: list[ast.stmt], classes: tuple[str, ...], marks: tuple[ast.expr
     for node in body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith(TEST_FUNCTION_PREFIX):
             yield Test(node, classes, (*marks, *node.decorator_list))
-        elif isinstance(node, ast.ClassDef) and node.name.startswith(TEST_CLASS_PREFIX):
-            yield from _tests(node.body, (*classes, node.name), (*marks, *node.decorator_list, *_pytestmarks(node.body)))
+        elif isinstance(node, ast.ClassDef) and node.name.startswith(TEST_CLASS_PREFIX) and not _uncollected(node, declared):
+            yield from _tests(node.body, (*classes, node.name), (*marks, *node.decorator_list, *_pytestmarks(node.body)), declared)
 
 
 def _supplied(marks: tuple[ast.expr, ...]) -> set[str]:
