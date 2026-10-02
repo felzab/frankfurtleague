@@ -316,17 +316,61 @@ def test_every_declared_pair_names_a_bound_this_package_still_declares(mirror: M
     assert mirror.python in _declared_bounds(), f"{mirror.python} is declared nowhere in bounds.py, so its mirror is compared to nothing"
 
 
+# A product of factors at most, the one arithmetic a unit conversion writes, each an integer or a
+# constant the same module declares the same way.
+_FACTOR = r"(?:\d+|[A-Z][A-Z0-9_]*)"
+_PRODUCT = rf"{_FACTOR}(?: \* {_FACTOR})*"
+
+
+def _integer_constant(source: str, name: str, *, exported: bool, reading: frozenset[str] = frozenset()) -> int | None:
+    """The value `source` declares `name` as, its named factors resolved in the same module; `None` for any other shape."""
+
+    if name in reading:
+        return None
+
+    prefix = "export " if exported else "(?:export )?"
+    found = re.search(rf"^{prefix}const {name} = ({_PRODUCT});$", source, re.MULTILINE)
+    if found is None:
+        return None
+
+    value = 1
+    for factor in found[1].split(" * "):
+        resolved = int(factor) if factor.isdigit() else _integer_constant(source, factor, exported=False, reading=reading | {name})
+        if resolved is None:
+            return None
+        value *= resolved
+
+    return value
+
+
+def test_the_number_reader_resolves_a_named_factor_and_refuses_what_it_cannot_read():
+    """The reader against a sample, so a resolver that read every name as one, or followed a cycle, fails here rather than passing the tree."""
+
+    sample = "\n".join(
+        (
+            "const HOUR_MS = 60 * 60 * 1000;",
+            "export const WINDOW_MS = 2 * HOUR_MS;",
+            "export const UNKNOWN_MS = 2 * NOWHERE_MS;",
+            "const LOOP_MS = 2 * LOOP_MS;",
+            "export const CYCLE_MS = 2 * LOOP_MS;",
+            "export const COMPUTED_MS = Math.max(1, 2);",
+        )
+    )
+
+    assert _integer_constant(sample, "WINDOW_MS", exported=True) == 2 * 60 * 60 * 1000
+    assert _integer_constant(sample, "HOUR_MS", exported=True) is None, "an unexported constant read as the module's export"
+    for name in ("UNKNOWN_MS", "CYCLE_MS", "COMPUTED_MS"):
+        assert _integer_constant(sample, name, exported=True) is None, name
+
+
 @pytest.mark.parametrize("mirror", MIRRORED_BOUNDS, ids=lambda mirror: f"{mirror.python}->{mirror.typescript}")
 def test_every_declared_pair_agrees_on_the_number(mirror: Mirror):
     """Past the backend's ceiling a `REQ-VAL-001` marks the box with a generic sentence, so a looser mirror loses the bound's German."""
 
-    # A product of integer literals at most, the one arithmetic a unit conversion writes.
-    found = re.search(rf"^export const {mirror.typescript} = (\d+(?: \* \d+)*);$", _source(mirror.module), re.MULTILINE)
+    value = _integer_constant(_source(mirror.module), mirror.typescript, exported=True)
 
-    assert found is not None, f"{mirror.module} no longer exports {mirror.typescript} as an integer or a product of integers"
-    assert math.prod(int(factor) for factor in found[1].split(" * ")) == _declared_bounds()[mirror.python] * mirror.scale, (
-        f"{mirror.typescript} disagrees with {mirror.python}"
-    )
+    assert value is not None, f"{mirror.module} no longer exports {mirror.typescript} as a product of integers and of its own such constants"
+    assert value == _declared_bounds()[mirror.python] * mirror.scale, f"{mirror.typescript} disagrees with {mirror.python}"
 
 
 def test_every_bound_this_package_declares_is_paired_or_named_unmirrored():
