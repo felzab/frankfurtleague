@@ -258,6 +258,15 @@ describe("a prompt the browser did not complete", () => {
 });
 
 describe("what the card puts in front of the reader", () => {
+  /* The page's header carries the league's mark; no step of the card carries a glyph of its own. */
+  it("draws no glyph on any of its three steps", () => {
+    for (const step of ["enrol", "assert", "offer"] as const) {
+      const { unmount } = renderCard(step);
+      assert.doesNotMatch(document.body.textContent ?? "", /\p{Extended_Pictographic}/u, `the ${step} step carries a glyph`);
+      unmount();
+    }
+  });
+
   /* `docs/frontend/spec.md` §1.16: a person's own datum never sits unmarked in prose, so the address
      the passkey will belong to takes the bold rung rather than the paragraph's. */
   it("marks the signed-in address as the reader's own datum", () => {
