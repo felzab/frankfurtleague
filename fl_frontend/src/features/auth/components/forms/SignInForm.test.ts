@@ -379,6 +379,48 @@ describe("the code step mounted outside the sign-in card", () => {
     }
   });
 
+  /* A background tab fires the ticks late or not at all while the clock runs on: the count reads the clock, so the
+     first tick after a gap shows the time left rather than one second less than the last. */
+  it("reads the count off the clock when the ticks between were never fired", async () => {
+    // The timers' clock and the wall clock apart: the mocked timers' own `setTime` fires every tick it skips over.
+    let wall = 0;
+    const now = mock.method(Date, "now", () => wall);
+    mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+    try {
+      render(h(CodeStep, { ...ELSEWHERE, onSignedIn: () => undefined }));
+      const resend = () => screen.getByText(/^Code erneut senden/, { selector: "button" });
+
+      // Twenty seconds pass on the wall clock while one tick lands.
+      wall = 20_000;
+      await act(async () => {
+        mock.timers.tick(1_000);
+      });
+
+      assert.equal(resend().textContent, "Code erneut senden (0:10)");
+    } finally {
+      mock.timers.reset();
+      now.mock.restore();
+    }
+  });
+
+  /* A send slower than the cooldown would otherwise let a second press through, and a second code voids the first. */
+  it("keeps the resend closed past the half minute while a send still runs", async () => {
+    mock.timers.enable({ apis: ["setTimeout"] });
+    try {
+      const { rerender } = render(h(CodeStep, { ...ELSEWHERE, isSending: true, onSignedIn: () => undefined }));
+      await act(async () => {
+        mock.timers.tick(30_000);
+      });
+      const resend = () => screen.getByText(/^Code erneut senden/, { selector: "button" });
+      assert.equal(resend().hasAttribute("disabled"), true, "the resend opened under a send still running");
+
+      rerender(h(CodeStep, { ...ELSEWHERE, isSending: false, onSignedIn: () => undefined }));
+      assert.equal(resend().hasAttribute("disabled"), false, "the resend stayed closed once the send had answered");
+    } finally {
+      mock.timers.reset();
+    }
+  });
+
   /* HeroUI's `.button` holds its label on one line, so two of them side by side ran past a narrow card's edges. */
   it("sets the resend under the hint and the way back under the button, each a line that wraps inside the card", () => {
     render(h(CodeStep, { ...ELSEWHERE, onBack: () => undefined, onSignedIn: () => undefined }));
