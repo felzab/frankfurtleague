@@ -241,6 +241,7 @@ class TestACancelledRequestStillAbortsItsTransaction:
 DATABASE_NAME = worker_database("fl_transactions_test")
 
 NO_SUCH_TRANSACTION = 251
+TRANSACTION_COMMITTED = 256
 
 
 class _Aborts(monitoring.CommandListener):
@@ -297,6 +298,43 @@ class TestARefusedTransactionalWriteRaisesNoAlarm:
 
         # The control: the driver's abort, then this helper's; a helper sending nothing would also log nothing.
         assert aborts.answered == [None, NO_SUCH_TRANSACTION]
+        assert [record for record in caplog.records if getattr(record, "error_code", None) == DATABASE_FAILED] == []
+
+
+class _FailedAfterTheCommit(Exception):
+    """Work inside the session failing once its transaction has committed, as a response built from the result can."""
+
+
+@pytest.mark.db
+class TestAFailureAfterTheCommitRaisesNoAlarm:
+    def test_the_abort_the_commit_answers_is_not_logged(self, mongo_replica_set_url: str, caplog: pytest.LogCaptureFixture):
+        """The server answers this helper's abort TransactionCommitted: the write stands and nothing is left open."""
+
+        aborts = _Aborts()
+
+        async def body() -> int:
+            async with a_clean_database(mongo_replica_set_url, DATABASE_NAME, constraints=False, collections=(Collection.AKTIONEN,)):
+                # A client of this case's own, so the listener sees this transaction's commands and none of the seeding.
+                watched = AsyncMongoClient(mongo_replica_set_url, event_listeners=[aborts])
+                try:
+                    written = watched[DATABASE_NAME][Collection.AKTIONEN]
+
+                    async def write(session: AsyncClientSession) -> None:
+                        await written.insert_one({"_id": ObjectId()}, session=session)
+
+                    with pytest.raises(_FailedAfterTheCommit):
+                        async with transaction_session(watched) as session:
+                            await session.with_transaction(write)
+                            raise _FailedAfterTheCommit
+                    return await written.count_documents({})
+                finally:
+                    await watched.close()
+
+        with caplog.at_level(logging.ERROR, logger=fl_logger.name):
+            stored = on_the_seed_loop(body())
+
+        # The control: this helper's abort, answered; a helper sending nothing would also log nothing.
+        assert (aborts.answered, stored) == ([TRANSACTION_COMMITTED], 1)
         assert [record for record in caplog.records if getattr(record, "error_code", None) == DATABASE_FAILED] == []
 
 
