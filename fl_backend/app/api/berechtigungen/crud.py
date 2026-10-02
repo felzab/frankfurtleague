@@ -72,7 +72,7 @@ async def _grant_and_its_record(
             pipeline=[
                 {"$match": {"adresse": adresse}},
                 {"$limit": 1},
-                {"$project": {field: 1 for field in [*fields, "adresse", "erteilt_am", "gefunden_am"]}},
+                {"$project": {field: 1 for field in [*fields, "adresse", "erteilt_am", "gefunden_am", "gesehen_am"]}},
                 {
                     "$lookup": {
                         "from": Collection.BERECHTIGUNGEN_ANGEKUENDIGT,

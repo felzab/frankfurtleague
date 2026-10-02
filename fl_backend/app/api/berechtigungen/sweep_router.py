@@ -75,7 +75,9 @@ async def post_berechtigungen_abgleich(
     accounted for, and queued naming nobody: `geaendert_von` and `geaendert_am` null. A database change undone again before any
     call to this endpoint is found by nothing. A row whose address no request can match counts as no grant, and `uebersprungen`
     counts those rows. A grant found here -- a new row, or an address changed in place -- is stamped `gefunden_am` with this call's
-    time, which `POST /identitaet/subjekt` then answers as `berechtigt_seit`: a session signed in before it administers nothing.
+    time, which `POST /identitaet/subjekt` then answers as `berechtigt_seit`: a session signed in before it administers nothing. Every
+    row a call reads for the first time, one no request can match included, is stamped `gesehen_am`, and a row carrying it beside no
+    record of its own was changed in the database since a call read it: it is no grant until a call finds it.
 
     The call then claims, oldest first and a page at a time, every queued change no claim holds or whose claim has lapsed, for ten
     minutes from now. A second call inside that time is answered none of them. The caller mails each change and then hands the ids it
@@ -141,6 +143,17 @@ async def post_berechtigungen_abgleich(
                     update={"$set": {"gefunden_am": now}},
                     session=session,
                 )
+
+        # Every row no pass has read, a dead one included: once its record is gone, this mark tells an
+        # edit made since from a paste nothing has seen (`docs/backend/spec.md :: I529`). The unseen
+        # alone, so a quiet pass writes nothing.
+        if unseen := [row["_id"] for row in grants if row.get("gesehen_am") is None]:
+            await patch_many_in_db(
+                collection=berechtigungen_collection,
+                db_filter={"_id": {"$in": unseen}},
+                update={"$set": {"gesehen_am": now}},
+                session=session,
+            )
 
         claimable = await read_the_claimable(
             berechtigungen_postausgang_collection=berechtigungen_postausgang_collection, now=now, session=session

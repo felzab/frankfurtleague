@@ -648,6 +648,19 @@ class TestTheGrant:
 
         assert (answer.verwaltung, answer.berechtigt_seit) == (None, None)
 
+    def test_a_row_the_reconciliation_saw_that_stands_without_its_record_is_answered_no_grant(self, mongo_replica_set_url: str):
+        """As a row put back after the reconciliation erased its record stands: every date it carries predates its return."""
+
+        async def put_back(database: AsyncDatabase) -> FLSubjektResponse:
+            await database[Collection.BERECHTIGUNGEN].update_one({"_id": GRANT_STORED_OID}, {"$set": {"gesehen_am": GRANT_FOUND}})
+            await database[Collection.BERECHTIGUNGEN_ANGEKUENDIGT].delete_one({"_id": GRANT_STORED_OID})
+
+            return await call_subjekt(database, VERWALTUNG_STORED)
+
+        answer = on_a_league(mongo_replica_set_url, put_back)
+
+        assert (answer.verwaltung, answer.berechtigt_seit) == (None, None)
+
     def test_a_paste_no_reconciliation_has_found_is_dated_no_earlier_than_its_id(self, mongo_replica_set_url: str):
         """Typed long before it was pasted, so the frontend's guard would admit sessions older than the paste."""
 

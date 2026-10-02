@@ -152,6 +152,9 @@ async def post_berechtigung(
             # The bound actor rather than a payload field, so the grant and its `aktionen` row name one person.
             "erteilt_von": erteilt_von,
             "erteilt_am": now,
+            # Seen as it is written, so a copy of it put back after a revoke reads as an edit rather
+            # than a fresh paste (`docs/backend/spec.md :: I529`).
+            "gesehen_am": now,
         }
         created = await post_one_to_db(collection=berechtigungen_collection, document=document, session=session)
 
@@ -349,9 +352,15 @@ async def patch_berechtigung(
         await patch_one_in_db(
             collection=berechtigungen_collection,
             db_filter={"_id": berechtigung_id},
-            # Stamped as the pass stamps a grant it finds, since the announced row moved below leaves the pass
-            # nothing of this grant to find (`docs/backend/spec.md :: I525`).
-            update={"$set": {"verwaltung": verwaltung, **({"gefunden_am": now} if gefunden(pending) else {})}},
+            # Stamped and seen as the pass stamps and sees a grant it finds, since the announced row moved
+            # below leaves the pass nothing of this grant to find (`docs/backend/spec.md :: I525`, `:: I529`).
+            update={
+                "$set": {
+                    "verwaltung": verwaltung,
+                    **({"gefunden_am": now} if gefunden(pending) else {}),
+                    **({"gesehen_am": now} if grant.get("gesehen_am") is None else {}),
+                }
+            },
             session=session,
             return_document=ReturnDocument.BEFORE,
         )

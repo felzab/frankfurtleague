@@ -80,9 +80,10 @@ async def get_subjekt(
 
     `berechtigt_seit` is when that grant took effect, null exactly where `verwaltung` is: the moment `POST /berechtigungen/abgleich`
     first found a grant made in the database directly, the grant's own `erteilt_am` for one made through the application, and for one
-    made in the database and not yet found, its `erteilt_am` or the moment its id was generated, whichever is later. An address
-    changed in place in the database is no grant, `verwaltung` null, until that endpoint finds the change. A tier change leaves it
-    standing. An admin-tier request from a sign-in older than it is refused.
+    made in the database that no call to that endpoint has read yet, its `erteilt_am` or the moment its id was generated, whichever is
+    later. A row changed in the database after that endpoint read it -- an address changed in place, a spelling no request matched
+    made one that does, a row put back after its removal was found -- is no grant, `verwaltung` null, until that endpoint finds the
+    change. A tier change leaves it standing. An admin-tier request from a sign-in older than it is refused.
 
     Each list may be empty and each may hold more than one entry: one person holds seats at two clubs, and nothing enforces one pupil
     record per address.

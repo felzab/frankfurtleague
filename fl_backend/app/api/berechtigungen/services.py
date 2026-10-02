@@ -71,8 +71,14 @@ def berechtigt_seit(row: Mapping[str, Any], angekuendigt: Mapping[str, Any] | No
 
     seit = as_utc(row.get("gefunden_am") or row["erteilt_am"])
     if angekuendigt is None:
-        # A paste no comparison has found, whose typed date can lie before it: never earlier than the
-        # id the Playground generated as it inserted the row, so its holder's first sign-in still admits.
+        # Seen before and its record gone since: made live from a dead spelling, repointed past the pass
+        # that erased its record, or put back whole. Every date it carries, its id's included, is from
+        # before that edit (`docs/backend/spec.md :: I529`).
+        if row.get("gesehen_am") is not None:
+            return None
+
+        # A paste nothing has seen, whose typed date can lie before it: never earlier than the id the
+        # Playground generated as it inserted the row, so its holder's first sign-in still admits.
         return max(seit, row["_id"].generation_time)
 
     # An address changed in place before the comparison found it: nothing dates the change, and the

@@ -183,7 +183,14 @@ async def revoke(
 
 
 async def change(
-    database: AsyncDatabase, client: AsyncMongoClient, grant_id: ObjectId, verwaltung: str, *, als: str = OWNER, berechtigungen: Any = None
+    database: AsyncDatabase,
+    client: AsyncMongoClient,
+    grant_id: ObjectId,
+    verwaltung: str,
+    *,
+    als: str = OWNER,
+    berechtigungen: Any = None,
+    now: datetime = NOW,
 ) -> None:
     """The tier change, as the route runs it past its guards."""
 
@@ -197,7 +204,7 @@ async def change(
             sperrliste=ban_list(database),
             db=client,
             geaendert_von=als,
-            now=NOW,
+            now=now,
         )
 
     await acting(Actor(kind="admin_session", email=als), call)
@@ -324,6 +331,7 @@ class TestWhatAGrantStoresAndQueues:
             "verwaltung": "administration",
             "erteilt_von": ANNA,
             "erteilt_am": NOW.astimezone(UTC).replace(tzinfo=None),
+            "gesehen_am": NOW.astimezone(UTC).replace(tzinfo=None),
         }
 
     def test_a_grant_and_a_revoke_made_here_each_queue_their_notice_as_they_happened(self, mongo_replica_set_url: str):
@@ -1243,6 +1251,10 @@ async def gefunden_am(database: AsyncDatabase) -> dict[ObjectId, Any]:
     return {row["_id"]: row.get("gefunden_am") async for row in database[Collection.BERECHTIGUNGEN].find()}
 
 
+async def gesehen_am(database: AsyncDatabase) -> dict[ObjectId, Any]:
+    return {row["_id"]: row.get("gesehen_am") async for row in database[Collection.BERECHTIGUNGEN].find()}
+
+
 # Past `NOW`, for a pass run after the one that found the list.
 LATER = NOW + timedelta(hours=2)
 
@@ -1303,6 +1315,40 @@ class TestWhatTheComparisonStampsOnAGrant:
         assert later == [("erteilt", NEU, None), ("geaendert", NEU, OWNER)]
 
 
+class TestWhatMarksARowSeen:
+    """`gesehen_am`: once a row's record is gone, what tells an edit since from a paste (`docs/backend/spec.md :: I529`)."""
+
+    def test_every_row_a_pass_reads_is_marked_once_a_dead_one_included(self, mongo_replica_set_url: str):
+        """The dead row is no grant and queues nothing, and is the row a later fold in place makes live."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> dict[ObjectId, Any]:
+            await told(database, client)
+            await claimed(database, client, now=LATER)
+
+            return await gesehen_am(database)
+
+        grants = [*the_three_grants(), grant_document(DEAD_ID, NEU_TYPED, "administration")]
+        seen = NOW.astimezone(UTC).replace(tzinfo=None)
+
+        assert on_a_league(mongo_replica_set_url, body, grants=grants) == {OWNER_ID: seen, ANNA_ID: seen, BERND_ID: seen, DEAD_ID: seen}
+
+    def test_a_grant_and_a_tier_change_made_here_mark_the_row_they_record(self, mongo_replica_set_url: str):
+        """The tier change meets a paste no pass has read, whose record it writes."""
+
+        async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[Any, Any]:
+            await told(database, client)
+            created = await grant(database, client, "Carla@Beispielschule.de", now=LATER)
+            await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(DEAD_ID, NEU, "administration"))
+            await change(database, client, DEAD_ID, "owner", now=LATER)
+            marks = await gesehen_am(database)
+
+            return marks[created], marks[DEAD_ID]
+
+        later = LATER.astimezone(UTC).replace(tzinfo=None)
+
+        assert on_a_league(mongo_replica_set_url, body) == (later, later)
+
+
 def since(seconds_ago: int) -> datetime:
     """An instant `seconds_ago` before the real clock, which the actor tokens below are signed against."""
 
@@ -1313,6 +1359,81 @@ def signed_in_at(email: str, auth_time: int) -> dict[str, str]:
     """One session's token, minted afresh by each request: its `iat` moves on, its sign-in stays where it was made."""
 
     return {**ADMIN_KEY, ACTOR_HEADER: sign({**actor_claims(email), "auth_time": auth_time})}
+
+
+async def asked(http: Any, email: str, auth_time: int) -> tuple[int, str | None]:
+    """The list, read by one session: the admin tier's own read, which the actor check alone judges."""
+
+    response = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=signed_in_at(email, auth_time))
+    return response.status_code, response.json().get("error_code")
+
+
+async def revoking(http: Any, email: str, auth_time: int, grant_id: ObjectId) -> tuple[int, str | None]:
+    response = await http.delete(f"/api/v{API_VERSION}/berechtigungen/{grant_id}", headers=signed_in_at(email, auth_time))
+    return response.status_code, response.json().get("error_code")
+
+
+# An edit made in the database after a pass saw the row, answering whose grant it moved and a sign-in from before the edit.
+Edit = Callable[[AsyncDatabase, AsyncMongoClient], Awaitable[tuple[str, int]]]
+
+
+async def an_address_changed_in_place(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
+    await told(database, client)
+    signed_in = int(time.time()) - 60
+    await database[Collection.BERECHTIGUNGEN].update_one({"_id": BERND_ID}, {"$set": {"adresse": NEU}})
+
+    return NEU, signed_in
+
+
+async def a_dead_spelling_fixed_in_place(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
+    """Pasted unfolded weeks ago, which the boot names and no pass records, then folded by hand."""
+
+    weeks_ago = since(14 * 86400)
+    await database[Collection.BERECHTIGUNGEN].insert_one(
+        grant_document(ObjectId.from_datetime(weeks_ago), NEU_TYPED, "administration") | {"erteilt_am": weeks_ago}
+    )
+    await told(database, client)
+    signed_in = int(time.time()) - 600
+    await database[Collection.BERECHTIGUNGEN].update_one({"adresse": NEU_TYPED}, {"$set": {"adresse": NEU}})
+
+    return NEU, signed_in
+
+
+async def repointed_through_a_dead_spelling(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
+    """The pass between reads the dead spelling as a revoke and erases the record, so the repoint meets a row with none."""
+
+    await told(database, client)
+    await database[Collection.BERECHTIGUNGEN].update_one({"_id": BERND_ID}, {"$set": {"adresse": BERND.upper()}})
+    await told(database, client)
+    signed_in = int(time.time()) - 60
+    await database[Collection.BERECHTIGUNGEN].update_one({"_id": BERND_ID}, {"$set": {"adresse": NEU}})
+
+    return NEU, signed_in
+
+
+async def removed_and_put_back_whole(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
+    """Its `_id` and its found date put back with it, by a sign-in made while the grant stood revoked."""
+
+    await told(database, client)
+    saved = await database[Collection.BERECHTIGUNGEN].find_one({"_id": BERND_ID})
+    await database[Collection.BERECHTIGUNGEN].delete_one({"_id": BERND_ID})
+    await told(database, client)
+    signed_in = int(time.time()) - 60
+    await database[Collection.BERECHTIGUNGEN].insert_one(cast(dict[str, Any], saved))
+
+    return BERND, signed_in
+
+
+async def granted_and_revoked_here_then_put_back(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, int]:
+    """No pass at all: the grant route's own mark is the one the copy carries back."""
+
+    created = await grant(database, client, now=since(120))
+    saved = await database[Collection.BERECHTIGUNGEN].find_one({"_id": created})
+    await revoke(database, client, created)
+    signed_in = int(time.time()) - 60
+    await database[Collection.BERECHTIGUNGEN].insert_one(cast(dict[str, Any], saved))
+
+    return NEU, signed_in
 
 
 class TestTheMountedRouteReadsTheGrants:
@@ -1339,31 +1460,33 @@ class TestTheMountedRouteReadsTheGrants:
 
         assert on_a_league(mongo_replica_set_url, body) == (status, error_code)
 
-    def test_the_first_owner_signs_in_before_the_pass_finds_the_paste_and_once_more_after_it(self, mongo_replica_set_url: str):
-        """A paste nothing has found is dated as it was pasted, so no owner waits on a pass.
+    def test_the_first_owner_signs_in_after_the_paste_before_the_pass_finds_it_and_once_more_after_it(self, mongo_replica_set_url: str):
+        """A paste nothing has seen is dated as it was pasted: no owner waits on a pass, and a sign-in before the paste is refused.
 
-        The pass's clock then dates it, which the same session predates, and a sign-in after the pass is served.
+        The pass's clock then dates it, which the same session predates.
         """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[int, str | None]]:
-            # As the runbook's paste writes it, `new Date()` a moment before its holder signs in.
-            await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(DEAD_ID, NEU, "owner") | {"erteilt_am": since(120)})
-            between = int(time.time()) - 60
+            # Generated two minutes ago, as the Playground generates the id at the paste, beside the runbook's `new Date()`.
+            pasted = since(120)
+            await database[Collection.BERECHTIGUNGEN].insert_one(
+                grant_document(ObjectId.from_datetime(pasted), NEU, "owner") | {"erteilt_am": pasted}
+            )
+            before_the_paste, between = int(pasted.timestamp()) - 60, int(time.time()) - 60
 
             async with app_client(mongo_replica_set_url, config=CONFIG) as http:
-
-                async def asked(auth_time: int) -> tuple[int, str | None]:
-                    response = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=signed_in_at(NEU, auth_time))
-                    return response.status_code, response.json().get("error_code")
-
-                before_the_pass = await asked(between)
+                before_the_pass = [await asked(http, NEU, before_the_paste), await asked(http, NEU, between)]
                 await claimed(database, client, now=datetime.now(UTC))
-                the_same_session = await asked(between)
-                signed_in_again = await asked(int(time.time()))
+                after_the_pass = [await asked(http, NEU, between), await asked(http, NEU, int(time.time()))]
 
-            return [before_the_pass, the_same_session, signed_in_again]
+            return [*before_the_pass, *after_the_pass]
 
-        assert on_a_league(mongo_replica_set_url, body) == [(200, None), (401, ACTOR_TOKEN_REFUSED), (200, None)]
+        assert on_a_league(mongo_replica_set_url, body) == [
+            (401, ACTOR_TOKEN_REFUSED),
+            (200, None),
+            (401, ACTOR_TOKEN_REFUSED),
+            (200, None),
+        ]
 
     def test_a_paste_typed_with_a_past_date_admits_no_session_older_than_the_paste(self, mongo_replica_set_url: str):
         """Dated by the id the paste generated, so the typed hour before it opens nothing while no pass has run."""
@@ -1373,32 +1496,33 @@ class TestTheMountedRouteReadsTheGrants:
             await database[Collection.BERECHTIGUNGEN].insert_one(grant_document(ObjectId(), NEU, "owner") | {"erteilt_am": since(3600)})
 
             async with app_client(mongo_replica_set_url, config=CONFIG) as http:
-
-                async def asked(auth_time: int) -> tuple[int, str | None]:
-                    response = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=signed_in_at(NEU, auth_time))
-                    return response.status_code, response.json().get("error_code")
-
-                return [await asked(signed_in_before_the_paste), await asked(int(time.time()))]
+                return [await asked(http, NEU, signed_in_before_the_paste), await asked(http, NEU, int(time.time()))]
 
         assert on_a_league(mongo_replica_set_url, body) == [(401, ACTOR_TOKEN_REFUSED), (200, None)]
 
-    def test_an_address_changed_in_place_admits_nobody_until_the_pass_finds_it(self, mongo_replica_set_url: str):
-        """The row's dates are the address before's until the pass, so no session of the new holder is judged against them."""
+    @pytest.mark.parametrize(
+        "edit",
+        [
+            pytest.param(an_address_changed_in_place, id="an address changed in place"),
+            pytest.param(a_dead_spelling_fixed_in_place, id="a dead spelling fixed in place"),
+            pytest.param(repointed_through_a_dead_spelling, id="repointed through a dead spelling past a pass"),
+            pytest.param(removed_and_put_back_whole, id="removed and put back whole past a pass"),
+            pytest.param(granted_and_revoked_here_then_put_back, id="granted and revoked here, then put back whole"),
+        ],
+    )
+    def test_a_row_edited_after_a_pass_saw_it_admits_nobody_until_the_pass_finds_it(self, mongo_replica_set_url: str, edit: Edit):
+        """Every date the row carries, its id's among them, is from before the edit, and nothing dates the edit itself.
+
+        The last three leave the row with no record, which a paste nothing has seen shares.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> list[tuple[int, str | None]]:
-            await told(database, client)
-            before_the_repoint = int(time.time()) - 60
-            await database[Collection.BERECHTIGUNGEN].update_one({"_id": BERND_ID}, {"$set": {"adresse": NEU}})
+            email, before_the_edit = await edit(database, client)
 
             async with app_client(mongo_replica_set_url, config=CONFIG) as http:
-
-                async def asked(auth_time: int) -> tuple[int, str | None]:
-                    response = await http.get(f"/api/v{API_VERSION}/berechtigungen", headers=signed_in_at(NEU, auth_time))
-                    return response.status_code, response.json().get("error_code")
-
-                before_the_pass = [await asked(before_the_repoint), await asked(int(time.time()))]
+                before_the_pass = [await asked(http, email, before_the_edit), await asked(http, email, int(time.time()))]
                 await claimed(database, client, now=datetime.now(UTC))
-                after_the_pass = [await asked(before_the_repoint), await asked(int(time.time()))]
+                after_the_pass = [await asked(http, email, before_the_edit), await asked(http, email, int(time.time()))]
 
             return [*before_the_pass, *after_the_pass]
 

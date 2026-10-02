@@ -112,6 +112,11 @@ class TestWhenAGrantTookEffect:
 
         assert berechtigt_seit(stored(erteilt_am=typed), None) == dated
 
+    def test_a_row_seen_before_that_has_lost_its_record_admits_nobody(self):
+        """Made live from a dead spelling, repointed past a pass, or put back whole: its dates, its id's included, predate the edit."""
+
+        assert berechtigt_seit(stored(gefunden_am=FOUND, gesehen_am=FOUND), None) is None
+
     def test_an_address_changed_in_place_before_any_pass_found_it_admits_nobody(self):
         """Its dates are the address before's, and nothing records when the change was made."""
 

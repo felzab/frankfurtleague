@@ -401,6 +401,8 @@ administration is shut while it is down. Each of these is easy to get wrong:
   (`docs/backend/spec.md :: I439`). A Playground change undone again before the next claim is
   announced by nothing, and deleting a row of `berechtigungen_angekuendigt` or
   `berechtigungen_postausgang` by hand announces that grant again as new, or silences its notice.
+  The first also shuts its holder out until the pass finds the grant again, and asks them to sign in
+  once more after it.
 - **The session row is not the grant.** It stays in the `auth` database after a revocation and authorizes
   nothing, so deleting it by hand is tidying rather than revocation.
 - **A grant to an address the sign-in library will not take admits nobody**: that person is mailed
@@ -420,9 +422,11 @@ ABGLEICH_INTERVAL_MS`) finds the row, it is dated by its own `erteilt_am`, or by
   `erteilt_am`, and any sign-in after the paste admits. Once found, it is dated by that moment instead
   (`docs/backend/spec.md :: I525`): a session signed in between the paste and the find is sent back to
   the sign-in, and the next passkey sign-in admits.
-- **An address changed in place on an existing row admits nobody until the pass finds it**
-  (`docs/backend/spec.md :: I529`), and then only on a sign-in after the find. To hand a grant to
-  another mailbox at once, paste a new row and remove the old one.
+- **A row the pass has read is no fresh paste: edit it and it admits nobody until the pass finds the
+  edit** (`docs/backend/spec.md :: I529`), and then only on a sign-in after the find. That holds for
+  an address changed in place, a spelling the boot named folded to the stored form, and a removed
+  row put back with its `_id`; the pass marks every row it reads `gesehen_am`, so leave that field
+  as it stands. To hand a grant to another mailbox at once, paste a new row and remove the old one.
 - **The grant is the access; the person's own next sign-in enrols the passkey.** An address holding
   a grant and no passkey is answered the enrolment page and reaches no admin route until one stands,
   so there is nothing to prepare for them and nothing to hand over.

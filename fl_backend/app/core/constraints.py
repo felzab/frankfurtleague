@@ -968,6 +968,8 @@ COLLECTION_VALIDATORS: Mapping[Collection, Mapping[str, Any]] = {
                 # Out of `required`: a paste writes no such key, and the comparison stamps it on the
                 # row it finds (`docs/backend/spec.md :: I525`).
                 "gefunden_am": {"bsonType": ["date", "null"]},
+                # Out of `required` for `gefunden_am`'s reason: a paste writes no such key.
+                "gesehen_am": {"bsonType": ["date", "null"]},
             },
         )
     },

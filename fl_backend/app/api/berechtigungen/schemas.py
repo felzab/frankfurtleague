@@ -49,6 +49,9 @@ class FLBerechtigung(BaseModel):
     # `erteilt_am` is whatever was typed, and an address changed in place keeps the old one
     # (`docs/backend/spec.md :: I525`).
     gefunden_am: datetime | None = None
+    # Written once, by the first pass to read the row, dead or live, or by the write here that first
+    # records it: a row carrying it and no record was edited after it was seen (`docs/backend/spec.md :: I529`).
+    gesehen_am: datetime | None = None
 
 
 class FLBerechtigungZeile(BaseModel):
