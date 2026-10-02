@@ -77,6 +77,12 @@ describe("the sign-in card's address step", () => {
     assert.equal(screen.getByRole("textbox", { name: "E-Mail-Adresse" }).getAttribute("aria-required"), "true");
   });
 
+  it("takes no focus when the page opens", () => {
+    render(h(SignInForm, { next: LANDING }));
+
+    assert.ok(document.activeElement === document.body, "the address box took the focus on load");
+  });
+
   /* The browser offers a saved passkey in this box only where `webauthn` is the LAST token. */
   it("offers the box to the browser's username and passkey autofill, passkey last", () => {
     render(h(SignInForm, { next: LANDING }));
@@ -195,13 +201,15 @@ describe("the sign-in card's code step", () => {
     assert.ok(screen.queryByRole("alert") === null, "a refusal stands at the field for an answer that was not ours");
   });
 
-  it("returns to the address step with the address kept", async () => {
+  it("returns to the address step with the address kept and the caret in its box", async () => {
     const user = userEvent.setup();
     await atTheCodeStep(user);
 
     await user.click(screen.getByRole("button", { name: "Andere E-Mail-Adresse verwenden" }));
 
-    assert.equal(screen.getByRole<HTMLInputElement>("textbox", { name: "E-Mail-Adresse" }).value, ADDRESS);
+    const address = screen.getByRole<HTMLInputElement>("textbox", { name: "E-Mail-Adresse" });
+    assert.equal(address.value, ADDRESS);
+    assert.ok(document.activeElement === address, "the form replaced the pressed button and left the focus on the document");
   });
 
   /* Driven on a clock of the case's own, taken before the step arms its cooldown, and with events

@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useEffect, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import { catchError } from "next/error";
 
 import { Button } from "@heroui/react/button";
@@ -84,6 +84,13 @@ function SignInPanel({ email, onEmailChange, next }: { email: string; onEmailCha
   const [dismissedAt, setDismissedAt] = useState<FormState | undefined>(undefined);
   const isSubmitted = state?.success === true && state !== dismissedAt;
 
+  // The code step unmounts from under the pressed way back, so focus would fall to `<body>`; the box
+  // it returns to takes it. Never on the first mount, where nothing was pressed.
+  const addressRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (dismissedAt !== undefined) addressRef.current?.focus();
+  }, [dismissedAt]);
+
   useEffect(() => {
     if (!state || state.success) return;
 
@@ -165,6 +172,7 @@ function SignInPanel({ email, onEmailChange, next }: { email: string; onEmailCha
           {/* No `required`: `aria` drops react-aria's own, and a hand-written one would put the
             browser's bubble back on the very blur this mode exists to keep quiet. */}
           <Input
+            ref={addressRef}
             className="w-full rounded-xl border border-control bg-surface px-4 py-3 fluid-xs text-foreground transition-colors duration-(--motion-base) outline-none placeholder:text-foreground-muted sm:fluid-sm"
             placeholder="z.B. name@beispiel.de"
             type="email"
