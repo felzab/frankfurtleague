@@ -22,6 +22,7 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_TEXTAREA_CLASSES, FORM_SECTION_HEADING_CLASSES, TOGGLE_GROUP_ALIGN_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
@@ -33,6 +34,7 @@ import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { CLIPBOARD_ERROR_DETAIL, copyTextToClipboard } from "@/shared/utils/clipboard";
+import { focusAfterWrite, focusSection, focusSlot } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import type { FrischeEinladung } from "@/features/einladungen/components/EinladungLinkHolder";
@@ -50,6 +52,12 @@ const MINT_UNKLAR = "Lade die Seite neu. Steht dort ein Link, ziehe ihn zurück 
 
 /** Where a reader goes when the browser refuses the clipboard, beside the box the value stands in. */
 const VON_HAND_KOPIEREN = "Markiere den Link im Feld darüber und kopiere ihn von Hand.";
+
+/**
+ * The place the first mint's control, the managing press and the new link's copy control share: whichever
+ * stands first takes the focus once a write takes another away.
+ */
+const EINLADUNG_PLACE = "einladung";
 
 /** Which of the two writes the armed press performs, picked before arming rather than raced between two controls. */
 type Operation = "ersetzen" | "zurueckziehen";
@@ -94,7 +102,9 @@ export function FormEinladungSection({
   const panel = formPanel();
   const busy = isMinting || isMailing || isWriting;
 
-  const mint = async () => {
+  // Each write's control gives way to the other's, the new link's copy control standing first in their
+  // shared place, so the landing is read at the press and handed in.
+  const mint = async (landing: ReturnType<typeof focusAfterWrite>) => {
     // A rejected action may still have saved, and uncaught here it takes the page down with it.
     const res = await postEinladungAction({ team_id: teamId, saison_id: saisonId }).catch(rejectedWrite(router));
 
@@ -103,6 +113,7 @@ export function FormEinladungSection({
       return;
     }
 
+    landing.landed();
     // Wrapped again: both callers run this inside a transition, and React leaves an update after an
     // `await` outside it.
     startTransition(() => {
@@ -111,7 +122,7 @@ export function FormEinladungSection({
     });
   };
 
-  const widerrufen = async () => {
+  const widerrufen = async (landing: ReturnType<typeof focusAfterWrite>) => {
     // A rejected action may still have saved, and uncaught here it takes the page down with it.
     const res = await deleteEinladungAction({ team_id: teamId, saison_id: saisonId }).catch(rejectedWrite(router));
 
@@ -120,6 +131,7 @@ export function FormEinladungSection({
       return;
     }
 
+    landing.landed();
     // Wrapped again: the press runs this inside its transition, and React leaves an update after an
     // `await` outside it.
     startTransition(() => {
@@ -132,8 +144,9 @@ export function FormEinladungSection({
     // Ahead of `press`, so an unpicked operation neither arms nor writes.
     if (gewaehlt === null) return;
 
+    const landing = focusAfterWrite();
     press(async () => {
-      await (gewaehlt === "ersetzen" ? mint() : widerrufen());
+      await (gewaehlt === "ersetzen" ? mint(landing) : widerrufen(landing));
       // Wrapped again: the press runs this inside its transition, and React leaves an update after an
       // `await` outside it.
       startTransition(() => {
@@ -181,7 +194,9 @@ export function FormEinladungSection({
   const armedLabel = gewaehlt === "zurueckziehen" ? "Ja, Link zurückziehen" : "Ja, neuen Link anlegen";
 
   return (
-    <section className={panel.root()}>
+    <section
+      className={panel.root()}
+      {...focusSection("einladung")}>
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}
@@ -270,6 +285,7 @@ export function FormEinladungSection({
                     type="button"
                     variant="secondary"
                     isDisabled={busy}
+                    {...focusSlot(EINLADUNG_PLACE)}
                     onPress={() => kopieren(frisch)}
                     className={`${formButton({ intent: "cancel", stacks: true })} gap-x-2`}>
                     <Copy
@@ -303,7 +319,11 @@ export function FormEinladungSection({
                 variant="primary"
                 isPending={isMinting}
                 isDisabled={!isMinting && (isFinishedSaison || busy)}
-                onPress={() => startMinting(mint)}
+                {...focusSlot(EINLADUNG_PLACE)}
+                onPress={() => {
+                  const landing = focusAfterWrite();
+                  startMinting(() => mint(landing));
+                }}
                 className={`${formButton({ stacks: true })} gap-x-2`}>
                 <Link
                   className="size-4.5"
@@ -358,33 +378,35 @@ export function FormEinladungSection({
                 )}
 
                 <ConfirmActionRow confirm={twoPress}>
-                  <ConfirmPressButton
-                    confirm={twoPress}
-                    reason={
-                      gewaehlt === null
-                        ? "Wähle, was mit dem offenen Link passieren soll."
-                        : gewaehlt === "ersetzen" && isFinishedSaison
-                          ? "Für eine abgeschlossene Saison wird kein Link mehr ausgegeben."
-                          : null
-                    }
-                    resting={restingLabel}
-                    armed={armedLabel}
-                    running={gewaehlt === "zurueckziehen" ? "Zieht zurück..." : "Legt an..."}
-                    icon={
-                      gewaehlt === "zurueckziehen" ? (
-                        <Ban
-                          className="size-4.5"
-                          aria-hidden="true"
-                        />
-                      ) : (
-                        <Link
-                          className="size-4.5"
-                          aria-hidden="true"
-                        />
-                      )
-                    }
-                    onPress={handlePress}
-                  />
+                  <FocusSlot name={EINLADUNG_PLACE}>
+                    <ConfirmPressButton
+                      confirm={twoPress}
+                      reason={
+                        gewaehlt === null
+                          ? "Wähle, was mit dem offenen Link passieren soll."
+                          : gewaehlt === "ersetzen" && isFinishedSaison
+                            ? "Für eine abgeschlossene Saison wird kein Link mehr ausgegeben."
+                            : null
+                      }
+                      resting={restingLabel}
+                      armed={armedLabel}
+                      running={gewaehlt === "zurueckziehen" ? "Zieht zurück..." : "Legt an..."}
+                      icon={
+                        gewaehlt === "zurueckziehen" ? (
+                          <Ban
+                            className="size-4.5"
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <Link
+                            className="size-4.5"
+                            aria-hidden="true"
+                          />
+                        )
+                      }
+                      onPress={handlePress}
+                    />
+                  </FocusSlot>
                 </ConfirmActionRow>
               </>
             )}

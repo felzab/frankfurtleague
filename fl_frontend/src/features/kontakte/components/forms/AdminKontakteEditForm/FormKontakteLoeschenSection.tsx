@@ -9,6 +9,7 @@ import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReadoutRow } from "@/shared/components/ui/ConfirmReadoutRow";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { FORM_SECTION_HEADING_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { formPanel } from "@/shared/components/ui/formPanel";
 import { Hint } from "@/shared/components/ui/Hint";
@@ -17,6 +18,7 @@ import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 
 /** Said in the body and on the closed control alike, so the two cannot describe the empty row differently. */
 const KEINE_KONTAKTE = "Für diese Saison sind keine Kontakte gespeichert.";
@@ -53,6 +55,8 @@ export function FormKontakteLoeschenSection({
   const handleClear = () => {
     if (!guardAgainstDraft(isDirty, DRAFT_DISCARDED)) return;
 
+    // The editor is drawn anew over the cleared seats, and this control stands again, closed.
+    const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await patchSaisonTeamKontakteAction({ team_id: teamId, saison_id: saisonId, kontakte: null, kontakte_stand: stand }).catch(
@@ -64,12 +68,15 @@ export function FormKontakteLoeschenSection({
         return;
       }
 
+      landing.landed();
       appToast.success("Kontakte gelöscht", { description: "Für diese Saison sind jetzt keine Kontaktpersonen hinterlegt." });
     });
   };
 
   return (
-    <section className={panel.root()}>
+    <section
+      className={panel.root()}
+      {...focusSection("kontakte-loeschen")}>
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}
@@ -127,22 +134,24 @@ export function FormKontakteLoeschenSection({
         <ConfirmActionRow confirm={twoPress}>
           {/* On the control as well as in the body, the treatment `docs/frontend/spec.md` §1.14 gives a
               standing closure. */}
-          <ConfirmPressButton
-            confirm={twoPress}
-            reason={hasStored ? null : KEINE_KONTAKTE}
-            resting="Kontakte löschen"
-            // The object stays in the label: „Ja, endgültig löschen“ under a trash icon reads as the
-            // team going, which is the one thing this control does not touch.
-            armed="Ja, Kontakte dieser Saison endgültig löschen"
-            running="Löscht..."
-            icon={
-              <TrashBin
-                className="size-4.5"
-                aria-hidden="true"
-              />
-            }
-            onPress={handleClear}
-          />
+          <FocusSlot name="loeschen">
+            <ConfirmPressButton
+              confirm={twoPress}
+              reason={hasStored ? null : KEINE_KONTAKTE}
+              resting="Kontakte löschen"
+              // The object stays in the label: „Ja, endgültig löschen“ under a trash icon reads as the
+              // team going, which is the one thing this control does not touch.
+              armed="Ja, Kontakte dieser Saison endgültig löschen"
+              running="Löscht..."
+              icon={
+                <TrashBin
+                  className="size-4.5"
+                  aria-hidden="true"
+                />
+              }
+              onPress={handleClear}
+            />
+          </FocusSlot>
         </ConfirmActionRow>
       </div>
     </section>

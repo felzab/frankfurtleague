@@ -21,6 +21,7 @@ import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { rolloverBlockedReason } from "./blockedReasons";
@@ -75,6 +76,8 @@ export function FormRolloverSection({
   });
 
   const handleActivate = () => {
+    // The season turns active and the panel keeps no control, so its heading takes the focus.
+    const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await activateSaisonAction({ id: saisonId }).catch(rejectedWrite(router));
@@ -84,6 +87,7 @@ export function FormRolloverSection({
         return;
       }
 
+      landing.landed();
       appToast.success("Saison umgestellt", { description: res.message });
     });
   };
@@ -91,7 +95,9 @@ export function FormRolloverSection({
   const restingLabel = `Auf Saison ${saisonId} umstellen`;
 
   return (
-    <section className={panel.root()}>
+    <section
+      className={panel.root()}
+      {...focusSection("umstellung")}>
       <div className={`${panel.header()} relative`}>
         <span className="absolute top-1/2 right-4 -translate-y-1/2 sm:right-5">
           <SaisonBadge status={saisonStatus} />

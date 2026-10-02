@@ -537,6 +537,9 @@ describe("the reactivate's gate on the editor", () => {
 
     await userEvent.setup().click(screen.getByRole("button", { name: "Aus Kader 2026 austragen" }));
     rerender(underNext(h(FormAustragenSection, { ...props, key: "ausgetragen", rowInactiveSince: RETIRED_ON })));
+    // One tick: the landing watches the page for the pressed control to go, and an observer reports a
+    // commit a microtask after it.
+    await Promise.resolve();
 
     assert.ok(document.activeElement === screen.getByRole("button", { name: ROW_REACTIVATE }), "focus fell to the page");
   });

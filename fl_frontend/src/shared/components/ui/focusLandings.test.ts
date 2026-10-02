@@ -39,6 +39,14 @@ const { AdminSperrlisteView } = await import("@/features/sperrliste/components/v
 const { AdminBerechtigungenView } = await import("@/features/berechtigungen/components/views/AdminBerechtigungenView.tsx");
 const { AppTopBar } = await import("@/shared/components/layout/shell/AppTopBar.tsx");
 const { formatSpielDatum } = await import("@/shared/utils/format.ts");
+const { EinladungLinkHolder } = await import("@/features/einladungen/components/EinladungLinkHolder.tsx");
+const { FormEinladungSection } = await import("@/features/teams/components/forms/AdminTeamEditForm/FormEinladungSection.tsx");
+const { AdminBewerbungView } = await import("@/features/bewerbungen/components/views/AdminBewerbungView.tsx");
+const { FormRolloverSection } = await import("@/features/saisons/components/forms/AdminSaisonEditForm/FormRolloverSection.tsx");
+const { FormAustragenSection } = await import("@/features/spieler/components/forms/AdminSpielerEditForm/FormAustragenSection.tsx");
+const { AdminKontakteEditView } = await import("@/features/kontakte/components/views/AdminKontakteEditView.tsx");
+const { deriveKontakteDraftStatus } = await import("@/features/kontakte/kontakteDraftStatus.ts");
+const { DraftStatusProvider } = await import("@/shared/components/ui/DraftStatusContext.tsx");
 
 /** One write whose control leaves the page, from the page before it to the page its refresh draws. */
 type Landing = {
@@ -191,6 +199,126 @@ const teamEditor = (inactiveSince: string | null) =>
   });
 
 const SR_RECORD = { ...schiedsrichter(SR_A, "Pia Kraft", null) };
+
+/** The slices' own shapes, typed off their components: this layer imports no slice's types. */
+type Einladung = NonNullable<Parameters<typeof FormEinladungSection>[0]["einladung"]>;
+type Bewerbung = Parameters<typeof AdminBewerbungView>[0]["bewerbung"];
+type Person = NonNullable<Bewerbung["kontakte"]["trainer"]>;
+type Kontakte = NonNullable<NonNullable<Parameters<typeof AdminKontakteEditView>[0]["saison"]["membership"]>["kontakte"]>;
+
+/** The one stop a closed control leaves: its overlay, the control itself being inert beneath it. */
+const openStop = (name: string): HTMLElement => {
+  const stop = screen.getAllByRole("button", { name }).find((each) => each.closest("[inert]") === null);
+  assert.ok(stop, `no stop named „${name}“ stands outside an inert box`);
+  return stop;
+};
+
+/** The club's registration link panel in a planned season, under the holder the page keeps the new link in. */
+const einladungPanel = (einladung: Einladung | null) =>
+  h(EinladungLinkHolder, {
+    scope: `${TEAM_A}:2026`,
+    children: h(FormEinladungSection, { teamId: TEAM_A, saisonId: "2026", isMember: true, isFinishedSaison: false, einladung, laeuft: true }),
+  });
+const EINLADUNG: Einladung = {
+  id: "68c1f0a2b3c4d5e6f7a8b961",
+  saison_id: "2026",
+  team_id: TEAM_A,
+  erstellt_am: "2026-09-01",
+  erstellt_von: "verwaltung@example.org",
+  erstellt_von_gesperrt: false,
+  widerrufen_am: null,
+  versand: null,
+};
+const MINTED = {
+  success: true,
+  einladung_id: EINLADUNG.id,
+  token: "token",
+  link: "https://example.org/registrierung/token",
+  message: "Angelegt.",
+};
+
+const kontaktperson = (vorname: string, email: string | null, bestaetigtAm: string | null): Person => ({
+  vorname,
+  nachname: "Meier",
+  email: email ?? `${vorname.toLowerCase()}@schule.example`,
+  telefon: "069 1234567",
+  geburtsdatum: bestaetigtAm === null ? null : "1988-04-02",
+  einwilligung: {
+    umfang: "kontaktdaten",
+    erfasst_von: bestaetigtAm === null ? "administrativ" : "person",
+    text_version: "2026-09-bestaetigungsseite",
+    datum: "2026-09-01",
+    bestaetigt_am: bestaetigtAm,
+  },
+});
+const SITZ = { verschickt_am: "2026-09-01", erinnert_am: null, abgelehnt_am: null, zustellung: null };
+const OFFENE_BESTAETIGUNGEN = { ansprechperson: SITZ, stellvertretung: SITZ, trainer: { ...SITZ, abgelehnt_am: "2026-09-03" } };
+
+/** An open application for a club, its three seats confirmed, so nothing closes either decision. */
+const OFFEN: Bewerbung = {
+  id: "68d0f2a4c1e2b3a4d5e6f708",
+  saison_id: "2027",
+  eingereicht_am: "2026-09-01",
+  status: "eingereicht",
+  team_id: "68d0f2a4c1e2b3a4d5e6f709",
+  schule: null,
+  kontakte: {
+    ansprechperson: kontaktperson("Anna", null, "2026-09-02"),
+    stellvertretung: kontaktperson("Bernd", null, "2026-09-02"),
+    trainer: kontaktperson("Clara", null, "2026-09-03"),
+    trainer_ist_zugleich: null,
+  },
+  trikot: { vorhandener_satz: "Ein Satz", wunschfarbe: null },
+  kader: { voraussichtliche_groesse: 14, gute_spieler: 2 },
+  stufengroesse: 96,
+  wunschgegner: null,
+  entscheidung: null,
+  bestaetigungen: { ansprechperson: SITZ, stellvertretung: SITZ, trainer: SITZ },
+  bestaetigungsfrist: "2099-12-31",
+};
+const ENTSCHIEDEN = { getroffen_am: "2026-09-10", von: "Admin", von_gesperrt: false, grund: null };
+
+/** The Stellvertretung still waits on her link and the Trainer declined, so the strip offers its three controls. */
+const MIT_OFFENEN_SITZEN: Bewerbung = {
+  ...OFFEN,
+  kontakte: { ...OFFEN.kontakte, stellvertretung: kontaktperson("Bernd", null, null), trainer: kontaktperson("Clara", null, null) },
+  bestaetigungen: OFFENE_BESTAETIGUNGEN,
+};
+const bewerbungPage = (bewerbung: Bewerbung) =>
+  h(AdminBewerbungView, { bewerbung, teamName: "SG Alpha", saisonStatus: "future", gruppeOffer: [{ gruppe: "A", occupied: 1, capacity: 4 }] });
+
+const rollover = (saisonStatus: "future" | "active") =>
+  h(FormRolloverSection, {
+    saisonId: "2026",
+    saisonStatus,
+    rollover: { outgoingSaisonId: null, offeneSpiele: [], hasUndatierteSpieltage: false },
+    hasDrawnSpiele: true,
+    onBeforeActivate: () => true,
+    banners: [],
+  });
+
+const austragen = (rowInactiveSince: string | null) =>
+  h(FormAustragenSection, { spielerId: SP_A, saisonId: "2026", rowInactiveSince, rowReturn: "open", banners: [], isDirty: false });
+
+const GRACE = kontaktperson("Grace", "grace@example.org", "2026-03-14");
+/** The club's contacts editor, its draft status as the page derives it, one seat holding a person with an address. */
+const kontakteEditor = (kontakte: Kontakte | null) =>
+  h(DraftStatusProvider, {
+    status: deriveKontakteDraftStatus({ stored: { kontakte }, draft: { kontakte }, fieldErrors: {} }),
+    children: h(AdminKontakteEditView, {
+      team: { id: TEAM_A, name: "SG Alpha", shorthand: "ALP", inactive_since: null },
+      saison: {
+        saisonId: "2026",
+        saisonStatus: "active",
+        membership: { gruppe: "A", austritt: null, trikot_farbe: null, kontakte, kontakte_stand: "9f2c" },
+      },
+    }),
+  });
+const MIT_GRACE: Kontakte = { trainer: null, ansprechperson: GRACE, stellvertretung: null, trainer_ist_zugleich: null };
+const ERASURE_READ = {
+  success: true,
+  ansicht: { acknowledged: 1, saison_teams: [{ saison_id: "2025", rolle: "trainer", vorname: "Grace", nachname: "Meier" }], bewerbungen: [] },
+};
 
 const sperre = (id: string, erstellt_am: string) => ({
   id,
@@ -461,6 +589,142 @@ const LANDINGS: Record<string, Landing> = {
     },
     after: () => panel(sicherheit({ passkeys: [passkey("laptop", "Laptop alt"), passkey("handy", "Handy")] })),
     lands: () => screen.getByRole("button", { name: "Passkey „Laptop alt“ umbenennen" }),
+  },
+  "a first registration link, on the new link's copy control": {
+    answers: { postEinladungAction: MINTED },
+    before: () => einladungPanel(null),
+    press: (user) => user.click(screen.getByRole("button", { name: "Registrierungslink anlegen" })),
+    after: () => einladungPanel(EINLADUNG),
+    lands: () => screen.getByRole("button", { name: "Link kopieren" }),
+  },
+  "a withdrawn link, on the first mint's control replacing it": {
+    before: () => einladungPanel(EINLADUNG),
+    press: async (user) => {
+      await user.click(screen.getByRole("radio", { name: "Zurückziehen" }));
+      await pressTwice(user, { resting: "Link zurückziehen", armed: "Ja, Link zurückziehen" });
+    },
+    after: () => einladungPanel(null),
+    lands: () => screen.getByRole("button", { name: "Registrierungslink anlegen" }),
+  },
+  "an application's acceptance, on the application's heading": {
+    before: () => bewerbungPage(OFFEN),
+    press: async (user) => {
+      const gruppe = document.querySelector('select[name="gruppe"]');
+      assert.ok(gruppe, "the acceptance offers no group");
+      await user.selectOptions(gruppe, "A");
+      await pressTwice(user, { resting: "Bewerbung annehmen", armed: "Ja, Team verbindlich aufnehmen" });
+    },
+    after: () => bewerbungPage({ ...OFFEN, status: "angenommen", entscheidung: ENTSCHIEDEN }),
+    remount: true,
+    lands: () => heading("SG Alpha"),
+  },
+  "an application's decline, on the application's heading": {
+    before: () => bewerbungPage(OFFEN),
+    press: async (user) => {
+      await user.type(screen.getByRole("textbox", { name: "Grund für die Absage" }), "Kein Platz.");
+      await pressTwice(user, { resting: "Bewerbung ablehnen", armed: "Ja, Absage verbindlich verschicken" });
+    },
+    after: () => bewerbungPage({ ...OFFEN, status: "abgelehnt", entscheidung: { ...ENTSCHIEDEN, grund: "Kein Platz." } }),
+    remount: true,
+    lands: () => heading("SG Alpha"),
+  },
+  "a seat's re-sent link, on the seat's re-send drawn anew": {
+    before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
+    press: (user) => user.click(screen.getByRole("button", { name: "Link erneut senden an Stellvertretung" })),
+    after: () =>
+      bewerbungPage({
+        ...MIT_OFFENEN_SITZEN,
+        bestaetigungen: { ...OFFENE_BESTAETIGUNGEN, stellvertretung: { ...SITZ, erinnert_am: "2026-09-05" } },
+      }),
+    remount: true,
+    lands: () => screen.getByRole("button", { name: "Link erneut senden an Stellvertretung" }),
+  },
+  "a seat's corrected address, on the pencil that opened the box": {
+    answers: { kontaktEmailKorrigierenAction: { success: true, verschickt: true, message: "Korrigiert." } },
+    before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
+    press: async (user) => {
+      await user.click(screen.getByRole("button", { name: "E-Mail-Adresse von Bernd Meier korrigieren" }));
+      await user.clear(screen.getByRole("textbox", { name: "Neue E-Mail-Adresse" }));
+      await user.type(screen.getByRole("textbox", { name: "Neue E-Mail-Adresse" }), "bernd.meier@schule.example");
+      await user.click(screen.getByRole("button", { name: "Korrigieren und Link senden" }));
+    },
+    after: () =>
+      bewerbungPage({
+        ...MIT_OFFENEN_SITZEN,
+        kontakte: { ...MIT_OFFENEN_SITZEN.kontakte, stellvertretung: kontaktperson("Bernd", "bernd.meier@schule.example", null) },
+      }),
+    remount: true,
+    lands: () => screen.getByRole("button", { name: "E-Mail-Adresse von Bernd Meier korrigieren" }),
+  },
+  "a correction's cancel, on the pencil that opened the box": {
+    before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
+    press: async (user) => {
+      await user.click(screen.getByRole("button", { name: "E-Mail-Adresse von Bernd Meier korrigieren" }));
+      await user.click(screen.getByRole("button", { name: "Abbrechen" }));
+    },
+    after: () => bewerbungPage(MIT_OFFENEN_SITZEN),
+    lands: () => screen.getByRole("button", { name: "E-Mail-Adresse von Bernd Meier korrigieren" }),
+  },
+  /* No other seat can be reseated, so the strip's heading takes the focus once the declined seat is filled. */
+  "a reseated seat, on the strip's heading": {
+    answers: { besetzeKontaktSitzAction: { success: true, verschickt: true, message: "Besetzt." } },
+    before: () => bewerbungPage(MIT_OFFENEN_SITZEN),
+    press: async (user) => {
+      await user.click(screen.getByRole("button", { name: "Trainer neu besetzen" }));
+      await user.type(screen.getByRole("textbox", { name: "Vorname" }), "Doreen");
+      await user.type(screen.getByRole("textbox", { name: "Nachname" }), "Ostwald");
+      await user.type(screen.getByRole("textbox", { name: "E-Mail" }), "doreen@schule.example");
+      await user.type(screen.getByRole("textbox", { name: "Telefon" }), "069 7654321");
+      await user.click(screen.getByRole("button", { name: "Neu besetzen und Link senden" }));
+    },
+    after: () =>
+      bewerbungPage({
+        ...MIT_OFFENEN_SITZEN,
+        kontakte: {
+          ...MIT_OFFENEN_SITZEN.kontakte,
+          trainer: { ...kontaktperson("Doreen", "doreen@schule.example", null), nachname: "Ostwald" },
+        },
+        bestaetigungen: { ...OFFENE_BESTAETIGUNGEN, trainer: SITZ },
+      }),
+    remount: true,
+    lands: () => heading("Bestätigungen"),
+  },
+  "a season's rollover, on the panel's heading": {
+    before: () => rollover("future"),
+    press: (user) => pressTwice(user, { resting: "Auf Saison 2026 umstellen", armed: "Ja, auf 2026 umstellen" }),
+    after: () => rollover("active"),
+    remount: true,
+    lands: () => heading("Umstellung"),
+  },
+  "a squad row's removal, on the return replacing it": {
+    before: () => austragen(null),
+    press: (user) => user.click(screen.getByRole("button", { name: "Aus Kader 2026 austragen" })),
+    after: () => austragen(RETIRED_ON),
+    remount: true,
+    lands: () => screen.getByRole("button", { name: "Kadereintrag reaktivieren" }),
+  },
+  "a squad row's return, on the removal replacing it": {
+    before: () => austragen(RETIRED_ON),
+    press: (user) => user.click(screen.getByRole("button", { name: "Kadereintrag reaktivieren" })),
+    after: () => austragen(null),
+    remount: true,
+    lands: () => screen.getByRole("button", { name: "Aus Kader 2026 austragen" }),
+  },
+  /* The editor is drawn anew with nobody stored, the control standing again closed: its overlay is the stop. */
+  "a season's cleared contacts, on the closed control drawn anew": {
+    before: () => kontakteEditor(MIT_GRACE),
+    press: (user) => pressTwice(user, { resting: "Kontakte löschen", armed: "Ja, Kontakte dieser Saison endgültig löschen" }),
+    after: () => kontakteEditor(null),
+    remount: true,
+    lands: () => openStop("Kontakte löschen"),
+  },
+  "a person's erasure, on the emptied seat's heading": {
+    answers: { readKontaktErasureAnsichtAction: ERASURE_READ, eraseKontaktpersonAction: { success: true, cleared: 1, message: "Gelöscht." } },
+    before: () => kontakteEditor(MIT_GRACE),
+    press: (user) => pressTwice(user, { resting: "Kontaktperson löschen", armed: "Ja, Kontaktperson endgültig löschen" }),
+    after: () => kontakteEditor({ ...MIT_GRACE, ansprechperson: null }),
+    remount: true,
+    lands: () => heading("Ansprechperson"),
   },
   "a club editor's reactivation, on the editor's heading": {
     before: () => teamEditor(RETIRED_ON),

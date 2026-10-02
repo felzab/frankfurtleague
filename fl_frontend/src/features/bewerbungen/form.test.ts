@@ -547,7 +547,7 @@ describe("how the Kenntnisnahme panel sits among the sections around it", () => 
      where an applicant looked for their Kenntnisnahme and found the Trainer's fields. */
   it("wears the frame and the heading level every other section wears", () => {
     const panel = formPanel();
-    const headerPattern = new RegExp(`<div class="${panel.header()}"><div><h2 class="${panel.heading()} inline">([^<]*)</h2>`, "g");
+    const headerPattern = new RegExp(`<div class="${panel.header()}"><div><h2 class="${panel.heading()} inline"[^>]*>([^<]*)</h2>`, "g");
     const panelTitles = [...FORM_MARKUP.matchAll(headerPattern)].map((hit) => hit[1] ?? "");
 
     assert.ok(panelTitles.includes("Kenntnisnahme"), "the Kenntnisnahme panel titles itself some other way than its siblings do");

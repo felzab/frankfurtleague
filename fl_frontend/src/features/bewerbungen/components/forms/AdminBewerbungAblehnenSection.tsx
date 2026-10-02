@@ -29,6 +29,7 @@ import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { unansweredAction } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
 import { DRAFT_DISCARDED, guardAgainstDraft } from "@/shared/utils/draftGuard";
+import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 
 /**
  * The cap and its wording are the write's own (`docs/frontend/spec.md :: I18`), asked of the field that
@@ -86,6 +87,8 @@ export function AdminBewerbungAblehnenSection({
   const closedReason = isEmpty ? "Schreibe zuerst einen Grund." : zuLang !== null ? "Kürze den Grund." : null;
 
   const handleDecline = () => {
+    // The decision takes both decision panels away, so the application's heading takes the focus.
+    const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await ablehnenBewerbungAction({ id: bewerbungId, grund: grund }).catch(unansweredAction);
@@ -102,13 +105,16 @@ export function AdminBewerbungAblehnenSection({
         }
 
         setGrundError(null);
+        landing.landed();
         appToast.success("Bewerbung abgelehnt", { description: res.message });
       });
     });
   };
 
   return (
-    <section className={panel.root()}>
+    <section
+      className={panel.root()}
+      {...focusSection("absage")}>
       <div className={panel.header()}>
         <PanelHeading
           className={panel.heading()}

@@ -15,8 +15,8 @@ export function PanelHeading({ className, title, children }: { className: string
     <div>
       {/* The panel's landing where a write empties it or takes its control away (`docs/frontend/spec.md :: I532`). */}
       <h2
-        {...FOCUS_HEADING}
-        className={`${className} inline`}>
+        className={`${className} inline`}
+        {...FOCUS_HEADING}>
         {title}
       </h2>
       {children}

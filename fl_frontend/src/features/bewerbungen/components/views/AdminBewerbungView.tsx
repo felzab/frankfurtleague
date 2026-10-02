@@ -8,6 +8,7 @@ import { BackButton } from "@/shared/components/ui/BackButton";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { PAGE_RISE_CLASSES } from "@/shared/components/ui/motion";
 import { useSaisonHref } from "@/shared/hooks/useSaisonHref";
+import { FOCUS_HEADING, focusSection } from "@/shared/utils/focusAfterWrite";
 
 import { AdminBewerbungAblehnenSection } from "../forms/AdminBewerbungAblehnenSection";
 import { AdminBewerbungAnnehmenSection } from "../forms/AdminBewerbungAnnehmenSection";
@@ -50,13 +51,17 @@ export function AdminBewerbungView({
   const hindernis = zusageHindernis(staende, teamName);
 
   return (
-    <div className={`${PAGE_RISE_CLASSES} w-full p-6 sm:p-8`}>
+    <div
+      className={`${PAGE_RISE_CLASSES} w-full p-6 sm:p-8`}
+      {...focusSection("bewerbung")}>
       <div className="mx-auto flex w-full max-w-page flex-col">
         <BackButton fallbackHref={saisonHref("/bereich/admin/bewerbungen")} />
 
         <header className="mb-6 flex w-full flex-row items-center gap-x-3">
           {/* `h2`, never `h1`: the shell's top bar owns the page's one heading. */}
-          <h2 className="min-w-0 truncate fluid-2xl font-extrabold tracking-tight text-foreground">
+          <h2
+            {...FOCUS_HEADING}
+            className="min-w-0 truncate fluid-2xl font-extrabold tracking-tight text-foreground">
             {teamName ?? `Bewerbung für die Saison ${bewerbung.saison_id}`}
           </h2>
           <span className="shrink-0">

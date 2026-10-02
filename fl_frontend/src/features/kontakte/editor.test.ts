@@ -289,14 +289,18 @@ const headings = (html: string, level: string): string[] =>
 const seatCards = (html: string): { header: string; body: string }[] => {
   const panel = formPanel();
 
-  return html
-    .split(`<section class="${panel.root()}">`)
-    .slice(1)
-    .map((card) => {
-      const [header = "", body = ""] = card.split(`<div class="${panel.body()}">`);
+  return (
+    html
+      .split(`<section class="${panel.root()}"`)
+      .slice(1)
+      // Past the rest of the opening tag, whose landing mark names the seat.
+      .map((card) => card.slice(card.indexOf(">") + 1))
+      .map((card) => {
+        const [header = "", body = ""] = card.split(`<div class="${panel.body()}">`);
 
-      return { header, body };
-    });
+        return { header, body };
+      })
+  );
 };
 
 const KONTAKTE_OPERATION = "PATCH /teams/{team_id}/saisons/{saison_id}/kontakte";
@@ -876,7 +880,7 @@ describe("how the editor clears a season's contact block", () => {
        and the title beside it, and each falls back to neutral on its own. */
     const danger = formPanel({ tone: "danger" });
 
-    assert.ok(editor.includes(`<section class="${danger.root()}">`), "the deletion's box is not graded as destructive");
+    assert.ok(editor.includes(`<section class="${danger.root()}"`), "the deletion's box is not graded as destructive");
     assert.ok(editor.includes(`<div class="${danger.header()}">`), "the deletion's header band is not graded as destructive");
     assert.ok(editor.includes(`<h2 class="${danger.heading()}`), "the deletion's title is not graded as destructive");
     // Nothing stored is nothing at stake, so the grade is spent nowhere.
@@ -896,7 +900,7 @@ describe("how the editor clears a season's contact block", () => {
        three switched-off seats and a red, open deletion. */
     assert.equal([...nobodyHeld.matchAll(/role="switch"[^>]*checked=""/g)].length, 3, "a row holding nobody opens with a seat switched off");
     assert.ok(
-      !nobodyHeld.includes(`<section class="${formPanel({ tone: "danger" }).root()}">`),
+      !nobodyHeld.includes(`<section class="${formPanel({ tone: "danger" }).root()}"`),
       "the deletion is graded as destructive over nobody",
     );
     assert.match(
