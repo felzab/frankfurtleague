@@ -136,6 +136,20 @@ class Relay {
     }
   }
 
+  /**
+   * Runs `body` while the store is gone: every socket open through the relay closed and every new one
+   * refused. A hang is no outage to the client's monitor, whose streamed heartbeats keep arriving.
+   */
+  async sever<T>(body: () => Promise<T>): Promise<T> {
+    this.refusing = true;
+    for (const socket of this.sockets) socket.destroy();
+    try {
+      return await body();
+    } finally {
+      this.refusing = false;
+    }
+  }
+
   private resume(): void {
     this.hung = false;
     this.trigger = null;
@@ -289,6 +303,11 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
         auth.api.signInEmailOTP({ body: { email: ADMIN_EMAIL, otp }, headers: new Headers(ORIGIN), returnHeaders: true }),
       ),
     );
+    // The commit never reached the server, whose transaction would otherwise hold the sign-in's
+    // collections until its own lifetime ran out, a minute any later case writing them would wait.
+    // Inside the container: the client's strict Stable API refuses the command.
+    const killed = await mongod.exec(["mongosh", "--quiet", "--eval", "db.adminCommand({ killAllSessions: [] }).ok"]);
+    assert.equal(killed.output.trim(), "1", `the hung commit's transaction was left standing: ${killed.output}`);
 
     assert.ok(relay.triggered, "the sign-in sent no commit, so nothing here was hung");
     // Pinned to `@better-auth/mongo-adapter`'s masking, an upstream defect: a release that stops
@@ -402,12 +421,16 @@ describe("the sign-in store's indexes recover with the store (`docs/frontend/spe
     client.on("open", counted);
 
     try {
-      await relay.hang(() => buildAuthIndexes());
+      logged.length = 0;
+      await relay.sever(() => buildAuthIndexes());
+      assert.ok(
+        logged.some((line) => line.event === "auth.index_unbuilt" && line.index === "session_userId_idx"),
+        `the run met no outage: ${JSON.stringify(logged)}`,
+      );
       const indexed = async () => (await sessions.indexes()).some(({ name }) => name === "session_userId_idx");
-      assert.equal(await indexed(), false, "the index was built while the store answered nothing");
 
-      // A monitor's check of a store marked unknown, the pause before it, and the build itself.
-      const deadline = Date.now() + OPERATION_BOUND + client.options.heartbeatFrequencyMS + LATENESS_MS;
+      // The monitor's next check of a store it marked unknown, and the build itself.
+      const deadline = Date.now() + client.options.minHeartbeatFrequencyMS + OPERATION_BOUND + LATENESS_MS;
       while (!(await indexed()) && Date.now() < deadline) await pause(200);
 
       assert.equal(await indexed(), true, "the index was not built again once the store answered");
