@@ -53,7 +53,7 @@ from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.bounds import MEDIEN_MIN_AGE_YEARS
 from tests import documents
-from tests.actor_tokens import FRESH_ADMIN_ACTOR
+from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.config import build_test_config, grants_for_the_suite
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
@@ -184,7 +184,7 @@ async def correct(database: AsyncDatabase, client: AsyncMongoClient, *, email: s
         sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=client,
         today=today,
-        actor=FRESH_ADMIN_ACTOR,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
 
@@ -657,7 +657,7 @@ async def reactivate(database: AsyncDatabase, client: AsyncMongoClient) -> Any:
         sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=client,
         today=TODAY,
-        actor=FRESH_ADMIN_ACTOR,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
 

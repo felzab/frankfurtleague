@@ -28,7 +28,7 @@ from fastapi.testclient import TestClient
 
 from app.core.exceptions import BaseAPIException, DocumentNotFoundException, WriteRefusalException
 from app.core.security import ACTOR_HEADER, STEP_UP_WINDOW_S, verify_access_admin, verify_access_base, verify_access_system
-from app.main import DEPENDENCY_REFUSALS, create_app, dependency_refusals
+from app.main import DEPENDENCY_REFUSALS, HANDLER_JUDGED_REFUSALS, create_app, dependency_refusals
 from tests.actor_tokens import FOREIGN_SIGNING_KEY, SignedActor, actor_claims, sign
 from tests.config import ADMIN_KEY, BASE_AUTH, SYSTEM_AUTH, build_test_config
 from tests.core.app_source import APP_ROOT, BACKEND_ROOT, api_routes, declared, module_of, parsed
@@ -211,10 +211,10 @@ def _observed() -> dict[tuple[str, str], set[tuple[HTTPStatus, str]]]:
     return found
 
 
-def _derived() -> dict[tuple[str, str], set[tuple[HTTPStatus, str]]]:
+def _derived(*tables: Any) -> dict[tuple[str, str], set[tuple[HTTPStatus, str]]]:
     return {
         operation: {(status, code) for status, codes in refusals.items() for code in codes}
-        for operation, refusals in dependency_refusals(APP).items()
+        for operation, refusals in (dependency_refusals(APP, tables) if tables else dependency_refusals(APP)).items()
     }
 
 
@@ -228,10 +228,14 @@ def test_every_refusal_a_request_meets_is_one_the_table_publishes_on_its_operati
 
 
 def test_every_refusal_the_table_publishes_is_met_by_a_request():
-    """The other way: a code published on an operation no request meets is a response that cannot occur."""
+    """The other way: a code published on an operation no request meets is a response that cannot occur.
+
+    A handler-judged refusal is met only past the database these probes are refused at, and
+    `tests/api/test_step_up_execution.py` drives it.
+    """
 
     observed = _observed()
-    derived = _derived()
+    derived = _derived(DEPENDENCY_REFUSALS)
 
     assert {
         operation: codes - observed.get(operation, set()) for operation, codes in derived.items() if codes - observed.get(operation, set())
@@ -257,7 +261,7 @@ def _raised_in(function: Any) -> set[type[BaseException]]:
 def test_the_derived_refusal_classes_hold_every_class_the_tables_dependencies_raise():
     """Read off the dependencies' own raises, a second route to the set: a derivation that went empty would sweep nothing, green."""
 
-    raised = set().union(*(_raised_in(dependency) for dependency in DEPENDENCY_REFUSALS))
+    raised = set().union(*(_raised_in(dependency) for dependency in (*DEPENDENCY_REFUSALS, *HANDLER_JUDGED_REFUSALS)))
 
     assert raised, "no raise is read off the table's dependencies, so the clause below is vacuous"
     assert all(_is_protocol_refusal(cls) for cls in raised), raised
@@ -266,7 +270,7 @@ def test_the_derived_refusal_classes_hold_every_class_the_tables_dependencies_ra
 def test_every_raise_of_a_protocol_refusal_sits_in_a_dependency_the_table_names_or_in_a_handler_declaring_it():
     """Read off every raise under `app/`, a population the table never feeds."""
 
-    answering = {(module_of(dependency), declared(dependency).name) for dependency in DEPENDENCY_REFUSALS} | {
+    answering = {(module_of(dependency), declared(dependency).name) for dependency in (*DEPENDENCY_REFUSALS, *HANDLER_JUDGED_REFUSALS)} | {
         (module_of(route.endpoint), route.endpoint.__name__) for route in api_routes(APP) if route.responses
     }
 

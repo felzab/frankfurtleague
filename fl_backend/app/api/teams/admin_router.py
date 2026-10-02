@@ -59,7 +59,6 @@ from app.api.teams.services import (
     find_retire_refusal,
     has_taken_place,
 )
-from app.core.actor_token import ActorClaims
 from app.core.config import API_VERSION
 from app.core.crud import (
     GERMAN_COLLATION,
@@ -84,18 +83,14 @@ from app.core.dependencies import (
     get_german_date_str,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
-from app.core.exceptions import ActorConfirmationRequiredException
 from app.core.routing import by_id
 from app.core.security import (
-    CONFIRMATION_REQUIRED,
-    CONFIRMATION_REQUIRED_RESPONSE,
-    STEP_UP_WINDOW_S,
+    StepUpCheck,
     bind_actor,
-    confirmed_before,
     get_actor_email,
+    get_step_up_check,
     verify_access_admin,
     verify_actor_is_admin,
-    verify_admin_actor,
     verify_step_up,
 )
 from app.shared.folding import sign_in_identifier
@@ -548,7 +543,7 @@ async def patch_saison_team(
     f"{by_id('team_id')}/saisons/{{saison_id}}/kontakte",
     response_model=FLPatchSaisonTeamKontakteResponse,
     summary="Rewrite a team's season contacts, and nothing else on the row",
-    responses={401: CONFIRMATION_REQUIRED_RESPONSE, 404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_saison_team_kontakte(
     team_id: CustomRouteObjectId,
@@ -556,7 +551,7 @@ async def patch_saison_team_kontakte(
     kontakte_data: Annotated[FLPatchSaisonTeamKontaktePayload, Body()],
     saison_teams_collection: SaisonTeamsCollection,
     db: DBClient,
-    actor: Annotated[ActorClaims, Depends(verify_admin_actor)],
+    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
 ) -> FLPatchSaisonTeamKontakteResponse:
     """
     Rewrite the three people this team is reached through for one season. Null clears the block.
@@ -571,8 +566,8 @@ async def patch_saison_team_kontakte(
     is stored as entered administratively.
     """
 
-    if kontakte_data.kontakte is None and confirmed_before(actor, STEP_UP_WINDOW_S):
-        raise ActorConfirmationRequiredException(error_code=CONFIRMATION_REQUIRED, max_age_s=STEP_UP_WINDOW_S, jti=actor.jti)
+    if kontakte_data.kontakte is None:
+        refuse_unconfirmed()
 
     db_filter = {"team_id": team_id, "saison_id": saison_id}
     payload = kontakte_data.model_dump(mode="json")
@@ -756,7 +751,7 @@ async def replace_saison_team(
     response_model=FLEinladungMintResponse,
     status_code=201,
     summary="Mint this team's registration link for a season",
-    responses={401: CONFIRMATION_REQUIRED_RESPONSE, 404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def post_einladung(
     team_id: CustomRouteObjectId,
@@ -765,7 +760,7 @@ async def post_einladung(
     saison_teams_collection: SaisonTeamsCollection,
     saisons_collection: SaisonsCollection,
     db: DBClient,
-    actor: Annotated[ActorClaims, Depends(verify_admin_actor)],
+    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     erstellt_von: str = Depends(get_actor_email),
     today: str = Depends(get_german_date_str),
 ) -> FLEinladungMintResponse:
@@ -815,8 +810,8 @@ async def post_einladung(
         )
         # Judged on what this transaction voided, which aborts with the refusal: only a link somebody
         # holds makes the mint a step-up write.
-        if widerrufen.modified_count and confirmed_before(actor, STEP_UP_WINDOW_S):
-            raise ActorConfirmationRequiredException(error_code=CONFIRMATION_REQUIRED, max_age_s=STEP_UP_WINDOW_S, jti=actor.jti)
+        if widerrufen.modified_count:
+            refuse_unconfirmed()
 
         document = compose_einladung(
             saison_id=saison_id,

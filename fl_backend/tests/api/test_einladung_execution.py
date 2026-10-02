@@ -24,7 +24,7 @@ from app.api.sperrliste.services import compose_gesperrt_bis_saison_id
 from app.api.teams.admin_router import delete_einladung, get_einladung, post_einladung
 from app.core.collections import Collection
 from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
-from tests.actor_tokens import FRESH_ADMIN_ACTOR
+from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import ban_document, rules_document, saison_document, saison_team_document
@@ -173,7 +173,7 @@ async def mint(database: AsyncDatabase, team_id: ObjectId, *, saison_id: str = S
         db=database.client,
         erstellt_von=ADMIN,
         today=TODAY,
-        actor=FRESH_ADMIN_ACTOR,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
 

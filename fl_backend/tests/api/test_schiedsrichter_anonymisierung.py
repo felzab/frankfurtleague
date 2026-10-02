@@ -51,7 +51,7 @@ from app.core.exceptions import DocumentNotFoundException, WriteRefusalException
 from app.core.recording import build_redaction_filter
 from app.core.sentinels import GHOST_INACTIVE_SINCE, GHOST_SCHIEDSRICHTER_ID
 from app.shared.schemas.kontakt import FLKontakt, FLKontaktPayload
-from tests.actor_tokens import FRESH_ADMIN_ACTOR
+from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.config import build_test_config
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.documents import rules_document, saison_document, spiel_document
@@ -385,7 +385,7 @@ async def a_referee_with_a_history(database: AsyncDatabase, client: AsyncMongoCl
         sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=client,
         today=TODAY,
-        actor=FRESH_ADMIN_ACTOR,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
 
@@ -447,7 +447,7 @@ async def call_reactivation(database: AsyncDatabase, client: AsyncMongoClient, s
         sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=client,
         today=TODAY,
-        actor=FRESH_ADMIN_ACTOR,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
 
@@ -706,7 +706,7 @@ def test_no_write_endpoint_reaches_the_ghost(mongo_replica_set_url: str, press: 
                     sperrliste=BanList(database[Collection.SPERRLISTE], database[Collection.SAISONS], CONFIG.sperrliste_schluessel),
                     db=client,
                     today=TODAY,
-                    actor=FRESH_ADMIN_ACTOR,
+                    refuse_unconfirmed=FRESH_STEP_UP_CHECK,
                 )
             elif press == "delete":
                 await delete_schiedsrichter(

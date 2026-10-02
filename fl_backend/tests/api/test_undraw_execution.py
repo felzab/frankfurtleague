@@ -29,7 +29,7 @@ from app.core.collections import Collection
 from app.core.exceptions import WriteRefusalException
 from app.core.logging import trace_id_var
 from tests import documents
-from tests.actor_tokens import FRESH_ADMIN_ACTOR
+from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.database import DOCUMENT_VALIDATION_FAILED, a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -176,7 +176,7 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, *, saison
         db=client,
         spielplan_data=FLGenerateSpielplanPayload(),
         today=TODAY,
-        actor=FRESH_ADMIN_ACTOR,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
 

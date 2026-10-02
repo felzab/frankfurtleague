@@ -43,7 +43,7 @@ from app.api.teams.services import CLUB_RETIRED, RETIRE_BLOCKED
 from app.core.collections import Collection
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
 from tests import documents
-from tests.actor_tokens import FRESH_ADMIN_ACTOR
+from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.config import build_test_config
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.isolation import COMMITTED, outcome_of
@@ -407,7 +407,7 @@ async def rename_the_referee(client: AsyncMongoClient, handles: Mapping[Collecti
         sperrliste=BanList(handles[Collection.SPERRLISTE], handles[Collection.SAISONS], CONFIG.sperrliste_schluessel),
         db=client,
         today=TODAY,
-        actor=FRESH_ADMIN_ACTOR,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
 

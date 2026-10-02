@@ -30,7 +30,7 @@ from app.api.teams.services import offered_gruppen
 from app.core.collections import Collection
 from app.core.exceptions import DOCUMENT_NOT_FOUND, DocumentNotFoundException, WriteRefusalException
 from tests import documents
-from tests.actor_tokens import FRESH_ADMIN_ACTOR
+from tests.actor_tokens import FRESH_STEP_UP_CHECK
 from tests.database import a_clean_database, on_the_seed_loop
 from tests.worker import worker_database
 
@@ -217,7 +217,7 @@ async def call_draw(database: AsyncDatabase, client: AsyncMongoClient, saison_id
             shape=FLSpielplanShape(number_of_groups=GROUPS, teams_per_group=TEAMS_PER_GROUP, qualifiers_per_group=QUALIFIERS)
         ),
         today=TODAY,
-        actor=FRESH_ADMIN_ACTOR,
+        refuse_unconfirmed=FRESH_STEP_UP_CHECK,
     )
 
 

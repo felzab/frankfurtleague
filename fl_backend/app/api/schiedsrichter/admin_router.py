@@ -43,7 +43,6 @@ from app.api.schiedsrichter.services import (
     save_moves_the_link,
 )
 from app.api.sperrliste.lookup import SperrlisteLookup, hash_gesperrt, sperrliste_saison
-from app.core.actor_token import ActorClaims
 from app.core.collections import Collection
 from app.core.config import API_VERSION
 from app.core.crud import (
@@ -66,18 +65,14 @@ from app.core.dependencies import (
     get_germany_now,
 )
 from app.core.exception_handlers import DOCUMENT_NOT_FOUND_RESPONSE, DUPLICATE_KEY_RESPONSE
-from app.core.exceptions import ActorConfirmationRequiredException
 from app.core.recording import build_redaction_filter, build_redaction_update, log_stamp
 from app.core.routing import by_id
 from app.core.security import (
-    CONFIRMATION_REQUIRED,
-    CONFIRMATION_REQUIRED_RESPONSE,
-    STEP_UP_WINDOW_S,
+    StepUpCheck,
     bind_actor,
-    confirmed_before,
+    get_step_up_check,
     verify_access_admin,
     verify_actor_is_admin,
-    verify_admin_actor,
     verify_step_up,
 )
 from app.core.sentinels import GHOST_SCHIEDSRICHTER_ID
@@ -160,7 +155,7 @@ async def post_schiedsrichter(
     by_id("schiedsrichter_id"),
     response_model=FLPatchSchiedsrichterResponse,
     summary="Update a Schiedsrichter and fan the change out",
-    responses={401: CONFIRMATION_REQUIRED_RESPONSE, 404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def patch_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
@@ -169,7 +164,7 @@ async def patch_schiedsrichter(
     spiele_collection: SpieleCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
-    actor: Annotated[ActorClaims, Depends(verify_admin_actor)],
+    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     today: str = Depends(get_german_date_str),
 ) -> FLPatchSchiedsrichterResponse:
     """
@@ -211,8 +206,8 @@ async def patch_schiedsrichter(
             projection={"kontakt.email": 1, EINWILLIGUNG_FELD: 1, "inactive_since": 1},
             session=session,
         )
-        if save_moves_the_link(stored=stored, payload_email=email) and confirmed_before(actor, STEP_UP_WINDOW_S):
-            raise ActorConfirmationRequiredException(error_code=CONFIRMATION_REQUIRED, max_age_s=STEP_UP_WINDOW_S, jti=actor.jti)
+        if save_moves_the_link(stored=stored, payload_email=email):
+            refuse_unconfirmed()
         update, minted = compose_korrektur_update(stored=stored, payload=payload, payload_email=email, token_hash=token_hash, today=today)
 
         # The season is NOT a condition here: it is `None` while no season is running, and the
@@ -312,14 +307,14 @@ async def delete_schiedsrichter(
     f"{by_id('schiedsrichter_id')}/reactivate",
     response_model=FLSchiedsrichterReactivateResponse,
     summary="Bring a deactivated Schiedsrichter back",
-    responses={401: CONFIRMATION_REQUIRED_RESPONSE, 404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
+    responses={404: DOCUMENT_NOT_FOUND_RESPONSE, 409: DUPLICATE_KEY_RESPONSE},
 )
 async def reactivate_schiedsrichter(
     schiedsrichter_id: CustomRouteObjectId,
     schiedsrichter_collection: SchiedsrichterCollection,
     sperrliste: SperrlisteLookup,
     db: DBClient,
-    actor: Annotated[ActorClaims, Depends(verify_admin_actor)],
+    refuse_unconfirmed: Annotated[StepUpCheck, Depends(get_step_up_check)],
     today: str = Depends(get_german_date_str),
 ) -> FLSchiedsrichterReactivateResponse:
     """Clear `inactive_since`, putting the referee back into the picker and every default read.
@@ -351,8 +346,7 @@ async def reactivate_schiedsrichter(
         email = str((stored.get("kontakt") or {}).get("email")) if owes_reactivation_mint(stored=stored) else None
 
         if email is not None:
-            if confirmed_before(actor, STEP_UP_WINDOW_S):
-                raise ActorConfirmationRequiredException(error_code=CONFIRMATION_REQUIRED, max_age_s=STEP_UP_WINDOW_S, jti=actor.jti)
+            refuse_unconfirmed()
             gesperrt = await hash_gesperrt(
                 sperrliste, sperrliste.hash_of(email), massgebliche_saison_id=massgebliche_saison_id, session=session
             )

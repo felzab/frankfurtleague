@@ -77,6 +77,7 @@ from app.core.security import (
     WRONG_BASE_KEY,
     WRONG_SYSTEM_KEY,
     get_actor_token,
+    get_step_up_check,
     get_token,
     verify_access_admin,
     verify_access_base,
@@ -164,6 +165,13 @@ DEPENDENCY_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
     verify_step_up: (HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
     get_db_client: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
     get_database: (HTTPStatus.SERVICE_UNAVAILABLE, NO_DATABASE_CLIENT),
+}
+
+# Dependencies handing their handler a check it calls on the calls it judges, and what that check
+# answers: published as the table above is, but met only past the database, so
+# `fl_backend/tests/api/test_step_up_execution.py` drives them.
+HANDLER_JUDGED_REFUSALS: Mapping[Callable[..., Any], tuple[HTTPStatus, str]] = {
+    get_step_up_check: (HTTPStatus.UNAUTHORIZED, CONFIRMATION_REQUIRED),
 }
 UNGUARDED_TIER = "none"
 
@@ -374,15 +382,18 @@ def _dependency_calls(dependant: Dependant) -> Iterator[Callable[..., Any]]:
         yield from _dependency_calls(dependency)
 
 
-def dependency_refusals(app: FastAPI) -> dict[Operation, Refusals]:
-    """Each operation's codes by status from the dependencies it runs, keyed as `declared_refusals` keys them."""
+def dependency_refusals(
+    app: FastAPI, tables: Sequence[Mapping[Callable[..., Any], tuple[HTTPStatus, str]]] = (DEPENDENCY_REFUSALS, HANDLER_JUDGED_REFUSALS)
+) -> dict[Operation, Refusals]:
+    """Each operation's codes by status from the dependencies it runs, keyed as `declared_refusals` keys them; both tables unless named."""
 
+    table = {call: refusal for named in tables for call, refusal in named.items()}
     found: dict[Operation, Refusals] = {}
     for route in document_routes(app):
-        refusing = set(_dependency_calls(route.dependant)) & DEPENDENCY_REFUSALS.keys()
+        refusing = set(_dependency_calls(route.dependant)) & table.keys()
         for operation in route.operations:
             for call in refusing:
-                status, code = DEPENDENCY_REFUSALS[call]
+                status, code = table[call]
                 found.setdefault(operation, {}).setdefault(status, set()).add(code)
 
     return found

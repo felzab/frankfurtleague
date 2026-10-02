@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from app.core.actor_token import ActorClaims, Lane, jwk_thumbprint
-from app.core.security import ACTOR_HEADER
+from app.core.security import ACTOR_HEADER, get_step_up_check
 
 ACTOR_TOKEN_CONTRACT_PATH: Final = Path(__file__).resolve().parent / "shared" / "actor_token_contract.json"
 ACTOR_TOKEN_CONTRACT: Final[Mapping[str, Any]] = json.loads(ACTOR_TOKEN_CONTRACT_PATH.read_bytes().decode("utf-8"))
@@ -101,6 +101,9 @@ def verified_actor(email: str, *, signed_in_before_s: int = SESSION_AGE_S) -> Ac
 # What a handler called without a request is handed: confirmed a minute before its token, inside every
 # window a write asks for, which is judged against the token's own `iat` and so never lapses.
 FRESH_ADMIN_ACTOR = verified_actor("admin@example.com")
+
+# The check a handler stepping up some of its calls is handed, over that actor: it refuses none.
+FRESH_STEP_UP_CHECK = get_step_up_check(FRESH_ADMIN_ACTOR)
 
 
 class SignedActor(Mapping[str, str]):

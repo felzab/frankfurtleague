@@ -3,7 +3,6 @@ import hmac
 import secrets
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from datetime import datetime
-from http import HTTPStatus
 from typing import Annotated, Final, get_args
 
 from fastapi import Depends, Request, Security
@@ -23,7 +22,6 @@ from app.core.actor_token import (
 )
 from app.core.config import BackendConfig, get_app_config
 from app.core.db import get_berechtigungen_collection
-from app.core.exception_handlers import refusal_response
 from app.core.exceptions import (
     ActorConfirmationRequiredException,
     ActorForbiddenException,
@@ -204,26 +202,46 @@ def confirmed_before(actor: ActorClaims, window_s: int) -> bool:
     return actor.iat - actor.auth_time > window_s
 
 
+def confirmation_required(actor: ActorClaims, window_s: int) -> ActorConfirmationRequiredException:
+    """`REQ-AUTH-009`'s refusal of the actor for a write asking a sign-in or confirmation inside `window_s`, every raise of it built here."""
+
+    return ActorConfirmationRequiredException(error_code=CONFIRMATION_REQUIRED, max_age_s=window_s, jti=actor.jti)
+
+
 def verify_recent_confirmation(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> None:
     """Refuse a write the page steps up to the enrolment window from an older sign-in or confirmation (`docs/backend/spec.md :: I489`)."""
 
     if confirmed_before(actor, ENROLMENT_WINDOW_S):
-        raise ActorConfirmationRequiredException(error_code=CONFIRMATION_REQUIRED, max_age_s=ENROLMENT_WINDOW_S, jti=actor.jti)
+        raise confirmation_required(actor, ENROLMENT_WINDOW_S)
 
 
 def verify_step_up(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> None:
     """Refuse a write stepped up on every call from a sign-in or confirmation older than the step-up window (`docs/backend/spec.md :: I524`).
 
-    One stepped up on some calls raises the same refusal in its handler, which judges the call.
+    One stepped up on some calls takes `get_step_up_check` instead, and its handler judges the call.
     """
 
     if confirmed_before(actor, STEP_UP_WINDOW_S):
-        raise ActorConfirmationRequiredException(error_code=CONFIRMATION_REQUIRED, max_age_s=STEP_UP_WINDOW_S, jti=actor.jti)
+        raise confirmation_required(actor, STEP_UP_WINDOW_S)
 
 
-# What a write stepped up on some calls alone publishes: a raise inside a handler is a refusal no
-# dependency walk finds (`app/main.py :: refusal_codes`).
-CONFIRMATION_REQUIRED_RESPONSE: Final = refusal_response(HTTPStatus.UNAUTHORIZED, {CONFIRMATION_REQUIRED})
+# Called by a handler on exactly the calls it judges a step-up write, it refuses one from a sign-in or
+# confirmation older than the step-up window.
+StepUpCheck = Callable[[], None]
+
+
+def get_step_up_check(actor: Annotated[ActorClaims, Depends(verify_admin_actor)]) -> StepUpCheck:
+    """The step-up of a write stepped up on some calls alone (`docs/backend/spec.md :: I524`).
+
+    A dependency rather than a raise in the handler, so the document derives the refusal from the
+    operations running it (`app/main.py :: HANDLER_JUDGED_REFUSALS`).
+    """
+
+    def refuse_unconfirmed() -> None:
+        if confirmed_before(actor, STEP_UP_WINDOW_S):
+            raise confirmation_required(actor, STEP_UP_WINDOW_S)
+
+    return refuse_unconfirmed
 
 
 # Whether a folded identifier is on the ban list: what a person's route asks beside the token.
