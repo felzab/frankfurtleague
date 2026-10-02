@@ -15,10 +15,12 @@ import { ScrollShadow } from "@heroui/react/scroll-shadow";
 import { Select } from "@/shared/components/ui/Select";
 import { useUrlFilters } from "@/shared/hooks/useUrlFilters";
 import { offeredOptions } from "@/shared/utils/facets";
+import { focusAfterWrite, focusSection } from "@/shared/utils/focusAfterWrite";
 import { leserichtungHref } from "@/shared/utils/leserichtung";
 
 import { countBadge } from "./badges";
 import { FilterPanel, useFilterPanelWidth } from "./FilterPanel";
+import { FocusSlot } from "./FocusSlot";
 import { IconTooltip } from "./IconTooltip";
 import { overlayPanel } from "./overlayPanel";
 import { PICKED_OPTION_CLASSES } from "./pickedOption";
@@ -310,6 +312,13 @@ function FilterRow<TItem>({
     fokusNach.current = filtered.findIndex((facet) => facet.param === param);
     clearFacet(param);
   };
+  // A pick from the add panel that leaves no dimension to add swaps the panel's trigger for the closed add
+  // control, under a focus still inside the panel: read from the trigger, which is the place the reader left.
+  const waehle = (param: string, values: readonly string[]) => {
+    const landing = focusAfterWrite(rowRef.current?.querySelector("[data-filter-hinzufuegen]") ?? null);
+    setFacet(param, values);
+    landing.landed();
+  };
   const entferneAlle = () => {
     // Past every pill, so the add control is the one left to take it.
     fokusNach.current = filtered.length;
@@ -330,47 +339,52 @@ function FilterRow<TItem>({
   return (
     <div
       ref={rowRef}
-      className="flex w-full flex-col gap-2">
+      className="flex w-full flex-col gap-2"
+      {...focusSection("filter")}>
       <div className="flex w-full flex-row items-center gap-2">
         {/* Outside the scroller and first, so the add control is never scrolled out of reach and an appended pill
             displaces nothing. */}
-        {unfiltered.length === 0 ? (
-          // Kept in place once every dimension is filtering: removing it would slide the whole row left.
-          // A button, never a `<span>`: ARIA forbids a name on a `generic` role, which would leave
-          // the row's one standing hint unspoken.
-          <button
-            type="button"
-            disabled
-            aria-label={ADD_HINT}
-            className={`${ICON_SHELL_CLASSES} cursor-not-allowed text-foreground-muted opacity-50`}>
-            {addFace}
-          </button>
-        ) : (
-          <IconTooltip label={ADD_HINT}>
-            <Popover>
-              <Popover.Trigger
-                aria-label={ADD_HINT}
-                data-filter-hinzufuegen=""
-                className={ADD_FACE_CLASSES}>
-                {addFace}
-              </Popover.Trigger>
-              <Popover.Content
-                placement="bottom start"
-                offset={8}>
-                <FilterPanel
-                  facets={facets}
-                  shown={unfiltered}
-                  available={rowWidth}
-                  items={items}
-                  facetCounts={facetCounts}
-                  selection={selection}
-                  onSelect={setFacet}
-                  onClear={clearFacet}
-                />
-              </Popover.Content>
-            </Popover>
-          </IconTooltip>
-        )}
+        <FocusSlot name="hinzufuegen">
+          {unfiltered.length === 0 ? (
+            // Kept in place once every dimension is filtering: removing it would slide the whole row left.
+            // A button, never a `<span>`: ARIA forbids a name on a `generic` role, which would leave
+            // the row's one standing hint unspoken.
+            // `aria-disabled` and never `disabled`: it replaces the panel's trigger under the pick that filled
+            // the last dimension, and a disabled button cannot take the focus that trigger held.
+            <button
+              type="button"
+              aria-disabled="true"
+              aria-label={ADD_HINT}
+              className={`${ICON_SHELL_CLASSES} cursor-not-allowed text-foreground-muted opacity-50`}>
+              {addFace}
+            </button>
+          ) : (
+            <IconTooltip label={ADD_HINT}>
+              <Popover>
+                <Popover.Trigger
+                  aria-label={ADD_HINT}
+                  data-filter-hinzufuegen=""
+                  className={ADD_FACE_CLASSES}>
+                  {addFace}
+                </Popover.Trigger>
+                <Popover.Content
+                  placement="bottom start"
+                  offset={8}>
+                  <FilterPanel
+                    facets={facets}
+                    shown={unfiltered}
+                    available={rowWidth}
+                    items={items}
+                    facetCounts={facetCounts}
+                    selection={selection}
+                    onSelect={waehle}
+                    onClear={clearFacet}
+                  />
+                </Popover.Content>
+              </Popover>
+            </IconTooltip>
+          )}
+        </FocusSlot>
 
         {/* The shadow is the scroll affordance here: a scrollbar under a row this short would cost a quarter of it. */}
         {filtered.length > 0 && (

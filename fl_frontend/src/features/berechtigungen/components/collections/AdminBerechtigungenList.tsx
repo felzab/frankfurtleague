@@ -18,6 +18,7 @@ import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
 import { IDENTITY_HEAD_CLASSES, IDENTITY_NAME_CLASSES, IDENTITY_ROW_CLASSES, IDENTITY_STACK_CLASSES } from "@/shared/components/ui/adminTable";
 import { labelBadge } from "@/shared/components/ui/badges";
 import { card } from "@/shared/components/ui/card";
+import { focusRow, focusSection } from "@/shared/utils/focusAfterWrite";
 
 import { AdminBerechtigungEntziehenPanel } from "../forms/AdminBerechtigungEntziehenPanel";
 import { AdminBerechtigungStufePanel } from "../forms/AdminBerechtigungStufePanel";
@@ -77,10 +78,12 @@ export const AdminBerechtigungenList = memo(function AdminBerechtigungenList({
     /* Named here because no heading stands over it, and „Liste“ rather than „Tabelle“: these are cards. */
     <ul
       aria-label="Liste aller Zugänge"
+      {...focusSection("zugaenge")}
       className="flex w-full flex-col gap-3">
       {filteredBerechtigungen.map((berechtigung) => (
         <li
           key={berechtigung.id}
+          {...focusRow(berechtigung.id)}
           className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
           <div className={IDENTITY_ROW_CLASSES}>
             <Key

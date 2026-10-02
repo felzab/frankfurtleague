@@ -9,6 +9,7 @@ import { SPERRE_BIS_LABEL, sperreBisWert, SPERRLISTE_CRUD_COPY } from "@/feature
 import { AdminCrudEmptyCard } from "@/shared/components/ui/AdminCrudEmpty";
 import { IDENTITY_HEAD_CLASSES, IDENTITY_LINE_CLASSES, IDENTITY_ROW_CLASSES, IDENTITY_STACK_CLASSES } from "@/shared/components/ui/adminTable";
 import { card } from "@/shared/components/ui/card";
+import { focusRow, focusSection } from "@/shared/utils/focusAfterWrite";
 import { formatSpielDatum } from "@/shared/utils/format";
 
 import { AdminSperreAufhebenPanel } from "../forms/AdminSperreAufhebenPanel";
@@ -65,10 +66,12 @@ export const AdminSperrlisteList = memo(function AdminSperrlisteList({
        table collection says: these are cards. */
     <ul
       aria-label="Liste aller Sperren"
+      {...focusSection("sperren")}
       className="flex w-full flex-col gap-3">
       {filteredSperren.map((eintrag) => (
         <li
           key={eintrag.id}
+          {...focusRow(eintrag.id)}
           className={`${card()} flex w-full flex-col gap-y-3 p-4`}>
           {renderIdentity(eintrag)}
 

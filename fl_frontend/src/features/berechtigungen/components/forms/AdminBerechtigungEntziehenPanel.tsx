@@ -9,9 +9,11 @@ import { entziehenLabels, NUR_INHABER_ENTZIEHT, ZUGANG_ENTZIEHEN_CONSEQUENCE } f
 import { ConfirmActionRow } from "@/shared/components/ui/ConfirmActionRow";
 import { ConfirmPressButton } from "@/shared/components/ui/ConfirmPressButton";
 import { ConfirmReveal } from "@/shared/components/ui/ConfirmReveal";
+import { FocusSlot } from "@/shared/components/ui/FocusSlot";
 import { useTwoPressConfirm } from "@/shared/hooks/useTwoPressConfirm";
 import { rejectedWrite } from "@/shared/utils/actionError";
 import { appToast } from "@/shared/utils/appToast";
+import { focusAfterWrite } from "@/shared/utils/focusAfterWrite";
 
 /**
  * One grant's revoke, escalated where the row stands, as the ban list's removal is: a revoke keeps
@@ -37,6 +39,8 @@ export function AdminBerechtigungEntziehenPanel({
   const { isConfirming, press } = twoPress;
 
   const handleEntziehen = () => {
+    // The next row's control takes the focus once the row has gone (`docs/frontend/spec.md :: I532`).
+    const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here it takes the page down with it.
       const res = await deleteBerechtigungAction({ id: berechtigungId }).catch(rejectedWrite(router));
@@ -46,6 +50,7 @@ export function AdminBerechtigungEntziehenPanel({
         return;
       }
 
+      landing.landed();
       appToast.success("Zugang entzogen", { description: res.message });
     });
   };
@@ -60,21 +65,23 @@ export function AdminBerechtigungEntziehenPanel({
 
       <ConfirmActionRow confirm={twoPress}>
         {/* Named by its row, so each control in the list is one a screen reader can tell from the next. */}
-        <ConfirmPressButton
-          confirm={twoPress}
-          reason={darfEntziehen ? null : NUR_INHABER_ENTZIEHT}
-          resting={resting}
-          restingName={name}
-          armed={armed}
-          running="Entzieht..."
-          icon={
-            <TrashBin
-              className="size-4.5"
-              aria-hidden="true"
-            />
-          }
-          onPress={handleEntziehen}
-        />
+        <FocusSlot name="entziehen">
+          <ConfirmPressButton
+            confirm={twoPress}
+            reason={darfEntziehen ? null : NUR_INHABER_ENTZIEHT}
+            resting={resting}
+            restingName={name}
+            armed={armed}
+            running="Entzieht..."
+            icon={
+              <TrashBin
+                className="size-4.5"
+                aria-hidden="true"
+              />
+            }
+            onPress={handleEntziehen}
+          />
+        </FocusSlot>
       </ConfirmActionRow>
     </div>
   );

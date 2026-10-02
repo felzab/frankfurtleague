@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { Fragment, createElement as h } from "react";
 
 import { screen, within } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
@@ -35,6 +35,10 @@ const { AdminSchiedsrichterEditView } = await import("@/features/schiedsrichter/
 const { AdminSpielerEditView } = await import("@/features/spieler/components/views/AdminSpielerEditView.tsx");
 const { AdminTeamEditView } = await import("@/features/teams/components/views/AdminTeamEditView.tsx");
 const { SicherheitPanel } = await import("@/features/konto/components/views/SicherheitPanel.tsx");
+const { AdminSperrlisteView } = await import("@/features/sperrliste/components/views/AdminSperrlisteView.tsx");
+const { AdminBerechtigungenView } = await import("@/features/berechtigungen/components/views/AdminBerechtigungenView.tsx");
+const { AppTopBar } = await import("@/shared/components/layout/shell/AppTopBar.tsx");
+const { formatSpielDatum } = await import("@/shared/utils/format.ts");
 
 /** One write whose control leaves the page, from the page before it to the page its refresh draws. */
 type Landing = {
@@ -48,6 +52,8 @@ type Landing = {
   remount?: boolean;
   /** The address the page stands on, for a list whose filter decides which rows the refresh keeps. */
   search?: string;
+  /** The address the refresh carries, where the write itself is a change to it. */
+  afterSearch?: string;
   /** Where the focus has to end. */
   lands: () => HTMLElement;
 };
@@ -186,6 +192,48 @@ const teamEditor = (inactiveSince: string | null) =>
 
 const SR_RECORD = { ...schiedsrichter(SR_A, "Pia Kraft", null) };
 
+const sperre = (id: string, erstellt_am: string) => ({
+  id,
+  grund: "Wiederholt Werbung gesendet.",
+  erstellt_von: "verwaltung@example.org",
+  erstellt_von_gesperrt: false,
+  erstellt_am,
+  gesperrt_bis_saison_id: "2026",
+});
+const SPERREN = [
+  sperre("68c1f0a2b3c4d5e6f7a8b941", "2026-08-01"),
+  sperre("68c1f0a2b3c4d5e6f7a8b942", "2026-08-02"),
+  sperre("68c1f0a2b3c4d5e6f7a8b943", "2026-08-03"),
+];
+const aufheben = (erstellt_am: string) => `Sperre vom ${formatSpielDatum(erstellt_am)} aufheben`;
+
+/** The page's own heading, as the shell's top bar draws it over every admin list. */
+const TOP_BAR = h(AppTopBar, {
+  title: "Sperrliste",
+  isMobileOpen: false,
+  onToggleMobileMenu: () => undefined,
+  isDesktopCollapsed: false,
+  kontoHref: null,
+  isOnKonto: false,
+});
+const sperrliste = (rows: ReturnType<typeof sperre>[]) =>
+  h(Fragment, null, TOP_BAR, h(AdminSperrlisteView, { sperrliste: rows, anzahlGesamt: rows.length }));
+
+const zugang = (id: string, adresse: string) => ({
+  id,
+  adresse,
+  gesperrt: false,
+  verwaltung: "administration" as const,
+  erteilt_von: "inhaber@example.org",
+  erteilt_von_gesperrt: false,
+  erteilt_am: "2026-09-01T08:00:00.000Z",
+});
+const zugaenge = (rows: ReturnType<typeof zugang>[]) =>
+  h(AdminBerechtigungenView, { berechtigungen: rows, uebersprungen: 0, inhaberAdresse: "inhaber@example.org" });
+const ZUGANG_A = zugang("68c1f0a2b3c4d5e6f7a8b951", "anna@example.org");
+const ZUGANG_B = zugang("68c1f0a2b3c4d5e6f7a8b952", "ben@example.org");
+const ZUGANG_C = zugang("68c1f0a2b3c4d5e6f7a8b953", "cem@example.org");
+
 const HOUR_MS = 60 * 60 * 1000;
 
 const passkey = (id: string, name: string) => ({
@@ -308,6 +356,37 @@ const LANDINGS: Record<string, Landing> = {
     after: () => spielerList([spieler(SP_A, "Lena", null, RETIRED_ON), spieler(SP_B, "Mia", null), spieler(SP_C, "Nora", null, RETIRED_ON)]),
     lands: () => buttonIn("spieler-karten", "Kadereintrag von Nora Meier reaktivieren"),
   },
+  "a ban's removal, on the next ban's": {
+    before: () => sperrliste(SPERREN),
+    press: (user) => pressTwice(user, { resting: aufheben("2026-08-02"), armed: /^Ja, Sperre vom / }),
+    after: () => sperrliste(SPERREN.filter((row) => row.erstellt_am !== "2026-08-02")),
+    lands: () => screen.getByRole("button", { name: aufheben("2026-08-03") }),
+  },
+  /* The list has no heading of its own, and the empty list replaces it, so the page's heading takes the focus. */
+  "the last ban's removal, on the page's heading": {
+    before: () => sperrliste(SPERREN.slice(0, 1)),
+    press: (user) => pressTwice(user, { resting: aufheben("2026-08-01"), armed: /^Ja, Sperre vom / }),
+    after: () => sperrliste([]),
+    lands: () => heading("Sperrliste"),
+  },
+  "a grant's revocation, on the next grant's": {
+    before: () => zugaenge([ZUGANG_A, ZUGANG_B, ZUGANG_C]),
+    press: (user) => pressTwice(user, { resting: "Zugang entziehen: ben@example.org", armed: "Ja, Zugang endgültig entziehen" }),
+    after: () => zugaenge([ZUGANG_A, ZUGANG_C]),
+    lands: () => screen.getByRole("button", { name: "Zugang entziehen: cem@example.org" }),
+  },
+  /* The pick fills the last dimension, so the closed add control replaces the panel's trigger in its place. */
+  "a filter picked in the add panel's last dimension, on the closed add control": {
+    search: "status=aktiv",
+    before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null)] }),
+    press: async (user) => {
+      await user.click(screen.getByRole("button", { name: "Filter hinzufügen" }));
+      await user.click(within(screen.getByRole("dialog")).getByRole("option", { name: /^Bis 100 €/ }));
+    },
+    afterSearch: "status=aktiv&miete=bis_100",
+    after: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null)] }),
+    lands: () => screen.getByRole("button", { name: "Filter hinzufügen" }),
+  },
   "a venue editor's reactivation, on the editor's heading": {
     before: () => h(AdminSpielortEditView, { spielort: ort(ORT_A, "Halle A", RETIRED_ON), inactiveSince: RETIRED_ON }),
     press: (user) => user.click(screen.getByRole("button", { name: "Reaktivieren" })),
@@ -403,12 +482,12 @@ describe("where the focus lands once a write takes its control off the page", ()
     it(name, async () => {
       const user = userEvent.setup();
       answerWith(() => Promise.resolve(landing.answers?.[calls.at(-1)?.action ?? ""] ?? { success: true, message: "Gespeichert." }));
-      const page = (tree: ReactNode) => underNext(tree, { search: landing.search ?? "saison_id=2026" });
+      const page = (tree: ReactNode, search = landing.search ?? "saison_id=2026") => underNext(tree, { search });
       const view = renderUnderWrite(page(landing.before()));
 
       await landing.press(user);
       await view.answered();
-      await view.refresh(page(landing.after()), { remount: landing.remount ?? false });
+      await view.refresh(page(landing.after(), landing.afterSearch), { remount: landing.remount ?? false });
 
       const expected = landing.lands();
       // Never `assert.equal` over the two elements: its error keeps both, and the runner's report then
