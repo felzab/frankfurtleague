@@ -1,19 +1,15 @@
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, beforeEach, describe, it, mock } from "node:test";
 
 import { ACTOR_KEY_FILE } from "@/core/authDoubles.ts";
-import { replacingModule } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
 import type { SentMail } from "@/core/mailDouble.ts";
-
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
 /** One thing that happened, in the order it happened: the two orderings this slice owes are orderings between the two kinds. */
 type SweepEvent =
@@ -79,21 +75,12 @@ const CONFIG_DOUBLE = {
 
 const INDEXES_DOUBLE = { buildAuthIndexes: () => Promise.resolve() };
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts"))
-      return { format: "module", source: replacingModule(url, "the logger", LOGGING_DOUBLE), shortCircuit: true };
-    if (url.endsWith("/src/core/config.ts"))
-      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
+registerDoubles({
+  modules: {
+    "core/logging.ts": LOGGING_DOUBLE,
+    "core/config.ts": CONFIG_DOUBLE,
     // A production boot builds the sign-in store's indexes too, over a client this suite never configures.
-    if (url.endsWith("/src/core/authIndexes.ts"))
-      return { format: "module", source: replacingModule(url, "the index build", INDEXES_DOUBLE), shortCircuit: true };
-    return nextLoad(url, context);
+    "core/authIndexes.ts": INDEXES_DOUBLE,
   },
 });
 

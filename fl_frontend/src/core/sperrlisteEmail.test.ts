@@ -1,16 +1,9 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
+import { registerDoubles } from "./exportingModule.ts";
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-});
+registerDoubles();
 
 const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
 const { KONTAKT_EMAIL } = await import("./brand.ts");

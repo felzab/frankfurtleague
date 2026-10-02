@@ -1,12 +1,8 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { replacingModule } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
-
-/** Stands in for `next/headers`, whose real `headers()` throws outside a request scope. */
-const HEADERS_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(NEXT_HEADERS_DOUBLE)}`;
 
 /** What the real sign-in answers: the session's own cookie value among its fields. */
 const MINTED = "fabricated-session-token";
@@ -73,24 +69,16 @@ const AUTH_EMAIL_DOUBLE = { CODE_VALIDITY_MINUTES: 10 };
 
 const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: "http://localhost:3000" } };
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "next/headers") return { url: HEADERS_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
+registerDoubles({
+  modules: {
+    "core/auth.ts": AUTH_DOUBLE,
+    "core/authEmail.ts": AUTH_EMAIL_DOUBLE,
+    "core/config.ts": CONFIG_DOUBLE,
+    "core/logging.ts": LOGGING_DOUBLE,
   },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    // Each export name read off the real module, so a name the route starts importing links.
-    if (url.endsWith("/src/core/auth.ts"))
-      return { format: "module", source: replacingModule(url, "the sign-in store", AUTH_DOUBLE), shortCircuit: true };
-    if (url.endsWith("/src/core/authEmail.ts")) {
-      return { format: "module", source: replacingModule(url, "the mail shell", AUTH_EMAIL_DOUBLE), shortCircuit: true };
-    }
-    if (url.endsWith("/src/core/config.ts"))
-      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts"))
-      return { format: "module", source: replacingModule(url, "the logger", LOGGING_DOUBLE), shortCircuit: true };
-    return nextLoad(url, context);
+  specifiers: {
+    // Its real `headers()` throws outside a request scope.
+    "next/headers": NEXT_HEADERS_DOUBLE,
   },
 });
 

@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { replacingModule } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -17,12 +16,9 @@ const CONFIG = { frontend_config: { AUTH_URL: "http://localhost:3000", LOG_LEVEL
 doubleActionRequest();
 const mail = doubleSendMail();
 
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts"))
-      return { format: "module", source: replacingModule(url, "the config", CONFIG), shortCircuit: true };
-    return nextLoad(url, context);
+registerDoubles({
+  modules: {
+    "core/config.ts": CONFIG,
   },
 });
 

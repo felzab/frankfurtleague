@@ -3,7 +3,6 @@ import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
@@ -14,7 +13,7 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import ts from "typescript";
 
-import { replacingModule } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { side, spielFields } from "@/shared/testing/fixtures.ts";
@@ -32,13 +31,9 @@ globalThis.fetch = (() => new Promise(() => undefined)) as unknown as typeof glo
    page's origin, and this window has none. No case here presses it. */
 const AUTH_CLIENT_DOUBLE = { authClient: { signIn: { passkey: async () => ({ error: null }) } } };
 
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/authClient.ts")) {
-      return { format: "module", source: replacingModule(url, "the sign-in client", AUTH_CLIENT_DOUBLE), shortCircuit: true };
-    }
-    return nextLoad(url, context);
+registerDoubles({
+  modules: {
+    "core/authClient.ts": AUTH_CLIENT_DOUBLE,
   },
 });
 

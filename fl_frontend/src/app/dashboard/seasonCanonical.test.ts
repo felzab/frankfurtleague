@@ -1,12 +1,11 @@
 import "@/shared/testing/pageHarness.ts";
 
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { overridingModule, replacingModule } from "@/core/exportingModule.ts";
+import { overridingModule, registerDoubles, registerRenderingNothing } from "@/core/exportingModule.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { callPage } from "@/shared/testing/pageHarness.ts";
 
@@ -46,40 +45,27 @@ const getSaisons = () =>
 
 /* Every read a page makes, answering a past season and a club in it; the season list is what
    `resolveSaisonId` checks a named season against. */
-const QUERY_DOUBLES: [string, Readonly<Record<string, unknown>>][] = [
-  ["/src/features/saisons/queries.ts", { getSaisons, getAdminSaisons: getSaisons }],
-  [
-    "/src/features/teams/queries.ts",
-    {
-      getTeam: () => Promise.resolve({ team: { name: "Mainufer", full_name: "Mainufer-Schule" } }),
-      getTeams: () => Promise.resolve({ format: "list", teams: [] }),
-    },
-  ],
-  ["/src/features/spiele/queries.ts", { getSpiele: () => Promise.resolve({ spiele: [] }) }],
-  ["/src/features/spieltage/queries.ts", { getSpieltage: () => Promise.resolve({ spieltage: [] }) }],
-  ["/src/features/spieler/queries.ts", { getSpieler: () => Promise.resolve({ spieler: [] }) }],
-];
+const QUERY_DOUBLES = {
+  "features/saisons/queries.ts": { getSaisons, getAdminSaisons: getSaisons },
+  "features/teams/queries.ts": {
+    getTeam: () => Promise.resolve({ team: { name: "Mainufer", full_name: "Mainufer-Schule" } }),
+    getTeams: () => Promise.resolve({ format: "list", teams: [] }),
+  },
+  "features/spiele/queries.ts": { getSpiele: () => Promise.resolve({ spiele: [] }) },
+  "features/spieltage/queries.ts": { getSpieltage: () => Promise.resolve({ spieltage: [] }) },
+  "features/spieler/queries.ts": { getSpieler: () => Promise.resolve({ spieler: [] }) },
+};
 
-/** Each page's view and loader, doubled whole: this file reads metadata, and no case renders a body. */
-const RENDERS_NOTHING = /\/src\/(features\/[a-z]+\/components\/views\/\w+|shared\/components\/ui\/ContentLoader)\.tsx$/;
-
-registerHooks({
-  load(url, context, nextLoad) {
-    // The query keeps the real module's own url from matching here again.
-    if (url.endsWith("/src/features/saisons/resolvers.ts"))
-      return { format: "module", source: resolverDouble(`${url}?real`), shortCircuit: true };
-
-    const doubled = QUERY_DOUBLES.find(([ending]) => url.endsWith(ending));
-    if (doubled !== undefined) return { format: "module", source: replacingModule(url, "the reads", doubled[1]), shortCircuit: true };
-
-    const view = RENDERS_NOTHING.exec(url);
-    if (view !== null) {
-      return { format: "module", source: replacingModule(url, "the view", { [path.basename(url, ".tsx")]: () => null }), shortCircuit: true };
-    }
-
-    return nextLoad(url, context);
+registerDoubles({
+  modules: {
+    ...QUERY_DOUBLES,
+    // The query keeps the real module's own url from matching the double's path again.
+    "features/saisons/resolvers.ts": resolverDouble(`${import.meta.resolve("@/features/saisons/resolvers.ts")}?real`),
   },
 });
+
+// Each page's view and loader, doubled whole: this file reads metadata, and no case renders a body.
+registerRenderingNothing(/\/src\/(features\/[a-z]+\/components\/views\/\w+|shared\/components\/ui\/ContentLoader)\.tsx$/);
 
 type GenerateMetadata = (props: NextPageProps<{ team_id: string }>) => Promise<Metadata>;
 

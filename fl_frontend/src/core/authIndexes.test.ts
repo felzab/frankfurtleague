@@ -1,14 +1,10 @@
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { MongoServerError, MongoServerSelectionError } from "mongodb";
 
-import { replacingModule } from "./exportingModule.ts";
-
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
+import { registerDoubles } from "./exportingModule.ts";
 
 /** One `createIndex` the build issued, by collection and name, and the time budget it carried. */
 type Build = { collection: string; name: string; timeoutMS?: number };
@@ -59,18 +55,10 @@ const LOGGING_DOUBLE = {
   },
 };
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/db.ts"))
-      return { format: "module", source: replacingModule(url, "the store client", DB_DOUBLE), shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts"))
-      return { format: "module", source: replacingModule(url, "the logger", LOGGING_DOUBLE), shortCircuit: true };
-    return nextLoad(url, context);
+registerDoubles({
+  modules: {
+    "core/db.ts": DB_DOUBLE,
+    "core/logging.ts": LOGGING_DOUBLE,
   },
 });
 

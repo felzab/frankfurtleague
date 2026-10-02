@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { replacingModule, replacingPackage } from "./exportingModule.ts";
+import { registerDoubles } from "./exportingModule.ts";
 import { doubleSendMail } from "./mailDouble.ts";
 import { filesUnder } from "./treeWalk.ts";
 
@@ -33,12 +32,11 @@ class NextResponseDouble {
 
 /* Each handler runs for real against these: a refused request must reach none of them, and a
    request let through reaches whichever it reaches first, which the request itself records. */
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "server-only": "export {};",
-  "next/cache": replacingPackage("next/cache", { updateTag: inert, refresh: inert, revalidateTag: inert, cacheTag: inert, cacheLife: inert }),
-  "next/headers": replacingPackage("next/headers", { headers: () => Promise.resolve(new Headers()) }),
-  "next/server": replacingPackage("next/server", { NextResponse: NextResponseDouble, after: inert, connection: () => Promise.resolve() }),
-  "next/navigation": replacingPackage("next/navigation", { unstable_rethrow: inert }),
+const PACKAGE_DOUBLES = {
+  "next/cache": { updateTag: inert, refresh: inert, revalidateTag: inert, cacheTag: inert, cacheLife: inert },
+  "next/headers": { headers: () => Promise.resolve(new Headers()) },
+  "next/server": { NextResponse: NextResponseDouble, after: inert, connection: () => Promise.resolve() },
+  "next/navigation": { unstable_rethrow: inert },
 };
 
 const ADMINISTRATOR = { user: { email: "vorstand@example.org" } };
@@ -47,38 +45,24 @@ const ADMINISTRATOR = { user: { email: "vorstand@example.org" } };
  * Each module replaced whole, its export names read off the real one: a route importing a name a
  * double left out fails to link, and the sweep's worker then exits without reporting a case.
  */
-const MODULE_DOUBLES: Record<string, (url: string) => string> = {
+const MODULE_DOUBLES = {
   // No export doubled: each throws where called, as a request past the guard reaching the backend would.
-  "/src/core/api.ts": (url) => replacingModule(url, "the backend", {}),
-  "/src/core/logging.ts": (url) => replacingModule(url, "the logger", { logger: { debug: inert, info: inert, warn: inert, error: inert } }),
-  "/src/core/config.ts": (url) =>
-    replacingModule(url, "the config", { frontend_config: { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" } }),
+  "core/api.ts": {},
+  "core/logging.ts": { logger: { debug: inert, info: inert, warn: inert, error: inert } },
+  "core/config.ts": { frontend_config: { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" } },
   // Signed in, so the undo spine's session check lets a request through to the body it reads.
-  "/src/core/auth.ts": (url) =>
-    replacingModule(url, "the sign-in store", {
-      auth: { handler: async (request: Request) => new Response(request.url), api: {} },
-      ADDRESS_ATTEMPTS_EXHAUSTED: "ADDRESS_ATTEMPTS_EXHAUSTED",
-      forgiveCodeAttempt: async () => undefined,
-      getAdminSession: async () => ADMINISTRATOR,
-      judgeAdminRequest: async () => ({ session: ADMINISTRATOR }),
-      isFreshlySignedIn: () => true,
-    }),
+  "core/auth.ts": {
+    auth: { handler: async (request: Request) => new Response(request.url), api: {} },
+    ADDRESS_ATTEMPTS_EXHAUSTED: "ADDRESS_ATTEMPTS_EXHAUSTED",
+    forgiveCodeAttempt: async () => undefined,
+    getAdminSession: async () => ADMINISTRATOR,
+    judgeAdminRequest: async () => ({ session: ADMINISTRATOR }),
+    isFreshlySignedIn: () => true,
+  },
 };
 const mail = doubleSendMail();
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined
-      ? nextResolve(specifier, context)
-      : { url: `data:text/javascript,${encodeURIComponent(double)}`, shortCircuit: true };
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    const double = Object.entries(MODULE_DOUBLES).find(([ending]) => url.endsWith(ending))?.[1];
-    return double === undefined ? nextLoad(url, context) : { format: "module", source: double(url), shortCircuit: true };
-  },
-});
+registerDoubles({ modules: MODULE_DOUBLES, specifiers: PACKAGE_DOUBLES });
 
 /** Every method Next routes to a handler. */
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;

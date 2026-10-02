@@ -1,13 +1,9 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 import { inspect } from "node:util";
 
-import { replacingModule } from "@/core/exportingModule.ts";
-
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
+import { registerDoubles } from "@/core/exportingModule.ts";
 
 /**
  * Its own throwaway, minted per run and never a real one: this file signs the fixtures it verifies,
@@ -60,26 +56,13 @@ const ZIEL_MUTATIONS_DOUBLE = { meldeZielZustellEreignis: reporting(zielCalls, (
 // `next/headers` is request-only and throws outside one, so the real scope cannot run here.
 const TRACE_DOUBLE = { runWithIncomingTrace: async (fn: () => unknown) => fn() };
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts"))
-      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts"))
-      return { format: "module", source: replacingModule(url, "the logger", LOGGER_DOUBLE), shortCircuit: true };
-    if (url.endsWith("/src/features/bewerbungen/mutations.ts")) {
-      return { format: "module", source: replacingModule(url, "the application writes", MUTATIONS_DOUBLE), shortCircuit: true };
-    }
-    if (url.endsWith("/src/features/zustellung/mutations.ts")) {
-      return { format: "module", source: replacingModule(url, "the delivery writes", ZIEL_MUTATIONS_DOUBLE), shortCircuit: true };
-    }
-    if (url.endsWith("/src/shared/utils/traceScope.ts"))
-      return { format: "module", source: replacingModule(url, "the trace scope", TRACE_DOUBLE), shortCircuit: true };
-    return nextLoad(url, context);
+registerDoubles({
+  modules: {
+    "core/config.ts": CONFIG_DOUBLE,
+    "core/logging.ts": LOGGER_DOUBLE,
+    "features/bewerbungen/mutations.ts": MUTATIONS_DOUBLE,
+    "features/zustellung/mutations.ts": ZIEL_MUTATIONS_DOUBLE,
+    "shared/utils/traceScope.ts": TRACE_DOUBLE,
   },
 });
 

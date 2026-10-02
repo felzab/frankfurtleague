@@ -3,7 +3,6 @@ import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { before, describe, it } from "node:test";
 
@@ -12,7 +11,7 @@ import { createElement as h } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { replacingModule } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
@@ -28,13 +27,9 @@ const { calls, answerPending } = doubleActions({ modules: [/\/src\/features\/\w+
 const raise = () => (): string => "0";
 const APP_TOAST = { appToast: { success: raise(), danger: raise() } };
 
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/shared/utils/appToast.ts")) {
-      return { format: "module", source: replacingModule(url, "the toast module", APP_TOAST), shortCircuit: true };
-    }
-    return nextLoad(url, context);
+registerDoubles({
+  modules: {
+    "shared/utils/appToast.ts": APP_TOAST,
   },
 });
 

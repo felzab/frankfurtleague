@@ -6,7 +6,16 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { exportedNames, exportingModule, overridingModule, replacingModule, replacingPackage, UNBINDABLE } from "./exportingModule.ts";
+import {
+  exportedNames,
+  exportingModule,
+  overridingModule,
+  registerDoubles,
+  registerRenderingNothing,
+  replacingModule,
+  replacingPackage,
+  UNBINDABLE,
+} from "./exportingModule.ts";
 
 const LINE_SEPARATOR = String.fromCharCode(0x2028);
 
@@ -184,6 +193,51 @@ describe("the module a double replaces an installed package with", () => {
     assert.deepEqual(Object.keys(built).sort(), ["cookies", "draftMode", "headers"]);
     assert.equal(built.headers!(), "double");
     assert.throws(() => built.cookies!(), /next\/headers's cookies is not doubled/);
+  });
+});
+
+describe("the doubles a suite registers", () => {
+  /* Before any hook exists: a mistyped path would otherwise leave the suite on the real module, passing. */
+  it("refuses a path naming no module under fl_frontend/src", () => {
+    assert.throws(() => registerDoubles({ modules: { "core/keinModul.ts": {} } }), /No module under fl_frontend\/src at core\/keinModul\.ts/);
+  });
+
+  it("stands a module in by its path under fl_frontend/src, and leaves it real under a query", async () => {
+    registerDoubles({ modules: { "core/joinUnd.ts": { joinUnd: () => "double" } } });
+
+    const doubled = (await import("./joinUnd.ts")) as { joinUnd: (labels: string[]) => string };
+    const real = (await import(`${import.meta.resolve("./joinUnd.ts")}?real`)) as { joinUnd: (labels: string[]) => string };
+
+    assert.equal(doubled.joinUnd(["a", "b"]), "double");
+    assert.equal(real.joinUnd(["a", "b"]), "a und b");
+  });
+
+  /* The real `server-only` throws as it evaluates, so a suite reaching it un-doubled fails to load. */
+  it("answers server-only always, a source by its text, and a URL by the module there", async () => {
+    registerDoubles({
+      specifiers: { "fl-probe-source": "export const answer = 1;", "fl-probe-url": new URL("data:text/javascript,export const answer = 2;") },
+    });
+
+    assert.deepEqual(Object.keys(await import("server-only")), []);
+    assert.equal(((await import("fl-probe-source" as string)) as { answer: number }).answer, 1);
+    assert.equal(((await import("fl-probe-url" as string)) as { answer: number }).answer, 2);
+  });
+
+  it("stands every component a pattern matches in for one rendering nothing, named by its file", async () => {
+    const { url, remove } = moduleOnDisk(
+      "Ansicht.tsx",
+      'export function Ansicht() { throw new Error("rendered"); }\nexport const helper = 1;\n',
+    );
+
+    try {
+      registerRenderingNothing(/\/Ansicht\.tsx$/);
+      const built = (await import(url)) as { Ansicht: () => unknown; helper: () => unknown };
+
+      assert.equal(built.Ansicht(), null);
+      assert.throws(() => built.helper(), /Ansicht's helper is not doubled/);
+    } finally {
+      remove();
+    }
   });
 });
 

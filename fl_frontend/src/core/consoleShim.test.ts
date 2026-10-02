@@ -1,14 +1,10 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { afterEach, describe, it } from "node:test";
 
 import { MongoServerError } from "mongodb";
 
-import { replacingModule } from "./exportingModule.ts";
+import { registerDoubles } from "./exportingModule.ts";
 import { writtenBy } from "./stdoutCapture.ts";
-
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
 // Getters, not values: the format decides whether the shim installs at all, and the threshold
 // whether a shimmed `console.debug` reaches the stream.
@@ -23,15 +19,9 @@ const CONFIG_DOUBLE = {
   },
 };
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    if (url.endsWith("/src/core/config.ts"))
-      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
-    return nextLoad(url, context);
+registerDoubles({
+  modules: {
+    "core/config.ts": CONFIG_DOUBLE,
   },
 });
 

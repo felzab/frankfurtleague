@@ -1,20 +1,12 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import { redactedParameterNames } from "./edgeRedaction.ts";
+import { registerDoubles } from "./exportingModule.ts";
 
 import type { RegistrierungLinkEmailData } from "./registrierungEmail.ts";
 
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-});
+registerDoubles();
 
 const {
   buildRegistrierungBestaetigungEmail,

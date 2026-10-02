@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { after, beforeEach, describe, it } from "node:test";
 
 import { jwtVerify } from "jose";
@@ -15,7 +14,7 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "./authDoubles.ts";
-import { beginRenderPass, itOpensAScopeThatMemoizes, SERVER_REACT_URL } from "./cacheScope.ts";
+import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "./cacheScope.ts";
 
 import type { RequestActor } from "./requestScope.ts";
 
@@ -148,13 +147,7 @@ const MEMOIZED = ["/src/core/subject.ts", "/src/core/signInGate.ts", "/src/core/
 
 // The server build for these alone: the client build's `cache` passes through, so a guard or a
 // lookup that lost its memo would read the same under every case here.
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "react" && MEMOIZED.some((module) => context.parentURL?.endsWith(module) === true))
-      return { url: SERVER_REACT_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-});
+serveServerReactTo((parentURL) => MEMOIZED.some((module) => parentURL.endsWith(module)));
 
 // Every case is a request of its own, and a memo carried across two would answer one case with
 // another's session.

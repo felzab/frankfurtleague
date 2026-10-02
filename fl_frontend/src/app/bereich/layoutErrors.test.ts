@@ -2,7 +2,6 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/pageHarness.ts";
 
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
@@ -13,7 +12,7 @@ import { notFound, redirect } from "next/navigation";
 import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { replacingModule } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
@@ -35,13 +34,9 @@ const refused = (): never => {
 };
 const AUTH_CLIENT_DOUBLE = { authClient: { passkey: { addPasskey: refused }, signIn: { passkey: refused } } };
 
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/authClient.ts")) {
-      return { format: "module", source: replacingModule(url, "the sign-in client", AUTH_CLIENT_DOUBLE), shortCircuit: true };
-    }
-    return nextLoad(url, context);
+registerDoubles({
+  modules: {
+    "core/authClient.ts": AUTH_CLIENT_DOUBLE,
   },
 });
 

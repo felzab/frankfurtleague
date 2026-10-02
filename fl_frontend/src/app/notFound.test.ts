@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { createElement as h } from "react";
 
-import { replacingModule } from "@/core/exportingModule.ts";
+import { registerRenderingNothing } from "@/core/exportingModule.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { answerReadsWith, backendNotFound, callPage, EMPTIEST_ANSWER } from "@/shared/testing/pageHarness.ts";
@@ -18,16 +17,7 @@ import type { NextPageProps } from "@/shared/types/types";
 import type { Metadata, ResolvedMetadata } from "next";
 
 /* The views and forms are doubled whole: no case renders a page's body. */
-const VIEW = /\/src\/features\/[a-z]+\/components\/(?:views|forms)\/(\w+)\.tsx$/;
-
-registerHooks({
-  load(url, context, nextLoad) {
-    const view = VIEW.exec(url);
-    if (view !== null) return { format: "module", source: replacingModule(url, "the view", { [view[1]!]: () => null }), shortCircuit: true };
-
-    return nextLoad(url, context);
-  },
-});
+registerRenderingNothing(/\/src\/features\/[a-z]+\/components\/(?:views|forms)\/\w+\.tsx$/);
 
 /* Reached with `await import` and never a static import beside the harness
    (`docs/frontend/spec.md` §1.9). */

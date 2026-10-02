@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, afterEach, describe, it } from "node:test";
@@ -9,17 +8,10 @@ import { isAPIError } from "better-auth/api";
 import { emailOTP } from "better-auth/plugins/email-otp";
 
 import { asSignInIdentifier, isSignInLibraryAddress } from "./emailAddress.ts";
+import { registerDoubles } from "./exportingModule.ts";
 import { documentsWrittenBy, documentsWrittenByAsync } from "./stdoutCapture.ts";
 
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-});
+registerDoubles();
 
 const {
   DECLARED_ENVIRONMENT_NAMES,

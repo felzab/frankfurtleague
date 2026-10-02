@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { replacingModule, replacingPackage } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -43,27 +42,22 @@ const keyTag = ({ idempotencyKey }: SentMail): string | undefined => idempotency
 
 // `refresh` writes to the same log the fan-out does, which is how the ordering case below reads which
 // of the two ran first; `cacheCalls` is a list of its own, so it cannot order a refresh against a send.
-const NEXT_CACHE = replacingPackage("next/cache", {
+const NEXT_CACHE = {
   refresh: () => void log.push("refresh"),
   updateTag: () => undefined,
   revalidateTag: () => undefined,
-});
+};
 
 doubleActionRequest();
 
 // Registered after the request's doubles, so its `next/cache` answers before theirs.
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "next/cache") return { url: `data:text/javascript,${encodeURIComponent(NEXT_CACHE)}`, shortCircuit: true };
-    return nextResolve(specifier, context);
+registerDoubles({
+  modules: {
+    "core/config.ts": CONFIG,
+    "features/teams/queries.ts": TEAMS,
   },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts"))
-      return { format: "module", source: replacingModule(url, "the config", CONFIG), shortCircuit: true };
-    if (url.endsWith("/src/features/teams/queries.ts"))
-      return { format: "module", source: replacingModule(url, "the club reads", TEAMS), shortCircuit: true };
-    return nextLoad(url, context);
+  specifiers: {
+    "next/cache": NEXT_CACHE,
   },
 });
 

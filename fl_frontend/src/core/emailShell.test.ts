@@ -4,13 +4,10 @@ import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { replacingModule } from "./exportingModule.ts";
+import { asDataUrl, registerDoubles, replacingModule } from "./exportingModule.ts";
 import { assertEveryTokenIsRead, schemeTokens } from "./schemeReader.ts";
 
 import type * as EmailShell from "./emailShell.ts";
-
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
 /** The query that separates the hostile instance of the shell below from the one every other case renders through. */
 const POISON_BRAND = "gift-marke";
@@ -23,17 +20,18 @@ const POISON_RESPONSIBLE_HTML = "Verein &amp; Co., c/o &lt;Haus&gt; &quot;Süd&q
 
 /* The controller line reaches the card from a module constant, so a hostile one arrives only by
    replacing the brand module — the route that leaves production code with no test-only opening. */
-const BRAND_DOUBLE_URL = `data:text/javascript,${encodeURIComponent(
+const BRAND_DOUBLE_URL = asDataUrl(
   replacingModule(import.meta.resolve("./brand.ts"), "the brand", {
     KONTAKT_EMAIL: "kontakt@beispiel.de",
     VEREIN_NAME: POISON_CLUB,
     VEREIN_ANSCHRIFT: POISON_ADDRESS,
   }),
-)}`;
+);
+
+registerDoubles();
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
     // The parent decides, so the double reaches the hostile instance alone and every other case
     // still renders against the real brand.
     if (specifier === "./brand" && (context.parentURL ?? "").includes(POISON_BRAND)) return { url: BRAND_DOUBLE_URL, shortCircuit: true };

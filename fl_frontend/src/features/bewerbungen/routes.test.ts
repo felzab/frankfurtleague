@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { replacingModule } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { ADMIN_SIDEMENU_STRUCTURE } from "@/features/admin/constants.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import {
@@ -51,22 +50,16 @@ const RENDERS_NOTHING = { BewerbungView: () => null, ContentLoader: () => null }
 
 /* The public page's view and loader render nothing, so a case reads the props the page hands them;
    every read answers through the harness's client double. */
-const DOUBLED: [string, Readonly<Record<string, unknown>>][] = [
-  ["/src/features/bewerbungen/components/views/BewerbungView.tsx", RENDERS_NOTHING],
-  ["/src/shared/components/ui/ContentLoader.tsx", RENDERS_NOTHING],
-];
+const DOUBLED = {
+  "features/bewerbungen/components/views/BewerbungView.tsx": RENDERS_NOTHING,
+  "shared/components/ui/ContentLoader.tsx": RENDERS_NOTHING,
+};
 
 // An administrator's session: every admin-tier read resolves its actor from it before it is sent
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
 doubleActionRequest();
 
-registerHooks({
-  load(url, context, nextLoad) {
-    const doubled = DOUBLED.find(([ending]) => url.endsWith(ending));
-    if (doubled !== undefined) return { format: "module", source: replacingModule(url, "the view", doubled[1]), shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+registerDoubles({ modules: DOUBLED });
 
 const PUBLIC_PAGE = "@/app/(public)/bewerbung/[saison_id]/page.tsx";
 const { default: BewerbungPage, generateMetadata } = await import(PUBLIC_PAGE);

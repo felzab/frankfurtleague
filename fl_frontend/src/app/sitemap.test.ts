@@ -2,30 +2,19 @@ import "@/shared/testing/pageHarness.ts";
 
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
-import { registerHooks } from "node:module";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
 import { SITE_URL } from "@/core/brand";
-import { replacingModule } from "@/core/exportingModule.ts";
+import { registerRenderingNothing } from "@/core/exportingModule.ts";
 
 import sitemap from "./sitemap.ts";
 
 import type { Metadata } from "next";
 
-/** Each page's view and form, doubled whole: the withheld pages are loaded for their metadata alone. */
-const COMPONENT = /\/src\/features\/[a-z]+\/components\/(?:views|forms)\/(\w+)\.tsx$/;
-
-registerHooks({
-  load(url, context, nextLoad) {
-    const component = COMPONENT.exec(url);
-    if (component !== null)
-      return { format: "module", source: replacingModule(url, "the view", { [component[1]!]: () => null }), shortCircuit: true };
-
-    return nextLoad(url, context);
-  },
-});
+// Each page's view and form, doubled whole: the withheld pages are loaded for their metadata alone.
+registerRenderingNothing(/\/src\/features\/[a-z]+\/components\/(?:views|forms)\/\w+\.tsx$/);
 
 const APP_DIR = import.meta.dirname;
 

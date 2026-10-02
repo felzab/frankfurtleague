@@ -1,18 +1,20 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { registerHooks } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after } from "node:test";
 
 import { memoryAdapter } from "better-auth/adapters/memory";
 
-import { replacingModule, replacingPackage } from "./exportingModule.ts";
+import { registerDoubles } from "./exportingModule.ts";
 import { doubleSendMail } from "./mailDouble.ts";
 
 import type { MemoryDB } from "better-auth/adapters/memory";
 import type { auth as AuthInstance } from "./auth.ts";
+import type { DoubledExports } from "./exportingModule.ts";
+
+export { asDataUrl } from "./exportingModule.ts";
 
 export const ADMIN_EMAIL = "vorstand@example.org";
 
@@ -30,8 +32,6 @@ after(() => rmSync(ACTOR_KEY_DIRECTORY, { recursive: true, force: true }));
 
 /** What a request arriving at the served origin carries, matched to the config double's `AUTH_URL`. */
 export const ORIGIN = { host: "localhost:3000", "x-forwarded-proto": "http" } as const;
-
-export const asDataUrl = (source: string): string => `data:text/javascript,${encodeURIComponent(source)}`;
 
 /**
  * The config every sign-in suite runs `fl_frontend/src/core/auth.ts` under. The secret is fabricated
@@ -65,12 +65,7 @@ export const memoryAdapterDouble = (store: string): DoubledExports => ({
   mongodbAdapter: () => memoryAdapter(Reflect.get(globalThis, store) as MemoryDB),
 });
 
-const SERVER_ONLY_DOUBLE_URL = asDataUrl("export {};");
-
-/** The exports a double answers for, by name: every other name the real module has throws once called. */
-export type DoubledExports = Readonly<Record<string, unknown>>;
-
-type Doubles = {
+type AuthDoubles = {
   /**
    * By the `fl_frontend/src/core/<name>.ts` each replaces, over the two defaults. A source is taken
    * only as `overridingModule` builds one: a hand-listed one fails to link the day auth.ts imports one more name.
@@ -81,44 +76,25 @@ type Doubles = {
 };
 
 /**
- * Registers the doubles a suite then imports `fl_frontend/src/core/auth.ts` under, which it does
- * with a dynamic import: a static one resolves before the hooks exist. Test-only, which
- * `no-restricted-imports` in `fl_frontend/eslint.config.mjs` holds it to.
+ * `registerDoubles` under the config, the store client and the mailer `fl_frontend/src/core/auth.ts`
+ * builds on, and the lookup its grant is read over. Test-only, which `no-restricted-imports` in
+ * `fl_frontend/eslint.config.mjs` holds it to.
  */
-export function registerAuthDoubles({ core = {}, specifiers = {} }: Doubles = {}): ReturnType<typeof doubleSendMail> {
+export function registerAuthDoubles({ core = {}, specifiers = {} }: AuthDoubles = {}): ReturnType<typeof doubleSendMail> {
   // The mailer is always `doubleSendMail`'s, whose record this answers. A second one is refused rather
   // than layered: two mailer hooks answer by registration order, and a suite would read whichever came last.
   if ("mail" in core) throw new Error("The mailer is doubleSendMail's: read the record registerAuthDoubles answers.");
-  const modules = Object.entries({ config: configDouble(), db: DB_DOUBLE, ...core });
-  // Built here, each export name read off the installed package before any hook below stands over it.
-  const replaced = new Map(
-    Object.entries(specifiers).map(([specifier, double]) => [
-      specifier,
-      typeof double === "string" ? double : asDataUrl(replacingPackage(specifier, double)),
-    ]),
-  );
+  const modules = Object.entries({ config: configDouble(), db: DB_DOUBLE, ...core }).map(([name, double]) => [`core/${name}.ts`, double]);
 
   // The grant is read over the lookup, so without an answer no suite has an administrator at all. A
   // suite answering the lookup itself, before this or after it, keeps its own answer.
   if (!lookupAnswered) answerTheLookup((email) => (email === ADMIN_EMAIL ? GRANTED : null));
 
-  registerHooks({
-    resolve(specifier, context, nextResolve) {
-      // Its real module throws outside a React server build.
-      if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-      const url = replaced.get(specifier);
-      if (url !== undefined) return { url: url, shortCircuit: true };
-      return nextResolve(specifier, context);
-    },
-    load(url, context, nextLoad) {
-      // Matched on the RESOLVED url's end, so this holds whichever order the alias hook and this one
-      // run in, and a query-suffixed url passes: both db-tier suites load the real `db.ts` that way.
-      const found = modules.find(([name]) => url.endsWith(`/src/core/${name}.ts`));
-      if (found === undefined) return nextLoad(url, context);
-      const [name, double] = found;
-      const source = typeof double === "string" ? double : replacingModule(url, `core/${name}.ts`, double);
-      return { format: "module", source: source, shortCircuit: true };
-    },
+  registerDoubles({
+    modules: Object.fromEntries(modules),
+    specifiers: Object.fromEntries(
+      Object.entries(specifiers).map(([specifier, double]) => [specifier, typeof double === "string" ? new URL(double) : double]),
+    ),
   });
 
   return doubleSendMail();

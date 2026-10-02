@@ -1,5 +1,6 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createRequire, registerHooks } from "node:module";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import ts from "typescript";
@@ -148,4 +149,70 @@ function standingIn(names: readonly string[], what: string, doubled: Readonly<Re
   };
 
   return exportingModule(Object.fromEntries(names.map((name) => [name, Object.hasOwn(doubled, name) ? doubled[name] : notDoubled(name)])));
+}
+
+/** A module's source as a URL a resolve hook can answer with. */
+export const asDataUrl = (source: string): string => `data:text/javascript,${encodeURIComponent(source)}`;
+
+/** The exports a double answers for, by name: every other name the real module has throws once called. */
+export type DoubledExports = Readonly<Record<string, unknown>>;
+
+/** What `registerDoubles` stands in for the modules and packages a suite loads. */
+export type Doubles = {
+  /** By the module's path under `fl_frontend/src/`, such as `core/config.ts`: its doubled exports, or the source standing in its place. */
+  readonly modules?: Readonly<Record<string, DoubledExports | string>>;
+  /** By the bare specifier each replaces: the package's doubled exports, the source standing in its place, or the module at a URL. */
+  readonly specifiers?: Readonly<Record<string, DoubledExports | string | URL>>;
+};
+
+const SOURCE_ROOT = new URL("../", import.meta.url);
+
+/**
+ * Registers the doubles a suite then imports its subject under, which it does with a dynamic import:
+ * a static one resolves before the hooks exist. `server-only` is always doubled, its real module
+ * throwing outside a React server build.
+ */
+export function registerDoubles({ modules = {}, specifiers = {} }: Doubles = {}): void {
+  // A path naming no module would double nothing, and the suite would run against the real one.
+  const missing = Object.keys(modules).filter((at) => !existsSync(new URL(at, SOURCE_ROOT)));
+  if (missing.length > 0) throw new Error(`No module under fl_frontend/src at ${missing.join(", ")}`);
+  // Built here, each export name read off the installed package before any hook below stands over it.
+  const packages: NonNullable<Doubles["specifiers"]> = { "server-only": "export {};", ...specifiers };
+  const replaced = new Map(
+    Object.entries(packages).map(([specifier, double]) => [
+      specifier,
+      double instanceof URL ? double.href : asDataUrl(typeof double === "string" ? double : replacingPackage(specifier, double)),
+    ]),
+  );
+  const doubled = Object.entries(modules);
+
+  registerHooks({
+    resolve(specifier, context, nextResolve) {
+      const url = replaced.get(specifier);
+      return url === undefined ? nextResolve(specifier, context) : { url: url, shortCircuit: true };
+    },
+    load(url, context, nextLoad) {
+      // Matched on the RESOLVED url's end, so this holds whichever order the alias hook and this one
+      // run in, and a query-suffixed url passes: the db-tier suites load the real `db.ts` that way.
+      const found = doubled.find(([at]) => url.endsWith(`/src/${at}`));
+      if (found === undefined) return nextLoad(url, context);
+      const [at, double] = found;
+      const source = typeof double === "string" ? double : replacingModule(url, at, double);
+      return { format: "module", source: source, shortCircuit: true };
+    },
+  });
+}
+
+/**
+ * Stands every component module whose resolved url `pattern` matches in for one whose component,
+ * named by the file, renders nothing: for a suite reading what a page hands its views, or its metadata.
+ */
+export function registerRenderingNothing(pattern: RegExp): void {
+  registerHooks({
+    load(url, context, nextLoad) {
+      if (!pattern.test(url)) return nextLoad(url, context);
+      const component = path.basename(fileURLToPath(url)).replace(/\.\w+$/, "");
+      return { format: "module", source: replacingModule(url, component, { [component]: () => null }), shortCircuit: true };
+    },
+  });
 }

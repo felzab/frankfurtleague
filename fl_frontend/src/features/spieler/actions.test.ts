@@ -2,7 +2,6 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
@@ -10,7 +9,7 @@ import { createElement as h } from "react";
 import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { replacingModule } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { recordingRouter, underNext } from "@/shared/testing/nextContexts.ts";
 import { pageBody } from "@/shared/testing/pageHarness.ts";
@@ -61,28 +60,19 @@ let pageAnswers: { memberships?: unknown; saisons?: unknown; teams?: unknown; as
 const getSaisons = () => Promise.resolve(pageAnswers.saisons);
 
 /* The page's own reads, each double answering only the fields the page reads. */
-const PAGE_DOUBLES: [string, Readonly<Record<string, unknown>>][] = [
-  [
-    "/src/features/spieler/queries.ts",
-    {
-      getSpielerMemberships: () => Promise.resolve(pageAnswers.memberships),
-      getSpielerNachnominierung: (saison_id: string) => {
-        pageAnswers.asked?.push(saison_id);
-        return Promise.resolve({ saison_id, nachnominierung: pageAnswers.nachnominierung ?? false });
-      },
+const PAGE_DOUBLES = {
+  "features/spieler/queries.ts": {
+    getSpielerMemberships: () => Promise.resolve(pageAnswers.memberships),
+    getSpielerNachnominierung: (saison_id: string) => {
+      pageAnswers.asked?.push(saison_id);
+      return Promise.resolve({ saison_id, nachnominierung: pageAnswers.nachnominierung ?? false });
     },
-  ],
-  ["/src/features/saisons/queries.ts", { getAdminSaisons: getSaisons, getSaisons }],
-  ["/src/features/teams/queries.ts", { getTeamMemberships: () => Promise.resolve(pageAnswers.teams) }],
-];
-
-registerHooks({
-  load(url, context, nextLoad) {
-    const doubled = PAGE_DOUBLES.find(([ending]) => url.endsWith(ending));
-    if (doubled !== undefined) return { format: "module", source: replacingModule(url, "the page's reads", doubled[1]), shortCircuit: true };
-    return nextLoad(url, context);
   },
-});
+  "features/saisons/queries.ts": { getAdminSaisons: getSaisons, getSaisons },
+  "features/teams/queries.ts": { getTeamMemberships: () => Promise.resolve(pageAnswers.teams) },
+};
+
+registerDoubles({ modules: PAGE_DOUBLES });
 
 const { default: AdminSpielerEditPage } = await import("@/app/bereich/admin/spieler/[spieler_id]/page.tsx");
 const { default: AdminSpielerPage } = await import("@/app/bereich/admin/spieler/page.tsx");

@@ -1,14 +1,10 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { afterEach, beforeEach, describe, it, mock } from "node:test";
 
 import { z } from "zod";
 
-import { replacingModule } from "./exportingModule.ts";
+import { registerDoubles } from "./exportingModule.ts";
 import { documentsWrittenByAsync } from "./stdoutCapture.ts";
-
-/** Stands in for `server-only`, whose real module throws outside a React server build. */
-const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("export {};")}`;
 
 // Replaced at the module boundary: the real config reads three credentials no test run holds, and
 // the client composes its base URL from `API_URL` at import.
@@ -24,15 +20,9 @@ const CONFIG_DOUBLE = {
   },
 };
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (specifier === "server-only") return { url: SERVER_ONLY_DOUBLE_URL, shortCircuit: true };
-    return nextResolve(specifier, context);
-  },
-  load(url, context, nextLoad) {
-    if (url.endsWith("/src/core/config.ts"))
-      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
-    return nextLoad(url, context);
+registerDoubles({
+  modules: {
+    "core/config.ts": CONFIG_DOUBLE,
   },
 });
 

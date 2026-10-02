@@ -1,42 +1,26 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it, mock } from "node:test";
 
-import { replacingModule, replacingPackage } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 
 /* Replaced at the module boundary, as `fl_frontend/src/shared/utils/undoRoute.test.ts` replaces them:
    a response is the framework's, and the spine between it and the handler is what is driven. */
 /** How many times the spine opened a trace, which reads the request's headers. */
 let spineTraces = 0;
 
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "next/server": replacingPackage("next/server", {
-    NextResponse: { json: (body: unknown, init?: ResponseInit) => ({ body, status: init?.status ?? 200 }) },
-  }),
-  "next/headers": replacingPackage("next/headers", {
+const PACKAGE_DOUBLES = {
+  "next/server": { NextResponse: { json: (body: unknown, init?: ResponseInit) => ({ body, status: init?.status ?? 200 }) } },
+  "next/headers": {
     headers: async () => {
       spineTraces += 1;
       return new Headers();
     },
-  }),
+  },
 };
 const inert = (): undefined => undefined;
 const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
 
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/logging.ts"))
-      return { format: "module", source: replacingModule(url, "the logger", LOGGING), shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+registerDoubles({ modules: { "core/logging.ts": LOGGING }, specifiers: PACKAGE_DOUBLES });
 
 const { handlePublicRequest, SCHON_VORLIEGEND } = await import("./publicRoute.ts");
 const { FELD_ABGELEHNT, toActionErrorResult } = await import("./actionError.ts");

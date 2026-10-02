@@ -2,7 +2,6 @@ import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { createElement as h } from "react";
@@ -11,7 +10,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
 import { KONTAKT_EMAIL } from "@/core/brand.ts";
-import { replacingModule } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal.ts";
 
@@ -22,14 +21,10 @@ const CLIENT_DOUBLE = { authClient: { signIn: { passkey: (options: unknown) => r
 /* A full document navigation, which jsdom does not implement. */
 const NAVIGATION_DOUBLE = { leaveDocumentFor: (path: string) => void left.push(path) };
 
-registerHooks({
-  load(url, context, nextLoad) {
-    if (url.endsWith("/src/core/authClient.ts"))
-      return { format: "module", source: replacingModule(url, "the sign-in client", CLIENT_DOUBLE), shortCircuit: true };
-    if (url.endsWith("/src/shared/utils/documentNavigation.ts")) {
-      return { format: "module", source: replacingModule(url, "the navigation", NAVIGATION_DOUBLE), shortCircuit: true };
-    }
-    return nextLoad(url, context);
+registerDoubles({
+  modules: {
+    "core/authClient.ts": CLIENT_DOUBLE,
+    "shared/utils/documentNavigation.ts": NAVIGATION_DOUBLE,
   },
 });
 

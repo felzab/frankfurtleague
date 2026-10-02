@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
-import { replacingModule } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { REQUEST_PACKAGES } from "@/shared/testing/actionDoubles.ts";
 
 import type { RequestActor } from "@/core/requestScope.ts";
@@ -23,21 +22,7 @@ const AUTH = {
   },
 };
 
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = REQUEST_PACKAGES[specifier];
-    return double === undefined
-      ? nextResolve(specifier, context)
-      : { url: `data:text/javascript,${encodeURIComponent(double)}`, shortCircuit: true };
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    // Its export names read off the real module, so a name the spine starts importing links.
-    if (url.endsWith("/src/core/auth.ts"))
-      return { format: "module", source: replacingModule(url, "the sign-in store", AUTH), shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+registerDoubles({ modules: { "core/auth.ts": AUTH }, specifiers: REQUEST_PACKAGES });
 
 const { runAdminRead } = await import("./adminRead.ts");
 const { getRequestActor, runWithRequestScope } = await import("@/core/requestScope.ts");

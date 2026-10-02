@@ -875,6 +875,12 @@ stands in for. The toast module is doubled the same way by its sibling `:: doubl
 its members from `appToast.ts`'s own source and records what was raised. A callback the component
 already takes is handed a `mock.fn()` from `node:test`.
 
+**Any other module or package a suite cannot load is doubled through
+`fl_frontend/src/core/exportingModule.ts :: registerDoubles`**, keyed by the module's path under
+`fl_frontend/src/` or by the package's specifier, rather than through a hook the suite writes: it
+refuses a path naming no module, where a mistyped match in a hand-written hook doubles nothing and
+leaves the suite passing against the real module.
+
 **A source-text assertion is for what neither a rendering, a call nor a lint selector can show, and
 only where breaking it is a defect someone meets** — a mirror of a file no tool reads, such as a
 backend rule or an edge configuration, or a sweep for such a defect. The tags a write clears are a

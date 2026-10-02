@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { beforeEach, describe, it } from "node:test";
 
 import { LIGA_KENNTNISNAHME } from "@/core/einwilligung.ts";
-import { replacingModule } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { cacheCalls, doubleActionRequest, doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
@@ -55,14 +54,6 @@ const logged: unknown[][] = [];
 const record = (...args: unknown[]): void => void logged.push(args);
 const CONFIG_DOUBLE = { frontend_config: { AUTH_URL: ORIGIN } };
 const LOGGER_DOUBLE = { logger: { debug: record, info: record, warn: record, error: record } };
-registerHooks({
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/config.ts"))
-      return { format: "module", source: replacingModule(url, "the config", CONFIG_DOUBLE), shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
 
 /* The real actions and their mutations, called: the request they run in, the application three of
    them read first, the club list, the backend client and the mailer are the doubles. */
@@ -70,12 +61,7 @@ doubleActionRequest();
 const { sent: mailed, answerWith: answerMailWith } = doubleSendMail();
 // After the request's own doubles, whose silent logger this one stands in front of: the stream is
 // where a token must never reach.
-registerHooks({
-  load(url, context, nextLoad) {
-    if (!url.endsWith("/src/core/logging.ts")) return nextLoad(url, context);
-    return { format: "module", source: replacingModule(url, "the logger", LOGGER_DOUBLE), shortCircuit: true };
-  },
-});
+registerDoubles({ modules: { "core/config.ts": CONFIG_DOUBLE, "core/logging.ts": LOGGER_DOUBLE } });
 /** Whether `call` is the delivery report a sent message files, after the write the case is about. */
 const reportsDelivery = ({ endpoint }: ApiCall): boolean => endpoint.startsWith("/bewerbungen/zustellung");
 /** The report's answer as the endpoint sends it: every seat the message named, applied. */

@@ -1,28 +1,25 @@
 import assert from "node:assert/strict";
-import { registerHooks } from "node:module";
 import { describe, it } from "node:test";
 
 import z from "zod";
 
-import { replacingModule, replacingPackage } from "@/core/exportingModule.ts";
+import { registerDoubles } from "@/core/exportingModule.ts";
 import { NEXT_HEADERS_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
 import type { UndoReport } from "./undoRoute.ts";
 
 /* Replaced at the module boundary, as `fl_frontend/src/app/api/admin/spiele/undo/route.test.ts`
    replaces them: a session and a response are the framework's, and the spine between them is driven. */
-const PACKAGE_DOUBLES: Record<string, string> = {
-  "next/server": replacingPackage("next/server", {
-    NextResponse: { json: (body: unknown, init?: ResponseInit) => ({ body, status: init?.status ?? 200 }) },
-  }),
-  "next/navigation": replacingPackage("next/navigation", { unstable_rethrow: () => undefined }),
+const PACKAGE_DOUBLES = {
+  "next/server": { NextResponse: { json: (body: unknown, init?: ResponseInit) => ({ body, status: init?.status ?? 200 }) } },
+  "next/navigation": { unstable_rethrow: () => undefined },
   "next/headers": NEXT_HEADERS_DOUBLE,
   // Throws as Next does outside a server action, so a route that reached it fails here.
-  "next/cache": replacingPackage("next/cache", {
+  "next/cache": {
     refresh: (): never => {
       throw new Error("refresh() outside a server action");
     },
-  }),
+  },
 };
 type ServedSession = { user: { email: string }; session: { authFactor: string } } | null;
 
@@ -63,22 +60,7 @@ const AUTH = {
 const inert = (): undefined => undefined;
 const LOGGING = { logger: { debug: inert, info: inert, warn: inert, error: inert } };
 
-const asModule = (source: string) => `data:text/javascript,${encodeURIComponent(source)}`;
-
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    const double = PACKAGE_DOUBLES[specifier];
-    return double === undefined ? nextResolve(specifier, context) : { url: asModule(double), shortCircuit: true };
-  },
-  load(url, context, nextLoad) {
-    // Matched on the RESOLVED url, so this holds whichever order the alias hook and this one run in.
-    if (url.endsWith("/src/core/auth.ts"))
-      return { format: "module", source: replacingModule(url, "the sign-in store", AUTH), shortCircuit: true };
-    if (url.endsWith("/src/core/logging.ts"))
-      return { format: "module", source: replacingModule(url, "the logger", LOGGING), shortCircuit: true };
-    return nextLoad(url, context);
-  },
-});
+registerDoubles({ modules: { "core/auth.ts": AUTH, "core/logging.ts": LOGGING }, specifiers: PACKAGE_DOUBLES });
 
 const { handleUndoRequest, replayRefusal } = await import("./undoRoute.ts");
 const { APIBadStatusError } = await import("@/core/errors.ts");
