@@ -911,11 +911,10 @@ script ends in its patterns, a flag appended after it is not applied: the gate s
 through `NODE_OPTIONS` (`scripts/gate/verify.sh :: do_unit_tests`).
 
 **A transaction a db file's replica set aborts at MongoDB's lifetime limit fails that file**
-(`fl_frontend/src/core/expiredTransactions.ts :: itLeftNoTransactionToExpire`), its last case
-reading the count, and a count the server stops reporting fails it as unjudged. A case that
-deadlocks on a transaction, or leaves a commit the server never received, can pass while another
-waits the abort out. One whose abort falls after that last case, or a case written below it, is not
-seen.
+(`fl_frontend/src/core/expiredTransactions.ts :: closeJudgingExpiredTransactions`), its one
+teardown reading the count before it closes every client and stops the container, and a count the
+server stops reporting fails it as unjudged. A case that deadlocks on a transaction, or leaves a
+commit the server never received, can pass while another waits the abort out.
 
 **An application module imports a HeroUI component from `@heroui/react/<component>` and an icon
 from `@gravity-ui/icons/<Name>`**, because `node --test` has no bundler to narrow a package root: a

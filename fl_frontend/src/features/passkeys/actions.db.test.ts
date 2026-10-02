@@ -16,7 +16,7 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "@/core/authDoubles.ts";
-import { itLeftNoTransactionToExpire, watchExpiredTransactions } from "@/core/expiredTransactions.ts";
+import { closeJudgingExpiredTransactions, watchExpiredTransactions } from "@/core/expiredTransactions.ts";
 import { overridingModule } from "@/core/exportingModule.ts";
 import { NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
@@ -202,8 +202,10 @@ const realClient = productionClient as RealClient;
 const authDb = () => realClient.db("auth");
 
 after(async () => {
-  await realClient.close();
-  await mongod.stop();
+  await closeJudgingExpiredTransactions(mongod, async () => {
+    await realClient.close();
+    await mongod.stop();
+  });
 });
 
 beforeEach(async () => {
@@ -488,6 +490,3 @@ describe("the sessions a removal ends, against a real database (`docs/frontend/s
     );
   });
 });
-
-// Last, so every case above has run against the count it reads.
-itLeftNoTransactionToExpire(mongod);

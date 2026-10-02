@@ -14,7 +14,7 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "./authDoubles.ts";
-import { itLeftNoTransactionToExpire, watchExpiredTransactions } from "./expiredTransactions.ts";
+import { closeJudgingExpiredTransactions, watchExpiredTransactions } from "./expiredTransactions.ts";
 import { overridingModule } from "./exportingModule.ts";
 import { assertionFor, CREDENTIAL_RAW_ID, registrationFor } from "./testAuthenticator.ts";
 
@@ -23,11 +23,14 @@ import type { CommandFailedEvent, CommandStartedEvent } from "mongodb";
 
 /* Each resource set as it opens, and the hook registered before the first await that can throw: a
    container that started is stopped whatever fails after it. */
-const opened: { mongod?: StartedMongoDBContainer; client?: MongoClient } = {};
+const opened: { mongod?: StartedMongoDBContainer; client?: MongoClient; operator?: MongoClient } = {};
 
 after(async () => {
-  await opened.client?.close();
-  await opened.mongod?.stop();
+  await closeJudgingExpiredTransactions(opened.mongod, async () => {
+    await opened.client?.close();
+    await opened.operator?.close();
+    await opened.mongod?.stop();
+  });
 });
 
 // A replica set, which the module starts by default: the passkey writes run in transactions.
@@ -110,7 +113,7 @@ beforeEach(async () => {
 // The server parameter is outside the Stable API the production client is held to, so it is set over a
 // client of the suite's own.
 const operator = new MongoClient(`${mongod.getConnectionString()}/?directConnection=true`);
-after(() => operator.close());
+opened.operator = operator;
 
 /** Runs `body` with table scans refused, recording each query the store could not serve from an index. */
 async function refusingTableScans<T>(body: () => Promise<T>): Promise<T> {
@@ -379,6 +382,3 @@ describe("the index build against a real store (`docs/frontend/spec.md :: I498`)
     }
   });
 });
-
-// Last, so every case above has run against the count it reads.
-itLeftNoTransactionToExpire(mongod);

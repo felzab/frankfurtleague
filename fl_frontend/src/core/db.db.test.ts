@@ -19,7 +19,7 @@ import {
 } from "mongodb";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "./authDoubles.ts";
-import { itLeftNoTransactionToExpire, watchExpiredTransactions } from "./expiredTransactions.ts";
+import { closeJudgingExpiredTransactions, watchExpiredTransactions } from "./expiredTransactions.ts";
 import { overridingModule } from "./exportingModule.ts";
 
 import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
@@ -31,9 +31,11 @@ import type { Socket } from "node:net";
 const opened: { mongod?: StartedMongoDBContainer; relay?: Relay; clients: MongoClient[] } = { clients: [] };
 
 after(async () => {
-  for (const client of opened.clients) await client.close();
-  await opened.relay?.close();
-  await opened.mongod?.stop();
+  await closeJudgingExpiredTransactions(opened.mongod, async () => {
+    for (const client of opened.clients) await client.close();
+    await opened.relay?.close();
+    await opened.mongod?.stop();
+  });
 });
 
 const mongod = await new MongoDBContainer("mongo:8.3.11").start();
@@ -443,6 +445,3 @@ describe("the sign-in store's indexes recover with the store (`docs/frontend/spe
     }
   });
 });
-
-// Last, so every case above has run against the count it reads.
-itLeftNoTransactionToExpire(mongod);

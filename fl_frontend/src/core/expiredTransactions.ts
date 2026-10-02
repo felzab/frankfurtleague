@@ -1,6 +1,3 @@
-import assert from "node:assert/strict";
-import { it } from "node:test";
-
 import { MongoClient } from "mongodb";
 
 import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
@@ -49,11 +46,19 @@ export async function watchExpiredTransactions(mongod: StartedMongoDBContainer):
 }
 
 /**
- * The file's last case, reading the server's count once every case above has run
- * (`docs/frontend/spec.md` §1.9). Each db suite owns its container, so nothing else moves the count.
+ * The file's one teardown, every client's close inside `close` (`docs/frontend/spec.md` §1.9). Each
+ * db suite owns its container, so nothing else moves the count.
  */
-export function itLeftNoTransactionToExpire(mongod: StartedMongoDBContainer): void {
-  it("left no transaction to run out MongoDB's lifetime limit", async () => {
-    assert.equal(expiredTransactionsRefusal(atStart.get(mongod) ?? null, await readKills(mongod)), null);
-  });
+export async function closeJudgingExpiredTransactions(mongod: StartedMongoDBContainer | undefined, close: () => Promise<void>): Promise<void> {
+  let refusal: string | null = null;
+  try {
+    // Never watched is a file that failed before its first case, which has its own failure to report.
+    if (mongod !== undefined && atStart.has(mongod)) refusal = expiredTransactionsRefusal(atStart.get(mongod) ?? null, await readKills(mongod));
+  } finally {
+    // Before any throw: node:test runs a file's `after` hooks in turn and runs none after one that
+    // throws, so a refusal thrown ahead of this left a client open and the run hanging.
+    await close();
+  }
+
+  if (refusal !== null) throw new Error(refusal);
 }

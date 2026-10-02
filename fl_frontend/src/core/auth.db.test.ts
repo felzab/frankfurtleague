@@ -16,7 +16,7 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "./authDoubles.ts";
-import { itLeftNoTransactionToExpire, watchExpiredTransactions } from "./expiredTransactions.ts";
+import { closeJudgingExpiredTransactions, watchExpiredTransactions } from "./expiredTransactions.ts";
 import { overridingModule } from "./exportingModule.ts";
 import { registrationFor } from "./testAuthenticator.ts";
 
@@ -212,8 +212,10 @@ const authDb = () => realClient.db("auth");
 
 after(async () => {
   globalThis.fetch = ORIGINAL_FETCH;
-  await realClient.close();
-  await mongod.stop();
+  await closeJudgingExpiredTransactions(mongod, async () => {
+    await realClient.close();
+    await mongod.stop();
+  });
 });
 
 beforeEach(async () => {
@@ -712,6 +714,3 @@ describe("a session only read, against a real database (`docs/frontend/spec.md :
     assert.ok(slidAt >= before && lapsesAt >= before + expiresIn, "the proxy's read left the stored row where it was");
   });
 });
-
-// Last, so every case above has run against the count it reads.
-itLeftNoTransactionToExpire(mongod);
