@@ -428,8 +428,6 @@ function mintedBefore(row: { id: string; createdAt: Date | string }, minted: { i
   return rowAt < mintedAt || (rowAt === mintedAt && row.id < minted.id);
 }
 
-// Retired once a step-up updates the confirmed session in place rather than minting its successor: one
-// row per browser leaves no sibling to end.
 /**
  * Ends the sessions minted earlier to replace the same cookie: two step-ups from one browser at once
  * each mint one, and only one `Set-Cookie` survives in the browser (`docs/frontend/spec.md :: I485`).
