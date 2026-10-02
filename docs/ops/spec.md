@@ -1232,6 +1232,10 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
   dashboard holds, **and it points at production alone**: no other deployment holds the webhook's
   signing key (`fl_frontend/src/core/config.ts :: PRODUCTION_ONLY_REQUIRED`), so an endpoint aimed
   anywhere else has every event refused unverified.
+- **The mail provider's plan sets no daily sending limit**, which the sign-in's hourly total of code
+  mails (`fl_frontend/src/core/auth.ts :: CODE_MAIL_TOTAL_LIMIT`) assumes: under a daily limit at or
+  below that total, one hour of codes would stop every other mail the league sends for the rest of
+  the day.
 
 ## 2. Invariants
 
