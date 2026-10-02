@@ -6,6 +6,7 @@ import { doublePublicRouteRequest } from "@/shared/testing/publicRoutes.ts";
 
 /* Replaced at the module boundary rather than the handler being reshaped to admit a seam: the real
    client reaches a backend no test process runs. What is left is the handler itself, driven. */
+// Silent: each refusal a case drives would otherwise print an ERROR line into a passing run.
 const inert = (): undefined => undefined;
 const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
 

@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 
@@ -11,15 +10,8 @@ import type { FLPatchSaisonTeamKontaktePayload } from "./schemas";
 /* Replaced at the module boundary rather than the action being reshaped to admit a seam: the real
    client reaches a backend no test process runs. */
 const calls = doubleApiClient(({ endpoint }) => antwortFuer(endpoint));
-const CONFIG = { frontend_config: { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" } };
 
 doubleActionRequest();
-
-registerDoubles({
-  modules: {
-    "core/config.ts": CONFIG,
-  },
-});
 
 const { patchSaisonTeamKontakteAction } = await import("./actions.ts");
 const { BEWERBUNG_VERALTET } = await import("@/features/bewerbungen/utils.ts");

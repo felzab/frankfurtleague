@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleSendMail } from "@/core/mailDouble.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
@@ -11,16 +10,9 @@ import { doubleApiClient } from "@/shared/testing/apiClientDouble.ts";
 const calls = doubleApiClient(({ endpoint }) => {
   throw missing(endpoint);
 });
-const CONFIG = { frontend_config: { AUTH_URL: "http://localhost:3000", LOG_LEVEL: "ERROR", LOG_FORMAT: "json" } };
 
 doubleActionRequest();
 const mail = doubleSendMail();
-
-registerDoubles({
-  modules: {
-    "core/config.ts": CONFIG,
-  },
-});
 
 const { besetzeKontaktSitzAction } = await import("./actions.ts");
 const { BEWERBUNG_VERALTET } = await import("./utils.ts");

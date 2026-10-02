@@ -13,7 +13,6 @@ import { render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import ts from "typescript";
 
-import { registerDoubles } from "@/core/exportingModule.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { side, spielFields } from "@/shared/testing/fixtures.ts";
@@ -26,16 +25,6 @@ import type { ReactNode } from "react";
 doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: () => new Promise(() => undefined) });
 doubleToasts();
 globalThis.fetch = (() => new Promise(() => undefined)) as unknown as typeof globalThis.fetch;
-
-/* The sign-in card's passkey button builds the browser's auth client as it loads, which reads the
-   page's origin, and this window has none. No case here presses it. */
-const AUTH_CLIENT_DOUBLE = { authClient: { signIn: { passkey: async () => ({ error: null }) } } };
-
-registerDoubles({
-  modules: {
-    "core/authClient.ts": AUTH_CLIENT_DOUBLE,
-  },
-});
 
 const { router } = recordingRouter();
 

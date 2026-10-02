@@ -13,7 +13,6 @@ import { userEvent } from "@testing-library/user-event";
 import ts from "typescript";
 import { z } from "zod";
 
-import { registerDoubles } from "@/core/exportingModule.ts";
 import { filesUnder, isTestFile } from "@/core/treeWalk.ts";
 import { doubleActions, doubleToasts } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
@@ -22,16 +21,6 @@ import type { ActionResult } from "@/shared/types/types.ts";
 
 /** Every write held unanswered: each case below asserts that none was sent at all. */
 const { calls } = doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: () => new Promise(() => undefined) });
-
-/* The sign-in card's passkey button builds the browser's auth client as it loads, which reads the
-   page's origin, and this window has none. No case here presses it. */
-const AUTH_CLIENT_DOUBLE = { authClient: { signIn: { passkey: async () => ({ error: null }) } } };
-
-registerDoubles({
-  modules: {
-    "core/authClient.ts": AUTH_CLIENT_DOUBLE,
-  },
-});
 
 doubleToasts();
 

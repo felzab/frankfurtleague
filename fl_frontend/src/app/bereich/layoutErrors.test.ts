@@ -12,7 +12,6 @@ import { notFound, redirect } from "next/navigation";
 import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { registerDoubles } from "@/core/exportingModule.ts";
 import { person } from "@/core/subjectFixtures.ts";
 import { filesUnder } from "@/core/treeWalk.ts";
 import { doubleActionRequest, doubleEveryAction } from "@/shared/testing/actionDoubles.ts";
@@ -27,19 +26,6 @@ const { setSession, setSubject } = doubleActionRequest();
 doubleEveryAction();
 // The area's panel reports the crash it draws.
 const fetchDouble = doubleFetch();
-
-/* The admin shell's passkey dialog builds the browser's auth client as it loads, which reads the page's
-   origin, and this window has none. No case opens the dialog, so every ceremony refuses. */
-const refused = (): never => {
-  throw new Error("no case here opens the passkey dialog");
-};
-const AUTH_CLIENT_DOUBLE = { authClient: { passkey: { addPasskey: refused }, signIn: { passkey: refused } } };
-
-registerDoubles({
-  modules: {
-    "core/authClient.ts": AUTH_CLIENT_DOUBLE,
-  },
-});
 
 /* Reached with `await import` and never a static import beside the harness, which registers the JSX
    compile step and the doubles as it evaluates (`docs/frontend/spec.md` §1.9). */

@@ -14,6 +14,7 @@ const NEXT_CACHE = {
     throw new Error("updateTag in a route handler");
   },
 };
+// Silent: each refusal a case drives would otherwise print an ERROR line into a passing run.
 const inert = (): undefined => undefined;
 const LOGGING = { logger: { info: inert, warn: inert, error: inert } };
 

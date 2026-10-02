@@ -11,7 +11,6 @@ import { createElement as h } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 
-import { registerDoubles } from "@/core/exportingModule.ts";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 import { underNext } from "@/shared/testing/nextContexts.ts";
 
@@ -23,15 +22,6 @@ import type { ReactNode } from "react";
 
 /** A reactivation nobody has answered: the list stays in the state its running write holds it in. */
 const { calls, answerPending } = doubleActions({ modules: [/\/src\/features\/\w+\/actions\.ts$/], answer: () => new Promise(() => undefined) });
-
-const raise = () => (): string => "0";
-const APP_TOAST = { appToast: { success: raise(), danger: raise() } };
-
-registerDoubles({
-  modules: {
-    "shared/utils/appToast.ts": APP_TOAST,
-  },
-});
 
 const STILLGELEGT_AM = "2026-09-09";
 const TEAM_ID = "6890a1b2c3d4e5f607910001";

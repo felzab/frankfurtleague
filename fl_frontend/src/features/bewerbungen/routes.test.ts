@@ -3,7 +3,6 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { describe, it } from "node:test";
 
-import { registerDoubles } from "@/core/exportingModule.ts";
 import { ADMIN_SIDEMENU_STRUCTURE } from "@/features/admin/constants.ts";
 import { doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import {
@@ -46,20 +45,9 @@ describe("the route the sidemenu names", () => {
   });
 });
 
-const RENDERS_NOTHING = { BewerbungView: () => null, ContentLoader: () => null };
-
-/* The public page's view and loader render nothing, so a case reads the props the page hands them;
-   every read answers through the harness's client double. */
-const DOUBLED = {
-  "features/bewerbungen/components/views/BewerbungView.tsx": RENDERS_NOTHING,
-  "shared/components/ui/ContentLoader.tsx": RENDERS_NOTHING,
-};
-
 // An administrator's session: every admin-tier read resolves its actor from it before it is sent
 // (`fl_frontend/src/shared/utils/adminRead.ts :: runAdminRead`).
 doubleActionRequest();
-
-registerDoubles({ modules: DOUBLED });
 
 const PUBLIC_PAGE = "@/app/(public)/bewerbung/[saison_id]/page.tsx";
 const { default: BewerbungPage, generateMetadata } = await import(PUBLIC_PAGE);
