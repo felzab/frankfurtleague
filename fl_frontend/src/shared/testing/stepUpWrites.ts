@@ -159,6 +159,8 @@ function namesTheBinding(node: ts.Identifier): boolean {
   const { parent } = node;
   if ((ts.isPropertyAccessExpression(parent) || ts.isPropertyAssignment(parent)) && parent.name === node) return false;
   if (ts.isQualifiedName(parent) && parent.right === node) return false;
+  // `export { local as exported }` names the binding by `local` alone.
+  if (ts.isExportSpecifier(parent) && parent.propertyName !== undefined && parent.name === node) return false;
   for (let at: ts.Node = parent; !ts.isSourceFile(at); at = at.parent) if (ts.isTypeNode(at)) return false;
   return true;
 }
@@ -172,7 +174,12 @@ function inExportedAction(node: ts.Node): boolean {
 }
 
 /** One module's reach into the slices' requests: every request it names, and every way it names one that `read` would miss. */
-type Reach = { readonly referenced: readonly string[]; readonly unread: readonly string[]; readonly reexportedWhole: readonly string[] };
+type Reach = {
+  readonly referenced: readonly string[];
+  readonly unread: readonly string[];
+  readonly reexportedWhole: readonly string[];
+  readonly importedDynamically: readonly string[];
+};
 
 /**
  * Every request `source` names as `slice :: export`, found by a walk of its own rather than by the
@@ -183,6 +190,7 @@ function reachOf(source: ts.SourceFile, ownSlice: string, read: (call: ts.Node) 
   const unread: string[] = [];
   const referenced = new Set<string>();
   const reexportedWhole: string[] = [];
+  const importedDynamically: string[] = [];
   for (const statement of source.statements) {
     // A re-export hands a request to every importer of this module, none of which the reader follows.
     if (ts.isExportDeclaration(statement) && statement.moduleSpecifier !== undefined && ts.isStringLiteral(statement.moduleSpecifier)) {
@@ -215,7 +223,15 @@ function reachOf(source: ts.SourceFile, ownSlice: string, read: (call: ts.Node) 
   }
 
   const visit = (node: ts.Node): void => {
-    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) return;
+    // A re-export naming a module is read above; `export { send }` names a local binding, which is a reference here.
+    if (ts.isImportDeclaration(node) || (ts.isExportDeclaration(node) && node.moduleSpecifier !== undefined)) return;
+    // Its module's exports reach the caller as properties of a value no binding above names.
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+      const [specifier] = node.arguments;
+      if (specifier === undefined || !ts.isStringLiteralLike(specifier))
+        importedDynamically.push("a dynamic import of a module no literal names");
+      else if (ANY_MUTATIONS_MODULE.test(specifier.text)) importedDynamically.push(`${specifier.text} imported dynamically`);
+    }
     const request = ts.isIdentifier(node) && namesTheBinding(node) ? bindings.get(node.text) : undefined;
     if (request !== undefined) {
       referenced.add(request);
@@ -228,8 +244,9 @@ function reachOf(source: ts.SourceFile, ownSlice: string, read: (call: ts.Node) 
 
   return {
     referenced: [...referenced],
-    unread: [...unread, ...reexportedWhole.map((specifier) => `${specifier} re-exported whole`)],
+    unread: [...unread, ...reexportedWhole.map((specifier) => `${specifier} re-exported whole`), ...importedDynamically],
     reexportedWhole,
+    importedDynamically,
   };
 }
 
@@ -256,10 +273,11 @@ const REPLAY_REACH = [...UNDO_ROUTE_SOURCES].map(([slice, source]) => ({
  * whole: an action calling that module sends the write through a door no listing above names.
  */
 export function helperReachOf(source: ts.SourceFile, slice: string): string[] {
-  const { referenced, reexportedWhole } = reachOf(source, slice, () => false);
+  const { referenced, reexportedWhole, importedDynamically } = reachOf(source, slice, () => false);
   return [
     ...referenced.filter((request) => STEP_UP_REQUESTS.has(request)).map((request) => `${request}, a step-up write's request`),
     ...reexportedWhole.map((specifier) => `${specifier} re-exported whole`),
+    ...importedDynamically,
   ];
 }
 

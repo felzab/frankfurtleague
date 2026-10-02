@@ -202,6 +202,7 @@ describe("an administrator write the server holds to the step-up window", () => 
         referenced: ["teams :: postSaisonTeam"],
         unread: UNREAD,
         reexportedWhole: [],
+        importedDynamically: [],
       },
     );
     assert.deepEqual(reachOf("export async function a(p: never): ReturnType<typeof postSaisonTeam> { return postSaisonTeam(p); }").unread, []);
@@ -211,6 +212,9 @@ describe("an administrator write the server holds to the step-up window", () => 
       "export const a = async (p: never) => postSaisonTeam(p);",
       "const a = async (p: never) => postSaisonTeam(p);\nexport { a };",
       "export async function a(p: never) { return run(postSaisonTeam, p); }",
+      // Re-exported from the import, with no module of its own named, under its name and under another.
+      "export { postSaisonTeam };",
+      "export { postSaisonTeam as send };",
     ]) {
       assert.deepEqual(reachOf(body).unread, UNREAD, body);
     }
@@ -222,6 +226,13 @@ describe("an administrator write the server holds to the step-up window", () => 
       imported('import { postSaisonTeam } from "../teams/mutations.ts";\nexport async function a(p: never) { return postSaisonTeam(p); }'),
       ["../teams/mutations.ts, a specifier the reader does not take"],
     );
+    assert.deepEqual(
+      imported('export async function a(p: never) { const { postSaisonTeam } = await import("./mutations"); return postSaisonTeam(p); }'),
+      ["./mutations imported dynamically"],
+    );
+    assert.deepEqual(imported("export async function a(where: string) { return import(where); }"), [
+      "a dynamic import of a module no literal names",
+    ]);
   });
 
   /* A re-export hands the request to whoever imports this module, which the reader follows no further:
@@ -241,6 +252,12 @@ describe("an administrator write the server holds to the step-up window", () => 
       "teams :: postSaisonTeam, a step-up write's request",
     ]);
     assert.deepEqual(inQueries('export * as requests from "@/features/teams/mutations";'), ["@/features/teams/mutations re-exported whole"]);
+    assert.deepEqual(inQueries('import { postSaisonTeam } from "./mutations";\nexport { postSaisonTeam as plantedSend };'), [
+      "teams :: postSaisonTeam, a step-up write's request",
+    ]);
+    assert.deepEqual(inQueries('export const send = async () => (await import("./mutations")).postSaisonTeam;'), [
+      "./mutations imported dynamically",
+    ]);
   });
 
   /* Each export called, never its source read: an action that dropped its declaration validates the
