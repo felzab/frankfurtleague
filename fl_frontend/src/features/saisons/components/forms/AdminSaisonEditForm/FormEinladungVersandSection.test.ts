@@ -71,6 +71,7 @@ const VORSCHAU: readonly FLEinladungVersandVorschauZeile[] = [
   },
   { team_id: ID("d"), team_name: "Liebigschule", empfaenger: [], uebersprungen: "bereits_gesendet", ersetzt_link: false },
   { team_id: ID("e"), team_name: "Carl-von-Weinberg-Schule", empfaenger: [], uebersprungen: "austritt_eingetragen", ersetzt_link: false },
+  { team_id: ID("h"), team_name: "Elisabethenschule", empfaenger: [], uebersprungen: "kontakte_gesperrt", ersetzt_link: false },
 ];
 
 /** The same season with nothing standing to be replaced, which is what parts the two armed sentences. */
@@ -126,7 +127,7 @@ describe("the season's bulk invite send", () => {
         assert.equal(sent("postEinladungVersandAction").length, 0, "one press wrote");
         assert.equal(readout("Teams"), "2");
         assert.equal(readout("E-Mails"), "3");
-        assert.equal(readout("Übersprungen"), "4");
+        assert.equal(readout("Übersprungen"), "5");
         answerWith(() => Promise.resolve({ success: true, zeilen: [], message: "1 von 4 Teams haben ihren Link bekommen." }));
       },
     });
@@ -241,9 +242,9 @@ describe("the season's bulk invite send", () => {
     assert.equal(droppedWhileSending.includes(true), false, "a render dropped the armed send or its list while the write still held it");
   });
 
-  /* The four are ordinary states of a season being set up, so each is named as itself: one sentence
+  /* The five are ordinary states of a season being set up, so each is named as itself: one sentence
      for all of them would send somebody hunting for a fault in the teams that have none. */
-  it("names each of the four skips as its own state, beside the team it is about", async () => {
+  it("names each of the five skips as its own state, beside the team it is about", async () => {
     const user = userEvent.setup();
     answerWith(vorschauAntwort(VORSCHAU));
     render(panel());
@@ -255,6 +256,7 @@ describe("the season's bulk invite send", () => {
     assert.ok(isInTheFlow("Niemand hat die Kontaktdaten bisher selbst bestätigt"), "the team with no confirmed seat is not told apart");
     assert.ok(isInTheFlow("Hat den Link schon bekommen"), "the team already mailed is not told apart");
     assert.ok(isInTheFlow("Austritt eingetragen"), "the club that has left is not told apart");
+    assert.ok(isInTheFlow("Jede bestätigte Adresse steht auf der Sperrliste"), "the team the ban list keeps the link from is not told apart");
     assert.ok(isInTheFlow("erika@beispiel.de, jonas@beispiel.de"), "the addresses the press would write to are not listed");
   });
 
