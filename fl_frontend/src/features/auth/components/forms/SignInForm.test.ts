@@ -201,6 +201,46 @@ describe("the sign-in card's code step", () => {
     assert.ok(screen.queryByRole("alert") === null, "a refusal stands at the field for an answer that was not ours");
   });
 
+  /* The sixth digit runs the check from inside the field, so the field is the control the press was made
+     with: disabled, it drops the focus to the page in a browser, which this window does not imitate. */
+  it("holds the code field read-only rather than disabled while its check runs", async () => {
+    const user = userEvent.setup();
+    const field = await atTheCodeStep(user);
+    let settle: (answer: Response) => void = () => undefined;
+    fetchMock.mock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          settle = resolve;
+        }),
+    );
+
+    await user.type(field, "048213");
+    const disabled = field.disabled;
+    const readOnly = field.readOnly;
+    await act(async () => {
+      settle(answered({ success: false, error: "Der Code stimmt nicht." }));
+    });
+
+    assert.equal(disabled, false, "the running check disabled the field the code was typed in");
+    assert.equal(readOnly, true, "the field takes digits while its check runs");
+  });
+
+  /* A press of the button after an unread answer: the refusal empties the code, which closes the
+     button under the caret, so the field the next code goes into takes it. */
+  it("hands the code field the focus once a pressed check is refused", async () => {
+    const user = userEvent.setup();
+    const field = await atTheCodeStep(user);
+    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(new Response("<html>zu viele</html>", { status: 429 })));
+    await user.type(field, "048213");
+    await waitFor(() => assert.equal(raised.at(-1)?.title, "Nicht angemeldet"));
+
+    fetchMock.mock.mockImplementationOnce(() => Promise.resolve(answered({ success: false, error: "Der Code stimmt nicht." })));
+    await user.click(screen.getByRole("button", { name: "Anmelden" }));
+    await screen.findByRole("alert");
+
+    assert.ok(document.activeElement === field, "the refusal closed the pressed button and left the focus on it rather than the field");
+  });
+
   it("returns to the address step with the address kept and the caret in its box", async () => {
     const user = userEvent.setup();
     await atTheCodeStep(user);

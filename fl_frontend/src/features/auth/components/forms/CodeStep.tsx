@@ -74,6 +74,12 @@ export function CodeStep({
     codeRef.current?.focus();
   }, []);
 
+  // A refusal empties the code, which closes the check's button under a caret that pressed it; the
+  // field the next code goes into takes the focus instead.
+  useEffect(() => {
+    if (refusal !== null) codeRef.current?.focus();
+  }, [refusal]);
+
   const check = async (typed: string) => {
     // The sixth digit submits by itself, so a press of the button while that check runs is a second one.
     if (isChecking || typed.length !== SIGN_IN_CODE_LENGTH) return;
@@ -130,7 +136,9 @@ export function CodeStep({
           onChange={setCode}
           onComplete={(typed: string) => void check(typed)}
           isInvalid={refusal !== null}
-          isDisabled={isChecking}
+          // Read-only and never disabled while the check runs: the sixth digit starts it from inside
+          // this field, and a disabled field drops that focus to the page.
+          readOnly={isChecking}
           aria-describedby={refusal === null ? hintId : `${refusalId} ${hintId}`}
           ref={codeRef}
           // A script-free visitor has no step to reach: the address form posts through the page's own code.
