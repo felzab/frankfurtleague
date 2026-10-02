@@ -50,6 +50,12 @@ class Relay {
   /** Connections `refuse` has closed: none, and the client it was to refuse dialed somewhere else. */
   refused = 0;
   private readonly sockets = new Set<Socket>();
+  /**
+   * Connections holding a request the relay will never answer, ended with their scenario: the
+   * monitor's awaitable hello waits 13 s on one, and its timeout interrupts whatever then runs, a
+   * later case's commit included.
+   */
+  private readonly stranded = new Set<Socket>();
   private readonly server = createServer((inbound) => {
     if (this.refusing) {
       this.refused += 1;
@@ -74,10 +80,12 @@ class Relay {
         this.silencing = null;
         this.silenced = true;
         mute = true;
+        this.stranded.add(inbound);
       }
       if (this.dropping !== null && chunk.includes(this.dropping)) {
         this.dropping = null;
         this.dropped = true;
+        this.stranded.add(inbound);
         return;
       }
       if (this.trigger !== null && chunk.includes(this.trigger)) {
@@ -87,6 +95,7 @@ class Relay {
       // Requests are dropped and never answers, so no connection is left holding a reply to a request
       // its client has already given up on.
       if (!this.hung && answered) outbound.write(chunk);
+      else this.stranded.add(inbound);
     });
     outbound.on("data", (chunk) => {
       if (!mute) inbound.write(chunk);
@@ -131,6 +140,7 @@ class Relay {
       return await body();
     } finally {
       this.dropping = null;
+      this.endStranded();
     }
   }
 
@@ -142,6 +152,7 @@ class Relay {
       return await body();
     } finally {
       this.silencing = null;
+      this.endStranded();
     }
   }
 
@@ -155,6 +166,7 @@ class Relay {
       return await body();
     } finally {
       this.passing = null;
+      this.endStranded();
     }
   }
 
@@ -185,6 +197,13 @@ class Relay {
   private resume(): void {
     this.hung = false;
     this.trigger = null;
+    this.endStranded();
+  }
+
+  /** Closes every connection a scenario left waiting on an answer, its outbound half with it. */
+  private endStranded(): void {
+    for (const socket of this.stranded) socket.destroy();
+    this.stranded.clear();
   }
 
   async close(): Promise<void> {
