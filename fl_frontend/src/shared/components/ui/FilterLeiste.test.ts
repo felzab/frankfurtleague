@@ -159,6 +159,24 @@ describe("where removing a filter leaves the focus", () => {
     assert.ok(weiter, "the removed pill left the focus on the page");
   });
 
+  it("moves no focus when the bar first renders", () => {
+    liveBar("status=aktiv&gruppe=A");
+
+    assert.ok(document.activeElement === document.body, "the bar took the focus on load, with no pill removed");
+  });
+
+  /* A pick in the add panel moves the address as a removal does, and draws a pill where none was. */
+  it("leaves the focus where it stands once a pill is added", () => {
+    const { renderAgain } = liveBar("status=aktiv");
+    const pill = screen.getByRole("button", { name: "Status: Aktiv ändern" });
+    pill.focus();
+
+    window.history.replaceState(null, "", "/liste?status=aktiv&gruppe=A");
+    renderAgain();
+
+    assert.ok(document.activeElement === pill, "an added pill pulled the focus away from where it stood");
+  });
+
   it("hands it to the add control once the last pill or every pill is removed", async () => {
     const { user, renderAgain } = liveBar("status=aktiv&gruppe=A");
 

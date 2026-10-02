@@ -262,6 +262,12 @@ describe("where renaming a passkey leaves the focus", () => {
     assert.ok(zurueck, "the cancelled form unmounted under the caret and the focus fell to the page");
   });
 
+  it("moves no focus when the card first renders", () => {
+    open();
+
+    assert.ok(document.activeElement === document.body, "the card took the focus on load, with no rename ever opened");
+  });
+
   it("hands the rename control the focus once a stored name closes the form", async () => {
     const user = userEvent.setup();
     open();

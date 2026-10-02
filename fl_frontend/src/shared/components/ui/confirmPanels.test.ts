@@ -564,6 +564,45 @@ describe("where arming and cancelling leave the focus, on every panel", () => {
       });
     }
   }
+
+  /* A panel's own disarm — a pick elsewhere in it, a blur, an outside press — runs `cancel` from a
+     control the reader moved to on purpose; only the row's own cancel hands the focus back. */
+  it("leaves the focus on the control a disarm elsewhere moved it to", async () => {
+    const user = userEvent.setup();
+    const { ConfirmActionRow } = await import("@/shared/components/ui/ConfirmActionRow");
+    const { ConfirmPressButton } = await import("./ConfirmPressButton.tsx");
+    const { useTwoPressConfirm } = await import("@/shared/hooks/useTwoPressConfirm.ts");
+    function Panel() {
+      const confirm = useTwoPressConfirm();
+      const primary = h(ConfirmPressButton, {
+        confirm,
+        reason: null,
+        resting: "Löschen",
+        armed: "Ja, löschen",
+        running: "Löscht...",
+        icon: null,
+        onPress: () => confirm.press(() => Promise.resolve()),
+      });
+
+      return h(
+        "div",
+        null,
+        h(ConfirmActionRow, { confirm, children: primary }),
+        h("button", { type: "button", onFocus: confirm.cancel }, "Woanders"),
+      );
+    }
+    const { unmount } = render(h(Panel));
+
+    await user.click(screen.getByRole("button", { name: "Löschen" }));
+    await screen.findByRole("button", { name: "Abbrechen" });
+    const woanders = screen.getByRole("button", { name: "Woanders" });
+    await user.click(woanders);
+    // A boolean rather than the node: a failing assertion's report inspects a jsdom node's whole window.
+    const geblieben = document.activeElement === woanders && screen.queryByRole("button", { name: "Abbrechen" }) === null;
+    unmount();
+
+    assert.ok(geblieben, "a disarm from elsewhere pulled the focus back to the control the reader left");
+  });
 });
 
 /** The panels whose armed press is not an administrator's write, and why each is not. */
