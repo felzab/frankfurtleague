@@ -316,6 +316,7 @@ do_cache_backend()  { export_image_cache backend fl_backend/Dockerfile fl_backen
 # later step assumes.
 do_prettier()   { ( cd fl_frontend && pnpm format:check ); }
 do_lockfile()   { ( cd fl_frontend && pnpm install --frozen-lockfile --lockfile-only --no-optimistic-repeat-install ); }
+do_peers()      { ( cd fl_frontend && pnpm peers check ); }
 do_typegen()    { ( cd fl_frontend && pnpm typegen ); }
 do_typecheck()  { ( cd fl_frontend && pnpm typecheck:only ); }
 # Threads on a runner alone: it restores no eslint cache, so it pays the cold fill threads divide,
@@ -1046,6 +1047,26 @@ output is above." ;;
     esac
   fi
   ok "manifest and lockfile agree"
+
+  # `strictPeerDependencies` refuses an out-of-range peer only while an install resolves, and that
+  # failed install still writes the lockfile every frozen install accepts. This reads the installed
+  # tree, which the start-up dependency check holds to the committed lockfile.
+  step "frontend · pnpm  (every peer in range)"
+  PEERS_RC=0
+  quietly do_peers || PEERS_RC=$?
+  if (( PEERS_RC )); then
+    case "$QUIETLY_OUTPUT" in
+      *"Issues with peer dependencies found"*)
+        die "fl_frontend's lockfile installs a peer outside the range a package asks for — pnpm names it
+above. Move the app's own range of that package into the wanted one, then:  cd fl_frontend && pnpm install
+-- and commit the lockfile." ;;
+      # `refuse`, not `die`: naming no peer, the step cannot say the change needs work.
+      *)
+        refuse "pnpm stopped checking fl_frontend's peers for a reason this step does not read — its own
+output is above." ;;
+    esac
+  fi
+  ok "every peer in range"
 
   # A `FRONTEND_WRITERS` entry, for that list's reason.
   step "frontend · next typegen  (the ambient types tsc checks against)"
