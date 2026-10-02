@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire, registerHooks } from "node:module";
 import { tmpdir } from "node:os";
@@ -7,6 +6,7 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { runAsTestFile } from "./childTestRun.ts";
 import {
   exportedNames,
   exportingModule,
@@ -19,27 +19,6 @@ import {
 } from "./exportingModule.ts";
 
 const LINE_SEPARATOR = String.fromCharCode(0x2028);
-
-/** Runs `source` as a test file in a child of its own, as `fl_frontend/src/core/verdicts.test.ts`'s child runs a fixture. */
-function runAsFile(source: string): { status: number | null; output: string } {
-  const scratch = mkdtempSync(path.join(tmpdir(), "fl-doubles-"));
-  const fixture = path.join(scratch, "registers.test.mjs");
-  writeFileSync(fixture, source);
-  // Without `NODE_TEST_CONTEXT`, under which a child refuses to run a file, and without the gate's shard.
-  const env = { ...process.env, NODE_OPTIONS: (process.env.NODE_OPTIONS ?? "").replace(/--test-shard=\S+/g, "") };
-  Reflect.deleteProperty(env, "NODE_TEST_CONTEXT");
-  try {
-    const hook = pathToFileURL(path.join(import.meta.dirname, "..", "..", "scripts", "tsconfig-alias-hook.mjs")).href;
-    const run = spawnSync(process.execPath, ["--import", hook, "--test", "--test-reporter=spec", fixture], {
-      encoding: "utf8",
-      timeout: 60_000,
-      env,
-    });
-    return { status: run.status, output: `${run.stdout}${run.stderr}` };
-  } finally {
-    rmSync(scratch, { recursive: true, force: true });
-  }
-}
 
 describe("the module a double is built as", () => {
   /* No real module can hand the hooks such a name, their pattern reading identifier characters alone,
@@ -250,7 +229,7 @@ describe("the doubles a suite registers", () => {
   /* Judged as the process ends, which no case in this file can observe of itself: a child runs a file
      that leaves one double unserved, beside one it serves and one a helper may leave. */
   it("fails a file that registered a double its subject never reached, naming that double alone", () => {
-    const { status, output } = runAsFile(`import { it } from "node:test";
+    const { status, output } = runAsTestFile(`import { it } from "node:test";
 import { registerDoubles } from "@/core/exportingModule.ts";
 registerDoubles({ modules: { "core/joinUnd.ts": {} }, specifiers: { "fl-probe-served": "export const answer = 1;" } });
 registerDoubles({ modules: { "core/errors.ts": {} } }, { mayGoUnserved: true });

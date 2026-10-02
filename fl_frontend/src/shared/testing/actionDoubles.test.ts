@@ -1,16 +1,14 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
+import { runAsTestFile } from "@/core/childTestRun.ts";
 import { person } from "@/core/subjectFixtures.ts";
 
 import { cacheCalls, doubleActionRequest, doubleActions, doubleToasts } from "./actionDoubles.ts";
-
-const SRC = path.resolve(import.meta.dirname, "..", "..");
 
 const { raised } = doubleToasts();
 
@@ -112,12 +110,7 @@ describe("the actions double", () => {
   /* The refusal is an `afterEach` failing the case that left the write, which no case in this file can
      observe of itself: a file that leaves one, run in a child, is where it shows. */
   it("fails a case that leaves a write running without naming why", () => {
-    const scratch = mkdtempSync(path.join(tmpdir(), "fl-pending-"));
-    const fixture = path.join(scratch, "leftPending.test.mjs");
-    // Named through the alias the child's hook resolves, so no path of this machine is written into the fixture.
-    writeFileSync(
-      fixture,
-      `import { it } from "node:test";
+    const run = runAsTestFile(`import { it } from "node:test";
 import { doubleActions } from "@/shared/testing/actionDoubles.ts";
 const { answerWith } = doubleActions({ modules: ["/src/features/spieltage/actions.ts"] });
 const spieltage = await import("@/features/spieltage/actions.ts");
@@ -125,28 +118,12 @@ it("leaves a write running", () => {
   answerWith(() => new Promise(() => undefined));
   void spieltage.patchSpieltagAction({ id: "s1" });
 });
-`,
-    );
+`);
 
-    // Without `NODE_TEST_CONTEXT`, which this runner sets and under which a child refuses to run a file;
-    // and without the gate's shard, which `NODE_OPTIONS` carries and which leaves a one-file child no file.
-    const env = { ...process.env, NODE_OPTIONS: (process.env.NODE_OPTIONS ?? "").replace(/--test-shard=\S+/g, "") };
-    Reflect.deleteProperty(env, "NODE_TEST_CONTEXT");
-
-    try {
-      const run = spawnSync(
-        process.execPath,
-        ["--import", pathToFileURL(path.join(SRC, "..", "scripts", "tsconfig-alias-hook.mjs")).href, "--test", "--test-reporter=spec", fixture],
-        { encoding: "utf8", timeout: 120_000, env },
-      );
-
-      // First, so a child that ran nothing says so rather than passing or failing for another reason.
-      assert.ok(run.stdout.includes("leaves a write running"), `the child ran no case of the fixture:\n${run.stdout}${run.stderr}`);
-      assert.equal(run.status, 1, `the file left a write running and exited ${String(run.status)}:\n${run.stdout}${run.stderr}`);
-      assert.ok(run.stdout.includes("the case left these actions pending"), run.stdout);
-    } finally {
-      rmSync(scratch, { recursive: true, force: true });
-    }
+    // First, so a child that ran nothing says so rather than passing or failing for another reason.
+    assert.ok(run.output.includes("leaves a write running"), `the child ran no case of the fixture:\n${run.output}`);
+    assert.equal(run.status, 1, `the file left a write running and exited ${String(run.status)}:\n${run.output}`);
+    assert.ok(run.output.includes("the case left these actions pending"), run.output);
   });
 
   it("lets a case that names why leave a write running", () => {

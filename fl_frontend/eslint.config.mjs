@@ -151,6 +151,11 @@ const TEST_ONLY = [
     message: "subjectFixtures builds the subjects a suite's doubles answer with: a *.test.ts(x) file may import it, production code may not.",
   },
   {
+    // In core for `mailDouble.ts`'s reason: the core suites judging a hook run their fixtures with it too.
+    group: ["**/childTestRun.ts", "**/childTestRun"],
+    message: "childTestRun spawns a child test run of a fixture: a *.test.ts(x) file may import it, production code may not.",
+  },
+  {
     // Any `testing` directory, so a relative path from inside `shared`, which names no `shared`, is read too.
     group: ["**/testing/**"],
     message: "src/shared/testing is the suite's harness: a *.test.ts(x) file may import it, production code may not.",

@@ -48,6 +48,8 @@ import { recordVerdict } from "./verdicts"; // expect: test-only
 import { recordVerdict as recordVerdictTyped } from "./verdicts.ts"; // expect: test-only
 import { expiredTransactionKills } from "./expiredTransactions"; // expect: test-only
 import { expiredTransactionKills as expiredTransactionKillsTyped } from "./expiredTransactions.ts"; // expect: test-only
+import { runAsTestFile } from "./childTestRun"; // expect: test-only
+import { runAsTestFile as runAsTestFileTyped } from "./childTestRun.ts"; // expect: test-only
 import { TEAM_FACETS as TEAMS_RELATIVE } from "../features/teams/facets"; // expect: layer-core
 import { FIELD_LABEL_CLASSES as LABEL_RELATIVE } from "../shared/components/ui/formFieldStyles"; // expect: layer-core
 import { TEAM_FACETS as TEAMS_FROM_ROOT } from "../../src/features/teams/facets"; // expect: layer-core
@@ -60,7 +62,7 @@ import { mintRequestActor as mintTyped } from "./actorToken.ts"; // expect: acto
 
 export const USED = [TEAM_FACETS, FIELD_LABEL_CLASSES, captureStdout, HeroForm, DatePicker, Button, AppRouterContext, HintPanel];
 export const SPELLINGS = [captureTyped, installAuthDoubles, installTyped, doubleSendMail, doubleSendMailTyped, readScheme, readTyped, redact, redactTyped, TEAMS_RELATIVE, LABEL_RELATIVE, TEAMS_FROM_ROOT];
-export const MORE_SPELLINGS = [walkFiles, walkFilesTyped, schemaModules, schemaModulesTyped, DOCUMENT_PATH, DOCUMENT_PATHTyped, publishedCeilings, publishedCeilingsTyped, blankComments, blankCommentsTyped, openingTagAt, openingTagAtTyped, withoutPythonComments, withoutPythonCommentsTyped, KEY_TIERS, KEY_TIERSTyped, beginRenderPass, beginRenderPassTyped, exportingModule, exportingModuleTyped, assertionFor, assertionForTyped, person, personTyped, recordVerdict, recordVerdictTyped, expiredTransactionKills, expiredTransactionKillsTyped];
+export const MORE_SPELLINGS = [walkFiles, walkFilesTyped, schemaModules, schemaModulesTyped, DOCUMENT_PATH, DOCUMENT_PATHTyped, publishedCeilings, publishedCeilingsTyped, blankComments, blankCommentsTyped, openingTagAt, openingTagAtTyped, withoutPythonComments, withoutPythonCommentsTyped, KEY_TIERS, KEY_TIERSTyped, beginRenderPass, beginRenderPassTyped, exportingModule, exportingModuleTyped, assertionFor, assertionForTyped, person, personTyped, recordVerdict, recordVerdictTyped, expiredTransactionKills, expiredTransactionKillsTyped, runAsTestFile, runAsTestFileTyped];
 // A package's own path crosses no layer, however its directories are named.
 export const NEXT_SHARED_LOADED = import("next/dist/shared/lib/utils.js");
 export const LOADED_SLICE = await import("@/features/teams/facets"); // expect: layer-core-load
