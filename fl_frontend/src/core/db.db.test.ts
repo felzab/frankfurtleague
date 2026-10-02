@@ -15,7 +15,6 @@ import {
   MongoNotConnectedError,
   MongoOperationTimeoutError,
   MongoServerSelectionError,
-  MongoTransactionError,
   MongoClient as StoreProbe,
 } from "mongodb";
 
@@ -316,9 +315,9 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
     assert.deepEqual(logged, [{ event: "auth.library_failed", error_code: "FE-AUTH-003", name: MongoOperationTimeoutError.name }]);
   });
 
-  /* A code's sign-in runs the adapter's own transaction to consume its row. The timeout does not
-     surface: the adapter aborts whatever failed, the driver refuses an abort after a commit, and that
-     refusal replaces it, unlogged. */
+  /* A code's sign-in runs the adapter's own transaction to consume its row, and the commit's own
+     timeout is what surfaces: the driver's refusal of an abort after a commit says nothing of whether
+     the write may stand. */
   it("ends the adapter's own transaction within two `timeoutMS` when the store never answers its commit", async () => {
     const otp = await auth.api.createVerificationOTP({ body: { email: ADMIN_EMAIL, type: "sign-in" } });
     logged.length = 0;
@@ -337,12 +336,7 @@ describe("the sign-in store's client bounds every operation it sends (`docs/fron
     assert.equal(killed.output.trim(), "1", `the hung commit's transaction was left standing: ${killed.output}`);
 
     assert.ok(relay.triggered, "the sign-in sent no commit, so nothing here was hung");
-    // Pinned to `@better-auth/mongo-adapter`'s masking, an upstream defect: a release that stops
-    // aborting after a failed commit turns this red, and the case then asserts the commit's own error.
-    assert.ok(
-      outcome instanceof MongoTransactionError && outcome.message === "Cannot call abortTransaction after calling commitTransaction",
-      `the hung commit settled with ${String(outcome)}`,
-    );
+    assert.ok(outcome instanceof MongoOperationTimeoutError, `the hung commit settled with ${String(outcome)}`);
     assert.deepEqual(logged, []);
   });
 

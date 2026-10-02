@@ -1,5 +1,5 @@
 diff --git a/dist/index.mjs b/dist/index.mjs
-index c63a7dc804dacc99c70eb067a370796d5d8ec31a..cf747f06564e8485da618a21e5cebe8fec5b36b9 100644
+index c63a7dc804dacc99c70eb067a370796d5d8ec31a..7c0ca1b6edfe549d44474fb52e808ea04ecb6e33 100644
 --- a/dist/index.mjs
 +++ b/dist/index.mjs
 @@ -490,6 +490,7 @@ const mongodbAdapter = (db, config) => {
@@ -10,7 +10,7 @@ index c63a7dc804dacc99c70eb067a370796d5d8ec31a..cf747f06564e8485da618a21e5cebe8f
  				try {
  					session.startTransaction();
  					const result = await cb(createAdapterFactory({
-@@ -499,9 +500,14 @@ const mongodbAdapter = (db, config) => {
+@@ -499,10 +500,17 @@ const mongodbAdapter = (db, config) => {
  						},
  						adapter: createCustomAdapter(db, session)
  					})(lazyOptions));
@@ -18,10 +18,14 @@ index c63a7dc804dacc99c70eb067a370796d5d8ec31a..cf747f06564e8485da618a21e5cebe8f
  					await session.commitTransaction();
  					return result;
  				} catch (err) {
+-					await session.abortTransaction();
 +					// The driver sends no abort once a commit was attempted, and a commit lost on its way leaves
 +					// the server holding the transaction until its lifetime limit. A transaction command on the
 +					// session carries its number, under a timeout of its own; a landed commit refuses it.
++					// Never the session's own abort after a commit: the driver's refusal would replace the commit's
++					// error, which is the one saying whether the write may stand.
 +					if (committing) await config.client.db("admin").command({ abortTransaction: 1 }, { session }).catch(() => void 0);
- 					await session.abortTransaction();
++					else await session.abortTransaction();
  					throw err;
  				} finally {
+ 					await session.endSession();
