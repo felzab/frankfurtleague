@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useRef, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import ArrowUpArrowDown from "@gravity-ui/icons/ArrowUpArrowDown";
@@ -146,6 +146,7 @@ function FilterPill<TItem>({
       <Button
         variant="ghost"
         aria-label={`Filter ${facet.label} entfernen`}
+        data-pill-entfernen=""
         onPress={() => {
           onClear(facet.param);
         }}
@@ -288,6 +289,33 @@ function FilterRow<TItem>({
   const filtered = facets.filter(isFiltering).sort((left, right) => paramOrder.indexOf(left.param) - paramOrder.indexOf(right.param));
   const unfiltered = facets.filter((facet) => !isFiltering(facet));
 
+  // `null` while no removal is pending, so a pill added from the add panel moves nothing.
+  const fokusNach = useRef<number | null>(null);
+  const pillFolge = filtered.map((facet) => facet.param).join(",");
+
+  // A removal unmounts the pressed clear control with its pill, or the reset with the last pills: the
+  // pill now in that place takes the focus, then the one before it, then the add control.
+  useEffect(() => {
+    const stelle = fokusNach.current;
+    if (stelle === null) return;
+    fokusNach.current = null;
+
+    const row = rowRef.current;
+    const clears = [...(row?.querySelectorAll<HTMLElement>("[data-pill-entfernen]") ?? [])];
+    const ziel = clears[stelle] ?? clears[stelle - 1] ?? row?.querySelector<HTMLElement>("[data-filter-hinzufuegen]");
+    ziel?.focus();
+  }, [pillFolge, rowRef]);
+
+  const entferne = (param: string) => {
+    fokusNach.current = filtered.findIndex((facet) => facet.param === param);
+    clearFacet(param);
+  };
+  const entferneAlle = () => {
+    // Past every pill, so the add control is the one left to take it.
+    fokusNach.current = filtered.length;
+    clearAll();
+  };
+
   // `md` rather than `lg`: the sidemenu is a drawer until `lg`, so the row is wider there than at `lg` itself.
   const addFace = (
     <>
@@ -322,6 +350,7 @@ function FilterRow<TItem>({
             <Popover>
               <Popover.Trigger
                 aria-label={ADD_HINT}
+                data-filter-hinzufuegen=""
                 className={ADD_FACE_CLASSES}>
                 {addFace}
               </Popover.Trigger>
@@ -361,7 +390,7 @@ function FilterRow<TItem>({
                   selection={selection}
                   available={rowWidth}
                   onSelect={setFacet}
-                  onClear={clearFacet}
+                  onClear={entferne}
                 />
               ))}
             </div>
@@ -376,7 +405,7 @@ function FilterRow<TItem>({
       {activeCount > 1 && (
         <Button
           variant="ghost"
-          onPress={clearAll}
+          onPress={entferneAlle}
           className={`${CLEAR_ALL_FACE_CLASSES} self-start`}>
           <Xmark
             aria-hidden="true"

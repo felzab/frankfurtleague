@@ -1,7 +1,13 @@
+import "@/shared/testing/dom.ts";
+import "@/shared/testing/renderTest.ts";
+
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import { createElement as h } from "react";
+
+import { render, screen } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 
 import { underNext } from "@/shared/testing/nextContexts.ts";
 import { renderTree } from "@/shared/testing/renderTest.ts";
@@ -127,5 +133,46 @@ describe("the bar with a read order", () => {
     assert.doesNotMatch(bar("", "desc"), /Alle Filter zurücksetzen/);
     assert.doesNotMatch(bar("status=aktiv", "desc"), /Alle Filter zurücksetzen/);
     assert.match(bar("status=aktiv&gruppe=A", "desc"), /Alle Filter zurücksetzen/);
+  });
+});
+
+describe("where removing a filter leaves the focus", () => {
+  /** The bar at the live address, rendered again after a press as Next renders it once the address moves. */
+  function liveBar(query: string): { user: ReturnType<typeof userEvent.setup>; renderAgain: () => void } {
+    window.history.replaceState(null, "", `/liste?${query}`);
+    const tree = () => underNext(h(FilterLeiste<Row>, { facets: FACETS, items: ROWS }), { search: window.location.search, pathname: "/liste" });
+    const { rerender } = render(tree());
+
+    return { user: userEvent.setup(), renderAgain: () => rerender(tree()) };
+  }
+
+  /* The clear control goes with its pill, from under the caret that pressed it; the pill after it
+     takes the focus, so a reader clearing filters one by one stays in the row. */
+  it("hands it to the next pill's clear control once a pill is removed", async () => {
+    const { user, renderAgain } = liveBar("status=aktiv&gruppe=A");
+
+    await user.click(screen.getByRole("button", { name: "Filter Status entfernen" }));
+    renderAgain();
+    // A boolean rather than the node: a failing report inspects a jsdom node's whole window.
+    const weiter = document.activeElement === screen.getByRole("button", { name: "Filter Gruppe entfernen" });
+
+    assert.ok(weiter, "the removed pill left the focus on the page");
+  });
+
+  it("hands it to the add control once the last pill or every pill is removed", async () => {
+    const { user, renderAgain } = liveBar("status=aktiv&gruppe=A");
+
+    await user.click(screen.getByRole("button", { name: "Alle Filter zurücksetzen" }));
+    renderAgain();
+    const nachAllen = document.activeElement === screen.getByRole("button", { name: "Filter hinzufügen" });
+
+    window.history.replaceState(null, "", "/liste?status=aktiv");
+    renderAgain();
+    await user.click(screen.getByRole("button", { name: "Filter Status entfernen" }));
+    renderAgain();
+    const nachLetztem = document.activeElement === screen.getByRole("button", { name: "Filter hinzufügen" });
+
+    assert.ok(nachAllen, "the reset unmounted under the caret and the focus fell to the page");
+    assert.ok(nachLetztem, "the last pill's removal left the focus on the page");
   });
 });
