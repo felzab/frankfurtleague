@@ -138,8 +138,16 @@ export function focusAfterWrite(anchor: Element | null = document.activeElement)
       };
       // So is a focus moved after the landing placed one, which a screen reader does with neither. Before
       // that, a move is the page's own: a closing dialog handing back the focus, a grid falling back to its cell.
-      const moved = (): void => {
-        if (!placing && landedOn !== null) stop();
+      const moved = (event: FocusEvent): void => {
+        if (placing || landedOn === null) return;
+        // A move onto the row or cell holding the control is the page's too: react-aria's grid, its focused row
+        // gone, focuses the next row itself a task after the landing placed the focus inside that row.
+        const next = target(place);
+        if (next !== null && event.target instanceof Element && event.target !== next && event.target.contains(next)) {
+          queueMicrotask(land);
+          return;
+        }
+        stop();
       };
       observer.observe(document.body, { childList: true, subtree: true });
       document.addEventListener("keydown", stop, true);

@@ -309,6 +309,23 @@ describe("what a landing leaves alone", () => {
     assert.ok(document.activeElement === moved, `the focus was taken back to „${focused()}“`);
   });
 
+  /* A grid whose focused row went focuses the next row itself, after the landing placed the focus inside it. */
+  it("lands again where the page moves the focus onto the row holding the control it landed on", async () => {
+    document.body.append(list(["a", "b", "c"]));
+    const landing = focusAfterWrite(pressed("a löschen"));
+
+    landing.landed();
+    document.querySelector(`[data-focus-row="a"]`)?.remove();
+    await settle();
+    const row = document.querySelector<HTMLElement>(`[data-focus-row="b"]`);
+    row?.setAttribute("tabindex", "-1");
+    row?.focus();
+    document.body.append(el("p", {}, "Toast"));
+    await settle();
+
+    assert.ok(document.activeElement === row?.querySelector("button"), `the focus stayed on „${focused()}“`);
+  });
+
   it("stands down once a newer landing arms", async () => {
     document.body.append(list(["a", "b", "c"]));
     focusAfterWrite(pressed("a löschen")).landed();
