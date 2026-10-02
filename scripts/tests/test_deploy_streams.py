@@ -1022,6 +1022,14 @@ def test_the_local_stack_refuses_them_restoring_no_older_image() -> None:
     assert "Delete them" in output, output
 
 
+@pytest.mark.parametrize(("script", "verb"), [(DEPLOY, "warn"), (LOCAL, "refuse")], ids=["deploy", "local"])
+def test_each_script_calls_the_check_once_with_the_verb_its_rollback_needs(script: Path, verb: str) -> None:
+    """The deploy's refusal would delete the lines the image its rollback restores boots from; the cases above drive each verb alone."""
+    calls = re.findall(r"^[ \t]*check_moved_names (\S+) ", script.read_text(encoding="utf-8"), flags=re.MULTILINE)
+
+    assert calls == [verb], (script.name, calls)
+
+
 def test_a_file_holding_no_moved_line_passes_in_silence() -> None:
     code, output, _ = _run(MOVED.format(verb="refuse").replace("mongodb_uri=", "DB_BASE_NAME=").replace("INTERNAL_API_KEY_BASE=", "# "))
 
