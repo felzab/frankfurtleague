@@ -1,4 +1,5 @@
 // Linted as src/app/robots.ts.
+import "resend"; // expect: mail-transport
 import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 // What a crawler reads stands on the published origin.
 import { SITE_URL } from "@/core/brand";

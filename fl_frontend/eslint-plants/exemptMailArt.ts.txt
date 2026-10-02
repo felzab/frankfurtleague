@@ -1,0 +1,6 @@
+// Linted as src/core/mailArt.ts.
+// The registry of kinds names the one a barred address is sent, and every other ban still reaches it.
+export const ALLOWED = new Set(["sperre"]);
+export const KEY = frontend_config.AUTH_RESEND_KEY; // expect: resend-key
+export const GAP = "flex gap-5"; // expect: gap
+export const SLICE = import("@/features/teams/facets"); // expect: layer-core-load

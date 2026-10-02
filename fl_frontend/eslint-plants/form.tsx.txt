@@ -1,4 +1,5 @@
 // Linted as src/shared/components/ui/Form.tsx.
+import "resend"; // expect: mail-transport
 import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 // The wrapper may import HeroUI's form from its own subpath, and from nowhere else.
 import { Form as HeroUIForm } from "@heroui/react/form";

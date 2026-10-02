@@ -1,5 +1,6 @@
 // Linted as src/shared/components/ui/Select.tsx.
 // The wrappers may import HeroUI's marked fields from their own subpaths, and from nowhere else.
+import "resend"; // expect: mail-transport
 import { Select as HeroUISelect } from "@heroui/react/select";
 import { TextField as HeroUITextField } from "@heroui/react/textfield";
 import { Select as RootSelect } from "@heroui/react"; // expect: vendor-root

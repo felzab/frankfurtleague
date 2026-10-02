@@ -1,0 +1,6 @@
+// Linted as src/core/config.ts.
+// The config reads the provider's key, and every other ban still reaches it, core's own included.
+export const KEY = secrets.values.AUTH_RESEND_KEY;
+export const { AUTH_RESEND_KEY: TAKEN } = secrets.values;
+export const GAP = "flex gap-5"; // expect: gap
+export const SLICE = import("@/features/teams/facets"); // expect: layer-core-load

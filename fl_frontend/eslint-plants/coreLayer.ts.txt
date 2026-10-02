@@ -1,4 +1,5 @@
 // Linted as src/core/zzPlant.ts.
+import "resend"; // expect: mail-transport
 import { I18nProvider as PinnedLocale } from "@heroui/react/rac"; // expect: locale-provider
 import { TEAM_FACETS } from "@/features/teams/facets"; // expect: layer-core
 import { FIELD_LABEL_CLASSES } from "@/shared/components/ui/formFieldStyles"; // expect: layer-core
