@@ -953,10 +953,19 @@ def test_main_judges_the_frontend_files_of_both_models():
 SETTINGS: Final = checker.backend_schema_files(checker.BACKEND_CONFIG)
 
 
+SETTINGS_IMPORTS: Final = (
+    "from typing import Annotated, ClassVar, Final\n"
+    "from pydantic import AliasChoices, BaseModel, Field, SecretStr\n"
+    "from pydantic_settings import BaseSettings, SettingsConfigDict\n"
+    "from app.core.keys import ForeignKey\n"
+)
+
+
 def settings_file(body: str) -> Path:
-    """A `config.py` of the case's own: one constant, a base class and the class the reader starts from."""
+    """A `config.py` of the case's own: its imports, one constant, a base class and the class the reader starts from."""
     path = new_root("fl-compose-settings-") / "config.py"
-    path.write_bytes(f'NAMED: Final = "named_file"\n\n\nclass _Base(BaseModel):\n    inherited: SecretStr\n\n\n{body}'.encode())
+    text = f'{SETTINGS_IMPORTS}\nNAMED: Final = "named_file"\n\n\nclass _Base(BaseModel):\n    inherited: SecretStr\n\n\n{body}'
+    path.write_bytes(text.encode())
     return path
 
 
@@ -1004,9 +1013,10 @@ def test_each_field_shape_is_read_as_pydantic_reads_it():
     ("field", "said"),
     [
         pytest.param('Field(alias="x")', "a keyword this does not read", id="alias"),
-        pytest.param("Field(**EXTRA)", "a keyword this does not read", id="unpacked"),
+        pytest.param("Field(**{'validation_alias': 'x'})", "a keyword this does not read", id="unpacked"),
         pytest.param('Field(validation_alias=AliasChoices("a", "b"))', "neither a string nor a module constant", id="choices"),
-        pytest.param("Field(validation_alias=UNDECLARED)", "neither a string nor a module constant", id="unresolved"),
+        pytest.param("Field(validation_alias=UNDECLARED)", "UNDECLARED, which config.py binds nowhere", id="unresolved"),
+        pytest.param("Field(validation_alias=SecretStr)", "neither a string nor a module constant", id="imported-name"),
     ],
 )
 def test_a_field_naming_its_file_another_way_refuses(field: str, said: str):
@@ -1032,6 +1042,81 @@ def test_two_aliases_for_one_field_refuse():
 def test_a_declaration_the_backend_reader_cannot_find_refuses(body: str, said: str):
     with pytest.raises(ValueError, match=said):
         checker.backend_schema_files(settings_file(body))
+
+
+def test_a_field_behind_constants_is_read_where_pydantic_finds_it():
+    """An alias naming another, and a constant holding the whole `Field`: each `validation_alias` sits a step past where the field names it."""
+    path = settings_file(
+        'Inner = Annotated[SecretStr, Field(validation_alias="inner_file")]\n'
+        "Outer = Annotated[Inner, Field(min_length=1)]\n"
+        'HELD = Field(validation_alias="held_file")\n\n\n'
+        "class BackendSecrets(BaseSettings):\n"
+        "    nested: Outer\n"
+        "    held: SecretStr = HELD\n"
+    )
+
+    reads, required = checker.backend_schema_files(path)
+
+    assert reads == required == {"inner_file", "held_file"}
+
+
+@pytest.mark.parametrize(
+    ("body", "said"),
+    [
+        pytest.param(
+            "class BackendSecrets(BaseSettings, ForeignKey):\n    secret: SecretStr\n", "inherits from ForeignKey", id="base-from-the-backend"
+        ),
+        pytest.param("class BackendSecrets(BaseSettings, Mixin):\n    secret: SecretStr\n", "inherits from Mixin", id="base-bound-nowhere"),
+        pytest.param("class BackendSecrets(Generic[T]):\n    secret: SecretStr\n", r"inherits from Generic\[T\]", id="base-subscripted"),
+        pytest.param(
+            "class BackendSecrets(BaseSettings):\n    if True:\n        secret: SecretStr\n", "holds a If statement", id="compound-statement"
+        ),
+        pytest.param(
+            "class BackendSecrets(BaseSettings):\n    secret: ForeignKey\n", "ForeignKey from app.core.keys", id="alias-from-the-backend"
+        ),
+        pytest.param(
+            "class BackendSecrets(BaseSettings):\n    secret: Unbound\n", "Unbound, which config.py binds nowhere", id="alias-bound-nowhere"
+        ),
+        pytest.param(
+            "type Key = Annotated[SecretStr, Field(validation_alias='k')]\n\n\nclass BackendSecrets(BaseSettings):\n    secret: Key\n",
+            "Key, which config.py binds nowhere",
+            id="type-statement",
+        ),
+        pytest.param(
+            "if True:\n    NAMED = 'other_file'\n\n\n"
+            "class BackendSecrets(BaseSettings):\n    secret: SecretStr = Field(validation_alias=NAMED)\n",
+            "NAMED, which config.py binds more than once",
+            id="rebound-constant",
+        ),
+        pytest.param(
+            "class BackendSecrets(BaseSettings):\n    secret: SecretStr = KEY_FIELD\n",
+            "KEY_FIELD, which config.py binds nowhere",
+            id="value-bound-nowhere",
+        ),
+    ],
+)
+def test_a_name_base_or_statement_the_backend_reader_cannot_follow_refuses(body: str, said: str):
+    """Each read past would leave a `Field` unread, its file counted under the field's own name or not at all."""
+    with pytest.raises(ValueError, match=said):
+        checker.backend_schema_files(settings_file(body))
+
+
+def test_main_refuses_at_2_where_the_backend_reader_cannot_follow_the_settings(monkeypatch: pytest.MonkeyPatch):
+    """A refusal rather than a verdict on either stack, whatever the two models say (`scripts/lib/checker_kernel.py :: EXIT_REFUSED`)."""
+    project = new_root("fl-compose-main-unread-")
+    production = rendered_stack(project, "nginx/prod", cloudflared=CONNECTED)
+    local = rendered_stack(project, "nginx/local")
+    monkeypatch.setattr(checker, "BACKEND_CONFIG", settings_file("class BackendSecrets(BaseSettings, ForeignKey):\n    secret: SecretStr\n"))
+
+    code, said = run_main(production, local, project)
+
+    assert code == checker.EXIT_REFUSED, said
+    assert "inherits from ForeignKey" in said, said
+
+
+def test_a_config_compose_did_not_expand_refuses_the_mount_reader():
+    with pytest.raises(ValueError, match="a config Compose did not expand"):
+        checker.backend_files(model(backend={"configs": ["backend_mongodb_uri"]}), "p", SETTINGS)
 
 
 def backend_handed(stack: str) -> dict[str, Any]:

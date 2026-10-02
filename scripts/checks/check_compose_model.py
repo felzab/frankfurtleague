@@ -10,11 +10,14 @@ from __future__ import annotations
 
 import argparse
 import ast
+import builtins
 import json
 import re
 import sys
+from collections import Counter
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, NamedTuple
 from urllib.parse import urlsplit
 
 # Every caller runs this as a script, so sys.path opens with THIS directory and `lib/` is a
@@ -375,8 +378,9 @@ def _mounted_files(definition: dict[str, Any]) -> frozenset[str]:
         target = str((entry.get("target") if isinstance(entry, dict) else None) or source)
         mounted.add(target if target.startswith("/") else f"{RUN_SECRETS}/{target}")
     for entry in definition.get("configs") or []:
-        if isinstance(entry, dict):
-            mounted.add(str(entry.get("target") or f"/{entry.get('source')}"))
+        if not isinstance(entry, dict):
+            raise ValueError("a service has a config Compose did not expand, so this is not its rendered model")
+        mounted.add(str(entry.get("target") or f"/{entry.get('source')}"))
     return frozenset(path.removeprefix(f"{RUN_SECRETS}/") for path in mounted if path.rpartition("/")[0] == RUN_SECRETS)
 
 
@@ -407,6 +411,129 @@ BACKEND_CONFIG: Final = REPO_ROOT / "fl_backend" / "app" / "core" / "config.py"
 BACKEND_SERVICE: Final = "backend"
 BACKEND_SECRETS: Final = "BackendSecrets"
 
+# The pydantic classes a settings class may inherit from, each declaring no field of its own.
+PYDANTIC_ROOTS: Final = frozenset({"BaseModel", "BaseSettings"})
+PYDANTIC_PACKAGES: Final = frozenset({"pydantic", "pydantic_settings"})
+
+# The backend's own package: a name imported from it may carry a `Field` this parse never opens.
+BACKEND_PACKAGE: Final = "app"
+
+# A class body holding any other statement runs it at class creation, so an annotation inside it is
+# a field this would read past.
+CLASS_STATEMENTS: Final = (ast.AnnAssign, ast.Assign, ast.Expr, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Pass)
+
+BUILTIN_NAMES: Final = frozenset(dir(builtins))
+
+
+class _Settings(NamedTuple):
+    """One parse of the settings module: its classes, and how each of its module-level names is bound."""
+
+    label: str
+    classes: dict[str, ast.ClassDef]
+    assigned: dict[str, ast.expr]
+    imported: dict[str, str]
+    defined: frozenset[str]
+    bindings: Counter[str]
+
+
+def _module_bindings(body: list[ast.stmt]) -> Counter[str]:
+    """How often each module-level name is bound, inside a compound statement too; a function or a class is its own scope."""
+    bound: Counter[str] = Counter()
+    for node in body:
+        targets: list[ast.expr] = []
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bound[node.name] += 1
+            continue
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            bound.update(alias.asname or alias.name.partition(".")[0] for alias in node.names)
+        elif isinstance(node, ast.TypeAlias):
+            targets = [node.name]
+        elif isinstance(node, ast.Assign):
+            targets = node.targets
+        # An annotation without a value binds nothing.
+        elif isinstance(node, ast.AnnAssign) and node.value is not None or isinstance(node, (ast.AugAssign, ast.For, ast.AsyncFor)):
+            targets = [node.target]
+        elif isinstance(node, (ast.With, ast.AsyncWith)):
+            targets = [item.optional_vars for item in node.items if item.optional_vars is not None]
+        bound.update(name.id for target in targets for name in ast.walk(target) if isinstance(name, ast.Name))
+        for handler in getattr(node, "handlers", []):
+            bound.update([handler.name] if handler.name else [])
+            bound += _module_bindings(handler.body)
+        for block in ("body", "orelse", "finalbody"):
+            bound += _module_bindings(getattr(node, block, []))
+        for case in getattr(node, "cases", []):
+            bound += _module_bindings(case.body)
+    return bound
+
+
+def _settings(config: Path) -> _Settings:
+    module = ast.parse(config.read_bytes().decode(), filename=config.name)
+    imported: dict[str, str] = {}
+    for node in module.body:
+        if isinstance(node, ast.ImportFrom):
+            imported.update((alias.asname or alias.name, "." * node.level + (node.module or "")) for alias in node.names)
+        elif isinstance(node, ast.Import):
+            imported.update((alias.asname or alias.name.partition(".")[0], alias.name) for alias in node.names)
+    return _Settings(
+        label=config.name,
+        classes={node.name: node for node in module.body if isinstance(node, ast.ClassDef)},
+        assigned={
+            target.id: node.value
+            for node in module.body
+            if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None
+            for target in (node.targets if isinstance(node, ast.Assign) else [node.target])
+            if isinstance(target, ast.Name)
+        },
+        imported=imported,
+        defined=frozenset(node.name for node in module.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))),
+        bindings=_module_bindings(module.body),
+    )
+
+
+def _names(node: ast.AST) -> Iterator[ast.Name]:
+    """Every name `node` reads, never inside a lambda or a comprehension, whose own names no `Field` stands behind."""
+    if isinstance(node, (ast.Lambda, ast.GeneratorExp, ast.ListComp, ast.SetComp, ast.DictComp)):
+        return
+    if isinstance(node, ast.Name):
+        yield node
+    for child in ast.iter_child_nodes(node):
+        yield from _names(child)
+
+
+def _resolved(settings: _Settings, expression: ast.expr, where: str) -> list[ast.expr]:
+    """`expression` and, transitively, the value of every module constant it names, so a `Field` behind an alias is read.
+
+    A name not followed to one plain module-level assignment, a definition, a library's import or a
+    builtin refuses.
+    """
+    parts = [expression]
+    pending = [expression]
+    seen: set[str] = set()
+    while pending:
+        for node in _names(pending.pop()):
+            if node.id in seen:
+                continue
+            seen.add(node.id)
+            origin = settings.imported.get(node.id)
+            if settings.bindings[node.id] > 1:
+                raise ValueError(f"{where} names {node.id}, which {settings.label} binds more than once, and this reads one of them")
+            if node.id in settings.assigned:
+                parts.append(settings.assigned[node.id])
+                pending.append(settings.assigned[node.id])
+            elif origin is not None:
+                if origin.startswith(".") or origin.partition(".")[0] == BACKEND_PACKAGE:
+                    raise ValueError(f"{where} names {node.id} from {origin}, a module this does not read")
+            elif node.id not in settings.defined and node.id not in BUILTIN_NAMES:
+                raise ValueError(f"{where} names {node.id}, which {settings.label} binds nowhere this reads")
+    return parts
+
+
+def _constant_behind(settings: _Settings, expression: ast.expr) -> ast.expr:
+    """What a module constant holds, followed through every constant naming another."""
+    while isinstance(expression, ast.Name) and expression.id in settings.assigned:
+        expression = settings.assigned[expression.id]
+    return expression
+
 
 def _callee(node: ast.expr) -> str | None:
     """A call's function as its last name spells it, so `Field(...)` and `pydantic.Field(...)` read alike."""
@@ -421,13 +548,28 @@ def _is_class_var(annotation: ast.expr) -> bool:
     return (isinstance(named, ast.Name) and named.id == "ClassVar") or (isinstance(named, ast.Attribute) and named.attr == "ClassVar")
 
 
-def _declared_fields(classes: dict[str, ast.ClassDef], name: str) -> dict[str, ast.AnnAssign]:
+def _is_pydantic_root(settings: _Settings, base: ast.expr) -> bool:
+    """`BaseModel` or `BaseSettings`, imported from pydantic by name or reached through its module."""
+    if isinstance(base, ast.Name):
+        name, module = base.id, settings.imported.get(base.id, "")
+    elif isinstance(base, ast.Attribute) and isinstance(base.value, ast.Name):
+        name, module = base.attr, settings.imported.get(base.value.id, "")
+    else:
+        return False
+    return name in PYDANTIC_ROOTS and module.partition(".")[0] in PYDANTIC_PACKAGES
+
+
+def _declared_fields(settings: _Settings, name: str) -> dict[str, ast.AnnAssign]:
     """The model fields `name` declares and inherits from this module's classes, its own winning, as pydantic merges them."""
     fields: dict[str, ast.AnnAssign] = {}
-    for base in classes[name].bases:
-        if isinstance(base, ast.Name) and base.id in classes:
-            fields |= _declared_fields(classes, base.id)
-    for node in classes[name].body:
+    for base in settings.classes[name].bases:
+        if isinstance(base, ast.Name) and base.id in settings.classes:
+            fields |= _declared_fields(settings, base.id)
+        elif not _is_pydantic_root(settings, base):
+            raise ValueError(f"{settings.label} :: {name} inherits from {ast.unparse(base)}, whose fields this does not read")
+    for node in settings.classes[name].body:
+        if not isinstance(node, CLASS_STATEMENTS):
+            raise ValueError(f"{settings.label} :: {name} holds a {type(node).__name__} statement, which this does not read into")
         if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
             # A leading underscore is a private attribute, never a field.
             if not node.target.id.startswith("_") and node.target.id != "model_config" and not _is_class_var(node.annotation):
@@ -435,15 +577,21 @@ def _declared_fields(classes: dict[str, ast.ClassDef], name: str) -> dict[str, a
     return fields
 
 
-def _field_file(field: ast.AnnAssign, assigned: dict[str, ast.expr], where: str) -> tuple[str, bool]:
+def _field_file(settings: _Settings, field: ast.AnnAssign, where: str) -> tuple[str, bool]:
     """The file a field is read from, its `validation_alias` or its own name, and whether a default spares the boot it."""
     name = field.target.id if isinstance(field.target, ast.Name) else ""
-    value = field.value
     # pydantic merges a `Field` in the annotation, or in a type alias the module declares, with the assigned one.
-    aliased = [assigned[node.id] for node in ast.walk(field.annotation) if isinstance(node, ast.Name) and node.id in assigned]
     calls = [
-        node for part in (field.annotation, *aliased) for node in ast.walk(part) if isinstance(node, ast.Call) and _callee(node) == "Field"
+        node
+        for part in _resolved(settings, field.annotation, where)
+        for node in ast.walk(part)
+        if isinstance(node, ast.Call) and _callee(node) == "Field"
     ]
+    value = None
+    if field.value is not None:
+        _resolved(settings, field.value, where)
+        # A constant holding a `Field` is that `Field` to pydantic.
+        value = _constant_behind(settings, field.value)
     defaulted = value is not None
     if isinstance(value, ast.Call) and _callee(value) == "Field":
         calls.append(value)
@@ -457,7 +605,7 @@ def _field_file(field: ast.AnnAssign, assigned: dict[str, ast.expr], where: str)
             elif keyword.arg is None or keyword.arg == "alias":
                 raise ValueError(f"{where} may name its file by a keyword this does not read")
             elif keyword.arg == "validation_alias":
-                alias = assigned.get(keyword.value.id) if isinstance(keyword.value, ast.Name) else keyword.value
+                alias = _constant_behind(settings, keyword.value)
                 if not (isinstance(alias, ast.Constant) and isinstance(alias.value, str)):
                     raise ValueError(f"{where} has a validation_alias that is neither a string nor a module constant holding one")
                 files.add(alias.value)
@@ -470,23 +618,15 @@ def backend_schema_files(config: Path) -> tuple[frozenset[str], frozenset[str]]:
     """Every file the backend's secret half reads, and those it cannot boot without.
 
     Parsed rather than imported from `fl_backend/app/core/config.py :: BackendSecrets`, since the ops
-    scope's interpreter may lack pydantic; a field shape this does not read refuses.
+    scope's interpreter may lack pydantic; anything it cannot follow refuses.
     """
-    module = ast.parse(config.read_bytes().decode(), filename=config.name)
-    classes = {node.name: node for node in module.body if isinstance(node, ast.ClassDef)}
-    assigned = {
-        target.id: node.value
-        for node in module.body
-        if isinstance(node, (ast.Assign, ast.AnnAssign)) and node.value is not None
-        for target in (node.targets if isinstance(node, ast.Assign) else [node.target])
-        if isinstance(target, ast.Name)
-    }
-    if BACKEND_SECRETS not in classes:
+    settings = _settings(config)
+    if BACKEND_SECRETS not in settings.classes:
         raise ValueError(f"{config.name} declares no {BACKEND_SECRETS} class, so the backend's files were not read")
     reads: set[str] = set()
     required: set[str] = set()
-    for field, node in sorted(_declared_fields(classes, BACKEND_SECRETS).items()):
-        file, defaulted = _field_file(node, assigned, f"{config.name} :: {BACKEND_SECRETS}.{field}")
+    for field, node in sorted(_declared_fields(settings, BACKEND_SECRETS).items()):
+        file, defaulted = _field_file(settings, node, f"{config.name} :: {BACKEND_SECRETS}.{field}")
         reads.add(file)
         if not defaulted:
             required.add(file)
