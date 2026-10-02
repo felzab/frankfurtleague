@@ -94,6 +94,9 @@ server {
     add_header X-Seen-Next-Action $http_next_action always;
 STUB
   for name in "${!SECURITY_HEADERS[@]}"; do printf '    add_header %s "upstream" always;\n' "$name"; done
+  # Setting no header, so it forwards every one the edge sent as the edge sent it, to the listener
+  # the empty `Next-Action` case starts.
+  printf '%s\n' '    location = /next-action-relay { proxy_pass http://127.0.0.1:3001; }'
   printf '%s\n' '    location / { return 200 "stub\n"; }' '}'
 } > "${SCRATCH}/zz-upstream-stub.conf"
 # Empty, and written below the redaction cases to drive a reload nginx refuses.
@@ -541,15 +544,59 @@ for _i in "${!HEADER_PATHS[@]}"; do
     detail "expected no X-FL-Actor at Next, Next received '${SENT_VALUE[x-seen-actor]}'"
     HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
-  # That no location clears the id a server action is posted with. What the edge's own directive
-  # adds, dropping an EMPTY one, no case sees: the stub's `$http_next_action` reads an empty header
-  # and a missing one alike.
+  # That no location clears the id a server action is posted with; the empty one is the relay's below.
   if [[ "${SENT_VALUE[x-seen-next-action]:-}" != "$CLIENT_ACTION" ]]; then
     fail "UPSTREAM ${HEADER_PATHS[_i]}"
     detail "expected Next-Action ${CLIENT_ACTION} at Next, Next received '${SENT_VALUE[x-seen-next-action]:-}'"
     HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
   fi
 done
+
+# --- an empty Next-Action, as Next would receive it --------------------------------------------------
+
+# The empty header `nginx/shared/site.conf` drops before Next, which runs one as a server action: the
+# stub's `$http_next_action` reads empty and missing alike, so a raw listener behind the stub's relay
+# records the headers themselves.
+
+# One transfer through the edge to the relay, printing the request the listener recorded, or nothing
+# where none arrived.
+relay_seen() { # the curl options naming the transfer's headers
+  local _k status="" seen=""
+  MSYS_NO_PATHCONV=1 docker exec -d "$CONTAINER" sh -c \
+    "rm -f /tmp/relay-seen; printf 'HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n' | nc -l -p 3001 > /tmp/relay-seen" \
+    || return 0
+  # Until the listener takes the connection: before it listens, the relay answers 502.
+  for _k in $(seq 1 25); do
+    status="$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 -H "Host: localhost" "$@" "${BASE}/next-action-relay" || true)"
+    [[ "$status" == 204 ]] && break
+    sleep 0.2
+  done
+  [[ "$status" == 204 ]] || return 0
+  # Until the request's blank line has reached the file, which can trail curl's answer.
+  for _k in $(seq 1 25); do
+    seen="$(MSYS_NO_PATHCONV=1 docker exec "$CONTAINER" cat /tmp/relay-seen 2>/dev/null || true)"
+    [[ "$seen" == *$'\r\n\r\n'* ]] && break
+    sleep 0.2
+  done
+  printf '%s' "${seen//$'\r'/}"
+}
+RELAY_SENT="$(relay_seen -H "Next-Action: ${CLIENT_ACTION}")"
+RELAY_EMPTY="$(relay_seen -H "Next-Action;")"
+if [[ "$RELAY_SENT" != *"GET /next-action-relay "* || "$RELAY_EMPTY" != *"GET /next-action-relay "* ]]; then
+  refuse "the stub's relay recorded no request, so whether the edge hands Next an empty Next-Action was not judged.
+It listens with the image's own busybox nc: ask it with  docker exec ${CONTAINER} nc -h"
+fi
+# The control: a relay dropping every Next-Action would pass the empty case below unasked.
+if ! grep -qiE "^next-action: ${CLIENT_ACTION}$" <<< "$RELAY_SENT"; then
+  fail "UPSTREAM /next-action-relay"
+  detail "expected Next-Action ${CLIENT_ACTION} at the relay, it recorded: ${RELAY_SENT}"
+  HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+fi
+if grep -qi "^next-action:" <<< "$RELAY_EMPTY"; then
+  fail "UPSTREAM an empty Next-Action"
+  detail "the edge handed Next an empty Next-Action, which Next runs as a server action and the action meter reads as none: ${RELAY_EMPTY}"
+  HEADER_FAILURES=$(( HEADER_FAILURES + 1 ))
+fi
 
 # --- the server-action pair -----------------------------------------------------------------------
 
@@ -754,5 +801,6 @@ fi
 
 ok "${#CASES[@]} redaction cases clean, no visitor in the container's own streams,
 ${#HEADER_PATHS[@]} paths and the www redirect each sending the security headers once as written,
-${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor, server
+${UPSTREAM_READ} of those paths handing Next the edge's own traceparent and no X-FL-Actor, an empty
+Next-Action handed to no one, server
 actions metered on their own pair and nothing else metered by it, and the Control API applying a reload, refusing a bad one, dumping the checkout and closed to the worker"
