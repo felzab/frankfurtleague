@@ -14,7 +14,7 @@ import { Input } from "@heroui/react/input";
 import { doubleFetch } from "@/shared/testing/fetchDouble.ts";
 import { compiledGlobals, selectorsOf } from "@/shared/testing/stylesheet.ts";
 
-import type { Rule } from "postcss";
+import type { Container, Document, Rule } from "postcss";
 
 const fetchMock = doubleFetch();
 
@@ -29,7 +29,7 @@ const LOOK = ["border-color", "--tw-inset-ring-shadow", "--tw-ring-shadow", "--t
 
 /** Unlayered and outside any media query, so it reaches every element its selector matches. */
 const isPlain = (rule: Rule): boolean => {
-  for (let node = rule.parent; node != null; node = node.parent) {
+  for (let node: Container | Document | undefined = rule.parent; node != null; node = node.parent) {
     if (node.type === "atrule") return false;
   }
   return true;
