@@ -354,6 +354,17 @@ describe("the address the confirmation page opened under", () => {
       "the page leaves its token in the address bar",
     );
   });
+
+  it("keeps the token where the link could not be read, so a reload can retry it", () => {
+    window.history.replaceState(null, "", "/bestaetigung/schiedsrichter?token=kein-echtes-token");
+    render(h(SchiedsrichterBestaetigungView, { start: { zustand: "unlesbar" } }));
+
+    assert.equal(
+      `${window.location.pathname}${window.location.search}`,
+      "/bestaetigung/schiedsrichter?token=kein-echtes-token",
+      "the page stripped the token a reload needs",
+    );
+  });
 });
 
 describe("what a refused press does to the page", () => {

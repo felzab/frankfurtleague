@@ -844,4 +844,19 @@ describe("the address a link page opened under", () => {
 
     assert.equal(adresse, "/bestaetigung/spieler", "the page leaves its token in the address bar");
   });
+
+  it("keeps the invite's token on the registration page where the invite could not be read", () => {
+    const adresse = adresseNach("/registrierung?token=kein-echtes-token", h(RegistrierungView, { start: { zustand: "unlesbar" } }));
+
+    assert.equal(adresse, "/registrierung?token=kein-echtes-token", "the page stripped the token a reload needs");
+  });
+
+  it("keeps the link's token on the pupil's confirmation page where the link could not be read", () => {
+    const adresse = adresseNach(
+      "/bestaetigung/spieler?token=kein-echtes-token",
+      h(SpielerBestaetigungView, { start: { zustand: "unlesbar" }, fassung: FASSUNG }),
+    );
+
+    assert.equal(adresse, "/bestaetigung/spieler?token=kein-echtes-token", "the page stripped the token a reload needs");
+  });
 });

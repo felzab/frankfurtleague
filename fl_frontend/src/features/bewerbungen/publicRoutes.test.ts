@@ -1395,4 +1395,13 @@ describe("the address the confirmation page opened under", () => {
 
     assert.equal(adresse, "/bestaetigung/kontakt", "the page leaves its token in the address bar");
   });
+
+  it("keeps the token where the link could not be read, so a reload can retry it", () => {
+    window.history.replaceState(null, "", "/bestaetigung/kontakt?token=kein-echtes-token");
+    const { unmount } = render(h(BestaetigungView, { start: { zustand: "unlesbar" } }));
+    const adresse = `${window.location.pathname}${window.location.search}`;
+    unmount();
+
+    assert.equal(adresse, "/bestaetigung/kontakt?token=kein-echtes-token", "the page stripped the token a reload needs");
+  });
 });
