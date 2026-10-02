@@ -3,7 +3,7 @@ from collections.abc import Coroutine, Mapping
 from contextlib import nullcontext
 from datetime import UTC, datetime
 from types import SimpleNamespace
-from typing import Any, cast
+from typing import Any, cast, get_args
 
 import pytest
 from bson import ObjectId
@@ -13,7 +13,7 @@ from app.api.aktionen import admin_router as aktionen_admin_router
 from app.api.aktionen.schemas import FLAktionenFilterParams
 from app.api.berechtigungen import crud as berechtigungen_crud
 from app.api.bewerbungen import router as bewerbungen_router
-from app.api.bewerbungen.schemas import FLBewerbungenFilterParams
+from app.api.bewerbungen.schemas import FLBewerbungenFilterParams, FLBewerbungSaisonbezug, FLBewerbungStatus
 from app.api.identitaet import crud as identitaet_crud
 from app.api.identitaet import router as identitaet_router
 from app.api.identitaet.schemas import FLSubjekt, FLSubjektPayload
@@ -315,16 +315,30 @@ class TestTheListsGatheredReads:
         assert (type(failed), str(failed)) == (ConnectionError, "the tally failed")
         assert cancelled == ["page"], "the page read was left running past the list's answer"
 
-    def test_a_failed_collision_pass_cancels_every_count_and_reaches_the_caller_as_itself(self, monkeypatch: pytest.MonkeyPatch):
+    @pytest.mark.parametrize("failing", [*get_args(FLBewerbungStatus), *get_args(FLBewerbungSaisonbezug), "dubletten"])
+    def test_a_failed_read_of_the_queue_cancels_every_other_and_reaches_the_caller_as_itself(
+        self, monkeypatch: pytest.MonkeyPatch, failing: str
+    ):
+        """A count failing is the load-bearing arm: a nested gather that leaves its siblings running still cancels when its parent does."""
+
         stalled = _Stalled()
 
-        async def aggregate_many_from_db(**_: Any) -> list[Mapping[str, Any]]:
+        async def read(name: str) -> Any:
+            if name != failing:
+                return await stalled.read(name)
             await asyncio.sleep(0)
-            raise ConnectionError("the collision pass failed")
+            raise ConnectionError(f"the {name} read failed")
+
+        async def aggregate_many_from_db(**_: Any) -> list[Mapping[str, Any]]:
+            return await read("dubletten")
 
         class _Counted:
-            async def count_documents(self, _filter: Mapping[str, Any]) -> int:
-                return await stalled.read("count")
+            # Each count named for the status or the season relation it answers, unfiltered requests
+            # counting the relation against `None`.
+            async def count_documents(self, db_filter: Mapping[str, Any]) -> int:
+                if "status" in db_filter:
+                    return await read(db_filter["status"])
+                return await read("andere_saison" if isinstance(db_filter["saison_id"], dict) else "diese_saison")
 
         monkeypatch.setattr(bewerbungen_router, "aggregate_many_from_db", aggregate_many_from_db)
 
@@ -334,6 +348,6 @@ class TestTheListsGatheredReads:
             )
         )
 
-        assert (type(failed), str(failed)) == (ConnectionError, "the collision pass failed")
-        # Every count, each nested gather's included: a status count and a relation count at least.
-        assert len(cancelled) >= 2 and set(cancelled) == {"count"}, "a count was left running past the queue's answer"
+        every_read = {*get_args(FLBewerbungStatus), *get_args(FLBewerbungSaisonbezug), "dubletten"}
+        assert (type(failed), str(failed)) == (ConnectionError, f"the {failing} read failed")
+        assert sorted(cancelled) == sorted(every_read - {failing}), "a read was left running past the queue's answer"
