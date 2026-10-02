@@ -742,6 +742,20 @@ describe("what the landing ends (`docs/frontend/spec.md :: I518`)", () => {
     assert.ok(!store.session.includes(spent.row), "a session no lane serves outlived the landing");
     assert.equal((await assertPasskey(spent.cookie, true)).status, 200, "the challenge was still bound to the spent account");
   });
+
+  /* The spent row alone: ended by its account, a lapse on one device would sign its person out of every other. */
+  it("ends the spent session by its row, leaving the account's other device and another account signed in", async () => {
+    const otherDevice = await signIn(PERSON_EMAIL);
+    const otherAccount = await signIn(ADMIN_EMAIL);
+    const spent = await signIn(PERSON_EMAIL);
+    ageRow(spent.row, { created: 31 * DAY_MS });
+    arriveAs(spent.cookie);
+
+    assert.equal(await getSignedInAddress(), null);
+    assert.ok(!store.session.includes(spent.row), "the landing ended nothing, so the case proves nothing");
+    assert.ok(store.session.includes(otherDevice.row), "the landing ended the same account's session on another device");
+    assert.ok(store.session.includes(otherAccount.row), "the landing ended another account's session");
+  });
 });
 
 describe("the three lifetimes, judged in the guard rather than in the store", () => {
