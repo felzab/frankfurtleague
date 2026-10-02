@@ -97,7 +97,7 @@ function target(place: Place): HTMLElement | null {
 }
 
 /**
- * The one landing for a control its own write takes off the page (`docs/frontend/spec.md :: I540`).
+ * The one landing for a control its own write takes off the page (`docs/frontend/spec.md :: I536`).
  * Read at the press, so the rows around it are the ones the reader saw; `landed` once the write succeeded.
  */
 export function focusAfterWrite(anchor: Element | null = document.activeElement): { landed: () => void } {
@@ -112,9 +112,8 @@ export function focusAfterWrite(anchor: Element | null = document.activeElement)
       const land = (): void => {
         const active = document.activeElement;
         if (anchor.isConnected || (active !== null && active === landedOn)) return;
-        // A focus held outside the control's sections stays where it is, as a dialog not yet closed over
-        // the control holds it. One inside them was put there by the page, the reader having pressed
-        // nothing since: react-aria's grid falls back to the cell.
+        // A focus held outside the control's sections stays, as a closing dialog's does. One inside them
+        // the page put there, the reader having pressed nothing since: react-aria's grid falls back to its cell.
         if (active !== null && active !== document.body && !place.sections.some((key) => keyed(document, SECTION, key)[0]?.contains(active))) {
           return;
         }

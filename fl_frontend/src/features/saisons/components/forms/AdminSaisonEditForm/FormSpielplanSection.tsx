@@ -170,11 +170,11 @@ export function FormSpielplanSection({
 
   const handlePress = () => {
     setRunningLabel(isDrawing ? (replacesDraw ? "Legt neu an..." : "Legt an...") : "Nimmt zurück...");
+    // The page re-keys on the drawn or withdrawn plan, drawing this control anew.
+    const landing = focusAfterWrite();
 
     // What makes the guard's second run load-bearing here: the draw READS the rules it is guarded
     // against, so a draft typed after arming would go with the refresh while the draw used the stored ones.
-    // The page re-keys on the drawn or withdrawn plan, drawing this control anew.
-    const landing = focusAfterWrite();
     press(async () => {
       // A rejected action may still have saved, and uncaught here either write takes the page down with it.
       if (isDrawing) {

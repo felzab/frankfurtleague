@@ -349,10 +349,10 @@ function FilterRow<TItem>({
             // Kept in place once every dimension is filtering: removing it would slide the whole row left.
             // A button, never a `<span>`: ARIA forbids a name on a `generic` role, which would leave
             // the row's one standing hint unspoken.
-            // `aria-disabled` and never `disabled`: it replaces the panel's trigger under the pick that filled
-            // the last dimension, and a disabled button cannot take the focus that trigger held.
             <button
               type="button"
+              // Never `disabled`: it replaces the panel's trigger under the pick that filled the last
+              // dimension, and a disabled button cannot take the focus that trigger held.
               aria-disabled="true"
               aria-label={ADD_HINT}
               className={`${ICON_SHELL_CLASSES} cursor-not-allowed text-foreground-muted opacity-50`}>
