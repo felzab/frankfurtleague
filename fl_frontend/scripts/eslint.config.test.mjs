@@ -252,4 +252,18 @@ describe("the lint bans, driven against planted source", () => {
     );
     assert.deepEqual(stale, []);
   });
+
+  // A reader the config exports and no ban names is one every module may import.
+  it("bans the import of every secret reader the config exports", () => {
+    const configSource = readFileSync(path.join(FRONTEND, "src", "core", "config.ts"), "utf8");
+    const exported = [...configSource.matchAll(/^export const (\w+) = [^\n]*\bvalidated\./gm)].map((match) => match[1]).sort();
+    const banned = config
+      .flatMap((block) =>
+        (block.rules?.["no-restricted-imports"]?.[1]?.patterns ?? []).filter((pattern) => pattern.group?.includes("**/config")),
+      )
+      .flatMap((pattern) => pattern.importNames ?? []);
+
+    assert.ok(exported.length > 0, "no reader read off fl_frontend/src/core/config.ts: the reader has lost them");
+    assert.deepEqual([...new Set(banned)].sort(), exported);
+  });
 });
