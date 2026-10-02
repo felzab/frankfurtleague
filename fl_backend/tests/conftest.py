@@ -596,6 +596,40 @@ def pytest_runtest_logreport(report: pytest.TestReport) -> None:
     span[1] = max(span[1], report.stop)
 
 
+_EDITED_SHARED_APP = (
+    "{module} edited the app `tests/core/app_source.py :: application` shares with every module in its process, {when}: {edits}."
+    " Build an app of its own to edit. The edits are undone, so no later module is charged with them."
+)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_make_collect_report(collector: pytest.Collector) -> Generator[None, pytest.CollectReport, pytest.CollectReport]:
+    """After each module's import: an edit made there precedes every test the module holds, so none of them could be charged with it."""
+
+    report = yield
+    if isinstance(collector, pytest.Module):
+        # Here rather than at the top: the module imports the whole application, which the xdist
+        # controller, collecting nothing, would otherwise pay for on every run.
+        from tests.core.app_source import undo_edits_to_application
+
+        if edits := undo_edits_to_application():
+            report.outcome = "failed"
+            report.longrepr = _EDITED_SHARED_APP.format(module=collector.nodeid, when="on import", edits="; ".join(edits))
+
+    return report
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _shared_app_left_as_built(request: pytest.FixtureRequest) -> Iterator[None]:
+    """Torn down after the module's own fixtures, so an edit one of them made is seen."""
+
+    yield
+    from tests.core.app_source import undo_edits_to_application
+
+    if edits := undo_edits_to_application():
+        pytest.fail(_EDITED_SHARED_APP.format(module=request.node.nodeid, when="while its tests ran", edits="; ".join(edits)), pytrace=False)
+
+
 def pytest_unconfigure(config: pytest.Config) -> None:
     release_every_database()
     _UNSTARTED.clear()
