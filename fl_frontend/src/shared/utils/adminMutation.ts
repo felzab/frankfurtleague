@@ -25,7 +25,7 @@ import type { FieldErrors } from "./validation";
 export const ADMIN_FORBIDDEN = "Deine Sitzung hat keine Administratorrechte. Melde Dich neu an.";
 
 /** A grant the backend did not answer: nothing ran, and a sign-in would meet the same unread grant. */
-export const BERECHTIGUNG_UNGELESEN = "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen.";
+const BERECHTIGUNG_UNGELESEN = "Dein Zugang zur Verwaltung ließ sich gerade nicht prüfen.";
 
 /** What an admin write answers where the guard could not read the grant. */
 const BERECHTIGUNG_UNGELESEN_ERNEUT = `${BERECHTIGUNG_UNGELESEN} ${VERSUCHE_ES_ERNEUT_SATZ}`;
@@ -168,7 +168,7 @@ function judgingGuard(): { readonly guard: Guard<AdminSession>; readonly verdict
 }
 
 /** Each reason the guard turns an admin write away for, in the words of its remedy; a record, so a reason added to the guard is worded here. */
-const FORBIDDEN_BY_REFUSAL: Readonly<Record<AdminRefusal, string>> = {
+export const FORBIDDEN_BY_REFUSAL: Readonly<Record<AdminRefusal, string>> = {
   signIn: ADMIN_FORBIDDEN,
   // One sentence for an address holding no grant, whether it was revoked or never held: no sign-in repairs either.
   noGrant: ZUGANG_WEG,

@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { isFreshlySignedIn } from "@/core/auth";
 import { logger } from "@/core/logging";
 
-import { AENDERUNG_STEHT_WEITERHIN, isRefusal, RUECKNAHME_UNKLAR, ZUGANG_WEG } from "./actionError";
-import { ADMIN_FORBIDDEN, BERECHTIGUNG_UNGELESEN, runAdminRouteWrite, stepUpRequired } from "./adminMutation";
+import { AENDERUNG_STEHT_WEITERHIN, isRefusal, RUECKNAHME_UNKLAR } from "./actionError";
+import { FORBIDDEN_BY_REFUSAL, runAdminRouteWrite, stepUpRequired } from "./adminMutation";
 import { buildRefusal } from "./refusal";
 
 import type { AdminRefusal } from "@/core/auth";
@@ -20,17 +20,13 @@ const FREMDE_HERKUNFT = `Diese Anfrage kam nicht von dieser Seite. Lade die Seit
 
 const UNDO_RESTORED = "Die Änderung wurde zurückgenommen.";
 
-const UNDO_BERECHTIGUNG_UNGELESEN = `${BERECHTIGUNG_UNGELESEN} ${AENDERUNG_STEHT_WEITERHIN}`;
 const UNDO_UNREADABLE = buildRefusal({ reason: "Die Rücknahme wurde nicht ausgeführt", repair: "Lade die Seite neu" });
 
 /**
- * A session no sign-in repairs, by the guard's reason: the cause an action turned away for it names
- * (`fl_frontend/src/shared/utils/adminMutation.ts :: runAdminMutation`), and no repair.
+ * The sentence an action turned away for the same reason is answered, and that the change stands: one
+ * table, so the save and its undo never word one condition two ways.
  */
-const UNDO_TURNED_AWAY: Readonly<Record<Exclude<AdminRefusal, "signIn" | "unread">, string>> = {
-  noGrant: `${ZUGANG_WEG} ${AENDERUNG_STEHT_WEITERHIN}`,
-  grantGone: `${ZUGANG_WEG} ${AENDERUNG_STEHT_WEITERHIN}`,
-};
+const undoTurnedAway = (reason: AdminRefusal): string => `${FORBIDDEN_BY_REFUSAL[reason]} ${AENDERUNG_STEHT_WEITERHIN}`;
 
 /**
  * What one slice's replay answers: why it did not commit, that nobody can tell whether it did, or
@@ -134,12 +130,12 @@ export async function handleUndoRequest<TPayload>(request: NextRequest, route: U
   if (guarded.forbidden) {
     // Answered as a refusal rather than turned away: sent to sign in, an administrator would sign in
     // again into the same unread grant.
-    if (guarded.refused === "unread") return NextResponse.json({ success: false, error: UNDO_BERECHTIGUNG_UNGELESEN });
+    if (guarded.refused === "unread") return NextResponse.json({ success: false, error: undoTurnedAway(guarded.refused) });
 
     // `fl_frontend/src/proxy.ts`'s two destinations, which the proxy never applies here: a session a
     // sign-in repairs is 401, and one whose address holds no grant 403, since no sign-in grants one.
-    if (guarded.refused === "signIn") return NextResponse.json({ success: false, error: ADMIN_FORBIDDEN }, { status: 401 });
-    return NextResponse.json({ success: false, error: UNDO_TURNED_AWAY[guarded.refused] }, { status: 403 });
+    const error = undoTurnedAway(guarded.refused);
+    return NextResponse.json({ success: false, error: error }, { status: guarded.refused === "signIn" ? 401 : 403 });
   }
 
   const result = guarded.answer;

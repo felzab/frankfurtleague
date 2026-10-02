@@ -172,7 +172,11 @@ describe("who the undo spine answers before it does any work", () => {
         return {};
       });
 
-      assert.deepEqual(answer, { success: false, error: ADMIN_FORBIDDEN }, "the session check falls through instead of refusing");
+      assert.deepEqual(
+        answer,
+        { success: false, error: `${ADMIN_FORBIDDEN} Die Änderung steht weiterhin.` },
+        "the session check falls through instead of refusing",
+      );
       assert.equal(status, 401, "the refusal is answered with a status the dispatch reads as something else");
       // First rather than merely before the restore: a check behind the body's read has already worked for a caller nobody authorized.
       assert.equal(bodiesRead, 0, "the body is read for a caller nobody has authorized");
@@ -250,7 +254,7 @@ describe("who the undo spine answers before it does any work", () => {
       assert.equal(status, 200, "an unread grant turned the administrator away");
       assert.equal(answer.success, false);
       assert.ok(answer.error?.endsWith(AENDERUNG_STEHT_WEITERHIN), "the refusal does not say the change stands");
-      assert.notEqual(answer.error, ADMIN_FORBIDDEN, "an unread grant is told it holds no administration");
+      assert.ok(!answer.error?.startsWith(ADMIN_FORBIDDEN), "an unread grant is told it holds no administration");
       assert.equal(bodiesRead, 0, "the body is read for a caller nobody has authorized");
       assert.equal(restored, 0, "the undo restores while the grant is unread");
     } finally {
