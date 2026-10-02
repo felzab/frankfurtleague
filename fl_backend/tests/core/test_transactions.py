@@ -311,6 +311,12 @@ def _sessions_opened_past_the_helper() -> set[str]:
     return {f"{module} :: {scope}" for module, scope, call in app_calls() if callee(call) == "start_session" and not _is_a_snapshot(call)}
 
 
+# Every one, never a list of managers known to swallow: whether an `__exit__` swallows what the block
+# raised is the manager's choice at run time (`contextlib.suppress`, an anyio cancel scope), and no
+# block needs one.
+_CONTEXT_MANAGED = (ast.With, ast.AsyncWith)
+
+
 def _transaction_sessions() -> list[tuple[str, ast.AsyncWith]]:
     return [
         (path.relative_to(BACKEND_ROOT).as_posix(), node)
@@ -333,6 +339,9 @@ class TestEveryTransactionRunsOnTheHelpersSession:
         assert blocks
 
         catching = [
-            f"{module}:{block.lineno}" for module, block in blocks if any(isinstance(node, (ast.Try, ast.TryStar)) for node in ast.walk(block))
+            f"{module}:{node.lineno}"
+            for module, block in blocks
+            for node in ast.walk(block)
+            if node is not block and isinstance(node, (ast.Try, ast.TryStar, *_CONTEXT_MANAGED))
         ]
         assert catching == []
