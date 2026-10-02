@@ -60,7 +60,7 @@ SERVICE_NETWORKS: Final = {
 }
 
 # The checkout directory every credential file sits in, reached by nothing but a secret naming its file.
-SECRETS_DIRECTORY: Final = "secrets"
+SECRETS_PATH: Final = "secrets"
 # Where a service reads each file a secret or a config hands it (`fl_frontend/src/core/config.ts :: DEFAULT_SECRETS_DIR`).
 RUN_SECRETS: Final = "/run/secrets"
 # The local stack's database service, the one host its logins may name.
@@ -84,15 +84,15 @@ _EITHER_STACK: Final = {
 # does not read it is one more place it leaks from, and a reader lacking it refuses its boot (I508).
 SECRET_HOLDERS: Final[dict[str, dict[str, tuple[frozenset[str], str]]]] = {
     "production": {
-        **{secret: (holders, f"{SECRETS_DIRECTORY}/{secret}") for secret, holders in _EITHER_STACK.items()},
-        "tunnel_token": (frozenset({"cloudflared"}), f"{SECRETS_DIRECTORY}/tunnel_token"),
-        "auth_resend_key": (_FRONTEND, f"{SECRETS_DIRECTORY}/auth_resend_key"),
-        "resend_webhook_secret": (_FRONTEND, f"{SECRETS_DIRECTORY}/resend_webhook_secret"),
-        "frontend_mongodb_uri": (_FRONTEND, f"{SECRETS_DIRECTORY}/frontend_mongodb_uri"),
-        "backend_mongodb_uri": (_BACKEND, f"{SECRETS_DIRECTORY}/backend_mongodb_uri"),
+        **{secret: (holders, f"{SECRETS_PATH}/{secret}") for secret, holders in _EITHER_STACK.items()},
+        "tunnel_token": (frozenset({"cloudflared"}), f"{SECRETS_PATH}/tunnel_token"),
+        "auth_resend_key": (_FRONTEND, f"{SECRETS_PATH}/auth_resend_key"),
+        "resend_webhook_secret": (_FRONTEND, f"{SECRETS_PATH}/resend_webhook_secret"),
+        "frontend_mongodb_uri": (_FRONTEND, f"{SECRETS_PATH}/frontend_mongodb_uri"),
+        "backend_mongodb_uri": (_BACKEND, f"{SECRETS_PATH}/backend_mongodb_uri"),
     },
     # No connector, no mail and no provider event; both logins are `CONFIG_HOLDERS`'.
-    "local": {secret: (holders, f"{SECRETS_DIRECTORY}/{secret}") for secret, holders in _EITHER_STACK.items()},
+    "local": {secret: (holders, f"{SECRETS_PATH}/{secret}") for secret, holders in _EITHER_STACK.items()},
 }
 
 # Every file each stack hands a service as an inline config at `RUN_SECRETS`, by its holders: the local
@@ -224,11 +224,11 @@ def _declared_file(declared: object, project: Path) -> str:
 
 
 def secrets_directory(model: dict[str, Any], name: str, project: Path) -> list[Finding]:
-    """No bind mount and no config reaches into `SECRETS_DIRECTORY`, nor mounts one holding it.
+    """No bind mount and no config reaches into `SECRETS_PATH`, nor mounts one holding it.
 
     A secret is the one route a file there takes, so each reaches only the service naming it (I472, I508).
     """
-    directory = project / SECRETS_DIRECTORY
+    directory = project / SECRETS_PATH
     findings: list[Finding] = []
     for service, definition in sorted(services(model, name).items()):
         for volume in definition.get("volumes") or []:
@@ -746,7 +746,7 @@ def main() -> int:
         print(f"      the local stack's logins are inline configs naming its own {LOCAL_DATABASE_SERVICE} service alone")
         print("      no service is handed a moved credential's name in its environment")
         print("      the frontend is handed every file its schema requires on each stack, and none it never reads")
-        print(f"      no service mounts {SECRETS_DIRECTORY}/ but through a secret naming its file")
+        print(f"      no service mounts {SECRETS_PATH}/ but through a secret naming its file")
     return code
 
 
