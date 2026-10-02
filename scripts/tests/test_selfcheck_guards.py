@@ -370,6 +370,7 @@ def _pin_check(name: str, manifest: str, dockerfile: str, tmp_path: Path) -> str
             "note_fail() { printf 'FAIL %s\\n' \"$*\"; }",
             "info() { printf 'INFO %s\\n' \"$*\"; }",
             _function("first_disagreeing_tag"),
+            _function("judge_pin"),
             _function(name),
             f"{name} {pinned.as_posix()!r} {image.as_posix()!r}",
         ),

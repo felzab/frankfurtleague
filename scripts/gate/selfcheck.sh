@@ -934,26 +934,35 @@ first_disagreeing_tag() { # $1 exact, or series for a pin naming a series · $2 
   done
 }
 
-check_uv_pin() { # $1 the manifest · $2 the Dockerfile
-  local pin other
-  local -a tags
-  pin="$(sed -n 's/^required-version = "==\([0-9][^"]*\)"/\1/p' "$1")"
-  mapfile -t tags < <(sed -n 's|^FROM ghcr.io/astral-sh/uv:\([^ @]*\)[@ ].*|\1|p' "$2")
-  if [[ -z "$pin" || ${#tags[@]} -eq 0 ]]; then
+# The one judgement every pin step makes; each step's reader differs and hands it the two values.
+judge_pin() { # $1 what is pinned · $2 exact, or series · $3 the manifest · $4 the Dockerfile · $5 what a disagreement costs · $6 the pin · $7… the tags
+  local what="$1" mode="$2" manifest="$3" dockerfile="$4" cost="$5" pin="$6" other
+  shift 6
+  if [[ -z "$pin" || $# -eq 0 ]]; then
     # Not a skip: a spelling this cannot read is the same silence the step exists to remove.
-    note_fail "could not read the uv version from both files — pin '${pin:-none}', image tag '${tags[*]:-none}'"
+    note_fail "could not read the ${what} version from both files — ${manifest} '${pin:-none}', ${dockerfile} '${*:-none}'"
     return 0
   fi
-  other="$(first_disagreeing_tag exact "$pin" "${tags[@]}")"
+  other="$(first_disagreeing_tag "$mode" "$pin" "$@")"
   if [[ -n "$other" ]]; then
-    note_fail "${1} pins uv ${pin} and ${2} copies in ${other}; uv sync refuses the pair, so the backend image cannot build"
+    note_fail "${manifest} pins ${what} ${pin} and ${dockerfile} carries ${other}; ${cost}"
+  elif [[ "$mode" == series ]]; then
+    info "${what} ${*} in the image, inside the ${pin} the repository pins"
   else
-    info "uv ${pin} in the manifest and the image"
+    info "${what} ${pin} in the manifest and the image"
   fi
 }
 
+check_uv_pin() { # $1 the manifest · $2 the Dockerfile
+  local pin
+  local -a tags
+  pin="$(sed -n 's/^required-version = "==\([0-9][^"]*\)"/\1/p' "$1")"
+  mapfile -t tags < <(sed -n 's|^FROM ghcr.io/astral-sh/uv:\([^ @]*\)[@ ].*|\1|p' "$2")
+  judge_pin uv exact "$1" "$2" "uv sync refuses the pair, so the backend image cannot build" "$pin" "${tags[@]}"
+}
+
 check_node_pin() { # $1 the manifest · $2 the Dockerfile
-  local pin other
+  local pin
   local -a tags
   # Scoped to `devEngines` then `runtime`: the manifest's own top-level `version` names the package.
   pin="$(awk '
@@ -965,50 +974,23 @@ check_node_pin() { # $1 the manifest · $2 the Dockerfile
     }
   ' "$1")"
   mapfile -t tags < <(sed -n 's|^FROM node:\([0-9][^-@ ]*\)[-@ ].*|\1|p' "$2")
-  if [[ -z "$pin" || ${#tags[@]} -eq 0 ]]; then
-    note_fail "could not read the Node version from both files — devEngines '${pin:-none}', image tag '${tags[*]:-none}'"
-    return 0
-  fi
-  other="$(first_disagreeing_tag exact "$pin" "${tags[@]}")"
-  if [[ -n "$other" ]]; then
-    note_fail "${1} pins Node ${pin} and ${2} builds on ${other}; move the one the bot left behind, and the lockfile with the manifest (pnpm install)"
-  else
-    info "Node ${pin} in the manifest and the image"
-  fi
+  judge_pin Node exact "$1" "$2" "move the one the bot left behind, and the lockfile with the manifest (pnpm install)" "$pin" "${tags[@]}"
 }
 
 check_pnpm_pin() { # $1 the manifest · $2 the Dockerfile
-  local pin other
+  local pin
   local -a tags
   pin="$(sed -n 's/^[[:space:]]*"packageManager":[[:space:]]*"pnpm@\([0-9][^"+]*\).*/\1/p' "$1")"
   mapfile -t tags < <(sed -n 's/^ARG PNPM_VERSION=\([^[:space:]]*\).*/\1/p' "$2")
-  if [[ -z "$pin" || ${#tags[@]} -eq 0 ]]; then
-    note_fail "could not read the pnpm version from both files — packageManager '${pin:-none}', PNPM_VERSION '${tags[*]:-none}'"
-    return 0
-  fi
-  other="$(first_disagreeing_tag exact "$pin" "${tags[@]}")"
-  if [[ -n "$other" ]]; then
-    note_fail "${1} names pnpm ${pin} and ${2} installs ${other}; bump both"
-  else
-    info "pnpm ${pin} in the manifest and the image"
-  fi
+  judge_pin pnpm exact "$1" "$2" "bump both" "$pin" "${tags[@]}"
 }
 
 check_python_series() { # $1 the .python-version file · $2 the Dockerfile
-  local pin other
+  local pin
   local -a tags
   pin="$(sed -n '1s/^\([0-9][0-9.]*\)[[:space:]]*$/\1/p' "$1")"
   mapfile -t tags < <(sed -n 's|^FROM python:\([0-9][^-@ ]*\)[-@ ].*|\1|p' "$2")
-  if [[ -z "$pin" || ${#tags[@]} -eq 0 ]]; then
-    note_fail "could not read the Python version from both files — .python-version '${pin:-none}', image tag '${tags[*]:-none}'"
-    return 0
-  fi
-  other="$(first_disagreeing_tag series "$pin" "${tags[@]}")"
-  if [[ -n "$other" ]]; then
-    note_fail "${1} names Python ${pin} and ${2} runs ${other}, outside it; CI and the virtualenv test a Python production does not run"
-  else
-    info "Python ${tags[*]} in the image, inside the ${pin} the repository pins"
-  fi
+  judge_pin Python series "$1" "$2" "CI and the virtualenv test a Python production does not run" "$pin" "${tags[@]}"
 }
 
 step "15. The uv version is one number in two files"
