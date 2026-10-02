@@ -1160,7 +1160,7 @@ describe("which floor the confirmation form judges a typed date by", () => {
     const { user } = renderBestaetigung(VERTRETUNG_MIN_ALTER);
     await tippeGeburtsdatum(user, zwischenDenBoeden());
 
-    assert.notEqual(zuJungPanel(), null, "a seventeen-year-old is accepted at a seat whose floor is eighteen");
+    assert.ok(zuJungPanel() !== null, "a seventeen-year-old is accepted at a seat whose floor is eighteen");
     assert.ok(
       (zuJungPanel()?.parentElement?.textContent ?? "").includes(`ab ${String(VERTRETUNG_MIN_ALTER)}`),
       "the panel that names the floor and points at the Widerspruch states another number",
@@ -1173,7 +1173,7 @@ describe("which floor the confirmation form judges a typed date by", () => {
     const { user } = renderBestaetigung(BEWERBUNG_MIN_ALTER);
     await tippeGeburtsdatum(user, zwischenDenBoeden());
 
-    assert.equal(zuJungPanel(), null, "a seventeen-year-old is turned away at the seat whose floor is sixteen");
+    assert.ok(zuJungPanel() === null, "a seventeen-year-old is turned away at the seat whose floor is sixteen");
   });
 
   /* The confirmation's submit runs outside the two-press hook, so this panel alone hands its control

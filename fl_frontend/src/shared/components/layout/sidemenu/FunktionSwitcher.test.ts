@@ -169,7 +169,7 @@ describe("what the switcher lists", () => {
     const bereich = within(menu).getByRole("menuitem", { name: "Zu Deinem Bereich" });
 
     assert.equal(bereich.getAttribute("aria-checked"), null, "the way to /bereich is offered as a place to choose");
-    assert.equal(bereich.closest('[role="group"]'), null, "the way to /bereich sits in a group of its own name");
+    assert.ok(bereich.closest('[role="group"]') === null, "the way to /bereich sits in a group of its own name");
     assert.equal(menu.getAttribute("aria-label"), null, "the menu carries a name its trigger's overrides");
   });
 
