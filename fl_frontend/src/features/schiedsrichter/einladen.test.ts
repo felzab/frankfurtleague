@@ -142,6 +142,14 @@ describe("the re-send the editor's panel presses", () => {
     }
   });
 
+  it("answers a re-send whose link broke off in transit as of unknown outcome", async () => {
+    mail.answerWith(() => "lost");
+
+    const res = await einladeSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
+
+    assert.deepEqual(res, unansweredAction());
+  });
+
   /* Judged before the mint: a round trip to be told what the panel can already see is one nobody
      owes, and a mint whose message cannot leave stamps a send day for a message that never went. */
   it("refuses a row with no address without minting anything", async () => {
@@ -213,6 +221,14 @@ describe("what the create tells the administrator", () => {
     const res = await postSchiedsrichterAction(ENTWURF);
 
     assert.equal(res.success && res.message, describeLinkMail("anna@example.de", "gesendet"));
+  });
+
+  it("answers a create whose link broke off in transit as of unknown outcome", async () => {
+    mail.answerWith(() => "lost");
+
+    const res = await postSchiedsrichterAction(ENTWURF);
+
+    assert.deepEqual(res, unansweredAction());
   });
 
   /* The cleared box submits `null`: refused on that box in German, before the endpoint is reached,
@@ -354,6 +370,14 @@ describe("the reactivation of an unanswered referee", () => {
 
     assert.equal(res.success && res.message, describeLinkMail("anna@example.de", "fehlgeschlagen"));
     assert.equal(res.success && res.versandFehlgeschlagen, true);
+  });
+
+  it("answers a reactivation whose link broke off in transit as of unknown outcome", async () => {
+    mail.answerWith(() => "lost");
+
+    const res = await reactivateSchiedsrichterAction({ id: SCHIEDSRICHTER_ID });
+
+    assert.deepEqual(res, unansweredAction());
   });
 
   it("mails nothing where the row came back unasked", async () => {
