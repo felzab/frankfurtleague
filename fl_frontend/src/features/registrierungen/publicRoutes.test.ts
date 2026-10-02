@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { createRef, createElement as h } from "react";
 
 import { parseDate } from "@internationalized/date";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -43,6 +43,7 @@ const failureToasts = () =>
 const { RegistrierungView } = await import("./components/views/RegistrierungView.tsx");
 const { RegistrierungFormPanel } = await import("./components/views/RegistrierungFormPanel.tsx");
 const { SpielerBestaetigungView } = await import("./components/views/SpielerBestaetigungView.tsx");
+const { AdresseGesperrt } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
 const { NUMMER_MAX_LENGTH, STUFE_OPTIONS } = await import("@/features/spieler/constants.ts");
 
 const { default: SpielerBestaetigungPage } = await import("@/app/(public)/bestaetigung/spieler/page.tsx");
@@ -778,14 +779,12 @@ describe("the media switch, offered from the media age alone", () => {
 });
 
 describe("what a link to a barred address opens on", () => {
-  /* The page is the sentence and nothing else: a question or a deletion goes by mail to the address
-     the sentence names, so no heading, form, press or link stands beside it. */
-  it("shows the approved sentence and nothing else", () => {
-    const html = renderMarkup(SpielerBestaetigungView, { start: { zustand: "gesperrt" }, fassung: FASSUNG });
-
-    assert.equal(textOf(html, " ").replace(/\s+/g, " ").trim(), LINK_ADRESSE_GESPERRT);
-    assert.doesNotMatch(html, /<(h[1-6]|form|button|a|input)\b/, "the barred page renders something beside the sentence");
-    assert.match(html, /role="status"/, "the barred page is announced to nobody");
+  it("is the shared barred page and nothing beside it", () => {
+    assert.equal(
+      renderMarkup(SpielerBestaetigungView, { start: { zustand: "gesperrt" }, fassung: FASSUNG }),
+      renderMarkup(AdresseGesperrt, { panelRef: createRef<HTMLElement>() }),
+      "the page draws its own barred page, or something beside the shared one",
+    );
   });
 
   /* A ban entered while the form stood open: the refused press swaps the form for the same page
@@ -812,5 +811,32 @@ describe("what a link to a barred address opens on", () => {
     assert.ok(shown, "the page kept the form the press cannot use again");
     assert.equal(buttons, 0, "a press stands beside the barred sentence");
     assert.equal(toasts, 0, "the ban was raised as a toast over the form");
+  });
+});
+
+describe("the address a link page opened under", () => {
+  /** Where the page stands once it has opened at `url`. */
+  function adresseNach(url: string, seite: ReactElement): string {
+    window.history.replaceState(null, "", url);
+    const { unmount } = render(seite);
+    const adresse = `${window.location.pathname}${window.location.search}`;
+    unmount();
+
+    return adresse;
+  }
+
+  it("loses the invite's token on the registration page", () => {
+    const adresse = adresseNach("/registrierung?token=kein-echtes-token", h(RegistrierungView, { start: { zustand: "ungueltig" } }));
+
+    assert.equal(adresse, "/registrierung", "the page leaves its token in the address bar");
+  });
+
+  it("loses the link's token on the pupil's confirmation page", () => {
+    const adresse = adresseNach(
+      "/bestaetigung/spieler?token=kein-echtes-token",
+      h(SpielerBestaetigungView, { start: { zustand: "bestaetigt" }, fassung: FASSUNG }),
+    );
+
+    assert.equal(adresse, "/bestaetigung/spieler", "the page leaves its token in the address bar");
   });
 });

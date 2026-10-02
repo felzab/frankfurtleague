@@ -1,17 +1,93 @@
+import "@/shared/testing/dom.ts";
 import "@/shared/testing/renderTest.ts";
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { createRef } from "react";
+
+import { act, renderHook } from "@testing-library/react";
+
 import { renderMarkup, textOf } from "@/shared/testing/renderTest.ts";
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
-const { Gefuellt } = await import("./BestaetigungPanels.tsx");
+const { AdresseGesperrt, Gefuellt, SEITE_CLASSES, useAdresseOhneToken, useLinkSeite } = await import("./BestaetigungPanels.tsx");
+
+const PFAD = "/bestaetigung/kontakt";
+const MIT_TOKEN = `${PFAD}?token=kein-echtes-token`;
+
+/** The address the page stands at, as the address bar shows it. */
+const adresse = (): string => `${window.location.pathname}${window.location.search}`;
 
 describe("a stamped sentence with its slots filled", () => {
   it("leaves a slot no record filled standing", () => {
     const html = renderMarkup(Gefuellt, { text: "{rolle} für {schule}", werte: { schule: "Lessing-Kolleg" }, eigene: new Set<string>() });
 
     assert.equal(textOf(html), "{rolle} für Lessing-Kolleg");
+  });
+});
+
+describe("the address a link page opened under", () => {
+  it("loses the token and keeps the path", () => {
+    window.history.replaceState(null, "", MIT_TOKEN);
+    renderHook(() => useAdresseOhneToken("gueltig"));
+
+    assert.equal(adresse(), PFAD, "the token stays in the address bar, a bookmark and a screenshot");
+  });
+
+  it("keeps the token while the read failed", () => {
+    window.history.replaceState(null, "", MIT_TOKEN);
+    renderHook(() => useAdresseOhneToken("unlesbar"));
+
+    assert.equal(adresse(), MIT_TOKEN, "a reload can no longer retry the read the page could not make");
+  });
+
+  it("loses it on a confirmation page too", () => {
+    window.history.replaceState(null, "", MIT_TOKEN);
+    renderHook(() => useLinkSeite("gueltig"));
+
+    assert.equal(adresse(), PFAD, "the confirmation page's shell leaves the token in the address bar");
+  });
+});
+
+describe("the panel that answers a press", () => {
+  it("takes the focus once the press is answered, and not before", () => {
+    const panel = document.body.appendChild(document.createElement("section"));
+    panel.tabIndex = -1;
+    const { result } = renderHook(() => useLinkSeite("gueltig"));
+    result.current.ergebnisRef.current = panel;
+
+    // A boolean rather than the node: a failing `assert.equal` inspects its operand without a depth
+    // bound, and a DOM node's graph exhausts the machine's memory before the message is built.
+    const vorher = document.activeElement === panel;
+    act(() => result.current.beantwortet());
+    const nachher = document.activeElement === panel;
+    panel.remove();
+
+    assert.ok(!vorher, "the panel took the focus before anything was pressed");
+    assert.ok(nachher, "the answer replaced the form and the focus fell to the page");
+  });
+});
+
+describe("what a link to a barred address opens on", () => {
+  /* The page is the sentence and nothing else: a Widerspruch or a question goes by mail to the
+     address the sentence names, so no heading, form, press or link stands beside it. */
+  it("shows the approved sentence and nothing else", () => {
+    const html = renderMarkup(AdresseGesperrt, { panelRef: createRef<HTMLElement>() });
+
+    // Written out here, once: every other barred-link case compares with the constant, which a
+    // rewording of the constant alone would carry along with it.
+    assert.equal(
+      textOf(html, " ").replace(/\s+/g, " ").trim(),
+      "Deine E-Mail-Adresse ist gesperrt. Wenn Du das für einen Fehler hältst, schreib uns an kontakt@frankfurtleague.de.",
+    );
+    assert.doesNotMatch(html, /<(h[1-6]|form|button|a|input)\b/, "the barred page renders something beside the sentence");
+    assert.match(html, /role="status"/, "the barred page is announced to nobody");
+  });
+
+  it("stands in the column every other state of the page stands in", () => {
+    const html = renderMarkup(AdresseGesperrt, { panelRef: createRef<HTMLElement>() });
+
+    assert.ok(html.startsWith(`<section class="${SEITE_CLASSES}">`), "the barred page draws a column of its own");
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
@@ -9,6 +9,8 @@ import {
   BestaetigungErgebnis,
   FaktenBanner,
   FrageStellen,
+  SEITE_CLASSES,
+  useAdresseOhneToken,
   Wert,
 } from "@/features/bewerbungen/components/views/BestaetigungPanels";
 import { SaisonChip } from "@/features/saisons/components/ui/SaisonChip";
@@ -39,9 +41,6 @@ const TITEL: Record<Stand, string> = {
   unlesbar: "Link nicht geprüft",
 };
 
-/** The application page's own column, so the two public forms are one page wide. */
-const SEITE_CLASSES = "flex w-full max-w-meta flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
-
 /** What the page knows about the team, or `null` where it may name nobody. */
 type Geoeffnet = { stand: Stand; ansicht: FLEinladungAnsichtResponse | null };
 
@@ -63,12 +62,7 @@ export function RegistrierungView({ start }: { start: RegistrierungStart }) {
   const [istTot, setIstTot] = useState(false);
   const { stand, ansicht } = standVon(start, istTot);
 
-  useEffect(() => {
-    // The bare path after hydration, so the address bar, a screenshot and a bookmark carry no token.
-    // Not while the read failed: a reload is the way back, and it needs the token in the URL.
-    if (stand === "unlesbar" || window.location.search === "") return;
-    window.history.replaceState(null, "", window.location.pathname);
-  }, [stand]);
+  useAdresseOhneToken(stand);
 
   return (
     <section className={SEITE_CLASSES}>

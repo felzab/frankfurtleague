@@ -4,7 +4,7 @@ import "@/shared/testing/renderTest.ts";
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
-import { createElement as h } from "react";
+import { createRef, createElement as h } from "react";
 
 import { parseDate } from "@internationalized/date";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -35,6 +35,7 @@ const { raised: toasts } = doubleToasts();
 
 /* `await import`, never a static import beside the harness (`docs/frontend/spec.md` §1.9). */
 const { SchiedsrichterBestaetigungView } = await import("./SchiedsrichterBestaetigungView.tsx");
+const { AdresseGesperrt } = await import("@/features/bewerbungen/components/views/BestaetigungPanels.tsx");
 const { unshownRefusal } = await import("@/shared/hooks/useServerFieldErrors.ts");
 
 const TOKEN = "abc123";
@@ -317,14 +318,12 @@ describe("what the press sends", () => {
 });
 
 describe("what a link to a barred address opens on", () => {
-  /* The page is the sentence and nothing else: a question or a deletion goes by mail to the address
-     the sentence names, so no heading, form, press or link stands beside it. */
-  it("shows the approved sentence and nothing else", () => {
-    const html = markup({ zustand: "gesperrt" });
-
-    assert.equal(words(html), LINK_ADRESSE_GESPERRT);
-    assert.doesNotMatch(html, /<(h[1-6]|form|button|a|input)\b/, "the barred page renders something beside the sentence");
-    assert.match(html, /role="status"/, "the barred page is announced to nobody");
+  it("is the shared barred page and nothing beside it", () => {
+    assert.equal(
+      markup({ zustand: "gesperrt" }),
+      renderTree(h(AdresseGesperrt, { panelRef: createRef<HTMLElement>() })),
+      "the page draws its own barred page, or something beside the shared one",
+    );
   });
 
   /* A ban entered while the form stood open: the refused press swaps the form for the same page
@@ -343,6 +342,19 @@ describe("what a link to a barred address opens on", () => {
     assert.ok(await screen.findByText(LINK_ADRESSE_GESPERRT), "the page kept the form the press cannot use again");
     assert.equal(screen.queryAllByRole("button").length, 0, "a press stands beside the barred sentence");
     assert.deepEqual(toasts, [], "the ban was raised as a toast over the form");
+  });
+});
+
+describe("the address the confirmation page opened under", () => {
+  it("loses the link's token once the page is open", () => {
+    window.history.replaceState(null, "", "/bestaetigung/schiedsrichter?token=kein-echtes-token");
+    render(h(SchiedsrichterBestaetigungView, { start: { zustand: "bestaetigt" } }));
+
+    assert.equal(
+      `${window.location.pathname}${window.location.search}`,
+      "/bestaetigung/schiedsrichter",
+      "the page leaves its token in the address bar",
+    );
   });
 });
 

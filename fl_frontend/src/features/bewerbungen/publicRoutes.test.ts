@@ -6,7 +6,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, it, mock } from "node:test";
 
-import { act, createElement as h } from "react";
+import { act, createRef, createElement as h } from "react";
 
 import { parseDate } from "@internationalized/date";
 import { render, screen, within } from "@testing-library/react";
@@ -73,7 +73,7 @@ const { BestaetigungFormPanel } = await import("./components/views/BestaetigungF
 const ABLEHNEN_LABEL = "Ich möchte nicht eingetragen sein";
 const { BestaetigungHinweise, KlickBestaetigung, WhatsappHinweis, WiderspruchFolge } =
   await import("./components/views/BestaetigungHinweise.tsx");
-const { FaktenBanner, GespeicherteAngaben, Wert } = await import("./components/views/BestaetigungPanels.tsx");
+const { AdresseGesperrt, FaktenBanner, GespeicherteAngaben, Wert } = await import("./components/views/BestaetigungPanels.tsx");
 const { BestaetigungView } = await import("./components/views/BestaetigungView.tsx");
 
 const FRONTEND_DIR = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -1357,19 +1357,12 @@ describe("what a link to a barred address opens on", () => {
     mindestalter: BEWERBUNG_MIN_ALTER,
   } as const;
 
-  /* The page is the sentence and nothing else: a Widerspruch or a question goes by mail to the
-     address the sentence names, so no heading, form, press or link stands beside it. */
-  it("shows the approved sentence and nothing else", () => {
-    const html = renderMarkup(BestaetigungView, { start: { zustand: "gesperrt" } });
-
-    // Written out here, once: every other barred-link case compares with the constant, which a
-    // rewording of the constant alone would carry along with it.
+  it("is the shared barred page and nothing beside it", () => {
     assert.equal(
-      textOf(html, " ").replace(/\s+/g, " ").trim(),
-      "Deine E-Mail-Adresse ist gesperrt. Wenn Du das für einen Fehler hältst, schreib uns an kontakt@frankfurtleague.de.",
+      renderMarkup(BestaetigungView, { start: { zustand: "gesperrt" } }),
+      renderMarkup(AdresseGesperrt, { panelRef: createRef<HTMLElement>() }),
+      "the page draws its own barred page, or something beside the shared one",
     );
-    assert.doesNotMatch(html, /<(h[1-6]|form|button|a|input)\b/, "the barred page renders something beside the sentence");
-    assert.match(html, /role="status"/, "the barred page is announced to nobody");
   });
 
   /* A ban entered while the form stood open: the refused press swaps the form for the same page
@@ -1393,5 +1386,16 @@ describe("what a link to a barred address opens on", () => {
     assert.ok(shown, "the page kept the form the press cannot use again");
     assert.equal(buttons, 0, "a press — a Widerspruch among them — stands beside the barred sentence");
     assert.equal(toasts, 0, "the ban was raised as a toast over the form");
+  });
+});
+
+describe("the address the confirmation page opened under", () => {
+  it("loses the link's token once the page is open", () => {
+    window.history.replaceState(null, "", "/bestaetigung/kontakt?token=kein-echtes-token");
+    const { unmount } = render(h(BestaetigungView, { start: { zustand: "bestaetigt" } }));
+    const adresse = `${window.location.pathname}${window.location.search}`;
+    unmount();
+
+    assert.equal(adresse, "/bestaetigung/kontakt", "the page leaves its token in the address bar");
   });
 });

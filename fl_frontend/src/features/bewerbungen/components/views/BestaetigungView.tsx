@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { KONTAKT_EMAIL } from "@/core/brand";
 import { joinUnd } from "@/core/joinUnd";
@@ -18,6 +18,8 @@ import {
   FaktenBanner,
   FrageStellen,
   GespeicherteAngaben,
+  SEITE_CLASSES,
+  useLinkSeite,
   Wert,
   ZurLiga,
 } from "./BestaetigungPanels";
@@ -48,9 +50,6 @@ const TITEL: Record<Exclude<Stand["zustand"], "gesperrt">, string> = {
   unlesbar: "Link nicht geprüft",
 };
 
-/** The application page's own column, so the two ends of the workflow are one page wide. */
-const SEITE_CLASSES = "flex w-full max-w-meta flex-col gap-6 px-3 pt-4 pb-10 sm:px-6 lg:px-8 lg:pt-8";
-
 /**
  * Every seat one answer on this link writes, as one phrase: in the table's order and joined as
  * `fl_frontend/src/features/bewerbungen/notifications.ts :: rollenText` joins them, so the page names
@@ -78,29 +77,9 @@ function saisonVon(stand: Stand): string | null {
  */
 export function BestaetigungView({ start }: { start: BestaetigungStart }) {
   const [stand, setStand] = useState<Stand>(start);
-  const [hatGeantwortet, setHatGeantwortet] = useState(false);
-  const ergebnisRef = useRef<HTMLElement>(null);
+  const { ergebnisRef, beantwortet } = useLinkSeite(stand.zustand);
 
-  useEffect(() => {
-    // The bare path after hydration, so the address bar, a screenshot and a bookmark carry no
-    // token. Not while the read failed: a reload is the way back, and it needs the token in the URL.
-    if (stand.zustand === "unlesbar" || window.location.search === "") return;
-    window.history.replaceState(null, "", window.location.pathname);
-  }, [stand.zustand]);
-
-  // The form unmounts from under the pressed button, so focus would fall to `<body>` with nothing
-  // announced; the panel takes it, and `role="status"` reads it out.
-  useEffect(() => {
-    if (hatGeantwortet) ergebnisRef.current?.focus();
-  }, [hatGeantwortet]);
-
-  if (stand.zustand === "gesperrt") {
-    return (
-      <section className={SEITE_CLASSES}>
-        <AdresseGesperrt panelRef={ergebnisRef} />
-      </section>
-    );
-  }
+  if (stand.zustand === "gesperrt") return <AdresseGesperrt panelRef={ergebnisRef} />;
 
   const saison = saisonVon(stand);
 
@@ -138,7 +117,7 @@ export function BestaetigungView({ start }: { start: BestaetigungStart }) {
           rolle={rollenLangform(stand.ansicht)}
           mindestalter={stand.ansicht.mindestalter}
           onAbschluss={(abschluss) => {
-            setHatGeantwortet(true);
+            beantwortet();
             setStand(nachAntwort(abschluss, stand.ansicht));
           }}
         />
