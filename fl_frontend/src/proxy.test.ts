@@ -8,16 +8,18 @@ import "next/dist/server/node-environment-baseline.js";
 import {
   ADMIN_EMAIL,
   configDouble,
-  cookieHeader,
   GATE_BACKEND_CONFIG,
   HOLDS_NOTHING,
   madeByPasskey,
   memoryAdapterDouble,
+  memoryStore,
   ORIGIN,
   registerAuthDoubles,
   seatEveryAddress,
-  signInByCode,
+  sessionByCode,
 } from "./core/authDoubles.ts";
+
+import type { SessionRow } from "./core/authDoubles.ts";
 
 const STORE = "__flProxyStore";
 /** What the request a case arrives as carries, which `arriveAs` sets. */
@@ -43,26 +45,7 @@ registerAuthDoubles({
   },
 });
 
-type SessionRow = {
-  token: string;
-  userId: string;
-  createdAt: Date;
-  updatedAt: Date;
-  expiresAt: Date;
-  authFactor?: string;
-  passkeyCredentialId?: string;
-};
-
-type Store = {
-  user: unknown[];
-  session: SessionRow[];
-  account: unknown[];
-  verification: { id: string; identifier: string; value: string; expiresAt: Date; createdAt: Date; updatedAt: Date }[];
-  passkey: unknown[];
-};
-
-const store: Store = { user: [], session: [], account: [], verification: [], passkey: [] };
-(globalThis as unknown as Record<string, unknown>)[STORE] = store;
+const store = memoryStore(STORE);
 
 // Imported here rather than at the top: a static import resolves before the hooks above are
 // registered, so neither the doubles nor the `next/server` extension would be in place yet.
@@ -80,14 +63,7 @@ function arriveAs(cookie: string | null): void {
 
 arriveAs(null);
 
-async function signIn(email: string): Promise<{ cookie: string; row: SessionRow }> {
-  const cookie = cookieHeader(await signInByCode(auth, email));
-
-  const row = store.session.at(-1);
-  assert.ok(row !== undefined, "the verification wrote no session row");
-
-  return { cookie, row };
-}
+const signIn = (email: string) => sessionByCode(auth, store, email);
 
 const admin = await signIn(ADMIN_EMAIL);
 // Stamped, because an administrator who has only followed the link is turned away by design and

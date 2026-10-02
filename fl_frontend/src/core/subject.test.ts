@@ -7,16 +7,17 @@ import {
   ACTOR_KEY_PAIR,
   ADMIN_EMAIL,
   configDouble,
-  cookieHeader,
   HOLDS_NOTHING,
   madeByPasskey,
   memoryAdapterDouble,
+  memoryStore,
   ORIGIN,
   registerAuthDoubles,
-  signInByCode,
+  sessionByCode,
 } from "./authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, serveServerReactTo } from "./cacheScope.ts";
 
+import type { SessionRow } from "./authDoubles.ts";
 import type { RequestActor } from "./requestScope.ts";
 
 const STORE = "__flSubjectStore";
@@ -57,20 +58,7 @@ registerAuthDoubles({
   specifiers: { "next/headers": HEADERS_DOUBLE, "@better-auth/mongo-adapter": memoryAdapterDouble(STORE) },
 });
 
-type SessionRow = { token: string; userId: string; expiresAt: Date; createdAt: Date; updatedAt: Date; authFactor?: string };
-
-type Store = {
-  user: { id: string; email: string }[];
-  session: SessionRow[];
-  account: unknown[];
-  verification: { id: string; identifier: string; value: string; expiresAt: Date; createdAt: Date; updatedAt: Date }[];
-  passkey: { userId: string }[];
-};
-
-const store: Store = { user: [], session: [], account: [], verification: [], passkey: [] };
-
-const globals = globalThis as unknown as Record<string, unknown>;
-globals[STORE] = store;
+const store = memoryStore(STORE);
 
 /** One record set the league holds, as the endpoint answers it. */
 type Subjekt = {
@@ -157,17 +145,13 @@ const { APINetworkError } = await import("./errors.ts");
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
-/** Mints a session the way a typed code does, and hands back its cookie and its stored row. */
 async function signIn(email: string): Promise<{ cookie: string; row: SessionRow }> {
-  const cookie = cookieHeader(await signInByCode(auth, email));
-
-  const row = store.session.at(-1);
-  assert.ok(row !== undefined, "the verification wrote no session row");
+  const session = await sessionByCode(auth, store, email);
 
   // The sign-in is a request of its own: its gate's lookup must not answer the guard's below.
   beginRenderPass();
 
-  return { cookie: cookie, row: row };
+  return session;
 }
 
 /** Answers the guard as one request would: the cookie it reads off `headers()`. */

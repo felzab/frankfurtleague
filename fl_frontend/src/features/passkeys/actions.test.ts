@@ -7,15 +7,16 @@ import {
   ADMIN_EMAIL,
   asDataUrl,
   configDouble,
-  cookieHeader,
   GATE_BACKEND_CONFIG,
+  memoryStore,
   ORIGIN,
   registerAuthDoubles,
   seatEveryAddress,
-  signInByCode,
+  sessionByCode,
 } from "@/core/authDoubles.ts";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
+import type { SessionRow } from "@/core/authDoubles.ts";
 import type { MemoryDB } from "better-auth/adapters/memory";
 
 /** Granted nothing: the person lane of every guard below. */
@@ -62,26 +63,7 @@ const mail = registerAuthDoubles({
   },
 });
 
-type SessionRow = {
-  id: string;
-  token: string;
-  userId: string;
-  expiresAt: Date;
-  createdAt: Date;
-  updatedAt: Date;
-  authFactor?: string;
-  passkeyCredentialId?: string;
-};
-
-type Store = {
-  user: { id: string; email: string }[];
-  session: SessionRow[];
-  account: unknown[];
-  verification: { id: string; identifier: string; value: string; expiresAt: Date; createdAt: Date; updatedAt: Date }[];
-  passkey: Record<string, unknown>[];
-};
-
-const store: Store = { user: [], session: [], account: [], verification: [], passkey: [] };
+const store = memoryStore("__flPasskeysStore");
 const sent = mail.sent;
 
 // Imported here rather than at the top: a static import resolves before the hooks above are
@@ -101,15 +83,7 @@ beforeEach(() => {
   cacheCalls.length = 0;
 });
 
-/** Mints a session the way a typed code does, and hands back its cookie and its stored row. */
-async function signIn(email: string): Promise<{ cookie: string; row: SessionRow }> {
-  const cookie = cookieHeader(await signInByCode(auth, email));
-
-  const row = store.session.at(-1);
-  assert.ok(row !== undefined, "the verification wrote no session row");
-
-  return { cookie, row };
-}
+const signIn = (email: string) => sessionByCode(auth, store, email);
 
 /** A session the named passkey made `ageMs` ago: the stamp its assertion writes, set on the stored row. */
 async function signedInWith(email: string, credentialID: string, ageMs = 0): Promise<{ cookie: string; row: SessionRow }> {

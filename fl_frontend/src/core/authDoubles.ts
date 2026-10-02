@@ -177,6 +177,49 @@ export async function signInByCode(
   return auth.api.signInEmailOTP({ body: { email, otp }, headers: new Headers(headers), returnHeaders: true });
 }
 
+/** A session row as the library's in-memory store holds one. */
+export type SessionRow = {
+  id: string;
+  token: string;
+  userId: string;
+  expiresAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  authFactor?: string;
+  passkeyCredentialId?: string;
+};
+
+/** The library's in-memory store, typed as far as a case reads it. */
+export type MemoryStore = {
+  user: { id: string; email: string }[];
+  session: SessionRow[];
+  account: unknown[];
+  verification: { id: string; identifier: string; value: string; expiresAt: Date; createdAt: Date; updatedAt: Date }[];
+  passkey: Record<string, unknown>[];
+};
+
+/** An empty store, held at `globalThis[name]`, where `memoryAdapterDouble(name)` serves it from. */
+export function memoryStore(name: string): MemoryStore {
+  const store: MemoryStore = { user: [], session: [], account: [], verification: [], passkey: [] };
+  Reflect.set(globalThis, name, store);
+
+  return store;
+}
+
+/** `signInByCode`'s session, as its cookie and the row `store` holds for it. */
+export async function sessionByCode(
+  auth: typeof AuthInstance,
+  store: MemoryStore,
+  email: string,
+): Promise<{ cookie: string; row: SessionRow }> {
+  const cookie = cookieHeader(await signInByCode(auth, email));
+
+  const row = store.session.at(-1);
+  assert.ok(row !== undefined, "the verification wrote no session row");
+
+  return { cookie, row };
+}
+
 /** Where the sign-in gate's one backend read goes, in every config double this file builds. */
 export const GATE_BACKEND_CONFIG = {
   API_URL: "http://backend.test",

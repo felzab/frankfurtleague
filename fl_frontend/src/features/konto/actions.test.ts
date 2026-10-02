@@ -5,14 +5,14 @@ import {
   ADMIN_EMAIL,
   asDataUrl,
   configDouble,
-  cookieHeader,
   GATE_BACKEND_CONFIG,
   madeByPasskey,
   memoryAdapterDouble,
+  memoryStore,
   ORIGIN,
   registerAuthDoubles,
   seatEveryAddress,
-  signInByCode,
+  sessionByCode,
 } from "@/core/authDoubles.ts";
 import { cacheCalls, NEXT_CACHE_DOUBLE } from "@/shared/testing/actionDoubles.ts";
 
@@ -43,29 +43,7 @@ registerAuthDoubles({
   },
 });
 
-type SessionRow = {
-  id: string;
-  token: string;
-  userId: string;
-  expiresAt: Date;
-  createdAt: Date;
-  updatedAt: Date;
-  authFactor?: string;
-  passkeyCredentialId?: string;
-};
-
-type Store = {
-  user: { id: string; email: string }[];
-  session: SessionRow[];
-  account: unknown[];
-  verification: { id: string; identifier: string; value: string; expiresAt: Date; createdAt: Date; updatedAt: Date }[];
-  passkey: Record<string, unknown>[];
-};
-
-const store: Store = { user: [], session: [], account: [], verification: [], passkey: [] };
-
-const globals = globalThis as unknown as Record<string, unknown>;
-globals[STORE] = store;
+const store = memoryStore(STORE);
 
 // Imported here rather than at the top: a static import resolves before the hooks above are registered.
 const { endAndereAnmeldungenAction, endAnmeldungAction } = await import("./actions.ts");
@@ -82,15 +60,7 @@ beforeEach(() => {
   cacheCalls.length = 0;
 });
 
-/** Mints a session the way a typed code does, and hands back its cookie and its stored row. */
-async function signIn(email: string): Promise<{ cookie: string; row: SessionRow }> {
-  const cookie = cookieHeader(await signInByCode(auth, email));
-
-  const row = store.session.at(-1);
-  assert.ok(row !== undefined, "the verification wrote no session row");
-
-  return { cookie, row };
-}
+const signIn = (email: string) => sessionByCode(auth, store, email);
 
 function arriveAs(cookie: string): void {
   requestHeaders = new Headers({ ...ORIGIN, cookie });
