@@ -2,8 +2,6 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, beforeEach, describe, it } from "node:test";
 
-import { MongoDBContainer } from "@testcontainers/mongodb";
-
 import {
   ADMIN_EMAIL,
   Barrier,
@@ -17,15 +15,13 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "./authDoubles.ts";
-import { closeJudgingExpiredTransactions, watchExpiredTransactions } from "./expiredTransactions.ts";
+import { startJudgedReplicaSet } from "./expiredTransactions.ts";
 import { overridingModule } from "./exportingModule.ts";
 import { SITZ } from "./subjectFixtures.ts";
 import { registrationFor } from "./testAuthenticator.ts";
 
-// A replica set, which the module starts by default: why this file needs one is
-// `docs/frontend/spec.md` §1.9's.
-const mongod = await new MongoDBContainer("mongo:8.3.11").start();
-await watchExpiredTransactions(mongod);
+// A replica set: why this file needs one is `docs/frontend/spec.md` §1.9's.
+const { mongod, closing } = await startJudgedReplicaSet();
 
 // The set advertises its container-internal address, which topology discovery would follow and find nothing.
 const MONGO_URL = `${mongod.getConnectionString()}/?directConnection=true`;
@@ -206,14 +202,11 @@ type RealClient = {
 };
 
 const realClient = productionClient as RealClient;
+closing(() => realClient.close());
 const authDb = () => realClient.db("auth");
 
-after(async () => {
+after(() => {
   globalThis.fetch = ORIGINAL_FETCH;
-  await closeJudgingExpiredTransactions(mongod, async () => {
-    await realClient.close();
-    await mongod.stop();
-  });
 });
 
 beforeEach(async () => {

@@ -1,3 +1,6 @@
+import { after } from "node:test";
+
+import { MongoDBContainer } from "@testcontainers/mongodb";
 import { MongoClient } from "mongodb";
 
 import { recordVerdict } from "./verdicts.ts";
@@ -14,8 +17,9 @@ const UNREAD =
   "transaction ran to MongoDB's lifetime limit was not judged: find where this server version reports it.";
 
 const UNWATCHED =
-  "this file's replica set was started but its count was never read (`watchExpiredTransactions`), so whether a transaction " +
-  "ran to MongoDB's lifetime limit was not judged: watch the container as soon as it has started.";
+  "this file's replica set was started but its count was never read, so whether a transaction ran to MongoDB's lifetime " +
+  "limit was not judged: the read failed, which this file reports as its own failure, or the container was started past " +
+  "`startJudgedReplicaSet`.";
 
 /** `null` where the status carries no count, which a passing file must never read as none aborted. */
 export function expiredTransactionKills(status: Record<string, unknown>): number | null {
@@ -36,6 +40,8 @@ export function expiredTransactionsRefusal(atStart: number | null, now: number |
 
 const atStart = new WeakMap<StartedMongoDBContainer, number | null>();
 
+const messageOf = (failure: unknown): string => (failure instanceof Error ? failure.message : String(failure));
+
 // A client of its own: the suites' clients run the strict Stable API, which refuses `serverStatus`.
 async function readKills(mongod: StartedMongoDBContainer): Promise<number | null> {
   // IPv4: the mapped port answers there, and `localhost` tried as IPv6 first stalls every connect.
@@ -47,7 +53,7 @@ async function readKills(mongod: StartedMongoDBContainer): Promise<number | null
   }
 }
 
-export async function watchExpiredTransactions(mongod: StartedMongoDBContainer): Promise<void> {
+async function watchExpiredTransactions(mongod: StartedMongoDBContainer): Promise<void> {
   atStart.set(mongod, await readKills(mongod));
 }
 
@@ -87,4 +93,45 @@ export async function closeJudgingExpiredTransactions(mongod: StartedMongoDBCont
   }, close);
 
   if (failure !== null) recordVerdict("this file's teardown", failure);
+}
+
+/**
+ * Last opened first, as `ExitStack` unwinds: a client closes before the relay it dials through. Each
+ * runs whatever the one before did, so one that would not close still leaves the container to stop.
+ */
+export async function closeInTurn(closes: readonly (() => Promise<unknown>)[]): Promise<void> {
+  const failures: unknown[] = [];
+  for (const close of closes.toReversed()) {
+    try {
+      await close();
+    } catch (failure) {
+      failures.push(failure);
+    }
+  }
+
+  if (failures.length === 1) throw failures[0];
+  if (failures.length > 1) throw new AggregateError(failures, failures.map(messageOf).join("\n"));
+}
+
+/** A db suite's replica set, and where the suite hands the close of each client it opens on it. */
+export type JudgedReplicaSet = { mongod: StartedMongoDBContainer; closing: (close: () => Promise<unknown>) => void };
+
+/**
+ * A db suite's one way to a replica set (`docs/frontend/spec.md` §1.9). The teardown is registered
+ * before the first await, so a container that started is judged and stopped whatever fails after it.
+ */
+export async function startJudgedReplicaSet(): Promise<JudgedReplicaSet> {
+  const closes: (() => Promise<unknown>)[] = [];
+  // Empty where the start threw, which leaves the teardown nothing to judge or stop.
+  const started: { mongod?: StartedMongoDBContainer } = {};
+  // The container first in the list, so it stops after every client opened on it.
+  after(() =>
+    closeJudgingExpiredTransactions(started.mongod, () => closeInTurn([() => started.mongod?.stop() ?? Promise.resolve(), ...closes])),
+  );
+
+  const mongod = await new MongoDBContainer("mongo:8.3.11").start();
+  started.mongod = mongod;
+  await watchExpiredTransactions(mongod);
+
+  return { mongod, closing: (close) => void closes.push(close) };
 }

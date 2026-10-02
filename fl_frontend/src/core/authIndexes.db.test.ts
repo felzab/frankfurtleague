@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
-import { after, beforeEach, describe, it } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 
-import { MongoDBContainer } from "@testcontainers/mongodb";
 import { MongoClient, ObjectId } from "mongodb";
 
 import {
@@ -14,29 +13,17 @@ import {
   registerAuthDoubles,
   signInByCode,
 } from "./authDoubles.ts";
-import { closeJudgingExpiredTransactions, watchExpiredTransactions } from "./expiredTransactions.ts";
+import { startJudgedReplicaSet } from "./expiredTransactions.ts";
 import { overridingModule } from "./exportingModule.ts";
 import { assertionFor, CREDENTIAL_RAW_ID, registrationFor } from "./testAuthenticator.ts";
 
-import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
 import type { CommandFailedEvent, CommandStartedEvent } from "mongodb";
 
-/* Each resource set as it opens, and the hook registered before the first await that can throw: a
-   container that started is stopped whatever fails after it. */
-const opened: { mongod?: StartedMongoDBContainer; client?: MongoClient; operator?: MongoClient } = {};
+// A replica set: the passkey writes run in transactions.
+const { mongod, closing } = await startJudgedReplicaSet();
 
-after(async () => {
-  await closeJudgingExpiredTransactions(opened.mongod, async () => {
-    await opened.client?.close();
-    await opened.operator?.close();
-    await opened.mongod?.stop();
-  });
-});
-
-// A replica set, which the module starts by default: the passkey writes run in transactions.
-const mongod = await new MongoDBContainer("mongo:8.3.11").start();
-opened.mongod = mongod;
-await watchExpiredTransactions(mongod);
+/** The client `fl_frontend/src/core/db.ts` builds, once the module has built it. */
+let storeClient: MongoClient | undefined;
 
 // The query suffix takes the real module past the load hook's match on a path's end: the client
 // under test is the one `fl_frontend/src/core/db.ts` builds.
@@ -60,7 +47,8 @@ const DB_DOUBLE = overridingModule(PRODUCTION_DB, {
       const command = started.get(event.requestId)?.command;
       if (Reflect.get(event.failure, "code") === NO_QUERY_EXECUTION_PLANS) scans.push(JSON.stringify(command));
     });
-    opened.client = client;
+    storeClient = client;
+    closing(() => client.close());
     return () => client;
   },
 });
@@ -100,7 +88,7 @@ const { buildAuthIndexes } = await import("./authIndexes.ts");
 const { readSicherheit } = await import("@/features/konto/sicherheit");
 const { endAndereAnmeldungenAction, endAnmeldungAction } = await import("@/features/konto/actions");
 
-const store = () => (opened.client as MongoClient).db("auth");
+const store = () => (storeClient as MongoClient).db("auth");
 const COLLECTIONS = ["session", "passkey", "user", "verification"] as const;
 
 beforeEach(async () => {
@@ -113,7 +101,7 @@ beforeEach(async () => {
 // The server parameter is outside the Stable API the production client is held to, so it is set over a
 // client of the suite's own.
 const operator = new MongoClient(`${mongod.getConnectionString()}/?directConnection=true`);
-opened.operator = operator;
+closing(() => operator.close());
 
 /** Runs `body` with table scans refused, recording each query the store could not serve from an index. */
 async function refusingTableScans<T>(body: () => Promise<T>): Promise<T> {

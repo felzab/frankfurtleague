@@ -5,10 +5,9 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, connect as dial } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { after, describe, it } from "node:test";
+import { describe, it } from "node:test";
 import { setTimeout as pause } from "node:timers/promises";
 
-import { MongoDBContainer } from "@testcontainers/mongodb";
 import { isAPIError } from "better-auth/api";
 import {
   MongoNetworkTimeoutError,
@@ -19,28 +18,13 @@ import {
 } from "mongodb";
 
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "./authDoubles.ts";
-import { closeJudgingExpiredTransactions, watchExpiredTransactions } from "./expiredTransactions.ts";
+import { startJudgedReplicaSet } from "./expiredTransactions.ts";
 import { overridingModule } from "./exportingModule.ts";
 
-import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
 import type { MongoClient } from "mongodb";
 import type { Socket } from "node:net";
 
-/* Each resource set as it opens, and the hook registered before the first await that can throw: a
-   container that started is stopped whatever fails after it. */
-const opened: { mongod?: StartedMongoDBContainer; relay?: Relay; clients: MongoClient[] } = { clients: [] };
-
-after(async () => {
-  await closeJudgingExpiredTransactions(opened.mongod, async () => {
-    for (const client of opened.clients) await client.close();
-    await opened.relay?.close();
-    await opened.mongod?.stop();
-  });
-});
-
-const mongod = await new MongoDBContainer("mongo:8.3.11").start();
-opened.mongod = mongod;
-await watchExpiredTransactions(mongod);
+const { mongod, closing } = await startJudgedReplicaSet();
 
 /**
  * A TCP relay to the mongod that can stop passing the client's requests on: a hung connection as the
@@ -186,7 +170,7 @@ class Relay {
 }
 
 const relay = new Relay();
-opened.relay = relay;
+closing(() => relay.close());
 const RELAYED_URL = `mongodb://127.0.0.1:${await relay.listen()}/?directConnection=true`;
 
 const logged: Record<string, unknown>[] = [];
@@ -214,7 +198,7 @@ registerAuthDoubles({
 async function storeOf(url: string): Promise<MongoClient> {
   const { signInStore } = (await import(url)) as { signInStore: () => MongoClient };
   const client = signInStore();
-  opened.clients.push(client);
+  closing(() => client.close());
   return client;
 }
 

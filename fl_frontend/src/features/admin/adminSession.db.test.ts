@@ -1,30 +1,14 @@
 import assert from "node:assert/strict";
 import { after, beforeEach, describe, it } from "node:test";
 
-import { MongoDBContainer } from "@testcontainers/mongodb";
-
 import { ADMIN_EMAIL, configDouble, cookieHeader, ORIGIN, registerAuthDoubles, signInByCode } from "@/core/authDoubles.ts";
 import { beginRenderPass, itOpensAScopeThatMemoizes, leaveRenderPass, serveServerReactTo } from "@/core/cacheScope.ts";
-import { closeJudgingExpiredTransactions, watchExpiredTransactions } from "@/core/expiredTransactions.ts";
+import { startJudgedReplicaSet } from "@/core/expiredTransactions.ts";
 import { overridingModule } from "@/core/exportingModule.ts";
 
-import type { StartedMongoDBContainer } from "@testcontainers/mongodb";
 import type { CommandStartedEvent, MongoClient } from "mongodb";
 
-/* Each resource set as it opens, and the hook registered before the first await that can throw: a
-   container that started is stopped whatever fails after it. */
-const opened: { mongod?: StartedMongoDBContainer; client?: MongoClient } = {};
-
-after(async () => {
-  await closeJudgingExpiredTransactions(opened.mongod, async () => {
-    await opened.client?.close();
-    await opened.mongod?.stop();
-  });
-});
-
-const mongod = await new MongoDBContainer("mongo:8.3.11").start();
-opened.mongod = mongod;
-await watchExpiredTransactions(mongod);
+const { mongod, closing } = await startJudgedReplicaSet();
 
 /** What the request a case arrives as carries. */
 let requestHeaders: Headers | undefined;
@@ -61,7 +45,7 @@ serveServerReactTo((parentURL) => MEMOIZING.some((tail) => parentURL.endsWith(ta
 // Imported after the hooks above are registered: a static import resolves before they exist.
 const { signInStore } = (await import(PRODUCTION_DB)) as { signInStore: () => MongoClient };
 const client = signInStore();
-opened.client = client;
+closing(() => client.close());
 const { auth, getAdminSession, getKontoSession, getPasskeyStep } = await import("@/core/auth.ts");
 const { buildAuthIndexes } = await import("@/core/authIndexes.ts");
 const { getSubjectSession } = await import("@/core/subject.ts");
