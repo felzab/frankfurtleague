@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { APINetworkError } from "@/core/errors.ts";
 import { cacheCalls, doubleActionRequest } from "@/shared/testing/actionDoubles.ts";
 import { doubleApiAnswers, requestsOf } from "@/shared/testing/apiClientDouble.ts";
 import { answerShown, assertEachAnswered, DUPLICATE_KEY, publishedRefusals, refusedOn } from "@/shared/testing/publishedRefusals.ts";
+import { unansweredAction } from "@/shared/utils/actionError.ts";
 
 import {
   mapAlreadyEnteredRefusal,
@@ -146,6 +148,53 @@ describe("a club created whose entry into the season is refused", () => {
       success: false,
       error: `Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden: ${reason} Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.`,
     });
+  });
+
+  /* The actor check refuses ahead of any handler, so the club stands in no season. The spine's own
+     answer would ask for a retry, which meets the shorthand the club already holds. */
+  it("tells of the club standing where the backend refuses the actor token at the entry", async () => {
+    const refused = refusedOn(ENTRY_OPERATION, "REQ-AUTH-007", 401);
+    answerWith((call) => (call.endpoint === "/teams" ? Promise.resolve(landed(call)) : Promise.reject(refused)));
+
+    const result = await postTeamAction({ ...CLUB, saison_id: SAISON_ID, gruppe: "A" });
+
+    assert.deepEqual(result, {
+      success: false,
+      error:
+        "Das Team wurde angelegt, konnte aber nicht in die Saison aufgenommen werden. Nimm es auf seiner Seite in eine Saison auf; ein erneutes Anlegen scheitert am Kürzel.",
+    });
+  });
+
+  /* Never the refused sentence: the entry may stand, and a second one meets it. */
+  it("answers an entry whose answer was lost as unclear, and reads the season's clubs again", async () => {
+    const lost = [
+      new APINetworkError({
+        message: "Request failed.",
+        url: "http://backend:8000",
+        method: "POST",
+        readOnly: false,
+        traceId: "0",
+        isTimeout: false,
+      }),
+      refusedOn(ENTRY_OPERATION, "DB-FAIL-002", 500),
+    ];
+    for (const failure of lost) {
+      cacheCalls.length = 0;
+      answerWith((call) => (call.endpoint === "/teams" ? Promise.resolve(landed(call)) : Promise.reject(failure)));
+
+      const result = await postTeamAction({ ...CLUB, saison_id: SAISON_ID, gruppe: "A" });
+
+      assert.deepEqual(result, unansweredAction(), failure.name);
+      assert.deepEqual(
+        cacheCalls,
+        [
+          { name: "updateTag", args: ["teams"] },
+          { name: "updateTag", args: [`teams:saison_id:${SAISON_ID}`] },
+          { name: "refresh", args: [] },
+        ],
+        failure.name,
+      );
+    }
   });
 });
 

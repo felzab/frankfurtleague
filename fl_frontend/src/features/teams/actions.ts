@@ -2,6 +2,7 @@
 
 import { updateTag } from "next/cache";
 
+import { toActionErrorResult } from "@/shared/utils/actionError";
 import { runAdminMutation } from "@/shared/utils/adminMutation";
 import { buildRefusal } from "@/shared/utils/refusal";
 import { toFieldErrors, VALIDATION_FAILED } from "@/shared/utils/validation";
@@ -82,6 +83,13 @@ export async function postTeamAction(
     try {
       await postSaisonTeam({ team_id: postOperation.created_id, saison_id, gruppe });
     } catch (error) {
+      // Only an entry that may have landed goes to the spine, which calls it unclear. A refusal wrote
+      // nothing, the actor token's 401 included, and keeps this sentence: the spine's own retry would
+      // re-create a club that stands.
+      if (toActionErrorResult(error).outcome === "unknown") {
+        invalidateSeasonScoped("teams", saison_id);
+        throw error;
+      }
       updateTag("teams");
       // The form pre-filters seasons and groups, so a refusal here means the picture changed under it.
       const refusal = mapEntryRefusal(error);
