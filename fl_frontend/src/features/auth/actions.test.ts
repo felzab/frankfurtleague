@@ -96,12 +96,12 @@ describe("handleSignIn's answer", () => {
 });
 
 describe("the sign-in boundary's panel", () => {
-  it("says that the answer was not this application's, and offers the way back", async () => {
+  it("says the website cannot be reached, and offers the way back", async () => {
     const { SignInActionFallback } = await import("./components/ui/SignInActionFallback.tsx");
 
     const text = textOf(renderMarkup(SignInActionFallback, { onRetry: () => undefined }));
 
-    assert.match(text, /Die Antwort auf Deine Anmeldung kam nicht von uns\./);
+    assert.ok(text.includes("Die Website ist gerade nicht erreichbar."), text);
     assert.match(text, /Erneut versuchen/);
   });
 

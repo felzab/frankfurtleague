@@ -15,7 +15,7 @@ export function SignInActionFallback({ onRetry }: { onRetry: () => void }) {
     <div
       role="alert"
       className="flex flex-col items-center gap-y-4 py-6 text-center">
-      <h2 className="fluid-lg font-extrabold tracking-tight text-pretty text-foreground">Die Antwort auf Deine Anmeldung kam nicht von uns.</h2>
+      <h2 className="fluid-lg font-extrabold tracking-tight text-pretty text-foreground">Die Website ist gerade nicht erreichbar.</h2>
 
       <Button
         type="button"
