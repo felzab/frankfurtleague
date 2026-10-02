@@ -534,10 +534,10 @@ const LANDINGS: Record<string, Landing> = {
     lands: () => buttonIn("spielorte-karten", "Spielort Halle A reaktivieren"),
   },
   "a club row's reactivation, on the retirement replacing it": {
-    before: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", RETIRED_ON), team(TEAM_B, "SG Beta", null)], numberOfGroups: 2 }),
-    press: (user) => user.click(buttonIn("teams-karten", "Team SG Alpha reaktivieren")),
+    before: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", RETIRED_ON)], numberOfGroups: 2 }),
+    press: (user) => user.click(buttonIn("teams-karten", "Team SG Beta reaktivieren")),
     after: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", null)], numberOfGroups: 2 }),
-    lands: () => buttonIn("teams-karten", "Team SG Alpha stilllegen"),
+    lands: () => buttonIn("teams-karten", "Team SG Beta stilllegen"),
   },
   "a club's retirement in the dialog, on the reactivation replacing its row's control": {
     before: () => h(AdminTeamsView, { teams: [team(TEAM_A, "SG Alpha", null), team(TEAM_B, "SG Beta", null)], numberOfGroups: 2 }),
@@ -547,11 +547,11 @@ const LANDINGS: Record<string, Landing> = {
   },
   "a referee row's reactivation, on the retirement replacing it": {
     before: () =>
-      h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", RETIRED_ON), schiedsrichter(SR_B, "Ole Berg", null)] }),
-    press: (user) => user.click(buttonIn("schiedsrichter-karten", /Pia Kraft reaktivieren$/)),
+      h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", RETIRED_ON)] }),
+    press: (user) => user.click(buttonIn("schiedsrichter-karten", /Ole Berg reaktivieren$/)),
     after: () =>
       h(AdminSchiedsrichterView, { schiedsrichter: [schiedsrichter(SR_A, "Pia Kraft", null), schiedsrichter(SR_B, "Ole Berg", null)] }),
-    lands: () => buttonIn("schiedsrichter-karten", /Pia Kraft stilllegen$/),
+    lands: () => buttonIn("schiedsrichter-karten", /Ole Berg stilllegen$/),
   },
   "a referee's retirement in the dialog, on the reactivation replacing its row's control": {
     before: () =>
