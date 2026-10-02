@@ -1093,6 +1093,16 @@ def test_a_field_behind_constants_is_read_where_pydantic_finds_it():
             "KEY_FIELD, which config.py binds nowhere",
             id="value-bound-nowhere",
         ),
+        pytest.param(
+            "RING_A = RING_B\nRING_B = RING_A\n\n\nclass BackendSecrets(BaseSettings):\n    secret: SecretStr = RING_A\n",
+            "a ring of constants",
+            id="constant-ring",
+        ),
+        pytest.param(
+            "class BackendSecrets(BaseSettings, Other):\n    secret: SecretStr\n\n\nclass Other(BackendSecrets):\n    pass\n",
+            "inherits from itself",
+            id="class-ring",
+        ),
     ],
 )
 def test_a_name_base_or_statement_the_backend_reader_cannot_follow_refuses(body: str, said: str):

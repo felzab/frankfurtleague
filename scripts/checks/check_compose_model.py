@@ -530,7 +530,11 @@ def _resolved(settings: _Settings, expression: ast.expr, where: str) -> list[ast
 
 def _constant_behind(settings: _Settings, expression: ast.expr) -> ast.expr:
     """What a module constant holds, followed through every constant naming another."""
+    followed: set[str] = set()
     while isinstance(expression, ast.Name) and expression.id in settings.assigned:
+        if expression.id in followed:
+            raise ValueError(f"{settings.label} binds {expression.id} through a ring of constants that holds no value")
+        followed.add(expression.id)
         expression = settings.assigned[expression.id]
     return expression
 
@@ -559,12 +563,14 @@ def _is_pydantic_root(settings: _Settings, base: ast.expr) -> bool:
     return name in PYDANTIC_ROOTS and module.partition(".")[0] in PYDANTIC_PACKAGES
 
 
-def _declared_fields(settings: _Settings, name: str) -> dict[str, ast.AnnAssign]:
+def _declared_fields(settings: _Settings, name: str, below: frozenset[str] = frozenset()) -> dict[str, ast.AnnAssign]:
     """The model fields `name` declares and inherits from this module's classes, its own winning, as pydantic merges them."""
+    if name in below:
+        raise ValueError(f"{settings.label} :: {name} inherits from itself through {', '.join(sorted(below))}")
     fields: dict[str, ast.AnnAssign] = {}
     for base in settings.classes[name].bases:
         if isinstance(base, ast.Name) and base.id in settings.classes:
-            fields |= _declared_fields(settings, base.id)
+            fields |= _declared_fields(settings, base.id, below | {name})
         elif not _is_pydantic_root(settings, base):
             raise ValueError(f"{settings.label} :: {name} inherits from {ast.unparse(base)}, whose fields this does not read")
     for node in settings.classes[name].body:
