@@ -43,15 +43,17 @@ class TestGatherCancelling:
 
         assert asyncio.run(cancelled_by_the_answer()), "the read still running when the first failed ran on past the caller's answer"
 
-    def test_two_reads_failing_before_the_cancellation_are_raised_together(self):
-        """The one case a group reaches the caller: raising either alone would drop the other unreported."""
+    def test_two_reads_failing_before_the_cancellation_raise_the_first_with_the_other_as_its_cause(self):
+        """An outage fails every read in one turn: grouped, the handlers would answer it as a crash rather than the database's."""
 
         first, second = ConnectionError("one"), TimeoutError("two")
 
-        with pytest.raises(ExceptionGroup) as raised:
+        with pytest.raises(ConnectionError) as raised:
             asyncio.run(gather_cancelling(_Read(1, raises=first).run(), _Read(1, raises=second).run(), _Read(50).run()))
 
-        assert list(raised.value.exceptions) == [first, second]
+        cause = raised.value.__cause__
+        assert raised.value is first
+        assert isinstance(cause, ExceptionGroup) and list(cause.exceptions) == [second], "the second failure was dropped"
 
     def test_the_caller_s_cancellation_cancels_every_read(self):
         reads = (_Read(50), _Read(50))

@@ -96,6 +96,11 @@ UNREAD_RAISES: Mapping[tuple[str, str, str], str] = {
         "post_many_to_db",
         "refusal",
     ): "the driver's `DuplicateKeyError`, published by collection (`tests/core/test_duplicate_key_publication.py`)",
+    (
+        "app/core/concurrency.py",
+        "gather_cancelling",
+        "first",
+    ): "whatever one of its caller's reads raised, re-raised as itself",
 }
 
 

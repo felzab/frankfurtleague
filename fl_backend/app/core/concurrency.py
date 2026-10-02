@@ -14,22 +14,19 @@ async def gather_cancelling[A, B, C](
 
 
 async def gather_cancelling(*coroutines: Coroutine[Any, Any, Any]) -> tuple[Any, ...]:
-    """`asyncio.gather`'s answer, but a first failure cancels the rest.
+    """`asyncio.gather`'s answer, but a first failure cancels the rest and is raised as itself.
 
-    A plain gather leaves them running past the caller's answer, and drops their later failures unreported.
+    A plain gather leaves the rest running past the caller's answer, and drops their later failures unreported.
     """
 
     try:
         async with asyncio.TaskGroup() as group:
             tasks = [group.create_task(coroutine) for coroutine in coroutines]
     except ExceptionGroup as failed:
-        # The handlers map a failure by its class, so one alone is raised unwrapped; two that landed
-        # before the cancellation stay grouped, neither dropped.
-        if len(failed.exceptions) != 1:
-            raise
-        first = failed.exceptions[0]
+        first, *beside = failed.exceptions
     else:
         return tuple(task.result() for task in tasks)
 
-    # Outside the handler, so the group is not chained beneath it as its context.
-    raise first
+    # Never grouped: the handlers map a failure by its class, and an outage fails every read at once,
+    # which a group would answer as a crash rather than the database's. Any others stay its cause.
+    raise first from (ExceptionGroup("failed beside it", beside) if beside else None)
