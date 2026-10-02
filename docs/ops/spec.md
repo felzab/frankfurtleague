@@ -581,8 +581,9 @@ one is a line nobody did, so without it a release that makes a new name required
 the recreated container refuses to boot behind an edge already answering 502. **What
 `APP_ENV=production` alone demands is a file and never a variable**
 (`fl_frontend/src/core/config.ts :: PRODUCTION_ONLY_REQUIRED`), since a reader would have to open a
-value to decide: the mail provider's key, which the frontend's file reader asks for on the deploy,
-told `--production`, and never on the local stack, which sends no mail (I510). **The bare
+value to decide: the mail provider's sending key and its webhook's signing key, which the frontend's
+file reader asks for on the deploy, told `--production`, and never on the local stack, which sends no
+mail and is sent no event (I510). **The bare
 pass-through `KEY` declares a name and satisfies no required one**: compose resolves that form's
 value from the shell that ran it, and failing that from the checkout root's `.env` (Docker's
 environment-variable precedence table, rows 8 and 9, read 2026-09-27). A deploy's shell holds none,
@@ -1250,7 +1251,9 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
   patterns cover the writes behind them because passing a navigation's challenge issues the
   clearance the form's own POST then carries.
 - **The mail provider's sending domain carries a delivery webhook**, whose endpoint the provider's
-  dashboard holds.
+  dashboard holds, **and it points at production alone**: no other deployment holds the webhook's
+  signing key (`fl_frontend/src/core/config.ts :: PRODUCTION_ONLY_REQUIRED`), so an endpoint aimed
+  anywhere else has every event refused unverified.
 
 ## 2. Invariants
 

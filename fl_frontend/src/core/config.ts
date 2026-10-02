@@ -149,7 +149,7 @@ const APP_ENVIRONMENTS = ["production", "local"] as const;
 // The credentials `production` demands and no other deployment holds, refused at boot on the
 // production host alone. Files only: the deploy asks production for them by file, and for no
 // variable beyond `REQUIRED_ENVIRONMENT_NAMES`.
-const PRODUCTION_ONLY_REQUIRED = ["AUTH_RESEND_KEY"] as const satisfies readonly SecretKey[];
+const PRODUCTION_ONLY_REQUIRED = ["AUTH_RESEND_KEY", "RESEND_WEBHOOK_SECRET"] as const satisfies readonly SecretKey[];
 
 // Bound to names rather than written inside the call, so the preflight's sets can be read off the
 // schema itself: a hand-kept copy of those names would be a second artefact to keep current.
@@ -219,8 +219,12 @@ const fromFiles = {
   AUTH_RESEND_KEY: z.string().min(1).optional(),
 
   // Stricter than `svix`, which verifies with the prefix or without it: refusing at boot beats a 400
-  // the provider retries for thirty-two hours before disabling the endpoint.
-  RESEND_WEBHOOK_SECRET: z.string().startsWith("whsec_", "the signing secret Resend shows on the webhook's detail page starts with whsec_"),
+  // the provider retries for thirty-two hours before disabling the endpoint. Demanded of production
+  // alone, the one deployment the provider sends its events to.
+  RESEND_WEBHOOK_SECRET: z
+    .string()
+    .startsWith("whsec_", "the signing secret Resend shows on the webhook's detail page starts with whsec_")
+    .optional(),
 
   INTERNAL_API_KEY_BASE: INTERNAL_API_KEY,
   INTERNAL_API_KEY_SYSTEM: INTERNAL_API_KEY,

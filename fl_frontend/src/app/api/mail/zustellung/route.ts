@@ -31,6 +31,20 @@ const ZIEL_ANGEWENDET = (angewendet: boolean) => NextResponse.json({ angewendet:
 const KEINE_SIGNATUR = () => NextResponse.json({ error: "signature" }, { status: 400 });
 const KEIN_BACKEND = () => NextResponse.json({ error: "backend" }, { status: 503 });
 
+function signedByProvider(roh: string, headers: Record<string, string>): boolean {
+  const secret = frontend_config.RESEND_WEBHOOK_SECRET;
+  // Held by production alone, the one deployment the provider sends to, so a call anywhere else
+  // carries nothing this deployment can verify.
+  if (secret === undefined) return false;
+
+  try {
+    new Webhook(secret).verify(roh, headers);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Resend's delivery events, on neither spine the other route handlers take: `handlePublicRequest`
  * always answers 200, which would tell a caller that retries on non-200 that a forgery was accepted
@@ -43,9 +57,7 @@ export async function POST(request: NextRequest) {
 
   const headers = Object.fromEntries(SVIX_HEADERS.map((name) => [name, request.headers.get(name) ?? ""]));
 
-  try {
-    new Webhook(frontend_config.RESEND_WEBHOOK_SECRET).verify(roh, headers);
-  } catch {
+  if (!signedByProvider(roh, headers)) {
     // 400 rather than 503: a forgery is not worth thirty-two hours of retries, and neither is a
     // timestamp outside the verifier's tolerance. Nothing of the body reaches the line.
     logger.warn("mail.zustellung_unsigniert", { error_code: "FE-MAIL-003" });

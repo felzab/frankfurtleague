@@ -15,7 +15,10 @@ const SERVER_ONLY_DOUBLE_URL = `data:text/javascript,${encodeURIComponent("expor
  */
 const webhookSecret = `whsec_${randomBytes(24).toString("base64")}`;
 
-const CONFIG_DOUBLE = { frontend_config: { RESEND_WEBHOOK_SECRET: webhookSecret } };
+// Handed to the route by reference, so a case can take the key away and put it back.
+const CONFIG_DOUBLE: { frontend_config: { RESEND_WEBHOOK_SECRET: string | undefined } } = {
+  frontend_config: { RESEND_WEBHOOK_SECRET: webhookSecret },
+};
 
 type LoggedLine = { level: string; message: string; error?: unknown; meta?: Record<string, unknown> };
 
@@ -597,6 +600,25 @@ describe("POST /api/mail/zustellung", () => {
 
     assert.equal(status, 400);
     assert.deepEqual(calls, []);
+  });
+
+  /* A deployment other than production holds no key, the provider sending it nothing: a signed event
+     reaching one is refused unverified rather than applied. */
+  it("answers 400 and applies nothing where the deployment holds no webhook key", async () => {
+    const request = signed(JSON.stringify(eventFor("email.delivered")));
+    CONFIG_DOUBLE.frontend_config.RESEND_WEBHOOK_SECRET = undefined;
+    try {
+      const { status } = await answerTo(request);
+
+      assert.equal(status, 400);
+    } finally {
+      CONFIG_DOUBLE.frontend_config.RESEND_WEBHOOK_SECRET = webhookSecret;
+    }
+    assert.deepEqual(calls, []);
+    assert.deepEqual(
+      logs.map(({ message, meta }) => [message, meta?.error_code]),
+      [["mail.zustellung_unsigniert", "FE-MAIL-003"]],
+    );
   });
 
   it("answers 400 with any one of the three signing headers missing", async () => {

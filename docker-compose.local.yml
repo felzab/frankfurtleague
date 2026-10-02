@@ -40,12 +40,12 @@ services:
       # pass deletes applications and stamps rows in the copy below; APP_ENV withholds every notice
       # it raises.
       - BEWERBUNG_SWEEP=off
-    # Production's list without `auth_resend_key`: `APP_ENV=local` sends no mail, so a machine holds
-    # no key to the provider. The login is the config below.
+    # Production's list without `auth_resend_key` and `resend_webhook_secret`: `APP_ENV=local` sends
+    # no mail and the provider sends this stack no event, so a machine holds no key to the provider.
+    # The login is the config below.
     secrets: !override
       - fl_actor_signing_key
       - auth_secret
-      - resend_webhook_secret
       - internal_api_key_base
       - internal_api_key_system
       - internal_api_key_admin
@@ -166,8 +166,6 @@ secrets: !override
     file: ./secrets/fl_actor_signing_key
   auth_secret:
     file: ./secrets/auth_secret
-  resend_webhook_secret:
-    file: ./secrets/resend_webhook_secret
   sperrliste_schluessel:
     file: ./secrets/sperrliste_schluessel
   internal_api_key_base:

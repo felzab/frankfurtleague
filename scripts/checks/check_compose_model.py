@@ -74,7 +74,6 @@ _EITHER_STACK: Final = {
     # A holder of it mints any actor the backend trusts (I472).
     "fl_actor_signing_key": _FRONTEND,
     "auth_secret": _FRONTEND,
-    "resend_webhook_secret": _FRONTEND,
     "sperrliste_schluessel": _BACKEND,
     "internal_api_key_base": _BOTH,
     "internal_api_key_system": _BOTH,
@@ -88,10 +87,11 @@ SECRET_HOLDERS: Final[dict[str, dict[str, tuple[frozenset[str], str]]]] = {
         **{secret: (holders, f"{SECRETS_DIRECTORY}/{secret}") for secret, holders in _EITHER_STACK.items()},
         "tunnel_token": (frozenset({"cloudflared"}), f"{SECRETS_DIRECTORY}/tunnel_token"),
         "auth_resend_key": (_FRONTEND, f"{SECRETS_DIRECTORY}/auth_resend_key"),
+        "resend_webhook_secret": (_FRONTEND, f"{SECRETS_DIRECTORY}/resend_webhook_secret"),
         "frontend_mongodb_uri": (_FRONTEND, f"{SECRETS_DIRECTORY}/frontend_mongodb_uri"),
         "backend_mongodb_uri": (_BACKEND, f"{SECRETS_DIRECTORY}/backend_mongodb_uri"),
     },
-    # No connector and no mail; both logins are `CONFIG_HOLDERS`'.
+    # No connector, no mail and no provider event; both logins are `CONFIG_HOLDERS`'.
     "local": {secret: (holders, f"{SECRETS_DIRECTORY}/{secret}") for secret, holders in _EITHER_STACK.items()},
 }
 

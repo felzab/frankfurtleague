@@ -284,6 +284,22 @@ describe("the credential a deployment that mails must hold", () => {
   });
 });
 
+describe("the key a deployment the provider sends its events to must hold", () => {
+  /* The provider posts delivery events to production alone, so a machine off it is handed no key
+     and holds no stand-in of the key's shape either. */
+  it("boots with no webhook key outside production", async () => {
+    assert.equal((await bootWith({ APP_ENV: "local" }, { resend_webhook_secret: undefined }))["RESEND_WEBHOOK_SECRET"], undefined);
+  });
+
+  it("refuses production with no webhook key, and names its file", async () => {
+    assert.equal(await refusedFiles({ resend_webhook_secret: undefined }), "resend_webhook_secret");
+  });
+
+  it("refuses a key without the provider's prefix wherever one is held", async () => {
+    assert.equal(await refusedFiles({ resend_webhook_secret: "probe" }, { APP_ENV: "local" }), "resend_webhook_secret");
+  });
+});
+
 describe("the names the preflight demands a host's file carry", () => {
   /* Derived by booting rather than read off the schema, which is the emitter's own route: two
      listings that must agree (`docs/_standard/standard.md :: PRE-4`). */

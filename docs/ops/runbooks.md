@@ -1280,12 +1280,12 @@ On a development machine, in Git Bash at the checkout root, this writes every fi
 writes, each readable by its writer alone, and prints nothing:
 
 ```bash
-(umask 077 && mkdir -p secrets && for name in internal_api_key_base internal_api_key_system internal_api_key_admin sperrliste_schluessel auth_secret; do openssl rand -hex 32 | tr -d '\r\n' > "secrets/$name"; done && printf 'whsec_%s' "$(openssl rand -base64 24 | tr -d '\r\n')" > secrets/resend_webhook_secret && printf 'mongodb://localhost:27017/?directConnection=true' | tee secrets/frontend_mongodb_uri > secrets/backend_mongodb_uri)
+(umask 077 && mkdir -p secrets && for name in internal_api_key_base internal_api_key_system internal_api_key_admin sperrliste_schluessel auth_secret; do openssl rand -hex 32 | tr -d '\r\n' > "secrets/$name"; done && printf 'mongodb://localhost:27017/?directConnection=true' | tee secrets/frontend_mongodb_uri > secrets/backend_mongodb_uri)
 ```
 
-`openssl rand -hex 32` is the 64 characters every key's floor or length demands. The webhook
-secret is a stand-in of Resend's shape: a development machine receives no webhook. No
-`auth_resend_key` is written, since nothing outside production sends mail.
+`openssl rand -hex 32` is the 64 characters every key's floor or length demands. Neither of the
+provider's keys is written: nothing outside production sends mail, and the provider sends its
+delivery events to production alone.
 
 **`secrets/dump_mongodb_uri` is the one exception, and it is production's read-only login**, which
 reads the application database and nothing else: `./scripts/ops/local.sh --seed` copies production
