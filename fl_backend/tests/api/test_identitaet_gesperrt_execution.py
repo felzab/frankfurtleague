@@ -5,14 +5,13 @@ import pytest
 from bson import ObjectId
 from fastapi.testclient import TestClient
 from httpx2 import Response
-from pydantic import ValidationError
 from pymongo import AsyncMongoClient
 from pymongo.asynchronous.database import AsyncDatabase
 
-from app.api.identitaet.schemas import FLGesperrtPayload
 from app.api.sperrliste.admin_router import delete_sperrliste_eintrag
 from app.core.collections import Collection
 from app.core.config import API_VERSION
+from app.core.exception_handlers import PAYLOAD_REFUSED
 from app.core.security import WRONG_SYSTEM_KEY
 from app.main import create_app
 from app.shared.schemas.bounds import KONTAKT_EMAIL_MAX_LENGTH
@@ -168,8 +167,12 @@ class TestTheAnswer:
         assert on_a_list(mongo_replica_set_url, body) == (200, 0, SEEDED_BANS)
 
 
+@pytest.mark.db
 class TestWhatThePayloadRefuses:
-    """Bounded where the address rule is not: the field is a lookup, but a value naming no mailbox is no question at all."""
+    """Bounded where the address rule is not: the field is a lookup, but a value naming no mailbox is no question at all.
+
+    Posted through the mounted route, the only place the answer's shape exists: the database dependency answers first where none runs.
+    """
 
     @pytest.mark.parametrize(
         "email",
@@ -177,15 +180,26 @@ class TestWhatThePayloadRefuses:
             pytest.param("", id="empty"),
             pytest.param("gerda.gesperrt", id="no at sign"),
             pytest.param(f"{'a' * KONTAKT_EMAIL_MAX_LENGTH}@schule.de", id="past the ceiling"),
+            pytest.param(None, id="null"),
         ],
     )
-    def test_a_value_naming_no_mailbox_is_refused(self, email: str):
-        with pytest.raises(ValidationError):
-            FLGesperrtPayload(email=email)
+    def test_a_value_naming_no_mailbox_is_refused_naming_the_field_alone(self, mongo_replica_set_url: str, email: str | None):
+        """The refusal reaches a log line and the frontend's gate alike, so it echoes nothing of the address it was asked about."""
 
-    def test_the_base_key_draws_the_system_guard_s_own_code(self):
-        """The ban is keyed under a secret the system tier alone may make the backend use; the guard answers its own code."""
+        async def body(_database: AsyncDatabase, _client: AsyncMongoClient) -> Response:
+            async with app_client(mongo_replica_set_url, config=config_for(DATABASE_NAME)) as http:
+                return await http.post(PATH, headers=SYSTEM_AUTH, json={"email": email})
 
-        response = TestClient(APP, raise_server_exceptions=False).post(PATH, headers=BASE_AUTH, json={"email": GESPERRT})
+        response: Response = on_a_list(mongo_replica_set_url, body)
 
-        assert (response.status_code, response.json()["error_code"]) == (401, WRONG_SYSTEM_KEY)
+        assert (response.status_code, response.json()["error_code"]) == (422, PAYLOAD_REFUSED)
+        assert [field["path"] for field in response.json()["fields"]] == [["email"]]
+        assert email is None or email == "" or email not in response.text
+
+
+def test_the_base_key_draws_the_system_guard_s_own_code():
+    """The ban is keyed under a secret the system tier alone may make the backend use; the guard answers its own code."""
+
+    response = TestClient(APP, raise_server_exceptions=False).post(PATH, headers=BASE_AUTH, json={"email": GESPERRT})
+
+    assert (response.status_code, response.json()["error_code"]) == (401, WRONG_SYSTEM_KEY)
