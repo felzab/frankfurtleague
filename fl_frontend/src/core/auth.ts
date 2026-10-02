@@ -41,6 +41,7 @@ import { CODE_FAILURE_LIMIT, CODE_FAILURE_WINDOW_HOURS, CODE_MAIL_LIMIT, CODE_MA
 import { lookUpSubjekt, mayReceiveSignIn, signInVerdictOf } from "./signInGate";
 import { verwaltungOf } from "./verwaltung";
 
+import type { Passkey } from "@better-auth/passkey";
 import type { AuthContext, BetterAuthOptions, DBTransactionAdapter, GenericEndpointContext } from "better-auth";
 import type { MongoClient } from "mongodb";
 import type { PasskeyEmail } from "./passkeyEmail";
@@ -1152,6 +1153,16 @@ export const auth = new Proxy({} as ReturnType<typeof build>, {
   has: (_, key) => Reflect.has((built ??= build()), key),
 });
 
+/**
+ * The holder's passkeys, through the store's adapter by the user id a guard served. Never through
+ * `auth.api.listPasskeys`, whose own session read slides the row from a render, which cannot write the
+ * cookie (`docs/frontend/spec.md :: I496`).
+ */
+export async function passkeysOf(userId: string): Promise<Passkey[]> {
+  const { adapter } = await auth.$context;
+  return adapter.findMany<Passkey>({ model: "passkey", where: [{ field: "userId", value: userId }] });
+}
+
 /** What a removal found inside its transaction, each answered differently by the one caller. */
 type PasskeyRemoval = "removed" | "last" | "absent" | "conflict";
 
@@ -1160,12 +1171,8 @@ type PasskeyRemoval = "removed" | "last" | "absent" | "conflict";
  * from two rows would otherwise each see a second row and leave none (`docs/frontend/spec.md :: I312`).
  * Exported for `fl_frontend/src/features/passkeys/actions.ts`, the one place a removal happens.
  */
-export async function removePasskey(holder: { id: string; email: string }, id: string): Promise<PasskeyRemoval> {
+export async function removePasskey(holder: { readonly id: string; readonly verwaltung: boolean }, id: string): Promise<PasskeyRemoval> {
   const { adapter } = await auth.$context;
-  // Judged here rather than by the caller: an administrator's last passkey is their only way into
-  // the administration, while a person holding none signs in by code again. An unread grant throws
-  // rather than let a last passkey go.
-  const keepsLast = (await verwaltungOf(holder.email)).verwaltung !== null;
 
   // Set once the callback has returned. A throw before that aborted a transaction that never
   // committed, so nothing was written; one after it came from the commit, whose outcome may be unknown.
@@ -1204,7 +1211,10 @@ export async function removePasskey(holder: { id: string; email: string }, id: s
     // Read off the holder's own rows, so another account's identifier is absent rather than taken.
     const removed = rows.find((row) => row.id === id);
     if (removed === undefined) return "absent";
-    if (keepsLast && rows.length <= 1) return "last";
+    // By the grant the account page's guard read, which throws on an unread one before any removal:
+    // an administrator's last passkey is their only way into the administration, while a person
+    // holding none signs in by code again.
+    if (holder.verwaltung && rows.length <= 1) return "last";
 
     await claimAccount(held, holder.id);
     await held.delete({ model: "passkey", where: [{ field: "id", value: id }] });
@@ -1229,11 +1239,11 @@ export async function removePasskey(holder: { id: string; email: string }, id: s
  * administrator's passkeys.
  */
 export const getKontoSession = cache(async (): Promise<JudgedSession | null> => {
-  const served = await readServedSession(await headers());
+  const served = await readRequestSession();
   if (served === null) return null;
 
   // An unread grant throws rather than falling to the person's lane, which takes a mailed code. The
-  // lookup `verwaltungOf` reads, memoised per render, so the ban costs no second read.
+  // ban and the grant come in this one lookup, which the person guard of a render shares.
   const subjekt = await lookUpSubjekt(asSignInIdentifier(served.user.email));
 
   // On every request, as the person guard's: a session its ban's ending missed is no session here (`:: I406`).
@@ -1294,6 +1304,11 @@ async function readLibrarySession(requestHeaders: Headers, slide: boolean): Prom
 export async function readServedSession(requestHeaders: Headers): Promise<ServedSession | null> {
   return servedSessionOf(await readLibrarySession(requestHeaders, false));
 }
+
+// React's `cache`, never `"use cache"`, which would hand one request's session to another: the
+// account page's guard, the person guard and the administrator's guard of one render share one read.
+/** The session this request's cookie names, as every guard serves it. */
+export const readRequestSession = cache(async (): Promise<ServedSession | null> => readServedSession(await headers()));
 
 /**
  * The session the code route's second tab counts as signed in: every guard's read, and none where the
@@ -1423,7 +1438,7 @@ export type AdminRefusal = "signIn" | "noGrant" | "grantGone" | "unread";
 // (`docs/backend/spec.md :: I383`).
 const readAdminRequest = cache(
   oncePerRequest(async (): Promise<{ readonly session: JudgedSession; readonly actor: RequestActor } | { readonly refused: AdminRefusal }> => {
-    const served = await readServedSession(await headers());
+    const served = await readRequestSession();
     if (!served) return { refused: "signIn" };
 
     // An unread grant admits nobody, so the administration is shut while the backend is.
@@ -1507,7 +1522,7 @@ async function landingOf(requestHeaders: Headers): Promise<Landing> {
   // and one left standing serves again on the ban's lift with no sign-in (`docs/frontend/spec.md :: I406`).
   if (subjekt.gesperrt) return ended(read);
 
-  return { destination: await destinationOf(served, subjekt, requestHeaders), served: served };
+  return { destination: await destinationOf(served, subjekt), served: served };
 }
 
 /**
@@ -1520,7 +1535,7 @@ async function ended(read: ServedSession): Promise<Landing> {
   return { destination: "/signin", served: null };
 }
 
-async function destinationOf(served: ServedSession, verwaltung: Verwaltung, requestHeaders: Headers): Promise<SignInDestination> {
+async function destinationOf(served: ServedSession, verwaltung: Verwaltung): Promise<SignInDestination> {
   if (verwaltung.verwaltung !== null) {
     // The guard's own verdict rather than a second spelling of it: `/bereich` sends a granted session
     // the guard refuses on to `/bereich/admin`, which the proxy bounces back here.
@@ -1528,10 +1543,10 @@ async function destinationOf(served: ServedSession, verwaltung: Verwaltung, requ
 
     // Where the passkey page has no step to offer, the session is spent, and an administrator signs in
     // afresh rather than being sent to a person's landing with no way to the step they owe.
-    return (await passkeyStepOf(served, true, requestHeaders)) === null ? "/signin" : "/signin/passkey";
+    return (await passkeyStepOf(served, true)) === null ? "/signin" : "/signin/passkey";
   }
 
-  return (await passkeyStepOf(served, false, requestHeaders)) === "offer" ? "/signin/passkey" : "/bereich";
+  return (await passkeyStepOf(served, false)) === "offer" ? "/signin/passkey" : "/bereich";
 }
 
 /**
@@ -1544,7 +1559,7 @@ export type PasskeyStep = { readonly step: "enrol" | "assert" | "offer"; readonl
  * The one answer both functions around it give, so the landing never sends a session to a page that
  * then has nothing to show it and sends it back.
  */
-async function passkeyStepOf(served: ServedSession, admin: boolean, requestHeaders: Headers): Promise<PasskeyStep["step"] | null> {
+async function passkeyStepOf(served: ServedSession, admin: boolean): Promise<PasskeyStep["step"] | null> {
   if (admin ? !isAdminWithinWindow(served) : !isWithinPersonLifetime(served.session)) return null;
   // A session the passkey already made needs no card, whatever it holds.
   if (served.session.authFactor === PASSKEY_FACTOR) return null;
@@ -1553,10 +1568,9 @@ async function passkeyStepOf(served: ServedSession, admin: boolean, requestHeade
   const mayEnrol = isWithinEnrolmentWindow(served.session.createdAt);
   if (!admin && !mayEnrol) return null;
 
-  // The same question `refuseEnrolment` puts to the adapter, asked here through the plugin: they
-  // agree or the page offers a control the server refuses, which `fl_frontend/src/core/auth.test.ts`
-  // drives over one row.
-  const held = await auth.api.listPasskeys({ headers: requestHeaders });
+  // The question `refuseEnrolment` puts to the adapter, by the same user id: they agree or the page
+  // offers a control the server refuses.
+  const held = await passkeysOf(served.user.id);
 
   if (held.length > 0) return admin ? "assert" : null;
   if (!mayEnrol) return null;
@@ -1566,9 +1580,7 @@ async function passkeyStepOf(served: ServedSession, admin: boolean, requestHeade
 
 /** `null` where that page is not the caller's to see. */
 export async function getPasskeyStep(): Promise<PasskeyStep | null> {
-  const requestHeaders = await headers();
-
-  const served = await readServedSession(requestHeaders);
+  const served = await readRequestSession();
   if (!served) return null;
 
   // An unread read offers no card, for the landing's reason; a barred subject none either, its
@@ -1576,7 +1588,7 @@ export async function getPasskeyStep(): Promise<PasskeyStep | null> {
   const subjekt = await subjektOrNull(served.user.email);
   if (subjekt === null || subjekt.gesperrt) return null;
 
-  const step = await passkeyStepOf(served, subjekt.verwaltung !== null, requestHeaders);
+  const step = await passkeyStepOf(served, subjekt.verwaltung !== null);
   if (step === null) return null;
 
   // Folded as `getAdminSession` folds the actor it records: the stored row is the library's own

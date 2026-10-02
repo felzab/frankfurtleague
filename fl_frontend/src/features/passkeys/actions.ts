@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 
 import { isAPIError } from "better-auth/api";
 
-import { auth, notifyPasskeyRemoved, PASSKEY_LIMIT, removePasskey } from "@/core/auth";
+import { auth, notifyPasskeyRemoved, PASSKEY_LIMIT, passkeysOf, removePasskey } from "@/core/auth";
 import { recordWriteSent } from "@/core/requestScope";
 import { stepUpRequired } from "@/shared/utils/adminMutation";
 import { enrolmentUntil, runKontoMutation } from "@/shared/utils/kontoMutation";
@@ -40,7 +40,7 @@ export async function removePasskeyAction(id: string): Promise<ActionResult<{ di
     // A server action's argument is whatever a caller posted, and this one reaches a store query.
     if (typeof id !== "string" || id === "") return { success: false, error: VALIDATION_FAILED };
 
-    const held = await auth.api.listPasskeys({ headers: await headers() });
+    const held = await passkeysOf(served.user.id);
     // Read before the removal, which may end the session this request arrived with.
     const diesesGeraet = held.some((row) => row.id === id && row.credentialID === served.session.passkeyCredentialId);
 
@@ -48,7 +48,7 @@ export async function removePasskeyAction(id: string): Promise<ActionResult<{ di
     // the spine answers a success unrefreshed and a throw after the commit as a plain failure.
     recordWriteSent();
 
-    const removal = await removePasskey({ id: served.user.id, email: served.user.email }, id);
+    const removal = await removePasskey({ id: served.user.id, verwaltung: served.verwaltung }, id);
 
     if (removal === "last") return { success: false, error: LETZTER_PASSKEY };
     if (removal === "absent" || removal === "conflict") return { success: false, error: GLEICHZEITIG_GEAENDERT };
@@ -90,7 +90,7 @@ export async function readPasskeyStandAction(): Promise<QueryResult<{ kannHinzuf
   return runKontoMutation("readPasskeyStandAction", async (served) => {
     if (enrolmentUntil(served) === null) return stepUpRequired();
 
-    const held = await auth.api.listPasskeys({ headers: await headers() });
+    const held = await passkeysOf(served.user.id);
 
     return { success: true, kannHinzufuegen: held.length < PASSKEY_LIMIT };
   });

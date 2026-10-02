@@ -4,12 +4,12 @@ import { getAuthenticatorName } from "@better-auth/passkey";
 
 import { PASSKEY_LIMIT } from "@/core/auth";
 
-import type { auth } from "@/core/auth";
 import type { KontoSession } from "@/shared/utils/kontoMutation";
+import type { Passkey } from "@better-auth/passkey";
 import type { PasskeyKarte } from "./types";
 
-/** One row as the plugin's own list answers it, which is the holder's alone. */
-export type PasskeyRow = Awaited<ReturnType<typeof auth.api.listPasskeys>>[number];
+/** One stored passkey row, the holder's alone (`fl_frontend/src/core/auth.ts :: passkeysOf`). */
+export type PasskeyRow = Passkey;
 
 /** What the „Sicherheit“ section draws of the holder's passkeys, and whether it may offer another. */
 export type PasskeyBestand = { readonly karten: readonly PasskeyKarte[]; readonly kannHinzufuegen: boolean };

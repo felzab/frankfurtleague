@@ -1,8 +1,6 @@
 import "server-only";
 
-import { headers } from "next/headers";
-
-import { auth, CODE_FACTOR, isWithinPersonLifetime, PASSKEY_FACTOR } from "@/core/auth";
+import { auth, CODE_FACTOR, isWithinPersonLifetime, PASSKEY_FACTOR, passkeysOf } from "@/core/auth";
 import { PERSON_LIFETIME } from "@/core/sessionLifetimes";
 import { passkeyBestandOf, passkeyNamenOf } from "@/features/passkeys/bestand";
 import { passkeyAnzeigename } from "@/features/passkeys/utils";
@@ -34,7 +32,7 @@ const EVERY_ROW = Number.MAX_SAFE_INTEGER;
  */
 export async function readSicherheit(served: KontoSession): Promise<Sicherheit> {
   const [held, rows] = await Promise.all([
-    auth.api.listPasskeys({ headers: await headers() }),
+    passkeysOf(served.user.id),
     auth.$context.then(({ adapter }) =>
       adapter.findMany<SessionRow>({
         model: "session",

@@ -247,7 +247,7 @@ describe("every query the sign-in store serves, with table scans refused (`docs/
     await withoutTableScans(() =>
       auth.api.updatePasskey({ body: { id: removable.id, name: "Zweitschlüssel" }, headers: asRequest(byPasskey) }),
     );
-    assert.equal(await withoutTableScans(() => removePasskey({ id: served.user.id, email: ADMIN_EMAIL }, removable.id)), "removed");
+    assert.equal(await withoutTableScans(() => removePasskey({ id: served.user.id, verwaltung: served.verwaltung }, removable.id)), "removed");
 
     // The hourly refresh, which the library judges by how far the expiry has run down: the row is aged
     // two hours, so the read writes it again.

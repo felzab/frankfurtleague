@@ -1,10 +1,9 @@
 import "server-only";
 
 import { cache } from "react";
-import { headers } from "next/headers";
 
 import { mintRequestActor } from "./actorToken";
-import { isAdminSession, isWithinPersonLifetime, readServedSession } from "./auth";
+import { isAdminSession, isWithinPersonLifetime, readRequestSession } from "./auth";
 import { asSignInIdentifier } from "./emailAddress";
 import { setRequestActor } from "./requestScope";
 import { lookUpSubjekt } from "./signInGate";
@@ -39,7 +38,7 @@ export type SubjectSession = { readonly email: string; readonly admin: boolean; 
 // React's `cache`, never `"use cache"`, which would hand one request's session to another: a layout,
 // a guard and a page of one render pass share one session read, one lookup and one signed actor.
 const judgeSubjectSession = cache(async (): Promise<{ subject: SubjectSession; actor: RequestActor } | null> => {
-  const served = await readServedSession(await headers());
+  const served = await readRequestSession();
   // Both figures here as well as at `getAdminSession`: a lane that skips them is a lane in which
   // the cap does not exist.
   if (!served || !isWithinPersonLifetime(served.session)) return null;

@@ -41,14 +41,21 @@ registerAuthDoubles({
       logger: { debug: () => undefined, info: () => undefined, warn: () => undefined, error: (message: string) => void errors.push(message) },
     },
   },
-  specifiers: { "next/headers": { headers: () => Promise.resolve(requestHeaders) } },
+  specifiers: {
+    "next/headers": { headers: () => Promise.resolve(requestHeaders) },
+    // Reached through the account spine `readSicherheit` imports, and called by no case here.
+    "next/cache": { refresh: () => undefined },
+  },
 });
 
-// The server build for `auth.ts` alone, whose `cache` memoizes where the client build's passes
-// through; the library's own `react` stays the build it ships against.
+/** The modules whose `cache` a render's reads go through: the guards, the lookup and the request's scope. */
+const MEMOIZING = ["/src/core/auth.ts", "/src/core/subject.ts", "/src/core/signInGate.ts", "/src/core/requestScope.ts"];
+
+// The server build for these alone, whose `cache` memoizes where the client build's passes through;
+// the library's own `react` stays the build it ships against.
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    if (specifier === "react" && context.parentURL?.endsWith("/src/core/auth.ts") === true)
+    if (specifier === "react" && MEMOIZING.some((tail) => context.parentURL?.endsWith(tail) === true))
       return { url: SERVER_REACT_URL, shortCircuit: true };
     return nextResolve(specifier, context);
   },
@@ -58,8 +65,10 @@ registerHooks({
 const { signInStore } = (await import(PRODUCTION_DB)) as { signInStore: () => MongoClient };
 const client = signInStore();
 opened.client = client;
-const { auth, getAdminSession } = await import("@/core/auth.ts");
+const { auth, getAdminSession, getKontoSession, getPasskeyStep } = await import("@/core/auth.ts");
 const { buildAuthIndexes } = await import("@/core/authIndexes.ts");
+const { getSubjectSession } = await import("@/core/subject.ts");
+const { readSicherheit } = await import("@/features/konto/sicherheit.ts");
 const { runAdminRead } = await import("@/shared/utils/adminRead.ts");
 const { runWithIncomingTrace } = await import("@/shared/utils/traceScope.ts");
 
@@ -205,5 +214,54 @@ describe("the administrator's guard across a server action", () => {
     await getAdminSession();
 
     assert.equal(sessionReads.length - before, 2);
+  });
+});
+
+/** Puts every stored session where the library's next refreshing read would write it, its windows untouched. */
+async function dueForRefresh(): Promise<() => Promise<unknown[]>> {
+  const sessions = client.db("auth").collection("session");
+  const updateAge = (auth.options.session?.updateAge ?? Number.NaN) * 1000;
+  // The library refreshes by how far `expiresAt` has run down, never by `updatedAt`, which the guards' idle windows read.
+  await sessions.updateMany({}, [{ $set: { expiresAt: { $subtract: ["$expiresAt", 2 * updateAge] } } }]);
+  return async () => (await sessions.find({}).toArray()).map(({ updatedAt, expiresAt }) => [updatedAt, expiresAt]);
+}
+
+/* A render cannot write the cookie, so a read that refreshes the row from one carries it past the
+   cookie the browser holds (`docs/frontend/spec.md :: I496`): the library's own passkey list reads the
+   session that way. */
+describe("the account and passkey pages, each across one render pass", () => {
+  it("reads the account page's session once for its three guards and writes no row", async () => {
+    requestHeaders = await signInAsAdministrator();
+    const stamps = await dueForRefresh();
+    const due = await stamps();
+
+    beginRenderPass();
+    const commands = await sentBy(async () => {
+      assert.ok(await getSubjectSession(), "the person guard refused the administrator");
+      const served = await getKontoSession();
+      assert.ok(served, "the account page's guard refused the administrator, so the count below counts a refusal");
+      await readSicherheit(served);
+    });
+
+    // The guards' one read, the check its passkey stands, the page's passkeys and its sign-ins.
+    assert.deepEqual(commands.toSorted(), ["aggregate passkey", "aggregate passkey", "aggregate session", "aggregate session"]);
+    assert.deepEqual(await stamps(), due, "a read of the account page slid the session");
+  });
+
+  it("reads the passkey page's session once and writes no row", async () => {
+    // A code's session, which the page offers the administrator's enrolment.
+    requestHeaders = new Headers({ ...ORIGIN, cookie: cookieHeader(await signInByCode(auth, ADMIN_EMAIL)) });
+    const stamps = await dueForRefresh();
+    const due = await stamps();
+
+    beginRenderPass();
+    let step: unknown;
+    const commands = await sentBy(async () => {
+      step = await getPasskeyStep();
+    });
+
+    assert.deepEqual(step, { step: "enrol", email: ADMIN_EMAIL }, "the page offered no step, so the count below counts nothing");
+    assert.deepEqual(commands, ["aggregate session", "aggregate passkey"]);
+    assert.deepEqual(await stamps(), due, "a read of the passkey page slid the session");
   });
 });
