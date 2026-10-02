@@ -46,7 +46,7 @@ def claims(lane: Lane = "admin", **overrides: Any) -> dict[str, Any]:
     return {**actor_claims(ACTOR, lane=lane), **overrides}
 
 
-def _minted_before(window_s: int) -> dict[str, int]:
+def _minted_before(window_s: int) -> dict[str, Any]:
     """A token minted most of its lifetime ago, from a sign-in inside `window_s` then and past it now."""
 
     iat = int(time.time()) - ACTOR_TOKEN_LIFETIME_S + 10
