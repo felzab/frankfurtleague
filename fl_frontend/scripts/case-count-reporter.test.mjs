@@ -23,6 +23,10 @@ const FILES = {
   "other-cases.test.mjs": 'import { it } from "node:test";\nit("also runs", () => {});\n',
   "skipped-suite.test.mjs":
     'import { describe, it } from "node:test";\ndescribe("needs a store", { skip: "no store here" }, () => {\n  it("reads", () => {});\n});\n',
+  "skipped-case.test.mjs": 'import { it } from "node:test";\nit("reads", { skip: "no store here" }, () => {});\n',
+  "bare-skipped-suite.test.mjs":
+    'import { describe, it } from "node:test";\ndescribe.skip("needs a store", () => {\n  it("reads", () => {});\n});\n',
+  "bare-skipped-case.test.mjs": 'import { it } from "node:test";\nit.skip("reads", () => {});\n',
 };
 for (const [name, source] of Object.entries(FILES)) writeFileSync(path.join(SCRATCH, name), source);
 
@@ -85,7 +89,15 @@ describe("the case-count reporter", () => {
     assert.deepEqual(run(["cases.test.mjs", "other-cases.test.mjs"], ["--test-shard=2/2"]), { status: 0, said: "" });
   });
 
-  it("leaves a file whose suite is skipped with a reason passing", () => {
-    assert.deepEqual(run(["skipped-suite.test.mjs"]), { status: 0, said: "" });
+  it("leaves a file whose suite or case is skipped with a reason passing", () => {
+    assert.deepEqual(run(["skipped-suite.test.mjs", "skipped-case.test.mjs"]), { status: 0, said: "" });
+  });
+
+  it("fails a file whose suite or case is skipped without a reason, naming it", () => {
+    const { status, said } = run(["bare-skipped-suite.test.mjs", "bare-skipped-case.test.mjs"]);
+
+    assert.equal(status, 1);
+    assert.match(said, /bare-skipped-suite\.test\.mjs ran no case/);
+    assert.match(said, /bare-skipped-case\.test\.mjs ran no case/);
   });
 });
