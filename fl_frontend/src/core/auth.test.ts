@@ -2247,6 +2247,28 @@ describe("what a ban ends in the sign-in store", () => {
     }
   });
 
+  /* The enrolment arm reads its caller through the library, past every lane above: a stamped session
+     still inside the enrolment window would add a passkey once the ban is lifted. */
+  it("enrols no passkey from a session the ending stamped, once the ban is lifted", async () => {
+    BACKENDS.set(PERSON_EMAIL, { ...NOTHING_HELD, sitze: [A_SEAT] });
+    try {
+      const { cookie, row } = await signIn(PERSON_EMAIL);
+      assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 200, "the control was refused before any ending");
+
+      adapterCalls.refusing = (key, args) => key === "deleteMany" && (args[0] as { model?: unknown } | undefined)?.model === "session";
+      try {
+        await endSessionsOfAddress(PERSON_EMAIL);
+      } finally {
+        adapterCalls.refusing = undefined;
+      }
+      assert.ok(store.session.includes(row), "the deletion was not refused, so the stamp alone is not what is judged");
+
+      assert.equal((await overHttp("/passkey/generate-register-options", { cookie })).status, 404);
+    } finally {
+      BACKENDS.delete(PERSON_EMAIL);
+    }
+  });
+
   // The control: every refusal above would pass on a stamp refusing every session the account ever makes.
   it("serves a session signed in after the ending", async () => {
     await signIn(PERSON_EMAIL);
