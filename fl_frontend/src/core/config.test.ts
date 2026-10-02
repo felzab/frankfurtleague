@@ -363,15 +363,35 @@ describe("the names the preflight demands a host's file carry", () => {
   });
 });
 
+/** Each secret's retired variable, its file, and a value the schema takes, so a boot reading the variable is not mistaken for one refusing it. */
+const LEFT_BEHIND: readonly (readonly [variable: string, file: string, value: string])[] = [
+  ["MONGODB_URI", "frontend_mongodb_uri", "mongodb://left-behind:27017/?directConnection=true"],
+  ["AUTH_SECRET", "auth_secret", artificialSecret(SIGNING_FLOOR + 1)],
+  ["AUTH_RESEND_KEY", "auth_resend_key", "resend-left-behind"],
+  ["RESEND_WEBHOOK_SECRET", "resend_webhook_secret", "whsec_left_behind"],
+  ["INTERNAL_API_KEY_BASE", "internal_api_key_base", "l".repeat(LENGTH)],
+  ["INTERNAL_API_KEY_SYSTEM", "internal_api_key_system", "m".repeat(LENGTH)],
+  ["INTERNAL_API_KEY_ADMIN", "internal_api_key_admin", "n".repeat(LENGTH)],
+];
+
 describe("the secret files the frontend reads", () => {
+  it("names every secret file once, by the variable it retired", () => {
+    assert.deepEqual(LEFT_BEHIND.map(([, file]) => file).sort(), Object.keys(COMPLETE_FILES).sort());
+    assert.deepEqual(
+      LEFT_BEHIND.map(([variable]) => variable).sort(),
+      RETIRED_ENVIRONMENT_NAMES.filter((name) => name !== "ALLOWED_ADMIN_EMAILS"),
+    );
+  });
+
   /* The variable a release before this one read, left behind in a host's file: standing in for a
      missing file it would hand a credential `docker inspect` prints to a boot that should refuse. */
-  it("takes no value from a variable, beside its file or in place of it", async () => {
-    const leftBehind = artificialSecret(SIGNING_FLOOR + 1);
-
-    assert.equal((await bootWith({ AUTH_SECRET: leftBehind }))["AUTH_SECRET"], COMPLETE_FILES.auth_secret);
-    assert.equal(await refusedFiles({ auth_secret: undefined }, { AUTH_SECRET: leftBehind }), "auth_secret");
-  });
+  for (const [variable, file, leftBehind] of LEFT_BEHIND) {
+    it(`takes no value from ${variable}, beside ${file} or in place of it`, async () => {
+      assert.equal((await bootWith({ [variable]: leftBehind }))[variable], COMPLETE_FILES[file]);
+      // Refused rather than left unset: `COMPLETE_ENV` boots production, which requires every file.
+      assert.equal(await refusedFiles({ [file]: undefined }, { [variable]: leftBehind }), file);
+    });
+  }
 
   it("reads a value without the line break an editor leaves after it", async () => {
     assert.equal((await bootWith({}, { resend_webhook_secret: "whsec_probe\r\n" }))["RESEND_WEBHOOK_SECRET"], "whsec_probe");
