@@ -338,6 +338,55 @@ describe("the code step mounted outside the sign-in card", () => {
     assert.ok(container.querySelector(".input-otp")?.classList.contains("input-otp--secondary"), "the code is off the surface variant");
   });
 
+  /* Painted off the clock the cooldown runs on, so a background tab's slowed ticks cannot leave it behind. */
+  it("counts the closed resend's half minute down beside it, and drops the count once it opens", async () => {
+    mock.timers.enable({ apis: ["setTimeout", "setInterval", "Date"] });
+    try {
+      render(h(CodeStep, { ...ELSEWHERE, onSignedIn: () => undefined }));
+      // By its text: the cooldown makes the control inert, so the accessibility tree holds only its overlay.
+      const resend = () => screen.getByText(/^Code erneut senden/, { selector: "button" });
+      assert.equal(resend().textContent, "Code erneut senden (30)");
+
+      await act(async () => {
+        mock.timers.tick(1_000);
+      });
+      assert.equal(resend().textContent, "Code erneut senden (29)");
+
+      await act(async () => {
+        mock.timers.tick(28_999);
+      });
+      assert.equal(resend().textContent, "Code erneut senden (1)");
+
+      await act(async () => {
+        mock.timers.tick(1);
+      });
+      assert.equal(screen.getByRole("button", { name: "Code erneut senden" }).textContent, "Code erneut senden");
+    } finally {
+      mock.timers.reset();
+    }
+  });
+
+  /* HeroUI's `.button` holds its label on one line, so two of them side by side ran past a narrow card's edges. */
+  it("sets the resend under the hint and the way back under the button, each a line that wraps inside the card", () => {
+    render(h(CodeStep, { ...ELSEWHERE, onBack: () => undefined, onSignedIn: () => undefined }));
+    const hint = screen.getByText(ELSEWHERE.hint);
+    const resend = screen.getByText(/^Code erneut senden/, { selector: "button" });
+    const submit = screen.getByRole("button", { name: ELSEWHERE.submitLabel.rest });
+    const back = screen.getByRole("button", { name: "Andere E-Mail-Adresse verwenden" });
+
+    const follows = (earlier: Element, later: Element) => (earlier.compareDocumentPosition(later) & earlier.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    assert.ok(follows(hint, resend), "the resend stands above its hint");
+    assert.ok(follows(resend, submit), "the resend stands below the primary button");
+    assert.ok(follows(submit, back), "the way back stands above the primary button");
+
+    for (const quiet of [resend, back]) {
+      const classes = quiet.className.split(/\s+/);
+      assert.ok(!classes.includes("button"), `„${quiet.textContent}“ wears HeroUI's one-line button`);
+      assert.ok(!classes.includes("whitespace-nowrap"), `„${quiet.textContent}“ cannot wrap`);
+      assert.ok(classes.includes("w-fit"), `„${quiet.textContent}“ is not held to its own text's width`);
+    }
+  });
+
   /* A signed-in reader confirming a change is owed neither the sign-in's help nor its verb. */
   it("carries its caller's own hint and button words", () => {
     render(h(CodeStep, { ...ELSEWHERE, onSignedIn: () => undefined }));

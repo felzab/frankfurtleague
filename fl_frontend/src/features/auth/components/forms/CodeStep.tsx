@@ -10,6 +10,7 @@ import { SIGN_IN_CODE_LENGTH } from "@/core/signInCode";
 import { formButton } from "@/shared/components/ui/formButtons";
 import { FIELD_ERROR_CLASSES } from "@/shared/components/ui/formFieldStyles";
 import { Hint } from "@/shared/components/ui/Hint";
+import { BRAND_INK_OUTSIDE_PROSE_CLASSES } from "@/shared/components/ui/textLink";
 import { appToast } from "@/shared/utils/appToast";
 import { postPublicForm } from "@/shared/utils/publicSubmit";
 import { VERSUCHE_ES_ERNEUT_SATZ } from "@/shared/utils/refusal";
@@ -37,6 +38,12 @@ const SLOT_CLASSES = "h-12 rounded-xl border border-control bg-surface";
 // arrival the rest of the site uses. Its size is HeroUI's fixed one otherwise, off the app's type scale.
 const SLOT_VALUE_CLASSES =
   "[&_[data-slot=input-otp-slot-value]]:animate-in [&_[data-slot=input-otp-slot-value]]:fluid-lg [&_[data-slot=input-otp-slot-value]]:fade-in";
+
+/**
+ * The resend and the way back, ranked under the one primary button. A native button rather than HeroUI's, whose
+ * `.button` holds its label on one line, so a long one runs past a narrow card's edge.
+ */
+const QUIET_ACTION_CLASSES = `${BRAND_INK_OUTSIDE_PROSE_CLASSES} w-fit cursor-pointer rounded bg-transparent py-1 fluid-xs font-bold disabled:pointer-events-none disabled:text-foreground-muted`;
 
 /**
  * `onSignedIn` runs once the route has set the session's cookie, and the step stays pending after it:
@@ -68,14 +75,27 @@ export function CodeStep({
   const [refusal, setRefusal] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [isCoolingDown, setIsCoolingDown] = useState(true);
+  const [secondsLeft, setSecondsLeft] = useState(RESEND_COOLDOWN_MS / 1000);
 
   const inputId = useId();
   const hintId = useId();
   const refusalId = useId();
 
   useEffect(() => {
-    const cooled = setTimeout(() => setIsCoolingDown(false), RESEND_COOLDOWN_MS);
-    return () => clearTimeout(cooled);
+    // The count is painted off the clock, never counted down per tick: a background tab slows its ticks, and
+    // the timeout below, not this count, is what opens the resend.
+    const until = Date.now() + RESEND_COOLDOWN_MS;
+    const counting = setInterval(() => setSecondsLeft(Math.max(1, Math.ceil((until - Date.now()) / 1000))), 1000);
+
+    const cooled = setTimeout(() => {
+      clearInterval(counting);
+      setIsCoolingDown(false);
+    }, RESEND_COOLDOWN_MS);
+
+    return () => {
+      clearTimeout(cooled);
+      clearInterval(counting);
+    };
   }, []);
 
   // Moved on mount rather than through `autoFocus`, which is banned for a load-time grab: the step
@@ -176,11 +196,31 @@ export function CodeStep({
           </p>
         )}
 
-        <Hint
-          mode="inline"
-          describes={hintId}
-          text={hint}
-        />
+        <div className="flex flex-col items-start gap-y-1">
+          <Hint
+            mode="inline"
+            describes={hintId}
+            text={hint}
+          />
+
+          <Hint
+            mode="refusal"
+            reason={isCoolingDown ? ERST_WARTEN : null}
+            label="Code erneut senden">
+            <button
+              type="button"
+              // Not before the cooldown: a new code goes out and voids the one before, so a second press a
+              // moment after the first kills the code the first mail is still carrying.
+              disabled={isCoolingDown || isChecking || isSending}
+              onClick={onResend}
+              className={`${QUIET_ACTION_CLASSES} text-left`}>
+              Code erneut senden
+              {/* Inside the control the cooldown makes inert, so a screen reader is read the reason once and
+                  never a number a second. */}
+              {isCoolingDown && <span className="font-numeric tabular-nums"> ({secondsLeft})</span>}
+            </button>
+          </Hint>
+        </div>
       </div>
 
       <Button
@@ -193,35 +233,16 @@ export function CodeStep({
         {isChecking ? submitLabel.pending : submitLabel.rest}
       </Button>
 
-      <div className="flex flex-col gap-y-3 sm:flex-row sm:justify-center sm:gap-x-3">
-        <Hint
-          mode="refusal"
-          reason={isCoolingDown ? ERST_WARTEN : null}
-          label="Code erneut senden">
-          <Button
-            type="button"
-            variant="secondary"
-            isPending={isSending}
-            // Not before the cooldown: a new code goes out and voids the one before, so a second press a
-            // moment after the first kills the code the first mail is still carrying.
-            isDisabled={isCoolingDown || isChecking}
-            onPress={onResend}
-            className={formButton({ intent: "cancel" })}>
-            Code erneut senden
-          </Button>
-        </Hint>
-        {/* The send does not navigate, so without this the only way back is a page reload. */}
-        {onBack !== undefined && (
-          <Button
-            type="button"
-            variant="secondary"
-            isDisabled={isChecking}
-            onPress={onBack}
-            className={formButton({ intent: "cancel" })}>
-            Andere E-Mail-Adresse verwenden
-          </Button>
-        )}
-      </div>
+      {/* The send does not navigate, so without this the only way back is a page reload. */}
+      {onBack !== undefined && (
+        <button
+          type="button"
+          disabled={isChecking}
+          onClick={onBack}
+          className={`${QUIET_ACTION_CLASSES} self-center text-center`}>
+          Andere E-Mail-Adresse verwenden
+        </button>
+      )}
     </div>
   );
 }
