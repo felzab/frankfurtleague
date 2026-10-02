@@ -930,7 +930,9 @@ through `NODE_OPTIONS` (`scripts/gate/verify.sh :: do_unit_tests`).
 **A transaction a db file's replica set aborts at MongoDB's lifetime limit fails that file**
 (`fl_frontend/src/core/expiredTransactions.ts :: closeJudgingExpiredTransactions`), its one
 teardown reading the count before it closes every client and stops the container, and a count the
-server stops reporting fails it as unjudged. A case that deadlocks on a transaction, or leaves a
+server stops reporting fails it as unjudged, as does a replica set the file started and never
+watched; every db file calls both the watch and that teardown
+(`fl_frontend/src/core/expiredTransactions.test.ts`). A case that deadlocks on a transaction, or leaves a
 commit the server never received, can pass while another waits the abort out. That teardown
 answers an expiry and a close that failed together (`:: teardownFailure`).
 

@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, it } from "node:test";
 
 import { expiredTransactionKills, expiredTransactionsRefusal, teardownFailure } from "./expiredTransactions.ts";
+import { filesUnder } from "./treeWalk.ts";
 
 /** `serverStatus` as a replica set answers it, cut to the one count the check reads. */
 const status = (kills: unknown): Record<string, unknown> => ({
@@ -81,4 +84,31 @@ describe("what a db suite's teardown answers", () => {
       null,
     );
   });
+});
+
+/** Every spelling `pnpm run test:db` runs, so a suite cannot leave the sweep below by its suffix. */
+const TEST_DB_GLOB = "**/*.db.test.{cjs,mjs,js,cts,mts,ts}";
+const isDbSuite = (name: string): boolean => /\.db\.test\.[cm]?[jt]s$/.test(name);
+
+/* A suite without the teardown judges nothing and passes every transaction its replica set aborted;
+   one without the watch is refused, but only once the db tier has run it. */
+describe("every db suite", () => {
+  it("is taken by the sweep in every spelling the db tier runs", () => {
+    const manifest = JSON.parse(readFileSync(path.resolve(import.meta.dirname, "..", "..", "package.json"), "utf8")) as {
+      scripts: Record<string, string | undefined>;
+    };
+
+    const testDb = manifest.scripts["test:db"] ?? "";
+
+    assert.ok(testDb.includes(`"${TEST_DB_GLOB}"`), testDb);
+  });
+
+  for (const file of filesUnder(path.resolve(import.meta.dirname, ".."), isDbSuite, 5)) {
+    it(`watches its replica set and judges it in its teardown: ${path.basename(file)}`, () => {
+      const source = readFileSync(file, "utf8");
+
+      assert.match(source, /\bwatchExpiredTransactions\(/, `${file} never watches its replica set`);
+      assert.match(source, /\bcloseJudgingExpiredTransactions\(/, `${file} never judges its replica set in its teardown`);
+    });
+  }
 });

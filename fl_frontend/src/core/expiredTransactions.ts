@@ -13,6 +13,10 @@ const UNREAD =
   "this file's replica set reported no `metrics.abortExpiredTransactions.successfulKills` in `serverStatus`, so whether a " +
   "transaction ran to MongoDB's lifetime limit was not judged: find where this server version reports it.";
 
+const UNWATCHED =
+  "this file's replica set was started but its count was never read (`watchExpiredTransactions`), so whether a transaction " +
+  "ran to MongoDB's lifetime limit was not judged: watch the container as soon as it has started.";
+
 /** `null` where the status carries no count, which a passing file must never read as none aborted. */
 export function expiredTransactionKills(status: Record<string, unknown>): number | null {
   const metrics = status["metrics"];
@@ -75,8 +79,10 @@ export async function teardownFailure(judge: () => Promise<string | null>, close
  */
 export async function closeJudgingExpiredTransactions(mongod: StartedMongoDBContainer | undefined, close: () => Promise<void>): Promise<void> {
   const failure = await teardownFailure(async () => {
-    // Never watched is a file that failed before its first case, which has its own failure to report.
-    if (mongod === undefined || !atStart.has(mongod)) return null;
+    // No container is a file that failed before starting one, which has its own failure to report.
+    if (mongod === undefined) return null;
+    // Refused even where the watch itself threw: read as passing, a file that never called it passed every expiry.
+    if (!atStart.has(mongod)) return UNWATCHED;
     return expiredTransactionsRefusal(atStart.get(mongod) ?? null, await readKills(mongod));
   }, close);
 

@@ -144,6 +144,18 @@ it("passes", () => {});
     assert.ok(run.output.includes("this file's teardown: planted close failure"), run.output);
   });
 
+  it("refuses a db suite's replica set that started but was never watched", () => {
+    const run = runAsTestFile(`import { after, it } from "node:test";
+import { closeJudgingExpiredTransactions } from "@/core/expiredTransactions.ts";
+after(() => closeJudgingExpiredTransactions({}, () => Promise.resolve()));
+it("passes", () => {});
+`);
+
+    assert.equal(run.timedOut, false, `the child was held open past its timeout:\n${run.output}`);
+    assert.equal(run.status, 1, run.output);
+    assert.ok(run.output.includes("this file's teardown: this file's replica set was started but its count was never read"), run.output);
+  });
+
   it("leaves every later `afterEach` to run, and names the case it judged", () => {
     const run = runAsTestFile(AFTER_EACH_SHAPE);
 
