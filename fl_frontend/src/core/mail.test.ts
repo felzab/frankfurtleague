@@ -60,6 +60,7 @@ const logs: RecordedLine[] = [];
 
 const { sendMail, sendSperreNotice, MailBarredError, MailRecipientError, MailUnsentError, MailWithheldError } = await import("./mail.ts");
 const { APINetworkError, MailSendError } = await import("./errors.ts");
+const { buildSperreEmail } = await import("./sperrlisteEmail.ts");
 const { REQUEST_DEADLINE_MS, requestOutcomeUnknown, requestWriteSent, runWithRequestScope } = await import("./requestScope.ts");
 
 const MAIL_MODULE = path.join(import.meta.dirname, "mail.ts");
@@ -374,6 +375,21 @@ describe("the ban list's gate at the one send", () => {
     assert.deepEqual(sinkNames(), []);
   });
 
+  /* For `fl_frontend/src/core/mail.ts :: recipientOf`'s reason. An umlaut converts alike on both
+     sides, so the case holds whatever Unicode version either runs. */
+  it("asks the gate about exactly the recipient the provider is handed", async () => {
+    for (const typed of ["anna@müller.de", "gerda@schule。de"]) {
+      gateAsked.length = 0;
+      sends.length = 0;
+
+      await sendMail({ ...MESSAGE, to: typed });
+
+      const handed = (JSON.parse(String(sends[0]!.init.body)) as { to: string }).to;
+      assert.deepEqual(gateAsked, [handed], typed);
+    }
+    assert.equal(gateAsked[0], "gerda@schule.de");
+  });
+
   it("sends nothing to a barred address and records no write", async () => {
     gate = "barred";
 
@@ -474,6 +490,32 @@ describe("the ban's own notice", () => {
     assert.equal(body.to, MESSAGE.to);
     assert.match(body.text, /Falsches Geburtsdatum/);
     assert.match(body.text, /2930/);
+  });
+
+  /* The ban form and the API take a domain whose dots are ideographic or full-width and store it with
+     ASCII dots, so the notice owed to that address leaves under the stored spelling. */
+  it("reaches an address whose only dots are ideographic or full-width", async () => {
+    for (const dot of ["。", "．", "｡"]) {
+      sends.length = 0;
+
+      await sendSperreNotice({ to: `gerda@schule${dot}de`, ...FACTS });
+
+      assert.equal((JSON.parse(String(sends[0]!.init.body)) as { to: string }).to, "gerda@schule.de", `U+${dot.codePointAt(0)!.toString(16)}`);
+    }
+  });
+
+  /* A caller's message fields are no part of the notice: the sender builds it from the ban's facts alone. */
+  it("sends the builder's own notice whatever else the caller hands over", async () => {
+    const handed = { to: MESSAGE.to, ...FACTS, subject: "Planted", html: "<p>Planted</p>", text: "Planted", tags: { ziel: "planted" } };
+
+    await sendSperreNotice(handed);
+
+    const body = JSON.parse(String(sends[0]!.init.body)) as Record<string, unknown>;
+    const built = buildSperreEmail(FACTS);
+    assert.deepEqual(
+      { subject: body["subject"], html: body["html"], text: body["text"], tags: body["tags"] },
+      { subject: built.subject, html: built.html, text: built.text, tags: undefined },
+    );
   });
 
   /* Skipping the gate is no licence for a list: the notice goes to the one mailbox the ban names. */

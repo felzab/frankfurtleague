@@ -213,29 +213,44 @@ function pause(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+/**
+ * Converted before the gate is asked: about the typed spelling the API answers by its own Unicode
+ * tables while the provider is handed this runtime's conversion, and where the two disagree a barred
+ * mailbox goes unbarred.
+ */
+function recipientOf(to: string): string {
+  // A domain IDNA cannot convert, and any spelling around a mailbox, which the gate would answer
+  // unbarred while the provider still reached the mailbox inside it.
+  const converted = withAsciiDomain(to);
+  if (converted === undefined || !isOneBareMailbox(converted)) throw new MailRecipientError();
+
+  return converted;
+}
+
 /** Every message the league sends but the ban's own notice, each asked of the ban list first (`docs/frontend/spec.md :: I541`). */
 export async function sendMail(mail: OutboundMail): Promise<MailAccepted> {
-  // Ahead of the gate, which a spelling around a mailbox would pass unbarred while the provider still
-  // reached the mailbox inside it.
-  if (!isOneBareMailbox(mail.to)) throw new MailRecipientError();
+  const to = recipientOf(mail.to);
 
   // Ahead of the sink, so a stack that does not mail files only what production would send and the
   // ban can be checked there.
-  const verdict = await mayReceiveMail(mail.to);
+  const verdict = await mayReceiveMail(to);
   if (verdict === "barred") throw new MailBarredError();
   if (verdict === "failed") throw new MailUnsentError();
 
-  return deliver(mail);
+  return deliver({ ...mail, to: to });
 }
 
 /**
  * The one message an address the ban list holds is sent: composed here from the ban's own facts, so
  * nothing a caller hands over can travel past the ban list under it.
  */
-export async function sendSperreNotice({ to, ...facts }: { to: string } & Parameters<typeof buildSperreEmail>[0]): Promise<MailAccepted> {
-  if (!isOneBareMailbox(to)) throw new MailRecipientError();
-
-  return deliver({ to: to, ...buildSperreEmail(facts) });
+export async function sendSperreNotice({
+  to,
+  grund,
+  gesperrtBisSaisonId,
+  origin,
+}: { to: string } & Parameters<typeof buildSperreEmail>[0]): Promise<MailAccepted> {
+  return deliver({ to: recipientOf(to), ...buildSperreEmail({ grund: grund, gesperrtBisSaisonId: gesperrtBisSaisonId, origin: origin }) });
 }
 
 /**
@@ -268,13 +283,6 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey }: Outbou
 
     throw new MailWithheldError();
   }
-
-  // At the send as well as at entry, so no caller has to have converted: every recipient leaves with
-  // its domain in the punycode form a payload stores (`docs/backend/spec.md :: I332`).
-  const recipient = withAsciiDomain(to);
-
-  // Above the timer below, which a throw from here would leave running for the whole budget.
-  if (recipient === undefined) throw new MailRecipientError();
 
   const bound = boundCall(MAIL_TIMEOUT_MS);
 
@@ -310,7 +318,7 @@ async function deliver({ to, subject, html, text, tags, idempotencyKey }: Outbou
 
   const body = JSON.stringify({
     from: MAIL_FROM,
-    to: recipient,
+    to: to,
     subject,
     html,
     text,
