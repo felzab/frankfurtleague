@@ -238,6 +238,28 @@ class TestACancelledRequestStillAbortsItsTransaction:
         assert client.session.sent == [{"abortTransaction": 1, "txnNumber": 3, "autocommit": False}]
 
 
+class TestTheRouteRunsInTheServersTask:
+    def test_no_layer_moves_it_into_a_task_of_its_own(self):
+        """`app/core/middlewares.py :: TraceContextMiddleware`'s reason: a task group around the app cancels it at every await.
+
+        The shield holds the helper's abort there, so only this case fails for pymongo's own cleanup awaits.
+        """
+
+        ran_in: list[asyncio.Task[Any] | None] = []
+
+        async def records_its_task() -> None:
+            ran_in.append(asyncio.current_task())
+
+        served = create_app(build_test_config())
+        served.add_api_route(_HELD, records_its_task)
+
+        async def serve() -> asyncio.Task[Any] | None:
+            await served(_SCOPE, _never_disconnects, _discarded)
+            return asyncio.current_task()
+
+        assert ran_in == [asyncio.run(serve())]
+
+
 DATABASE_NAME = worker_database("fl_transactions_test")
 
 NO_SUCH_TRANSACTION = 251
