@@ -15,9 +15,12 @@
 # Floor: how far a 12-run median moves at p95, in percent of the reference beside it rather than in
 # seconds -- that same population reshuffled and re-cut into two windows of twelve, rounded up to a
 # whole percent, and whole runs resampled rather than single jobs, because a slow runner slows every
-# job on it. A job with no row here is reported as unreferenced rather than measured. p95 rather
-# than p90 because a report holding no verdict is worth only what it is worth reading, and a floor
-# speaking on half of the quiet pushes spends exactly that.
+# job on it. A job with no row here is not compared: the report lists it under "Measured with no
+# reference to compare against", the same line a row carrying `-` puts its job on
+# (`scripts/checks/check_gate_budget.py :: report_window`), and the budget check fails the run that
+# carries it (`:: check_run`). p95 rather than p90 because a report holding no verdict is worth
+# only what it is worth reading, and a floor speaking on half of the quiet pushes spends exactly
+# that.
 #
 # Budget: the highest single-run span in the stamped population, plus a quarter of it or ten
 # seconds, whichever is more, rounded up to the next five. A single run swings far wider than a
