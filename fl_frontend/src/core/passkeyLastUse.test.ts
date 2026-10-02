@@ -1,9 +1,16 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { memoryAdapter } from "better-auth/adapters/memory";
-
-import { configDouble, cookieHeader, GATE_BACKEND_CONFIG, memoryStore, ORIGIN, registerAuthDoubles, seatEveryAddress } from "./authDoubles.ts";
+import {
+  configDouble,
+  cookieHeader,
+  GATE_BACKEND_CONFIG,
+  insertOrderedAdapter,
+  memoryStore,
+  ORIGIN,
+  registerAuthDoubles,
+  seatEveryAddress,
+} from "./authDoubles.ts";
 import { assertionFor, COSE_KEY } from "./testAuthenticator.ts";
 
 import type { MemoryDB } from "better-auth/adapters/memory";
@@ -25,8 +32,8 @@ let stampRefused = false;
 /* Where the flag is set, the stamp's write is refused and every other write lands: the plugin's own
    counter update runs on the same row in the same request. */
 const ADAPTER_DOUBLE = {
-  mongodbAdapter: () => (options: Parameters<ReturnType<typeof memoryAdapter>>[0]) => {
-    const adapter = memoryAdapter(store as unknown as MemoryDB)(options);
+  mongodbAdapter: () => (options: Parameters<ReturnType<typeof insertOrderedAdapter>>[0]) => {
+    const adapter = insertOrderedAdapter(store as unknown as MemoryDB)(options);
     type Update = Parameters<typeof adapter.update>[0];
     const refused = (args: Update): boolean =>
       stampRefused && args.model === "passkey" && (args.update as { lastUsedAt?: unknown } | undefined)?.lastUsedAt !== undefined;

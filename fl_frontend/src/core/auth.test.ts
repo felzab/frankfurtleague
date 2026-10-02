@@ -3,10 +3,8 @@ import { createRequire } from "node:module";
 import { after, afterEach, beforeEach, describe, it } from "node:test";
 import { pathToFileURL } from "node:url";
 
-import { memoryAdapter } from "better-auth/adapters/memory";
 import { isAPIError } from "better-auth/api";
 import { jwtVerify } from "jose";
-import { ObjectId } from "mongodb";
 
 import {
   ACTOR_KEY_PAIR,
@@ -14,6 +12,7 @@ import {
   Barrier,
   configDouble,
   cookieHeader,
+  insertOrderedAdapter,
   lastMailedCode,
   madeByPasskey,
   memoryStore,
@@ -68,15 +67,9 @@ const operationOf = (key: string, args: unknown[]): string => `${key} ${String((
 const ADAPTER_DOUBLE = {
   mongodbAdapter: (db: unknown, config?: { client?: unknown }) => {
     adapterCalls.pairs.push({ db, config });
-    const factory = memoryAdapter(store as unknown as MemoryDB);
-    // Ids minted as the Mongo adapter mints them, an `ObjectId` rising with each insert: two sessions
-    // stamped in one millisecond are told apart by it (`fl_frontend/src/core/auth.ts :: mintedBefore`).
-    const mintingObjectIds = (options: Parameters<typeof factory>[0]): Parameters<typeof factory>[0] => ({
-      ...options,
-      advanced: { ...options.advanced, database: { ...options.advanced?.database, generateId: () => new ObjectId().toHexString() } },
-    });
+    const factory = insertOrderedAdapter(store as unknown as MemoryDB);
     return (options: Parameters<typeof factory>[0]) =>
-      new Proxy(factory(mintingObjectIds(options)), {
+      new Proxy(factory(options), {
         get: (target, key) => {
           const value: unknown = Reflect.get(target, key);
           if (typeof value !== "function" || typeof key !== "string") return value;

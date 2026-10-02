@@ -6,6 +6,7 @@ import path from "node:path";
 import { after } from "node:test";
 
 import { memoryAdapter } from "better-auth/adapters/memory";
+import { ObjectId } from "mongodb";
 
 import { registerDoubles } from "./exportingModule.ts";
 import { doubleSendMail } from "./mailDouble.ts";
@@ -58,12 +59,28 @@ export function configDouble(overrides: Readonly<Record<string, unknown>> = {}):
    rather than fail at once. */
 const DB_DOUBLE: DoubledExports = { signInStore: () => ({ db: () => ({}) }) };
 
+/** What the library hands an adapter factory as it builds the adapter. */
+type AdapterOptions = Parameters<ReturnType<typeof memoryAdapter>>[0];
+
+/**
+ * The library's in-memory adapter over `store`, minting ids as the Mongo adapter does rather than at
+ * random: an `ObjectId` rising with each insert, which settles two sessions stamped in one millisecond
+ * (`fl_frontend/src/core/auth.ts :: mintedBefore`).
+ */
+export const insertOrderedAdapter =
+  (store: MemoryDB) =>
+  (options: AdapterOptions): ReturnType<ReturnType<typeof memoryAdapter>> =>
+    memoryAdapter(store)({
+      ...options,
+      advanced: { ...options.advanced, database: { ...options.advanced?.database, generateId: () => new ObjectId().toHexString() } },
+    });
+
 /**
  * The Mongo adapter reaches a real server through aggregation pipelines, so the store under the real
  * `auth.ts` is the library's own in-memory one, over the object held at `globalThis[store]`.
  */
 export const memoryAdapterDouble = (store: string): DoubledExports => ({
-  mongodbAdapter: () => memoryAdapter(Reflect.get(globalThis, store) as MemoryDB),
+  mongodbAdapter: () => insertOrderedAdapter(Reflect.get(globalThis, store) as MemoryDB),
 });
 
 type AuthDoubles = {

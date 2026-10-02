@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 
-import { memoryAdapter } from "better-auth/adapters/memory";
-
 import {
   ADMIN_EMAIL,
   asDataUrl,
   configDouble,
   GATE_BACKEND_CONFIG,
+  insertOrderedAdapter,
   memoryStore,
   ORIGIN,
   registerAuthDoubles,
@@ -41,8 +40,8 @@ const LOGGING_DOUBLE = { logger: { debug: () => undefined, info: () => undefined
 /* Where the flag is set, `transaction` hands the adapter itself back, which is what the Mongo adapter
    does when it is given no client: the shape the removal must refuse rather than trust. */
 const ADAPTER_DOUBLE = {
-  mongodbAdapter: () => (options: Parameters<ReturnType<typeof memoryAdapter>>[0]) => {
-    const adapter = memoryAdapter(store as unknown as MemoryDB)(options);
+  mongodbAdapter: () => (options: Parameters<ReturnType<typeof insertOrderedAdapter>>[0]) => {
+    const adapter = insertOrderedAdapter(store as unknown as MemoryDB)(options);
     const served: typeof adapter = {
       ...adapter,
       transaction: (callback) => (passThrough ? callback(served) : adapter.transaction(callback)),
