@@ -80,6 +80,27 @@ class SeasonsRunningARivalAfterTheFirstRead:
         return found
 
 
+class GrantsRunningARivalAfterTheirRead:
+    """Runs a rival write once, after the grants' read and before their anchor, which is this transaction's first write."""
+
+    def __init__(self, inner: Any, rival: Rival) -> None:
+        self._inner = inner
+        self._rival: Rival | None = rival
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+    async def aggregate(self, *args: Any, **kwargs: Any) -> Any:
+        cursor = await self._inner.aggregate(*args, **kwargs)
+
+        # ONE-SHOT: a retry of the ban's transaction has to meet what landed rather than run the rival again.
+        if self._rival is not None:
+            rival, self._rival = self._rival, None
+            await rival()
+
+        return cursor
+
+
 def saison_document(saison_id: str, status: str) -> dict[str, Any]:
     return documents.saison_document(saison_id, status, rules=documents.rules_document(number_of_groups=2, erlaubte_stufen=["E1"]))
 
@@ -100,7 +121,7 @@ def the_lapsing_ban() -> dict[str, Any]:
     return documents.ban_document(BANNED, bis=LAPSING_BOUND, erstellt_am="2021-04-01")
 
 
-async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, saisons: Any = None) -> str:
+async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, saisons: Any = None, berechtigungen: Any = None) -> str:
     try:
         created = await post_sperrliste_eintrag(
             sperrliste_data=FLPostSperrlistePayload(email=BANNED, grund=GRUND),
@@ -109,7 +130,7 @@ async def ban(database: AsyncDatabase, client: AsyncMongoClient, *, saisons: Any
                 database[Collection.SPERRLISTE], saisons if saisons is not None else database[Collection.SAISONS], CONFIG.sperrliste_schluessel
             ),
             saisons_collection=saisons if saisons is not None else database[Collection.SAISONS],
-            berechtigungen_collection=database[Collection.BERECHTIGUNGEN],
+            berechtigungen_collection=berechtigungen if berechtigungen is not None else database[Collection.BERECHTIGUNGEN],
             berechtigungen_postausgang_collection=database[Collection.BERECHTIGUNGEN_POSTAUSGANG],
             db=client,
             config=CONFIG,
@@ -199,7 +220,11 @@ class TestABanWhoseReferenceSeasonIsReadJustBeforeTheRolloverCommits:
 
 class TestTwoBansOfOneAddressInsideOneWindow:
     def test_the_second_is_refused_as_already_on_the_list(self, mongo_replica_set_url: str):
-        """The rival ban commits after this one has read its season and before it asks the list."""
+        """Not at the season read, which follows the anchor.
+
+        A rival ban run there retries against the anchor until the server's transaction lifetime aborts
+        this ban: a minute or more for the same outcome.
+        """
 
         async def body(database: AsyncDatabase, client: AsyncMongoClient) -> tuple[str, str, list[str]]:
             results: dict[str, str] = {}
@@ -207,7 +232,9 @@ class TestTwoBansOfOneAddressInsideOneWindow:
             async def the_rival() -> None:
                 results["rival"] = await ban(database, client)
 
-            outcome = await ban(database, client, saisons=SeasonsRunningARivalAfterTheFirstRead(database[Collection.SAISONS], the_rival))
+            outcome = await ban(
+                database, client, berechtigungen=GrantsRunningARivalAfterTheirRead(database[Collection.BERECHTIGUNGEN], the_rival)
+            )
             _, bounds = await active_and_bounds(database)
 
             return results["rival"], outcome, bounds
