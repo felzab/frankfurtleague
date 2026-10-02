@@ -454,7 +454,7 @@ is a file under `secrets/` (§1.2), so the two services share no name an environ
 pass-through's value and for compose's `COMPOSE_*` settings, and nothing in this repository writes
 or reads one: a line there steers compose itself, a project name aiming every command at another
 stack. **The deploy and the local stack refuse to start while one stands there**, naming the file
-and printing none of it (`scripts/lib/_lib.sh :: refuse_compose_dotenv`), since git ignores it and
+and printing none of it (I533), since git ignores it and
 nothing else shows it. Pinning the project name on each call is no substitute: it answers the name
 alone, the file's other settings and pass-through values still reaching compose. **The frontend's `dev` script sets two names of
 its own** before `next dev` starts, over the shell and `fl_frontend/.env`: `ACTOR_SIGNING_KEY_FILE`
@@ -1298,6 +1298,7 @@ deliberately off, and what terminating TLS at Cloudflare costs the origin.
 | I511 | The frontend image's `FROM node:` tag names the release `fl_frontend/package.json :: devEngines` pins, the Node every checkout and CI job runs                                | `scripts/gate/selfcheck.sh :: check_node_pin`, driven by `scripts/tests/test_selfcheck_guards.py :: PIN_CHECKS`                                                                                                                                                                                         |
 | I512 | The frontend image installs with the pnpm `fl_frontend/package.json :: packageManager` names                                                                                  | `scripts/gate/selfcheck.sh :: check_pnpm_pin`, driven by `scripts/tests/test_selfcheck_guards.py :: PIN_CHECKS`                                                                                                                                                                                         |
 | I513 | The backend image's `FROM python:` tag lies inside the series `fl_backend/.python-version` pins, which every CI job's interpreter comes from                                  | `scripts/gate/selfcheck.sh :: check_python_series`, driven by `scripts/tests/test_selfcheck_guards.py :: PIN_CHECKS`                                                                                                                                                                                    |
+| I533 | The deploy and the local stack refuse to start while a `.env` stands beside the compose file, printing none of it                                                             | `scripts/lib/_lib.sh :: refuse_compose_dotenv`, called by both scripts before any mode asks compose; `scripts/tests/test_deploy_streams.py`                                                                                                                                                             |
 
 ## 3. Violation → remedy
 
