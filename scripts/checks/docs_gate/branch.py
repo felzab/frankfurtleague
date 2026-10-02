@@ -338,7 +338,7 @@ ISSUE_REF_RE: Final = re.compile(r"(?<!&)#\d+(?![\w\-])")
 STYLESHEET_ISSUE_REF_RE: Final = re.compile(r"(?<!&)#\d+(?![\w\-;)])")
 # A tracker's entry written out rather than linked. Three digits at least: before a count, "issue"
 # is a verb and "PR" a noun, and the trackers a comment here would cite number past a hundred.
-SPELLED_ISSUE_REF_RE: Final = re.compile(r"\b(?:[Ii]ssue|[Pp]ull request|PR)s?\s+\d{3,}\b")
+SPELLED_ISSUE_REF_RE: Final = re.compile(r"\b(?:issue|pull[\s-]request|pr)s?(?:\s*[:-]\s*|\s+(?:no\.|number)\s*|\s+)\d{3,}\b", re.IGNORECASE)
 
 # A fourth and a fifth, which the run in FRONT of the hash is what separates: a scheme anywhere in
 # it makes a URL fragment, and a corpus suffix at its end makes an anchor into a page.

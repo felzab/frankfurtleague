@@ -92,6 +92,16 @@ COUNTED_WORDS: Final[tuple[str, ...]] = (
     "each PR 3 times",
     "the PR 2 commits rebased",
 )
+# The same entry in the other ways a comment spells one: the case, a hyphen, an abbreviation, the
+# word, a colon. Each names the entry it is reported by.
+SPELLED_VARIANTS: Final[tuple[str, ...]] = (
+    "Pull Request 1234",
+    "pull-request 1235",
+    "issue no. 1236",
+    "issue number 1237",
+    "pr 1238",
+    "PR: 1239",
+)
 # Three spellings of one number, each an issue number outside a stylesheet: the form GitHub appends
 # to a squash subject, the terminated one, and the one a comment marks up as code.
 PAREN_ISSUE: Final = "(" + ISSUE_REF + ")"
@@ -1147,6 +1157,21 @@ def test_a_count_after_a_tracker_s_word_names_no_entry() -> None:
         _reset()
     assert MOD in data["additions"]
     assert _findings(data) == [("fail", "comment-citation", MOD, "review reference 'last session' in an added comment (INC-6, COR-1)")]
+
+
+def test_an_entry_spelled_any_way_a_comment_writes_one_is_still_an_issue_number() -> None:
+    """Case, a hyphen, "no.", "number" and a colon each left the entry unread while the pattern spelled one form."""
+    _reset()
+    _append(MOD, *(HASH + " the shape waits on " + variant for variant in SPELLED_VARIANTS))
+    try:
+        data = _run()
+    finally:
+        _reset()
+    assert MOD in data["additions"]
+    assert _findings(data) == [
+        ("fail", "comment-citation", MOD, "issue number " + variant + " in an added comment -- state the constraint (INC-6)")
+        for variant in sorted(SPELLED_VARIANTS)
+    ]
 
 
 def test_a_missing_base_ref_is_one_refusal_and_the_bounds_stay_silent() -> None:

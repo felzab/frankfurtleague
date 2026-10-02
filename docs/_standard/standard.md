@@ -322,7 +322,8 @@ every file this Scope names.
   `scripts/checks/docs_gate/branch.py :: check_added_citations` reads the branch's added comments
   alone, though in every kind those two registers select, a Dockerfile, a workflow and a manifest
   among them, and it takes an issue number spelled with a hash, or of three digits or more after a
-  tracker's word, "issue" or "pull request" or "PR". Naming the issue-number shape
+  tracker's word, "issue" or "pull request" or "PR" in any case, spaced, hyphened or followed by a
+  colon, "no." or "number". Naming the issue-number shape
   to ban it is a mention rather than a use, and is written in double quotes — straight or curly —
   which that reader spares; backticks spare nothing there, a number marked up as code reading as a
   citation of it. A hex colour named in a comment takes those quotes too, the punctuation that makes
