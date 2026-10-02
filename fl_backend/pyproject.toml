@@ -117,6 +117,11 @@ select = [
 ]
 ignore = ["B008"]
 
+[tool.ruff.lint.per-file-ignores]
+# `scripts/ruff.toml` extends this file, and the gate's tooling there reads its own environment by
+# design: every entry in the banned list guards the backend alone.
+"../scripts/**" = ["TID251"]
+
 # A handler reading the environment's settings answers with those whatever the app was built with,
 # and the dependency walk in `tests/core/test_config.py` never sees a call inside a body.
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
@@ -128,6 +133,11 @@ ignore = ["B008"]
 "app.core.config.read_secrets".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
 "app.core.config.BackendEnvironment".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
 "app.core.config.BackendSecrets".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+# The environment read raw, or through a settings class of a module's own: the same hazard, without
+# even the validation `read_environment` runs.
+"os.environ".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"os.getenv".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
+"pydantic_settings.BaseSettings".msg = "Read the request's settings through `get_app_config`; the environment's are for `create_app`, the constraints CLI and the deploy preflight."
 # Ruff matches the path an import spells rather than the function it binds, so the same function
 # imported from the module building the app would pass the entry above.
 "app.main.get_config".msg = "Read the request's settings through `get_app_config`; `app.main` holds no `get_config` for a caller."

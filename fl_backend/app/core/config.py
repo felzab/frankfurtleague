@@ -8,7 +8,7 @@ from typing import Annotated, Final, Literal, Self
 from fastapi import Request
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_core import PydanticCustomError
-from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SecretsSettingsSource, SettingsConfigDict, SettingsError
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SecretsSettingsSource, SettingsConfigDict, SettingsError  # noqa: TID251
 
 from app.core.actor_token import ActorTokenKey
 
