@@ -527,6 +527,17 @@ const LANDINGS: Record<string, Landing> = {
       h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", RETIRED_ON), ort(ORT_B, "Halle B", null), ort(ORT_C, "Halle C", RETIRED_ON)] }),
     lands: () => buttonIn("spielorte-tabelle", "Spielort Halle C reaktivieren"),
   },
+  "a venue row's reactivation the filter then hides from the table's first row, on the next row's": {
+    search: "status=stillgelegt",
+    before: () =>
+      h(AdminSpielorteView, {
+        spielorte: [ort(ORT_A, "Halle A", RETIRED_ON), ort(ORT_B, "Halle B", RETIRED_ON), ort(ORT_C, "Halle C", RETIRED_ON)],
+      }),
+    press: (user) => user.click(buttonIn("spielorte-tabelle", "Spielort Halle A reaktivieren")),
+    after: () =>
+      h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", RETIRED_ON), ort(ORT_C, "Halle C", RETIRED_ON)] }),
+    lands: () => buttonIn("spielorte-tabelle", "Spielort Halle B reaktivieren"),
+  },
   "a venue's retirement in the dialog, on the reactivation replacing its row's control": {
     before: () => h(AdminSpielorteView, { spielorte: [ort(ORT_A, "Halle A", null), ort(ORT_B, "Halle B", null)] }),
     press: retireThroughDialog("spielorte-karten", "Spielort Halle A"),
@@ -584,6 +595,14 @@ const LANDINGS: Record<string, Landing> = {
     press: (user) => user.click(buttonIn("spieler-karten", "Kadereintrag von Mia Meier reaktivieren")),
     after: () => spielerList([spieler(SP_A, "Lena", null, RETIRED_ON), spieler(SP_B, "Mia", null), spieler(SP_C, "Nora", null, RETIRED_ON)]),
     lands: () => buttonIn("spieler-karten", "Kadereintrag von Nora Meier reaktivieren"),
+  },
+  "a squad row's return from the table's first row, on the next row's": {
+    search: "kader=ausgetragen&saison_id=2026",
+    before: () =>
+      spielerList([spieler(SP_A, "Lena", null, RETIRED_ON), spieler(SP_B, "Mia", null, RETIRED_ON), spieler(SP_C, "Nora", null, RETIRED_ON)]),
+    press: (user) => user.click(buttonIn("spieler-tabelle", "Kadereintrag von Lena Meier reaktivieren")),
+    after: () => spielerList([spieler(SP_A, "Lena", null), spieler(SP_B, "Mia", null, RETIRED_ON), spieler(SP_C, "Nora", null, RETIRED_ON)]),
+    lands: () => buttonIn("spieler-tabelle", "Kadereintrag von Mia Meier reaktivieren"),
   },
   "a ban's removal, on the next ban's": {
     before: () => sperrliste(SPERREN),
