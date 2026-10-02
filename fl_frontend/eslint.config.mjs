@@ -405,7 +405,7 @@ const NODE_CALL = "/^((query|get|find)(All)?By|querySelector(All)?|closest)/";
 const NODE_PROPERTIES =
   "activeElement|parentElement|parentNode|firstChild|lastChild|firstElementChild|lastElementChild|nextSibling|previousSibling|nextElementSibling|previousElementSibling|offsetParent";
 
-/** The operand at `index` in each literal shape that answers a node: called, awaited, or read off. */
+/** The operand at `index` in each literal shape answering a node: a node held in a plain name passes. */
 const nodeOperand = (index) => {
   const operand = `arguments.${index}`;
   return [
@@ -442,8 +442,7 @@ const FAILURE_BY_HAND = {
 
 /**
  * A failing equality builds its diff when it throws, with custom inspection off, and a rendered node's
- * React fibres reach the whole tree: one failing focus case grew its process to 12 GB. Literal shapes
- * only: a node held in a variable passes.
+ * React fibres reach the whole tree: one failing focus case grew its process to 12 GB.
  */
 const NODE_IN_EQUALITY = {
   selector: [...nodeOperand(0), ...nodeOperand(1)].map((operand) => `${ASSERT_EQUALITY}${operand}`).join(", "),
