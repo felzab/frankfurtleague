@@ -712,6 +712,40 @@ form[data-required-marks="on"] [data-required="true"] > .label::after {
   padding-block: 0;
 }
 
+/* A CODE SLOT is never focused itself: the caret sits in one hidden input, and HeroUI marks the slot it
+   stands in `data-active`. Each arm keys a text field's look off that attribute instead of `:focus`. */
+[data-slot="input-otp-slot"] {
+  --tw-ring-shadow: 0 0 #0000;
+  --tw-ring-offset-shadow: 0 0 #0000;
+  --field-focus-accent: var(--accent-brand);
+  outline: none;
+
+  /* The pointer rests on the hidden input across all six, so the code answers a hover as one field. */
+  @media (hover: hover) {
+    [data-input-otp-container]:hover:not(:has(input:is([readonly], :disabled))) &:not([data-invalid="true"], [data-active="true"]) {
+      border-color: var(--border-control-hover);
+    }
+  }
+
+  &[data-invalid="true"] {
+    --field-focus-accent: var(--accent-danger);
+    border-color: var(--accent-danger);
+  }
+
+  &[data-active="true"]:not(:where([data-input-otp-container]:has(input[readonly]) *)) {
+    border-color: var(--field-focus-accent);
+    --tw-inset-ring-shadow: inset 0 0 0 3px var(--field-focus-accent);
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+
+  /* Read-only while its check runs: a frozen field's outline rather than its focus border. The digits
+     arrive from a keyboard or a paste, so the outline needs no modality test. */
+  &[data-active="true"]:where([data-input-otp-container]:has(input[readonly]) *) {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+}
+
 /* No scale in the arrival language, vendored ones included; the toast's own
    `--toast-scale` is `AppToaster`'s. Unlayered on `*`: inside a layer specificity loses, and
    tw-animate-css declares both properties `inherits: false`, so they land on the animating element. */
